@@ -14,6 +14,8 @@
 
 #include "mainwindow.h"
 #include "qvapplication.h"
+#include "qvcocoafunctions.h"
+#include "qvgraphicsview.h"
 #include "qvimagecore.h"
 #include "qvimageloader.h"
 #include "qvmovie.h"
@@ -31,6 +33,8 @@ private slots:
     void testImageLoaderDisabledRetention();
     void testImageLoaderCachedErrorRetry();
     void testImageLoaderDestructionDuringLoad();
+    void testImageLoaderLoadsWebpWithImageIOFallback();
+    void testImageLoaderLoadsAvifWithImageIOFallback();
 };
 
 class ActionManagerTests : public QObject
@@ -40,7 +44,6 @@ class ActionManagerTests : public QObject
 private slots:
     void testClonedActionsUntracked();
     void testApplicationIdentity();
-    void testApplicationIcon();
     void testAboutDialogIdentity();
     void testWindowTitleIdentity();
     void testLastWindowClosedPolicy();
@@ -50,6 +53,24 @@ private slots:
     void testEscapeExitsFullscreen();
     void testEscapeRestoresLoadedImageWithoutGeometryJump();
     void testEscapeClosesWindow();
+};
+
+class FeatureTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testWindowIconIsCleared();
+    void testSettingsFormatsIncludeNativeImageFormats();
+};
+
+class GraphicsViewTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testMouseWheelUsesOneDiscreteStep();
+    void testTouchpadWheelCanUseFractionalSteps();
 };
 
 class ApplicationEventTests : public QObject
@@ -85,6 +106,34 @@ static QString createTestImage(const QTemporaryDir &dir, const QString &name, co
         return {};
     return path;
 }
+
+static QString createBase64Image(const QTemporaryDir &dir, const QString &name, const QString &extension, const QByteArray &base64)
+{
+    const QString path = dir.filePath(name + "." + extension);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray::fromBase64(base64)) <= 0)
+        return {};
+    return path;
+}
+
+static std::optional<QVImageLoader::Result> loadImage(const QString &path)
+{
+    QVImageLoader loader;
+    QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
+    const quint64 requestId = loader.requestImage(path);
+    loader.setDesiredImages({{path, 0}});
+    if (!readySpy.wait(5000) && readySpy.isEmpty())
+        return {};
+    if (readySpy.isEmpty() || readySpy.at(0).at(0).toULongLong() != requestId)
+        return {};
+    return qvariant_cast<QVImageLoader::Result>(readySpy.at(0).at(1));
+}
+
+static const QByteArray tinyWebpBase64 =
+    "UklGRlIAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAArlZQOCAqAAAAkAEAnQEqAQABAAIANCWgAnS6AAOYAP7wumv/BBbUemHHh/c1FbFtAAAA";
+
+static const QByteArray tinyAvifBase64 =
+    "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAASAAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAAIAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAOY2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQWGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGgAwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg==";
 
 static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
 {
@@ -321,6 +370,36 @@ void ImageLoaderTests::testImageLoaderDestructionDuringLoad()
     QCOMPARE(startedPaths, QStringList {target});
 }
 
+void ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("webp"));
+    const QString path = createBase64Image(dir, "native-webp", "webp", tinyWebpBase64);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY(!result->image.isNull());
+    QCOMPARE(result->image.size(), QSize(1, 1));
+    QVERIFY(!result->errorData.has_value());
+}
+
+void ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("avif"));
+    const QString path = createBase64Image(dir, "native-avif", "avif", tinyAvifBase64);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY(!result->image.isNull());
+    QCOMPARE(result->image.size(), QSize(1, 1));
+    QVERIFY(!result->errorData.has_value());
+}
+
 void ActionManagerTests::testClonedActionsUntracked()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -356,12 +435,37 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.0"));
 }
 
-void ActionManagerTests::testApplicationIcon()
+void FeatureTests::testWindowIconIsCleared()
 {
-    const QIcon icon = qvApp->windowIcon();
-    QVERIFY(!icon.isNull());
-    QVERIFY(!icon.pixmap(64, 64).isNull());
+    QVERIFY(qvApp->windowIcon().isNull());
+    MainWindow window;
+    QVERIFY(window.windowIcon().isNull());
+    window.close();
     QVERIFY(QFile::exists(":/icons/Fovelle.png"));
+}
+
+void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
+{
+    const auto additionalFormats = QVCocoaFunctions::getAdditionalImageFormats();
+    QVERIFY(additionalFormats.contains("webp"));
+    QVERIFY(additionalFormats.contains("avif"));
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("avifs"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".webp"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".avif"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".avifs"));
+}
+
+void GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()
+{
+    const qreal factor = QVGraphicsView::wheelZoomFactor(240, 1.25, false);
+    QVERIFY(qFuzzyCompare(factor, 1.25));
+    QVERIFY(qFuzzyCompare(QVGraphicsView::wheelZoomFactor(-240, 1.25, false), 0.8));
+}
+
+void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
+{
+    const qreal factor = QVGraphicsView::wheelZoomFactor(240, 1.25, true);
+    QVERIFY(qFuzzyCompare(factor, 1.5625));
 }
 
 void ActionManagerTests::testAboutDialogIdentity()
@@ -728,11 +832,13 @@ int main(int argc, char *argv[])
     qRegisterMetaType<QVImageLoader::Result>();
 
     ImageLoaderTests imageLoaderTests;
-    ActionManagerTests actionManagerTests;
+    FeatureTests featureTests;
+    GraphicsViewTests graphicsViewTests;
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
     int result = QTest::qExec(&imageLoaderTests, argc, argv);
-    result |= QTest::qExec(&actionManagerTests, argc, argv);
+    result |= QTest::qExec(&featureTests, argc, argv);
+    result |= QTest::qExec(&graphicsViewTests, argc, argv);
     result |= QTest::qExec(&applicationEventTests, argc, argv);
     result |= QTest::qExec(&imageCoreAndMovieTests, argc, argv);
     return result;

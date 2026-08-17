@@ -352,7 +352,16 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
         return;
     const bool hasShiftModifier = event->modifiers().testFlag(Qt::ShiftModifier);
 
-    executeScrollAction(effectiveAction, effectiveDelta, eventPos, hasShiftModifier);
+    bool useFractionalZoom = false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QInputDevice *device = event->device();
+    useFractionalZoom = device != nullptr &&
+        (device->type() == QInputDevice::DeviceType::TouchPad ||
+         device->type() == QInputDevice::DeviceType::TouchScreen) &&
+        event->phase() != Qt::NoScrollPhase;
+#endif
+
+    executeScrollAction(effectiveAction, effectiveDelta, eventPos, hasShiftModifier, useFractionalZoom);
 }
 
 void QVGraphicsView::keyPressEvent(QKeyEvent *event)
@@ -503,7 +512,16 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
     }
 }
 
-void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier)
+qreal QVGraphicsView::wheelZoomFactor(const int wheelDelta, const qreal zoomMultiplier, const bool useFractionalSteps)
+{
+    if (wheelDelta == 0)
+        return 1.0;
+
+    const qreal wheelSteps = useFractionalSteps ? static_cast<qreal>(wheelDelta) / 120.0 : (wheelDelta > 0 ? 1.0 : -1.0);
+    return qPow(zoomMultiplier, wheelSteps);
+}
+
+void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
     const int rtlFlip = getRtlFlip();
@@ -532,8 +550,7 @@ void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, 
         if (!getCurrentFileDetails().isPixmapLoaded)
             return;
 
-        const qreal fractionalWheelSteps = static_cast<qreal>(getUniAxisDelta()) / deltaPerWheelStep;
-        const qreal zoomFactor = qPow(zoomMultiplier, fractionalWheelSteps);
+        const qreal zoomFactor = wheelZoomFactor(getUniAxisDelta(), zoomMultiplier, useFractionalZoom);
 
         if (isCursorVisible)
             setCursorVisible(true);

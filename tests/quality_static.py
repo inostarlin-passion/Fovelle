@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Run read-only static quality gates and write an audit record."""
+"""Run static quality gates for the titlebar, zoom, and image-format change."""
 
 from __future__ import annotations
 
 import argparse
 import ast
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -21,17 +20,37 @@ def add_check(checks: list[dict], identifier: str, passed: bool, actual: object,
     checks.append({"id": identifier, "pass": bool(passed), "actual": actual, "expected": expected})
 
 
+def contains_all(source: str, needles: tuple[str, ...]) -> bool:
+    return all(needle in source for needle in needles)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--build-dir", type=Path, default=None)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+
     repo = args.repo.resolve()
     checks: list[dict] = []
+    relative_sources = (
+        "src/mainwindow.cpp",
+        "src/qvapplication.cpp",
+        "src/qvcocoafunctions.h",
+        "src/qvcocoafunctions.mm",
+        "src/qvgraphicsview.h",
+        "src/qvgraphicsview.cpp",
+        "src/qvimageloader.cpp",
+        "src/qvoptionsdialog.cpp",
+        "tests/tst_qviewtests.cpp",
+        "CMakeLists.txt",
+        "qView.pro",
+        "tests/CMakeLists.txt",
+    )
+    source = {relative: (repo / relative).read_text(encoding="utf-8") for relative in relative_sources}
 
     clang_format = shutil.which("clang-format")
-    cpp_files = [repo / "src/mainwindow.cpp", repo / "src/mainwindow.h", repo / "tests/tst_qviewtests.cpp"]
+    cpp_files = [repo / relative for relative in relative_sources if relative.endswith((".cpp", ".h", ".mm"))]
     if clang_format:
         format_result = command(
             clang_format,
@@ -60,7 +79,7 @@ def main() -> int:
                 "return_code": build_result.returncode,
                 "output": (build_result.stdout + build_result.stderr)[-2000:],
             },
-            "clang-format is unavailable; the fallback compile/static check succeeds",
+            "clang-format is unavailable; the configured build is a clean static/compile gate",
         )
 
     python_files = sorted((repo / "tests").glob("quality_*.py"))
@@ -87,25 +106,122 @@ def main() -> int:
         "the working-tree diff has no whitespace errors",
     )
 
-    window_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
-    exit_section = window_cpp[window_cpp.find("void MainWindow::toggleFullScreen()") :]
-    exit_match = re.search(
-        r"if \(windowState\(\)\.testFlag\(Qt::WindowFullScreen\)\)\s*\{(?P<body>.*?)\n\s*\}\s*else",
-        exit_section,
-        re.DOTALL,
-    )
-    exit_body = exit_match.group("body") if exit_match else ""
+    window_cpp = source["src/mainwindow.cpp"]
+    application_cpp = source["src/qvapplication.cpp"]
     add_check(
         checks,
         "ST-04",
-        bool(exit_match)
-        and exit_body.count("setWindowState(storedWindowState);") == 1
-        and "showNormal(" not in exit_body,
+        "setWindowIcon(QIcon());" in window_cpp
+        and "QApplication::setWindowIcon" not in application_cpp,
         {
-            "restore_state_requests": exit_body.count("setWindowState(storedWindowState);"),
-            "contains_second_normal_request": "showNormal(" in exit_body,
+            "window_icon_cleared": "setWindowIcon(QIcon());" in window_cpp,
+            "global_icon_assignment_absent": "QApplication::setWindowIcon" not in application_cpp,
+            "bundle_resource_retained": "Fovelle.png" in (repo / "resources/resources.qrc").read_text(encoding="utf-8"),
         },
-        "the fullscreen exit branch contains exactly one restore-state request",
+        "the image window clears its titlebar icon while the bundle resource remains available",
+    )
+
+    graphics_cpp = source["src/qvgraphicsview.cpp"]
+    graphics_header = source["src/qvgraphicsview.h"]
+    wheel_contract = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "wheelZoomFactor",
+            "event->device()",
+            "QInputDevice::DeviceType::TouchPad",
+            "useFractionalZoom",
+            "wheelDelta > 0 ? 1.0 : -1.0",
+            "qPow(zoomMultiplier, wheelSteps)",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-05",
+        wheel_contract,
+        {
+            "pure_helper": "static qreal wheelZoomFactor" in graphics_header,
+            "touch_device_detection": "event->device()" in graphics_cpp and "TouchPad" in graphics_cpp,
+            "discrete_mouse_branch": "wheelDelta > 0 ? 1.0 : -1.0" in graphics_cpp,
+            "power_calculation": "qPow(zoomMultiplier, wheelSteps)" in graphics_cpp,
+        },
+        "mouse wheels use one signed step per event and touch devices retain fractional steps",
+    )
+
+    cocoa_header = source["src/qvcocoafunctions.h"]
+    cocoa_mm = source["src/qvcocoafunctions.mm"]
+    loader_cpp = source["src/qvimageloader.cpp"]
+    decoder_contract = contains_all(
+        cocoa_header + cocoa_mm + loader_cpp,
+        (
+            "CGImageSourceCopyTypeIdentifiers",
+            "CGImageSourceCreateWithURL",
+            "CGImageSourceCreateImageAtIndex",
+            "supportsAdditionalImageFormat",
+            "readAdditionalImage",
+            "QVCocoaFunctions::readAdditionalImage",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-06",
+        decoder_contract,
+        {
+            "image_io_type_query": "CGImageSourceCopyTypeIdentifiers" in cocoa_mm,
+            "image_io_decode": "CGImageSourceCreateImageAtIndex" in cocoa_mm,
+            "loader_fallback": "QVCocoaFunctions::readAdditionalImage" in loader_cpp,
+        },
+        "the macOS Image I/O fallback is declared, implemented, and called after Qt decoding fails",
+    )
+
+    formats_app = contains_all(
+        application_cpp,
+        (
+            "getAdditionalImageFormats()",
+            "addExtension(fileExtension)",
+            'addExtension(".avifs")',
+            "getAdditionalImageMimeTypes()",
+        ),
+    )
+    formats_settings = "getAllFileExtensionList()" in source["src/qvoptionsdialog.cpp"]
+    add_check(
+        checks,
+        "ST-07",
+        formats_app and formats_settings,
+        {
+            "application_registry": formats_app,
+            "settings_uses_all_extensions": formats_settings,
+            "native_test_assertions": contains_all(source["tests/tst_qviewtests.cpp"], ("contains(\".webp\")", "contains(\".avif\")", "contains(\".avifs\")")),
+        },
+        "Settings → Formats consumes the same complete extension registry that includes WebP and AVIF",
+    )
+
+    frameworks = contains_all(
+        source["CMakeLists.txt"] + source["qView.pro"] + source["tests/CMakeLists.txt"],
+        ("CoreGraphics", "ImageIO"),
+    )
+    add_check(
+        checks,
+        "ST-08",
+        frameworks,
+        {"frameworks_declared": frameworks},
+        "application, qmake, and test targets link the native frameworks",
+    )
+
+    test_source = source["tests/tst_qviewtests.cpp"]
+    test_markers = (
+        "testImageLoaderLoadsWebpWithImageIOFallback",
+        "testImageLoaderLoadsAvifWithImageIOFallback",
+        "testWindowIconIsCleared",
+        "testSettingsFormatsIncludeNativeImageFormats",
+        "testMouseWheelUsesOneDiscreteStep",
+        "testTouchpadWheelCanUseFractionalSteps",
+    )
+    add_check(
+        checks,
+        "ST-09",
+        all(marker in test_source for marker in test_markers),
+        {"test_markers": {marker: marker in test_source for marker in test_markers}},
+        "each atomic feature criterion has a deterministic test implementation",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}

@@ -81,6 +81,8 @@ target_link_libraries(fovelle_tests PRIVATE
     Qt${QT_VERSION_MAJOR}::Concurrent
     Qt${QT_VERSION_MAJOR}::Test
     "-framework Cocoa"
+    "-framework CoreGraphics"
+    "-framework ImageIO"
 )
 target_compile_definitions(fovelle_tests PRIVATE
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"

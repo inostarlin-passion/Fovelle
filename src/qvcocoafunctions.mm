@@ -8,6 +8,34 @@
 #include <QCollator>
 
 #import <Cocoa/Cocoa.h>
+#import <CoreGraphics/CoreGraphics.h>
+#import <ImageIO/ImageIO.h>
+
+namespace
+{
+const struct ImageFormatDescription
+{
+    const char *format;
+    const char *mimeType;
+    CFStringRef typeIdentifier;
+} imageFormatDescriptions[] {
+    {"webp", "image/webp", CFSTR("org.webmproject.webp")},
+    {"avif", "image/avif", CFSTR("public.avif")}
+};
+
+const ImageFormatDescription *descriptionForFormat(const QByteArray &format)
+{
+    QByteArray normalizedFormat = format.toLower();
+    if (normalizedFormat == "avifs")
+        normalizedFormat = "avif";
+    for (const auto &description : imageFormatDescriptions)
+    {
+        if (normalizedFormat == description.format)
+            return &description;
+    }
+    return nullptr;
+}
+}
 
 static void hideMenuShortcuts(NSMenu *nativeMenu)
 {
@@ -263,4 +291,131 @@ QByteArray QVCocoaFunctions::getIccProfileForWindow(const QWindow *window)
         }
     }
     return {};
+}
+
+QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
+{
+    QList<QByteArray> formats;
+    CFArrayRef identifiers = CGImageSourceCopyTypeIdentifiers();
+    if (!identifiers)
+        return formats;
+
+    const CFIndex count = CFArrayGetCount(identifiers);
+    for (CFIndex index = 0; index < count; ++index)
+    {
+        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
+        for (const auto &description : imageFormatDescriptions)
+        {
+            if (CFStringCompare(identifier, description.typeIdentifier, 0) == kCFCompareEqualTo)
+            {
+                formats.append(description.format);
+                break;
+            }
+        }
+    }
+
+    CFRelease(identifiers);
+    return formats;
+}
+
+QList<QString> QVCocoaFunctions::getAdditionalImageMimeTypes()
+{
+    QList<QString> mimeTypes;
+    for (const auto &format : getAdditionalImageFormats())
+    {
+        if (const auto description = descriptionForFormat(format))
+            mimeTypes.append(QString::fromUtf8(description->mimeType));
+    }
+    return mimeTypes;
+}
+
+bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
+{
+    const auto description = descriptionForFormat(format);
+    if (!description)
+        return false;
+
+    CFArrayRef identifiers = CGImageSourceCopyTypeIdentifiers();
+    if (!identifiers)
+        return false;
+
+    bool supported = false;
+    const CFIndex count = CFArrayGetCount(identifiers);
+    for (CFIndex index = 0; index < count; ++index)
+    {
+        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
+        if (CFStringCompare(identifier, description->typeIdentifier, 0) == kCFCompareEqualTo)
+        {
+            supported = true;
+            break;
+        }
+    }
+
+    CFRelease(identifiers);
+    return supported;
+}
+
+QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *errorString)
+{
+    if (errorString)
+        errorString->clear();
+
+    const QUrl fileUrl = QUrl::fromLocalFile(filePath);
+    CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)fileUrl.toNSURL(), nullptr);
+    if (!source)
+    {
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O could not create an image source");
+        return {};
+    }
+
+    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, 0, nullptr);
+    if (!cgImage)
+    {
+        CFRelease(source);
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O could not decode the image");
+        return {};
+    }
+
+    const size_t width = CGImageGetWidth(cgImage);
+    const size_t height = CGImageGetHeight(cgImage);
+    QImage image(static_cast<int>(width), static_cast<int>(height), QImage::Format_RGBA8888_Premultiplied);
+    if (image.isNull())
+    {
+        CGImageRelease(cgImage);
+        CFRelease(source);
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O returned an image too large to allocate");
+        return {};
+    }
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(
+        image.bits(),
+        width,
+        height,
+        8,
+        image.bytesPerLine(),
+        colorSpace,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    if (!context)
+    {
+        CGColorSpaceRelease(colorSpace);
+        CGImageRelease(cgImage);
+        CFRelease(source);
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O could not create a bitmap context");
+        return {};
+    }
+
+    CGContextTranslateCTM(context, 0, static_cast<CGFloat>(height));
+    CGContextScaleCTM(context, 1, -1);
+    CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
+
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    CGImageRelease(cgImage);
+    CFRelease(source);
+    return image;
 }

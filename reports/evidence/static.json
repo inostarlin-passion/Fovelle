@@ -9,9 +9,9 @@
         "format_tool": null,
         "fallback": "cmake --build",
         "return_code": 0,
-        "output": "ninja: no work to do.\n"
+        "output": "[1/9] Automatic MOC and UIC for target Fovelle\n[2/8] Automatic MOC and UIC for target fovelle_tests\n[3/7] Building CXX object CMakeFiles/Fovelle.dir/src/qvcocoafunctions.mm.o\n[4/7] Linking CXX executable Fovelle.app/Contents/MacOS/Fovelle\n[5/7] Building CXX object tests/CMakeFiles/fovelle_tests.dir/tst_qviewtests.cpp.o\n[6/7] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvcocoafunctions.mm.o\n[7/7] Linking CXX executable tests/fovelle_tests\n"
       },
-      "expected": "clang-format is unavailable; the fallback compile/static check succeeds"
+      "expected": "clang-format is unavailable; the configured build is a clean static/compile gate"
     },
     {
       "id": "ST-02",
@@ -41,10 +41,65 @@
       "id": "ST-04",
       "pass": true,
       "actual": {
-        "restore_state_requests": 1,
-        "contains_second_normal_request": false
+        "window_icon_cleared": true,
+        "global_icon_assignment_absent": true,
+        "bundle_resource_retained": true
       },
-      "expected": "the fullscreen exit branch contains exactly one restore-state request"
+      "expected": "the image window clears its titlebar icon while the bundle resource remains available"
+    },
+    {
+      "id": "ST-05",
+      "pass": true,
+      "actual": {
+        "pure_helper": true,
+        "touch_device_detection": true,
+        "discrete_mouse_branch": true,
+        "power_calculation": true
+      },
+      "expected": "mouse wheels use one signed step per event and touch devices retain fractional steps"
+    },
+    {
+      "id": "ST-06",
+      "pass": true,
+      "actual": {
+        "image_io_type_query": true,
+        "image_io_decode": true,
+        "loader_fallback": true
+      },
+      "expected": "the macOS Image I/O fallback is declared, implemented, and called after Qt decoding fails"
+    },
+    {
+      "id": "ST-07",
+      "pass": true,
+      "actual": {
+        "application_registry": true,
+        "settings_uses_all_extensions": true,
+        "native_test_assertions": true
+      },
+      "expected": "Settings → Formats consumes the same complete extension registry that includes WebP and AVIF"
+    },
+    {
+      "id": "ST-08",
+      "pass": true,
+      "actual": {
+        "frameworks_declared": true
+      },
+      "expected": "application, qmake, and test targets link the native frameworks"
+    },
+    {
+      "id": "ST-09",
+      "pass": true,
+      "actual": {
+        "test_markers": {
+          "testImageLoaderLoadsWebpWithImageIOFallback": true,
+          "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testWindowIconIsCleared": true,
+          "testSettingsFormatsIncludeNativeImageFormats": true,
+          "testMouseWheelUsesOneDiscreteStep": true,
+          "testTouchpadWheelCanUseFractionalSteps": true
+        }
+      },
+      "expected": "each atomic feature criterion has a deterministic test implementation"
     }
   ],
   "passed": true

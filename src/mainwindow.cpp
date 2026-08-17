@@ -65,6 +65,9 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    // The macOS bundle keeps the application icon for Finder and the Dock, but
+    // image windows should not repeat it in the titlebar.
+    setWindowIcon(QIcon());
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_OpaquePaintEvent);
 

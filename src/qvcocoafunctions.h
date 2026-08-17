@@ -5,6 +5,9 @@
 
 #include <QWindow>
 #include <QMenu>
+#include <QImage>
+#include <QByteArray>
+#include <QList>
 
 class QVCocoaFunctions
 {
@@ -38,6 +41,14 @@ public:
     static QList<OpenWith::OpenWithItem> getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
 
     static QByteArray getIccProfileForWindow(const QWindow *window);
+
+    static QList<QByteArray> getAdditionalImageFormats();
+
+    static QList<QString> getAdditionalImageMimeTypes();
+
+    static bool supportsAdditionalImageFormat(const QByteArray &format);
+
+    static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 };
 
 #endif // QVCOCOAFUNCTIONS_H

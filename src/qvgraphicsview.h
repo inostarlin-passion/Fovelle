@@ -94,6 +94,10 @@ public:
     bool hasFileOrPendingLoad() const { return imageCore.hasFileOrPendingLoad(); }
     qreal getZoomLevel() const { return zoomLevel; }
 
+    // Keep wheel-step calculation pure so mouse and touchpad behavior can be
+    // verified without depending on platform event delivery.
+    static qreal wheelZoomFactor(int wheelDelta, qreal zoomMultiplier, bool useFractionalSteps);
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -150,7 +154,7 @@ protected:
 
     void executeDragAction(const Qv::ViewportDragAction action, const QPoint delta, bool &isMovingWindow);
 
-    void executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier);
+    void executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom);
 
     bool isSmoothScalingRequested() const;
 

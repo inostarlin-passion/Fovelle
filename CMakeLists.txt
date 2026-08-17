@@ -108,6 +108,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::Concurrent
     "-framework Cocoa"
+    "-framework CoreGraphics"
+    "-framework ImageIO"
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"

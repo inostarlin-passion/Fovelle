@@ -17,7 +17,6 @@
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
-    QApplication::setWindowIcon(QIcon(":/icons/Fovelle.png"));
     setQuitOnLastWindowClosed(true);
 
     // Connections
@@ -386,6 +385,16 @@ void QVApplication::defineFilterLists()
         }
     }
 
+    // Qt plugins are optional at runtime. On macOS, Image I/O supplies WebP
+    // and AVIF when the Qt image-format plugins are absent.
+    for (const auto &format : QVCocoaFunctions::getAdditionalImageFormats())
+    {
+        const QString fileExtension = "." + QString::fromUtf8(format);
+        addExtension(fileExtension);
+        if (format == "avif")
+            addExtension(".avifs");
+    }
+
     // Build mime type list
     const auto &byteArrayMimeTypes = QImageReader::supportedMimeTypes();
     for (const auto &byteArray : byteArrayMimeTypes)
@@ -398,6 +407,8 @@ void QVApplication::defineFilterLists()
 
         mimeTypeNameSet << mimeType;
     }
+    for (const auto &mimeType : QVCocoaFunctions::getAdditionalImageMimeTypes())
+        mimeTypeNameSet << mimeType;
 
     // Build name filter list for file dialogs
     const auto extensions = Qv::setToSortedList(fileExtensionSet);

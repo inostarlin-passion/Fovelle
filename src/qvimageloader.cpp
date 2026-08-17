@@ -1,4 +1,5 @@
 #include "qvimageloader.h"
+#include "qvcocoafunctions.h"
 
 #include <QCoreApplication>
 #include <QFileInfo>
@@ -139,6 +140,18 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
         image = imageReader.read();
     }
 
+    QString errorString = imageReader.errorString();
+    const QByteArray suffix = QFileInfo(absoluteFilePath).suffix().toLatin1().toLower();
+    if (image.isNull() && QVCocoaFunctions::supportsAdditionalImageFormat(suffix))
+    {
+        QString imageIoError;
+        image = QVCocoaFunctions::readAdditionalImage(absoluteFilePath, &imageIoError);
+        if (!image.isNull())
+            errorString.clear();
+        else if (!imageIoError.isEmpty())
+            errorString = imageIoError;
+    }
+
     // Handle cases like icons containing multiple resolutions
     if (isMultiFrameImage)
     {
@@ -167,7 +180,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
     };
 
     if (result.image.isNull())
-        result.errorData = ErrorData {imageReader.error(), imageReader.errorString()};
+        result.errorData = ErrorData {imageReader.error(), errorString};
 
     return result;
 }

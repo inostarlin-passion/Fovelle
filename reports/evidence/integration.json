@@ -1,176 +1,104 @@
 {
   "kind": "integration",
   "repo": "/Users/inostarlin/code/Fovelle",
-  "head": "25f345ff886008676acc0df96081d389d7d9e634",
+  "build_dir": "/Users/inostarlin/code/Fovelle/build-fovelle-task",
   "checks": [
     {
       "id": "I-01",
       "pass": true,
       "actual": {
-        "head": "25f345ff886008676acc0df96081d389d7d9e634",
-        "origin_default_branch": "main"
+        "window_icon_reset": true,
+        "application_global_icon_removed": true
       },
-      "expected": "the repository is readable and origin's default branch is main"
+      "expected": "the titlebar window icon is explicitly empty and no global per-window icon is installed"
     },
     {
       "id": "I-02",
       "pass": true,
       "actual": {
-        "cmake_project": true,
-        "cmake_darwin_guard": true,
-        "bundle_id": true,
-        "qmake_mac_guard": true
+        "wheel_helper": true,
+        "touchpad_path": true,
+        "discrete_mouse_path": true
       },
-      "expected": "CMake and qmake identify Fovelle and reject non-macOS builds"
+      "expected": "the implemented zoom contract distinguishes discrete mouse wheels from fractional touch input"
     },
     {
       "id": "I-03",
       "pass": true,
       "actual": {
-        "identity": true,
-        "runtime_icon": true,
-        "quit_policy": true,
-        "escape_policy": true
+        "native_decode_path": true,
+        "frameworks_linked": true,
+        "fallback_is_after_qt_read": true
       },
-      "expected": "runtime identity, icon, last-window policy, and Escape branches are present"
+      "expected": "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback"
     },
     {
       "id": "I-04",
       "pass": true,
       "actual": {
-        "about_lines": {
-          "Based on qView": true,
-          "Copyright © 2018–2025 jurplel and qView contributors": true,
-          "Fovelle modifications © 2026": true,
-          "jdpurcell/qView": true,
-          "jdpurcell": true,
-          "Licensed under GPLv3": true
-        },
-        "github_url": true,
-        "qview_attribution": true,
-        "translation_old_urls_absent": true
+        "native_extensions_registered": true,
+        "settings_table_uses_complete_registry": true
       },
-      "expected": "the About page and translation catalogs render the requested identity, declared qView source attribution, and no old website"
+      "expected": "Settings → Formats reads the same registry extended by native WebP/AVIF support"
     },
     {
       "id": "I-05",
       "pass": true,
       "actual": {
-        "api_repository": true,
-        "download_repository": true,
-        "runtime_version_comparison": true
+        "bundle": true,
+        "executable": true,
+        "icon": true,
+        "identifier": "io.github.inostarlin-passion.Fovelle",
+        "document_extensions": [
+          "avif",
+          "avifs",
+          "webp"
+        ]
       },
-      "expected": "the updater checks the Fovelle GitHub releases endpoint and current app version"
+      "expected": "the built bundle is executable, retains the Dock/Finder icon, and advertises WebP/AVIF document types"
     },
     {
       "id": "I-06",
       "pass": true,
       "actual": {
-        "source_path": "/Users/inostarlin/Downloads/ChatGPT Image 2026年8月17日 12_12_41.png",
-        "source_matches_repository_png": true,
-        "png_sha256": "6bed12f0a5861d7352fc0e04c06f13efa3527f5bfdfcee669b49fbddf5ab5cc0",
-        "icns_sha256": "eed693c9b4e29fe9fced36cb723b9e044e8bb1c58f76f1fff519e5e400614cde"
+        "return_code": 0,
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    0.98 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   0.98 sec\n"
       },
-      "expected": "the requested PNG is copied byte-for-byte, embedded as a Qt resource, and converted to a valid macOS ICNS"
+      "expected": "CTest executes the configured Qt integration test target successfully"
     },
     {
       "id": "I-07",
       "pass": true,
       "actual": {
-        "existing_nonmac_paths": [],
-        "existing_nonmac_directories": [],
-        "platform_tokens": {}
+        "qmake": "/opt/homebrew/bin/qmake",
+        "return_code": 0,
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-x7zbh7w4/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
-      "expected": "non-macOS files, directories, and implementation branches are absent"
+      "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
     {
       "id": "I-08",
       "pass": true,
       "actual": {
-        "build_macos_only": true,
-        "test_macos_only": true,
-        "main_branch_filters": true,
-        "artifact": true
+        "return_code": 0,
+        "output": ""
       },
-      "expected": "build and test workflows target macOS, main, and the Fovelle artifact only"
+      "expected": "the integrated working-tree diff has no whitespace errors"
     },
     {
       "id": "I-09",
       "pass": true,
       "actual": {
-        "bundle": true,
-        "executable": true,
-        "icon": true,
-        "identifier": true,
-        "name": true,
-        "executable_name": true,
-        "icon_name": true,
-        "version": true,
-        "copyright": true
+        "cases": {
+          "testImageLoaderLoadsWebpWithImageIOFallback": true,
+          "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testWindowIconIsCleared": true,
+          "testSettingsFormatsIncludeNativeImageFormats": true,
+          "testMouseWheelUsesOneDiscreteStep": true,
+          "testTouchpadWheelCanUseFractionalSteps": true
+        }
       },
-      "expected": "the built bundle has the Fovelle identity, icon, version, and copyright"
-    },
-    {
-      "id": "I-10",
-      "pass": true,
-      "actual": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   11.79 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  11.79 sec\n",
-      "expected": "CTest exits with code 0"
-    },
-    {
-      "id": "I-11",
-      "pass": true,
-      "actual": {
-        "qmake": "/opt/homebrew/bin/qmake",
-        "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-wklwehcp/.qmake.stash\nProject MESSAGE: This is a release build\n"
-      },
-      "expected": "the macOS qmake project configures successfully"
-    },
-    {
-      "id": "I-12",
-      "pass": true,
-      "actual": "",
-      "expected": "the complete working-tree diff has no whitespace errors"
-    },
-    {
-      "id": "I-13",
-      "pass": true,
-      "actual": {
-        "last_line": "Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.com/jdpurcell/qView) by jdpurcell.",
-        "old_last_line_absent": true,
-        "qview_attribution": true
-      },
-      "expected": "README removes the former final line and records the jdpurcell/qView attribution"
-    },
-    {
-      "id": "I-FS-01",
-      "pass": true,
-      "actual": {
-        "entry_contract": true,
-        "return_member": true,
-        "keypad_enter_member": true
-      },
-      "expected": "Return and keypad Enter are non-repeating entry-only full-screen shortcuts"
-    },
-    {
-      "id": "I-FS-02",
-      "pass": true,
-      "actual": {
-        "single_restore_request": true,
-        "no_second_normal_request": true,
-        "test_cases_present": true
-      },
-      "expected": "the asynchronous macOS exit path has one restore-state request and a regression test"
-    },
-    {
-      "id": "I-FS-03",
-      "pass": true,
-      "actual": {
-        "elapsed_timer": true,
-        "enter_metric": true,
-        "exit_metric": true
-      },
-      "expected": "fullscreen tests emit deterministic state-acknowledgement response metrics"
+      "expected": "the integrated test source contains one deterministic case for each current-scope acceptance criterion"
     }
   ],
   "passed": true

@@ -43,7 +43,7 @@ CONFIG(debug, debug|release) {
 
 # macOS specific stuff
 macx {
-    LIBS += -framework Cocoa
+    LIBS += -framework Cocoa -framework CoreGraphics -framework ImageIO
 
     QMAKE_TARGET_BUNDLE_PREFIX = "io.github.inostarlin-passion"
     QMAKE_INFO_PLIST = "dist/mac/Info.plist"
