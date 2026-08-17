@@ -372,10 +372,12 @@ void ActionManagerTests::testAboutDialogIdentity()
     const QString expectedText =
         "Based on qView\n"
         "Copyright © 2018–2025 jurplel and qView contributors\n"
-        "Fovelle modifications © 2026 Fovelle contributors\n\n"
+        "Fovelle modifications © 2026 Fovelle contributors\n"
+        "Includes portions of commits from jdpurcell/qView by jdpurcell\n\n"
         "Licensed under GPLv3";
     QCOMPARE(visibleText, expectedText);
     QVERIFY(infoLabel->text().contains("https://github.com/inostarlin-passion/Fovelle"));
+    QVERIFY(infoLabel->text().contains("https://github.com/jdpurcell/qView"));
     QVERIFY(!infoLabel->text().contains("interversehq.com"));
 }
 

@@ -128,6 +128,8 @@ def main() -> int:
         "Based on qView",
         "Copyright © 2018–2025 jurplel and qView contributors",
         "Fovelle modifications © 2026",
+        "jdpurcell/qView",
+        "jdpurcell",
         "Licensed under GPLv3",
     )
     check(
@@ -135,15 +137,17 @@ def main() -> int:
         "I-04",
         all(needle in about_cpp for needle in exact_about_lines)
         and "https://github.com/inostarlin-passion/Fovelle" in about_cpp
+        and "https://github.com/jdpurcell/qView" in about_cpp
         and "interversehq.com" not in about_cpp
         and "interversehq.com" not in translation_text
         and "github.com/jurplel/qView" not in translation_text,
         {
             "about_lines": {needle: needle in about_cpp for needle in exact_about_lines},
             "github_url": "https://github.com/inostarlin-passion/Fovelle" in about_cpp,
+            "qview_attribution": "https://github.com/jdpurcell/qView" in about_cpp and "jdpurcell" in about_cpp,
             "translation_old_urls_absent": "interversehq.com" not in translation_text and "github.com/jurplel/qView" not in translation_text,
         },
-        "the About page and translation catalogs render the requested identity and link only the Fovelle repository",
+        "the About page and translation catalogs render the requested identity, declared qView source attribution, and no old website",
     )
 
     updater = text("src/updatechecker.h") + text("src/updatechecker.cpp")
@@ -281,6 +285,23 @@ def main() -> int:
 
     diff_check = run(repo, "git", "diff", "--check", "HEAD")
     check(checks, "I-12", diff_check.returncode == 0, diff_check.stdout + diff_check.stderr, "the complete working-tree diff has no whitespace errors")
+
+    readme = text("README.md")
+    readme_last_line = readme.rstrip().splitlines()[-1] if readme.strip() else ""
+    check(
+        checks,
+        "I-13",
+        "does not perform an automatic network version check during tests." not in readme
+        and "https://github.com/jdpurcell/qView" in readme
+        and "jdpurcell" in readme
+        and readme_last_line == "Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.com/jdpurcell/qView) by jdpurcell.",
+        {
+            "last_line": readme_last_line,
+            "old_last_line_absent": "does not perform an automatic network version check during tests." not in readme,
+            "qview_attribution": "https://github.com/jdpurcell/qView" in readme and "jdpurcell" in readme,
+        },
+        "README removes the former final line and records the jdpurcell/qView attribution",
+    )
 
     result = {
         "kind": "integration",

@@ -38,7 +38,8 @@ QVAboutDialog::QVAboutDialog(QWidget *parent) :
     font4.setStyleName("Regular");
     const QString labelText2 = tr("Based on qView<br>"
                                   "Copyright © 2018–2025 jurplel and qView contributors<br>"
-                                  R"(Fovelle modifications © 2026 <a style="color: #03A9F4; text-decoration:none;" href="https://github.com/inostarlin-passion/Fovelle">Fovelle</a> contributors<br><br>)"
+                                  R"(Fovelle modifications © 2026 <a style="color: #03A9F4; text-decoration:none;" href="https://github.com/inostarlin-passion/Fovelle">Fovelle</a> contributors<br>)"
+                                  R"(Includes portions of commits from <a style="color: #03A9F4; text-decoration:none;" href="https://github.com/jdpurcell/qView">jdpurcell/qView</a> by jdpurcell<br><br>)"
                                   "Licensed under GPLv3");
 
     ui->infoLabel2->setFont(font4);
