@@ -34,13 +34,23 @@ def main() -> int:
     ]
     suites = [
         suite
-        for suite in ("ImageLoaderTests", "ActionManagerTests", "ApplicationEventTests")
+        for suite in (
+            "ImageLoaderTests",
+            "ActionManagerTests",
+            "ApplicationEventTests",
+            "ImageCoreAndMovieTests",
+        )
         if f"Start testing of {suite}" in output
     ]
     passed = (
         result.returncode == 0
-        and suites == ["ImageLoaderTests", "ActionManagerTests", "ApplicationEventTests"]
-        and len(totals) == 3
+        and suites == [
+            "ImageLoaderTests",
+            "ActionManagerTests",
+            "ApplicationEventTests",
+            "ImageCoreAndMovieTests",
+        ]
+        and len(totals) == 4
         and all(item["failed"] == 0 for item in totals)
     )
     record = {

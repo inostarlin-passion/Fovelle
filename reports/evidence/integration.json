@@ -1,0 +1,72 @@
+{
+  "kind": "integration",
+  "repo": "/Users/inostarlin/code/Fovelle",
+  "head": "c2a94a1eb7fb0ef977abf5a519565c2529d4fe4f",
+  "merge_commit": "1be85e129e5ed06d6760cf9dadf9fc68fb61cbf1",
+  "upstream_head": "1748058632574831516f75e642ef28b7e3cc3e63",
+  "selected_commits": [
+    "947ee1b99bb8d1b5057fd377a79fcb8d87682ab1",
+    "f083481195192fea2452e4caacee2059f513970a",
+    "19d6a38fdba5bfa9d871752996adbc6a9542ac06",
+    "eebace8be56afd7e85551881cbf58479d1b1bc67",
+    "9285eb514edef90fe88e80db4352d30c85eb94d2",
+    "bded864bd5919a2849b58f10dcd02e6a0db238ce",
+    "fd1b0b76955b1d93429edb00f07c2b5122d1fc8b",
+    "3a1621267bd82d8acbe43469fc843ea06cb92cce",
+    "08cecddf0f478f753614e0cc78fa8b06f6f93473",
+    "a964d84f4ce7df5cf3428db23c2e547f227ab774",
+    "7fcc691a3de78aa05eafeb9f5c1a68908f08fab8",
+    "ee20744c983f999906557e640b6001d57e32cccb"
+  ],
+  "checks": [
+    {
+      "id": "I-01",
+      "pass": true,
+      "actual": "HEAD=c2a94a1eb7fb0ef977abf5a519565c2529d4fe4f; merge_commit=1be85e129e5ed06d6760cf9dadf9fc68fb61cbf1; second_parent=1748058632574831516f75e642ef28b7e3cc3e63",
+      "expected": "two-parent merge with second parent 1748058632574831516f75e642ef28b7e3cc3e63"
+    },
+    {
+      "id": "I-02",
+      "pass": true,
+      "actual": "[{\"ancestor_of_head\": true, \"commit\": \"947ee1b99bb8d1b5057fd377a79fcb8d87682ab1\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"f083481195192fea2452e4caacee2059f513970a\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"19d6a38fdba5bfa9d871752996adbc6a9542ac06\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"eebace8be56afd7e85551881cbf58479d1b1bc67\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"9285eb514edef90fe88e80db4352d30c85eb94d2\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"bded864bd5919a2849b58f10dcd02e6a0db238ce\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"fd1b0b76955b1d93429edb00f07c2b5122d1fc8b\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"3a1621267bd82d8acbe43469fc843ea06cb92cce\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"08cecddf0f478f753614e0cc78fa8b06f6f93473\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"a964d84f4ce7df5cf3428db23c2e547f227ab774\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"7fcc691a3de78aa05eafeb9f5c1a68908f08fab8\", \"object_type\": \"commit\"}, {\"ancestor_of_head\": true, \"commit\": \"ee20744c983f999906557e640b6001d57e32cccb\", \"object_type\": \"commit\"}]",
+      "expected": "all 12 workbook commit IDs are commits reachable from HEAD"
+    },
+    {
+      "id": "I-03",
+      "pass": true,
+      "actual": "missing=[]",
+      "expected": "all upstream/runtime/build/test paths are tracked"
+    },
+    {
+      "id": "I-04",
+      "pass": true,
+      "actual": "no conflict markers",
+      "expected": "no merge conflict marker in repository text"
+    },
+    {
+      "id": "I-05",
+      "pass": true,
+      "actual": "",
+      "expected": "git diff --check is clean against the local first parent"
+    },
+    {
+      "id": "I-06",
+      "pass": true,
+      "actual": "{\".github/workflows/build.yml\": {\"BUILD_TESTS=ON\": true, \"Build Fovelle\": true}, \"dist/scripts/download-plugins.ps1\": {\"Expand-Archive\": true, \"Fovelle.app\": true}, \"dist/scripts/macdeploy.sh\": {\"Fovelle-\": true, \"Fovelle.app\": true}, \"src/qvapplication.cpp\": {\"QFileOpenEvent\": true, \"queueFileOpen\": true}, \"src/qvimagecore.cpp\": {\"QVMovie\": true, \"handleColorSpaceConversion\": true}}",
+      "expected": "Fovelle event, image, plugin, deployment, and CI integration points are present"
+    },
+    {
+      "id": "I-07",
+      "pass": true,
+      "actual": "{\"bundle_exists\": true, \"executable_exists\": true, \"fovelle_identity\": true, \"info_plist_exists\": true}",
+      "expected": "built Fovelle.app contains executable and Fovelle bundle identity"
+    },
+    {
+      "id": "I-08",
+      "pass": true,
+      "actual": "Test project /Users/inostarlin/code/Fovelle/build-quality-final\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.31 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.31 sec\n",
+      "expected": "CTest integration suite exits zero"
+    }
+  ],
+  "passed": true
+}

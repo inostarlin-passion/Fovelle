@@ -1,0 +1,265 @@
+{
+  "kind": "system",
+  "app": "/Users/inostarlin/code/Fovelle/build-quality-final/Fovelle.app/Contents/MacOS/Fovelle",
+  "image": "/Users/inostarlin/code/Fovelle/dist/mac/qView.icns",
+  "runs": [
+    {
+      "startup_seconds": 0.012091291999695386,
+      "elapsed_seconds": 0.833730791999642,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 496
+        },
+        {
+          "cpu_percent": 29.2,
+          "rss_kib": 44608
+        },
+        {
+          "cpu_percent": 46.3,
+          "rss_kib": 101296
+        },
+        {
+          "cpu_percent": 82.6,
+          "rss_kib": 137440
+        },
+        {
+          "cpu_percent": 91.8,
+          "rss_kib": 169008
+        },
+        {
+          "cpu_percent": 101.2,
+          "rss_kib": 285280
+        }
+      ],
+      "peak_cpu_percent": 101.2,
+      "peak_rss_kib": 285280,
+      "peak_handles": 92,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.005170832999738195,
+      "elapsed_seconds": 0.8091077499998391,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 464
+        },
+        {
+          "cpu_percent": 12.4,
+          "rss_kib": 47312
+        },
+        {
+          "cpu_percent": 37.9,
+          "rss_kib": 113216
+        },
+        {
+          "cpu_percent": 69.1,
+          "rss_kib": 140576
+        },
+        {
+          "cpu_percent": 86.5,
+          "rss_kib": 213968
+        },
+        {
+          "cpu_percent": 93.2,
+          "rss_kib": 284256
+        }
+      ],
+      "peak_cpu_percent": 93.2,
+      "peak_rss_kib": 284256,
+      "peak_handles": 94,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.0033589999998184794,
+      "elapsed_seconds": 0.8329268339998634,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 448
+        },
+        {
+          "cpu_percent": 27.1,
+          "rss_kib": 49664
+        },
+        {
+          "cpu_percent": 47.9,
+          "rss_kib": 114720
+        },
+        {
+          "cpu_percent": 77.3,
+          "rss_kib": 142000
+        },
+        {
+          "cpu_percent": 97.5,
+          "rss_kib": 242448
+        },
+        {
+          "cpu_percent": 100.2,
+          "rss_kib": 284240
+        }
+      ],
+      "peak_cpu_percent": 100.2,
+      "peak_rss_kib": 284240,
+      "peak_handles": 93,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.006702457999836042,
+      "elapsed_seconds": 0.9368979999999283,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 576
+        },
+        {
+          "cpu_percent": 11.5,
+          "rss_kib": 49120
+        },
+        {
+          "cpu_percent": 35.5,
+          "rss_kib": 113632
+        },
+        {
+          "cpu_percent": 66.0,
+          "rss_kib": 139664
+        },
+        {
+          "cpu_percent": 84.5,
+          "rss_kib": 223344
+        },
+        {
+          "cpu_percent": 86.2,
+          "rss_kib": 281792
+        },
+        {
+          "cpu_percent": 86.2,
+          "rss_kib": 287712
+        }
+      ],
+      "peak_cpu_percent": 86.2,
+      "peak_rss_kib": 287712,
+      "peak_handles": 104,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.00638737500003117,
+      "elapsed_seconds": 0.8125580409996473,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 496
+        },
+        {
+          "cpu_percent": 23.7,
+          "rss_kib": 47968
+        },
+        {
+          "cpu_percent": 47.4,
+          "rss_kib": 112672
+        },
+        {
+          "cpu_percent": 80.0,
+          "rss_kib": 137696
+        },
+        {
+          "cpu_percent": 95.8,
+          "rss_kib": 215584
+        },
+        {
+          "cpu_percent": 97.1,
+          "rss_kib": 282448
+        }
+      ],
+      "peak_cpu_percent": 97.1,
+      "peak_rss_kib": 282448,
+      "peak_handles": 94,
+      "peak_network_sockets": 0
+    }
+  ],
+  "metrics": {
+    "startup_average_seconds": 0.0067421915998238545,
+    "startup_p99_seconds": 0.012091291999695386,
+    "startup_max_seconds": 0.012091291999695386,
+    "throughput_runs_per_second": 1.1833699365159869,
+    "cpu_peak_percent_process_raw": 101.2,
+    "cpu_peak_percent_normalized": 8.433333333333334,
+    "logical_cpu_count": 12,
+    "rss_peak_kib": 287712,
+    "open_handles_peak": 104,
+    "network_sockets_peak": 0,
+    "disk_space_used_percent": 63.62518695368956,
+    "disk_io_peak_mb_per_second_host_observation": 8.14,
+    "network_bytes_delta_host_observation": {
+      "received_bytes": 530292,
+      "sent_bytes": 549786
+    }
+  },
+  "thresholds": {
+    "startup_average_seconds": 2.0,
+    "startup_p99_seconds": 3.0,
+    "startup_max_seconds": 5.0,
+    "throughput_runs_per_second": 0.5,
+    "cpu_peak_percent_normalized": 100.0,
+    "rss_peak_kib": 524288,
+    "disk_space_used_percent": 95.0,
+    "disk_io_peak_mb_per_second": 500.0,
+    "open_handles": 512,
+    "network_sockets": 4
+  },
+  "iostat": {
+    "before": {
+      "disk_mb_per_second": 8.14,
+      "raw_tail": "              disk0               disk4 \n    KB/t  tps  MB/s     KB/t  tps  MB/s \n   20.88  390  7.95    16.62   12  0.19 \n   22.82  274  6.10     3.62    4  0.01 \n"
+    },
+    "after": {
+      "disk_mb_per_second": 8.14,
+      "raw_tail": "              disk0               disk4 \n    KB/t  tps  MB/s     KB/t  tps  MB/s \n   20.90  389  7.95    16.61   12  0.19 \n   64.33   12  0.75     0.00    0  0.00 \n"
+    }
+  },
+  "network_counters": {
+    "before": {
+      "received_bytes": 5762434974,
+      "sent_bytes": 1925590275
+    },
+    "after": {
+      "received_bytes": 5762965266,
+      "sent_bytes": 1926140061
+    }
+  },
+  "pass_flags": {
+    "S-01 all runs started": true,
+    "S-02 startup average": true,
+    "S-03 startup p99": true,
+    "S-04 startup max": true,
+    "S-05 throughput": true,
+    "S-06 CPU": true,
+    "S-07 memory": true,
+    "S-08 storage space": true,
+    "S-09 storage I/O host observation": true,
+    "S-10 handles": true,
+    "S-11 network sockets": true
+  },
+  "passed": true,
+  "limitations": [
+    "CPU, RSS, handles, and network socket counts are per-process samples.",
+    "iostat and netstat byte counters are host-level observations and may include unrelated background activity.",
+    "Process readiness is a launch-time proxy; image decode correctness is covered by the Qt unit/integration tests."
+  ]
+}

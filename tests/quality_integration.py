@@ -61,13 +61,14 @@ def main() -> int:
     checks: list[dict] = []
 
     head = run(repo, "rev-parse", "HEAD").stdout.strip()
-    parents = run(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()
+    merge_commit = run(repo, "log", "--merges", "-1", "--format=%H").stdout.strip()
+    parents = run(repo, "rev-list", "--parents", "-n", "1", merge_commit).stdout.split()
     second_parent = parents[2] if len(parents) >= 3 else ""
     check(
         checks,
         "I-01",
         len(parents) == 3 and second_parent == UPSTREAM_HEAD,
-        f"HEAD={head}; second_parent={second_parent or '<missing>'}",
+        f"HEAD={head}; merge_commit={merge_commit or '<missing>'}; second_parent={second_parent or '<missing>'}",
         f"two-parent merge with second parent {UPSTREAM_HEAD}",
     )
 
@@ -202,6 +203,7 @@ def main() -> int:
         "kind": "integration",
         "repo": str(repo),
         "head": head,
+        "merge_commit": merge_commit,
         "upstream_head": UPSTREAM_HEAD,
         "selected_commits": SELECTED_COMMITS,
         "checks": checks,

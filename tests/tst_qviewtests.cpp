@@ -11,7 +11,9 @@
 
 #include "mainwindow.h"
 #include "qvapplication.h"
+#include "qvimagecore.h"
 #include "qvimageloader.h"
+#include "qvmovie.h"
 
 class ImageLoaderTests : public QObject
 {
@@ -43,6 +45,21 @@ class ApplicationEventTests : public QObject
 private slots:
     void testFileOpenEventIsDeferredAndLoadsImage();
     void testFileOpenEventWithoutPathIsIgnored();
+};
+
+class ImageCoreAndMovieTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testColorSpaceConversion();
+    void testMovieSpeedAndSingleFrameRead();
+};
+
+class TestableImageCore : public QVImageCore
+{
+public:
+    using QVImageCore::handleColorSpaceConversion;
 };
 
 static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color)
@@ -347,6 +364,31 @@ void ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()
     QVERIFY(!qvApp->hasPendingFileOpenEvents());
 }
 
+void ImageCoreAndMovieTests::testColorSpaceConversion()
+{
+    QImage image(8, 8, QImage::Format_RGB32);
+    image.fill(Qt::red);
+    image.setColorSpace(QColorSpace::SRgb);
+
+    TestableImageCore::handleColorSpaceConversion(image, QColorSpace::DisplayP3);
+
+    QCOMPARE(image.colorSpace(), QColorSpace::DisplayP3);
+}
+
+void ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = createTestImage(dir, "single-frame", Qt::yellow);
+    QVERIFY(!path.isEmpty());
+
+    QVMovie movie(path);
+    QVERIFY(movie.isValid());
+    QCOMPARE(movie.frameCount(), 1);
+    movie.setSpeed(50);
+    QCOMPARE(movie.speed(), 50);
+}
+
 int main(int argc, char *argv[])
 {
     QVApplication app(argc, argv);
@@ -355,9 +397,11 @@ int main(int argc, char *argv[])
     ImageLoaderTests imageLoaderTests;
     ActionManagerTests actionManagerTests;
     ApplicationEventTests applicationEventTests;
+    ImageCoreAndMovieTests imageCoreAndMovieTests;
     int result = QTest::qExec(&imageLoaderTests, argc, argv);
     result |= QTest::qExec(&actionManagerTests, argc, argv);
     result |= QTest::qExec(&applicationEventTests, argc, argv);
+    result |= QTest::qExec(&imageCoreAndMovieTests, argc, argv);
     return result;
 }
 
