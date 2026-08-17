@@ -15,7 +15,7 @@
       "skipped": 0
     },
     {
-      "passed": 10,
+      "passed": 14,
       "failed": 0,
       "skipped": 0
     },
@@ -30,7 +30,61 @@
       "skipped": 0
     }
   ],
-  "total_passed": 28,
-  "output": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 10 passed, 0 failed, 0 skipped, 0 blacklisted, 567ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of ActionManagerTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ActionManagerTests::initTestCase()\nQDEBUG : ActionManagerTests::testClonedActionsUntracked() 2\nPASS   : ActionManagerTests::testClonedActionsUntracked()\nPASS   : ActionManagerTests::testApplicationIdentity()\nPASS   : ActionManagerTests::testApplicationIcon()\nPASS   : ActionManagerTests::testAboutDialogIdentity()\nPASS   : ActionManagerTests::testWindowTitleIdentity()\nPASS   : ActionManagerTests::testLastWindowClosedPolicy()\nPASS   : ActionManagerTests::testEscapeExitsFullscreen()\nPASS   : ActionManagerTests::testEscapeClosesWindow()\nPASS   : ActionManagerTests::cleanupTestCase()\nTotals: 10 passed, 0 failed, 0 skipped, 0 blacklisted, 849ms\n********* Finished testing of ActionManagerTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 282ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of ImageCoreAndMovieTests *********\n",
+  "total_passed": 32,
+  "total_failed": 0,
+  "total_skipped": 0,
+  "functional_cases": [
+    {
+      "id": "TC-FS-01",
+      "test": "ActionManagerTests::testReturnKeyEntersFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-02",
+      "test": "ActionManagerTests::testKeypadEnterEntersFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-03",
+      "test": "ActionManagerTests::testEnterDoesNotExitFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-04",
+      "test": "ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump",
+      "status": "passed"
+    }
+  ],
+  "fullscreen_metrics": [
+    {
+      "phase": "enter",
+      "milliseconds": 29.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 23.0
+    },
+    {
+      "phase": "enter",
+      "milliseconds": 39.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 2.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 2.0
+    },
+    {
+      "phase": "enter",
+      "milliseconds": 20.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 20.0
+    }
+  ],
+  "output": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 10 passed, 0 failed, 0 skipped, 0 blacklisted, 554ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of ActionManagerTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ActionManagerTests::initTestCase()\nQDEBUG : ActionManagerTests::testClonedActionsUntracked() 2\nPASS   : ActionManagerTests::testClonedActionsUntracked()\nPASS   : ActionManagerTests::testApplicationIdentity()\nPASS   : ActionManagerTests::testApplicationIcon()\nPASS   : ActionManagerTests::testAboutDialogIdentity()\nPASS   : ActionManagerTests::testWindowTitleIdentity()\nPASS   : ActionManagerTests::testLastWindowClosedPolicy()\nQINFO  : ActionManagerTests::testReturnKeyEntersFullscreen() FS_METRIC enter_ms=29\nQINFO  : ActionManagerTests::testReturnKeyEntersFullscreen() FS_METRIC exit_ms=23\nPASS   : ActionManagerTests::testReturnKeyEntersFullscreen()\nQINFO  : ActionManagerTests::testKeypadEnterEntersFullscreen() FS_METRIC enter_ms=39\nQINFO  : ActionManagerTests::testKeypadEnterEntersFullscreen() FS_METRIC exit_ms=2\nPASS   : ActionManagerTests::testKeypadEnterEntersFullscreen()\nPASS   : ActionManagerTests::testEnterDoesNotExitFullscreen()\nQINFO  : ActionManagerTests::testEscapeExitsFullscreen() FS_METRIC exit_ms=2\nPASS   : ActionManagerTests::testEscapeExitsFullscreen()\nQINFO  : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump() FS_METRIC enter_ms=20\nQINFO  : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump() FS_METRIC exit_ms=20\nPASS   : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump()\nPASS   : ActionManagerTests::testEscapeClosesWindow()\nPASS   : ActionManagerTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 10950ms\n********* Finished testing of ActionManagerTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 58ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of ImageCoreAndMovieTests *********\n",
   "passed": true
 }

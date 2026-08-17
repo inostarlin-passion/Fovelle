@@ -1,0 +1,84 @@
+{
+  "kind": "system-functional",
+  "binary": "/Users/inostarlin/code/Fovelle/build-fovelle-task/tests/fovelle_tests",
+  "return_code": 0,
+  "elapsed_seconds": 11.750347166998836,
+  "functional_cases": [
+    {
+      "id": "TC-FS-01",
+      "test": "ActionManagerTests::testReturnKeyEntersFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-02",
+      "test": "ActionManagerTests::testKeypadEnterEntersFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-03",
+      "test": "ActionManagerTests::testEnterDoesNotExitFullscreen",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-04",
+      "test": "ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump",
+      "status": "passed"
+    }
+  ],
+  "fullscreen_metrics": [
+    {
+      "phase": "enter",
+      "milliseconds": 38.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 22.0
+    },
+    {
+      "phase": "enter",
+      "milliseconds": 46.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 2.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 3.0
+    },
+    {
+      "phase": "enter",
+      "milliseconds": 18.0
+    },
+    {
+      "phase": "exit",
+      "milliseconds": 21.0
+    }
+  ],
+  "performance": {
+    "response_average_ms": 21.428571428571427,
+    "response_p99_ms": 46.0,
+    "response_max_ms": 46.0,
+    "transition_ack_throughput_per_second": 46.66666666666667,
+    "sample_count": 7,
+    "metric_definition": "time from synthetic key/shortcut request until Qt reports the target full-screen state"
+  },
+  "thresholds": {
+    "response_average_ms": 2000.0,
+    "response_p99_ms": 2000.0,
+    "response_max_ms": 2000.0,
+    "transition_ack_throughput_per_second": 0.5
+  },
+  "performance_flags": {
+    "average": true,
+    "p99": true,
+    "maximum": true,
+    "throughput": true
+  },
+  "passed": true,
+  "output_tail": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 10 passed, 0 failed, 0 skipped, 0 blacklisted, 497ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of ActionManagerTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ActionManagerTests::initTestCase()\nQDEBUG : ActionManagerTests::testClonedActionsUntracked() 2\nPASS   : ActionManagerTests::testClonedActionsUntracked()\nPASS   : ActionManagerTests::testApplicationIdentity()\nPASS   : ActionManagerTests::testApplicationIcon()\nPASS   : ActionManagerTests::testAboutDialogIdentity()\nPASS   : ActionManagerTests::testWindowTitleIdentity()\nPASS   : ActionManagerTests::testLastWindowClosedPolicy()\nQINFO  : ActionManagerTests::testReturnKeyEntersFullscreen() FS_METRIC enter_ms=38\nQINFO  : ActionManagerTests::testReturnKeyEntersFullscreen() FS_METRIC exit_ms=22\nPASS   : ActionManagerTests::testReturnKeyEntersFullscreen()\nQINFO  : ActionManagerTests::testKeypadEnterEntersFullscreen() FS_METRIC enter_ms=46\nQINFO  : ActionManagerTests::testKeypadEnterEntersFullscreen() FS_METRIC exit_ms=2\nPASS   : ActionManagerTests::testKeypadEnterEntersFullscreen()\nPASS   : ActionManagerTests::testEnterDoesNotExitFullscreen()\nQINFO  : ActionManagerTests::testEscapeExitsFullscreen() FS_METRIC exit_ms=3\nPASS   : ActionManagerTests::testEscapeExitsFullscreen()\nQINFO  : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump() FS_METRIC enter_ms=18\nQINFO  : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump() FS_METRIC exit_ms=21\nPASS   : ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump()\nPASS   : ActionManagerTests::testEscapeClosesWindow()\nPASS   : ActionManagerTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 10981ms\n********* Finished testing of ActionManagerTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 57ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 2ms\n********* Finished testing of ImageCoreAndMovieTests *********\n",
+  "limitations": [
+    "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",
+    "The separate app-launch/resource probe records process-level timing and resource observations."
+  ]
+}

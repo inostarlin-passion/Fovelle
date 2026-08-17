@@ -122,6 +122,17 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
             close();
     });
 
+    const auto enterFullScreen = [this]() {
+        if (!windowState().testFlag(Qt::WindowFullScreen))
+            toggleFullScreen();
+    };
+    returnShortcut = new QShortcut(Qt::Key_Return, this);
+    returnShortcut->setAutoRepeat(false);
+    connect(returnShortcut, &QShortcut::activated, this, enterFullScreen);
+    keypadEnterShortcut = new QShortcut(Qt::Key_Enter, this);
+    keypadEnterShortcut->setAutoRepeat(false);
+    connect(keypadEnterShortcut, &QShortcut::activated, this, enterFullScreen);
+
     // Enable drag&dropping
     setAcceptDrops(true);
 
@@ -1485,7 +1496,9 @@ void MainWindow::toggleFullScreen()
 
     if (windowState().testFlag(Qt::WindowFullScreen))
     {
-        showNormal();
+        // Request the restored state only once. On macOS, leaving native full screen is
+        // asynchronous; issuing a second state request before the first one completes
+        // causes a visible geometry jump.
         setWindowState(storedWindowState);
     }
     else

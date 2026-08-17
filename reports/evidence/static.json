@@ -1,0 +1,51 @@
+{
+  "kind": "static",
+  "repo": "/Users/inostarlin/code/Fovelle",
+  "checks": [
+    {
+      "id": "ST-01",
+      "pass": true,
+      "actual": {
+        "format_tool": null,
+        "fallback": "cmake --build",
+        "return_code": 0,
+        "output": "ninja: no work to do.\n"
+      },
+      "expected": "clang-format is unavailable; the fallback compile/static check succeeds"
+    },
+    {
+      "id": "ST-02",
+      "pass": true,
+      "actual": {
+        "files": [
+          "/Users/inostarlin/code/Fovelle/tests/quality_fullscreen_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_integration.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_static.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_system_probe.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_unit_runner.py"
+        ],
+        "syntax_errors": []
+      },
+      "expected": "all quality runner Python files parse successfully"
+    },
+    {
+      "id": "ST-03",
+      "pass": true,
+      "actual": {
+        "return_code": 0,
+        "output": ""
+      },
+      "expected": "the working-tree diff has no whitespace errors"
+    },
+    {
+      "id": "ST-04",
+      "pass": true,
+      "actual": {
+        "restore_state_requests": 1,
+        "contains_second_normal_request": false
+      },
+      "expected": "the fullscreen exit branch contains exactly one restore-state request"
+    }
+  ],
+  "passed": true
+}

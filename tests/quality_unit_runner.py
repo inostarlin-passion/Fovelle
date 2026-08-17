@@ -42,6 +42,24 @@ def main() -> int:
         )
         if f"Start testing of {suite}" in output
     ]
+    functional_cases = [
+        "testReturnKeyEntersFullscreen",
+        "testKeypadEnterEntersFullscreen",
+        "testEnterDoesNotExitFullscreen",
+        "testEscapeRestoresLoadedImageWithoutGeometryJump",
+    ]
+    functional_case_results = [
+        {
+            "id": f"TC-FS-{index:02d}",
+            "test": f"ActionManagerTests::{test_name}",
+            "status": "passed" if f"PASS   : ActionManagerTests::{test_name}()" in output else "failed",
+        }
+        for index, test_name in enumerate(functional_cases, start=1)
+    ]
+    fullscreen_metrics = [
+        {"phase": phase, "milliseconds": float(milliseconds)}
+        for phase, milliseconds in re.findall(r"FS_METRIC\s+(enter|exit)_ms=([0-9]+(?:\.[0-9]+)?)", output)
+    ]
     passed = (
         result.returncode == 0
         and suites == [
@@ -52,6 +70,10 @@ def main() -> int:
         ]
         and len(totals) == 4
         and all(item["failed"] == 0 for item in totals)
+        and all(item["status"] == "passed" for item in functional_case_results)
+        and all(item["skipped"] == 0 for item in totals)
+        and len(fullscreen_metrics) >= 7
+        and all(item["milliseconds"] <= 2000 for item in fullscreen_metrics)
     )
     record = {
         "kind": "unit",
@@ -60,6 +82,10 @@ def main() -> int:
         "suites": suites,
         "totals": totals,
         "total_passed": sum(item["passed"] for item in totals),
+        "total_failed": sum(item["failed"] for item in totals),
+        "total_skipped": sum(item["skipped"] for item in totals),
+        "functional_cases": functional_case_results,
+        "fullscreen_metrics": fullscreen_metrics,
         "output": output,
         "passed": passed,
     }

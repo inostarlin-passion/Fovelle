@@ -1,13 +1,13 @@
 {
   "kind": "integration",
   "repo": "/Users/inostarlin/code/Fovelle",
-  "head": "edc59021c560175ad169150d7ac9fc1262fb8c67",
+  "head": "25f345ff886008676acc0df96081d389d7d9e634",
   "checks": [
     {
       "id": "I-01",
       "pass": true,
       "actual": {
-        "head": "edc59021c560175ad169150d7ac9fc1262fb8c67",
+        "head": "25f345ff886008676acc0df96081d389d7d9e634",
         "origin_default_branch": "main"
       },
       "expected": "the repository is readable and origin's default branch is main"
@@ -113,7 +113,7 @@
     {
       "id": "I-10",
       "pass": true,
-      "actual": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.07 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.08 sec\n",
+      "actual": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   11.79 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  11.79 sec\n",
       "expected": "CTest exits with code 0"
     },
     {
@@ -122,7 +122,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-rg2cjo94/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-wklwehcp/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the macOS qmake project configures successfully"
     },
@@ -141,6 +141,36 @@
         "qview_attribution": true
       },
       "expected": "README removes the former final line and records the jdpurcell/qView attribution"
+    },
+    {
+      "id": "I-FS-01",
+      "pass": true,
+      "actual": {
+        "entry_contract": true,
+        "return_member": true,
+        "keypad_enter_member": true
+      },
+      "expected": "Return and keypad Enter are non-repeating entry-only full-screen shortcuts"
+    },
+    {
+      "id": "I-FS-02",
+      "pass": true,
+      "actual": {
+        "single_restore_request": true,
+        "no_second_normal_request": true,
+        "test_cases_present": true
+      },
+      "expected": "the asynchronous macOS exit path has one restore-state request and a regression test"
+    },
+    {
+      "id": "I-FS-03",
+      "pass": true,
+      "actual": {
+        "elapsed_timer": true,
+        "enter_metric": true,
+        "exit_metric": true
+      },
+      "expected": "fullscreen tests emit deterministic state-acknowledgement response metrics"
     }
   ],
   "passed": true

@@ -4,156 +4,86 @@
   "image": "/Users/inostarlin/code/Fovelle/resources/Fovelle.png",
   "runs": [
     {
-      "startup_seconds": 0.009812583000893937,
-      "elapsed_seconds": 0.8494052910009486,
+      "startup_seconds": 0.011475291999886394,
+      "elapsed_seconds": 0.8302365829986229,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 1.0,
+          "rss_kib": 512
+        },
+        {
+          "cpu_percent": 28.3,
+          "rss_kib": 46576
+        },
+        {
+          "cpu_percent": 49.2,
+          "rss_kib": 106384
+        },
+        {
+          "cpu_percent": 66.2,
+          "rss_kib": 193312
+        },
+        {
+          "cpu_percent": 52.0,
+          "rss_kib": 193344
+        },
+        {
+          "cpu_percent": 45.3,
+          "rss_kib": 493888
+        }
+      ],
+      "peak_cpu_percent": 66.2,
+      "peak_rss_kib": 493888,
+      "peak_handles": 142,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.004283041000235244,
+      "elapsed_seconds": 0.9229959999993298,
       "terminated": true,
       "return_code": -15,
       "stderr": "",
       "samples": [
         {
           "cpu_percent": 0.0,
-          "rss_kib": 480
+          "rss_kib": 464
         },
         {
-          "cpu_percent": 22.1,
-          "rss_kib": 44896
+          "cpu_percent": 11.1,
+          "rss_kib": 52272
         },
         {
-          "cpu_percent": 47.5,
-          "rss_kib": 177968
+          "cpu_percent": 34.4,
+          "rss_kib": 119440
         },
         {
-          "cpu_percent": 75.9,
-          "rss_kib": 239744
+          "cpu_percent": 54.5,
+          "rss_kib": 200752
         },
         {
-          "cpu_percent": 95.5,
-          "rss_kib": 313168
+          "cpu_percent": 56.9,
+          "rss_kib": 200768
         },
         {
-          "cpu_percent": 102.8,
-          "rss_kib": 492320
+          "cpu_percent": 37.0,
+          "rss_kib": 502032
+        },
+        {
+          "cpu_percent": 45.8,
+          "rss_kib": 502032
         }
       ],
-      "peak_cpu_percent": 102.8,
-      "peak_rss_kib": 492320,
-      "peak_handles": 96,
+      "peak_cpu_percent": 56.9,
+      "peak_rss_kib": 502032,
+      "peak_handles": 142,
       "peak_network_sockets": 0
     },
     {
-      "startup_seconds": 0.005417415999545483,
-      "elapsed_seconds": 0.8225238750001154,
-      "terminated": true,
-      "return_code": -15,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 528
-        },
-        {
-          "cpu_percent": 4.3,
-          "rss_kib": 46640
-        },
-        {
-          "cpu_percent": 51.9,
-          "rss_kib": 178560
-        },
-        {
-          "cpu_percent": 84.9,
-          "rss_kib": 238512
-        },
-        {
-          "cpu_percent": 101.4,
-          "rss_kib": 306272
-        },
-        {
-          "cpu_percent": 103.9,
-          "rss_kib": 475008
-        }
-      ],
-      "peak_cpu_percent": 103.9,
-      "peak_rss_kib": 475008,
-      "peak_handles": 96,
-      "peak_network_sockets": 0
-    },
-    {
-      "startup_seconds": 0.0049400829993828665,
-      "elapsed_seconds": 0.8401808329999767,
-      "terminated": true,
-      "return_code": -15,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 480
-        },
-        {
-          "cpu_percent": 12.3,
-          "rss_kib": 50736
-        },
-        {
-          "cpu_percent": 40.6,
-          "rss_kib": 185200
-        },
-        {
-          "cpu_percent": 70.6,
-          "rss_kib": 238768
-        },
-        {
-          "cpu_percent": 93.5,
-          "rss_kib": 370608
-        },
-        {
-          "cpu_percent": 103.2,
-          "rss_kib": 478960
-        }
-      ],
-      "peak_cpu_percent": 103.2,
-      "peak_rss_kib": 478960,
-      "peak_handles": 96,
-      "peak_network_sockets": 0
-    },
-    {
-      "startup_seconds": 0.006350416999339359,
-      "elapsed_seconds": 0.8471469169999182,
-      "terminated": true,
-      "return_code": -15,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 544
-        },
-        {
-          "cpu_percent": 24.0,
-          "rss_kib": 52624
-        },
-        {
-          "cpu_percent": 47.0,
-          "rss_kib": 183856
-        },
-        {
-          "cpu_percent": 80.1,
-          "rss_kib": 243552
-        },
-        {
-          "cpu_percent": 99.8,
-          "rss_kib": 346496
-        },
-        {
-          "cpu_percent": 101.3,
-          "rss_kib": 491168
-        }
-      ],
-      "peak_cpu_percent": 101.3,
-      "peak_rss_kib": 491168,
-      "peak_handles": 96,
-      "peak_network_sockets": 0
-    },
-    {
-      "startup_seconds": 0.006159165999633842,
-      "elapsed_seconds": 0.8204960000002757,
+      "startup_seconds": 0.004568582999127102,
+      "elapsed_seconds": 0.908436707999499,
       "terminated": true,
       "return_code": -15,
       "stderr": "",
@@ -163,50 +93,136 @@
           "rss_kib": 512
         },
         {
-          "cpu_percent": 27.3,
-          "rss_kib": 47616
+          "cpu_percent": 31.1,
+          "rss_kib": 54160
         },
         {
-          "cpu_percent": 51.6,
-          "rss_kib": 187472
+          "cpu_percent": 47.0,
+          "rss_kib": 109104
         },
         {
-          "cpu_percent": 83.9,
-          "rss_kib": 242976
+          "cpu_percent": 62.4,
+          "rss_kib": 191568
         },
         {
-          "cpu_percent": 99.2,
-          "rss_kib": 335936
+          "cpu_percent": 40.6,
+          "rss_kib": 191584
         },
         {
-          "cpu_percent": 106.3,
-          "rss_kib": 501360
+          "cpu_percent": 43.7,
+          "rss_kib": 425360
+        },
+        {
+          "cpu_percent": 31.3,
+          "rss_kib": 466176
         }
       ],
-      "peak_cpu_percent": 106.3,
-      "peak_rss_kib": 501360,
-      "peak_handles": 96,
+      "peak_cpu_percent": 62.4,
+      "peak_rss_kib": 466176,
+      "peak_handles": 143,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.004731332999654114,
+      "elapsed_seconds": 0.9144533329999831,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 464
+        },
+        {
+          "cpu_percent": 18.3,
+          "rss_kib": 45888
+        },
+        {
+          "cpu_percent": 45.1,
+          "rss_kib": 114048
+        },
+        {
+          "cpu_percent": 59.8,
+          "rss_kib": 194240
+        },
+        {
+          "cpu_percent": 48.6,
+          "rss_kib": 194256
+        },
+        {
+          "cpu_percent": 36.8,
+          "rss_kib": 429808
+        },
+        {
+          "cpu_percent": 38.9,
+          "rss_kib": 475776
+        }
+      ],
+      "peak_cpu_percent": 59.8,
+      "peak_rss_kib": 475776,
+      "peak_handles": 143,
+      "peak_network_sockets": 0
+    },
+    {
+      "startup_seconds": 0.006314582999038976,
+      "elapsed_seconds": 0.9120635419985774,
+      "terminated": true,
+      "return_code": -15,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 512
+        },
+        {
+          "cpu_percent": 11.5,
+          "rss_kib": 54096
+        },
+        {
+          "cpu_percent": 37.5,
+          "rss_kib": 133072
+        },
+        {
+          "cpu_percent": 55.0,
+          "rss_kib": 193424
+        },
+        {
+          "cpu_percent": 56.0,
+          "rss_kib": 193440
+        },
+        {
+          "cpu_percent": 37.8,
+          "rss_kib": 485008
+        },
+        {
+          "cpu_percent": 44.5,
+          "rss_kib": 485008
+        }
+      ],
+      "peak_cpu_percent": 56.0,
+      "peak_rss_kib": 485008,
+      "peak_handles": 143,
       "peak_network_sockets": 0
     }
   ],
   "metrics": {
-    "startup_average_seconds": 0.006535932999759098,
-    "startup_p99_seconds": 0.009812583000893937,
-    "startup_max_seconds": 0.009812583000893937,
-    "throughput_runs_per_second": 1.1962429599268023,
-    "cpu_peak_percent_process_raw": 106.3,
-    "cpu_peak_percent_normalized": 8.858333333333333,
+    "startup_average_seconds": 0.006274566399588366,
+    "startup_p99_seconds": 0.011475291999886394,
+    "startup_max_seconds": 0.011475291999886394,
+    "throughput_runs_per_second": 1.1140357852982257,
+    "cpu_peak_percent_process_raw": 66.2,
+    "cpu_peak_percent_normalized": 5.516666666666667,
     "logical_cpu_count": 12,
-    "rss_peak_kib": 501360,
-    "open_handles_peak": 96,
+    "rss_peak_kib": 502032,
+    "open_handles_peak": 143,
     "network_sockets_peak": 0,
-    "disk_space_used_percent": 63.76490793464413,
-    "disk_io_peak_mb_per_second_host_observation": 13.5,
+    "disk_space_used_percent": 63.78840677210766,
+    "disk_io_peak_mb_per_second_host_observation": 11.59,
     "network_bytes_delta_host_observation": {
-      "received_bytes": 1371823,
-      "sent_bytes": 2076303
+      "received_bytes": 491405,
+      "sent_bytes": 468262
     },
-    "network_io_delta_mb_host_observation": 3.288389205932617
+    "network_io_delta_mb_host_observation": 0.9152097702026367
   },
   "thresholds": {
     "startup_average_seconds": 2.0,
@@ -223,22 +239,22 @@
   },
   "iostat": {
     "before": {
-      "disk_mb_per_second": 13.5,
-      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   38.77  231  8.73   324.29   15  4.74   774.19    0  0.03 \n   22.28  396  8.63     6.00    1  0.01     0.00    0  0.00 \n"
+      "disk_mb_per_second": 11.59,
+      "raw_tail": "              disk0               disk4 \n    KB/t  tps  MB/s     KB/t  tps  MB/s \n   38.63  197  7.42   331.23   13  4.17 \n   50.00    2  0.10     0.00    0  0.00 \n"
     },
     "after": {
-      "disk_mb_per_second": 13.49,
-      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   38.76  231  8.73   324.28   15  4.73   774.19    0  0.03 \n   36.74   27  0.97     2.83    3  0.01     0.00    0  0.00 \n"
+      "disk_mb_per_second": 11.59,
+      "raw_tail": "              disk0               disk4 \n    KB/t  tps  MB/s     KB/t  tps  MB/s \n   38.62  197  7.42   331.22   13  4.17 \n   30.07   29  0.85     0.00    0  0.00 \n"
     }
   },
   "network_counters": {
     "before": {
-      "received_bytes": 188726653643,
-      "sent_bytes": 56674778432
+      "received_bytes": 189325250876,
+      "sent_bytes": 57021639970
     },
     "after": {
-      "received_bytes": 188728025466,
-      "sent_bytes": 56676854735
+      "received_bytes": 189325742281,
+      "sent_bytes": 57022108232
     }
   },
   "pass_flags": {

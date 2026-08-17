@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -301,6 +302,75 @@ def main() -> int:
             "qview_attribution": "https://github.com/jdpurcell/qView" in readme and "jdpurcell" in readme,
         },
         "README removes the former final line and records the jdpurcell/qView attribution",
+    )
+
+    window_header = text("src/mainwindow.h")
+    test_source = text("tests/tst_qviewtests.cpp")
+    fullscreen_section = window_cpp[window_cpp.find("void MainWindow::toggleFullScreen()") :]
+    exit_match = re.search(
+        r"if \(windowState\(\)\.testFlag\(Qt::WindowFullScreen\)\)\s*\{(?P<body>.*?)\n\s*\}\s*else",
+        fullscreen_section,
+        re.DOTALL,
+    )
+    exit_body = exit_match.group("body") if exit_match else ""
+    entry_contract = all(
+        needle in window_cpp
+        for needle in (
+            "returnShortcut = new QShortcut(Qt::Key_Return, this);",
+            "keypadEnterShortcut = new QShortcut(Qt::Key_Enter, this);",
+            "returnShortcut->setAutoRepeat(false);",
+            "keypadEnterShortcut->setAutoRepeat(false);",
+            "if (!windowState().testFlag(Qt::WindowFullScreen))",
+            "toggleFullScreen();",
+        )
+    )
+    exit_contract = bool(exit_match) and exit_body.count("setWindowState(storedWindowState);") == 1 and "showNormal(" not in exit_body
+    check(
+        checks,
+        "I-FS-01",
+        entry_contract
+        and "QShortcut *returnShortcut;" in window_header
+        and "QShortcut *keypadEnterShortcut;" in window_header,
+        {
+            "entry_contract": entry_contract,
+            "return_member": "QShortcut *returnShortcut;" in window_header,
+            "keypad_enter_member": "QShortcut *keypadEnterShortcut;" in window_header,
+        },
+        "Return and keypad Enter are non-repeating entry-only full-screen shortcuts",
+    )
+    check(
+        checks,
+        "I-FS-02",
+        exit_contract
+        and all(
+            marker in test_source
+            for marker in (
+                "TC-FS-01",
+                "TC-FS-02",
+                "TC-FS-03",
+                "TC-FS-04",
+                "testEscapeRestoresLoadedImageWithoutGeometryJump",
+            )
+        ),
+        {
+            "single_restore_request": exit_body.count("setWindowState(storedWindowState);") == 1,
+            "no_second_normal_request": "showNormal(" not in exit_body,
+            "test_cases_present": all(marker in test_source for marker in ("TC-FS-01", "TC-FS-02", "TC-FS-03", "TC-FS-04")),
+        },
+        "the asynchronous macOS exit path has one restore-state request and a regression test",
+    )
+    check(
+        checks,
+        "I-FS-03",
+        "QElapsedTimer" in test_source
+        and 'reportFullscreenMetric("enter"' in test_source
+        and 'reportFullscreenMetric("exit"' in test_source,
+        {
+            "elapsed_timer": "QElapsedTimer" in test_source,
+            "enter_metric": 'reportFullscreenMetric("enter"' in test_source,
+            "exit_metric": 'reportFullscreenMetric("exit"' in test_source,
+        },
+        "fullscreen tests emit deterministic state-acknowledgement response metrics",
     )
 
     result = {

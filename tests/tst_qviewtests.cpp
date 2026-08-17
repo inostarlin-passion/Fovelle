@@ -3,6 +3,7 @@
 #include <QFileOpenEvent>
 #include <QImage>
 #include <QFile>
+#include <QElapsedTimer>
 #include <QLabel>
 #include <QSignalSpy>
 #include <QSettings>
@@ -43,7 +44,11 @@ private slots:
     void testAboutDialogIdentity();
     void testWindowTitleIdentity();
     void testLastWindowClosedPolicy();
+    void testReturnKeyEntersFullscreen();
+    void testKeypadEnterEntersFullscreen();
+    void testEnterDoesNotExitFullscreen();
     void testEscapeExitsFullscreen();
+    void testEscapeRestoresLoadedImageWithoutGeometryJump();
     void testEscapeClosesWindow();
 };
 
@@ -79,6 +84,11 @@ static QString createTestImage(const QTemporaryDir &dir, const QString &name, co
     if (!image.save(path))
         return {};
     return path;
+}
+
+static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
+{
+    qInfo().noquote() << QStringLiteral("FS_METRIC %1_ms=%2").arg(phase).arg(elapsedMs);
 }
 
 void ImageLoaderTests::testImageLoaderPriorities()
@@ -397,6 +407,7 @@ void ActionManagerTests::testLastWindowClosedPolicy()
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.close();
@@ -406,6 +417,129 @@ void ActionManagerTests::testLastWindowClosedPolicy()
     QVERIFY(qvApp->quitOnLastWindowClosed());
 }
 
+// TC-FS-01
+// Test purpose: verify that the Return/Enter key enters full screen from a loaded image.
+// Preconditions: an active, visible non-full-screen MainWindow with a loaded PNG.
+// Input data: Qt::Key_Return.
+// Steps: send Return to the window and wait for the native state transition.
+// Expected result: the window becomes full screen within the bounded timeout.
+// Postcondition: the test closes the window and restores the application quit policy.
+void ActionManagerTests::testReturnKeyEntersFullscreen()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "return-fullscreen", Qt::darkBlue);
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QVERIFY(!window.isFullScreen());
+
+    QElapsedTimer transitionTimer;
+    transitionTimer.start();
+    QTest::keyClick(&window, Qt::Key_Return);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    reportFullscreenMetric("enter", transitionTimer.elapsed());
+    QTest::qWait(2000);
+
+    transitionTimer.restart();
+    QTest::keyClick(&window, Qt::Key_Escape);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    reportFullscreenMetric("exit", transitionTimer.elapsed());
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-FS-02
+// Test purpose: verify that the numeric keypad Enter key has the same entry behavior.
+// Preconditions: an active, visible non-full-screen MainWindow with a loaded PNG.
+// Input data: Qt::Key_Enter.
+// Steps: send keypad Enter to the window and wait for the native state transition.
+// Expected result: the window becomes full screen within the bounded timeout.
+// Postcondition: the test closes the window and restores the application quit policy.
+void ActionManagerTests::testKeypadEnterEntersFullscreen()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "keypad-fullscreen", Qt::darkCyan);
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QVERIFY(!window.isFullScreen());
+
+    QElapsedTimer transitionTimer;
+    transitionTimer.start();
+    QTest::keyClick(&window, Qt::Key_Enter);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    reportFullscreenMetric("enter", transitionTimer.elapsed());
+    QTest::qWait(2000);
+
+    transitionTimer.restart();
+    QTest::keyClick(&window, Qt::Key_Escape);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    reportFullscreenMetric("exit", transitionTimer.elapsed());
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-FS-03
+// Test purpose: verify that Enter is an entry-only shortcut and is idempotent in full screen.
+// Preconditions: an active, visible MainWindow already in full screen.
+// Input data: Qt::Key_Return followed by Qt::Key_Enter.
+// Steps: send both Enter variants while full screen and process the event loop.
+// Expected result: the window remains full screen and is not toggled out.
+// Postcondition: the test closes the window and restores the application quit policy.
+void ActionManagerTests::testEnterDoesNotExitFullscreen()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+    window.showFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    QTest::qWait(2000);
+
+    QTest::keyClick(&window, Qt::Key_Return);
+    QTest::keyClick(&window, Qt::Key_Enter);
+    QTest::qWait(100);
+    QVERIFY(window.isFullScreen());
+
+    QTest::keyClick(&window, Qt::Key_Escape);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 void ActionManagerTests::testEscapeExitsFullscreen()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -413,18 +547,81 @@ void ActionManagerTests::testEscapeExitsFullscreen()
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
     window.show();
+    window.raise();
     window.activateWindow();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
     window.showFullScreen();
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    QTest::qWait(2000);
 
     auto *escapeShortcut = window.findChild<QShortcut *>();
     QVERIFY(escapeShortcut);
     QCOMPARE(escapeShortcut->key(), QKeySequence(Qt::Key_Escape));
+    QElapsedTimer transitionTimer;
+    transitionTimer.start();
     QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    reportFullscreenMetric("exit", transitionTimer.elapsed());
     QVERIFY(window.isVisible());
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-FS-04
+// Test purpose: verify the Esc regression path restores the loaded image and normal geometry.
+// Preconditions: a visible non-full-screen MainWindow displaying a PNG.
+// Input data: Return to enter full screen, then Escape to leave it.
+// Steps: capture the normal geometry, enter full screen, send Escape, and wait for completion.
+// Expected result: the image remains loaded, the window is visible and normal, and its
+// geometry returns to the captured normal geometry without an extra state request.
+// Postcondition: the test closes the window and restores the application quit policy.
+void ActionManagerTests::testEscapeRestoresLoadedImageWithoutGeometryJump()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "escape-restore", Qt::darkGreen);
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    window.setGeometry(QRect(200, 200, 640, 480));
+    QCoreApplication::processEvents();
+    const QRect normalGeometry = window.geometry();
+    const QString loadedPath = window.getCurrentFileDetails().fileInfo.absoluteFilePath();
+
+    QElapsedTimer transitionTimer;
+    transitionTimer.start();
+    QTest::keyClick(&window, Qt::Key_Return);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    reportFullscreenMetric("enter", transitionTimer.elapsed());
+    QTest::qWait(2000);
+
+    auto *escapeShortcut = window.findChild<QShortcut *>();
+    QVERIFY(escapeShortcut);
+    QCOMPARE(escapeShortcut->key(), QKeySequence(Qt::Key_Escape));
+    transitionTimer.restart();
+    QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    reportFullscreenMetric("exit", transitionTimer.elapsed());
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen() && window.geometry() == normalGeometry, 3000);
+    QVERIFY(window.isVisible());
+    QCOMPARE(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), loadedPath);
+    QCOMPARE(window.geometry(), normalGeometry);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
