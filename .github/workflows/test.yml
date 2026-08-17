@@ -7,7 +7,7 @@ on:
 jobs:
   unit-tests:
     name: Run Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -19,17 +19,17 @@ jobs:
           modules: 'qtimageformats'
 
       - name: Configure CMake
-        run: cmake -B build -DBUILD_TESTS=ON
+        run: cmake -B build -DBUILD_TESTS=ON -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
 
       - name: Build
         run: cmake --build build --parallel
 
       - name: Run tests
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" ctest --test-dir build
+        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
 
   clang-tidy:
     name: Run clang-tidy
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -41,14 +41,16 @@ jobs:
           modules: 'qtimageformats'
 
       - name: Install clang-tidy
-        run: sudo apt-get update && sudo apt-get install -y clang-tidy
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Run clang-tidy
         run: ./build.sh --tidy
 
     format:
       name: Run clang-format
-      runs-on: ubuntu-latest
+      runs-on: macos-14
       steps:
         - uses: actions/checkout@v4
 
@@ -60,7 +62,9 @@ jobs:
             modules: 'qtimageformats'
 
         - name: Install clang-format
-          run: sudo apt-get update && sudo apt-get install -y clang-format
+          run: |
+            brew install clang-format
+            echo "$(brew --prefix clang-format)/bin" >> "$GITHUB_PATH"
 
         - name: Run clang-format
           run: ./build.sh --format-check

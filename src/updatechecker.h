@@ -28,8 +28,8 @@ protected:
     void setLastCheckTime(QDateTime value);
 
 private:
-    const QString UPDATE_URL = "https://api.github.com/repos/jurplel/qview/releases";
-    const QString DOWNLOAD_URL = "https://interversehq.com/qview/download/";
+    const QString UPDATE_URL = "https://api.github.com/repos/inostarlin-passion/Fovelle/releases";
+    const QString DOWNLOAD_URL = "https://github.com/inostarlin-passion/Fovelle/releases";
     // If update checking is enabled, this rate limits the auto-check that happens at startup
     const int STARTUP_CHECK_INTERVAL_HOURS = 4;
 

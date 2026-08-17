@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>Um qView</translation>
+        <translation>Um Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -534,8 +534,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>Um qView</translation>
+        <source>About Fovelle</source>
+        <translation>Um Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -549,8 +549,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Byggt með Qt %1 (%2)&lt;br&gt;Frumkóði er til undir notendaleyfi GNU GPL 3.0&lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Táknmynd búin til af Guilhem frá Noun Project&lt;br&gt;Höfundarréttur © %3 jurplel og qView þátttakendur</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -690,74 +690,6 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Velja Forrit</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Þróun</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Menntun</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Leikir</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Myndræn Hönnun</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Net</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Margmiðlun</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Skrifstofa</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Vísindi</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Stillingar</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>Kerfi</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Tól</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Annað</translation>
     </message>
 </context>
 <context>
@@ -1104,8 +1036,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Hvort qView eigi að fara aftur á fyrstu mynd þegar komið er í lok möppu</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Hvort Fovelle eigi að fara aftur á fyrstu mynd þegar komið er í lok möppu</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1155,7 +1087,7 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Uppfærslutilkynningar við ræsingu</translation>
     </message>
     <message>
@@ -1222,8 +1154,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Þú verður að endurræsa qView til að breyta tungumálinu.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Þú verður að endurræsa Fovelle til að breyta tungumálinu.</translation>
     </message>
 </context>
 <context>
@@ -1292,8 +1224,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Takk fyrir að niðurhlaða qView. &lt;br&gt;Hérna eru nokkrar ábendingar til að koma þér af stað:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Takk fyrir að niðurhlaða Fovelle. &lt;br&gt;Hérna eru nokkrar ábendingar til að koma þér af stað:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1527,13 +1459,13 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>qView Uppfærsla í Boði</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Fovelle Uppfærsla í Boði</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 er í boði fyrir niðurhal.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 er í boði fyrir niðurhal.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1542,8 +1474,8 @@ Engin skrifheimild eða skrá er skrifvarinn.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>qView Uppfærsluathugun er Óvirk</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Fovelle Uppfærsluathugun er Óvirk</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

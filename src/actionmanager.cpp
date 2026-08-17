@@ -4,7 +4,6 @@
 #include "openwith.h"
 
 #include <QSettings>
-#include <QMimeDatabase>
 #include <QFileIconProvider>
 
 ActionManager::ActionManager(QObject *parent) : QObject(parent)
@@ -414,24 +413,14 @@ void ActionManager::updateRecentsMenu()
                         false); // Hide icon temporarily to speed up updates in certain cases
                 action->setText(recent.fileName);
 
-#if defined Q_OS_UNIX && !defined Q_OS_MACOS
-                // set icons for linux users
-                QMimeDatabase mimedb;
-                QMimeType type = mimedb.mimeTypeForFile(recent.filePath);
-                action->setIcon(QIcon::fromTheme(type.iconName(),
-                                                 QIcon::fromTheme(type.genericIconName())));
-#else
-                // set icons for mac/windows users
+                // Use file icons from Finder on macOS.
                 QFileInfo fileInfo(recent.filePath);
                 QFileIconProvider provider;
                 QIcon icon = provider.icon(fileInfo);
-#  ifdef Q_OS_MACOS
                 // Workaround for native menu slowness
                 if (!fileInfo.suffix().isEmpty())
                     icon = getCacheableIcon("filetype:" + fileInfo.suffix(), icon);
-#  endif
                 action->setIcon(icon);
-#endif
                 action->setIconVisibleInMenu(true);
             } else {
                 action->setVisible(false);
@@ -630,10 +619,6 @@ void ActionManager::initializeActionLibrary()
 {
     auto *quitAction = new QAction(QIcon::fromTheme("application-exit"), tr("&Quit"));
     actionLibrary.insert("quit", quitAction);
-#ifdef Q_OS_WIN
-    //: The quit action is called "Exit" on windows
-    quitAction->setText(tr("Exit"));
-#endif
 
     auto *newWindowAction = new QAction(QIcon::fromTheme("window-new"), tr("New Window"));
     actionLibrary.insert("newwindow", newWindowAction);
@@ -659,13 +644,8 @@ void ActionManager::initializeActionLibrary()
 
     auto *openContainingFolderAction =
             new QAction(QIcon::fromTheme("document-open"), tr("Open Containing &Folder"));
-#ifdef Q_OS_WIN
-    //: Open containing folder on windows
-    openContainingFolderAction->setText(tr("Show in E&xplorer"));
-#elif defined Q_OS_MACOS
     //: Open containing folder on macOS
     openContainingFolderAction->setText(tr("Show in &Finder"));
-#endif
     openContainingFolderAction->setData({ "disable" });
     actionLibrary.insert("opencontainingfolder", openContainingFolderAction);
 
@@ -675,9 +655,6 @@ void ActionManager::initializeActionLibrary()
     actionLibrary.insert("showfileinfo", showFileInfoAction);
 
     auto *deleteAction = new QAction(QIcon::fromTheme("edit-delete"), tr("&Move to Trash"));
-#ifdef Q_OS_WIN
-    deleteAction->setText(tr("&Delete"));
-#endif
     deleteAction->setData({ "disable" });
     actionLibrary.insert("delete", deleteAction);
 
@@ -687,9 +664,6 @@ void ActionManager::initializeActionLibrary()
     actionLibrary.insert("deletepermanent", deletePermanentAction);
 
     auto *undoAction = new QAction(QIcon::fromTheme("edit-undo"), tr("&Restore from Trash"));
-#ifdef Q_OS_WIN
-    undoAction->setText(tr("&Undo Delete"));
-#endif
     undoAction->setData({ "undodisable" });
     actionLibrary.insert("undo", undoAction);
 
@@ -799,7 +773,7 @@ void ActionManager::initializeActionLibrary()
     slideshowAction->setData({ "disable" });
     actionLibrary.insert("slideshow", slideshowAction);
 
-    //: This is for the options dialog on windows
+    //: This is for the options dialog on macOS
     auto *optionsAction = new QAction(
             QIcon::fromTheme("configure", QIcon::fromTheme("preferences-other")), tr("&Settings"));
 #ifdef Q_OS_MACOS
@@ -815,8 +789,8 @@ void ActionManager::initializeActionLibrary()
 
     auto *aboutAction = new QAction(QIcon::fromTheme("help-about"), tr("&About"));
 #ifdef Q_OS_MACOS
-    //: This is for the about dialog on mac
-    aboutAction->setText(tr("&About qView"));
+    //: This is for the about dialog on macOS
+    aboutAction->setText(tr("&About Fovelle"));
 #endif
     actionLibrary.insert("about", aboutAction);
 
@@ -828,16 +802,10 @@ void ActionManager::initializeActionLibrary()
     auto *clearRecentsAction = new QAction(QIcon::fromTheme("edit-delete"), tr("Clear &Menu"));
     actionLibrary.insert("clearrecents", clearRecentsAction);
 
-    //: Open with other program for unix non-mac
     auto *openWithOtherAction =
             new QAction(QIcon::fromTheme("system-run"), tr("Other Application..."));
-#ifdef Q_OS_WIN
-    //: Open with other program for windows
-    openWithOtherAction->setText(tr("Choose another app"));
-#elif defined Q_OS_MACOS
-    //: Open with other program for macos
+    //: Open with another program on macOS
     openWithOtherAction->setText(tr("Other..."));
-#endif
     actionLibrary.insert("openwithother", openWithOtherAction);
 
     // Set data values and disable actions

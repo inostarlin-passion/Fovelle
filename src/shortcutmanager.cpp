@@ -50,21 +50,13 @@ void ShortcutManager::initializeShortcutsList()
                            keyBindingsToStringList(QKeySequence::Refresh),
                            {} });
     shortcutsList.append({ tr("Open Containing Folder"), "opencontainingfolder", {}, {} });
-    // Sets open containing folder action name to platform-appropriate alternative
-#ifdef Q_OS_WIN
-    shortcutsList.last().readableName = tr("Show in Explorer");
-#elif defined Q_OS_MACOS
     shortcutsList.last().readableName = tr("Show in Finder");
-#endif
     shortcutsList.append({ tr("Show File Info"),
                            "showfileinfo",
                            QStringList(QKeySequence(Qt::Key_I).toString()),
                            {} });
     shortcutsList.append(
             { tr("Restore from Trash"), "undo", keyBindingsToStringList(QKeySequence::Undo), {} });
-#ifdef Q_OS_WIN
-    shortcutsList.last().readableName = tr("Undo Delete");
-#endif
     shortcutsList.append({ tr("Copy"), "copy", keyBindingsToStringList(QKeySequence::Copy), {} });
     shortcutsList.append(
             { tr("Paste"), "paste", keyBindingsToStringList(QKeySequence::Paste), {} });
@@ -83,9 +75,6 @@ void ShortcutManager::initializeShortcutsList()
     // cmd+backspace for deleting, mac-style
     shortcutsList.last().defaultShortcuts.prepend(
             QKeySequence(Qt::CTRL | Qt::Key_Backspace).toString());
-#ifdef Q_OS_WIN
-    shortcutsList.last().readableName = tr("Delete");
-#endif
     shortcutsList.append({ tr("Delete Permanently"),
                            "deletepermanent",
                            QStringList(QKeySequence(Qt::SHIFT | Qt::Key_Delete).toString()),
@@ -139,17 +128,6 @@ void ShortcutManager::initializeShortcutsList()
     shortcutsList.append(
             { tr("Flip"), "flip", QStringList(QKeySequence(Qt::CTRL | Qt::Key_F).toString()), {} });
 
-    // Fixes alt+enter only working with numpad enter when using qt's standard keybinds
-#ifdef Q_OS_WIN
-    shortcutsList.last().defaultShortcuts << QKeySequence(Qt::ALT | Qt::Key_Return).toString();
-#elif defined Q_OS_UNIX & !defined Q_OS_MACOS
-    // F11 is for some reason not there by default in GNOME
-    if (shortcutsList.last().defaultShortcuts.contains(
-                QKeySequence(Qt::CTRL | Qt::Key_F11).toString())
-        && !shortcutsList.last().defaultShortcuts.contains(QKeySequence(Qt::Key_F11).toString())) {
-        shortcutsList.last().defaultShortcuts << QKeySequence(Qt::Key_F11).toString();
-    }
-#endif
     shortcutsList.append({ tr("Save Frame As"),
                            "saveframeas",
                            keyBindingsToStringList(QKeySequence::Save),
@@ -177,8 +155,6 @@ void ShortcutManager::initializeShortcutsList()
         < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
         shortcutsList.last().readableName = tr("Preferences");
     }
-    // mac exclusive shortcuts
-#ifdef Q_OS_MACOS
     shortcutsList.append(
             { tr("New Window"), "newwindow", keyBindingsToStringList(QKeySequence::New), {} });
     shortcutsList.append({ tr("Close Window"),
@@ -189,14 +165,7 @@ void ShortcutManager::initializeShortcutsList()
                            "closeallwindows",
                            QStringList(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W).toString()),
                            {} });
-#endif
     shortcutsList.append({ tr("Quit"), "quit", keyBindingsToStringList(QKeySequence::Quit), {} });
-#ifndef Q_OS_MACOS
-    shortcutsList.last().defaultShortcuts << QKeySequence(Qt::CTRL | Qt::Key_W).toString();
-#endif
-#ifdef Q_OS_WIN
-    shortcutsList.last().readableName = tr("Exit");
-#endif
 }
 
 void ShortcutManager::hideShortcuts()

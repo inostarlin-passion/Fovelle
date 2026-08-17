@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;Acerca de qView</translation>
+        <translation>&amp;Acerca de Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -536,8 +536,8 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>Acerca de qView</translation>
+        <source>About Fovelle</source>
+        <translation>Acerca de Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -551,8 +551,8 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Compilado com Qt %1 (%2)&lt;br&gt;Código fonte disponível nos termos da GPLv3 em &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Ícone criado por Guilhem do Noun Project&lt;br&gt;Copyright © %3 jurplel e todos os colaboradores qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -692,74 +692,6 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Escolha a aplicação</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Desenvolvimento</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Educação</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Jogos</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Gráficos</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimédia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Escritório</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Ciência</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Definições</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>Sistema</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Utilitários</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Outra</translation>
     </message>
 </context>
 <context>
@@ -1091,7 +1023,7 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
         <translation>Controla se a aplicação deve voltar ao início após mostrar a última imagem da pasta</translation>
     </message>
     <message>
@@ -1147,7 +1079,7 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Desativar notificação de at&amp;ualizações</translation>
     </message>
     <message>
@@ -1224,7 +1156,7 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
+        <source>You must restart Fovelle to change the language.</source>
         <translation>Tem que reiniciar a aplicação para aplicar as alterações.</translation>
     </message>
 </context>
@@ -1294,8 +1226,8 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Obrigado por utilizar qView.&lt;br&gt;Aqui estão algumas dicas sobre a aplicação:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Obrigado por utilizar Fovelle.&lt;br&gt;Aqui estão algumas dicas sobre a aplicação:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1529,13 +1461,13 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
+        <source>Fovelle Update Available</source>
         <translation>Existe uma atualização disponível</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 está disponível para descarga.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 está disponível para descarga.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1544,7 +1476,7 @@ Não tem permissão de escrita ou o ficheiro é apenas de leitura.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
+        <source>Fovelle Update Checking Disabled</source>
         <translation>Desativou a opção de procura de atualizações</translation>
     </message>
     <message>

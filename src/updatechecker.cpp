@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QVersionNumber>
 
 UpdateChecker::UpdateChecker(QObject *parent) : QObject(parent)
 {
@@ -57,7 +58,13 @@ void UpdateChecker::readReply(QNetworkReply *reply)
 
     QJsonObject object = json.object();
 
-    latestVersionNum = object.value("tag_name").toString("0.0").toDouble();
+    QString tagName = object.value("tag_name").toString("0.0");
+    if (tagName.startsWith('v', Qt::CaseInsensitive))
+        tagName.remove(0, 1);
+    const QVersionNumber releaseVersion = QVersionNumber::fromString(tagName);
+    latestVersionNum = releaseVersion.isNull()
+            ? 0.0
+            : releaseVersion.majorVersion() + releaseVersion.minorVersion() / 10.0;
 
     static const QRegularExpression newLineRegEx("\r?\n");
     QStringList changelogList = object.value("body").toString().split(newLineRegEx);
@@ -95,10 +102,10 @@ void UpdateChecker::openDialog()
             QIcon::fromTheme("edit-download", QIcon::fromTheme("document-save")), tr("Download"));
 
     auto *msgBox = new QMessageBox();
-    msgBox->setWindowTitle(tr("qView Update Available"));
-    msgBox->setText(
-            tr("qView %1 is available to download.").arg(QString::number(latestVersionNum, 'f', 1))
-            + "\n\n" + releaseDate.toString(locale.dateFormat()) + "\n\n" + changelog);
+    msgBox->setWindowTitle(tr("Fovelle Update Available"));
+    msgBox->setText(tr("Fovelle %1 is available to download.")
+                            .arg(QString::number(latestVersionNum, 'f', 1))
+                    + "\n\n" + releaseDate.toString(locale.dateFormat()) + "\n\n" + changelog);
     msgBox->setWindowModality(Qt::ApplicationModal);
     msgBox->setStandardButtons(QMessageBox::Close | QMessageBox::Reset);
     msgBox->button(QMessageBox::Reset)->setText(tr("&Disable Update Checking"));
@@ -110,7 +117,7 @@ void UpdateChecker::openDialog()
         settings.beginGroup("options");
         settings.setValue("updatenotifications", false);
         qvApp->getSettingsManager().loadSettings();
-        QMessageBox::information(nullptr, tr("qView Update Checking Disabled"),
+        QMessageBox::information(nullptr, tr("Fovelle Update Checking Disabled"),
                                  tr("Update notifications on startup have been disabled.\nYou can "
                                     "reenable them in the options dialog."),
                                  QMessageBox::Ok);

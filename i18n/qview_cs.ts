@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;O aplikaci qView</translation>
+        <translation>&amp;O aplikaci Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -520,8 +520,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>O aplikaci qView</translation>
+        <source>About Fovelle</source>
+        <translation>O aplikaci Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -535,8 +535,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Vytvořeno pomocí Qt %1 (%2)&lt;br&gt;Zdrojový kód je k dispozici pod licencí GPLv3 na &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHubu&lt;/a&gt;&lt;br&gt;Glyf ikony vytvořil Guilhem z projektu Noun&lt;br&gt;Copyright © %3 jurplel a přispěvatelé qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -672,74 +672,6 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Vybrat aplikaci</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Vývoj</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Vzdělání</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Hry</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Grafika</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimédia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Kancelář</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Věda</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Nastavení</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>Systém</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Utility</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Ostatní</translation>
     </message>
 </context>
 <context>
@@ -1086,8 +1018,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Určuje, zda se má qView po dosažení konce složky vrátit na první položku</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Určuje, zda se má Fovelle po dosažení konce složky vrátit na první položku</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1137,7 +1069,7 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>&amp;Aktualizovat oznámení při spuštění</translation>
     </message>
     <message>
@@ -1204,8 +1136,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Chcete-li změnit jazyk, musíte restartovat qView.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Chcete-li změnit jazyk, musíte restartovat Fovelle.</translation>
     </message>
 </context>
 <context>
@@ -1274,8 +1206,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Děkujeme, že jste si stáhli qView.&lt;br&gt;Zde je několik tipů, jak začít:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Děkujeme, že jste si stáhli Fovelle.&lt;br&gt;Zde je několik tipů, jak začít:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1509,13 +1441,13 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>qView aktualizace je k dispozici</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Fovelle aktualizace je k dispozici</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 je k dispozici ke stažení.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 je k dispozici ke stažení.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1524,8 +1456,8 @@ Není oprávnění k zápisu nebo je soubor jen ke čtení.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Kontrola aktualizací qView je vypnuta</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Kontrola aktualizací Fovelle je vypnuta</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

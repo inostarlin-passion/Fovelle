@@ -274,9 +274,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="807"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;Derbarê qView</translation>
+        <translation>&amp;Derbarê Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="811"/>
@@ -491,8 +491,8 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>Derbarê qView</translation>
+        <source>About Fovelle</source>
+        <translation>Derbarê Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -506,8 +506,8 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Avakirin pêk hatiye ligel %1 (%2)&lt;br&gt; Koda çavkaniyê peyda dibe di bin GPLv3 de li ser &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;îkona glyph ji hêla Guilhem ve hatiye çêkirin ji projeya The Noun&lt;br&gt;Mafêjêgirtinê ©%3 jurplel û tevkarên qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="90"/>
@@ -645,74 +645,6 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
         <location filename="../src/qvinfodialog.cpp" line="51"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Sepanê hilbijêre</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="66"/>
-        <source>Development</source>
-        <translation>Pêşdebirin</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Education</source>
-        <translation>Perwerdehî</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Games</source>
-        <translation>Lîsk</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Graphics</source>
-        <translation>Grafîk</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Internet</source>
-        <translation>Înternet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Multimedia</source>
-        <translation>Multîmedya</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Office</source>
-        <translation>Office</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Science</source>
-        <translation>Zanistî</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Settings</source>
-        <translation>Sazkarî</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>System</source>
-        <translation>Pergal</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>Utilities</source>
-        <translation>Bikêrhatî</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Other</source>
-        <translation>Ên din</translation>
     </message>
 </context>
 <context>
@@ -1025,8 +957,8 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="562"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Kontrol dike ka qView divê piştî gihîştina dawiya peldankê vegere hêmana yekem an na</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Kontrol dike ka Fovelle divê piştî gihîştina dawiya peldankê vegere hêmana yekem an na</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="565"/>
@@ -1066,7 +998,7 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="655"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Di destpêkê de agahdariyan &amp;rojane bike</translation>
     </message>
     <message>
@@ -1122,8 +1054,8 @@ Mafdayîna nivîsandinê tune ye an jî pel tenê ji bo xwendinê ye.</translati
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="476"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Ji bo guhertina ziman divê tu qView ji nû ve bidî destpêkirin.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Ji bo guhertina ziman divê tu Fovelle ji nû ve bidî destpêkirin.</translation>
     </message>
 </context>
 <context>
@@ -1192,8 +1124,8 @@ Mafdayîna nivîsandinê tune ye yan pel tenê ji bo xwendinê ye.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Spas ji bo daxistina qView. Ji &lt;br&gt;bo ku tu dest pê bikî çend pêşnîyarî hene:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Spas ji bo daxistina Fovelle. Ji &lt;br&gt;bo ku tu dest pê bikî çend pêşnîyarî hene:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1413,13 +1345,13 @@ Mafdayîna nivîsandinê tune ye yan pel tenê ji bo xwendinê ye.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="72"/>
-        <source>qView Update Available</source>
-        <translation>Rojanekirina qView heye</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Rojanekirina Fovelle heye</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="73"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView%1 ji bo daxistinê heye.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle%1 ji bo daxistinê heye.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="77"/>
@@ -1428,8 +1360,8 @@ Mafdayîna nivîsandinê tune ye yan pel tenê ji bo xwendinê ye.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="87"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Kontrolkirina rojanekirina qView neçalak e</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Kontrolkirina rojanekirina Fovelle neçalak e</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="87"/>

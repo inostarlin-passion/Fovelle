@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"></location>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;Про qView</translation>
+        <translation>&amp;Про Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"></location>
@@ -522,8 +522,8 @@ No write permission or file is read-only.</source>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"></location>
-        <source>About qView</source>
-        <translation>Про qView</translation>
+        <source>About Fovelle</source>
+        <translation>Про Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"></location>
@@ -536,9 +536,9 @@ No write permission or file is read-only.</source>
         <translation>Нічна %1</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="62"></location>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Створено за допомогою Qt %1 (%2)&lt;br&gt;Вихідний код доступний під GPLv3 на &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt; Значок-гліф створений Guilhem із Noun Project&lt;br&gt;Авторське право © %3 співавтори jurplel і qView</translation>
+        <location filename="../src/qvaboutdialog.cpp" line="62"/>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"></location>
@@ -674,74 +674,6 @@ No write permission or file is read-only.</source>
         <location filename="../src/qvinfodialog.cpp" line="64"></location>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 МП)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"></location>
-        <source>Choose Application</source>
-        <translation>Оберіть застосунок</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"></location>
-        <source>Development</source>
-        <translation>Розробка</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"></location>
-        <source>Education</source>
-        <translation>Освіта</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"></location>
-        <source>Games</source>
-        <translation>Ігри</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"></location>
-        <source>Graphics</source>
-        <translation>Графіка</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"></location>
-        <source>Internet</source>
-        <translation>Інтернет</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"></location>
-        <source>Multimedia</source>
-        <translation>Мультимедіа</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"></location>
-        <source>Office</source>
-        <translation>Офіс</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"></location>
-        <source>Science</source>
-        <translation>Наука</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"></location>
-        <source>Settings</source>
-        <translation>Налаштування</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"></location>
-        <source>System</source>
-        <translation>Система</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"></location>
-        <source>Utilities</source>
-        <translation>Утиліти</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"></location>
-        <source>Other</source>
-        <translation>Інше</translation>
     </message>
 </context>
 <context>
@@ -1088,8 +1020,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"></location>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Контролює, чи повинен qView повертатися до першого елемента після досягнення кінця теки</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Контролює, чи повинен Fovelle повертатися до першого елемента після досягнення кінця теки</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"></location>
@@ -1139,7 +1071,7 @@ No write permission or file is read-only.</source>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"></location>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>&amp;Оновлення повідомлень при запуску</translation>
     </message>
     <message>
@@ -1206,8 +1138,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"></location>
-        <source>You must restart qView to change the language.</source>
-        <translation>Щоб змінити мову, необхідно перезапустити qView.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Щоб змінити мову, необхідно перезапустити Fovelle.</translation>
     </message>
 </context>
 <context>
@@ -1276,8 +1208,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"></location>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Дякуємо, що завантажили qView. &lt;br&gt; Ось декілька порад, які допоможуть вам розпочати роботу:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Дякуємо, що завантажили Fovelle. &lt;br&gt; Ось декілька порад, які допоможуть вам розпочати роботу:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"></location>
@@ -1511,13 +1443,13 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"></location>
-        <source>qView Update Available</source>
-        <translation>Доступне оновлення qView</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Доступне оновлення Fovelle</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"></location>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 доступний для завантаження.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 доступний для завантаження.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"></location>
@@ -1526,8 +1458,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"></location>
-        <source>qView Update Checking Disabled</source>
-        <translation>Перевірку оновлень qView вимкнено</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Перевірку оновлень Fovelle вимкнено</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"></location>

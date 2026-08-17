@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>Tentang qView</translation>
+        <translation>Tentang Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -522,8 +522,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>Tentang qView</translation>
+        <source>About Fovelle</source>
+        <translation>Tentang Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -537,8 +537,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Dibuat dengan Qt %1 (%2)&lt;br&gt;Kode sumber tersedia dengan lisensi GPLv3 via &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Simbol ikon dibuat oleh Guilhem dari Noun Project&lt;br&gt;Hak Cipta © %3 jurplel dan kontributor qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -674,74 +674,6 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Pilih Aplikasi</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Pengembangan</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Edukasi</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Permainan</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Grafik</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimedia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Kantor</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Sains</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Pengaturan</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>Sistem</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Utilitas</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Lainnya</translation>
     </message>
 </context>
 <context>
@@ -1088,8 +1020,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Mengontrol apakah qView harus kembali ke item pertama atau tidak setelah mencapai akhir folder</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Mengontrol apakah Fovelle harus kembali ke item pertama atau tidak setelah mencapai akhir folder</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1139,7 +1071,7 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>&amp;Memperbarui notifikasi saat memulai</translation>
     </message>
     <message>
@@ -1206,8 +1138,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca (read-only).</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Anda harus memulai ulang qView untuk mengganti bahasa.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Anda harus memulai ulang Fovelle untuk mengganti bahasa.</translation>
     </message>
 </context>
 <context>
@@ -1276,8 +1208,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Terima kasih telah mengunduh qView.&lt;br&gt;Berikut adalah beberapa tips untuk membantu Anda memulai:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Terima kasih telah mengunduh Fovelle.&lt;br&gt;Berikut adalah beberapa tips untuk membantu Anda memulai:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1511,13 +1443,13 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>Pembaharuan qView Tersedia</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Pembaharuan Fovelle Tersedia</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 tersedia untuk diunduh.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 tersedia untuk diunduh.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1526,8 +1458,8 @@ Tidak ada izin tulis atau berkas hanya dapat dibaca.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Pemeriksaan pembaruan qView dinonaktifkan</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Pemeriksaan pembaruan Fovelle dinonaktifkan</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

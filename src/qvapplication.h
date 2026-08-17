@@ -67,8 +67,6 @@ public:
 
     void openAboutDialog(QWidget *parent = nullptr);
 
-    void hideIncompatibleActions();
-
     void defineFilterLists();
 
     QMenuBar *getMenuBar() const { return menuBar; }

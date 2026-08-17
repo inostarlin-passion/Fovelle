@@ -1,4 +1,4 @@
-name: Build qView
+name: Build Fovelle
 on:
   push:
   pull_request:
@@ -19,8 +19,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: 'ubuntu-22.04'
-            qtVersion: '5.15.2'
           - runner: 'macos-14'
             qtVersion: '6.8.3'
             qtModules: 'qtimageformats'
@@ -29,22 +27,6 @@ jobs:
             qtVersion: '5.15.2'
             osSuffix: '_legacy'
             buildArch: 'X64'
-          - runner: 'windows-2022'
-            qtVersion: '6.8.3'
-            qtArch: 'win64_msvc2022_64'
-            osSuffix: '_64'
-            qtModules: 'qtimageformats'
-          - runner: 'windows-2022'
-            qtVersion: '6.8.3'
-            qtArch: 'win64_msvc2022_arm64_cross_compiled'
-            osSuffix: '_arm64'
-            qtModules: 'qtimageformats'
-            buildArch: 'Arm64'
-          - runner: 'windows-2022'
-            qtVersion: '5.15.2'
-            qtArch: 'win32_msvc2019'
-            osSuffix: '_32'
-            buildArch: 'X86'
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set environment variables
@@ -69,11 +51,11 @@ jobs:
           cache: true
           modules: ${{ matrix.qtModules }}
 
-      - name: Build qView
+      - name: Build Fovelle
         shell: pwsh
         run: dist/scripts/build.ps1 -CI
 
-      - name: Deploy qView
+      - name: Deploy Fovelle
         env:
           APPLE_NOTARIZE_REQUESTED: ${{ inputs.appleNotarize }}
           APPLE_DEVID_APP_CERT_DATA: ${{ secrets.APPLE_DEVID_APP_CERT_DATA }}
@@ -85,25 +67,19 @@ jobs:
           if ("${{ matrix.skipPlugins }}" -ne "true") {
             & dist/scripts/download-plugins.ps1
           }
-          if ($IsWindows) {
-            & dist/scripts/windeployqt.ps1 ${{ env.buildNumString }}
-          } elseif ($IsMacOS) {
-            & dist/scripts/macinstallcert.ps1
-            bash dist/scripts/macdeploy.sh ${{ env.buildNumString }}
-          } else {
-            bash dist/scripts/linuxdeployqt.sh ${{ env.buildNumString }}
-          }
+          & dist/scripts/macinstallcert.ps1
+          bash dist/scripts/macdeploy.sh ${{ env.buildNumString }}
 
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v4
         with:
-          name: qView${{ env.nightlyString }}-${{ runner.os }}${{ matrix.osSuffix }}-${{ env.buildNumString }}
+          name: Fovelle${{ env.nightlyString }}-${{ runner.os }}${{ matrix.osSuffix }}-${{ env.buildNumString }}
           path: bin
 
   nightly-release:
     needs: build
-    if: github.ref_name == 'master' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' && github.event_name == 'push'
+    runs-on: macos-14
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -117,7 +93,7 @@ jobs:
         run: |
           mkdir release_files
           cd artifacts
-          for dir in */ a; do
+          for dir in */; do
             zip -r "../release_files/$(basename "$dir").zip" "$dir"
           done
           cd ..
@@ -129,9 +105,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: nightly
-          name: "qView Nightly"
+          name: "Fovelle Nightly"
           prerelease: true
           body: |
-            Latest automatic build from the master branch. Might be broken.
+            Latest automatic build from the main branch. Might be broken.
 
           files: release_files/*.zip

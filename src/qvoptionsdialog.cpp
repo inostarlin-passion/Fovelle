@@ -42,13 +42,8 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     populateCategories(settings.value("optionstab", 1).toInt());
     populateLanguages();
 
-    // On macOS, the dialog should not be dependent on any window
-#ifndef Q_OS_MACOS
-    setWindowModality(Qt::WindowModal);
-#else
-    // Load window geometry
+    // On macOS, the dialog should not be dependent on any window.
     restoreGeometry(settings.value("optionsgeometry").toByteArray());
-#endif
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     // Hide scroll zoom auto-detect option if unsupported
@@ -66,14 +61,8 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::
     ui->updateCheckbox->hide();
 #endif // QV_DISABLE_ONLINE_VERSION_CHECK
 
-// Platform specific settings
-#ifdef Q_OS_MACOS
+// macOS-specific settings
     ui->menubarCheckbox->hide();
-#else
-    ui->forceDarkModeCheckbox->hide();
-    ui->hideTitlebarCheckbox->hide();
-    ui->quitOnLastWindowCheckbox->hide();
-#endif
 
 // Hide language selection below 5.12, as 5.12 does not support embedding the translations :(
 #if (QT_VERSION < QT_VERSION_CHECK(5, 12, 0))
@@ -538,7 +527,7 @@ void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
     Q_UNUSED(index)
     if (!languageRestartMessageShown) {
         QMessageBox::information(this, tr("Restart Required"),
-                                 tr("You must restart qView to change the language."));
+                                 tr("You must restart Fovelle to change the language."));
         languageRestartMessageShown = true;
     }
 }

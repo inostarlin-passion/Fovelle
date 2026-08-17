@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>About qView</string>
+   <string>About Fovelle</string>
   </property>
   <property name="styleSheet">
    <string notr="true">background-color: #212121</string>
@@ -157,7 +157,7 @@
         </font>
        </property>
        <property name="text">
-        <string notr="true">qView</string>
+        <string notr="true">Fovelle</string>
        </property>
        <property name="scaledContents">
         <bool>false</bool>

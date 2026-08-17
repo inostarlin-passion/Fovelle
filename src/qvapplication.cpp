@@ -11,8 +11,6 @@
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
-    setDesktopFileName("com.interversehq.qView.desktop");
-
     // Connections
     connect(&actionManager, &ActionManager::recentsMenuUpdated, this,
             &QVApplication::recentsMenuUpdated);
@@ -20,11 +18,6 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 #ifndef QV_DISABLE_ONLINE_VERSION_CHECK
     connect(&updateChecker, &UpdateChecker::checkedUpdates, this, &QVApplication::checkedUpdates);
 #endif // QV_DISABLE_ONLINE_VERSION_CHECK
-
-    // Add fallback fromTheme icon search on linux with qt >5.11
-#if defined Q_OS_UNIX && !defined Q_OS_MACOS && QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-    QIcon::setFallbackSearchPaths(QIcon::fallbackSearchPaths() << "/usr/share/pixmaps");
-#endif
 
     defineFilterLists();
 
@@ -34,11 +27,8 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
         checkUpdates(true);
     }
 
-    // Block any erroneous icons from showing up on mac and windows
-    // (this is overridden in some cases)
-#if defined Q_OS_MACOS || defined Q_OS_WIN
+    // Block any erroneous icons from showing up in macOS menus.
     setAttribute(Qt::AA_DontShowIconsInMenus);
-#endif
     // Adwaita Qt styles should hide icons for a more consistent look
     if (style()->objectName() == "adwaita-dark" || style()->objectName() == "adwaita")
         setAttribute(Qt::AA_DontShowIconsInMenus);
@@ -50,26 +40,19 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
     actionManager.loadRecentsList();
 
-#ifdef Q_OS_MACOS
     actionManager.addCloneOfAction(dockMenu, "newwindow");
     actionManager.addCloneOfAction(dockMenu, "open");
     dockMenu->setAsDockMenu();
-#endif
 
     // Build menu bar
     menuBar = actionManager.buildMenuBar();
     connect(menuBar, &QMenuBar::triggered, this,
             [](QAction *triggeredAction) { ActionManager::actionTriggered(triggeredAction); });
 
-    // Set mac-specific application settings
-#ifdef COCOA_LOADED
+    // Set macOS-specific application settings.
     QVCocoaFunctions::setUserDefaults();
-#endif
-#ifdef Q_OS_MACOS
     setQuitOnLastWindowClosed(getSettingsManager().getBool("quitonlastwindow"));
-#endif
 
-    hideIncompatibleActions();
 }
 
 QVApplication::~QVApplication()
@@ -202,13 +185,11 @@ void QVApplication::checkedUpdates()
 
 void QVApplication::recentsMenuUpdated()
 {
-#ifdef COCOA_LOADED
     QStringList recentsPathList;
     for (const auto &recent : actionManager.getRecentsList()) {
         recentsPathList << recent.filePath;
     }
     QVCocoaFunctions::setDockRecents(recentsPathList);
-#endif
 }
 
 void QVApplication::addToLastActiveWindows(MainWindow *window)
@@ -235,10 +216,8 @@ void QVApplication::deleteFromLastActiveWindows(MainWindow *window)
 
 void QVApplication::openOptionsDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (optionsDialog) {
         optionsDialog->raise();
@@ -252,10 +231,8 @@ void QVApplication::openOptionsDialog(QWidget *parent)
 
 void QVApplication::openWelcomeDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (welcomeDialog) {
         welcomeDialog->raise();
@@ -269,10 +246,8 @@ void QVApplication::openWelcomeDialog(QWidget *parent)
 
 void QVApplication::openAboutDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (aboutDialog) {
         aboutDialog->raise();
@@ -286,35 +261,6 @@ void QVApplication::openAboutDialog(QWidget *parent)
     aboutDialog = new QVAboutDialog(-1, parent);
 #endif // QV_DISABLE_ONLINE_VERSION_CHECK
     aboutDialog->show();
-}
-
-void QVApplication::hideIncompatibleActions()
-{
-    // Deletion actions
-#if (QT_VERSION < QT_VERSION_CHECK(5, 15, 0))
-    auto hideDeleteActions = [this] {
-        getActionManager().hideAllInstancesOfAction("delete");
-        getActionManager().hideAllInstancesOfAction("undo");
-
-        getShortcutManager().setShortcutsHidden({ "delete", "undo" });
-    };
-#  if defined Q_OS_UNIX && !defined Q_OS_MACOS
-    QProcess *testGio = new QProcess(this);
-    testGio->start("gio", QStringList());
-    connect(testGio, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [hideDeleteActions, testGio, this]() {
-                if (testGio->error() == QProcess::FailedToStart) {
-                    qInfo() << "No backup gio trash backend found";
-                    hideDeleteActions();
-                } else {
-                    qInfo() << "Using backup gio trash backend";
-                }
-            });
-#  elif defined Q_OS_WIN || (defined Q_OS_MACOS && !COCOA_LOADED)
-    qInfo() << "Qt version too old for trash feature";
-    hideDeleteActions();
-#  endif
-#endif
 }
 
 void QVApplication::defineFilterLists()
@@ -332,7 +278,7 @@ void QVApplication::defineFilterLists()
     // Build the filterlist, filterstring, and filterregexplist in one loop
     for (const auto &byteArray : byteArrayFormats) {
         const auto fileExtension = "." + QString::fromUtf8(byteArray);
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
+        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in Fovelle
         if (fileExtension == ".pdf")
             continue;
 
@@ -359,7 +305,7 @@ void QVApplication::defineFilterLists()
     const auto &byteArrayMimeTypes = QImageReader::supportedMimeTypes();
     mimeTypeNameList.reserve(byteArrayMimeTypes.size() - 1);
     for (const auto &byteArray : byteArrayMimeTypes) {
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
+        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in Fovelle
         const QString mime = QString::fromUtf8(byteArray);
         if (mime == "application/pdf")
             continue;

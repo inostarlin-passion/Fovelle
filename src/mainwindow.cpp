@@ -13,7 +13,6 @@
 #include <QCoreApplication>
 #include <QFileSystemWatcher>
 #include <QProcess>
-#include <QDesktopServices>
 #include <QContextMenuEvent>
 #include <QMovie>
 #include <QImageWriter>
@@ -347,9 +346,9 @@ void MainWindow::settingsUpdated()
 
 #ifdef COCOA_LOADED
     // titlebaralwaysdark/hidetitlebar
-    QVCocoaFunctions::setVibrancy(
-            settingsManager.getBool(SettingsManager::Setting::HideTitlebar),
-            settingsManager.getBool(SettingsManager::Setting::ForceDarkMode), windowHandle());
+    QVCocoaFunctions::setVibrancy(settingsManager.getBool(SettingsManager::Setting::HideTitlebar),
+                                  settingsManager.getBool(SettingsManager::Setting::ForceDarkMode),
+                                  windowHandle());
     // quitonlastwindow
     qvApp->setQuitOnLastWindowClosed(
             settingsManager.getBool(SettingsManager::Setting::QuitOnLastWindow));
@@ -488,7 +487,7 @@ void MainWindow::refreshProperties()
 
 void MainWindow::updateWindowTitle()
 {
-    QString newString = "qView";
+    QString newString = "Fovelle";
     if (getCurrentFileDetails().fileInfo.isFile()) {
         switch (qvApp->getSettingsManager().getInt(SettingsManager::Setting::TitleBarMode)) {
         case 1: {
@@ -511,7 +510,7 @@ void MainWindow::updateWindowTitle()
                 newString +=
                         " - " + QVInfoDialog::formatBytes(getCurrentFileDetails().fileInfo.size());
             }
-            newString += " - qView";
+            newString += " - Fovelle";
             break;
         }
         }
@@ -590,14 +589,6 @@ void MainWindow::setWindowSize()
                || imageSize.height() > maxWindowSize.height()) {
         imageSize.scale(maxWindowSize, Qt::KeepAspectRatio);
     }
-
-    // Windows reports the wrong minimum width, so we constrain the image size relative to the dpi
-    // to stop weirdness with tiny images
-#ifdef Q_OS_WIN
-    auto minimumImageSize = QSize(qRound(logicalDpiX() * 1.5), logicalDpiY() / 2);
-    if (imageSize.boundedTo(minimumImageSize) == imageSize)
-        imageSize = minimumImageSize;
-#endif
 
     // Match center after new geometry
     // This is smoother than a single geometry set for some reason
@@ -752,16 +743,7 @@ void MainWindow::openContainingFolder()
 
     const QFileInfo selectedFileInfo = getCurrentFileDetails().fileInfo;
 
-#ifdef Q_OS_WIN
-    QProcess::startDetached(
-            "explorer",
-            QStringList() << "/select,"
-                          << QDir::toNativeSeparators(selectedFileInfo.absoluteFilePath()));
-#elif defined Q_OS_MACOS
     QProcess::execute("open", QStringList() << "-R" << selectedFileInfo.absoluteFilePath());
-#else
-    QDesktopServices::openUrl(QUrl::fromLocalFile(selectedFileInfo.absolutePath()));
-#endif
 }
 
 void MainWindow::showFileInfo()
@@ -793,11 +775,7 @@ void MainWindow::askDeleteFile(bool permanent)
         messageText = tr("Are you sure you want to delete %1 permanently? This can't be undone.")
                               .arg(fileName);
     } else {
-#ifdef Q_OS_WIN
-        messageText = tr("Are you sure you want to move %1 to the Recycle Bin?").arg(fileName);
-#else
         messageText = tr("Are you sure you want to move %1 to the Trash?").arg(fileName);
-#endif
     }
 
     auto *msgBox = new QMessageBox(QMessageBox::Question, tr("Delete"), messageText,
@@ -834,26 +812,16 @@ void MainWindow::deleteFile(bool permanent)
     if (permanent) {
         success = QFile::remove(filePath);
     } else {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
         QFile file(filePath);
         success = file.moveToTrash();
         if (success)
             trashFilePath = file.fileName();
-#elif defined Q_OS_MACOS && COCOA_LOADED
+#else
         QString trashedFile = QVCocoaFunctions::deleteFile(filePath);
         success = !trashedFile.isEmpty();
         if (success)
             trashFilePath = QUrl(trashedFile).toLocalFile(); // remove file:// protocol
-#elif defined Q_OS_UNIX && !defined Q_OS_MACOS
-        trashFilePath = deleteFileLinuxFallback(filePath, false);
-        success = !trashFilePath.isEmpty();
-#else
-        QMessageBox::critical(this, tr("Not Supported"),
-                              tr("This program was compiled with an old version of Qt and this "
-                                 "feature is not available.\n"
-                                 "If you see this message, please report a bug!"));
-
-        return;
 #endif
     }
 
@@ -875,31 +843,6 @@ void MainWindow::deleteFile(bool permanent)
     disableActions();
 }
 
-QString MainWindow::deleteFileLinuxFallback(const QString &path, bool putBack)
-{
-    QStringList gioArgs = { "trash", path };
-    if (putBack)
-        gioArgs.insert(1, "--restore");
-
-    QProcess process;
-    process.start("gio", gioArgs);
-    process.waitForFinished();
-
-    if (process.error() != QProcess::FailedToStart && !putBack) {
-        process.start("gio", { "trash", "--list" });
-        process.waitForFinished();
-
-        const auto &output = QString(process.readAllStandardOutput()).split("\n");
-        for (const auto &line : output) {
-            if (line.contains(path))
-                return line.split("\t").at(0);
-        }
-    }
-
-    qWarning("Failed to use linux fallback delete");
-    return "";
-}
-
 void MainWindow::undoDelete()
 {
     if (lastDeletedFiles.isEmpty())
@@ -909,7 +852,7 @@ void MainWindow::undoDelete()
     if (lastDeletedFile.pathInTrash.isEmpty() || lastDeletedFile.previousPath.isEmpty())
         return;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)) || (defined Q_OS_MACOS && COCOA_LOADED)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
     if (!fileInfo.isWritable()) {
         QMessageBox::critical(this, tr("Error"),
@@ -924,15 +867,21 @@ void MainWindow::undoDelete()
         QMessageBox::critical(this, tr("Error"),
                               tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()));
     }
-#elif defined Q_OS_UNIX && !defined Q_OS_MACOS
-    deleteFileLinuxFallback(lastDeletedFile.pathInTrash, true);
 #else
-    QMessageBox::critical(this, tr("Not Supported"),
-                          tr("This program was compiled with an old version of Qt and this feature "
-                             "is not available.\n"
-                             "If you see this message, please report a bug!"));
+    const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
+    if (!fileInfo.isWritable()) {
+        QMessageBox::critical(this, tr("Error"),
+                              tr("Can't undo deletion of %1:\n"
+                                 "No write permission or file is read-only.")
+                                      .arg(fileInfo.fileName()));
+        return;
+    }
 
-    return;
+    const bool success = QFile::rename(lastDeletedFile.pathInTrash, lastDeletedFile.previousPath);
+    if (!success) {
+        QMessageBox::critical(this, tr("Error"),
+                              tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()));
+    }
 #endif
 
     openFile(lastDeletedFile.previousPath);

@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>@MACOSX_ICON_FILENAME@</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.interversehq.qView</string>
+	<string>io.github.inostarlin-passion.Fovelle</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSMinimumSystemVersion</key>
@@ -19,6 +19,8 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>CFBundleShortVersionString</key>
+	<string>@PROJECT_VERSION@</string>
+	<key>CFBundleVersion</key>
 	<string>@PROJECT_VERSION@</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>

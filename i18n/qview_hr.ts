@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>qView &amp;informacije</translation>
+        <translation>Fovelle &amp;informacije</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -534,8 +534,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>qView informacije</translation>
+        <source>About Fovelle</source>
+        <translation>Fovelle informacije</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -549,8 +549,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Izgrađen s Qt %1 (%2)&lt;br&gt;Izvorni kod licenziran pod GPLv3 na &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHubu&lt;/a&gt;&lt;br&gt;Autor znaka ikone je Guilhem iz projekta Noun &lt;br&gt;Autorska prava © %3 jurplel i qView doprinosioci</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -690,74 +690,6 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Odaberi aplikaciju</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Razvoj</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Obrazovanje</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Igre</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Slike</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimedija</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Ured</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Znanost</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Postavke</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>Sustav</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Uslužni programi</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Drugo</translation>
     </message>
 </context>
 <context>
@@ -1104,8 +1036,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Kontrolira hoće se li se qView vratiti na prvi element nakon što dođe do kraja mape ili ne</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Kontrolira hoće se li se Fovelle vratiti na prvi element nakon što dođe do kraja mape ili ne</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1155,7 +1087,7 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>&amp;Aktualne obavijesti prilikom pokretanja</translation>
     </message>
     <message>
@@ -1222,8 +1154,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Za mijenjanje jezika, qView se mora ponovo pokrenuti.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Za mijenjanje jezika, Fovelle se mora ponovo pokrenuti.</translation>
     </message>
 </context>
 <context>
@@ -1292,8 +1224,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Hvala na preuzimanju qViewa.&lt;br&gt;Evo par savjeta za početak:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Hvala na preuzimanju Fovellea.&lt;br&gt;Evo par savjeta za početak:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1527,13 +1459,13 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>Dostupna je nova qView verzija</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Dostupna je nova Fovelle verzija</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 je dostupna za preuzimanje.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 je dostupna za preuzimanje.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1542,8 +1474,8 @@ Nedostaje dozvola za pisanje ili je datoteka samo-za-čitanje.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Traženje novih qView verzija je deaktivirano</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Traženje novih Fovelle verzija je deaktivirano</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

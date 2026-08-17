@@ -5,12 +5,16 @@ CMAKE_ARGS=""
 
 CLEAN=false
 
-# Find a valid macOS SDK and set it for CMake to fix a potential mismatch
-if [[ "$(uname)" == "Darwin" ]]; then
-    SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)
-    if [ -n "$SDK_PATH" ]; then
-        CMAKE_ARGS="-DCMAKE_OSX_SYSROOT=$SDK_PATH"
-    fi
+# Fovelle is a macOS-only application.
+if [[ "$(uname)" != "Darwin" ]]; then
+    echo "Fovelle supports macOS only." >&2
+    exit 1
+fi
+
+# Find a valid macOS SDK and set it for CMake to fix a potential mismatch.
+SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+if [ -n "$SDK_PATH" ]; then
+    CMAKE_ARGS="-DCMAKE_OSX_SYSROOT=$SDK_PATH"
 fi
 
 # Parse command-line arguments

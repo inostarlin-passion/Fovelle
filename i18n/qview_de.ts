@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;Über qView</translation>
+        <translation>&amp;Über Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -536,8 +536,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>Über qView</translation>
+        <source>About Fovelle</source>
+        <translation>Über Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -551,8 +551,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Erstellt mit Qt %1 (%2)&lt;br&gt;Der Quellcode steht unter der GPLv3-Lizenz und ist verfügbar auf &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt; Programmsymbol erstellt von Guilhem vom Noun Project&lt;br&gt;Copyright © %3 jurplel und zu qView Beitragende</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -692,74 +692,6 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 × %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Anwendung auswählen</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Entwicklung</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Bildung</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Spiele</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Grafik</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimedia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Büro</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Wissenschaft</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Einstellungen</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>System</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Dienstprogramme</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Andere</translation>
     </message>
 </context>
 <context>
@@ -1106,8 +1038,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Legt fest, ob qView zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Legt fest, ob Fovelle zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1157,8 +1089,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
-        <translation>Benachrichtige über qView-Aktualisierungen beim Programmstart</translation>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
+        <translation>Benachrichtige über Fovelle-Aktualisierungen beim Programmstart</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="501"/>
@@ -1224,8 +1156,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Du musst qView neustarten, um die Spracheinstellungen wirksam zu machen.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Du musst Fovelle neustarten, um die Spracheinstellungen wirksam zu machen.</translation>
     </message>
 </context>
 <context>
@@ -1294,8 +1226,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Danke, dass du qView heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Danke, dass du Fovelle heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1529,13 +1461,13 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>Aktualisierung für qView verfügbar</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Aktualisierung für Fovelle verfügbar</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 ist zum Herunterladen bereit.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 ist zum Herunterladen bereit.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1544,8 +1476,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Prüfe nicht auf qView-Aktualisierungen</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Prüfe nicht auf Fovelle-Aktualisierungen</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

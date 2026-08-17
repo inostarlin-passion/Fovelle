@@ -292,9 +292,9 @@
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>O &amp;qView</translation>
+        <translation>O &amp;Fovelle</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -536,8 +536,8 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>O qView</translation>
+        <source>About Fovelle</source>
+        <translation>O Fovelle</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -550,13 +550,9 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
         <translation>Rozwojowa %1</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;Github&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation type="vanished">Zbudowane na Qt %1 (%2)&lt;br&gt;Kod źródłowy jest dostępny na licencji GPLv3 na &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;Github&lt;/a&gt;&lt;br&gt;Ikonę stworzył Guilhem z Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</translation>
-    </message>
-    <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Zbudowany z Qt %1 (%2)&lt;br&gt;Kod źródłowy dostępny na licencji GPLv3 na &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHubie&lt;/a&gt;&lt;br&gt;Glif ikon stworzony przez Guilhema z Noun Project&lt;br&gt;Prawa autorskie © %3 współtwórcy jurpel i qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -696,74 +692,6 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>Wybierz aplikację</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>Programowanie</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>Edukacja</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>Gry</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>Grafika</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>Internet</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>Multimedia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>Biuro</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>Nauka</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>Ustawienia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>System</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>Narzędzia</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>Inne</translation>
     </message>
 </context>
 <context>
@@ -1110,8 +1038,8 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Czy qView ma powrócić do pierwszego obrazu po dotarciu do końca folderu</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Czy Fovelle ma powrócić do pierwszego obrazu po dotarciu do końca folderu</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1161,7 +1089,7 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>&amp;Powiadomienia o aktualizacji przy starcie</translation>
     </message>
     <message>
@@ -1228,8 +1156,8 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>Musisz zrestartować qView, żeby zmienić język.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>Musisz zrestartować Fovelle, żeby zmienić język.</translation>
     </message>
 </context>
 <context>
@@ -1298,8 +1226,8 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Dziękujemy za pobranie qView.&lt;br&gt;Oto kilka porad na początek:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Dziękujemy za pobranie Fovelle.&lt;br&gt;Oto kilka porad na początek:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1533,13 +1461,13 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>Dostępna aktualizacja qView</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Dostępna aktualizacja Fovelle</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 dostępny do pobrania.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 dostępny do pobrania.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1548,8 +1476,8 @@ Brak uprawnień do zapisu lub plik jest tylko do odczytu.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>Sprawdzanie aktualizacji qView wyłączone</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Sprawdzanie aktualizacji Fovelle wyłączone</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>

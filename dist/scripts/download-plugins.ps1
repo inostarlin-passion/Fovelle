@@ -7,14 +7,12 @@ $pluginNames = "qtapng", "kimageformats"
 $qtVersion = [version](qmake -query QT_VERSION)
 Write-Host "Detected Qt Version $qtVersion"
 
-# Qt version availability and runner names are assumed.
-if ($IsWindows) {
-    $imageName = "windows-2022"
-} elseif ($IsMacOS) {
-    $imageName = $qtVersion -lt [version]'6.5.3' ? "macos-13" : "macos-14"
-} else {
-    $imageName = "ubuntu-20.04"
+if (-not $IsMacOS) {
+    throw "Fovelle supports macOS only."
 }
+
+# Qt version availability and runner names are assumed.
+$imageName = $qtVersion -lt [version]'6.5.3' ? "macos-13" : "macos-14"
 
 $binaryBaseUrl = "https://github.com/jurplel/kimageformats-binaries/releases/download/cont"
 
@@ -33,16 +31,8 @@ foreach ($pluginName in $pluginNames) {
     Remove-Item $artifactName
 }
 
-if ($IsWindows) {
-    $out_frm = "bin"
-    $out_imf = "bin/imageformats"
-} elseif ($IsMacOS) {
-    $out_frm = "bin/qView.app/Contents/Frameworks"
-    $out_imf = "bin/qView.app/Contents/PlugIns/imageformats"
-} else {
-    $out_frm = "bin/appdir/usr/lib"
-    $out_imf = "bin/appdir/usr/plugins/imageformats"
-}
+$out_frm = "bin/Fovelle.app/Contents/Frameworks"
+$out_imf = "bin/Fovelle.app/Contents/PlugIns/imageformats"
 
 New-Item -Type Directory -Path "$out_frm" -Force
 New-Item -Type Directory -Path "$out_imf" -Force

@@ -288,13 +288,13 @@
     <message>
         <location filename="../src/actionmanager.cpp" line="823"/>
         <source>&amp;About</source>
-        <translation>qView에 대해(&amp;A)</translation>
+        <translation>Fovelle에 대해(&amp;A)</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>qView에 대해(&amp;A)</translation>
+        <translation>Fovelle에 대해(&amp;A)</translation>
     </message>
     <message>
         <location filename="../src/actionmanager.cpp" line="830"/>
@@ -534,8 +534,8 @@ No write permission or file is read-only.</source>
     <name>QVAboutDialog</name>
     <message>
         <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About qView</source>
-        <translation>qView에 대해</translation>
+        <source>About Fovelle</source>
+        <translation>Fovelle에 대해</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="44"/>
@@ -549,8 +549,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Source code available under GPLv3 on &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel and qView contributors</source>
-        <translation>Qt %1 (%2)로 빌드됨&lt;br&gt;소스 코드는 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;깃허브(GitHub)&lt;/a&gt;에서 GPLv3 라이선스 하에 사용 가능&lt;br&gt;나운 프로젝트(Noun Project)의 기엠(Guilhem)이 만든 아이콘 글리프를 사용함&lt;br&gt;© %3 jurplel과 qView 기여자들</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -690,74 +690,6 @@ No write permission or file is read-only.</source>
         <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 메가픽셀)</translation>
-    </message>
-</context>
-<context>
-    <name>QVOpenWithDialog</name>
-    <message>
-        <location filename="../src/qvopenwithdialog.ui" line="14"/>
-        <source>Choose Application</source>
-        <translation>애플리케이션 선택</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="67"/>
-        <source>Development</source>
-        <translation>개발</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="68"/>
-        <source>Education</source>
-        <translation>교육</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="69"/>
-        <source>Games</source>
-        <translation>게임</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="70"/>
-        <source>Graphics</source>
-        <translation>그래픽</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="71"/>
-        <source>Internet</source>
-        <translation>인터넷</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="72"/>
-        <source>Multimedia</source>
-        <translation>멀티미디어</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="73"/>
-        <source>Office</source>
-        <translation>오피스</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="74"/>
-        <source>Science</source>
-        <translation>과학</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="75"/>
-        <source>Settings</source>
-        <translation>환경설정</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="76"/>
-        <source>System</source>
-        <translation>시스템</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="77"/>
-        <source>Utilities</source>
-        <translation>유틸리티</translation>
-    </message>
-    <message>
-        <location filename="../src/openwith.h" line="78"/>
-        <source>Other</source>
-        <translation>그 외</translation>
     </message>
 </context>
 <context>
@@ -1104,8 +1036,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>qView가 폴더의 마지막 이미지에 도달한 후 첫 번째 항목으로 돌아갈지 여부를 제어</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Fovelle가 폴더의 마지막 이미지에 도달한 후 첫 번째 항목으로 돌아갈지 여부를 제어</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="620"/>
@@ -1155,7 +1087,7 @@ No write permission or file is read-only.</source>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="720"/>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>시작할 때 판올림 알림</translation>
     </message>
     <message>
@@ -1222,8 +1154,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart qView to change the language.</source>
-        <translation>언어를 변경하려면 qView를 재시작해야합니다.</translation>
+        <source>You must restart Fovelle to change the language.</source>
+        <translation>언어를 변경하려면 Fovelle를 재시작해야합니다.</translation>
     </message>
 </context>
 <context>
@@ -1292,8 +1224,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>qView를 사용해주셔서 감사합니다.&lt;br&gt;다음은 시작하는 데 도움이 되는 몇 가지 팁입니다:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Fovelle를 사용해주셔서 감사합니다.&lt;br&gt;다음은 시작하는 데 도움이 되는 몇 가지 팁입니다:</translation>
     </message>
     <message>
         <location filename="../src/qvwelcomedialog.cpp" line="49"/>
@@ -1527,13 +1459,13 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>qView Update Available</source>
-        <translation>qView 판올림 사용 가능</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Fovelle 판올림 사용 가능</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>qView %1 is available to download.</source>
-        <translation>qView %1 버전을 내려받을 수 있습니다.</translation>
+        <source>Fovelle %1 is available to download.</source>
+        <translation>Fovelle %1 버전을 내려받을 수 있습니다.</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="102"/>
@@ -1542,8 +1474,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>qView Update Checking Disabled</source>
-        <translation>qView 업데이트 확인이 비활성화됨</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Fovelle 업데이트 확인이 비활성화됨</translation>
     </message>
     <message>
         <location filename="../src/updatechecker.cpp" line="112"/>
