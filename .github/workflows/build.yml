@@ -2,8 +2,9 @@ name: Build Fovelle
 
 on:
   push:
-    branches: '*'
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -32,3 +33,12 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Package Fovelle
+        run: ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app Fovelle-macOS.zip
+
+      - name: Upload Fovelle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fovelle-macOS
+          path: Fovelle-macOS.zip

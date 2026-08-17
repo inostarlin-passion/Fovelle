@@ -298,9 +298,9 @@
         <translation>关于</translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>关于qView</translation>
+        <translation>关于Fovelle</translation>
     </message>
     <message>
         <source>&amp;Welcome</source>
@@ -490,16 +490,12 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
-        <translation>关于qView</translation>
+        <source>About Fovelle</source>
+        <translation>关于Fovelle</translation>
     </message>
     <message>
         <source>Check for Updates</source>
         <translation>检查更新</translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
-        <translation>非官方分支（jdpurcell）</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -510,8 +506,8 @@ No write permission or file is read-only.</source>
         <translation>未指定版本</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
-        <translation>基于 Qt %1 (%2) 构建&lt;br&gt;采用 GNU GPLv3 许可&lt;br&gt;官方 qView 的衍生版本：&lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;网站&lt;/a&gt;，&lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;图标由 Noun Project 的 Guilhem 设计&lt;br&gt;版权所有 © %3 jurplel、jdpurcell 和 qView 贡献者</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
     </message>
 </context>
 <context>
@@ -896,8 +892,8 @@ No write permission or file is read-only.</source>
         <translation> 毫秒</translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>控制qView是否在到达文件夹末尾后返回到第一个项目</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>控制Fovelle是否在到达文件夹末尾后返回到第一个项目</translation>
     </message>
     <message>
         <source>&amp;Loop through folders</source>
@@ -945,7 +941,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>启动时更新通知</translation>
     </message>
     <message>
@@ -1073,8 +1069,8 @@ No write permission or file is read-only.</source>
         <translation>需要重新启动</translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
-        <translation>您必须重新启动 qView，所做的更改才能生效。</translation>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
+        <translation>您必须重新启动 Fovelle，所做的更改才能生效。</translation>
     </message>
     <message>
         <source>Window</source>
@@ -1101,8 +1097,8 @@ No write permission or file is read-only.</source>
         <translation>系统语言</translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
-        <translation>您必须重新启动 qView，语言更改才能生效。</translation>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>您必须重新启动 Fovelle，语言更改才能生效。</translation>
     </message>
     <message>
         <source>Move Back</source>
@@ -1322,8 +1318,8 @@ No write permission or file is read-only.</source>
         <translation>启动时更新通知</translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>感谢您下载qView.&lt;br&gt;以下是一些入门提示:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>感谢您下载Fovelle.&lt;br&gt;以下是一些入门提示:</translation>
     </message>
     <message>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
@@ -1548,8 +1544,8 @@ No write permission or file is read-only.</source>
         <translation>收到空 JSON。</translation>
     </message>
     <message>
-        <source>qView Update Available</source>
-        <translation>qView更新可用</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Fovelle更新可用</translation>
     </message>
     <message>
         <source>A newer version is available to download.</source>
@@ -1568,8 +1564,8 @@ No write permission or file is read-only.</source>
         <translation>禁用检查</translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
-        <translation>qView更新检查失败</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Fovelle更新检查失败</translation>
     </message>
     <message>
         <source>Update notifications on startup have been disabled.

@@ -11,25 +11,14 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QFontDatabase>
+#include <QIcon>
 #include <QStyleHints>
 #include <QUrl>
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
-#if defined Q_OS_UNIX && !defined Q_OS_MACOS
-    setDesktopFileName("com.interversehq.qView");
-
-    QIcon appIcon;
-    appIcon.addFile(":/icons/qView-16.png");
-    appIcon.addFile(":/icons/qView-32.png");
-    appIcon.addFile(":/icons/qView-64.png");
-    appIcon.addFile(":/icons/qView-128.png");
-    appIcon.addFile(":/icons/qView-256.png");
-    QApplication::setWindowIcon(appIcon);
-
-    // Add fallback fromTheme icon search
-    QIcon::setFallbackSearchPaths(QIcon::fallbackSearchPaths() << "/usr/share/pixmaps");
-#endif
+    QApplication::setWindowIcon(QIcon(":/icons/Fovelle.png"));
+    setQuitOnLastWindowClosed(true);
 
     // Connections
     connect(this, &QGuiApplication::commitDataRequest, this, &QVApplication::onCommitDataRequest, Qt::DirectConnection);
@@ -40,21 +29,15 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
     settingsUpdated();
 
-    // Check for updates
-    // TODO: move this to after first window show event
+#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
+    // Check for updates after the application identity and settings are ready.
     if (getSettingsManager().getBoolean("updatenotifications"))
         updateChecker.check();
+#endif
 
     showMainMenuIcons = getSettingsManager().getBoolean("mainmenuicons");
     showContextMenuIcons = getSettingsManager().getBoolean("contextmenuicons");
     showSubmenuIcons = getSettingsManager().getBoolean("submenuicons");
-#ifdef Q_OS_WIN
-    // Workaround for ugly menu shadows in windows11 style (QTBUG-133116)
-    useCustomMenuShadow =
-        (QT_VERSION < QT_VERSION_CHECK(6, 11, 0) || QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11) &&
-        style()->objectName().compare("windows11", Qt::CaseInsensitive) == 0;
-#endif
-
     // Ask Qt to show menu icons - the action clone logic decides whether to actually set icons
     setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
@@ -66,11 +49,9 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
     actionManager.loadRecentsList();
 
-#ifdef Q_OS_MACOS
     actionManager.addCloneOfAction(dockMenu, "newwindow");
     actionManager.addCloneOfAction(dockMenu, "open");
     dockMenu->setAsDockMenu();
-#endif
 
     // Build menu bar
     menuBar = actionManager.buildMenuBar();
@@ -79,10 +60,8 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
     });
 
     // Set mac-specific application settings
-#ifdef COCOA_LOADED
     QVCocoaFunctions::setUserDefaults();
     QVCocoaFunctions::registerWillPowerOffObserver();
-#endif
 
     hideIncompatibleActions();
 }
@@ -252,14 +231,12 @@ void QVApplication::checkedUpdates()
 
 void QVApplication::recentsMenuUpdated()
 {
-#ifdef COCOA_LOADED
     QStringList recentsPathList;
     for (const auto &recent : actionManager.getRecentsList())
     {
         recentsPathList << recent.filePath;
     }
     QVCocoaFunctions::setDockRecents(recentsPathList);
-#endif
 }
 
 void QVApplication::addToActiveWindows(MainWindow *window)
@@ -300,10 +277,7 @@ bool QVApplication::foundOnTopWindow() const
 
 void QVApplication::openOptionsDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
-    // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (optionsDialog)
     {
@@ -318,10 +292,7 @@ void QVApplication::openOptionsDialog(QWidget *parent)
 
 void QVApplication::openWelcomeDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
-    // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (welcomeDialog)
     {
@@ -336,10 +307,7 @@ void QVApplication::openWelcomeDialog(QWidget *parent)
 
 void QVApplication::openAboutDialog(QWidget *parent)
 {
-#ifdef Q_OS_MACOS
-    // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
-#endif
 
     if (aboutDialog)
     {
@@ -363,9 +331,7 @@ void QVApplication::settingsUpdated()
     QString disabledFileExtensionsStr = settingsManager.getString("disabledfileextensions");
     disabledFileExtensions = Qv::listToSet(!disabledFileExtensionsStr.isEmpty() ? disabledFileExtensionsStr.split(';') : QStringList());
 
-#ifdef Q_OS_MACOS
-    setQuitOnLastWindowClosed(settingsManager.getBoolean("quitonlastwindow"));
-#endif
+    setQuitOnLastWindowClosed(true);
 
     defineFilterLists();
 }
@@ -392,7 +358,7 @@ void QVApplication::defineFilterLists()
     {
         const auto fileExtension = "." + QString::fromUtf8(byteArray);
 
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
+        // Qt 5.15 seems to have added PDF support for QImageReader, but it is unreliable here.
         if (fileExtension == ".pdf")
             continue;
 
@@ -426,7 +392,7 @@ void QVApplication::defineFilterLists()
     {
         const QString mimeType = QString::fromUtf8(byteArray);
 
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
+        // Qt 5.15 seems to have added PDF support for QImageReader, but it is unreliable here.
         if (mimeType == "application/pdf")
             continue;
 
@@ -481,11 +447,7 @@ bool QVApplication::isMouseEventSynthesized(const QMouseEvent *event)
 
 bool QVApplication::supportsSessionPersistence()
 {
-#ifdef COCOA_LOADED
     return true;
-#else
-    return false;
-#endif
 }
 
 bool QVApplication::tryRestoreLastSession()

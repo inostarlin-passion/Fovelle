@@ -15,7 +15,6 @@ SOURCES += \
     $$PWD/qvimageloader.cpp \
     $$PWD/qvmovie.cpp \
     $$PWD/qvshortcutdialog.cpp \
-    $$PWD/qvwindows11style.cpp \
     $$PWD/actionmanager.cpp \
     $$PWD/axislocker.cpp \
     $$PWD/logicalpixelfitter.cpp \
@@ -25,9 +24,7 @@ SOURCES += \
     $$PWD/simplefonticonengine.cpp \
     $$PWD/updatechecker.cpp
 
-macx:!CONFIG(NO_COCOA):SOURCES += $$PWD/qvcocoafunctions.mm
-win32:!CONFIG(NO_WIN32):SOURCES += $$PWD/qvwin32functions.cpp
-linux:!CONFIG(NO_X11):SOURCES += $$PWD/qvlinuxx11functions.cpp
+macx:SOURCES += $$PWD/qvcocoafunctions.mm
 
 HEADERS += \
     $$PWD/mainwindow.h \
@@ -46,7 +43,6 @@ HEADERS += \
     $$PWD/qvimageloader.h \
     $$PWD/qvmovie.h \
     $$PWD/qvshortcutdialog.h \
-    $$PWD/qvwindows11style.h \
     $$PWD/actionmanager.h \
     $$PWD/axislocker.h \
     $$PWD/logicalpixelfitter.h \
@@ -56,13 +52,10 @@ HEADERS += \
     $$PWD/simplefonticonengine.h \
     $$PWD/updatechecker.h
 
-macx:!CONFIG(NO_COCOA):HEADERS += $$PWD/qvcocoafunctions.h
-win32:!CONFIG(NO_WIN32):HEADERS += $$PWD/qvwin32functions.h
-linux:!CONFIG(NO_X11):HEADERS += $$PWD/qvlinuxx11functions.h
+macx:HEADERS += $$PWD/qvcocoafunctions.h
 
 FORMS += \
     $$PWD/mainwindow.ui \
-    $$PWD/qvopenwithdialog.ui \
     $$PWD/qvoptionsdialog.ui \
     $$PWD/qvaboutdialog.ui \
     $$PWD/qvwelcomedialog.ui \

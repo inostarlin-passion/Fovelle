@@ -47,24 +47,12 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     populateComboBoxes();
     populateLanguages();
 
-    // Platform specific behaviors
-#ifdef Q_OS_MACOS
     restoreGeometry(settings.value("optionsgeometry").toByteArray());
 
     if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13))
         setWindowTitle(tr("Preferences"));
-#else
-    setWindowModality(Qt::WindowModal);
-#endif
 
-    // Platform specific settings
-#ifdef Q_OS_MACOS
     ui->menubarCheckbox->hide();
-#else
-    ui->reuseWindowCheckbox->hide();
-    ui->darkTitlebarCheckbox->hide();
-    ui->quitOnLastWindowCheckbox->hide();
-#endif
 
     if (!QVApplication::supportsSessionPersistence())
         ui->persistSessionCheckbox->hide();
@@ -102,15 +90,12 @@ void QVOptionsDialog::done(int r)
 
 void QVOptionsDialog::showEvent(QShowEvent *event)
 {
-#ifdef Q_OS_MACOS
     // On macOS, we don't make this dialog modal, so make sure it doesn't get covered by on top windows
     const auto updateWindowOnTop = [this]() {
         windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     };
     updateWindowOnTop();
     connect(qvApp, &QVApplication::windowOnTopChanged, this, updateWindowOnTop);
-#endif
-
     QDialog::showEvent(event);
 }
 
@@ -188,8 +173,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncSpinBox(ui->maxWindowResizeSpinBox, "maxwindowresizedpercentage", defaults, makeConnections);
     // titlebaralwaysdark
     syncCheckbox(ui->darkTitlebarCheckbox, "titlebaralwaysdark", defaults, makeConnections);
-    // quitonlastwindow
-    syncCheckbox(ui->quitOnLastWindowCheckbox, "quitonlastwindow", defaults, makeConnections);
     // menubarenabled
     syncCheckbox(ui->menubarCheckbox, "menubarenabled", defaults, makeConnections);
     // fullscreendetails
@@ -558,7 +541,7 @@ void QVOptionsDialog::restartNotifyForCheckbox(const QString &key, const Qt::Che
 {
     const bool savedValue = qvApp->getSettingsManager().getBoolean(key);
     if (static_cast<bool>(state) != savedValue)
-        QMessageBox::information(this, tr("Restart Required"), tr("You must restart qView for the setting change to take effect."));
+        QMessageBox::information(this, tr("Restart Required"), tr("You must restart Fovelle for the setting change to take effect."));
 }
 
 void QVOptionsDialog::titlebarComboBoxCurrentIndexChanged(int index)
@@ -658,7 +641,7 @@ void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
     Q_UNUSED(index)
     if (!isInitialLoad && !languageRestartMessageShown)
     {
-        QMessageBox::information(this, tr("Restart Required"), tr("You must restart qView for the language change to take effect."));
+        QMessageBox::information(this, tr("Restart Required"), tr("You must restart Fovelle for the language change to take effect."));
         languageRestartMessageShown = true;
     }
 }

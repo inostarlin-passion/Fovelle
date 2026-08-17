@@ -17,7 +17,6 @@ set(FOVELLE_TEST_SOURCES
     ../src/qvimageloader.cpp
     ../src/qvmovie.cpp
     ../src/qvshortcutdialog.cpp
-    ../src/qvwindows11style.cpp
     ../src/actionmanager.cpp
     ../src/axislocker.cpp
     ../src/logicalpixelfitter.cpp
@@ -46,7 +45,6 @@ set(FOVELLE_TEST_HEADERS
     ../src/qvimageloader.h
     ../src/qvmovie.h
     ../src/qvshortcutdialog.h
-    ../src/qvwindows11style.h
     ../src/actionmanager.h
     ../src/axislocker.h
     ../src/logicalpixelfitter.h
@@ -60,7 +58,6 @@ set(FOVELLE_TEST_HEADERS
 
 set(FOVELLE_TEST_FORMS
     ../src/mainwindow.ui
-    ../src/qvopenwithdialog.ui
     ../src/qvoptionsdialog.ui
     ../src/qvaboutdialog.ui
     ../src/qvwelcomedialog.ui
@@ -86,7 +83,6 @@ target_link_libraries(fovelle_tests PRIVATE
     "-framework Cocoa"
 )
 target_compile_definitions(fovelle_tests PRIVATE
-    COCOA_LOADED
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
     QT_DEPRECATED_WARNINGS

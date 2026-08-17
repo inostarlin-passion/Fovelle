@@ -4,9 +4,7 @@
 
 AxisLocker::AxisLocker()
 {
-#ifdef Q_OS_MACOS
     autoResetDuration = 125;
-#endif
 }
 
 QPoint AxisLocker::filterMovement(const QPoint delta, const Qt::ScrollPhase phase, const bool isUniAxis)

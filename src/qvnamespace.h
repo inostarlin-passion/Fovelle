@@ -191,7 +191,7 @@ namespace Qv
         Sort = 0xE164,
         Start = 0xE089,
         SwapHoriz = 0xE8D4,
-        SwapVert = 0xE0C3, // Should be 0xE8D5 but renders wrong on Windows; using identical looking one instead
+        SwapVert = 0xE0C3, // Should be 0xE8D5 but renders incorrectly in this font
         Tune = 0xE429,
         VerticalAlignTop = 0xE25A,
         Visibility = 0xE8F4,

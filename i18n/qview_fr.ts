@@ -298,9 +298,9 @@
         <translation>À propos</translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>À propos de qView</translation>
+        <translation>À propos de Fovelle</translation>
     </message>
     <message>
         <source>&amp;Welcome</source>
@@ -491,16 +491,12 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
-        <translation>À propos de qView</translation>
+        <source>About Fovelle</source>
+        <translation>À propos de Fovelle</translation>
     </message>
     <message>
         <source>Check for Updates</source>
         <translation>Vérifier les mises à jour</translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
-        <translation>Fork non officiel (jdpurcell)</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -511,8 +507,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>Version non spécifiée</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
-        <translation>Construit avec Qt %1 (%2)&lt;br&gt;Licencié sous la GNU GPLv3&lt;br&gt;Dérivé de qView officiel : &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Site web&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icône créée par Guilhem du Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell et les contributeurs de qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
     </message>
 </context>
 <context>
@@ -897,8 +893,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation> ms</translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Contrôle si qView doit ou non revenir au premier élément après avoir atteint la fin d&apos;un dossier</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Contrôle si Fovelle doit ou non revenir au premier élément après avoir atteint la fin d&apos;un dossier</translation>
     </message>
     <message>
         <source>&amp;Loop through folders</source>
@@ -946,7 +942,7 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Afficher les notifications de mise à jour au démarrage</translation>
     </message>
     <message>
@@ -1074,8 +1070,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>Redémarrage requis</translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
-        <translation>Vous devez redémarrer qView pour que le changement de paramètre prenne effet.</translation>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
+        <translation>Vous devez redémarrer Fovelle pour que le changement de paramètre prenne effet.</translation>
     </message>
     <message>
         <source>Window</source>
@@ -1102,8 +1098,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>Langue du système</translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
-        <translation>Vous devez redémarrer qView pour que le changement de langue prenne effet.</translation>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>Vous devez redémarrer Fovelle pour que le changement de langue prenne effet.</translation>
     </message>
     <message>
         <source>Move Back</source>
@@ -1323,8 +1319,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>Activer les notifications de mise à jour au démarrage</translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Merci d&apos;avoir téléchargé qView.&lt;br&gt;Voici quelques conseils pour vous aider à démarrer :</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Merci d&apos;avoir téléchargé Fovelle.&lt;br&gt;Voici quelques conseils pour vous aider à démarrer :</translation>
     </message>
     <message>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
@@ -1549,8 +1545,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>JSON nul reçu.</translation>
     </message>
     <message>
-        <source>qView Update Available</source>
-        <translation>Mise à jour qView disponible</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Mise à jour Fovelle disponible</translation>
     </message>
     <message>
         <source>A newer version is available to download.</source>
@@ -1569,8 +1565,8 @@ Pas d&apos;autorisation d&apos;écriture ou le fichier est en lecture seule.</tr
         <translation>Désactiver la vérification</translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
-        <translation>Vérification de la mise à jour qView désactivée</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Vérification de la mise à jour Fovelle désactivée</translation>
     </message>
     <message>
         <source>Update notifications on startup have been disabled.

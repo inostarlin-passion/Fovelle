@@ -3,12 +3,6 @@
 $qtVersion = [version](qmake -query QT_VERSION)
 Write-Host "Detected Qt version $qtVersion"
 
-$osName =
-    $IsWindows ? 'Windows' :
-    $IsMacOS ? 'macOS' :
-    $IsLinux ? 'Linux' :
-    $null
-
 if (-not $IsMacOS) {
     throw "Fovelle supports macOS only."
 }
@@ -18,7 +12,7 @@ $binaryBaseUrl = "https://github.com/jdpurcell/kimageformats-binaries/releases/d
 $pluginNames = @('QtApng', 'KImageFormats')
 
 foreach ($pluginName in $pluginNames) {
-    $artifactName = "$pluginName-$osName-$qtVersion-$env:buildArch.zip"
+    $artifactName = "$pluginName-macOS-$qtVersion-$env:buildArch.zip"
     $downloadUrl = "$binaryBaseUrl/$artifactName"
 
     Write-Host "Downloading $downloadUrl"

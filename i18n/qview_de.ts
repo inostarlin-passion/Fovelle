@@ -298,9 +298,9 @@
         <translation>Über</translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>Über qView</translation>
+        <translation>Über Fovelle</translation>
     </message>
     <message>
         <source>&amp;Welcome</source>
@@ -491,16 +491,12 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
-        <translation>Über qView</translation>
+        <source>About Fovelle</source>
+        <translation>Über Fovelle</translation>
     </message>
     <message>
         <source>Check for Updates</source>
         <translation>Nach Aktualisierungen suchen</translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
-        <translation>Inoffizieller Fork (jdpurcell)</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -511,8 +507,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Unspezifizierte Version</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
-        <translation>Erstellt mit Qt %1 (%2)&lt;br&gt;Lizenziert unter der GNU GPLv3&lt;br&gt;Ableitung der offiziellen qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Programmsymbol erstellt von Guilhem vom Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell und zu qView Beitragende</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
     </message>
 </context>
 <context>
@@ -897,8 +893,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation> ms</translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>Legt fest, ob qView zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Legt fest, ob Fovelle zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
     </message>
     <message>
         <source>&amp;Loop through folders</source>
@@ -946,7 +942,7 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Benachrichtige über Aktualisierungen beim Programmstart</translation>
     </message>
     <message>
@@ -1074,8 +1070,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Neustart erforderlich</translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
-        <translation>Du musst qView neu starten, damit die geänderte Einstellung wirksam wird.</translation>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
+        <translation>Du musst Fovelle neu starten, damit die geänderte Einstellung wirksam wird.</translation>
     </message>
     <message>
         <source>Window</source>
@@ -1102,8 +1098,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Systemsprache</translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
-        <translation>Du musst qView neu starten, damit die geänderte Sprache wirksam wird.</translation>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>Du musst Fovelle neu starten, damit die geänderte Sprache wirksam wird.</translation>
     </message>
     <message>
         <source>Move Back</source>
@@ -1323,8 +1319,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Benachrichtigungen über verfügbare Aktualisierungen beim Programmstart zulassen</translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Danke, dass du qView heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Danke, dass du Fovelle heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
     </message>
     <message>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
@@ -1549,8 +1545,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Null JSON empfangen.</translation>
     </message>
     <message>
-        <source>qView Update Available</source>
-        <translation>Aktualisierung für qView verfügbar</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Aktualisierung für Fovelle verfügbar</translation>
     </message>
     <message>
         <source>A newer version is available to download.</source>
@@ -1569,8 +1565,8 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
         <translation>Prüfung deaktivieren</translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
-        <translation>Prüfe nicht auf qView-Aktualisierungen</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Prüfe nicht auf Fovelle-Aktualisierungen</translation>
     </message>
     <message>
         <source>Update notifications on startup have been disabled.

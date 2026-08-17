@@ -470,12 +470,8 @@ void QVGraphicsView::startDragAction(const Qv::ViewportDragAction action)
         // Let the window manager handle the move if possible to get window snapping support etc.
         if (pressedMouseButton == Qt::LeftButton && !window()->windowState().testFlag(Qt::WindowFullScreen))
         {
-#ifdef COCOA_LOADED
             // Avoid QWindow::startSystemMove due to QTBUG-141220
             isSystemWindowDragActive = QVCocoaFunctions::startWindowDrag(window()->windowHandle());
-#else
-            isSystemWindowDragActive = window()->windowHandle()->startSystemMove();
-#endif
         }
     }
 }
@@ -500,10 +496,6 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
     else if (action == Qv::ViewportDragAction::MoveWindow)
     {
         const auto windowState = window()->windowState();
-#ifndef Q_OS_MACOS
-        if (windowState.testFlag(Qt::WindowMaximized))
-            window()->showNormal();
-#endif
         if (isSystemWindowDragActive || windowState.testFlag(Qt::WindowFullScreen))
             return;
         window()->move(window()->pos() + delta);

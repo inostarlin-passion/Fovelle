@@ -537,7 +537,7 @@ Nessun permesso di scrittura o il file è di sola lettura.</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

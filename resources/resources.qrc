@@ -1,4 +1,7 @@
 <RCC>
+    <qresource prefix="/icons">
+        <file>Fovelle.png</file>
+    </qresource>
     <qresource prefix="/fonts">
         <file>Lato-Light.ttf</file>
         <file>Lato-Regular.ttf</file>

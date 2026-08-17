@@ -1,8 +1,6 @@
 #include "qvimagecore.h"
 #include "qvapplication.h"
-#include "qvwin32functions.h"
 #include "qvcocoafunctions.h"
-#include "qvlinuxx11functions.h"
 #include <cstring>
 #include <QMessageBox>
 #include <QDir>
@@ -82,12 +80,6 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     QUrl fileUrl = QUrl(adjustedFileName);
     if (fileUrl.isLocalFile())
         adjustedFileName = fileUrl.toLocalFile();
-
-#ifdef WIN32_LOADED
-    QString longFileName = QVWin32Functions::getLongPath(QDir::toNativeSeparators(QFileInfo(adjustedFileName).absoluteFilePath()));
-    if (!longFileName.isEmpty())
-        adjustedFileName = longFileName;
-#endif
 
     QFileInfo fileInfo(adjustedFileName);
     QString absolutePath = fileInfo.absoluteFilePath();
@@ -402,16 +394,7 @@ QColorSpace QVImageCore::detectDisplayColorSpace() const
 {
     QWindow *window = static_cast<QWidget*>(parent())->window()->windowHandle();
 
-    QByteArray profileData;
-#ifdef WIN32_LOADED
-    profileData = QVWin32Functions::getIccProfileForWindow(window);
-#endif
-#ifdef COCOA_LOADED
-    profileData = QVCocoaFunctions::getIccProfileForWindow(window);
-#endif
-#ifdef X11_LOADED
-    profileData = QVLinuxX11Functions::getIccProfileForWindow(window);
-#endif
+    const QByteArray profileData = QVCocoaFunctions::getIccProfileForWindow(window);
 
     if (!profileData.isEmpty())
     {

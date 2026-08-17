@@ -29,11 +29,8 @@ void QVInfoDialog::setInfo(const QFileInfo fileInfo, const QSize imageSize, cons
     this->imageSize = imageSize;
     this->frameCount = frameCount;
 
-    // If the dialog is visible, it means we've just navigated to a new image. Instead of running
-    // updateInfo immediately, add it to the event queue. This is a workaround for a (Windows-specific?)
-    // delay when calling adjustSize on the window if the font contains certain characters (e.g. Chinese)
-    // the first time that happens for a given font. At least on Windows, by making the work happen later
-    // in the event loop, it allows the main window to repaint first, giving the appearance of better
+    // If the dialog is visible, defer updateInfo through the event queue so the font is ready before
+    // first use and the main window can repaint first, giving the appearance of better
     // responsiveness. If the dialog is not visible, however, it means we're preparing to display for an
     // image already opened. In this case there is no urgency to repaint the main window, and we need to
     // process the updates here synchronously to avoid the caller showing the dialog before it's ready

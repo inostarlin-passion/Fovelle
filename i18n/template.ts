@@ -298,7 +298,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
         <translation type="unfinished"></translation>
     </message>
@@ -487,15 +487,11 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
+        <source>About Fovelle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Check for Updates</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -507,7 +503,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -886,7 +882,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -935,7 +931,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1063,7 +1059,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1091,7 +1087,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
+        <source>You must restart Fovelle for the language change to take effect.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1310,7 +1306,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1536,7 +1532,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>qView Update Available</source>
+        <source>Fovelle Update Available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1556,7 +1552,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
+        <source>Fovelle Update Checking Disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

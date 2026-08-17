@@ -162,14 +162,11 @@ void SettingsManager::migrateOldSettings()
 
 void SettingsManager::copyFromOfficial()
 {
+    // Migrate settings from the legacy qView organization once; runtime identity is Fovelle.
     const QSet<QString> keysToSkip = []()
     {
-#ifdef Q_OS_MACOS
         QList<QString> systemDefaultKeys = QSettings{"qView", "NonExistent"}.allKeys();
         return QSet<QString>{systemDefaultKeys.begin(), systemDefaultKeys.end()};
-#else
-        return QSet<QString>();
-#endif
     }();
     QSettings src{"qView", "qView"};
     QSettings dst{};
@@ -194,16 +191,10 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("minwindowresizedpercentage", {20, {}});
     settingsLibrary.insert("maxwindowresizedpercentage", {70, {}});
     settingsLibrary.insert("titlebaralwaysdark", {false, {}});
-    settingsLibrary.insert("quitonlastwindow", {false, {}});
     settingsLibrary.insert("menubarenabled", {false, {}});
     settingsLibrary.insert("fullscreendetails", {false, {}});
-#if defined Q_OS_MACOS && QT_VERSION < QT_VERSION_CHECK(6, 8, 0)
-    settingsLibrary.insert("mainmenuicons", {false, {}});
-    settingsLibrary.insert("contextmenuicons", {false, {}});
-#else
     settingsLibrary.insert("mainmenuicons", {true, {}});
     settingsLibrary.insert("contextmenuicons", {true, {}});
-#endif
     settingsLibrary.insert("submenuicons", {true, {}});
     settingsLibrary.insert("slideshowkeepswindowontop", {false, {}});
     settingsLibrary.insert("reusewindow", {false, {}});
@@ -216,12 +207,8 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("scalefactor", {25, {}});
     settingsLibrary.insert("cursorzoom", {true, {}});
     settingsLibrary.insert("navresetszoom", {true, {}});
-#ifdef Q_OS_MACOS
     // Usually not desired due to the way macOS does DPI scaling
     settingsLibrary.insert("onetoonepixelsizing", {false, {}});
-#else
-    settingsLibrary.insert("onetoonepixelsizing", {true, {}});
-#endif
     settingsLibrary.insert("calculatedzoommode", {static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit), {}});
     settingsLibrary.insert("fitzoomlimitenabled", {false, {}});
     settingsLibrary.insert("fitzoomlimitpercent", {100, {}});
@@ -263,12 +250,8 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("viewporthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Navigate), {}});
     settingsLibrary.insert("viewportaltverticalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
     settingsLibrary.insert("viewportalthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
-#ifdef Q_OS_MACOS
     // Works best with touchpads that accurately report ScrollPhase (macOS only currently)
     settingsLibrary.insert("scrollactioncooldown", {true, {}});
-#else
-    settingsLibrary.insert("scrollactioncooldown", {false, {}});
-#endif
     settingsLibrary.insert("cursorautohidefullscreenenabled", {true, {}});
     settingsLibrary.insert("cursorautohidefullscreendelay", {2, {}});
 }

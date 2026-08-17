@@ -9,7 +9,7 @@
 	<key>CFBundleGetInfoString</key>
 	<string>${QMAKE_SHORT_VERSION}</string>
 	<key>CFBundleIconFile</key>
-	<string>${ASSETCATALOG_COMPILER_APPICON_NAME}</string>
+	<string>qView.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.inostarlin-passion.Fovelle</string>
 	<key>CFBundlePackageType</key>
@@ -20,6 +20,10 @@
 	<string>NSApplication</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2018–2025 jurplel and qView contributors; Fovelle modifications © 2026 Fovelle contributors</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

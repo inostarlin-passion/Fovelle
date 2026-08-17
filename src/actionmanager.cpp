@@ -6,7 +6,6 @@
 
 #include <QSettings>
 #include <QActionGroup>
-#include <QMimeDatabase>
 #include <QFileIconProvider>
 #include <QKeyEvent>
 
@@ -25,10 +24,8 @@ ActionManager::ActionManager(QObject *parent) : QObject(parent)
 
     loadRecentsList();
 
-#ifdef COCOA_LOADED
     windowMenu = new QMenu(tr("Window"));
     QVCocoaFunctions::setWindowMenu(windowMenu);
-#endif
 }
 
 ActionManager::~ActionManager()
@@ -188,27 +185,19 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     // Beginning of file menu
     auto *fileMenu = new QVMenu(tr("&File"), menuBar);
 
-#ifdef Q_OS_MACOS
     addCloneOfAction(fileMenu, "newwindow");
-#endif
     addCloneOfAction(fileMenu, "open");
     addCloneOfAction(fileMenu, "openurl");
     fileMenu->addMenu(buildRecentsMenu(fileMenu));
     addCloneOfAction(fileMenu, "reloadfile");
     fileMenu->addSeparator();
-#ifdef Q_OS_MACOS
     fileMenu->addSeparator();
     addCloneOfAction(fileMenu, "closewindow");
     addCloneOfAction(fileMenu, "closeallwindows");
-#endif
-#ifdef COCOA_LOADED
     QVCocoaFunctions::setAlternate(fileMenu, fileMenu->actions().length()-1);
-#endif
     fileMenu->addSeparator();
     fileMenu->addMenu(buildOpenWithMenu(fileMenu));
-#ifdef Q_OS_MACOS
     addCloneOfAction(fileMenu, "openwithplaceholder");
-#endif
     addCloneOfAction(fileMenu, "opencontainingfolder");
     addCloneOfAction(fileMenu, "showfileinfo");
     fileMenu->addSeparator();
@@ -228,9 +217,7 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     editMenu->addSeparator();
     addCloneOfAction(editMenu, "delete");
     addCloneOfAction(editMenu, "deletepermanent");
-#ifdef COCOA_LOADED
     QVCocoaFunctions::setAlternate(editMenu, editMenu->actions().length()-1);
-#endif
 
     menuBar->addMenu(editMenu);
     // End of edit menu
@@ -256,9 +243,7 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     // End of tools menu
 
     // Beginning of window menu
-#ifdef COCOA_LOADED
     menuBar->addMenu(windowMenu);
-#endif
     // End of window menu
 
     // Beginning of help menu
@@ -491,23 +476,13 @@ void ActionManager::updateRecentsMenu()
                 if (!qvApp->getShowSubmenuIcons())
                     continue;
 
-#if defined Q_OS_UNIX && !defined Q_OS_MACOS
-                // set icons for linux users
-                QMimeDatabase mimedb;
-                QMimeType type = mimedb.mimeTypeForFile(recent.filePath);
-                action->setIcon(QIcon::fromTheme(type.iconName(), QIcon::fromTheme(type.genericIconName())));
-#else
-                // set icons for mac/windows users
                 QFileInfo fileInfo(recent.filePath);
                 QFileIconProvider provider;
                 QIcon icon = provider.icon(fileInfo);
-#ifdef Q_OS_MACOS
                 // Workaround for native menu slowness
                 if (!fileInfo.suffix().isEmpty())
                     icon = getCacheableIcon("filetype:" + fileInfo.suffix(), icon);
-#endif
                 action->setIcon(icon);
-#endif
                 action->setIconVisibleInMenu(true);
             }
             else
@@ -613,10 +588,7 @@ void ActionManager::actionTriggered(QAction *triggeredAction)
     auto key = triggeredAction->data().toStringList().first();
 
     // For some actions, do not look for a relevant window
-    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open"};
-#ifdef Q_OS_MACOS
-    windowlessActions << "about" << "welcome" << "options";
-#endif
+    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "welcome", "options"};
     for (const auto &actionName : std::as_const(windowlessActions))
     {
         if (key == actionName)
@@ -775,10 +747,6 @@ void ActionManager::initializeActionLibrary()
     auto *quitAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Logout), tr("&Quit"));
     quitAction->setMenuRole(QAction::QuitRole);
     actionLibrary.insert("quit", quitAction);
-#ifdef Q_OS_WIN
-    //: The quit action is called "Exit" on windows
-    quitAction->setText(tr("Exit"));
-#endif
 
     auto *newWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::WebAsset), tr("New Window"));
     actionLibrary.insert("newwindow", newWindowAction);
@@ -801,13 +769,7 @@ void ActionManager::initializeActionLibrary()
     actionLibrary.insert("closeallwindows", closeAllWindowsAction);
 
     auto *openContainingFolderAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FolderOpen), tr("Open Containing &Folder"));
-#ifdef Q_OS_WIN
-    //: Open containing folder on windows
-    openContainingFolderAction->setText(tr("Show in E&xplorer"));
-#elif defined Q_OS_MACOS
-    //: Open containing folder on macOS
     openContainingFolderAction->setText(tr("Show in &Finder"));
-#endif
     openContainingFolderAction->setData({"disable"});
     actionLibrary.insert("opencontainingfolder", openContainingFolderAction);
 
@@ -816,9 +778,6 @@ void ActionManager::initializeActionLibrary()
     actionLibrary.insert("showfileinfo", showFileInfoAction);
 
     auto *deleteAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Delete), tr("&Move to Trash"));
-#ifdef Q_OS_WIN
-    deleteAction->setText(tr("&Delete"));
-#endif
     deleteAction->setData({"disable"});
     actionLibrary.insert("delete", deleteAction);
 
@@ -827,9 +786,6 @@ void ActionManager::initializeActionLibrary()
     actionLibrary.insert("deletepermanent", deletePermanentAction);
 
     auto *undoAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RestoreFromTrash), tr("&Restore from Trash"));
-#ifdef Q_OS_WIN
-    undoAction->setText(tr("&Undo Delete"));
-#endif
     undoAction->setData({"undodisable"});
     actionLibrary.insert("undo", undoAction);
 
@@ -965,24 +921,18 @@ void ActionManager::initializeActionLibrary()
     slideshowAction->setData({"disable"});
     actionLibrary.insert("slideshow", slideshowAction);
 
-    //: This is for the options dialog on windows
     auto *optionsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Settings), tr("&Settings"));
-#ifdef Q_OS_MACOS
     if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
         //: This is for the options dialog on older mac versions
         optionsAction->setText(tr("Preference&s..."));
     } else {
         optionsAction->setText(tr("Setting&s..."));
     }
-#endif
     optionsAction->setMenuRole(QAction::PreferencesRole);
     actionLibrary.insert("options", optionsAction);
 
     auto *aboutAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Info), tr("&About"));
-#ifdef Q_OS_MACOS
-    //: This is for the about dialog on mac
-    aboutAction->setText(tr("&About qView"));
-#endif
+    aboutAction->setText(tr("&About Fovelle"));
     aboutAction->setMenuRole(QAction::AboutRole);
     actionLibrary.insert("about", aboutAction);
 
@@ -993,24 +943,15 @@ void ActionManager::initializeActionLibrary()
     auto *clearRecentsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::PlaylistRemove), tr("Clear &Menu"));
     actionLibrary.insert("clearrecents", clearRecentsAction);
 
-    //: Open with other program for unix non-mac
     auto *openWithOtherAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Other Application..."));
-#ifdef Q_OS_WIN
-    //: Open with other program for windows
-    openWithOtherAction->setText(tr("Choose another app"));
-#elif defined Q_OS_MACOS
-    //: Open with other program for macos
     openWithOtherAction->setText(tr("Other..."));
-#endif
     actionLibrary.insert("openwithother", openWithOtherAction);
 
-#ifdef Q_OS_MACOS
     // Qt's QCocoaMenu doesn't support disabling submenus (probably a bug) so we'll just use
     // a disabled menu item as a placeholder and swap it out with the real submenu later
     auto *openWithPlaceholderAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Open With"));
     openWithPlaceholderAction->setEnabled(false);
     actionLibrary.insert("openwithplaceholder", openWithPlaceholderAction);
-#endif
 
     // Set data values and disable actions
     const auto keys = actionLibrary.keys();

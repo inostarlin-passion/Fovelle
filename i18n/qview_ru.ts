@@ -298,9 +298,9 @@
         <translation>О программе</translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>О программе qView</translation>
+        <translation>О программе Fovelle</translation>
     </message>
     <message>
         <source>&amp;Welcome</source>
@@ -491,16 +491,12 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
-        <translation>О программе qView</translation>
+        <source>About Fovelle</source>
+        <translation>О программе Fovelle</translation>
     </message>
     <message>
         <source>Check for Updates</source>
         <translation>Проверить обновления</translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
-        <translation>Неофициальный форк (jdpurcell)</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -511,8 +507,8 @@ No write permission or file is read-only.</source>
         <translation>Неуказанная версия</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
-        <translation>Создано с Qt %1 (%2)&lt;br&gt;Лицензировано под GNU GPLv3&lt;br&gt;Производная от официального qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Сайт&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Значок создан Guilhem из Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell и участники qView</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
     </message>
 </context>
 <context>
@@ -897,7 +893,7 @@ No write permission or file is read-only.</source>
         <translation> мс</translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
         <translation>Возврат к первому элементу при достижения конца папки</translation>
     </message>
     <message>
@@ -946,7 +942,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>Сообщать о новой версии при запуске</translation>
     </message>
     <message>
@@ -1074,8 +1070,8 @@ No write permission or file is read-only.</source>
         <translation>Требуется перезапуск</translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
-        <translation>Перезапустите qView, чтобы изменения вступили в силу.</translation>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
+        <translation>Перезапустите Fovelle, чтобы изменения вступили в силу.</translation>
     </message>
     <message>
         <source>Window</source>
@@ -1102,8 +1098,8 @@ No write permission or file is read-only.</source>
         <translation>Как в системе</translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
-        <translation>Перезапустите qView, чтобы изменение языка вступило в силу.</translation>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>Перезапустите Fovelle, чтобы изменение языка вступило в силу.</translation>
     </message>
     <message>
         <source>Move Back</source>
@@ -1323,8 +1319,8 @@ No write permission or file is read-only.</source>
         <translation>Включить уведомления об обновлении при запуске</translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Благодарим за загрузку qView.&lt;br&gt;Вот несколько советов, которые помогут начать работу:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Благодарим за загрузку Fovelle.&lt;br&gt;Вот несколько советов, которые помогут начать работу:</translation>
     </message>
     <message>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
@@ -1549,8 +1545,8 @@ No write permission or file is read-only.</source>
         <translation>Получен пустой JSON.</translation>
     </message>
     <message>
-        <source>qView Update Available</source>
-        <translation>Доступно обновление qView</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Доступно обновление Fovelle</translation>
     </message>
     <message>
         <source>A newer version is available to download.</source>
@@ -1569,8 +1565,8 @@ No write permission or file is read-only.</source>
         <translation>Отключить проверку</translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
-        <translation>Проверка обновлений qView отключена</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Проверка обновлений Fovelle отключена</translation>
     </message>
     <message>
         <source>Update notifications on startup have been disabled.

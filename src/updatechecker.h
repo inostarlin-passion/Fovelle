@@ -51,8 +51,8 @@ protected:
     static bool isVersionConsideredUpdate(QString tagName);
 
 private:
-    const QString API_BASE_URL = "https://api.github.com/repos/jdpurcell/qView/releases";
-    const QString DOWNLOAD_URL = "https://github.com/jdpurcell/qView/releases";
+    const QString API_BASE_URL = "https://api.github.com/repos/inostarlin-passion/Fovelle/releases";
+    const QString DOWNLOAD_URL = "https://github.com/inostarlin-passion/Fovelle/releases";
     // Auto-check happens only at startup (if enabled); this is to rate limit across launches
     const int AUTO_CHECK_INTERVAL_HOURS = 4;
 

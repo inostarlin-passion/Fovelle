@@ -2,7 +2,6 @@
 #include "ui_mainwindow.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
-#include "qvwin32functions.h"
 #include "qvrenamedialog.h"
 #include "qvmenu.h"
 #include "qvmovie.h"
@@ -69,11 +68,9 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_OpaquePaintEvent);
 
-#ifdef COCOA_LOADED
     // Allow the titlebar to overlap widgets with full size content view
     setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
     centralWidget()->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
-#endif
 
     sessionStateToLoad = windowSessionState;
     lastActivated.start();
@@ -121,6 +118,8 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     connect(escShortcut, &QShortcut::activated, this, [this](){
         if (windowState().testFlag(Qt::WindowFullScreen))
             toggleFullScreen();
+        else
+            close();
     });
 
     // Enable drag&dropping
@@ -149,9 +148,7 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     actionManager.addCloneOfAction(contextMenu, "openurl");
     contextMenu->addMenu(actionManager.buildRecentsMenu(contextMenu));
     contextMenu->addMenu(actionManager.buildOpenWithMenu(contextMenu));
-#ifdef Q_OS_MACOS
     actionManager.addCloneOfAction(contextMenu, "openwithplaceholder");
-#endif
     actionManager.addCloneOfAction(contextMenu, "opencontainingfolder");
     actionManager.addCloneOfAction(contextMenu, "showfileinfo");
     contextMenu->addSeparator();
@@ -260,23 +257,17 @@ bool MainWindow::event(QEvent *event)
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
-#ifdef COCOA_LOADED
     // Workaround to show native context menus on macOS
     QVCocoaFunctions::showMenu(contextMenu, event->pos(), windowHandle());
-#else
-    contextMenu->popup(event->globalPos());
-#endif
 
     QMainWindow::contextMenuEvent(event);
 }
 
 void MainWindow::showEvent(QShowEvent *event)
 {
-#ifdef COCOA_LOADED
     QTimer::singleShot(0, this, [this]() {
         QVCocoaFunctions::setFullSizeContentView(this, true);
     });
-#endif
 
     if (!menuBar()->sizeHint().isEmpty())
     {
@@ -305,9 +296,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     isClosing = true;
 
-#ifdef COCOA_LOADED
     QVCocoaFunctions::setFullSizeContentView(this, false);
-#endif
 
     if (qvApp->getIsSessionStateSaveRequested())
         qvApp->addClosedWindowSessionState(getSessionState(), getLastActivatedTimestamp());
@@ -455,10 +444,8 @@ void MainWindow::settingsUpdated()
     // menubarenabled
     menuBarEnabled = settingsManager.getBoolean("menubarenabled");
 
-#ifdef COCOA_LOADED
     // titlebaralwaysdark
     QVCocoaFunctions::setVibrancy(settingsManager.getBoolean("titlebaralwaysdark"), windowHandle());
-#endif
 
     //slideshow timer
     slideshowTimer->setInterval(static_cast<int>(settingsManager.getDouble("slideshowtimer")*1000));
@@ -473,18 +460,8 @@ void MainWindow::settingsUpdated()
 
 void MainWindow::shortcutsUpdated()
 {
-    // If esc is not used in a shortcut, let it exit fullscreen
+    // Esc always exits fullscreen or closes this window.
     escShortcut->setKey(Qt::Key_Escape);
-
-    const auto &actionLibrary = qvApp->getActionManager().getActionLibrary();
-    for (const auto &action : actionLibrary)
-    {
-        if (action->shortcuts().contains(QKeySequence(Qt::Key_Escape)))
-        {
-            escShortcut->setKey({});
-            break;
-        }
-    }
 }
 
 void MainWindow::openRecent(int i)
@@ -591,18 +568,14 @@ void MainWindow::disableActions()
     for (const auto &menu : openWithMenus)
     {
         menu->setEnabled(getIsPixmapLoaded());
-#ifdef Q_OS_MACOS
         menu->menuAction()->setVisible(getIsPixmapLoaded());
-#endif
     }
 
-#ifdef Q_OS_MACOS
     const auto &openWithPlaceholderActions = qvApp->getActionManager().getAllClonesOfAction("openwithplaceholder", this);
     for (const auto &action : openWithPlaceholderActions)
     {
         action->setVisible(!getIsPixmapLoaded());
     }
-#endif
 }
 
 void MainWindow::requestPopulateOpenWithMenu()
@@ -664,7 +637,7 @@ void MainWindow::refreshProperties()
 
 void MainWindow::buildWindowTitle()
 {
-    QString newString = "qView";
+    QString newString = "Fovelle";
     if (getCurrentFileDetails().fileInfo.isFile())
     {
         const QVImageCore::FileDetails &fileDetails = getCurrentFileDetails();
@@ -690,7 +663,7 @@ void MainWindow::buildWindowTitle()
         case Qv::TitleBarText::Verbose:
         {
             newString = getZoomLevel() + " - " + getImageIndex() + "/" + getImageCount() + " - " + getFileName() + " - " +
-                        getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - qView";
+                        getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - Fovelle";
             break;
         }
         case Qv::TitleBarText::Custom:
@@ -744,15 +717,7 @@ void MainWindow::updateWindowFilePath()
 
 void MainWindow::updateMenuBarVisible()
 {
-    bool alwaysVisible = false;
-    bool hideWhenImmersive = false;
-#ifdef Q_OS_MACOS
-    alwaysVisible = true;
-#else
-    hideWhenImmersive = true;
-#endif
-    const auto isImmersive = [&]() { return getTitlebarHidden() || windowState().testFlag(Qt::WindowFullScreen); };
-    menuBar()->setVisible(alwaysVisible || (menuBarEnabled && !(hideWhenImmersive && isImmersive())));
+    menuBar()->setVisible(true);
 }
 
 void MainWindow::updateTitlebarBubbleText()
@@ -793,11 +758,7 @@ bool MainWindow::getTitlebarHidden() const
     if (!windowHandle())
         return false;
 
-#ifdef COCOA_LOADED
     return QVCocoaFunctions::getTitlebarHidden(this);
-#else
-    return !windowFlags().testFlag(Qt::WindowTitleHint);
-#endif
 }
 
 void MainWindow::setTitlebarHidden(const bool shouldHide)
@@ -809,14 +770,8 @@ void MainWindow::setTitlebarHidden(const bool shouldHide)
         Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) { return (on ? (f | flagsToChange) : (f & ~flagsToChange)) | Qt::CustomizeWindowHint; });
     };
 
-#ifdef COCOA_LOADED
     QVCocoaFunctions::setTitlebarHidden(this, shouldHide);
     customizeWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinMaxButtonsHint | Qt::WindowFullscreenButtonHint, !shouldHide);
-#elif defined WIN32_LOADED
-    customizeWindowFlags(Qt::WindowTitleHint | Qt::WindowMinMaxButtonsHint, !shouldHide);
-#else
-    customizeWindowFlags(Qt::WindowTitleHint, !shouldHide);
-#endif
 
     const auto toggleTitlebarActions = qvApp->getActionManager().getAllClonesOfAction("toggletitlebar", this);
     for (const auto &toggleTitlebarAction : toggleTitlebarActions)
@@ -1107,21 +1062,7 @@ void MainWindow::openContainingFolder()
 
     const QFileInfo selectedFileInfo = getCurrentFileDetails().fileInfo;
 
-#ifdef WIN32_LOADED
-    QString pathToSelect = QDir::toNativeSeparators(selectedFileInfo.absoluteFilePath());
-    if (pathToSelect.length() > 259 && pathToSelect.startsWith(R"(\\)"))
-    {
-        // The Shell API seems to handle long paths, unless they are UNC :(
-        pathToSelect = QVWin32Functions::getShortPath(pathToSelect);
-        if (pathToSelect.isEmpty())
-            return;
-    }
-    QVWin32Functions::showInExplorer(pathToSelect);
-#elif defined Q_OS_MACOS
     QProcess::execute("open", QStringList() << "-R" << selectedFileInfo.absoluteFilePath());
-#else
-    QDesktopServices::openUrl(QUrl::fromLocalFile(selectedFileInfo.absolutePath()));
-#endif
 }
 
 void MainWindow::showFileInfo()
@@ -1156,11 +1097,7 @@ void MainWindow::askDeleteFile(bool permanent)
     }
     else
     {
-#ifdef Q_OS_WIN
-        messageText = tr("Are you sure you want to move %1 to the Recycle Bin?").arg(fileName);
-#else
         messageText = tr("Are you sure you want to move %1 to the Trash?").arg(fileName);
-#endif
     }
 
     auto *msgBox = new QMessageBox(QMessageBox::Question, tr("Delete"), messageText,
@@ -1548,14 +1485,14 @@ void MainWindow::toggleFullScreen()
 
     if (windowState().testFlag(Qt::WindowFullScreen))
     {
+        showNormal();
         setWindowState(storedWindowState);
     }
     else
     {
         storedWindowState = windowState();
 
-        // Restore the titlebar if it was hidden because the window manager might do something special with the
-        // titlebar (e.g. macOS) in fullscreen mode or get confused by the titlebar being hidden (e.g. Windows).
+        // Restore the titlebar before entering fullscreen because macOS may apply special titlebar handling.
         storedTitlebarHidden = getTitlebarHidden();
         if (storedTitlebarHidden)
             setTitlebarHidden(false);
@@ -1581,10 +1518,8 @@ void MainWindow::toggleWindowOnTop()
     for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("windowontop", this))
         action->setChecked(targetValue);
 
-#ifdef COCOA_LOADED
     // Make sure window still participates in Mission Control
     QVCocoaFunctions::setWindowCollectionBehaviorManaged(this);
-#endif
 
     emit qvApp->windowOnTopChanged();
 }
@@ -1599,12 +1534,8 @@ void MainWindow::toggleTitlebarHidden()
 
 int MainWindow::getTitlebarOverlap() const
 {
-#ifdef COCOA_LOADED
     // To account for fullsizecontentview on mac
     return QVCocoaFunctions::getObscuredHeight(window()->windowHandle());
-#endif
-
-    return 0;
 }
 
 MainWindow::ViewportPosition MainWindow::getViewportPosition() const

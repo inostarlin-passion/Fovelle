@@ -14,31 +14,22 @@ QVWelcomeDialog::QVWelcomeDialog(QWidget *parent) :
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint | Qt::CustomizeWindowHint));
 
-    // Application modal on mac, window modal everywhere else
-#ifdef Q_OS_MACOS
+    // Application modal on macOS
     setWindowModality(Qt::ApplicationModal);
-#else
-    setWindowModality(Qt::WindowModal);
-#endif
 
     // add fonts
     qvApp->ensureFontLoaded(":/fonts/Lato-Light.ttf");
     qvApp->ensureFontLoaded(":/fonts/Lato-Regular.ttf");
 
-    int modifier = 0;
+    int modifier = 4;
     //set main title font
-#ifdef Q_OS_MACOS
     const QFont font1 = QFont("Lato", 72, QFont::Light);
-    modifier = 4;
-#else
-    QFont font1 = QFont("Lato", 54, QFont::Light);
-#endif
     ui->logoLabel->setFont(font1);
 
     //set subtitle font & text
     QFont font2 = QFont("Lato", 14 + modifier);
     font2.setStyleName("Regular");
-    const QString subtitleText = tr("Thank you for downloading qView.<br>Here's a few tips to get you started:");
+    const QString subtitleText = tr("Thank you for downloading Fovelle.<br>Here's a few tips to get you started:");
     ui->subtitleLabel->setFont(font2);
     ui->subtitleLabel->setText(subtitleText);
 

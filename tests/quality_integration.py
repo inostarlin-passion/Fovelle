@@ -1,44 +1,28 @@
 #!/usr/bin/env python3
-"""Deterministic integration checks for the Fovelle upstream merge.
+"""Run deterministic integration checks for the Fovelle macOS-only change set.
 
-The checks intentionally use only Git, the built bundle, and repository text.  They
-are suitable for CI and write a machine-readable evidence record for the audit
-reports.
+The checks observe repository text, the generated bundle, the resource files, and
+CTest/qmake results.  They do not mutate source files and write a JSON audit record.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import plistlib
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
-UPSTREAM_HEAD = "1748058632574831516f75e642ef28b7e3cc3e63"
-SELECTED_COMMITS = [
-    "947ee1b99bb8d1b5057fd377a79fcb8d87682ab1",
-    "f083481195192fea2452e4caacee2059f513970a",
-    "19d6a38fdba5bfa9d871752996adbc6a9542ac06",
-    "eebace8be56afd7e85551881cbf58479d1b1bc67",
-    "9285eb514edef90fe88e80db4352d30c85eb94d2",
-    "bded864bd5919a2849b58f10dcd02e6a0db238ce",
-    "fd1b0b76955b1d93429edb00f07c2b5122d1fc8b",
-    "3a1621267bd82d8acbe43469fc843ea06cb92cce",
-    "08cecddf0f478f753614e0cc78fa8b06f6f93473",
-    "a964d84f4ce7df5cf3428db23c2e547f227ab774",
-    "7fcc691a3de78aa05eafeb9f5c1a68908f08fab8",
-    "ee20744c983f999906557e640b6001d57e32cccb",
-]
-
-
 def run(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=repo, text=True, capture_output=True, check=False
-    )
+    return subprocess.run(list(args), cwd=repo, text=True, capture_output=True, check=False)
 
 
-def check(checks: list[dict], identifier: str, passed: bool, actual: str, expected: str) -> None:
+def check(checks: list[dict], identifier: str, passed: bool, actual: object, expected: str) -> None:
     checks.append(
         {
             "id": identifier,
@@ -49,169 +33,264 @@ def check(checks: list[dict], identifier: str, passed: bool, actual: str, expect
     )
 
 
+def sha256(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--build-dir", type=Path, default=None)
-    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--build-dir", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     repo = args.repo.resolve()
-    build_dir = (args.build_dir or repo / "build-quality").resolve()
+    build_dir = args.build_dir.resolve()
     checks: list[dict] = []
 
-    head = run(repo, "rev-parse", "HEAD").stdout.strip()
-    merge_commit = run(repo, "log", "--merges", "-1", "--format=%H").stdout.strip()
-    parents = run(repo, "rev-list", "--parents", "-n", "1", merge_commit).stdout.split()
-    second_parent = parents[2] if len(parents) >= 3 else ""
+    def text(relative: str) -> str:
+        return (repo / relative).read_text(encoding="utf-8")
+
+    head_result = run(repo, "git", "rev-parse", "HEAD")
+    head = head_result.stdout.strip()
+    default_branch_result = run(repo, "git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+    default_branch = default_branch_result.stdout.strip().removeprefix("origin/")
     check(
         checks,
         "I-01",
-        len(parents) == 3 and second_parent == UPSTREAM_HEAD,
-        f"HEAD={head}; merge_commit={merge_commit or '<missing>'}; second_parent={second_parent or '<missing>'}",
-        f"two-parent merge with second parent {UPSTREAM_HEAD}",
+        head_result.returncode == 0 and default_branch == "main",
+        {"head": head, "origin_default_branch": default_branch or "<unknown>"},
+        "the repository is readable and origin's default branch is main",
     )
 
-    reachable = []
-    for commit in SELECTED_COMMITS:
-        object_type = run(repo, "cat-file", "-t", commit).stdout.strip()
-        ancestry = run(repo, "merge-base", "--is-ancestor", commit, "HEAD").returncode == 0
-        reachable.append({"commit": commit, "object_type": object_type, "ancestor_of_head": ancestry})
+    cmake = text("CMakeLists.txt")
+    qmake = text("qView.pro")
     check(
         checks,
         "I-02",
-        all(item["object_type"] == "commit" and item["ancestor_of_head"] for item in reachable),
-        json.dumps(reachable, sort_keys=True),
-        "all 12 workbook commit IDs are commits reachable from HEAD",
+        all(
+            needle in cmake
+            for needle in (
+                "project(Fovelle VERSION 0.1.0",
+                'CMAKE_SYSTEM_NAME STREQUAL "Darwin"',
+                'MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.inostarlin-passion.Fovelle"',
+                'set(MACOSX_BUNDLE_ICON_FILE "qView.icns")',
+            )
+        )
+        and all(needle in qmake for needle in ("TARGET = Fovelle", "VERSION = 0.1.0", "!macx", "Fovelle supports macOS only.")),
+        {
+            "cmake_project": "Fovelle VERSION 0.1.0" in cmake,
+            "cmake_darwin_guard": 'CMAKE_SYSTEM_NAME STREQUAL "Darwin"' in cmake,
+            "bundle_id": "io.github.inostarlin-passion.Fovelle" in cmake,
+            "qmake_mac_guard": "!macx" in qmake,
+        },
+        "CMake and qmake identify Fovelle and reject non-macOS builds",
     )
 
-    tracked = run(repo, "ls-tree", "-r", "--name-only", "HEAD").stdout.splitlines()
-    tracked_set = set(tracked)
-    required_paths = [
-        "src/qvimageloader.cpp",
-        "src/qvfileenumerator.cpp",
-        "src/qvmovie.cpp",
-        "src/qvnamespace.h",
-        "src/qvopenwithdialog.ui",
-        "qView.pro",
-        "dist/scripts/download-plugins.ps1",
-        "dist/scripts/macdeploy.sh",
-        "CMakeLists.txt",
-        "tests/tst_qviewtests.cpp",
-    ]
-    missing = [path for path in required_paths if path not in tracked_set]
+    main_cpp = text("src/main.cpp")
+    application_cpp = text("src/qvapplication.cpp")
+    window_cpp = text("src/mainwindow.cpp")
+    about_cpp = text("src/qvaboutdialog.cpp")
+    translation_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in (repo / "i18n").glob("*.ts"))
     check(
         checks,
         "I-03",
-        not missing,
-        f"missing={missing}",
-        "all upstream/runtime/build/test paths are tracked",
+        all(
+            needle in main_cpp
+            for needle in (
+                'setOrganizationName("Fovelle")',
+                'setOrganizationDomain("io.github.inostarlin-passion")',
+                'setApplicationName("Fovelle")',
+                'setApplicationDisplayName("Fovelle")',
+            )
+        )
+        and 'setWindowIcon(QIcon(":/icons/Fovelle.png"))' in application_cpp
+        and "setQuitOnLastWindowClosed(true)" in application_cpp
+        and 'QString newString = "Fovelle"' in window_cpp
+        and 'escShortcut->setKey(Qt::Key_Escape)' in window_cpp
+        and "else\n            close();" in window_cpp,
+        {
+            "identity": all(needle in main_cpp for needle in ("Fovelle", "io.github.inostarlin-passion")),
+            "runtime_icon": ':/icons/Fovelle.png' in application_cpp,
+            "quit_policy": "setQuitOnLastWindowClosed(true)" in application_cpp,
+            "escape_policy": "else\n            close();" in window_cpp,
+        },
+        "runtime identity, icon, last-window policy, and Escape branches are present",
     )
 
-    conflict_scan = subprocess.run(
-        [
-            "grep",
-            "-R",
-            "-n",
-            "--exclude-dir=.git",
-            "--exclude-dir=build-quality",
-            "-E",
-            r"^(<<<<<<<|=======|>>>>>>>)",
-            ".",
-        ],
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        check=False,
+    exact_about_lines = (
+        "Based on qView",
+        "Copyright © 2018–2025 jurplel and qView contributors",
+        "Fovelle modifications © 2026",
+        "Licensed under GPLv3",
     )
     check(
         checks,
         "I-04",
-        conflict_scan.returncode == 1,
-        conflict_scan.stdout[:2000] or "no conflict markers",
-        "no merge conflict marker in repository text",
+        all(needle in about_cpp for needle in exact_about_lines)
+        and "https://github.com/inostarlin-passion/Fovelle" in about_cpp
+        and "interversehq.com" not in about_cpp
+        and "interversehq.com" not in translation_text
+        and "github.com/jurplel/qView" not in translation_text,
+        {
+            "about_lines": {needle: needle in about_cpp for needle in exact_about_lines},
+            "github_url": "https://github.com/inostarlin-passion/Fovelle" in about_cpp,
+            "translation_old_urls_absent": "interversehq.com" not in translation_text and "github.com/jurplel/qView" not in translation_text,
+        },
+        "the About page and translation catalogs render the requested identity and link only the Fovelle repository",
     )
 
-    diff_check = run(repo, "diff", "--check", "HEAD^1", "HEAD")
+    updater = text("src/updatechecker.h") + text("src/updatechecker.cpp")
     check(
         checks,
         "I-05",
-        diff_check.returncode == 0,
-        diff_check.stdout + diff_check.stderr,
-        "git diff --check is clean against the local first parent",
+        "api.github.com/repos/inostarlin-passion/Fovelle/releases" in updater
+        and "github.com/inostarlin-passion/Fovelle/releases" in updater
+        and "QCoreApplication::applicationVersion()" in updater,
+        {
+            "api_repository": "api.github.com/repos/inostarlin-passion/Fovelle/releases" in updater,
+            "download_repository": "github.com/inostarlin-passion/Fovelle/releases" in updater,
+            "runtime_version_comparison": "QCoreApplication::applicationVersion()" in updater,
+        },
+        "the updater checks the Fovelle GitHub releases endpoint and current app version",
     )
 
-    source_expectations = {
-        "src/qvapplication.cpp": ["QFileOpenEvent", "queueFileOpen"],
-        "src/qvimagecore.cpp": ["handleColorSpaceConversion", "QVMovie"],
-        "dist/scripts/download-plugins.ps1": ["Fovelle.app", "Expand-Archive"],
-        "dist/scripts/macdeploy.sh": ["Fovelle.app", "Fovelle-"],
-        ".github/workflows/build.yml": ["Build Fovelle", "BUILD_TESTS=ON"],
-    }
-    source_results = {}
-    for relative, needles in source_expectations.items():
-        text = (repo / relative).read_text(encoding="utf-8")
-        source_results[relative] = {needle: needle in text for needle in needles}
+    icon_png = repo / "resources" / "Fovelle.png"
+    icon_icns = repo / "dist" / "mac" / "qView.icns"
+    source_icon = Path("/Users/inostarlin/Downloads/ChatGPT Image 2026年8月17日 12_12_41.png")
+    source_match = source_icon.is_file() and icon_png.is_file() and source_icon.read_bytes() == icon_png.read_bytes()
     check(
         checks,
         "I-06",
-        all(all(values.values()) for values in source_results.values()),
-        json.dumps(source_results, sort_keys=True),
-        "Fovelle event, image, plugin, deployment, and CI integration points are present",
+        icon_png.is_file()
+        and icon_png.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        and icon_icns.is_file()
+        and icon_icns.read_bytes()[:4] == b"icns"
+        and "Fovelle.png" in text("resources/resources.qrc")
+        and source_match,
+        {
+            "source_path": str(source_icon),
+            "source_matches_repository_png": source_match,
+            "png_sha256": sha256(icon_png),
+            "icns_sha256": sha256(icon_icns),
+        },
+        "the requested PNG is copied byte-for-byte, embedded as a Qt resource, and converted to a valid macOS ICNS",
+    )
+
+    source_platform_files = [
+        "src/qvwin32functions.cpp",
+        "src/qvwin32functions.h",
+        "src/qvlinuxx11functions.cpp",
+        "src/qvlinuxx11functions.h",
+        "src/qvwindows11style.cpp",
+        "src/qvwindows11style.h",
+        "src/qvopenwithdialog.ui",
+        "resources/resources_linux.qrc",
+        "dist/scripts/linuxdeployqt.sh",
+        "dist/scripts/windeployqt.ps1",
+    ]
+    nonmac_paths = [path for path in (repo / relative for relative in source_platform_files) if path.exists()]
+    nonmac_directories = [path for path in (repo / "dist" / "win", repo / "dist" / "linux") if path.exists()]
+    scan_files = [
+        *list((repo / "src").glob("*.cpp")),
+        *list((repo / "src").glob("*.h")),
+        *list((repo / "src").glob("*.mm")),
+        repo / "CMakeLists.txt",
+        repo / "qView.pro",
+        *list((repo / ".github" / "workflows").glob("*.yml")),
+        *list((repo / "dist" / "scripts").glob("*.ps1")),
+        *list((repo / "dist" / "scripts").glob("*.sh")),
+    ]
+    forbidden_platform_tokens = ("Q_OS_WIN", "Q_OS_LINUX", "Q_OS_UNIX", "WIN32", "X11_LOADED", "$IsWindows", "$IsLinux")
+    platform_hits = {
+        str(path.relative_to(repo)): [token for token in forbidden_platform_tokens if token in path.read_text(encoding="utf-8", errors="ignore")]
+        for path in scan_files
+        if path.is_file()
+        and any(token in path.read_text(encoding="utf-8", errors="ignore") for token in forbidden_platform_tokens)
+    }
+    check(
+        checks,
+        "I-07",
+        not nonmac_paths and not nonmac_directories and not platform_hits,
+        {"existing_nonmac_paths": [str(path) for path in nonmac_paths], "existing_nonmac_directories": [str(path) for path in nonmac_directories], "platform_tokens": platform_hits},
+        "non-macOS files, directories, and implementation branches are absent",
+    )
+
+    build_workflow = text(".github/workflows/build.yml")
+    test_workflow = text(".github/workflows/test.yml")
+    check(
+        checks,
+        "I-08",
+        all(workflow.count("macos-14") >= 1 and "windows" not in workflow.lower() and "ubuntu" not in workflow.lower() for workflow in (build_workflow, test_workflow))
+        and all("branches: [main]" in workflow for workflow in (build_workflow, test_workflow))
+        and "Fovelle-macOS.zip" in build_workflow
+        and "name: Fovelle-macOS" in build_workflow,
+        {
+            "build_macos_only": "macos-14" in build_workflow and "windows" not in build_workflow.lower() and "ubuntu" not in build_workflow.lower(),
+            "test_macos_only": "macos-14" in test_workflow and "windows" not in test_workflow.lower() and "ubuntu" not in test_workflow.lower(),
+            "main_branch_filters": all("branches: [main]" in workflow for workflow in (build_workflow, test_workflow)),
+            "artifact": "Fovelle-macOS.zip" in build_workflow,
+        },
+        "build and test workflows target macOS, main, and the Fovelle artifact only",
     )
 
     bundle = build_dir / "Fovelle.app"
     executable = bundle / "Contents" / "MacOS" / "Fovelle"
-    info_plist = bundle / "Contents" / "Info.plist"
-    bundle_result = {
-        "bundle_exists": bundle.is_dir(),
-        "executable_exists": executable.is_file(),
-        "info_plist_exists": info_plist.is_file(),
+    bundle_icon = bundle / "Contents" / "Resources" / "qView.icns"
+    info_path = bundle / "Contents" / "Info.plist"
+    info: dict = {}
+    if info_path.is_file():
+        try:
+            info = plistlib.loads(info_path.read_bytes())
+        except (plistlib.InvalidFileException, ValueError):
+            info = {}
+    bundle_expected = {
+        "bundle": bundle.is_dir(),
+        "executable": executable.is_file(),
+        "icon": bundle_icon.is_file(),
+        "identifier": info.get("CFBundleIdentifier") == "io.github.inostarlin-passion.Fovelle",
+        "name": info.get("CFBundleName") == "Fovelle",
+        "executable_name": info.get("CFBundleExecutable") == "Fovelle",
+        "icon_name": info.get("CFBundleIconFile") == "qView.icns",
+        "version": info.get("CFBundleShortVersionString") == "0.1.0" and info.get("CFBundleVersion") == "0.1.0",
+        "copyright": "Fovelle modifications © 2026 Fovelle contributors" in str(info.get("NSHumanReadableCopyright", "")),
     }
-    if info_plist.is_file():
-        plist_text = info_plist.read_text(encoding="utf-8", errors="replace")
-        bundle_result["fovelle_identity"] = (
-            "io.github.inostarlin-passion.Fovelle" in plist_text
-            and "<string>Fovelle</string>" in plist_text
-        )
-    else:
-        bundle_result["fovelle_identity"] = False
+    check(checks, "I-09", all(bundle_expected.values()), bundle_expected, "the built bundle has the Fovelle identity, icon, version, and copyright")
+
+    ctest = subprocess.run(["ctest", "--test-dir", str(build_dir), "--output-on-failure"], cwd=repo, text=True, capture_output=True, check=False)
+    check(checks, "I-10", ctest.returncode == 0, ctest.stdout + ctest.stderr, "CTest exits with code 0")
+
+    qmake_path = shutil.which("qmake")
+    qmake_result: subprocess.CompletedProcess[str] | None = None
+    if qmake_path:
+        with tempfile.TemporaryDirectory(prefix="fovelle-qmake-") as directory:
+            qmake_result = subprocess.run([qmake_path, str(repo / "qView.pro"), "-o", str(Path(directory) / "Makefile")], cwd=repo, text=True, capture_output=True, check=False)
     check(
         checks,
-        "I-07",
-        all(bundle_result.values()),
-        json.dumps(bundle_result, sort_keys=True),
-        "built Fovelle.app contains executable and Fovelle bundle identity",
+        "I-11",
+        qmake_result is not None and qmake_result.returncode == 0,
+        {"qmake": qmake_path, "return_code": qmake_result.returncode if qmake_result else None, "output": (qmake_result.stdout + qmake_result.stderr)[-2000:] if qmake_result else "qmake not found"},
+        "the macOS qmake project configures successfully",
     )
 
-    ctest = subprocess.run(
-        ["ctest", "--test-dir", str(build_dir), "--output-on-failure"],
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    check(
-        checks,
-        "I-08",
-        ctest.returncode == 0,
-        ctest.stdout + ctest.stderr,
-        "CTest integration suite exits zero",
-    )
+    diff_check = run(repo, "git", "diff", "--check", "HEAD")
+    check(checks, "I-12", diff_check.returncode == 0, diff_check.stdout + diff_check.stderr, "the complete working-tree diff has no whitespace errors")
 
     result = {
         "kind": "integration",
         "repo": str(repo),
         "head": head,
-        "merge_commit": merge_commit,
-        "upstream_head": UPSTREAM_HEAD,
-        "selected_commits": SELECTED_COMMITS,
         "checks": checks,
         "passed": all(item["pass"] for item in checks),
     }
-    output = args.output or repo / "reports" / "evidence" / "integration.json"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["passed"] else 1
 

@@ -3,8 +3,10 @@
 #include <QFileOpenEvent>
 #include <QImage>
 #include <QFile>
+#include <QLabel>
 #include <QSignalSpy>
 #include <QSettings>
+#include <QTextDocumentFragment>
 #include <QTemporaryDir>
 #include <QThreadPool>
 #include <QUrl>
@@ -36,6 +38,13 @@ class ActionManagerTests : public QObject
 
 private slots:
     void testClonedActionsUntracked();
+    void testApplicationIdentity();
+    void testApplicationIcon();
+    void testAboutDialogIdentity();
+    void testWindowTitleIdentity();
+    void testLastWindowClosedPolicy();
+    void testEscapeExitsFullscreen();
+    void testEscapeClosesWindow();
 };
 
 class ApplicationEventTests : public QObject
@@ -304,6 +313,9 @@ void ImageLoaderTests::testImageLoaderDestructionDuringLoad()
 
 void ActionManagerTests::testClonedActionsUntracked()
 {
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
     // Get initial counts of certain actions
     int fullscreenCount = qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length();
     int openCount = qvApp->getActionManager().getAllInstancesOfAction("open").length();
@@ -321,10 +333,126 @@ void ActionManagerTests::testClonedActionsUntracked()
     // Make sure the count has not changed from the initial
     QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length(), fullscreenCount);
     QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("open").length(), openCount);
+
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+void ActionManagerTests::testApplicationIdentity()
+{
+    QCOMPARE(QCoreApplication::organizationName(), QString("Fovelle"));
+    QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
+    QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
+    QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.0"));
+}
+
+void ActionManagerTests::testApplicationIcon()
+{
+    const QIcon icon = qvApp->windowIcon();
+    QVERIFY(!icon.isNull());
+    QVERIFY(!icon.pixmap(64, 64).isNull());
+    QVERIFY(QFile::exists(":/icons/Fovelle.png"));
+}
+
+void ActionManagerTests::testAboutDialogIdentity()
+{
+    QVAboutDialog dialog;
+    const auto *logoLabel = dialog.findChild<QLabel *>("logoLabel");
+    const auto *subtitleLabel = dialog.findChild<QLabel *>("subtitleLabel");
+    const auto *infoLabel = dialog.findChild<QLabel *>("infoLabel2");
+
+    QVERIFY(logoLabel);
+    QVERIFY(subtitleLabel);
+    QVERIFY(infoLabel);
+    QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
+    QCOMPARE(logoLabel->text(), QString("Fovelle"));
+    QCOMPARE(subtitleLabel->text(), QString("version 0.1.0"));
+
+    const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
+    const QString expectedText =
+        "Based on qView\n"
+        "Copyright © 2018–2025 jurplel and qView contributors\n"
+        "Fovelle modifications © 2026 Fovelle contributors\n\n"
+        "Licensed under GPLv3";
+    QCOMPARE(visibleText, expectedText);
+    QVERIFY(infoLabel->text().contains("https://github.com/inostarlin-passion/Fovelle"));
+    QVERIFY(!infoLabel->text().contains("interversehq.com"));
+}
+
+void ActionManagerTests::testWindowTitleIdentity()
+{
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.buildWindowTitle();
+    QCOMPARE(window.windowTitle(), QString("Fovelle"));
+    window.close();
+}
+
+void ActionManagerTests::testLastWindowClosedPolicy()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.close();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isVisible(), 1000);
+
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    QVERIFY(qvApp->quitOnLastWindowClosed());
+}
+
+void ActionManagerTests::testEscapeExitsFullscreen()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.showFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+
+    auto *escapeShortcut = window.findChild<QShortcut *>();
+    QVERIFY(escapeShortcut);
+    QCOMPARE(escapeShortcut->key(), QKeySequence(Qt::Key_Escape));
+    QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    QVERIFY(window.isVisible());
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+void ActionManagerTests::testEscapeClosesWindow()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+    auto *escapeShortcut = window.findChild<QShortcut *>();
+    QVERIFY(escapeShortcut);
+    QCOMPARE(escapeShortcut->key(), QKeySequence(Qt::Key_Escape));
+    QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isVisible(), 1000);
+
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 void ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()
 {
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
 
@@ -353,6 +481,7 @@ void ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()
         settings.setValue("firstlaunch", oldFirstLaunch);
     else
         settings.remove("firstlaunch");
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 void ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()
@@ -391,6 +520,11 @@ void ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setOrganizationName("Fovelle");
+    QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
+    QCoreApplication::setApplicationName("Fovelle");
+    QGuiApplication::setApplicationDisplayName("Fovelle");
+    QCoreApplication::setApplicationVersion("0.1.0");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 

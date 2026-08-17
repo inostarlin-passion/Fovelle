@@ -7,8 +7,9 @@ TEMPLATE = app
 
 QMAKE_PROJECT_DEPTH = 0
 
-# allows use of version variable elsewhere
+# allows use of version variables elsewhere
 DEFINES += "VERSION=$$VERSION"
+DEFINES += "VERSION_STRING=\"$$VERSION\""
 
 # build folder organization
 DESTDIR = bin
@@ -36,84 +37,20 @@ CONFIG(debug, debug|release) {
     DEFINES += "NIGHTLY=$$NIGHTLY"
 }
 
-# Windows specific stuff
-win32 {
-    # To build without win32: qmake CONFIG+=NO_WIN32
-    !CONFIG(NO_WIN32) {
-        LIBS += -lshell32 -luser32 -lole32 -lshlwapi -lgdi32 -ldwmapi
-        DEFINES += WIN32_LOADED
-        message("Linked to win32 api")
-    }
-
-    RC_ICONS = "dist/win/qView.ico"
-    QMAKE_TARGET_COPYRIGHT = "Copyright \\251 2026 jurplel and qView contributors"
-    QMAKE_TARGET_DESCRIPTION = "qView"
+!macx {
+    error("Fovelle supports macOS only.")
 }
 
 # macOS specific stuff
 macx {
-    # To build without cocoa: qmake CONFIG+=NO_COCOA
-    !CONFIG(NO_COCOA) {
-        LIBS += -framework Cocoa
-        DEFINES += COCOA_LOADED
-        message("Linked to cocoa framework")
-    }
+    LIBS += -framework Cocoa
 
     QMAKE_TARGET_BUNDLE_PREFIX = "io.github.inostarlin-passion"
     QMAKE_INFO_PLIST = "dist/mac/Info.plist"
     ICON = "dist/mac/qView.icns"
     QMAKE_TARGET_DESCRIPTION = "Fovelle"
-    QMAKE_TARGET_COPYRIGHT = "Copyright \\251 2026 Fovelle contributors"
+    QMAKE_TARGET_COPYRIGHT = "Copyright \\251 2018-2025 jurplel and qView contributors; Fovelle modifications \\251 2026 Fovelle contributors"
 }
-
-# Linux specific stuff
-unix:!macx {
-    !CONFIG(NO_X11) {
-        LIBS += -lX11
-        DEFINES += X11_LOADED
-    }
-
-    RESOURCES += resources/resources_linux.qrc
-}
-
-# Stuff for make install
-# To use a custom prefix: qmake PREFIX=/usr
-# An environment variable will also work: PREFIX=/usr qmake
-# You can also use at install time: make install INSTALL_ROOT=/usr but this will not override the prefix, just set where it begins
-isEmpty(PREFIX) {
-    PREFIX = $$(PREFIX)
-}
-isEmpty(PREFIX) {
-    PREFIX = /usr/local
-}
-
-message("Installation prefix is $$PREFIX")
-
-binary.path = $$PREFIX/bin
-binary.files = bin/qview
-desktop.path = $$PREFIX/share/applications
-desktop.files = dist/linux/com.interversehq.qView.desktop
-icon16.path = $$PREFIX/share/icons/hicolor/16x16/apps/
-icon16.files = dist/linux/hicolor/16x16/apps/com.interversehq.qView.png
-icon32.path = $$PREFIX/share/icons/hicolor/32x32/apps/
-icon32.files = dist/linux/hicolor/32x32/apps/com.interversehq.qView.png
-icon64.path = $$PREFIX/share/icons/hicolor/64x64/apps/
-icon64.files = dist/linux/hicolor/64x64/apps/com.interversehq.qView.png
-icon128.path = $$PREFIX/share/icons/hicolor/128x128/apps/
-icon128.files = dist/linux/hicolor/128x128/apps/com.interversehq.qView.png
-icon256.path = $$PREFIX/share/icons/hicolor/256x256/apps/
-icon256.files = dist/linux/hicolor/256x256/apps/com.interversehq.qView.png
-iconsvg.path = $$PREFIX/share/icons/hicolor/scalable/apps/
-iconsvg.files = dist/linux/hicolor/scalable/apps/com.interversehq.qView.svg
-iconsym.path = $$PREFIX/share/icons/hicolor/symbolic/apps/
-iconsym.files = dist/linux/hicolor/symbolic/apps/com.interversehq.qView-symbolic.svg
-license.path = $$PREFIX/share/licenses/qview/
-license.files = LICENSE
-appstream.path = $$PREFIX/share/metainfo/
-appstream.files = dist/linux/com.interversehq.qView.appdata.xml
-
-unix:INSTALLS += binary desktop icon16 icon32 icon64 icon128 icon256 iconsvg iconsym license appstream
-unix:!macx:TARGET = qview
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which has been marked as deprecated (the exact warnings

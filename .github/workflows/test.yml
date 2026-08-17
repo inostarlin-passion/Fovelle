@@ -2,7 +2,10 @@ name: Checks
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   unit-tests:
@@ -48,23 +51,23 @@ jobs:
       - name: Run clang-tidy
         run: ./build.sh --tidy
 
-    format:
-      name: Run clang-format
-      runs-on: macos-14
-      steps:
-        - uses: actions/checkout@v4
+  format:
+    name: Run clang-format
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
 
-        - name: Install Qt
-          uses: jurplel/install-qt-action@v4
-          with:
-            version: '6.8'
-            cache: true
-            modules: 'qtimageformats'
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8'
+          cache: true
+          modules: 'qtimageformats'
 
-        - name: Install clang-format
-          run: |
-            brew install clang-format
-            echo "$(brew --prefix clang-format)/bin" >> "$GITHUB_PATH"
+      - name: Install clang-format
+        run: |
+          brew install clang-format
+          echo "$(brew --prefix clang-format)/bin" >> "$GITHUB_PATH"
 
-        - name: Run clang-format
-          run: ./build.sh --format-check
+      - name: Run clang-format
+        run: ./build.sh --format-check

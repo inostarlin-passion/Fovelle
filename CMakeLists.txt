@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(Fovelle VERSION 0.1.0 LANGUAGES CXX)
 
-if(NOT APPLE)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
 endif()
 
@@ -43,7 +43,6 @@ set(FOVELLE_SOURCES
     src/qvimageloader.cpp
     src/qvmovie.cpp
     src/qvshortcutdialog.cpp
-    src/qvwindows11style.cpp
     src/actionmanager.cpp
     src/axislocker.cpp
     src/logicalpixelfitter.cpp
@@ -72,7 +71,6 @@ set(FOVELLE_HEADERS
     src/qvimageloader.h
     src/qvmovie.h
     src/qvshortcutdialog.h
-    src/qvwindows11style.h
     src/actionmanager.h
     src/axislocker.h
     src/logicalpixelfitter.h
@@ -86,7 +84,6 @@ set(FOVELLE_HEADERS
 
 set(FOVELLE_FORMS
     src/mainwindow.ui
-    src/qvopenwithdialog.ui
     src/qvoptionsdialog.ui
     src/qvaboutdialog.ui
     src/qvwelcomedialog.ui
@@ -113,7 +110,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     "-framework Cocoa"
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    COCOA_LOADED
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
     QT_DEPRECATED_WARNINGS
@@ -127,11 +123,7 @@ if(DEFINED NIGHTLY)
     target_compile_definitions(${PROJECT_NAME} PRIVATE "NIGHTLY=\"${NIGHTLY}\"")
 endif()
 
-if(QT_VERSION_MAJOR LESS 6)
-    set(MACOSX_BUNDLE_ICON_FILE "qView_legacy.icns")
-else()
-    set(MACOSX_BUNDLE_ICON_FILE "qView.icns")
-endif()
+set(MACOSX_BUNDLE_ICON_FILE "qView.icns")
 set(app_icon_macos "${CMAKE_CURRENT_SOURCE_DIR}/dist/mac/${MACOSX_BUNDLE_ICON_FILE}")
 set_source_files_properties(${app_icon_macos} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 target_sources(${PROJECT_NAME} PRIVATE ${app_icon_macos})
@@ -147,6 +139,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
     MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.inostarlin-passion.Fovelle"
     MACOSX_BUNDLE_BUNDLE_NAME "Fovelle"
+    MACOSX_BUNDLE_COPYRIGHT "Copyright © 2018–2025 jurplel and qView contributors; Fovelle modifications © 2026 Fovelle contributors"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
 )

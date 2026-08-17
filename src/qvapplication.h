@@ -112,8 +112,6 @@ public:
 
     bool getShowSubmenuIcons() const { return showSubmenuIcons; }
 
-    bool getUseCustomMenuShadow() const { return useCustomMenuShadow; }
-
     static void ensureFontLoaded(const QString &path);
 
     static QIcon iconFromFont(const Qv::MaterialIcon iconName);
@@ -178,8 +176,6 @@ private:
     bool showMainMenuIcons {true};
     bool showContextMenuIcons {true};
     bool showSubmenuIcons {true};
-    bool useCustomMenuShadow {false};
-
     UpdateChecker updateChecker;
 
     bool isSessionStateSaveRequested {false};

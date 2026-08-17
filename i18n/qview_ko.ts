@@ -295,12 +295,12 @@
     </message>
     <message>
         <source>&amp;About</source>
-        <translation>qView에 대해</translation>
+        <translation>Fovelle에 대해</translation>
     </message>
     <message>
-        <source>&amp;About qView</source>
+        <source>&amp;About Fovelle</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>qView에 대해</translation>
+        <translation>Fovelle에 대해</translation>
     </message>
     <message>
         <source>&amp;Welcome</source>
@@ -491,16 +491,12 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <source>About qView</source>
-        <translation>qView에 대해</translation>
+        <source>About Fovelle</source>
+        <translation>Fovelle에 대해</translation>
     </message>
     <message>
         <source>Check for Updates</source>
         <translation>업데이트 확인</translation>
-    </message>
-    <message>
-        <source>Unofficial Fork (jdpurcell)</source>
-        <translation>비공식 포크 (jdpurcell)</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -511,8 +507,8 @@ No write permission or file is read-only.</source>
         <translation>명시되지 않은 버전</translation>
     </message>
     <message>
-        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
-        <translation>Qt %1 (%2)로 제작됨&lt;br&gt;GNU GPLv3 라이선스 적용&lt;br&gt;공식 qView 기반: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;웹사이트&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;아이콘은 Noun Project의 Guilhem이 제작&lt;br&gt;저작권 © %3 jurplel, jdpurcell 및 qView 기여자</translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
     </message>
 </context>
 <context>
@@ -897,8 +893,8 @@ No write permission or file is read-only.</source>
         <translation> 밀리초</translation>
     </message>
     <message>
-        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
-        <translation>qView가 폴더의 마지막 이미지에 도달한 후 첫 번째 항목으로 돌아갈지 여부를 제어</translation>
+        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
+        <translation>Fovelle가 폴더의 마지막 이미지에 도달한 후 첫 번째 항목으로 돌아갈지 여부를 제어</translation>
     </message>
     <message>
         <source>&amp;Loop through folders</source>
@@ -946,7 +942,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new qView releases</extracomment>
+        <extracomment>The notifications are for new Fovelle releases</extracomment>
         <translation>시작할 때 판올림 알림</translation>
     </message>
     <message>
@@ -1074,8 +1070,8 @@ No write permission or file is read-only.</source>
         <translation>재시작 필요</translation>
     </message>
     <message>
-        <source>You must restart qView for the setting change to take effect.</source>
-        <translation>설정 변경 사항을 적용하려면 qView를 다시 시작해야 합니다.</translation>
+        <source>You must restart Fovelle for the setting change to take effect.</source>
+        <translation>설정 변경 사항을 적용하려면 Fovelle를 다시 시작해야 합니다.</translation>
     </message>
     <message>
         <source>Window</source>
@@ -1102,8 +1098,8 @@ No write permission or file is read-only.</source>
         <translation>시스템 언어</translation>
     </message>
     <message>
-        <source>You must restart qView for the language change to take effect.</source>
-        <translation>언어 변경 사항을 적용하려면 qView를 다시 시작해야 합니다.</translation>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>언어 변경 사항을 적용하려면 Fovelle를 다시 시작해야 합니다.</translation>
     </message>
     <message>
         <source>Move Back</source>
@@ -1323,8 +1319,8 @@ No write permission or file is read-only.</source>
         <translation>시작할 때 판올림 알림 활성화</translation>
     </message>
     <message>
-        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>qView를 사용해주셔서 감사합니다.&lt;br&gt;다음은 시작하는 데 도움이 되는 몇 가지 팁입니다:</translation>
+        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Fovelle를 사용해주셔서 감사합니다.&lt;br&gt;다음은 시작하는 데 도움이 되는 몇 가지 팁입니다:</translation>
     </message>
     <message>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
@@ -1549,8 +1545,8 @@ No write permission or file is read-only.</source>
         <translation>null JSON을 받았습니다.</translation>
     </message>
     <message>
-        <source>qView Update Available</source>
-        <translation>qView 판올림 사용 가능</translation>
+        <source>Fovelle Update Available</source>
+        <translation>Fovelle 판올림 사용 가능</translation>
     </message>
     <message>
         <source>A newer version is available to download.</source>
@@ -1569,8 +1565,8 @@ No write permission or file is read-only.</source>
         <translation>확인 비활성화</translation>
     </message>
     <message>
-        <source>qView Update Checking Disabled</source>
-        <translation>qView 판올림 확인이 비활성화됨</translation>
+        <source>Fovelle Update Checking Disabled</source>
+        <translation>Fovelle 판올림 확인이 비활성화됨</translation>
     </message>
     <message>
         <source>Update notifications on startup have been disabled.
