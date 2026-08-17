@@ -7,6 +7,7 @@
 #include "openwith.h"
 
 #include <QMainWindow>
+#include <QFutureWatcher>
 #include <QShortcut>
 #include <QNetworkAccessManager>
 #include <QStack>
@@ -14,6 +15,10 @@
 namespace Ui {
 class MainWindow;
 }
+
+class QLabel;
+class QGraphicsOpacityEffect;
+class QPropertyAnimation;
 
 class MainWindow : public QMainWindow
 {
@@ -26,26 +31,42 @@ public:
         QString previousPath;
     };
 
-    explicit MainWindow(QWidget *parent = nullptr);
+    struct ViewportPosition
+    {
+        int widgetY;
+        int obscuredHeight;
+    };
+
+    explicit MainWindow(QWidget *parent = nullptr, const QJsonObject &windowSessionState = {});
     ~MainWindow() override;
 
     void requestPopulateOpenWithMenu();
 
-    void populateOpenWithMenu(const QList<OpenWith::OpenWithItem> openWithItems);
+    void populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openWithItems);
 
     void refreshProperties();
 
-    void updateWindowTitle();
+    void buildWindowTitle();
 
     void updateWindowFilePath();
 
-    void setWindowSize();
+    void updateMenuBarVisible();
 
-    bool getIsPixmapLoaded() const;
+    bool getWindowOnTop() const;
+
+    bool getTitlebarHidden() const;
+
+    void setTitlebarHidden(const bool shouldHide);
+
+    void setWindowSize(const bool isReapplying = false, const bool isExplicitRequest = false);
 
     void setJustLaunchedWithImage(bool value);
 
     QScreen *screenContaining(const QRect &rect);
+
+    const QJsonObject getSessionState() const;
+
+    void loadSessionState(const QJsonObject &state, const bool isInitialPhase);
 
     void openRecent(int i);
 
@@ -61,7 +82,7 @@ public:
 
     void showFileInfo();
 
-    void askDeleteFile(bool permanent);
+    void askDeleteFile(bool permanent = false);
 
     void deleteFile(bool permanent);
 
@@ -77,9 +98,19 @@ public:
 
     void zoomOut();
 
-    void resetZoom();
+    void zoomCustom();
 
     void originalSize();
+
+    void setZoomToFit(const bool value);
+
+    void setFillWindow(const bool value);
+
+    void setNavigationResetsZoom(const bool value);
+
+    void setSortMode(const Qv::SortMode mode);
+
+    void setSortDescending(const bool descending);
 
     void rotateRight();
 
@@ -89,6 +120,8 @@ public:
 
     void flip();
 
+    void resetTransformation();
+
     void firstFile();
 
     void previousFile();
@@ -97,11 +130,15 @@ public:
 
     void lastFile();
 
+    void randomFile();
+
     void saveFrameAs();
 
     void pause();
 
     void nextFrame();
+
+    void previousFrame();
 
     void decreaseSpeed();
 
@@ -111,15 +148,28 @@ public:
 
     void toggleFullScreen();
 
+    void toggleWindowOnTop();
+
+    void toggleTitlebarHidden();
+
     int getTitlebarOverlap() const;
 
-    const QVImageCore::FileDetails &getCurrentFileDetails() const
-    {
-        return graphicsView->getCurrentFileDetails();
-    }
+    ViewportPosition getViewportPosition() const;
+
+    const QVImageCore::FileDetails& getCurrentFileDetails() const { return graphicsView->getCurrentFileDetails(); }
+
+    bool hasFileOrPendingLoad() const { return graphicsView->hasFileOrPendingLoad(); }
+
+    bool getIsPixmapLoaded() const { return getCurrentFileDetails().isPixmapLoaded; }
+
+    bool getIsMovieLoaded() const { return getCurrentFileDetails().isMovieLoaded; }
+
+    qint64 getLastActivatedTimestamp() const { return lastActivated.msecsSinceReference(); }
+
+    bool getIsClosing() const { return isClosing; }
 
 public slots:
-    void openFile(const QString &fileName);
+    void openFile(const QString &fileName, const QString &baseDir = "");
 
     void toggleSlideshow();
 
@@ -127,7 +177,15 @@ public slots:
 
     void cancelSlideshow();
 
-    void fileChanged();
+    void fileChanged(const bool isRestoringState);
+
+    void zoomLevelChanged();
+
+    void syncCalculatedZoomMode();
+
+    void syncNavigationResetsZoom();
+
+    void syncSortParameters();
 
     void disableActions();
 
@@ -142,36 +200,53 @@ protected:
 
     void changeEvent(QEvent *event) override;
 
-    void mousePressEvent(QMouseEvent *event) override;
-
-    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
     void paintEvent(QPaintEvent *event) override;
 
     void fullscreenChanged();
+
+    void pauseChanged();
 
 protected slots:
     void settingsUpdated();
     void shortcutsUpdated();
 
 private:
+    void updateTitlebarBubbleText();
+
+    void revealTitlebarBubble();
+
     Ui::MainWindow *ui;
     QVGraphicsView *graphicsView;
+
+    QLabel *titlebarBubble;
+    QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;
+    QTimer *titlebarBubbleHideTimer;
+    QPropertyAnimation *titlebarBubbleHideAnimation;
 
     QMenu *contextMenu;
     QMenu *virtualMenu;
 
     QTimer *slideshowTimer;
+    QTimer *zoomTitlebarUpdateTimer;
 
     QShortcut *escShortcut;
 
     QVInfoDialog *info;
 
     QColor customBackgroundColor;
+    bool checkerboardBackground {false};
+    bool menuBarEnabled {false};
 
-    bool justLaunchedWithImage;
+    QJsonObject sessionStateToLoad;
+    bool justLaunchedWithImage {false};
+    bool isClosing {false};
+    QElapsedTimer lastActivated;
 
-    Qt::WindowStates storedWindowState;
+    Qt::WindowStates storedWindowState {Qt::WindowNoState};
+    bool storedTitlebarHidden {false};
+    bool slideshowSetOnTopFlag {false};
 
     QNetworkAccessManager networkAccessManager;
 

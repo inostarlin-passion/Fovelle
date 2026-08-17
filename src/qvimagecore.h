@@ -1,157 +1,110 @@
-﻿#ifndef QVIMAGECORE_H
+#ifndef QVIMAGECORE_H
 #define QVIMAGECORE_H
 
+#include "qvnamespace.h"
+#include "qvfileenumerator.h"
+#include "qvimageloader.h"
+#include "qvmovie.h"
+#include <optional>
 #include <QObject>
-#include <QImageReader>
 #include <QPixmap>
-#include <QMovie>
 #include <QFileInfo>
-#include <QFutureWatcher>
 #include <QTimer>
-#include <QCache>
-#include <QElapsedTimer>
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-#  include <QColorSpace>
-#else
-typedef QString QColorSpace;
-#endif
+#include <QColorSpace>
 
 class QVImageCore : public QObject
 {
     Q_OBJECT
 
 public:
-    struct CompatibleFile
-    {
-        QString absoluteFilePath;
-        QString fileName;
-
-        // Only populated if needed for sorting
-        qint64 lastModified;
-        qint64 lastCreated;
-        qint64 size;
-        QString mimeType;
-    };
-
-    struct ErrorData
-    {
-        bool hasError = false;
-        int errorNum = 0;
-        QString errorString;
-    };
+    using ErrorData = QVImageLoader::ErrorData;
+    using ReadData = QVImageLoader::Result;
 
     struct FileDetails
     {
         QFileInfo fileInfo;
-        QList<CompatibleFile> folderFileInfoList;
+        QVFileEnumerator::CompatibleFileList folderFileInfoList;
         int loadedIndexInFolder = -1;
-        bool isLoadRequested = false;
         bool isPixmapLoaded = false;
         bool isMovieLoaded = false;
         QSize baseImageSize;
         QSize loadedPixmapSize;
-        QElapsedTimer timeSinceLoaded;
-        ErrorData errorData;
+        QColorSpace targetColorSpace;
+        std::optional<ErrorData> errorData;
 
         void updateLoadedIndexInFolder();
     };
 
-    struct DirInfo
+    struct GoToFileResult
     {
-        QString dirPath;
-        qsizetype fileCount;
-        int sortMode;
-        bool sortDescending;
-
-        bool operator!=(const DirInfo &other) const
-        {
-            return dirPath != other.dirPath || fileCount != other.fileCount
-                    || sortMode != other.sortMode || sortDescending != other.sortDescending;
-        }
-    };
-
-    struct ReadData
-    {
-        QImage image;
-        QString absoluteFilePath;
-        qint64 fileSize;
-        QSize imageSize;
-        QColorSpace targetColorSpace;
-        ErrorData errorData;
+        bool reachedEnd = false;
     };
 
     explicit QVImageCore(QObject *parent = nullptr);
 
-    void loadFile(const QString &fileName, bool isReloading = false);
-    ReadData readFile(const QString &fileName, const QColorSpace &targetColorSpace);
-    void loadPixmap(const ReadData &readData);
-    void closeImage();
-    QList<CompatibleFile> getCompatibleFiles(const QString &dirPath) const;
-    void updateFolderInfo(QString dirPath = QString());
-    void requestCaching();
-    void requestCachingFile(const QString &filePath, const QColorSpace &targetColorSpace);
-    void addToCache(const ReadData &&readImageAndFileInfo);
-    static QString getPixmapCacheKey(const QString &absoluteFilePath, const qint64 &fileSize,
-                                     const QColorSpace &targetColorSpace);
-    QColorSpace getTargetColorSpace() const;
-    QColorSpace detectDisplayColorSpace() const;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && QT_VERSION < QT_VERSION_CHECK(6, 7, 2)
-    static bool removeTinyDataTagsFromIccProfile(QByteArray &profile);
-#endif
+    void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "", bool debouncePreloading = false);
+    void closeImage(const bool stayInDir = false);
+    GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
+    void markFolderInfoDirty() { folderInfoDirty = true; }
+
+    Qv::SortMode getSortMode() const { return fileEnumerator.getSortMode(); }
+    void setSortMode(const Qv::SortMode mode) { fileEnumerator.setSortMode(mode); }
+    bool getSortDescending() const { return fileEnumerator.getSortDescending(); }
+    void setSortDescending(const bool descending) { fileEnumerator.setSortDescending(descending); }
 
     void settingsUpdated();
 
     void jumpToNextFrame();
+    void jumpToPreviousFrame();
     void setPaused(bool desiredState);
     void setSpeed(int desiredSpeed);
 
-    void rotateImage(int rotation);
-    QImage matchCurrentRotation(const QImage &imageToRotate);
-    QPixmap matchCurrentRotation(const QPixmap &pixmapToRotate);
-
-    QPixmap scaleExpensively(const int desiredWidth, const int desiredHeight);
     QPixmap scaleExpensively(const QSizeF desiredSize);
 
-    // returned const reference is read-only
-    const QPixmap &getLoadedPixmap() const { return loadedPixmap; }
-    const QMovie &getLoadedMovie() const { return loadedMovie; }
-    const FileDetails &getCurrentFileDetails() const { return currentFileDetails; }
-    int getCurrentRotation() const { return currentRotation; }
+    const QPixmap& getLoadedPixmap() const { return loadedPixmap; }
+    const QVMovie& getLoadedMovie() const { return loadedMovie; }
+    const FileDetails& getCurrentFileDetails() const { return currentFileDetails; }
+    bool hasFileOrPendingLoad() const { return fileOrLoadPending; }
 
 signals:
     void animatedFrameChanged(QRect rect);
 
-    void updateLoadedPixmapItem();
+    void fileChanging();
 
     void fileChanged();
 
+    void sortParametersChanged();
+
 protected:
+    void loadPixmap(const ReadData &readData);
     void loadEmptyPixmap();
-    FileDetails getEmptyFileDetails();
+    void updateFolderInfo(QString dirPath = QString());
+    QList<QVImageLoader::DesiredImage> getDesiredImages(bool includePreloads = true) const;
+    void refreshDesiredImages(bool includePreloads = true);
+    QColorSpace getTargetColorSpace() const;
+    QColorSpace detectDisplayColorSpace() const;
+    static void handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace);
 
 private:
+    QVFileEnumerator fileEnumerator {this};
+    QVImageLoader imageLoader {this};
+    QTimer preloadDebounceTimer {this};
+
     QPixmap loadedPixmap;
-    QMovie loadedMovie;
+    QVMovie loadedMovie;
 
     FileDetails currentFileDetails;
-    int currentRotation;
 
-    QFutureWatcher<ReadData> loadFutureWatcher;
+    Qv::PreloadMode preloadingMode {Qv::PreloadMode::Adjacent};
+    Qv::ColorSpaceConversion colorSpaceConversion {Qv::ColorSpaceConversion::AutoDetect};
 
-    int colorSpaceConversion;
+    int largestDimension {1920};
 
-    static QCache<QString, ReadData> imageCache;
-
-    DirInfo lastDirInfo;
-
-    QStringList lastFilesPreloaded;
-    QStringList preloadFilesInProgress;
-    QString waitingOnPreloadFile;
-
-    int largestDimension;
-
-    bool waitingOnLoad;
+    quint64 pendingLoadRequestId = 0;
+    bool loadInProgress {false};
+    bool pendingLoadDebouncesPreloading {false};
+    bool fileOrLoadPending {false};
+    bool folderInfoDirty {false};
 };
 
 #endif // QVIMAGECORE_H

@@ -8,8 +8,7 @@ class ShortcutManager : public QObject
 {
     Q_OBJECT
 public:
-    struct SShortcut
-    {
+    struct SShortcut {
         QString readableName;
         QString name;
         QStringList defaultShortcuts;
@@ -20,7 +19,8 @@ public:
     {
         const auto seqList = QKeySequence::keyBindings(sequence);
         QStringList strings;
-        for (const auto &seq : seqList) {
+        for (const auto &seq : seqList)
+        {
             strings << seq.toString();
         }
         return strings;
@@ -28,9 +28,9 @@ public:
 
     static QList<QKeySequence> stringListToKeySequenceList(const QStringList &stringList)
     {
-
         QList<QKeySequence> keySequences;
-        for (const auto &string : stringList) {
+        for (const auto &string : stringList)
+        {
             keySequences << QKeySequence::fromString(string);
         }
         return keySequences;
@@ -43,9 +43,7 @@ public:
 
     static QStringList readableStringToStringList(QString shortcutString)
     {
-        return QKeySequence::fromString(shortcutString, QKeySequence::NativeText)
-                .toString()
-                .split(", ");
+        return QKeySequence::fromString(shortcutString, QKeySequence::NativeText).toString().split(", ");
     }
 
     explicit ShortcutManager(QObject *parent = nullptr);

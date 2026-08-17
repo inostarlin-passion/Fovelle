@@ -17,63 +17,25 @@ public:
     explicit QVInfoDialog(QWidget *parent = nullptr);
     ~QVInfoDialog();
 
-    void setInfo(const QFileInfo &value, const int &value2, const int &value3, const int &value4);
+    void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount);
 
     void updateInfo();
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     Ui::QVInfoDialog *ui;
 
-    QFileInfo selectedFileInfo;
-    int width;
-    int height;
-
-    int frameCount;
+    QFileInfo fileInfo;
+    QSize imageSize;
+    int frameCount {0};
 
 public:
-    // If Qt 5.10 is available, the built-in function will be used--for Qt 5.9, a custom solution
-    // will be used
     static QString formatBytes(qint64 bytes)
     {
-        QString sizeString;
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QLocale locale;
-        sizeString = locale.formattedDataSize(bytes);
-#else
-        double size = bytes;
-
-        int reductionAmount = 0;
-        double newSize = size / 1024;
-        while (newSize > 1024) {
-            newSize /= 1024;
-            reductionAmount++;
-            if (reductionAmount > 2)
-                break;
-        }
-
-        QString unit;
-        switch (reductionAmount) {
-        case 0: {
-            unit = " KiB";
-            break;
-        }
-        case 1: {
-            unit = " MiB";
-            break;
-        }
-        case 2: {
-            unit = " GiB";
-            break;
-        }
-        case 3: {
-            unit = " TiB";
-            break;
-        }
-        }
-
-        sizeString = QString::number(newSize, 'f', 2) + unit;
-#endif
-        return sizeString;
+        return locale.formattedDataSize(bytes);
     }
 };
 

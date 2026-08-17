@@ -1,0 +1,154 @@
+TARGET = Fovelle
+VERSION = 0.1.0
+
+QT += core gui network widgets svg
+
+TEMPLATE = app
+
+QMAKE_PROJECT_DEPTH = 0
+
+# allows use of version variable elsewhere
+DEFINES += "VERSION=$$VERSION"
+
+# build folder organization
+DESTDIR = bin
+OBJECTS_DIR = build
+MOC_DIR = build
+UI_DIR = build
+RCC_DIR = build
+
+CONFIG -= debug_and_release debug_and_release_target
+
+# enable c++17
+CONFIG += c++17
+
+# Print if this is a debug or release build
+CONFIG(debug, debug|release) {
+    message("This is a debug build")
+} else {
+    message("This is a release build")
+}
+
+# Check nightly variable
+# to use: qmake NIGHTLY=VERSION
+!isEmpty(NIGHTLY) {
+    message("This is nightly $$NIGHTLY")
+    DEFINES += "NIGHTLY=$$NIGHTLY"
+}
+
+# Windows specific stuff
+win32 {
+    # To build without win32: qmake CONFIG+=NO_WIN32
+    !CONFIG(NO_WIN32) {
+        LIBS += -lshell32 -luser32 -lole32 -lshlwapi -lgdi32 -ldwmapi
+        DEFINES += WIN32_LOADED
+        message("Linked to win32 api")
+    }
+
+    RC_ICONS = "dist/win/qView.ico"
+    QMAKE_TARGET_COPYRIGHT = "Copyright \\251 2026 jurplel and qView contributors"
+    QMAKE_TARGET_DESCRIPTION = "qView"
+}
+
+# macOS specific stuff
+macx {
+    # To build without cocoa: qmake CONFIG+=NO_COCOA
+    !CONFIG(NO_COCOA) {
+        LIBS += -framework Cocoa
+        DEFINES += COCOA_LOADED
+        message("Linked to cocoa framework")
+    }
+
+    QMAKE_TARGET_BUNDLE_PREFIX = "io.github.inostarlin-passion"
+    QMAKE_INFO_PLIST = "dist/mac/Info.plist"
+    ICON = "dist/mac/qView.icns"
+    QMAKE_TARGET_DESCRIPTION = "Fovelle"
+    QMAKE_TARGET_COPYRIGHT = "Copyright \\251 2026 Fovelle contributors"
+}
+
+# Linux specific stuff
+unix:!macx {
+    !CONFIG(NO_X11) {
+        LIBS += -lX11
+        DEFINES += X11_LOADED
+    }
+
+    RESOURCES += resources/resources_linux.qrc
+}
+
+# Stuff for make install
+# To use a custom prefix: qmake PREFIX=/usr
+# An environment variable will also work: PREFIX=/usr qmake
+# You can also use at install time: make install INSTALL_ROOT=/usr but this will not override the prefix, just set where it begins
+isEmpty(PREFIX) {
+    PREFIX = $$(PREFIX)
+}
+isEmpty(PREFIX) {
+    PREFIX = /usr/local
+}
+
+message("Installation prefix is $$PREFIX")
+
+binary.path = $$PREFIX/bin
+binary.files = bin/qview
+desktop.path = $$PREFIX/share/applications
+desktop.files = dist/linux/com.interversehq.qView.desktop
+icon16.path = $$PREFIX/share/icons/hicolor/16x16/apps/
+icon16.files = dist/linux/hicolor/16x16/apps/com.interversehq.qView.png
+icon32.path = $$PREFIX/share/icons/hicolor/32x32/apps/
+icon32.files = dist/linux/hicolor/32x32/apps/com.interversehq.qView.png
+icon64.path = $$PREFIX/share/icons/hicolor/64x64/apps/
+icon64.files = dist/linux/hicolor/64x64/apps/com.interversehq.qView.png
+icon128.path = $$PREFIX/share/icons/hicolor/128x128/apps/
+icon128.files = dist/linux/hicolor/128x128/apps/com.interversehq.qView.png
+icon256.path = $$PREFIX/share/icons/hicolor/256x256/apps/
+icon256.files = dist/linux/hicolor/256x256/apps/com.interversehq.qView.png
+iconsvg.path = $$PREFIX/share/icons/hicolor/scalable/apps/
+iconsvg.files = dist/linux/hicolor/scalable/apps/com.interversehq.qView.svg
+iconsym.path = $$PREFIX/share/icons/hicolor/symbolic/apps/
+iconsym.files = dist/linux/hicolor/symbolic/apps/com.interversehq.qView-symbolic.svg
+license.path = $$PREFIX/share/licenses/qview/
+license.files = LICENSE
+appstream.path = $$PREFIX/share/metainfo/
+appstream.files = dist/linux/com.interversehq.qView.appdata.xml
+
+unix:INSTALLS += binary desktop icon16 icon32 icon64 icon128 icon256 iconsvg iconsym license appstream
+unix:!macx:TARGET = qview
+
+# The following define makes your compiler emit warnings if you use
+# any feature of Qt which has been marked as deprecated (the exact warnings
+# depend on your compiler). Please consult the documentation of the
+# deprecated API in order to know how to port your code away from it.
+DEFINES += QT_DEPRECATED_WARNINGS
+
+# You can also make your code fail to compile if you use deprecated APIs.
+# In order to do so, uncomment the following line.
+# You can also select to disable deprecated APIs only up to a certain version of Qt.
+#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+
+# Ban usage of Qt's built in foreach utility for better code style
+DEFINES += QT_NO_FOREACH
+
+include(src/src.pri)
+
+CONFIG += lrelease embed_translations
+TRANSLATIONS += $$files(i18n/qview_*.ts)
+
+lupdate_only {
+    TRANSLATIONS += i18n/template.ts
+}
+
+qtbase_translations.files = \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_de.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_es.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_fr.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_ja.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_ko.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_ru.qm \
+    $$[QT_INSTALL_TRANSLATIONS]/qtbase_zh_CN.qm
+qtbase_translations.base = $$[QT_INSTALL_TRANSLATIONS]
+qtbase_translations.prefix = /qt-translations
+
+RESOURCES += \
+    resources/resources.qrc \
+    qtbase_translations

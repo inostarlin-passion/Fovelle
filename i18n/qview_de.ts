@@ -4,415 +4,332 @@
 <context>
     <name>ActionManager</name>
     <message>
-        <location filename="../src/actionmanager.cpp" line="30"/>
         <source>Window</source>
         <translation>Fenster</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="172"/>
         <source>&amp;File</source>
-        <translation>&amp;Datei</translation>
+        <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="201"/>
         <source>&amp;Edit</source>
-        <translation>&amp;Bearbeiten</translation>
+        <translation>Bearbeiten</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="223"/>
         <source>&amp;Go</source>
-        <translation>&amp;Los</translation>
+        <translation>Gehe zu</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="252"/>
         <source>&amp;View</source>
-        <translation>&amp;Anzeigen</translation>
+        <translation>Ansicht</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="276"/>
         <source>&amp;Tools</source>
-        <translation>&amp;Werkzeuge</translation>
+        <translation>Werkzeuge</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="298"/>
         <source>&amp;Help</source>
-        <translation>&amp;Hilfe</translation>
+        <translation>Hilfe</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="312"/>
         <source>Open &amp;Recent</source>
-        <translation>&amp;Zuletzt geöffnet</translation>
+        <translation>Zuletzt geöffnet</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="322"/>
-        <location filename="../src/actionmanager.cpp" line="478"/>
         <source>Empty</source>
         <translation>Leer</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="470"/>
         <source>Open With</source>
         <translation>Öffnen mit</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="660"/>
-        <source>&amp;Quit</source>
-        <translation>&amp;Beenden</translation>
+        <source>Sort Files By</source>
+        <translation>Dateien sortieren nach</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="664"/>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>Änderungsdatum</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>Erstellungsdatum</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Dateigröße</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Typ</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>Zufall</translation>
+    </message>
+    <message>
+        <source>Ascending</source>
+        <translation>Aufsteigend</translation>
+    </message>
+    <message>
+        <source>Descending</source>
+        <translation>Absteigend</translation>
+    </message>
+    <message>
+        <source>&amp;Quit</source>
+        <translation>Beenden</translation>
+    </message>
+    <message>
         <source>Exit</source>
         <extracomment>The quit action is called &quot;Exit&quot; on windows</extracomment>
-        <translation>&amp;Beenden</translation>
+        <translation>Beenden</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="667"/>
         <source>New Window</source>
         <translation>Neues Fenster</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="670"/>
         <source>&amp;Open...</source>
-        <translation>&amp;Öffnen&#xa0;…</translation>
+        <translation>Öffnen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="673"/>
         <source>Open &amp;URL...</source>
-        <translation>&amp;URL öffnen&#xa0;…</translation>
+        <translation>URL öffnen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="676"/>
         <source>Re&amp;load File</source>
-        <translation>Datei &amp;neu laden</translation>
+        <translation>Datei neu laden</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="680"/>
         <source>Close Window</source>
         <translation>Fenster schließen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="684"/>
         <source>Close All</source>
         <extracomment>Close all windows, that is</extracomment>
-        <translation>Alles schließen</translation>
+        <translation>Alle schließen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="687"/>
         <source>Open Containing &amp;Folder</source>
-        <translation>Öffne beinhaltenden &amp;Ordner</translation>
+        <translation>Enthaltenden Ordner öffnen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="690"/>
         <source>Show in E&amp;xplorer</source>
         <extracomment>Open containing folder on windows</extracomment>
-        <translation>Im &amp;Explorer anzeigen</translation>
+        <translation>Im Explorer anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="693"/>
         <source>Show in &amp;Finder</source>
         <extracomment>Open containing folder on macOS</extracomment>
-        <translation>Im &amp;Finder anzeigen</translation>
+        <translation>Im Finder anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="698"/>
         <source>Show File &amp;Info</source>
-        <translation>Datei-&amp;Informationen anzeigen</translation>
+        <translation>Datei-Informationen anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="702"/>
         <source>&amp;Move to Trash</source>
-        <translation>In den Papierkorb &amp;verschieben</translation>
+        <translation>In den Papierkorb verschieben</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="704"/>
         <source>&amp;Delete</source>
-        <translation>&amp;Löschen</translation>
+        <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="709"/>
         <source>Delete Permanently</source>
         <translation>Endgültig löschen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="713"/>
         <source>&amp;Restore from Trash</source>
-        <translation>Aus dem Papierkorb &amp;wiederherstellen</translation>
+        <translation>Aus dem Papierkorb wiederherstellen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="715"/>
         <source>&amp;Undo Delete</source>
-        <translation>Löschen &amp;rückgängig machen</translation>
+        <translation>Löschen rückgängig machen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="720"/>
         <source>&amp;Copy</source>
-        <translation>&amp;Kopieren</translation>
+        <translation>Kopieren</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="724"/>
         <source>&amp;Paste</source>
-        <translation>&amp;Einfügen</translation>
+        <translation>Einfügen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="727"/>
         <source>R&amp;ename...</source>
-        <translation>&amp;Umbenennen&#xa0;…</translation>
+        <translation>Umbenennen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="731"/>
         <source>Zoom &amp;In</source>
         <translation>Vergrößern</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="735"/>
         <source>Zoom &amp;Out</source>
         <translation>Verkleinern</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="739"/>
-        <source>Reset &amp;Zoom</source>
-        <translation>Zoom zurücksetzen</translation>
+        <source>Set Zoom &amp;Level...</source>
+        <translation>Zoomstufe festlegen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="743"/>
         <source>Ori&amp;ginal Size</source>
-        <translation>&amp;Originalgröße</translation>
+        <translation>Originalgröße</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="747"/>
+        <source>&amp;Zoom to Fit</source>
+        <translation>Größe an Fenster anpassen</translation>
+    </message>
+    <message>
+        <source>Fill &amp;Window</source>
+        <translation>Fenster ausfüllen</translation>
+    </message>
+    <message>
+        <source>&amp;Navigation Resets Zoom</source>
+        <translation>Navigation setzt Zoom zurück</translation>
+    </message>
+    <message>
         <source>Rotate &amp;Right</source>
-        <translation>Nach &amp;rechts drehen</translation>
+        <translation>Nach rechts drehen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="751"/>
         <source>Rotate &amp;Left</source>
-        <translation>Nach &amp;links drehen</translation>
+        <translation>Nach links drehen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="755"/>
         <source>&amp;Mirror</source>
-        <translation>&amp;Spiegeln</translation>
+        <translation>Spiegeln</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="759"/>
         <source>&amp;Flip</source>
-        <translation>&amp;Umdrehen</translation>
+        <translation>Umdrehen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="763"/>
+        <source>Reset &amp;Transformation</source>
+        <translation>Transformation zurücksetzen</translation>
+    </message>
+    <message>
+        <source>M&amp;atch Image Size</source>
+        <translation>Bildgröße anpassen</translation>
+    </message>
+    <message>
+        <source>Window On To&amp;p</source>
+        <translation>Fenster im Vordergrund</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>Titelleiste ausblenden</translation>
+    </message>
+    <message>
         <source>Enter F&amp;ull Screen</source>
-        <translation>&amp;Vollbildmodus</translation>
+        <translation>Vollbildmodus aktvieren</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="767"/>
         <source>&amp;First File</source>
-        <translation>&amp;Erste Datei</translation>
+        <translation>Erste Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="771"/>
         <source>Previous Fi&amp;le</source>
         <translation>Vorherige Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="775"/>
         <source>&amp;Next File</source>
         <translation>Nächste Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="779"/>
         <source>Las&amp;t File</source>
         <translation>Letzte Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="783"/>
-        <source>Save Frame &amp;As...</source>
-        <translation>Frame speichern als&#xa0;…</translation>
+        <source>&amp;Random File</source>
+        <translation>Zufällige Datei</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="787"/>
+        <source>Save Frame &amp;As...</source>
+        <translation>Frame speichern als ...</translation>
+    </message>
+    <message>
         <source>Pa&amp;use</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="791"/>
         <source>&amp;Next Frame</source>
-        <translation>&amp;Nächstes Frame</translation>
+        <translation>Nächster Frame</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="795"/>
+        <source>&amp;Previous Frame</source>
+        <translation>Vorheriger Frame</translation>
+    </message>
+    <message>
         <source>&amp;Decrease Speed</source>
-        <translation>Geschwindigkeit &amp;verringern</translation>
+        <translation>Geschwindigkeit verringern</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="799"/>
         <source>&amp;Reset Speed</source>
-        <translation>Geschwindigkeit &amp;zurücksetzen</translation>
+        <translation>Geschwindigkeit zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="803"/>
         <source>&amp;Increase Speed</source>
-        <translation>Geschwindigkeit &amp;erhöhen</translation>
+        <translation>Geschwindigkeit erhöhen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="807"/>
         <source>Start S&amp;lideshow</source>
-        <translation>&amp;Diashow starten</translation>
+        <translation>Diashow starten</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="812"/>
         <source>&amp;Settings</source>
         <extracomment>This is for the options dialog on windows</extracomment>
-        <translation>&amp;Einstellungen</translation>
+        <translation>Einstellungen</translation>
     </message>
     <message>
-        <source>Option&amp;s</source>
-        <extracomment>This is for the options dialog on windows</extracomment>
-        <translation type="vanished">&amp;Optionen</translation>
-    </message>
-    <message>
-        <source>Preference&amp;s</source>
-        <extracomment>This is for the options dialog on non-mac unix platforms</extracomment>
-        <translation type="vanished">&amp;Einstellungen</translation>
-    </message>
-    <message>
-        <location filename="../src/actionmanager.cpp" line="816"/>
         <source>Preference&amp;s...</source>
         <extracomment>This is for the options dialog on older mac versions</extracomment>
-        <translation>&amp;Einstellungen&#xa0;…</translation>
+        <translation>Einstellungen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="818"/>
         <source>Setting&amp;s...</source>
-        <translation>&amp;Einstellungen&#xa0;…</translation>
+        <translation>Einstellungen ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="823"/>
         <source>&amp;About</source>
-        <translation>&amp;Über</translation>
+        <translation>Über</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About Fovelle</source>
+        <source>&amp;About qView</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>&amp;Über Fovelle</translation>
+        <translation>Über qView</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="830"/>
         <source>&amp;Welcome</source>
-        <translation>&amp;Willkommen</translation>
+        <translation>Willkommen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="834"/>
         <source>Clear &amp;Menu</source>
         <extracomment>This is for clearing the recents menu</extracomment>
-        <translation>Menü &amp;bereinigen</translation>
+        <translation>Menü bereinigen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="838"/>
         <source>Other Application...</source>
         <extracomment>Open with other program for unix non-mac</extracomment>
-        <translation>Andere Anwendung...</translation>
+        <translation>Andere Anwendung ...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="841"/>
         <source>Choose another app</source>
         <extracomment>Open with other program for windows</extracomment>
         <translation>Andere Anwendung auswählen</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="844"/>
         <source>Other...</source>
         <extracomment>Open with other program for macos</extracomment>
-        <translation>Andere...</translation>
+        <translation>Andere ...</translation>
     </message>
 </context>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/mainwindow.cpp" line="242"/>
-        <source>Exit F&amp;ull Screen</source>
-        <translation>Vollbildmodus &amp;verlassen</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="247"/>
-        <source>Enter F&amp;ull Screen</source>
-        <translation>&amp;Vollbildmodus aktvieren</translation>
-    </message>
-    <message>
-        <source>Empty</source>
-        <translation type="vanished">Leer</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="658"/>
-        <location filename="../src/mainwindow.cpp" line="685"/>
-        <location filename="../src/mainwindow.cpp" line="708"/>
-        <location filename="../src/mainwindow.cpp" line="785"/>
-        <location filename="../src/mainwindow.cpp" line="865"/>
-        <location filename="../src/mainwindow.cpp" line="922"/>
-        <location filename="../src/mainwindow.cpp" line="930"/>
-        <source>Error</source>
-        <translation>Fehler</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="658"/>
-        <source>Error: URL is invalid</source>
-        <translation>Fehler: URL ist ungültig</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="664"/>
-        <source>Downloading image...</source>
-        <translation>Bild herunterladen&#xa0;…</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="664"/>
-        <source>Cancel</source>
-        <translation>Abbrechen</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="668"/>
-        <location filename="../src/mainwindow.cpp" line="724"/>
-        <source>Open URL...</source>
-        <translation>URL öffnen&#xa0;…</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="685"/>
-        <source>Error </source>
-        <translation>Fehler </translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="708"/>
-        <source>Error: Invalid image</source>
-        <translation>Fehler: ungültige Bilddatei</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="725"/>
-        <source>URL of a supported image file:</source>
-        <translation>URL zu einer unterstützten Bilddatei:</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="785"/>
-        <source>Can&apos;t delete %1:
-No write permission or file is read-only.</source>
-        <translation>%1 kann nicht gelöscht werden:
-Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="792"/>
-        <source>Are you sure you want to delete %1 permanently? This can&apos;t be undone.</source>
-        <translation>Sind Sie sicher, dass Sie %1 endgültig löschen möchten? Dies kann nicht rückgängig gemacht werden.</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="799"/>
-        <source>Are you sure you want to move %1 to the Trash?</source>
-        <translation>Sind Sie sicher, dass Sie %1 in den Papierkorb verschieben wollen?</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="797"/>
-        <source>Are you sure you want to move %1 to the Recycle Bin?</source>
-        <translation>Sind Sie sicher, dass Sie %1 in den Papierkorb verschieben möchten?</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="310"/>
         <source>Error occurred opening
 %3
 %2 (Error %1)</source>
@@ -421,100 +338,141 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 %2 (Fehler %1)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="803"/>
+        <source>Exit F&amp;ull Screen</source>
+        <translation>Vollbildmodus verlassen</translation>
+    </message>
+    <message>
+        <source>Enter F&amp;ull Screen</source>
+        <translation>Vollbildmodus aktvieren</translation>
+    </message>
+    <message>
+        <source>Res&amp;ume</source>
+        <translation>Fortsetzen</translation>
+    </message>
+    <message>
+        <source>Pa&amp;use</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Show Title&amp;bar</source>
+        <translation>Titelleiste einblenden</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>Titelleiste ausblenden</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Fehler</translation>
+    </message>
+    <message>
+        <source>Error: URL is invalid</source>
+        <translation>Fehler: URL ist ungültig</translation>
+    </message>
+    <message>
+        <source>Downloading image...</source>
+        <translation>Bild herunterladen ...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Open URL...</source>
+        <translation>URL öffnen ...</translation>
+    </message>
+    <message>
+        <source>Error </source>
+        <translation>Fehler </translation>
+    </message>
+    <message>
+        <source>Error: Invalid image</source>
+        <translation>Fehler: ungültige Bilddatei</translation>
+    </message>
+    <message>
+        <source>URL of a supported image file:</source>
+        <translation>URL zu einer unterstützten Bilddatei:</translation>
+    </message>
+    <message>
+        <source>Can&apos;t delete %1:
+No write permission or file is read-only.</source>
+        <translation>%1 kann nicht gelöscht werden:
+Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to permanently delete %1? This can&apos;t be undone.</source>
+        <translation>Sind Sie sicher, dass Sie %1 endgültig löschen möchten? Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to move %1 to the Recycle Bin?</source>
+        <translation>Sind Sie sicher, dass Sie %1 in den Papierkorb verschieben möchten?</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to move %1 to the Trash?</source>
+        <translation>Sind Sie sicher, dass Sie %1 in den Papierkorb verschieben wollen?</translation>
+    </message>
+    <message>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="806"/>
         <source>Do not ask again</source>
         <translation>Nicht erneut nachfragen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="865"/>
         <source>Can&apos;t delete %1.</source>
         <translation>Kann %1 nicht löschen.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="855"/>
-        <location filename="../src/mainwindow.cpp" line="935"/>
-        <source>Not Supported</source>
-        <translation>Nicht unterstützt</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="855"/>
-        <location filename="../src/mainwindow.cpp" line="935"/>
-        <source>This program was compiled with an old version of Qt and this feature is not available.
-If you see this message, please report a bug!</source>
-        <translation>Dieses Programm wurde mit einer alten Version von Qt kompiliert und diese Funktion ist nicht verfügbar.
-Wenn Sie diese Meldung sehen, melden Sie diesen Fehler bitte!</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="922"/>
         <source>Can&apos;t undo deletion of %1:
 No write permission or file is read-only.</source>
         <translation>Löschung von %1 kann nicht rückgängig gemacht werden:
 Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="930"/>
         <source>Failed undoing deletion of %1.</source>
         <translation>Das Wiederherstellen von %1 ist fehlgeschlagen.</translation>
     </message>
     <message>
-        <source>Rename...</source>
-        <translation type="vanished">Umbenennen&#xa0;…</translation>
+        <source>Set Zoom Level</source>
+        <translation>Zoomstufe festlegen</translation>
     </message>
     <message>
-        <source>File name:</source>
-        <translation type="vanished">Dateiname:</translation>
+        <source>Zoom Level (%):</source>
+        <translation>Zoomstufe (%):</translation>
     </message>
     <message>
-        <source>Error: Could not rename file
-(Check that you have write access)</source>
-        <translation type="vanished">Fehler: Konnte Datei nicht umbenennen
-(Überprüfe, ob du Schreibrechte hast)</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1068"/>
         <source>Save Frame As...</source>
-        <translation>Frame speichern als&#xa0;…</translation>
+        <translation>Frame speichern als ...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1097"/>
-        <source>Res&amp;ume</source>
-        <translation>&amp;Fortsetzen</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1106"/>
-        <source>Pause</source>
-        <translation>Pause</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1129"/>
-        <source>Start S&amp;lideshow</source>
-        <translation>Diashow &amp;starten</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1138"/>
         <source>Stop S&amp;lideshow</source>
-        <translation>Diashow s&amp;toppen</translation>
+        <translation>Diashow stoppen</translation>
+    </message>
+    <message>
+        <source>Start S&amp;lideshow</source>
+        <translation>Diashow starten</translation>
     </message>
 </context>
 <context>
     <name>OpenWith</name>
     <message>
-        <location filename="../src/openwith.cpp" line="163"/>
+        <source> (default)</source>
+        <translation> (Standard)</translation>
+    </message>
+    <message>
         <source>All Applications (*.app)</source>
         <translation>Alle Anwendungen (*.app)</translation>
     </message>
     <message>
-        <location filename="../src/openwith.cpp" line="175"/>
+        <source>Open With...</source>
+        <translation>Öffnen mit ...</translation>
+    </message>
+    <message>
         <source>Programs (*.exe *.pif *.com *.bat *.cmd)</source>
         <translation>Programme (*.exe *.pif *.com *.bat *.cmd)</translation>
     </message>
     <message>
-        <location filename="../src/openwith.cpp" line="175"/>
         <source>All Files (*)</source>
         <translation>Alle Dateien (*)</translation>
     </message>
@@ -522,12 +480,10 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/main.cpp" line="18"/>
         <source>file</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="18"/>
         <source>The file to open.</source>
         <translation>Datei, die du öffnen möchtest.</translation>
     </message>
@@ -535,658 +491,806 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About Fovelle</source>
-        <translation>Über Fovelle</translation>
+        <source>About qView</source>
+        <translation>Über qView</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="44"/>
-        <source>version %1</source>
+        <source>Check for Updates</source>
+        <translation>Nach Aktualisierungen suchen</translation>
+    </message>
+    <message>
+        <source>Unofficial Fork (jdpurcell)</source>
+        <translation>Inoffizieller Fork (jdpurcell)</translation>
+    </message>
+    <message>
+        <source>Version %1</source>
         <translation>Version %1</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="47"/>
-        <source>Nightly %1</source>
-        <translation>Nächtlich %1</translation>
+        <source>Unspecified Version</source>
+        <translation>Unspezifizierte Version</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="93"/>
-        <source>Checking for updates...</source>
-        <translation>Überprüfe auf Aktualisierungen&#xa0;…</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="97"/>
-        <source>%1 update available</source>
-        <extracomment>%1 is a version number e.g. &quot;4.0 update available&quot;</extracomment>
-        <translation>%1 Aktualisierung verfügbar</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="101"/>
-        <source>No updates available</source>
-        <translation>Keine Aktualisierungen verfügbar</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="105"/>
-        <source>Error checking for updates</source>
-        <translation>Fehler beim Überprüfen auf Aktualisierungen</translation>
+        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
+        <translation>Erstellt mit Qt %1 (%2)&lt;br&gt;Lizenziert unter der GNU GPLv3&lt;br&gt;Ableitung der offiziellen qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Programmsymbol erstellt von Guilhem vom Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell und zu qView Beitragende</translation>
     </message>
 </context>
 <context>
     <name>QVApplication</name>
     <message>
-        <source>Supported Files</source>
-        <translation type="vanished">Unterstützte Dateiformate</translation>
+        <source>Open...</source>
+        <translation>Öffnen ...</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="349"/>
+        <source>Error</source>
+        <translation>Fehler</translation>
+    </message>
+    <message>
+        <source>Error checking for updates:
+%1</source>
+        <translation>Fehler beim Suchen nach Aktualisierungen:
+%1</translation>
+    </message>
+    <message>
+        <source>No Updates</source>
+        <translation>Keine Aktualisierungen</translation>
+    </message>
+    <message>
+        <source>You already have the latest version.</source>
+        <translation>Sie haben bereits die neueste Version.</translation>
+    </message>
+    <message>
         <source>Supported Images</source>
         <translation>Unterstützte Bilder</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="404"/>
         <source>All Files</source>
         <translation>Alle Dateien</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="115"/>
-        <source>Open...</source>
-        <translation>Öffnen&#xa0;…</translation>
-    </message>
-</context>
-<context>
-    <name>QVCocoaFunctions</name>
-    <message>
-        <location filename="../src/qvcocoafunctions.mm" line="217"/>
-        <source> (default)</source>
-        <translation> (Standard)</translation>
-    </message>
-</context>
-<context>
-    <name>QVGraphicsView</name>
-    <message>
-        <source>Error</source>
-        <translation type="vanished">Fehler</translation>
+        <source>Remember Session?</source>
+        <translation>Sitzung speichern?</translation>
     </message>
     <message>
-        <source>Error occurred opening &quot;%3&quot;:
-%2 (Error %1)</source>
-        <translation type="vanished">Fehler beim Öffnen von „%3“:
-%2 (Fehler %1)</translation>
+        <source>Would you like to remember your opened images and re-open them at next launch?</source>
+        <translation>Möchten Sie Ihre geöffneten Bilder speichern und beim nächsten Start wieder öffnen?</translation>
+    </message>
+    <message>
+        <source>&amp;Remember</source>
+        <translation>Speichern</translation>
+    </message>
+    <message>
+        <source>&amp;End Session</source>
+        <translation>Sitzung beenden</translation>
     </message>
 </context>
 <context>
     <name>QVInfoDialog</name>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="20"/>
         <source>File Info</source>
         <translation>Datei-Info</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="26"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="36"/>
-        <location filename="../src/qvinfodialog.ui" line="65"/>
-        <location filename="../src/qvinfodialog.ui" line="85"/>
-        <location filename="../src/qvinfodialog.ui" line="114"/>
-        <location filename="../src/qvinfodialog.ui" line="143"/>
-        <location filename="../src/qvinfodialog.ui" line="163"/>
-        <location filename="../src/qvinfodialog.ui" line="183"/>
-        <location filename="../src/qvinfodialog.ui" line="203"/>
         <source>error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="52"/>
         <source>Type:</source>
         <translation>Typ:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="75"/>
         <source>Location:</source>
         <translation>Ort:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="101"/>
         <source>Size:</source>
         <translation>Größe:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="130"/>
         <source>Modified:</source>
         <translation>Letzte Änderung:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="153"/>
         <source>Dimensions:</source>
         <translation>Maße:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="173"/>
         <source>Aspect Ratio:</source>
-        <translation>Formfaktor:</translation>
+        <translation>Seitenverhältnis:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="193"/>
         <source>Frames:</source>
         <translation>Frames:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="213"/>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.cpp" line="62"/>
         <source>%1 (%2 bytes)</source>
         <translation>%1 (%2 Bytes)</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 × %2 (%3 MP)</translation>
     </message>
 </context>
 <context>
-    <name>QVOptionsDialog</name>
+    <name>QVOpenWithDialog</name>
     <message>
-        <source>Options</source>
-        <translation type="vanished">Optionen</translation>
+        <source>Choose Application</source>
+        <translation>Anwendung auswählen</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="33"/>
-        <source>Window</source>
-        <translation>Fenster</translation>
+        <source>Development</source>
+        <translation>Entwicklung</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="39"/>
-        <source>Back&amp;ground color:</source>
-        <translation>Hinter&amp;grundfarbe:</translation>
+        <source>Education</source>
+        <translation>Bildung</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="56"/>
-        <source>Changes the amount of information displayed in the titlebar</source>
-        <translation>Legt fest, wie viele Informationen in der Titelleiste eingeblendet werden</translation>
+        <source>Games</source>
+        <translation>Spiele</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="59"/>
-        <source>Titlebar text:</source>
-        <translation>Text der Titelleiste:</translation>
+        <source>Graphics</source>
+        <translation>Grafik</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="66"/>
-        <source>&amp;Basic</source>
-        <translation>&amp;Grundlegend</translation>
+        <source>Internet</source>
+        <translation>Internet</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="73"/>
-        <source>&amp;Minimal</source>
-        <translation>&amp;Minimal</translation>
+        <source>Multimedia</source>
+        <translation>Multimedia</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="83"/>
-        <source>&amp;Practical</source>
-        <translation>&amp;Praktisch</translation>
+        <source>Office</source>
+        <translation>Büro</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="90"/>
-        <source>&amp;Verbose</source>
-        <translation>&amp;Ausschweifend</translation>
+        <source>Science</source>
+        <translation>Wissenschaft</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="110"/>
-        <location filename="../src/qvoptionsdialog.ui" line="120"/>
-        <source>Control when the window should resize to fit the image&apos;s actual size</source>
-        <translation>Legt fest, wann sich das Programmfenster an die tatsächliche Bildgröße anpassen soll</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="113"/>
-        <source>Window matches image size:</source>
-        <translation>Fenster passt sich an die Bildgröße an:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="127"/>
-        <source>Never</source>
-        <translation>Nie</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="132"/>
-        <source>When launching</source>
-        <translation>Beim Programmstart</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="137"/>
-        <source>When opening images</source>
-        <translation>Beim Öffnen von Bildern</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="145"/>
-        <source>Minimum size:</source>
-        <translation>Minimale Größe:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="152"/>
-        <source>Control the minimum size that the window should reach when matching the image&apos;s actual size</source>
-        <translation>Legt fest, welche minimale Größe das Programmfenster haben soll, wenn es sich an die tatsächliche Bildgröße anpasst</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="155"/>
-        <location filename="../src/qvoptionsdialog.ui" line="187"/>
-        <source>% of screen size</source>
-        <translation>% der Bildschirmgröße</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="174"/>
-        <location filename="../src/qvoptionsdialog.ui" line="184"/>
-        <source>Control the maximum size that the window should reach when matching the image&apos;s actual size</source>
-        <translation>Legt fest, wie groß das Programmfenster maximal sein soll, wenn es sich an die tatsächliche Bildgröße anpasst</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="177"/>
-        <source>Maximum size:</source>
-        <translation>Maximale Größe:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="219"/>
-        <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
-        <translation>Legt fest, ob die Titelleiste immer dunkel sein soll, unabhängig von deinem macOS-Aussehen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="222"/>
-        <source>&amp;Titlebar always dark</source>
-        <translation>&amp;Titelleiste immer dunkel</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="232"/>
-        <source>Show menubar</source>
-        <translation>Menüleiste anzeigen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="239"/>
-        <source>Choose whether or not to display the titlebar text while in fullscreen</source>
-        <translation>Legt fest, ob der Text der Titelleiste im Vollbildmodus angezeigt wird</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="242"/>
-        <source>Show titlebar text in fullscreen</source>
-        <translation>Text der Titelleiste im Vollbildmodus anzeigen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="249"/>
-        <source>&amp;Quit on last window closed</source>
-        <translation>Schließen, wenn letztes Fenster geschlossen wurde</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="257"/>
-        <source>Image</source>
-        <translation>Bild</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="263"/>
-        <source>Scaling:</source>
-        <translation>Skalierung:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="270"/>
-        <source>Turn this off to see individual pixels</source>
-        <translation>Ausschalten, um einzelne Pixel zu sehen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="273"/>
-        <source>&amp;Bilinear filtering</source>
-        <translation>&amp;Bilineare Filterung</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="283"/>
-        <source>Images appear aliased (having jagged edges) without this, but it is faster</source>
-        <translation>Ohne diese Option erscheinen die Bilder im „aliased“-Modus, d.h. sie können kantig wirken; der „aliased“-Modus ist jedoch schneller</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="286"/>
-        <source>&amp;Image scaling</source>
-        <translation>&amp;Bildskalierung</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="296"/>
-        <source>Choose whether or not the image continues to be scaled when zooming above the window size (can be laggier with large images)</source>
-        <translation>Legt fest, ob das Bild weiter skaliert werden soll, wenn über die Größe des Programmfensters hinaus gezoomt wird (dies kann bei großen Bildern zu Verzögerungen führen)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="299"/>
-        <source>&amp;Scaling above window size</source>
-        <translation>&amp;Skaliere über die Größe des Programmfensters hinaus</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="309"/>
-        <location filename="../src/qvoptionsdialog.ui" line="319"/>
-        <source>The amount to zoom every scroll wheel click</source>
-        <translation>Legt fest, wie viel pro Mausrad-Drehung gezoomt wird</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="312"/>
-        <source>Zoom amount:</source>
-        <translation>Zoomfaktor:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="341"/>
-        <source>Choose whether scrolling zooms or moves the image (alternative can be accessed at any time by holding ctrl/cmd)</source>
-        <translation>Legt fest, ob Scrollen mit dem Mausrad das Bild zoomt oder bewegt (die jeweils andere Option kann jederzeit mit der Strg-/cmd-Taste aktiviert werden)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="344"/>
-        <source>Scrolling &amp;zooms</source>
-        <translation>Scrollen zoomt</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="367"/>
-        <source>Stop the image from going past its actual size when resizing the window - you can still zoom past it though</source>
-        <translation>Verhindert, dass beim Ändern der Fenstergröße das Bild seine tatsächliche Größe überschreitet&#xa0;–&#xa0;du kannst dennoch weiterhin zoomen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="370"/>
-        <source>Image resizes &amp;past actual size</source>
-        <translation>Bildänderung jenseits tatsächlicher Größe</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="386"/>
-        <location filename="../src/qvoptionsdialog.ui" line="408"/>
-        <source>Ignores select sides of an image when fitting to window (some sides will extend beyond the window boundaries)</source>
-        <translation>Ignoriert ausgewählte Ränder beim Anpassen an die Fenstergröße (manche Ränder dehnen sich dann über den Rahmen des Programmfensters hinaus)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="390"/>
-        <source>Fit whole image</source>
-        <translation>Bild einpassen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="395"/>
-        <source>Fit height</source>
-        <translation>An Höhe anpassen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="400"/>
-        <source>Fit width</source>
-        <translation>An Breite anpassen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="411"/>
-        <source>On window resize:</source>
-        <translation>Beim Ändern der Fenstergröße:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="431"/>
-        <source>Choose whether or not zooming in and out above 100% zoom will zoom towards the cursor</source>
-        <translation>Legt fest, ob beim Zoomen über 100&#xa0;% in Richtung Mauszeiger gezoomt wird</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="434"/>
-        <source>Zoom &amp;towards cursor</source>
-        <translation>In &amp;Richtung Mauszeiger zoomen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="457"/>
-        <source>Color space conversion:</source>
-        <translation>Farbraumkonvertierung:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="476"/>
-        <source>Auto-detect</source>
-        <translation>Automatisch erkennen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="481"/>
-        <source>sRGB</source>
-        <translation>sRGB</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="486"/>
-        <source>Display P3</source>
-        <translation>Display P3</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="495"/>
-        <source>Miscellaneous</source>
-        <translation>Verschiedenes</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="511"/>
-        <source>Sort files by:</source>
-        <translation>Dateien sortieren nach:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="519"/>
-        <source>Name</source>
-        <translation>Name</translation>
-    </message>
-    <message>
-        <source>Last Modified</source>
-        <translation type="vanished">Datum der letzten Änderung</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="534"/>
-        <source>Size</source>
-        <translation>Dateigröße</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="539"/>
-        <source>Type</source>
-        <translation>Typ</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="544"/>
-        <source>Random</source>
-        <translation>Zufall</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="552"/>
-        <source>A&amp;scending</source>
-        <translation>A&amp;ufsteigend</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="562"/>
-        <source>D&amp;escending</source>
-        <translation>A&amp;bsteigend</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="582"/>
-        <location filename="../src/qvoptionsdialog.ui" line="592"/>
-        <source>Controls the amount of images preloaded</source>
-        <translation>Legt fest, wie viele Bilder im Voraus geladen werden sollen</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="585"/>
-        <source>Preloading:</source>
-        <translation>Im Voraus laden:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="471"/>
-        <location filename="../src/qvoptionsdialog.ui" line="599"/>
-        <source>Disabled</source>
-        <translation>Deaktiviert</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="17"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="524"/>
-        <source>Date Modified</source>
-        <translation>Änderungsdatum</translation>
+        <source>System</source>
+        <translation>System</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="529"/>
-        <source>Date Created</source>
-        <translation>Erstellungsdatum</translation>
+        <source>Utilities</source>
+        <translation>Dienstprogramme</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="604"/>
-        <source>Adjacent</source>
-        <translation>Benachbarte</translation>
+        <source>Other</source>
+        <translation>Andere</translation>
+    </message>
+</context>
+<context>
+    <name>QVOptionsDialog</name>
+    <message>
+        <source>Settings</source>
+        <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="609"/>
-        <source>Extended</source>
-        <translation>Erweiterte</translation>
+        <source>Back&amp;ground color:</source>
+        <translation>Hintergrundfarbe:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
-        <translation>Legt fest, ob Fovelle zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
+        <source>Checkerboard when image loaded</source>
+        <translation>Schachbrettmuster, wenn Bild geladen ist</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="620"/>
-        <source>&amp;Loop through folders</source>
-        <translation>Durch Ordner &amp;rotieren</translation>
+        <source>Changes the amount of information displayed in the titlebar</source>
+        <translation>Legt fest, wie viele Informationen in der Titelleiste eingeblendet werden</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="643"/>
-        <source>Slideshow direction:</source>
-        <translation>Richtung der Diashow:</translation>
+        <source>Titlebar text:</source>
+        <translation>Text der Titelleiste:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="651"/>
-        <source>Forward</source>
-        <translation>Vorwärts</translation>
+        <source>%n - Filename
+%i - Image Index in Folder
+%c - Image Count in Folder
+%s - File Size
+%w - Image Width
+%h - Image Height
+%z - Zoom Level</source>
+        <translation>%n - Dateiname
+%i - Bildindex im Ordner
+%c - Anzahl der Bilder im Ordner
+%s - Dateigröße
+%w - Bildbreite
+%h - Bildhöhe
+%z - Zoomstufe</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="656"/>
-        <source>Backward</source>
-        <translation>Rückwärts</translation>
+        <source>Control when the window should resize to fit the image&apos;s actual size</source>
+        <translation>Legt fest, wann sich das Programmfenster an die tatsächliche Bildgröße anpassen soll</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="664"/>
-        <source>Slideshow timer:</source>
-        <translation>Diashow-Timer:</translation>
+        <source>Window matches image size:</source>
+        <translation>Fenster an Bildgröße anpassen:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="671"/>
-        <source> sec</source>
-        <translation> Sek.</translation>
+        <source>After matching image size:</source>
+        <translation>Nach Anpassung der Bildgröße:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="703"/>
-        <source>Detect supported files in folder even if extension isn&apos;t recognized (may be slow with larger/network folders)</source>
-        <translation>Unterstützte Dateien im Ordner erkennen, auch wenn die Erweiterung nicht erkannt wird (kann bei größeren/Netzwerkordnern langsam sein)</translation>
+        <source>Minimum size:</source>
+        <translation>Minimale Größe:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="706"/>
-        <source>Allow &amp;MIME content detection</source>
-        <translation>&amp;MIME-Inhaltserkennung zulassen</translation>
+        <source>Control the minimum size that the window should reach when matching the image&apos;s actual size</source>
+        <translation>Legt fest, welche minimale Größe das Programmfenster haben soll, wenn es sich an die tatsächliche Bildgröße anpasst</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="713"/>
-        <source>Save &amp;recent files</source>
-        <translation>Zuletzt geöffnete Dateien speichern</translation>
+        <source>% of screen size</source>
+        <translation>% der Bildschirmgröße</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="720"/>
-        <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new Fovelle releases</extracomment>
-        <translation>Benachrichtige über Fovelle-Aktualisierungen beim Programmstart</translation>
+        <source>Control the maximum size that the window should reach when matching the image&apos;s actual size</source>
+        <translation>Legt fest, wie groß das Programmfenster maximal sein soll, wenn es sich an die tatsächliche Bildgröße anpasst</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="501"/>
+        <source>Maximum size:</source>
+        <translation>Maximale Größe:</translation>
+    </message>
+    <message>
+        <source>Show menubar</source>
+        <translation>Menüleiste anzeigen</translation>
+    </message>
+    <message>
+        <source>Choose whether or not to display the titlebar text while in fullscreen</source>
+        <translation>Legt fest, ob der Text der Titelleiste im Vollbildmodus angezeigt wird</translation>
+    </message>
+    <message>
+        <source>Show titlebar text in fullscreen</source>
+        <translation>Text der Titelleiste im Vollbildmodus anzeigen</translation>
+    </message>
+    <message>
+        <source>Show icons in main menus</source>
+        <translation>Symbole in Hauptmenüs anzeigen</translation>
+    </message>
+    <message>
+        <source>Show icons in context menus</source>
+        <translation>Symbole in Kontextmenüs anzeigen</translation>
+    </message>
+    <message>
+        <source>Show icons in &quot;Open Recent&quot; and &quot;Open With&quot; submenus</source>
+        <translation>Symbole im „Zuletzt geöffnet“ und „Öffnen mit“ Untermenüs anzeigen</translation>
+    </message>
+    <message>
+        <source>Show icons in submenus</source>
+        <translation>Symbole in Untermenüs anzeigen</translation>
+    </message>
+    <message>
+        <source>Keep window on top during slideshow</source>
+        <translation>Fenster während der Diashow im Vordergrund halten</translation>
+    </message>
+    <message>
+        <source>Reuse window when launching with image</source>
+        <translation>Fenster wiederverwenden beim Öffnen von Bildern</translation>
+    </message>
+    <message>
+        <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
+        <translation>Legt fest, ob die Titelleiste immer dunkel sein soll, unabhängig von deinem macOS-Aussehen</translation>
+    </message>
+    <message>
+        <source>&amp;Titlebar always dark</source>
+        <translation>Titelleiste immer dunkel</translation>
+    </message>
+    <message>
+        <source>&amp;Quit on last window closed</source>
+        <translation>Schließen, wenn letztes Fenster geschlossen wurde</translation>
+    </message>
+    <message>
+        <source>Persist session across app restarts</source>
+        <translation>Sitzung über App-Neustarts hinweg beibehalten</translation>
+    </message>
+    <message>
+        <source>Smooth scaling:</source>
+        <translation>Glatte Skalierung:</translation>
+    </message>
+    <message>
+        <source>Use expensive scaling when zooming above the window size (can be laggier with large images)</source>
+        <translation>Aufwendige Skalierung bei Vergrößerung über die Fenstergröße hinaus verwenden (kann bei großen Bildern zu Verzögerungen führen)</translation>
+    </message>
+    <message>
+        <source>Expensive scaling above window size</source>
+        <translation>Aufwendige Skalierung über Fenstergröße hinaus</translation>
+    </message>
+    <message>
+        <source>Disable above:</source>
+        <translation>Deaktivieren ab:</translation>
+    </message>
+    <message>
+        <source>%</source>
+        <translation>%</translation>
+    </message>
+    <message>
+        <source>The amount to zoom every scroll wheel click</source>
+        <translation>Legt fest, wie viel pro Mausrad-Drehung gezoomt wird</translation>
+    </message>
+    <message>
+        <source>Zoom amount:</source>
+        <translation>Zoomfaktor:</translation>
+    </message>
+    <message>
+        <source>Zoom &amp;towards cursor</source>
+        <translation>In Richtung Mauszeiger zoomen</translation>
+    </message>
+    <message>
+        <source>Zoom level is relative to screen pixels</source>
+        <translation>Zoomstufe bezieht sich auf Bildschirmpixel</translation>
+    </message>
+    <message>
+        <source>Zoom default:</source>
+        <translation>Standardzoom:</translation>
+    </message>
+    <message>
+        <source>Limit fit/fill zoom:</source>
+        <translation>Zoomgrenze für Anpassung/Ausfüllung:</translation>
+    </message>
+    <message>
+        <source> pixel overscan</source>
+        <translation> Pixel Overscan</translation>
+    </message>
+    <message>
+        <source>Navigation resets zoom</source>
+        <translation>Navigation setzt Zoom zurück</translation>
+    </message>
+    <message>
+        <source>&amp;Constrain image position</source>
+        <translation>Bildposition beschränken</translation>
+    </message>
+    <message>
+        <source>Keep ce&amp;ntered if smaller</source>
+        <translation>Zentriert halten, wenn kleiner</translation>
+    </message>
+    <message>
+        <source>Original Size functions as toggle</source>
+        <translation>Originalgröße als Umschaltfunktion</translation>
+    </message>
+    <message>
+        <source>Color space conversion:</source>
+        <translation>Farbraumkonvertierung:</translation>
+    </message>
+    <message>
         <source>Language:</source>
         <translation>Sprache:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="727"/>
-        <source>Skip hidden files when browsing to the next/previous file</source>
-        <translation>Versteckte Dateien beim Blättern zur vorherigen/nächsten Datei überspringen</translation>
+        <source>Sort files by:</source>
+        <translation>Dateien sortieren nach:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="730"/>
-        <source>Skip hidden files</source>
-        <extracomment>Don&apos;t view files with &apos;hidden&apos; attribute</extracomment>
-        <translation>Versteckte Dateien überspringen</translation>
+        <source>A&amp;scending</source>
+        <translation>Aufsteigend</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="741"/>
-        <source>Move Back</source>
-        <translation>Zurück</translation>
+        <source>D&amp;escending</source>
+        <translation>Absteigend</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="746"/>
-        <source>Do Nothing</source>
-        <translation>Nichts tun</translation>
+        <source>Controls the amount of images preloaded</source>
+        <translation>Legt fest, wie viele Bilder im Voraus geladen werden sollen</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="751"/>
-        <source>Move Forward</source>
-        <translation>Weiter</translation>
+        <source>Preloading:</source>
+        <translation>Im Voraus laden:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="759"/>
+        <source>Navigation speed:</source>
+        <translation>Navigationsgeschwindigkeit:</translation>
+    </message>
+    <message>
+        <source> ms</source>
+        <translation> ms</translation>
+    </message>
+    <message>
+        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
+        <translation>Legt fest, ob qView zur ersten Datei springen soll, wenn das Ende eines Ordners erreicht wurde</translation>
+    </message>
+    <message>
+        <source>&amp;Loop through folders</source>
+        <translation>Durch Ordner rotieren</translation>
+    </message>
+    <message>
+        <source>Slideshow direction:</source>
+        <translation>Richtung der Diashow:</translation>
+    </message>
+    <message>
+        <source>Slideshow timer:</source>
+        <translation>Diashow-Timer:</translation>
+    </message>
+    <message>
+        <source> sec</source>
+        <translation> Sek.</translation>
+    </message>
+    <message>
         <source>After deletion:</source>
         <translation>Nach dem Löschen:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="766"/>
         <source>&amp;Ask before deleting files</source>
         <translation>Vor dem Löschen von Dateien fragen</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="787"/>
-        <location filename="../src/qvoptionsdialog.ui" line="835"/>
-        <source>Shortcuts</source>
-        <translation>Tastenkürzel</translation>
+        <source>Detect supported files in folder even if extension isn&apos;t recognized (may be slow with larger/network folders)</source>
+        <translation>Unterstützte Dateien im Ordner erkennen, auch wenn die Erweiterung nicht erkannt wird (kann bei größeren/Netzwerkordnern langsam sein)</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="830"/>
+        <source>Allow &amp;MIME content detection</source>
+        <translation>MIME-Inhaltserkennung zulassen</translation>
+    </message>
+    <message>
+        <source>May be slow with network folders</source>
+        <translation>Kann bei Netzwerkordnern langsam sein</translation>
+    </message>
+    <message>
+        <source>Skip hidden files</source>
+        <translation>Versteckte Dateien überspringen</translation>
+    </message>
+    <message>
+        <source>Save &amp;recent files</source>
+        <translation>Zuletzt geöffnete Dateien speichern</translation>
+    </message>
+    <message>
+        <source>&amp;Update notifications on startup</source>
+        <extracomment>The notifications are for new qView releases</extracomment>
+        <translation>Benachrichtige über Aktualisierungen beim Programmstart</translation>
+    </message>
+    <message>
         <source>Action</source>
         <translation>Aktion</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="459"/>
+        <source>Shortcuts</source>
+        <translation>Tastenkürzel</translation>
+    </message>
+    <message>
+        <source>Left Button</source>
+        <translation>Linke Taste</translation>
+    </message>
+    <message>
+        <source>Double Click:</source>
+        <translation>Doppelklick:</translation>
+    </message>
+    <message>
+        <source>Drag:</source>
+        <translation>Ziehen:</translation>
+    </message>
+    <message>
+        <source>Navigate when clicking on the left/right edges of the viewport</source>
+        <translation>Navigieren beim Klicken auf die linken/rechten Ränder des Viewports</translation>
+    </message>
+    <message>
+        <source>Side navigation regions</source>
+        <translation>Seitliche Navigationsbereiche</translation>
+    </message>
+    <message>
+        <source>Middle Button</source>
+        <translation>Mittlere Taste</translation>
+    </message>
+    <message>
+        <source>Mode:</source>
+        <translation>Modus:</translation>
+    </message>
+    <message>
+        <source>Click</source>
+        <translation>Klicken</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>Ziehen</translation>
+    </message>
+    <message>
+        <source>Middle Click:</source>
+        <translation>Mittelklick:</translation>
+    </message>
+    <message>
+        <source>Middle Drag:</source>
+        <translation>Mittel-Ziehen:</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel / Touchpad</source>
+        <translation>Scrollrad / Touchpad</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll:</source>
+        <translation>Vertikales Scrollen:</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll:</source>
+        <translation>Horizontales Scrollen:</translation>
+    </message>
+    <message>
+        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
+        <translation>Nützlich für Touchpads, um zu verhindern, dass ein einzelner Wischvorgang mehrere Navigationen auslöst, zum Beispiel</translation>
+    </message>
+    <message>
+        <source>Cooldown for discrete actions</source>
+        <translation>Abklingzeit für einzelne Aktionen</translation>
+    </message>
+    <message>
+        <source>Cursor</source>
+        <translation>Mauszeiger</translation>
+    </message>
+    <message>
+        <source>Auto-hide in fullscreen:</source>
+        <translation>Auto-ausblenden im Vollbildmodus:</translation>
+    </message>
+    <message>
+        <source> sec delay</source>
+        <translation> Sek. Verzögerung</translation>
+    </message>
+    <message>
+        <source>Extension</source>
+        <translation>Erweiterung</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Aktiviert</translation>
+    </message>
+    <message>
+        <source>Preferences</source>
+        <translation>Einstellungen</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click:</source>
+        <translation>%1 + Doppelklick:</translation>
+    </message>
+    <message>
+        <source>%1 + Drag:</source>
+        <translation>%1 + Ziehen:</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click:</source>
+        <translation>%1 + Mittelklick:</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Drag:</source>
+        <translation>%1 + Mittel-Ziehen:</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll:</source>
+        <translation>%1 + Vertikales Scrollen:</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll:</source>
+        <translation>%1 + Horizontales Scrollen:</translation>
+    </message>
+    <message>
+        <source>Restart Required</source>
+        <translation>Neustart erforderlich</translation>
+    </message>
+    <message>
+        <source>You must restart qView for the setting change to take effect.</source>
+        <translation>Du musst qView neu starten, damit die geänderte Einstellung wirksam wird.</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Fenster</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Bild</translation>
+    </message>
+    <message>
+        <source>Miscellaneous</source>
+        <translation>Verschiedenes</translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation>Maus</translation>
+    </message>
+    <message>
+        <source>Formats</source>
+        <translation>Formate</translation>
+    </message>
+    <message>
         <source>System Language</source>
         <translation>Systemsprache</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>Restart Required</source>
-        <translation>Programmneustart erforderlich</translation>
+        <source>You must restart qView for the language change to take effect.</source>
+        <translation>Du musst qView neu starten, damit die geänderte Sprache wirksam wird.</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart Fovelle to change the language.</source>
-        <translation>Du musst Fovelle neustarten, um die Spracheinstellungen wirksam zu machen.</translation>
+        <source>Move Back</source>
+        <translation>Zurück</translation>
+    </message>
+    <message>
+        <source>Do Nothing</source>
+        <translation>Nichts tun</translation>
+    </message>
+    <message>
+        <source>Move Forward</source>
+        <translation>Weiter</translation>
+    </message>
+    <message>
+        <source>Avoid repositioning</source>
+        <translation>Neupositionierung vermeiden</translation>
+    </message>
+    <message>
+        <source>Center relative to previous image</source>
+        <translation>Relativ zum vorherigen Bild zentrieren</translation>
+    </message>
+    <message>
+        <source>Center relative to screen</source>
+        <translation>Relativ zum Bildschirm zentrieren</translation>
+    </message>
+    <message>
+        <source>Zoom to Fit</source>
+        <translation>Größe an Fenster anpassen</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>Fenster ausfüllen</translation>
+    </message>
+    <message>
+        <source>Original Size</source>
+        <translation>Originalgröße</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Deaktiviert</translation>
+    </message>
+    <message>
+        <source>Auto-detect</source>
+        <translation>Automatisch erkennen</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Display P3</source>
+        <translation>Display P3</translation>
+    </message>
+    <message>
+        <source>Adjacent</source>
+        <translation>Benachbarte</translation>
+    </message>
+    <message>
+        <source>Extended</source>
+        <translation>Erweiterte</translation>
+    </message>
+    <message>
+        <source>Forward</source>
+        <translation>Vorwärts</translation>
+    </message>
+    <message>
+        <source>Backward</source>
+        <translation>Rückwärts</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>Zufall</translation>
+    </message>
+    <message>
+        <source>Bilinear</source>
+        <translation>Bilinear</translation>
+    </message>
+    <message>
+        <source>Expensive</source>
+        <translation>Aufwendig</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>Änderungsdatum</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>Erstellungsdatum</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Dateigröße</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Typ</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>Grundlegend</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>Minimal</translation>
+    </message>
+    <message>
+        <source>Practical</source>
+        <translation>Praktisch</translation>
+    </message>
+    <message>
+        <source>Verbose</source>
+        <translation>Ausschweifend</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Benutzerdefiniert</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nie</translation>
+    </message>
+    <message>
+        <source>When launching</source>
+        <translation>Beim Programmstart</translation>
+    </message>
+    <message>
+        <source>When opening images</source>
+        <translation>Beim Öffnen von Bildern</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Keine</translation>
+    </message>
+    <message>
+        <source>Center Image</source>
+        <translation>Bild zentrieren</translation>
+    </message>
+    <message>
+        <source>Toggle Full Screen</source>
+        <translation>Vollbildmodus umschalten</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>Titelleiste ausgeblendet umschalten</translation>
+    </message>
+    <message>
+        <source>Pan</source>
+        <translation>Schwenken</translation>
+    </message>
+    <message>
+        <source>Move Window</source>
+        <translation>Fenster verschieben</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>Zoomen</translation>
+    </message>
+    <message>
+        <source>Navigate</source>
+        <translation>Navigieren</translation>
     </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="14"/>
         <source>Rename...</source>
-        <translation>Umbenennen...</translation>
+        <translation>Umbenennen ...</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="15"/>
         <source>File name:</source>
         <translation>Dateiname:</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="26"/>
-        <location filename="../src/qvrenamedialog.cpp" line="45"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="26"/>
         <source>Could not rename %1:
 No write permission or file is read-only.</source>
         <translation>Konnte %1 nicht umbenennen:
 Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="45"/>
         <source>Could not rename %1:
 (Check that all characters are valid)</source>
         <translation>Konnte %1 nicht umbenennen:
@@ -1196,17 +1300,14 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>QVShortcutDialog</name>
     <message>
-        <location filename="../src/qvshortcutdialog.ui" line="14"/>
         <source>Modify Shortcuts</source>
         <translation>Tastenkürzel ändern</translation>
     </message>
     <message>
-        <location filename="../src/qvshortcutdialog.cpp" line="57"/>
         <source>Shortcut Already Used</source>
         <translation>Tastenkürzel bereits vergeben</translation>
     </message>
     <message>
-        <location filename="../src/qvshortcutdialog.cpp" line="57"/>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>„%1“ ist schon verknüpft mit „%2“</translation>
     </message>
@@ -1214,23 +1315,18 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>QVWelcomeDialog</name>
     <message>
-        <location filename="../src/qvwelcomedialog.ui" line="14"/>
-        <location filename="../src/qvwelcomedialog.ui" line="155"/>
         <source>Welcome</source>
         <translation>Willkommen</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.ui" line="472"/>
         <source>&amp;Enable update notifications on startup</source>
-        <translation>Benachrichtigungen über verfügbare Aktualisierungen beim Programmstart &amp;zulassen</translation>
+        <translation>Benachrichtigungen über verfügbare Aktualisierungen beim Programmstart zulassen</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>Danke, dass du Fovelle heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
+        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>Danke, dass du qView heruntergeladen hast.&lt;br&gt; Hier ein paar Tipps für den Anfang:</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.cpp" line="49"/>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
         <translation>&lt;ul&gt;&lt;li&gt;Rechtsklick, um das Hauptmenü zu öffnen&lt;/li&gt;&lt;li&gt;Ziehe das Bild, um es neu zu positionieren&lt;/li&gt;&lt;li&gt;Scrolle das Mausrad, um hinein- und herauszuzoomen&lt;/li&gt;&lt;li&gt;Benutze die Pfeiltasten, um zwischen den Dateien zu wechseln&lt;/li&gt;&lt;/ul&gt;</translation>
     </message>
@@ -1238,216 +1334,206 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>ShortcutManager</name>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="45"/>
         <source>Open</source>
         <translation>Öffnen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="46"/>
         <source>Open URL</source>
         <translation>URL öffnen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="47"/>
         <source>Reload File</source>
         <translation>Datei neu laden</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="48"/>
         <source>Open Containing Folder</source>
-        <translation>Öffne den beinhaltenden Ordner</translation>
+        <translation>Enthaltenden Ordner öffnen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="51"/>
         <source>Show in Explorer</source>
         <translation>Im Explorer anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="53"/>
         <source>Show in Finder</source>
         <translation>Im Finder anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="55"/>
         <source>Show File Info</source>
         <translation>Datei-Informationen anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="56"/>
         <source>Restore from Trash</source>
         <translation>Aus dem Papierkorb wiederherstellen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="58"/>
         <source>Undo Delete</source>
         <translation>Löschen rückgängig machen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="60"/>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="61"/>
         <source>Paste</source>
         <translation>Einfügen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="62"/>
         <source>Rename</source>
         <translation>Umbenennen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="69"/>
         <source>Move to Trash</source>
         <translation>In den Papierkorb verschieben</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="73"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="75"/>
         <source>Delete Permanently</source>
         <translation>Endgültig löschen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="80"/>
         <source>First File</source>
         <translation>Erste Datei</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="81"/>
         <source>Previous File</source>
         <translation>Vorherige Datei</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="82"/>
         <source>Next File</source>
         <translation>Nächste Datei</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="83"/>
         <source>Last File</source>
         <translation>Letzte Datei</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="84"/>
+        <source>Random File</source>
+        <translation>Zufällige Datei</translation>
+    </message>
+    <message>
         <source>Zoom In</source>
-        <translation>Zoome hinein</translation>
+        <translation>Vergrößern</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="89"/>
         <source>Zoom Out</source>
-        <translation>Zoome heraus</translation>
+        <translation>Verkleinern</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="90"/>
-        <source>Reset Zoom</source>
-        <translation>Zoom zurücksetzen</translation>
+        <source>Set Zoom Level</source>
+        <translation>Zoomstufe festlegen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="91"/>
         <source>Original Size</source>
         <translation>Originalgröße</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="92"/>
+        <source>Zoom to Fit</source>
+        <translation>Größe an Fenster anpassen</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>Fenster ausfüllen</translation>
+    </message>
+    <message>
+        <source>Navigation Resets Zoom</source>
+        <translation>Navigation setzt Zoom zurück</translation>
+    </message>
+    <message>
         <source>Rotate Right</source>
         <translation>Nach rechts drehen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="93"/>
         <source>Rotate Left</source>
         <translation>Nach links drehen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="94"/>
         <source>Mirror</source>
         <translation>Spiegeln</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="95"/>
         <source>Flip</source>
         <translation>Umdrehen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="96"/>
+        <source>Reset Transformation</source>
+        <translation>Transformation zurücksetzen</translation>
+    </message>
+    <message>
+        <source>Match Image Size</source>
+        <translation>Bildgröße anpassen</translation>
+    </message>
+    <message>
+        <source>Window On Top</source>
+        <translation>Fenster im Vordergrund</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>Titelleiste ausgeblendet umschalten</translation>
+    </message>
+    <message>
         <source>Full Screen</source>
         <translation>Vollbild</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="108"/>
         <source>Save Frame As</source>
-        <translation>Frame speichern unter</translation>
+        <translation>Frame speichern als</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="109"/>
         <source>Pause</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="110"/>
         <source>Next Frame</source>
         <translation>Nächster Frame</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="111"/>
+        <source>Previous Frame</source>
+        <translation>Vorheriger Frame</translation>
+    </message>
+    <message>
         <source>Decrease Speed</source>
         <translation>Geschwindigkeit verringern</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="112"/>
         <source>Reset Speed</source>
         <translation>Geschwindigkeit zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="113"/>
         <source>Increase Speed</source>
         <translation>Geschwindigkeit erhöhen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="114"/>
         <source>Toggle Slideshow</source>
         <translation>Diashow ein- und ausschalten</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="115"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <source>Options</source>
-        <translation type="vanished">Optionen</translation>
-    </message>
-    <message>
-        <location filename="../src/shortcutmanager.cpp" line="117"/>
         <source>Preferences</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="121"/>
         <source>New Window</source>
         <translation>Neues Fenster</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="122"/>
         <source>Close Window</source>
         <translation>Fenster schließen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="123"/>
         <source>Close All</source>
         <translation>Alle schließen</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="125"/>
         <source>Quit</source>
         <translation>Beenden</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="130"/>
         <source>Exit</source>
         <translation>Beenden</translation>
     </message>
@@ -1455,32 +1541,38 @@ Keine Schreibberechtigung oder Datei ist schreibgeschützt.</translation>
 <context>
     <name>UpdateChecker</name>
     <message>
-        <location filename="../src/updatechecker.cpp" line="94"/>
+        <source>This build is not configured for update checking.</source>
+        <translation>Dieser Build ist nicht für die Aktualisierungsprüfung konfiguriert.</translation>
+    </message>
+    <message>
+        <source>Received null JSON.</source>
+        <translation>Null JSON empfangen.</translation>
+    </message>
+    <message>
+        <source>qView Update Available</source>
+        <translation>Aktualisierung für qView verfügbar</translation>
+    </message>
+    <message>
+        <source>A newer version is available to download.</source>
+        <translation>Eine neuere Version steht zum Download bereit.</translation>
+    </message>
+    <message>
+        <source>Skip Version</source>
+        <translation>Version überspringen</translation>
+    </message>
+    <message>
         <source>Download</source>
         <translation>Herunterladen</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>Fovelle Update Available</source>
-        <translation>Aktualisierung für Fovelle verfügbar</translation>
+        <source>&amp;Disable Checking</source>
+        <translation>Prüfung deaktivieren</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>Fovelle %1 is available to download.</source>
-        <translation>Fovelle %1 ist zum Herunterladen bereit.</translation>
+        <source>qView Update Checking Disabled</source>
+        <translation>Prüfe nicht auf qView-Aktualisierungen</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="102"/>
-        <source>&amp;Disable Update Checking</source>
-        <translation>&amp;Prüfe nicht auf Aktualisierungen</translation>
-    </message>
-    <message>
-        <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>Fovelle Update Checking Disabled</source>
-        <translation>Prüfe nicht auf Fovelle-Aktualisierungen</translation>
-    </message>
-    <message>
-        <location filename="../src/updatechecker.cpp" line="112"/>
         <source>Update notifications on startup have been disabled.
 You can reenable them in the options dialog.</source>
         <translation>Benachrichtigungen über Aktualisierungen beim Programmstart sind deaktiviert.

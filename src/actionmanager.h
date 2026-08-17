@@ -10,23 +10,20 @@ class ActionManager : public QObject
 {
     Q_OBJECT
 public:
-    struct SRecent
-    {
+    struct SRecent {
         QString fileName;
         QString filePath;
 
-        bool operator==(const SRecent other) const
-        {
-            return (fileName == other.fileName && filePath == other.filePath);
-        }
+        bool operator==(const SRecent other) const { return (fileName == other.fileName && filePath == other.filePath);}
 
         operator QString() const { return "SRecent(" + fileName + ", " + filePath + ")"; }
     };
 
-    static QList<QAction *> getAllNestedActions(const QList<QAction *> &givenActionList)
+    static QList<QAction*> getAllNestedActions(const QList<QAction*> &givenActionList)
     {
-        QList<QAction *> totalActionList;
-        for (const auto &action : givenActionList) {
+        QList<QAction*> totalActionList;
+        for (const auto &action : givenActionList)
+        {
             if (action->isSeparator())
                 continue;
 
@@ -38,13 +35,13 @@ public:
         return totalActionList;
     }
 
-    static QList<QAction *> getAllActionsOfType(const QList<QAction *> &givenActionList,
-                                                const QString &type)
+    static QList<QAction*> getAllActionsOfType(const QList<QAction*> &givenActionList, const QString &type)
     {
-        QList<QAction *> allActionsOfType;
+        QList<QAction*> allActionsOfType;
 
         const auto allNestedActions = getAllNestedActions(givenActionList);
-        for (const auto &action : allNestedActions) {
+        for (const auto &action : allNestedActions)
+        {
             if (action->data() == type)
                 allActionsOfType << action;
         }
@@ -55,8 +52,9 @@ public:
     static QVariantList recentsListToVariantList(const QList<SRecent> &recentsList)
     {
         QVariantList variantList;
-        for (const auto &recent : recentsList) {
-            QStringList stringList = { recent.fileName, recent.filePath };
+        for (const auto &recent : recentsList)
+        {
+            QStringList stringList = {recent.fileName, recent.filePath};
             variantList.append(QVariant(stringList));
         }
         return variantList;
@@ -65,9 +63,10 @@ public:
     static QList<SRecent> variantListToRecentsList(const QVariantList &variantList)
     {
         QList<SRecent> recentsList;
-        for (const auto &variant : variantList) {
+        for (const auto &variant : variantList)
+        {
             auto stringList = variant.toStringList();
-            recentsList.append({ stringList.value(0), stringList.value(1) });
+            recentsList.append({stringList.value(0), stringList.value(1)});
         }
         return recentsList;
     }
@@ -81,17 +80,21 @@ public:
 
     QAction *getAction(const QString &key) const;
 
-    QList<QAction *> getAllInstancesOfAction(const QString &key) const;
+    bool wouldTriggerAction(const QKeyEvent *event, const QString &key) const;
 
-    QList<QAction *> getAllClonesOfAction(const QString &key) const;
+    void setActionShortcuts(const QString &key, const QList<QKeySequence> &shortcuts) const;
 
-    QList<QAction *> getAllClonesOfAction(const QString &key, QWidget *parent) const;
+    QList<QAction*> getAllInstancesOfAction(const QString &key) const;
 
-    QList<QMenu *> getAllClonesOfMenu(const QString &key) const;
+    QList<QAction*> getAllClonesOfAction(const QString &key) const;
 
-    QList<QMenu *> getAllClonesOfMenu(const QString &key, QWidget *parent) const;
+    QList<QAction*> getAllClonesOfAction(const QString &key, QWidget *parent) const;
 
-    void untrackClonedActions(const QList<QAction *> &actions);
+    QList<QMenu*> getAllClonesOfMenu(const QString &key) const;
+
+    QList<QMenu*> getAllClonesOfMenu(const QString &key, QWidget *parent) const;
+
+    void untrackClonedActions(const QList<QAction*> &actions);
 
     void untrackClonedActions(const QMenu *menu);
 
@@ -101,13 +104,13 @@ public:
 
     QMenuBar *buildMenuBar(QWidget *parent = nullptr);
 
-    QMenu *buildViewMenu(bool addIcon = true, QWidget *parent = nullptr);
+    QMenu *buildViewMenu(QWidget *parent = nullptr);
 
-    QMenu *buildToolsMenu(bool addIcon = true, QWidget *parent = nullptr);
+    QMenu *buildToolsMenu(QWidget *parent = nullptr);
 
-    QMenu *buildHelpMenu(bool addIcon = true, QWidget *parent = nullptr);
+    QMenu *buildHelpMenu(QWidget *parent = nullptr);
 
-    QMenu *buildRecentsMenu(bool includeClearAction = true, QWidget *parent = nullptr);
+    QMenu *buildRecentsMenu(QWidget *parent = nullptr);
 
     void loadRecentsList();
 
@@ -115,7 +118,7 @@ public:
 
     void addFileToRecentsList(const QFileInfo &file);
 
-    void auditRecentsList();
+    void auditRecentsList(const bool checkIfExists = false);
 
     void clearRecentsList();
 
@@ -123,15 +126,19 @@ public:
 
     QMenu *buildOpenWithMenu(QWidget *parent = nullptr);
 
+    QMenu *buildSortMenu(QWidget *parent = nullptr);
+
     static void actionTriggered(QAction *triggeredAction);
 
     static void actionTriggered(QAction *triggeredAction, MainWindow *relevantWindow);
+
+    static bool wouldTriggerAction(const QKeyEvent *event, const QList<QKeySequence> &shortcuts);
 
     static QIcon getCacheableIcon(const QString &cacheKey, const QIcon &icon);
 
     const QList<SRecent> &getRecentsList() const { return recentsList; }
 
-    const QHash<QString, QAction *> &getActionLibrary() const { return actionLibrary; }
+    const QHash<QString, QAction*> &getActionLibrary() const { return actionLibrary; }
 
     int getRecentsListMaxLength() const { return recentsListMaxLength; };
     int getOpenWithMaxLength() const { return openWithMaxLength; };
@@ -145,11 +152,11 @@ protected:
     static bool hasAncestor(QObject *object, QObject *ancestor);
 
 private:
-    QHash<QString, QAction *> actionLibrary;
+    QHash<QString, QAction*> actionLibrary;
 
-    QMultiHash<QString, QAction *> actionCloneLibrary;
+    QMultiHash<QString, QAction*> actionCloneLibrary;
 
-    QMultiHash<QString, QMenu *> menuCloneLibrary;
+    QMultiHash<QString, QMenu*> menuCloneLibrary;
 
     QMenu *windowMenu;
 
@@ -158,9 +165,9 @@ private:
     QTimer *recentsSaveTimer;
 
     // Settings
-    bool isSaveRecentsEnabled;
-    int recentsListMaxLength;
-    int openWithMaxLength;
+    bool isSaveRecentsEnabled {true};
+    int recentsListMaxLength {10};
+    int openWithMaxLength {10};
 };
 
 #endif // MENUBUILDER_H

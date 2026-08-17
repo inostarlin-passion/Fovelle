@@ -4,517 +4,474 @@
 <context>
     <name>ActionManager</name>
     <message>
-        <location filename="../src/actionmanager.cpp" line="30"/>
         <source>Window</source>
         <translation>窗口</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="172"/>
         <source>&amp;File</source>
-        <translation>文件(&amp;F)</translation>
+        <translation>文件</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="201"/>
         <source>&amp;Edit</source>
-        <translation>编辑(&amp;E)</translation>
+        <translation>编辑</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="223"/>
         <source>&amp;Go</source>
-        <translation>转到(&amp;G)</translation>
+        <translation>前往</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="252"/>
         <source>&amp;View</source>
-        <translation>查看(&amp;V)</translation>
+        <translation>查看</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="276"/>
         <source>&amp;Tools</source>
-        <translation>工具(&amp;T)</translation>
+        <translation>工具</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="298"/>
         <source>&amp;Help</source>
-        <translation>帮助(&amp;H)</translation>
+        <translation>帮助</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="312"/>
         <source>Open &amp;Recent</source>
-        <translation>最近打开(&amp;R)</translation>
+        <translation>最近打开</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="322"/>
-        <location filename="../src/actionmanager.cpp" line="478"/>
         <source>Empty</source>
         <translation>空</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="470"/>
         <source>Open With</source>
         <translation>打开方式</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="660"/>
-        <source>&amp;Quit</source>
-        <translation>退出(&amp;Q)</translation>
+        <source>Sort Files By</source>
+        <translation>文件排序</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="664"/>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>修改日期</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>创建日期</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>类型</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>随机</translation>
+    </message>
+    <message>
+        <source>Ascending</source>
+        <translation>升序</translation>
+    </message>
+    <message>
+        <source>Descending</source>
+        <translation>降序</translation>
+    </message>
+    <message>
+        <source>&amp;Quit</source>
+        <translation>退出</translation>
+    </message>
+    <message>
         <source>Exit</source>
         <extracomment>The quit action is called &quot;Exit&quot; on windows</extracomment>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="667"/>
         <source>New Window</source>
         <translation>新窗口</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="670"/>
         <source>&amp;Open...</source>
-        <translation>打开(&amp;O)...</translation>
+        <translation>打开...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="673"/>
         <source>Open &amp;URL...</source>
-        <translation>打开URL(&amp;U)...</translation>
+        <translation>打开URL...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="676"/>
         <source>Re&amp;load File</source>
-        <translation>重载文件(&amp;L)</translation>
+        <translation>重新加载文件</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="680"/>
         <source>Close Window</source>
         <translation>关闭窗口</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="684"/>
         <source>Close All</source>
         <extracomment>Close all windows, that is</extracomment>
-        <translation>关闭所有窗口</translation>
+        <translation>关闭所有</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="687"/>
         <source>Open Containing &amp;Folder</source>
-        <translation>打开文件夹(&amp;F)</translation>
+        <translation>打开所在文件夹</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="690"/>
         <source>Show in E&amp;xplorer</source>
         <extracomment>Open containing folder on windows</extracomment>
-        <translation>在文件管理器中查看(&amp;X)</translation>
+        <translation>在资源管理器中显示</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="693"/>
         <source>Show in &amp;Finder</source>
         <extracomment>Open containing folder on macOS</extracomment>
-        <translation>在访达中查看(&amp;F)</translation>
+        <translation>在 Finder 中显示</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="698"/>
         <source>Show File &amp;Info</source>
-        <translation>显示文件信息(&amp;I)</translation>
+        <translation>查看文件信息</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="702"/>
         <source>&amp;Move to Trash</source>
-        <translation>移至废纸篓(&amp;M)</translation>
+        <translation>移至回收站</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="704"/>
         <source>&amp;Delete</source>
-        <translation>删除(&amp;D)</translation>
+        <translation>删除</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="709"/>
         <source>Delete Permanently</source>
         <translation>永久删除</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="713"/>
         <source>&amp;Restore from Trash</source>
-        <translation>移出废纸篓(&amp;R)</translation>
+        <translation>从回收站恢复</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="715"/>
         <source>&amp;Undo Delete</source>
-        <translation>撤销删除(&amp;U)</translation>
+        <translation>撤销删除</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="720"/>
         <source>&amp;Copy</source>
-        <translation>复制(&amp;C)</translation>
+        <translation>复制</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="724"/>
         <source>&amp;Paste</source>
-        <translation>粘贴(&amp;P)</translation>
+        <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="727"/>
         <source>R&amp;ename...</source>
-        <translation>重命名(&amp;R)...</translation>
+        <translation>重命名...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="731"/>
         <source>Zoom &amp;In</source>
-        <translation>放大(&amp;I)</translation>
+        <translation>放大</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="735"/>
         <source>Zoom &amp;Out</source>
-        <translation>缩小(&amp;O)</translation>
+        <translation>缩小</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="739"/>
-        <source>Reset &amp;Zoom</source>
-        <translation>重置缩放(&amp;Z)</translation>
+        <source>Set Zoom &amp;Level...</source>
+        <translation>设置缩放级别...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="743"/>
         <source>Ori&amp;ginal Size</source>
-        <translation>原始大小(&amp;G)</translation>
+        <translation>原始大小</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="747"/>
+        <source>&amp;Zoom to Fit</source>
+        <translation>缩放以适应</translation>
+    </message>
+    <message>
+        <source>Fill &amp;Window</source>
+        <translation>填充窗口</translation>
+    </message>
+    <message>
+        <source>&amp;Navigation Resets Zoom</source>
+        <translation>导航重置缩放</translation>
+    </message>
+    <message>
         <source>Rotate &amp;Right</source>
-        <translation>顺时针旋转(&amp;R)</translation>
+        <translation>向右旋转</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="751"/>
         <source>Rotate &amp;Left</source>
-        <translation>逆时针旋转(&amp;L)</translation>
+        <translation>向左旋转</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="755"/>
         <source>&amp;Mirror</source>
-        <translation>镜像(&amp;M)</translation>
+        <translation>水平翻转</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="759"/>
         <source>&amp;Flip</source>
-        <translation>翻转(&amp;F)</translation>
+        <translation>垂直翻转</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="763"/>
+        <source>Reset &amp;Transformation</source>
+        <translation>重置变换</translation>
+    </message>
+    <message>
+        <source>M&amp;atch Image Size</source>
+        <translation>匹配图像尺寸</translation>
+    </message>
+    <message>
+        <source>Window On To&amp;p</source>
+        <translation>窗口置顶</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>隐藏标题栏</translation>
+    </message>
+    <message>
         <source>Enter F&amp;ull Screen</source>
-        <translation>全屏(&amp;F)</translation>
+        <translation>进入全屏</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="767"/>
         <source>&amp;First File</source>
-        <translation>首文件(&amp;F)</translation>
+        <translation>第一张图片</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="771"/>
         <source>Previous Fi&amp;le</source>
-        <translation>上一张图片(&amp;L)</translation>
+        <translation>上一张图片</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="775"/>
         <source>&amp;Next File</source>
-        <translation>下一张图片(&amp;N)</translation>
+        <translation>下一张图片</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="779"/>
         <source>Las&amp;t File</source>
-        <translation>末文件(&amp;T)</translation>
+        <translation>最后一张图片</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="783"/>
+        <source>&amp;Random File</source>
+        <translation>随机一张图片</translation>
+    </message>
+    <message>
         <source>Save Frame &amp;As...</source>
-        <translation>保存帧为(&amp;A)...</translation>
+        <translation>保存帧为...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="787"/>
         <source>Pa&amp;use</source>
-        <translation>暂停(&amp;U)</translation>
+        <translation>暂停</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="791"/>
         <source>&amp;Next Frame</source>
-        <translation>下一帧(&amp;N)</translation>
+        <translation>下一帧</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="795"/>
+        <source>&amp;Previous Frame</source>
+        <translation>上一帧</translation>
+    </message>
+    <message>
         <source>&amp;Decrease Speed</source>
-        <translation>减速(&amp;D)</translation>
+        <translation>减速</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="799"/>
         <source>&amp;Reset Speed</source>
-        <translation>重置速度(&amp;R)</translation>
+        <translation>重置速度</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="803"/>
         <source>&amp;Increase Speed</source>
-        <translation>加速(&amp;I)</translation>
+        <translation>加速</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="807"/>
         <source>Start S&amp;lideshow</source>
-        <translation>播放幻灯片(&amp;L)</translation>
+        <translation>开始幻灯播放</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="812"/>
         <source>&amp;Settings</source>
         <extracomment>This is for the options dialog on windows</extracomment>
-        <translation>设置(&amp;S)</translation>
+        <translation>设置</translation>
     </message>
     <message>
-        <source>Option&amp;s</source>
-        <extracomment>This is for the options dialog on windows</extracomment>
-        <translation type="vanished">选项</translation>
-    </message>
-    <message>
-        <source>Preference&amp;s</source>
-        <extracomment>This is for the options dialog on non-mac unix platforms</extracomment>
-        <translation type="vanished">首选项&amp;s</translation>
-    </message>
-    <message>
-        <location filename="../src/actionmanager.cpp" line="816"/>
         <source>Preference&amp;s...</source>
         <extracomment>This is for the options dialog on older mac versions</extracomment>
-        <translation>首选项(&amp;S)...</translation>
+        <translation>偏好设置...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="818"/>
         <source>Setting&amp;s...</source>
-        <translation>设置(&amp;S)...</translation>
+        <translation>设置...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="823"/>
         <source>&amp;About</source>
-        <translation>关于(&amp;A)</translation>
+        <translation>关于</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="826"/>
-        <source>&amp;About Fovelle</source>
+        <source>&amp;About qView</source>
         <extracomment>This is for the about dialog on mac</extracomment>
-        <translation>关于Fovelle(&amp;A)</translation>
+        <translation>关于qView</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="830"/>
         <source>&amp;Welcome</source>
-        <translation>欢迎(&amp;W)</translation>
+        <translation>欢迎</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="834"/>
         <source>Clear &amp;Menu</source>
         <extracomment>This is for clearing the recents menu</extracomment>
-        <translation>清除菜单(&amp;M)</translation>
+        <translation>清除菜单</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="838"/>
         <source>Other Application...</source>
         <extracomment>Open with other program for unix non-mac</extracomment>
         <translation>其他应用...</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="841"/>
         <source>Choose another app</source>
         <extracomment>Open with other program for windows</extracomment>
         <translation>选择其他应用</translation>
     </message>
     <message>
-        <location filename="../src/actionmanager.cpp" line="844"/>
         <source>Other...</source>
         <extracomment>Open with other program for macos</extracomment>
-        <translation>其它…</translation>
+        <translation>其他...</translation>
     </message>
 </context>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/mainwindow.cpp" line="242"/>
+        <source>Error occurred opening
+%3
+%2 (Error %1)</source>
+        <translation>打开 %3
+%2 时发生错误（错误 %1）</translation>
+    </message>
+    <message>
         <source>Exit F&amp;ull Screen</source>
-        <translation>退出全屏(&amp;U)</translation>
+        <translation>退出全屏</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="247"/>
         <source>Enter F&amp;ull Screen</source>
-        <translation>进入全屏(&amp;U)</translation>
+        <translation>进入全屏</translation>
     </message>
     <message>
-        <source>Empty</source>
-        <translation type="vanished">空</translation>
+        <source>Res&amp;ume</source>
+        <translation>播放</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="658"/>
-        <location filename="../src/mainwindow.cpp" line="685"/>
-        <location filename="../src/mainwindow.cpp" line="708"/>
-        <location filename="../src/mainwindow.cpp" line="785"/>
-        <location filename="../src/mainwindow.cpp" line="865"/>
-        <location filename="../src/mainwindow.cpp" line="922"/>
-        <location filename="../src/mainwindow.cpp" line="930"/>
+        <source>Pa&amp;use</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>Show Title&amp;bar</source>
+        <translation>显示标题栏</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>隐藏标题栏</translation>
+    </message>
+    <message>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="658"/>
         <source>Error: URL is invalid</source>
         <translation>错误：URL无效</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="664"/>
         <source>Downloading image...</source>
         <translation>下载图像...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="664"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="668"/>
-        <location filename="../src/mainwindow.cpp" line="724"/>
         <source>Open URL...</source>
         <translation>打开URL...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="685"/>
         <source>Error </source>
         <translation>错误 </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="708"/>
         <source>Error: Invalid image</source>
-        <translation>错误:无效的文件</translation>
+        <translation>错误：无效的文件</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="725"/>
         <source>URL of a supported image file:</source>
         <translation>受支持的图像文件URL:</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="785"/>
         <source>Can&apos;t delete %1:
 No write permission or file is read-only.</source>
         <translation>无法删除：
 没有权限更改或文件只读。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="792"/>
-        <source>Are you sure you want to delete %1 permanently? This can&apos;t be undone.</source>
-        <translation>您确定要永久删除 %1 吗？此操作无法撤消。</translation>
+        <source>Are you sure you want to permanently delete %1? This can&apos;t be undone.</source>
+        <translation>您确定要永久删除 %1 吗？此操作无法撤销。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="799"/>
-        <source>Are you sure you want to move %1 to the Trash?</source>
-        <translation>确定移至废纸篓？</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="797"/>
         <source>Are you sure you want to move %1 to the Recycle Bin?</source>
         <translation>确定移至回收站？</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="310"/>
-        <source>Error occurred opening
-%3
-%2 (Error %1)</source>
-        <translation>打开时出错
-%3
-%2 (错误代码 %1)</translation>
+        <source>Are you sure you want to move %1 to the Trash?</source>
+        <translation>确定移至废纸篓？</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="803"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="806"/>
         <source>Do not ask again</source>
         <translation>不再提醒</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="865"/>
         <source>Can&apos;t delete %1.</source>
         <translation>无法删除。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="855"/>
-        <location filename="../src/mainwindow.cpp" line="935"/>
-        <source>Not Supported</source>
-        <translation>不支持</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="855"/>
-        <location filename="../src/mainwindow.cpp" line="935"/>
-        <source>This program was compiled with an old version of Qt and this feature is not available.
-If you see this message, please report a bug!</source>
-        <translation>不支持旧版本Qt编译的程序。
-如果看到此消息，烦请报告错误！</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="922"/>
         <source>Can&apos;t undo deletion of %1:
 No write permission or file is read-only.</source>
         <translation>无法撤销删除：
 没有写入权限或文件只读。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="930"/>
         <source>Failed undoing deletion of %1.</source>
         <translation>撤销删除失败。</translation>
     </message>
     <message>
-        <source>Rename...</source>
-        <translation type="vanished">重命名...</translation>
+        <source>Set Zoom Level</source>
+        <translation>设置缩放级别</translation>
     </message>
     <message>
-        <source>File name:</source>
-        <translation type="vanished">文件名称:</translation>
+        <source>Zoom Level (%):</source>
+        <translation>缩放级别（%）：</translation>
     </message>
     <message>
-        <source>Error: Could not rename file
-(Check that you have write access)</source>
-        <translation type="vanished">错误: 无法重命名文件
-(检查你是否有写权限)</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1068"/>
         <source>Save Frame As...</source>
         <translation>保存帧为...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1097"/>
-        <source>Res&amp;ume</source>
-        <translation>播放(&amp;U)</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1106"/>
-        <source>Pause</source>
-        <translation>暂停</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1129"/>
-        <source>Start S&amp;lideshow</source>
-        <translation>开始幻灯片放映(&amp;L)</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1138"/>
         <source>Stop S&amp;lideshow</source>
-        <translation>停止幻灯片放映(&amp;L)</translation>
+        <translation>停止幻灯播放</translation>
+    </message>
+    <message>
+        <source>Start S&amp;lideshow</source>
+        <translation>开始幻灯播放</translation>
     </message>
 </context>
 <context>
     <name>OpenWith</name>
     <message>
-        <location filename="../src/openwith.cpp" line="163"/>
-        <source>All Applications (*.app)</source>
-        <translation>所有应用(*.app)</translation>
+        <source> (default)</source>
+        <translation>（默认）</translation>
     </message>
     <message>
-        <location filename="../src/openwith.cpp" line="175"/>
+        <source>All Applications (*.app)</source>
+        <translation>应用(*.app)</translation>
+    </message>
+    <message>
+        <source>Open With...</source>
+        <translation>打开方式...</translation>
+    </message>
+    <message>
         <source>Programs (*.exe *.pif *.com *.bat *.cmd)</source>
         <translation>程序(*.exe *.pif *.com *.bat *.cmd)</translation>
     </message>
     <message>
-        <location filename="../src/openwith.cpp" line="175"/>
         <source>All Files (*)</source>
         <translation>所有文件(*)</translation>
     </message>
@@ -522,12 +479,10 @@ No write permission or file is read-only.</source>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/main.cpp" line="18"/>
         <source>file</source>
         <translation>文件</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="18"/>
         <source>The file to open.</source>
         <translation>打开文件.</translation>
     </message>
@@ -535,658 +490,806 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVAboutDialog</name>
     <message>
-        <location filename="../src/qvaboutdialog.ui" line="20"/>
-        <source>About Fovelle</source>
-        <translation>关于Fovelle</translation>
+        <source>About qView</source>
+        <translation>关于qView</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="44"/>
-        <source>version %1</source>
+        <source>Check for Updates</source>
+        <translation>检查更新</translation>
+    </message>
+    <message>
+        <source>Unofficial Fork (jdpurcell)</source>
+        <translation>非官方分支（jdpurcell）</translation>
+    </message>
+    <message>
+        <source>Version %1</source>
         <translation>版本 %1</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="47"/>
-        <source>Nightly %1</source>
-        <translation>每晚构建版 %1</translation>
+        <source>Unspecified Version</source>
+        <translation>未指定版本</translation>
     </message>
     <message>
-        <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 Fovelle contributors&lt;br&gt;&lt;br&gt;Licensed under GPLv3&lt;br&gt;Source code: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;GitHub&lt;/a&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="93"/>
-        <source>Checking for updates...</source>
-        <translation>正在检查更新...</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="97"/>
-        <source>%1 update available</source>
-        <extracomment>%1 is a version number e.g. &quot;4.0 update available&quot;</extracomment>
-        <translation>%1 可用更新</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="101"/>
-        <source>No updates available</source>
-        <translation>没有可用更新</translation>
-    </message>
-    <message>
-        <location filename="../src/qvaboutdialog.cpp" line="105"/>
-        <source>Error checking for updates</source>
-        <translation>检查更新时出错</translation>
+        <source>Built with Qt %1 (%2)&lt;br&gt;Licensed under the GNU GPLv3&lt;br&gt;Derivative of official qView: &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;Website&lt;/a&gt;, &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;Icon glyph created by Guilhem from the Noun Project&lt;br&gt;Copyright © %3 jurplel, jdpurcell, and qView contributors</source>
+        <translation>基于 Qt %1 (%2) 构建&lt;br&gt;采用 GNU GPLv3 许可&lt;br&gt;官方 qView 的衍生版本：&lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://interversehq.com/qview/&quot;&gt;网站&lt;/a&gt;，&lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jurplel/qView&quot;&gt;GitHub&lt;/a&gt;&lt;br&gt;图标由 Noun Project 的 Guilhem 设计&lt;br&gt;版权所有 © %3 jurplel、jdpurcell 和 qView 贡献者</translation>
     </message>
 </context>
 <context>
     <name>QVApplication</name>
     <message>
-        <source>Supported Files</source>
-        <translation type="vanished">支持的文件类型</translation>
+        <source>Open...</source>
+        <translation>打开...</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="349"/>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <source>Error checking for updates:
+%1</source>
+        <translation>检查更新时出错：
+%1</translation>
+    </message>
+    <message>
+        <source>No Updates</source>
+        <translation>没有更新</translation>
+    </message>
+    <message>
+        <source>You already have the latest version.</source>
+        <translation>您已经是最新版本。</translation>
+    </message>
+    <message>
         <source>Supported Images</source>
-        <translation>已支持的图像格式</translation>
+        <translation>支持的图像格式</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="404"/>
         <source>All Files</source>
         <translation>所有文件</translation>
     </message>
     <message>
-        <location filename="../src/qvapplication.cpp" line="115"/>
-        <source>Open...</source>
-        <translation>打开...</translation>
-    </message>
-</context>
-<context>
-    <name>QVCocoaFunctions</name>
-    <message>
-        <location filename="../src/qvcocoafunctions.mm" line="217"/>
-        <source> (default)</source>
-        <translation> (默认)</translation>
-    </message>
-</context>
-<context>
-    <name>QVGraphicsView</name>
-    <message>
-        <source>Error</source>
-        <translation type="vanished">错误</translation>
+        <source>Remember Session?</source>
+        <translation>记住会话？</translation>
     </message>
     <message>
-        <source>Error occurred opening &quot;%3&quot;:
-%2 (Error %1)</source>
-        <translation type="vanished">打开&quot;%3&quot;时出错:
-%2 (错误 %1)</translation>
+        <source>Would you like to remember your opened images and re-open them at next launch?</source>
+        <translation>您想要记住已打开的图片，并在下次启动时重新打开它们吗？</translation>
+    </message>
+    <message>
+        <source>&amp;Remember</source>
+        <translation>记住</translation>
+    </message>
+    <message>
+        <source>&amp;End Session</source>
+        <translation>结束会话</translation>
     </message>
 </context>
 <context>
     <name>QVInfoDialog</name>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="20"/>
         <source>File Info</source>
         <translation>文件信息</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="26"/>
         <source>Name:</source>
         <translation>名称:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="36"/>
-        <location filename="../src/qvinfodialog.ui" line="65"/>
-        <location filename="../src/qvinfodialog.ui" line="85"/>
-        <location filename="../src/qvinfodialog.ui" line="114"/>
-        <location filename="../src/qvinfodialog.ui" line="143"/>
-        <location filename="../src/qvinfodialog.ui" line="163"/>
-        <location filename="../src/qvinfodialog.ui" line="183"/>
-        <location filename="../src/qvinfodialog.ui" line="203"/>
         <source>error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="52"/>
         <source>Type:</source>
         <translation>类型:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="75"/>
         <source>Location:</source>
         <translation>路径:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="101"/>
         <source>Size:</source>
         <translation>文件大小:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="130"/>
         <source>Modified:</source>
         <translation>修改日期:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="153"/>
         <source>Dimensions:</source>
         <translation>尺寸:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="173"/>
         <source>Aspect Ratio:</source>
         <translation>纵横比:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="193"/>
         <source>Frames:</source>
         <translation>框架:</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.ui" line="213"/>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.cpp" line="62"/>
         <source>%1 (%2 bytes)</source>
         <translation>%1 (%2 字节)</translation>
     </message>
     <message>
-        <location filename="../src/qvinfodialog.cpp" line="64"/>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
     </message>
 </context>
 <context>
-    <name>QVOptionsDialog</name>
+    <name>QVOpenWithDialog</name>
     <message>
-        <source>Options</source>
-        <translation type="vanished">选项</translation>
+        <source>Choose Application</source>
+        <translation>选择应用</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="33"/>
-        <source>Window</source>
-        <translation>窗口</translation>
+        <source>Development</source>
+        <translation>开发</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="39"/>
-        <source>Back&amp;ground color:</source>
-        <translation>背景颜色(&amp;G)：</translation>
+        <source>Education</source>
+        <translation>教育</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="56"/>
-        <source>Changes the amount of information displayed in the titlebar</source>
-        <translation>标题栏显示信息</translation>
+        <source>Games</source>
+        <translation>游戏</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="59"/>
-        <source>Titlebar text:</source>
-        <translation>标题栏文本:</translation>
+        <source>Graphics</source>
+        <translation>图形</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="66"/>
-        <source>&amp;Basic</source>
-        <translation>最简(&amp;B)</translation>
+        <source>Internet</source>
+        <translation>互联网</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="73"/>
-        <source>&amp;Minimal</source>
-        <translation>基本(&amp;M)</translation>
+        <source>Multimedia</source>
+        <translation>多媒体</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="83"/>
-        <source>&amp;Practical</source>
-        <translation>适量(&amp;P)</translation>
+        <source>Office</source>
+        <translation>办公</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="90"/>
-        <source>&amp;Verbose</source>
-        <translation>详细(&amp;V)</translation>
+        <source>Science</source>
+        <translation>科学</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="110"/>
-        <location filename="../src/qvoptionsdialog.ui" line="120"/>
-        <source>Control when the window should resize to fit the image&apos;s actual size</source>
-        <translation>控制窗口适应图像尺寸的时机</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="113"/>
-        <source>Window matches image size:</source>
-        <translation>窗口适应图像尺寸:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="127"/>
-        <source>Never</source>
-        <translation>从不</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="132"/>
-        <source>When launching</source>
-        <translation>启动时</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="137"/>
-        <source>When opening images</source>
-        <translation>打开图像时</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="145"/>
-        <source>Minimum size:</source>
-        <translation>最小尺寸:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="152"/>
-        <source>Control the minimum size that the window should reach when matching the image&apos;s actual size</source>
-        <translation>窗口适应图像的最小尺寸</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="155"/>
-        <location filename="../src/qvoptionsdialog.ui" line="187"/>
-        <source>% of screen size</source>
-        <translation>% 屏幕大小</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="174"/>
-        <location filename="../src/qvoptionsdialog.ui" line="184"/>
-        <source>Control the maximum size that the window should reach when matching the image&apos;s actual size</source>
-        <translation>窗口适应图像的最大尺寸</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="177"/>
-        <source>Maximum size:</source>
-        <translation>最大尺寸:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="219"/>
-        <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
-        <translation>忽略macOS外观,使用深色标题栏</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="222"/>
-        <source>&amp;Titlebar always dark</source>
-        <translation>总是深色标题栏(&amp;T)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="232"/>
-        <source>Show menubar</source>
-        <translation>显示菜单栏</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="239"/>
-        <source>Choose whether or not to display the titlebar text while in fullscreen</source>
-        <translation>选择是否在全屏显示时展示标题栏</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="242"/>
-        <source>Show titlebar text in fullscreen</source>
-        <translation>全屏时显示标题栏</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="249"/>
-        <source>&amp;Quit on last window closed</source>
-        <translation>最后一个窗口关闭时退出(&amp;Q)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="257"/>
-        <source>Image</source>
-        <translation>图像</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="263"/>
-        <source>Scaling:</source>
-        <translation>缩放比例:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="270"/>
-        <source>Turn this off to see individual pixels</source>
-        <translation>关闭此选项以查看单个像素</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="273"/>
-        <source>&amp;Bilinear filtering</source>
-        <translation>双线性过滤(&amp;B)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="283"/>
-        <source>Images appear aliased (having jagged edges) without this, but it is faster</source>
-        <translation>关闭后图像变形(有锯齿状边缘),但显示更快</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="286"/>
-        <source>&amp;Image scaling</source>
-        <translation>图像缩放(&amp;I)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="296"/>
-        <source>Choose whether or not the image continues to be scaled when zooming above the window size (can be laggier with large images)</source>
-        <translation>当超过窗口大小时是否继续缩放图像(在大图像上可能会更慢)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="299"/>
-        <source>&amp;Scaling above window size</source>
-        <translation>缩放到窗口大小以上(&amp;S)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="309"/>
-        <location filename="../src/qvoptionsdialog.ui" line="319"/>
-        <source>The amount to zoom every scroll wheel click</source>
-        <translation>每次滚轮点击的缩放量</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="312"/>
-        <source>Zoom amount:</source>
-        <translation>缩放量:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="341"/>
-        <source>Choose whether scrolling zooms or moves the image (alternative can be accessed at any time by holding ctrl/cmd)</source>
-        <translation>选择鼠标滚动时是缩放还是移动图像(按住ctrl/cmd可随时访问其他选项)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="344"/>
-        <source>Scrolling &amp;zooms</source>
-        <translation>滚动和缩放(&amp;Z)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="367"/>
-        <source>Stop the image from going past its actual size when resizing the window - you can still zoom past it though</source>
-        <translation>在调整窗口大小时,阻止图像超过其实际大小 - 但您仍然可以缩放它</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="370"/>
-        <source>Image resizes &amp;past actual size</source>
-        <translation>图像大小超过实际大小(&amp;P)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="386"/>
-        <location filename="../src/qvoptionsdialog.ui" line="408"/>
-        <source>Ignores select sides of an image when fitting to window (some sides will extend beyond the window boundaries)</source>
-        <translation>拟合到窗口时忽略图像的选定边(某些边将超出窗口边界)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="390"/>
-        <source>Fit whole image</source>
-        <translation>适应整个图像</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="395"/>
-        <source>Fit height</source>
-        <translation>适应高度</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="400"/>
-        <source>Fit width</source>
-        <translation>适应宽度</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="411"/>
-        <source>On window resize:</source>
-        <translation>调整窗口大小时:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="431"/>
-        <source>Choose whether or not zooming in and out above 100% zoom will zoom towards the cursor</source>
-        <translation>当缩放到100%以上时是否向鼠标方向缩放</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="434"/>
-        <source>Zoom &amp;towards cursor</source>
-        <translation>向鼠标缩放</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="457"/>
-        <source>Color space conversion:</source>
-        <translation>色彩空间转换：</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="476"/>
-        <source>Auto-detect</source>
-        <translation>自动检测</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="481"/>
-        <source>sRGB</source>
-        <translation>sRGB (标准红绿蓝色彩空间)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="486"/>
-        <source>Display P3</source>
-        <translation>显示P3</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="495"/>
-        <source>Miscellaneous</source>
-        <translation>其他</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="511"/>
-        <source>Sort files by:</source>
-        <translation>文件排序:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="519"/>
-        <source>Name</source>
-        <translation>名称</translation>
-    </message>
-    <message>
-        <source>Last Modified</source>
-        <translation type="vanished">修改日期</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="534"/>
-        <source>Size</source>
-        <translation>大小</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="539"/>
-        <source>Type</source>
-        <translation>类型</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="544"/>
-        <source>Random</source>
-        <translation>随机</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="552"/>
-        <source>A&amp;scending</source>
-        <translation>升序(&amp;S)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="562"/>
-        <source>D&amp;escending</source>
-        <translation>降序(&amp;E)</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="582"/>
-        <location filename="../src/qvoptionsdialog.ui" line="592"/>
-        <source>Controls the amount of images preloaded</source>
-        <translation>控制预加载的图像数量</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="585"/>
-        <source>Preloading:</source>
-        <translation>预加载:</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="471"/>
-        <location filename="../src/qvoptionsdialog.ui" line="599"/>
-        <source>Disabled</source>
-        <translation>禁用</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="17"/>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="524"/>
-        <source>Date Modified</source>
-        <translation>修改日期</translation>
+        <source>System</source>
+        <translation>系统</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="529"/>
-        <source>Date Created</source>
-        <translation>创建日期</translation>
+        <source>Utilities</source>
+        <translation>组件</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="604"/>
-        <source>Adjacent</source>
-        <translation>下一个</translation>
+        <source>Other</source>
+        <translation>其他</translation>
+    </message>
+</context>
+<context>
+    <name>QVOptionsDialog</name>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="609"/>
-        <source>Extended</source>
-        <translation>扩展</translation>
+        <source>Back&amp;ground color:</source>
+        <translation>背景色:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="617"/>
-        <source>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</source>
-        <translation>控制Fovelle是否在到达文件夹末尾后返回到第一个项目</translation>
+        <source>Checkerboard when image loaded</source>
+        <translation>加载图片时显示棋盘格</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="620"/>
-        <source>&amp;Loop through folders</source>
-        <translation>循环浏览文件夹(&amp;L)</translation>
+        <source>Changes the amount of information displayed in the titlebar</source>
+        <translation>标题栏显示信息</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="643"/>
-        <source>Slideshow direction:</source>
-        <translation>幻灯片放映方向:</translation>
+        <source>Titlebar text:</source>
+        <translation>标题栏文本:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="651"/>
-        <source>Forward</source>
-        <translation>前进</translation>
+        <source>%n - Filename
+%i - Image Index in Folder
+%c - Image Count in Folder
+%s - File Size
+%w - Image Width
+%h - Image Height
+%z - Zoom Level</source>
+        <translation>%n - 文件名
+%i - 文件夹中的图片索引
+%c - 文件夹中的图片总数
+%s - 文件大小
+%w - 图片宽度
+%h - 图片高度
+%z - 缩放级别</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="656"/>
-        <source>Backward</source>
-        <translation>后退</translation>
+        <source>Control when the window should resize to fit the image&apos;s actual size</source>
+        <translation>控制窗口适应图像尺寸的时机</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="664"/>
-        <source>Slideshow timer:</source>
-        <translation>幻灯片计时器:</translation>
+        <source>Window matches image size:</source>
+        <translation>窗口适应图像尺寸:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="671"/>
-        <source> sec</source>
-        <translation> 秒</translation>
+        <source>After matching image size:</source>
+        <translation>匹配图片大小后：</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="703"/>
-        <source>Detect supported files in folder even if extension isn&apos;t recognized (may be slow with larger/network folders)</source>
-        <translation>根据内容识别文件，忽略扩展名（对于较大的/网络文件夹可能会很慢）</translation>
+        <source>Minimum size:</source>
+        <translation>最小尺寸:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="706"/>
-        <source>Allow &amp;MIME content detection</source>
-        <translation>允许检测 MIME 内容(&amp;M)</translation>
+        <source>Control the minimum size that the window should reach when matching the image&apos;s actual size</source>
+        <translation>窗口适应图像的最小尺寸</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="713"/>
-        <source>Save &amp;recent files</source>
-        <translation>保存最近的文件(&amp;R)</translation>
+        <source>% of screen size</source>
+        <translation>% 屏幕大小</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="720"/>
-        <source>&amp;Update notifications on startup</source>
-        <extracomment>The notifications are for new Fovelle releases</extracomment>
-        <translation>启动时更新通知(&amp;U)</translation>
+        <source>Control the maximum size that the window should reach when matching the image&apos;s actual size</source>
+        <translation>窗口适应图像的最大尺寸</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="501"/>
+        <source>Maximum size:</source>
+        <translation>最大尺寸:</translation>
+    </message>
+    <message>
+        <source>Show menubar</source>
+        <translation>显示菜单栏</translation>
+    </message>
+    <message>
+        <source>Choose whether or not to display the titlebar text while in fullscreen</source>
+        <translation>选择是否在全屏显示时展示标题栏</translation>
+    </message>
+    <message>
+        <source>Show titlebar text in fullscreen</source>
+        <translation>全屏时显示标题栏</translation>
+    </message>
+    <message>
+        <source>Show icons in main menus</source>
+        <translation>在主菜单中显示图标</translation>
+    </message>
+    <message>
+        <source>Show icons in context menus</source>
+        <translation>在上下文菜单中显示图标</translation>
+    </message>
+    <message>
+        <source>Show icons in &quot;Open Recent&quot; and &quot;Open With&quot; submenus</source>
+        <translation>在“最近打开”和“打开方式”子菜单中显示图标</translation>
+    </message>
+    <message>
+        <source>Show icons in submenus</source>
+        <translation>在子菜单中显示图标</translation>
+    </message>
+    <message>
+        <source>Keep window on top during slideshow</source>
+        <translation>幻灯播放时窗口置顶</translation>
+    </message>
+    <message>
+        <source>Reuse window when launching with image</source>
+        <translation>使用图片启动时重用窗口</translation>
+    </message>
+    <message>
+        <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
+        <translation>忽略macOS外观,使用深色标题栏</translation>
+    </message>
+    <message>
+        <source>&amp;Titlebar always dark</source>
+        <translation>总是深色标题栏</translation>
+    </message>
+    <message>
+        <source>&amp;Quit on last window closed</source>
+        <translation>最后一个窗口关闭时退出</translation>
+    </message>
+    <message>
+        <source>Persist session across app restarts</source>
+        <translation>在应用重启后保持会话</translation>
+    </message>
+    <message>
+        <source>Smooth scaling:</source>
+        <translation>平滑缩放：</translation>
+    </message>
+    <message>
+        <source>Use expensive scaling when zooming above the window size (can be laggier with large images)</source>
+        <translation>在缩放超出窗口大小时使用计算密集型缩放（大图片可能会卡顿）</translation>
+    </message>
+    <message>
+        <source>Expensive scaling above window size</source>
+        <translation>窗口大小以上的计算密集型缩放</translation>
+    </message>
+    <message>
+        <source>Disable above:</source>
+        <translation>禁用高于：</translation>
+    </message>
+    <message>
+        <source>%</source>
+        <translation>%</translation>
+    </message>
+    <message>
+        <source>The amount to zoom every scroll wheel click</source>
+        <translation>每次滚轮点击的缩放量</translation>
+    </message>
+    <message>
+        <source>Zoom amount:</source>
+        <translation>缩放量:</translation>
+    </message>
+    <message>
+        <source>Zoom &amp;towards cursor</source>
+        <translation>向鼠标缩放</translation>
+    </message>
+    <message>
+        <source>Zoom level is relative to screen pixels</source>
+        <translation>缩放级别相对于屏幕像素</translation>
+    </message>
+    <message>
+        <source>Zoom default:</source>
+        <translation>默认缩放：</translation>
+    </message>
+    <message>
+        <source>Limit fit/fill zoom:</source>
+        <translation>限制适应/填充缩放：</translation>
+    </message>
+    <message>
+        <source> pixel overscan</source>
+        <translation> 像素超扫描</translation>
+    </message>
+    <message>
+        <source>Navigation resets zoom</source>
+        <translation>导航重置缩放</translation>
+    </message>
+    <message>
+        <source>&amp;Constrain image position</source>
+        <translation>限制图像位置</translation>
+    </message>
+    <message>
+        <source>Keep ce&amp;ntered if smaller</source>
+        <translation>如果较小，则保持居中</translation>
+    </message>
+    <message>
+        <source>Original Size functions as toggle</source>
+        <translation>原始大小功能作为切换</translation>
+    </message>
+    <message>
+        <source>Color space conversion:</source>
+        <translation>颜色空间转换：</translation>
+    </message>
+    <message>
         <source>Language:</source>
         <translation>语言:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="727"/>
-        <source>Skip hidden files when browsing to the next/previous file</source>
-        <translation>浏览到下一个/上一个文件时跳过隐藏文件</translation>
+        <source>Sort files by:</source>
+        <translation>文件排序:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="730"/>
-        <source>Skip hidden files</source>
-        <extracomment>Don&apos;t view files with &apos;hidden&apos; attribute</extracomment>
-        <translation>跳过隐藏文件</translation>
+        <source>A&amp;scending</source>
+        <translation>升序</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="741"/>
-        <source>Move Back</source>
-        <translation>后退</translation>
+        <source>D&amp;escending</source>
+        <translation>降序</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="746"/>
-        <source>Do Nothing</source>
-        <translation>不执行</translation>
+        <source>Controls the amount of images preloaded</source>
+        <translation>% 屏幕大小</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="751"/>
-        <source>Move Forward</source>
-        <translation>前进</translation>
+        <source>Preloading:</source>
+        <translation>预加载:</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="759"/>
+        <source>Navigation speed:</source>
+        <translation>导航速度：</translation>
+    </message>
+    <message>
+        <source> ms</source>
+        <translation> 毫秒</translation>
+    </message>
+    <message>
+        <source>Controls whether or not qView should go back to the first item after reaching the end of a folder</source>
+        <translation>控制qView是否在到达文件夹末尾后返回到第一个项目</translation>
+    </message>
+    <message>
+        <source>&amp;Loop through folders</source>
+        <translation>循环浏览文件夹</translation>
+    </message>
+    <message>
+        <source>Slideshow direction:</source>
+        <translation>幻灯播放方向:</translation>
+    </message>
+    <message>
+        <source>Slideshow timer:</source>
+        <translation>幻灯播放间隔:</translation>
+    </message>
+    <message>
+        <source> sec</source>
+        <translation> 秒</translation>
+    </message>
+    <message>
         <source>After deletion:</source>
         <translation>删除后：</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="766"/>
         <source>&amp;Ask before deleting files</source>
-        <translation>删除文件前询问(&amp;A)</translation>
+        <translation>删除文件前询问</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="787"/>
-        <location filename="../src/qvoptionsdialog.ui" line="835"/>
-        <source>Shortcuts</source>
-        <translation>快捷键</translation>
+        <source>Detect supported files in folder even if extension isn&apos;t recognized (may be slow with larger/network folders)</source>
+        <translation>检测文件夹中的支持文件，即使扩展名未被识别（对于较大/网络文件夹可能较慢）</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.ui" line="830"/>
+        <source>Allow &amp;MIME content detection</source>
+        <translation>允许 MIME 内容检测</translation>
+    </message>
+    <message>
+        <source>May be slow with network folders</source>
+        <translation>在网络文件夹中可能会较慢</translation>
+    </message>
+    <message>
+        <source>Skip hidden files</source>
+        <translation>跳过隐藏文件</translation>
+    </message>
+    <message>
+        <source>Save &amp;recent files</source>
+        <translation>保存最近的文件</translation>
+    </message>
+    <message>
+        <source>&amp;Update notifications on startup</source>
+        <extracomment>The notifications are for new qView releases</extracomment>
+        <translation>启动时更新通知</translation>
+    </message>
+    <message>
         <source>Action</source>
         <translation>动作</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="459"/>
-        <source>System Language</source>
-        <translation>系统语言</translation>
+        <source>Shortcuts</source>
+        <translation>快捷键</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="483"/>
+        <source>Left Button</source>
+        <translation>左键</translation>
+    </message>
+    <message>
+        <source>Double Click:</source>
+        <translation>双击：</translation>
+    </message>
+    <message>
+        <source>Drag:</source>
+        <translation>拖动：</translation>
+    </message>
+    <message>
+        <source>Navigate when clicking on the left/right edges of the viewport</source>
+        <translation>单击视口左/右边缘时导航</translation>
+    </message>
+    <message>
+        <source>Side navigation regions</source>
+        <translation>侧边导航区域</translation>
+    </message>
+    <message>
+        <source>Middle Button</source>
+        <translation>中键</translation>
+    </message>
+    <message>
+        <source>Mode:</source>
+        <translation>模式：</translation>
+    </message>
+    <message>
+        <source>Click</source>
+        <translation>点击</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>拖动</translation>
+    </message>
+    <message>
+        <source>Middle Click:</source>
+        <translation>中键点击：</translation>
+    </message>
+    <message>
+        <source>Middle Drag:</source>
+        <translation>中键拖动：</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel / Touchpad</source>
+        <translation>滚轮 / 触摸板</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll:</source>
+        <translation>垂直滚动：</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll:</source>
+        <translation>水平滚动：</translation>
+    </message>
+    <message>
+        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
+        <translation>对于触摸板有用，例如防止单次滑动触发多次导航</translation>
+    </message>
+    <message>
+        <source>Cooldown for discrete actions</source>
+        <translation>离散操作的冷却时间</translation>
+    </message>
+    <message>
+        <source>Cursor</source>
+        <translation>光标</translation>
+    </message>
+    <message>
+        <source>Auto-hide in fullscreen:</source>
+        <translation>全屏时自动隐藏：</translation>
+    </message>
+    <message>
+        <source> sec delay</source>
+        <translation> 秒延迟</translation>
+    </message>
+    <message>
+        <source>Extension</source>
+        <translation>扩展</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>已启用</translation>
+    </message>
+    <message>
+        <source>Preferences</source>
+        <translation>偏好设置</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click:</source>
+        <translation>%1 + 双击:</translation>
+    </message>
+    <message>
+        <source>%1 + Drag:</source>
+        <translation>%1 + 拖动:</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click:</source>
+        <translation>%1 + 中键点击:</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Drag:</source>
+        <translation>%1 + 中键拖动:</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll:</source>
+        <translation>%1 + 垂直滚动:</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll:</source>
+        <translation>%1 + 水平滚动:</translation>
+    </message>
+    <message>
         <source>Restart Required</source>
         <translation>需要重新启动</translation>
     </message>
     <message>
-        <location filename="../src/qvoptionsdialog.cpp" line="483"/>
-        <source>You must restart Fovelle to change the language.</source>
-        <translation>必须重新启动Fovelle才能更改语言.</translation>
+        <source>You must restart qView for the setting change to take effect.</source>
+        <translation>您必须重新启动 qView，所做的更改才能生效。</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>窗口</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>图像</translation>
+    </message>
+    <message>
+        <source>Miscellaneous</source>
+        <translation>其他</translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation>鼠标</translation>
+    </message>
+    <message>
+        <source>Formats</source>
+        <translation>格式</translation>
+    </message>
+    <message>
+        <source>System Language</source>
+        <translation>系统语言</translation>
+    </message>
+    <message>
+        <source>You must restart qView for the language change to take effect.</source>
+        <translation>您必须重新启动 qView，语言更改才能生效。</translation>
+    </message>
+    <message>
+        <source>Move Back</source>
+        <translation>后退</translation>
+    </message>
+    <message>
+        <source>Do Nothing</source>
+        <translation>不执行</translation>
+    </message>
+    <message>
+        <source>Move Forward</source>
+        <translation>前进</translation>
+    </message>
+    <message>
+        <source>Avoid repositioning</source>
+        <translation>避免重新定位</translation>
+    </message>
+    <message>
+        <source>Center relative to previous image</source>
+        <translation>相对于上一张图片居中</translation>
+    </message>
+    <message>
+        <source>Center relative to screen</source>
+        <translation>相对于屏幕居中</translation>
+    </message>
+    <message>
+        <source>Zoom to Fit</source>
+        <translation>缩放以适应</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>填充窗口</translation>
+    </message>
+    <message>
+        <source>Original Size</source>
+        <translation>原始大小</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>禁用</translation>
+    </message>
+    <message>
+        <source>Auto-detect</source>
+        <translation>自动检测</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Display P3</source>
+        <translation>Display P3</translation>
+    </message>
+    <message>
+        <source>Adjacent</source>
+        <translation>下一个</translation>
+    </message>
+    <message>
+        <source>Extended</source>
+        <translation>扩展</translation>
+    </message>
+    <message>
+        <source>Forward</source>
+        <translation>向前</translation>
+    </message>
+    <message>
+        <source>Backward</source>
+        <translation>向后</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>随机</translation>
+    </message>
+    <message>
+        <source>Bilinear</source>
+        <translation>双线性</translation>
+    </message>
+    <message>
+        <source>Expensive</source>
+        <translation>计算密集</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>修改日期</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>创建日期</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>类型</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>基础</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>极简</translation>
+    </message>
+    <message>
+        <source>Practical</source>
+        <translation>实用</translation>
+    </message>
+    <message>
+        <source>Verbose</source>
+        <translation>详细</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>自定义</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>从不</translation>
+    </message>
+    <message>
+        <source>When launching</source>
+        <translation>启动时</translation>
+    </message>
+    <message>
+        <source>When opening images</source>
+        <translation>打开图像时</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Center Image</source>
+        <translation>居中显示图片</translation>
+    </message>
+    <message>
+        <source>Toggle Full Screen</source>
+        <translation>切换全屏</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>切换隐藏标题栏</translation>
+    </message>
+    <message>
+        <source>Pan</source>
+        <translation>平移</translation>
+    </message>
+    <message>
+        <source>Move Window</source>
+        <translation>移动窗口</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>缩放</translation>
+    </message>
+    <message>
+        <source>Navigate</source>
+        <translation>导航</translation>
     </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="14"/>
         <source>Rename...</source>
         <translation>重命名...</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="15"/>
         <source>File name:</source>
         <translation>文件名:</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="26"/>
-        <location filename="../src/qvrenamedialog.cpp" line="45"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="26"/>
         <source>Could not rename %1:
 No write permission or file is read-only.</source>
         <translation>无法重命名%1：
 没有写入权限或文件只读。</translation>
     </message>
     <message>
-        <location filename="../src/qvrenamedialog.cpp" line="45"/>
         <source>Could not rename %1:
 (Check that all characters are valid)</source>
         <translation>无法重命名%1：
@@ -1196,17 +1299,14 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVShortcutDialog</name>
     <message>
-        <location filename="../src/qvshortcutdialog.ui" line="14"/>
         <source>Modify Shortcuts</source>
         <translation>修改快捷键</translation>
     </message>
     <message>
-        <location filename="../src/qvshortcutdialog.cpp" line="57"/>
         <source>Shortcut Already Used</source>
         <translation>快捷键已经被占用</translation>
     </message>
     <message>
-        <location filename="../src/qvshortcutdialog.cpp" line="57"/>
         <source>&quot;%1&quot; is already bound to &quot;%2&quot;</source>
         <translation>&quot;%1&quot; 已绑定到 &quot;%2&quot;</translation>
     </message>
@@ -1214,23 +1314,18 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVWelcomeDialog</name>
     <message>
-        <location filename="../src/qvwelcomedialog.ui" line="14"/>
-        <location filename="../src/qvwelcomedialog.ui" line="155"/>
         <source>Welcome</source>
         <translation>欢迎</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.ui" line="472"/>
         <source>&amp;Enable update notifications on startup</source>
-        <translation>启动时更新通知(&amp;E)</translation>
+        <translation>启动时更新通知</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.cpp" line="42"/>
-        <source>Thank you for downloading Fovelle.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
-        <translation>感谢您下载Fovelle.&lt;br&gt;以下是一些入门提示:</translation>
+        <source>Thank you for downloading qView.&lt;br&gt;Here&apos;s a few tips to get you started:</source>
+        <translation>感谢您下载qView.&lt;br&gt;以下是一些入门提示:</translation>
     </message>
     <message>
-        <location filename="../src/qvwelcomedialog.cpp" line="49"/>
         <source>&lt;ul&gt;&lt;li&gt;Right click to access the main menu&lt;/li&gt;&lt;li&gt;Drag the image to reposition it&lt;/li&gt;&lt;li&gt;Scroll to zoom in and out&lt;/li&gt;&lt;li&gt;Use arrow keys to switch files&lt;/li&gt;&lt;/ul&gt;</source>
         <translation>&lt;ul&gt;&lt;li&gt;右击进入主菜单&lt;/li&gt;&lt;li&gt;拖动图像以重新定位&lt;/li&gt;&lt;li&gt;滚动以放大和缩小&lt;/li&gt;&lt;li&gt;使用箭头切换文件&lt;/li&gt;&lt;/ul&gt;</translation>
     </message>
@@ -1238,216 +1333,206 @@ No write permission or file is read-only.</source>
 <context>
     <name>ShortcutManager</name>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="45"/>
         <source>Open</source>
         <translation>打开</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="46"/>
         <source>Open URL</source>
-        <translation>打开 URL</translation>
+        <translation>打开URL</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="47"/>
         <source>Reload File</source>
-        <translation>重载文件</translation>
+        <translation>重新加载文件</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="48"/>
         <source>Open Containing Folder</source>
-        <translation>打开包含文件夹</translation>
+        <translation>打开所在文件夹</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="51"/>
         <source>Show in Explorer</source>
-        <translation>在资源管理器中查看</translation>
+        <translation>在资源管理器中显示</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="53"/>
         <source>Show in Finder</source>
         <translation>在 Finder 中显示</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="55"/>
         <source>Show File Info</source>
         <translation>查看文件信息</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="56"/>
         <source>Restore from Trash</source>
         <translation>从回收站恢复</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="58"/>
         <source>Undo Delete</source>
         <translation>撤销删除</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="60"/>
         <source>Copy</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="61"/>
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="62"/>
         <source>Rename</source>
         <translation>重命名</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="69"/>
         <source>Move to Trash</source>
         <translation>移至回收站</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="73"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="75"/>
         <source>Delete Permanently</source>
         <translation>永久删除</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="80"/>
         <source>First File</source>
-        <translation>首张图片</translation>
+        <translation>第一张图片</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="81"/>
         <source>Previous File</source>
         <translation>上一张图片</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="82"/>
         <source>Next File</source>
         <translation>下一张图片</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="83"/>
         <source>Last File</source>
-        <translation>末尾图片</translation>
+        <translation>最后一张图片</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="84"/>
+        <source>Random File</source>
+        <translation>随机一张图片</translation>
+    </message>
+    <message>
         <source>Zoom In</source>
         <translation>放大</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="89"/>
         <source>Zoom Out</source>
         <translation>缩小</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="90"/>
-        <source>Reset Zoom</source>
-        <translation>重置缩放</translation>
+        <source>Set Zoom Level</source>
+        <translation>设置缩放级别</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="91"/>
         <source>Original Size</source>
         <translation>原始大小</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="92"/>
+        <source>Zoom to Fit</source>
+        <translation>缩放以适应</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>填充窗口</translation>
+    </message>
+    <message>
+        <source>Navigation Resets Zoom</source>
+        <translation>导航重置缩放</translation>
+    </message>
+    <message>
         <source>Rotate Right</source>
         <translation>向右旋转</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="93"/>
         <source>Rotate Left</source>
         <translation>向左旋转</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="94"/>
         <source>Mirror</source>
-        <translation>镜像</translation>
+        <translation>水平翻转</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="95"/>
         <source>Flip</source>
         <translation>垂直翻转</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="96"/>
+        <source>Reset Transformation</source>
+        <translation>重置变换</translation>
+    </message>
+    <message>
+        <source>Match Image Size</source>
+        <translation>匹配图像尺寸</translation>
+    </message>
+    <message>
+        <source>Window On Top</source>
+        <translation>窗口置顶</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>切换隐藏标题栏</translation>
+    </message>
+    <message>
         <source>Full Screen</source>
         <translation>全屏</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="108"/>
         <source>Save Frame As</source>
         <translation>保存帧为</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="109"/>
         <source>Pause</source>
         <translation>暂停</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="110"/>
         <source>Next Frame</source>
         <translation>下一帧</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="111"/>
+        <source>Previous Frame</source>
+        <translation>上一帧</translation>
+    </message>
+    <message>
         <source>Decrease Speed</source>
         <translation>减速</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="112"/>
         <source>Reset Speed</source>
         <translation>重置速度</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="113"/>
         <source>Increase Speed</source>
         <translation>加速</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="114"/>
         <source>Toggle Slideshow</source>
-        <translation>切换幻灯片放映</translation>
+        <translation>切换幻灯播放</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="115"/>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
     <message>
-        <source>Options</source>
-        <translation type="vanished">选项</translation>
-    </message>
-    <message>
-        <location filename="../src/shortcutmanager.cpp" line="117"/>
         <source>Preferences</source>
-        <translation>偏好</translation>
+        <translation>偏好设置</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="121"/>
         <source>New Window</source>
         <translation>新窗口</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="122"/>
         <source>Close Window</source>
         <translation>关闭窗口</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="123"/>
         <source>Close All</source>
         <translation>关闭所有</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="125"/>
         <source>Quit</source>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../src/shortcutmanager.cpp" line="130"/>
         <source>Exit</source>
         <translation>退出</translation>
     </message>
@@ -1455,32 +1540,38 @@ No write permission or file is read-only.</source>
 <context>
     <name>UpdateChecker</name>
     <message>
-        <location filename="../src/updatechecker.cpp" line="94"/>
+        <source>This build is not configured for update checking.</source>
+        <translation>此版本未配置更新检查。</translation>
+    </message>
+    <message>
+        <source>Received null JSON.</source>
+        <translation>收到空 JSON。</translation>
+    </message>
+    <message>
+        <source>qView Update Available</source>
+        <translation>qView更新可用</translation>
+    </message>
+    <message>
+        <source>A newer version is available to download.</source>
+        <translation>有新版本可供下载。</translation>
+    </message>
+    <message>
+        <source>Skip Version</source>
+        <translation>跳过此版本</translation>
+    </message>
+    <message>
         <source>Download</source>
         <translation>下载</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="97"/>
-        <source>Fovelle Update Available</source>
-        <translation>Fovelle更新可用</translation>
+        <source>&amp;Disable Checking</source>
+        <translation>禁用检查</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="98"/>
-        <source>Fovelle %1 is available to download.</source>
-        <translation>Fovelle %1 可供下载.</translation>
+        <source>qView Update Checking Disabled</source>
+        <translation>qView更新检查失败</translation>
     </message>
     <message>
-        <location filename="../src/updatechecker.cpp" line="102"/>
-        <source>&amp;Disable Update Checking</source>
-        <translation>关闭更新检查(&amp;D)</translation>
-    </message>
-    <message>
-        <location filename="../src/updatechecker.cpp" line="112"/>
-        <source>Fovelle Update Checking Disabled</source>
-        <translation>Fovelle更新检查失败</translation>
-    </message>
-    <message>
-        <location filename="../src/updatechecker.cpp" line="112"/>
         <source>Update notifications on startup have been disabled.
 You can reenable them in the options dialog.</source>
         <translation>已禁用更新通知.

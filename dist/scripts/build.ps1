@@ -1,50 +1,30 @@
 #!/usr/bin/env pwsh
 
-param
-(
-    [switch]$CI,
+param (
     $Prefix = "/usr"
 )
 
 $qtVersion = [version](qmake -query QT_VERSION)
 Write-Host "Detected Qt version $qtVersion"
 
-if (-not $IsMacOS) {
-    throw "Fovelle supports macOS only."
+if ($IsWindows) {
+    dist/scripts/vcvars.ps1
 }
 
-# By default CMake sets the deployment target for macOS to the build machine's version; set
-# it explicitly to the version supported by Qt for compatibility with older macOS versions.
-$env:MACOSX_DEPLOYMENT_TARGET = (Select-String -Path (Join-Path $env:QT_ROOT_DIR 'mkspecs/qconfig.pri'), (Join-Path $env:QT_ROOT_DIR 'mkspecs/common/macx.conf') -Pattern '^\s*QMAKE_MACOSX_DEPLOYMENT_TARGET\s*=\s*(.+?)\s*$').Matches[0].Groups[1].Value
-
-# Prepare CMake arguments
-$cmakeArgs = @(
-    "-DCMAKE_BUILD_TYPE=Release",
-    "-DCMAKE_INSTALL_PREFIX=$Prefix"
-)
-
-if ($env:nightlyDefines) {
-    $cmakeArgs += "-D$($env:nightlyDefines)"
+if ($IsMacOS) {
+    $argDeviceArchs =
+        $env:buildArch -eq 'X64' ? 'QMAKE_APPLE_DEVICE_ARCHS=x86_64' :
+        $env:buildArch -eq 'Arm64' ? 'QMAKE_APPLE_DEVICE_ARCHS=arm64' :
+        $env:buildArch -eq 'Universal' ? 'QMAKE_APPLE_DEVICE_ARCHS=x86_64 arm64' :
+        $null
+} elseif ($IsWindows) {
+    # Workaround for https://developercommunity.visualstudio.com/t/10664660
+    $argVcrMutexWorkaround = 'DEFINES+=_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR'
 }
+qmake PREFIX="$Prefix" DEFINES+="$env:nightlyDefines" $argVcrMutexWorkaround $argDeviceArchs
 
-if ($env:buildArch -eq 'Universal') {
-    $cmakeArgs += "-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
-} elseif ($env:buildArch -eq 'Arm64') {
-    $cmakeArgs += "-DCMAKE_OSX_ARCHITECTURES=arm64"
-} elseif ($env:buildArch -eq 'X64') {
-    $cmakeArgs += "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+if ($IsWindows) {
+    nmake
+} else {
+    make
 }
-
-# Create a build directory, configure, and build
-New-Item -ItemType Directory -Force -Path build
-Push-Location build
-try {
-    cmake $cmakeArgs ..
-    cmake --build . --config Release --parallel
-} finally {
-    Pop-Location
-}
-
-# Copy artifact to bin directory for deployment scripts
-New-Item -ItemType Directory -Force -Path bin
-Copy-Item -Path "build/Fovelle.app" -Destination "bin/Fovelle.app" -Recurse -Force

@@ -1,59 +1,90 @@
 #include "qvapplication.h"
 #include "qvoptionsdialog.h"
 #include "qvcocoafunctions.h"
+#include "simplefonticonengine.h"
 #include "updatechecker.h"
 
 #include <QFileOpenEvent>
 #include <QSettings>
 #include <QTimer>
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QFontDatabase>
+#include <QStyleHints>
 #include <QUrl>
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
+#if defined Q_OS_UNIX && !defined Q_OS_MACOS
+    setDesktopFileName("com.interversehq.qView");
+
+    QIcon appIcon;
+    appIcon.addFile(":/icons/qView-16.png");
+    appIcon.addFile(":/icons/qView-32.png");
+    appIcon.addFile(":/icons/qView-64.png");
+    appIcon.addFile(":/icons/qView-128.png");
+    appIcon.addFile(":/icons/qView-256.png");
+    QApplication::setWindowIcon(appIcon);
+
+    // Add fallback fromTheme icon search
+    QIcon::setFallbackSearchPaths(QIcon::fallbackSearchPaths() << "/usr/share/pixmaps");
+#endif
+
     // Connections
-    connect(&actionManager, &ActionManager::recentsMenuUpdated, this,
-            &QVApplication::recentsMenuUpdated);
-
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
+    connect(this, &QGuiApplication::commitDataRequest, this, &QVApplication::onCommitDataRequest, Qt::DirectConnection);
+    connect(this, &QCoreApplication::aboutToQuit, this, &QVApplication::onAboutToQuit);
+    connect(&settingsManager, &SettingsManager::settingsUpdated, this, &QVApplication::settingsUpdated);
+    connect(&actionManager, &ActionManager::recentsMenuUpdated, this, &QVApplication::recentsMenuUpdated);
     connect(&updateChecker, &UpdateChecker::checkedUpdates, this, &QVApplication::checkedUpdates);
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
 
-    defineFilterLists();
+    settingsUpdated();
 
     // Check for updates
     // TODO: move this to after first window show event
-    if (getSettingsManager().getBool("updatenotifications")) {
-        checkUpdates(true);
-    }
+    if (getSettingsManager().getBoolean("updatenotifications"))
+        updateChecker.check();
 
-    // Block any erroneous icons from showing up in macOS menus.
-    setAttribute(Qt::AA_DontShowIconsInMenus);
-    // Adwaita Qt styles should hide icons for a more consistent look
-    if (style()->objectName() == "adwaita-dark" || style()->objectName() == "adwaita")
-        setAttribute(Qt::AA_DontShowIconsInMenus);
+    showMainMenuIcons = getSettingsManager().getBoolean("mainmenuicons");
+    showContextMenuIcons = getSettingsManager().getBoolean("contextmenuicons");
+    showSubmenuIcons = getSettingsManager().getBoolean("submenuicons");
+#ifdef Q_OS_WIN
+    // Workaround for ugly menu shadows in windows11 style (QTBUG-133116)
+    useCustomMenuShadow =
+        (QT_VERSION < QT_VERSION_CHECK(6, 11, 0) || QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11) &&
+        style()->objectName().compare("windows11", Qt::CaseInsensitive) == 0;
+#endif
+
+    // Ask Qt to show menu icons - the action clone logic decides whether to actually set icons
+    setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
     // Setup macOS dock menu
     dockMenu = new QMenu();
-    connect(dockMenu, &QMenu::triggered, this,
-            [](QAction *triggeredAction) { ActionManager::actionTriggered(triggeredAction); });
+    connect(dockMenu, &QMenu::triggered, this, [](QAction *triggeredAction){
+        ActionManager::actionTriggered(triggeredAction);
+    });
 
     actionManager.loadRecentsList();
 
+#ifdef Q_OS_MACOS
     actionManager.addCloneOfAction(dockMenu, "newwindow");
     actionManager.addCloneOfAction(dockMenu, "open");
     dockMenu->setAsDockMenu();
+#endif
 
     // Build menu bar
     menuBar = actionManager.buildMenuBar();
-    connect(menuBar, &QMenuBar::triggered, this,
-            [](QAction *triggeredAction) { ActionManager::actionTriggered(triggeredAction); });
+    connect(menuBar, &QMenuBar::triggered, this, [](QAction *triggeredAction){
+        ActionManager::actionTriggered(triggeredAction);
+    });
 
-    // Set macOS-specific application settings.
+    // Set mac-specific application settings
+#ifdef COCOA_LOADED
     QVCocoaFunctions::setUserDefaults();
-    setQuitOnLastWindowClosed(getSettingsManager().getBool("quitonlastwindow"));
+    QVCocoaFunctions::registerWillPowerOffObserver();
+#endif
 
+    hideIncompatibleActions();
 }
 
 QVApplication::~QVApplication()
@@ -64,25 +95,40 @@ QVApplication::~QVApplication()
 
 bool QVApplication::event(QEvent *event)
 {
-    if (event->type() == QEvent::FileOpen) {
-        const auto *openEvent = static_cast<QFileOpenEvent *>(event);
+    if (event->type() == QEvent::FileOpen)
+    {
+        const auto *openEvent = static_cast<const QFileOpenEvent *>(event);
         const QUrl url = openEvent->url();
         const QString file = url.isLocalFile() ? url.toLocalFile() : openEvent->file();
 
-        // Launch Services expects the open-document event to be acknowledged promptly. Queue the
-        // image load so Finder is not held up by window creation or image decoding, and dismiss
-        // the first-launch modal before showing the requested image.
-        if (!file.isEmpty()) {
+        // A Launch Services callback must return promptly. Defer window creation and image
+        // decoding to the event loop so the caller is not blocked by application startup.
+        if (!file.isEmpty())
+        {
             queueFileOpen(file);
             if (welcomeDialog)
                 welcomeDialog->close();
         }
 
         return true;
-    } else if (event->type() == QEvent::ApplicationStateChange) {
-        auto *stateEvent = static_cast<QApplicationStateChangeEvent *>(event);
+    }
+    else if (event->type() == QEvent::ApplicationStateChange)
+    {
+        auto *stateEvent = static_cast<QApplicationStateChangeEvent*>(event);
         if (stateEvent->applicationState() == Qt::ApplicationActive)
             settingsManager.loadSettings();
+        else if (stateEvent->applicationState() == Qt::ApplicationInactive)
+            invalidateFolderListings();
+    }
+    else if (event->type() == QEvent::Quit)
+    {
+        SessionSaveDecision result = getSessionSaveDecision();
+        if (result == SessionSaveDecision::Cancel)
+        {
+            event->ignore();
+            return true;
+        }
+        isSessionStateSaveRequested = result == SessionSaveDecision::Yes;
     }
     return QApplication::event(event);
 }
@@ -104,8 +150,9 @@ void QVApplication::processPendingFileOpenEvents()
 
     QStringList files;
     files.swap(pendingFileOpenPaths);
+    const bool reuseWindow = getSettingsManager().getBoolean("reusewindow");
     for (const auto &file : files)
-        openFile(file);
+        openFile(getMainWindow(!reuseWindow), file);
 }
 
 void QVApplication::openFile(MainWindow *window, const QString &file, bool resize)
@@ -133,29 +180,29 @@ void QVApplication::pickFile(MainWindow *parent)
     if (parent)
         fileDialog->setWindowModality(Qt::WindowModal);
 
-    connect(fileDialog, &QFileDialog::filesSelected, fileDialog,
-            [parent](const QStringList &selected) {
-                bool isFirstLoop = true;
-                for (const auto &file : selected) {
-                    if (isFirstLoop && parent)
-                        parent->openFile(file);
-                    else
-                        QVApplication::openFile(file);
+    connect(fileDialog, &QFileDialog::filesSelected, fileDialog, [parent](const QStringList &selected){
+        bool isFirstLoop = true;
+        for (const auto &file : selected)
+        {
+            if (isFirstLoop && parent)
+                parent->openFile(file);
+            else
+                QVApplication::openFile(file);
 
-                    isFirstLoop = false;
-                }
+            isFirstLoop = false;
+        }
 
-                // Set lastFileDialogDir
-                QSettings settings;
-                settings.beginGroup("recents");
-                settings.setValue("lastFileDialogDir", QFileInfo(selected.constFirst()).path());
-            });
+        // Set lastFileDialogDir
+        QSettings settings;
+        settings.beginGroup("recents");
+        settings.setValue("lastFileDialogDir", QFileInfo(selected.constFirst()).path());
+    });
     fileDialog->show();
 }
 
-MainWindow *QVApplication::newWindow()
+MainWindow *QVApplication::newWindow(const QJsonObject &windowSessionState)
 {
-    auto *w = new MainWindow();
+    auto *w = new MainWindow(nullptr, windowSessionState);
     w->show();
     w->raise();
 
@@ -164,96 +211,102 @@ MainWindow *QVApplication::newWindow()
 
 MainWindow *QVApplication::getMainWindow(bool shouldBeEmpty)
 {
-    // Attempt to use from list of last active windows
-    for (const auto &window : qAsConst(lastActiveWindows)) {
-        if (!window)
+    MainWindow *foundWindow = nullptr;
+
+    for (MainWindow *window : std::as_const(activeWindows))
+    {
+        // Don't reuse a window that is displaying a file or waiting for one to load.
+        if (shouldBeEmpty && window->hasFileOrPendingLoad())
             continue;
 
-        if (shouldBeEmpty) {
-            // File info is set if an image load is requested, but not loaded
-            if (!window->getCurrentFileDetails().isLoadRequested) {
-                return window;
-            }
-        } else {
-            return window;
-        }
+        if (foundWindow && foundWindow->getLastActivatedTimestamp() >= window->getLastActivatedTimestamp())
+            continue;
+
+        foundWindow = window;
     }
 
-    // If none of those are valid, scan the list for any existing MainWindow
-    const auto topLevelWidgets = QApplication::topLevelWidgets();
-    for (const auto &widget : topLevelWidgets) {
-        if (auto *window = qobject_cast<MainWindow *>(widget)) {
-            if (shouldBeEmpty) {
-                if (!window->getCurrentFileDetails().isLoadRequested) {
-                    return window;
-                }
-            } else {
-                return window;
-            }
-        }
-    }
-
-    // If there are no valid ones, make a new one.
-    auto *window = newWindow();
-    return window;
-}
-
-void QVApplication::checkUpdates(bool isStartupCheck)
-{
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    updateChecker.check(isStartupCheck);
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
+    return foundWindow ? foundWindow : newWindow();
 }
 
 void QVApplication::checkedUpdates()
 {
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    if (aboutDialog) {
-        aboutDialog->setLatestVersionNum(updateChecker.getLatestVersionNum());
-    } else if (updateChecker.getLatestVersionNum() > VERSION
-               && getSettingsManager().getBool("updatenotifications")) {
-        updateChecker.openDialog();
+    const UpdateChecker::CheckResult checkResult = updateChecker.getCheckResult();
+
+    QWidget *dialogParent = aboutDialog ? aboutDialog : nullptr;
+
+    if (checkResult.wasSuccessful && checkResult.isConsideredUpdate())
+    {
+        updateChecker.openDialog(dialogParent, !aboutDialog);
     }
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
+    else if (aboutDialog)
+    {
+        if (!checkResult.wasSuccessful)
+            QMessageBox::critical(dialogParent, tr("Error"), tr("Error checking for updates:\n%1").arg(checkResult.errorMessage));
+        else
+            QMessageBox::information(dialogParent, tr("No Updates"), tr("You already have the latest version."));
+    }
+
+    if (aboutDialog)
+        aboutDialog->updateCheckForUpdatesButtonState();
 }
 
 void QVApplication::recentsMenuUpdated()
 {
+#ifdef COCOA_LOADED
     QStringList recentsPathList;
-    for (const auto &recent : actionManager.getRecentsList()) {
+    for (const auto &recent : actionManager.getRecentsList())
+    {
         recentsPathList << recent.filePath;
     }
     QVCocoaFunctions::setDockRecents(recentsPathList);
+#endif
 }
 
-void QVApplication::addToLastActiveWindows(MainWindow *window)
+void QVApplication::addToActiveWindows(MainWindow *window)
 {
     if (!window)
         return;
 
-    if (!lastActiveWindows.isEmpty() && window == lastActiveWindows.first())
-        return;
-
-    lastActiveWindows.prepend(window);
-
-    if (lastActiveWindows.length() > 5)
-        lastActiveWindows.removeLast();
+    activeWindows.insert(window);
 }
 
-void QVApplication::deleteFromLastActiveWindows(MainWindow *window)
+void QVApplication::deleteFromActiveWindows(MainWindow *window)
 {
     if (!window)
         return;
 
-    lastActiveWindows.removeAll(window);
+    activeWindows.remove(window);
+}
+
+bool QVApplication::foundLoadedImage() const
+{
+    for (const MainWindow *window : activeWindows)
+    {
+        if (window->getIsPixmapLoaded())
+            return true;
+    }
+    return false;
+}
+
+bool QVApplication::foundOnTopWindow() const
+{
+    for (const MainWindow *window : activeWindows)
+    {
+        if (window->getWindowOnTop())
+            return true;
+    }
+    return false;
 }
 
 void QVApplication::openOptionsDialog(QWidget *parent)
 {
+#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
+#endif
 
-    if (optionsDialog) {
+    if (optionsDialog)
+    {
         optionsDialog->raise();
         optionsDialog->activateWindow();
         return;
@@ -265,10 +318,13 @@ void QVApplication::openOptionsDialog(QWidget *parent)
 
 void QVApplication::openWelcomeDialog(QWidget *parent)
 {
+#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
+#endif
 
-    if (welcomeDialog) {
+    if (welcomeDialog)
+    {
         welcomeDialog->raise();
         welcomeDialog->activateWindow();
         return;
@@ -280,80 +336,120 @@ void QVApplication::openWelcomeDialog(QWidget *parent)
 
 void QVApplication::openAboutDialog(QWidget *parent)
 {
+#ifdef Q_OS_MACOS
     // On macOS, the dialog should not be dependent on any window
     parent = nullptr;
+#endif
 
-    if (aboutDialog) {
+    if (aboutDialog)
+    {
         aboutDialog->raise();
         aboutDialog->activateWindow();
         return;
     }
 
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    aboutDialog = new QVAboutDialog(updateChecker.getLatestVersionNum(), parent);
-#else
-    aboutDialog = new QVAboutDialog(-1, parent);
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
+    aboutDialog = new QVAboutDialog(parent);
     aboutDialog->show();
+}
+
+void QVApplication::hideIncompatibleActions()
+{
+}
+
+void QVApplication::settingsUpdated()
+{
+    auto &settingsManager = getSettingsManager();
+
+    QString disabledFileExtensionsStr = settingsManager.getString("disabledfileextensions");
+    disabledFileExtensions = Qv::listToSet(!disabledFileExtensionsStr.isEmpty() ? disabledFileExtensionsStr.split(';') : QStringList());
+
+#ifdef Q_OS_MACOS
+    setQuitOnLastWindowClosed(settingsManager.getBoolean("quitonlastwindow"));
+#endif
+
+    defineFilterLists();
 }
 
 void QVApplication::defineFilterLists()
 {
-    const auto &byteArrayFormats = QImageReader::supportedImageFormats();
-
-    auto filterString = tr("Supported Images") + " (";
-    fileExtensionList.reserve(byteArrayFormats.size() - 1);
+    allFileExtensionSet.clear();
+    fileExtensionSet.clear();
+    mimeTypeNameSet.clear();
+    nameFilterList.clear();
 
     const auto addExtension = [&](const QString &extension) {
-        filterString += "*" + extension + " ";
-        fileExtensionList << extension;
+        if (allFileExtensionSet.contains(extension))
+            return;
+        allFileExtensionSet << extension;
+        if (disabledFileExtensions.contains(extension))
+            return;
+        fileExtensionSet << extension;
     };
 
-    // Build the filterlist, filterstring, and filterregexplist in one loop
-    for (const auto &byteArray : byteArrayFormats) {
+    // Build extension list
+    const auto &byteArrayFormats = QImageReader::supportedImageFormats();
+    for (const auto &byteArray : byteArrayFormats)
+    {
         const auto fileExtension = "." + QString::fromUtf8(byteArray);
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in Fovelle
+
+        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
         if (fileExtension == ".pdf")
             continue;
 
         addExtension(fileExtension);
 
         // Register additional file extensions that decoders support but don't advertise
-        if (fileExtension == ".jpg") {
+        if (fileExtension == ".jpg")
+        {
             addExtension(".jpe");
             addExtension(".jfi");
-#if QT_VERSION < QT_VERSION_CHECK(6, 8, 0)
             addExtension(".jfif");
-#endif
-        } else if (fileExtension == ".heic") {
+        }
+        else if (fileExtension == ".heic")
+        {
             addExtension(".heics");
-        } else if (fileExtension == ".heif") {
+        }
+        else if (fileExtension == ".heif")
+        {
             addExtension(".heifs");
             addExtension(".hif");
         }
+        else if (fileExtension == ".j2k")
+        {
+            addExtension(".j2c");
+        }
     }
-    filterString.chop(1);
-    filterString += ")";
 
     // Build mime type list
     const auto &byteArrayMimeTypes = QImageReader::supportedMimeTypes();
-    mimeTypeNameList.reserve(byteArrayMimeTypes.size() - 1);
-    for (const auto &byteArray : byteArrayMimeTypes) {
-        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in Fovelle
-        const QString mime = QString::fromUtf8(byteArray);
-        if (mime == "application/pdf")
+    for (const auto &byteArray : byteArrayMimeTypes)
+    {
+        const QString mimeType = QString::fromUtf8(byteArray);
+
+        // Qt 5.15 seems to have added pdf support for QImageReader but it is super broken in qView
+        if (mimeType == "application/pdf")
             continue;
 
-        mimeTypeNameList << mime;
+        mimeTypeNameSet << mimeType;
     }
 
     // Build name filter list for file dialogs
+    const auto extensions = Qv::setToSortedList(fileExtensionSet);
+    auto filterString = tr("Supported Images") + " (";
+    for (const auto &extension : extensions)
+    {
+        filterString += "*" + extension + " ";
+    }
+    filterString.chop(1);
+    filterString += ")";
     nameFilterList << filterString;
     nameFilterList << tr("All Files") + " (*)";
 }
 
 void QVApplication::ensureFontLoaded(const QString &path)
 {
+    static QSet<QString> loadedFontPaths;
+
     if (loadedFontPaths.contains(path))
         return;
 
@@ -361,26 +457,135 @@ void QVApplication::ensureFontLoaded(const QString &path)
     loadedFontPaths.insert(path);
 }
 
-QIcon QVApplication::iconFromFont(const QString &fontFamily, const QChar &codePoint, const int pixelSize, const qreal pixelRatio)
+QIcon QVApplication::iconFromFont(const Qv::MaterialIcon iconName)
 {
-    const int scaledPixelSize = qRound(pixelSize * pixelRatio);
-
-    QFont font(fontFamily);
-    font.setPixelSize(pixelSize);
-
-    QPixmap pixmap(scaledPixelSize, scaledPixelSize);
-    pixmap.fill(Qt::transparent);
-    pixmap.setDevicePixelRatio(pixelRatio);
-
-    QPainter painter(&pixmap);
-    painter.setFont(font);
-    painter.setPen(QApplication::palette().color(QPalette::WindowText));
-    painter.drawText(pixmap.rect(), codePoint);
-
-    return QIcon(pixmap);
+    static std::optional<QFont> materialIconFont;
+    if (!materialIconFont.has_value())
+    {
+        ensureFontLoaded(":/fonts/MaterialIconsOutlined-Regular.otf");
+        materialIconFont = QFont("Material Icons Outlined");
+        materialIconFont->setStyleStrategy(QFont::NoFontMerging);
+    }
+    return QIcon(new SimpleFontIconEngine(QChar(static_cast<quint16>(iconName)), materialIconFont.value()));
 }
 
-qreal QVApplication::getPerceivedBrightness(const QColor &color)
+qreal QVApplication::keyboardAutoRepeatInterval()
 {
-    return (color.red() * 0.299 + color.green() * 0.587 + color.blue() * 0.114) / 255.0;
+    return 1.0 / qGuiApp->styleHints()->keyboardAutoRepeatRateF();
+}
+
+bool QVApplication::isMouseEventSynthesized(const QMouseEvent *event)
+{
+    return event->deviceType() != QInputDevice::DeviceType::Mouse;
+}
+
+bool QVApplication::supportsSessionPersistence()
+{
+#ifdef COCOA_LOADED
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool QVApplication::tryRestoreLastSession()
+{
+    if (!supportsSessionPersistence())
+        return false;
+
+    QSettings settings;
+
+    if (!settings.value("options/persistsession").toBool())
+        return false;
+
+    const QJsonObject sessionState = settings.value("sessionstate").toJsonObject();
+
+    if (sessionState.isEmpty() || sessionState["version"].toInt() != Qv::SessionStateVersion)
+        return false;
+
+    const QJsonArray windowArray = sessionState["windows"].toArray();
+    for (const QJsonValue &item : windowArray)
+    {
+        QVApplication::newWindow(item.toObject());
+    }
+
+    settings.remove("sessionstate");
+
+    return true;
+}
+
+void QVApplication::onSystemInitiatedQuit()
+{
+    isQuitSystemInitiated = true;
+}
+
+QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
+{
+    if (!supportsSessionPersistence())
+        return SessionSaveDecision::No;
+    if (isQuitSystemInitiated)
+        return SessionSaveDecision::Yes;
+    if (!getSettingsManager().getBoolean("persistsession") || !foundLoadedImage())
+        return SessionSaveDecision::No;
+
+    QMessageBox msgBox;
+    msgBox.setWindowModality(Qt::ApplicationModal);
+    msgBox.setWindowTitle(tr("Remember Session?"));
+    msgBox.setText(tr("Would you like to remember your opened images and re-open them at next launch?"));
+    QPushButton *yesButton = msgBox.addButton(tr("&Remember"), QMessageBox::YesRole);
+    msgBox.addButton(tr("&End Session"), QMessageBox::NoRole);
+    msgBox.setStandardButtons(QMessageBox::Cancel);
+    msgBox.setDefaultButton(yesButton);
+    msgBox.setEscapeButton(QMessageBox::Cancel);
+    msgBox.exec();
+    if (msgBox.standardButton(msgBox.clickedButton()) == QMessageBox::Cancel)
+        return SessionSaveDecision::Cancel;
+    return msgBox.clickedButton() == yesButton ? SessionSaveDecision::Yes : SessionSaveDecision::No;
+}
+
+void QVApplication::addClosedWindowSessionState(const QJsonObject &state, const qint64 lastActivatedTimestamp)
+{
+    closedWindowData.append({state, lastActivatedTimestamp});
+}
+
+void QVApplication::onCommitDataRequest(QSessionManager &manager)
+{
+    Q_UNUSED(manager)
+
+    isApplicationQuitting = true;
+}
+
+void QVApplication::onAboutToQuit()
+{
+    isApplicationQuitting = true;
+
+    if (isSessionStateSaveRequested)
+    {
+        QSettings settings;
+        if (!closedWindowData.isEmpty())
+        {
+            QJsonObject state;
+
+            state["version"] = Qv::SessionStateVersion;
+
+            std::sort(
+                closedWindowData.begin(), closedWindowData.end(),
+                [](const ClosedWindowData& a, const ClosedWindowData& b) {
+                    return a.lastActivatedTimestamp < b.lastActivatedTimestamp;
+                });
+            QJsonArray windows;
+            for (const ClosedWindowData& item : std::as_const(closedWindowData))
+                windows.append(item.sessionState);
+            state["windows"] = windows;
+
+            settings.setValue("sessionstate", state);
+        }
+        else
+        {
+            settings.remove("sessionstate");
+        }
+    }
+
+    // Delay destroying application until thread pool threads have finished
+    QThreadPool::globalInstance()->waitForDone();
 }

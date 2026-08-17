@@ -14,26 +14,29 @@
 #include <QRegularExpression>
 
 #if defined(qvApp)
-#  undef qvApp
+#undef qvApp
 #endif
 
-#define qvApp \
-    (qobject_cast<QVApplication *>(QCoreApplication::instance())) // global qvapplication object
-
-#define qvGetSettingBool(setting) \
-    qvApp->getSettingsManager().getBool(SettingsManager::Setting::setting)
-#define qvGetSettingInt(setting) \
-    qvApp->getSettingsManager().getInt(SettingsManager::Setting::setting)
-#define qvGetSettingDouble(setting) \
-    qvApp->getSettingsManager().getDouble(SettingsManager::Setting::setting)
-#define qvGetSettingString(setting) \
-    qvApp->getSettingsManager().getString(SettingsManager::Setting::setting)
+#define qvApp (qobject_cast<QVApplication *>(QCoreApplication::instance()))	// global qvapplication object
 
 class QVApplication : public QApplication
 {
     Q_OBJECT
 
 public:
+    struct ClosedWindowData
+    {
+        QJsonObject sessionState;
+        qint64 lastActivatedTimestamp;
+    };
+
+    enum class SessionSaveDecision
+    {
+        Yes,
+        No,
+        Cancel
+    };
+
     explicit QVApplication(int &argc, char **argv);
     ~QVApplication() override;
 
@@ -47,19 +50,23 @@ public:
 
     static void pickUrl(MainWindow *parnet = nullptr);
 
-    static MainWindow *newWindow();
+    static MainWindow *newWindow(const QJsonObject &windowSessionState = {});
 
     MainWindow *getMainWindow(bool shouldBeEmpty);
-
-    void checkUpdates(bool isStartupCheck);
 
     void checkedUpdates();
 
     void recentsMenuUpdated();
 
-    void addToLastActiveWindows(MainWindow *window);
+    void invalidateFolderListings() { emit folderListingsInvalidated(); }
 
-    void deleteFromLastActiveWindows(MainWindow *window);
+    void addToActiveWindows(MainWindow *window);
+
+    void deleteFromActiveWindows(MainWindow *window);
+
+    bool foundLoadedImage() const;
+
+    bool foundOnTopWindow() const;
 
     bool hasPendingFileOpenEvents() const
     {
@@ -72,44 +79,92 @@ public:
 
     void openAboutDialog(QWidget *parent = nullptr);
 
+    void hideIncompatibleActions();
+
+    void settingsUpdated();
+
     void defineFilterLists();
 
-    QMenuBar *getMenuBar() const { return menuBar; }
+    QMenuBar *getMenuBar() const {  return menuBar; }
+
+    const QSet<QString> &getDisabledFileExtensions() const { return disabledFileExtensions; }
+
+    const QSet<QString> &getAllFileExtensionList() const { return allFileExtensionSet; }
+
+    const QSet<QString> &getFileExtensionSet() const { return fileExtensionSet; }
+
+    const QSet<QString> &getMimeTypeNameSet() const { return mimeTypeNameSet; }
 
     const QStringList &getNameFilterList() const { return nameFilterList; }
 
-    const QStringList &getFileExtensionList() const { return fileExtensionList; }
-
-    const QStringList &getMimeTypeNameList() const { return mimeTypeNameList; }
-
+    const SettingsManager &getSettingsManager() const { return settingsManager; }
     SettingsManager &getSettingsManager() { return settingsManager; }
 
     ShortcutManager &getShortcutManager() { return shortcutManager; }
 
     ActionManager &getActionManager() { return actionManager; }
 
-    void ensureFontLoaded(const QString &path);
+    UpdateChecker &getUpdateChecker() { return updateChecker; }
 
-    static QIcon iconFromFont(const QString &fontFamily, const QChar &codePoint, const int pixelSize, const qreal pixelRatio);
+    bool getShowMainMenuIcons() const { return showMainMenuIcons; }
 
-    static qreal getPerceivedBrightness(const QColor &color);
+    bool getShowContextMenuIcons() const { return showContextMenuIcons; }
+
+    bool getShowSubmenuIcons() const { return showSubmenuIcons; }
+
+    bool getUseCustomMenuShadow() const { return useCustomMenuShadow; }
+
+    static void ensureFontLoaded(const QString &path);
+
+    static QIcon iconFromFont(const Qv::MaterialIcon iconName);
+
+    static qreal keyboardAutoRepeatInterval();
+
+    static bool isMouseEventSynthesized(const QMouseEvent *event);
+
+    static bool supportsSessionPersistence();
+
+    static bool tryRestoreLastSession();
+
+    void onSystemInitiatedQuit();
+
+    bool getIsApplicationQuitting() const { return isApplicationQuitting; }
+
+    bool getIsSessionStateSaveRequested() const { return isSessionStateSaveRequested; }
+
+    void addClosedWindowSessionState(const QJsonObject &state, const qint64 lastActivatedTimestamp);
+
+signals:
+    void windowOnTopChanged();
+    void folderListingsInvalidated();
+
+protected:
+    SessionSaveDecision getSessionSaveDecision() const;
+
+protected slots:
+    void onCommitDataRequest(QSessionManager &manager);
+
+    void onAboutToQuit();
 
 private:
     void queueFileOpen(const QString &file);
     void processPendingFileOpenEvents();
 
-    QList<MainWindow *> lastActiveWindows;
+    std::atomic<bool> isApplicationQuitting {false};
+    std::atomic<bool> isQuitSystemInitiated {false};
 
-    QStringList pendingFileOpenPaths;
-    bool fileOpenDispatchScheduled = false;
+    QSet<MainWindow*> activeWindows;
 
     QMenu *dockMenu;
 
     QMenuBar *menuBar;
 
+    QSet<QString> disabledFileExtensions;
+
+    QSet<QString> allFileExtensionSet;
+    QSet<QString> fileExtensionSet;
+    QSet<QString> mimeTypeNameSet;
     QStringList nameFilterList;
-    QStringList fileExtensionList;
-    QStringList mimeTypeNameList;
 
     // This order is very important
     SettingsManager settingsManager;
@@ -120,11 +175,18 @@ private:
     QPointer<QVWelcomeDialog> welcomeDialog;
     QPointer<QVAboutDialog> aboutDialog;
 
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    UpdateChecker updateChecker;
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
+    bool showMainMenuIcons {true};
+    bool showContextMenuIcons {true};
+    bool showSubmenuIcons {true};
+    bool useCustomMenuShadow {false};
 
-    QSet<QString> loadedFontPaths;
+    UpdateChecker updateChecker;
+
+    bool isSessionStateSaveRequested {false};
+    QList<ClosedWindowData> closedWindowData;
+
+    QStringList pendingFileOpenPaths;
+    bool fileOpenDispatchScheduled {false};
 };
 
 #endif // QVAPPLICATION_H

@@ -21,6 +21,8 @@
 *.pro.user.*
 *.qbs.user
 *.qbs.user.*
+__pycache__/
+*.pyc
 *.moc
 moc_*.cpp
 moc_*.h
@@ -46,6 +48,3 @@ CMakeLists.txt.user*
 
 bin/*
 build/*
-
-*.qm
-.qm

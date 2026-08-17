@@ -9,35 +9,56 @@ class UpdateChecker : public QObject
 public:
     explicit UpdateChecker(QObject *parent = nullptr);
 
-    void check(bool isStartupCheck);
+    struct CheckResult
+    {
+        bool wasSuccessful;
+        QString errorMessage;
+        QString tagName;
+        QString releaseName;
+        QString changelog;
 
-    void openDialog();
+        bool isConsideredUpdate() const { return isVersionConsideredUpdate(tagName); }
+    };
 
-    double getLatestVersionNum() const { return latestVersionNum; }
+    void check(bool isManualCheck = false);
+
+    void openDialog(QWidget *parent, bool isAutoCheck);
+
+    bool getIsChecking() const { return isChecking; }
+
+    bool getHasChecked() const { return hasChecked; }
+
+    CheckResult getCheckResult() const { return checkResult; }
 
 signals:
     void checkedUpdates();
 
 protected:
-    void sendRequest(const QUrl &url);
-
     void readReply(QNetworkReply *reply);
 
-    QDateTime getLastCheckTime() const;
+    void onError(QString msg);
 
-    void setLastCheckTime(QDateTime value);
+    static QDateTime getLastCheckTime();
+
+    static void setLastCheckTime(QDateTime value);
+
+    static QString getSkippedTagName();
+
+    static void setSkippedTagName(QString value);
+
+    static double parseVersion(QString str);
+
+    static bool isVersionConsideredUpdate(QString tagName);
 
 private:
-    const QString UPDATE_URL = "https://api.github.com/repos/inostarlin-passion/Fovelle/releases";
-    const QString DOWNLOAD_URL = "https://github.com/inostarlin-passion/Fovelle/releases";
-    // If update checking is enabled, this rate limits the auto-check that happens at startup
-    const int STARTUP_CHECK_INTERVAL_HOURS = 4;
+    const QString API_BASE_URL = "https://api.github.com/repos/jdpurcell/qView/releases";
+    const QString DOWNLOAD_URL = "https://github.com/jdpurcell/qView/releases";
+    // Auto-check happens only at startup (if enabled); this is to rate limit across launches
+    const int AUTO_CHECK_INTERVAL_HOURS = 4;
 
-    double latestVersionNum;
-
-    QString changelog;
-
-    QDateTime releaseDate;
+    bool isChecking {false};
+    bool hasChecked {false};
+    CheckResult checkResult;
 
     QNetworkAccessManager netAccessManager;
 };

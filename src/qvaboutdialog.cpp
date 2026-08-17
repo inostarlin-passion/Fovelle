@@ -3,18 +3,18 @@
 
 #include "qvapplication.h"
 
-#include <QCoreApplication>
 #include <QJsonDocument>
 
-QVAboutDialog::QVAboutDialog(double givenLatestVersionNum, QWidget *parent)
-    : QDialog(parent), ui(new Ui::QVAboutDialog)
+QVAboutDialog::QVAboutDialog(QWidget *parent) :
+    QDialog(parent),
+    ui(new Ui::QVAboutDialog)
 {
     ui->setupUi(this);
 
-    latestVersionNum = givenLatestVersionNum;
-
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint | Qt::CustomizeWindowHint));
+
+    connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &QVAboutDialog::checkForUpdatesButtonClicked);
 
     // Application modal on mac, window modal everywhere else
 #ifdef Q_OS_MACOS
@@ -28,7 +28,7 @@ QVAboutDialog::QVAboutDialog(double givenLatestVersionNum, QWidget *parent)
     qvApp->ensureFontLoaded(":/fonts/Lato-Regular.ttf");
 
     int modifier = 0;
-    // set main title font
+    //set main title font
 #ifdef Q_OS_MACOS
     const QFont font1 = QFont("Lato", 96, QFont::Light);
     modifier = 4;
@@ -37,33 +37,28 @@ QVAboutDialog::QVAboutDialog(double givenLatestVersionNum, QWidget *parent)
 #endif
     ui->logoLabel->setFont(font1);
 
-    // set subtitle font & text
+    //set subtitle font & text
     QFont font2 = QFont("Lato", 18 + modifier);
     font2.setStyleName("Regular");
-    QString subtitleText = tr("version %1").arg(QCoreApplication::applicationVersion());
-    // If this is a nightly build, display the build number
+    QString subtitleText = tr("Unofficial Fork (jdpurcell)") + "<br>";
 #ifdef NIGHTLY
-    subtitleText = tr("Nightly %1").arg(QT_STRINGIFY(NIGHTLY));
+    subtitleText += tr("Version %1").arg(QT_STRINGIFY(NIGHTLY));
+#else
+    //this fork has no formal releases, just "nightly" builds promoted to releases
+    subtitleText += tr("Unspecified Version");
 #endif
     ui->subtitleLabel->setFont(font2);
     ui->subtitleLabel->setText(subtitleText);
 
-    // set update font & text
-    QFont font3 = QFont("Lato", 10 + modifier);
-    font3.setStyleName("Regular");
-    ui->updateLabel->setFont(font3);
-    ui->updateLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    ui->updateLabel->setOpenExternalLinks(true);
-
-    // set infolabel2 font, text, and properties
+    //set infolabel2 font, text, and properties
     QFont font4 = QFont("Lato", 8 + modifier);
     font4.setStyleName("Regular");
-    const QString labelText2 = tr(
-            "Based on qView<br>"
-            "Copyright © 2018–2025 jurplel and qView contributors<br>"
-            "Fovelle modifications © 2026 Fovelle contributors<br><br>"
-            "Licensed under GPLv3<br>"
-            R"(Source code: <a style="color: #03A9F4; text-decoration:none;" href="https://github.com/inostarlin-passion/Fovelle">GitHub</a>)");
+    const QString labelText2 = tr("Built with Qt %1 (%2)<br>"
+                                  "Licensed under the GNU GPLv3<br>"
+                                  R"(Derivative of official qView: <a style="color: #03A9F4; text-decoration:none;" href="https://interversehq.com/qview/">Website</a>, <a style="color: #03A9F4; text-decoration:none;" href="https://github.com/jurplel/qView">GitHub</a><br>)"
+                                  "Icon glyph created by Guilhem from the Noun Project<br>"
+                                  "Copyright © %3 jurplel, jdpurcell, and qView contributors")
+                                  .arg(QT_VERSION_STR, QSysInfo::buildCpuArchitecture(), "2018-2026");
 
     ui->infoLabel2->setFont(font4);
     ui->infoLabel2->setText(labelText2);
@@ -71,14 +66,7 @@ QVAboutDialog::QVAboutDialog(double givenLatestVersionNum, QWidget *parent)
     ui->infoLabel2->setTextInteractionFlags(Qt::TextBrowserInteraction);
     ui->infoLabel2->setOpenExternalLinks(true);
 
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    if (latestVersionNum < 0.0) {
-        qvApp->checkUpdates(false);
-        latestVersionNum = 0.0;
-    }
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
-
-    updateText();
+    updateCheckForUpdatesButtonState();
 }
 
 QVAboutDialog::~QVAboutDialog()
@@ -86,32 +74,13 @@ QVAboutDialog::~QVAboutDialog()
     delete ui;
 }
 
-void QVAboutDialog::updateText()
+void QVAboutDialog::updateCheckForUpdatesButtonState()
 {
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    QString updateText = tr("Checking for updates...");
-    if (latestVersionNum > VERSION) {
-        //: %1 is a version number e.g. "4.0 update available"
-        updateText = tr("%1 update available").arg(QString::number(latestVersionNum, 'f', 1));
-    } else if (latestVersionNum > 0.0) {
-        updateText = tr("No updates available");
-    } else if (latestVersionNum < 0.0) {
-        updateText = tr("Error checking for updates");
-    }
-    updateText += +"<br>";
-#else
-    QString updateText = "";
-#endif // QV_DISABLE_ONLINE_VERSION_CHECK
-    ui->updateLabel->setText(updateText);
+    ui->checkForUpdatesButton->setEnabled(!qvApp->getUpdateChecker().getIsChecking());
 }
 
-double QVAboutDialog::getLatestVersionNum() const
+void QVAboutDialog::checkForUpdatesButtonClicked()
 {
-    return latestVersionNum;
-}
-
-void QVAboutDialog::setLatestVersionNum(double value)
-{
-    latestVersionNum = value;
-    updateText();
+    qvApp->getUpdateChecker().check(true);
+    updateCheckForUpdatesButtonState();
 }

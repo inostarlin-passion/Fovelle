@@ -1,113 +1,34 @@
 name: Build Fovelle
+
 on:
   push:
+    branches: '*'
   pull_request:
   workflow_dispatch:
-    inputs:
-      isRelease:
-        type: boolean
-        description: 'Is this a release build?'
-        required: false
-        default: false
-      appleNotarize:
-        type: boolean
-        description: 'Notarize with Apple?'
-        required: false
-        default: false
+
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - runner: 'macos-14'
-            qtVersion: '6.8.3'
-            qtModules: 'qtimageformats'
-            buildArch: 'Universal'
-          - runner: 'macos-14'
-            qtVersion: '5.15.2'
-            osSuffix: '_legacy'
-            buildArch: 'X64'
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-14
     steps:
-      - name: Set environment variables
-        shell: bash
-        run: |
-          echo "qtArch=${{ matrix.qtArch }}" >> $GITHUB_ENV
-          echo "buildArch=${{ matrix.buildArch }}" >> $GITHUB_ENV
-          if [ "${{ inputs.isRelease }}" != "true" ]; then
-            buildNum=$(date '+%Y-%m-%d').$GITHUB_RUN_ATTEMPT
-            echo "nightlyDefines=NIGHTLY=$buildNum" >> $GITHUB_ENV
-            echo "nightlyString=-nightly" >> $GITHUB_ENV
-            echo "buildNumString=$buildNum" >> $GITHUB_ENV
-          fi
-
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ matrix.qtVersion }}
-          arch: ${{ matrix.qtArch }}
+          version: '6.8.3'
+          modules: 'qtimageformats'
           cache: true
-          modules: ${{ matrix.qtModules }}
 
-      - name: Build Fovelle
-        shell: pwsh
-        run: dist/scripts/build.ps1 -CI
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DBUILD_TESTS=ON
+          -DFOVELLE_BUILD_TRANSLATIONS=OFF
+          -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
 
-      - name: Deploy Fovelle
-        env:
-          APPLE_NOTARIZE_REQUESTED: ${{ inputs.appleNotarize }}
-          APPLE_DEVID_APP_CERT_DATA: ${{ secrets.APPLE_DEVID_APP_CERT_DATA }}
-          APPLE_DEVID_APP_CERT_PASS: ${{ secrets.APPLE_DEVID_APP_CERT_PASS }}
-          APPLE_ID_USER: ${{ secrets.APPLE_ID_USER }}
-          APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
-        shell: pwsh
-        run: |
-          if ("${{ matrix.skipPlugins }}" -ne "true") {
-            & dist/scripts/download-plugins.ps1
-          }
-          & dist/scripts/macinstallcert.ps1
-          bash dist/scripts/macdeploy.sh ${{ env.buildNumString }}
+      - name: Build
+        run: cmake --build build --parallel 2
 
-      - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Fovelle${{ env.nightlyString }}-${{ runner.os }}${{ matrix.osSuffix }}-${{ env.buildNumString }}
-          path: bin
-
-  nightly-release:
-    needs: build
-    if: github.ref_name == 'main' && github.event_name == 'push'
-    runs-on: macos-14
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List downloaded files
-        run: ls -l artifacts/
-
-      - name: Package artifacts for release
-        run: |
-          mkdir release_files
-          cd artifacts
-          for dir in */; do
-            zip -r "../release_files/$(basename "$dir").zip" "$dir"
-          done
-          cd ..
-          ls -l release_files/
-
-      - name: Update "Nightly" Release
-        uses: andelf/nightly-release@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: nightly
-          name: "Fovelle Nightly"
-          prerelease: true
-          body: |
-            Latest automatic build from the main branch. Might be broken.
-
-          files: release_files/*.zip
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

@@ -1,13 +1,20 @@
 #ifndef QVGRAPHICSVIEW_H
 #define QVGRAPHICSVIEW_H
 
+#include "qvnamespace.h"
 #include "qvimagecore.h"
+#include "axislocker.h"
+#include "logicalpixelfitter.h"
+#include "scrollhelper.h"
+#include <optional>
 #include <QGraphicsView>
 #include <QImageReader>
 #include <QMimeData>
 #include <QDir>
 #include <QTimer>
 #include <QFileInfo>
+
+class MainWindow;
 
 class QVGraphicsView : public QGraphicsView
 {
@@ -16,58 +23,96 @@ class QVGraphicsView : public QGraphicsView
 public:
     QVGraphicsView(QWidget *parent = nullptr);
 
-    enum class ScaleMode { resetScale, zoom };
-    Q_ENUM(ScaleMode)
+    struct SwipeData
+    {
+        int totalDelta;
+        bool triggeredAction;
+    };
 
-    enum class GoToFileMode { constant, first, previous, next, last };
-    Q_ENUM(GoToFileMode)
-
-    QMimeData *getMimeData() const;
+    QMimeData* getMimeData() const;
     void loadMimeData(const QMimeData *mimeData);
-    void loadFile(const QString &fileName);
+    void loadFile(const QString &fileName, const QString &baseDir = "");
 
     void reloadFile();
 
-    void zoomIn(const QPoint &pos = QPoint(-1, -1));
+    void zoomIn();
 
-    void zoomOut(const QPoint &pos = QPoint(-1, -1));
+    void zoomOut();
 
-    void zoom(qreal scaleFactor, const QPoint &pos = QPoint(-1, -1));
+    void zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos = {});
 
-    void scaleExpensively();
-    void makeUnscaled();
+    void zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos = {}, const bool isApplyingCalculation = false);
 
-    void resetScale();
-    void originalSize();
+    const std::optional<Qv::CalculatedZoomMode> &getCalculatedZoomMode() const;
+    void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating = false, const std::optional<QPoint> &mousePos = {});
 
-    void goToFile(const GoToFileMode &mode, int index = 0);
+    bool getNavigationResetsZoom() const { return navigationResetsZoom; }
+    void setNavigationResetsZoom(const bool value);
 
-    void settingsUpdated();
+    Qv::SortMode getSortMode() const { return imageCore.getSortMode(); }
+    void setSortMode(const Qv::SortMode mode) { imageCore.setSortMode(mode); }
+    bool getSortDescending() const { return imageCore.getSortDescending(); }
+    void setSortDescending(const bool descending) { imageCore.setSortDescending(descending); }
 
-    void closeImage();
+    void applyExpensiveScaling();
+    void removeExpensiveScaling();
+
+    void recalculateZoom();
+
+    void centerImage();
+
+    void setCursorVisible(const bool visible);
+
+    const QJsonObject getSessionState() const;
+
+    void loadSessionState(const QJsonObject &state);
+
+    void setLoadIsFromSessionRestore(const bool value);
+
+    void goToFile(const Qv::GoToFileMode mode, const int index = 0);
+
+    void settingsUpdated(const bool isInitialLoad);
+
+    void closeImage(const bool stayInDir = false);
     void jumpToNextFrame();
+    void jumpToPreviousFrame();
     void setPaused(const bool &desiredState);
     void setSpeed(const int &desiredSpeed);
-    void rotateImage(int rotation);
+    void rotateImage(const int relativeAngle);
+    void mirrorImage();
+    void flipImage();
+    void resetTransformation();
 
-    const QVImageCore::FileDetails &getCurrentFileDetails() const
-    {
-        return imageCore.getCurrentFileDetails();
-    }
-    const QPixmap &getLoadedPixmap() const { return imageCore.getLoadedPixmap(); }
-    const QMovie &getLoadedMovie() const { return imageCore.getLoadedMovie(); }
+    void fitOrConstrainImage();
+
+    QSizeF getEffectiveOriginalSize() const;
+
+    LogicalPixelFitter getPixelFitter() const;
+
+    const QVImageCore::FileDetails& getCurrentFileDetails() const { return imageCore.getCurrentFileDetails(); }
+    const QVMovie& getLoadedMovie() const { return imageCore.getLoadedMovie(); }
+    bool hasFileOrPendingLoad() const { return imageCore.hasFileOrPendingLoad(); }
+    qreal getZoomLevel() const { return zoomLevel; }
+
+    int getFitOverscan() const { return fitOverscan; }
 
 signals:
     void cancelSlideshow();
 
-    void fileChanged();
+    void fileChanged(const bool isRestoringState);
 
-    void updatedLoadedPixmapItem();
+    void zoomLevelChanged();
+
+    void calculatedZoomModeChanged();
+
+    void navigationResetsZoomChanged();
+
+    void sortParametersChanged();
 
 protected:
-    void wheelEvent(QWheelEvent *event) override;
-
     void resizeEvent(QResizeEvent *event) override;
+
+    void paintEvent(QPaintEvent *event) override;
 
     void dropEvent(QDropEvent *event) override;
 
@@ -77,64 +122,145 @@ protected:
 
     void dragLeaveEvent(QDragLeaveEvent *event) override;
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    void enterEvent(QEvent *event) override;
-#else
-    void enterEvent(QEnterEvent *event) override;
-#endif
-
     void mousePressEvent(QMouseEvent *event) override;
-
-    void mouseMoveEvent(QMouseEvent *event) override;
 
     void mouseReleaseEvent(QMouseEvent *event) override;
 
+    void mouseMoveEvent(QMouseEvent *event) override;
+
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+
     bool event(QEvent *event) override;
 
-    void fitInViewMarginless(const QRectF &rect);
-    void fitInViewMarginless(const QGraphicsItem *item);
+    void focusInEvent(QFocusEvent *event) override;
 
-    void centerOn(const QPointF &pos);
+    void focusOutEvent(QFocusEvent *event) override;
 
-    void centerOn(qreal x, qreal y);
+    void wheelEvent(QWheelEvent *event) override;
 
-    void centerOn(const QGraphicsItem *item);
+    void keyPressEvent(QKeyEvent *event) override;
+
+    void contextMenuEvent(QContextMenuEvent *event) override;
+
+    void executeClickAction(const Qv::ViewportClickAction action, const QPoint mousePos);
+
+    void startDragAction(const Qv::ViewportDragAction action);
+
+    void resetDragState();
+
+    void executeDragAction(const Qv::ViewportDragAction action, const QPoint delta, bool &isMovingWindow);
+
+    void executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier);
+
+    bool isSmoothScalingRequested() const;
+
+    bool isExpensiveScalingRequested() const;
+
+    void matchContentCenter(const QRect target);
+
+    std::optional<Qv::GoToFileMode> getNavigationRegion(const QPoint mousePos) const;
+
+    QRect getContentRect() const;
+
+    QRect getUsableViewportRect(const bool addOverscan = false) const;
+
+    void setTransformScale(const qreal absoluteScale);
+
+    void setTransformWithNormalization(const QTransform &matrix);
+
+    QTransform getUnspecializedTransform() const;
+
+    QTransform normalizeTransformOrigin(const QTransform &matrix, const QSizeF &pixmapSize) const;
+
+    qreal getDpiAdjustment() const;
+
+    void handleDpiAdjustmentChange();
+
+    void handleSmoothScalingChange();
+
+    int getRtlFlip() const;
+
+    void cancelTurboNav();
+
+    MainWindow* getMainWindow() const;
 
 private slots:
     void animatedFrameChanged(QRect rect);
 
+    void beforeLoad();
+
     void postLoad();
 
-    void updateLoadedPixmapItem();
-
 private:
-    void updateFilteringMode();
-
     QGraphicsPixmapItem *loadedPixmapItem;
 
-    constexpr static int MARGIN = -2;
-    constexpr static qreal MAX_EXPENSIVE_SCALING_SIZE = 3;
+    Qv::SmoothScalingMode smoothScalingMode {Qv::SmoothScalingMode::Disabled};
+    std::optional<qreal> smoothScalingLimit;
+    bool expensiveScalingAboveWindowSize {false};
+    std::optional<qreal> fitZoomLimit;
+    int fitOverscan {0};
+    bool zoomToCursor {true};
+    bool useOneToOnePixelSizing {true};
+    bool constrainImagePosition {true};
+    bool constrainToCenterWhenSmaller {true};
+    bool disableDelayedConstraint {false};
+    Qv::CalculatedZoomMode defaultCalculatedZoomMode {Qv::CalculatedZoomMode::ZoomToFit};
+    qreal zoomMultiplier {1.25};
 
-    // Set to too high a value to activate for now...
-    constexpr static qreal MAX_FILTERING_SIZE = 5000;
+    bool enableNavigationRegions {false};
+    Qv::ViewportClickAction doubleClickAction {Qv::ViewportClickAction::None};
+    Qv::ViewportClickAction altDoubleClickAction {Qv::ViewportClickAction::None};
+    Qv::ViewportDragAction dragAction {Qv::ViewportDragAction::None};
+    Qv::ViewportDragAction altDragAction {Qv::ViewportDragAction::None};
+    Qv::ViewportClickAction middleClickAction {Qv::ViewportClickAction::None};
+    Qv::ViewportClickAction altMiddleClickAction {Qv::ViewportClickAction::None};
+    Qv::ClickOrDrag middleButtonMode {Qv::ClickOrDrag::Click};
+    Qv::ViewportDragAction middleDragAction {Qv::ViewportDragAction::None};
+    Qv::ViewportDragAction altMiddleDragAction {Qv::ViewportDragAction::None};
+    Qv::ViewportScrollAction verticalScrollAction {Qv::ViewportScrollAction::None};
+    Qv::ViewportScrollAction horizontalScrollAction {Qv::ViewportScrollAction::None};
+    Qv::ViewportScrollAction altVerticalScrollAction {Qv::ViewportScrollAction::None};
+    Qv::ViewportScrollAction altHorizontalScrollAction {Qv::ViewportScrollAction::None};
+    bool scrollActionCooldown {false};
 
-    qreal currentScale;
-    QSize scaledSize;
-    bool isOriginalSize;
-    QPoint lastZoomEventPos;
+    std::optional<Qv::CalculatedZoomMode> calculatedZoomMode;
+    bool globalNavigationResetsZoom {true};
+    bool navigationResetsZoom {true};
+    bool loadIsFromSessionRestore {false};
+    qreal zoomLevel {1.0};
+    qreal appliedDpiAdjustment {1.0};
+    qreal appliedExpensiveScaleZoomLevel {0.0};
+    std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
-    QPointF lastScrollRoundingError;
+    bool isCursorAutoHideFullscreenEnabled {true};
+    bool isCursorVisible {true};
+    QRect lastImageContentRect;
 
-    QTransform absoluteTransform;
-    QTransform zoomBasis;
-    qreal zoomBasisScaleFactor;
+    QVImageCore imageCore {this};
 
-    QVImageCore imageCore{ this };
+    QTimer *expensiveScaleTimer;
+    QTimer *constrainBoundsTimer;
+    QTimer *hideCursorTimer;
 
-    QTimer *expensiveScaleTimerNew;
-    QPointF centerPoint;
-    Qt::MouseButton mousePressButton;
-    Qt::KeyboardModifiers mousePressModifiers;
-    QPoint mousePressPosition;
+    ScrollHelper *scrollHelper;
+    AxisLocker scrollAxisLocker;
+    Qt::MouseButton pressedMouseButton {Qt::MouseButton::NoButton};
+    Qt::KeyboardModifiers mousePressModifiers {Qt::KeyboardModifier::NoModifier};
+    bool isDelayingDrag {false};
+    bool isLastMousePosDubious {false};
+    bool isSystemWindowDragActive {false};
+    QPoint lastMousePos;
+    QElapsedTimer lastFocusIn;
+
+    std::optional<Qv::GoToFileMode> turboNavMode;
+    QList<QKeySequence> navPrevShortcuts;
+    QList<QKeySequence> navNextShortcuts;
+    QList<QKeySequence> navRandomShortcuts;
+    QElapsedTimer lastTurboNav;
+    QElapsedTimer lastTurboNavKeyPress;
+    int turboNavInterval {0};
+
+    const int startDragDistance {3};
 };
+Q_DECLARE_METATYPE(QVGraphicsView::SwipeData)
 #endif // QVGRAPHICSVIEW_H

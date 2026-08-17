@@ -1,15 +1,12 @@
-# Tests for Fovelle
-# This CMakeLists.txt should be included by the parent project
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
 
-# Find Qt Test component and other dependencies
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui Network Widgets Svg Concurrent Test REQUIRED)
-
-# Get the same source files as the main project
-set(TEST_SOURCES
-    tst_actionmanagertests.cpp
+set(FOVELLE_TEST_SOURCES
+    tst_qviewtests.cpp
     ../src/mainwindow.cpp
     ../src/openwith.cpp
+    ../src/qvfileenumerator.cpp
     ../src/qvgraphicsview.cpp
+    ../src/qvmenu.cpp
     ../src/qvoptionsdialog.cpp
     ../src/qvapplication.cpp
     ../src/qvaboutdialog.cpp
@@ -17,54 +14,89 @@ set(TEST_SOURCES
     ../src/qvwelcomedialog.cpp
     ../src/qvinfodialog.cpp
     ../src/qvimagecore.cpp
+    ../src/qvimageloader.cpp
+    ../src/qvmovie.cpp
     ../src/qvshortcutdialog.cpp
+    ../src/qvwindows11style.cpp
     ../src/actionmanager.cpp
+    ../src/axislocker.cpp
+    ../src/logicalpixelfitter.cpp
+    ../src/scrollhelper.cpp
     ../src/settingsmanager.cpp
     ../src/shortcutmanager.cpp
+    ../src/simplefonticonengine.cpp
+    ../src/updatechecker.cpp
     ../src/qvcocoafunctions.mm
 )
 
-# Add updatechecker if enabled
-if(NOT QV_DISABLE_ONLINE_VERSION_CHECK)
-    list(APPEND TEST_SOURCES ../src/updatechecker.cpp)
-endif()
-
-# Test executable
-add_executable(actionmanagertests ${TEST_SOURCES})
-
-# Add include directory for source headers
-target_include_directories(actionmanagertests PRIVATE ../src)
-
-# Add Qt resources
-set(TEST_RESOURCES ../resources/resources.qrc)
-target_sources(actionmanagertests PRIVATE ${TEST_RESOURCES})
-
-# Link to Qt libraries
-target_link_libraries(actionmanagertests PRIVATE 
-    Qt${QT_VERSION_MAJOR}::Core 
-    Qt${QT_VERSION_MAJOR}::Gui 
-    Qt${QT_VERSION_MAJOR}::Network 
-    Qt${QT_VERSION_MAJOR}::Widgets 
-    Qt${QT_VERSION_MAJOR}::Svg 
-    Qt${QT_VERSION_MAJOR}::Concurrent
-    Qt${QT_VERSION_MAJOR}::Test
+set(FOVELLE_TEST_HEADERS
+    ../src/mainwindow.h
+    ../src/openwith.h
+    ../src/qvfileenumerator.h
+    ../src/qvgraphicsview.h
+    ../src/qvmenu.h
+    ../src/qvnamespace.h
+    ../src/qvoptionsdialog.h
+    ../src/qvapplication.h
+    ../src/qvaboutdialog.h
+    ../src/qvrenamedialog.h
+    ../src/qvwelcomedialog.h
+    ../src/qvinfodialog.h
+    ../src/qvimagecore.h
+    ../src/qvimageloader.h
+    ../src/qvmovie.h
+    ../src/qvshortcutdialog.h
+    ../src/qvwindows11style.h
+    ../src/actionmanager.h
+    ../src/axislocker.h
+    ../src/logicalpixelfitter.h
+    ../src/scrollhelper.h
+    ../src/settingsmanager.h
+    ../src/shortcutmanager.h
+    ../src/simplefonticonengine.h
+    ../src/updatechecker.h
+    ../src/qvcocoafunctions.h
 )
 
-target_link_libraries(actionmanagertests PRIVATE "-framework Cocoa")
-target_compile_definitions(actionmanagertests PRIVATE COCOA_LOADED)
+set(FOVELLE_TEST_FORMS
+    ../src/mainwindow.ui
+    ../src/qvopenwithdialog.ui
+    ../src/qvoptionsdialog.ui
+    ../src/qvaboutdialog.ui
+    ../src/qvwelcomedialog.ui
+    ../src/qvinfodialog.ui
+    ../src/qvshortcutdialog.ui
+)
 
-# Add compile definitions
-target_compile_definitions(actionmanagertests PRIVATE
+add_executable(fovelle_tests
+    ${FOVELLE_TEST_SOURCES}
+    ${FOVELLE_TEST_HEADERS}
+    ${FOVELLE_TEST_FORMS}
+    ../resources/resources.qrc
+)
+target_include_directories(fovelle_tests PRIVATE ../src)
+target_link_libraries(fovelle_tests PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Gui
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Svg
+    Qt${QT_VERSION_MAJOR}::Concurrent
+    Qt${QT_VERSION_MAJOR}::Test
+    "-framework Cocoa"
+)
+target_compile_definitions(fovelle_tests PRIVATE
+    COCOA_LOADED
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
     QT_DEPRECATED_WARNINGS
     QT_NO_FOREACH
 )
-
 if(QV_DISABLE_ONLINE_VERSION_CHECK)
-    target_compile_definitions(actionmanagertests PRIVATE QV_DISABLE_ONLINE_VERSION_CHECK)
+    target_compile_definitions(fovelle_tests PRIVATE QV_DISABLE_ONLINE_VERSION_CHECK)
 endif()
 
-# Add the test
-add_test(NAME ActionManagerTests COMMAND actionmanagertests)
-set_tests_properties(ActionManagerTests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=cocoa")
+add_test(NAME FovelleTests COMMAND fovelle_tests)
+set_tests_properties(FovelleTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1"
+)

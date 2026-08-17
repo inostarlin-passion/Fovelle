@@ -1,32 +1,28 @@
 #!/usr/bin/env pwsh
 
-# This script will download binary plugins from the kimageformats-binaries repository using Github's API.
-
-$pluginNames = "qtapng", "kimageformats"
-
 $qtVersion = [version](qmake -query QT_VERSION)
-Write-Host "Detected Qt Version $qtVersion"
+Write-Host "Detected Qt version $qtVersion"
+
+$osName =
+    $IsWindows ? 'Windows' :
+    $IsMacOS ? 'macOS' :
+    $IsLinux ? 'Linux' :
+    $null
 
 if (-not $IsMacOS) {
     throw "Fovelle supports macOS only."
 }
 
-# Qt version availability and runner names are assumed.
-$imageName = $qtVersion -lt [version]'6.5.3' ? "macos-13" : "macos-14"
+$binaryBaseUrl = "https://github.com/jdpurcell/kimageformats-binaries/releases/download/cont"
 
-$binaryBaseUrl = "https://github.com/jurplel/kimageformats-binaries/releases/download/cont"
-
-if ($pluginNames.count -eq 0) {
-    Write-Host "the pluginNames array is empty."
-}
+$pluginNames = @('QtApng', 'KImageFormats')
 
 foreach ($pluginName in $pluginNames) {
-    $qtArch = $env:qtArch ? "-$env:qtArch" : ''
-    $artifactName = "$pluginName-$imageName-$qtVersion$qtArch.zip"
+    $artifactName = "$pluginName-$osName-$qtVersion-$env:buildArch.zip"
     $downloadUrl = "$binaryBaseUrl/$artifactName"
 
     Write-Host "Downloading $downloadUrl"
-    Invoke-WebRequest -URI $downloadUrl -OutFile $artifactName
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $artifactName
     Expand-Archive $artifactName -DestinationPath $pluginName
     Remove-Item $artifactName
 }
@@ -34,27 +30,27 @@ foreach ($pluginName in $pluginNames) {
 $out_frm = "bin/Fovelle.app/Contents/Frameworks"
 $out_imf = "bin/Fovelle.app/Contents/PlugIns/imageformats"
 
-New-Item -Type Directory -Path "$out_frm" -Force
-New-Item -Type Directory -Path "$out_imf" -Force
+New-Item -Type Directory -Path $out_frm -Force
+New-Item -Type Directory -Path $out_imf -Force
 
 function MoveLibraries($category, $destDir, $files) {
     foreach ($file in $files) {
-        Write-Host "${category}: $($file.Name)"
+        Write-Host "${category}: $($file.Name) ($($file.LastWriteTimeUtc.ToString("yyyy-MM-dd HH:mm:ss")))"
         Move-Item -Path $file.FullName -Destination $destDir
     }
 }
 
 # Deploy QtApng
-if ($pluginNames -contains 'qtapng') {
+if ($pluginNames -contains 'QtApng') {
     Write-Host "`nDeploying QtApng:"
-    MoveLibraries 'imf' $out_imf (Get-ChildItem "qtapng/QtApng/output")
+    MoveLibraries 'imf' $out_imf (Get-ChildItem "QtApng")
 }
 
 # Deploy KImageFormats
-if ($pluginNames -contains 'kimageformats') {
+if ($pluginNames -contains 'KImageFormats') {
     Write-Host "`nDeploying KImageFormats:"
-    MoveLibraries 'imf' $out_imf (Get-ChildItem "kimageformats/kimageformats/output" -Filter "kimg_*")
-    MoveLibraries 'frm' $out_frm (Get-ChildItem "kimageformats/kimageformats/output")
+    MoveLibraries 'imf' $out_imf (Get-ChildItem "KImageFormats" -Filter "kimg_*")
+    MoveLibraries 'frm' $out_frm (Get-ChildItem "KImageFormats")
 }
 
 Write-Host ''

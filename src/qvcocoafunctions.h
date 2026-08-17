@@ -6,8 +6,6 @@
 #include <QWindow>
 #include <QMenu>
 
-class QWidget;
-
 class QVCocoaFunctions
 {
 public:
@@ -15,19 +13,21 @@ public:
 
     static void setUserDefaults();
 
-    static void setFullSizeContentView(QWindow *window, const bool enable);
+    static void registerWillPowerOffObserver();
 
-    static void setVibrancy(bool isHidden, bool alwaysDark, QWindow *window);
+    static void setFullSizeContentView(QWidget *window, const bool enable);
+
+    static bool getTitlebarHidden(const QWidget *window);
+
+    static void setTitlebarHidden(QWidget *window, const bool hide);
+
+    static void setWindowCollectionBehaviorManaged(QWidget *window);
+
+    static void setVibrancy(bool alwaysDark, QWindow *window);
 
     static int getObscuredHeight(QWindow *window);
 
-    static int getTitlebarHeight(QWindow *window);
-
-    static bool startSystemMove(QWidget *widget);
-
-    static void performWindowDrag(QWidget *widget);
-
-    static void closeWindow(QWindow *window);
+    static bool startWindowDrag(QWindow *window);
 
     static void setWindowMenu(QMenu *menu);
 
@@ -35,9 +35,7 @@ public:
 
     static void setDockRecents(const QStringList &recentPathsList);
 
-    static QList<OpenWith::OpenWithItem> getOpenWithItems(const QString &filePath);
-
-    static QString deleteFile(const QString &filePath);
+    static QList<OpenWith::OpenWithItem> getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
 
     static QByteArray getIccProfileForWindow(const QWindow *window);
 };

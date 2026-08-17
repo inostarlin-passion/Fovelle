@@ -1,178 +1,136 @@
 #include "qvimagecore.h"
 #include "qvapplication.h"
+#include "qvwin32functions.h"
 #include "qvcocoafunctions.h"
+#include "qvlinuxx11functions.h"
 #include <cstring>
-#include <random>
 #include <QMessageBox>
 #include <QDir>
 #include <QUrl>
 #include <QSettings>
 #include <QCollator>
-#include <QtConcurrent/QtConcurrentRun>
 #include <QIcon>
 #include <QGuiApplication>
 #include <QScreen>
 
-QCache<QString, QVImageCore::ReadData> QVImageCore::imageCache;
-
 QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
 {
-// Set allocation limit to 8 GiB on Qt6
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    QImageReader::setAllocationLimit(8192);
-#endif
+    QImageReader::setAllocationLimit(8192); // 8 GiB
 
-    currentRotation = 0;
+    connect(&loadedMovie, &QVMovie::updated, this, [this](QRect rect){
+        QImage movieImage = loadedMovie.currentImage();
+        handleColorSpaceConversion(movieImage, currentFileDetails.targetColorSpace);
+        loadedPixmap = QPixmap::fromImage(std::move(movieImage));
+        emit animatedFrameChanged(rect);
+    });
 
-    connect(&loadedMovie, &QMovie::updated, this, &QVImageCore::animatedFrameChanged);
+    connect(&imageLoader, &QVImageLoader::imageReady, this,
+        [this](const quint64 requestId, const ReadData &readData) {
+            if (requestId != pendingLoadRequestId)
+                return;
 
-    connect(&loadFutureWatcher, &QFutureWatcher<ReadData>::finished, this,
-            [this]() { loadPixmap(loadFutureWatcher.result()); });
+            const bool debouncePreloading = pendingLoadDebouncesPreloading;
+            pendingLoadRequestId = 0;
+            loadInProgress = false;
+            pendingLoadDebouncesPreloading = false;
+            loadPixmap(readData);
 
-    largestDimension = 0;
-    const auto screenList = QGuiApplication::screens();
-    for (auto const &screen : screenList) {
-        int largerDimension;
-        if (screen->size().height() > screen->size().width()) {
-            largerDimension = screen->size().height();
-        } else {
-            largerDimension = screen->size().width();
-        }
+            // A fileChanged handler may have synchronously requested another image.
+            if (loadInProgress ||
+                currentFileDetails.fileInfo.absoluteFilePath() != readData.absoluteFilePath)
+            {
+                return;
+            }
 
-        if (largerDimension > largestDimension) {
+            refreshDesiredImages(!debouncePreloading);
+            if (debouncePreloading && preloadingMode != Qv::PreloadMode::Disabled)
+                preloadDebounceTimer.start();
+        });
+
+    preloadDebounceTimer.setSingleShot(true);
+    preloadDebounceTimer.setInterval(500);
+    connect(&preloadDebounceTimer, &QTimer::timeout, this, [this]() {
+        refreshDesiredImages();
+    });
+
+    connect(&fileEnumerator, &QVFileEnumerator::sortParametersChanged, this, [this](){
+        updateFolderInfo();
+        refreshDesiredImages();
+        emit sortParametersChanged();
+    });
+
+    for (auto const &screen : QGuiApplication::screens())
+    {
+        const QSize adjustedSize = screen->size() * screen->devicePixelRatio();
+        const int largerDimension = qMax(adjustedSize.width(), adjustedSize.height());
+        if (largerDimension > largestDimension)
             largestDimension = largerDimension;
-        }
     }
-
-    waitingOnLoad = false;
+    imageLoader.setLargestDimension(largestDimension);
 
     // Connect to settings signal
-    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this,
-            &QVImageCore::settingsUpdated);
+    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &QVImageCore::settingsUpdated);
+    connect(qvApp, &QVApplication::folderListingsInvalidated, this, &QVImageCore::markFolderInfoDirty);
     settingsUpdated();
 }
 
-void QVImageCore::loadFile(const QString &fileName, bool isReloading)
+void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir, const bool debouncePreloading)
 {
-    if (waitingOnLoad) {
-        return;
-    }
+    QString adjustedFileName = fileName;
 
-    QString sanitaryFileName = fileName;
+    //sanitize file name if necessary
+    QUrl fileUrl = QUrl(adjustedFileName);
+    if (fileUrl.isLocalFile())
+        adjustedFileName = fileUrl.toLocalFile();
 
-    // sanitize file name if necessary
-    QUrl sanitaryUrl = QUrl(fileName);
-    if (sanitaryUrl.isLocalFile())
-        sanitaryFileName = sanitaryUrl.toLocalFile();
+#ifdef WIN32_LOADED
+    QString longFileName = QVWin32Functions::getLongPath(QDir::toNativeSeparators(QFileInfo(adjustedFileName).absoluteFilePath()));
+    if (!longFileName.isEmpty())
+        adjustedFileName = longFileName;
+#endif
 
-    QFileInfo fileInfo(sanitaryFileName);
-    sanitaryFileName = fileInfo.absoluteFilePath();
+    QFileInfo fileInfo(adjustedFileName);
+    QString absolutePath = fileInfo.absoluteFilePath();
 
-    if (fileInfo.isDir()) {
-        updateFolderInfo(sanitaryFileName);
+    if (fileInfo.isDir())
+    {
+        updateFolderInfo(absolutePath);
         if (currentFileDetails.folderFileInfoList.isEmpty())
-            closeImage();
+            closeImage(true);
         else
             loadFile(currentFileDetails.folderFileInfoList.at(0).absoluteFilePath);
         return;
     }
 
+    if (!baseDir.isEmpty())
+    {
+        updateFolderInfo(baseDir);
+    }
+
     // Pause playing movie because it feels better that way
     setPaused(true);
 
-    currentFileDetails.isLoadRequested = true;
-    waitingOnLoad = true;
-
-    QColorSpace targetColorSpace = getTargetColorSpace();
-    QString cacheKey = getPixmapCacheKey(sanitaryFileName, fileInfo.size(), targetColorSpace);
-
-    // check if cached already before loading the long way
-    auto *cachedData = isReloading ? nullptr : QVImageCore::imageCache.take(cacheKey);
-    if (cachedData != nullptr) {
-        ReadData readData = *cachedData;
-        delete cachedData;
-        loadPixmap(readData);
-    }
-    // or see if the preloader is already working on it
-    else if (preloadFilesInProgress.contains(sanitaryFileName)) {
-        waitingOnPreloadFile = sanitaryFileName;
-    } else {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        loadFutureWatcher.setFuture(QtConcurrent::run(this, &QVImageCore::readFile,
-                                                      sanitaryFileName, targetColorSpace));
-#else
-        loadFutureWatcher.setFuture(QtConcurrent::run(&QVImageCore::readFile, this,
-                                                      sanitaryFileName, targetColorSpace));
-#endif
-    }
-}
-
-QVImageCore::ReadData QVImageCore::readFile(const QString &fileName,
-                                            const QColorSpace &targetColorSpace)
-{
-    QImageReader imageReader;
-    imageReader.setAutoTransform(true);
-
-    imageReader.setFileName(fileName);
-
-    QImage readImage;
-    if (imageReader.format() == "svg" || imageReader.format() == "svgz") {
-        // Render vectors into a high resolution
-        QIcon icon;
-        icon.addFile(fileName);
-        readImage = icon.pixmap(largestDimension).toImage();
-        // If this fails, try reading the normal way so that a proper error message is given
-        if (readImage.isNull())
-            readImage = imageReader.read();
-    } else {
-        readImage = imageReader.read();
-    }
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    readImage.convertTo(QImage::Format::Format_ARGB32_Premultiplied);
-#else
-    readImage = readImage.convertToFormat(QImage::Format::Format_ARGB32_Premultiplied);
-#endif
-    // Handle color space information
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && QT_VERSION < QT_VERSION_CHECK(6, 7, 2)
-    // Work around Qt ICC profile parsing bug
-    if (!readImage.colorSpace().isValid() && !readImage.colorSpace().iccProfile().isEmpty()) {
-        QByteArray profileData = readImage.colorSpace().iccProfile();
-        if (removeTinyDataTagsFromIccProfile(profileData))
-            readImage.setColorSpace(QColorSpace::fromIccProfile(profileData));
-    }
-#endif
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    // Assume image is sRGB if it doesn't specify
-    if (!readImage.colorSpace().isValid())
-        readImage.setColorSpace(QColorSpace::SRgb);
-
-    // Convert image color space if we have a target that's different
-    if (targetColorSpace.isValid() && readImage.colorSpace() != targetColorSpace)
-        readImage.convertToColorSpace(targetColorSpace);
-#endif
-
-    QFileInfo fileInfo(fileName);
-
-    ReadData readData = { readImage,        fileInfo.absoluteFilePath(),
-                          fileInfo.size(),  imageReader.size(),
-                          targetColorSpace, {} };
-
-    if (readImage.isNull()) {
-        readData.errorData = { true, imageReader.error(), imageReader.errorString() };
-    }
-
-    return readData;
+    fileOrLoadPending = true;
+    preloadDebounceTimer.stop();
+    loadInProgress = true;
+    pendingLoadDebouncesPreloading = debouncePreloading;
+    pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading);
 }
 
 void QVImageCore::loadPixmap(const ReadData &readData)
 {
-    if (readData.errorData.hasError) {
-        currentFileDetails = getEmptyFileDetails();
-        currentFileDetails.errorData = readData.errorData;
-    } else {
+    emit fileChanging();
+
+    if (readData.errorData.has_value())
+    {
+        FileDetails emptyDetails;
+        emptyDetails.folderFileInfoList = currentFileDetails.folderFileInfoList;
+        emptyDetails.loadedIndexInFolder = currentFileDetails.loadedIndexInFolder;
+        emptyDetails.errorData = readData.errorData;
+        currentFileDetails = emptyDetails;
+    }
+    else
+    {
         currentFileDetails.errorData = {};
     }
 
@@ -180,61 +138,70 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     currentFileDetails.fileInfo = QFileInfo(readData.absoluteFilePath);
     currentFileDetails.updateLoadedIndexInFolder();
     if (currentFileDetails.loadedIndexInFolder == -1)
-        updateFolderInfo();
+    {
+        // If the current list of files doesn't contain this one, assume we're switching folders now
+        updateFolderInfo(currentFileDetails.fileInfo.path());
+    }
 
-    // Reset mechanism to avoid stalling while loading
-    waitingOnLoad = false;
-
-    if (currentFileDetails.errorData.hasError) {
+    if (currentFileDetails.errorData.has_value())
+    {
         loadEmptyPixmap();
         return;
     }
 
-    loadedPixmap = QPixmap::fromImage(matchCurrentRotation(readData.image));
+    QImage readImage = readData.image;
+    const QColorSpace targetColorSpace = getTargetColorSpace();
+    handleColorSpaceConversion(readImage, targetColorSpace);
+    loadedPixmap = QPixmap::fromImage(std::move(readImage));
 
     // Set file details
     currentFileDetails.isPixmapLoaded = true;
-    currentFileDetails.baseImageSize = readData.imageSize;
+    currentFileDetails.baseImageSize = readData.intrinsicSize.isValid() ? readData.intrinsicSize : loadedPixmap.size();
     currentFileDetails.loadedPixmapSize = loadedPixmap.size();
-    if (currentFileDetails.baseImageSize == QSize(-1, -1)) {
-        qInfo() << "QImageReader::size gave an invalid size for "
-                        + currentFileDetails.fileInfo.fileName()
-                        + ", using size from loaded pixmap";
-        currentFileDetails.baseImageSize = currentFileDetails.loadedPixmapSize;
-    }
-
-    addToCache(std::move(readData));
+    currentFileDetails.targetColorSpace = targetColorSpace;
 
     // Animation detection
-    loadedMovie.setFormat("");
     loadedMovie.stop();
+    loadedMovie.setFormat("");
+    loadedMovie.setCacheMode(QVMovie::CacheAll);
     loadedMovie.setFileName(currentFileDetails.fileInfo.absoluteFilePath());
 
     // APNG workaround
-    if (loadedMovie.format() == "png") {
+    if (loadedMovie.format() == "png")
+    {
         loadedMovie.setFormat("apng");
         loadedMovie.setFileName(currentFileDetails.fileInfo.absoluteFilePath());
     }
 
-    if (loadedMovie.isValid() && loadedMovie.frameCount() != 1)
+    if (!readData.isMultiFrameImage && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 
-    currentFileDetails.isMovieLoaded = loadedMovie.state() == QMovie::Running;
+    currentFileDetails.isMovieLoaded = loadedMovie.state() == QVMovie::Running;
 
     if (!currentFileDetails.isMovieLoaded)
         if (auto device = loadedMovie.device())
             device->close();
 
-    currentFileDetails.timeSinceLoaded.start();
-
     emit fileChanged();
-
-    requestCaching();
 }
 
-void QVImageCore::closeImage()
+void QVImageCore::closeImage(const bool stayInDir)
 {
-    currentFileDetails = getEmptyFileDetails();
+    preloadDebounceTimer.stop();
+    imageLoader.clear();
+    pendingLoadRequestId = 0;
+    loadInProgress = false;
+    pendingLoadDebouncesPreloading = false;
+    fileOrLoadPending = false;
+
+    emit fileChanging();
+    FileDetails emptyDetails;
+    if (stayInDir)
+    {
+        emptyDetails.folderFileInfoList = currentFileDetails.folderFileInfoList;
+        emptyDetails.loadedIndexInFolder = currentFileDetails.loadedIndexInFolder;
+    }
+    currentFileDetails = emptyDetails;
     loadEmptyPixmap();
 }
 
@@ -247,369 +214,243 @@ void QVImageCore::loadEmptyPixmap()
     emit fileChanged();
 }
 
-QVImageCore::FileDetails QVImageCore::getEmptyFileDetails()
+QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, const int index)
 {
-    return { QFileInfo(),
-             currentFileDetails.folderFileInfoList,
-             currentFileDetails.loadedIndexInFolder,
-             false,
-             false,
-             false,
-             QSize(),
-             QSize(),
-             QElapsedTimer(),
-             {} };
-}
+    GoToFileResult result;
+    if (loadInProgress)
+        return result;
 
-// All file logic, sorting, etc should be moved to a different class or file
-QList<QVImageCore::CompatibleFile> QVImageCore::getCompatibleFiles(const QString &dirPath) const
-{
-    int sortMode = qvGetSettingInt(SortMode);
-    QList<CompatibleFile> fileList;
+    bool shouldRetryFolderInfoUpdate = false;
 
-    QMimeDatabase mimeDb;
-    const auto &extensions = qvApp->getFileExtensionList();
-    const auto &mimeTypes = qvApp->getMimeTypeNameList();
-
-    QMimeDatabase::MatchMode mimeMatchMode = qvGetSettingBool(AllowMimeContentDetection)
-            ? QMimeDatabase::MatchDefault
-            : QMimeDatabase::MatchExtension;
-
-    // skip hidden files if user wants to
-    QDir::Filters filters = QDir::Files;
-
-    auto &settingsManager = qvApp->getSettingsManager();
-    if (!settingsManager.getBool("skiphidden"))
-        filters |= QDir::Hidden;
-
-    const QFileInfoList currentFolder = QDir(dirPath).entryInfoList(filters, QDir::Unsorted);
-    for (const QFileInfo &fileInfo : currentFolder) {
-        bool matched = false;
-        const QString absoluteFilePath = fileInfo.absoluteFilePath();
-        const QString fileName = fileInfo.fileName();
-        for (const QString &extension : extensions) {
-            if (fileName.endsWith(extension, Qt::CaseInsensitive)) {
-                matched = true;
-                break;
-            }
-        }
-        QString mimeType;
-        if (!matched || sortMode == 4) {
-            mimeType = mimeDb.mimeTypeForFile(absoluteFilePath, mimeMatchMode).name();
-            matched |= mimeTypes.contains(mimeType);
-        }
-
-        // ignore macOS ._ metadata files
-        if (fileName.startsWith("._")) {
-            matched = false;
-        }
-
-        if (matched) {
-            fileList.append({ absoluteFilePath, fileName,
-                              sortMode == 1 ? fileInfo.lastModified().toMSecsSinceEpoch() : 0,
-#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
-                              sortMode == 2 ? fileInfo.birthTime().toMSecsSinceEpoch() : 0,
-#else
-                              sortMode == 2 ? fileInfo.created().toMSecsSinceEpoch() : 0,
-#endif
-                              sortMode == 3 ? fileInfo.size() : 0,
-                              sortMode == 4 ? mimeType : QString() });
-        }
+    if (folderInfoDirty)
+    {
+        // Make sure the file still exists because if it disappears from the file listing we'll lose
+        // track of our index within the folder. Use the static 'exists' method to avoid caching.
+        // If we skip updating now, flag it for retry later once we locate a new file.
+        if (QFile::exists(currentFileDetails.fileInfo.absoluteFilePath()))
+            updateFolderInfo();
+        else
+            shouldRetryFolderInfoUpdate = true;
     }
 
-    return fileList;
+    const auto &fileList = currentFileDetails.folderFileInfoList;
+    if (fileList.isEmpty())
+        return result;
+
+    int newIndex = currentFileDetails.loadedIndexInFolder;
+    int searchDirection = 0;
+
+    switch (mode) {
+    case Qv::GoToFileMode::Constant:
+    {
+        newIndex = index;
+        break;
+    }
+    case Qv::GoToFileMode::First:
+    {
+        newIndex = 0;
+        searchDirection = 1;
+        break;
+    }
+    case Qv::GoToFileMode::Previous:
+    {
+        if (newIndex == 0)
+        {
+            if (fileEnumerator.getIsLoopFoldersEnabled())
+                newIndex = fileList.size()-1;
+            else
+                result.reachedEnd = true;
+        }
+        else
+            newIndex--;
+        searchDirection = -1;
+        break;
+    }
+    case Qv::GoToFileMode::Next:
+    {
+        if (fileList.size()-1 == newIndex)
+        {
+            if (fileEnumerator.getIsLoopFoldersEnabled())
+                newIndex = 0;
+            else
+                result.reachedEnd = true;
+        }
+        else
+            newIndex++;
+        searchDirection = 1;
+        break;
+    }
+    case Qv::GoToFileMode::Last:
+    {
+        newIndex = fileList.size()-1;
+        searchDirection = -1;
+        break;
+    }
+    case Qv::GoToFileMode::Random:
+    {
+        if (fileList.size() > 1)
+        {
+            int randomIndex = QRandomGenerator::global()->bounded(fileList.size()-1);
+            newIndex = randomIndex + (randomIndex >= newIndex ? 1 : 0);
+        }
+        searchDirection = 1;
+        break;
+    }
+    }
+
+    while (searchDirection == 1 && newIndex < fileList.size()-1 && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
+        newIndex++;
+    while (searchDirection == -1 && newIndex > 0 && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
+        newIndex--;
+
+    const QString nextImageFilePath = fileList.value(newIndex).absoluteFilePath;
+
+    if (!QFile::exists(nextImageFilePath) || nextImageFilePath == currentFileDetails.fileInfo.absoluteFilePath())
+        return result;
+
+    if (shouldRetryFolderInfoUpdate)
+        updateFolderInfo();
+
+    loadFile(nextImageFilePath, false, {}, mode == Qv::GoToFileMode::Random);
+
+    return result;
 }
 
 void QVImageCore::updateFolderInfo(QString dirPath)
 {
-    if (dirPath.isEmpty()) {
-        dirPath = currentFileDetails.fileInfo.path();
+    if (dirPath.isEmpty())
+    {
+        // No directory specified; we are refreshing the currently loaded directory
+        dirPath = currentFileDetails.folderFileInfoList.getBaseDir();
 
-        // No directory specified and a file is not already loaded from which we can infer one
+        // Return early if there's nothing currently loaded
         if (dirPath.isEmpty())
             return;
     }
 
-    currentFileDetails.folderFileInfoList = getCompatibleFiles(dirPath);
-
-    DirInfo dirInfo = { dirPath, currentFileDetails.folderFileInfoList.count(),
-                        qvGetSettingInt(SortMode), qvGetSettingBool(SortDescending) };
-    // If the current folder changed since the last image, assign a new seed for random sorting
-    const bool shouldSort = lastDirInfo != dirInfo;
-    lastDirInfo = dirInfo;
-
-    const auto sortFn = [&]() {
-        // Sorting
-        switch (dirInfo.sortMode) {
-        case 0: {
-            // Natural sorting
-            QCollator collator;
-            collator.setNumericMode(true);
-            std::sort(currentFileDetails.folderFileInfoList.begin(),
-                      currentFileDetails.folderFileInfoList.end(),
-                      [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-                          if (dirInfo.sortDescending)
-                              return collator.compare(file1.fileName, file2.fileName) > 0;
-                          else
-                              return collator.compare(file1.fileName, file2.fileName) < 0;
-                      });
-            break;
-        }
-        case 1:
-            // Date modified
-            std::sort(currentFileDetails.folderFileInfoList.begin(),
-                      currentFileDetails.folderFileInfoList.end(),
-                      [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-                          if (dirInfo.sortDescending)
-                              return file1.lastModified < file2.lastModified;
-                          else
-                              return file1.lastModified > file2.lastModified;
-                      });
-            break;
-        case 2:
-            // Date created
-            std::sort(currentFileDetails.folderFileInfoList.begin(),
-                      currentFileDetails.folderFileInfoList.end(),
-                      [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-                          if (dirInfo.sortDescending)
-                              return file1.lastCreated < file2.lastCreated;
-                          else
-                              return file1.lastCreated > file2.lastCreated;
-                      });
-            break;
-        case 3:
-            // Size
-            std::sort(currentFileDetails.folderFileInfoList.begin(),
-                      currentFileDetails.folderFileInfoList.end(),
-                      [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-                          if (dirInfo.sortDescending)
-                              return file1.size < file2.size;
-                          else
-                              return file1.size > file2.size;
-                      });
-            break;
-        case 4: {
-            // Type
-            QCollator collator;
-            std::sort(currentFileDetails.folderFileInfoList.begin(),
-                      currentFileDetails.folderFileInfoList.end(),
-                      [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-                          if (dirInfo.sortDescending)
-                              return collator.compare(file1.mimeType, file2.mimeType) > 0;
-                          else
-                              return collator.compare(file1.mimeType, file2.mimeType) < 0;
-                      });
-            break;
-        }
-        case 5:
-            // Random
-            std::shuffle(currentFileDetails.folderFileInfoList.begin(),
-                         currentFileDetails.folderFileInfoList.end(),
-                         std::default_random_engine(
-                                 std::chrono::system_clock::now().time_since_epoch().count()));
-            break;
-        default:
-            Q_ASSERT(false);
-            break;
-        }
-    };
-
-    if (shouldSort) {
-        sortFn();
-    }
+    // Get file listing
+    currentFileDetails.folderFileInfoList = fileEnumerator.getCompatibleFiles(dirPath);
+    folderInfoDirty = false;
 
     // Set current file index variable
     currentFileDetails.updateLoadedIndexInFolder();
 }
 
-void QVImageCore::requestCaching()
+QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool includePreloads) const
 {
-    int preloadingMode = qvGetSettingInt(PreloadingMode);
-    if (preloadingMode == 0) {
-        QVImageCore::imageCache.clear();
-        return;
-    }
+    const QString absoluteTargetPath = currentFileDetails.fileInfo.absoluteFilePath();
+    QList<QVImageLoader::DesiredImage> desiredImages {{absoluteTargetPath, 0}};
 
-    QColorSpace targetColorSpace = getTargetColorSpace();
+    const auto &fileList = currentFileDetails.folderFileInfoList;
+    if (!includePreloads || fileList.isEmpty() || preloadingMode == Qv::PreloadMode::Disabled)
+        return desiredImages;
 
-    int preloadingDistance = 1;
+    const int loadedIndex = currentFileDetails.loadedIndexInFolder;
+    if (loadedIndex == -1)
+        return desiredImages;
 
-    if (preloadingMode > 1)
-        preloadingDistance = 4;
+    const int preloadDistance = preloadingMode == Qv::PreloadMode::Extended ? 3 : 1;
+    const bool loopFolders = fileEnumerator.getIsLoopFoldersEnabled();
+    for (int distance = 1; distance <= preloadDistance; ++distance)
+    {
+        for (const int direction : {-1, 1})
+        {
+            int index = loadedIndex + (distance * direction);
+            if (loopFolders)
+                index = (index % fileList.size() + fileList.size()) % fileList.size();
+            else if (index < 0 || index >= fileList.size())
+                continue;
 
-    QStringList filesToPreload;
-    for (int i = currentFileDetails.loadedIndexInFolder - preloadingDistance;
-         i <= currentFileDetails.loadedIndexInFolder + preloadingDistance; i++) {
-        int index = i;
-
-        // Don't try to cache the currently loaded image
-        if (index == currentFileDetails.loadedIndexInFolder)
-            continue;
-
-        // keep within index range
-        if (qvGetSettingBool(LoopFoldersEnabled)) {
-            if (index > currentFileDetails.folderFileInfoList.length() - 1)
-                index = index - (currentFileDetails.folderFileInfoList.length());
-            else if (index < 0)
-                index = index + (currentFileDetails.folderFileInfoList.length());
+            desiredImages.append({fileList.at(index).absoluteFilePath, distance});
         }
-
-        // if still out of range after looping, just cancel the cache for this index
-        if (index > currentFileDetails.folderFileInfoList.length() - 1 || index < 0
-            || currentFileDetails.folderFileInfoList.isEmpty())
-            continue;
-
-        QString filePath = currentFileDetails.folderFileInfoList[index].absoluteFilePath;
-        filesToPreload.append(filePath);
-
-        requestCachingFile(filePath, targetColorSpace);
     }
-    lastFilesPreloaded = filesToPreload;
+
+    return desiredImages;
 }
 
-void QVImageCore::requestCachingFile(const QString &filePath, const QColorSpace &targetColorSpace)
+void QVImageCore::refreshDesiredImages(const bool includePreloads)
 {
-    QFile imgFile(filePath);
-    QString cacheKey = getPixmapCacheKey(filePath, imgFile.size(), targetColorSpace);
-
-    // check if image is already loaded or requested
-    if (QVImageCore::imageCache.contains(cacheKey) || lastFilesPreloaded.contains(filePath))
+    if (loadInProgress)
+    {
+        // A disabled setting should purge the old cache without cancelling the
+        // foreground load. Enabled modes are reconciled once that load finishes.
+        if (preloadingMode == Qv::PreloadMode::Disabled)
+            imageLoader.setDesiredImages({});
         return;
+    }
 
-    if (imgFile.size() / 1024 > QVImageCore::imageCache.maxCost() / 2)
+    const QString targetFilePath = currentFileDetails.fileInfo.absoluteFilePath();
+    if (targetFilePath.isEmpty() || preloadingMode == Qv::PreloadMode::Disabled)
+    {
+        imageLoader.setDesiredImages({});
         return;
+    }
 
-    preloadFilesInProgress.append(filePath);
-
-    auto *cacheFutureWatcher = new QFutureWatcher<ReadData>();
-    connect(cacheFutureWatcher, &QFutureWatcher<ReadData>::finished, this,
-            [cacheFutureWatcher, this]() {
-                const ReadData readData = cacheFutureWatcher->result();
-                if (waitingOnPreloadFile == readData.absoluteFilePath) {
-                    loadPixmap(readData);
-                    waitingOnPreloadFile = QString();
-                } else {
-                    addToCache(std::move(readData));
-                }
-                preloadFilesInProgress.removeAll(readData.absoluteFilePath);
-                cacheFutureWatcher->deleteLater();
-            });
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    cacheFutureWatcher->setFuture(
-            QtConcurrent::run(this, &QVImageCore::readFile, filePath, targetColorSpace));
-#else
-    cacheFutureWatcher->setFuture(
-            QtConcurrent::run(&QVImageCore::readFile, this, filePath, targetColorSpace));
-#endif
-}
-
-void QVImageCore::addToCache(const ReadData &&readData)
-{
-    if (readData.image.isNull())
-        return;
-
-    QString cacheKey = getPixmapCacheKey(readData.absoluteFilePath, readData.fileSize,
-                                         readData.targetColorSpace);
-    qint64 pixmapMemoryBytes = static_cast<qint64>(readData.image.width()) * readData.image.height()
-            * readData.image.depth() / 8;
-
-    qint64 pixmapMemoryKiB = qMax(pixmapMemoryBytes / 1024, 1LL);
-    QVImageCore::imageCache.insert(cacheKey, new ReadData(std::move(readData)), pixmapMemoryKiB);
-}
-
-QString QVImageCore::getPixmapCacheKey(const QString &absoluteFilePath, const qint64 &fileSize,
-                                       const QColorSpace &targetColorSpace)
-{
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    QString targetColorSpaceHash =
-            QCryptographicHash::hash(targetColorSpace.iccProfile(), QCryptographicHash::Md5)
-                    .toHex();
-#else
-    QString targetColorSpaceHash = "";
-#endif
-    return absoluteFilePath + "\n" + QString::number(fileSize) + "\n" + targetColorSpaceHash;
+    imageLoader.setDesiredImages(getDesiredImages(includePreloads));
 }
 
 QColorSpace QVImageCore::getTargetColorSpace() const
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    return colorSpaceConversion == 1    ? detectDisplayColorSpace()
-            : colorSpaceConversion == 2 ? QColorSpace::SRgb
-            : colorSpaceConversion == 3 ? QColorSpace::DisplayP3
-                                        : QColorSpace();
-#else
-    return {};
-#endif
+    return
+        colorSpaceConversion == Qv::ColorSpaceConversion::AutoDetect ? detectDisplayColorSpace() :
+        colorSpaceConversion == Qv::ColorSpaceConversion::SRgb ? QColorSpace::SRgb :
+        colorSpaceConversion == Qv::ColorSpaceConversion::DisplayP3 ? QColorSpace::DisplayP3 :
+        QColorSpace();
 }
 
 QColorSpace QVImageCore::detectDisplayColorSpace() const
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    QWindow *window = static_cast<QWidget *>(parent())->window()->windowHandle();
+    QWindow *window = static_cast<QWidget*>(parent())->window()->windowHandle();
 
-    QByteArray profileData = QVCocoaFunctions::getIccProfileForWindow(window);
-
-    if (!profileData.isEmpty()) {
-        QColorSpace colorSpace = QColorSpace::fromIccProfile(profileData);
-#  if QT_VERSION < QT_VERSION_CHECK(6, 7, 2)
-        if (!colorSpace.isValid() && removeTinyDataTagsFromIccProfile(profileData))
-            colorSpace = QColorSpace::fromIccProfile(profileData);
-#  endif
-        return colorSpace;
-    }
+    QByteArray profileData;
+#ifdef WIN32_LOADED
+    profileData = QVWin32Functions::getIccProfileForWindow(window);
 #endif
+#ifdef COCOA_LOADED
+    profileData = QVCocoaFunctions::getIccProfileForWindow(window);
+#endif
+#ifdef X11_LOADED
+    profileData = QVLinuxX11Functions::getIccProfileForWindow(window);
+#endif
+
+    if (!profileData.isEmpty())
+    {
+        return QColorSpace::fromIccProfile(profileData);
+    }
 
     return {};
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && QT_VERSION < QT_VERSION_CHECK(6, 7, 2)
-// Workaround for QTBUG-125241
-bool QVImageCore::removeTinyDataTagsFromIccProfile(QByteArray &profile)
+void QVImageCore::handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace)
 {
-    const int offsetTagCount = 128;
-    const qsizetype length = profile.length();
-    qsizetype offset = offsetTagCount;
-    char *data = profile.data();
-    bool foundTinyData = false;
-    // read tag count
-    if (length - offset < 4)
-        return false;
-    quint32 tagCount = qFromBigEndian<quint32>(data + offset);
-    offset += 4;
-    // so we don't have to worry about overflows
-    if (tagCount > 99999)
-        return false;
-    // loop through tags
-    if (length - offset < qsizetype(tagCount * 12))
-        return false;
-    while (tagCount) {
-        tagCount -= 1;
-        const quint32 dataSize = qFromBigEndian<quint32>(data + offset + 8);
-        if (dataSize >= 12) {
-            // this tag is fine
-            offset += 12;
-            continue;
-        }
-        // qt will fail on this tag, remove it
-        foundTinyData = true;
-        if (tagCount) {
-            // shift subsequent tags back
-            std::memmove(data + offset, data + offset + 12, tagCount * 12);
-        }
-        // zero fill gap at end
-        std::memset(data + offset + (tagCount * 12), 0, 12);
-        // decrement tag count
-        qToBigEndian(qFromBigEndian<quint32>(data + offsetTagCount) - 1, data + offsetTagCount);
-    }
-    return foundTinyData;
+    // Assume image is sRGB if it doesn't specify
+    if (!image.colorSpace().isValid())
+        image.setColorSpace(QColorSpace::SRgb);
+
+    // Convert image color space if we have a target that's different
+    if (targetColorSpace.isValid() && image.colorSpace() != targetColorSpace)
+        image.convertToColorSpace(targetColorSpace);
 }
-#endif
 
 void QVImageCore::jumpToNextFrame()
 {
-    if (currentFileDetails.isMovieLoaded)
-        loadedMovie.jumpToNextFrame();
+    if (!currentFileDetails.isMovieLoaded)
+        return;
+
+    loadedMovie.setPaused(true);
+    loadedMovie.jumpToNextFrame();
+}
+
+void QVImageCore::jumpToPreviousFrame()
+{
+    if (!currentFileDetails.isMovieLoaded)
+        return;
+
+    loadedMovie.setPaused(true);
+    int frameNumber = loadedMovie.currentFrameNumber() - 1;
+    if (frameNumber < 0)
+        frameNumber = loadedMovie.frameCount() - 1;
+    loadedMovie.jumpToFrame(frameNumber);
 }
 
 void QVImageCore::setPaused(bool desiredState)
@@ -620,61 +461,8 @@ void QVImageCore::setPaused(bool desiredState)
 
 void QVImageCore::setSpeed(int desiredSpeed)
 {
-    if (desiredSpeed < 0)
-        desiredSpeed = 0;
-
-    if (desiredSpeed > 1000)
-        desiredSpeed = 1000;
-
     if (currentFileDetails.isMovieLoaded)
-        loadedMovie.setSpeed(desiredSpeed);
-}
-
-void QVImageCore::rotateImage(int rotation)
-{
-    currentRotation += rotation;
-
-    // normalize between 360 and 0
-    currentRotation = (currentRotation % 360 + 360) % 360;
-    QTransform transform;
-
-    QImage transformedImage;
-    if (currentFileDetails.isMovieLoaded) {
-        transform.rotate(currentRotation);
-        transformedImage = loadedMovie.currentImage().transformed(transform);
-    } else {
-        transform.rotate(rotation);
-        transformedImage = loadedPixmap.toImage().transformed(transform);
-    }
-
-    loadedPixmap.convertFromImage(transformedImage);
-
-    currentFileDetails.loadedPixmapSize = QSize(loadedPixmap.width(), loadedPixmap.height());
-    emit updateLoadedPixmapItem();
-}
-
-QImage QVImageCore::matchCurrentRotation(const QImage &imageToRotate)
-{
-    if (!currentRotation)
-        return imageToRotate;
-
-    QTransform transform;
-    transform.rotate(currentRotation);
-    return imageToRotate.transformed(transform);
-}
-
-// TODO: Remove this function---extremely inefficient
-QPixmap QVImageCore::matchCurrentRotation(const QPixmap &pixmapToRotate)
-{
-    if (!currentRotation)
-        return pixmapToRotate;
-
-    return QPixmap::fromImage(matchCurrentRotation(pixmapToRotate.toImage()));
-}
-
-QPixmap QVImageCore::scaleExpensively(const int desiredWidth, const int desiredHeight)
-{
-    return scaleExpensively(QSizeF(desiredWidth, desiredHeight));
+        loadedMovie.setSpeed(std::clamp(desiredSpeed, 0, 1000));
 }
 
 QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
@@ -682,76 +470,52 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
     if (!currentFileDetails.isPixmapLoaded)
         return QPixmap();
 
-    QSize size = QSize(loadedPixmap.width(), loadedPixmap.height());
-    size.scale(desiredSize.toSize(), Qt::KeepAspectRatio);
-
-    // Get the current frame of the animation if this is an animation
-    QPixmap relevantPixmap;
-    if (!currentFileDetails.isMovieLoaded) {
-        relevantPixmap = loadedPixmap;
-    } else {
-        relevantPixmap = loadedMovie.currentPixmap();
-        relevantPixmap = matchCurrentRotation(relevantPixmap);
-    }
-
     // If we are really close to the original size, just return the original
-    if (abs(desiredSize.width() - relevantPixmap.width()) < 1
-        && abs(desiredSize.height() - relevantPixmap.height()) < 1) {
-        return relevantPixmap;
+    if (abs(desiredSize.width() - loadedPixmap.width()) < 1 &&
+        abs(desiredSize.height() - loadedPixmap.height()) < 1)
+    {
+        return loadedPixmap;
     }
 
-    return relevantPixmap.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    ;
+    QSize size = desiredSize.toSize();
+    size.rwidth() = qMax(size.width(), 1);
+    size.rheight() = qMax(size.height(), 1);
+
+    return loadedPixmap.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 void QVImageCore::settingsUpdated()
 {
     auto &settingsManager = qvApp->getSettingsManager();
 
-    // preloading mode
-    // Cost is in KiB
-    switch (qvGetSettingInt(PreloadingMode)) {
-    case 0: {
-        QVImageCore::imageCache.setMaxCost(0);
-        break;
-    }
-    case 1: {
-        QVImageCore::imageCache.setMaxCost(256000);
-        break;
-    }
-    case 2: {
-        QVImageCore::imageCache.setMaxCost(2048000);
-        break;
-    }
-    default:
-        Q_ASSERT(false);
-    }
+    //preloading mode
+    preloadingMode = settingsManager.getEnum<Qv::PreloadMode>("preloadingmode");
 
-    // update folder info to reflect new settings (e.g. sort order)
+    //update folder info to reflect new settings (e.g. sort order)
+    fileEnumerator.loadSettings(false);
     updateFolderInfo();
 
-    bool changedImagePreprocessing = false;
+    //color space conversion
+    Qv::ColorSpaceConversion oldColorSpaceConversion = colorSpaceConversion;
+    colorSpaceConversion = settingsManager.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion");
 
-    // colorspaceconversion
-    if (colorSpaceConversion != qvGetSettingInt(ColorSpaceConversion)) {
-        colorSpaceConversion = qvGetSettingInt(ColorSpaceConversion);
-        changedImagePreprocessing = true;
-    }
-
-    if (changedImagePreprocessing && currentFileDetails.isPixmapLoaded)
+    if (colorSpaceConversion != oldColorSpaceConversion && currentFileDetails.isPixmapLoaded && !loadInProgress)
         loadFile(currentFileDetails.fileInfo.absoluteFilePath());
+    else
+        refreshDesiredImages(!preloadDebounceTimer.isActive());
 }
 
 void QVImageCore::FileDetails::updateLoadedIndexInFolder()
 {
     const QString targetPath = fileInfo.absoluteFilePath().normalized(QString::NormalizationForm_D);
-    for (int i = 0; i < folderFileInfoList.length(); i++) {
+    for (int i = 0; i < folderFileInfoList.length(); i++)
+    {
         // Compare absoluteFilePath first because it's way faster, but double-check with
         // QFileInfo::operator== because it respects file system case sensitivity rules
-        QString candidatePath =
-                folderFileInfoList[i].absoluteFilePath.normalized(QString::NormalizationForm_D);
-        if (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0
-            && QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo) {
+        QString candidatePath = folderFileInfoList[i].absoluteFilePath.normalized(QString::NormalizationForm_D);
+        if (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0 &&
+            QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo)
+        {
             loadedIndexInFolder = i;
             return;
         }

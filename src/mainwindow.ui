@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string notr="true">Fovelle</string>
+   <string notr="true">qView</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <property name="layoutDirection">
