@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QFileDialog>
 #include <QFontDatabase>
+#include <QUrl>
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
@@ -64,14 +65,47 @@ QVApplication::~QVApplication()
 bool QVApplication::event(QEvent *event)
 {
     if (event->type() == QEvent::FileOpen) {
-        auto *openEvent = static_cast<QFileOpenEvent *>(event);
-        openFile(getMainWindow(true), openEvent->file());
+        const auto *openEvent = static_cast<QFileOpenEvent *>(event);
+        const QUrl url = openEvent->url();
+        const QString file = url.isLocalFile() ? url.toLocalFile() : openEvent->file();
+
+        // Launch Services expects the open-document event to be acknowledged promptly. Queue the
+        // image load so Finder is not held up by window creation or image decoding, and dismiss
+        // the first-launch modal before showing the requested image.
+        if (!file.isEmpty()) {
+            queueFileOpen(file);
+            if (welcomeDialog)
+                welcomeDialog->close();
+        }
+
+        return true;
     } else if (event->type() == QEvent::ApplicationStateChange) {
         auto *stateEvent = static_cast<QApplicationStateChangeEvent *>(event);
         if (stateEvent->applicationState() == Qt::ApplicationActive)
             settingsManager.loadSettings();
     }
     return QApplication::event(event);
+}
+
+void QVApplication::queueFileOpen(const QString &file)
+{
+    pendingFileOpenPaths.append(file);
+
+    if (fileOpenDispatchScheduled)
+        return;
+
+    fileOpenDispatchScheduled = true;
+    QTimer::singleShot(0, this, &QVApplication::processPendingFileOpenEvents);
+}
+
+void QVApplication::processPendingFileOpenEvents()
+{
+    fileOpenDispatchScheduled = false;
+
+    QStringList files;
+    files.swap(pendingFileOpenPaths);
+    for (const auto &file : files)
+        openFile(file);
 }
 
 void QVApplication::openFile(MainWindow *window, const QString &file, bool resize)

@@ -153,12 +153,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QSettings settings;
     restoreGeometry(settings.value("geometry").toByteArray());
 
-    // Show welcome dialog on first launch
-    if (!settings.value("firstlaunch", false).toBool()) {
-        settings.setValue("firstlaunch", true);
-        settings.setValue("configversion", VERSION);
-        qvApp->openWelcomeDialog(this);
-    }
+    // Show welcome dialog on first launch after startup has had a chance to handle a document
+    // open event from Finder. A document-open launch must take precedence over this modal dialog.
+    QTimer::singleShot(250, this, [this]() {
+        if (!isVisible() || getCurrentFileDetails().isLoadRequested
+            || qvApp->hasPendingFileOpenEvents())
+            return;
+
+        QSettings settings;
+        if (!settings.value("firstlaunch", false).toBool()) {
+            settings.setValue("firstlaunch", true);
+            settings.setValue("configversion", VERSION);
+            qvApp->openWelcomeDialog(this);
+        }
+    });
 }
 
 MainWindow::~MainWindow()

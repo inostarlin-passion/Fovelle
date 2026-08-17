@@ -61,6 +61,11 @@ public:
 
     void deleteFromLastActiveWindows(MainWindow *window);
 
+    bool hasPendingFileOpenEvents() const
+    {
+        return fileOpenDispatchScheduled || !pendingFileOpenPaths.isEmpty();
+    }
+
     void openOptionsDialog(QWidget *parent = nullptr);
 
     void openWelcomeDialog(QWidget *parent = nullptr);
@@ -90,7 +95,13 @@ public:
     static qreal getPerceivedBrightness(const QColor &color);
 
 private:
+    void queueFileOpen(const QString &file);
+    void processPendingFileOpenEvents();
+
     QList<MainWindow *> lastActiveWindows;
+
+    QStringList pendingFileOpenPaths;
+    bool fileOpenDispatchScheduled = false;
 
     QMenu *dockMenu;
 

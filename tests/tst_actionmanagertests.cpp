@@ -1,5 +1,9 @@
 #include <QtTest>
+#include <QFileInfo>
+#include <QFileOpenEvent>
+#include <QImage>
 #include <QLabel>
+#include <QTemporaryDir>
 
 #include "qvapplication.h"
 
@@ -16,6 +20,7 @@ private slots:
     void testApplicationIdentity();
     void testAboutDialogIdentity();
     void testWindowTitleIdentity();
+    void testFinderFileOpenEvent();
 };
 
 ActionManagerTests::ActionManagerTests() { }
@@ -37,6 +42,7 @@ void ActionManagerTests::testClonedActionsUntracked()
             != fullscreenCount);
     QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("open").length() != openCount);
     // Untrack them
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
     window.close();
 
     // Make sure the count has not changed from the initial
@@ -86,6 +92,38 @@ void ActionManagerTests::testWindowTitleIdentity()
     MainWindow window;
     window.updateWindowTitle();
     QCOMPARE(window.windowTitle(), QString("Fovelle"));
+
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.close();
+}
+
+void ActionManagerTests::testFinderFileOpenEvent()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const QString imagePath = temporaryDirectory.filePath("finder-open.png");
+    QImage image(":/images/checkmark.png");
+    QVERIFY(!image.isNull());
+    QVERIFY(image.save(imagePath));
+
+    auto *window = QVApplication::newWindow();
+    QVERIFY(window);
+    window->activateWindow();
+    QCoreApplication::processEvents();
+
+    QFileOpenEvent openEvent(imagePath);
+    QVERIFY(QCoreApplication::sendEvent(qvApp, &openEvent));
+
+    // The Launch Services event must return before image decoding begins.
+    QVERIFY(!window->getCurrentFileDetails().isLoadRequested);
+
+    QTRY_VERIFY_WITH_TIMEOUT(window->getCurrentFileDetails().isPixmapLoaded, 2000);
+    QCOMPARE(window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
+             QFileInfo(imagePath).absoluteFilePath());
+
+    window->close();
+    QCoreApplication::processEvents();
 }
 
 int main(int argc, char *argv[])
