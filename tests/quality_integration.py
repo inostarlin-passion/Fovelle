@@ -107,7 +107,22 @@ def main() -> int:
         "all upstream/runtime/build/test paths are tracked",
     )
 
-    conflict_scan = run(repo, "grep", "-R", "-n", "--exclude-dir=.git", "--exclude-dir=build-quality", "-E", r"^(<<<<<<<|=======|>>>>>>>)", ".")
+    conflict_scan = subprocess.run(
+        [
+            "grep",
+            "-R",
+            "-n",
+            "--exclude-dir=.git",
+            "--exclude-dir=build-quality",
+            "-E",
+            r"^(<<<<<<<|=======|>>>>>>>)",
+            ".",
+        ],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
     check(
         checks,
         "I-04",
