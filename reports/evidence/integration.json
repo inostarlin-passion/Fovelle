@@ -1,7 +1,7 @@
 {
   "kind": "integration",
   "repo": "/Users/inostarlin/code/Fovelle",
-  "head": "c2a94a1eb7fb0ef977abf5a519565c2529d4fe4f",
+  "head": "3d3be0fcb39fb8f2e685fe999053daac89d26f00",
   "merge_commit": "1be85e129e5ed06d6760cf9dadf9fc68fb61cbf1",
   "upstream_head": "1748058632574831516f75e642ef28b7e3cc3e63",
   "selected_commits": [
@@ -22,7 +22,7 @@
     {
       "id": "I-01",
       "pass": true,
-      "actual": "HEAD=c2a94a1eb7fb0ef977abf5a519565c2529d4fe4f; merge_commit=1be85e129e5ed06d6760cf9dadf9fc68fb61cbf1; second_parent=1748058632574831516f75e642ef28b7e3cc3e63",
+      "actual": "HEAD=3d3be0fcb39fb8f2e685fe999053daac89d26f00; merge_commit=1be85e129e5ed06d6760cf9dadf9fc68fb61cbf1; second_parent=1748058632574831516f75e642ef28b7e3cc3e63",
       "expected": "two-parent merge with second parent 1748058632574831516f75e642ef28b7e3cc3e63"
     },
     {
@@ -64,7 +64,7 @@
     {
       "id": "I-08",
       "pass": true,
-      "actual": "Test project /Users/inostarlin/code/Fovelle/build-quality-final\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.31 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.31 sec\n",
+      "actual": "Test project /Users/inostarlin/code/Fovelle/build-quality-final\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.32 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.32 sec\n",
       "expected": "CTest integration suite exits zero"
     }
   ],
