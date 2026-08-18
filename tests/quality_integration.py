@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import plistlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -95,6 +96,7 @@ def main() -> int:
             "kCGImageSourceCreateThumbnailWithTransform",
             "QVCocoaFunctions::supportsAdditionalImageFormat",
             "QVCocoaFunctions::readAdditionalImage",
+            "useNativeImageIO",
         ),
     )
     linked_frameworks = all_present(
@@ -108,9 +110,9 @@ def main() -> int:
         {
             "native_decode_path": native_decode,
             "frameworks_linked": linked_frameworks,
-            "fallback_is_after_qt_read": loader.find("QVCocoaFunctions::readAdditionalImage") > loader.find("imageReader.read()"),
+            "native_decoder_is_primary": loader.find("QVCocoaFunctions::readAdditionalImage") < loader.find("imageReader.read()"),
         },
-        "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback that applies orientation metadata",
+        "supported WebP/AVIF files use linked Apple Image I/O as the canonical orientation-aware decoder, with Qt retained as fallback",
     )
 
     options = text("src/qvoptionsdialog.cpp")
@@ -357,6 +359,30 @@ def main() -> int:
             "title_formats": 'newString = getFileName() + " - " + getImageIndex()' in mainwindow and 'getImageWidth() + "x" + getImageHeight()' in mainwindow,
         },
         "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors",
+    )
+
+    tidy_config = text(".clang-tidy")
+    tidy_workflow = text(".github/workflows/test.yml")
+    tidy_script = text("build.sh")
+    tidy_path = shutil.which("clang-tidy")
+    tidy_verify: subprocess.CompletedProcess[str] | None = None
+    if tidy_path:
+        tidy_verify = run(repo, tidy_path, "--verify-config", "-p", str(build_dir), "src/qvimageloader.cpp")
+    tidy_contract = all_present(
+        tidy_config,
+        ("Checks:", "bugprone-use-after-move", "performance-move-const-arg", "clang-diagnostic-*"),
+    ) and all_present(tidy_workflow + tidy_script, ("brew install llvm", "--tidy", "CMAKE_CXX_CLANG_TIDY=clang-tidy"))
+    add_check(
+        checks,
+        "I-15",
+        tidy_contract and (tidy_verify is None or tidy_verify.returncode == 0),
+        {
+            "config_contract": tidy_contract,
+            "clang_tidy": tidy_path,
+            "verify_config_return_code": tidy_verify.returncode if tidy_verify else None,
+            "verify_config_output": (tidy_verify.stdout + tidy_verify.stderr)[-2000:] if tidy_verify else "clang-tidy not installed locally; CI job performs the executable verification",
+        },
+        "the integrated GitHub Actions clang-tidy contract has enabled checks and validates when the tool is available",
     )
 
     result = {

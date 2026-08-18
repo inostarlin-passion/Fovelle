@@ -70,9 +70,10 @@
         "image_io_type_query": true,
         "image_io_decode": true,
         "orientation_transform": true,
-        "loader_fallback": true
+        "loader_native_decoder": true,
+        "loader_image_io_call": true
       },
-      "expected": "the macOS Image I/O fallback applies source orientation metadata and is called after Qt decoding fails"
+      "expected": "the macOS Image I/O decoder is the canonical WebP/AVIF path, with Qt retained as a fallback"
     },
     {
       "id": "ST-07",
@@ -213,6 +214,16 @@
         "theme_and_checkerboard_tests": true
       },
       "expected": "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests"
+    },
+    {
+      "id": "ST-18",
+      "pass": true,
+      "actual": {
+        "config_has_enabled_checks": true,
+        "workflow_installs_llvm": true,
+        "build_script_wires_clang_tidy": true
+      },
+      "expected": "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation"
     }
   ],
   "passed": true

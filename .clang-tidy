@@ -1,0 +1,8 @@
+Checks: >-
+  -*,
+  bugprone-use-after-move,
+  performance-move-const-arg,
+  clang-diagnostic-*
+WarningsAsErrors: ''
+HeaderFilterRegex: '(^|/)(src|tests)/'
+FormatStyle: file

@@ -4,200 +4,28 @@
   "image_cases": [
     {
       "id": "SYS-WEBP",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.webp"
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.webp"
     },
     {
       "id": "SYS-AVIF",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.avif"
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.avif"
     },
     {
       "id": "SYS-WEBP-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.webp"
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.webp"
     },
     {
       "id": "SYS-AVIF-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.avif"
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.avif"
     }
   ],
   "runs_per_case": 3,
   "runs": [
     {
       "case": "SYS-WEBP",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.webp",
-      "startup_seconds": 0.007227583999338094,
-      "elapsed_seconds": 0.8300080419994629,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 416
-        },
-        {
-          "cpu_percent": 21.9,
-          "rss_kib": 44816
-        },
-        {
-          "cpu_percent": 43.8,
-          "rss_kib": 186304
-        },
-        {
-          "cpu_percent": 58.6,
-          "rss_kib": 381552
-        },
-        {
-          "cpu_percent": 67.6,
-          "rss_kib": 386768
-        },
-        {
-          "cpu_percent": 42.2,
-          "rss_kib": 548032
-        }
-      ],
-      "peak_cpu_percent": 67.6,
-      "peak_rss_kib": 548032,
-      "peak_handles": 133,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-WEBP",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.webp",
-      "startup_seconds": 0.005678207999153528,
-      "elapsed_seconds": 0.9241942080006993,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 448
-        },
-        {
-          "cpu_percent": 8.7,
-          "rss_kib": 45952
-        },
-        {
-          "cpu_percent": 33.6,
-          "rss_kib": 232688
-        },
-        {
-          "cpu_percent": 50.2,
-          "rss_kib": 392848
-        },
-        {
-          "cpu_percent": 64.6,
-          "rss_kib": 392944
-        },
-        {
-          "cpu_percent": 40.5,
-          "rss_kib": 547984
-        },
-        {
-          "cpu_percent": 43.6,
-          "rss_kib": 547984
-        }
-      ],
-      "peak_cpu_percent": 64.6,
-      "peak_rss_kib": 547984,
-      "peak_handles": 135,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-WEBP",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.webp",
-      "startup_seconds": 0.004567166999549954,
-      "elapsed_seconds": 0.9184447919997183,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 432
-        },
-        {
-          "cpu_percent": 23.6,
-          "rss_kib": 48176
-        },
-        {
-          "cpu_percent": 46.9,
-          "rss_kib": 249424
-        },
-        {
-          "cpu_percent": 61.3,
-          "rss_kib": 477200
-        },
-        {
-          "cpu_percent": 52.4,
-          "rss_kib": 480192
-        },
-        {
-          "cpu_percent": 35.5,
-          "rss_kib": 628720
-        },
-        {
-          "cpu_percent": 38.2,
-          "rss_kib": 715952
-        }
-      ],
-      "peak_cpu_percent": 61.3,
-      "peak_rss_kib": 715952,
-      "peak_handles": 135,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-AVIF",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.avif",
-      "startup_seconds": 0.004798042000402347,
-      "elapsed_seconds": 0.9313993340001616,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 432
-        },
-        {
-          "cpu_percent": 12.2,
-          "rss_kib": 64688
-        },
-        {
-          "cpu_percent": 38.5,
-          "rss_kib": 314672
-        },
-        {
-          "cpu_percent": 57.4,
-          "rss_kib": 426544
-        },
-        {
-          "cpu_percent": 59.4,
-          "rss_kib": 426864
-        },
-        {
-          "cpu_percent": 37.1,
-          "rss_kib": 469936
-        },
-        {
-          "cpu_percent": 37.7,
-          "rss_kib": 527744
-        }
-      ],
-      "peak_cpu_percent": 59.4,
-      "peak_rss_kib": 527744,
-      "peak_handles": 125,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-AVIF",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.avif",
-      "startup_seconds": 0.005802208001114195,
-      "elapsed_seconds": 0.9275266250006098,
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.webp",
+      "startup_seconds": 0.011182791000464931,
+      "elapsed_seconds": 0.8709026249998715,
       "terminated": true,
       "return_code": -15,
       "unsupported_format_error_absent": true,
@@ -208,128 +36,36 @@
           "rss_kib": 464
         },
         {
-          "cpu_percent": 3.7,
-          "rss_kib": 45728
+          "cpu_percent": 31.0,
+          "rss_kib": 45408
         },
         {
-          "cpu_percent": 48.2,
-          "rss_kib": 263568
+          "cpu_percent": 49.7,
+          "rss_kib": 302416
         },
         {
-          "cpu_percent": 62.8,
-          "rss_kib": 513344
+          "cpu_percent": 63.9,
+          "rss_kib": 523984
         },
         {
-          "cpu_percent": 51.2,
-          "rss_kib": 513920
+          "cpu_percent": 61.1,
+          "rss_kib": 523456
         },
         {
-          "cpu_percent": 35.6,
-          "rss_kib": 594768
-        },
-        {
-          "cpu_percent": 33.5,
-          "rss_kib": 701136
+          "cpu_percent": 41.6,
+          "rss_kib": 699264
         }
       ],
-      "peak_cpu_percent": 62.8,
-      "peak_rss_kib": 701136,
-      "peak_handles": 125,
+      "peak_cpu_percent": 63.9,
+      "peak_rss_kib": 699264,
+      "peak_handles": 138,
       "peak_network_sockets": 0
     },
     {
-      "case": "SYS-AVIF",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-native.avif",
-      "startup_seconds": 0.0050009589995170245,
-      "elapsed_seconds": 0.9304776249991846,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 464
-        },
-        {
-          "cpu_percent": 15.7,
-          "rss_kib": 49776
-        },
-        {
-          "cpu_percent": 40.9,
-          "rss_kib": 266080
-        },
-        {
-          "cpu_percent": 57.4,
-          "rss_kib": 455840
-        },
-        {
-          "cpu_percent": 60.1,
-          "rss_kib": 456464
-        },
-        {
-          "cpu_percent": 37.4,
-          "rss_kib": 561280
-        },
-        {
-          "cpu_percent": 38.7,
-          "rss_kib": 586640
-        }
-      ],
-      "peak_cpu_percent": 60.1,
-      "peak_rss_kib": 586640,
-      "peak_handles": 127,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-WEBP-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.webp",
-      "startup_seconds": 0.005264583000098355,
-      "elapsed_seconds": 0.9291110409994872,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 384
-        },
-        {
-          "cpu_percent": 8.9,
-          "rss_kib": 48496
-        },
-        {
-          "cpu_percent": 34.0,
-          "rss_kib": 265792
-        },
-        {
-          "cpu_percent": 50.7,
-          "rss_kib": 480208
-        },
-        {
-          "cpu_percent": 66.4,
-          "rss_kib": 480320
-        },
-        {
-          "cpu_percent": 43.4,
-          "rss_kib": 633648
-        },
-        {
-          "cpu_percent": 28.9,
-          "rss_kib": 633648
-        }
-      ],
-      "peak_cpu_percent": 66.4,
-      "peak_rss_kib": 633648,
-      "peak_handles": 137,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-WEBP-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.webp",
-      "startup_seconds": 0.004393208000692539,
-      "elapsed_seconds": 0.9378408749998925,
+      "case": "SYS-WEBP",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.webp",
+      "startup_seconds": 0.0040614169993205,
+      "elapsed_seconds": 0.9337230419987463,
       "terminated": true,
       "return_code": -15,
       "unsupported_format_error_absent": true,
@@ -340,172 +76,300 @@
           "rss_kib": 416
         },
         {
-          "cpu_percent": 19.9,
-          "rss_kib": 50544
-        },
-        {
-          "cpu_percent": 44.6,
-          "rss_kib": 269088
-        },
-        {
-          "cpu_percent": 62.1,
-          "rss_kib": 394752
-        },
-        {
-          "cpu_percent": 53.2,
-          "rss_kib": 394768
-        },
-        {
-          "cpu_percent": 46.8,
-          "rss_kib": 566848
-        },
-        {
-          "cpu_percent": 33.8,
-          "rss_kib": 566848
-        }
-      ],
-      "peak_cpu_percent": 62.1,
-      "peak_rss_kib": 566848,
-      "peak_handles": 135,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-WEBP-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.webp",
-      "startup_seconds": 0.004648415999326971,
-      "elapsed_seconds": 0.948456250000163,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 384
-        },
-        {
-          "cpu_percent": 10.5,
-          "rss_kib": 48016
-        },
-        {
-          "cpu_percent": 36.4,
-          "rss_kib": 265520
-        },
-        {
-          "cpu_percent": 51.9,
-          "rss_kib": 481024
-        },
-        {
-          "cpu_percent": 66.3,
-          "rss_kib": 484096
-        },
-        {
-          "cpu_percent": 44.2,
-          "rss_kib": 690304
-        },
-        {
-          "cpu_percent": 47.0,
-          "rss_kib": 690304
-        }
-      ],
-      "peak_cpu_percent": 66.3,
-      "peak_rss_kib": 690304,
-      "peak_handles": 133,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-AVIF-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.avif",
-      "startup_seconds": 0.004157666999162757,
-      "elapsed_seconds": 0.9174784999995609,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 448
-        },
-        {
-          "cpu_percent": 16.8,
-          "rss_kib": 46336
-        },
-        {
-          "cpu_percent": 42.2,
-          "rss_kib": 263952
-        },
-        {
-          "cpu_percent": 58.9,
-          "rss_kib": 463568
-        },
-        {
-          "cpu_percent": 60.7,
-          "rss_kib": 464352
-        },
-        {
-          "cpu_percent": 38.0,
-          "rss_kib": 500896
-        },
-        {
-          "cpu_percent": 38.6,
-          "rss_kib": 610752
-        }
-      ],
-      "peak_cpu_percent": 60.7,
-      "peak_rss_kib": 610752,
-      "peak_handles": 126,
-      "peak_network_sockets": 0
-    },
-    {
-      "case": "SYS-AVIF-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.avif",
-      "startup_seconds": 0.005173875000764383,
-      "elapsed_seconds": 0.9250925830001506,
-      "terminated": true,
-      "return_code": -15,
-      "unsupported_format_error_absent": true,
-      "stderr": "",
-      "samples": [
-        {
-          "cpu_percent": 0.0,
-          "rss_kib": 448
-        },
-        {
-          "cpu_percent": 10.5,
-          "rss_kib": 56208
+          "cpu_percent": 10.6,
+          "rss_kib": 64560
         },
         {
           "cpu_percent": 35.9,
-          "rss_kib": 266448
+          "rss_kib": 347504
         },
         {
-          "cpu_percent": 54.0,
-          "rss_kib": 435712
+          "cpu_percent": 52.0,
+          "rss_kib": 591984
         },
         {
-          "cpu_percent": 61.3,
-          "rss_kib": 436256
+          "cpu_percent": 65.9,
+          "rss_kib": 594832
         },
         {
-          "cpu_percent": 40.3,
-          "rss_kib": 503552
+          "cpu_percent": 41.3,
+          "rss_kib": 696960
         },
         {
-          "cpu_percent": 40.8,
-          "rss_kib": 620880
+          "cpu_percent": 42.9,
+          "rss_kib": 696960
         }
       ],
-      "peak_cpu_percent": 61.3,
-      "peak_rss_kib": 620880,
-      "peak_handles": 126,
+      "peak_cpu_percent": 65.9,
+      "peak_rss_kib": 696960,
+      "peak_handles": 138,
       "peak_network_sockets": 0
     },
     {
-      "case": "SYS-AVIF-ORIENTATION",
-      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-8vfgadhm/system-oriented.avif",
-      "startup_seconds": 0.004873124998994172,
-      "elapsed_seconds": 0.8501897089990962,
+      "case": "SYS-WEBP",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.webp",
+      "startup_seconds": 0.004632541000319179,
+      "elapsed_seconds": 0.9470274999985122,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 480
+        },
+        {
+          "cpu_percent": 23.2,
+          "rss_kib": 77040
+        },
+        {
+          "cpu_percent": 45.2,
+          "rss_kib": 322672
+        },
+        {
+          "cpu_percent": 62.0,
+          "rss_kib": 394544
+        },
+        {
+          "cpu_percent": 48.0,
+          "rss_kib": 394544
+        },
+        {
+          "cpu_percent": 43.7,
+          "rss_kib": 589088
+        },
+        {
+          "cpu_percent": 31.4,
+          "rss_kib": 589088
+        }
+      ],
+      "peak_cpu_percent": 62.0,
+      "peak_rss_kib": 589088,
+      "peak_handles": 140,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.avif",
+      "startup_seconds": 0.004471583997656126,
+      "elapsed_seconds": 0.9340403339992918,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 448
+        },
+        {
+          "cpu_percent": 9.4,
+          "rss_kib": 56240
+        },
+        {
+          "cpu_percent": 35.2,
+          "rss_kib": 336864
+        },
+        {
+          "cpu_percent": 53.3,
+          "rss_kib": 407216
+        },
+        {
+          "cpu_percent": 60.7,
+          "rss_kib": 407248
+        },
+        {
+          "cpu_percent": 37.3,
+          "rss_kib": 546592
+        },
+        {
+          "cpu_percent": 23.1,
+          "rss_kib": 546592
+        }
+      ],
+      "peak_cpu_percent": 60.7,
+      "peak_rss_kib": 546592,
+      "peak_handles": 128,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.avif",
+      "startup_seconds": 0.006285542000114219,
+      "elapsed_seconds": 0.937190249998821,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 512
+        },
+        {
+          "cpu_percent": 21.1,
+          "rss_kib": 48640
+        },
+        {
+          "cpu_percent": 46.9,
+          "rss_kib": 231248
+        },
+        {
+          "cpu_percent": 59.4,
+          "rss_kib": 489872
+        },
+        {
+          "cpu_percent": 52.3,
+          "rss_kib": 490000
+        },
+        {
+          "cpu_percent": 32.5,
+          "rss_kib": 511344
+        },
+        {
+          "cpu_percent": 36.0,
+          "rss_kib": 642448
+        }
+      ],
+      "peak_cpu_percent": 59.4,
+      "peak_rss_kib": 642448,
+      "peak_handles": 125,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-native.avif",
+      "startup_seconds": 0.004430749999301042,
+      "elapsed_seconds": 0.8335335829979158,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 432
+        },
+        {
+          "cpu_percent": 10.8,
+          "rss_kib": 51584
+        },
+        {
+          "cpu_percent": 35.0,
+          "rss_kib": 296032
+        },
+        {
+          "cpu_percent": 63.2,
+          "rss_kib": 490096
+        },
+        {
+          "cpu_percent": 40.6,
+          "rss_kib": 490128
+        },
+        {
+          "cpu_percent": 25.1,
+          "rss_kib": 528512
+        }
+      ],
+      "peak_cpu_percent": 63.2,
+      "peak_rss_kib": 528512,
+      "peak_handles": 125,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-WEBP-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.webp",
+      "startup_seconds": 0.004292917001293972,
+      "elapsed_seconds": 0.9352268330003426,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 432
+        },
+        {
+          "cpu_percent": 16.9,
+          "rss_kib": 56784
+        },
+        {
+          "cpu_percent": 41.9,
+          "rss_kib": 395376
+        },
+        {
+          "cpu_percent": 55.3,
+          "rss_kib": 487584
+        },
+        {
+          "cpu_percent": 57.6,
+          "rss_kib": 489936
+        },
+        {
+          "cpu_percent": 35.9,
+          "rss_kib": 666592
+        },
+        {
+          "cpu_percent": 38.9,
+          "rss_kib": 666592
+        }
+      ],
+      "peak_cpu_percent": 57.6,
+      "peak_rss_kib": 666592,
+      "peak_handles": 133,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-WEBP-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.webp",
+      "startup_seconds": 0.0040982080026878975,
+      "elapsed_seconds": 0.9467915830027778,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 464
+        },
+        {
+          "cpu_percent": 7.0,
+          "rss_kib": 60176
+        },
+        {
+          "cpu_percent": 34.0,
+          "rss_kib": 431376
+        },
+        {
+          "cpu_percent": 66.0,
+          "rss_kib": 488992
+        },
+        {
+          "cpu_percent": 41.3,
+          "rss_kib": 488992
+        },
+        {
+          "cpu_percent": 44.2,
+          "rss_kib": 618832
+        },
+        {
+          "cpu_percent": 27.5,
+          "rss_kib": 618832
+        }
+      ],
+      "peak_cpu_percent": 66.0,
+      "peak_rss_kib": 618832,
+      "peak_handles": 133,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-WEBP-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.webp",
+      "startup_seconds": 0.0040493749984307215,
+      "elapsed_seconds": 0.9448270840002806,
       "terminated": true,
       "return_code": -15,
       "unsupported_format_error_absent": true,
@@ -516,51 +380,187 @@
           "rss_kib": 400
         },
         {
-          "cpu_percent": 26.7,
-          "rss_kib": 48144
+          "cpu_percent": 14.0,
+          "rss_kib": 51440
         },
         {
-          "cpu_percent": 48.4,
-          "rss_kib": 280608
+          "cpu_percent": 40.4,
+          "rss_kib": 289632
         },
         {
-          "cpu_percent": 60.0,
-          "rss_kib": 558560
+          "cpu_percent": 57.5,
+          "rss_kib": 560320
         },
         {
-          "cpu_percent": 54.1,
-          "rss_kib": 558592
+          "cpu_percent": 62.1,
+          "rss_kib": 563120
         },
         {
-          "cpu_percent": 33.5,
-          "rss_kib": 567360
+          "cpu_percent": 38.6,
+          "rss_kib": 739664
+        },
+        {
+          "cpu_percent": 41.7,
+          "rss_kib": 739664
         }
       ],
-      "peak_cpu_percent": 60.0,
-      "peak_rss_kib": 567360,
+      "peak_cpu_percent": 62.1,
+      "peak_rss_kib": 739664,
+      "peak_handles": 137,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.avif",
+      "startup_seconds": 0.00443420800002059,
+      "elapsed_seconds": 0.9276183749971096,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 432
+        },
+        {
+          "cpu_percent": 29.9,
+          "rss_kib": 59088
+        },
+        {
+          "cpu_percent": 49.7,
+          "rss_kib": 291888
+        },
+        {
+          "cpu_percent": 63.6,
+          "rss_kib": 433696
+        },
+        {
+          "cpu_percent": 44.5,
+          "rss_kib": 433904
+        },
+        {
+          "cpu_percent": 37.3,
+          "rss_kib": 518544
+        },
+        {
+          "cpu_percent": 27.2,
+          "rss_kib": 518544
+        }
+      ],
+      "peak_cpu_percent": 63.6,
+      "peak_rss_kib": 518544,
+      "peak_handles": 126,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.avif",
+      "startup_seconds": 0.003927041998394998,
+      "elapsed_seconds": 0.9406415839985129,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 384
+        },
+        {
+          "cpu_percent": 16.7,
+          "rss_kib": 54208
+        },
+        {
+          "cpu_percent": 42.7,
+          "rss_kib": 295088
+        },
+        {
+          "cpu_percent": 59.4,
+          "rss_kib": 513136
+        },
+        {
+          "cpu_percent": 57.1,
+          "rss_kib": 513440
+        },
+        {
+          "cpu_percent": 35.6,
+          "rss_kib": 580320
+        },
+        {
+          "cpu_percent": 36.5,
+          "rss_kib": 650576
+        }
+      ],
+      "peak_cpu_percent": 59.4,
+      "peak_rss_kib": 650576,
+      "peak_handles": 126,
+      "peak_network_sockets": 0
+    },
+    {
+      "case": "SYS-AVIF-ORIENTATION",
+      "image": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-z7zw5cc6/system-oriented.avif",
+      "startup_seconds": 0.00478208299682592,
+      "elapsed_seconds": 0.936781707998307,
+      "terminated": true,
+      "return_code": -15,
+      "unsupported_format_error_absent": true,
+      "stderr": "",
+      "samples": [
+        {
+          "cpu_percent": 0.0,
+          "rss_kib": 464
+        },
+        {
+          "cpu_percent": 4.1,
+          "rss_kib": 56272
+        },
+        {
+          "cpu_percent": 31.8,
+          "rss_kib": 294000
+        },
+        {
+          "cpu_percent": 63.5,
+          "rss_kib": 470480
+        },
+        {
+          "cpu_percent": 43.7,
+          "rss_kib": 470736
+        },
+        {
+          "cpu_percent": 33.7,
+          "rss_kib": 533104
+        },
+        {
+          "cpu_percent": 28.1,
+          "rss_kib": 599728
+        }
+      ],
+      "peak_cpu_percent": 63.5,
+      "peak_rss_kib": 599728,
       "peak_handles": 126,
       "peak_network_sockets": 0
     }
   ],
   "metrics": {
-    "startup_average_seconds": 0.005132086833176193,
-    "startup_p99_seconds": 0.007227583999338094,
-    "startup_max_seconds": 0.007227583999338094,
-    "throughput_runs_per_second": 1.0938705381525737,
-    "cpu_peak_percent_process_raw": 67.6,
-    "cpu_peak_percent_normalized": 5.633333333333333,
+    "startup_average_seconds": 0.005054038166235841,
+    "startup_p99_seconds": 0.011182791000464931,
+    "startup_max_seconds": 0.011182791000464931,
+    "throughput_runs_per_second": 1.0822213620601844,
+    "cpu_peak_percent_process_raw": 66.0,
+    "cpu_peak_percent_normalized": 5.5,
     "logical_cpu_count": 12,
-    "rss_peak_kib": 715952,
-    "open_handles_peak": 137,
+    "rss_peak_kib": 739664,
+    "open_handles_peak": 140,
     "network_sockets_peak": 0,
-    "disk_space_used_percent": 63.8352067840251,
-    "disk_io_peak_mb_per_second_host_observation": 4.64,
+    "disk_space_used_percent": 64.12213029084938,
+    "disk_io_peak_mb_per_second_host_observation": 10.59,
     "network_bytes_delta_host_observation": {
-      "received_bytes": 872559,
-      "sent_bytes": 602307
+      "received_bytes": 3360481,
+      "sent_bytes": 5277585
     },
-    "network_io_delta_mb_host_observation": 1.4065418243408203,
-    "network_io_throughput_mb_per_second_host_observation": 0.12821455519381633
+    "network_io_delta_mb_host_observation": 8.23790168762207,
+    "network_io_throughput_mb_per_second_host_observation": 0.742936098741354
   },
   "thresholds": {
     "startup_average_seconds": 2.0,
@@ -577,22 +577,22 @@
   },
   "iostat": {
     "before": {
-      "disk_mb_per_second": 4.64,
-      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   22.38  209  4.56    37.86    2  0.08    37.61    0  0.00 \n    8.59   27  0.23     0.00    0  0.00     0.00    0  0.00 \n"
+      "disk_mb_per_second": 10.59,
+      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   25.35  208  5.16    36.33    2  0.07    37.61    0  0.00 \n    4.03 2695 10.59     0.00    0  0.00     0.00    0  0.00 \n"
     },
     "after": {
-      "disk_mb_per_second": 4.64,
-      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   22.38  208  4.56    37.85    2  0.08    37.61    0  0.00 \n   16.24   49  0.77     0.00    0  0.00     0.00    0  0.00 \n"
+      "disk_mb_per_second": 5.91,
+      "raw_tail": "              disk0               disk4               disk5 \n    KB/t  tps  MB/s     KB/t  tps  MB/s     KB/t  tps  MB/s \n   25.22  210  5.16    36.31    2  0.07    37.61    0  0.00 \n    4.53 1335  5.91     0.00    0  0.00     0.00    0  0.00 \n"
     }
   },
   "network_counters": {
     "before": {
-      "received_bytes": 16848279023,
-      "sent_bytes": 6278631142
+      "received_bytes": 23581877394,
+      "sent_bytes": 6971178863
     },
     "after": {
-      "received_bytes": 16849151582,
-      "sent_bytes": 6279233449
+      "received_bytes": 23585237875,
+      "sent_bytes": 6976456448
     }
   },
   "pass_flags": {

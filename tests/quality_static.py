@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run static quality gates for the image-view feature, issue fix, and release workflow."""
+"""Run static quality gates for the application and GitHub Actions CI contract."""
 
 from __future__ import annotations
 
@@ -51,6 +51,9 @@ def main() -> int:
         "CMakeLists.txt",
         "qView.pro",
         "tests/CMakeLists.txt",
+        "build.sh",
+        ".clang-tidy",
+        ".github/workflows/test.yml",
         ".github/workflows/release.yml",
     )
     source = {relative: (repo / relative).read_text(encoding="utf-8") for relative in relative_sources}
@@ -162,7 +165,7 @@ def main() -> int:
     cocoa_header = source["src/qvcocoafunctions.h"]
     cocoa_mm = source["src/qvcocoafunctions.mm"]
     loader_cpp = source["src/qvimageloader.cpp"]
-    decoder_contract = contains_all(
+    native_decoder_contract = contains_all(
         cocoa_header + cocoa_mm + loader_cpp,
         (
             "CGImageSourceCopyTypeIdentifiers",
@@ -174,19 +177,21 @@ def main() -> int:
             "supportsAdditionalImageFormat",
             "readAdditionalImage",
             "QVCocoaFunctions::readAdditionalImage",
+            "useNativeImageIO",
         ),
     )
     add_check(
         checks,
         "ST-06",
-        decoder_contract,
+        native_decoder_contract,
         {
             "image_io_type_query": "CGImageSourceCopyTypeIdentifiers" in cocoa_mm,
             "image_io_decode": "CGImageSourceCreateThumbnailAtIndex" in cocoa_mm,
             "orientation_transform": "kCGImageSourceCreateThumbnailWithTransform" in cocoa_mm,
-            "loader_fallback": "QVCocoaFunctions::readAdditionalImage" in loader_cpp,
+            "loader_native_decoder": "useNativeImageIO" in loader_cpp,
+            "loader_image_io_call": "QVCocoaFunctions::readAdditionalImage" in loader_cpp,
         },
-        "the macOS Image I/O fallback applies source orientation metadata and is called after Qt decoding fails",
+        "the macOS Image I/O decoder is the canonical WebP/AVIF path, with Qt retained as a fallback",
     )
 
     formats_app = contains_all(
@@ -455,6 +460,30 @@ def main() -> int:
         theme_test_contract,
         {"theme_and_checkerboard_tests": theme_test_contract},
         "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests",
+    )
+
+    tidy_config = source[".clang-tidy"]
+    tidy_workflow = source[".github/workflows/test.yml"]
+    tidy_script = source["build.sh"]
+    tidy_contract = contains_all(
+        tidy_config,
+        (
+            "Checks:",
+            "bugprone-use-after-move",
+            "performance-move-const-arg",
+            "clang-diagnostic-*",
+        ),
+    ) and contains_all(tidy_workflow + tidy_script, ("brew install llvm", "--tidy", "CMAKE_CXX_CLANG_TIDY=clang-tidy"))
+    add_check(
+        checks,
+        "ST-18",
+        tidy_contract,
+        {
+            "config_has_enabled_checks": tidy_contract,
+            "workflow_installs_llvm": "brew install llvm" in tidy_workflow,
+            "build_script_wires_clang_tidy": "CMAKE_CXX_CLANG_TIDY=clang-tidy" in tidy_script,
+        },
+        "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}

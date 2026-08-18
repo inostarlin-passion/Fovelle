@@ -32,9 +32,9 @@
       "actual": {
         "native_decode_path": true,
         "frameworks_linked": true,
-        "fallback_is_after_qt_read": true
+        "native_decoder_is_primary": true
       },
-      "expected": "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback that applies orientation metadata"
+      "expected": "supported WebP/AVIF files use linked Apple Image I/O as the canonical orientation-aware decoder, with Qt retained as fallback"
     },
     {
       "id": "I-04",
@@ -89,7 +89,7 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.18 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.19 sec\n"
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.20 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.20 sec\n"
       },
       "expected": "CTest executes the configured Qt integration test target successfully"
     },
@@ -99,7 +99,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-u2v6r_nr/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-5gs70j3p/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
@@ -167,6 +167,17 @@
         "title_formats": true
       },
       "expected": "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors"
+    },
+    {
+      "id": "I-15",
+      "pass": true,
+      "actual": {
+        "config_contract": true,
+        "clang_tidy": "/opt/homebrew/opt/llvm/bin/clang-tidy",
+        "verify_config_return_code": 0,
+        "verify_config_output": "No config errors detected.\n"
+      },
+      "expected": "the integrated GitHub Actions clang-tidy contract has enabled checks and validates when the tool is available"
     }
   ],
   "passed": true

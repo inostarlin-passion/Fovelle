@@ -122,33 +122,35 @@ QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
 
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, const int largestDimension)
 {
+    const QByteArray suffix = QFileInfo(absoluteFilePath).suffix().toLatin1().toLower();
+    const bool useNativeImageIO = QVCocoaFunctions::supportsAdditionalImageFormat(suffix);
+
     QImageReader imageReader(absoluteFilePath);
     imageReader.setAutoTransform(true);
 
     bool isMultiFrameImage = false;
     QSize intrinsicSize;
     QImage image;
-    if ((imageReader.format() == "svg" || imageReader.format() == "svgz") && !imageReader.size().isEmpty())
+    QString imageIoError;
+    if (useNativeImageIO)
+        image = QVCocoaFunctions::readAdditionalImage(absoluteFilePath, &imageIoError);
+
+    if (image.isNull() && (imageReader.format() == "svg" || imageReader.format() == "svgz") && !imageReader.size().isEmpty())
     {
         intrinsicSize = imageReader.size();
         imageReader.setScaledSize(intrinsicSize.scaled(largestDimension, largestDimension, Qt::KeepAspectRatio));
         image = imageReader.read();
     }
-    else
+    else if (image.isNull())
     {
         isMultiFrameImage = !imageReader.supportsOption(QImageIOHandler::Animation) && imageReader.imageCount() > 1;
         image = imageReader.read();
     }
 
     QString errorString = imageReader.errorString();
-    const QByteArray suffix = QFileInfo(absoluteFilePath).suffix().toLatin1().toLower();
-    if (image.isNull() && QVCocoaFunctions::supportsAdditionalImageFormat(suffix))
+    if (image.isNull() && useNativeImageIO)
     {
-        QString imageIoError;
-        image = QVCocoaFunctions::readAdditionalImage(absoluteFilePath, &imageIoError);
-        if (!image.isNull())
-            errorString.clear();
-        else if (!imageIoError.isEmpty())
+        if (!imageIoError.isEmpty())
             errorString = imageIoError;
     }
 
