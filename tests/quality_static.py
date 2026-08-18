@@ -536,6 +536,37 @@ def main() -> int:
         "the Release workflow has a syntactically valid Universal build and signed/notarized artifact verification path",
     )
 
+    timeout_contract = contains_all(
+        release_workflow + release_script,
+        (
+            'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"',
+            "validate_notarization_timeout",
+            'if ! xcrun notarytool submit',
+            '--timeout "$NOTARIZATION_TIMEOUT"',
+            "--verbose",
+            "no release artifact was created",
+            "timeout-minutes: 60",
+            "timeout-minutes: 45",
+            'NOTARIZATION_TIMEOUT: "30m"',
+        ),
+    )
+    add_check(
+        checks,
+        "ST-20",
+        timeout_contract and release_syntax.returncode == 0,
+        {
+            "finite_notarization_timeout": 'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"' in release_script and '--timeout "$NOTARIZATION_TIMEOUT"' in release_script,
+            "duration_validation": "validate_notarization_timeout" in release_script,
+            "observable_notary_output": "--verbose" in release_script,
+            "fail_closed_timeout": "no release artifact was created" in release_script,
+            "workflow_job_timeout": "timeout-minutes: 60" in release_workflow,
+            "workflow_step_timeout": "timeout-minutes: 45" in release_workflow,
+            "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in release_workflow,
+            "shell_syntax_return_code": release_syntax.returncode,
+        },
+        "the notarization wait is bounded, observable, validated, and protected by workflow timeouts",
+    )
+
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

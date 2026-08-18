@@ -244,6 +244,21 @@
         "shell_syntax_return_code": 0
       },
       "expected": "the Release workflow has a syntactically valid Universal build and signed/notarized artifact verification path"
+    },
+    {
+      "id": "ST-20",
+      "pass": true,
+      "actual": {
+        "finite_notarization_timeout": true,
+        "duration_validation": true,
+        "observable_notary_output": true,
+        "fail_closed_timeout": true,
+        "workflow_job_timeout": true,
+        "workflow_step_timeout": true,
+        "workflow_notarization_timeout": true,
+        "shell_syntax_return_code": 0
+      },
+      "expected": "the notarization wait is bounded, observable, validated, and protected by workflow timeouts"
     }
   ],
   "passed": true

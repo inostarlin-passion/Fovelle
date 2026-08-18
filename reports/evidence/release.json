@@ -90,9 +90,26 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip\nDRY_RUN_APP_PATH: fixture/Fovelle.app\nDRY_RUN_RELEASE_ZIP_PATH: fixture/Fovelle-universal.zip\n"
+        "output": "DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip\nDRY_RUN_APP_PATH: fixture/Fovelle.app\nDRY_RUN_RELEASE_ZIP_PATH: fixture/Fovelle-universal.zip\nDRY_RUN_NOTARIZATION_TIMEOUT: 30m\n"
       },
       "expected": "the release orchestration is deterministically executable in dry-run mode without requiring secrets or network access"
+    },
+    {
+      "id": "R-09",
+      "pass": true,
+      "actual": {
+        "default_timeout": true,
+        "duration_validation": true,
+        "notary_timeout_argument": true,
+        "notary_verbose_output": true,
+        "workflow_notarization_timeout": true,
+        "failure_is_fail_closed": true,
+        "workflow_job_timeout": true,
+        "workflow_step_timeout": true,
+        "custom_timeout_dry_run": true,
+        "invalid_timeout_rejected": true
+      },
+      "expected": "Apple notarization has a validated finite wait, observable progress, workflow-level safety bounds, and fail-closed timeout behavior"
     }
   ],
   "passed": true,

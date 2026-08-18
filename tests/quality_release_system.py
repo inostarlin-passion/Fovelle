@@ -56,17 +56,48 @@ def main() -> int:
             "RELEASE_DRY_RUN": "true",
             "RELEASE_APP_PATH": "fixture/Fovelle.app",
             "RELEASE_ZIP_PATH": "fixture/Fovelle-universal.zip",
+            "NOTARIZATION_TIMEOUT": "45s",
         },
         check=False,
     )
     dry_elapsed_seconds = time.perf_counter() - dry_started
     dry_output = dry_run.stdout + dry_run.stderr
-    dry_run_passed = dry_run.returncode == 0 and "Gatekeeper verification" in dry_output and "Universal zip" in dry_output and dry_elapsed_seconds <= 5.0
+    dry_run_passed = (
+        dry_run.returncode == 0
+        and "Gatekeeper verification" in dry_output
+        and "Universal zip" in dry_output
+        and "DRY_RUN_NOTARIZATION_TIMEOUT: 45s" in dry_output
+        and dry_elapsed_seconds <= 5.0
+    )
     cases.append(
         {
             "id": "TC-REL-SYSTEM-DRYRUN",
             "test": "package-macos-release.sh dry-run",
             "status": "passed" if dry_run_passed else "failed",
+        }
+    )
+
+    invalid_timeout = subprocess.run(
+        ["bash", str(script)],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "RELEASE_DRY_RUN": "true",
+            "RELEASE_APP_PATH": "fixture/Fovelle.app",
+            "RELEASE_ZIP_PATH": "fixture/Fovelle-universal.zip",
+            "NOTARIZATION_TIMEOUT": "forever",
+        },
+        check=False,
+    )
+    invalid_output = invalid_timeout.stdout + invalid_timeout.stderr
+    timeout_config_passed = invalid_timeout.returncode != 0 and "NOTARIZATION_TIMEOUT" in invalid_output
+    cases.append(
+        {
+            "id": "TC-REL-SYSTEM-TIMEOUT-CONFIG",
+            "test": "notarization timeout validation",
+            "status": "passed" if timeout_config_passed else "failed",
         }
     )
 
@@ -111,6 +142,12 @@ def main() -> int:
             "dry_run_elapsed_seconds": dry_elapsed_seconds,
             "dry_run_max_seconds": 5.0,
             "passed": dry_run_passed,
+        },
+        "timeout_observations": {
+            "custom_timeout": "45s",
+            "invalid_timeout_return_code": invalid_timeout.returncode,
+            "invalid_timeout_output": invalid_output[-1000:],
+            "passed": timeout_config_passed,
         },
         "artifact_validation": artifact_validation,
         "artifact_observations": artifact_observations,

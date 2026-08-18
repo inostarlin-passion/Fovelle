@@ -25,11 +25,19 @@ is_macho() {
 APP_PATH="${RELEASE_APP_PATH:-build/Fovelle.app}"
 RELEASE_ZIP_PATH="${RELEASE_ZIP_PATH:-Fovelle-${GITHUB_REF_NAME:-local}-macOS-universal.zip}"
 RELEASE_DRY_RUN="${RELEASE_DRY_RUN:-false}"
+NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"
+
+validate_notarization_timeout() {
+    [[ "$NOTARIZATION_TIMEOUT" =~ ^[1-9][0-9]*(s|m|h)?$ ]] || fail "NOTARIZATION_TIMEOUT must be a positive integer with optional s/m/h suffix: $NOTARIZATION_TIMEOUT"
+}
+
+validate_notarization_timeout
 
 if [[ "$RELEASE_DRY_RUN" == "true" ]]; then
     echo "DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip"
     echo "DRY_RUN_APP_PATH: $APP_PATH"
     echo "DRY_RUN_RELEASE_ZIP_PATH: $RELEASE_ZIP_PATH"
+    echo "DRY_RUN_NOTARIZATION_TIMEOUT: $NOTARIZATION_TIMEOUT"
     exit 0
 fi
 
@@ -182,11 +190,16 @@ echo "$CODE_SIGNATURE" | grep -q "Timestamp=" || fail "secure signing timestamp 
 
 echo "Submitting the signed app to Apple notarization"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$NOTARIZATION_ZIP_PATH"
-xcrun notarytool submit "$NOTARIZATION_ZIP_PATH" \
+echo "Notarization wait timeout: $NOTARIZATION_TIMEOUT"
+if ! xcrun notarytool submit "$NOTARIZATION_ZIP_PATH" \
     --apple-id "$APPLE_ID" \
     --password "$APPLE_APP_SPECIFIC_PASSWORD" \
     --team-id "$APPLE_TEAM_ID" \
-    --wait
+    --wait \
+    --timeout "$NOTARIZATION_TIMEOUT" \
+    --verbose; then
+    fail "Apple notarization failed or exceeded timeout ($NOTARIZATION_TIMEOUT); no release artifact was created. Inspect the submission ID above with notarytool info/log."
+fi
 xcrun stapler staple "$APP_PATH"
 xcrun stapler validate "$APP_PATH"
 spctl --assess --type execute --verbose=4 --ignore-cache "$APP_PATH"

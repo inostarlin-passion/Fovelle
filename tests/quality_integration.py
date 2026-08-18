@@ -413,6 +413,34 @@ def main() -> int:
         "the executable release contract test passes in dry-run mode without exposing or consuming credentials",
     )
 
+    release_script = text("dist/scripts/package-macos-release.sh")
+    release_timeout_contract = all_present(
+        workflow + release_script,
+        (
+            'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"',
+            "validate_notarization_timeout",
+            '--timeout "$NOTARIZATION_TIMEOUT"',
+            "--verbose",
+            "timeout-minutes: 60",
+            "timeout-minutes: 45",
+            'NOTARIZATION_TIMEOUT: "30m"',
+        ),
+    )
+    add_check(
+        checks,
+        "I-17",
+        release_timeout_contract,
+        {
+            "finite_notarization_timeout": 'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"' in release_script and '--timeout "$NOTARIZATION_TIMEOUT"' in release_script,
+            "duration_validation": "validate_notarization_timeout" in release_script,
+            "observable_notary_output": "--verbose" in release_script,
+            "workflow_job_timeout": "timeout-minutes: 60" in workflow,
+            "workflow_step_timeout": "timeout-minutes: 45" in workflow,
+            "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in workflow,
+        },
+        "the integrated Release path cannot wait indefinitely for Apple notarization and exposes bounded progress",
+    )
+
     result = {
         "kind": "integration",
         "repo": str(repo),

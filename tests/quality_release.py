@@ -186,17 +186,90 @@ def main() -> int:
             "RELEASE_DRY_RUN": "true",
             "RELEASE_APP_PATH": "fixture/Fovelle.app",
             "RELEASE_ZIP_PATH": "fixture/Fovelle-universal.zip",
+            "NOTARIZATION_TIMEOUT": "30m",
         },
         check=False,
     )
     dry_output = dry_run.stdout + dry_run.stderr
-    dry_run_contract = dry_run.returncode == 0 and "Universal zip" in dry_output and "Developer ID Application" in dry_output
+    dry_run_contract = (
+        dry_run.returncode == 0
+        and "Universal zip" in dry_output
+        and "Developer ID Application" in dry_output
+        and "DRY_RUN_NOTARIZATION_TIMEOUT: 30m" in dry_output
+    )
     add_check(
         checks,
         "R-08",
         dry_run_contract,
         {"return_code": dry_run.returncode, "output": dry_output[-2000:]},
         "the release orchestration is deterministically executable in dry-run mode without requiring secrets or network access",
+    )
+
+    custom_timeout = subprocess.run(
+        ["bash", str(script_path)],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "RELEASE_DRY_RUN": "true",
+            "RELEASE_APP_PATH": "fixture/Fovelle.app",
+            "RELEASE_ZIP_PATH": "fixture/Fovelle-universal.zip",
+            "NOTARIZATION_TIMEOUT": "45s",
+        },
+        check=False,
+    )
+    invalid_timeout = subprocess.run(
+        ["bash", str(script_path)],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "RELEASE_DRY_RUN": "true",
+            "RELEASE_APP_PATH": "fixture/Fovelle.app",
+            "RELEASE_ZIP_PATH": "fixture/Fovelle-universal.zip",
+            "NOTARIZATION_TIMEOUT": "forever",
+        },
+        check=False,
+    )
+    timeout_contract = all(
+        marker in script
+        for marker in (
+            'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"',
+            "validate_notarization_timeout",
+            'if ! xcrun notarytool submit',
+            '--timeout "$NOTARIZATION_TIMEOUT"',
+            "--verbose",
+            "no release artifact was created",
+        )
+    ) and all(
+        marker in workflow
+        for marker in ("timeout-minutes: 60", "timeout-minutes: 45", 'NOTARIZATION_TIMEOUT: "30m"')
+    )
+    timeout_behavior = (
+        custom_timeout.returncode == 0
+        and "DRY_RUN_NOTARIZATION_TIMEOUT: 45s" in (custom_timeout.stdout + custom_timeout.stderr)
+        and invalid_timeout.returncode != 0
+        and "NOTARIZATION_TIMEOUT" in (invalid_timeout.stdout + invalid_timeout.stderr)
+    )
+    add_check(
+        checks,
+        "R-09",
+        timeout_contract and timeout_behavior,
+        {
+            "default_timeout": 'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"' in script,
+            "duration_validation": "validate_notarization_timeout" in script,
+            "notary_timeout_argument": '--timeout "$NOTARIZATION_TIMEOUT"' in script,
+            "notary_verbose_output": "--verbose" in script,
+            "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in workflow,
+            "failure_is_fail_closed": "no release artifact was created" in script,
+            "workflow_job_timeout": "timeout-minutes: 60" in workflow,
+            "workflow_step_timeout": "timeout-minutes: 45" in workflow,
+            "custom_timeout_dry_run": custom_timeout.returncode == 0 and "DRY_RUN_NOTARIZATION_TIMEOUT: 45s" in (custom_timeout.stdout + custom_timeout.stderr),
+            "invalid_timeout_rejected": invalid_timeout.returncode != 0 and "NOTARIZATION_TIMEOUT" in (invalid_timeout.stdout + invalid_timeout.stderr),
+        },
+        "Apple notarization has a validated finite wait, observable progress, workflow-level safety bounds, and fail-closed timeout behavior",
     )
 
     result = {
