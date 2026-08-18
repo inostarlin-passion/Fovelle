@@ -103,11 +103,16 @@ security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 security import "$CERTIFICATE_PATH" \
     -P "$APPLE_CERTIFICATE_PASSWORD" \
+    -A \
+    -t cert \
     -f pkcs12 \
-    -T /usr/bin/codesign \
-    -T /usr/bin/security \
     -k "$KEYCHAIN_PATH" >/dev/null
-security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+# The keychain is unique to this job and is deleted by cleanup. On GitHub's
+# macOS runner, a keychain partition-list mutation can report a missing item
+# for a freshly imported PKCS#12 even though find-identity can see the
+# certificate. The
+# temporary keychain's -A import ACL gives codesign access without that
+# runner-dependent partition-list mutation.
 
 SIGNING_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application:/{print $2; exit}')"
 case "$SIGNING_IDENTITY" in

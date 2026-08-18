@@ -81,23 +81,30 @@ def main() -> int:
             "security import",
             "security find-identity",
             "Developer ID Application:",
+            "-t cert",
             "--timestamp",
             "--options runtime",
-            "security set-key-partition-list",
+            "-A",
+            "security unlock-keychain",
+            '--keychain "$KEYCHAIN_PATH"',
         )
-    ) and "codesign --sign -" not in script
+    ) and "set-key-partition-list" not in script and "codesign --sign -" not in script
     add_check(
         checks,
         "R-04",
         signing_contract,
         {
             "certificate_import": "security import" in script,
+            "pkcs12_certificate_type": "-t cert" in script,
             "developer_id_identity_check": "Developer ID Application:" in script,
             "secure_timestamp": "--timestamp" in script,
             "hardened_runtime": "--options runtime" in script,
+            "ephemeral_keychain_access": "-A" in script and "security unlock-keychain" in script,
+            "explicit_keychain_for_codesign": '--keychain "$KEYCHAIN_PATH"' in script,
+            "fragile_partition_list_step_absent": "set-key-partition-list" not in script,
             "ad_hoc_signing_absent": "codesign --sign -" not in script,
         },
-        "the app is signed with an imported Developer ID Application identity, secure timestamp, and Hardened Runtime",
+        "the app is signed with an imported Developer ID Application identity, explicit temporary keychain access, secure timestamp, and Hardened Runtime",
     )
 
     notarization_contract = all(

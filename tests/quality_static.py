@@ -497,6 +497,9 @@ def main() -> int:
             "macOS-universal.zip",
             "macdeployqt",
             "security import",
+            "-A",
+            "-t cert",
+            '--keychain "$KEYCHAIN_PATH"',
             "Developer ID Application:",
             "xcrun notarytool submit",
             "xcrun stapler staple",
@@ -507,11 +510,16 @@ def main() -> int:
     add_check(
         checks,
         "ST-19",
-        release_contract and release_syntax.returncode == 0 and "codesign --sign -" not in release_script,
+        release_contract
+        and release_syntax.returncode == 0
+        and "codesign --sign -" not in release_script
+        and "set-key-partition-list" not in release_script,
         {
             "universal_architecture": 'CMAKE_OSX_ARCHITECTURES="x86_64;arm64"' in release_workflow and "lipo -archs" in release_script,
             "dependency_deployment": "macdeployqt" in release_script,
             "developer_id_signing": "Developer ID Application:" in release_script and "codesign --sign -" not in release_script,
+            "ephemeral_keychain_access": "-A" in release_script and '--keychain "$KEYCHAIN_PATH"' in release_script,
+            "runner_dependent_partition_step_absent": "set-key-partition-list" not in release_script,
             "notarization_and_gatekeeper": all(marker in release_script for marker in ("xcrun notarytool submit", "xcrun stapler staple", "spctl --assess --type execute")),
             "shell_syntax_return_code": release_syntax.returncode,
         },

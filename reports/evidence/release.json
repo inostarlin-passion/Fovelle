@@ -40,12 +40,16 @@
       "pass": true,
       "actual": {
         "certificate_import": true,
+        "pkcs12_certificate_type": true,
         "developer_id_identity_check": true,
         "secure_timestamp": true,
         "hardened_runtime": true,
+        "ephemeral_keychain_access": true,
+        "explicit_keychain_for_codesign": true,
+        "fragile_partition_list_step_absent": true,
         "ad_hoc_signing_absent": true
       },
-      "expected": "the app is signed with an imported Developer ID Application identity, secure timestamp, and Hardened Runtime"
+      "expected": "the app is signed with an imported Developer ID Application identity, explicit temporary keychain access, secure timestamp, and Hardened Runtime"
     },
     {
       "id": "R-05",

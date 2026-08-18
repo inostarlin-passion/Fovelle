@@ -9,7 +9,7 @@
     }
   ],
   "performance": {
-    "dry_run_elapsed_seconds": 0.005278667002130533,
+    "dry_run_elapsed_seconds": 0.006788083002902567,
     "dry_run_max_seconds": 5.0,
     "passed": true
   },
