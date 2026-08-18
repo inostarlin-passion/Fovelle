@@ -106,13 +106,10 @@ security import "$CERTIFICATE_PATH" \
     -A \
     -t cert \
     -f pkcs12 \
+    -T /usr/bin/codesign \
+    -T /usr/bin/security \
     -k "$KEYCHAIN_PATH" >/dev/null
-# The keychain is unique to this job and is deleted by cleanup. On GitHub's
-# macOS runner, a keychain partition-list mutation can report a missing item
-# for a freshly imported PKCS#12 even though find-identity can see the
-# certificate. The
-# temporary keychain's -A import ACL gives codesign access without that
-# runner-dependent partition-list mutation.
+security list-keychain -d user -s "$KEYCHAIN_PATH"
 
 SIGNING_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application:/{print $2; exit}')"
 case "$SIGNING_IDENTITY" in
@@ -122,7 +119,23 @@ esac
 [[ "$SIGNING_IDENTITY" == *"($APPLE_TEAM_ID)" ]] || fail "the signing identity does not belong to APPLE_TEAM_ID"
 echo "Using signing identity: $SIGNING_IDENTITY"
 
+security find-key -s -t private "$KEYCHAIN_PATH" >/dev/null || fail "the imported PKCS#12 has no private signing key"
+# The keychain is unique to this job and is deleted by cleanup. The explicit
+# codesign ACL and -A access flag cover non-interactive signing; the
+# identity-scoped partition update is best effort because some runner images
+# reject it for freshly imported PKCS#12 items.
+if ! security set-key-partition-list \
+    -S apple-tool:,apple:,codesign: \
+    -s \
+    -k "$KEYCHAIN_PASSWORD" \
+    -t private \
+    -l "$SIGNING_IDENTITY" \
+    "$KEYCHAIN_PATH" >/dev/null 2>&1; then
+    echo "WARNING: identity-scoped keychain partition update was unavailable; continuing with the imported codesign ACL"
+fi
+
 sign_code() {
+    echo "Signing code object: $1"
     codesign \
         --force \
         --timestamp \

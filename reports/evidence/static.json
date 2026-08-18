@@ -235,7 +235,11 @@
         "dependency_deployment": true,
         "developer_id_signing": true,
         "ephemeral_keychain_access": true,
-        "runner_dependent_partition_step_absent": true,
+        "codesign_private_key_acl": true,
+        "keychain_search_list": true,
+        "private_signing_key_preflight": true,
+        "identity_scoped_partition_update": true,
+        "partition_update_is_best_effort": true,
         "notarization_and_gatekeeper": true,
         "shell_syntax_return_code": 0
       },

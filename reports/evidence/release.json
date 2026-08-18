@@ -45,11 +45,15 @@
         "secure_timestamp": true,
         "hardened_runtime": true,
         "ephemeral_keychain_access": true,
+        "codesign_private_key_acl": true,
+        "keychain_search_list": true,
+        "private_signing_key_preflight": true,
+        "identity_scoped_partition_update": true,
+        "partition_update_is_best_effort": true,
         "explicit_keychain_for_codesign": true,
-        "fragile_partition_list_step_absent": true,
         "ad_hoc_signing_absent": true
       },
-      "expected": "the app is signed with an imported Developer ID Application identity, explicit temporary keychain access, secure timestamp, and Hardened Runtime"
+      "expected": "the app is signed with an imported Developer ID Application identity, verified private key access, explicit temporary keychain access, secure timestamp, and Hardened Runtime"
     },
     {
       "id": "R-05",

@@ -86,9 +86,16 @@ def main() -> int:
             "--options runtime",
             "-A",
             "security unlock-keychain",
+            "-T /usr/bin/codesign",
+            "security list-keychain -d user -s",
+            "security find-key -s -t private",
+            "security set-key-partition-list",
+            "if ! security set-key-partition-list",
+            '-l "$SIGNING_IDENTITY"',
+            "continuing with the imported codesign ACL",
             '--keychain "$KEYCHAIN_PATH"',
         )
-    ) and "set-key-partition-list" not in script and "codesign --sign -" not in script
+    ) and "codesign --sign -" not in script
     add_check(
         checks,
         "R-04",
@@ -100,11 +107,15 @@ def main() -> int:
             "secure_timestamp": "--timestamp" in script,
             "hardened_runtime": "--options runtime" in script,
             "ephemeral_keychain_access": "-A" in script and "security unlock-keychain" in script,
+            "codesign_private_key_acl": "-T /usr/bin/codesign" in script,
+            "keychain_search_list": "security list-keychain -d user -s" in script,
+            "private_signing_key_preflight": "security find-key -s -t private" in script,
+            "identity_scoped_partition_update": "security set-key-partition-list" in script and '-l "$SIGNING_IDENTITY"' in script,
+            "partition_update_is_best_effort": "if ! security set-key-partition-list" in script and "continuing with the imported codesign ACL" in script,
             "explicit_keychain_for_codesign": '--keychain "$KEYCHAIN_PATH"' in script,
-            "fragile_partition_list_step_absent": "set-key-partition-list" not in script,
             "ad_hoc_signing_absent": "codesign --sign -" not in script,
         },
-        "the app is signed with an imported Developer ID Application identity, explicit temporary keychain access, secure timestamp, and Hardened Runtime",
+        "the app is signed with an imported Developer ID Application identity, verified private key access, explicit temporary keychain access, secure timestamp, and Hardened Runtime",
     )
 
     notarization_contract = all(
