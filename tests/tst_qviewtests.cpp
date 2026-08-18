@@ -64,6 +64,8 @@ class FeatureTests : public QObject
 
 private slots:
     void testWindowIconIsCleared();
+    void testTitlebarDocumentProxyIsClearedForLoadedFile();
+    void testTitlebarIconClearingIsIdempotent();
     void testSettingsFormatsIncludeNativeImageFormats();
 };
 
@@ -502,6 +504,13 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.0"));
 }
 
+// TC-TITLEBAR-APP-ICON
+// Test purpose: verify that a newly created image window has no window-level icon.
+// Preconditions: the QApplication has been constructed and the bundle is available.
+// Input data: a new MainWindow with no document loaded.
+// Steps: construct the window and inspect its explicit QWidget icon.
+// Expected result: the window icon is null; application/bundle identity is tested separately.
+// Postcondition: the window is closed without changing application settings.
 void FeatureTests::testWindowIconIsCleared()
 {
     QVERIFY(qvApp->windowIcon().isNull());
@@ -509,6 +518,89 @@ void FeatureTests::testWindowIconIsCleared()
     QVERIFY(window.windowIcon().isNull());
     window.close();
     QVERIFY(QFile::exists(":/icons/Fovelle.png"));
+}
+
+// TC-TITLEBAR-DOCUMENT-ICON
+// Test purpose: verify that opening an image does not associate a document path with the native window.
+// Preconditions: Cocoa is available, a visible MainWindow can load a temporary PNG, and quit-on-last-window is disabled.
+// Input data: one valid 32x32 PNG file.
+// Steps: show the window, open the PNG, wait for the pixmap, then inspect QWidget and QWindow path state.
+// Expected result: the image loads and the QWidget/QWindow file paths remain empty; the title still contains the filename.
+// Postcondition: the temporary file and test window are released and the original quit policy is restored.
+void FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "titlebar-document", Qt::blue);
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QVERIFY(window.windowHandle());
+
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    QVERIFY(window.windowIcon().isNull());
+    QVERIFY(window.windowFilePath().isEmpty());
+    QVERIFY(window.windowHandle()->filePath().isEmpty());
+    QVERIFY(window.windowTitle().contains(QFileInfo(imagePath).fileName()));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-TITLEBAR-IDEMPOTENCE
+// Test purpose: verify that repeated document transitions and titlebar state changes cannot restore either icon.
+// Preconditions: Cocoa is available, a visible MainWindow can load two temporary PNG files, and quit-on-last-window is disabled.
+// Input data: two valid PNG files and repeated titlebar hidden/visible transitions.
+// Steps: load each file, toggle the titlebar state, and inspect the window icon and native file path after every transition.
+// Expected result: every observation has a null window icon and an empty native file path.
+// Postcondition: the window is closed and the original quit policy is restored.
+void FeatureTests::testTitlebarIconClearingIsIdempotent()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstImagePath = createTestImage(dir, "titlebar-first", Qt::red);
+    const QString secondImagePath = createTestImage(dir, "titlebar-second", Qt::green);
+    QVERIFY(!firstImagePath.isEmpty());
+    QVERIFY(!secondImagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+    const auto verifyTitlebarState = [&]() {
+        QVERIFY(window.windowIcon().isNull());
+        QVERIFY(window.windowFilePath().isEmpty());
+        QVERIFY(window.windowHandle());
+        QVERIFY(window.windowHandle()->filePath().isEmpty());
+    };
+
+    window.openFile(firstImagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    verifyTitlebarState();
+
+    window.setTitlebarHidden(true);
+    verifyTitlebarState();
+    window.setTitlebarHidden(false);
+    verifyTitlebarState();
+
+    window.openFile(secondImagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    verifyTitlebarState();
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()

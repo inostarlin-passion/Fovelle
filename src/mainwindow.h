@@ -48,8 +48,6 @@ public:
 
     void buildWindowTitle();
 
-    void updateWindowFilePath();
-
     void updateMenuBarVisible();
 
     bool getWindowOnTop() const;
@@ -213,6 +211,8 @@ protected slots:
     void shortcutsUpdated();
 
 private:
+    void clearTitlebarIcons();
+
     void updateTitlebarBubbleText();
 
     void revealTitlebarBubble();

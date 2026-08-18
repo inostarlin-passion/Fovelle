@@ -65,8 +65,9 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    // The macOS bundle keeps the application icon for Finder and the Dock, but
-    // image windows should not repeat it in the titlebar.
+    // Keep the bundle icon for Finder and the Dock, but do not assign an icon to
+    // the image window itself. On macOS a window icon is part of the document
+    // proxy shown in the titlebar when a file path is associated with the window.
     setWindowIcon(QIcon());
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_OpaquePaintEvent);
@@ -304,6 +305,7 @@ void MainWindow::showEvent(QShowEvent *event)
     qvApp->addToActiveWindows(this);
 
     QMainWindow::showEvent(event);
+    clearTitlebarIcons();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -497,7 +499,7 @@ void MainWindow::fileChanged(const bool isRestoringState)
     if (info->isVisible())
         refreshProperties();
     buildWindowTitle();
-    updateWindowFilePath();
+    clearTitlebarIcons();
     if (!isRestoringState)
         setWindowSize();
     pauseChanged();
@@ -720,13 +722,15 @@ void MainWindow::buildWindowTitle()
         revealTitlebarBubble();
 }
 
-void MainWindow::updateWindowFilePath()
+void MainWindow::clearTitlebarIcons()
 {
-    if (!windowHandle())
-        return;
-
-    const bool shouldPopulate = getIsPixmapLoaded() && !getTitlebarHidden();
-    windowHandle()->setFilePath(shouldPopulate ? getCurrentFileDetails().fileInfo.absoluteFilePath() : "");
+    if (auto *handle = windowHandle())
+    {
+        // QWindow::setFilePath() maps to NSWindow.representedURL on macOS and
+        // causes AppKit to display a document proxy icon in the titlebar.
+        handle->setIcon(QIcon());
+        handle->setFilePath(QString());
+    }
 }
 
 void MainWindow::updateMenuBarVisible()
@@ -793,7 +797,7 @@ void MainWindow::setTitlebarHidden(const bool shouldHide)
         toggleTitlebarAction->setText(shouldHide ? tr("Show Title&bar") : tr("Hide Title&bar"));
     }
 
-    updateWindowFilePath();
+    clearTitlebarIcons();
     updateMenuBarVisible();
     revealTitlebarBubble();
     update();

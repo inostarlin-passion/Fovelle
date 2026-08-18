@@ -22,6 +22,7 @@
           "/Users/inostarlin/code/Fovelle/tests/quality_integration.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_static.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_system_probe.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_titlebar_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_unit_runner.py"
         ],
         "syntax_errors": []
@@ -43,9 +44,12 @@
       "actual": {
         "window_icon_cleared": true,
         "global_icon_assignment_absent": true,
+        "titlebar_clear_helper": true,
+        "native_document_path_cleared": true,
+        "no_direct_document_path_assignment": true,
         "bundle_resource_retained": true
       },
-      "expected": "the image window clears its titlebar icon while the bundle resource remains available"
+      "expected": "the image window clears its native icon and represented document path while the bundle resource remains available"
     },
     {
       "id": "ST-05",
@@ -97,6 +101,8 @@
           "testImageLoaderAppliesWebpOrientation": true,
           "testImageLoaderAppliesAvifOrientation": true,
           "testWindowIconIsCleared": true,
+          "testTitlebarDocumentProxyIsClearedForLoadedFile": true,
+          "testTitlebarIconClearingIsIdempotent": true,
           "testSettingsFormatsIncludeNativeImageFormats": true,
           "testMouseWheelUsesOneDiscreteStep": true,
           "testTouchpadWheelCanUseFractionalSteps": true,

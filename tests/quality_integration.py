@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run integration gates for the macOS image orientation and fullscreen zoom change."""
+"""Run integration gates for the macOS titlebar icon removal and regressions."""
 
 from __future__ import annotations
 
@@ -43,12 +43,17 @@ def main() -> int:
     add_check(
         checks,
         "I-01",
-        "setWindowIcon(QIcon());" in mainwindow and "QApplication::setWindowIcon" not in application,
+        "setWindowIcon(QIcon());" in mainwindow
+        and "QApplication::setWindowIcon" not in application
+        and "clearTitlebarIcons" in mainwindow
+        and "handle->setFilePath(QString());" in mainwindow,
         {
             "window_icon_reset": "setWindowIcon(QIcon());" in mainwindow,
             "application_global_icon_removed": "QApplication::setWindowIcon" not in application,
+            "titlebar_clear_helper": "clearTitlebarIcons" in mainwindow,
+            "native_document_path_cleared": "handle->setFilePath(QString());" in mainwindow,
         },
-        "the titlebar window icon is explicitly empty and no global per-window icon is installed",
+        "the titlebar window icon and native document path are explicitly cleared without changing the bundle identity",
     )
 
     graphics = text("src/qvgraphicsview.cpp") + text("src/qvgraphicsview.h")
@@ -213,6 +218,8 @@ def main() -> int:
         "testImageLoaderAppliesWebpOrientation",
         "testImageLoaderAppliesAvifOrientation",
         "testWindowIconIsCleared",
+        "testTitlebarDocumentProxyIsClearedForLoadedFile",
+        "testTitlebarIconClearingIsIdempotent",
         "testSettingsFormatsIncludeNativeImageFormats",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",

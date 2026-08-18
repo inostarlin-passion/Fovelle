@@ -8,9 +8,11 @@
       "pass": true,
       "actual": {
         "window_icon_reset": true,
-        "application_global_icon_removed": true
+        "application_global_icon_removed": true,
+        "titlebar_clear_helper": true,
+        "native_document_path_cleared": true
       },
-      "expected": "the titlebar window icon is explicitly empty and no global per-window icon is installed"
+      "expected": "the titlebar window icon and native document path are explicitly cleared without changing the bundle identity"
     },
     {
       "id": "I-02",
@@ -64,7 +66,7 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.41 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.41 sec\n"
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.53 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.53 sec\n"
       },
       "expected": "CTest executes the configured Qt integration test target successfully"
     },
@@ -74,7 +76,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-eev80fqa/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-qp30j9ks/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
@@ -97,6 +99,8 @@
           "testImageLoaderAppliesWebpOrientation": true,
           "testImageLoaderAppliesAvifOrientation": true,
           "testWindowIconIsCleared": true,
+          "testTitlebarDocumentProxyIsClearedForLoadedFile": true,
+          "testTitlebarIconClearingIsIdempotent": true,
           "testSettingsFormatsIncludeNativeImageFormats": true,
           "testMouseWheelUsesOneDiscreteStep": true,
           "testTouchpadWheelCanUseFractionalSteps": true,

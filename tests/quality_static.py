@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run static quality gates for the image orientation and fullscreen zoom change."""
+"""Run static quality gates for the titlebar icon removal and regressions."""
 
 from __future__ import annotations
 
@@ -112,13 +112,19 @@ def main() -> int:
         checks,
         "ST-04",
         "setWindowIcon(QIcon());" in window_cpp
-        and "QApplication::setWindowIcon" not in application_cpp,
+        and "QApplication::setWindowIcon" not in application_cpp
+        and "clearTitlebarIcons" in window_cpp
+        and "handle->setFilePath(QString());" in window_cpp
+        and "windowHandle()->setFilePath" not in window_cpp,
         {
             "window_icon_cleared": "setWindowIcon(QIcon());" in window_cpp,
             "global_icon_assignment_absent": "QApplication::setWindowIcon" not in application_cpp,
+            "titlebar_clear_helper": "clearTitlebarIcons" in window_cpp,
+            "native_document_path_cleared": "handle->setFilePath(QString());" in window_cpp,
+            "no_direct_document_path_assignment": "windowHandle()->setFilePath" not in window_cpp,
             "bundle_resource_retained": "Fovelle.png" in (repo / "resources/resources.qrc").read_text(encoding="utf-8"),
         },
-        "the image window clears its titlebar icon while the bundle resource remains available",
+        "the image window clears its native icon and represented document path while the bundle resource remains available",
     )
 
     graphics_cpp = source["src/qvgraphicsview.cpp"]
@@ -218,6 +224,8 @@ def main() -> int:
         "testImageLoaderAppliesWebpOrientation",
         "testImageLoaderAppliesAvifOrientation",
         "testWindowIconIsCleared",
+        "testTitlebarDocumentProxyIsClearedForLoadedFile",
+        "testTitlebarIconClearingIsIdempotent",
         "testSettingsFormatsIncludeNativeImageFormats",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
