@@ -203,6 +203,8 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncCheckbox(ui->cursorZoomCheckbox, "cursorzoom", defaults, makeConnections);
     // onetoonepixelsizing
     syncCheckbox(ui->oneToOnePixelSizingCheckbox, "onetoonepixelsizing", defaults, makeConnections);
+    // smallimageoneone
+    syncCheckbox(ui->smallImagesOneToOneCheckbox, "smallimageoneone", defaults, makeConnections);
     // calculatedzoommode
     syncComboBox(ui->zoomDefaultComboBox, "calculatedzoommode", defaults, makeConnections);
     // fitzoomlimitenabled

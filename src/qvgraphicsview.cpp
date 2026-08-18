@@ -543,6 +543,20 @@ bool QVGraphicsView::zoomLevelsEquivalent(const qreal lhs, const qreal rhs)
     return qAbs(lhs - rhs) <= tolerance;
 }
 
+bool QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+    const QSizeF &imageSize,
+    const QSize &viewportSize,
+    const bool settingEnabled,
+    const Qv::WindowResizeMode windowResizeMode)
+{
+    return settingEnabled &&
+        windowResizeMode == Qv::WindowResizeMode::Never &&
+        !imageSize.isEmpty() &&
+        !viewportSize.isEmpty() &&
+        imageSize.width() < viewportSize.width() &&
+        imageSize.height() < viewportSize.height();
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -894,6 +908,7 @@ void QVGraphicsView::recalculateZoom()
 
     const QSizeF imageSize = getEffectiveOriginalSize();
     const QSize viewSize = getUsableViewportRect(true).size();
+    const QSize usableViewportSize = getUsableViewportRect().size();
 
     if (viewSize.isEmpty())
         return;
@@ -903,13 +918,22 @@ void QVGraphicsView::recalculateZoom()
     const qreal fitYRatio = fitter.unsnapHeight(viewSize.height()) / imageSize.height();
 
     qreal targetRatio;
+    const auto windowResizeMode = qvApp->getSettingsManager().getEnum<Qv::WindowResizeMode>("windowresizemode");
+    const bool keepSmallImageAtOneToOne =
+        calculatedZoomMode.has_value() &&
+        calculatedZoomMode.value() != Qv::CalculatedZoomMode::OriginalSize &&
+        shouldDisplaySmallImageAtOneToOne(imageSize, usableViewportSize, showSmallImagesAtOneToOne, windowResizeMode);
 
     // Each mode will check if the rounded image size already produces the desired fit,
     // in which case we can use exactly 1.0 to avoid unnecessary scaling
     const int imageOverflowX = fitter.snapWidth(imageSize.width()) - viewSize.width();
     const int imageOverflowY = fitter.snapHeight(imageSize.height()) - viewSize.height();
 
-    switch (calculatedZoomMode.value()) {
+    if (keepSmallImageAtOneToOne)
+    {
+        targetRatio = 1.0;
+    }
+    else switch (calculatedZoomMode.value()) {
     case Qv::CalculatedZoomMode::ZoomToFit:
         // In rare cases, if the window sizing code just barely increased the size to enforce
         // the minimum and intends for a tiny upscale to occur (e.g. to 100.3%), that could get
@@ -1291,6 +1315,9 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
 
     //one-to-one pixel sizing
     useOneToOnePixelSizing = settingsManager.getBoolean("onetoonepixelsizing");
+
+    //small images at one-to-one
+    showSmallImagesAtOneToOne = settingsManager.getBoolean("smallimageoneone");
 
     //constrained positioning
     constrainImagePosition = settingsManager.getBoolean("constrainimageposition");

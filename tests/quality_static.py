@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run static quality gates for the titlebar icon removal and regressions."""
+"""Run static quality gates for the image-view feature, issue fix, and release workflow."""
 
 from __future__ import annotations
 
@@ -42,10 +42,14 @@ def main() -> int:
         "src/qvgraphicsview.cpp",
         "src/qvimageloader.cpp",
         "src/qvoptionsdialog.cpp",
+        "src/qvoptionsdialog.ui",
+        "src/settingsmanager.cpp",
+        "src/mainwindow.h",
         "tests/tst_qviewtests.cpp",
         "CMakeLists.txt",
         "qView.pro",
         "tests/CMakeLists.txt",
+        ".github/workflows/release.yml",
     )
     source = {relative: (repo / relative).read_text(encoding="utf-8") for relative in relative_sources}
 
@@ -227,10 +231,14 @@ def main() -> int:
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
         "testSettingsFormatsIncludeNativeImageFormats",
+        "testSmallImageOneToOneSettingIsExposedInImageOptions",
+        "testOpenWithWorkerTeardownContract",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
         "testManualZoomRemainsManualAcrossResize",
+        "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
+        "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
     )
     add_check(
         checks,
@@ -261,6 +269,96 @@ def main() -> int:
             "resize_restoration_path": "shouldRestoreCalculatedZoom" in graphics_cpp,
         },
         "the fullscreen resize path can restore fit intent after an inverse manual zoom without changing other manual zoom levels",
+    )
+
+    options_cpp = source["src/qvoptionsdialog.cpp"]
+    options_ui = source["src/qvoptionsdialog.ui"]
+    settings_cpp = source["src/settingsmanager.cpp"]
+    small_image_contract = contains_all(
+        settings_cpp + options_cpp + options_ui + graphics_cpp + graphics_header,
+        (
+            'settingsLibrary.insert("smallimageoneone", {false, {}});',
+            'syncCheckbox(ui->smallImagesOneToOneCheckbox, "smallimageoneone", defaults, makeConnections);',
+            'name="smallImagesOneToOneCheckbox"',
+            "Show small images at 1:1",
+            "shouldDisplaySmallImageAtOneToOne",
+            "getUsableViewportRect().size()",
+            "WindowResizeMode::Never",
+            "CalculatedZoomMode::ZoomToFit",
+            "showSmallImagesAtOneToOne",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-11",
+        small_image_contract,
+        {
+            "setting_default": 'settingsLibrary.insert("smallimageoneone", {false, {}});' in settings_cpp,
+            "settings_binding": 'syncCheckbox(ui->smallImagesOneToOneCheckbox, "smallimageoneone"' in options_cpp,
+            "image_checkbox": 'name="smallImagesOneToOneCheckbox"' in options_ui,
+            "strict_small_image_helper": "shouldDisplaySmallImageAtOneToOne" in graphics_cpp + graphics_header,
+            "actual_viewport": "getUsableViewportRect().size()" in graphics_cpp,
+            "never_gate": "WindowResizeMode::Never" in graphics_cpp,
+            "automatic_mode_override": "calculatedZoomMode.has_value()" in graphics_cpp,
+        },
+        "the persisted Image option and deterministic viewport/window-mode policy are wired into automatic fit zoom",
+    )
+
+    mainwindow_header = source["src/mainwindow.h"]
+    issue_864_contract = contains_all(
+        window_cpp + mainwindow_header + test_source,
+        (
+            "populateOpenWithTimer->stop();",
+            "openWithFutureWatcher.isRunning()",
+            "openWithFutureWatcher.waitForFinished();",
+            "openWithFutureFilePath",
+            "[filePath]()",
+            "openWithPopulationPending",
+            "testOpenWithWorkerTeardownContract",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-12",
+        issue_864_contract,
+        {
+            "timer_stopped_on_teardown": "populateOpenWithTimer->stop();" in window_cpp,
+            "future_waited_on_teardown": "openWithFutureWatcher.waitForFinished();" in window_cpp,
+            "path_captured_by_value": "[filePath]()" in window_cpp,
+            "serial_refresh_guard": "openWithPopulationPending" in window_cpp,
+            "regression_test": "testOpenWithWorkerTeardownContract" in test_source,
+        },
+        "Open With background work is serialized, uses a value-captured path, and is finished before QApplication teardown",
+    )
+
+    release_workflow = source[".github/workflows/release.yml"]
+    release_contract = contains_all(
+        release_workflow,
+        (
+            "push:",
+            "tags:",
+            "- 'v*'",
+            "permissions:",
+            "contents: write",
+            "softprops/action-gh-release@v3",
+            "GITHUB_TOKEN",
+            "generate_release_notes: true",
+            "fail_on_unmatched_files: true",
+            "ctest --test-dir build --output-on-failure",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-13",
+        release_contract,
+        {
+            "tag_trigger": "- 'v*'" in release_workflow,
+            "write_permission": "contents: write" in release_workflow,
+            "action": "softprops/action-gh-release@v3" in release_workflow,
+            "token": "GITHUB_TOKEN" in release_workflow,
+            "pre_release_tests": "ctest --test-dir build --output-on-failure" in release_workflow,
+        },
+        "a pushed v-prefixed Git tag builds, tests, packages, and publishes a GitHub Release with softprops/action-gh-release",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}

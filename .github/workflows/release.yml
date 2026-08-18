@@ -1,0 +1,55 @@
+name: Release Fovelle
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish macOS release
+    runs-on: macos-14
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: 'qtimageformats'
+          cache: true
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DBUILD_TESTS=ON
+          -DFOVELLE_BUILD_TRANSLATIONS=OFF
+          -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Test
+        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
+
+      - name: Package Fovelle
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app "Fovelle-${RELEASE_TAG}-macOS.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Fovelle ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: Fovelle-${{ github.ref_name }}-macOS.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

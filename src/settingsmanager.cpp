@@ -209,6 +209,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("navresetszoom", {true, {}});
     // Usually not desired due to the way macOS does DPI scaling
     settingsLibrary.insert("onetoonepixelsizing", {false, {}});
+    settingsLibrary.insert("smallimageoneone", {false, {}});
     settingsLibrary.insert("calculatedzoommode", {static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit), {}});
     settingsLibrary.insert("fitzoomlimitenabled", {false, {}});
     settingsLibrary.insert("fitzoomlimitpercent", {100, {}});

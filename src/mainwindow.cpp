@@ -225,7 +225,17 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
     // Connection for open with menu population futurewatcher
     connect(&openWithFutureWatcher, &QFutureWatcher<QList<OpenWith::OpenWithItem>>::finished, this, [this](){
-        populateOpenWithMenu(openWithFutureWatcher.result());
+        const QString completedFilePath = openWithFutureFilePath;
+        openWithFutureFilePath.clear();
+
+        if (!isClosing && completedFilePath == getCurrentFileDetails().fileInfo.absoluteFilePath())
+            populateOpenWithMenu(openWithFutureWatcher.result());
+
+        if (openWithPopulationPending && !isClosing)
+        {
+            openWithPopulationPending = false;
+            QTimer::singleShot(0, this, &MainWindow::requestPopulateOpenWithMenu);
+        }
     });
 
     QSettings settings;
@@ -258,6 +268,15 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
 MainWindow::~MainWindow()
 {
+    populateOpenWithTimer->stop();
+    openWithPopulationPending = false;
+
+    // QtConcurrent::run() cannot be canceled. Wait for the Open With worker
+    // before QApplication teardown so its QIcon/QPixmap work still has a live
+    // QGuiApplication context.
+    if (openWithFutureWatcher.isRunning())
+        openWithFutureWatcher.waitForFinished();
+
     delete ui;
 }
 
@@ -596,7 +615,17 @@ void MainWindow::disableActions()
 
 void MainWindow::requestPopulateOpenWithMenu()
 {
+    if (isClosing)
+        return;
+
+    if (openWithFutureWatcher.isRunning())
+    {
+        openWithPopulationPending = true;
+        return;
+    }
+
     const QString filePath = getCurrentFileDetails().fileInfo.absoluteFilePath();
+    openWithFutureFilePath = filePath;
     openWithFutureWatcher.setFuture(QtConcurrent::run(
         [filePath]() -> QList<OpenWith::OpenWithItem> {
             if (filePath.isEmpty()) return {};

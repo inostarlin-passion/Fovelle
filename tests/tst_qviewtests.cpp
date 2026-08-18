@@ -4,7 +4,10 @@
 #include <QImage>
 #include <QFile>
 #include <QElapsedTimer>
+#include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QLabel>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QSettings>
 #include <QTextDocumentFragment>
@@ -67,6 +70,8 @@ private slots:
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
     void testTitlebarIconClearingIsIdempotent();
     void testSettingsFormatsIncludeNativeImageFormats();
+    void testSmallImageOneToOneSettingIsExposedInImageOptions();
+    void testOpenWithWorkerTeardownContract();
 };
 
 class GraphicsViewTests : public QObject
@@ -78,6 +83,8 @@ private slots:
     void testTouchpadWheelCanUseFractionalSteps();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
     void testManualZoomRemainsManualAcrossResize();
+    void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
+    void testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages();
 };
 
 class ApplicationEventTests : public QObject
@@ -122,6 +129,41 @@ static QString createBase64Image(const QTemporaryDir &dir, const QString &name, 
         return {};
     return path;
 }
+
+class ScopedOptionValues
+{
+public:
+    explicit ScopedOptionValues(const QHash<QString, QVariant> &values)
+    {
+        QSettings settings;
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+        {
+            const QString fullKey = QStringLiteral("options/") + it.key();
+            savedValues.insert(it.key(), {settings.contains(fullKey), settings.value(fullKey)});
+            settings.setValue(fullKey, it.value());
+        }
+        settings.sync();
+        qvApp->getSettingsManager().loadSettings();
+    }
+
+    ~ScopedOptionValues()
+    {
+        QSettings settings;
+        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it)
+        {
+            const QString fullKey = QStringLiteral("options/") + it.key();
+            if (it.value().first)
+                settings.setValue(fullKey, it.value().second);
+            else
+                settings.remove(fullKey);
+        }
+        settings.sync();
+        qvApp->getSettingsManager().loadSettings();
+    }
+
+private:
+    QHash<QString, QPair<bool, QVariant>> savedValues;
+};
 
 static std::optional<QVImageLoader::Result> loadImage(const QString &path)
 {
@@ -614,6 +656,79 @@ void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
     QVERIFY(qvApp->getAllFileExtensionList().contains(".avifs"));
 }
 
+// TC-IMG-SMALL-SETTING
+// Test purpose: verify that the Image settings page exposes and persists the
+// new small-image 1:1 option.
+// Preconditions: a QVApplication exists and the settings store is writable.
+// Input data: the option starts disabled, then the Image-page checkbox is enabled.
+// Steps: construct QVOptionsDialog, locate the named checkbox, invoke Apply,
+// and read the persisted SettingsManager value.
+// Expected result: the checkbox is present, labeled for 1:1 display, and the
+// saved setting becomes true.
+// Postcondition: ScopedOptionValues restores the user's original setting.
+void FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
+{
+    ScopedOptionValues options({{"smallimageoneone", false}});
+
+    QVOptionsDialog dialog;
+    auto *checkbox = dialog.findChild<QCheckBox *>("smallImagesOneToOneCheckbox");
+    QVERIFY(checkbox);
+    QVERIFY(checkbox->text().contains(QStringLiteral("1:1")));
+    QVERIFY(!checkbox->isChecked());
+
+    auto *buttonBox = dialog.findChild<QDialogButtonBox *>("buttonBox");
+    QVERIFY(buttonBox);
+    QAbstractButton *applyButton = buttonBox->button(QDialogButtonBox::Apply);
+    QVERIFY(applyButton);
+
+    checkbox->setChecked(true);
+    QVERIFY(QMetaObject::invokeMethod(
+        &dialog,
+        "buttonBoxClicked",
+        Qt::DirectConnection,
+        Q_ARG(QAbstractButton *, applyButton)));
+    QVERIFY(qvApp->getSettingsManager().getBoolean("smallimageoneone"));
+}
+
+// TC-ISSUE-864-OPENWITH-TEARDOWN
+// Test purpose: exercise Open With population while a window is closed, which
+// is the shutdown race described by GitHub issue #864.
+// Preconditions: Cocoa QPA is active; a visible MainWindow can load a PNG.
+// Input data: one deterministic 32x32 PNG and an explicit Open With request.
+// Steps: load the PNG, start the Open With worker, close the window, and let its
+// destructor run while the worker may still be active.
+// Expected result: the test process remains alive and teardown completes within
+// the bounded five-second window without a SIGABRT/QPixmap fatal error.
+// Postcondition: the stack window and temporary fixture are released.
+void FeatureTests::testOpenWithWorkerTeardownContract()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "openwith-teardown", Qt::darkCyan);
+    QVERIFY(!imagePath.isEmpty());
+
+    QElapsedTimer teardownTimer;
+    teardownTimer.start();
+    {
+        MainWindow window;
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.resize(640, 480);
+        window.show();
+        QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+        window.openFile(imagePath);
+        QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+        window.requestPopulateOpenWithMenu();
+        window.close();
+    }
+
+    QVERIFY(teardownTimer.elapsed() < 5000);
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 void GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()
 {
     const qreal factor = QVGraphicsView::wheelZoomFactor(240, 1.25, false);
@@ -751,6 +866,96 @@ void GraphicsViewTests::testManualZoomRemainsManualAcrossResize()
     QCoreApplication::processEvents();
     QVERIFY(!view->getCalculatedZoomMode().has_value());
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), manualZoom));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-IMG-SMALL-POLICY
+// Test purpose: verify the small-image decision uses the real display area and
+// is gated by both the checkbox and Window matches image size = Never.
+// Preconditions: none beyond the pure policy helper being linked.
+// Input data: a 100x80 image, strict boundary sizes, disabled setting, and a
+// non-Never window resize mode.
+// Steps: evaluate the helper for a fitting viewport, equal-width boundary,
+// oversized image, disabled option, and WhenLaunching mode.
+// Expected result: only the strictly smaller image with the option enabled and
+// Never mode requests 1:1 display.
+// Postcondition: no application or persistent setting state is changed.
+void GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()
+{
+    const QSizeF smallImage(100, 80);
+    const QSize fittingViewport(120, 100);
+
+    QVERIFY(QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        smallImage, fittingViewport, true, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        smallImage, QSize(100, 100), true, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        smallImage, QSize(99, 100), true, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        QSizeF(121, 80), fittingViewport, true, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        smallImage, fittingViewport, false, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
+        smallImage, fittingViewport, true, Qv::WindowResizeMode::WhenLaunching));
+}
+
+// TC-IMG-SMALL-OPEN-BROWSE
+// Test purpose: verify the enabled option produces 1:1 zoom both when a small
+// image is opened directly and when the next image is browsed.
+// Preconditions: Window matches image size is Never, the option is enabled,
+// an automatic zoom mode and a visible 640x480 window are available.
+// Input data: two deterministic small PNGs in one folder, opened in sequence.
+// Steps: open the first file and observe zoom; navigate to the next file and
+// observe the new file and zoom after asynchronous loading completes.
+// Expected result: both images use zoom level 1.0; switching the automatic mode
+// to FillWindow does not upscale an eligible small image either.
+// Postcondition: the window closes and ScopedOptionValues restores settings.
+void GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()
+{
+    ScopedOptionValues options({
+        {"smallimageoneone", true},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString openedImagePath = createTestImage(dir, "01-open-small", Qt::darkYellow, QSize(32, 24));
+    const QString browsedImagePath = createTestImage(dir, "02-browse-small", Qt::darkMagenta, QSize(48, 36));
+    QVERIFY(!openedImagePath.isEmpty());
+    QVERIFY(!browsedImagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+    window.openFile(openedImagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value() &&
+            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit &&
+            QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0),
+        5000);
+    QCOMPARE(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), QFileInfo(openedImagePath).absoluteFilePath());
+
+    view->goToFile(Qv::GoToFileMode::Next);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        window.getCurrentFileDetails().fileInfo.absoluteFilePath() == QFileInfo(browsedImagePath).absoluteFilePath() &&
+            window.getIsPixmapLoaded(),
+        5000);
+    QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0), 5000);
+
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::FillWindow);
+    QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0), 5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

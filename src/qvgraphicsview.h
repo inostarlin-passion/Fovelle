@@ -101,6 +101,14 @@ public:
     // Keep calculated-zoom restoration tolerant to floating-point round trips.
     static bool zoomLevelsEquivalent(qreal lhs, qreal rhs);
 
+    // Keep the small-image policy independent from widget state so its boundary
+    // conditions can be tested deterministically.
+    static bool shouldDisplaySmallImageAtOneToOne(
+        const QSizeF &imageSize,
+        const QSize &viewportSize,
+        bool settingEnabled,
+        Qv::WindowResizeMode windowResizeMode);
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -208,6 +216,7 @@ private:
     int fitOverscan {0};
     bool zoomToCursor {true};
     bool useOneToOnePixelSizing {true};
+    bool showSmallImagesAtOneToOne {false};
     bool constrainImagePosition {true};
     bool constrainToCenterWhenSmaller {true};
     bool disableDelayedConstraint {false};

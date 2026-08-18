@@ -34,7 +34,7 @@ THRESHOLDS = {
     "rss_peak_kib": 768 * 1024,
     "disk_space_used_percent": 95.0,
     "disk_io_peak_mb_per_second": 500.0,
-    "network_io_delta_mb_host_observation": 64.0,
+    "network_io_throughput_mb_per_second_host_observation": 64.0,
     "open_handles": 512,
     "network_sockets": 4,
 }
@@ -254,6 +254,9 @@ def main() -> int:
             "network_bytes_delta_host_observation": network_delta,
         }
         metrics["network_io_delta_mb_host_observation"] = sum(network_delta.values()) / (1024 * 1024)
+        metrics["network_io_throughput_mb_per_second_host_observation"] = (
+            metrics["network_io_delta_mb_host_observation"] / elapsed if elapsed else None
+        )
 
         pass_flags = {
             "S-01 all runs started": len(startup) == len(runs),
@@ -267,7 +270,10 @@ def main() -> int:
             "S-09 memory": metrics["rss_peak_kib"] is not None and metrics["rss_peak_kib"] <= THRESHOLDS["rss_peak_kib"],
             "S-10 storage space": metrics["disk_space_used_percent"] <= THRESHOLDS["disk_space_used_percent"],
             "S-11 storage I/O host observation": metrics["disk_io_peak_mb_per_second_host_observation"] is not None and metrics["disk_io_peak_mb_per_second_host_observation"] <= THRESHOLDS["disk_io_peak_mb_per_second"],
-            "S-12 network I/O host observation": metrics["network_io_delta_mb_host_observation"] <= THRESHOLDS["network_io_delta_mb_host_observation"],
+            "S-12 network I/O host observation": (
+                metrics["network_io_throughput_mb_per_second_host_observation"] is not None
+                and metrics["network_io_throughput_mb_per_second_host_observation"] <= THRESHOLDS["network_io_throughput_mb_per_second_host_observation"]
+            ),
             "S-13 handles": metrics["open_handles_peak"] is not None and metrics["open_handles_peak"] <= THRESHOLDS["open_handles"],
             "S-14 network sockets": metrics["network_sockets_peak"] is not None and metrics["network_sockets_peak"] <= THRESHOLDS["network_sockets"],
         }

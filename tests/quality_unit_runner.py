@@ -29,10 +29,14 @@ EXPECTED_CASES = (
     ("TC-TITLEBAR-DOCUMENT-ICON", "FeatureTests", "testTitlebarDocumentProxyIsClearedForLoadedFile"),
     ("TC-TITLEBAR-IDEMPOTENCE", "FeatureTests", "testTitlebarIconClearingIsIdempotent"),
     ("TC-FMT-SETTINGS", "FeatureTests", "testSettingsFormatsIncludeNativeImageFormats"),
+    ("TC-IMG-SMALL-SETTING", "FeatureTests", "testSmallImageOneToOneSettingIsExposedInImageOptions"),
+    ("TC-ISSUE-864-OPENWITH-TEARDOWN", "FeatureTests", "testOpenWithWorkerTeardownContract"),
     ("TC-ZOOM-MOUSE", "GraphicsViewTests", "testMouseWheelUsesOneDiscreteStep"),
     ("TC-ZOOM-TOUCHPAD", "GraphicsViewTests", "testTouchpadWheelCanUseFractionalSteps"),
     ("TC-ZOOM-FULLSCREEN", "GraphicsViewTests", "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize"),
     ("TC-ZOOM-MANUAL-RESIZE", "GraphicsViewTests", "testManualZoomRemainsManualAcrossResize"),
+    ("TC-IMG-SMALL-POLICY", "GraphicsViewTests", "testSmallImageOneToOnePolicyUsesViewportAndWindowMode"),
+    ("TC-IMG-SMALL-OPEN-BROWSE", "GraphicsViewTests", "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages"),
 )
 
 

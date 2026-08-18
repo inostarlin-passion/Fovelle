@@ -18,6 +18,7 @@
       "pass": true,
       "actual": {
         "files": [
+          "/Users/inostarlin/code/Fovelle/tests/quality_feature_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_fullscreen_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_integration.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_static.py",
@@ -104,10 +105,14 @@
           "testTitlebarDocumentProxyIsClearedForLoadedFile": true,
           "testTitlebarIconClearingIsIdempotent": true,
           "testSettingsFormatsIncludeNativeImageFormats": true,
+          "testSmallImageOneToOneSettingIsExposedInImageOptions": true,
+          "testOpenWithWorkerTeardownContract": true,
           "testMouseWheelUsesOneDiscreteStep": true,
           "testTouchpadWheelCanUseFractionalSteps": true,
           "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
-          "testManualZoomRemainsManualAcrossResize": true
+          "testManualZoomRemainsManualAcrossResize": true,
+          "testSmallImageOneToOnePolicyUsesViewportAndWindowMode": true,
+          "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages": true
         }
       },
       "expected": "each atomic feature criterion has a deterministic test implementation"
@@ -122,6 +127,44 @@
         "resize_restoration_path": true
       },
       "expected": "the fullscreen resize path can restore fit intent after an inverse manual zoom without changing other manual zoom levels"
+    },
+    {
+      "id": "ST-11",
+      "pass": true,
+      "actual": {
+        "setting_default": true,
+        "settings_binding": true,
+        "image_checkbox": true,
+        "strict_small_image_helper": true,
+        "actual_viewport": true,
+        "never_gate": true,
+        "automatic_mode_override": true
+      },
+      "expected": "the persisted Image option and deterministic viewport/window-mode policy are wired into automatic fit zoom"
+    },
+    {
+      "id": "ST-12",
+      "pass": true,
+      "actual": {
+        "timer_stopped_on_teardown": true,
+        "future_waited_on_teardown": true,
+        "path_captured_by_value": true,
+        "serial_refresh_guard": true,
+        "regression_test": true
+      },
+      "expected": "Open With background work is serialized, uses a value-captured path, and is finished before QApplication teardown"
+    },
+    {
+      "id": "ST-13",
+      "pass": true,
+      "actual": {
+        "tag_trigger": true,
+        "write_permission": true,
+        "action": true,
+        "token": true,
+        "pre_release_tests": true
+      },
+      "expected": "a pushed v-prefixed Git tag builds, tests, packages, and publishes a GitHub Release with softprops/action-gh-release"
     }
   ],
   "passed": true

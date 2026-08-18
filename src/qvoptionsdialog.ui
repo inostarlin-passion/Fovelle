@@ -546,17 +546,14 @@
            </widget>
           </item>
           <item row="7" column="1">
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+           <widget class="QCheckBox" name="smallImagesOneToOneCheckbox">
+            <property name="toolTip">
+             <string>When Window matches image size is set to Never, show images smaller than the actual display area at their original 1:1 size</string>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
+            <property name="text">
+             <string>Show small images at 1:1</string>
             </property>
-           </spacer>
+           </widget>
           </item>
           <item row="8" column="0">
            <widget class="QLabel" name="zoomDefaultLabel">

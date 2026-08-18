@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run integration gates for the macOS titlebar icon removal and regressions."""
+"""Run integration gates for the image-view feature, issue fix, and release workflow."""
 
 from __future__ import annotations
 
@@ -134,6 +134,60 @@ def main() -> int:
         "Settings → Formats reads the same registry extended by native WebP/AVIF support",
     )
 
+    test_source = text("tests/tst_qviewtests.cpp")
+    settings = text("src/settingsmanager.cpp")
+    options_ui = text("src/qvoptionsdialog.ui")
+    small_image = text("src/qvgraphicsview.cpp") + text("src/qvgraphicsview.h")
+    add_check(
+        checks,
+        "I-10",
+        all_present(
+            settings + options + options_ui + small_image + mainwindow,
+            (
+                'settingsLibrary.insert("smallimageoneone", {false, {}});',
+                'syncCheckbox(ui->smallImagesOneToOneCheckbox, "smallimageoneone"',
+                'name="smallImagesOneToOneCheckbox"',
+                "Show small images at 1:1",
+                "shouldDisplaySmallImageAtOneToOne",
+                "getUsableViewportRect().size()",
+                "WindowResizeMode::Never",
+            ),
+        ),
+        {
+            "persisted_setting": 'settingsLibrary.insert("smallimageoneone", {false, {}});' in settings,
+            "image_ui": 'name="smallImagesOneToOneCheckbox"' in options_ui,
+            "viewport_policy": "shouldDisplaySmallImageAtOneToOne" in small_image and "getUsableViewportRect().size()" in small_image,
+            "never_gate": "WindowResizeMode::Never" in small_image,
+            "open_browse_case": "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages" in test_source,
+        },
+        "the new setting is integrated across persistence, Settings → Image, viewport calculation, and the open/browse regression case",
+    )
+    small_image_tests_present = "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages" in test_source
+    checks[-1]["pass"] = checks[-1]["pass"] and small_image_tests_present
+
+    issue_864 = all_present(
+        mainwindow + text("src/mainwindow.h"),
+        (
+            "populateOpenWithTimer->stop();",
+            "openWithFutureWatcher.waitForFinished();",
+            "openWithFutureFilePath",
+            "[filePath]()",
+            "openWithPopulationPending",
+        ),
+    )
+    add_check(
+        checks,
+        "I-11",
+        issue_864,
+        {
+            "timer_stopped": "populateOpenWithTimer->stop();" in mainwindow,
+            "future_waited": "openWithFutureWatcher.waitForFinished();" in mainwindow,
+            "path_value_capture": "[filePath]()" in mainwindow,
+            "refresh_serialization": "openWithPopulationPending" in mainwindow,
+        },
+        "the Issue #864 Open With worker teardown contract is present in the integrated application sources",
+    )
+
     bundle = build_dir / "Fovelle.app"
     info_path = bundle / "Contents" / "Info.plist"
     icon_path = bundle / "Contents" / "Resources" / "qView.icns"
@@ -211,7 +265,6 @@ def main() -> int:
         "the integrated working-tree diff has no whitespace errors",
     )
 
-    test_source = text("tests/tst_qviewtests.cpp")
     required_cases = (
         "testImageLoaderLoadsWebpWithImageIOFallback",
         "testImageLoaderLoadsAvifWithImageIOFallback",
@@ -221,10 +274,14 @@ def main() -> int:
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
         "testSettingsFormatsIncludeNativeImageFormats",
+        "testSmallImageOneToOneSettingIsExposedInImageOptions",
+        "testOpenWithWorkerTeardownContract",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
         "testManualZoomRemainsManualAcrossResize",
+        "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
+        "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
     )
     add_check(
         checks,
@@ -232,6 +289,33 @@ def main() -> int:
         all(case in test_source for case in required_cases),
         {"cases": {case: case in test_source for case in required_cases}},
         "the integrated test source contains one deterministic case for each current-scope acceptance criterion",
+    )
+
+    workflow = text(".github/workflows/release.yml")
+    add_check(
+        checks,
+        "I-12",
+        all_present(
+            workflow,
+            (
+                "push:",
+                "tags:",
+                "- 'v*'",
+                "contents: write",
+                "softprops/action-gh-release@v3",
+                "GITHUB_TOKEN",
+                "generate_release_notes: true",
+                "fail_on_unmatched_files: true",
+                "ctest --test-dir build --output-on-failure",
+            ),
+        ),
+        {
+            "tag_trigger": "- 'v*'" in workflow,
+            "write_permission": "contents: write" in workflow,
+            "release_action": "softprops/action-gh-release@v3" in workflow,
+            "test_before_publish": "ctest --test-dir build --output-on-failure" in workflow,
+        },
+        "the release workflow is tag-triggered, tests before packaging, and grants the action contents write access",
     )
 
     result = {

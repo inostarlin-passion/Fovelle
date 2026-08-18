@@ -256,6 +256,8 @@ private:
 
     QTimer *populateOpenWithTimer;
     QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
+    QString openWithFutureFilePath;
+    bool openWithPopulationPending {false};
 };
 
 #endif // MAINWINDOW_H
