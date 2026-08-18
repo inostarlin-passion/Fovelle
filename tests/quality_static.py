@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run static quality gates for the titlebar, zoom, and image-format change."""
+"""Run static quality gates for the image orientation and fullscreen zoom change."""
 
 from __future__ import annotations
 
@@ -155,7 +155,10 @@ def main() -> int:
         (
             "CGImageSourceCopyTypeIdentifiers",
             "CGImageSourceCreateWithURL",
-            "CGImageSourceCreateImageAtIndex",
+            "CGImageSourceCreateThumbnailAtIndex",
+            "kCGImageSourceCreateThumbnailWithTransform",
+            "kCGImageSourceCreateThumbnailFromImageAlways",
+            "sourceMaxPixelSize",
             "supportsAdditionalImageFormat",
             "readAdditionalImage",
             "QVCocoaFunctions::readAdditionalImage",
@@ -167,10 +170,11 @@ def main() -> int:
         decoder_contract,
         {
             "image_io_type_query": "CGImageSourceCopyTypeIdentifiers" in cocoa_mm,
-            "image_io_decode": "CGImageSourceCreateImageAtIndex" in cocoa_mm,
+            "image_io_decode": "CGImageSourceCreateThumbnailAtIndex" in cocoa_mm,
+            "orientation_transform": "kCGImageSourceCreateThumbnailWithTransform" in cocoa_mm,
             "loader_fallback": "QVCocoaFunctions::readAdditionalImage" in loader_cpp,
         },
-        "the macOS Image I/O fallback is declared, implemented, and called after Qt decoding fails",
+        "the macOS Image I/O fallback applies source orientation metadata and is called after Qt decoding fails",
     )
 
     formats_app = contains_all(
@@ -211,10 +215,14 @@ def main() -> int:
     test_markers = (
         "testImageLoaderLoadsWebpWithImageIOFallback",
         "testImageLoaderLoadsAvifWithImageIOFallback",
+        "testImageLoaderAppliesWebpOrientation",
+        "testImageLoaderAppliesAvifOrientation",
         "testWindowIconIsCleared",
         "testSettingsFormatsIncludeNativeImageFormats",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
+        "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
+        "testManualZoomRemainsManualAcrossResize",
     )
     add_check(
         checks,
@@ -222,6 +230,29 @@ def main() -> int:
         all(marker in test_source for marker in test_markers),
         {"test_markers": {marker: marker in test_source for marker in test_markers}},
         "each atomic feature criterion has a deterministic test implementation",
+    )
+
+    zoom_continuity = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "lastCalculatedZoomMode",
+            "lastCalculatedZoomLevel",
+            "zoomLevelsEquivalent",
+            "shouldRestoreCalculatedZoom",
+            "resizeEvent",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-10",
+        zoom_continuity,
+        {
+            "calculated_mode_snapshot": "lastCalculatedZoomMode" in graphics_cpp,
+            "calculated_level_snapshot": "lastCalculatedZoomLevel" in graphics_cpp,
+            "floating_point_tolerance": "zoomLevelsEquivalent" in graphics_cpp + graphics_header,
+            "resize_restoration_path": "shouldRestoreCalculatedZoom" in graphics_cpp,
+        },
+        "the fullscreen resize path can restore fit intent after an inverse manual zoom without changing other manual zoom levels",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}

@@ -11,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QThreadPool>
 #include <QUrl>
+#include <QWheelEvent>
 
 #include "mainwindow.h"
 #include "qvapplication.h"
@@ -35,6 +36,8 @@ private slots:
     void testImageLoaderDestructionDuringLoad();
     void testImageLoaderLoadsWebpWithImageIOFallback();
     void testImageLoaderLoadsAvifWithImageIOFallback();
+    void testImageLoaderAppliesWebpOrientation();
+    void testImageLoaderAppliesAvifOrientation();
 };
 
 class ActionManagerTests : public QObject
@@ -71,6 +74,8 @@ class GraphicsViewTests : public QObject
 private slots:
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
+    void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
+    void testManualZoomRemainsManualAcrossResize();
 };
 
 class ApplicationEventTests : public QObject
@@ -97,10 +102,10 @@ public:
     using QVImageCore::handleColorSpaceConversion;
 };
 
-static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color)
+static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color, const QSize size = QSize(32, 32))
 {
     const QString path = dir.filePath(name + ".png");
-    QImage image(32, 32, QImage::Format_RGB32);
+    QImage image(size, QImage::Format_RGB32);
     image.fill(color);
     if (!image.save(path))
         return {};
@@ -134,6 +139,12 @@ static const QByteArray tinyWebpBase64 =
 
 static const QByteArray tinyAvifBase64 =
     "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAASAAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAAIAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAOY2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQWGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGgAwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg==";
+
+static const QByteArray orientedWebpBase64 =
+    "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA=";
+
+static const QByteArray orientedAvifBase64 =
+    "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAEdAAAAYwAAAChpaW5mAAAAAAABAAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAAB0aXBycAAAAFRpcGNvAAAAFGlzcGUAAAAAAAAAAgAAAAMAAAAQcGl4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAAgAAAAAlpcm90AQAAABhpcG1hAAAAAAAAAAEAAQUBAoMEhQAAAGttZGF0EgAKBzgAcwgIaAEyVhAAAIu7FZVujlR7Yotii5zIf////////81uz4UZYgX13041615VbWdWdWb15VbWdWezuZv/////73qwfKnW17zgsHyp1tesH216wfKnW16wfKnSp2tA";
 
 static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
 {
@@ -385,6 +396,62 @@ void ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()
     QVERIFY(!result->errorData.has_value());
 }
 
+// TC-ORI-WEBP
+// Test purpose: verify that a WebP EXIF orientation is applied by both the native decoder and the loader.
+// Preconditions: macOS Image I/O advertises WebP support and a temporary directory is writable.
+// Input data: a lossless 2x3 WebP whose EXIF orientation is RightTop (90-degree clockwise display).
+// Steps: decode through QVCocoaFunctions, then open the same file through QVImageLoader.
+// Expected result: both paths produce a 3x2 image with the rotated corner colors and no error data.
+// Postcondition: the temporary fixture and all loader resources are released.
+void ImageLoaderTests::testImageLoaderAppliesWebpOrientation()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("webp"));
+    const QString path = createBase64Image(dir, "oriented-webp", "webp", orientedWebpBase64);
+    QVERIFY(!path.isEmpty());
+
+    QString nativeError;
+    const QImage nativeImage = QVCocoaFunctions::readAdditionalImage(path, &nativeError);
+    QVERIFY2(!nativeImage.isNull(), qPrintable(nativeError));
+    QCOMPARE(nativeImage.size(), QSize(3, 2));
+    QCOMPARE(nativeImage.pixelColor(0, 0), QColor(Qt::magenta));
+    QCOMPARE(nativeImage.pixelColor(2, 0), QColor(Qt::red));
+    QCOMPARE(nativeImage.pixelColor(0, 1), QColor(Qt::cyan));
+    QCOMPARE(nativeImage.pixelColor(2, 1), QColor(Qt::green));
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QCOMPARE(result->image.size(), QSize(3, 2));
+    QVERIFY(!result->errorData.has_value());
+}
+
+// TC-ORI-AVIF
+// Test purpose: verify that an AVIF rotation item is applied by both the native decoder and the loader.
+// Preconditions: macOS Image I/O advertises AVIF support and a temporary directory is writable.
+// Input data: a lossless 2x3 AVIF carrying an irot rotation item, encoded from the same color fixture.
+// Steps: decode through QVCocoaFunctions, then open the same file through QVImageLoader.
+// Expected result: both paths produce the rotated 3x2 image without an unsupported-format error.
+// Postcondition: the temporary fixture and all loader resources are released.
+void ImageLoaderTests::testImageLoaderAppliesAvifOrientation()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("avif"));
+    const QString path = createBase64Image(dir, "oriented-avif", "avif", orientedAvifBase64);
+    QVERIFY(!path.isEmpty());
+
+    QString nativeError;
+    const QImage nativeImage = QVCocoaFunctions::readAdditionalImage(path, &nativeError);
+    QVERIFY2(!nativeImage.isNull(), qPrintable(nativeError));
+    QCOMPARE(nativeImage.size(), QSize(3, 2));
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QCOMPARE(result->image.size(), QSize(3, 2));
+    QVERIFY(!result->errorData.has_value());
+}
+
 void ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()
 {
     QTemporaryDir dir;
@@ -466,6 +533,135 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
 {
     const qreal factor = QVGraphicsView::wheelZoomFactor(240, 1.25, true);
     QVERIFY(qFuzzyCompare(factor, 1.5625));
+}
+
+// TC-ZOOM-FULLSCREEN
+// Test purpose: verify that returning to the fit ratio restores fit intent and that a fullscreen resize recalculates it.
+// Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
+// Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit transition.
+// Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen twice.
+// Expected result: ZoomToFit remains active; a changed fullscreen viewport receives a recalculated zoom level;
+// after exit, ZoomToFit remains active and the transition completes within the bounded timeout.
+// Postcondition: the window closes and the application quit policy is restored.
+void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "fullscreen-fit", Qt::darkBlue, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.resize(640, 480);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QCoreApplication::processEvents();
+    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QCOMPARE(view->getCalculatedZoomMode().value(), Qv::CalculatedZoomMode::ZoomToFit);
+
+    const qreal fitZoomBeforeWheel = view->getZoomLevel();
+    const QPoint wheelPos = view->viewport()->rect().center();
+    const QPoint globalWheelPos = view->viewport()->mapToGlobal(wheelPos);
+    const auto sendMouseWheel = [&](const int delta) {
+        QWheelEvent wheelEvent(
+            QPointF(wheelPos),
+            QPointF(globalWheelPos),
+            QPoint(),
+            QPoint(0, delta),
+            Qt::NoButton,
+            Qt::NoModifier,
+            Qt::NoScrollPhase,
+            false);
+        QApplication::sendEvent(view->viewport(), &wheelEvent);
+    };
+    sendMouseWheel(120);
+    sendMouseWheel(-120);
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), fitZoomBeforeWheel));
+    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QCOMPARE(view->getCalculatedZoomMode().value(), Qv::CalculatedZoomMode::ZoomToFit);
+
+    const QSize normalViewport = view->viewport()->size();
+    const qreal zoomBeforeFullscreen = view->getZoomLevel();
+    QElapsedTimer transitionTimer;
+    transitionTimer.start();
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
+    reportFullscreenMetric("enter", transitionTimer.elapsed());
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value() &&
+            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
+        5000);
+
+    const QSize fullscreenViewport = view->viewport()->size();
+    if (fullscreenViewport != normalViewport)
+        QVERIFY(!QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), zoomBeforeFullscreen));
+
+    transitionTimer.restart();
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    reportFullscreenMetric("exit", transitionTimer.elapsed());
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value() &&
+            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
+        5000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-ZOOM-MANUAL-RESIZE
+// Test purpose: verify that a genuine manual zoom remains manual when the viewport is resized.
+// Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
+// Input data: one zoom-in step followed by a non-fullscreen window resize.
+// Steps: load the fixture, establish ZoomToFit, zoom in once, resize the window, and inspect mode/level.
+// Expected result: the calculated zoom mode stays unset and the manually selected level is preserved.
+// Postcondition: the window closes and the application quit policy is restored.
+void GraphicsViewTests::testManualZoomRemainsManualAcrossResize()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "manual-resize", Qt::darkRed, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.resize(640, 480);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QCoreApplication::processEvents();
+    window.zoomIn();
+    const qreal manualZoom = view->getZoomLevel();
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+
+    window.resize(1000, 800);
+    QCoreApplication::processEvents();
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), manualZoom));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 void ActionManagerTests::testAboutDialogIdentity()

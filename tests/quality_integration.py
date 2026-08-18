@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run integration gates for the macOS titlebar, zoom, and image formats."""
+"""Run integration gates for the macOS image orientation and fullscreen zoom change."""
 
 from __future__ import annotations
 
@@ -63,14 +63,20 @@ def main() -> int:
                 "TouchPad",
                 "wheelDelta > 0 ? 1.0 : -1.0",
                 "useFractionalZoom",
+                "lastCalculatedZoomMode",
+                "lastCalculatedZoomLevel",
+                "zoomLevelsEquivalent",
+                "shouldRestoreCalculatedZoom",
             ),
         ),
         {
             "wheel_helper": "wheelZoomFactor" in graphics,
             "touchpad_path": "TouchPad" in graphics,
             "discrete_mouse_path": "wheelDelta > 0 ? 1.0 : -1.0" in graphics,
+            "fit_continuity_state": "lastCalculatedZoomMode" in graphics and "lastCalculatedZoomLevel" in graphics,
+            "resize_recalculation_guard": "shouldRestoreCalculatedZoom" in graphics,
         },
-        "the implemented zoom contract distinguishes discrete mouse wheels from fractional touch input",
+        "the implemented zoom contract distinguishes wheel input modes and preserves fit intent through a resized viewport",
     )
 
     cocoa = text("src/qvcocoafunctions.mm") + text("src/qvcocoafunctions.h")
@@ -80,7 +86,8 @@ def main() -> int:
         (
             "CGImageSourceCopyTypeIdentifiers",
             "CGImageSourceCreateWithURL",
-            "CGImageSourceCreateImageAtIndex",
+            "CGImageSourceCreateThumbnailAtIndex",
+            "kCGImageSourceCreateThumbnailWithTransform",
             "QVCocoaFunctions::supportsAdditionalImageFormat",
             "QVCocoaFunctions::readAdditionalImage",
         ),
@@ -98,7 +105,7 @@ def main() -> int:
             "frameworks_linked": linked_frameworks,
             "fallback_is_after_qt_read": loader.find("QVCocoaFunctions::readAdditionalImage") > loader.find("imageReader.read()"),
         },
-        "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback",
+        "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback that applies orientation metadata",
     )
 
     options = text("src/qvoptionsdialog.cpp")
@@ -203,10 +210,14 @@ def main() -> int:
     required_cases = (
         "testImageLoaderLoadsWebpWithImageIOFallback",
         "testImageLoaderLoadsAvifWithImageIOFallback",
+        "testImageLoaderAppliesWebpOrientation",
+        "testImageLoaderAppliesAvifOrientation",
         "testWindowIconIsCleared",
         "testSettingsFormatsIncludeNativeImageFormats",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
+        "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
+        "testManualZoomRemainsManualAcrossResize",
     )
     add_check(
         checks,

@@ -98,6 +98,9 @@ public:
     // verified without depending on platform event delivery.
     static qreal wheelZoomFactor(int wheelDelta, qreal zoomMultiplier, bool useFractionalSteps);
 
+    // Keep calculated-zoom restoration tolerant to floating-point round trips.
+    static bool zoomLevelsEquivalent(qreal lhs, qreal rhs);
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -228,6 +231,8 @@ private:
     bool scrollActionCooldown {false};
 
     std::optional<Qv::CalculatedZoomMode> calculatedZoomMode;
+    std::optional<Qv::CalculatedZoomMode> lastCalculatedZoomMode;
+    std::optional<qreal> lastCalculatedZoomLevel;
     bool globalNavigationResetsZoom {true};
     bool navigationResetsZoom {true};
     bool loadIsFromSessionRestore {false};

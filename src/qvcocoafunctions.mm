@@ -7,6 +7,9 @@
 #include <QFileIconProvider>
 #include <QCollator>
 
+#include <algorithm>
+#include <limits>
+
 #import <Cocoa/Cocoa.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <ImageIO/ImageIO.h>
@@ -34,6 +37,24 @@ const ImageFormatDescription *descriptionForFormat(const QByteArray &format)
             return &description;
     }
     return nullptr;
+}
+
+int sourceMaxPixelSize(CGImageSourceRef source)
+{
+    int width = 0;
+    int height = 0;
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    if (properties)
+    {
+        if (const auto widthNumber = static_cast<CFNumberRef>(CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth)))
+            CFNumberGetValue(widthNumber, kCFNumberIntType, &width);
+        if (const auto heightNumber = static_cast<CFNumberRef>(CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight)))
+            CFNumberGetValue(heightNumber, kCFNumberIntType, &height);
+        CFRelease(properties);
+    }
+
+    const int maxDimension = std::max(width, height);
+    return maxDimension > 0 ? maxDimension : std::numeric_limits<int>::max();
 }
 }
 
@@ -369,7 +390,44 @@ QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *e
         return {};
     }
 
-    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, 0, nullptr);
+    const int maxPixelSize = sourceMaxPixelSize(source);
+    CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxPixelSize);
+    if (!maxPixelSizeNumber)
+    {
+        CFRelease(source);
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O could not create thumbnail options");
+        return {};
+    }
+
+    const void *optionKeys[] = {
+        kCGImageSourceCreateThumbnailFromImageAlways,
+        kCGImageSourceCreateThumbnailWithTransform,
+        kCGImageSourceThumbnailMaxPixelSize
+    };
+    const void *optionValues[] = {
+        kCFBooleanTrue,
+        kCFBooleanTrue,
+        maxPixelSizeNumber
+    };
+    CFDictionaryRef options = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        optionKeys,
+        optionValues,
+        sizeof(optionKeys) / sizeof(optionKeys[0]),
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    CFRelease(maxPixelSizeNumber);
+    if (!options)
+    {
+        CFRelease(source);
+        if (errorString)
+            *errorString = QStringLiteral("Image I/O could not create thumbnail options");
+        return {};
+    }
+
+    CGImageRef cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+    CFRelease(options);
     if (!cgImage)
     {
         CFRelease(source);
@@ -409,8 +467,8 @@ QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *e
         return {};
     }
 
-    CGContextTranslateCTM(context, 0, static_cast<CGFloat>(height));
-    CGContextScaleCTM(context, 1, -1);
+    // The thumbnail transform has already normalized the image orientation and
+    // its pixel rows are in the orientation expected by the bitmap context.
     CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
 
     CGContextRelease(context);

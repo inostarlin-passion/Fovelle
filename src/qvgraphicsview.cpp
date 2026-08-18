@@ -71,13 +71,29 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         if (mainWindow->getIsClosing())
             return;
 
-    QGraphicsView::resizeEvent(event);
-
     if (getCurrentFileDetails().isPixmapLoaded)
     {
+        const bool shouldRestoreCalculatedZoom =
+            !calculatedZoomMode.has_value() &&
+            lastCalculatedZoomMode.has_value() &&
+            lastCalculatedZoomLevel.has_value() &&
+            zoomLevelsEquivalent(zoomLevel, lastCalculatedZoomLevel.value());
+
+        QGraphicsView::resizeEvent(event);
+
+        if (shouldRestoreCalculatedZoom)
+        {
+            calculatedZoomMode = lastCalculatedZoomMode;
+            emit calculatedZoomModeChanged();
+        }
+
         const QSize sizeDelta = event->size() - event->oldSize();
         scrollHelper->move(QPointF(sizeDelta.width(), sizeDelta.height()) / -2.0);
         fitOrConstrainImage();
+    }
+    else
+    {
+        QGraphicsView::resizeEvent(event);
     }
 }
 
@@ -521,6 +537,12 @@ qreal QVGraphicsView::wheelZoomFactor(const int wheelDelta, const qreal zoomMult
     return qPow(zoomMultiplier, wheelSteps);
 }
 
+bool QVGraphicsView::zoomLevelsEquivalent(const qreal lhs, const qreal rhs)
+{
+    const qreal tolerance = qMax(1.0, qMax(qAbs(lhs), qAbs(rhs))) * 1e-9;
+    return qAbs(lhs - rhs) <= tolerance;
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -626,6 +648,9 @@ void QVGraphicsView::reloadFile()
 
 void QVGraphicsView::beforeLoad()
 {
+    lastCalculatedZoomMode.reset();
+    lastCalculatedZoomLevel.reset();
+
     // If a prior pixmap is still loaded, capture its content rect
     if (getCurrentFileDetails().isPixmapLoaded)
         lastImageContentRect = getContentRect();
@@ -700,8 +725,21 @@ void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional
 
 void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos, const bool isApplyingCalculation)
 {
-    if (!isApplyingCalculation || !Qv::calculatedZoomModeIsSticky(calculatedZoomMode.value()))
-        setCalculatedZoomMode({});
+    const bool keepsCalculatedZoomMode =
+        isApplyingCalculation &&
+        calculatedZoomMode.has_value() &&
+        Qv::calculatedZoomModeIsSticky(calculatedZoomMode.value());
+    const bool shouldRestoreCalculatedZoom =
+        !isApplyingCalculation &&
+        !calculatedZoomMode.has_value() &&
+        lastCalculatedZoomMode.has_value() &&
+        lastCalculatedZoomLevel.has_value() &&
+        zoomLevelsEquivalent(absoluteLevel, lastCalculatedZoomLevel.value());
+    if (!keepsCalculatedZoomMode && calculatedZoomMode.has_value())
+    {
+        calculatedZoomMode.reset();
+        emit calculatedZoomModeChanged();
+    }
 
     const bool isChanging = absoluteLevel != zoomLevel;
     const std::optional<QPoint> pos = targetPos == Qv::CalculateViewportCenterPos ? getUsableViewportRect().center() : targetPos;
@@ -723,6 +761,12 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         setTransformScale(absoluteLevel * appliedDpiAdjustment);
     }
     zoomLevel = absoluteLevel;
+
+    if (shouldRestoreCalculatedZoom)
+    {
+        calculatedZoomMode = lastCalculatedZoomMode;
+        emit calculatedZoomModeChanged();
+    }
 
     scrollHelper->cancelAnimation();
 
@@ -754,6 +798,12 @@ const std::optional<Qv::CalculatedZoomMode> &QVGraphicsView::getCalculatedZoomMo
 
 void QVGraphicsView::setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating, const std::optional<QPoint> &mousePos)
 {
+    if (!value.has_value() || value == Qv::CalculatedZoomMode::OriginalSize)
+    {
+        lastCalculatedZoomMode.reset();
+        lastCalculatedZoomLevel.reset();
+    }
+
     if (calculatedZoomMode == value)
     {
         if (calculatedZoomMode.has_value())
@@ -903,6 +953,9 @@ void QVGraphicsView::recalculateZoom()
     if (fitZoomLimit.has_value() && targetRatio > fitZoomLimit.value())
         targetRatio = fitZoomLimit.value();
 
+    lastCalculatedZoomMode = calculatedZoomMode;
+    lastCalculatedZoomLevel = targetRatio;
+
     zoomAbsolute(targetRatio, {}, true);
 }
 
@@ -980,6 +1033,9 @@ const QJsonObject QVGraphicsView::getSessionState() const
 
 void QVGraphicsView::loadSessionState(const QJsonObject &state)
 {
+    lastCalculatedZoomMode.reset();
+    lastCalculatedZoomLevel.reset();
+
     const QJsonArray transformValues = state["transform"].toArray();
     const QTransform transform {
         static_cast<double>(transformValues.at(0).toInt()),
@@ -999,6 +1055,11 @@ void QVGraphicsView::loadSessionState(const QJsonObject &state)
     setNavigationResetsZoom(state["navResetsZoom"].toBool());
 
     calculatedZoomMode = state.contains("calcZoomMode") ? std::optional(static_cast<Qv::CalculatedZoomMode>(state["calcZoomMode"].toInt())) : std::nullopt;
+    if (calculatedZoomMode.has_value() && Qv::calculatedZoomModeIsSticky(calculatedZoomMode.value()))
+    {
+        lastCalculatedZoomMode = calculatedZoomMode;
+        lastCalculatedZoomLevel = zoomLevel;
+    }
     emit calculatedZoomModeChanged();
 
     if (state.contains("sortMode") && state.contains("sortDescending"))

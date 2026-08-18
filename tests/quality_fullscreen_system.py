@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the compiled Qt test process as a system-level fullscreen smoke test."""
+"""Run the compiled Qt test process as a system-level fullscreen zoom smoke test."""
 
 from __future__ import annotations
 
@@ -16,10 +16,7 @@ from statistics import mean
 
 
 FUNCTIONAL_CASES = (
-    "testReturnKeyEntersFullscreen",
-    "testKeypadEnterEntersFullscreen",
-    "testEnterDoesNotExitFullscreen",
-    "testEscapeRestoresLoadedImageWithoutGeometryJump",
+    "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
 )
 
 THRESHOLDS = {
@@ -55,8 +52,8 @@ def main() -> int:
     cases = [
         {
             "id": f"TC-FS-{index:02d}",
-            "test": f"ActionManagerTests::{name}",
-            "status": "passed" if re.search(rf"PASS\s+: ActionManagerTests::{re.escape(name)}\(\)", output) else "failed",
+            "test": f"GraphicsViewTests::{name}",
+            "status": "passed" if re.search(rf"PASS\s+: GraphicsViewTests::{re.escape(name)}\(\)", output) else "failed",
         }
         for index, name in enumerate(FUNCTIONAL_CASES, start=1)
     ]

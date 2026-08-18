@@ -9,7 +9,7 @@
         "format_tool": null,
         "fallback": "cmake --build",
         "return_code": 0,
-        "output": "[1/9] Automatic MOC and UIC for target Fovelle\n[2/8] Automatic MOC and UIC for target fovelle_tests\n[3/7] Building CXX object CMakeFiles/Fovelle.dir/src/qvcocoafunctions.mm.o\n[4/7] Linking CXX executable Fovelle.app/Contents/MacOS/Fovelle\n[5/7] Building CXX object tests/CMakeFiles/fovelle_tests.dir/tst_qviewtests.cpp.o\n[6/7] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvcocoafunctions.mm.o\n[7/7] Linking CXX executable tests/fovelle_tests\n"
+        "output": "ninja: no work to do.\n"
       },
       "expected": "clang-format is unavailable; the configured build is a clean static/compile gate"
     },
@@ -64,9 +64,10 @@
       "actual": {
         "image_io_type_query": true,
         "image_io_decode": true,
+        "orientation_transform": true,
         "loader_fallback": true
       },
-      "expected": "the macOS Image I/O fallback is declared, implemented, and called after Qt decoding fails"
+      "expected": "the macOS Image I/O fallback applies source orientation metadata and is called after Qt decoding fails"
     },
     {
       "id": "ST-07",
@@ -93,13 +94,28 @@
         "test_markers": {
           "testImageLoaderLoadsWebpWithImageIOFallback": true,
           "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testImageLoaderAppliesWebpOrientation": true,
+          "testImageLoaderAppliesAvifOrientation": true,
           "testWindowIconIsCleared": true,
           "testSettingsFormatsIncludeNativeImageFormats": true,
           "testMouseWheelUsesOneDiscreteStep": true,
-          "testTouchpadWheelCanUseFractionalSteps": true
+          "testTouchpadWheelCanUseFractionalSteps": true,
+          "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
+          "testManualZoomRemainsManualAcrossResize": true
         }
       },
       "expected": "each atomic feature criterion has a deterministic test implementation"
+    },
+    {
+      "id": "ST-10",
+      "pass": true,
+      "actual": {
+        "calculated_mode_snapshot": true,
+        "calculated_level_snapshot": true,
+        "floating_point_tolerance": true,
+        "resize_restoration_path": true
+      },
+      "expected": "the fullscreen resize path can restore fit intent after an inverse manual zoom without changing other manual zoom levels"
     }
   ],
   "passed": true

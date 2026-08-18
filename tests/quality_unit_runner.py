@@ -23,10 +23,14 @@ EXPECTED_SUITES = (
 EXPECTED_CASES = (
     ("TC-IMG-WEBP", "ImageLoaderTests", "testImageLoaderLoadsWebpWithImageIOFallback"),
     ("TC-IMG-AVIF", "ImageLoaderTests", "testImageLoaderLoadsAvifWithImageIOFallback"),
+    ("TC-ORI-WEBP", "ImageLoaderTests", "testImageLoaderAppliesWebpOrientation"),
+    ("TC-ORI-AVIF", "ImageLoaderTests", "testImageLoaderAppliesAvifOrientation"),
     ("TC-WIN-ICON", "FeatureTests", "testWindowIconIsCleared"),
     ("TC-FMT-SETTINGS", "FeatureTests", "testSettingsFormatsIncludeNativeImageFormats"),
     ("TC-ZOOM-MOUSE", "GraphicsViewTests", "testMouseWheelUsesOneDiscreteStep"),
     ("TC-ZOOM-TOUCHPAD", "GraphicsViewTests", "testTouchpadWheelCanUseFractionalSteps"),
+    ("TC-ZOOM-FULLSCREEN", "GraphicsViewTests", "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize"),
+    ("TC-ZOOM-MANUAL-RESIZE", "GraphicsViewTests", "testManualZoomRemainsManualAcrossResize"),
 )
 
 

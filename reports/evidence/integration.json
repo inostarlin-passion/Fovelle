@@ -18,9 +18,11 @@
       "actual": {
         "wheel_helper": true,
         "touchpad_path": true,
-        "discrete_mouse_path": true
+        "discrete_mouse_path": true,
+        "fit_continuity_state": true,
+        "resize_recalculation_guard": true
       },
-      "expected": "the implemented zoom contract distinguishes discrete mouse wheels from fractional touch input"
+      "expected": "the implemented zoom contract distinguishes wheel input modes and preserves fit intent through a resized viewport"
     },
     {
       "id": "I-03",
@@ -30,7 +32,7 @@
         "frameworks_linked": true,
         "fallback_is_after_qt_read": true
       },
-      "expected": "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback"
+      "expected": "Qt failure is followed by a linked Apple Image I/O WebP/AVIF fallback that applies orientation metadata"
     },
     {
       "id": "I-04",
@@ -62,7 +64,7 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    0.98 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   0.98 sec\n"
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.41 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.41 sec\n"
       },
       "expected": "CTest executes the configured Qt integration test target successfully"
     },
@@ -72,7 +74,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-x7zbh7w4/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-eev80fqa/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
@@ -92,10 +94,14 @@
         "cases": {
           "testImageLoaderLoadsWebpWithImageIOFallback": true,
           "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testImageLoaderAppliesWebpOrientation": true,
+          "testImageLoaderAppliesAvifOrientation": true,
           "testWindowIconIsCleared": true,
           "testSettingsFormatsIncludeNativeImageFormats": true,
           "testMouseWheelUsesOneDiscreteStep": true,
-          "testTouchpadWheelCanUseFractionalSteps": true
+          "testTouchpadWheelCanUseFractionalSteps": true,
+          "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
+          "testManualZoomRemainsManualAcrossResize": true
         }
       },
       "expected": "the integrated test source contains one deterministic case for each current-scope acceptance criterion"

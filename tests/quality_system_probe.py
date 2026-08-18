@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the built macOS app with WebP/AVIF and collect resource evidence."""
+"""Exercise the built macOS app with native and oriented WebP/AVIF fixtures and collect resource evidence."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ from statistics import mean
 
 TINY_WEBP = "UklGRlIAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAArlZQOCAqAAAAkAEAnQEqAQABAAIANCWgAnS6AAOYAP7wumv/BBbUemHHh/c1FbFtAAAA"
 TINY_AVIF = "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAASAAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAAIAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAOY2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQWGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGgAwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg=="
+ORIENTED_WEBP = "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA="
+ORIENTED_AVIF = "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAEdAAAAYwAAAChpaW5mAAAAAAABAAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAAB0aXBycAAAAFRpcGNvAAAAFGlzcGUAAAAAAAAAAgAAAAMAAAAQcGl4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAAgAAAAAlpcm90AQAAABhpcG1hAAAAAAAAAAEAAQUBAoMEhQAAAGttZGF0EgAKBzgAcwgIaAEyVhAAAIu7FZVujlR7Yotii5zIf////////81uz4UZYgX13041615VbWdWdWb15VbWdWezuZv/////73qwfKnW17zgsHyp1tesH216wfKnW16wfKnSp2tA"
 
 THRESHOLDS = {
     "startup_average_seconds": 2.0,
@@ -195,9 +197,18 @@ def main() -> int:
         else:
             webp = fixture_dir / "system-native.webp"
             avif = fixture_dir / "system-native.avif"
+            oriented_webp = fixture_dir / "system-oriented.webp"
+            oriented_avif = fixture_dir / "system-oriented.avif"
             webp.write_bytes(base64.b64decode(TINY_WEBP))
             avif.write_bytes(base64.b64decode(TINY_AVIF))
-            image_cases = [("SYS-WEBP", webp), ("SYS-AVIF", avif)]
+            oriented_webp.write_bytes(base64.b64decode(ORIENTED_WEBP))
+            oriented_avif.write_bytes(base64.b64decode(ORIENTED_AVIF))
+            image_cases = [
+                ("SYS-WEBP", webp),
+                ("SYS-AVIF", avif),
+                ("SYS-WEBP-ORIENTATION", oriented_webp),
+                ("SYS-AVIF-ORIENTATION", oriented_avif),
+            ]
 
         before_network = netstat_bytes()
         before_iostat = iostat_sample()
@@ -246,7 +257,7 @@ def main() -> int:
 
         pass_flags = {
             "S-01 all runs started": len(startup) == len(runs),
-            "S-02 both native format cases ran": {run["case"] for run in runs} == {case_id for case_id, _ in image_cases},
+            "S-02 all native format cases ran": {run["case"] for run in runs} == {case_id for case_id, _ in image_cases},
             "S-03 no unsupported format error": all(run["unsupported_format_error_absent"] for run in runs),
             "S-04 startup average": metrics["startup_average_seconds"] is not None and metrics["startup_average_seconds"] <= THRESHOLDS["startup_average_seconds"],
             "S-05 startup p99": metrics["startup_p99_seconds"] is not None and metrics["startup_p99_seconds"] <= THRESHOLDS["startup_p99_seconds"],
