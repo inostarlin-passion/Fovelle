@@ -318,6 +318,47 @@ def main() -> int:
         "the release workflow is tag-triggered, tests before packaging, and grants the action contents write access",
     )
 
+    shortcut_contract = (
+        'QStringList(QKeySequence(Qt::Key_Return).toString())' in text("src/shortcutmanager.cpp")
+        and "returnShortcut" not in mainwindow
+        and "keypadEnterShortcut" not in mainwindow
+    )
+    add_check(
+        checks,
+        "I-13",
+        shortcut_contract,
+        {
+            "default_return": 'QStringList(QKeySequence(Qt::Key_Return).toString())' in text("src/shortcutmanager.cpp"),
+            "no_mainwindow_enter_shortcut": "returnShortcut" not in mainwindow and "keypadEnterShortcut" not in mainwindow,
+        },
+        "the Full Screen QAction owns the default Enter binding and no hardcoded Enter bypass remains in MainWindow",
+    )
+
+    theme_contract = all_present(
+        text("src/settingsmanager.cpp") + options + options_ui + mainwindow + cocoa,
+        (
+            'settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});',
+            'syncComboBox(ui->themeComboBox, "theme"',
+            'name="themeComboBox"',
+            'NSAppearanceNameAqua',
+            'NSAppearanceNameDarkAqua',
+            'QColor("#212121")',
+            'QColor("#969696")',
+        ),
+    ) and 'name="bgColorCheckbox"' not in options_ui and 'name="darkTitlebarCheckbox"' not in options_ui
+    add_check(
+        checks,
+        "I-14",
+        theme_contract,
+        {
+            "theme_setting_and_ui": 'settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});' in text("src/settingsmanager.cpp") and 'name="themeComboBox"' in options_ui,
+            "native_appearance_mapping": 'NSAppearanceNameAqua' in cocoa and 'NSAppearanceNameDarkAqua' in cocoa,
+            "old_controls_removed": 'name="bgColorCheckbox"' not in options_ui and 'name="darkTitlebarCheckbox"' not in options_ui,
+            "title_formats": 'newString = getFileName() + " - " + getImageIndex()' in mainwindow and 'getImageWidth() + "x" + getImageHeight()' in mainwindow,
+        },
+        "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors",
+    )
+
     result = {
         "kind": "integration",
         "repo": str(repo),

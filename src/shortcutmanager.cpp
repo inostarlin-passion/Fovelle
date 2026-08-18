@@ -82,7 +82,7 @@ void ShortcutManager::initializeShortcutsList()
     shortcutsList.append({tr("Match Image Size"), "matchimagesize", {}, {}});
     shortcutsList.append({tr("Window On Top"), "windowontop", {}, {}});
     shortcutsList.append({tr("Toggle Titlebar Hidden"), "toggletitlebar", {}, {}});
-    shortcutsList.append({tr("Full Screen"), "fullscreen", keyBindingsToStringList(QKeySequence::FullScreen), {}});
+    shortcutsList.append({tr("Full Screen"), "fullscreen", QStringList(QKeySequence(Qt::Key_Return).toString()), {}});
     shortcutsList.append({tr("Save Frame As"), "saveframeas", keyBindingsToStringList(QKeySequence::Save), {}});
     shortcutsList.append({tr("Pause"), "pause", QStringList(QKeySequence(Qt::Key_P).toString()), {}});
     shortcutsList.append({tr("Next Frame"), "nextframe", QStringList(QKeySequence(Qt::Key_Period).toString()), {}});

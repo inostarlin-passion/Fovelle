@@ -2,14 +2,11 @@
 #include "ui_qvoptionsdialog.h"
 #include "qvapplication.h"
 #include "qvshortcutdialog.h"
-#include <QColorDialog>
 #include <QPalette>
-#include <QScreen>
 #include <QMessageBox>
 #include <QSettings>
 #include <QWindow>
-
-#include <QDebug>
+#include <QPushButton>
 
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     QDialog(parent),
@@ -25,7 +22,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     connect(ui->categoryList, &QListWidget::currentRowChanged, this, [this](int currentRow) { ui->stackedWidget->setCurrentIndex(currentRow); });
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this, &QVOptionsDialog::buttonBoxClicked);
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
-    connect(ui->bgColorCheckbox, &QCheckBox::checkStateChanged, this, &QVOptionsDialog::bgColorCheckboxCheckStateChanged);
     connect(ui->mainMenuIconsCheckbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) { restartNotifyForCheckbox("mainmenuicons", state); });
     connect(ui->contextMenuIconsCheckbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) { restartNotifyForCheckbox("contextmenuicons", state); });
     connect(ui->submenuIconsCheckbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) { restartNotifyForCheckbox("submenuicons", state); });
@@ -149,14 +145,8 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     auto &settingsManager = qvApp->getSettingsManager();
     settingsManager.loadSettings();
 
-    // bgcolorenabled
-    syncCheckbox(ui->bgColorCheckbox, "bgcolorenabled", defaults, makeConnections);
-    bgColorCheckboxCheckStateChanged(ui->bgColorCheckbox->checkState());
-    // bgcolor
-    ui->bgColorButton->setText(settingsManager.getString("bgcolor", defaults));
-    transientSettings.insert("bgcolor", ui->bgColorButton->text());
-    updateBgColorButton();
-    connect(ui->bgColorButton, &QPushButton::clicked, this, &QVOptionsDialog::bgColorButtonClicked);
+    // theme
+    syncComboBox(ui->themeComboBox, "theme", defaults, makeConnections);
     // checkerboardbackground
     syncCheckbox(ui->checkerboardBackgroundCheckbox, "checkerboardbackground", defaults, makeConnections);
     // titlebarmode
@@ -171,8 +161,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncSpinBox(ui->minWindowResizeSpinBox, "minwindowresizedpercentage", defaults, makeConnections);
     // maxwindowresizedperecentage
     syncSpinBox(ui->maxWindowResizeSpinBox, "maxwindowresizedpercentage", defaults, makeConnections);
-    // titlebaralwaysdark
-    syncCheckbox(ui->darkTitlebarCheckbox, "titlebaralwaysdark", defaults, makeConnections);
     // menubarenabled
     syncCheckbox(ui->menubarCheckbox, "menubarenabled", defaults, makeConnections);
     // fullscreendetails
@@ -509,36 +497,6 @@ void QVOptionsDialog::updateButtonBox()
     defaultsButton->setEnabled(anyNonDefault);
 }
 
-void QVOptionsDialog::bgColorButtonClicked()
-{
-    auto *colorDialog = new QColorDialog(ui->bgColorButton->text(), this);
-    colorDialog->setWindowModality(Qt::WindowModal);
-    connect(colorDialog, &QDialog::accepted, colorDialog, [this, colorDialog] {
-        auto selectedColor = colorDialog->currentColor();
-
-        if (!selectedColor.isValid())
-            return;
-
-        modifySetting("bgcolor", selectedColor.name());
-        ui->bgColorButton->setText(selectedColor.name());
-        updateBgColorButton();
-        colorDialog->deleteLater();
-    });
-    colorDialog->open();
-}
-
-void QVOptionsDialog::updateBgColorButton()
-{
-    QPixmap newPixmap = QPixmap(32, 32);
-    newPixmap.fill(ui->bgColorButton->text());
-    ui->bgColorButton->setIcon(QIcon(newPixmap));
-}
-
-void QVOptionsDialog::bgColorCheckboxCheckStateChanged(Qt::CheckState state)
-{
-    ui->bgColorButton->setEnabled(static_cast<bool>(state));
-}
-
 void QVOptionsDialog::restartNotifyForCheckbox(const QString &key, const Qt::CheckState state)
 {
     const bool savedValue = qvApp->getSettingsManager().getBoolean(key);
@@ -754,6 +712,13 @@ const Ui::ComboBoxItems<Qv::TitleBarText> QVOptionsDialog::mapTitleBarText() {
     };
 }
 
+const Ui::ComboBoxItems<Qv::Theme> QVOptionsDialog::mapTheme() {
+    return {
+        { Qv::Theme::Light, tr("Light Theme") },
+        { Qv::Theme::Dark, tr("Dark Theme") }
+    };
+}
+
 const Ui::ComboBoxItems<Qv::WindowResizeMode> QVOptionsDialog::mapWindowResizeMode() {
     return {
         { Qv::WindowResizeMode::Never, tr("Never") },
@@ -803,6 +768,8 @@ static void populateComboBox(QComboBox *comboBox, const Ui::ComboBoxItems<TEnum>
 
 void QVOptionsDialog::populateComboBoxes()
 {
+    populateComboBox(ui->themeComboBox, mapTheme());
+
     populateComboBox(ui->titlebarComboBox, mapTitleBarText());
 
     populateComboBox(ui->windowResizeComboBox, mapWindowResizeMode());

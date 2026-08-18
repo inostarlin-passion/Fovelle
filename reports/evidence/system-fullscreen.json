@@ -2,29 +2,44 @@
   "kind": "system-functional",
   "binary": "/Users/inostarlin/code/Fovelle/build-fovelle-task/tests/fovelle_tests",
   "return_code": 0,
-  "elapsed_seconds": 1.7771469170002092,
+  "elapsed_seconds": 2.2038869999996678,
   "functional_cases": [
     {
       "id": "TC-FS-01",
       "test": "GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-02",
+      "test": "WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-03",
+      "test": "WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut",
+      "status": "passed"
+    },
+    {
+      "id": "TC-FS-04",
+      "test": "WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks",
       "status": "passed"
     }
   ],
   "fullscreen_metrics": [
     {
       "phase": "enter",
-      "milliseconds": 24.0
+      "milliseconds": 25.0
     },
     {
       "phase": "exit",
-      "milliseconds": 0.0
+      "milliseconds": 1.0
     }
   ],
   "performance": {
-    "response_average_ms": 12.0,
-    "response_p99_ms": 24.0,
-    "response_max_ms": 24.0,
-    "transition_ack_throughput_per_second": 83.33333333333333,
+    "response_average_ms": 13.0,
+    "response_p99_ms": 25.0,
+    "response_max_ms": 25.0,
+    "transition_ack_throughput_per_second": 76.92307692307692,
     "sample_count": 2,
     "metric_definition": "time from synthetic key/shortcut request until Qt reports the target full-screen state"
   },
@@ -41,7 +56,7 @@
     "throughput": true
   },
   "passed": true,
-  "output_tail": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderAppliesWebpOrientation()\nPASS   : ImageLoaderTests::testImageLoaderAppliesAvifOrientation()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 627ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 8 passed, 0 failed, 0 skipped, 0 blacklisted, 521ms\n********* Finished testing of FeatureTests *********\n********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : GraphicsViewTests::initTestCase()\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=24\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=0\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 8 passed, 0 failed, 0 skipped, 0 blacklisted, 285ms\n********* Finished testing of GraphicsViewTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 84ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of ImageCoreAndMovieTests *********\n",
+  "output_tail": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderAppliesWebpOrientation()\nPASS   : ImageLoaderTests::testImageLoaderAppliesAvifOrientation()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 658ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 8 passed, 0 failed, 0 skipped, 0 blacklisted, 466ms\n********* Finished testing of FeatureTests *********\n********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : GraphicsViewTests::initTestCase()\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=25\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=1\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 8 passed, 0 failed, 0 skipped, 0 blacklisted, 322ms\n********* Finished testing of GraphicsViewTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 55ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of ImageCoreAndMovieTests *********\n********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.7\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 10 passed, 0 failed, 0 skipped, 0 blacklisted, 467ms\n********* Finished testing of WindowBehaviorTests *********\n",
   "limitations": [
     "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",
     "The separate app-launch/resource probe records process-level timing and resource observations."

@@ -232,8 +232,6 @@ private:
     QTimer *zoomTitlebarUpdateTimer;
 
     QShortcut *escShortcut;
-    QShortcut *returnShortcut;
-    QShortcut *keypadEnterShortcut;
 
     QVInfoDialog *info;
 

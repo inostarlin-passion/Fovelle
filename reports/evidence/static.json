@@ -112,7 +112,15 @@
           "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
           "testManualZoomRemainsManualAcrossResize": true,
           "testSmallImageOneToOnePolicyUsesViewportAndWindowMode": true,
-          "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages": true
+          "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages": true,
+          "testFullscreenDefaultShortcutIsEnterAndConfigurable": true,
+          "testEnterDoesNotBypassClearedFullscreenShortcut": true,
+          "testConfiguredFullscreenShortcutStillWorks": true,
+          "testPracticalTitlebarTextUsesFilenameAndSequence": true,
+          "testVerboseTitlebarTextUsesAllRequestedFields": true,
+          "testThemeSettingsReplaceRemovedColorControls": true,
+          "testThemeAppliesNativeAppearanceAndViewportBackground": true,
+          "testCheckerboardOverridesThemeAndRestoresBackground": true
         }
       },
       "expected": "each atomic feature criterion has a deterministic test implementation"
@@ -165,6 +173,46 @@
         "pre_release_tests": true
       },
       "expected": "a pushed v-prefixed Git tag builds, tests, packages, and publishes a GitHub Release with softprops/action-gh-release"
+    },
+    {
+      "id": "ST-14",
+      "pass": true,
+      "actual": {
+        "default_return": true,
+        "hardcoded_return_removed": true,
+        "hardcoded_keypad_enter_removed": true,
+        "test_coverage": true
+      },
+      "expected": "Enter is owned by the configurable Full Screen QAction; MainWindow has no independent Enter shortcut"
+    },
+    {
+      "id": "ST-15",
+      "pass": true,
+      "actual": {
+        "practical_and_verbose_formatters_and_tests": true
+      },
+      "expected": "Practical and Verbose titlebar modes follow the requested filename-first field order"
+    },
+    {
+      "id": "ST-16",
+      "pass": true,
+      "actual": {
+        "theme_setting_default": true,
+        "theme_binding": true,
+        "two_theme_labels": true,
+        "old_controls_removed": true,
+        "standard_native_appearances": true,
+        "viewport_colors": true
+      },
+      "expected": "Theme is the only Window color control, defaults to Light, and maps to standard Aqua/DarkAqua plus deterministic viewport colors"
+    },
+    {
+      "id": "ST-17",
+      "pass": true,
+      "actual": {
+        "theme_and_checkerboard_tests": true
+      },
+      "expected": "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests"
     }
   ],
   "passed": true

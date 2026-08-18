@@ -46,8 +46,6 @@ protected:
     void updateShortcutsTable();
     void syncFormats(bool defaults = false);
     void updateButtonBox();
-    void bgColorButtonClicked();
-    void updateBgColorButton();
     void restartNotifyForCheckbox(const QString &key, const Qt::CheckState state);
     void customizePalette();
     void populateCategories(int selectedRow);
@@ -62,6 +60,7 @@ protected:
     const Ui::ComboBoxItems<Qv::SlideshowDirection> mapSlideshowDirection();
     const Ui::ComboBoxItems<Qv::SmoothScalingMode> mapSmoothScalingMode();
     const Ui::ComboBoxItems<Qv::SortMode> mapSortMode();
+    const Ui::ComboBoxItems<Qv::Theme> mapTheme();
     const Ui::ComboBoxItems<Qv::TitleBarText> mapTitleBarText();
     const Ui::ComboBoxItems<Qv::WindowResizeMode> mapWindowResizeMode();
     const Ui::ComboBoxItems<Qv::ViewportClickAction> mapViewportClickAction();
@@ -72,8 +71,6 @@ private slots:
     void shortcutCellDoubleClicked(int row, int column);
 
     void buttonBoxClicked(QAbstractButton *button);
-
-    void bgColorCheckboxCheckStateChanged(Qt::CheckState state);
 
     void titlebarComboBoxCurrentIndexChanged(int index);
 

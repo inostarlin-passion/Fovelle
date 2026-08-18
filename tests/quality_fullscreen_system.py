@@ -17,6 +17,9 @@ from statistics import mean
 
 FUNCTIONAL_CASES = (
     "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
+    "testFullscreenDefaultShortcutIsEnterAndConfigurable",
+    "testEnterDoesNotBypassClearedFullscreenShortcut",
+    "testConfiguredFullscreenShortcutStillWorks",
 )
 
 THRESHOLDS = {
@@ -49,14 +52,17 @@ def main() -> int:
         check=False,
     )
     output = result.stdout + result.stderr
-    cases = [
-        {
-            "id": f"TC-FS-{index:02d}",
-            "test": f"GraphicsViewTests::{name}",
-            "status": "passed" if re.search(rf"PASS\s+: GraphicsViewTests::{re.escape(name)}\(\)", output) else "failed",
-        }
-        for index, name in enumerate(FUNCTIONAL_CASES, start=1)
-    ]
+    cases = []
+    for index, name in enumerate(FUNCTIONAL_CASES, start=1):
+        suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
+        qualified_name = f"{suite}::{name}"
+        cases.append(
+            {
+                "id": f"TC-FS-{index:02d}",
+                "test": qualified_name,
+                "status": "passed" if re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output) else "failed",
+            }
+        )
     fullscreen_metrics = [
         {"phase": phase, "milliseconds": float(milliseconds)}
         for phase, milliseconds in re.findall(r"FS_METRIC\s+(enter|exit)_ms=([0-9]+(?:\.[0-9]+)?)", output)

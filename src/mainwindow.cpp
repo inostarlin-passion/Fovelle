@@ -126,17 +126,6 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
             close();
     });
 
-    const auto enterFullScreen = [this]() {
-        if (!windowState().testFlag(Qt::WindowFullScreen))
-            toggleFullScreen();
-    };
-    returnShortcut = new QShortcut(Qt::Key_Return, this);
-    returnShortcut->setAutoRepeat(false);
-    connect(returnShortcut, &QShortcut::activated, this, enterFullScreen);
-    keypadEnterShortcut = new QShortcut(Qt::Key_Enter, this);
-    keypadEnterShortcut->setAutoRepeat(false);
-    connect(keypadEnterShortcut, &QShortcut::activated, this, enterFullScreen);
-
     // Enable drag&dropping
     setAcceptDrops(true);
 
@@ -301,6 +290,7 @@ void MainWindow::showEvent(QShowEvent *event)
 {
     QTimer::singleShot(0, this, [this]() {
         QVCocoaFunctions::setFullSizeContentView(this, true);
+        QVCocoaFunctions::setWindowTheme(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), windowHandle());
     });
 
     if (!menuBar()->sizeHint().isEmpty())
@@ -470,8 +460,9 @@ void MainWindow::settingsUpdated()
 
     buildWindowTitle();
 
-    //bgcolor
-    customBackgroundColor = settingsManager.getBoolean("bgcolorenabled") ? QColor(settingsManager.getString("bgcolor")) : QColor();
+    //theme
+    const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
+    customBackgroundColor = theme == Qv::Theme::Dark ? QColor("#212121") : QColor("#969696");
 
     //checkerboardbackground
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
@@ -479,8 +470,8 @@ void MainWindow::settingsUpdated()
     // menubarenabled
     menuBarEnabled = settingsManager.getBoolean("menubarenabled");
 
-    // titlebaralwaysdark
-    QVCocoaFunctions::setVibrancy(settingsManager.getBoolean("titlebaralwaysdark"), windowHandle());
+    // Apply the selected standard AppKit appearance to the native titlebar.
+    QVCocoaFunctions::setWindowTheme(theme, windowHandle());
 
     //slideshow timer
     slideshowTimer->setInterval(static_cast<int>(settingsManager.getDouble("slideshowtimer")*1000));
@@ -702,13 +693,13 @@ void MainWindow::buildWindowTitle()
         }
         case Qv::TitleBarText::Practical:
         {
-            newString = getZoomLevel() + " - " + getImageIndex() + "/" + getImageCount() + " - " + getFileName();
+            newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount();
             break;
         }
         case Qv::TitleBarText::Verbose:
         {
-            newString = getZoomLevel() + " - " + getImageIndex() + "/" + getImageCount() + " - " + getFileName() + " - " +
-                        getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - Fovelle";
+            newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount() + " - " +
+                        getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - " + getZoomLevel();
             break;
         }
         case Qv::TitleBarText::Custom:

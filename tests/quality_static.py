@@ -44,6 +44,8 @@ def main() -> int:
         "src/qvoptionsdialog.cpp",
         "src/qvoptionsdialog.ui",
         "src/settingsmanager.cpp",
+        "src/shortcutmanager.cpp",
+        "src/qvnamespace.h",
         "src/mainwindow.h",
         "tests/tst_qviewtests.cpp",
         "CMakeLists.txt",
@@ -239,6 +241,14 @@ def main() -> int:
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
+        "testFullscreenDefaultShortcutIsEnterAndConfigurable",
+        "testEnterDoesNotBypassClearedFullscreenShortcut",
+        "testConfiguredFullscreenShortcutStillWorks",
+        "testPracticalTitlebarTextUsesFilenameAndSequence",
+        "testVerboseTitlebarTextUsesAllRequestedFields",
+        "testThemeSettingsReplaceRemovedColorControls",
+        "testThemeAppliesNativeAppearanceAndViewportBackground",
+        "testCheckerboardOverridesThemeAndRestoresBackground",
     )
     add_check(
         checks,
@@ -359,6 +369,92 @@ def main() -> int:
             "pre_release_tests": "ctest --test-dir build --output-on-failure" in release_workflow,
         },
         "a pushed v-prefixed Git tag builds, tests, packages, and publishes a GitHub Release with softprops/action-gh-release",
+    )
+
+    shortcut_contract = (
+        'shortcutsList.append({tr("Full Screen"), "fullscreen", QStringList(QKeySequence(Qt::Key_Return).toString()), {}});' in source["src/shortcutmanager.cpp"]
+        and "returnShortcut" not in window_cpp
+        and "keypadEnterShortcut" not in window_cpp
+        and "returnShortcut" not in source["src/mainwindow.h"]
+        and "keypadEnterShortcut" not in source["src/mainwindow.h"]
+    )
+    add_check(
+        checks,
+        "ST-14",
+        shortcut_contract,
+        {
+            "default_return": 'QStringList(QKeySequence(Qt::Key_Return).toString())' in source["src/shortcutmanager.cpp"],
+            "hardcoded_return_removed": "returnShortcut" not in window_cpp,
+            "hardcoded_keypad_enter_removed": "keypadEnterShortcut" not in window_cpp,
+            "test_coverage": all(marker in test_source for marker in (
+                "testFullscreenDefaultShortcutIsEnterAndConfigurable",
+                "testEnterDoesNotBypassClearedFullscreenShortcut",
+                "testConfiguredFullscreenShortcutStillWorks",
+            )),
+        },
+        "Enter is owned by the configurable Full Screen QAction; MainWindow has no independent Enter shortcut",
+    )
+
+    title_contract = all(
+        marker in window_cpp + test_source
+        for marker in (
+            'newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount();',
+            'getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - " + getZoomLevel()',
+            "testPracticalTitlebarTextUsesFilenameAndSequence",
+            "testVerboseTitlebarTextUsesAllRequestedFields",
+        )
+    )
+    add_check(
+        checks,
+        "ST-15",
+        title_contract,
+        {"practical_and_verbose_formatters_and_tests": title_contract},
+        "Practical and Verbose titlebar modes follow the requested filename-first field order",
+    )
+
+    theme_cpp = source["src/qvcocoafunctions.mm"] + source["src/qvcocoafunctions.h"]
+    theme_ui_contract = all(
+        marker in settings_cpp + options_cpp + options_ui + window_cpp + theme_cpp
+        for marker in (
+            'settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});',
+            'syncComboBox(ui->themeComboBox, "theme", defaults, makeConnections);',
+            'name="themeComboBox"',
+            'tr("Light Theme")',
+            'tr("Dark Theme")',
+            'QVCocoaFunctions::setWindowTheme(theme, windowHandle());',
+            'setWindowTheme(Qv::Theme theme, QWindow *window);',
+            'NSAppearanceNameAqua',
+            'NSAppearanceNameDarkAqua',
+            'QColor("#212121")',
+            'QColor("#969696")',
+        )
+    ) and 'name="bgColorCheckbox"' not in options_ui and 'name="darkTitlebarCheckbox"' not in options_ui
+    add_check(
+        checks,
+        "ST-16",
+        theme_ui_contract,
+        {
+            "theme_setting_default": 'settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});' in settings_cpp,
+            "theme_binding": 'syncComboBox(ui->themeComboBox, "theme"' in options_cpp,
+            "two_theme_labels": 'tr("Light Theme")' in options_cpp and 'tr("Dark Theme")' in options_cpp,
+            "old_controls_removed": 'name="bgColorCheckbox"' not in options_ui and 'name="darkTitlebarCheckbox"' not in options_ui,
+            "standard_native_appearances": 'NSAppearanceNameAqua' in theme_cpp and 'NSAppearanceNameDarkAqua' in theme_cpp,
+            "viewport_colors": 'QColor("#212121")' in window_cpp and 'QColor("#969696")' in window_cpp,
+        },
+        "Theme is the only Window color control, defaults to Light, and maps to standard Aqua/DarkAqua plus deterministic viewport colors",
+    )
+
+    theme_test_contract = all(marker in test_source for marker in (
+        "testThemeSettingsReplaceRemovedColorControls",
+        "testThemeAppliesNativeAppearanceAndViewportBackground",
+        "testCheckerboardOverridesThemeAndRestoresBackground",
+    ))
+    add_check(
+        checks,
+        "ST-17",
+        theme_test_contract,
+        {"theme_and_checkerboard_tests": theme_test_contract},
+        "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}

@@ -83,6 +83,12 @@ namespace Qv
         Random = 5
     };
 
+    enum class Theme
+    {
+        Light = 0,
+        Dark = 1
+    };
+
     enum class TitleBarText
     {
         Basic = 0,

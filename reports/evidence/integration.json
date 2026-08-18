@@ -89,7 +89,7 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    1.73 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.73 sec\n"
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.18 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.19 sec\n"
       },
       "expected": "CTest executes the configured Qt integration test target successfully"
     },
@@ -99,7 +99,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-omdtlqk7/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-u2v6r_nr/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
@@ -147,6 +147,26 @@
         "test_before_publish": true
       },
       "expected": "the release workflow is tag-triggered, tests before packaging, and grants the action contents write access"
+    },
+    {
+      "id": "I-13",
+      "pass": true,
+      "actual": {
+        "default_return": true,
+        "no_mainwindow_enter_shortcut": true
+      },
+      "expected": "the Full Screen QAction owns the default Enter binding and no hardcoded Enter bypass remains in MainWindow"
+    },
+    {
+      "id": "I-14",
+      "pass": true,
+      "actual": {
+        "theme_setting_and_ui": true,
+        "native_appearance_mapping": true,
+        "old_controls_removed": true,
+        "title_formats": true
+      },
+      "expected": "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors"
     }
   ],
   "passed": true

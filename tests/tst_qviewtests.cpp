@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QElapsedTimer>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QPushButton>
@@ -23,6 +24,8 @@
 #include "qvimagecore.h"
 #include "qvimageloader.h"
 #include "qvmovie.h"
+#include "qvoptionsdialog.h"
+#include "qvinfodialog.h"
 
 class ImageLoaderTests : public QObject
 {
@@ -105,6 +108,21 @@ private slots:
     void testMovieSpeedAndSingleFrameRead();
 };
 
+class WindowBehaviorTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testFullscreenDefaultShortcutIsEnterAndConfigurable();
+    void testEnterDoesNotBypassClearedFullscreenShortcut();
+    void testConfiguredFullscreenShortcutStillWorks();
+    void testPracticalTitlebarTextUsesFilenameAndSequence();
+    void testVerboseTitlebarTextUsesAllRequestedFields();
+    void testThemeSettingsReplaceRemovedColorControls();
+    void testThemeAppliesNativeAppearanceAndViewportBackground();
+    void testCheckerboardOverridesThemeAndRestoresBackground();
+};
+
 class TestableImageCore : public QVImageCore
 {
 public:
@@ -119,6 +137,30 @@ static QString createTestImage(const QTemporaryDir &dir, const QString &name, co
     if (!image.save(path))
         return {};
     return path;
+}
+
+static QString createTransparentImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(1, 1))
+{
+    const QString path = dir.filePath(name + ".png");
+    QImage image(size, QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    if (!image.save(path))
+        return {};
+    return path;
+}
+
+static bool containsColor(const QImage &image, const QRect &area, const QColor &color)
+{
+    const QRect clippedArea = area.intersected(image.rect());
+    for (int y = clippedArea.top(); y <= clippedArea.bottom(); ++y)
+    {
+        for (int x = clippedArea.left(); x <= clippedArea.right(); ++x)
+        {
+            if (image.pixelColor(x, y) == color)
+                return true;
+        }
+    }
+    return false;
 }
 
 static QString createBase64Image(const QTemporaryDir &dir, const QString &name, const QString &extension, const QByteArray &base64)
@@ -159,6 +201,41 @@ public:
         }
         settings.sync();
         qvApp->getSettingsManager().loadSettings();
+    }
+
+private:
+    QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class ScopedShortcutValues
+{
+public:
+    explicit ScopedShortcutValues(const QHash<QString, QVariant> &values)
+    {
+        QSettings settings;
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+        {
+            const QString fullKey = QStringLiteral("shortcuts/") + it.key();
+            savedValues.insert(it.key(), {settings.contains(fullKey), settings.value(fullKey)});
+            settings.setValue(fullKey, it.value());
+        }
+        settings.sync();
+        qvApp->getShortcutManager().updateShortcuts();
+    }
+
+    ~ScopedShortcutValues()
+    {
+        QSettings settings;
+        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it)
+        {
+            const QString fullKey = QStringLiteral("shortcuts/") + it.key();
+            if (it.value().first)
+                settings.setValue(fullKey, it.value().second);
+            else
+                settings.remove(fullKey);
+        }
+        settings.sync();
+        qvApp->getShortcutManager().updateShortcuts();
     }
 
 private:
@@ -1314,6 +1391,325 @@ void ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()
     QCOMPARE(movie.speed(), 50);
 }
 
+// TC-FS-DEFAULT
+// Test purpose: verify that the Full Screen action owns Enter as its default
+// shortcut and that the value is exposed through the normal shortcut settings.
+// Preconditions: the Qt application and ShortcutManager are initialized.
+// Input data: the Full Screen action key and a Return key sequence.
+// Steps: set the stored Full Screen shortcut to Return, refresh the manager,
+// then inspect both the shortcut record and the QAction.
+// Expected result: the default and active shortcut are Return, with no hidden
+// second binding added by MainWindow.
+// Postcondition: the original shortcut setting and action state are restored.
+void WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()
+{
+    const QString returnKey = QKeySequence(Qt::Key_Return).toString();
+    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {returnKey}}});
+
+    bool foundFullscreenShortcut = false;
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
+    {
+        if (shortcut.name == QStringLiteral("fullscreen"))
+        {
+            foundFullscreenShortcut = true;
+            QCOMPARE(shortcut.defaultShortcuts, QStringList {returnKey});
+            QCOMPARE(shortcut.shortcuts, QStringList {returnKey});
+            break;
+        }
+    }
+    QVERIFY(foundFullscreenShortcut);
+
+    const QAction *fullscreenAction = qvApp->getActionManager().getAction("fullscreen");
+    QVERIFY(fullscreenAction);
+    const QList<QKeySequence> expectedShortcuts {QKeySequence(Qt::Key_Return)};
+    QCOMPARE(fullscreenAction->shortcuts(), expectedShortcuts);
+}
+
+// TC-FS-NO-BYPASS
+// Test purpose: prove that removing Enter from Settings removes fullscreen
+// entry behavior, including the keypad Enter variant.
+// Preconditions: a visible non-fullscreen MainWindow; the Full Screen shortcut
+// is explicitly saved as an empty list.
+// Input data: Qt::Key_Return and Qt::Key_Enter.
+// Steps: refresh shortcuts, send both key events, and inspect child shortcuts.
+// Expected result: the window remains non-fullscreen and no QShortcut bypass
+// remains for either Enter key.
+// Postcondition: the window and shortcut setting are restored.
+void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {}}});
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+
+    for (const auto *shortcut : window.findChildren<QShortcut *>())
+    {
+        QVERIFY(shortcut->key() != QKeySequence(Qt::Key_Return));
+        QVERIFY(shortcut->key() != QKeySequence(Qt::Key_Enter));
+    }
+
+    QTest::keyClick(&window, Qt::Key_Return);
+    QTest::keyClick(&window, Qt::Key_Enter);
+    QTest::qWait(100);
+    QVERIFY(!window.isFullScreen());
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-FS-CONFIGURED
+// Test purpose: verify that a user-specified Full Screen shortcut remains the
+// only source of entry behavior after the hardcoded Enter shortcut is removed.
+// Preconditions: a visible non-fullscreen MainWindow and a saved Space binding.
+// Input data: Qt::Key_Space followed by Qt::Key_Escape.
+// Steps: send Space, wait for fullscreen, then send Escape.
+// Expected result: Space enters fullscreen and Escape exits it.
+// Postcondition: the window and shortcut setting are restored.
+void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {QKeySequence(Qt::Key_Space).toString()}}});
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
+
+    QTest::keyClick(&window, Qt::Key_Space);
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    QTest::keyClick(&window, Qt::Key_Escape);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-TITLE-PRACTICAL
+// Test purpose: verify Practical title text order and content.
+// Preconditions: Titlebar text is Practical and a folder contains two images.
+// Input data: 01-practical.png and 02-other.png, 64x48.
+// Steps: open the first image and rebuild the title.
+// Expected result: the title is "filename - index/count" with no leading zoom.
+// Postcondition: the window and temporary image files are released.
+void WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()
+{
+    ScopedOptionValues options({
+        {"titlebarmode", static_cast<int>(Qv::TitleBarText::Practical)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false}
+    });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString targetPath = createTestImage(dir, "01-practical", Qt::darkRed, QSize(64, 48));
+    QVERIFY(!targetPath.isEmpty());
+    QVERIFY(!createTestImage(dir, "02-other", Qt::darkBlue, QSize(64, 48)).isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(targetPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    window.buildWindowTitle();
+    QCOMPARE(window.windowTitle(), QStringLiteral("01-practical.png - 1/2"));
+    window.close();
+}
+
+// TC-TITLE-VERBOSE
+// Test purpose: verify Verbose title text contains the requested fields in the
+// specified order: filename, sequence, resolution, file size, zoom.
+// Preconditions: Titlebar text is Verbose and a 64x48 image is loaded.
+// Input data: two PNGs and an explicit 125% zoom.
+// Steps: open the first image, set zoom to 125%, and rebuild the title.
+// Expected result: all five fields appear exactly once and Fovelle is not
+// appended as an unrelated suffix.
+// Postcondition: the window and temporary image files are released.
+void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
+{
+    ScopedOptionValues options({
+        {"titlebarmode", static_cast<int>(Qv::TitleBarText::Verbose)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false}
+    });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString targetPath = createTestImage(dir, "01-verbose", Qt::darkGreen, QSize(64, 48));
+    QVERIFY(!targetPath.isEmpty());
+    QVERIFY(!createTestImage(dir, "02-other", Qt::darkBlue, QSize(64, 48)).isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(targetPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.25, Qv::CalculateViewportCenterPos);
+    window.buildWindowTitle();
+
+    const QString expected = QStringLiteral("01-verbose.png - 1/2 - 64x48 - ") +
+        QVInfoDialog::formatBytes(QFileInfo(targetPath).size()) + QStringLiteral(" - 125.0%");
+    QCOMPARE(window.windowTitle(), expected);
+    QVERIFY(!window.windowTitle().contains(QStringLiteral("Fovelle")));
+    window.close();
+}
+
+// TC-THEME-SETTINGS
+// Test purpose: verify Theme replaces both removed color controls and persists.
+// Preconditions: Settings dialog can be constructed with Light Theme selected.
+// Input data: Light Theme and Dark Theme combo-box entries.
+// Steps: inspect the combo, confirm removed controls are absent, select Dark,
+// and invoke Apply.
+// Expected result: exactly two entries exist, Light is the default, and Dark is
+// saved under the theme setting.
+// Postcondition: the original theme setting is restored.
+void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
+{
+    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}});
+
+    QVOptionsDialog dialog;
+    auto *themeComboBox = dialog.findChild<QComboBox *>("themeComboBox");
+    QVERIFY(themeComboBox);
+    QCOMPARE(themeComboBox->count(), 2);
+    QCOMPARE(themeComboBox->itemText(0), QStringLiteral("Light Theme"));
+    QCOMPARE(themeComboBox->itemText(1), QStringLiteral("Dark Theme"));
+    QCOMPARE(themeComboBox->itemData(0).toInt(), static_cast<int>(Qv::Theme::Light));
+    QCOMPARE(themeComboBox->itemData(1).toInt(), static_cast<int>(Qv::Theme::Dark));
+    QCOMPARE(themeComboBox->currentData().toInt(), static_cast<int>(Qv::Theme::Light));
+    QVERIFY(!dialog.findChild<QCheckBox *>("bgColorCheckbox"));
+    QVERIFY(!dialog.findChild<QPushButton *>("bgColorButton"));
+    QVERIFY(!dialog.findChild<QCheckBox *>("darkTitlebarCheckbox"));
+
+    themeComboBox->setCurrentIndex(1);
+    auto *buttonBox = dialog.findChild<QDialogButtonBox *>("buttonBox");
+    QVERIFY(buttonBox);
+    auto *applyButton = buttonBox->button(QDialogButtonBox::Apply);
+    QVERIFY(applyButton);
+    QVERIFY(QMetaObject::invokeMethod(
+        &dialog,
+        "buttonBoxClicked",
+        Qt::DirectConnection,
+        Q_ARG(QAbstractButton *, applyButton)));
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), Qv::Theme::Dark);
+}
+
+// TC-THEME-COLORS
+// Test purpose: verify Light/Dark Theme map to native Aqua/DarkAqua and to the
+// Preview reference gray / former dark body colors.
+// Preconditions: a visible MainWindow with no image loaded.
+// Input data: Light Theme followed by Dark Theme.
+// Steps: observe native appearance and a center viewport pixel for each theme.
+// Expected result: Light is Aqua + #969696; Dark is DarkAqua + #212121.
+// Postcondition: the original theme setting and window are restored.
+void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()
+{
+    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}, {"checkerboardbackground", false}});
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+
+    const auto viewportArea = [&window, view]() {
+        return QRect(view->mapTo(&window, QPoint(0, 0)), view->size());
+    };
+    const auto viewportSnapshot = [&window]() { return window.grab().toImage(); };
+
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("Aqua"), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#969696")), 2000);
+
+    QSettings settings;
+    settings.setValue("options/theme", static_cast<int>(Qv::Theme::Dark));
+    settings.sync();
+    qvApp->getSettingsManager().loadSettings();
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("DarkAqua"), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#212121")), 2000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-THEME-CHECKERBOARD
+// Test purpose: verify checkerboard takes precedence over either theme and
+// disabling it restores the selected theme background.
+// Preconditions: Dark Theme, checkerboard enabled, Original Size zoom, and a
+// transparent 1x1 image are available.
+// Input data: one transparent PNG, then checkerboard=false.
+// Steps: load the transparent image, scan the viewport for both checker colors,
+// disable the option, and scan again.
+// Expected result: #ffffff and #cccccc are present while enabled; #212121 is
+// present after disabling it.
+// Postcondition: the window, fixture, and settings are restored.
+void WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()
+{
+    ScopedOptionValues options({
+        {"theme", static_cast<int>(Qv::Theme::Dark)},
+        {"checkerboardbackground", true},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString transparentPath = createTransparentImage(dir, "transparent");
+    QVERIFY(!transparentPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(transparentPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    const QRect viewportArea(view->mapTo(&window, QPoint(0, 0)), view->size());
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        containsColor(window.grab().toImage(), viewportArea, QColorConstants::White) &&
+            containsColor(window.grab().toImage(), viewportArea, QColor("#cccccc")),
+        2000);
+
+    QSettings settings;
+    settings.setValue("options/checkerboardbackground", false);
+    settings.sync();
+    qvApp->getSettingsManager().loadSettings();
+    QTRY_VERIFY_WITH_TIMEOUT(containsColor(window.grab().toImage(), viewportArea, QColor("#212121")), 2000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication::setOrganizationName("Fovelle");
@@ -1329,11 +1725,13 @@ int main(int argc, char *argv[])
     GraphicsViewTests graphicsViewTests;
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
+    WindowBehaviorTests windowBehaviorTests;
     int result = QTest::qExec(&imageLoaderTests, argc, argv);
     result |= QTest::qExec(&featureTests, argc, argv);
     result |= QTest::qExec(&graphicsViewTests, argc, argv);
     result |= QTest::qExec(&applicationEventTests, argc, argv);
     result |= QTest::qExec(&imageCoreAndMovieTests, argc, argv);
+    result |= QTest::qExec(&windowBehaviorTests, argc, argv);
     return result;
 }
 

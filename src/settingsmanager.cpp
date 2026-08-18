@@ -6,6 +6,7 @@
 #include <QLocale>
 #include <QCoreApplication>
 #include <QDir>
+#include <QColor>
 
 #include <QDebug>
 
@@ -158,6 +159,19 @@ void SettingsManager::migrateOldSettings()
             Qv::SmoothScalingMode::Disabled;
         settings.setValue("smoothscalingmode", static_cast<int>(value));
     }
+
+    // Replace the removed independent background/titlebar switches with one
+    // deterministic theme. Existing users who explicitly chose the old dark
+    // titlebar or the former default dark background keep the dark appearance;
+    // new installations use the light theme by default.
+    if (!settings.contains("theme") &&
+        (settings.contains("titlebaralwaysdark") || settings.contains("bgcolorenabled") || settings.contains("bgcolor")))
+    {
+        const bool oldDarkTitlebar = settings.value("titlebaralwaysdark", false).toBool();
+        const bool oldDarkBackground = settings.value("bgcolorenabled", false).toBool() &&
+            QColor(settings.value("bgcolor").toString()).name().compare(QStringLiteral("#212121"), Qt::CaseInsensitive) == 0;
+        settings.setValue("theme", static_cast<int>(oldDarkTitlebar || oldDarkBackground ? Qv::Theme::Dark : Qv::Theme::Light));
+    }
 }
 
 void SettingsManager::copyFromOfficial()
@@ -181,8 +195,7 @@ void SettingsManager::copyFromOfficial()
 void SettingsManager::initializeSettingsLibrary()
 {
     // Window
-    settingsLibrary.insert("bgcolorenabled", {true, {}});
-    settingsLibrary.insert("bgcolor", {"#212121", {}});
+    settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});
     settingsLibrary.insert("checkerboardbackground", {false, {}});
     settingsLibrary.insert("titlebarmode", {static_cast<int>(Qv::TitleBarText::Minimal), {}});
     settingsLibrary.insert("customtitlebartext", {"%z - %n", {}});
@@ -190,7 +203,6 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("aftermatchingsizemode", {static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious), {}});
     settingsLibrary.insert("minwindowresizedpercentage", {20, {}});
     settingsLibrary.insert("maxwindowresizedpercentage", {70, {}});
-    settingsLibrary.insert("titlebaralwaysdark", {false, {}});
     settingsLibrary.insert("menubarenabled", {false, {}});
     settingsLibrary.insert("fullscreendetails", {false, {}});
     settingsLibrary.insert("mainmenuicons", {true, {}});

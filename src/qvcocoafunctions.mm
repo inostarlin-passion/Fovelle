@@ -164,18 +164,28 @@ void QVCocoaFunctions::setWindowCollectionBehaviorManaged(QWidget *window)
         ~(NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorStationary);
 }
 
-void QVCocoaFunctions::setVibrancy(bool alwaysDark, QWindow *window)
+void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
 {
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    if (!window)
+        return;
 
-    if (alwaysDark)
-    {
-        [view.window setAppearance: [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark]];
-    }
-    else
-    {
-        [view.window setAppearance: nil];
-    }
+    auto *view = reinterpret_cast<NSView*>(window->winId());
+    const NSAppearanceName appearanceName = theme == Qv::Theme::Dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua;
+    [view.window setAppearance:[NSAppearance appearanceNamed:appearanceName]];
+}
+
+QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
+{
+    if (!window)
+        return {};
+
+    auto *view = reinterpret_cast<NSView*>(window->winId());
+    NSString *name = view.window.effectiveAppearance.name;
+    if ([name isEqualToString:NSAppearanceNameAqua])
+        return QStringLiteral("Aqua");
+    if ([name isEqualToString:NSAppearanceNameDarkAqua])
+        return QStringLiteral("DarkAqua");
+    return name ? QString::fromUtf8(name.UTF8String) : QString();
 }
 
 int QVCocoaFunctions::getObscuredHeight(QWindow *window)

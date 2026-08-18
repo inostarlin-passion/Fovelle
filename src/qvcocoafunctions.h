@@ -2,6 +2,7 @@
 #define QVCOCOAFUNCTIONS_H
 
 #include "openwith.h"
+#include "qvnamespace.h"
 
 #include <QWindow>
 #include <QMenu>
@@ -26,7 +27,9 @@ public:
 
     static void setWindowCollectionBehaviorManaged(QWidget *window);
 
-    static void setVibrancy(bool alwaysDark, QWindow *window);
+    static void setWindowTheme(Qv::Theme theme, QWindow *window);
+
+    static QString getWindowAppearanceName(const QWindow *window);
 
     static int getObscuredHeight(QWindow *window);
 
