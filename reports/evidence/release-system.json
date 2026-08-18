@@ -1,0 +1,23 @@
+{
+  "kind": "system-release",
+  "repo": "/Users/inostarlin/code/Fovelle",
+  "cases": [
+    {
+      "id": "TC-REL-SYSTEM-DRYRUN",
+      "test": "package-macos-release.sh dry-run",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "dry_run_elapsed_seconds": 0.005278667002130533,
+    "dry_run_max_seconds": 5.0,
+    "passed": true
+  },
+  "artifact_validation": "deferred",
+  "artifact_observations": {},
+  "passed": true,
+  "limitations": [
+    "Without --app and --zip, this local gate intentionally runs only the deterministic orchestration dry run; it does not consume Apple credentials.",
+    "The actual signed artifact gate runs inside the GitHub Release job after Apple notarization and extracts the exact uploaded zip."
+  ]
+}

@@ -385,6 +385,34 @@ def main() -> int:
         "the integrated GitHub Actions clang-tidy contract has enabled checks and validates when the tool is available",
     )
 
+    release_evidence_path = repo / "reports" / "evidence" / "release.json"
+    release_result = run(
+        repo,
+        sys.executable,
+        "tests/quality_release.py",
+        "--repo",
+        str(repo),
+        "--output",
+        str(release_evidence_path),
+    )
+    release_record: dict = {}
+    if release_evidence_path.is_file():
+        try:
+            release_record = json.loads(release_evidence_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            release_record = {}
+    add_check(
+        checks,
+        "I-16",
+        release_result.returncode == 0 and release_record.get("passed") is True,
+        {
+            "return_code": release_result.returncode,
+            "release_contract_passed": release_record.get("passed"),
+            "output": (release_result.stdout + release_result.stderr)[-4000:],
+        },
+        "the executable release contract test passes in dry-run mode without exposing or consuming credentials",
+    )
+
     result = {
         "kind": "integration",
         "repo": str(repo),

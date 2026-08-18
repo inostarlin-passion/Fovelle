@@ -89,7 +89,7 @@
       "pass": true,
       "actual": {
         "return_code": 0,
-        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.20 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.20 sec\n"
+        "output": "Test project /Users/inostarlin/code/Fovelle/build-fovelle-task\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed    2.41 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =   2.42 sec\n"
       },
       "expected": "CTest executes the configured Qt integration test target successfully"
     },
@@ -99,7 +99,7 @@
       "actual": {
         "qmake": "/opt/homebrew/bin/qmake",
         "return_code": 0,
-        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-5gs70j3p/.qmake.stash\nProject MESSAGE: This is a release build\n"
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-9ipwoajh/.qmake.stash\nProject MESSAGE: This is a release build\n"
       },
       "expected": "the legacy macOS qmake project still configures with the native frameworks"
     },
@@ -178,6 +178,16 @@
         "verify_config_output": "No config errors detected.\n"
       },
       "expected": "the integrated GitHub Actions clang-tidy contract has enabled checks and validates when the tool is available"
+    },
+    {
+      "id": "I-16",
+      "pass": true,
+      "actual": {
+        "return_code": 0,
+        "release_contract_passed": true,
+        "output": "{\n  \"kind\": \"release-contract\",\n  \"repo\": \"/Users/inostarlin/code/Fovelle\",\n  \"checks\": [\n    {\n      \"id\": \"R-01\",\n      \"pass\": true,\n      \"actual\": {\n        \"cmake_universal_flag\": true,\n        \"universal_asset_name\": true,\n        \"lipo_verification\": true,\n        \"both_architectures_checked\": true\n      },\n      \"expected\": \"Release builds and verifies both arm64 and x86_64 in the app and publishes an explicitly Universal asset\"\n    },\n    {\n      \"id\": \"R-02\",\n      \"pass\": true,\n      \"actual\": {\n        \"macdeployqt\": true,\n        \"always_overwrite\": true,\n        \"workflow_step\": true\n      },\n      \"expected\": \"the Release app is self-contained with Qt frameworks and plugins before signing\"\n    },\n    {\n      \"id\": \"R-03\",\n      \"pass\": true,\n      \"actual\": {\n        \"APPLE_APP_SPECIFIC_PASSWORD\": true,\n        \"APPLE_CERTIFICATE_BASE64\": true,\n        \"APPLE_CERTIFICATE_PASSWORD\": true,\n        \"APPLE_ID\": true,\n        \"APPLE_TEAM_ID\": true\n      },\n      \"expected\": \"all five configured GitHub Secrets are explicitly wired to the release step without embedding values\"\n    },\n    {\n      \"id\": \"R-04\",\n      \"pass\": true,\n      \"actual\": {\n        \"certificate_import\": true,\n        \"developer_id_identity_check\": true,\n        \"secure_timestamp\": true,\n        \"hardened_runtime\": true,\n        \"ad_hoc_signing_absent\": true\n      },\n      \"expected\": \"the app is signed with an imported Developer ID Application identity, secure timestamp, and Hardened Runtime\"\n    },\n    {\n      \"id\": \"R-05\",\n      \"pass\": true,\n      \"actual\": {\n        \"notarytool_wait\": true,\n        \"apple_credentials\": true,\n        \"staple_and_validate\": true\n      },\n      \"expected\": \"the signed app is submitted to Apple, waits for approval, staples the ticket, and validates it\"\n    },\n    {\n      \"id\": \"R-06\",\n      \"pass\": true,\n      \"actual\": {\n        \"gatekeeper\": true,\n        \"codesign_verify\": true,\n        \"final_zip_extracted\": true,\n        \"zip_path\": true\n      },\n      \"expected\": \"the exact final zip is extracted and checked for architecture, signature, stapled ticket, and Gatekeeper acceptance\"\n    },\n    {\n      \"id\": \"R-07\",\n      \"pass\": true,\n      \"actual\": {\n        \"shell_trace_disabled\": true,\n        \"secret_echo_absent\": true\n      },\n      \"expected\": \"the release script does not intentionally print certificate or Apple credential values\"\n    },\n    {\n      \"id\": \"R-08\",\n      \"pass\": true,\n      \"actual\": {\n        \"return_code\": 0,\n        \"output\": \"DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip\\nDRY_RUN_APP_PATH: fixture/Fovelle.app\\nDRY_RUN_RELEASE_ZIP_PATH: fixture/Fovelle-universal.zip\\n\"\n      },\n      \"expected\": \"the release orchestration is deterministically executable in dry-run mode without requiring secrets or network access\"\n    }\n  ],\n  \"passed\": true,\n  \"limitations\": [\n    \"Dry-run validates orchestration without consuming Apple credentials; actual notarization requires the configured GitHub Secrets and Apple service.\",\n    \"Artifact-level Gatekeeper acceptance is verified by the Release workflow after the signed zip is produced.\"\n  ]\n}\n"
+      },
+      "expected": "the executable release contract test passes in dry-run mode without exposing or consuming credentials"
     }
   ],
   "passed": true

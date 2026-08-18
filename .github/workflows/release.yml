@@ -31,6 +31,7 @@ jobs:
           -DBUILD_TESTS=ON
           -DFOVELLE_BUILD_TRANSLATIONS=OFF
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 
       - name: Build
         run: cmake --build build --parallel 2
@@ -38,10 +39,17 @@ jobs:
       - name: Test
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
 
-      - name: Package Fovelle
+      - name: Sign, notarize, validate, and package Fovelle
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app "Fovelle-${RELEASE_TAG}-macOS.zip"
+          RELEASE_APP_PATH: build/Fovelle.app
+          RELEASE_ZIP_PATH: Fovelle-${{ github.ref_name }}-macOS-universal.zip
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash dist/scripts/package-macos-release.sh
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -50,6 +58,6 @@ jobs:
           name: Fovelle ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: Fovelle-${{ github.ref_name }}-macOS.zip
+          files: Fovelle-${{ github.ref_name }}-macOS-universal.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

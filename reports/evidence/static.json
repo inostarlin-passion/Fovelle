@@ -21,6 +21,8 @@
           "/Users/inostarlin/code/Fovelle/tests/quality_feature_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_fullscreen_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_integration.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_release.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_release_system.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_static.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_system_probe.py",
           "/Users/inostarlin/code/Fovelle/tests/quality_titlebar_system.py",
@@ -224,6 +226,18 @@
         "build_script_wires_clang_tidy": true
       },
       "expected": "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation"
+    },
+    {
+      "id": "ST-19",
+      "pass": true,
+      "actual": {
+        "universal_architecture": true,
+        "dependency_deployment": true,
+        "developer_id_signing": true,
+        "notarization_and_gatekeeper": true,
+        "shell_syntax_return_code": 0
+      },
+      "expected": "the Release workflow has a syntactically valid Universal build and signed/notarized artifact verification path"
     }
   ],
   "passed": true

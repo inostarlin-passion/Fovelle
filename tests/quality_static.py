@@ -55,6 +55,7 @@ def main() -> int:
         ".clang-tidy",
         ".github/workflows/test.yml",
         ".github/workflows/release.yml",
+        "dist/scripts/package-macos-release.sh",
     )
     source = {relative: (repo / relative).read_text(encoding="utf-8") for relative in relative_sources}
 
@@ -484,6 +485,37 @@ def main() -> int:
             "build_script_wires_clang_tidy": "CMAKE_CXX_CLANG_TIDY=clang-tidy" in tidy_script,
         },
         "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation",
+    )
+
+    release_workflow = source[".github/workflows/release.yml"]
+    release_script = source["dist/scripts/package-macos-release.sh"]
+    release_syntax = command("bash", "-n", str(repo / "dist/scripts/package-macos-release.sh"), cwd=repo)
+    release_contract = contains_all(
+        release_workflow + release_script,
+        (
+            'CMAKE_OSX_ARCHITECTURES="x86_64;arm64"',
+            "macOS-universal.zip",
+            "macdeployqt",
+            "security import",
+            "Developer ID Application:",
+            "xcrun notarytool submit",
+            "xcrun stapler staple",
+            "spctl --assess --type execute",
+            "lipo -archs",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-19",
+        release_contract and release_syntax.returncode == 0 and "codesign --sign -" not in release_script,
+        {
+            "universal_architecture": 'CMAKE_OSX_ARCHITECTURES="x86_64;arm64"' in release_workflow and "lipo -archs" in release_script,
+            "dependency_deployment": "macdeployqt" in release_script,
+            "developer_id_signing": "Developer ID Application:" in release_script and "codesign --sign -" not in release_script,
+            "notarization_and_gatekeeper": all(marker in release_script for marker in ("xcrun notarytool submit", "xcrun stapler staple", "spctl --assess --type execute")),
+            "shell_syntax_return_code": release_syntax.returncode,
+        },
+        "the Release workflow has a syntactically valid Universal build and signed/notarized artifact verification path",
     )
 
     result = {"kind": "static", "repo": str(repo), "checks": checks, "passed": all(item["pass"] for item in checks)}
