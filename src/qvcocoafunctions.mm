@@ -4,10 +4,13 @@
 
 #include <QUrl>
 #include <QDebug>
+#include <QFile>
 #include <QFileIconProvider>
 #include <QCollator>
+#include <QFileInfo>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #import <Cocoa/Cocoa.h>
@@ -56,6 +59,157 @@ int sourceMaxPixelSize(CGImageSourceRef source)
     const int maxDimension = std::max(width, height);
     return maxDimension > 0 ? maxDimension : std::numeric_limits<int>::max();
 }
+
+bool numberFromDictionary(CFDictionaryRef dictionary, CFStringRef key, double &value)
+{
+    if (!dictionary)
+        return false;
+
+    const CFTypeRef rawValue = CFDictionaryGetValue(dictionary, key);
+    if (!rawValue || CFGetTypeID(rawValue) != CFNumberGetTypeID())
+        return false;
+
+    return CFNumberGetValue(static_cast<CFNumberRef>(rawValue), kCFNumberDoubleType, &value);
+}
+
+CFDictionaryRef pngPropertiesForFrame(CGImageSourceRef source, const size_t frameNumber)
+{
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, frameNumber, nullptr);
+    if (!properties)
+        return nullptr;
+
+    const CFTypeRef pngProperties = CFDictionaryGetValue(properties, kCGImagePropertyPNGDictionary);
+    if (!pngProperties || CFGetTypeID(pngProperties) != CFDictionaryGetTypeID())
+    {
+        CFRelease(properties);
+        return nullptr;
+    }
+
+    CFRetain(pngProperties);
+    CFRelease(properties);
+    return static_cast<CFDictionaryRef>(pngProperties);
+}
+
+QImage imageFromCGImage(CGImageRef cgImage)
+{
+    if (!cgImage)
+        return {};
+
+    const size_t width = CGImageGetWidth(cgImage);
+    const size_t height = CGImageGetHeight(cgImage);
+    QImage image(static_cast<int>(width), static_cast<int>(height), QImage::Format_RGBA8888_Premultiplied);
+    if (image.isNull())
+        return {};
+
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(
+        image.bits(),
+        width,
+        height,
+        8,
+        image.bytesPerLine(),
+        colorSpace,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    if (!context)
+    {
+        CGColorSpaceRelease(colorSpace);
+        return {};
+    }
+
+    CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    return image;
+}
+
+class NativeAnimatedImage final : public QVCocoaFunctions::AnimatedImage
+{
+public:
+    explicit NativeAnimatedImage(const QString &filePath)
+    {
+        const QByteArray pathData = QFile::encodeName(filePath);
+        CFURLRef url = CFURLCreateFromFileSystemRepresentation(
+            kCFAllocatorDefault,
+            reinterpret_cast<const UInt8 *>(pathData.constData()),
+            static_cast<CFIndex>(pathData.size()),
+            false);
+        if (!url)
+            return;
+
+        source = CGImageSourceCreateWithURL(url, nullptr);
+        CFRelease(url);
+        if (!source)
+            return;
+
+        frameTotal = static_cast<int>(CGImageSourceGetCount(source));
+        if (frameTotal <= 1)
+            return;
+
+        if (const CFDictionaryRef properties = pngPropertiesForFrame(source, 0))
+        {
+            double loopValue = 0;
+            if (numberFromDictionary(properties, kCGImagePropertyAPNGLoopCount, loopValue))
+                loops = loopValue == 0 ? -1 : std::max(0, static_cast<int>(std::lround(loopValue)));
+            CFRelease(properties);
+        }
+
+        valid = true;
+    }
+
+    ~NativeAnimatedImage() override
+    {
+        if (source)
+            CFRelease(source);
+    }
+
+    bool isValid() const override { return valid; }
+
+    int frameCount() const override { return valid ? frameTotal : 0; }
+
+    int loopCount() const override { return loops; }
+
+    QImage frame(const int frameNumber) const override
+    {
+        if (!valid || frameNumber < 0 || frameNumber >= frameTotal)
+            return {};
+
+        CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, static_cast<size_t>(frameNumber), nullptr);
+        if (!cgImage)
+            return {};
+
+        QImage image = imageFromCGImage(cgImage);
+        CGImageRelease(cgImage);
+        return image;
+    }
+
+    int frameDelay(const int frameNumber) const override
+    {
+        if (!valid || frameNumber < 0 || frameNumber >= frameTotal)
+            return 0;
+
+        int delay = 100;
+        if (const CFDictionaryRef properties = pngPropertiesForFrame(source, static_cast<size_t>(frameNumber)))
+        {
+            double seconds = 0;
+            if (!numberFromDictionary(properties, kCGImagePropertyAPNGUnclampedDelayTime, seconds) &&
+                !numberFromDictionary(properties, kCGImagePropertyAPNGDelayTime, seconds))
+            {
+                seconds = 0.1;
+            }
+
+            if (std::isfinite(seconds))
+                delay = std::max(0, static_cast<int>(std::lround(seconds * 1000.0)));
+            CFRelease(properties);
+        }
+        return delay;
+    }
+
+private:
+    CGImageSourceRef source {nullptr};
+    int frameTotal {0};
+    int loops {-1};
+    bool valid {false};
+};
 }
 
 static void hideMenuShortcuts(NSMenu *nativeMenu)
@@ -486,4 +640,16 @@ QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *e
     CGImageRelease(cgImage);
     CFRelease(source);
     return image;
+}
+
+std::unique_ptr<QVCocoaFunctions::AnimatedImage> QVCocoaFunctions::createAnimatedImage(const QString &filePath)
+{
+    const QString suffix = QFileInfo(filePath).suffix().toLower();
+    if (suffix != QStringLiteral("png") && suffix != QStringLiteral("apng"))
+        return nullptr;
+
+    auto animatedImage = std::make_unique<NativeAnimatedImage>(filePath);
+    if (!animatedImage->isValid())
+        return nullptr;
+    return animatedImage;
 }

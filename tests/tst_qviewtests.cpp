@@ -3,6 +3,9 @@
 #include <QFileOpenEvent>
 #include <QImage>
 #include <QFile>
+#include <QPainter>
+#include <QPropertyAnimation>
+#include <QMouseEvent>
 #include <QElapsedTimer>
 #include <QCheckBox>
 #include <QComboBox>
@@ -11,6 +14,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSettings>
+#include <QTimer>
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
 #include <QThreadPool>
@@ -106,6 +110,7 @@ class ImageCoreAndMovieTests : public QObject
 private slots:
     void testColorSpaceConversion();
     void testMovieSpeedAndSingleFrameRead();
+    void testAnimatedPngPlaysBeyondFirstFrame();
 };
 
 class WindowBehaviorTests : public QObject
@@ -117,10 +122,16 @@ private slots:
     void testEnterDoesNotBypassClearedFullscreenShortcut();
     void testConfiguredFullscreenShortcutStillWorks();
     void testPracticalTitlebarTextUsesFilenameAndSequence();
+    void testDefaultTitlebarTextIsPractical();
     void testVerboseTitlebarTextUsesAllRequestedFields();
     void testThemeSettingsReplaceRemovedColorControls();
     void testThemeAppliesNativeAppearanceAndViewportBackground();
     void testCheckerboardOverridesThemeAndRestoresBackground();
+    void testNavigationEdgeActivationExcludesTitlebar();
+    void testNavigationButtonSizingAndDelays();
+    void testNavigationButtonsUseActualContentContrast();
+    void testNavigationButtonsFadeTransition();
+    void testNavigationButtonsClickSwitchesFiles();
 };
 
 class TestableImageCore : public QVImageCore
@@ -147,6 +158,42 @@ static QString createTransparentImage(const QTemporaryDir &dir, const QString &n
     if (!image.save(path))
         return {};
     return path;
+}
+
+static QString createSplitImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(1600, 1000))
+{
+    const QString path = dir.filePath(name + ".png");
+    QImage image(size, QImage::Format_RGB32);
+    QPainter painter(&image);
+    painter.fillRect(QRect(0, 0, size.width() / 2, size.height()), QColorConstants::White);
+    painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()), QColorConstants::Black);
+    painter.end();
+    if (!image.save(path))
+        return {};
+    return path;
+}
+
+static void sendMouseMove(QWidget *widget, const QPoint &position)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QMouseEvent event(
+        QEvent::MouseMove,
+        QPointF(position),
+        QPointF(position),
+        QPointF(widget->mapToGlobal(position)),
+        Qt::NoButton,
+        Qt::NoButton,
+        Qt::NoModifier);
+#else
+    QMouseEvent event(
+        QEvent::MouseMove,
+        position,
+        widget->mapToGlobal(position),
+        Qt::NoButton,
+        Qt::NoButton,
+        Qt::NoModifier);
+#endif
+    QCoreApplication::sendEvent(widget, &event);
 }
 
 static bool containsColor(const QImage &image, const QRect &area, const QColor &color)
@@ -1391,6 +1438,75 @@ void ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()
     QCOMPARE(movie.speed(), 50);
 }
 
+// TC-APNG-PLAY
+// Test purpose: verify that the supplied APNG is decoded as an animation and
+// that playback can advance beyond the first composited frame.
+// Preconditions: the user-provided APNG fixture exists and the macOS Image I/O
+// animation decoder is available.
+// Input data: 587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png.
+// Steps: construct QVMovie, inspect its frame/loop metadata, jump to frame 0
+// and the first later frame that differs, and compare image/delay metadata.
+// Expected result: 686 frames are reported, the loop is infinite, a later
+// frame is reachable and differs from frame 0, and its finite delay is retained.
+// Postcondition: the movie is destroyed without leaving an active timer.
+void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
+{
+    const QString path = qEnvironmentVariable(
+        "FOVELLE_APNG_FIXTURE",
+        QStringLiteral("/Users/inostarlin/Downloads/587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png"));
+    QVERIFY2(QFileInfo::exists(path), qPrintable(QStringLiteral("APNG fixture is missing: %1").arg(path)));
+
+    QVMovie movie(path);
+    movie.setCacheMode(QVMovie::CacheAll);
+    QVERIFY(movie.isValid());
+    QCOMPARE(movie.frameCount(), 686);
+    QCOMPARE(movie.loopCount(), -1);
+
+    QVERIFY(movie.jumpToFrame(0));
+    const QImage firstFrame = movie.currentImage();
+    QCOMPARE(firstFrame.size(), QSize(240, 160));
+
+    int differingFrame = -1;
+    QImage secondFrame;
+    for (int frameNumber = 1; frameNumber < movie.frameCount(); ++frameNumber)
+    {
+        QVERIFY(movie.jumpToFrame(frameNumber));
+        secondFrame = movie.currentImage();
+        if (firstFrame != secondFrame)
+        {
+            differingFrame = frameNumber;
+            break;
+        }
+    }
+    QVERIFY(differingFrame > 0);
+    QCOMPARE(secondFrame.size(), QSize(240, 160));
+    QCOMPARE(movie.currentFrameNumber(), differingFrame);
+    QVERIFY(movie.nextFrameDelay() > 0);
+
+    QVMovie playbackMovie(path);
+    playbackMovie.setCacheMode(QVMovie::CacheAll);
+    playbackMovie.setSpeed(1000);
+    QSignalSpy frameChangedSpy(&playbackMovie, &QVMovie::frameChanged);
+    playbackMovie.start();
+    QTRY_VERIFY_WITH_TIMEOUT(frameChangedSpy.count() >= 2, 1000);
+    QVERIFY(playbackMovie.currentFrameNumber() > 0);
+    playbackMovie.stop();
+}
+
+// TC-TITLE-DEFAULT
+// Test purpose: verify the default Settings → Window → Titlebar text value.
+// Preconditions: SettingsManager has initialized its default-value library.
+// Input data: the titlebarmode setting requested with defaults=true.
+// Steps: read the default enum without mutating the user's stored setting.
+// Expected result: the default is Qv::TitleBarText::Practical.
+// Postcondition: no setting or window state is changed.
+void WindowBehaviorTests::testDefaultTitlebarTextIsPractical()
+{
+    QCOMPARE(
+        qvApp->getSettingsManager().getEnum<Qv::TitleBarText>("titlebarmode", true),
+        Qv::TitleBarText::Practical);
+}
+
 // TC-FS-DEFAULT
 // Test purpose: verify that the Full Screen action owns Enter as its default
 // shortcut and that the value is exposed through the normal shortcut settings.
@@ -1705,6 +1821,281 @@ void WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
     QTRY_VERIFY_WITH_TIMEOUT(containsColor(window.grab().toImage(), viewportArea, QColor("#212121")), 2000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-NAV-EDGE
+// Test purpose: verify that navigation activation is limited to the left and
+// right content edges and excludes the titlebar area.
+// Preconditions: a valid main-window content rectangle and the configured
+// activation width.
+// Input data: points on both edge boundaries, the central area, and one point
+// above the content rectangle.
+// Steps: evaluate the pure edge predicate for each point.
+// Expected result: only content-edge points activate navigation; the titlebar
+// point and center point do not.
+// Postcondition: no GUI or persistent state is changed.
+void WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()
+{
+    const QRect contentRect(0, 100, 400, 300);
+    const int activationWidth = MainWindow::navigationEdgeWidth(contentRect.width());
+    QCOMPARE(activationWidth, 72);
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(0, 200), contentRect));
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(activationWidth - 1, 200), contentRect, activationWidth));
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(399, 200), contentRect));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(activationWidth, 200), contentRect, activationWidth));
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth, 200), contentRect, activationWidth));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth - 1, 200), contentRect, activationWidth));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(200, 200), contentRect));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(20, 99), contentRect));
+}
+
+// TC-NAV-SIZE
+// Test purpose: verify the sensing-strip formula, the narrow-window cutoff,
+// and the independent show/hide delay contracts exposed by the buttons.
+// Preconditions: the navigation constants and MainWindow construction path.
+// Input data: boundary widths 215/216 pt and representative widths around the
+// 8% crossover, followed by a newly constructed main window.
+// Steps: evaluate the pure width helpers and inspect the timer/button metadata.
+// Expected result: widths below 216 pt are unsupported; the strip is the
+// maximum of 72 pt and 8% (rounded upward to device points); show is 60 ms,
+// hide is 300 ms, and the opacity transition remains 180 ms.
+// Postcondition: the temporary window is closed; no settings are changed.
+void WindowBehaviorTests::testNavigationButtonSizingAndDelays()
+{
+    QVERIFY(!MainWindow::areNavigationButtonsSupported(215));
+    QVERIFY(MainWindow::areNavigationButtonsSupported(216));
+    QCOMPARE(MainWindow::navigationEdgeWidth(800), 72);
+    QCOMPARE(MainWindow::navigationEdgeWidth(899), 72);
+    QCOMPARE(MainWindow::navigationEdgeWidth(900), 72);
+    QCOMPARE(MainWindow::navigationEdgeWidth(901), 73);
+    QCOMPARE(MainWindow::navigationEdgeWidth(1000), 80);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    auto *previousTimer = window.findChild<QTimer *>("previousImageButtonVisibilityTimer");
+    auto *nextTimer = window.findChild<QTimer *>("nextImageButtonVisibilityTimer");
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    QVERIFY(previousTimer);
+    QVERIFY(nextTimer);
+    QCOMPARE(previousButton->property("showDelayMs").toInt(), MainWindow::NavigationButtonShowDelay);
+    QCOMPARE(previousButton->property("hideDelayMs").toInt(), MainWindow::NavigationButtonHideDelay);
+    QCOMPARE(nextButton->property("showDelayMs").toInt(), MainWindow::NavigationButtonShowDelay);
+    QCOMPARE(nextButton->property("hideDelayMs").toInt(), MainWindow::NavigationButtonHideDelay);
+    QCOMPARE(previousButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
+    QCOMPARE(nextButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
+    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonShowDelay);
+    QCOMPARE(nextTimer->interval(), MainWindow::NavigationButtonShowDelay);
+    window.close();
+}
+
+// TC-NAV-CONTRAST
+// Test purpose: verify that each navigation button chooses its style from the
+// pixels actually displayed beneath that button, independently per side.
+// Preconditions: a visible two-file folder, a split white/black image, and the
+// Settings Theme explicitly set to Dark to prove it is not the selector.
+// Input data: a 1600x1000 image whose left half is white and right half black,
+// plus a second image in the same folder.
+// Steps: open the first image, move to the left edge and then right edge, and
+// inspect the sampled brightness and contrastStyle properties.
+// Expected result: the left button reports a light style and brightness > 0.5;
+// the right button reports a dark style and brightness < 0.5.
+// Postcondition: the window and temporary files are released; settings restore.
+void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
+{
+    ScopedOptionValues options({
+        {"theme", static_cast<int>(Qv::Theme::Dark)},
+        {"checkerboardbackground", false},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createSplitImage(dir, "01-navigation");
+    const QString secondPath = createSplitImage(dir, "02-navigation");
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!secondPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(firstPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size() == 2, 5000);
+    QTest::qWait(100);
+
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    QVERIFY(view);
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+
+    const int middleY = view->viewport()->height() / 2;
+    sendMouseMove(view->viewport(), QPoint(1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("sampledContentBrightness").isValid(), 1000);
+    QCOMPARE(previousButton->property("contrastStyle").toString(), QStringLiteral("light"));
+    QVERIFY(previousButton->property("sampledContentBrightness").toDouble() > 0.5);
+
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
+    QCOMPARE(nextButton->property("contrastStyle").toString(), QStringLiteral("dark"));
+    QVERIFY(nextButton->property("sampledContentBrightness").toDouble() < 0.5);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-NAV-TRANSITION
+// Test purpose: verify navigation-button appearance/disappearance delays and
+// fade transitions.
+// Preconditions: a visible two-file folder and a loaded image.
+// Input data: two white 1600x1000 PNGs and mouse positions at the left edge,
+// center, and right edge.
+// Steps: reveal the previous button, inspect its 60 ms show timer and the
+// configured animation duration, move to the center and inspect the 300 ms
+// hide timer before the fade-out, then reveal the next button.
+// Expected result: appearance waits 60 ms; disappearance waits 300 ms and
+// then uses a 180 ms opacity animation; the button stays present while
+// fading out, and both sides can be revealed.
+// Postcondition: the window and temporary files are released; settings restore.
+void WindowBehaviorTests::testNavigationButtonsFadeTransition()
+{
+    ScopedOptionValues options({
+        {"theme", static_cast<int>(Qv::Theme::Light)},
+        {"checkerboardbackground", false},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(dir, "01-transition", Qt::white, QSize(1600, 1000));
+    const QString secondPath = createTestImage(dir, "02-transition", Qt::white, QSize(1600, 1000));
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!secondPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(firstPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size() == 2, 5000);
+    QTest::qWait(100);
+
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    auto *previousAnimation = window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
+    auto *nextAnimation = window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
+    auto *previousTimer = window.findChild<QTimer *>("previousImageButtonVisibilityTimer");
+    auto *nextTimer = window.findChild<QTimer *>("nextImageButtonVisibilityTimer");
+    QVERIFY(view);
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    QVERIFY(previousAnimation);
+    QVERIFY(nextAnimation);
+    QVERIFY(previousTimer);
+    QVERIFY(nextTimer);
+    QCOMPARE(previousAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
+    QCOMPARE(nextAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
+
+    const int middleY = view->viewport()->height() / 2;
+    sendMouseMove(view->viewport(), QPoint(1, middleY));
+    QVERIFY(previousTimer->isActive());
+    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonShowDelay);
+    QVERIFY(!previousButton->isVisible());
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
+
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() / 2, middleY));
+    QVERIFY(previousTimer->isActive());
+    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonHideDelay);
+    QVERIFY(previousButton->isVisible());
+    QTest::qWait(100);
+    QVERIFY(previousButton->isVisible());
+    QTRY_VERIFY_WITH_TIMEOUT(!previousButton->isVisible(), 1000);
+
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
+    QVERIFY(nextTimer->isActive());
+    QCOMPARE(nextTimer->interval(), MainWindow::NavigationButtonShowDelay);
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-NAV-CLICK
+// Test purpose: verify that clicking the visible Next button switches the
+// current image to the adjacent file.
+// Preconditions: a visible two-file folder, a loaded first image, and a Next
+// button revealed by moving to the content area's right edge.
+// Input data: two white 1600x1000 PNGs sorted by name.
+// Steps: open the first file, send a deterministic right-edge mouse move, wait
+// for the Next button, click it, and observe the loaded absolute path.
+// Expected result: the second file becomes the current file within 5 seconds.
+// Postcondition: the window and temporary files are released; settings restore.
+void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
+{
+    ScopedOptionValues options({
+        {"theme", static_cast<int>(Qv::Theme::Light)},
+        {"checkerboardbackground", false},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(dir, "01-click", Qt::white, QSize(1600, 1000));
+    const QString secondPath = createTestImage(dir, "02-click", Qt::white, QSize(1600, 1000));
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!secondPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(firstPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size() == 2, 5000);
+    QTest::qWait(100);
+
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    QVERIFY(view);
+    QVERIFY(nextButton);
+
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, view->viewport()->height() / 2));
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+    QTest::mouseClick(nextButton, Qt::LeftButton);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+        QFileInfo(secondPath).absoluteFilePath(),
+        5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

@@ -10,9 +10,23 @@
 #include <QByteArray>
 #include <QList>
 
+#include <memory>
+
 class QVCocoaFunctions
 {
 public:
+    class AnimatedImage
+    {
+    public:
+        virtual ~AnimatedImage() = default;
+
+        virtual bool isValid() const = 0;
+        virtual int frameCount() const = 0;
+        virtual int loopCount() const = 0;
+        virtual QImage frame(int frameNumber) const = 0;
+        virtual int frameDelay(int frameNumber) const = 0;
+    };
+
     static void showMenu(QMenu *menu, const QPoint &point, QWindow *window);
 
     static void setUserDefaults();
@@ -52,6 +66,8 @@ public:
     static bool supportsAdditionalImageFormat(const QByteArray &format);
 
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
+
+    static std::unique_ptr<AnimatedImage> createAnimatedImage(const QString &filePath);
 };
 
 #endif // QVCOCOAFUNCTIONS_H

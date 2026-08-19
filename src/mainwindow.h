@@ -17,6 +17,7 @@ class MainWindow;
 }
 
 class QLabel;
+class QPushButton;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 
@@ -166,6 +167,21 @@ public:
 
     bool getIsClosing() const { return isClosing; }
 
+    static constexpr int NavigationButtonActivationMinimumWidth = 72;
+    static constexpr int NavigationButtonActivationPercentage = 8;
+    static constexpr int NavigationButtonMinimumWindowWidth = 216;
+    static constexpr int NavigationButtonSize = 60;
+    static constexpr int NavigationButtonEdgeMargin = 20;
+    static constexpr int NavigationButtonShowDelay = 60;
+    static constexpr int NavigationButtonHideDelay = 300;
+    static constexpr int NavigationButtonAnimationDuration = 180;
+
+    static int navigationEdgeWidth(int windowWidth);
+
+    static bool areNavigationButtonsSupported(int windowWidth);
+
+    static bool isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect, int edgeWidth = NavigationButtonActivationMinimumWidth);
+
 public slots:
     void openFile(const QString &fileName, const QString &baseDir = "");
 
@@ -190,6 +206,8 @@ public slots:
 protected:
     bool event(QEvent *event) override;
 
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
     void contextMenuEvent(QContextMenuEvent *event) override;
 
     void showEvent(QShowEvent *event) override;
@@ -213,6 +231,20 @@ protected slots:
 private:
     void clearTitlebarIcons();
 
+    void initializeNavigationButtons();
+
+    void updateNavigationButtonGeometry();
+
+    void updateNavigationButtonAppearance();
+
+    void updateNavigationButtonVisibility(const QPoint &windowPosition);
+
+    void setNavigationButtonVisible(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, QTimer *visibilityTimer, bool visible);
+
+    void applyNavigationButtonVisibility(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, bool visible);
+
+    void hideNavigationButtonsImmediately();
+
     void updateTitlebarBubbleText();
 
     void revealTitlebarBubble();
@@ -224,6 +256,15 @@ private:
     QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;
     QTimer *titlebarBubbleHideTimer;
     QPropertyAnimation *titlebarBubbleHideAnimation;
+
+    QPushButton *previousImageButton {nullptr};
+    QPushButton *nextImageButton {nullptr};
+    QGraphicsOpacityEffect *previousImageButtonOpacityEffect {nullptr};
+    QGraphicsOpacityEffect *nextImageButtonOpacityEffect {nullptr};
+    QPropertyAnimation *previousImageButtonAnimation {nullptr};
+    QPropertyAnimation *nextImageButtonAnimation {nullptr};
+    QTimer *previousImageButtonVisibilityTimer {nullptr};
+    QTimer *nextImageButtonVisibilityTimer {nullptr};
 
     QMenu *contextMenu;
     QMenu *virtualMenu;

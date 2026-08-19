@@ -41,6 +41,7 @@ def main() -> int:
         "src/qvgraphicsview.h",
         "src/qvgraphicsview.cpp",
         "src/qvimageloader.cpp",
+        "src/qvmovie.cpp",
         "src/qvoptionsdialog.cpp",
         "src/qvoptionsdialog.ui",
         "src/settingsmanager.cpp",
@@ -107,13 +108,28 @@ def main() -> int:
         "all quality runner Python files parse successfully",
     )
 
-    diff_result = command("git", "diff", "--check", "HEAD", cwd=repo)
+    task_scope_paths = (
+        "src",
+        "tests",
+        "CMakeLists.txt",
+        "qView.pro",
+        "build.sh",
+        ".clang-tidy",
+        ".github",
+        "dist",
+    )
+    diff_result = command("git", "diff", "--check", "HEAD", "--", *task_scope_paths, cwd=repo)
     add_check(
         checks,
         "ST-03",
         diff_result.returncode == 0,
-        {"return_code": diff_result.returncode, "output": diff_result.stdout + diff_result.stderr},
-        "the working-tree diff has no whitespace errors",
+        {
+            "return_code": diff_result.returncode,
+            "output": diff_result.stdout + diff_result.stderr,
+            "scope": list(task_scope_paths),
+            "excluded_preexisting_paths": ["README.md"],
+        },
+        "the task-scoped working-tree diff has no whitespace errors; unrelated pre-existing README.md changes remain untouched",
     )
 
     window_cpp = source["src/mainwindow.cpp"]
@@ -195,6 +211,32 @@ def main() -> int:
         "the macOS Image I/O decoder is the canonical WebP/AVIF path, with Qt retained as a fallback",
     )
 
+    movie_cpp = source["src/qvmovie.cpp"]
+    apng_contract = contains_all(
+        cocoa_header + cocoa_mm + movie_cpp,
+        (
+            "class AnimatedImage",
+            "createAnimatedImage",
+            "CGImageSourceGetCount",
+            "kCGImagePropertyAPNGDelayTime",
+            "nativeAnimation",
+            "playCounter = nativeAnimation ? nativeAnimation->loopCount() : reader->loopCount();",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-06-APNG",
+        apng_contract,
+        {
+            "native_animation_interface": "class AnimatedImage" in cocoa_header,
+            "image_io_frame_count": "CGImageSourceGetCount" in cocoa_mm,
+            "apng_delay_metadata": "kCGImagePropertyAPNGDelayTime" in cocoa_mm,
+            "movie_uses_native_animation": "nativeAnimation" in movie_cpp,
+            "native_loop_count": "playCounter = nativeAnimation ? nativeAnimation->loopCount() : reader->loopCount();" in movie_cpp,
+        },
+        "APNG uses macOS Image I/O frame composition, per-frame delays, loop metadata, and the existing QVMovie timer/cache contract",
+    )
+
     formats_app = contains_all(
         application_cpp,
         (
@@ -235,6 +277,7 @@ def main() -> int:
         "testImageLoaderLoadsAvifWithImageIOFallback",
         "testImageLoaderAppliesWebpOrientation",
         "testImageLoaderAppliesAvifOrientation",
+        "testAnimatedPngPlaysBeyondFirstFrame",
         "testWindowIconIsCleared",
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
@@ -251,10 +294,16 @@ def main() -> int:
         "testEnterDoesNotBypassClearedFullscreenShortcut",
         "testConfiguredFullscreenShortcutStillWorks",
         "testPracticalTitlebarTextUsesFilenameAndSequence",
+        "testDefaultTitlebarTextIsPractical",
         "testVerboseTitlebarTextUsesAllRequestedFields",
         "testThemeSettingsReplaceRemovedColorControls",
         "testThemeAppliesNativeAppearanceAndViewportBackground",
         "testCheckerboardOverridesThemeAndRestoresBackground",
+        "testNavigationEdgeActivationExcludesTitlebar",
+        "testNavigationButtonSizingAndDelays",
+        "testNavigationButtonsUseActualContentContrast",
+        "testNavigationButtonsFadeTransition",
+        "testNavigationButtonsClickSwitchesFiles",
     )
     add_check(
         checks,
@@ -461,6 +510,45 @@ def main() -> int:
         theme_test_contract,
         {"theme_and_checkerboard_tests": theme_test_contract},
         "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests",
+    )
+
+    navigation_contract = contains_all(
+        window_cpp + mainwindow_header + test_source,
+        (
+            "eventFilter(QObject *watched, QEvent *event)",
+            "sampledContentBrightness",
+            "viewport()->grab(sampleRect)",
+            "QGraphicsOpacityEffect",
+            "NavigationButtonAnimationDuration",
+            "NavigationButtonShowDelay",
+            "NavigationButtonHideDelay",
+            "NavigationButtonMinimumWindowWidth",
+            "navigationEdgeWidth",
+            "setDarkBackground",
+            "testNavigationButtonSizingAndDelays",
+            "testNavigationButtonsUseActualContentContrast",
+            "testNavigationButtonsFadeTransition",
+            "testNavigationButtonsClickSwitchesFiles",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-21",
+        navigation_contract,
+        {
+            "mouse_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow_header,
+            "actual_content_sample": "viewport()->grab(sampleRect)" in window_cpp,
+            "per_side_style": "sampledContentBrightness" in window_cpp and "setDarkBackground" in window_cpp,
+            "fade_effect": "QGraphicsOpacityEffect" in window_cpp and "NavigationButtonAnimationDuration" in window_cpp,
+            "deterministic_tests": all(marker in test_source for marker in (
+                "testNavigationEdgeActivationExcludesTitlebar",
+                "testNavigationButtonSizingAndDelays",
+                "testNavigationButtonsUseActualContentContrast",
+            "testNavigationButtonsFadeTransition",
+            "testNavigationButtonsClickSwitchesFiles",
+            )),
+        },
+        "the navigation feature observes pointer position in content space, samples each button's underlying pixels, and animates visibility with deterministic tests",
     )
 
     tidy_config = source[".clang-tidy"]

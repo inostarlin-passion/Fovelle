@@ -3,6 +3,7 @@
 // Qt-Security score:critical reason:data-parser
 
 #include "qvmovie.h"
+#include "qvcocoafunctions.h"
 
 #include "qelapsedtimer.h"
 #include "qimage.h"
@@ -73,6 +74,7 @@ public:
     QFrameInfo infoForFrame(int frameNumber);
     void reset();
     void cancelNextLoad();
+    void configureNativeAnimation();
 
     inline void enterState(QVMovie::MovieState newState) {
         movieState = newState;
@@ -84,6 +86,7 @@ public:
 
     QVMovie *q_ptr = nullptr;
     std::unique_ptr<QImageReader> reader = nullptr;
+    std::unique_ptr<QVCocoaFunctions::AnimatedImage> nativeAnimation;
     int speed = 100;
 
     QVMovie::MovieState movieState = QVMovie::NotRunning;
@@ -136,6 +139,13 @@ void QVMoviePrivate::reset()
     frameMap.clear();
 }
 
+void QVMoviePrivate::configureNativeAnimation()
+{
+    nativeAnimation.reset();
+    if (!absoluteFilePath.isEmpty())
+        nativeAnimation = QVCocoaFunctions::createAnimatedImage(absoluteFilePath);
+}
+
 void QVMoviePrivate::cancelNextLoad()
 {
     nextLoadTime = std::nullopt;
@@ -163,6 +173,33 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         if (frameNumber == greatestFrameNumber+1)
             return QFrameInfo::endMarker();
         return QFrameInfo(); // Invalid
+    }
+
+    if (nativeAnimation)
+    {
+        if (frameNumber >= nativeAnimation->frameCount())
+        {
+            haveReadAll = true;
+            return QFrameInfo::endMarker();
+        }
+
+        if (cacheMode == QVMovie::CacheAll)
+        {
+            const auto cached = frameMap.find(frameNumber);
+            if (cached != frameMap.end())
+                return cached->second;
+        }
+
+        QImage image = nativeAnimation->frame(frameNumber);
+        if (image.isNull())
+            return QFrameInfo();
+
+        QFrameInfo info(QPixmap::fromImage(std::move(image)), nativeAnimation->frameDelay(frameNumber));
+        if (frameNumber > greatestFrameNumber)
+            greatestFrameNumber = frameNumber;
+        if (cacheMode == QVMovie::CacheAll)
+            frameMap[frameNumber] = info;
+        return info;
     }
 
     // For an animated image format, the tradition is that QMovie calls read()
@@ -276,7 +313,7 @@ bool QVMoviePrivate::next()
                 return false;
             }
             // End of first iteration. Initialize play counter
-            playCounter = reader->loopCount();
+            playCounter = nativeAnimation ? nativeAnimation->loopCount() : reader->loopCount();
             isFirstIteration = false;
         }
         // Loop as appropriate
@@ -417,6 +454,7 @@ QVMovie::QVMovie(const QString &fileName, const QByteArray &format, QObject *par
     Q_D(QVMovie);
     d->init(this, std::make_unique<QImageReader>(fileName, format));
     d->absoluteFilePath = QDir(fileName).absolutePath();
+    d->configureNativeAnimation();
     if (d->reader->device())
         d->initialDevicePos = d->reader->device()->pos();
 }
@@ -430,6 +468,7 @@ QVMovie::~QVMovie()
 void QVMovie::setDevice(QIODevice *device)
 {
     Q_D(QVMovie);
+    d->nativeAnimation.reset();
     d->reader->setDevice(device);
     d->reset();
 }
@@ -445,6 +484,7 @@ void QVMovie::setFileName(const QString &fileName)
     Q_D(QVMovie);
     d->absoluteFilePath = QDir(fileName).absolutePath();
     d->reader->setFileName(fileName);
+    d->configureNativeAnimation();
     d->reset();
 }
 
@@ -505,6 +545,8 @@ QImage QVMovie::currentImage() const
 bool QVMovie::isValid() const
 {
     Q_D(const QVMovie);
+    if (d->nativeAnimation)
+        return d->nativeAnimation->isValid();
     return d->isValid();
 }
 
@@ -523,6 +565,8 @@ QString QVMovie::lastErrorString() const
 int QVMovie::frameCount() const
 {
     Q_D(const QVMovie);
+    if (d->nativeAnimation)
+        return d->nativeAnimation->frameCount();
     return d->frameCount();
 }
 
@@ -553,6 +597,8 @@ bool QVMovie::jumpToFrame(int frameNumber)
 int QVMovie::loopCount() const
 {
     Q_D(const QVMovie);
+    if (d->nativeAnimation)
+        return d->nativeAnimation->loopCount();
     return d->reader->loopCount();
 }
 

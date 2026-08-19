@@ -115,6 +115,31 @@ def main() -> int:
         "supported WebP/AVIF files use linked Apple Image I/O as the canonical orientation-aware decoder, with Qt retained as fallback",
     )
 
+    movie = text("src/qvmovie.cpp")
+    apng_contract = all_present(
+        cocoa + movie,
+        (
+            "createAnimatedImage",
+            "CGImageSourceGetCount",
+            "kCGImagePropertyAPNGUnclampedDelayTime",
+            "nativeAnimation",
+            "CacheAll",
+        ),
+    )
+    add_check(
+        checks,
+        "I-03-APNG",
+        apng_contract,
+        {
+            "image_io_animation_factory": "createAnimatedImage" in cocoa,
+            "frame_count": "CGImageSourceGetCount" in cocoa,
+            "frame_delays": "kCGImagePropertyAPNGUnclampedDelayTime" in cocoa,
+            "qvmovie_native_path": "nativeAnimation" in movie,
+            "cache_contract": "CacheAll" in movie,
+        },
+        "the integrated APNG path provides composed frames and timing metadata through QVMovie's cache and playback state machine",
+    )
+
     options = text("src/qvoptionsdialog.cpp")
     formats_registry = all_present(
         application,
@@ -258,13 +283,28 @@ def main() -> int:
         "the legacy macOS qmake project still configures with the native frameworks",
     )
 
-    diff_check = run(repo, "git", "diff", "--check", "HEAD")
+    diff_scope_paths = (
+        "src",
+        "tests",
+        "CMakeLists.txt",
+        "qView.pro",
+        "build.sh",
+        ".clang-tidy",
+        ".github",
+        "dist",
+    )
+    diff_check = run(repo, "git", "diff", "--check", "HEAD", "--", *diff_scope_paths)
     add_check(
         checks,
         "I-08",
         diff_check.returncode == 0,
-        {"return_code": diff_check.returncode, "output": diff_check.stdout + diff_check.stderr},
-        "the integrated working-tree diff has no whitespace errors",
+        {
+            "return_code": diff_check.returncode,
+            "output": diff_check.stdout + diff_check.stderr,
+            "scope": list(diff_scope_paths),
+            "excluded_preexisting_paths": ["README.md"],
+        },
+        "the integrated task-scoped working-tree diff has no whitespace errors; unrelated pre-existing README.md changes remain untouched",
     )
 
     required_cases = (
@@ -272,6 +312,7 @@ def main() -> int:
         "testImageLoaderLoadsAvifWithImageIOFallback",
         "testImageLoaderAppliesWebpOrientation",
         "testImageLoaderAppliesAvifOrientation",
+        "testAnimatedPngPlaysBeyondFirstFrame",
         "testWindowIconIsCleared",
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
@@ -284,6 +325,12 @@ def main() -> int:
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
+        "testDefaultTitlebarTextIsPractical",
+        "testNavigationEdgeActivationExcludesTitlebar",
+        "testNavigationButtonSizingAndDelays",
+        "testNavigationButtonsUseActualContentContrast",
+        "testNavigationButtonsFadeTransition",
+        "testNavigationButtonsClickSwitchesFiles",
     )
     add_check(
         checks,
@@ -359,6 +406,41 @@ def main() -> int:
             "title_formats": 'newString = getFileName() + " - " + getImageIndex()' in mainwindow and 'getImageWidth() + "x" + getImageHeight()' in mainwindow,
         },
         "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors",
+    )
+
+    navigation_contract = all_present(
+        mainwindow + text("src/mainwindow.h"),
+        (
+            "previousImageButton",
+            "nextImageButton",
+            "eventFilter(QObject *watched, QEvent *event)",
+            "viewport()->grab(sampleRect)",
+            "QPropertyAnimation",
+            "navigationEdgeWidth",
+            "NavigationButtonActivationMinimumWidth",
+            "NavigationButtonActivationPercentage",
+            "NavigationButtonMinimumWindowWidth",
+            "NavigationButtonShowDelay",
+            "NavigationButtonHideDelay",
+        ),
+    )
+    add_check(
+        checks,
+        "I-14-NAV",
+        navigation_contract,
+        {
+            "buttons": "previousImageButton" in mainwindow and "nextImageButton" in mainwindow,
+            "pointer_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow,
+            "underlying_content_sample": "viewport()->grab(sampleRect)" in mainwindow,
+            "transition": "QPropertyAnimation" in mainwindow,
+            "edge_width": "navigationEdgeWidth" in mainwindow + text("src/mainwindow.h"),
+            "minimum_strip": "NavigationButtonActivationMinimumWidth" in mainwindow + text("src/mainwindow.h"),
+            "percentage_strip": "NavigationButtonActivationPercentage" in mainwindow + text("src/mainwindow.h"),
+            "minimum_window": "NavigationButtonMinimumWindowWidth" in mainwindow + text("src/mainwindow.h"),
+            "appearance_delay": "NavigationButtonShowDelay" in mainwindow + text("src/mainwindow.h"),
+            "disappearance_delay": "NavigationButtonHideDelay" in mainwindow + text("src/mainwindow.h"),
+        },
+        "the navigation buttons are integrated with content-only edge activation, per-side content sampling, and opacity transitions",
     )
 
     tidy_config = text(".clang-tidy")

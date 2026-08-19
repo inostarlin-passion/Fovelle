@@ -158,13 +158,6 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     loadedMovie.setCacheMode(QVMovie::CacheAll);
     loadedMovie.setFileName(currentFileDetails.fileInfo.absoluteFilePath());
 
-    // APNG workaround
-    if (loadedMovie.format() == "png")
-    {
-        loadedMovie.setFormat("apng");
-        loadedMovie.setFileName(currentFileDetails.fileInfo.absoluteFilePath());
-    }
-
     if (!readData.isMultiFrameImage && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 

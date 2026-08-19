@@ -190,7 +190,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="fovelle-system-") as temporary_directory:
         fixture_dir = Path(temporary_directory)
         if args.image:
-            image_cases = [("SYS-IMAGE", args.image.resolve())]
+            image_path = args.image.resolve()
+            case_id = "SYS-APNG" if image_path.suffix.lower() in {".png", ".apng"} else "SYS-IMAGE"
+            image_cases = [(case_id, image_path)]
             if not image_cases[0][1].is_file():
                 print("image must be a valid file", file=sys.stderr)
                 return 2

@@ -34,12 +34,122 @@
 #include <QNetworkReply>
 #include <QTemporaryFile>
 #include <QLabel>
+#include <QPushButton>
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
 #include <QTimer>
+#include <QMouseEvent>
+#include <QPainterPath>
+#include <QtMath>
 
 namespace
 {
+class ImageNavigationButton : public QPushButton
+{
+public:
+    ImageNavigationButton(const bool previous, QWidget *parent) :
+        QPushButton(parent),
+        previous(previous)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setMouseTracking(true);
+        setFocusPolicy(Qt::NoFocus);
+        setCursor(Qt::PointingHandCursor);
+        setFlat(true);
+        setStyleSheet(QStringLiteral("QPushButton { background: transparent; border: none; padding: 0; }"));
+    }
+
+    void setDarkBackground(const bool value)
+    {
+        if (darkBackground == value)
+        {
+            setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+            return;
+        }
+
+        darkBackground = value;
+        setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event);
+
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        const bool isHovered = underMouse() || isDown();
+        if (darkBackground)
+        {
+            QColor background(128, 128, 128, isHovered ? 235 : 220);
+            if (!isEnabled())
+                background.setAlpha(100);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(background);
+            painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+        }
+        else if (isHovered)
+        {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor(255, 255, 255, 55));
+            painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+        }
+
+        QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
+        if (!isEnabled())
+            foreground.setAlpha(90);
+
+        QPainterPath chevron;
+        const qreal centerX = width() / 2.0;
+        const qreal centerY = height() / 2.0;
+        const qreal direction = previous ? -1.0 : 1.0;
+        chevron.moveTo(centerX - direction * 5.0, centerY - 12.0);
+        chevron.lineTo(centerX + direction * 7.0, centerY);
+        chevron.lineTo(centerX - direction * 5.0, centerY + 12.0);
+
+        QPen pen(foreground, 4.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter.setPen(pen);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawPath(chevron);
+    }
+
+private:
+    const bool previous;
+    bool darkBackground {false};
+};
+
+std::optional<qreal> sampledContentBrightness(const QVGraphicsView *graphicsView, const QPushButton *button)
+{
+    if (!graphicsView || !button || !graphicsView->isVisible())
+        return {};
+
+    const QPoint viewportCenter = graphicsView->viewport()->mapFrom(
+        graphicsView,
+        button->geometry().center());
+    const QRect sampleRect = QRect(viewportCenter - QPoint(5, 5), QSize(11, 11))
+        .intersected(graphicsView->viewport()->rect());
+    if (!sampleRect.isValid())
+        return {};
+
+    const QImage sample = graphicsView->viewport()->grab(sampleRect).toImage();
+    if (sample.isNull())
+        return {};
+
+    qreal brightnessTotal = 0.0;
+    qint64 sampleCount = 0;
+    for (int y = 0; y < sample.height(); ++y)
+    {
+        for (int x = 0; x < sample.width(); ++x)
+        {
+            brightnessTotal += Qv::getPerceivedBrightness(sample.pixelColor(x, y));
+            ++sampleCount;
+        }
+    }
+    return sampleCount > 0 ? std::optional<qreal>(brightnessTotal / sampleCount) : std::nullopt;
+}
+
 class TitlebarBubble : public QLabel
 {
 public:
@@ -81,7 +191,10 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
     // Initialize graphicsviewkDefaultBufferAlignment
     graphicsView = new QVGraphicsView(this);
+    graphicsView->setObjectName(QStringLiteral("graphicsView"));
     centralWidget()->layout()->addWidget(graphicsView);
+
+    initializeNavigationButtons();
 
     titlebarBubble = new TitlebarBubble(graphicsView);
     titlebarBubble->move(12, 4);
@@ -278,6 +391,307 @@ bool MainWindow::event(QEvent *event)
     return QMainWindow::event(event);
 }
 
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    const bool isNavigationWidget =
+        watched == graphicsView ||
+        watched == graphicsView->viewport() ||
+        watched == previousImageButton ||
+        watched == nextImageButton;
+    if (!isNavigationWidget)
+        return QMainWindow::eventFilter(watched, event);
+
+    QWidget *watchedWidget = qobject_cast<QWidget *>(watched);
+    if (event->type() == QEvent::MouseMove && watchedWidget)
+    {
+        const auto *mouseEvent = static_cast<QMouseEvent *>(event);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const QPoint watchedPosition = mouseEvent->position().toPoint();
+#else
+        const QPoint watchedPosition = mouseEvent->pos();
+#endif
+        updateNavigationButtonVisibility(watchedWidget->mapTo(this, watchedPosition));
+    }
+    else if (event->type() == QEvent::Enter)
+    {
+        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+    }
+    else if (event->type() == QEvent::Leave)
+    {
+        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
+bool MainWindow::isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect, const int edgeWidth)
+{
+    if (!contentRect.isValid() || !contentRect.contains(windowPosition))
+        return false;
+
+    const int boundedEdgeWidth = qBound(1, edgeWidth, qMax(1, contentRect.width() / 2));
+    return windowPosition.x() < contentRect.left() + boundedEdgeWidth ||
+        windowPosition.x() >= contentRect.right() - boundedEdgeWidth + 1;
+}
+
+int MainWindow::navigationEdgeWidth(const int windowWidth)
+{
+    return qMax(
+        NavigationButtonActivationMinimumWidth,
+        qCeil(windowWidth * NavigationButtonActivationPercentage / 100.0));
+}
+
+bool MainWindow::areNavigationButtonsSupported(const int windowWidth)
+{
+    return windowWidth >= NavigationButtonMinimumWindowWidth;
+}
+
+void MainWindow::initializeNavigationButtons()
+{
+    auto createButton = [this](const bool previous, const QString &objectName, const QString &accessibleName) {
+        auto *button = new ImageNavigationButton(previous, graphicsView);
+        button->setObjectName(objectName);
+        button->setAccessibleName(accessibleName);
+        button->setToolTip(accessibleName);
+        button->setFixedSize(NavigationButtonSize, NavigationButtonSize);
+        button->setProperty("showDelayMs", NavigationButtonShowDelay);
+        button->setProperty("hideDelayMs", NavigationButtonHideDelay);
+        button->setProperty("transitionDurationMs", NavigationButtonAnimationDuration);
+        button->setProperty("pendingNavigationVisible", false);
+        button->hide();
+        button->raise();
+        button->installEventFilter(this);
+        return button;
+    };
+
+    previousImageButton = createButton(true, QStringLiteral("previousImageButton"), tr("Previous File"));
+    nextImageButton = createButton(false, QStringLiteral("nextImageButton"), tr("Next File"));
+
+    connect(previousImageButton, &QPushButton::clicked, this, &MainWindow::previousFile);
+    connect(nextImageButton, &QPushButton::clicked, this, &MainWindow::nextFile);
+
+    auto createOpacityAnimation = [this](QPushButton *button, QGraphicsOpacityEffect **opacityEffect, QPropertyAnimation **animation, const QString &objectName) {
+        *opacityEffect = new QGraphicsOpacityEffect(button);
+        (*opacityEffect)->setOpacity(0.0);
+        button->setGraphicsEffect(*opacityEffect);
+
+        *animation = new QPropertyAnimation(*opacityEffect, "opacity", this);
+        (*animation)->setObjectName(objectName);
+        (*animation)->setDuration(NavigationButtonAnimationDuration);
+        connect(*animation, &QPropertyAnimation::finished, button, [button, opacityEffect, animation]() {
+            if ((*animation)->endValue().toReal() <= 0.0 && (*opacityEffect)->opacity() <= 0.001)
+                button->hide();
+        });
+    };
+
+    createOpacityAnimation(
+        previousImageButton,
+        &previousImageButtonOpacityEffect,
+        &previousImageButtonAnimation,
+        QStringLiteral("previousImageButtonOpacityAnimation"));
+    createOpacityAnimation(
+        nextImageButton,
+        &nextImageButtonOpacityEffect,
+        &nextImageButtonAnimation,
+        QStringLiteral("nextImageButtonOpacityAnimation"));
+
+    auto createVisibilityTimer = [this](
+        QPushButton *button,
+        QGraphicsOpacityEffect *opacityEffect,
+        QPropertyAnimation *animation,
+        const QString &objectName) {
+        auto *timer = new QTimer(this);
+        timer->setObjectName(objectName);
+        timer->setSingleShot(true);
+        timer->setInterval(NavigationButtonShowDelay);
+        connect(timer, &QTimer::timeout, this, [this, button, opacityEffect, animation]() {
+            applyNavigationButtonVisibility(
+                button,
+                opacityEffect,
+                animation,
+                button->property("pendingNavigationVisible").toBool());
+        });
+        return timer;
+    };
+
+    previousImageButtonVisibilityTimer = createVisibilityTimer(
+        previousImageButton,
+        previousImageButtonOpacityEffect,
+        previousImageButtonAnimation,
+        QStringLiteral("previousImageButtonVisibilityTimer"));
+    nextImageButtonVisibilityTimer = createVisibilityTimer(
+        nextImageButton,
+        nextImageButtonOpacityEffect,
+        nextImageButtonAnimation,
+        QStringLiteral("nextImageButtonVisibilityTimer"));
+
+    graphicsView->installEventFilter(this);
+    graphicsView->viewport()->installEventFilter(this);
+    updateNavigationButtonAppearance();
+    updateNavigationButtonGeometry();
+}
+
+void MainWindow::updateNavigationButtonGeometry()
+{
+    if (!graphicsView || !previousImageButton || !nextImageButton)
+        return;
+
+    const ViewportPosition viewportPosition = getViewportPosition();
+    const int contentTopInView = qBound(
+        0,
+        graphicsView->mapFrom(this, QPoint(0, viewportPosition.widgetY + viewportPosition.obscuredHeight)).y(),
+        graphicsView->height());
+    const int availableHeight = qMax(0, graphicsView->height() - contentTopInView);
+    const int y = contentTopInView + qMax(0, (availableHeight - NavigationButtonSize) / 2);
+
+    previousImageButton->setGeometry(NavigationButtonEdgeMargin, y, NavigationButtonSize, NavigationButtonSize);
+    nextImageButton->setGeometry(
+        graphicsView->width() - NavigationButtonEdgeMargin - NavigationButtonSize,
+        y,
+        NavigationButtonSize,
+        NavigationButtonSize);
+    previousImageButton->raise();
+    nextImageButton->raise();
+}
+
+void MainWindow::updateNavigationButtonAppearance()
+{
+    const auto updateButton = [this](QPushButton *button) {
+        const std::optional<qreal> brightness = sampledContentBrightness(graphicsView, button);
+        const bool isDark = brightness.has_value() && brightness.value() < 0.5;
+        button->setProperty("sampledContentBrightness", brightness.has_value() ? QVariant(brightness.value()) : QVariant());
+        if (auto *navigationButton = dynamic_cast<ImageNavigationButton *>(button))
+            navigationButton->setDarkBackground(isDark);
+    };
+
+    updateButton(previousImageButton);
+    updateButton(nextImageButton);
+}
+
+void MainWindow::setNavigationButtonVisible(
+    QPushButton *button,
+    QGraphicsOpacityEffect *opacityEffect,
+    QPropertyAnimation *animation,
+    QTimer *visibilityTimer,
+    const bool visible)
+{
+    if (!button || !opacityEffect || !animation || !visibilityTimer)
+        return;
+
+    const bool previousTarget = button->property("pendingNavigationVisible").toBool();
+    const bool targetUnchanged = button->property("pendingNavigationVisible").isValid() && previousTarget == visible;
+    button->setProperty("pendingNavigationVisible", visible);
+
+    if (targetUnchanged)
+    {
+        if (visibilityTimer->isActive())
+            return;
+        if (animation->state() == QAbstractAnimation::Running &&
+            animation->endValue().toReal() == (visible ? 1.0 : 0.0))
+            return;
+        if (visible && button->isVisible() && opacityEffect->opacity() >= 0.999)
+            return;
+        if (!visible && !button->isVisible())
+            return;
+    }
+
+    visibilityTimer->stop();
+    visibilityTimer->setInterval(visible ? button->property("showDelayMs").toInt() : button->property("hideDelayMs").toInt());
+    visibilityTimer->start();
+}
+
+void MainWindow::applyNavigationButtonVisibility(
+    QPushButton *button,
+    QGraphicsOpacityEffect *opacityEffect,
+    QPropertyAnimation *animation,
+    const bool visible)
+{
+    if (visible)
+    {
+        animation->stop();
+        if (!button->isVisible())
+        {
+            opacityEffect->setOpacity(0.0);
+            button->show();
+        }
+        button->raise();
+        animation->setStartValue(opacityEffect->opacity());
+        animation->setEndValue(1.0);
+        animation->start();
+        return;
+    }
+
+    if (!button->isVisible())
+        return;
+
+    animation->stop();
+    animation->setStartValue(opacityEffect->opacity());
+    animation->setEndValue(0.0);
+    animation->start();
+}
+
+void MainWindow::hideNavigationButtonsImmediately()
+{
+    if (!previousImageButton || !nextImageButton)
+        return;
+
+    if (previousImageButtonVisibilityTimer)
+        previousImageButtonVisibilityTimer->stop();
+    if (nextImageButtonVisibilityTimer)
+        nextImageButtonVisibilityTimer->stop();
+    previousImageButton->setProperty("pendingNavigationVisible", false);
+    nextImageButton->setProperty("pendingNavigationVisible", false);
+    previousImageButtonAnimation->stop();
+    nextImageButtonAnimation->stop();
+    previousImageButtonOpacityEffect->setOpacity(0.0);
+    nextImageButtonOpacityEffect->setOpacity(0.0);
+    previousImageButton->hide();
+    nextImageButton->hide();
+}
+
+void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
+{
+    if (!areNavigationButtonsSupported(width()) ||
+        !getIsPixmapLoaded() ||
+        getCurrentFileDetails().folderFileInfoList.size() < 2)
+    {
+        hideNavigationButtonsImmediately();
+        return;
+    }
+
+    updateNavigationButtonGeometry();
+    const ViewportPosition viewportPosition = getViewportPosition();
+    const int contentTop = viewportPosition.widgetY + viewportPosition.obscuredHeight;
+    const QRect contentRect(0, contentTop, width(), qMax(0, height() - contentTop));
+    const QRect previousWindowRect(
+        graphicsView->mapTo(this, previousImageButton->geometry().topLeft()),
+        previousImageButton->size());
+    const QRect nextWindowRect(
+        graphicsView->mapTo(this, nextImageButton->geometry().topLeft()),
+        nextImageButton->size());
+    const int activationWidth = navigationEdgeWidth(width());
+    const bool leftVisible = contentRect.contains(windowPosition) &&
+        (windowPosition.x() < contentRect.left() + activationWidth || previousWindowRect.contains(windowPosition));
+    const bool rightVisible = contentRect.contains(windowPosition) &&
+        (windowPosition.x() >= contentRect.right() - activationWidth + 1 || nextWindowRect.contains(windowPosition));
+
+    if ((leftVisible && !previousImageButton->isVisible()) || (rightVisible && !nextImageButton->isVisible()))
+        updateNavigationButtonAppearance();
+
+    setNavigationButtonVisible(
+        previousImageButton,
+        previousImageButtonOpacityEffect,
+        previousImageButtonAnimation,
+        previousImageButtonVisibilityTimer,
+        leftVisible);
+    setNavigationButtonVisible(
+        nextImageButton,
+        nextImageButtonOpacityEffect,
+        nextImageButtonAnimation,
+        nextImageButtonVisibilityTimer,
+        rightVisible);
+}
+
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     // Workaround to show native context menus on macOS
@@ -315,11 +729,14 @@ void MainWindow::showEvent(QShowEvent *event)
 
     QMainWindow::showEvent(event);
     clearTitlebarIcons();
+    updateNavigationButtonGeometry();
+    updateNavigationButtonAppearance();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     isClosing = true;
+    hideNavigationButtonsImmediately();
 
     QVCocoaFunctions::setFullSizeContentView(this, false);
 
@@ -353,6 +770,10 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     updateTitlebarBubbleText();
+    updateNavigationButtonGeometry();
+    updateNavigationButtonAppearance();
+    if (!areNavigationButtonsSupported(width()))
+        hideNavigationButtonsImmediately();
 }
 
 void MainWindow::paintEvent(QPaintEvent *event)
@@ -480,6 +901,9 @@ void MainWindow::settingsUpdated()
 
     updateMenuBarVisible();
 
+    updateNavigationButtonGeometry();
+    updateNavigationButtonAppearance();
+
     // repaint in case background color changed
     update();
 }
@@ -516,6 +940,11 @@ void MainWindow::fileChanged(const bool isRestoringState)
 
     // full repaint to handle error message
     update();
+    updateNavigationButtonGeometry();
+    QTimer::singleShot(0, this, [this]() {
+        updateNavigationButtonAppearance();
+        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+    });
 }
 
 void MainWindow::zoomLevelChanged()
@@ -822,6 +1251,8 @@ void MainWindow::setTitlebarHidden(const bool shouldHide)
     revealTitlebarBubble();
     update();
     graphicsView->fitOrConstrainImage();
+    updateNavigationButtonGeometry();
+    updateNavigationButtonAppearance();
 }
 
 void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitRequest)
