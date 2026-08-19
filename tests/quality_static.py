@@ -457,6 +457,23 @@ def main() -> int:
         "scene-rect updates cannot recursively trigger fit passes, and CI/CTest terminate a stuck test within a documented bounded window",
     )
 
+    cross_dpi_test_contract = (
+        "itemsBoundingRect().width() >= 1200" in test_source
+        and "itemsBoundingRect().width() > 1200" not in test_source
+        and "Retina and non-Retina runners" in test_source
+    )
+    add_check(
+        checks,
+        "ST-26-CROSS-DPI-GEOMETRY",
+        cross_dpi_test_contract,
+        {
+            "non_retina_safe_lower_bound": "itemsBoundingRect().width() >= 1200" in test_source,
+            "retina_only_strict_bound_absent": "itemsBoundingRect().width() > 1200" not in test_source,
+            "cross_dpi_documentation": "Retina and non-Retina runners" in test_source,
+        },
+        "geometry regression tests assert the rendering invariant without requiring a Retina backing scale",
+    )
+
     version_contract = contains_all(
         source["CMakeLists.txt"] + source["qView.pro"] + test_source,
         ("VERSION 0.1.1", "VERSION = 0.1.1", 'QString("0.1.1")'),

@@ -944,12 +944,12 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
 // Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
 // loads a 1200x900 image, so both AsNeeded scrollbars are required.
 // Input data: one deterministic 1200x900 PNG opened at zoom 1.0.
-// Steps: open the image, wait for the high-resolution backing pixmap, and
+// Steps: open the image, wait for the pixmap item and both scrollbars, and
 // compare the scene center of the image with the scene coordinate at the usable
 // viewport center.
-// Expected result: the scene rectangle follows the backing pixmap, both bars
-// are visible, and the two scene centers differ by no more than two scene
-// pixels.
+// Expected result: the scene rectangle follows the current pixmap item on both
+// Retina and non-Retina runners, both bars are visible, and the two scene
+// centers differ by no more than two scene pixels.
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
 {
@@ -984,7 +984,10 @@ void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
     QTRY_VERIFY_WITH_TIMEOUT(
         view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
         2000);
-    QTRY_VERIFY_WITH_TIMEOUT(view->scene()->itemsBoundingRect().width() > 1200, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !view->scene()->itemsBoundingRect().isEmpty() &&
+            view->scene()->itemsBoundingRect().width() >= 1200,
+        3000);
     QCoreApplication::processEvents();
 
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
@@ -1053,7 +1056,10 @@ void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
     QTRY_VERIFY_WITH_TIMEOUT(
         view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
         2000);
-    QTRY_VERIFY_WITH_TIMEOUT(view->scene()->itemsBoundingRect().width() > 1200, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !view->scene()->itemsBoundingRect().isEmpty() &&
+            view->scene()->itemsBoundingRect().width() >= 1200,
+        3000);
     view->horizontalScrollBar()->setValue(
         (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
     view->verticalScrollBar()->setValue(

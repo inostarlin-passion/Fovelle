@@ -73,17 +73,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scale-factor", default=None)
     args = parser.parse_args()
 
     command = [str(args.binary.resolve()), "-o", "-,txt"]
     timeout_seconds = 90
+    environment = {"QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"}
+    if args.scale_factor is not None:
+        environment["QT_SCALE_FACTOR"] = str(args.scale_factor)
     started = time.perf_counter()
     try:
         result = subprocess.run(
             command,
             text=True,
             capture_output=True,
-            env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"},
+            env={**os.environ, **environment},
             timeout=timeout_seconds,
             check=False,
         )
@@ -127,6 +131,7 @@ def main() -> int:
         "kind": "unit",
         "command": command,
         "binary": str(args.binary.resolve()),
+        "environment": environment,
         "elapsed_seconds": time.perf_counter() - started,
         "timeout_seconds": timeout_seconds,
         "timed_out": timed_out,

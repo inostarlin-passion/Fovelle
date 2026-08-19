@@ -16,6 +16,7 @@ EVIDENCE_FILES = (
     "ci-failure.json",
     "static.json",
     "unit.json",
+    "unit_scale1.json",
     "integration.json",
     "release.json",
     "system_feature.json",
@@ -81,7 +82,7 @@ def main() -> int:
         artifacts.append(artifact)
 
     specification = records.get("test-specification.json", {})
-    if specification.get("case_count") != 52:
+    if specification.get("case_count") != 53:
         errors.append(f"unexpected atomic test case count: {specification.get('case_count')}")
     if specification.get("validation_errors"):
         errors.append("test specification contains validation errors")
@@ -89,6 +90,9 @@ def main() -> int:
     unit = records.get("unit.json", {})
     if unit.get("total_passed") != 67 or unit.get("total_failed") != 0 or unit.get("total_skipped") != 0:
         errors.append("unit evidence does not report 67 passed and zero failed/skipped")
+    unit_scale1 = records.get("unit_scale1.json", {})
+    if unit_scale1.get("total_passed") != 67 or unit_scale1.get("total_failed") != 0 or unit_scale1.get("total_skipped") != 0:
+        errors.append("QT_SCALE_FACTOR=1 unit evidence does not report 67 passed and zero failed/skipped")
 
     system_layout = records.get("system_layout.json", {})
     if system_layout.get("stable_after_queued_turn") is not True:
@@ -107,6 +111,7 @@ def main() -> int:
             "ctest --test-dir build --output-on-failure --timeout 90",
             "python3 tests/quality_static.py --repo . --build-dir build",
             "python3 tests/quality_unit_runner.py --binary build/tests/fovelle_tests",
+            "python3 tests/quality_unit_runner.py --binary build/tests/fovelle_tests --scale-factor 1",
             "python3 tests/quality_integration.py --repo . --build-dir build",
             "python3 tests/quality_feature_system.py --binary build/tests/fovelle_tests",
             "python3 tests/quality_system_probe.py --app build/Fovelle.app/Contents/MacOS/Fovelle --runs 3",
@@ -117,6 +122,7 @@ def main() -> int:
         "summary": {
             "static": records.get("static.json", {}).get("passed"),
             "unit": records.get("unit.json", {}).get("passed"),
+            "unit_scale1": records.get("unit_scale1.json", {}).get("passed"),
             "integration": records.get("integration.json", {}).get("passed"),
             "release_contract": records.get("release.json", {}).get("passed"),
             "system_feature": records.get("system_feature.json", {}).get("passed"),
