@@ -217,6 +217,8 @@ protected:
 
     void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = {});
 
+    QRectF getSceneRectForViewport() const;
+
     void applyScrollBarTheme(Qv::Theme theme);
 
 private slots:

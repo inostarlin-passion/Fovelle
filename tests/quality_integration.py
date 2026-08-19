@@ -137,6 +137,33 @@ def main() -> int:
         "Apple native gesture events, overflow-aware scrollbars, Theme-aware styling, and performance evidence are integrated",
     )
 
+    layout_contract = all_present(
+        graphics,
+        (
+            "getSceneRectForViewport",
+            "getViewportPosition().obscuredHeight",
+            "scenePadding",
+            "updateSceneRect();",
+        ),
+    )
+    layout_tests = all(case in test_source for case in (
+        "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+        "testRotatedZoomToFitUsesUnobscuredViewport",
+        "imageRectInViewport.top() >= usableViewport.top() - 2",
+        "imageRectInViewport.bottom() <= usableViewport.bottom() + 2",
+        "usableViewport.center()",
+    ))
+    add_check(
+        checks,
+        "I-02-LAYOUT-TITLEBAR",
+        layout_contract and layout_tests,
+        {
+            "scene_rect_compensation": layout_contract,
+            "unobscured_viewport_regression": layout_tests,
+        },
+        "the fit calculation and scene alignment share the same macOS titlebar-obscured viewport contract",
+    )
+
     cocoa = text("src/qvcocoafunctions.mm") + text("src/qvcocoafunctions.h")
     loader = text("src/qvimageloader.cpp")
     native_decode = all_present(
@@ -376,6 +403,9 @@ def main() -> int:
         "testTouchpadWheelCanUseFractionalSteps",
         "testImageIsCenteredAfterOpeningWithScrollBars",
         "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
+        "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+        "testRotatedZoomToFitUsesUnobscuredViewport",
+        "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",

@@ -97,6 +97,7 @@ private slots:
     void testImageIsCenteredAfterOpeningWithScrollBars();
     void testTouchpadWheelRespectsConfiguredZoomWithScrollBars();
     void testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling();
+    void testRotatedZoomToFitUsesUnobscuredViewport();
     void testZoomAcrossScrollbarThresholdKeepsViewportCenterStable();
     void testTouchpadPanUsesPixelsWithoutChangingZoom();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
@@ -987,7 +988,11 @@ void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
     QCoreApplication::processEvents();
 
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
-    QCOMPARE(view->sceneRect(), imageSceneRect);
+    QVERIFY(view->sceneRect().contains(imageSceneRect));
+    if (window.getViewportPosition().obscuredHeight > 0)
+        QVERIFY(view->sceneRect().top() < imageSceneRect.top());
+    else
+        QCOMPARE(view->sceneRect(), imageSceneRect);
     QRect usableViewportRect = view->viewport()->rect();
     usableViewportRect.setTop(window.getViewportPosition().obscuredHeight);
     const QPointF imageCenterInViewport = view->mapFromScene(imageSceneRect.center());
@@ -1087,9 +1092,9 @@ void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
 }
 
 // TC-LAYOUT-OPEN-FIT
-// Test purpose: verify that an automatically fitted image remains fitted after
-// the delayed high-quality pixmap replacement and the resulting scrollbar
-// layout pass.
+// Test purpose: verify that an automatically fitted image is aligned to the
+// unobscured viewport, remains fitted after the delayed high-quality pixmap
+// replacement, and survives the resulting scrollbar layout pass.
 // Preconditions: a visible 640x480 Cocoa window uses ZoomToFit, Never window
 // resizing, and Expensive smooth scaling; the fixture has a portrait-ish
 // aspect ratio that fits in the viewport without overflow.
@@ -1097,8 +1102,9 @@ void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
 // Steps: open the image, wait for loading and the delayed scaling timer, then
 // inspect both scrollbar visibility and the image center in the viewport.
 // Expected result: neither AsNeeded scrollbar is visible, the transformed
-// image is no larger than the usable viewport, and its center is within two
-// viewport pixels of the viewport center.
+// image is no larger than the usable viewport, its top and bottom are inside
+// that usable rectangle, and its center is within two viewport pixels of the
+// usable viewport center.
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()
 {
@@ -1139,7 +1145,6 @@ void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveS
     QVERIFY(!view->horizontalScrollBar()->isVisible());
     QVERIFY(!view->verticalScrollBar()->isVisible());
     const QRectF imageRect = view->scene()->itemsBoundingRect();
-    const QRect viewportRect = view->viewport()->rect();
     const QRect usableViewport = [&]() {
         QRect result = view->viewport()->rect();
         result.setTop(window.getViewportPosition().obscuredHeight);
@@ -1148,8 +1153,67 @@ void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveS
     const QRect imageRectInViewport = view->mapFromScene(imageRect).boundingRect();
     QVERIFY(imageRectInViewport.width() <= usableViewport.width() + 2);
     QVERIFY(imageRectInViewport.height() <= usableViewport.height() + 2);
+    QVERIFY(imageRectInViewport.top() >= usableViewport.top() - 2);
+    QVERIFY(imageRectInViewport.bottom() <= usableViewport.bottom() + 2);
     const QPointF imageCenterInViewport = view->mapFromScene(imageRect.center());
-    QVERIFY(QLineF(imageCenterInViewport, viewportRect.center()).length() <= 2.0);
+    QVERIFY(QLineF(imageCenterInViewport, usableViewport.center()).length() <= 2.0);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-LAYOUT-ROTATED-FIT
+// Test purpose: verify that the titlebar compensation follows the transformed
+// scene axis when a fitted image is rotated.
+// Preconditions: a visible 640x480 Cocoa window uses ZoomToFit and Never
+// window resizing; the fixture has a non-square aspect ratio.
+// Input data: rotate the opened 800x600 PNG by 90 degrees.
+// Steps: open the image, rotate it, reapply ZoomToFit, and inspect the mapped
+// image rectangle and scrollbar state.
+// Expected result: the rotated image has no overflow, is contained by the
+// unobscured viewport, and is centered within two viewport pixels of it.
+// Postcondition: the window, settings, image, and temporary directory are released.
+void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "rotated-fit", Qt::darkMagenta, QSize(800, 600));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->rotateImage(90);
+    view->fitOrConstrainImage();
+    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !view->horizontalScrollBar()->isVisible() && !view->verticalScrollBar()->isVisible(),
+        2000);
+
+    QRect usableViewport = view->viewport()->rect();
+    usableViewport.setTop(window.getViewportPosition().obscuredHeight);
+    const QRect imageRectInViewport = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
+    QVERIFY(imageRectInViewport.top() >= usableViewport.top() - 2);
+    QVERIFY(imageRectInViewport.bottom() <= usableViewport.bottom() + 2);
+    QVERIFY(QLineF(imageRectInViewport.center(), usableViewport.center()).length() <= 2.0);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

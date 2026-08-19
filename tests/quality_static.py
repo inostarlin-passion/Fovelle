@@ -294,6 +294,7 @@ def main() -> int:
         "testImageIsCenteredAfterOpeningWithScrollBars",
         "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
         "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+        "testRotatedZoomToFitUsesUnobscuredViewport",
         "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
         "testTouchpadPanUsesPixelsWithoutChangingZoom",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
@@ -381,6 +382,43 @@ def main() -> int:
             )},
         },
         "Apple native gesture events drive zoom/pan, overflow drives AsNeeded bars, and the selected Theme drives handle/track styles",
+    )
+
+    layout_contract = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "getSceneRectForViewport",
+            "getViewportPosition().obscuredHeight",
+            "scenePadding",
+            "updateSceneRect();",
+        ),
+    )
+    layout_test_contract = contains_all(
+        test_source,
+        (
+            "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+            "testRotatedZoomToFitUsesUnobscuredViewport",
+            "imageRectInViewport.top() >= usableViewport.top() - 2",
+            "imageRectInViewport.bottom() <= usableViewport.bottom() + 2",
+            "usableViewport.center()",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-24-LAYOUT-TITLEBAR",
+        layout_contract and layout_test_contract,
+        {
+            "scene_rect_compensation": layout_contract,
+            "regression_test_contract": layout_test_contract,
+            "markers": {
+                "getSceneRectForViewport": "getSceneRectForViewport" in graphics_cpp + graphics_header,
+                "obscured_height": "getViewportPosition().obscuredHeight" in graphics_cpp + graphics_header,
+                "scene_padding": "scenePadding" in graphics_cpp,
+                "usable_top_bottom_assertions": "imageRectInViewport.top() >= usableViewport.top() - 2" in test_source
+                and "imageRectInViewport.bottom() <= usableViewport.bottom() + 2" in test_source,
+            },
+        },
+        "fit layout compensates for the macOS titlebar-obscured region and verifies both image edges against the unobscured viewport",
     )
 
     version_contract = contains_all(

@@ -838,6 +838,7 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         setTransformScale(absoluteLevel * appliedDpiAdjustment);
     }
     zoomLevel = absoluteLevel;
+    updateSceneRect();
 
     if (shouldRestoreCalculatedZoom)
     {
@@ -1438,7 +1439,7 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
         QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value()));
     const int horizontalValue = scrollPosition.x();
     const int verticalValue = scrollPosition.y();
-    setSceneRect(loadedPixmapItem->boundingRect());
+    setSceneRect(getSceneRectForViewport());
     // setSceneRect() resets the bars while it recalculates their ranges.
     // Restore the visual viewport before the next paint; Qt clamps values if
     // the new range is genuinely smaller. Deferring this to a queued callback
@@ -1449,6 +1450,48 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
         verticalScrollBar()->setValue(verticalValue);
         logViewportState("scene-rect-viewport-restored");
     }
+}
+
+QRectF QVGraphicsView::getSceneRectForViewport() const
+{
+    QRectF sceneRect = loadedPixmapItem->boundingRect();
+    const MainWindow *mainWindow = getMainWindow();
+    if (!mainWindow)
+        return sceneRect;
+
+    const int obscuredHeight = mainWindow->getViewportPosition().obscuredHeight;
+    if (obscuredHeight <= 0)
+        return sceneRect;
+
+    // The fit calculation uses the portion of the viewport not covered by the
+    // macOS full-size titlebar. QGraphicsView's default AlignCenter, however,
+    // centers a scene that fits in the entire viewport. Add equivalent empty
+    // scene space on the view's top side so both calculations use the same
+    // coordinate system. The scene padding is expressed in scene units because
+    // QGraphicsView applies the current transform when calculating its indents.
+    const QTransform currentTransform = transform();
+    const qreal verticalScale = qMax(qAbs(currentTransform.m22()), qAbs(currentTransform.m12()));
+    if (qFuzzyIsNull(verticalScale))
+        return sceneRect;
+
+    const qreal scenePadding = obscuredHeight / verticalScale;
+    if (qAbs(currentTransform.m22()) >= qAbs(currentTransform.m12()))
+    {
+        if (currentTransform.m22() >= 0)
+            sceneRect.adjust(0, -scenePadding, 0, 0);
+        else
+            sceneRect.adjust(0, 0, 0, scenePadding);
+    }
+    else if (currentTransform.m12() >= 0)
+    {
+        sceneRect.adjust(-scenePadding, 0, 0, 0);
+    }
+    else
+    {
+        sceneRect.adjust(0, 0, scenePadding, 0);
+    }
+
+    return sceneRect;
 }
 
 void QVGraphicsView::applyScrollBarTheme(const Qv::Theme theme)
@@ -1585,6 +1628,7 @@ void QVGraphicsView::rotateImage(const int relativeAngle)
     const QTransform t = transform();
     const bool isMirroredOrFlipped = t.isRotating() ? ((t.m12() < 0) == (t.m21() < 0)) : ((t.m11() < 0) != (t.m22() < 0));
     setTransformWithNormalization(transform().rotate(relativeAngle * (isMirroredOrFlipped ? -1 : 1)));
+    updateSceneRect();
     matchContentCenter(oldRect);
 }
 
@@ -1593,6 +1637,7 @@ void QVGraphicsView::mirrorImage()
     const QRect oldRect = getContentRect();
     const int rotateCorrection = transform().isRotating() ? -1 : 1;
     setTransformWithNormalization(transform().scale(-1 * rotateCorrection, 1 * rotateCorrection));
+    updateSceneRect();
     matchContentCenter(oldRect);
 }
 
@@ -1601,6 +1646,7 @@ void QVGraphicsView::flipImage()
     const QRect oldRect = getContentRect();
     const int rotateCorrection = transform().isRotating() ? -1 : 1;
     setTransformWithNormalization(transform().scale(1 * rotateCorrection, -1 * rotateCorrection));
+    updateSceneRect();
     matchContentCenter(oldRect);
 }
 
@@ -1610,5 +1656,6 @@ void QVGraphicsView::resetTransformation()
     const QTransform t = transform();
     const qreal scale = qFabs(t.isRotating() ? t.m21() : t.m11());
     setTransformWithNormalization(QTransform::fromScale(scale, scale));
+    updateSceneRect();
     matchContentCenter(oldRect);
 }

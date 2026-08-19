@@ -22,6 +22,7 @@ CASES = (
     ("TC-IMAGE-CENTER-WITH-SCROLLBARS", "GraphicsViewTests", "testImageIsCenteredAfterOpeningWithScrollBars"),
     ("TC-WHEEL-ZOOM-SCROLLBAR-REGRESSION", "GraphicsViewTests", "testTouchpadWheelRespectsConfiguredZoomWithScrollBars"),
     ("TC-LAYOUT-OPEN-FIT", "GraphicsViewTests", "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling"),
+    ("TC-LAYOUT-ROTATED-FIT", "GraphicsViewTests", "testRotatedZoomToFitUsesUnobscuredViewport"),
     ("TC-LAYOUT-ZOOM-SCROLLBAR-THRESHOLD", "GraphicsViewTests", "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable"),
     ("TC-GESTURE-TOUCHPAD-PAN", "GraphicsViewTests", "testTouchpadPanUsesPixelsWithoutChangingZoom"),
     ("TC-GESTURE-NATIVE-ZOOM", "GraphicsViewTests", "testNativePinchZoomChangesScaleAtGesturePosition"),
