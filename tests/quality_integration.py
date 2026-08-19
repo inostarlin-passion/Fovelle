@@ -327,7 +327,7 @@ def main() -> int:
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
         "testDefaultTitlebarTextIsPractical",
         "testNavigationEdgeActivationExcludesTitlebar",
-        "testNavigationButtonSizingAndDelays",
+        "testNavigationButtonSizingAndNoDelay",
         "testNavigationButtonsUseActualContentContrast",
         "testNavigationButtonsFadeTransition",
         "testNavigationButtonsClickSwitchesFiles",
@@ -420,14 +420,14 @@ def main() -> int:
             "NavigationButtonActivationMinimumWidth",
             "NavigationButtonActivationPercentage",
             "NavigationButtonMinimumWindowWidth",
-            "NavigationButtonShowDelay",
-            "NavigationButtonHideDelay",
+            "NavigationButtonAnimationDuration",
+            "setNavigationButtonVisible",
         ),
     )
     add_check(
         checks,
         "I-14-NAV",
-        navigation_contract,
+        navigation_contract and "setToolTip" not in mainwindow,
         {
             "buttons": "previousImageButton" in mainwindow and "nextImageButton" in mainwindow,
             "pointer_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow,
@@ -437,8 +437,12 @@ def main() -> int:
             "minimum_strip": "NavigationButtonActivationMinimumWidth" in mainwindow + text("src/mainwindow.h"),
             "percentage_strip": "NavigationButtonActivationPercentage" in mainwindow + text("src/mainwindow.h"),
             "minimum_window": "NavigationButtonMinimumWindowWidth" in mainwindow + text("src/mainwindow.h"),
-            "appearance_delay": "NavigationButtonShowDelay" in mainwindow + text("src/mainwindow.h"),
-            "disappearance_delay": "NavigationButtonHideDelay" in mainwindow + text("src/mainwindow.h"),
+            "transition_duration": "NavigationButtonAnimationDuration" in mainwindow + text("src/mainwindow.h"),
+            "tooltip_api_absent": "setToolTip" not in mainwindow,
+            "visibility_delay_api_absent": (
+                "NavigationButtonShowDelay" not in mainwindow + text("src/mainwindow.h") and
+                "NavigationButtonHideDelay" not in mainwindow + text("src/mainwindow.h")
+            ),
         },
         "the navigation buttons are integrated with content-only edge activation, per-side content sampling, and opacity transitions",
     )

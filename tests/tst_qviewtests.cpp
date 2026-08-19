@@ -14,7 +14,6 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSettings>
-#include <QTimer>
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
 #include <QThreadPool>
@@ -128,7 +127,7 @@ private slots:
     void testThemeAppliesNativeAppearanceAndViewportBackground();
     void testCheckerboardOverridesThemeAndRestoresBackground();
     void testNavigationEdgeActivationExcludesTitlebar();
-    void testNavigationButtonSizingAndDelays();
+    void testNavigationButtonSizingAndNoDelay();
     void testNavigationButtonsUseActualContentContrast();
     void testNavigationButtonsFadeTransition();
     void testNavigationButtonsClickSwitchesFiles();
@@ -1854,16 +1853,17 @@ void WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()
 
 // TC-NAV-SIZE
 // Test purpose: verify the sensing-strip formula, the narrow-window cutoff,
-// and the independent show/hide delay contracts exposed by the buttons.
+// the absence of visibility-delay machinery, and the absence of tooltips.
 // Preconditions: the navigation constants and MainWindow construction path.
 // Input data: boundary widths 215/216 pt and representative widths around the
 // 8% crossover, followed by a newly constructed main window.
-// Steps: evaluate the pure width helpers and inspect the timer/button metadata.
+// Steps: evaluate the pure width helpers and inspect the button/animation
+// metadata and QObject tree.
 // Expected result: widths below 216 pt are unsupported; the strip is the
-// maximum of 72 pt and 8% (rounded upward to device points); show is 60 ms,
-// hide is 300 ms, and the opacity transition remains 180 ms.
+// maximum of 72 pt and 8% (rounded upward to device points); no tooltip or
+// visibility timer/delay property exists, and the opacity transition is 180 ms.
 // Postcondition: the temporary window is closed; no settings are changed.
-void WindowBehaviorTests::testNavigationButtonSizingAndDelays()
+void WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()
 {
     QVERIFY(!MainWindow::areNavigationButtonsSupported(215));
     QVERIFY(MainWindow::areNavigationButtonsSupported(216));
@@ -1877,20 +1877,18 @@ void WindowBehaviorTests::testNavigationButtonSizingAndDelays()
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
-    auto *previousTimer = window.findChild<QTimer *>("previousImageButtonVisibilityTimer");
-    auto *nextTimer = window.findChild<QTimer *>("nextImageButtonVisibilityTimer");
     QVERIFY(previousButton);
     QVERIFY(nextButton);
-    QVERIFY(previousTimer);
-    QVERIFY(nextTimer);
-    QCOMPARE(previousButton->property("showDelayMs").toInt(), MainWindow::NavigationButtonShowDelay);
-    QCOMPARE(previousButton->property("hideDelayMs").toInt(), MainWindow::NavigationButtonHideDelay);
-    QCOMPARE(nextButton->property("showDelayMs").toInt(), MainWindow::NavigationButtonShowDelay);
-    QCOMPARE(nextButton->property("hideDelayMs").toInt(), MainWindow::NavigationButtonHideDelay);
+    QVERIFY(previousButton->toolTip().isEmpty());
+    QVERIFY(nextButton->toolTip().isEmpty());
+    QVERIFY(!previousButton->property("showDelayMs").isValid());
+    QVERIFY(!previousButton->property("hideDelayMs").isValid());
+    QVERIFY(!nextButton->property("showDelayMs").isValid());
+    QVERIFY(!nextButton->property("hideDelayMs").isValid());
+    QVERIFY(!window.findChild<QObject *>("previousImageButtonVisibilityTimer"));
+    QVERIFY(!window.findChild<QObject *>("nextImageButtonVisibilityTimer"));
     QCOMPARE(previousButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
     QCOMPARE(nextButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
-    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonShowDelay);
-    QCOMPARE(nextTimer->interval(), MainWindow::NavigationButtonShowDelay);
     window.close();
 }
 
@@ -1961,16 +1959,16 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 }
 
 // TC-NAV-TRANSITION
-// Test purpose: verify navigation-button appearance/disappearance delays and
-// fade transitions.
+// Test purpose: verify immediate navigation-button state changes with fade
+// transitions and no appearance/disappearance delay.
 // Preconditions: a visible two-file folder and a loaded image.
 // Input data: two white 1600x1000 PNGs and mouse positions at the left edge,
 // center, and right edge.
-// Steps: reveal the previous button, inspect its 60 ms show timer and the
-// configured animation duration, move to the center and inspect the 300 ms
-// hide timer before the fade-out, then reveal the next button.
-// Expected result: appearance waits 60 ms; disappearance waits 300 ms and
-// then uses a 180 ms opacity animation; the button stays present while
+// Steps: move to the left edge and inspect the immediate show state and
+// animation; move to the center and inspect the immediate hide animation;
+// then move to the right edge and inspect the immediate show state.
+// Expected result: entering/leaving the edge starts the corresponding 180 ms
+// opacity animation in the same event turn; the button stays present while
 // fading out, and both sides can be revealed.
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testNavigationButtonsFadeTransition()
@@ -2008,37 +2006,32 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
     auto *previousAnimation = window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
     auto *nextAnimation = window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
-    auto *previousTimer = window.findChild<QTimer *>("previousImageButtonVisibilityTimer");
-    auto *nextTimer = window.findChild<QTimer *>("nextImageButtonVisibilityTimer");
     QVERIFY(view);
     QVERIFY(previousButton);
     QVERIFY(nextButton);
     QVERIFY(previousAnimation);
     QVERIFY(nextAnimation);
-    QVERIFY(previousTimer);
-    QVERIFY(nextTimer);
     QCOMPARE(previousAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
     QCOMPARE(nextAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
 
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QVERIFY(previousTimer->isActive());
-    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonShowDelay);
-    QVERIFY(!previousButton->isVisible());
-    QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
+    QVERIFY(previousButton->isVisible());
+    QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
+    QCOMPARE(previousAnimation->endValue().toReal(), 1.0);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() / 2, middleY));
-    QVERIFY(previousTimer->isActive());
-    QCOMPARE(previousTimer->interval(), MainWindow::NavigationButtonHideDelay);
     QVERIFY(previousButton->isVisible());
+    QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
+    QCOMPARE(previousAnimation->endValue().toReal(), 0.0);
     QTest::qWait(100);
     QVERIFY(previousButton->isVisible());
     QTRY_VERIFY_WITH_TIMEOUT(!previousButton->isVisible(), 1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QVERIFY(nextTimer->isActive());
-    QCOMPARE(nextTimer->interval(), MainWindow::NavigationButtonShowDelay);
-    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+    QVERIFY(nextButton->isVisible());
+    QCOMPARE(nextAnimation->state(), QAbstractAnimation::Running);
+    QCOMPARE(nextAnimation->endValue().toReal(), 1.0);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

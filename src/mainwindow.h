@@ -172,8 +172,6 @@ public:
     static constexpr int NavigationButtonMinimumWindowWidth = 216;
     static constexpr int NavigationButtonSize = 60;
     static constexpr int NavigationButtonEdgeMargin = 20;
-    static constexpr int NavigationButtonShowDelay = 60;
-    static constexpr int NavigationButtonHideDelay = 300;
     static constexpr int NavigationButtonAnimationDuration = 180;
 
     static int navigationEdgeWidth(int windowWidth);
@@ -239,9 +237,7 @@ private:
 
     void updateNavigationButtonVisibility(const QPoint &windowPosition);
 
-    void setNavigationButtonVisible(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, QTimer *visibilityTimer, bool visible);
-
-    void applyNavigationButtonVisibility(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, bool visible);
+    void setNavigationButtonVisible(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, bool visible);
 
     void hideNavigationButtonsImmediately();
 
@@ -263,8 +259,6 @@ private:
     QGraphicsOpacityEffect *nextImageButtonOpacityEffect {nullptr};
     QPropertyAnimation *previousImageButtonAnimation {nullptr};
     QPropertyAnimation *nextImageButtonAnimation {nullptr};
-    QTimer *previousImageButtonVisibilityTimer {nullptr};
-    QTimer *nextImageButtonVisibilityTimer {nullptr};
 
     QMenu *contextMenu;
     QMenu *virtualMenu;

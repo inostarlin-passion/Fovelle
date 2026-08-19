@@ -6,7 +6,7 @@ Fovelle is a lightweight image viewer designed specifically for macOS. It is bas
 
 Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.com/jdpurcell/qView) by jdpurcell.
 
-## Features
+## New Features
 
 1. Displays small images at their actual size (1:1).
 2. Supports both light and dark appearances.

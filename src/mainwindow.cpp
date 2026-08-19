@@ -452,12 +452,8 @@ void MainWindow::initializeNavigationButtons()
         auto *button = new ImageNavigationButton(previous, graphicsView);
         button->setObjectName(objectName);
         button->setAccessibleName(accessibleName);
-        button->setToolTip(accessibleName);
         button->setFixedSize(NavigationButtonSize, NavigationButtonSize);
-        button->setProperty("showDelayMs", NavigationButtonShowDelay);
-        button->setProperty("hideDelayMs", NavigationButtonHideDelay);
         button->setProperty("transitionDurationMs", NavigationButtonAnimationDuration);
-        button->setProperty("pendingNavigationVisible", false);
         button->hide();
         button->raise();
         button->installEventFilter(this);
@@ -494,36 +490,6 @@ void MainWindow::initializeNavigationButtons()
         &nextImageButtonOpacityEffect,
         &nextImageButtonAnimation,
         QStringLiteral("nextImageButtonOpacityAnimation"));
-
-    auto createVisibilityTimer = [this](
-        QPushButton *button,
-        QGraphicsOpacityEffect *opacityEffect,
-        QPropertyAnimation *animation,
-        const QString &objectName) {
-        auto *timer = new QTimer(this);
-        timer->setObjectName(objectName);
-        timer->setSingleShot(true);
-        timer->setInterval(NavigationButtonShowDelay);
-        connect(timer, &QTimer::timeout, this, [this, button, opacityEffect, animation]() {
-            applyNavigationButtonVisibility(
-                button,
-                opacityEffect,
-                animation,
-                button->property("pendingNavigationVisible").toBool());
-        });
-        return timer;
-    };
-
-    previousImageButtonVisibilityTimer = createVisibilityTimer(
-        previousImageButton,
-        previousImageButtonOpacityEffect,
-        previousImageButtonAnimation,
-        QStringLiteral("previousImageButtonVisibilityTimer"));
-    nextImageButtonVisibilityTimer = createVisibilityTimer(
-        nextImageButton,
-        nextImageButtonOpacityEffect,
-        nextImageButtonAnimation,
-        QStringLiteral("nextImageButtonVisibilityTimer"));
 
     graphicsView->installEventFilter(this);
     graphicsView->viewport()->installEventFilter(this);
@@ -572,40 +538,11 @@ void MainWindow::setNavigationButtonVisible(
     QPushButton *button,
     QGraphicsOpacityEffect *opacityEffect,
     QPropertyAnimation *animation,
-    QTimer *visibilityTimer,
     const bool visible)
 {
-    if (!button || !opacityEffect || !animation || !visibilityTimer)
+    if (!button || !opacityEffect || !animation)
         return;
 
-    const bool previousTarget = button->property("pendingNavigationVisible").toBool();
-    const bool targetUnchanged = button->property("pendingNavigationVisible").isValid() && previousTarget == visible;
-    button->setProperty("pendingNavigationVisible", visible);
-
-    if (targetUnchanged)
-    {
-        if (visibilityTimer->isActive())
-            return;
-        if (animation->state() == QAbstractAnimation::Running &&
-            animation->endValue().toReal() == (visible ? 1.0 : 0.0))
-            return;
-        if (visible && button->isVisible() && opacityEffect->opacity() >= 0.999)
-            return;
-        if (!visible && !button->isVisible())
-            return;
-    }
-
-    visibilityTimer->stop();
-    visibilityTimer->setInterval(visible ? button->property("showDelayMs").toInt() : button->property("hideDelayMs").toInt());
-    visibilityTimer->start();
-}
-
-void MainWindow::applyNavigationButtonVisibility(
-    QPushButton *button,
-    QGraphicsOpacityEffect *opacityEffect,
-    QPropertyAnimation *animation,
-    const bool visible)
-{
     if (visible)
     {
         animation->stop();
@@ -635,12 +572,6 @@ void MainWindow::hideNavigationButtonsImmediately()
     if (!previousImageButton || !nextImageButton)
         return;
 
-    if (previousImageButtonVisibilityTimer)
-        previousImageButtonVisibilityTimer->stop();
-    if (nextImageButtonVisibilityTimer)
-        nextImageButtonVisibilityTimer->stop();
-    previousImageButton->setProperty("pendingNavigationVisible", false);
-    nextImageButton->setProperty("pendingNavigationVisible", false);
     previousImageButtonAnimation->stop();
     nextImageButtonAnimation->stop();
     previousImageButtonOpacityEffect->setOpacity(0.0);
@@ -682,13 +613,11 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
         previousImageButton,
         previousImageButtonOpacityEffect,
         previousImageButtonAnimation,
-        previousImageButtonVisibilityTimer,
         leftVisible);
     setNavigationButtonVisible(
         nextImageButton,
         nextImageButtonOpacityEffect,
         nextImageButtonAnimation,
-        nextImageButtonVisibilityTimer,
         rightVisible);
 }
 
