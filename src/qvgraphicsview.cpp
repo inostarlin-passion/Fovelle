@@ -8,6 +8,7 @@
 #include <QGraphicsScene>
 #include <QSettings>
 #include <QMessageBox>
+#include <QDebug>
 #include <QtMath>
 #include <QGestureEvent>
 #include <QScrollBar>
@@ -89,6 +90,7 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         const QSize sizeDelta = event->size() - event->oldSize();
         scrollHelper->move(QPointF(sizeDelta.width(), sizeDelta.height()) / -2.0);
         fitOrConstrainImage();
+        logViewportState("resize");
     }
     else
     {
@@ -338,25 +340,19 @@ void QVGraphicsView::focusOutEvent(QFocusEvent *event)
 
 void QVGraphicsView::wheelEvent(QWheelEvent *event)
 {
-    bool isTouchpad = false;
+    const QInputDevice *device = nullptr;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    const QInputDevice *device = event->device();
-    isTouchpad = device != nullptr && device->type() == QInputDevice::DeviceType::TouchPad;
+    device = event->device();
 #endif
-    const QPointF trackpadDelta = !event->pixelDelta().isNull() ?
-        QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
-    const bool isTrackpadPan = isTouchpad &&
-        (event->phase() != Qt::NoScrollPhase || !trackpadDelta.isNull()) &&
-        event->modifiers() == Qt::NoModifier;
-    if (isTrackpadPan)
+    logViewportState("wheel-before");
+    if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
     {
-        if (!trackpadDelta.isNull())
-        {
-            scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
-            constrainBoundsTimer->start();
-        }
-        event->accept();
-        return;
+        qInfo().noquote() << "FOVELLE_WHEEL"
+            << "deviceType=" << (device ? static_cast<int>(device->type()) : -1)
+            << "pixelDelta=" << event->pixelDelta()
+            << "angleDelta=" << event->angleDelta()
+            << "phase=" << static_cast<int>(event->phase())
+            << "modifiers=" << static_cast<int>(event->modifiers());
     }
 
     const QPoint eventPos = event->position().toPoint();
@@ -391,6 +387,7 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
 #endif
 
     executeScrollAction(effectiveAction, effectiveDelta, eventPos, hasShiftModifier, useFractionalZoom);
+    logViewportState("wheel-after");
 }
 
 void QVGraphicsView::keyPressEvent(QKeyEvent *event)
@@ -720,6 +717,7 @@ void QVGraphicsView::postLoad()
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
     updateSceneRect();
+    logViewportState("post-load-before-layout");
 
     // If we have a content rect for the prior pixmap, scroll the new pixmap to align their centers
     if (lastImageContentRect.isValid())
@@ -738,6 +736,8 @@ void QVGraphicsView::postLoad()
         else
             fitOrConstrainImage();
     }
+    logViewportState("post-load-after-fit");
+    QTimer::singleShot(0, this, [this]() { logViewportState("post-load-next-turn"); });
     loadIsFromSessionRestore = false;
 
     expensiveScaleTimer->start();
@@ -905,6 +905,7 @@ void QVGraphicsView::applyExpensiveScaling()
         return;
 
     // Calculate scaled resolution
+    const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
     const qreal dpiAdjustment = getDpiAdjustment();
     const QSizeF mappedSize = QSizeF(getCurrentFileDetails().loadedPixmapSize) * zoomLevel * dpiAdjustment * devicePixelRatioF();
 
@@ -916,10 +917,15 @@ void QVGraphicsView::applyExpensiveScaling()
     setTransformScale(newTransformScale);
     appliedDpiAdjustment = dpiAdjustment;
     appliedExpensiveScaleZoomLevel = zoomLevel;
+    updateSceneRect(scrollPosition);
+    logViewportState("expensive-scaling-applied");
 }
 
 void QVGraphicsView::removeExpensiveScaling()
 {
+    const bool wasExpensiveScalingApplied = appliedExpensiveScaleZoomLevel != 0.0;
+    const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
+
     // Return to original size
     loadedPixmapItem->setPixmap(imageCore.getLoadedPixmap());
 
@@ -929,6 +935,11 @@ void QVGraphicsView::removeExpensiveScaling()
     setTransformScale(newTransformScale);
     appliedDpiAdjustment = dpiAdjustment;
     appliedExpensiveScaleZoomLevel = 0.0;
+    if (wasExpensiveScalingApplied)
+    {
+        updateSceneRect(scrollPosition);
+        logViewportState("expensive-scaling-removed");
+    }
 }
 
 void QVGraphicsView::animatedFrameChanged(QRect rect)
@@ -942,6 +953,7 @@ void QVGraphicsView::animatedFrameChanged(QRect rect)
     else
     {
         loadedPixmapItem->setPixmap(imageCore.getLoadedPixmap());
+        updateSceneRect();
     }
 }
 
@@ -1029,6 +1041,8 @@ void QVGraphicsView::recalculateZoom()
 
 void QVGraphicsView::centerImage()
 {
+    ++sceneRectRestoreGeneration;
+    logViewportState("center-before");
     const QRect viewRect = getUsableViewportRect();
     const QRect contentRect = getContentRect();
     const int hOffset = isRightToLeft() ?
@@ -1042,6 +1056,7 @@ void QVGraphicsView::centerImage()
     verticalScrollBar()->setValue(vOffset + (vOverflow / 2));
 
     scrollHelper->cancelAnimation();
+    logViewportState("center-after");
 }
 
 void QVGraphicsView::setCursorVisible(const bool visible)
@@ -1243,6 +1258,26 @@ void QVGraphicsView::setTransformWithNormalization(const QTransform &matrix)
     setTransform(normalizeTransformOrigin(matrix, loadedPixmapItem->boundingRect().size()));
 }
 
+void QVGraphicsView::logViewportState(const char *phase) const
+{
+    if (!qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
+        return;
+
+    qInfo().noquote() << "FOVELLE_VIEW"
+        << "phase=" << phase
+        << "zoom=" << zoomLevel
+        << "sceneRect=" << sceneRect()
+        << "itemRect=" << (loadedPixmapItem ? loadedPixmapItem->sceneBoundingRect() : QRectF())
+        << "contentRect=" << getContentRect()
+        << "viewportRect=" << viewport()->rect()
+        << "usableViewportRect=" << getUsableViewportRect()
+        << "sceneOriginInViewport=" << mapFromScene(QPointF(0, 0))
+        << "viewportOriginInScene=" << mapToScene(QPoint(0, 0))
+        << "transform=" << transform()
+        << "hbar=" << horizontalScrollBar()->value() << horizontalScrollBar()->minimum() << horizontalScrollBar()->maximum()
+        << "vbar=" << verticalScrollBar()->value() << verticalScrollBar()->minimum() << verticalScrollBar()->maximum();
+}
+
 QTransform QVGraphicsView::getUnspecializedTransform() const
 {
     // Returns a transform that represents the currently applied mirroring, flipping, and rotation
@@ -1366,19 +1401,41 @@ MainWindow* QVGraphicsView::getMainWindow() const
     return qobject_cast<MainWindow*>(window());
 }
 
-void QVGraphicsView::updateSceneRect()
+void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollPosition)
 {
     const auto &fileDetails = getCurrentFileDetails();
     if (!fileDetails.isPixmapLoaded || fileDetails.loadedPixmapSize.isEmpty())
     {
+        ++sceneRectRestoreGeneration;
         setSceneRect(QRectF());
         return;
     }
 
-    // QGraphicsView applies its transform to the scene rectangle when it
-    // calculates scrollbar ranges. Keeping this rectangle in unscaled image
-    // coordinates makes AsNeeded reflect the actual transformed image size.
-    setSceneRect(QRectF(QPointF(), QSizeF(fileDetails.loadedPixmapSize)));
+    // The pixmap can be temporarily rendered at a higher backing resolution
+    // while the view transform is reduced by the matching factor. The scene
+    // rectangle must follow that backing pixmap, otherwise QGraphicsView
+    // centers the smaller logical scene while painting the larger item.
+    const bool preserveViewport = restoreScrollPosition.has_value() ||
+        (sceneRect().isValid() && !sceneRect().isEmpty());
+    const QPoint scrollPosition = restoreScrollPosition.value_or(
+        QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value()));
+    const int horizontalValue = scrollPosition.x();
+    const int verticalValue = scrollPosition.y();
+    const quint64 restoreGeneration = ++sceneRectRestoreGeneration;
+    setSceneRect(loadedPixmapItem->boundingRect());
+    // setSceneRect() may reset the bars while it recalculates their ranges.
+    // Restore the visual viewport after that queued layout pass; Qt clamps
+    // values if the new range is genuinely smaller.
+    if (preserveViewport)
+    {
+        QTimer::singleShot(0, this, [this, horizontalValue, verticalValue, restoreGeneration]() {
+            if (restoreGeneration != sceneRectRestoreGeneration)
+                return;
+            horizontalScrollBar()->setValue(horizontalValue);
+            verticalScrollBar()->setValue(verticalValue);
+            logViewportState("scene-rect-viewport-restored");
+        });
+    }
 }
 
 void QVGraphicsView::applyScrollBarTheme(const Qv::Theme theme)

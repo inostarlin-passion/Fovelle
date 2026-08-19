@@ -161,6 +161,8 @@ def main() -> int:
             "wheelZoomFactor",
             "event->device()",
             "QInputDevice::DeviceType::TouchPad",
+            "event->pixelDelta()",
+            "Qt::NoScrollPhase",
             "useFractionalZoom",
             "wheelDelta > 0 ? 1.0 : -1.0",
             "qPow(zoomMultiplier, wheelSteps)",
@@ -172,11 +174,13 @@ def main() -> int:
         wheel_contract,
         {
             "pure_helper": "static qreal wheelZoomFactor" in graphics_header,
-            "touch_device_detection": "event->device()" in graphics_cpp and "TouchPad" in graphics_cpp,
+            "touch_device_fractional_zoom": "event->device()" in graphics_cpp and "TouchPad" in graphics_cpp
+            and "Qt::NoScrollPhase" in graphics_cpp,
+            "wheel_event_remains_configured": "executeScrollAction" in graphics_cpp,
             "discrete_mouse_branch": "wheelDelta > 0 ? 1.0 : -1.0" in graphics_cpp,
             "power_calculation": "qPow(zoomMultiplier, wheelSteps)" in graphics_cpp,
         },
-        "mouse wheels use one signed step per event and touch devices retain fractional steps",
+        "all wheel events use the configured action; touch devices only select fractional zoom for phased scroll streams",
     )
 
     cocoa_header = source["src/qvcocoafunctions.h"]
@@ -287,13 +291,14 @@ def main() -> int:
         "testOpenWithWorkerTeardownContract",
         "testMouseWheelUsesOneDiscreteStep",
         "testTouchpadWheelCanUseFractionalSteps",
+        "testImageIsCenteredAfterOpeningWithScrollBars",
+        "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
         "testNativePinchZoomChangesScaleAtGesturePosition",
         "testNativePanChangesViewport",
-        "testTouchpadPanChangesViewport",
         "testScrollBarsFollowImageOverflowAxes",
         "testScrollBarsMatchTheme",
         "testNativeGestureResponsePerformance",

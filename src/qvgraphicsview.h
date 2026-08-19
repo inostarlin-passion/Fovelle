@@ -193,6 +193,8 @@ protected:
 
     void setTransformScale(const qreal absoluteScale);
 
+    void logViewportState(const char *phase) const;
+
     void setTransformWithNormalization(const QTransform &matrix);
 
     QTransform getUnspecializedTransform() const;
@@ -213,7 +215,7 @@ protected:
 
     bool handleNativeGestureEvent(QNativeGestureEvent *event);
 
-    void updateSceneRect();
+    void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = {});
 
     void applyScrollBarTheme(Qv::Theme theme);
 
@@ -276,6 +278,7 @@ private:
 
     QTimer *expensiveScaleTimer;
     QTimer *constrainBoundsTimer;
+    quint64 sceneRectRestoreGeneration { 0 };
     QTimer *hideCursorTimer;
 
     ScrollHelper *scrollHelper;

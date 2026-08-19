@@ -94,13 +94,14 @@ class GraphicsViewTests : public QObject
 private slots:
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
+    void testImageIsCenteredAfterOpeningWithScrollBars();
+    void testTouchpadWheelRespectsConfiguredZoomWithScrollBars();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
     void testManualZoomRemainsManualAcrossResize();
     void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
     void testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages();
     void testNativePinchZoomChangesScaleAtGesturePosition();
     void testNativePanChangesViewport();
-    void testTouchpadPanChangesViewport();
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
@@ -933,6 +934,151 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
     QVERIFY(qFuzzyCompare(factor, 1.5625));
 }
 
+// TC-IMAGE-CENTER-WITH-SCROLLBARS
+// Test purpose: verify that opening an overflowing image leaves its content
+// centered in the visible scene instead of placing it in the lower-right area.
+// Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
+// loads a 1200x900 image, so both AsNeeded scrollbars are required.
+// Input data: one deterministic 1200x900 PNG opened at zoom 1.0.
+// Steps: open the image, wait for the high-resolution backing pixmap, and
+// compare the scene center of the image with the scene coordinate at the usable
+// viewport center.
+// Expected result: the scene rectangle follows the backing pixmap, both bars
+// are visible, and the two scene centers differ by no more than two scene
+// pixels.
+// Postcondition: the window, settings, image, and temporary directory are released.
+void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "image-center-scrollbars", Qt::darkCyan, QSize(1200, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
+        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->scene()->itemsBoundingRect().width() > 1200, 3000);
+    QCoreApplication::processEvents();
+
+    const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
+    QCOMPARE(view->sceneRect(), imageSceneRect);
+    QRect usableViewportRect = view->viewport()->rect();
+    usableViewportRect.setTop(window.getViewportPosition().obscuredHeight);
+    const QPointF imageCenterInViewport = view->mapFromScene(imageSceneRect.center());
+    qInfo() << "center verification" << imageSceneRect << usableViewportRect
+            << imageCenterInViewport << usableViewportRect.center();
+    QVERIFY(QLineF(imageCenterInViewport, usableViewportRect.center()).length() <= 2.0);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-WHEEL-ZOOM-SCROLLBAR-REGRESSION
+// Test purpose: verify a configured wheel-to-zoom action remains active when
+// both AsNeeded scrollbars are visible, even if macOS/Qt reports the event as
+// originating from a TouchPad device.
+// Preconditions: a visible 640x480 Cocoa window loads a 1200x900 image at 1:1;
+// vertical wheel action is Zoom, horizontal wheel action is None, and both
+// scrollbars have non-zero ranges.
+// Input data: QWheelEvent(angleDelta=(0,120), pixelDelta=(0,120),
+// phase=NoScrollPhase) with a TouchPad device.
+// Steps: wait for expensive scaling, center the scrollbars, dispatch the event
+// to the viewport, and inspect zoom, event acceptance, and scrollbar state.
+// Expected result: the event follows configured Zoom and changes zoom to 1.25;
+// it is not diverted to a wheel-based pan bridge by scrollbar visibility.
+// Postcondition: the window, settings, temporary device, and image are released.
+void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"viewportverticalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom)},
+        {"viewporthorizontalscrollaction", static_cast<int>(Qv::ViewportScrollAction::None)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "wheel-zoom-scrollbars", Qt::darkCyan, QSize(1200, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
+        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->scene()->itemsBoundingRect().width() > 1200, 3000);
+    view->horizontalScrollBar()->setValue(
+        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+    view->verticalScrollBar()->setValue(
+        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+    QCoreApplication::processEvents();
+
+    const QPoint wheelPosition = view->viewport()->rect().center();
+    const QPoint globalWheelPosition = view->viewport()->mapToGlobal(wheelPosition);
+    QPointingDevice touchpad(
+        QStringLiteral("discrete wheel device"),
+        2,
+        QInputDevice::DeviceType::TouchPad,
+        QPointingDevice::PointerType::Finger,
+        QInputDevice::Capability::Scroll,
+        5,
+        0);
+    QWheelEvent wheelEvent(
+        QPointF(wheelPosition),
+        QPointF(globalWheelPosition),
+        QPoint(0, 120),
+        QPoint(0, 120),
+        Qt::NoButton,
+        Qt::NoModifier,
+        Qt::NoScrollPhase,
+        false,
+        Qt::MouseEventNotSynthesized,
+        &touchpad);
+
+    QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
+    QVERIFY(wheelEvent.isAccepted());
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.25));
+    QVERIFY(view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible());
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 // TC-ZOOM-FULLSCREEN
 // Test purpose: verify that returning to the fit ratio restores fit intent and that a fullscreen resize recalculates it.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
@@ -1268,89 +1414,6 @@ void GraphicsViewTests::testNativePanChangesViewport()
     QVERIFY(view->verticalScrollBar()->value() >= view->verticalScrollBar()->minimum());
     QVERIFY(view->verticalScrollBar()->value() <= view->verticalScrollBar()->maximum());
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), zoomBefore));
-
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-}
-
-// TC-GESTURE-TOUCHPAD-PAN
-// Test purpose: verify the two-finger macOS touchpad movement path pans the
-// visible image when Cocoa/Qt reports pixel scrolling as QWheelEvent.
-// Preconditions: a visible 640x480 Cocoa window loads a 1600x900 image at 1:1
-// and both scroll axes have non-zero ranges.
-// Input data: one QWheelEvent with a synthetic TouchPad device and
-// pixelDelta=(80,60).
-// Steps: center both scrollbars, dispatch the touchpad wheel event to the
-// viewport, and inspect acceptance and scrollbar values.
-// Expected result: the event is accepted, both values change within range,
-// and no zoom action is applied.
-// Postcondition: the window and temporary image are released.
-void GraphicsViewTests::testTouchpadPanChangesViewport()
-{
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
-
-    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "touchpad-pan", Qt::darkGreen, QSize(1600, 900));
-    QVERIFY(!imagePath.isEmpty());
-
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(640, 480);
-    window.show();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-    window.openFile(imagePath);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-
-    auto *view = window.findChild<QVGraphicsView *>();
-    QVERIFY(view);
-    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    view->horizontalScrollBar()->setValue(
-        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
-    view->verticalScrollBar()->setValue(
-        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
-    QCoreApplication::processEvents();
-
-    const QPoint wheelPosition = view->viewport()->rect().center();
-    const QPoint horizontalBefore = QPoint(
-        view->horizontalScrollBar()->value(), view->verticalScrollBar()->value());
-    const QPoint globalWheelPosition = view->viewport()->mapToGlobal(wheelPosition);
-    QPointingDevice touchpad(
-        QStringLiteral("test touchpad"),
-        1,
-        QInputDevice::DeviceType::TouchPad,
-        QPointingDevice::PointerType::Finger,
-        QInputDevice::Capability::PixelScroll,
-        5,
-        0);
-    QWheelEvent wheelEvent(
-        QPointF(wheelPosition),
-        QPointF(globalWheelPosition),
-        QPoint(80, 60),
-        QPoint(),
-        Qt::NoButton,
-        Qt::NoModifier,
-        Qt::ScrollUpdate,
-        false,
-        Qt::MouseEventNotSynthesized,
-        &touchpad);
-
-    QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
-    QVERIFY(wheelEvent.isAccepted());
-    QVERIFY(view->horizontalScrollBar()->value() != horizontalBefore.x());
-    QVERIFY(view->verticalScrollBar()->value() != horizontalBefore.y());
-    QVERIFY(view->horizontalScrollBar()->value() >= view->horizontalScrollBar()->minimum());
-    QVERIFY(view->horizontalScrollBar()->value() <= view->horizontalScrollBar()->maximum());
-    QVERIFY(view->verticalScrollBar()->value() >= view->verticalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->value() <= view->verticalScrollBar()->maximum());
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
