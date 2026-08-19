@@ -86,7 +86,7 @@ def main() -> int:
             "fit_continuity_state": "lastCalculatedZoomMode" in graphics and "lastCalculatedZoomLevel" in graphics,
             "resize_recalculation_guard": "shouldRestoreCalculatedZoom" in graphics,
         },
-        "the implemented zoom contract keeps wheel actions setting-driven and only uses touchpad metadata for fractional zoom while preserving fit intent through a resized viewport",
+        "the implemented input contract keeps discrete wheel actions setting-driven, routes unmodified phased touchpad streams to pixel panning, and preserves fit intent through a resized viewport",
     )
 
     native_gesture_contract = all_present(
@@ -99,6 +99,8 @@ def main() -> int:
             "viewportEvent",
             "nativeGestureZoomFactor",
             "nativeGesturePanScrollDelta",
+            "isPhasedTouchpadScroll",
+            "wheel-trackpad-pan",
         ),
     )
     scrollbar_contract = all_present(
@@ -120,11 +122,14 @@ def main() -> int:
             "native_event_path": native_gesture_contract,
             "scrollbar_overflow_path": scrollbar_contract,
             "test_cases": all(case in test_source for case in (
-            "testNativePinchZoomChangesScaleAtGesturePosition",
-            "testNativePanChangesViewport",
-            "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
-            "testImageIsCenteredAfterOpeningWithScrollBars",
-            "testScrollBarsFollowImageOverflowAxes",
+                "testNativePinchZoomChangesScaleAtGesturePosition",
+                "testNativePanChangesViewport",
+                "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
+                "testImageIsCenteredAfterOpeningWithScrollBars",
+                "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+                "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
+                "testTouchpadPanUsesPixelsWithoutChangingZoom",
+                "testScrollBarsFollowImageOverflowAxes",
                 "testScrollBarsMatchTheme",
                 "testNativeGestureResponsePerformance",
             )),

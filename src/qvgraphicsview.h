@@ -278,7 +278,6 @@ private:
 
     QTimer *expensiveScaleTimer;
     QTimer *constrainBoundsTimer;
-    quint64 sceneRectRestoreGeneration { 0 };
     QTimer *hideCursorTimer;
 
     ScrollHelper *scrollHelper;

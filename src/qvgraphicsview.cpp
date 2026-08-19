@@ -355,6 +355,25 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
             << "modifiers=" << static_cast<int>(event->modifiers());
     }
 
+    const bool isTouchpad = device != nullptr &&
+        device->type() == QInputDevice::DeviceType::TouchPad;
+    const bool isPhasedTouchpadScroll = isTouchpad &&
+        event->phase() != Qt::NoScrollPhase &&
+        event->modifiers() == Qt::NoModifier;
+    if (isPhasedTouchpadScroll)
+    {
+        const QPointF trackpadDelta = !event->pixelDelta().isNull() ?
+            QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
+        if (!trackpadDelta.isNull())
+        {
+            scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
+            constrainBoundsTimer->start();
+        }
+        event->accept();
+        logViewportState("wheel-trackpad-pan");
+        return;
+    }
+
     const QPoint eventPos = event->position().toPoint();
     const bool isAltAction = event->modifiers().testFlag(Qt::ControlModifier);
     const Qv::ViewportScrollAction horizontalAction = isAltAction ? altHorizontalScrollAction : horizontalScrollAction;
@@ -1041,7 +1060,6 @@ void QVGraphicsView::recalculateZoom()
 
 void QVGraphicsView::centerImage()
 {
-    ++sceneRectRestoreGeneration;
     logViewportState("center-before");
     const QRect viewRect = getUsableViewportRect();
     const QRect contentRect = getContentRect();
@@ -1406,7 +1424,6 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
     const auto &fileDetails = getCurrentFileDetails();
     if (!fileDetails.isPixmapLoaded || fileDetails.loadedPixmapSize.isEmpty())
     {
-        ++sceneRectRestoreGeneration;
         setSceneRect(QRectF());
         return;
     }
@@ -1421,20 +1438,16 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
         QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value()));
     const int horizontalValue = scrollPosition.x();
     const int verticalValue = scrollPosition.y();
-    const quint64 restoreGeneration = ++sceneRectRestoreGeneration;
     setSceneRect(loadedPixmapItem->boundingRect());
-    // setSceneRect() may reset the bars while it recalculates their ranges.
-    // Restore the visual viewport after that queued layout pass; Qt clamps
-    // values if the new range is genuinely smaller.
+    // setSceneRect() resets the bars while it recalculates their ranges.
+    // Restore the visual viewport before the next paint; Qt clamps values if
+    // the new range is genuinely smaller. Deferring this to a queued callback
+    // would expose an observable frame at the origin during zooming.
     if (preserveViewport)
     {
-        QTimer::singleShot(0, this, [this, horizontalValue, verticalValue, restoreGeneration]() {
-            if (restoreGeneration != sceneRectRestoreGeneration)
-                return;
-            horizontalScrollBar()->setValue(horizontalValue);
-            verticalScrollBar()->setValue(verticalValue);
-            logViewportState("scene-rect-viewport-restored");
-        });
+        horizontalScrollBar()->setValue(horizontalValue);
+        verticalScrollBar()->setValue(verticalValue);
+        logViewportState("scene-rect-viewport-restored");
     }
 }
 

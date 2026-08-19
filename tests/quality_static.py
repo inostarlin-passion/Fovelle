@@ -180,7 +180,7 @@ def main() -> int:
             "discrete_mouse_branch": "wheelDelta > 0 ? 1.0 : -1.0" in graphics_cpp,
             "power_calculation": "qPow(zoomMultiplier, wheelSteps)" in graphics_cpp,
         },
-        "all wheel events use the configured action; touch devices only select fractional zoom for phased scroll streams",
+        "discrete wheel events use configured actions; unmodified phased touchpad streams pan in pixels, while native pinch remains a separate zoom path",
     )
 
     cocoa_header = source["src/qvcocoafunctions.h"]
@@ -293,6 +293,9 @@ def main() -> int:
         "testTouchpadWheelCanUseFractionalSteps",
         "testImageIsCenteredAfterOpeningWithScrollBars",
         "testTouchpadWheelRespectsConfiguredZoomWithScrollBars",
+        "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling",
+        "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
+        "testTouchpadPanUsesPixelsWithoutChangingZoom",
         "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
@@ -335,6 +338,8 @@ def main() -> int:
             "viewportEvent",
             "nativeGestureZoomFactor",
             "nativeGesturePanScrollDelta",
+            "isPhasedTouchpadScroll",
+            "wheel-trackpad-pan",
         ),
     )
     scrollbar_contract = contains_all(
@@ -363,6 +368,8 @@ def main() -> int:
                 "viewportEvent",
                 "nativeGestureZoomFactor",
                 "nativeGesturePanScrollDelta",
+                "isPhasedTouchpadScroll",
+                "wheel-trackpad-pan",
             )},
             "scrollbar_markers": {marker: marker in graphics_cpp + graphics_header for marker in (
                 "Qt::ScrollBarAsNeeded",
