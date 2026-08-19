@@ -19,6 +19,12 @@ CASES = (
     ("TC-APP-VERSION", "FeatureTests", "testApplicationVersionIsCurrent"),
     ("TC-IMG-SMALL-POLICY", "GraphicsViewTests", "testSmallImageOneToOnePolicyUsesViewportAndWindowMode"),
     ("TC-IMG-SMALL-OPEN-BROWSE", "GraphicsViewTests", "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages"),
+    ("TC-GESTURE-NATIVE-ZOOM", "GraphicsViewTests", "testNativePinchZoomChangesScaleAtGesturePosition"),
+    ("TC-GESTURE-NATIVE-PAN", "GraphicsViewTests", "testNativePanChangesViewport"),
+    ("TC-GESTURE-TOUCHPAD-PAN", "GraphicsViewTests", "testTouchpadPanChangesViewport"),
+    ("TC-SCROLLBAR-AXES", "GraphicsViewTests", "testScrollBarsFollowImageOverflowAxes"),
+    ("TC-SCROLLBAR-THEME", "GraphicsViewTests", "testScrollBarsMatchTheme"),
+    ("TC-GESTURE-PERF", "GraphicsViewTests", "testNativeGestureResponsePerformance"),
     ("TC-APNG-PLAY", "ImageCoreAndMovieTests", "testAnimatedPngPlaysBeyondFirstFrame"),
     ("TC-FS-DEFAULT", "WindowBehaviorTests", "testFullscreenDefaultShortcutIsEnterAndConfigurable"),
     ("TC-FS-NO-BYPASS", "WindowBehaviorTests", "testEnterDoesNotBypassClearedFullscreenShortcut"),
@@ -83,6 +89,18 @@ def main() -> int:
         "no_qpixmap_after_teardown_error": "QPixmap: Must construct a QGuiApplication" not in output,
         "teardown_case_completed": "testOpenWithWorkerTeardownContract" in output,
     }
+    performance_match = re.search(
+        r"GESTURE_PERF average_ms=(?P<average>[0-9.]+) p99_ms=(?P<p99>[0-9.]+) max_ms=(?P<maximum>[0-9.]+) throughput_events_per_second=(?P<throughput>[0-9.]+) count=(?P<count>[0-9]+)",
+        output,
+    )
+    performance_observations = {
+        "average_ms": float(performance_match.group("average")) if performance_match else None,
+        "p99_ms": float(performance_match.group("p99")) if performance_match else None,
+        "maximum_ms": float(performance_match.group("maximum")) if performance_match else None,
+        "throughput_events_per_second": float(performance_match.group("throughput")) if performance_match else None,
+        "event_count": int(performance_match.group("count")) if performance_match else None,
+        "contract": bool(performance_match),
+    }
     record = {
         "kind": "system-feature",
         "command": command,
@@ -96,6 +114,7 @@ def main() -> int:
             "qt_platform": "cocoa",
             "issue_864_safety": issue_864_safety_observations,
             "opening_and_browsing_case_present": "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages" in output,
+            "native_gesture_performance": performance_observations,
         },
         "passed": bool(
             result
@@ -103,6 +122,7 @@ def main() -> int:
             and not timed_out
             and all(case["status"] == "passed" for case in cases)
             and all(issue_864_safety_observations.values())
+            and performance_observations["contract"]
         ),
         "output_tail": output[-16000:],
         "limitations": [

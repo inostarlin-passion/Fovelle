@@ -58,6 +58,7 @@ def main() -> int:
     )
 
     graphics = text("src/qvgraphicsview.cpp") + text("src/qvgraphicsview.h")
+    test_source = text("tests/tst_qviewtests.cpp")
     add_check(
         checks,
         "I-02",
@@ -83,6 +84,48 @@ def main() -> int:
             "resize_recalculation_guard": "shouldRestoreCalculatedZoom" in graphics,
         },
         "the implemented zoom contract distinguishes wheel input modes and preserves fit intent through a resized viewport",
+    )
+
+    native_gesture_contract = all_present(
+        graphics,
+        (
+            "QNativeGestureEvent",
+            "QEvent::NativeGesture",
+            "Qt::ZoomNativeGesture",
+            "Qt::PanNativeGesture",
+            "viewportEvent",
+            "nativeGestureZoomFactor",
+            "nativeGesturePanScrollDelta",
+        ),
+    )
+    scrollbar_contract = all_present(
+        graphics,
+        (
+            "Qt::ScrollBarAsNeeded",
+            "setSceneRect",
+            "scrollBarStyleSheet",
+            "QScrollBar::handle",
+            "QScrollBar::add-page",
+            "Qv::Theme::Dark",
+        ),
+    )
+    add_check(
+        checks,
+        "I-02-GESTURE-SCROLLBAR",
+        native_gesture_contract and scrollbar_contract,
+        {
+            "native_event_path": native_gesture_contract,
+            "scrollbar_overflow_path": scrollbar_contract,
+            "test_cases": all(case in test_source for case in (
+            "testNativePinchZoomChangesScaleAtGesturePosition",
+            "testNativePanChangesViewport",
+            "testTouchpadPanChangesViewport",
+            "testScrollBarsFollowImageOverflowAxes",
+                "testScrollBarsMatchTheme",
+                "testNativeGestureResponsePerformance",
+            )),
+        },
+        "Apple native gesture events, overflow-aware scrollbars, Theme-aware styling, and performance evidence are integrated",
     )
 
     cocoa = text("src/qvcocoafunctions.mm") + text("src/qvcocoafunctions.h")
@@ -326,6 +369,12 @@ def main() -> int:
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
+        "testNativePinchZoomChangesScaleAtGesturePosition",
+        "testNativePanChangesViewport",
+        "testTouchpadPanChangesViewport",
+        "testScrollBarsFollowImageOverflowAxes",
+        "testScrollBarsMatchTheme",
+        "testNativeGestureResponsePerformance",
         "testDefaultTitlebarTextIsPractical",
         "testNavigationEdgeActivationExcludesTitlebar",
         "testNavigationButtonSizingAndNoDelay",

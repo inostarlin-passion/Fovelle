@@ -1,12 +1,17 @@
 #include <QtTest>
+#include <algorithm>
+#include <numeric>
 #include <QFileInfo>
 #include <QFileOpenEvent>
 #include <QImage>
+#include <QLineF>
 #include <QFile>
 #include <QPainter>
 #include <QPropertyAnimation>
 #include <QMouseEvent>
 #include <QElapsedTimer>
+#include <QNativeGestureEvent>
+#include <QPointingDevice>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -19,6 +24,7 @@
 #include <QThreadPool>
 #include <QUrl>
 #include <QWheelEvent>
+#include <QScrollBar>
 
 #include "mainwindow.h"
 #include "qvapplication.h"
@@ -92,6 +98,12 @@ private slots:
     void testManualZoomRemainsManualAcrossResize();
     void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
     void testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages();
+    void testNativePinchZoomChangesScaleAtGesturePosition();
+    void testNativePanChangesViewport();
+    void testTouchpadPanChangesViewport();
+    void testScrollBarsFollowImageOverflowAxes();
+    void testScrollBarsMatchTheme();
+    void testNativeGestureResponsePerformance();
 };
 
 class ApplicationEventTests : public QObject
@@ -194,6 +206,45 @@ static void sendMouseMove(QWidget *widget, const QPoint &position)
         Qt::NoModifier);
 #endif
     QCoreApplication::sendEvent(widget, &event);
+}
+
+static bool sendNativeGesture(
+    QVGraphicsView *view,
+    const Qt::NativeGestureType type,
+    const QPoint &position,
+    const qreal value = 0.0,
+    const QPointF &delta = {})
+{
+    QWidget *receiver = view->viewport();
+    const QPointF localPosition(position);
+    // The production handler consumes local viewport coordinates.  Keep the
+    // synthetic scene coordinate independent from QWidget parent hierarchy so
+    // the test remains deterministic for native Cocoa widgets.
+    const QPointF scenePosition(position);
+    const QPointF globalPosition(receiver->mapToGlobal(position));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    QNativeGestureEvent event(
+        type,
+        QPointingDevice::primaryPointingDevice(),
+        2,
+        localPosition,
+        scenePosition,
+        globalPosition,
+        value,
+        delta);
+#else
+    QNativeGestureEvent event(
+        type,
+        nullptr,
+        localPosition,
+        scenePosition,
+        globalPosition,
+        value,
+        0,
+        0);
+#endif
+    const bool delivered = QCoreApplication::sendEvent(receiver, &event);
+    return delivered && event.isAccepted();
 }
 
 static bool containsColor(const QImage &image, const QRect &area, const QColor &color)
@@ -1096,6 +1147,428 @@ void GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImage
 
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::FillWindow);
     QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0), 5000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-GESTURE-NATIVE-ZOOM
+// Test purpose: verify Apple native pinch zoom changes the zoom ratio and keeps
+// the scene point under the two-finger gesture position stable.
+// Preconditions: a visible 640x480 Cocoa window loads a 1600x900 image in
+// OriginalSize mode, and the native gesture receiver is the viewport.
+// Input data: BeginNativeGesture, ZoomNativeGesture(value=0.25) at the viewport
+// center, and EndNativeGesture.
+// Steps: record the zoom and scene point, dispatch the three native events, and
+// compare the resulting zoom and scene point.
+// Expected result: every event is accepted, zoom becomes 125%, and the scene
+// point moves by no more than two scene pixels.
+// Postcondition: the window and temporary image are released.
+void GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "native-pinch", Qt::darkCyan, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QCoreApplication::processEvents();
+
+    const QPoint gesturePosition = view->viewport()->rect().center();
+    const QPointF scenePointBefore = view->mapToScene(gesturePosition);
+    const qreal zoomBefore = view->getZoomLevel();
+    QVERIFY(sendNativeGesture(view, Qt::BeginNativeGesture, gesturePosition));
+    QVERIFY(sendNativeGesture(view, Qt::ZoomNativeGesture, gesturePosition, 0.25));
+    QVERIFY(sendNativeGesture(view, Qt::EndNativeGesture, gesturePosition));
+
+    QCOMPARE(view->getZoomLevel(), zoomBefore * QVGraphicsView::nativeGestureZoomFactor(0.25));
+    const QPointF scenePointAfter = view->mapToScene(gesturePosition);
+    QVERIFY(QLineF(scenePointBefore, scenePointAfter).length() <= 2.0);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-GESTURE-NATIVE-PAN
+// Test purpose: verify Apple native pan changes the visible viewport in both
+// axes while preserving the image zoom ratio.
+// Preconditions: a visible 640x480 Cocoa window loads a 1600x900 image at 1:1,
+// so both scroll axes have a non-zero range.
+// Input data: BeginNativeGesture, PanNativeGesture(delta=(80,60)), and
+// EndNativeGesture.
+// Steps: center both scrollbars, dispatch the native event stream, and inspect
+// the scrollbar values and zoom level.
+// Expected result: the event stream is accepted, both scrollbar values change
+// within their ranges, and zoom remains unchanged.
+// Postcondition: the window and temporary image are released.
+void GraphicsViewTests::testNativePanChangesViewport()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "native-pan", Qt::darkYellow, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    view->horizontalScrollBar()->setValue(
+        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+    view->verticalScrollBar()->setValue(
+        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+    QCoreApplication::processEvents();
+
+    const QPoint gesturePosition = view->viewport()->rect().center();
+    const int horizontalBefore = view->horizontalScrollBar()->value();
+    const int verticalBefore = view->verticalScrollBar()->value();
+    const qreal zoomBefore = view->getZoomLevel();
+    QVERIFY(sendNativeGesture(view, Qt::BeginNativeGesture, gesturePosition));
+    QVERIFY(sendNativeGesture(view, Qt::PanNativeGesture, gesturePosition, 0.0, QPointF(80.0, 60.0)));
+    QVERIFY(sendNativeGesture(view, Qt::EndNativeGesture, gesturePosition));
+
+    QVERIFY(view->horizontalScrollBar()->value() != horizontalBefore);
+    QVERIFY(view->verticalScrollBar()->value() != verticalBefore);
+    QVERIFY(view->horizontalScrollBar()->value() >= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->value() <= view->horizontalScrollBar()->maximum());
+    QVERIFY(view->verticalScrollBar()->value() >= view->verticalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->value() <= view->verticalScrollBar()->maximum());
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), zoomBefore));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-GESTURE-TOUCHPAD-PAN
+// Test purpose: verify the two-finger macOS touchpad movement path pans the
+// visible image when Cocoa/Qt reports pixel scrolling as QWheelEvent.
+// Preconditions: a visible 640x480 Cocoa window loads a 1600x900 image at 1:1
+// and both scroll axes have non-zero ranges.
+// Input data: one QWheelEvent with a synthetic TouchPad device and
+// pixelDelta=(80,60).
+// Steps: center both scrollbars, dispatch the touchpad wheel event to the
+// viewport, and inspect acceptance and scrollbar values.
+// Expected result: the event is accepted, both values change within range,
+// and no zoom action is applied.
+// Postcondition: the window and temporary image are released.
+void GraphicsViewTests::testTouchpadPanChangesViewport()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "touchpad-pan", Qt::darkGreen, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    view->horizontalScrollBar()->setValue(
+        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+    view->verticalScrollBar()->setValue(
+        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+    QCoreApplication::processEvents();
+
+    const QPoint wheelPosition = view->viewport()->rect().center();
+    const QPoint horizontalBefore = QPoint(
+        view->horizontalScrollBar()->value(), view->verticalScrollBar()->value());
+    const QPoint globalWheelPosition = view->viewport()->mapToGlobal(wheelPosition);
+    QPointingDevice touchpad(
+        QStringLiteral("test touchpad"),
+        1,
+        QInputDevice::DeviceType::TouchPad,
+        QPointingDevice::PointerType::Finger,
+        QInputDevice::Capability::PixelScroll,
+        5,
+        0);
+    QWheelEvent wheelEvent(
+        QPointF(wheelPosition),
+        QPointF(globalWheelPosition),
+        QPoint(80, 60),
+        QPoint(),
+        Qt::NoButton,
+        Qt::NoModifier,
+        Qt::ScrollUpdate,
+        false,
+        Qt::MouseEventNotSynthesized,
+        &touchpad);
+
+    QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
+    QVERIFY(wheelEvent.isAccepted());
+    QVERIFY(view->horizontalScrollBar()->value() != horizontalBefore.x());
+    QVERIFY(view->verticalScrollBar()->value() != horizontalBefore.y());
+    QVERIFY(view->horizontalScrollBar()->value() >= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->value() <= view->horizontalScrollBar()->maximum());
+    QVERIFY(view->verticalScrollBar()->value() >= view->verticalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->value() <= view->verticalScrollBar()->maximum());
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SCROLLBAR-AXES
+// Test purpose: verify each scroll axis is visible exactly when the transformed
+// image exceeds the corresponding viewport dimension, and is placed at the
+// right/bottom edge by QAbstractScrollArea.
+// Preconditions: WindowResizeMode is Never and OriginalSize is active so the
+// fixture dimensions are not automatically fitted away.
+// Input data: 100x100, 1600x100, 100x1600, and 1600x1600 PNG fixtures.
+// Steps: open each fixture in a 640x480 window, wait for the view to settle, and
+// inspect both policies, visibility flags, and edge geometry.
+// Expected result: none, horizontal-only, vertical-only, and both axes are
+// observed respectively; visible bars touch the required window edges.
+// Postcondition: every window and fixture is released.
+void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const auto checkCase = [&](const QString &name, const QSize imageSize, const bool horizontal, const bool vertical) {
+        const QString imagePath = createTestImage(dir, name, Qt::darkBlue, imageSize);
+        QVERIFY(!imagePath.isEmpty());
+
+        MainWindow window;
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.resize(640, 480);
+        window.show();
+        QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+        window.openFile(imagePath);
+        QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+        auto *view = window.findChild<QVGraphicsView *>();
+        QVERIFY(view);
+        view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            view->horizontalScrollBar()->isVisible() == horizontal &&
+                view->verticalScrollBar()->isVisible() == vertical,
+            2000);
+        QCOMPARE(view->horizontalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
+        QCOMPARE(view->verticalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
+
+        if (horizontal)
+        {
+            const QPoint barBottomRight = view->mapFromGlobal(
+                view->horizontalScrollBar()->mapToGlobal(view->horizontalScrollBar()->rect().bottomRight()));
+            QCOMPARE(barBottomRight.y(), view->rect().bottom());
+        }
+        else
+            QVERIFY(!view->horizontalScrollBar()->isVisible());
+        if (vertical)
+        {
+            const QPoint barBottomRight = view->mapFromGlobal(
+                view->verticalScrollBar()->mapToGlobal(view->verticalScrollBar()->rect().bottomRight()));
+            QCOMPARE(barBottomRight.x(), view->rect().right());
+        }
+        else
+            QVERIFY(!view->verticalScrollBar()->isVisible());
+
+        window.close();
+    };
+
+    checkCase("scroll-none", QSize(100, 100), false, false);
+    checkCase("scroll-horizontal", QSize(1600, 100), true, false);
+    checkCase("scroll-vertical", QSize(100, 1600), false, true);
+    checkCase("scroll-both", QSize(1600, 1600), true, true);
+
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SCROLLBAR-THEME
+// Test purpose: verify the scrollbar handle and track stylesheet follows the
+// persisted Light/Dark Theme and updates live without reopening the image.
+// Preconditions: a visible window has a horizontally overflowing image.
+// Input data: Light Theme followed by Dark Theme through SettingsManager.
+// Steps: inspect both scrollbar styles under Light, write Dark to QSettings,
+// reload settings, and inspect the same widgets again.
+// Expected result: the Light and Dark styles are exact theme-specific contracts,
+// including distinct track and handle colors, and the dynamic theme property
+// changes on both bars.
+// Postcondition: the original Theme setting and window are restored.
+void GraphicsViewTests::testScrollBarsMatchTheme()
+{
+    ScopedOptionValues options({
+        {"theme", static_cast<int>(Qv::Theme::Light)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "scroll-theme", Qt::darkGreen, QSize(1600, 100));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible(), 2000);
+
+    const auto *horizontal = view->horizontalScrollBar();
+    const auto *vertical = view->verticalScrollBar();
+    QCOMPARE(horizontal->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light));
+    QCOMPARE(vertical->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light));
+    QCOMPARE(horizontal->property("scrollBarTheme").toInt(), static_cast<int>(Qv::Theme::Light));
+    QVERIFY(horizontal->styleSheet().contains("QScrollBar::handle"));
+    QVERIFY(horizontal->styleSheet().contains("QScrollBar::add-page"));
+
+    QSettings settings;
+    settings.setValue("options/theme", static_cast<int>(Qv::Theme::Dark));
+    settings.sync();
+    qvApp->getSettingsManager().loadSettings();
+    QTRY_COMPARE_WITH_TIMEOUT(horizontal->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(vertical->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
+    QCOMPARE(horizontal->property("scrollBarTheme").toInt(), static_cast<int>(Qv::Theme::Dark));
+    QVERIFY(horizontal->styleSheet().contains("#2f2f2f"));
+    QVERIFY(horizontal->styleSheet().contains("#6b6b6b"));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-GESTURE-PERF
+// Test purpose: measure native gesture-stream response under the target
+// workload and enforce the time-behavior contract.
+// Preconditions: a 1600x900 image is loaded at 1:1 with both scroll axes
+// available; the test runs on the Cocoa event loop.
+// Input data: 240 accepted PanNativeGesture events with 1-pixel alternating
+// deltas, bracketed by Begin/End events.
+// Steps: time each event dispatch, calculate average, P99, maximum, and stream
+// throughput, and compare them with the documented budgets.
+// Expected result: average <=16.67ms, P99 <=33.33ms, maximum <=50ms, and
+// throughput >=60 accepted events/second.
+// Postcondition: the window, fixture, and temporary event state are released.
+void GraphicsViewTests::testNativeGestureResponsePerformance()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(dir, "native-gesture-performance", Qt::darkMagenta, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QCoreApplication::processEvents();
+
+    constexpr int eventCount = 240;
+    const QPoint gesturePosition = view->viewport()->rect().center();
+    QVector<double> samples;
+    samples.reserve(eventCount);
+    QVERIFY(sendNativeGesture(view, Qt::BeginNativeGesture, gesturePosition));
+    QElapsedTimer streamTimer;
+    streamTimer.start();
+    for (int i = 0; i < eventCount; ++i)
+    {
+        QElapsedTimer eventTimer;
+        eventTimer.start();
+        QVERIFY(sendNativeGesture(
+            view,
+            Qt::PanNativeGesture,
+            gesturePosition,
+            0.0,
+            QPointF(i % 2 == 0 ? 1.0 : -1.0, i % 3 == 0 ? 1.0 : -1.0)));
+        samples.append(eventTimer.nsecsElapsed() / 1000000.0);
+    }
+    const double streamMilliseconds = streamTimer.nsecsElapsed() / 1000000.0;
+    QVERIFY(sendNativeGesture(view, Qt::EndNativeGesture, gesturePosition));
+
+    std::sort(samples.begin(), samples.end());
+    const double averageMilliseconds = std::accumulate(samples.cbegin(), samples.cend(), 0.0) / samples.size();
+    const int p99Index = qMax(0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
+    const double p99Milliseconds = samples.at(p99Index);
+    const double maximumMilliseconds = samples.constLast();
+    const double throughput = eventCount / (streamMilliseconds / 1000.0);
+    qInfo().noquote() << QStringLiteral(
+        "GESTURE_PERF average_ms=%1 p99_ms=%2 max_ms=%3 throughput_events_per_second=%4 count=%5")
+        .arg(averageMilliseconds, 0, 'f', 3)
+        .arg(p99Milliseconds, 0, 'f', 3)
+        .arg(maximumMilliseconds, 0, 'f', 3)
+        .arg(throughput, 0, 'f', 3)
+        .arg(eventCount);
+    QVERIFY(averageMilliseconds <= 16.67);
+    QVERIFY(p99Milliseconds <= 33.33);
+    QVERIFY(maximumMilliseconds <= 50.0);
+    QVERIFY(throughput >= 60.0);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

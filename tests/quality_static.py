@@ -291,6 +291,12 @@ def main() -> int:
         "testManualZoomRemainsManualAcrossResize",
         "testSmallImageOneToOnePolicyUsesViewportAndWindowMode",
         "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages",
+        "testNativePinchZoomChangesScaleAtGesturePosition",
+        "testNativePanChangesViewport",
+        "testTouchpadPanChangesViewport",
+        "testScrollBarsFollowImageOverflowAxes",
+        "testScrollBarsMatchTheme",
+        "testNativeGestureResponsePerformance",
         "testFullscreenDefaultShortcutIsEnterAndConfigurable",
         "testEnterDoesNotBypassClearedFullscreenShortcut",
         "testConfiguredFullscreenShortcutStillWorks",
@@ -312,6 +318,57 @@ def main() -> int:
         all(marker in test_source for marker in test_markers),
         {"test_markers": {marker: marker in test_source for marker in test_markers}},
         "each atomic feature criterion has a deterministic test implementation",
+    )
+
+    native_gesture_contract = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "QNativeGestureEvent",
+            "QEvent::NativeGesture",
+            "Qt::ZoomNativeGesture",
+            "Qt::PanNativeGesture",
+            "viewportEvent",
+            "nativeGestureZoomFactor",
+            "nativeGesturePanScrollDelta",
+        ),
+    )
+    scrollbar_contract = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "Qt::ScrollBarAsNeeded",
+            "setSceneRect",
+            "scrollBarStyleSheet",
+            "QScrollBar::handle",
+            "QScrollBar::add-page",
+            "Qv::Theme::Dark",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-23-GESTURE-SCROLLBAR",
+        native_gesture_contract and scrollbar_contract,
+        {
+            "native_event_path": native_gesture_contract,
+            "scrollbar_overflow_path": scrollbar_contract,
+            "native_gesture_markers": {marker: marker in graphics_cpp + graphics_header for marker in (
+                "QNativeGestureEvent",
+                "QEvent::NativeGesture",
+                "Qt::ZoomNativeGesture",
+                "Qt::PanNativeGesture",
+                "viewportEvent",
+                "nativeGestureZoomFactor",
+                "nativeGesturePanScrollDelta",
+            )},
+            "scrollbar_markers": {marker: marker in graphics_cpp + graphics_header for marker in (
+                "Qt::ScrollBarAsNeeded",
+                "setSceneRect",
+                "scrollBarStyleSheet",
+                "QScrollBar::handle",
+                "QScrollBar::add-page",
+                "Qv::Theme::Dark",
+            )},
+        },
+        "Apple native gesture events drive zoom/pan, overflow drives AsNeeded bars, and the selected Theme drives handle/track styles",
     )
 
     version_contract = contains_all(

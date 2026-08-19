@@ -15,16 +15,15 @@
 QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 {
     // GraphicsView setup
-    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setFrameShape(QFrame::NoFrame);
     setTransformationAnchor(QGraphicsView::NoAnchor);
     viewport()->setAutoFillBackground(false);
     viewport()->setMouseTracking(true);
-    grabGesture(Qt::PinchGesture);
 
     // Scene setup
-    auto *scene = new QGraphicsScene(-1000000.0, -1000000.0, 2000000.0, 2000000.0, this);
+    auto *scene = new QGraphicsScene(this);
     setScene(scene);
 
     scrollHelper = new ScrollHelper(this,
@@ -285,23 +284,17 @@ void QVGraphicsView::mouseDoubleClickEvent(QMouseEvent *event)
     QWidget::mouseDoubleClickEvent(event);
 }
 
+bool QVGraphicsView::viewportEvent(QEvent *event)
+{
+    if (event->type() == QEvent::NativeGesture)
+        return handleNativeGestureEvent(static_cast<QNativeGestureEvent *>(event));
+
+    return QGraphicsView::viewportEvent(event);
+}
+
 bool QVGraphicsView::event(QEvent *event)
 {
-    if (event->type() == QEvent::Gesture)
-    {
-        QGestureEvent *gestureEvent = static_cast<QGestureEvent*>(event);
-        if (QGesture *pinch = gestureEvent->gesture(Qt::PinchGesture))
-        {
-            QPinchGesture *pinchGesture = static_cast<QPinchGesture*>(pinch);
-            if (pinchGesture->changeFlags() & QPinchGesture::ScaleFactorChanged)
-            {
-                const QPoint hotPoint = mapFromGlobal(pinchGesture->hotSpot().toPoint());
-                zoomRelative(pinchGesture->scaleFactor(), hotPoint);
-            }
-            return true;
-        }
-    }
-    else if (event->type() == QEvent::ShortcutOverride && !turboNavMode.has_value())
+    if (event->type() == QEvent::ShortcutOverride && !turboNavMode.has_value())
     {
         const QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         const ActionManager &actionManager = qvApp->getActionManager();
@@ -345,6 +338,27 @@ void QVGraphicsView::focusOutEvent(QFocusEvent *event)
 
 void QVGraphicsView::wheelEvent(QWheelEvent *event)
 {
+    bool isTouchpad = false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QInputDevice *device = event->device();
+    isTouchpad = device != nullptr && device->type() == QInputDevice::DeviceType::TouchPad;
+#endif
+    const QPointF trackpadDelta = !event->pixelDelta().isNull() ?
+        QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
+    const bool isTrackpadPan = isTouchpad &&
+        (event->phase() != Qt::NoScrollPhase || !trackpadDelta.isNull()) &&
+        event->modifiers() == Qt::NoModifier;
+    if (isTrackpadPan)
+    {
+        if (!trackpadDelta.isNull())
+        {
+            scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
+            constrainBoundsTimer->start();
+        }
+        event->accept();
+        return;
+    }
+
     const QPoint eventPos = event->position().toPoint();
     const bool isAltAction = event->modifiers().testFlag(Qt::ControlModifier);
     const Qv::ViewportScrollAction horizontalAction = isAltAction ? altHorizontalScrollAction : horizontalScrollAction;
@@ -370,7 +384,6 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
 
     bool useFractionalZoom = false;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    const QInputDevice *device = event->device();
     useFractionalZoom = device != nullptr &&
         (device->type() == QInputDevice::DeviceType::TouchPad ||
          device->type() == QInputDevice::DeviceType::TouchScreen) &&
@@ -537,6 +550,36 @@ qreal QVGraphicsView::wheelZoomFactor(const int wheelDelta, const qreal zoomMult
     return qPow(zoomMultiplier, wheelSteps);
 }
 
+qreal QVGraphicsView::nativeGestureZoomFactor(const qreal value)
+{
+    return qMax(0.01, 1.0 + value);
+}
+
+QPointF QVGraphicsView::nativeGesturePanScrollDelta(const QPointF &delta, const bool isRightToLeft)
+{
+    return QPointF(-delta.x() * (isRightToLeft ? -1.0 : 1.0), -delta.y());
+}
+
+QString QVGraphicsView::scrollBarStyleSheet(const Qv::Theme theme)
+{
+    const bool isDark = theme == Qv::Theme::Dark;
+    const QString trackColor = isDark ? QStringLiteral("#2f2f2f") : QStringLiteral("#ededed");
+    const QString handleColor = isDark ? QStringLiteral("#6b6b6b") : QStringLiteral("#b0b0b0");
+    const QString handleHoverColor = isDark ? QStringLiteral("#858585") : QStringLiteral("#8f8f8f");
+
+    return QStringLiteral(
+        "QScrollBar:vertical, QScrollBar:horizontal { border: none; background: %1; margin: 0px; }"
+        "QScrollBar:vertical { width: 12px; }"
+        "QScrollBar:horizontal { height: 12px; }"
+        "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: %2; border: none; border-radius: 5px; }"
+        "QScrollBar::handle:vertical { min-height: 24px; margin: 2px 1px; }"
+        "QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 2px; }"
+        "QScrollBar::handle:hover, QScrollBar::handle:pressed { background: %3; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical, QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: %1; }"
+        "QScrollBar::add-line, QScrollBar::sub-line { background: transparent; border: none; width: 0px; height: 0px; }")
+        .arg(trackColor, handleColor, handleHoverColor);
+}
+
 bool QVGraphicsView::zoomLevelsEquivalent(const qreal lhs, const qreal rhs)
 {
     const qreal tolerance = qMax(1.0, qMax(qAbs(lhs), qAbs(rhs))) * 1e-9;
@@ -676,6 +719,7 @@ void QVGraphicsView::postLoad()
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
+    updateSceneRect();
 
     // If we have a content rect for the prior pixmap, scroll the new pixmap to align their centers
     if (lastImageContentRect.isValid())
@@ -1258,6 +1302,50 @@ int QVGraphicsView::getRtlFlip() const
     return isRightToLeft() ? -1 : 1;
 }
 
+bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
+{
+    const auto getGesturePosition = [](const QNativeGestureEvent *gestureEvent) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        return gestureEvent->position().toPoint();
+#else
+        return gestureEvent->localPos().toPoint();
+#endif
+    };
+
+    switch (event->gestureType())
+    {
+    case Qt::BeginNativeGesture:
+        break;
+    case Qt::EndNativeGesture:
+        constrainBoundsTimer->start();
+        break;
+    case Qt::ZoomNativeGesture:
+    {
+        if (getCurrentFileDetails().isPixmapLoaded)
+        {
+            const qreal relativeFactor = nativeGestureZoomFactor(event->value());
+            if (!qFuzzyCompare(relativeFactor, 1.0))
+                zoomAbsolute(zoomLevel * relativeFactor, getGesturePosition(event));
+        }
+        break;
+    }
+    case Qt::PanNativeGesture:
+    {
+        if (getCurrentFileDetails().isPixmapLoaded && !event->delta().isNull())
+        {
+            scrollHelper->move(nativeGesturePanScrollDelta(event->delta(), isRightToLeft()));
+            constrainBoundsTimer->start();
+        }
+        break;
+    }
+    default:
+        return false;
+    }
+
+    event->accept();
+    return true;
+}
+
 void QVGraphicsView::cancelTurboNav()
 {
     if (!turboNavMode.has_value())
@@ -1278,9 +1366,36 @@ MainWindow* QVGraphicsView::getMainWindow() const
     return qobject_cast<MainWindow*>(window());
 }
 
+void QVGraphicsView::updateSceneRect()
+{
+    const auto &fileDetails = getCurrentFileDetails();
+    if (!fileDetails.isPixmapLoaded || fileDetails.loadedPixmapSize.isEmpty())
+    {
+        setSceneRect(QRectF());
+        return;
+    }
+
+    // QGraphicsView applies its transform to the scene rectangle when it
+    // calculates scrollbar ranges. Keeping this rectangle in unscaled image
+    // coordinates makes AsNeeded reflect the actual transformed image size.
+    setSceneRect(QRectF(QPointF(), QSizeF(fileDetails.loadedPixmapSize)));
+}
+
+void QVGraphicsView::applyScrollBarTheme(const Qv::Theme theme)
+{
+    const QString style = scrollBarStyleSheet(theme);
+    for (QScrollBar *scrollBar : {horizontalScrollBar(), verticalScrollBar()})
+    {
+        scrollBar->setStyleSheet(style);
+        scrollBar->setProperty("scrollBarTheme", static_cast<int>(theme));
+    }
+}
+
 void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
 {
     auto &settingsManager = qvApp->getSettingsManager();
+
+    applyScrollBarTheme(settingsManager.getEnum<Qv::Theme>("theme"));
 
     if (isInitialLoad || globalNavigationResetsZoom != settingsManager.getBoolean("navresetszoom"))
     {

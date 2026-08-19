@@ -10,6 +10,7 @@
 #include <QGraphicsView>
 #include <QImageReader>
 #include <QMimeData>
+#include <QNativeGestureEvent>
 #include <QDir>
 #include <QTimer>
 #include <QFileInfo>
@@ -101,6 +102,15 @@ public:
     // Keep calculated-zoom restoration tolerant to floating-point round trips.
     static bool zoomLevelsEquivalent(qreal lhs, qreal rhs);
 
+    // Keep native gesture conversion pure so macOS event semantics can be
+    // verified without depending on a physical trackpad.
+    static qreal nativeGestureZoomFactor(qreal value);
+
+    static QPointF nativeGesturePanScrollDelta(const QPointF &delta, bool isRightToLeft);
+
+    // Keep the Theme-to-scrollbar contract observable without rendering.
+    static QString scrollBarStyleSheet(Qv::Theme theme);
+
     // Keep the small-image policy independent from widget state so its boundary
     // conditions can be tested deterministically.
     static bool shouldDisplaySmallImageAtOneToOne(
@@ -144,6 +154,8 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
 
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+
+    bool viewportEvent(QEvent *event) override;
 
     bool event(QEvent *event) override;
 
@@ -198,6 +210,12 @@ protected:
     void cancelTurboNav();
 
     MainWindow* getMainWindow() const;
+
+    bool handleNativeGestureEvent(QNativeGestureEvent *event);
+
+    void updateSceneRect();
+
+    void applyScrollBarTheme(Qv::Theme theme);
 
 private slots:
     void animatedFrameChanged(QRect rect);
