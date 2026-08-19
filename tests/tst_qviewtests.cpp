@@ -72,6 +72,7 @@ class FeatureTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testApplicationVersionIsCurrent();
     void testWindowIconIsCleared();
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
     void testTitlebarIconClearingIsIdempotent();
@@ -306,6 +307,9 @@ static const QByteArray tinyWebpBase64 =
 
 static const QByteArray tinyAvifBase64 =
     "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAASAAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAAIAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAOY2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQWGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGgAwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg==";
+
+static const QByteArray tinyAnimatedPngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAACAAAAAgAAAAAAAAAAAAEACgAA6FTcAAAAABFJREFUeJxj+P+fgQGEGWAMAE/CB/njowPaAAAAGmZjVEwAAAABAAAAAgAAAAIAAAAAAAAAAAABAAoAAHMnNtQAAAAVZmRBVAAAAAJ4nGP4z8DwH4QZYAwAR8oH+YqD/xkAAAAASUVORK5CYII=";
 
 static const QByteArray orientedWebpBase64 =
     "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA=";
@@ -666,7 +670,20 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.0"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.1"));
+}
+
+// TC-APP-VERSION
+// Test purpose: verify the application reports the released semantic version.
+// Preconditions: the QVApplication has been constructed with the CMake version
+// definitions.
+// Input data: QCoreApplication::applicationVersion().
+// Steps: read the runtime application version.
+// Expected result: the value is exactly 0.1.1.
+// Postcondition: no application or settings state changes.
+void FeatureTests::testApplicationVersionIsCurrent()
+{
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.1"));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -1096,7 +1113,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 0.1.0"));
+    QCOMPARE(subtitleLabel->text(), QString("version 0.1.1"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -1440,30 +1457,49 @@ void ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()
 // TC-APNG-PLAY
 // Test purpose: verify that the supplied APNG is decoded as an animation and
 // that playback can advance beyond the first composited frame.
-// Preconditions: the user-provided APNG fixture exists and the macOS Image I/O
-// animation decoder is available.
-// Input data: 587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png.
-// Steps: construct QVMovie, inspect its frame/loop metadata, jump to frame 0
-// and the first later frame that differs, and compare image/delay metadata.
-// Expected result: 686 frames are reported, the loop is infinite, a later
-// frame is reachable and differs from frame 0, and its finite delay is retained.
-// Postcondition: the movie is destroyed without leaving an active timer.
+// Preconditions: macOS Image I/O animation decoding is available; an explicit
+// FOVELLE_APNG_FIXTURE may optionally be provided.
+// Input data: the configured external APNG, otherwise the embedded two-frame
+// fixture used to keep CI independent from developer-machine paths.
+// Steps: choose the deterministic fixture, construct QVMovie, inspect its
+// frame/loop metadata, jump to frame 0 and the first later frame that differs,
+// and compare image/delay metadata.
+// Expected result: at least two frames are reported, the loop is infinite, a
+// later frame is reachable and differs from frame 0, and its finite delay is
+// retained; a supplied real sample is checked through the same multi-frame path.
+// Postcondition: the movie and fallback temporary directory are destroyed
+// without leaving an active timer.
 void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
 {
-    const QString path = qEnvironmentVariable(
-        "FOVELLE_APNG_FIXTURE",
-        QStringLiteral("/Users/inostarlin/Downloads/587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png"));
+    const QString configuredPath = qEnvironmentVariable("FOVELLE_APNG_FIXTURE");
+    QTemporaryDir fallbackDirectory;
+    QString path = configuredPath;
+    const bool usingEmbeddedFixture = path.isEmpty();
+    if (path.isEmpty())
+    {
+        QVERIFY(fallbackDirectory.isValid());
+        path = createBase64Image(fallbackDirectory, "embedded-animated", "png", tinyAnimatedPngBase64);
+    }
     QVERIFY2(QFileInfo::exists(path), qPrintable(QStringLiteral("APNG fixture is missing: %1").arg(path)));
+    const bool isReferenceSample = QFileInfo(path).fileName() == QStringLiteral("587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png");
 
     QVMovie movie(path);
     movie.setCacheMode(QVMovie::CacheAll);
     QVERIFY(movie.isValid());
-    QCOMPARE(movie.frameCount(), 686);
+    QVERIFY(movie.frameCount() >= 2);
+    if (isReferenceSample)
+        QCOMPARE(movie.frameCount(), 686);
+    else if (usingEmbeddedFixture)
+        QCOMPARE(movie.frameCount(), 2);
     QCOMPARE(movie.loopCount(), -1);
 
     QVERIFY(movie.jumpToFrame(0));
     const QImage firstFrame = movie.currentImage();
-    QCOMPARE(firstFrame.size(), QSize(240, 160));
+    QVERIFY(!firstFrame.isNull());
+    if (isReferenceSample)
+        QCOMPARE(firstFrame.size(), QSize(240, 160));
+    else if (usingEmbeddedFixture)
+        QCOMPARE(firstFrame.size(), QSize(2, 2));
 
     int differingFrame = -1;
     QImage secondFrame;
@@ -1478,7 +1514,11 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
         }
     }
     QVERIFY(differingFrame > 0);
-    QCOMPARE(secondFrame.size(), QSize(240, 160));
+    QVERIFY(!secondFrame.isNull());
+    if (isReferenceSample)
+        QCOMPARE(secondFrame.size(), QSize(240, 160));
+    else if (usingEmbeddedFixture)
+        QCOMPARE(secondFrame.size(), QSize(2, 2));
     QCOMPARE(movie.currentFrameNumber(), differingFrame);
     QVERIFY(movie.nextFrameDelay() > 0);
 
@@ -1488,7 +1528,16 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
     QSignalSpy frameChangedSpy(&playbackMovie, &QVMovie::frameChanged);
     playbackMovie.start();
     QTRY_VERIFY_WITH_TIMEOUT(frameChangedSpy.count() >= 2, 1000);
-    QVERIFY(playbackMovie.currentFrameNumber() > 0);
+    bool observedLaterFrame = false;
+    for (const auto &arguments : frameChangedSpy)
+    {
+        if (!arguments.isEmpty() && arguments.at(0).toInt() > 0)
+        {
+            observedLaterFrame = true;
+            break;
+        }
+    }
+    QVERIFY(observedLaterFrame);
     playbackMovie.stop();
 }
 
@@ -2100,7 +2149,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("0.1.0");
+    QCoreApplication::setApplicationVersion("0.1.1");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 

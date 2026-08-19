@@ -1,5 +1,5 @@
 TARGET = Fovelle
-VERSION = 0.1.0
+VERSION = 0.1.1
 
 QT += core gui network widgets svg
 

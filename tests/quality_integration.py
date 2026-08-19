@@ -308,6 +308,7 @@ def main() -> int:
     )
 
     required_cases = (
+        "testApplicationVersionIsCurrent",
         "testImageLoaderLoadsWebpWithImageIOFallback",
         "testImageLoaderLoadsAvifWithImageIOFallback",
         "testImageLoaderAppliesWebpOrientation",
@@ -338,6 +339,31 @@ def main() -> int:
         all(case in test_source for case in required_cases),
         {"cases": {case: case in test_source for case in required_cases}},
         "the integrated test source contains one deterministic case for each current-scope acceptance criterion",
+    )
+
+    version_sources = text("CMakeLists.txt") + text("qView.pro") + text("tests/tst_qviewtests.cpp")
+    apng_test_source = text("tests/tst_qviewtests.cpp")
+    version_ci_contract = (
+        "VERSION 0.1.1" in version_sources
+        and "VERSION = 0.1.1" in version_sources
+        and 'QString("0.1.1")' in version_sources
+        and "0.1.0" not in version_sources
+        and "FOVELLE_APNG_FIXTURE" in apng_test_source
+        and "tinyAnimatedPngBase64" in apng_test_source
+        and "fallbackDirectory" in apng_test_source
+    )
+    add_check(
+        checks,
+        "I-18-VERSION-CI",
+        version_ci_contract,
+        {
+            "version_0_1_1": "VERSION 0.1.1" in version_sources and "VERSION = 0.1.1" in version_sources,
+            "runtime_version_asserted": 'QString("0.1.1")' in version_sources,
+            "old_version_absent": "0.1.0" not in version_sources,
+            "apng_env_override": "FOVELLE_APNG_FIXTURE" in apng_test_source,
+            "embedded_apng_fallback": "tinyAnimatedPngBase64" in apng_test_source and "fallbackDirectory" in apng_test_source,
+        },
+        "the version and CI APNG fixture contract are integrated without a developer-machine-only path",
     )
 
     workflow = text(".github/workflows/release.yml")
