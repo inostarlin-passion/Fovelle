@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: macos-14
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +33,7 @@ jobs:
         run: cmake --build build --parallel 2
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --timeout 90
 
       - name: Package Fovelle
         run: ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app Fovelle-macOS.zip

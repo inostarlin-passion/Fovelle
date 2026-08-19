@@ -96,5 +96,6 @@ endif()
 
 add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
+    TIMEOUT 90
 )

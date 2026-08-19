@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QDebug>
+#include <QScopedValueRollback>
 #include <QtMath>
 #include <QGestureEvent>
 #include <QScrollBar>
@@ -80,6 +81,13 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
             zoomLevelsEquivalent(zoomLevel, lastCalculatedZoomLevel.value());
 
         QGraphicsView::resizeEvent(event);
+
+        // setSceneRect() can synchronously resize the viewport when an
+        // AsNeeded scrollbar changes state.  Do not start another fit pass
+        // from that nested resize; Qt documents that this pattern can recurse
+        // when automatic scrollbar state toggles during a resize.
+        if (isUpdatingSceneRect)
+            return;
 
         if (shouldRestoreCalculatedZoom)
         {
@@ -1422,6 +1430,9 @@ MainWindow* QVGraphicsView::getMainWindow() const
 
 void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollPosition)
 {
+    if (isUpdatingSceneRect)
+        return;
+
     const auto &fileDetails = getCurrentFileDetails();
     if (!fileDetails.isPixmapLoaded || fileDetails.loadedPixmapSize.isEmpty())
     {
@@ -1439,7 +1450,10 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
         QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value()));
     const int horizontalValue = scrollPosition.x();
     const int verticalValue = scrollPosition.y();
-    setSceneRect(getSceneRectForViewport());
+    const QRectF desiredSceneRect = getSceneRectForViewport();
+    QScopedValueRollback<bool> sceneRectUpdateGuard(isUpdatingSceneRect, true);
+    if (sceneRect() != desiredSceneRect)
+        setSceneRect(desiredSceneRect);
     // setSceneRect() resets the bars while it recalculates their ranges.
     // Restore the visual viewport before the next paint; Qt clamps values if
     // the new range is genuinely smaller. Deferring this to a queued callback

@@ -330,7 +330,7 @@ def main() -> int:
         "the built bundle is executable, retains the Dock/Finder icon, and advertises WebP/AVIF document types",
     )
 
-    ctest = run(repo, "ctest", "--test-dir", str(build_dir), "--output-on-failure")
+    ctest = run(repo, "ctest", "--test-dir", str(build_dir), "--output-on-failure", "--timeout", "90")
     add_check(
         checks,
         "I-06",

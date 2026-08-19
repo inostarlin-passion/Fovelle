@@ -55,6 +55,7 @@ def main() -> int:
         "build.sh",
         ".clang-tidy",
         ".github/workflows/test.yml",
+        ".github/workflows/build.yml",
         ".github/workflows/release.yml",
         "dist/scripts/package-macos-release.sh",
     )
@@ -419,6 +420,41 @@ def main() -> int:
             },
         },
         "fit layout compensates for the macOS titlebar-obscured region and verifies both image edges against the unobscured viewport",
+    )
+
+    reentrancy_contract = contains_all(
+        graphics_cpp + graphics_header,
+        (
+            "isUpdatingSceneRect",
+            "QScopedValueRollback",
+            "if (isUpdatingSceneRect)",
+            "if (sceneRect() != desiredSceneRect)",
+        ),
+    )
+    workflow_timeout_contract = contains_all(
+        source[".github/workflows/test.yml"] + source[".github/workflows/build.yml"] + source["tests/CMakeLists.txt"],
+        (
+            "QTEST_FUNCTION_TIMEOUT=30000",
+            "TIMEOUT 90",
+            "--timeout 90",
+            "timeout-minutes: 10",
+        ),
+    )
+    add_check(
+        checks,
+        "ST-25-CI-TEST-BOUNDS",
+        reentrancy_contract and workflow_timeout_contract,
+        {
+            "scene_rect_reentrancy_guard": reentrancy_contract,
+            "test_window_contract": workflow_timeout_contract,
+            "markers": {
+                "QScopedValueRollback": "QScopedValueRollback" in graphics_cpp,
+                "scene_rect_change_filter": "if (sceneRect() != desiredSceneRect)" in graphics_cpp,
+                "qtest_function_timeout": "QTEST_FUNCTION_TIMEOUT=30000" in source["tests/CMakeLists.txt"],
+                "ctest_timeout": "--timeout 90" in source[".github/workflows/test.yml"] + source[".github/workflows/build.yml"],
+            },
+        },
+        "scene-rect updates cannot recursively trigger fit passes, and CI/CTest terminate a stuck test within a documented bounded window",
     )
 
     version_contract = contains_all(

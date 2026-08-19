@@ -11,6 +11,7 @@ jobs:
   unit-tests:
     name: Run Unit Tests
     runs-on: macos-14
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -28,11 +29,12 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Run tests
-        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
+        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
 
   clang-tidy:
     name: Run clang-tidy
     runs-on: macos-14
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +56,7 @@ jobs:
   format:
     name: Run clang-format
     runs-on: macos-14
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

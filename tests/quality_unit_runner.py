@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -75,14 +76,29 @@ def main() -> int:
     args = parser.parse_args()
 
     command = [str(args.binary.resolve()), "-o", "-,txt"]
-    result = subprocess.run(
-        command,
-        text=True,
-        capture_output=True,
-        env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"},
-        check=False,
-    )
-    output = result.stdout + result.stderr
+    timeout_seconds = 90
+    started = time.perf_counter()
+    try:
+        result = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"},
+            timeout=timeout_seconds,
+            check=False,
+        )
+        output = result.stdout + result.stderr
+        timed_out = False
+    except subprocess.TimeoutExpired as error:
+        stdout = error.stdout or ""
+        stderr = error.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        result = None
+        output = stdout + stderr
+        timed_out = True
     totals = [
         {"passed": int(passed), "failed": int(failed), "skipped": int(skipped), "blacklisted": int(blacklisted)}
         for passed, failed, skipped, blacklisted in re.findall(
@@ -99,7 +115,9 @@ def main() -> int:
         for identifier, suite, test_name in EXPECTED_CASES
     ]
     passed = (
-        result.returncode == 0
+        result
+        and result.returncode == 0
+        and not timed_out
         and suites == list(EXPECTED_SUITES)
         and len(totals) == len(EXPECTED_SUITES)
         and all(item["failed"] == 0 and item["skipped"] == 0 and item["blacklisted"] == 0 for item in totals)
@@ -109,7 +127,10 @@ def main() -> int:
         "kind": "unit",
         "command": command,
         "binary": str(args.binary.resolve()),
-        "return_code": result.returncode,
+        "elapsed_seconds": time.perf_counter() - started,
+        "timeout_seconds": timeout_seconds,
+        "timed_out": timed_out,
+        "return_code": result.returncode if result else None,
         "suites": suites,
         "totals": totals,
         "total_passed": sum(item["passed"] for item in totals),

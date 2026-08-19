@@ -270,6 +270,7 @@ private:
     qreal zoomLevel {1.0};
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
+    bool isUpdatingSceneRect {false};
     std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};

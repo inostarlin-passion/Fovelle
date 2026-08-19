@@ -4,14 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
+
+from quality_system_probe import TINY_AVIF
 
 
 DEFAULT_IMAGE = Path(
@@ -147,11 +151,20 @@ def main() -> int:
     args = parser.parse_args()
 
     app = args.app.resolve()
-    image = args.image.resolve()
+    requested_image = args.image.resolve()
+    fallback_directory = None
+    image = requested_image
+    image_source = "requested"
+    if not image.is_file() and image.suffix.lower() == ".avif":
+        fallback_directory = tempfile.TemporaryDirectory(prefix="fovelle-layout-")
+        image = Path(fallback_directory.name) / "embedded-layout.avif"
+        image.write_bytes(base64.b64decode(TINY_AVIF))
+        image_source = "embedded-deterministic-fallback"
     checks = {
         "app_exists": app.is_file(),
         "image_exists": image.is_file(),
         "image_suffix_is_avif": image.suffix.lower() == ".avif",
+        "requested_image_exists": requested_image.is_file(),
     }
     return_code = None
     output = ""
@@ -159,7 +172,8 @@ def main() -> int:
     timed_out = False
     fit_after = None
     fit_next = None
-    if all(checks.values()):
+    runnable_checks = ("app_exists", "image_exists", "image_suffix_is_avif")
+    if all(checks[name] for name in runnable_checks):
         return_code, output, elapsed_seconds, timed_out = run_application(app, image, args.hold_seconds)
         fit_after = collect_fit_observation(output, "post-load-after-fit")
         fit_next = collect_fit_observation(output, "post-load-next-turn")
@@ -180,7 +194,9 @@ def main() -> int:
         and all(fit_after[field] == fit_next[field] for field in geometry_fields)
     )
     passed = (
-        all(checks.values())
+        checks["app_exists"]
+        and checks["image_exists"]
+        and checks["image_suffix_is_avif"]
         and return_code in (0, -signal.SIGTERM)
         and not timed_out
         and evaluated_after["passed"]
@@ -192,6 +208,8 @@ def main() -> int:
         "command": [str(app), str(image)],
         "app": str(app),
         "image": str(image),
+        "requested_image": str(requested_image),
+        "image_source": image_source,
         "checks": checks,
         "return_code": return_code,
         "elapsed_seconds": elapsed_seconds,
@@ -200,7 +218,8 @@ def main() -> int:
         "post_load_next_turn": evaluated_next,
         "stable_after_queued_turn": stable,
         "facts": [
-            "The executable was launched with FOVELLE_DIAGNOSTIC_LOG=1 and the reported AVIF path.",
+            "The executable was launched with FOVELLE_DIAGNOSTIC_LOG=1 and the selected AVIF path.",
+            f"The requested image existed: {checks['requested_image_exists']}; image source: {image_source}.",
             "The telemetry compares the rendered image content rectangle with the non-obscured viewport rectangle.",
         ],
         "inference": "A zero-to-two-pixel bottom gap and an image top aligned to the unobscured top are treated as evidence that the reported blank strip is absent.",

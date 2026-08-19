@@ -38,7 +38,7 @@ jobs:
         run: cmake --build build --parallel 2
 
       - name: Test
-        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
+        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
 
       - name: Sign, notarize, validate, and package Fovelle
         timeout-minutes: 45
