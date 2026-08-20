@@ -192,13 +192,25 @@ def main() -> int:
         (
             "CGImageSourceCopyTypeIdentifiers",
             "CGImageSourceCreateWithURL",
+            "CGImageSourceGetType",
             "CGImageSourceCreateThumbnailAtIndex",
             "kCGImageSourceCreateThumbnailWithTransform",
             "kCGImageSourceCreateThumbnailFromImageAlways",
             "sourceMaxPixelSize",
             "supportsAdditionalImageFormat",
             "readAdditionalImage",
-            "QVCocoaFunctions::readAdditionalImage",
+            "readImageWithImageIO",
+            "QVCocoaFunctions::readImageWithImageIO",
+            "CIRAWFilter",
+            "filterWithImageData",
+            "previewImage",
+            "CIContext",
+            "contextWithMTLDevice",
+            "MTLCreateSystemDefaultDevice",
+            "ColorSyncProfileCreate",
+            "CGColorSpaceCreateWithColorSyncProfile",
+            "kCIContextWorkingColorSpace",
+            "kCIContextOutputColorSpace",
             "useNativeImageIO",
         ),
     )
@@ -211,9 +223,13 @@ def main() -> int:
             "image_io_decode": "CGImageSourceCreateThumbnailAtIndex" in cocoa_mm,
             "orientation_transform": "kCGImageSourceCreateThumbnailWithTransform" in cocoa_mm,
             "loader_native_decoder": "useNativeImageIO" in loader_cpp,
-            "loader_image_io_call": "QVCocoaFunctions::readAdditionalImage" in loader_cpp,
+            "loader_image_io_call": "QVCocoaFunctions::readImageWithImageIO" in loader_cpp,
+            "raw_uses_content_type": "nativeResult.isRaw" in loader_cpp and "!nativeResult.isRaw" in loader_cpp,
+            "preview_fallback": "rawFilter.previewImage" in cocoa_mm and "usedRawPreview" in cocoa_mm,
+            "metal_context": "contextWithMTLDevice" in cocoa_mm and "MTLCreateSystemDefaultDevice" in cocoa_mm,
+            "colorsync_context": "ColorSyncProfileCreate" in cocoa_mm and "kCIContextOutputColorSpace" in cocoa_mm,
         },
-        "the macOS Image I/O decoder is the canonical WebP/AVIF path, with Qt retained as a fallback",
+        "Image I/O identifies every native image by UTI; RAW uses CIRAWFilter/CIImage, embedded preview fallback, ColorSync, and Metal-backed CIContext, while Qt remains a non-RAW fallback",
     )
 
     movie_cpp = source["src/qvmovie.cpp"]
@@ -266,7 +282,7 @@ def main() -> int:
 
     frameworks = contains_all(
         source["CMakeLists.txt"] + source["qView.pro"] + source["tests/CMakeLists.txt"],
-        ("CoreGraphics", "ImageIO"),
+        ("CoreGraphics", "ImageIO", "CoreImage", "Metal", "ColorSync", "CoreServices"),
     )
     add_check(
         checks,
@@ -283,11 +299,14 @@ def main() -> int:
         "testImageLoaderLoadsAvifWithImageIOFallback",
         "testImageLoaderAppliesWebpOrientation",
         "testImageLoaderAppliesAvifOrientation",
+        "testImageLoaderLoadsTiffWithImageIO",
+        "testImageIOUsesContentTypeInsteadOfFilenameExtension",
         "testAnimatedPngPlaysBeyondFirstFrame",
         "testWindowIconIsCleared",
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
         "testSettingsFormatsIncludeNativeImageFormats",
+        "testSettingsFormatsIncludeTiffAndSystemRawFormats",
         "testSmallImageOneToOneSettingIsExposedInImageOptions",
         "testOpenWithWorkerTeardownContract",
         "testMouseWheelUsesOneDiscreteStep",
@@ -476,7 +495,7 @@ def main() -> int:
 
     version_contract = contains_all(
         source["CMakeLists.txt"] + source["qView.pro"] + test_source,
-        ("VERSION 0.1.1", "VERSION = 0.1.1", 'QString("0.1.1")'),
+        ("VERSION 0.1.3", "VERSION = 0.1.3", 'QString("0.1.3")'),
     ) and "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source
     apng_fixture_contract = contains_all(
         test_source,
@@ -491,7 +510,7 @@ def main() -> int:
             "apng_fixture_contract": apng_fixture_contract,
             "old_version_absent": "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source,
         },
-        "the released version is 0.1.1 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
+        "the released version is 0.1.3 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
     )
 
     zoom_continuity = contains_all(

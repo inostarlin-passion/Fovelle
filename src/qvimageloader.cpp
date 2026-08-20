@@ -122,36 +122,33 @@ QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
 
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, const int largestDimension)
 {
-    const QByteArray suffix = QFileInfo(absoluteFilePath).suffix().toLatin1().toLower();
-    const bool useNativeImageIO = QVCocoaFunctions::supportsAdditionalImageFormat(suffix);
-
     QImageReader imageReader(absoluteFilePath);
     imageReader.setAutoTransform(true);
 
     bool isMultiFrameImage = false;
-    QSize intrinsicSize;
-    QImage image;
-    QString imageIoError;
-    if (useNativeImageIO)
-        image = QVCocoaFunctions::readAdditionalImage(absoluteFilePath, &imageIoError);
+    const QVCocoaFunctions::NativeImageReadResult nativeResult =
+        QVCocoaFunctions::readImageWithImageIO(absoluteFilePath, largestDimension);
+    const bool useNativeImageIO = nativeResult.isImageIOType;
+    const bool useQtFallback = nativeResult.image.isNull() && !nativeResult.isRaw;
+    QSize intrinsicSize = nativeResult.intrinsicSize;
+    QImage image = nativeResult.image;
 
-    if (image.isNull() && (imageReader.format() == "svg" || imageReader.format() == "svgz") && !imageReader.size().isEmpty())
+    if (useQtFallback && (imageReader.format() == "svg" || imageReader.format() == "svgz") && !imageReader.size().isEmpty())
     {
         intrinsicSize = imageReader.size();
         imageReader.setScaledSize(intrinsicSize.scaled(largestDimension, largestDimension, Qt::KeepAspectRatio));
         image = imageReader.read();
     }
-    else if (image.isNull())
+    else if (useQtFallback)
     {
         isMultiFrameImage = !imageReader.supportsOption(QImageIOHandler::Animation) && imageReader.imageCount() > 1;
         image = imageReader.read();
     }
 
     QString errorString = imageReader.errorString();
-    if (image.isNull() && useNativeImageIO)
+    if (image.isNull() && useNativeImageIO && !nativeResult.errorString.isEmpty())
     {
-        if (!imageIoError.isEmpty())
-            errorString = imageIoError;
+        errorString = nativeResult.errorString;
     }
 
     // Handle cases like icons containing multiple resolutions

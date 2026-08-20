@@ -14,6 +14,9 @@ from pathlib import Path
 
 
 CASES = (
+    ("TC-IMG-TIFF", "ImageLoaderTests", "testImageLoaderLoadsTiffWithImageIO"),
+    ("TC-RAW-TYPE-DETECTION", "ImageLoaderTests", "testImageIOUsesContentTypeInsteadOfFilenameExtension"),
+    ("TC-FMT-TIFF-RAW", "FeatureTests", "testSettingsFormatsIncludeTiffAndSystemRawFormats"),
     ("TC-IMG-SMALL-SETTING", "FeatureTests", "testSmallImageOneToOneSettingIsExposedInImageOptions"),
     ("TC-ISSUE-864-OPENWITH-TEARDOWN", "FeatureTests", "testOpenWithWorkerTeardownContract"),
     ("TC-APP-VERSION", "FeatureTests", "testApplicationVersionIsCurrent"),
@@ -55,39 +58,57 @@ def main() -> int:
     args = parser.parse_args()
 
     binary = args.binary.resolve()
-    command = [str(binary), "-o", "-,txt"]
+    base_command = [str(binary), "-o", "-,txt"]
     started = time.perf_counter()
-    try:
-        result = subprocess.run(
-            command,
-            text=True,
-            capture_output=True,
-            env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"},
-            timeout=45,
-            check=False,
-        )
-        output = result.stdout + result.stderr
-        timed_out = False
-    except subprocess.TimeoutExpired as error:
-        stdout = error.stdout or ""
-        stderr = error.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode(errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode(errors="replace")
-        output = stdout + stderr
-        result = None
-        timed_out = True
-
-    cases = [
-        {
+    case_runs: list[dict] = []
+    output_parts: list[str] = []
+    timed_out = False
+    for identifier, suite, test_name in CASES:
+        command = base_command + [test_name]
+        try:
+            result = subprocess.run(
+                command,
+                text=True,
+                capture_output=True,
+                env={
+                    **os.environ,
+                    "QT_QPA_PLATFORM": "cocoa",
+                    "QT_FATAL_WARNINGS": "1",
+                    "FOVELLE_TEST_SUITE": suite,
+                },
+                timeout=15,
+                check=False,
+            )
+            case_output = result.stdout + result.stderr
+            case_timed_out = False
+        except subprocess.TimeoutExpired as error:
+            stdout = error.stdout or ""
+            stderr = error.stderr or ""
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode(errors="replace")
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode(errors="replace")
+            case_output = stdout + stderr
+            result = None
+            case_timed_out = True
+        output_parts.append(case_output)
+        timed_out = timed_out or case_timed_out
+        case_runs.append({
             "id": identifier,
             "test": f"{suite}::{test_name}",
+            "command": command,
+            "return_code": result.returncode if result else None,
+            "timed_out": case_timed_out,
             "status": "passed"
-            if re.search(rf"PASS\s+: {re.escape(suite)}::{re.escape(test_name)}\(\)", output)
+            if result and result.returncode == 0 and re.search(rf"PASS\s+: {re.escape(suite)}::{re.escape(test_name)}\(\)", case_output)
             else "failed",
-        }
-        for identifier, suite, test_name in CASES
+            "output": case_output[-4000:],
+        })
+
+    output = "\n".join(output_parts)
+    cases = [
+        {key: value for key, value in case_run.items() if key in {"id", "test", "status"}}
+        for case_run in case_runs
     ]
     issue_864_safety_observations = {
         "no_sigabrt": "SIGABRT" not in output,
@@ -108,11 +129,12 @@ def main() -> int:
     }
     record = {
         "kind": "system-feature",
-        "command": command,
+        "command": base_command,
+        "case_runs": case_runs,
         "binary": str(binary),
         "platform": "macOS Cocoa",
         "elapsed_seconds": time.perf_counter() - started,
-        "return_code": result.returncode if result else None,
+        "return_code": 0 if all(case_run["return_code"] == 0 for case_run in case_runs) else 1,
         "timed_out": timed_out,
         "cases": cases,
         "observations": {
@@ -122,8 +144,7 @@ def main() -> int:
             "native_gesture_performance": performance_observations,
         },
         "passed": bool(
-            result
-            and result.returncode == 0
+            all(case_run["return_code"] == 0 for case_run in case_runs)
             and not timed_out
             and all(case["status"] == "passed" for case in cases)
             and all(issue_864_safety_observations.values())

@@ -395,6 +395,16 @@ void QVApplication::defineFilterLists()
             addExtension(".avifs");
     }
 
+    // Image I/O exposes TIFF under both conventional filename tags. Keep both
+    // aliases visible in Settings even when a system UTI only reports one
+    // preferred tag.
+    if (QVCocoaFunctions::supportsAdditionalImageFormat("tif") ||
+        QVCocoaFunctions::supportsAdditionalImageFormat("tiff"))
+    {
+        addExtension(".tif");
+        addExtension(".tiff");
+    }
+
     // Build mime type list
     const auto &byteArrayMimeTypes = QImageReader::supportedMimeTypes();
     for (const auto &byteArray : byteArrayMimeTypes)

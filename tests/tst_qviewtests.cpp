@@ -25,6 +25,8 @@
 #include <QUrl>
 #include <QWheelEvent>
 #include <QScrollBar>
+#include <QSet>
+#include <QTableWidget>
 
 #include "mainwindow.h"
 #include "qvapplication.h"
@@ -53,6 +55,8 @@ private slots:
     void testImageLoaderLoadsAvifWithImageIOFallback();
     void testImageLoaderAppliesWebpOrientation();
     void testImageLoaderAppliesAvifOrientation();
+    void testImageLoaderLoadsTiffWithImageIO();
+    void testImageIOUsesContentTypeInsteadOfFilenameExtension();
 };
 
 class ActionManagerTests : public QObject
@@ -83,6 +87,7 @@ private slots:
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
     void testTitlebarIconClearingIsIdempotent();
     void testSettingsFormatsIncludeNativeImageFormats();
+    void testSettingsFormatsIncludeTiffAndSystemRawFormats();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
 };
@@ -186,6 +191,19 @@ static QString createSplitImage(const QTemporaryDir &dir, const QString &name, c
     painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()), QColorConstants::Black);
     painter.end();
     if (!image.save(path))
+        return {};
+    return path;
+}
+
+static QString createTiffImage(const QTemporaryDir &dir, const QString &name, const QString &extension = QStringLiteral("tiff"))
+{
+    const QString path = dir.filePath(name + "." + extension);
+    // Keep this fixture independent of Qt image plugins. Image I/O is the
+    // subject under test, so the test must not require a TIFF writer plugin.
+    static const QByteArray tinyTiffBase64 =
+        "SUkqAAgAAAAKAAABAwABAAAABAAAAAEBAwABAAAAAwAAAAIBAwADAAAAhgAAAAMBAwABAAAAAQAAAAYBAwABAAAAAgAAABEBBAABAAAAjAAAABUBAwABAAAAAwAAABYBBAABAAAAAwAAABcBBAABAAAAJAAAABwBAwABAAAAAQAAAAAAAAAIAAgACAAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIA=";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray::fromBase64(tinyTiffBase64)) <= 0)
         return {};
     return path;
 }
@@ -694,6 +712,64 @@ void ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()
     QVERIFY(!result->errorData.has_value());
 }
 
+// TC-IMG-TIFF
+// Test purpose: verify TIFF is decoded through the Image I/O path and remains
+// available to the normal asynchronous image loader.
+// Preconditions: macOS Image I/O advertises public.tiff and the temporary
+// directory is writable.
+// Input data: a deterministic 4x3 TIFF fixture.
+// Steps: read the fixture through the native bridge and QVImageLoader.
+// Expected result: Image I/O reports public.tiff; both images are non-empty,
+// correctly sized, and carry no loader error.
+// Postcondition: temporary TIFF and loader resources are released.
+void ImageLoaderTests::testImageLoaderLoadsTiffWithImageIO()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat("tiff"));
+    const QString path = createTiffImage(dir, "native-tiff");
+    QVERIFY(!path.isEmpty());
+
+    const auto nativeResult = QVCocoaFunctions::readImageWithImageIO(path);
+    QVERIFY(nativeResult.isImageIOType);
+    QCOMPARE(nativeResult.typeIdentifier, QStringLiteral("public.tiff"));
+    QVERIFY(!nativeResult.image.isNull());
+    QCOMPARE(nativeResult.image.size(), QSize(4, 3));
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY(!result->image.isNull());
+    QCOMPARE(result->image.size(), QSize(4, 3));
+    QVERIFY(!result->errorData.has_value());
+}
+
+// TC-RAW-TYPE-DETECTION
+// Test purpose: prove RAW classification is based on Image I/O's content UTI,
+// not the filename extension used by the caller.
+// Preconditions: Image I/O can decode public.tiff; a temporary directory is writable.
+// Input data: a valid TIFF copied to a misleading .nef filename.
+// Steps: pass the disguised file to readImageWithImageIO and inspect its UTI,
+// isRaw flag, and rendered pixels.
+// Expected result: the source is identified as public.tiff and isRaw is false;
+// the file still renders successfully despite the .nef suffix.
+// Postcondition: temporary files and native image resources are released.
+void ImageLoaderTests::testImageIOUsesContentTypeInsteadOfFilenameExtension()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString tiffPath = createTiffImage(dir, "content-identified");
+    QVERIFY(!tiffPath.isEmpty());
+    const QString disguisedPath = dir.filePath("content-identified.nef");
+    QVERIFY(QFile::copy(tiffPath, disguisedPath));
+
+    const auto result = QVCocoaFunctions::readImageWithImageIO(disguisedPath);
+    QVERIFY(result.isImageIOType);
+    QCOMPARE(result.typeIdentifier, QStringLiteral("public.tiff"));
+    QVERIFY(!result.isRaw);
+    QVERIFY(!result.image.isNull());
+    QCOMPARE(result.image.size(), QSize(4, 3));
+}
+
 void ActionManagerTests::testClonedActionsUntracked()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -726,7 +802,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.1"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.3"));
 }
 
 // TC-APP-VERSION
@@ -735,11 +811,11 @@ void ActionManagerTests::testApplicationIdentity()
 // definitions.
 // Input data: QCoreApplication::applicationVersion().
 // Steps: read the runtime application version.
-// Expected result: the value is exactly 0.1.1.
+// Expected result: the value is exactly 0.1.3.
 // Postcondition: no application or settings state changes.
 void FeatureTests::testApplicationVersionIsCurrent()
 {
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.1"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.3"));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -850,6 +926,37 @@ void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
     QVERIFY(qvApp->getAllFileExtensionList().contains(".webp"));
     QVERIFY(qvApp->getAllFileExtensionList().contains(".avif"));
     QVERIFY(qvApp->getAllFileExtensionList().contains(".avifs"));
+}
+
+// TC-FMT-TIFF-RAW
+// Test purpose: verify Settings → Formats is sourced from the same Image I/O
+// registry as the loader, including TIFF and any RAW types available on this OS.
+// Preconditions: QVApplication has initialized its Image I/O-backed extension registry.
+// Input data: the current CGImageSource-supported type/tag set and a constructed
+// Settings dialog.
+// Steps: inspect the registry, the application extension set, and the Formats table.
+// Expected result: TIFF aliases are present; every dynamically advertised RAW
+// extension is reflected in the application and Settings table without a hardcoded
+// camera-model list.
+// Postcondition: the Settings dialog is destroyed without changing user settings.
+void FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()
+{
+    const auto additionalFormats = QVCocoaFunctions::getAdditionalImageFormats();
+    QVERIFY(additionalFormats.contains("tif") || additionalFormats.contains("tiff"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".tif"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".tiff"));
+
+    for (const auto &format : additionalFormats)
+        QVERIFY(qvApp->getAllFileExtensionList().contains("." + QString::fromUtf8(format)));
+
+    QVOptionsDialog dialog;
+    const auto *formatsTable = dialog.findChild<QTableWidget *>("formatsTable");
+    QVERIFY(formatsTable);
+    QSet<QString> tableExtensions;
+    for (int row = 0; row < formatsTable->rowCount(); ++row)
+        tableExtensions.insert(formatsTable->item(row, 0)->text());
+    QVERIFY(tableExtensions.contains(".tif"));
+    QVERIFY(tableExtensions.contains(".tiff"));
 }
 
 // TC-IMG-SMALL-SETTING
@@ -1964,7 +2071,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 0.1.1"));
+    QCOMPARE(subtitleLabel->text(), QString("version 0.1.3"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -3000,7 +3107,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("0.1.1");
+    QCoreApplication::setApplicationVersion("0.1.3");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 
@@ -3010,12 +3117,16 @@ int main(int argc, char *argv[])
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
     WindowBehaviorTests windowBehaviorTests;
-    int result = QTest::qExec(&imageLoaderTests, argc, argv);
-    result |= QTest::qExec(&featureTests, argc, argv);
-    result |= QTest::qExec(&graphicsViewTests, argc, argv);
-    result |= QTest::qExec(&applicationEventTests, argc, argv);
-    result |= QTest::qExec(&imageCoreAndMovieTests, argc, argv);
-    result |= QTest::qExec(&windowBehaviorTests, argc, argv);
+    const QByteArray selectedSuite = qgetenv("FOVELLE_TEST_SUITE");
+    const auto runSuite = [&](const QByteArray &suiteName, QObject *suite) {
+        return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;
+    };
+    int result = runSuite("ImageLoaderTests", &imageLoaderTests);
+    result |= runSuite("FeatureTests", &featureTests);
+    result |= runSuite("GraphicsViewTests", &graphicsViewTests);
+    result |= runSuite("ApplicationEventTests", &applicationEventTests);
+    result |= runSuite("ImageCoreAndMovieTests", &imageCoreAndMovieTests);
+    result |= runSuite("WindowBehaviorTests", &windowBehaviorTests);
     return result;
 }
 

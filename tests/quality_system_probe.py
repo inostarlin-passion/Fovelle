@@ -8,6 +8,7 @@ import base64
 import json
 import math
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -121,10 +122,10 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
     started = time.perf_counter()
     process = subprocess.Popen(
         [str(app), str(image)],
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
-        env={**os.environ, "QT_QPA_PLATFORM": "cocoa"},
+        env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "FOVELLE_DIAGNOSTIC_LOG": "1"},
     )
     startup_seconds: float | None = None
     samples: list[dict] = []
@@ -152,9 +153,13 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=3)
+    stdout = process.stdout.read().decode(errors="replace") if process.stdout else ""
     stderr = process.stderr.read().decode(errors="replace") if process.stderr else ""
     ended = time.perf_counter()
     unsupported_error = "Unsupported image format" in stderr or "Error 3" in stderr
+    diagnostic_output = stdout + stderr
+    geometry_matches = re.findall(r"contentRect= QRect\([^)]* ([0-9.]+)x([0-9.]+)\)", diagnostic_output)
+    decoded_image_observed = any(float(width) > 0 and float(height) > 0 for width, height in geometry_matches)
     return {
         "case": case_id,
         "image": str(image),
@@ -163,6 +168,8 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
         "terminated": True,
         "return_code": process.returncode,
         "unsupported_format_error_absent": not unsupported_error,
+        "decoded_image_observed": decoded_image_observed,
+        "diagnostic_output": diagnostic_output[-3000:],
         "stderr": stderr[-2000:],
         "samples": samples,
         "peak_cpu_percent": max((item["cpu_percent"] for item in samples), default=None),
@@ -269,6 +276,7 @@ def main() -> int:
             "S-01 all runs started": len(startup) == len(runs),
             "S-02 all native format cases ran": {run["case"] for run in runs} == {case_id for case_id, _ in image_cases},
             "S-03 no unsupported format error": all(run["unsupported_format_error_absent"] for run in runs),
+            "S-15 decoded content geometry observed": all(run["decoded_image_observed"] for run in runs),
             "S-04 startup average": metrics["startup_average_seconds"] is not None and metrics["startup_average_seconds"] <= THRESHOLDS["startup_average_seconds"],
             "S-05 startup p99": metrics["startup_p99_seconds"] is not None and metrics["startup_p99_seconds"] <= THRESHOLDS["startup_p99_seconds"],
             "S-06 startup max": metrics["startup_max_seconds"] is not None and metrics["startup_max_seconds"] <= THRESHOLDS["startup_max_seconds"],

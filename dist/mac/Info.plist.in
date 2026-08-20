@@ -79,6 +79,11 @@
 			</array>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.image</string>
+				<string>public.camera-raw-image</string>
+			</array>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 		</dict>

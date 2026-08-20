@@ -47,7 +47,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.1"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.3"));
 }
 
 void ActionManagerTests::testAboutDialogIdentity()
@@ -61,7 +61,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 0.1.1"));
+    QCOMPARE(subtitleLabel->text(), QString("version 0.1.3"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     QCOMPARE(visibleText,
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("0.1.1");
+    QCoreApplication::setApplicationVersion("0.1.3");
     QVApplication app(argc, argv);
     ActionManagerTests actionManagerTests;
     return QTest::qExec(&actionManagerTests, argc, argv);

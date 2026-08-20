@@ -171,16 +171,26 @@ def main() -> int:
         (
             "CGImageSourceCopyTypeIdentifiers",
             "CGImageSourceCreateWithURL",
+            "CGImageSourceGetType",
             "CGImageSourceCreateThumbnailAtIndex",
             "kCGImageSourceCreateThumbnailWithTransform",
-            "QVCocoaFunctions::supportsAdditionalImageFormat",
-            "QVCocoaFunctions::readAdditionalImage",
+            "QVCocoaFunctions::readImageWithImageIO",
+            "CIRAWFilter",
+            "filterWithImageData",
+            "previewImage",
+            "CIContext",
+            "contextWithMTLDevice",
+            "MTLCreateSystemDefaultDevice",
+            "ColorSyncProfileCreate",
+            "CGColorSpaceCreateWithColorSyncProfile",
+            "kCIContextWorkingColorSpace",
+            "kCIContextOutputColorSpace",
             "useNativeImageIO",
         ),
     )
     linked_frameworks = all_present(
         text("CMakeLists.txt") + text("qView.pro") + text("tests/CMakeLists.txt"),
-        ("CoreGraphics", "ImageIO"),
+        ("CoreGraphics", "ImageIO", "CoreImage", "Metal", "ColorSync", "CoreServices"),
     )
     add_check(
         checks,
@@ -189,9 +199,11 @@ def main() -> int:
         {
             "native_decode_path": native_decode,
             "frameworks_linked": linked_frameworks,
-            "native_decoder_is_primary": loader.find("QVCocoaFunctions::readAdditionalImage") < loader.find("imageReader.read()"),
+            "native_decoder_is_primary": loader.find("QVCocoaFunctions::readImageWithImageIO") < loader.find("imageReader.read()"),
+            "raw_content_detection": "nativeResult.isRaw" in loader and "!nativeResult.isRaw" in loader,
+            "preview_fallback": "rawFilter.previewImage" in cocoa and "usedRawPreview" in cocoa,
         },
-        "supported WebP/AVIF files use linked Apple Image I/O as the canonical orientation-aware decoder, with Qt retained as fallback",
+        "Image I/O identifies native files by content UTI; RAW decoding uses Core Image/Metal/ColorSync with embedded preview fallback, and Qt remains a non-RAW fallback",
     )
 
     movie = text("src/qvmovie.cpp")
@@ -391,12 +403,15 @@ def main() -> int:
         "testImageLoaderLoadsWebpWithImageIOFallback",
         "testImageLoaderLoadsAvifWithImageIOFallback",
         "testImageLoaderAppliesWebpOrientation",
-        "testImageLoaderAppliesAvifOrientation",
+            "testImageLoaderAppliesAvifOrientation",
+            "testImageLoaderLoadsTiffWithImageIO",
+            "testImageIOUsesContentTypeInsteadOfFilenameExtension",
         "testAnimatedPngPlaysBeyondFirstFrame",
         "testWindowIconIsCleared",
         "testTitlebarDocumentProxyIsClearedForLoadedFile",
         "testTitlebarIconClearingIsIdempotent",
-        "testSettingsFormatsIncludeNativeImageFormats",
+            "testSettingsFormatsIncludeNativeImageFormats",
+            "testSettingsFormatsIncludeTiffAndSystemRawFormats",
         "testSmallImageOneToOneSettingIsExposedInImageOptions",
         "testOpenWithWorkerTeardownContract",
         "testMouseWheelUsesOneDiscreteStep",
@@ -433,9 +448,9 @@ def main() -> int:
     version_sources = text("CMakeLists.txt") + text("qView.pro") + text("tests/tst_qviewtests.cpp")
     apng_test_source = text("tests/tst_qviewtests.cpp")
     version_ci_contract = (
-        "VERSION 0.1.1" in version_sources
-        and "VERSION = 0.1.1" in version_sources
-        and 'QString("0.1.1")' in version_sources
+        "VERSION 0.1.3" in version_sources
+        and "VERSION = 0.1.3" in version_sources
+        and 'QString("0.1.3")' in version_sources
         and "0.1.0" not in version_sources
         and "FOVELLE_APNG_FIXTURE" in apng_test_source
         and "tinyAnimatedPngBase64" in apng_test_source
@@ -446,8 +461,8 @@ def main() -> int:
         "I-18-VERSION-CI",
         version_ci_contract,
         {
-            "version_0_1_1": "VERSION 0.1.1" in version_sources and "VERSION = 0.1.1" in version_sources,
-            "runtime_version_asserted": 'QString("0.1.1")' in version_sources,
+            "version_0_1_3": "VERSION 0.1.3" in version_sources and "VERSION = 0.1.3" in version_sources,
+            "runtime_version_asserted": 'QString("0.1.3")' in version_sources,
             "old_version_absent": "0.1.0" not in version_sources,
             "apng_env_override": "FOVELLE_APNG_FIXTURE" in apng_test_source,
             "embedded_apng_fallback": "tinyAnimatedPngBase64" in apng_test_source and "fallbackDirectory" in apng_test_source,

@@ -83,6 +83,10 @@ target_link_libraries(fovelle_tests PRIVATE
     "-framework Cocoa"
     "-framework CoreGraphics"
     "-framework ImageIO"
+    "-framework CoreImage"
+    "-framework Metal"
+    "-framework ColorSync"
+    "-framework CoreServices"
 )
 target_compile_definitions(fovelle_tests PRIVATE
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"

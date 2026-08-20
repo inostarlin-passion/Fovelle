@@ -9,12 +9,24 @@
 #include <QImage>
 #include <QByteArray>
 #include <QList>
+#include <QSize>
 
 #include <memory>
 
 class QVCocoaFunctions
 {
 public:
+    struct NativeImageReadResult
+    {
+        QImage image;
+        QSize intrinsicSize;
+        QString typeIdentifier;
+        QString errorString;
+        bool isImageIOType {false};
+        bool isRaw {false};
+        bool usedRawPreview {false};
+    };
+
     class AnimatedImage
     {
     public:
@@ -64,6 +76,10 @@ public:
     static QList<QString> getAdditionalImageMimeTypes();
 
     static bool supportsAdditionalImageFormat(const QByteArray &format);
+
+    // Image I/O identifies the file from its contents. The caller must not use
+    // a filename extension to decide whether this is a RAW image.
+    static NativeImageReadResult readImageWithImageIO(const QString &filePath, int largestDimension = 0);
 
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 

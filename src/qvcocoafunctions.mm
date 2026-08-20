@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileIconProvider>
 #include <QCollator>
+#include <QColorSpace>
 #include <QFileInfo>
 
 #include <algorithm>
@@ -14,35 +15,119 @@
 #include <limits>
 
 #import <Cocoa/Cocoa.h>
+#import <ColorSync/ColorSync.h>
+#import <CoreImage/CoreImage.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <CoreServices/CoreServices.h>
 #import <ImageIO/ImageIO.h>
+#import <Metal/Metal.h>
 
 namespace
 {
-const struct ImageFormatDescription
+QString QStringFromCFString(CFStringRef value)
 {
-    const char *format;
-    const char *mimeType;
-    CFStringRef typeIdentifier;
-} imageFormatDescriptions[] {
-    {"webp", "image/webp", CFSTR("org.webmproject.webp")},
-    {"avif", "image/avif", CFSTR("public.avif")}
-};
+    if (!value)
+        return {};
 
-const ImageFormatDescription *descriptionForFormat(const QByteArray &format)
-{
-    QByteArray normalizedFormat = format.toLower();
-    if (normalizedFormat == "avifs")
-        normalizedFormat = "avif";
-    for (const auto &description : imageFormatDescriptions)
-    {
-        if (normalizedFormat == description.format)
-            return &description;
-    }
-    return nullptr;
+    const CFIndex length = CFStringGetLength(value);
+    const CFIndex maximumSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+    QByteArray utf8(static_cast<qsizetype>(maximumSize), Qt::Uninitialized);
+    if (!CFStringGetCString(value, utf8.data(), maximumSize, kCFStringEncodingUTF8))
+        return {};
+    return QString::fromUtf8(utf8.constData());
 }
 
-int sourceMaxPixelSize(CGImageSourceRef source)
+QByteArray normalizedExtension(const QByteArray &extension)
+{
+    QByteArray normalized = extension.toLower();
+    while (normalized.startsWith('.'))
+        normalized.remove(0, 1);
+    return normalized;
+}
+
+bool isRawImageType(CFStringRef typeIdentifier)
+{
+    return typeIdentifier && UTTypeConformsTo(typeIdentifier, CFSTR("public.camera-raw-image"));
+}
+
+bool isImageType(CFStringRef typeIdentifier)
+{
+    return typeIdentifier && UTTypeConformsTo(typeIdentifier, kUTTypeImage);
+}
+
+QList<QByteArray> typeTags(CFStringRef typeIdentifier, CFStringRef tagClass)
+{
+    QList<QByteArray> tags;
+    if (!typeIdentifier)
+        return tags;
+
+    CFArrayRef allTags = UTTypeCopyAllTagsWithClass(typeIdentifier, tagClass);
+    if (!allTags)
+        return tags;
+
+    const CFIndex count = CFArrayGetCount(allTags);
+    for (CFIndex index = 0; index < count; ++index)
+    {
+        const auto tag = static_cast<CFStringRef>(CFArrayGetValueAtIndex(allTags, index));
+        const QByteArray normalized = normalizedExtension(QByteArray(QStringFromCFString(tag).toUtf8()));
+        if (!normalized.isEmpty() && !tags.contains(normalized))
+            tags.append(normalized);
+    }
+    CFRelease(allTags);
+    return tags;
+}
+
+QList<CFStringRef> imageIOTypeIdentifiers()
+{
+    QList<CFStringRef> typeIdentifiers;
+    CFArrayRef identifiers = CGImageSourceCopyTypeIdentifiers();
+    if (!identifiers)
+        return typeIdentifiers;
+
+    const CFIndex count = CFArrayGetCount(identifiers);
+    for (CFIndex index = 0; index < count; ++index)
+    {
+        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
+        if (isImageType(identifier))
+            typeIdentifiers.append(static_cast<CFStringRef>(CFRetain(identifier)));
+    }
+
+    CFRelease(identifiers);
+    return typeIdentifiers;
+}
+
+CGColorSpaceRef colorSyncSrgbColorSpace()
+{
+    ColorSyncProfileRef profile = ColorSyncProfileCreateWithName(kColorSyncSRGBProfile);
+    if (profile)
+    {
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateWithColorSyncProfile(profile, nullptr);
+        CFRelease(profile);
+        if (colorSpace)
+            return colorSpace;
+    }
+
+    return CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+}
+
+QColorSpace qColorSpaceFromCGColorSpace(CGColorSpaceRef colorSpace)
+{
+    if (!colorSpace)
+        return {};
+
+    CFDataRef iccData = CGColorSpaceCopyICCData(colorSpace);
+    if (!iccData)
+        return {};
+
+    const QByteArray data(
+        reinterpret_cast<const char *>(CFDataGetBytePtr(iccData)),
+        static_cast<qsizetype>(CFDataGetLength(iccData)));
+    const QColorSpace result = QColorSpace::fromIccProfile(data);
+    CFRelease(iccData);
+    return result;
+}
+
+QSize sourcePixelSize(CGImageSourceRef source)
 {
     int width = 0;
     int height = 0;
@@ -56,8 +141,33 @@ int sourceMaxPixelSize(CGImageSourceRef source)
         CFRelease(properties);
     }
 
-    const int maxDimension = std::max(width, height);
+    return QSize(width, height);
+}
+
+int sourceMaxPixelSize(CGImageSourceRef source)
+{
+    const QSize size = sourcePixelSize(source);
+    const int maxDimension = std::max(size.width(), size.height());
     return maxDimension > 0 ? maxDimension : std::numeric_limits<int>::max();
+}
+
+CGImagePropertyOrientation sourceOrientation(CGImageSourceRef source)
+{
+    CGImagePropertyOrientation orientation = kCGImagePropertyOrientationUp;
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    if (!properties)
+        return orientation;
+
+    const CFTypeRef rawOrientation = CFDictionaryGetValue(properties, kCGImagePropertyOrientation);
+    if (rawOrientation && CFGetTypeID(rawOrientation) == CFNumberGetTypeID())
+    {
+        int value = static_cast<int>(orientation);
+        if (CFNumberGetValue(static_cast<CFNumberRef>(rawOrientation), kCFNumberIntType, &value) && value >= 1 && value <= 8)
+            orientation = static_cast<CGImagePropertyOrientation>(value);
+    }
+
+    CFRelease(properties);
+    return orientation;
 }
 
 bool numberFromDictionary(CFDictionaryRef dictionary, CFStringRef key, double &value)
@@ -101,7 +211,7 @@ QImage imageFromCGImage(CGImageRef cgImage)
     if (image.isNull())
         return {};
 
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
     CGContextRef context = CGBitmapContextCreate(
         image.bits(),
         width,
@@ -119,7 +229,67 @@ QImage imageFromCGImage(CGImageRef cgImage)
     CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
     CGContextRelease(context);
     CGColorSpaceRelease(colorSpace);
+    const QColorSpace qColorSpace = qColorSpaceFromCGColorSpace(CGImageGetColorSpace(cgImage));
+    if (qColorSpace.isValid())
+        image.setColorSpace(qColorSpace);
     return image;
+}
+
+QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outputColorSpace, int largestDimension)
+{
+    if (!image || !context || !outputColorSpace)
+        return {};
+
+    CGRect extent = image.extent;
+    if (CGRectIsEmpty(extent) ||
+        !std::isfinite(extent.origin.x) || !std::isfinite(extent.origin.y) ||
+        !std::isfinite(extent.size.width) || !std::isfinite(extent.size.height))
+        return {};
+
+    const CGFloat maxDimension = std::max(CGRectGetWidth(extent), CGRectGetHeight(extent));
+    if (largestDimension > 0 && maxDimension > largestDimension)
+    {
+        const CGFloat scale = static_cast<CGFloat>(largestDimension) / maxDimension;
+        image = [image imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
+        extent = image.extent;
+    }
+
+    CGImageRef cgImage = [context createCGImage:image fromRect:extent format:kCIFormatRGBA8 colorSpace:outputColorSpace];
+    if (!cgImage)
+        return {};
+
+    QImage result = imageFromCGImage(cgImage);
+    CGImageRelease(cgImage);
+    return result;
+}
+
+CFDictionaryRef thumbnailOptions(CGImageSourceRef source, const int largestDimension)
+{
+    const int sourceDimension = sourceMaxPixelSize(source);
+    const int maxDimension = largestDimension > 0 ? std::min(sourceDimension, largestDimension) : sourceDimension;
+    CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
+    if (!maxPixelSizeNumber)
+        return nullptr;
+
+    const void *optionKeys[] = {
+        kCGImageSourceCreateThumbnailFromImageAlways,
+        kCGImageSourceCreateThumbnailWithTransform,
+        kCGImageSourceThumbnailMaxPixelSize
+    };
+    const void *optionValues[] = {
+        kCFBooleanTrue,
+        kCFBooleanTrue,
+        maxPixelSizeNumber
+    };
+    CFDictionaryRef options = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        optionKeys,
+        optionValues,
+        sizeof(optionKeys) / sizeof(optionKeys[0]),
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    CFRelease(maxPixelSizeNumber);
+    return options;
 }
 
 class NativeAnimatedImage final : public QVCocoaFunctions::AnimatedImage
@@ -481,165 +651,176 @@ QByteArray QVCocoaFunctions::getIccProfileForWindow(const QWindow *window)
 QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
 {
     QList<QByteArray> formats;
-    CFArrayRef identifiers = CGImageSourceCopyTypeIdentifiers();
-    if (!identifiers)
-        return formats;
-
-    const CFIndex count = CFArrayGetCount(identifiers);
-    for (CFIndex index = 0; index < count; ++index)
+    for (const auto identifier : imageIOTypeIdentifiers())
     {
-        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
-        for (const auto &description : imageFormatDescriptions)
+        for (const auto &format : typeTags(identifier, kUTTagClassFilenameExtension))
         {
-            if (CFStringCompare(identifier, description.typeIdentifier, 0) == kCFCompareEqualTo)
-            {
-                formats.append(description.format);
-                break;
-            }
+            if (!formats.contains(format))
+                formats.append(format);
         }
+        CFRelease(identifier);
     }
-
-    CFRelease(identifiers);
     return formats;
 }
 
 QList<QString> QVCocoaFunctions::getAdditionalImageMimeTypes()
 {
     QList<QString> mimeTypes;
-    for (const auto &format : getAdditionalImageFormats())
+    for (const auto identifier : imageIOTypeIdentifiers())
     {
-        if (const auto description = descriptionForFormat(format))
-            mimeTypes.append(QString::fromUtf8(description->mimeType));
+        for (const auto &mimeType : typeTags(identifier, kUTTagClassMIMEType))
+        {
+            const QString value = QString::fromUtf8(mimeType);
+            if (!value.isEmpty() && !mimeTypes.contains(value))
+                mimeTypes.append(value);
+        }
+        CFRelease(identifier);
     }
     return mimeTypes;
 }
 
 bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
 {
-    const auto description = descriptionForFormat(format);
-    if (!description)
-        return false;
-
-    CFArrayRef identifiers = CGImageSourceCopyTypeIdentifiers();
-    if (!identifiers)
-        return false;
-
-    bool supported = false;
-    const CFIndex count = CFArrayGetCount(identifiers);
-    for (CFIndex index = 0; index < count; ++index)
+    QByteArray normalized = normalizedExtension(format);
+    if (normalized == "avifs")
+        normalized = "avif";
+    for (const auto identifier : imageIOTypeIdentifiers())
     {
-        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
-        if (CFStringCompare(identifier, description->typeIdentifier, 0) == kCFCompareEqualTo)
+        const bool supported = typeTags(identifier, kUTTagClassFilenameExtension).contains(normalized);
+        CFRelease(identifier);
+        if (supported)
         {
-            supported = true;
-            break;
+            return true;
         }
     }
 
-    CFRelease(identifiers);
-    return supported;
+    return false;
+}
+
+QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int largestDimension)
+{
+    NativeImageReadResult result;
+
+    @autoreleasepool
+    {
+        const QUrl fileUrl = QUrl::fromLocalFile(filePath);
+        CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)fileUrl.toNSURL(), nullptr);
+        if (!source)
+        {
+            result.errorString = QStringLiteral("Image I/O could not create an image source");
+            return result;
+        }
+
+        const CFStringRef sourceType = CGImageSourceGetType(source);
+        result.typeIdentifier = QStringFromCFString(sourceType);
+        result.isImageIOType = sourceType != nullptr;
+        result.isRaw = isRawImageType(sourceType);
+        result.intrinsicSize = sourcePixelSize(source);
+
+        // Read the source properties through Image I/O before decoding. This
+        // keeps orientation, color profile and camera metadata on the native
+        // path instead of guessing from the filename.
+        if (const CFDictionaryRef sourceProperties = CGImageSourceCopyProperties(source, nullptr))
+            CFRelease(sourceProperties);
+
+        const CGImagePropertyOrientation orientation = sourceOrientation(source);
+
+        if (result.isRaw)
+        {
+            NSData *imageData = [NSData dataWithContentsOfURL:fileUrl.toNSURL()];
+            CIRAWFilter *rawFilter = imageData ? [CIRAWFilter filterWithImageData:imageData identifierHint:(NSString *)sourceType] : nil;
+
+            if (rawFilter)
+            {
+                rawFilter.orientation = orientation;
+
+                if (largestDimension > 0 && result.intrinsicSize.isValid())
+                {
+                    const int rawDimension = std::max(result.intrinsicSize.width(), result.intrinsicSize.height());
+                    if (rawDimension > largestDimension)
+                        rawFilter.scaleFactor = static_cast<CGFloat>(largestDimension) / rawDimension;
+                }
+
+                CGColorSpaceRef outputColorSpace = colorSyncSrgbColorSpace();
+                if (outputColorSpace)
+                {
+                    NSDictionary *contextOptions = @{
+                        (id)kCIContextUseSoftwareRenderer: @NO,
+                        (id)kCIContextWorkingColorSpace: (id)outputColorSpace,
+                        (id)kCIContextOutputColorSpace: (id)outputColorSpace
+                    };
+                    id<MTLDevice> metalDevice = MTLCreateSystemDefaultDevice();
+                    CIContext *context = metalDevice
+                        ? [CIContext contextWithMTLDevice:metalDevice options:contextOptions]
+                        : [CIContext contextWithOptions:contextOptions];
+
+                    result.image = imageFromCIImage(rawFilter.outputImage, context, outputColorSpace, largestDimension);
+                    if (result.image.isNull())
+                    {
+                        // A supported container can still contain a camera
+                        // model that the installed RAW decoder does not know.
+                        // Prefer the embedded JPEG preview before reporting an
+                        // error to the application.
+                        result.image = imageFromCIImage(rawFilter.previewImage, context, outputColorSpace, largestDimension);
+                        result.usedRawPreview = !result.image.isNull();
+                    }
+
+                    if (context)
+                        [context clearCaches];
+                    CGColorSpaceRelease(outputColorSpace);
+                }
+            }
+
+            if (result.image.isNull())
+            {
+                if (CFDictionaryRef options = thumbnailOptions(source, largestDimension))
+                {
+                    CGImageRef previewImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+                    CFRelease(options);
+                    if (previewImage)
+                    {
+                        result.image = imageFromCGImage(previewImage);
+                        result.usedRawPreview = !result.image.isNull();
+                        CGImageRelease(previewImage);
+                    }
+                }
+            }
+
+            if (result.image.isNull())
+            {
+                result.errorString = QStringLiteral(
+                    "Core Image RAW decoder does not support this camera model and no embedded JPEG preview is available");
+            }
+        }
+        else if (result.isImageIOType)
+        {
+            if (CFDictionaryRef options = thumbnailOptions(source, largestDimension))
+            {
+                CGImageRef cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+                CFRelease(options);
+                if (cgImage)
+                {
+                    result.image = imageFromCGImage(cgImage);
+                    CGImageRelease(cgImage);
+                }
+            }
+
+            if (result.image.isNull())
+                result.errorString = QStringLiteral("Image I/O could not decode the image");
+        }
+
+        CFRelease(source);
+    }
+
+    return result;
 }
 
 QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *errorString)
 {
+    const NativeImageReadResult result = readImageWithImageIO(filePath);
     if (errorString)
-        errorString->clear();
-
-    const QUrl fileUrl = QUrl::fromLocalFile(filePath);
-    CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)fileUrl.toNSURL(), nullptr);
-    if (!source)
-    {
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O could not create an image source");
-        return {};
-    }
-
-    const int maxPixelSize = sourceMaxPixelSize(source);
-    CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxPixelSize);
-    if (!maxPixelSizeNumber)
-    {
-        CFRelease(source);
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O could not create thumbnail options");
-        return {};
-    }
-
-    const void *optionKeys[] = {
-        kCGImageSourceCreateThumbnailFromImageAlways,
-        kCGImageSourceCreateThumbnailWithTransform,
-        kCGImageSourceThumbnailMaxPixelSize
-    };
-    const void *optionValues[] = {
-        kCFBooleanTrue,
-        kCFBooleanTrue,
-        maxPixelSizeNumber
-    };
-    CFDictionaryRef options = CFDictionaryCreate(
-        kCFAllocatorDefault,
-        optionKeys,
-        optionValues,
-        sizeof(optionKeys) / sizeof(optionKeys[0]),
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    CFRelease(maxPixelSizeNumber);
-    if (!options)
-    {
-        CFRelease(source);
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O could not create thumbnail options");
-        return {};
-    }
-
-    CGImageRef cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
-    CFRelease(options);
-    if (!cgImage)
-    {
-        CFRelease(source);
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O could not decode the image");
-        return {};
-    }
-
-    const size_t width = CGImageGetWidth(cgImage);
-    const size_t height = CGImageGetHeight(cgImage);
-    QImage image(static_cast<int>(width), static_cast<int>(height), QImage::Format_RGBA8888_Premultiplied);
-    if (image.isNull())
-    {
-        CGImageRelease(cgImage);
-        CFRelease(source);
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O returned an image too large to allocate");
-        return {};
-    }
-
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(
-        image.bits(),
-        width,
-        height,
-        8,
-        image.bytesPerLine(),
-        colorSpace,
-        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    if (!context)
-    {
-        CGColorSpaceRelease(colorSpace);
-        CGImageRelease(cgImage);
-        CFRelease(source);
-        if (errorString)
-            *errorString = QStringLiteral("Image I/O could not create a bitmap context");
-        return {};
-    }
-
-    // The thumbnail transform has already normalized the image orientation and
-    // its pixel rows are in the orientation expected by the bitmap context.
-    CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
-
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-    CGImageRelease(cgImage);
-    CFRelease(source);
-    return image;
+        *errorString = result.errorString;
+    return result.image;
 }
 
 std::unique_ptr<QVCocoaFunctions::AnimatedImage> QVCocoaFunctions::createAnimatedImage(const QString &filePath)
