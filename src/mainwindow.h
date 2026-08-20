@@ -237,7 +237,7 @@ private:
 
     void updateNavigationButtonVisibility(const QPoint &windowPosition);
 
-    void setNavigationButtonVisible(QPushButton *button, QGraphicsOpacityEffect *opacityEffect, QPropertyAnimation *animation, bool visible);
+    void setNavigationButtonVisible(QPushButton *button, QPropertyAnimation *animation, bool visible);
 
     void hideNavigationButtonsImmediately();
 
@@ -255,8 +255,6 @@ private:
 
     QPushButton *previousImageButton {nullptr};
     QPushButton *nextImageButton {nullptr};
-    QGraphicsOpacityEffect *previousImageButtonOpacityEffect {nullptr};
-    QGraphicsOpacityEffect *nextImageButtonOpacityEffect {nullptr};
     QPropertyAnimation *previousImageButtonAnimation {nullptr};
     QPropertyAnimation *nextImageButtonAnimation {nullptr};
 

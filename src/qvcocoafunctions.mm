@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <mutex>
 
 #import <Cocoa/Cocoa.h>
 #import <ColorSync/ColorSync.h>
@@ -34,11 +35,15 @@
     BOOL firstFramePresented;
     BOOL hdrPreparationInFlight;
     BOOL hdrPrepared;
+    BOOL frameInFlight;
+    NSUInteger inFlightGeneration;
     CAMetalLayer *metalLayer;
+    CAMetalDisplayLink *displayLink;
 }
 
 - (instancetype)initWithMetalLayer:(CAMetalLayer *)layer;
 - (void)resetForImage;
+- (void)setMetalDisplayLink:(CAMetalDisplayLink *)link;
 - (void)invalidate;
 @end
 
@@ -61,9 +66,18 @@
     hdrPrepared = NO;
 }
 
+- (void)setMetalDisplayLink:(CAMetalDisplayLink *)link
+{
+    if (displayLink == link)
+        return;
+    [displayLink release];
+    displayLink = [link retain];
+}
+
 - (void)invalidate
 {
     [self resetForImage];
+    [self setMetalDisplayLink:nil];
     [metalLayer release];
     metalLayer = nil;
 }
@@ -71,6 +85,48 @@
 - (void)dealloc
 {
     [metalLayer release];
+    [displayLink release];
+    [super dealloc];
+}
+
+@end
+
+@interface QVHDRDisplayLinkDelegate : NSObject<CAMetalDisplayLinkDelegate>
+{
+    void (^updateHandler)(CAMetalDisplayLinkUpdate *update);
+}
+
+- (instancetype)initWithUpdateHandler:(void (^)(CAMetalDisplayLinkUpdate *update))handler;
+- (void)invalidate;
+@end
+
+@implementation QVHDRDisplayLinkDelegate
+
+- (instancetype)initWithUpdateHandler:(void (^)(CAMetalDisplayLinkUpdate *update))handler
+{
+    self = [super init];
+    if (self)
+        updateHandler = [handler copy];
+    return self;
+}
+
+- (void)metalDisplayLink:(CAMetalDisplayLink *)link
+             needsUpdate:(CAMetalDisplayLinkUpdate *)update
+{
+    Q_UNUSED(link);
+    if (updateHandler)
+        updateHandler(update);
+}
+
+- (void)invalidate
+{
+    [updateHandler release];
+    updateHandler = nil;
+}
+
+- (void)dealloc
+{
+    [self invalidate];
     [super dealloc];
 }
 
@@ -479,8 +535,11 @@ QString transferFunctionName(CGColorSpaceRef colorSpace, const bool hasGainMap)
 class NativeHDRImage final : public QVCocoaFunctions::HDRImage
 {
 public:
-    NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage, QVCocoaFunctions::HDRMetadata metadata)
-        : hdr([hdrImage retain]), sdr([sdrImage retain]), imageMetadata(std::move(metadata))
+    NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage,
+                   QVCocoaFunctions::HDRMetadata metadata,
+                   CIImage *auxiliaryGainMap = nil)
+        : hdr([hdrImage retain]), sdr([sdrImage retain]),
+          gainMap([auxiliaryGainMap retain]), imageMetadata(std::move(metadata))
     {
     }
 
@@ -488,15 +547,18 @@ public:
     {
         [hdr release];
         [sdr release];
+        [gainMap release];
     }
 
     const QVCocoaFunctions::HDRMetadata &metadata() const override { return imageMetadata; }
     CIImage *hdrCIImage() const { return hdr; }
     CIImage *sdrCIImage() const { return sdr; }
+    CIImage *gainMapCIImage() const { return gainMap; }
 
 private:
     CIImage *hdr{ nil };
     CIImage *sdr{ nil };
+    CIImage *gainMap{ nil };
     QVCocoaFunctions::HDRMetadata imageMetadata;
 };
 
@@ -603,9 +665,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         commandQueue = [device newCommandQueue];
+        renderQueue = dispatch_queue_create(
+                "com.fovelle.hdr-render-encode", DISPATCH_QUEUE_SERIAL);
         outputColorSpace = colorSyncDisplayP3ColorSpace(true);
         backgroundColorSpace = colorSyncSrgbColorSpace();
-        if (!commandQueue || !outputColorSpace || !backgroundColorSpace)
+        if (!commandQueue || !renderQueue || !outputColorSpace || !backgroundColorSpace)
             return;
 
         NSDictionary *contextOptions = @{
@@ -649,7 +713,25 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction commit];
         presentationState = [[QVHDRPresentationState alloc] initWithMetalLayer:metalLayer];
 
-        state.rendererAvailable = presentationState != nil;
+        if (@available(macOS 14.0, *)) {
+            Impl *renderer = this;
+            displayLinkDelegate = [[QVHDRDisplayLinkDelegate alloc]
+                    initWithUpdateHandler:^(CAMetalDisplayLinkUpdate *update) {
+                        renderer->renderDisplayLinkUpdate(update);
+                    }];
+            displayLink = [[CAMetalDisplayLink alloc] initWithMetalLayer:metalLayer];
+            displayLink.delegate = displayLinkDelegate;
+            displayLink.preferredFrameLatency = 1.0F;
+            displayLink.paused = YES;
+            [displayLink addToRunLoop:NSRunLoop.mainRunLoop
+                              forMode:NSRunLoopCommonModes];
+            [presentationState setMetalDisplayLink:displayLink];
+        }
+
+        // CAMetalDisplayLink supplies the drawable at display cadence. On
+        // older macOS releases the native HDR overlay stays unavailable and
+        // the existing SDR proxy remains the compatible presentation path.
+        state.rendererAvailable = presentationState != nil && displayLink != nil;
         state.usesRGBA16Float = true;
         state.usesExtendedLinearDisplayP3 = CGColorSpaceUsesExtendedRange(outputColorSpace);
         state.usesColorSync = true;
@@ -657,11 +739,22 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.clearsEntireDrawableOpaque = metalLayer.opaque;
         state.usesCoreImageManagedIntermediates = true;
         state.cachesIntermediates = true;
+        state.usesCAMetalDisplayLink = displayLink != nil;
+        state.encodesMetalOffMainThread = renderQueue != nullptr;
         setBackgroundColor(backgroundColor);
     }
 
     ~Impl()
     {
+        if (displayLink) {
+            displayLink.paused = YES;
+            displayLink.delegate = nil;
+            [displayLink invalidate];
+        }
+        [displayLinkDelegate invalidate];
+        if (renderQueue)
+            dispatch_sync(renderQueue, ^{});
+        [presentationState setMetalDisplayLink:nil];
         [presentationState invalidate];
         clearPreparedImages();
         [CATransaction begin];
@@ -669,9 +762,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [metalLayer removeFromSuperlayer];
         [CATransaction commit];
         [presentationState release];
+        [displayLink release];
+        [displayLinkDelegate release];
         [metalLayer release];
         [context release];
         [commandQueue release];
+#if !OS_OBJECT_USE_OBJC
+        if (renderQueue)
+            dispatch_release(renderQueue);
+#endif
         [device release];
         if (outputColorSpace)
             CGColorSpaceRelease(outputColorSpace);
@@ -705,6 +804,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
+        if (displayLink)
+            displayLink.paused = YES;
+        if (renderQueue)
+            dispatch_sync(renderQueue, ^{});
+        renderPending = false;
+        pendingViewportSize = {};
+        pendingCorners.clear();
+        pendingLinearProgress = 0.0;
+        lastSubmittedLinearProgress = 0.0;
         clearPreparedImages();
         // The context is intentionally long-lived for one interactive view,
         // but intermediates from the previous source are no longer reusable.
@@ -729,6 +837,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.layerOpacity = 0.0F;
         state.geometryGeneration = presentationState->generation;
         state.geometryResetCount = 0;
+        state.renderRequestCount = 0;
+        state.coalescedRenderRequestCount = 0;
+        state.displayLinkCallbackCount = 0;
+        state.deferredDisplayLinkCallbackCount = 0;
+        state.requestedRenderGeneration = 0;
+        state.submittedRenderGeneration = 0;
         state.transitionProgress = 0.0F;
         state.targetHeadroom = 1.0F;
         state.renderCount = 0;
@@ -757,6 +871,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!image)
             return;
 
+        renderPending = false;
+        lastSubmittedLinearProgress = 0.0;
+        if (displayLink)
+            displayLink.paused = YES;
+        if (renderQueue)
+            dispatch_sync(renderQueue, ^{});
         clearPreparedImages();
         [presentationState resetForImage];
         state.firstFrameSubmitted = false;
@@ -813,9 +933,23 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (state.displayRenderingHeadroom <= 1.001F || progress <= 0.001F)
             return sdr;
 
-        if (metadata.isRaw) {
+        if (metadata.isRaw && !metadata.usesProcessedRawPreview) {
             const float rawAmount = state.displayRenderingHeadroom > 1.001F ? progress : 0.0F;
             return mixImages(sdr, hdr, rawAmount);
+        }
+
+        if (metadata.usesProcessedRawPreview && nativeImage.gainMapCIImage()) {
+            if (@available(macOS 15.0, *)) {
+                // Adaptive-HDR RAW is an SDR base plus an auxiliary gain map.
+                // Ask Core Image to reconstruct exactly the headroom available
+                // for this display/activation frame. This preserves the full
+                // processed preview and avoids feeding a half-resolution gain-
+                // map graph through a second viewport-dependent tone-map ROI.
+                CIImage *adapted = [sdr imageByApplyingGainMap:nativeImage.gainMapCIImage()
+                                                     headroom:std::max(1.0F, targetHeadroom)];
+                if (adapted)
+                    return adapted;
+            }
         }
 
         if (@available(macOS 15.0, *)) {
@@ -841,8 +975,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             || progress <= 0.001F)
             return preparedSDRImage;
 
-        if (image->metadata().isRaw)
+        if (image->metadata().isRaw && !image->metadata().usesProcessedRawPreview)
             return mixImages(preparedSDRImage, preparedHDRImage, progress);
+
+        if (image->metadata().usesProcessedRawPreview && image->gainMapCIImage()) {
+            if (@available(macOS 15.0, *)) {
+                CIImage *adapted = [preparedSDRImage
+                        imageByApplyingGainMap:image->gainMapCIImage()
+                                      headroom:std::max(1.0F, targetHeadroom)];
+                if (adapted)
+                    return adapted;
+            }
+        }
 
         if (@available(macOS 15.0, *)) {
             if (image->metadata().contentHeadroom > 1.0F) {
@@ -864,6 +1008,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.firstFramePresented = presentationState->firstFramePresented;
         state.hdrPreparationInFlight = presentationState->hdrPreparationInFlight;
         state.hdrPrepared = presentationState->hdrPrepared;
+        state.frameInFlight = presentationState->frameInFlight;
         state.layerOpacity = metalLayer ? metalLayer.opacity : 0.0F;
     }
 
@@ -1003,8 +1148,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // crop (visible as black bands or stale pixels). The source-space
         // intermediate remains valid while every visible frame is freshly
         // transformed and composited across the entire drawable.
-        preparedSDRImage = [[sdrSource imageByInsertingIntermediate:YES] retain];
-        preparedHDRImage = [[hdrSource imageByInsertingIntermediate:YES] retain];
+        if (image->metadata().usesProcessedRawPreview) {
+            // The DNG HDR graph already contains a half-resolution auxiliary
+            // gain map.  Inserting an intermediate *after* applying that map
+            // can freeze Core Image's first reduced ROI (4032x3024) into an
+            // otherwise 8064x6048 extent, so the next viewport evaluation has
+            // valid pixels only in one quadrant.  Both source images were
+            // loaded with kCIImageCacheImmediately; retain their complete
+            // public representations and let Core Image evaluate the gain-map
+            // graph for the current ROI.
+            preparedSDRImage = [sdrSource retain];
+            preparedHDRImage = [hdrSource retain];
+        } else {
+            preparedSDRImage = [[sdrSource imageByInsertingIntermediate:YES] retain];
+            preparedHDRImage = [[hdrSource imageByInsertingIntermediate:YES] retain];
+        }
         if (!preparedSDRImage || !preparedHDRImage) {
             clearPreparedImages();
             return;
@@ -1060,6 +1218,32 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 }
             }
         }
+
+        // The first zoom changes Core Image's source ROI even though it reuses
+        // the same endpoint graph. Compiling that ROI on the display-link
+        // callback used to occupy the AppKit run loop for tens of milliseconds
+        // on a 48 MP gain-map image. Warm a representative 4x viewport while
+        // the complete SDR proxy still covers Metal; later zoom/pan frames then
+        // only update the already-compiled affine/crop workset.
+        QPolygonF interactionWarmCorners = corners;
+        const QPointF viewportCenter(viewportSize.width() / 2.0,
+                                     viewportSize.height() / 2.0);
+        for (QPointF &corner : interactionWarmCorners)
+            corner = viewportCenter + (corner - viewportCenter) * 4.0
+                    + QPointF(11.0, 7.0);
+        const float fullTargetHeadroom = static_cast<float>(
+                QVCocoaFunctions::effectiveHDRHeadroom(
+                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
+        CIImage *interactionWarmImage = preparedDisplayImage(fullTargetHeadroom, 1.0F);
+        CIImage *interactionWarmFrame = imageForTexture(
+                interactionWarmImage, viewportSize, interactionWarmCorners, textureSize);
+        if (interactionWarmFrame) {
+            [context render:interactionWarmFrame
+                 toMTLTexture:preparationTexture
+                commandBuffer:transitionPreparationBuffer
+                       bounds:bounds
+                   colorSpace:outputColorSpace];
+        }
         [transitionPreparationBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
             const BOOL completed = completedBuffer.status == MTLCommandBufferStatusCompleted;
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -1072,9 +1256,65 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [transitionPreparationBuffer commit];
     }
 
-    void render(const QSize &viewportSize, const QPolygonF &corners, const qreal linearProgress)
+    void render(const QSize &viewportSize, const QPolygonF &corners,
+                const qreal linearProgress)
     {
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
+            return;
+
+        ++state.renderRequestCount;
+        if (renderPending)
+            ++state.coalescedRenderRequestCount;
+        renderPending = true;
+        pendingViewportSize = viewportSize;
+        pendingCorners = corners;
+        pendingLinearProgress = linearProgress;
+        pendingRenderGeneration = ++state.requestedRenderGeneration;
+        displayLink.paused = NO;
+    }
+
+    void renderDisplayLinkUpdate(CAMetalDisplayLinkUpdate *update)
+    {
+        ++state.displayLinkCallbackCount;
+        syncPresentationDiagnostics();
+        if (!renderPending) {
+            displayLink.paused = YES;
+            return;
+        }
+        // Keep exactly one presented frame in flight. Requests arriving while
+        // the GPU is busy overwrite the pending state, so stale zoom/pan
+        // generations can never drain later as visible ghost frames.
+        if (presentationState->frameInFlight) {
+            ++state.deferredDisplayLinkCallbackCount;
+            return;
+        }
+
+        const QSize viewportSize = pendingViewportSize;
+        const QPolygonF corners = pendingCorners;
+        const qreal requestedLinearProgress = pendingLinearProgress;
+        // Requests remain latest-only, but the one-time activation ramp is
+        // paced from the last frame actually encoded. If a cold GPU frame
+        // spans several 16 ms requests, do not expose the whole accumulated
+        // brightness jump at once; keep DisplayLink active to submit bounded
+        // follow-ups until it reaches the newest requested progress.
+        const qreal linearProgress = QVCocoaFunctions::pacedHDRTransitionProgress(
+                lastSubmittedLinearProgress, requestedLinearProgress, 0.04);
+        const quint64 renderGeneration = pendingRenderGeneration;
+        renderPending = linearProgress + 0.000001 < requestedLinearProgress;
+        renderToDrawable(update.drawable, viewportSize, corners,
+                         linearProgress, renderGeneration);
+        if (!renderPending)
+            displayLink.paused = YES;
+    }
+
+    void renderToDrawable(id<CAMetalDrawable> drawable,
+                          const QSize &viewportSize,
+                          const QPolygonF &corners,
+                          const qreal linearProgress,
+                          const quint64 renderGeneration)
+    {
+        if (!state.rendererAvailable || !image || !drawable
+            || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
         @autoreleasepool {
@@ -1173,9 +1413,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (!needsManagedPreparation && !presentationState->hdrPrepared)
                 scheduleHDRPreparation(viewportSize, corners, requestedSize);
 
-            id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
             id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
-            if (!drawable || !commandBuffer)
+            if (!commandBuffer)
                 return;
             const CGSize actualSize = CGSizeMake(drawable.texture.width, drawable.texture.height);
             state.actualTextureWidth = static_cast<int>(drawable.texture.width);
@@ -1198,33 +1437,73 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (!source)
                 return;
 
-            const CGRect destinationBounds = CGRectMake(0, 0, actualSize.width, actualSize.height);
-            QElapsedTimer timer;
-            timer.start();
-            [context render:source
-                     toMTLTexture:drawable.texture
-                    commandBuffer:commandBuffer
-                           bounds:destinationBounds
-                       colorSpace:outputColorSpace];
+            const CGRect destinationBounds = CGRectMake(
+                    0, 0, actualSize.width, actualSize.height);
             revealAfterPresentation(drawable, commandBuffer);
-            [commandBuffer presentDrawable:drawable];
-            [commandBuffer commit];
-            state.lastRenderMilliseconds = timer.nsecsElapsed() / 1000000.0;
-            ++state.renderCount;
+            presentationState->frameInFlight = YES;
+            presentationState->inFlightGeneration = renderGeneration;
+            state.submittedRenderGeneration = renderGeneration;
+            QVHDRPresentationState *frameGate = presentationState;
+            [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (frameGate->inFlightGeneration != renderGeneration)
+                        return;
+                    frameGate->frameInFlight = NO;
+                    if (frameGate->displayLink)
+                        frameGate->displayLink.paused = NO;
+                });
+            }];
+            // Core Image encoding can still compile a new high-resolution ROI
+            // even when drawable acquisition is display-link paced. Keep that
+            // work off AppKit's run loop. The immutable CIImage and Objective-C
+            // command objects are retained by the copied dispatch block; the
+            // destructor drains this serial queue before releasing the context.
+            CIImage *encodedSource = source;
+            id<CAMetalDrawable> encodedDrawable = drawable;
+            id<MTLCommandBuffer> encodedCommandBuffer = commandBuffer;
+            CIContext *renderContext = context;
+            CGColorSpaceRef renderColorSpace = CGColorSpaceRetain(outputColorSpace);
+            dispatch_async(renderQueue, ^{
+                QElapsedTimer timer;
+                timer.start();
+                [renderContext render:encodedSource
+                          toMTLTexture:encodedDrawable.texture
+                         commandBuffer:encodedCommandBuffer
+                                bounds:destinationBounds
+                            colorSpace:renderColorSpace];
+                // Presentation is ordered after every Core Image command
+                // encoded in this command buffer. Enqueue it before commit so
+                // the display-link drawable can meet its target deadline.
+                [encodedCommandBuffer presentDrawable:encodedDrawable];
+                [encodedCommandBuffer commit];
+                const double elapsedMilliseconds =
+                        timer.nsecsElapsed() / 1000000.0;
+                {
+                    const std::lock_guard<std::mutex> lock(telemetryMutex);
+                    state.lastRenderMilliseconds = elapsedMilliseconds;
+                    ++state.renderCount;
+                }
+                CGColorSpaceRelease(renderColorSpace);
+            });
+            lastSubmittedLinearProgress = linearProgress;
             syncPresentationDiagnostics();
         }
     }
 
     HDRRendererDiagnostics diagnostics()
     {
+        const std::lock_guard<std::mutex> lock(telemetryMutex);
         syncPresentationDiagnostics();
         return state;
     }
 
     NSView *nativeView{ nil };
     CAMetalLayer *metalLayer{ nil };
+    CAMetalDisplayLink *displayLink{ nil };
+    QVHDRDisplayLinkDelegate *displayLinkDelegate{ nil };
     id<MTLDevice> device{ nil };
     id<MTLCommandQueue> commandQueue{ nil };
+    dispatch_queue_t renderQueue{ nullptr };
     CIContext *context{ nil };
     CGColorSpaceRef outputColorSpace{ nullptr };
     CGColorSpaceRef backgroundColorSpace{ nullptr };
@@ -1234,6 +1513,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
     std::shared_ptr<const NativeHDRImage> image;
+    bool renderPending{ false };
+    QSize pendingViewportSize;
+    QPolygonF pendingCorners;
+    qreal pendingLinearProgress{ 0.0 };
+    qreal lastSubmittedLinearProgress{ 0.0 };
+    quint64 pendingRenderGeneration{ 0 };
+    std::mutex telemetryMutex;
     HDRRendererDiagnostics state;
 };
 
@@ -1729,23 +2015,98 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 sdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
                 hdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
             }
-
-            if (sdrRawFilter && hdrRawFilter)
-            {
-                // Keep the SDR and EDR recipes on independent immutable filter
-                // graphs. Mutating one CIRAWFilter between lazy output reads
-                // made later tile evaluation depend on timing.
+            if (sdrRawFilter && hdrRawFilter) {
                 sdrRawFilter.orientation = orientation;
                 hdrRawFilter.orientation = orientation;
+                sdrRawFilter.draftModeEnabled = NO;
+                hdrRawFilter.draftModeEnabled = NO;
+                sdrRawFilter.scaleFactor = 1.0F;
+                hdrRawFilter.scaleFactor = 1.0F;
+            }
+
+            // ProRAW can carry Apple's fully rendered, full-resolution
+            // thumbnail together with the Adaptive HDR gain map. macOS 15
+            // Quick Look and Preview consume this public representation. It
+            // preserves the camera's Smart HDR/Deep Fusion/local tone recipe,
+            // which cannot be reproduced by changing one CIRAWFilter knob.
+            if (@available(macOS 15.0, *)) {
+                const bool hasGainMap = result.hdrMetadata.hasAppleGainMap
+                        || result.hdrMetadata.hasISOGainMap;
+                if (hasGainMap) {
+                    NSDictionary *previewOptions = @{
+                        (id)kCIImageApplyOrientationProperty : @YES,
+                        (id)kCIImageCacheImmediately : @YES
+                    };
+                    NSDictionary *gainMapOptions = @{
+                        (id)kCIImageAuxiliaryHDRGainMap : @YES,
+                        (id)kCIImageApplyOrientationProperty : @YES,
+                        (id)kCIImageCacheImmediately : @YES
+                    };
+                    // CIRAWFilter.previewImage exposes the full-resolution,
+                    // camera-processed thumbnail that the DNG gain map was
+                    // authored against.  Prefer it over the generic RAW output
+                    // graph: the latter is close, but omits parts of the
+                    // camera/ProRAW rendering recipe and therefore loses fine
+                    // highlight and local-tone detail relative to Quick Look.
+                    CIImage *processedSDR = sdrRawFilter.previewImage;
+                    if (!processedSDR) {
+                        processedSDR = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                                  options:previewOptions];
+                    }
+                    CIImage *gainMap = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                                    options:gainMapOptions];
+                    CIImage *processedHDR = processedSDR && gainMap
+                            ? [processedSDR imageByApplyingGainMap:gainMap]
+                            : nil;
+                    const float processedHeadroom = ciImageContentHeadroom(processedHDR);
+                    if (processedSDR && processedHDR && processedHeadroom > 1.001F
+                        && CGRectEqualToRect(processedSDR.extent, processedHDR.extent)) {
+                        const CGRect extent = processedHDR.extent;
+                        result.intrinsicSize = QSize(
+                            static_cast<int>(std::lround(extent.size.width)),
+                            static_cast<int>(std::lround(extent.size.height)));
+                        result.hdrMetadata.sourceKind =
+                                QStringLiteral("camera-raw-processed-gain-map");
+                        result.hdrMetadata.pixelSize = result.intrinsicSize;
+                        result.hdrMetadata.bitsPerComponent = 16;
+                        result.hdrMetadata.contentHeadroom = processedHeadroom;
+                        result.hdrMetadata.decodedToHDR = true;
+                        result.hdrMetadata.usesProcessedRawPreview = true;
+                        result.hdrMetadata.usedRawPreview = true;
+                        result.hdrMetadata.colorSpaceName =
+                                colorSpaceName(processedHDR.colorSpace);
+                        result.hdrMetadata.transferFunction =
+                                transferFunctionName(processedHDR.colorSpace, true);
+                        result.hdrImage = std::make_shared<NativeHDRImage>(
+                                processedHDR, processedSDR, result.hdrMetadata, gainMap);
+                        result.usedRawPreview = true;
+
+                        CGColorSpaceRef workingColorSpace =
+                                colorSyncDisplayP3ColorSpace(true);
+                        CGColorSpaceRef fallbackColorSpace =
+                                colorSyncDisplayP3ColorSpace(false);
+                        CIContext *context = metalCIContext(
+                                workingColorSpace, fallbackColorSpace);
+                        result.image = imageFromCIImage(
+                                processedSDR, context, fallbackColorSpace,
+                                fallbackLargestDimension);
+                        if (context)
+                            [context clearCaches];
+                        if (workingColorSpace)
+                            CGColorSpaceRelease(workingColorSpace);
+                        if (fallbackColorSpace)
+                            CGColorSpaceRelease(fallbackColorSpace);
+                    }
+                }
+            }
+
+            if (!result.hdrImage && sdrRawFilter && hdrRawFilter)
+            {
+                // Other RAW formats retain independent, immutable Apple RAW
+                // recipes. Preserve every camera default, including negative
+                // BaselineExposure; changing that property alone flattens
+                // highlight detail while leaving the rest of the tone recipe.
                 sdrRawFilter.extendedDynamicRangeAmount = 0.0F;
-                // Apple defines zero baselineExposure as linear response. This
-                // sample's negative camera default substantially lowers the
-                // EDR rendition, so request linear response only for HDR while
-                // the SDR companion preserves the camera default. The exact
-                // Quick Look exposure policy is private; this is the measured
-                // public-API approximation for the supplied fixture.
-                if (hdrRawFilter.baselineExposure < 0.0F)
-                    hdrRawFilter.baselineExposure = 0.0F;
                 hdrRawFilter.extendedDynamicRangeAmount = 1.0F;
                 CIImage *sdrImage = sdrRawFilter.outputImage;
                 CIImage *hdrImage = hdrRawFilter.outputImage;

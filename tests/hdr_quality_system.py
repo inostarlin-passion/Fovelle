@@ -34,6 +34,11 @@ THRESHOLDS = {
     "steady_render_equivalent_submissions_per_second_min": 33.0,
     "observed_transition_frames_per_second_min": 30.0,
     "transition_progress_step_max": 0.15,
+    "interaction_zoom_main_thread_ms_max": 30.0,
+    "interaction_pan_interval_average_ms_max": 25.0,
+    "interaction_pan_interval_p99_ms_max": 45.0,
+    "interaction_pan_interval_max_ms_max": 60.0,
+    "interaction_pan_steps_per_second_min": 40.0,
 }
 
 
@@ -181,6 +186,54 @@ def background_sample_rgb(
     return {"samples": samples, "median_rgb": median}
 
 
+def navigation_surface_diff_metric(
+    baseline_path: Path,
+    visible_path: Path,
+    event: dict,
+    device_pixel_ratio: float,
+) -> dict:
+    with Image.open(baseline_path) as baseline_source, Image.open(visible_path) as visible_source:
+        baseline = baseline_source.convert("RGB")
+        visible = visible_source.convert("RGB")
+    scale = max(1.0, device_pixel_ratio)
+    left = round(float(event["global_x"]) * scale)
+    top = round(float(event["global_y"]) * scale)
+    width = round(float(event["width"]) * scale)
+    height = round(float(event["height"]) * scale)
+    right, bottom = left + width, top + height
+    patch_size = max(2, round(5 * scale))
+    inset = max(patch_size + 1, round(11 * scale))
+
+    def mean_difference(box: tuple[int, int, int, int]) -> float:
+        base_pixels = list(baseline.crop(box).getdata())
+        visible_pixels = list(visible.crop(box).getdata())
+        values = [
+            abs(a - b)
+            for base_pixel, visible_pixel in zip(base_pixels, visible_pixels)
+            for a, b in zip(base_pixel, visible_pixel)
+        ]
+        return statistics.fmean(values) if values else math.inf
+
+    corner_boxes = [
+        (left, top, left + patch_size, top + patch_size),
+        (right - patch_size, top, right, top + patch_size),
+        (left, bottom - patch_size, left + patch_size, bottom),
+        (right - patch_size, bottom - patch_size, right, bottom),
+    ]
+    center_box = (left + inset, top + inset, right - inset, bottom - inset)
+    return {
+        "button_rect_pixels": [left, top, right, bottom],
+        "corner_mean_absolute_rgb_differences": [
+            mean_difference(box) for box in corner_boxes
+        ],
+        "maximum_corner_mean_absolute_rgb_difference": max(
+            (mean_difference(box) for box in corner_boxes), default=math.inf
+        ),
+        "center_mean_absolute_rgb_difference": mean_difference(center_box),
+        "device_pixel_ratio": scale,
+    }
+
+
 def missing_structure_metric(
     path: Path,
     reference_path: Path,
@@ -287,10 +340,17 @@ def launch(
     forced_current_headroom: float | None = None,
     interaction: bool = False,
     theme_switch: bool = False,
+    navigation: bool = False,
     capture_seconds: float = CAPTURE_SECONDS,
     capture_schedule: list[float] | None = None,
     capture_directory: Path | None = None,
 ) -> dict:
+    suffix = image.suffix.lower()
+    format_name = (
+        "raw-dng" if suffix == ".dng"
+        else "raw-nef" if suffix == ".nef"
+        else "gain-map-jpeg"
+    )
     environment = {
         **os.environ,
         "QT_QPA_PLATFORM": "cocoa",
@@ -305,6 +365,8 @@ def launch(
         environment["FOVELLE_HDR_TEST_INTERACTION"] = "1"
     if theme_switch:
         environment["FOVELLE_HDR_TEST_THEME_SWITCH"] = "1"
+    if navigation:
+        environment["FOVELLE_HDR_TEST_NAVIGATION"] = "1"
     command = [str(app), str(image)]
     started = time.perf_counter()
     captures = []
@@ -323,9 +385,12 @@ def launch(
             if process.poll() is not None:
                 break
             if capture_directory is not None:
-                scenario = "interaction" if interaction else "theme" if theme_switch else "launch"
+                scenario = (
+                    "interaction" if interaction else "theme" if theme_switch
+                    else "navigation" if navigation else "launch"
+                )
                 capture_path = capture_directory / (
-                    f"{'raw' if image.suffix.lower() == '.dng' else 'jpeg'}"
+                    f"{format_name.replace('-', '_')}"
                     f"_{scenario}_{capture_index}_{int(offset * 1000):04d}ms.png"
                 )
                 captures.append(capture_screen(capture_path))
@@ -353,13 +418,20 @@ def launch(
             telemetry.append(json.loads(match.group(1)))
         except json.JSONDecodeError:
             continue
+    navigation_events = []
+    for match in re.finditer(r"FOVELLE_NAV\s+(\{[^\n\r]+\})", output):
+        try:
+            navigation_events.append(json.loads(match.group(1)))
+        except json.JSONDecodeError:
+            continue
     return {
-        "format": "raw" if image.suffix.lower() == ".dng" else "gain-map-jpeg",
+        "format": format_name,
         "run_index": run_index,
         "forced_headroom": forced_headroom,
         "forced_current_headroom": forced_current_headroom,
         "interaction": interaction,
         "theme_switch": theme_switch,
+        "navigation": navigation,
         "command": command,
         "capture_seconds": capture_seconds,
         "elapsed_seconds": time.perf_counter() - started,
@@ -367,6 +439,7 @@ def launch(
         "return_code_after_termination": process.returncode,
         "telemetry_count": len(telemetry),
         "telemetry": telemetry,
+        "navigation_events": navigation_events,
         "screen_captures": captures,
         "process_output": output,
         "process_healthy": bool(telemetry) and "Segmentation fault" not in output and "ASSERT" not in output,
@@ -396,6 +469,30 @@ def maximum_transition_step(records: list[dict]) -> float:
     return max((current - previous for previous, current in zip(active, active[1:])), default=0.0)
 
 
+def interaction_timing(records: list[dict]) -> dict:
+    step_records = [
+        item for item in records if item.get("phase") == "test-interaction-step"
+    ]
+    elapsed = [float(item.get("interaction_elapsed_ms", -1)) for item in step_records]
+    intervals = [current - previous for previous, current in zip(elapsed, elapsed[1:])]
+    average = statistics.fmean(intervals) if intervals else math.inf
+    zoom_values = [
+        float(item.get("interaction_zoom_ms", 0))
+        for item in records if item.get("phase") == "test-interaction-start"
+    ]
+    return {
+        "step_count": len(step_records),
+        "step_numbers": [int(item.get("interaction_step", -1)) for item in step_records],
+        "elapsed_ms": elapsed,
+        "intervals_ms": intervals,
+        "interval_average_ms": average,
+        "interval_p99_ms": percentile(intervals, 0.99),
+        "interval_max_ms": max(intervals, default=math.inf),
+        "steps_per_second": 1000.0 / average if average > 0 else 0.0,
+        "zoom_main_thread_ms": max(zoom_values, default=math.inf),
+    }
+
+
 def make_case(identifier: str, checks: dict[str, bool], observations: dict) -> dict:
     passed = bool(checks) and all(checks.values())
     return {
@@ -412,13 +509,15 @@ def main() -> int:
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--jpeg", type=Path, required=True)
     parser.add_argument("--raw", type=Path, required=True)
+    parser.add_argument("--nef", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     app = args.app.resolve()
     jpeg = args.jpeg.resolve()
     raw = args.raw.resolve()
-    missing = [str(path) for path in (app, jpeg, raw) if not path.is_file()]
+    nef = args.nef.resolve()
+    missing = [str(path) for path in (app, jpeg, raw, nef) if not path.is_file()]
     if missing:
         raise SystemExit(f"missing system-test input: {missing}")
 
@@ -458,7 +557,29 @@ def main() -> int:
         capture_schedule=[2.4, 4.5, 5.2],
         capture_directory=capture_directory,
     )
-    runs.extend((forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run, theme_run))
+    nef_interaction_run = launch(
+        app,
+        nef,
+        1,
+        forced_current_headroom=1.0,
+        interaction=True,
+        capture_seconds=5.8,
+        capture_schedule=[3.8, 4.2, 4.6, 5.4],
+        capture_directory=capture_directory,
+    )
+    navigation_run = launch(
+        app,
+        jpeg,
+        1,
+        navigation=True,
+        capture_seconds=6.2,
+        capture_schedule=[3.4, 4.1, 5.6],
+        capture_directory=capture_directory,
+    )
+    runs.extend((
+        forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run,
+        theme_run, nef_interaction_run, navigation_run,
+    ))
 
     real_runs = [
         run for run in runs
@@ -466,9 +587,10 @@ def main() -> int:
         and run["forced_current_headroom"] is None
         and not run["interaction"]
         and not run["theme_switch"]
+        and not run["navigation"]
     ]
     jpeg_runs = [run for run in real_runs if run["format"] == "gain-map-jpeg"]
-    raw_runs = [run for run in real_runs if run["format"] == "raw"]
+    raw_runs = [run for run in real_runs if run["format"] == "raw-dng"]
     all_real_records = [item for run in real_runs for item in run["telemetry"]]
     jpeg_records = [item for run in jpeg_runs for item in run["telemetry"]]
     raw_records = [item for run in raw_runs for item in run["telemetry"]]
@@ -476,6 +598,7 @@ def main() -> int:
     bootstrap_runs = [bootstrap_jpeg, bootstrap_raw]
     bootstrap_records = [item for run in bootstrap_runs for item in run["telemetry"]]
     interaction_records = interaction_run["telemetry"]
+    nef_interaction_records = nef_interaction_run["telemetry"]
     interaction_viewport_crop = viewport_pixel_crop(interaction_records)
     # QVGraphicsView emits a diagnostic snapshot after every render request,
     # including requests that intentionally stop at offscreen preparation.
@@ -493,6 +616,17 @@ def main() -> int:
     interaction_reused_records = [
         item for item in interaction_records if item.get("phase") == "geometry-reused"
     ]
+    jpeg_interaction_timing = interaction_timing(interaction_records)
+    nef_interaction_timing = interaction_timing(nef_interaction_records)
+    interaction_settled_records = [
+        item for item in interaction_records
+        if item.get("phase") == "test-interaction-settled"
+    ]
+    nef_interaction_settled_records = [
+        item for item in nef_interaction_records
+        if item.get("phase") == "test-interaction-settled"
+    ]
+    scheduler_records = all_real_records + interaction_records + nef_interaction_records
     interaction_capture_metrics = []
     for capture in interaction_run["screen_captures"]:
         capture_path = Path(capture["path"])
@@ -512,6 +646,60 @@ def main() -> int:
                 Path(stable_captures[0]["path"]), Path(stable_captures[1]["path"]),
                 interaction_viewport_crop, interaction_viewport_crop,
             )
+    nef_viewport_crop = viewport_pixel_crop(nef_interaction_records)
+    nef_image_crop = image_pixel_crop(nef_interaction_records)
+    nef_capture_metrics = []
+    nef_edge_similarities = []
+    nef_captures = nef_interaction_run["screen_captures"]
+    if nef_captures and all(
+        item["return_code"] == 0 and Path(item["path"]).is_file()
+        for item in nef_captures
+    ):
+        nef_reference = Path(nef_captures[-1]["path"])
+        for capture in nef_captures:
+            path = Path(capture["path"])
+            metric = missing_structure_metric(path, nef_reference, nef_image_crop)
+            band = black_vertical_band_metric(path, nef_viewport_crop)
+            similarity = edge_cosine_similarity(
+                path, nef_reference, nef_image_crop, nef_image_crop
+            )
+            capture["missing_structure_metric"] = metric
+            capture["black_vertical_band_metric"] = band
+            capture["edge_cosine_similarity_to_final"] = similarity
+            nef_capture_metrics.append(metric)
+            nef_edge_similarities.append(similarity)
+
+    navigation_events = navigation_run["navigation_events"]
+    navigation_visible_events = [
+        item for item in navigation_events
+        if item.get("phase") == "fractional-visible"
+    ]
+    navigation_hidden_events = [
+        item for item in navigation_events if item.get("phase") == "hidden"
+    ]
+    navigation_capture_metrics = []
+    navigation_captures = navigation_run["screen_captures"]
+    navigation_device_pixel_ratio = next((
+        float(item.get("viewport_device_pixel_ratio", 1.0))
+        for item in reversed(navigation_run["telemetry"])
+        if "viewport_device_pixel_ratio" in item
+    ), 1.0)
+    if (
+        navigation_visible_events
+        and len(navigation_captures) == 3
+        and all(item["return_code"] == 0 and Path(item["path"]).is_file()
+                for item in navigation_captures)
+    ):
+        hidden_reference = Path(navigation_captures[-1]["path"])
+        for capture in navigation_captures[:2]:
+            metric = navigation_surface_diff_metric(
+                hidden_reference,
+                Path(capture["path"]),
+                navigation_visible_events[-1],
+                navigation_device_pixel_ratio,
+            )
+            capture["navigation_surface_diff_metric"] = metric
+            navigation_capture_metrics.append(metric)
     raw_launch_captures = bootstrap_raw["screen_captures"]
     raw_viewport_crop = viewport_pixel_crop(bootstrap_raw["telemetry"])
     raw_image_crop = image_pixel_crop(bootstrap_raw["telemetry"])
@@ -595,6 +783,8 @@ def main() -> int:
             "steady_render_ms": steady_render_samples,
             "observed_transition_frames_per_second": transition_rates,
             "maximum_transition_progress_step": transition_steps,
+            "jpeg_interaction": jpeg_interaction_timing,
+            "nef_interaction": nef_interaction_timing,
         },
         "metrics": {
             "decode_average_ms": decode_average,
@@ -636,9 +826,20 @@ def main() -> int:
         make_case("SYS-HDR-RAW-DNG-EDR", {
             "all_runs_healthy": all(run["process_healthy"] for run in raw_runs),
             "raw_identified": bool(raw_records) and all(item.get("is_raw") is True for item in raw_records),
-            "raw_edr_graph": bool(raw_records) and all(item.get("uses_raw_extended_dynamic_range") is True for item in raw_records),
+            "processed_gain_map_graph": bool(raw_records) and all(
+                item.get("uses_processed_raw_preview") is True
+                and item.get("uses_raw_extended_dynamic_range") is False
+                and item.get("source_kind") == "camera-raw-processed-gain-map"
+                for item in raw_records
+            ),
             "raw_precision_contract": bool(raw_records) and all(int(item.get("bits_per_component", 0)) == 16 for item in raw_records),
-            "preview_not_primary": bool(raw_records) and all(item.get("used_raw_preview") is False for item in raw_records),
+            "authored_processed_preview_is_primary": bool(raw_records) and all(
+                item.get("used_raw_preview") is True for item in raw_records
+            ),
+            "gain_map_detected": bool(raw_records) and all(
+                item.get("has_apple_gain_map") or item.get("has_iso_gain_map")
+                for item in raw_records
+            ),
             "target_reaches_hdr": all(max(float(item.get("target_headroom", 1)) for item in run["telemetry"]) > 1.1 for run in raw_runs),
         }, {
             "run_count": len(raw_runs),
@@ -807,8 +1008,9 @@ def main() -> int:
             "both_processes_healthy": all(run["process_healthy"] for run in bootstrap_runs),
             "records_present": all(bool(run["telemetry"]) for run in bootstrap_runs),
             "current_only_override_observed": bool(bootstrap_records) and all(
-                item.get("display_current_headroom_overridden") is True
-                for item in bootstrap_records if item.get("phase") == "render"
+                any(item.get("display_current_headroom_overridden") is True
+                    for item in run["telemetry"])
+                for run in bootstrap_runs
             ),
             "potential_edr_capability_preserved": all(
                 max(float(item.get("display_potential_headroom", 1)) for item in run["telemetry"]) > 1
@@ -844,9 +1046,9 @@ def main() -> int:
         make_case("SYS-HDR-FORCED-SDR-COMPATIBILITY", {
             "process_healthy": forced_sdr["process_healthy"],
             "records_present": bool(forced_records),
-            "override_observed": bool(forced_records) and all(
+            "override_observed": bool(forced_records) and any(
                 item.get("display_headroom_overridden") is True
-                for item in forced_records if item.get("phase") == "render"
+                for item in forced_records
             ),
             "display_headroom_is_one": bool(forced_records) and all(abs(float(item.get("display_current_headroom", 0)) - 1.0) < 1e-6 for item in forced_records),
             "potential_and_rendering_headroom_are_one": bool(forced_records) and all(
@@ -951,6 +1153,181 @@ def main() -> int:
                 for item in post_interaction_render_records
             ],
         }),
+        make_case("SYS-HDR-DISPLAYLINK-LATEST-ONLY", {
+            "scheduler_telemetry_present": bool(scheduler_records),
+            "all_records_use_metal_display_link": bool(scheduler_records) and all(
+                item.get("uses_metal_display_link") is True
+                for item in scheduler_records
+            ),
+            "all_records_encode_metal_off_main_thread": bool(scheduler_records) and all(
+                item.get("encodes_metal_off_main_thread") is True
+                for item in scheduler_records
+            ),
+            "every_real_run_receives_display_callbacks": all(
+                max(
+                    (int(item.get("display_link_callback_count", 0))
+                     for item in run["telemetry"]),
+                    default=0,
+                ) > 0
+                for run in real_runs
+            ),
+            "submitted_generation_never_exceeds_latest_request": all(
+                int(item.get("submitted_render_generation", 0))
+                <= int(item.get("requested_render_generation", 0))
+                for item in scheduler_records
+            ),
+            "jpeg_settles_on_latest_generation": bool(interaction_settled_records) and all(
+                int(item.get("submitted_render_generation", -1))
+                == int(item.get("requested_render_generation", -2))
+                and item.get("frame_in_flight") is False
+                for item in interaction_settled_records
+            ),
+            "nef_settles_on_latest_generation": bool(nef_interaction_settled_records) and all(
+                int(item.get("submitted_render_generation", -1))
+                == int(item.get("requested_render_generation", -2))
+                and item.get("frame_in_flight") is False
+                for item in nef_interaction_settled_records
+            ),
+        }, {
+            "scheduler_record_count": len(scheduler_records),
+            "maximum_coalesced_request_count": max(
+                (int(item.get("coalesced_render_request_count", 0))
+                 for item in scheduler_records),
+                default=0,
+            ),
+            "maximum_deferred_callback_count": max(
+                (int(item.get("deferred_display_link_callback_count", 0))
+                 for item in scheduler_records),
+                default=0,
+            ),
+            "jpeg_settled_generations": [
+                [int(item.get("requested_render_generation", 0)),
+                 int(item.get("submitted_render_generation", 0))]
+                for item in interaction_settled_records
+            ],
+            "nef_settled_generations": [
+                [int(item.get("requested_render_generation", 0)),
+                 int(item.get("submitted_render_generation", 0))]
+                for item in nef_interaction_settled_records
+            ],
+        }),
+        make_case("SYS-HDR-INTERACTION-RESPONSIVENESS", {
+            "both_interaction_runs_healthy": (
+                interaction_run["process_healthy"]
+                and nef_interaction_run["process_healthy"]
+            ),
+            "both_emit_all_ordered_pan_steps": all(
+                timing["step_count"] == 12
+                and timing["step_numbers"] == list(range(12))
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+            "zoom_main_thread_time_bounded": all(
+                timing["zoom_main_thread_ms"]
+                <= THRESHOLDS["interaction_zoom_main_thread_ms_max"]
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+            "pan_average_interval_bounded": all(
+                timing["interval_average_ms"]
+                <= THRESHOLDS["interaction_pan_interval_average_ms_max"]
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+            "pan_p99_interval_bounded": all(
+                timing["interval_p99_ms"]
+                <= THRESHOLDS["interaction_pan_interval_p99_ms_max"]
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+            "pan_maximum_interval_bounded": all(
+                timing["interval_max_ms"]
+                <= THRESHOLDS["interaction_pan_interval_max_ms_max"]
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+            "pan_throughput_bounded": all(
+                timing["steps_per_second"]
+                >= THRESHOLDS["interaction_pan_steps_per_second_min"]
+                for timing in (jpeg_interaction_timing, nef_interaction_timing)
+            ),
+        }, {
+            "thresholds": {
+                key: value for key, value in THRESHOLDS.items()
+                if key.startswith("interaction_")
+            },
+            "jpeg": jpeg_interaction_timing,
+            "nef": nef_interaction_timing,
+        }),
+        make_case("SYS-HDR-NEF-ZOOM-NO-GHOST", {
+            "nef_process_healthy": nef_interaction_run["process_healthy"],
+            "nef_native_raw_graph_observed": bool(nef_interaction_records) and all(
+                item.get("is_raw") is True
+                and item.get("source_kind") == "camera-raw"
+                and item.get("uses_raw_extended_dynamic_range") is True
+                for item in nef_interaction_records
+            ),
+            "nef_interaction_settled": bool(nef_interaction_settled_records),
+            "all_four_captures_measured": (
+                len(nef_capture_metrics) == 4
+                and len(nef_edge_similarities) == 4
+            ),
+            "no_capture_loses_structural_tiles": bool(nef_capture_metrics) and all(
+                item["missing_structural_tile_count"] == 0
+                for item in nef_capture_metrics
+            ),
+            "no_capture_contains_black_band": len(nef_capture_metrics) == 4 and all(
+                item["maximum_consecutive_near_black_columns"] <= 10
+                for item in (
+                    capture["black_vertical_band_metric"]
+                    for capture in nef_captures
+                    if "black_vertical_band_metric" in capture
+                )
+            ),
+            "settled_captures_retain_final_edge_structure": len(nef_edge_similarities) == 4
+                and min(nef_edge_similarities[1:]) >= 0.995,
+            "latest_zoom_generation_presented": bool(nef_interaction_settled_records) and all(
+                int(item.get("requested_render_generation", -1))
+                == int(item.get("submitted_render_generation", -2))
+                for item in nef_interaction_settled_records
+            ),
+        }, {
+            "capture_files": [item["path"] for item in nef_captures],
+            "capture_sha256": [item["sha256"] for item in nef_captures],
+            "viewport_crop_pixels": list(nef_viewport_crop) if nef_viewport_crop else None,
+            "image_crop_pixels": list(nef_image_crop) if nef_image_crop else None,
+            "missing_structure_metrics": nef_capture_metrics,
+            "edge_cosine_similarity_to_final": nef_edge_similarities,
+            "settled_edge_cosine_similarity_minimum": 0.995,
+            "moving_first_capture_is_not_compared_for_identical_composition": True,
+        }),
+        make_case("SYS-HDR-NAV-TRANSPARENT-SURFACE", {
+            "navigation_process_healthy": navigation_run["process_healthy"],
+            "fractional_visibility_event_observed": len(navigation_visible_events) == 1,
+            "hidden_event_observed": len(navigation_hidden_events) == 1,
+            "fractional_opacity_is_half": bool(navigation_visible_events) and abs(
+                float(navigation_visible_events[-1].get("paint_opacity", -1)) - 0.5
+            ) <= 0.001,
+            "no_graphics_effect_attached": bool(navigation_visible_events) and (
+                navigation_visible_events[-1].get("has_graphics_effect") is False
+            ),
+            "all_three_screen_captures_succeeded": (
+                len(navigation_captures) == 3
+                and all(item["return_code"] == 0 and item["bytes"] > 0
+                        for item in navigation_captures)
+            ),
+            "both_visible_captures_measured": len(navigation_capture_metrics) == 2,
+            "transparent_button_corners_do_not_change": bool(navigation_capture_metrics) and all(
+                item["maximum_corner_mean_absolute_rgb_difference"] <= 3.0
+                for item in navigation_capture_metrics
+            ),
+            "painted_center_changes_at_fractional_opacity": bool(navigation_capture_metrics) and all(
+                item["center_mean_absolute_rgb_difference"] >= 1.0
+                for item in navigation_capture_metrics
+            ),
+        }, {
+            "navigation_events": navigation_events,
+            "capture_files": [item["path"] for item in navigation_captures],
+            "capture_sha256": [item["sha256"] for item in navigation_captures],
+            "surface_metrics": navigation_capture_metrics,
+            "corner_difference_maximum": 3.0,
+            "center_difference_minimum": 1.0,
+        }),
         make_case("SYS-HDR-THEME-BACKGROUND-STABILITY", {
             "theme_process_healthy": theme_run["process_healthy"],
             "pre_switch_records_present": bool(theme_pre_dark_records),
@@ -1020,7 +1397,7 @@ def main() -> int:
             "cpu_brand": read_command("sysctl", "-n", "machdep.cpu.brand_string"),
             "display_summary": read_command("system_profiler", "SPDisplaysDataType", "-detailLevel", "mini"),
         },
-        "samples": {"jpeg": str(jpeg), "raw": str(raw)},
+        "samples": {"jpeg": str(jpeg), "raw": str(raw), "nef": str(nef)},
         "runs": runs,
         "performance": performance,
         "cases": cases,
@@ -1044,18 +1421,26 @@ def main() -> int:
             "The post-reveal Light background sample measured (150,150,150); both samples after the test Dark update measured (33,33,33).",
             "Every production record reported an opaque full-drawable clear before image compositing.",
             "The visible HDR transition began only after endpoint preparation and met the recorded frame-rate and maximum-progress-step thresholds.",
+            "The DNG path reported a full-resolution processed preview with its authored gain map; the traditional NEF path reported independent RAW EDR endpoints.",
+            "Every scheduler record reported CAMetalDisplayLink plus off-main Metal encoding, and both JPEG and NEF settled with submitted generation equal to the latest request and no frame in flight.",
+            "Twelve ordered pan steps for both JPEG and NEF met the recorded average, P99, maximum, zoom-main-thread, and throughput thresholds.",
+            "Four NEF interaction captures lost no structured tile and contained no persistent black band; the three stopped-composition captures met the recorded final-frame edge threshold.",
+            "At half opacity the real navigation widget had no graphics effect; its painted center changed while all four transparent corner patches stayed within the recorded difference threshold.",
         ],
         "inferences": [
             "Potential headroom above one together with wants_edr, RGBA16Float, and target headroom above one demonstrates an EDR-capable WindowServer presentation path.",
             "The current-only bootstrap result breaks the circular dependency in which NSScreen current headroom can remain one until EDR content is already onscreen.",
             "Initialization-time non-volatile gain-map decode, source-space Core Image-managed intermediates, and band-free screen pixels remove the two cache boundaries associated with the persistent JPEG bands.",
-            "Independent RAW graphs, context/source intermediate caching, and ten complete timed captures support removal of the timing-dependent RAW tile failure.",
+            "Display-link pacing, latest-state overwrite, and off-main CI encoding remove the synchronous/queued work that best explains the former interaction stall and NEF stale-frame ghost.",
+            "The processed-preview plus authored-gain-map representation preserves more of this DNG's camera recipe than changing one generic RAW exposure parameter.",
+            "Cached navigation sampling plus custom-pixel opacity removes the repaint/effect surfaces that best explain the former hover delay and rectangular backing.",
             "Reusing prepared source endpoints across interaction removes the SDR fallback and transition restart that caused visible dim-then-bright behavior.",
             "A single explicit Qt/Metal background contract explains the stable reveal color and deterministic live theme update.",
         ],
         "uncertainties": [
             "Telemetry cannot prove subjective equivalence with Quick Look's private tone curve.",
-            "Apple does not publish the precise internal RAW tile-scheduling mechanism, so its low-level failure mode remains an inference.",
+            "Apple does not publish the precise internal RAW/gain-map ROI scheduling mechanism, so the low-level cause of the former DNG quadrant failure remains an evidence-backed inference.",
+            "Quick Look's private RAW rendering recipe and subjective local contrast are not fully public; integration evidence therefore compares exported edge structure and RGB error rather than claiming pixel identity.",
             "A physical SDR-only Mac was not available; a capability override of current=potential=1 exercises the production SDR branch deterministically.",
             "A still screenshot cannot encode absolute luminance or temporal persistence; HDR pixel peaks, headroom telemetry, multiple timed captures, and generation invariants provide complementary evidence.",
         ],

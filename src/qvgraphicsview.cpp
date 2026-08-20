@@ -62,10 +62,15 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     scene->addItem(loadedPixmapItem);
 
     hdrRenderer = std::make_unique<QVCocoaFunctions::HDRRenderer>(viewport());
+    hdrFrameRequestTimer = new QTimer(this);
+    hdrFrameRequestTimer->setSingleShot(true);
+    hdrFrameRequestTimer->setInterval(0);
+    connect(hdrFrameRequestTimer, &QTimer::timeout, this,
+            &QVGraphicsView::updateHDRRenderer);
     hdrTransitionTimer = new QTimer(this);
     hdrTransitionTimer->setInterval(16);
     connect(hdrTransitionTimer, &QTimer::timeout, this, [this]() {
-        updateHDRRenderer();
+        requestHDRRendererUpdate();
         if (hdrTransitionClock.isValid() && hdrTransitionClock.elapsed() >= 1800
             && hdrTransitionLinearProgress >= 1.0)
             hdrTransitionTimer->stop();
@@ -76,9 +81,9 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(hdrGeometryTimer, &QTimer::timeout, this,
             &QVGraphicsView::finishHDRGeometryStabilization);
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { updateHDRRenderer(); });
+            [this]() { requestHDRRendererUpdate(); });
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { updateHDRRenderer(); });
+            [this]() { requestHDRRendererUpdate(); });
 
     // Connect to settings signal
     connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, [this]{settingsUpdated(false);});
@@ -134,7 +139,7 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
     handleDpiAdjustmentChange();
 
     QGraphicsView::paintEvent(event);
-    updateHDRRenderer();
+    requestHDRRendererUpdate();
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)
@@ -672,6 +677,42 @@ bool QVGraphicsView::canReuseHDRPresentation(const bool firstFramePresented,
     return firstFramePresented && hdrPrepared;
 }
 
+std::optional<qreal> QVGraphicsView::sampleDisplayedImageBrightness(
+    const QPoint &viewportPoint) const
+{
+    if (navigationSamplingImage.isNull() || navigationSamplingSourceSize.isEmpty()
+        || !viewport()->rect().contains(viewportPoint))
+        return {};
+
+    const QPointF sourcePoint = mapToScene(viewportPoint);
+    if (sourcePoint.x() < 0.0 || sourcePoint.y() < 0.0
+        || sourcePoint.x() >= navigationSamplingSourceSize.width()
+        || sourcePoint.y() >= navigationSamplingSourceSize.height())
+        return {};
+
+    const int centerX = qBound(
+        0,
+        qFloor(sourcePoint.x() * navigationSamplingImage.width()
+               / navigationSamplingSourceSize.width()),
+        navigationSamplingImage.width() - 1);
+    const int centerY = qBound(
+        0,
+        qFloor(sourcePoint.y() * navigationSamplingImage.height()
+               / navigationSamplingSourceSize.height()),
+        navigationSamplingImage.height() - 1);
+    qreal total = 0.0;
+    int count = 0;
+    for (int y = qMax(0, centerY - 1);
+         y <= qMin(navigationSamplingImage.height() - 1, centerY + 1); ++y) {
+        for (int x = qMax(0, centerX - 1);
+             x <= qMin(navigationSamplingImage.width() - 1, centerX + 1); ++x) {
+            total += Qv::getPerceivedBrightness(navigationSamplingImage.pixelColor(x, y));
+            ++count;
+        }
+    }
+    return count > 0 ? std::optional<qreal>(total / count) : std::nullopt;
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -782,6 +823,12 @@ void QVGraphicsView::beforeLoad()
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
+    hdrFrameRequestTimer->stop();
+    hdrInteractionClock.invalidate();
+    hdrInteractionZoomMilliseconds = 0.0;
+    hdrInteractionStep = -1;
+    navigationSamplingImage = {};
+    navigationSamplingSourceSize = {};
     lastCalculatedZoomMode.reset();
     lastCalculatedZoomLevel.reset();
 
@@ -809,6 +856,13 @@ void QVGraphicsView::postLoad()
     loadedPixmapItem->setTransform(QTransform());
     const QSize fallbackSize = imageCore.getLoadedPixmap().size();
     const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
+    navigationSamplingSourceSize = sourceSize.isEmpty() ? fallbackSize : sourceSize;
+    navigationSamplingImage = imageCore.getLoadedPixmap().toImage();
+    if (!navigationSamplingImage.isNull()
+        && qMax(navigationSamplingImage.width(), navigationSamplingImage.height()) > 384) {
+        navigationSamplingImage = navigationSamplingImage.scaled(
+            384, 384, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
     if (getCurrentFileDetails().isNativeHDRLoaded && !fallbackSize.isEmpty()
         && !sourceSize.isEmpty()) {
         loadedPixmapItem->setTransform(QTransform::fromScale(
@@ -848,7 +902,7 @@ void QVGraphicsView::postLoad()
     // updateSceneRect, scrollbar policy and full-size titlebar layout can all
     // settle on later event-loop turns. Record the complete geometry now and
     // arm Metal only after it remains unchanged for two display intervals.
-    updateHDRRenderer();
+    requestHDRRendererUpdate();
     QTimer::singleShot(0, this, [this]() { logViewportState("post-load-next-turn"); });
     loadIsFromSessionRestore = false;
 
@@ -863,8 +917,14 @@ void QVGraphicsView::postLoad()
         QTimer::singleShot(2400, this, [this]() {
             if (!hdrRendererActive)
                 return;
+            hdrInteractionClock.start();
+            QElapsedTimer zoomTimer;
+            zoomTimer.start();
             zoomRelative(4.0, Qv::CalculateViewportCenterPos);
             fitOrConstrainImage();
+            hdrInteractionZoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
+            hdrInteractionStep = 0;
+            logHDRState("test-interaction-start");
 
             auto *panTimer = new QTimer(this);
             panTimer->setInterval(12);
@@ -873,10 +933,16 @@ void QVGraphicsView::postLoad()
                 const int step = panTimer->property("step").toInt();
                 horizontalScrollBar()->setValue(horizontalScrollBar()->value() + 11);
                 verticalScrollBar()->setValue(verticalScrollBar()->value() + 7);
+                hdrInteractionStep = step;
+                logHDRState("test-interaction-step");
                 if (step >= 11) {
                     panTimer->stop();
                     panTimer->deleteLater();
                     logHDRState("test-interaction-finished");
+                    QTimer::singleShot(250, this, [this]() {
+                        if (hdrRendererActive)
+                            logHDRState("test-interaction-settled");
+                    });
                 } else {
                     panTimer->setProperty("step", step + 1);
                 }
@@ -1502,7 +1568,7 @@ void QVGraphicsView::finishHDRGeometryStabilization()
     }
 
     hdrLayoutReady = true;
-    updateHDRRenderer();
+    requestHDRRendererUpdate();
     logHDRState("geometry-stable");
 }
 
@@ -1549,6 +1615,16 @@ void QVGraphicsView::updateHDRRenderer()
     logHDRState("render");
 }
 
+void QVGraphicsView::requestHDRRendererUpdate()
+{
+    if (!hdrRendererActive || !hdrRenderer || hdrFrameRequestTimer->isActive())
+        return;
+    // All geometry/paint/transition events publish only a dirty request. Qt
+    // collapses them on the next event-loop turn; CAMetalDisplayLink performs
+    // the actual submission at the display cadence with the newest state.
+    hdrFrameRequestTimer->start();
+}
+
 void QVGraphicsView::logHDRState(const char *phase) const
 {
     if (!qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG") || !hdrRenderer)
@@ -1577,6 +1653,7 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("decoded_to_hdr"), metadata.decodedToHDR },
         { QStringLiteral("uses_raw_extended_dynamic_range"), metadata.usesRawExtendedDynamicRange },
         { QStringLiteral("used_raw_preview"), metadata.usedRawPreview },
+        { QStringLiteral("uses_processed_raw_preview"), metadata.usesProcessedRawPreview },
         { QStringLiteral("content_headroom"), renderer.contentHeadroom },
         { QStringLiteral("decode_ms"), fileDetails.decodeMilliseconds },
         { QStringLiteral("renderer_available"), renderer.rendererAvailable },
@@ -1616,6 +1693,10 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("layer_contents_headroom"), renderer.layerContentsHeadroom },
         { QStringLiteral("layer_contents_headroom_tag_supported"),
           renderer.usesLayerContentsHeadroomTag },
+        { QStringLiteral("uses_metal_display_link"), renderer.usesCAMetalDisplayLink },
+        { QStringLiteral("encodes_metal_off_main_thread"),
+          renderer.encodesMetalOffMainThread },
+        { QStringLiteral("frame_in_flight"), renderer.frameInFlight },
         { QStringLiteral("viewport_background_red"), renderer.backgroundRed },
         { QStringLiteral("viewport_background_green"), renderer.backgroundGreen },
         { QStringLiteral("viewport_background_blue"), renderer.backgroundBlue },
@@ -1630,8 +1711,23 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("drawable_geometry_matches"), renderer.drawableGeometryMatches },
         { QStringLiteral("geometry_generation"), static_cast<qint64>(renderer.geometryGeneration) },
         { QStringLiteral("geometry_reset_count"), static_cast<qint64>(renderer.geometryResetCount) },
+        { QStringLiteral("render_request_count"), static_cast<qint64>(renderer.renderRequestCount) },
+        { QStringLiteral("coalesced_render_request_count"),
+          static_cast<qint64>(renderer.coalescedRenderRequestCount) },
+        { QStringLiteral("display_link_callback_count"),
+          static_cast<qint64>(renderer.displayLinkCallbackCount) },
+        { QStringLiteral("deferred_display_link_callback_count"),
+          static_cast<qint64>(renderer.deferredDisplayLinkCallbackCount) },
+        { QStringLiteral("requested_render_generation"),
+          static_cast<qint64>(renderer.requestedRenderGeneration) },
+        { QStringLiteral("submitted_render_generation"),
+          static_cast<qint64>(renderer.submittedRenderGeneration) },
         { QStringLiteral("render_count"), static_cast<qint64>(renderer.renderCount) },
         { QStringLiteral("last_render_ms"), renderer.lastRenderMilliseconds },
+        { QStringLiteral("interaction_step"), hdrInteractionStep },
+        { QStringLiteral("interaction_elapsed_ms"),
+          hdrInteractionClock.isValid() ? hdrInteractionClock.elapsed() : -1 },
+        { QStringLiteral("interaction_zoom_ms"), hdrInteractionZoomMilliseconds },
         { QStringLiteral("transition_elapsed_ms"),
           hdrTransitionClock.isValid() ? hdrTransitionClock.elapsed() : -1 }
     };
@@ -1859,7 +1955,7 @@ void QVGraphicsView::applyHDRViewportBackground(const Qv::Theme theme)
         return;
     hdrRenderer->setBackgroundColor(Qv::viewportBackgroundColor(theme));
     if (hdrRendererActive)
-        updateHDRRenderer();
+        requestHDRRendererUpdate();
 }
 
 void QVGraphicsView::settingsUpdated(const bool isInitialLoad)

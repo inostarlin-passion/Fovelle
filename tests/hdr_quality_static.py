@@ -76,12 +76,17 @@ def main() -> int:
         "independent_native_raw_filters": raw_decode.count("filterWithImageURL:fileUrl.toNSURL()") >= 2,
         "sdr_raw_graph": "extendedDynamicRangeAmount = 0.0F" in raw_decode,
         "edr_raw_graph": "extendedDynamicRangeAmount = 1.0F" in raw_decode,
-        "hdr_linear_baseline": "hdrRawFilter.baselineExposure = 0.0F" in raw_decode,
+        "camera_baseline_exposure_is_not_mutated": ".baselineExposure =" not in raw_decode,
         "native_graph_published": "make_shared<NativeHDRImage>" in raw_decode,
     })
     case("ST-HDR-RAW-PREVIEW-FALLBACK", {
         "preview_is_conditional_fallback": (
             raw_decode.find("if (result.image.isNull())") < raw_decode.find("CIImage *rawPreview")
+        ),
+        "processed_preview_requires_authored_gain_map": (
+            "const bool hasGainMap" in raw_decode
+            and "usesProcessedRawPreview = true" in raw_decode
+            and "camera-raw-processed-gain-map" in raw_decode
         ),
         "preview_usage_is_observable": "result.usedRawPreview" in raw_decode,
         "unsupported_camera_is_explicit": "does not support this camera model" in raw_decode,
@@ -157,6 +162,32 @@ def main() -> int:
         "target_headroom_parameter": "inputTargetHeadroom" in renderer,
         "layer_automatic_tone_map": "CAToneMapModeAutomatic" in renderer,
     })
+    case("ST-HDR-DNG-PROCESSED-GAINMAP", {
+        "full_resolution_camera_processed_preview": "sdrRawFilter.previewImage" in raw_decode,
+        "auxiliary_gain_map_loaded": "kCIImageAuxiliaryHDRGainMap" in raw_decode,
+        "full_hdr_endpoint_reconstructed": "imageByApplyingGainMap:gainMap" in raw_decode,
+        "gain_map_retained_with_native_graph": (
+            "processedHDR, processedSDR, result.hdrMetadata, gainMap" in raw_decode
+        ),
+        "display_headroom_reconstructed_directly": (
+            "imageByApplyingGainMap:nativeImage.gainMapCIImage()" in renderer
+            and "headroom:std::max(1.0F, targetHeadroom)" in renderer
+        ),
+        "baseline_exposure_preserved": ".baselineExposure =" not in raw_decode,
+    })
+    case("ST-HDR-DNG-GAINMAP-ROI", {
+        "processed_gain_map_avoids_post_apply_intermediate": (
+            "if (image->metadata().usesProcessedRawPreview)" in renderer
+            and "preparedHDRImage = [hdrSource retain]" in renderer
+        ),
+        "other_raw_sources_keep_managed_intermediates": (
+            "preparedHDRImage = [[hdrSource imageByInsertingIntermediate:YES] retain]" in renderer
+        ),
+        "source_roi_is_transformed_only_for_current_drawable": (
+            "CIImage *warmFrame = imageForTexture" in renderer
+            and "source = imageForTexture(source, viewportSize, corners, actualSize)" in renderer
+        ),
+    })
     case("ST-HDR-GEOMETRY", {
         "four_source_corners": "const QPolygonF sourceCorners" in view,
         "qt_viewport_transform": "viewportTransform().map(sourceCorners)" in view,
@@ -193,6 +224,11 @@ def main() -> int:
         "dynamic_ramp_states_are_prewarmed": (
             "warmProgresses" in renderer and "preparedDisplayImage(targetHeadroom, easedProgress)" in renderer
         ),
+        "representative_zoom_roi_is_prewarmed": (
+            "interactionWarmCorners" in renderer
+            and "(corner - viewportCenter) * 4.0" in renderer
+            and "interactionWarmFrame" in renderer
+        ),
         "transition_waits_for_preparation": "shouldStartHDRTransition" in view and "hdrPrepared" in view,
         "prepared_endpoints_used_for_transition": "preparedDisplayImage" in renderer,
     })
@@ -221,6 +257,87 @@ def main() -> int:
             "imageByCompositingOverImage:clearImage" in renderer and "alpha:1" in renderer
         ),
     })
+    case("ST-HDR-DISPLAYLINK-LATEST-ONLY", {
+        "display_link_supplies_drawables": (
+            "CAMetalDisplayLink" in renderer
+            and "renderDisplayLinkUpdate(CAMetalDisplayLinkUpdate *update)" in renderer
+            and "renderToDrawable(update.drawable" in renderer
+        ),
+        "synchronous_drawable_acquisition_removed": "nextDrawable" not in renderer,
+        "only_one_gpu_frame_in_flight": (
+            "presentationState->frameInFlight" in renderer
+            and "deferredDisplayLinkCallbackCount" in renderer
+        ),
+        "new_requests_overwrite_pending_state": (
+            "pendingViewportSize = viewportSize" in renderer
+            and "pendingCorners = corners" in renderer
+            and "pendingRenderGeneration = ++state.requestedRenderGeneration" in renderer
+        ),
+        "presentation_is_command_buffer_ordered": (
+            "presentDrawable:encodedDrawable" in renderer
+            and renderer.index("presentDrawable:encodedDrawable")
+            < renderer.index("[encodedCommandBuffer commit]")
+        ),
+        "submitted_activation_progress_is_frame_paced": (
+            "lastSubmittedLinearProgress" in renderer
+            and "pacedHDRTransitionProgress(" in renderer
+            and "linearProgress + 0.000001 < requestedLinearProgress" in renderer
+        ),
+        "core_image_encoding_uses_dedicated_serial_queue": (
+            "com.fovelle.hdr-render-encode" in renderer
+            and "dispatch_async(renderQueue" in renderer
+            and "[renderContext render:encodedSource" in renderer
+        ),
+    })
+    case("ST-HDR-UI-REQUEST-COALESCING", {
+        "zero_delay_request_timer_is_single_shot": (
+            "hdrFrameRequestTimer->setSingleShot(true)" in view
+            and "hdrFrameRequestTimer->setInterval(0)" in view
+        ),
+        "paint_and_scroll_only_publish_requests": (
+            "void QVGraphicsView::paintEvent" in view
+            and view.count("requestHDRRendererUpdate();") >= 6
+        ),
+        "one_actual_renderer_call_site": view.count("hdrRenderer->render(") == 1,
+        "interaction_latency_is_observable": (
+            "interaction_elapsed_ms" in view and "interaction_zoom_ms" in view
+        ),
+    })
+    navigation_button_paint = between(
+        main_window, "class ImageNavigationButton", "int MainWindow::navigationEdgeWidth"
+    )
+    navigation_initialization = between(
+        main_window, "void MainWindow::initializeNavigationButtons()",
+        "void MainWindow::updateNavigationButtonGeometry()"
+    )
+    case("ST-HDR-NAV-NO-OFFSCREEN-SURFACE", {
+        "transparent_widget_backing": (
+            "WA_TranslucentBackground" in navigation_button_paint
+            and "WA_NoSystemBackground" in navigation_button_paint
+            and "setAutoFillBackground(false)" in navigation_button_paint
+        ),
+        "fade_is_applied_inside_paint": (
+            'property("paintOpacity")' in navigation_button_paint
+            and "painter.setOpacity(paintOpacity)" in navigation_button_paint
+        ),
+        "navigation_animation_targets_paint_property": (
+            'QPropertyAnimation(button, "paintOpacity"' in navigation_initialization
+        ),
+        "navigation_buttons_have_no_graphics_effect": (
+            "QGraphicsOpacityEffect" not in navigation_initialization
+        ),
+    })
+    case("ST-HDR-NAV-CACHED-SAMPLING", {
+        "viewport_grab_removed": "viewport()->grab" not in main_window,
+        "bounded_proxy_created_once_per_load": (
+            "navigationSamplingImage = imageCore.getLoadedPixmap().toImage()" in view
+            and "> 384" in view
+        ),
+        "hover_reads_cached_pixels": (
+            "sampleDisplayedImageBrightness" in main_window
+            and "navigationSamplingImage.pixelColor" in view
+        ),
+    })
     case("ST-HDR-OBSERVABILITY", {
         "json_telemetry": '"FOVELLE_HDR"' in view and "QJsonDocument::Compact" in view,
         "decode_timing": "decodeTimer.nsecsElapsed()" in loader,
@@ -230,6 +347,14 @@ def main() -> int:
             and "transition_progress" in view
         ),
         "geometry_generation_fields": "geometry_generation" in view and "geometry_reset_count" in view,
+        "frame_scheduler_fields": all(
+            token in view for token in (
+                "uses_metal_display_link", "encodes_metal_off_main_thread",
+                "render_request_count",
+                "coalesced_render_request_count", "requested_render_generation",
+                "submitted_render_generation",
+            )
+        ),
         "viewport_crop_fields": all(
             token in view for token in (
                 "viewport_global_x", "viewport_global_y", "viewport_logical_width",

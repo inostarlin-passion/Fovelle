@@ -40,6 +40,8 @@
 #include <QTimer>
 #include <QMouseEvent>
 #include <QPainterPath>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QtMath>
 
 namespace
@@ -52,11 +54,14 @@ public:
         previous(previous)
     {
         setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setAutoFillBackground(false);
         setMouseTracking(true);
         setFocusPolicy(Qt::NoFocus);
         setCursor(Qt::PointingHandCursor);
         setFlat(true);
         setStyleSheet(QStringLiteral("QPushButton { background: transparent; border: none; padding: 0; }"));
+        setProperty("paintOpacity", 0.0);
     }
 
     void setDarkBackground(const bool value)
@@ -79,6 +84,14 @@ protected:
 
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
+        const qreal paintOpacity = qBound(0.0, property("paintOpacity").toReal(), 1.0);
+        if (paintOpacity <= 0.001)
+            return;
+        // Fade only pixels painted by this widget. QGraphicsOpacityEffect
+        // creates a rectangular offscreen source surface; over an EDR Metal
+        // sibling that surface can become visible before/after the rounded
+        // artwork. Keeping the widget backing transparent removes that seam.
+        painter.setOpacity(paintOpacity);
 
         const bool isHovered = underMouse() || isDown();
         if (darkBackground)
@@ -128,26 +141,10 @@ std::optional<qreal> sampledContentBrightness(const QVGraphicsView *graphicsView
     const QPoint viewportCenter = graphicsView->viewport()->mapFrom(
         graphicsView,
         button->geometry().center());
-    const QRect sampleRect = QRect(viewportCenter - QPoint(5, 5), QSize(11, 11))
-        .intersected(graphicsView->viewport()->rect());
-    if (!sampleRect.isValid())
-        return {};
-
-    const QImage sample = graphicsView->viewport()->grab(sampleRect).toImage();
-    if (sample.isNull())
-        return {};
-
-    qreal brightnessTotal = 0.0;
-    qint64 sampleCount = 0;
-    for (int y = 0; y < sample.height(); ++y)
-    {
-        for (int x = 0; x < sample.width(); ++x)
-        {
-            brightnessTotal += Qv::getPerceivedBrightness(sample.pixelColor(x, y));
-            ++sampleCount;
-        }
-    }
-    return sampleCount > 0 ? std::optional<qreal>(brightnessTotal / sampleCount) : std::nullopt;
+    // Sample the cached, bounded SDR proxy through the production view
+    // transform. QWidget::grab() repaints the viewport, which used to submit
+    // two additional full HDR frames on every edge entry.
+    return graphicsView->sampleDisplayedImageBrightness(viewportCenter);
 }
 
 class TitlebarBubble : public QLabel
@@ -224,6 +221,48 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
     // Connect graphicsview signals
     connect(graphicsView, &QVGraphicsView::fileChanged, this, &MainWindow::fileChanged);
+    connect(graphicsView, &QVGraphicsView::fileChanged, this, [this]() {
+        if (!qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_NAVIGATION"))
+            return;
+        // Opt-in system-test surface probe. Hold the real navigation widget at
+        // a fractional paint opacity long enough for deterministic screen
+        // capture, without moving the user's cursor or changing settings.
+        QTimer::singleShot(2500, this, [this]() {
+            if (!nextImageButton)
+                return;
+            updateNavigationButtonAppearance();
+            nextImageButtonAnimation->stop();
+            nextImageButton->setProperty("paintOpacity", 0.5);
+            nextImageButton->show();
+            nextImageButton->raise();
+            nextImageButton->update();
+            const QPoint origin = nextImageButton->mapToGlobal(QPoint(0, 0));
+            const QJsonObject event{
+                { QStringLiteral("phase"), QStringLiteral("fractional-visible") },
+                { QStringLiteral("global_x"), origin.x() },
+                { QStringLiteral("global_y"), origin.y() },
+                { QStringLiteral("width"), nextImageButton->width() },
+                { QStringLiteral("height"), nextImageButton->height() },
+                { QStringLiteral("paint_opacity"),
+                  nextImageButton->property("paintOpacity").toDouble() },
+                { QStringLiteral("has_graphics_effect"),
+                  nextImageButton->graphicsEffect() != nullptr },
+            };
+            qInfo().noquote() << "FOVELLE_NAV"
+                              << QJsonDocument(event).toJson(QJsonDocument::Compact);
+        });
+        QTimer::singleShot(4500, this, [this]() {
+            if (!nextImageButton)
+                return;
+            nextImageButton->hide();
+            nextImageButton->setProperty("paintOpacity", 0.0);
+            qInfo().noquote() << "FOVELLE_NAV"
+                              << QJsonDocument(QJsonObject{
+                                     { QStringLiteral("phase"),
+                                       QStringLiteral("hidden") }
+                                 }).toJson(QJsonDocument::Compact);
+        });
+    });
     connect(graphicsView, &QVGraphicsView::zoomLevelChanged, this, &MainWindow::zoomLevelChanged);
     connect(graphicsView, &QVGraphicsView::calculatedZoomModeChanged, this, &MainWindow::syncCalculatedZoomMode);
     connect(graphicsView, &QVGraphicsView::navigationResetsZoomChanged, this, &MainWindow::syncNavigationResetsZoom);
@@ -466,28 +505,25 @@ void MainWindow::initializeNavigationButtons()
     connect(previousImageButton, &QPushButton::clicked, this, &MainWindow::previousFile);
     connect(nextImageButton, &QPushButton::clicked, this, &MainWindow::nextFile);
 
-    auto createOpacityAnimation = [this](QPushButton *button, QGraphicsOpacityEffect **opacityEffect, QPropertyAnimation **animation, const QString &objectName) {
-        *opacityEffect = new QGraphicsOpacityEffect(button);
-        (*opacityEffect)->setOpacity(0.0);
-        button->setGraphicsEffect(*opacityEffect);
-
-        *animation = new QPropertyAnimation(*opacityEffect, "opacity", this);
+    auto createOpacityAnimation = [this](QPushButton *button, QPropertyAnimation **animation, const QString &objectName) {
+        *animation = new QPropertyAnimation(button, "paintOpacity", this);
         (*animation)->setObjectName(objectName);
         (*animation)->setDuration(NavigationButtonAnimationDuration);
-        connect(*animation, &QPropertyAnimation::finished, button, [button, opacityEffect, animation]() {
-            if ((*animation)->endValue().toReal() <= 0.0 && (*opacityEffect)->opacity() <= 0.001)
+        connect(*animation, &QPropertyAnimation::valueChanged, button,
+                [button]() { button->update(); });
+        connect(*animation, &QPropertyAnimation::finished, button, [button, animation]() {
+            if ((*animation)->endValue().toReal() <= 0.0
+                && button->property("paintOpacity").toReal() <= 0.001)
                 button->hide();
         });
     };
 
     createOpacityAnimation(
         previousImageButton,
-        &previousImageButtonOpacityEffect,
         &previousImageButtonAnimation,
         QStringLiteral("previousImageButtonOpacityAnimation"));
     createOpacityAnimation(
         nextImageButton,
-        &nextImageButtonOpacityEffect,
         &nextImageButtonAnimation,
         QStringLiteral("nextImageButtonOpacityAnimation"));
 
@@ -536,11 +572,10 @@ void MainWindow::updateNavigationButtonAppearance()
 
 void MainWindow::setNavigationButtonVisible(
     QPushButton *button,
-    QGraphicsOpacityEffect *opacityEffect,
     QPropertyAnimation *animation,
     const bool visible)
 {
-    if (!button || !opacityEffect || !animation)
+    if (!button || !animation)
         return;
 
     if (visible)
@@ -548,11 +583,11 @@ void MainWindow::setNavigationButtonVisible(
         animation->stop();
         if (!button->isVisible())
         {
-            opacityEffect->setOpacity(0.0);
+            button->setProperty("paintOpacity", 0.0);
             button->show();
         }
         button->raise();
-        animation->setStartValue(opacityEffect->opacity());
+        animation->setStartValue(button->property("paintOpacity").toReal());
         animation->setEndValue(1.0);
         animation->start();
         return;
@@ -562,7 +597,7 @@ void MainWindow::setNavigationButtonVisible(
         return;
 
     animation->stop();
-    animation->setStartValue(opacityEffect->opacity());
+    animation->setStartValue(button->property("paintOpacity").toReal());
     animation->setEndValue(0.0);
     animation->start();
 }
@@ -574,8 +609,10 @@ void MainWindow::hideNavigationButtonsImmediately()
 
     previousImageButtonAnimation->stop();
     nextImageButtonAnimation->stop();
-    previousImageButtonOpacityEffect->setOpacity(0.0);
-    nextImageButtonOpacityEffect->setOpacity(0.0);
+    previousImageButton->setProperty("paintOpacity", 0.0);
+    nextImageButton->setProperty("paintOpacity", 0.0);
+    previousImageButton->update();
+    nextImageButton->update();
     previousImageButton->hide();
     nextImageButton->hide();
 }
@@ -611,12 +648,10 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
 
     setNavigationButtonVisible(
         previousImageButton,
-        previousImageButtonOpacityEffect,
         previousImageButtonAnimation,
         leftVisible);
     setNavigationButtonVisible(
         nextImageButton,
-        nextImageButtonOpacityEffect,
         nextImageButtonAnimation,
         rightVisible);
 }

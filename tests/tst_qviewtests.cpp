@@ -120,10 +120,12 @@ class HDRSampleTests : public QObject
 private slots:
     void testGainMapJPEGCreatesNativeHDRGraph();
     void testGainMapJPEGHDRContainsAboveSDRValues();
-    void testDNGCreatesNativeRawEDRGraph();
-    void testDNGRawEDRContainsAboveSDRValues();
-    void testDNGRawHeadroomMatchesMeasuredFloatPeak();
-    void testDNGRawRepeatedFloatProbeIsStable();
+    void testDNGCreatesProcessedGainMapHDRGraph();
+    void testDNGProcessedGainMapContainsAboveSDRValues();
+    void testDNGGainMapHeadroomMatchesMetadataContract();
+    void testDNGProcessedGraphRepeatedFloatProbeIsStable();
+    void testNEFCreatesNativeRawEDRGraph();
+    void testNEFRawRepeatedFloatProbeIsStable();
 };
 
 class GraphicsViewTests : public QObject
@@ -186,6 +188,8 @@ private slots:
     void testNavigationEdgeActivationExcludesTitlebar();
     void testNavigationButtonSizingAndNoDelay();
     void testNavigationButtonsUseActualContentContrast();
+    void testNavigationBrightnessSamplingIsBounded();
+    void testNavigationButtonUsesTransparentPaintOnlyFade();
     void testNavigationButtonsFadeTransition();
     void testNavigationButtonsClickSwitchesFiles();
 };
@@ -1082,6 +1086,8 @@ void HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()
     QVERIFY(diagnostics.clearsEntireDrawableOpaque);
     QVERIFY(diagnostics.usesCoreImageManagedIntermediates);
     QVERIFY(diagnostics.cachesIntermediates);
+    QVERIFY(diagnostics.usesCAMetalDisplayLink);
+    QVERIFY(diagnostics.encodesMetalOffMainThread);
     QCOMPARE(diagnostics.backgroundRed, 150);
     QCOMPARE(diagnostics.backgroundGreen, 150);
     QCOMPARE(diagnostics.backgroundBlue, 150);
@@ -1182,19 +1188,20 @@ void HDRSampleTests::testGainMapJPEGHDRContainsAboveSDRValues()
     QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
 }
 
-// TC-HDR-INT-RAW-DNG
-// Test purpose: verify the supplied DNG follows CIRAWFilter's sensor-derived
-// extended-dynamic-range graph and does not substitute its embedded preview.
+// TC-HDR-INT-RAW-DNG-PROCESSED-GAINMAP
+// Test purpose: verify the supplied DNG follows the full-resolution processed
+// preview plus its authored Adaptive-HDR gain map, matching Quick Look's public
+// representation without flattening either endpoint.
 // Preconditions: FOVELLE_HDR_RAW_SAMPLE points to the supplied readable DNG
 // and the installed Apple RAW camera decoder supports it.
 // Input data: IMG_8625.DNG and a 2048px-only SDR fallback budget.
 // Steps: decode once, then inspect content UTI, RAW flags, precision, intrinsic
 // dimensions, native handle, preview usage, and fallback dimensions.
-// Expected result: the source is camera RAW; a 16-bit-contract native graph
-// using raw extendedDynamicRangeAmount is present; no preview is primary; full
-// sensor dimensions are retained while only the fallback is bounded.
+// Expected result: the source remains camera RAW; a 16-bit-contract native
+// processed/gain-map graph is present; full dimensions are retained while only
+// the SDR Qt fallback is bounded.
 // Postcondition: all native RAW graphs and fallback pixels are released.
-void HDRSampleTests::testDNGCreatesNativeRawEDRGraph()
+void HDRSampleTests::testDNGCreatesProcessedGainMapHDRGraph()
 {
     const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
     QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
@@ -1205,26 +1212,29 @@ void HDRSampleTests::testDNGCreatesNativeRawEDRGraph()
     QVERIFY(result.typeIdentifier.contains(QStringLiteral("raw")));
     QVERIFY(result.hdrImage);
     QVERIFY(result.hdrMetadata.decodedToHDR);
-    QVERIFY(result.hdrMetadata.usesRawExtendedDynamicRange);
-    QVERIFY(!result.usedRawPreview);
-    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("camera-raw"));
+    QVERIFY(!result.hdrMetadata.usesRawExtendedDynamicRange);
+    QVERIFY(result.hdrMetadata.usesProcessedRawPreview);
+    QVERIFY(result.usedRawPreview);
+    QVERIFY(result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap);
+    QCOMPARE(result.hdrMetadata.sourceKind,
+             QStringLiteral("camera-raw-processed-gain-map"));
     QCOMPARE(result.hdrMetadata.bitsPerComponent, 16);
     QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
     QVERIFY(!result.image.isNull());
     QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
 }
 
-// TC-HDR-INT-RAW-DNG-PEAK
-// Test purpose: prove the supplied DNG's retained RAW EDR graph contains real
+// TC-HDR-INT-RAW-DNG-GAINMAP-PEAK
+// Test purpose: prove the supplied DNG's reconstructed gain-map graph contains real
 // extended-linear values above SDR white, rather than only carrying HDR flags.
 // Preconditions: the sample is readable and Apple CIRAWFilter supports it.
-// Input data: IMG_8625.DNG decoded with EDR amounts 0 and 1.
+// Input data: IMG_8625.DNG processed preview and gain-map HDR endpoint.
 // Steps: reduce both floating-point CI graphs with CIAreaMaximum and compare
 // their largest RGB component in extended-linear Display P3.
 // Expected result: SDR is at most 1.01; EDR is above 1.05 and exceeds SDR by
 // at least 0.05.
 // Postcondition: the one-pixel probes, CI context, and RAW graphs are released.
-void HDRSampleTests::testDNGRawEDRContainsAboveSDRValues()
+void HDRSampleTests::testDNGProcessedGainMapContainsAboveSDRValues()
 {
     const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
     QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
@@ -1241,16 +1251,16 @@ void HDRSampleTests::testDNGRawEDRContainsAboveSDRValues()
     QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
 }
 
-// TC-HDR-INT-RAW-DNG-HEADROOM-TAG
-// Test purpose: verify the RAW drawable is tagged with measured content range,
-// not the XDR display's unrelated potential headroom.
+// TC-HDR-INT-RAW-DNG-GAINMAP-HEADROOM
+// Test purpose: verify gain-map metadata headroom is preserved as the content
+// contract and safely bounds the measured half-float endpoint.
 // Preconditions: the supplied DNG is readable by CIRAWFilter.
 // Input data: decoder metadata plus a float CIAreaMaximum probe.
 // Steps: decode once, probe the retained HDR graph, compare both values.
-// Expected result: metadata headroom is above 1.5 and within 0.02 of the
-// measured HDR maximum.
+// Expected result: metadata headroom is above 1.5, is not lower than the
+// measured half-float maximum, and differs by no more than quantization margin.
 // Postcondition: decoder graphs and probe context are released.
-void HDRSampleTests::testDNGRawHeadroomMatchesMeasuredFloatPeak()
+void HDRSampleTests::testDNGGainMapHeadroomMatchesMetadataContract()
 {
     const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
     QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
@@ -1262,8 +1272,10 @@ void HDRSampleTests::testDNGRawHeadroomMatchesMeasuredFloatPeak()
           static_cast<double>(statistics.hdrMaximumComponent));
     QVERIFY(statistics.valid);
     QVERIFY(result.hdrMetadata.contentHeadroom > 1.5F);
+    QVERIFY(result.hdrMetadata.contentHeadroom + 0.001F
+            >= statistics.hdrMaximumComponent);
     QVERIFY(qAbs(result.hdrMetadata.contentHeadroom
-                 - statistics.hdrMaximumComponent) <= 0.02F);
+                 - statistics.hdrMaximumComponent) <= 0.05F);
 }
 
 // TC-HDR-INT-RAW-DNG-REPEATABILITY
@@ -1274,9 +1286,67 @@ void HDRSampleTests::testDNGRawHeadroomMatchesMeasuredFloatPeak()
 // Steps: call probeHDRPixelStatistics twice and compare both endpoints.
 // Expected result: both probes are valid and each maximum agrees within 0.001.
 // Postcondition: no filter properties are mutated between probes.
-void HDRSampleTests::testDNGRawRepeatedFloatProbeIsStable()
+void HDRSampleTests::testDNGProcessedGraphRepeatedFloatProbeIsStable()
 {
     const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    const auto first = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    const auto second = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    QVERIFY(first.valid);
+    QVERIFY(second.valid);
+    QVERIFY(qAbs(first.sdrMaximumComponent - second.sdrMaximumComponent) <= 0.001F);
+    QVERIFY(qAbs(first.hdrMaximumComponent - second.hdrMaximumComponent) <= 0.001F);
+}
+
+// TC-HDR-INT-RAW-NEF
+// Test purpose: verify a conventional Nikon RAW retains independent full-size
+// SDR/HDR CIRAWFilter recipes with camera defaults intact.
+// Preconditions: FOVELLE_HDR_NEF_SAMPLE points to sample1.nef and the installed
+// Apple RAW decoder supports the camera.
+// Input data: sample1.nef and a 2048-pixel fallback limit.
+// Steps: decode once and inspect RAW classification, source recipe, flags,
+// native handle, precision, full size, and bounded fallback.
+// Expected result: sourceKind is camera-raw, extendedDynamicRangeAmount is the
+// HDR strategy, no processed preview is primary, and the graph exceeds SDR.
+// Postcondition: native graphs and fallback pixels are released.
+void HDRSampleTests::testNEFCreatesNativeRawEDRGraph()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_NEF_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isRaw);
+    QVERIFY(result.hdrImage);
+    QVERIFY(result.hdrMetadata.decodedToHDR);
+    QVERIFY(result.hdrMetadata.usesRawExtendedDynamicRange);
+    QVERIFY(!result.hdrMetadata.usesProcessedRawPreview);
+    QVERIFY(!result.usedRawPreview);
+    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("camera-raw"));
+    QCOMPARE(result.hdrMetadata.bitsPerComponent, 16);
+    QVERIFY(qMax(result.intrinsicSize.width(), result.intrinsicSize.height()) > 2048);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+    const auto statistics = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    qInfo("FOVELLE_NEF_PEAK sdr_max=%.9f hdr_max=%.9f",
+          static_cast<double>(statistics.sdrMaximumComponent),
+          static_cast<double>(statistics.hdrMaximumComponent));
+    QVERIFY(statistics.valid);
+    QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
+}
+
+// TC-HDR-INT-RAW-NEF-REPEATABILITY
+// Test purpose: ensure the immutable Nikon RAW endpoints evaluate identically
+// across consecutive probes, independent of later zoom/pan geometry.
+// Preconditions: sample1.nef decoded to two independent CIRAWFilter graphs.
+// Input data: two consecutive full-graph float reductions.
+// Steps: probe both endpoints twice without mutating filter properties.
+// Expected result: both probes are valid and agree within 0.001.
+// Postcondition: no renderer or source state is changed.
+void HDRSampleTests::testNEFRawRepeatedFloatProbeIsStable()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_NEF_SAMPLE"));
     QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
     const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
     QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
@@ -3481,6 +3551,109 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-HDR-UNIT-NAV-SAMPLING-LATENCY
+// Test purpose: prove hover contrast uses the bounded decoded proxy instead of
+// synchronously capturing/repainting the HDR viewport.
+// Preconditions: a visible split image has populated the navigation sample.
+// Input data: 10,000 brightness queries at the displayed image center.
+// Steps: call sampleDisplayedImageBrightness repeatedly and time the batch.
+// Expected result: every query returns a value and the batch completes within
+// 250 ms (at least 40,000 queries/s on the target machine).
+// Postcondition: the view geometry and renderer state remain unchanged.
+void WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()
+{
+    ScopedOptionValues options({
+        {"checkerboardbackground", false},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = createSplitImage(dir, "bounded-navigation-sample");
+    QVERIFY(!path.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    const QPoint samplePoint = view->viewport()->rect().center();
+    QVERIFY(view->sampleDisplayedImageBrightness(samplePoint).has_value());
+
+    QElapsedTimer timer;
+    timer.start();
+    int validCount = 0;
+    constexpr int Iterations = 10000;
+    for (int index = 0; index < Iterations; ++index)
+        validCount += view->sampleDisplayedImageBrightness(samplePoint).has_value();
+    const qreal elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
+    qInfo("FOVELLE_NAV_SAMPLE iterations=%d elapsed_ms=%.6f", Iterations,
+          static_cast<double>(elapsedMilliseconds));
+    QCOMPARE(validCount, Iterations);
+    QVERIFY2(elapsedMilliseconds <= 250.0,
+             qPrintable(QString::number(elapsedMilliseconds, 'f', 3)));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-HDR-UNIT-NAV-TRANSPARENT-FADE
+// Test purpose: verify navigation fades only its rounded/chevron pixels and
+// never allocates the rectangular QGraphicsOpacityEffect surface seen over HDR.
+// Preconditions: MainWindow has created both navigation buttons/animations.
+// Input data: both buttons at 50% paintOpacity rendered onto transparent ARGB.
+// Steps: inspect attributes/effects/animation targets and rendered corner alpha.
+// Expected result: effects are null, transparent/no-system-background flags are
+// set, animations target paintOpacity, corners stay transparent, and artwork
+// contains partially opaque pixels.
+// Postcondition: temporary widgets/images are destroyed without settings writes.
+void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
+{
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    auto *previousAnimation =
+            window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
+    auto *nextAnimation =
+            window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    QVERIFY(previousAnimation);
+    QVERIFY(nextAnimation);
+
+    for (QPushButton *button : { previousButton, nextButton }) {
+        QVERIFY(button->graphicsEffect() == nullptr);
+        QVERIFY(button->testAttribute(Qt::WA_TranslucentBackground));
+        QVERIFY(button->testAttribute(Qt::WA_NoSystemBackground));
+        QVERIFY(!button->autoFillBackground());
+        button->setProperty("paintOpacity", 0.5);
+        QImage rendered(button->size(), QImage::Format_ARGB32_Premultiplied);
+        rendered.fill(Qt::transparent);
+        button->render(&rendered);
+        QCOMPARE(rendered.pixelColor(0, 0).alpha(), 0);
+        QCOMPARE(rendered.pixelColor(rendered.width() - 1, 0).alpha(), 0);
+        QCOMPARE(rendered.pixelColor(0, rendered.height() - 1).alpha(), 0);
+        QCOMPARE(rendered.pixelColor(rendered.width() - 1,
+                                     rendered.height() - 1).alpha(), 0);
+        int partialPixelCount = 0;
+        for (int y = 0; y < rendered.height(); ++y)
+            for (int x = 0; x < rendered.width(); ++x) {
+                const int alpha = rendered.pixelColor(x, y).alpha();
+                partialPixelCount += alpha > 0 && alpha < 255;
+            }
+        QVERIFY(partialPixelCount > 0);
+    }
+    QCOMPARE(previousAnimation->propertyName(), QByteArray("paintOpacity"));
+    QCOMPARE(nextAnimation->propertyName(), QByteArray("paintOpacity"));
+    window.close();
 }
 
 // TC-NAV-TRANSITION

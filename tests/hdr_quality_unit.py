@@ -27,6 +27,8 @@ EXPECTED = (
     ("UT-HDR-PRESENTATION-REUSE", "HDRPolicyTests", "testPreparedHDRPresentationCanBeReusedAcrossGeometry"),
     ("UT-HDR-THEME-BACKGROUND", "HDRPolicyTests", "testViewportBackgroundColorsMatchTheme"),
     ("UT-HDR-RENDERER-CONTRACT", "HDRPolicyTests", "testRendererUsesFloatEDRColorManagedSurface"),
+    ("UT-HDR-NAV-SAMPLING-LATENCY", "WindowBehaviorTests", "testNavigationBrightnessSamplingIsBounded"),
+    ("UT-HDR-NAV-TRANSPARENT-FADE", "WindowBehaviorTests", "testNavigationButtonUsesTransparentPaintOnlyFade"),
     ("UT-HDR-SDR-CLASSIFICATION", "HDRPolicyTests", "testSDRImageStaysOnSDRPath"),
     ("UT-HDR-FORMAT-COVERAGE", "HDRPolicyTests", "testRequiredHDRFormatsAreAdvertised"),
     ("UT-HDR-VERSION", "FeatureTests", "testApplicationVersionIsCurrent"),
@@ -81,9 +83,13 @@ def main() -> int:
     }
     suites = {
         name: run_suite(binary, name, environment)
-        for name in ("HDRPolicyTests", "FeatureTests")
+        for name in ("HDRPolicyTests", "FeatureTests", "WindowBehaviorTests")
     }
     cases = []
+    navigation_sample_match = re.search(
+        r"FOVELLE_NAV_SAMPLE iterations=(\d+) elapsed_ms=([0-9.]+)",
+        suites["WindowBehaviorTests"]["output"],
+    )
     for identifier, suite, function in EXPECTED:
         marker = f"PASS   : {suite}::{function}()"
         status = "passed" if marker in suites[suite]["output"] else "failed"
@@ -95,6 +101,16 @@ def main() -> int:
             "status": status,
             "evidence_marker": marker,
         })
+        if identifier == "UT-HDR-NAV-SAMPLING-LATENCY":
+            cases[-1]["observations"] = {
+                "iterations": int(navigation_sample_match.group(1))
+                if navigation_sample_match else None,
+                "elapsed_ms": float(navigation_sample_match.group(2))
+                if navigation_sample_match else None,
+                "threshold_ms": 250.0,
+            }
+            if not navigation_sample_match:
+                cases[-1]["status"] = "failed"
 
     ctest_command = [
         "ctest", "--test-dir", str(build_dir), "--output-on-failure", "--timeout", "120"

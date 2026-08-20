@@ -12,8 +12,11 @@ import re
 import subprocess
 import sys
 import time
+import math
 from datetime import datetime, timezone
 from pathlib import Path
+
+from PIL import Image, ImageFilter
 
 
 def sha256(path: Path) -> str:
@@ -33,18 +36,44 @@ def sample_record(path: Path) -> dict:
     }
 
 
+def edge_cosine_similarity(lhs: Path, rhs: Path) -> float:
+    vectors = []
+    for path in (lhs, rhs):
+        with Image.open(path) as source:
+            image = source.convert("L").resize((240, 180), Image.Resampling.LANCZOS)
+        vectors.append([value / 255.0 for value in image.filter(ImageFilter.FIND_EDGES).getdata()])
+    left, right = vectors
+    dot = sum(a * b for a, b in zip(left, right))
+    norm = math.sqrt(sum(value * value for value in left) * sum(value * value for value in right))
+    return dot / norm if norm > 0 else 0.0
+
+
+def mean_absolute_rgb_error(lhs: Path, rhs: Path) -> float:
+    with Image.open(lhs) as left_source, Image.open(rhs) as right_source:
+        left = left_source.convert("RGB")
+        right = right_source.convert("RGB").resize(left.size, Image.Resampling.LANCZOS)
+        differences = [
+            abs(a - b)
+            for left_pixel, right_pixel in zip(left.getdata(), right.getdata())
+            for a, b in zip(left_pixel, right_pixel)
+        ]
+    return sum(differences) / len(differences) if differences else math.inf
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--jpeg", type=Path, required=True)
     parser.add_argument("--raw", type=Path, required=True)
+    parser.add_argument("--nef", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     binary = args.binary.resolve()
     jpeg = args.jpeg.resolve()
     raw = args.raw.resolve()
-    missing = [str(path) for path in (binary, jpeg, raw) if not path.is_file()]
+    nef = args.nef.resolve()
+    missing = [str(path) for path in (binary, jpeg, raw, nef) if not path.is_file()]
     if missing:
         raise SystemExit(f"missing integration input: {missing}")
 
@@ -55,6 +84,7 @@ def main() -> int:
         "FOVELLE_TEST_SUITE": "HDRSampleTests",
         "FOVELLE_HDR_JPEG_SAMPLE": str(jpeg),
         "FOVELLE_HDR_RAW_SAMPLE": str(raw),
+        "FOVELLE_HDR_NEF_SAMPLE": str(nef),
     }
     command = [str(binary), "-o", "-,txt"]
     started = time.perf_counter()
@@ -88,10 +118,12 @@ def main() -> int:
     expected = (
         ("IT-HDR-GAINMAP-JPEG", "testGainMapJPEGCreatesNativeHDRGraph"),
         ("IT-HDR-GAINMAP-JPEG-PEAK", "testGainMapJPEGHDRContainsAboveSDRValues"),
-        ("IT-HDR-RAW-DNG", "testDNGCreatesNativeRawEDRGraph"),
-        ("IT-HDR-RAW-DNG-PEAK", "testDNGRawEDRContainsAboveSDRValues"),
-        ("IT-HDR-RAW-DNG-HEADROOM-TAG", "testDNGRawHeadroomMatchesMeasuredFloatPeak"),
-        ("IT-HDR-RAW-DNG-REPEATABILITY", "testDNGRawRepeatedFloatProbeIsStable"),
+        ("IT-HDR-RAW-DNG", "testDNGCreatesProcessedGainMapHDRGraph"),
+        ("IT-HDR-RAW-DNG-PEAK", "testDNGProcessedGainMapContainsAboveSDRValues"),
+        ("IT-HDR-RAW-DNG-HEADROOM-TAG", "testDNGGainMapHeadroomMatchesMetadataContract"),
+        ("IT-HDR-RAW-DNG-REPEATABILITY", "testDNGProcessedGraphRepeatedFloatProbeIsStable"),
+        ("IT-HDR-RAW-NEF", "testNEFCreatesNativeRawEDRGraph"),
+        ("IT-HDR-RAW-NEF-REPEATABILITY", "testNEFRawRepeatedFloatProbeIsStable"),
     )
     cases = []
     for identifier, function in expected:
@@ -115,6 +147,82 @@ def main() -> int:
             if not raw_headroom_match:
                 item["status"] = "failed"
         cases.append(item)
+
+    quality_directory = args.output.resolve().parent / "quicklook_quality"
+    quality_directory.mkdir(parents=True, exist_ok=True)
+    quicklook_png = quality_directory / f"{raw.name}.png"
+    processed_preview_png = quality_directory / "dng_processed_preview.png"
+    if quicklook_png.exists():
+        quicklook_png.unlink()
+    if processed_preview_png.exists():
+        processed_preview_png.unlink()
+    ql_command = ["qlmanage", "-t", "-s", "1024", "-o", str(quality_directory), str(raw)]
+    ql_result = subprocess.run(ql_command, text=True, capture_output=True, timeout=30, check=False)
+    probe_command = [
+        "xcrun", "swift", str(Path(__file__).resolve().parent / "hdr_gain_map_probe.swift"),
+        str(raw), "--preview-png", str(processed_preview_png),
+    ]
+    probe_result = subprocess.run(
+        probe_command, text=True, capture_output=True, timeout=60, check=False
+    )
+    try:
+        gain_map_probe = json.loads(probe_result.stdout) if probe_result.returncode == 0 else None
+    except json.JSONDecodeError:
+        gain_map_probe = None
+    quality_files_exist = quicklook_png.is_file() and processed_preview_png.is_file()
+    structure_similarity = (
+        edge_cosine_similarity(processed_preview_png, quicklook_png)
+        if quality_files_exist else 0.0
+    )
+    rgb_mae = (
+        mean_absolute_rgb_error(processed_preview_png, quicklook_png)
+        if quality_files_exist else math.inf
+    )
+    quality_case = {
+        "id": "IT-HDR-DNG-QUICKLOOK-DETAIL",
+        "test_code": "tests/hdr_quality_integration.py::edge_cosine_similarity",
+        "status": "passed" if (
+            ql_result.returncode == 0
+            and probe_result.returncode == 0
+            and quality_files_exist
+            and gain_map_probe is not None
+            and gain_map_probe.get("processed_preview_extent", {}).get("width") == 8064
+            and gain_map_probe.get("gain_map_extent", {}).get("width") == 4032
+            and structure_similarity >= 0.994
+            and rgb_mae <= 3.0
+        ) else "failed",
+        "checks": {
+            "quicklook_thumbnail_generated": ql_result.returncode == 0 and quicklook_png.is_file(),
+            "production_processed_preview_generated": (
+                probe_result.returncode == 0 and processed_preview_png.is_file()
+            ),
+            "full_resolution_preview_and_half_resolution_gain_map": (
+                gain_map_probe is not None
+                and gain_map_probe.get("processed_preview_extent", {}).get("width") == 8064
+                and gain_map_probe.get("processed_preview_extent", {}).get("height") == 6048
+                and gain_map_probe.get("gain_map_extent", {}).get("width") == 4032
+                and gain_map_probe.get("gain_map_extent", {}).get("height") == 3024
+            ),
+            "edge_structure_similarity_at_least_0_994": structure_similarity >= 0.994,
+            "mean_absolute_rgb_error_at_most_3": rgb_mae <= 3.0,
+        },
+        "observations": {
+            "edge_cosine_similarity": structure_similarity,
+            "mean_absolute_rgb_error": rgb_mae,
+            "production_preview": (
+                sample_record(processed_preview_png) if processed_preview_png.is_file() else None
+            ),
+            "quicklook_thumbnail": (
+                sample_record(quicklook_png) if quicklook_png.is_file() else None
+            ),
+            "gain_map_probe": gain_map_probe,
+            "quicklook_command": ql_command,
+            "quicklook_output": ql_result.stdout + ql_result.stderr,
+            "probe_command": probe_command,
+            "probe_output": probe_result.stdout + probe_result.stderr,
+        },
+    }
+    cases.append(quality_case)
     totals_match = re.search(
         r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted", output
     )
@@ -126,7 +234,7 @@ def main() -> int:
     }
     passed = (
         result.returncode == 0
-        and totals == {"passed": 8, "failed": 0, "skipped": 0, "blacklisted": 0}
+        and totals == {"passed": 10, "failed": 0, "skipped": 0, "blacklisted": 0}
         and all(item["status"] == "passed" for item in cases)
     )
     record = {
@@ -137,7 +245,11 @@ def main() -> int:
         "host": {"platform": platform.platform(), "python": platform.python_version()},
         "command": command,
         "environment": environment,
-        "samples": {"jpeg": sample_record(jpeg), "raw": sample_record(raw)},
+        "samples": {
+            "jpeg": sample_record(jpeg),
+            "raw": sample_record(raw),
+            "nef": sample_record(nef),
+        },
         "elapsed_seconds": elapsed,
         "return_code": result.returncode,
         "totals": totals,

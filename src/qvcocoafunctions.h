@@ -34,6 +34,7 @@ public:
         bool decodedToHDR{ false };
         bool usesRawExtendedDynamicRange{ false };
         bool usedRawPreview{ false };
+        bool usesProcessedRawPreview{ false };
     };
 
     class HDRImage
@@ -80,6 +81,9 @@ public:
         bool bootstrappingEDR{ false };
         bool cachesIntermediates{ false };
         bool usesLayerContentsHeadroomTag{ false };
+        bool usesCAMetalDisplayLink{ false };
+        bool encodesMetalOffMainThread{ false };
+        bool frameInFlight{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
@@ -99,6 +103,12 @@ public:
         float layerOpacity{ 0.0F };
         quint64 geometryGeneration{ 0 };
         quint64 geometryResetCount{ 0 };
+        quint64 renderRequestCount{ 0 };
+        quint64 coalescedRenderRequestCount{ 0 };
+        quint64 displayLinkCallbackCount{ 0 };
+        quint64 deferredDisplayLinkCallbackCount{ 0 };
+        quint64 requestedRenderGeneration{ 0 };
+        quint64 submittedRenderGeneration{ 0 };
         quint64 renderCount{ 0 };
         double lastRenderMilliseconds{ 0.0 };
     };

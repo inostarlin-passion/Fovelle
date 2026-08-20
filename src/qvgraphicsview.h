@@ -135,6 +135,8 @@ public:
     // instead of falling back to SDR and restarting the opening transition.
     static bool canReuseHDRPresentation(bool firstFramePresented, bool hdrPrepared);
 
+    std::optional<qreal> sampleDisplayedImageBrightness(const QPoint &viewportPoint) const;
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -212,6 +214,8 @@ protected:
     void logViewportState(const char *phase) const;
 
     void updateHDRRenderer();
+
+    void requestHDRRendererUpdate();
 
     QPolygonF getHDRViewportCorners() const;
 
@@ -313,8 +317,12 @@ private:
     QTimer *hideCursorTimer;
     QTimer *hdrTransitionTimer;
     QTimer *hdrGeometryTimer;
+    QTimer *hdrFrameRequestTimer;
     QElapsedTimer hdrTransitionClock;
+    QElapsedTimer hdrInteractionClock;
     qreal hdrTransitionLinearProgress{ 0.0 };
+    qreal hdrInteractionZoomMilliseconds{ 0.0 };
+    int hdrInteractionStep{ -1 };
     bool hdrActivationCompleted{ false };
     bool hdrRendererActive{ false };
     bool hdrLayoutReady{ false };
@@ -323,6 +331,8 @@ private:
     bool hdrThemeTestScheduled{ false };
     QSize hdrPendingViewportSize;
     QPolygonF hdrPendingImageCorners;
+    QImage navigationSamplingImage;
+    QSize navigationSamplingSourceSize;
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;
