@@ -1,6 +1,6 @@
 QT += core testlib gui network widgets
 
-macx:LIBS += -framework Cocoa -framework CoreGraphics -framework ImageIO -framework CoreImage -framework Metal -framework ColorSync -framework CoreServices
+macx:LIBS += -framework Cocoa -framework CoreGraphics -framework ImageIO -framework CoreImage -framework Metal -framework QuartzCore -framework ColorSync -framework CoreServices -framework UniformTypeIdentifiers
 
 VERSION = 1.0
 DEFINES += "VERSION=$$VERSION"

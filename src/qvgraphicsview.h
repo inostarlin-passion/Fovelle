@@ -6,6 +6,7 @@
 #include "axislocker.h"
 #include "logicalpixelfitter.h"
 #include "scrollhelper.h"
+#include <memory>
 #include <optional>
 #include <QGraphicsView>
 #include <QImageReader>
@@ -195,6 +196,10 @@ protected:
 
     void logViewportState(const char *phase) const;
 
+    void updateHDRRenderer();
+
+    void logHDRState(const char *phase) const;
+
     void setTransformWithNormalization(const QTransform &matrix);
 
     QTransform getUnspecializedTransform() const;
@@ -230,6 +235,7 @@ private slots:
 
 private:
     QGraphicsPixmapItem *loadedPixmapItem;
+    std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 
     Qv::SmoothScalingMode smoothScalingMode {Qv::SmoothScalingMode::Disabled};
     std::optional<qreal> smoothScalingLimit;
@@ -282,6 +288,9 @@ private:
     QTimer *expensiveScaleTimer;
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;
+    QTimer *hdrTransitionTimer;
+    QElapsedTimer hdrTransitionClock;
+    bool hdrRendererActive{ false };
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;

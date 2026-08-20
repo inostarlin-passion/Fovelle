@@ -8,13 +8,14 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 
 ## New Features
 
-- Added support for most common RAW image formats.
+- **Added support for most common RAW image formats.**
+- **Supports HDR rendering and display for both RAW and non-RAW image formats.**
 - Displays small images at their actual size (1:1).
 - Supports both light and dark appearances.
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
-- Support full gesture operations.
-- Conditionally display vertical and horizontal scrollbars.
+- **Supports full gesture operations.**
+- Conditionally displays vertical and horizontal scrollbars.
 
 ## Supported Formats
 

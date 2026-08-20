@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(Fovelle VERSION 0.1.3 LANGUAGES CXX)
+project(Fovelle VERSION 0.1.4 LANGUAGES CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
@@ -112,8 +112,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     "-framework ImageIO"
     "-framework CoreImage"
     "-framework Metal"
+    "-framework QuartzCore"
     "-framework ColorSync"
     "-framework CoreServices"
+    "-framework UniformTypeIdentifiers"
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"

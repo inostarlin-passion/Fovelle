@@ -2,6 +2,7 @@
 #include "qvcocoafunctions.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QMetaObject>
@@ -122,14 +123,17 @@ QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
 
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, const int largestDimension)
 {
+    QElapsedTimer decodeTimer;
+    decodeTimer.start();
     QImageReader imageReader(absoluteFilePath);
     imageReader.setAutoTransform(true);
 
     bool isMultiFrameImage = false;
     const QVCocoaFunctions::NativeImageReadResult nativeResult =
-        QVCocoaFunctions::readImageWithImageIO(absoluteFilePath);
+            QVCocoaFunctions::readImageWithImageIO(absoluteFilePath, qMin(largestDimension, 2048));
     const bool useNativeImageIO = nativeResult.isImageIOType;
-    const bool useQtFallback = nativeResult.image.isNull() && !nativeResult.isRaw;
+    const bool useQtFallback =
+            nativeResult.image.isNull() && !nativeResult.isRaw && !nativeResult.hdrImage;
     QSize intrinsicSize = nativeResult.intrinsicSize;
     QImage image = nativeResult.image;
 
@@ -168,17 +172,18 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
 
     const QFileInfo fileInfo(absoluteFilePath);
 
-    Result result {
-        std::move(image),
-        fileInfo.absoluteFilePath(),
-        fileInfo.size(),
-        fileInfo.lastModified(),
-        isMultiFrameImage,
-        intrinsicSize,
-        {}
-    };
+    Result result{ std::move(image),
+                   nativeResult.hdrImage,
+                   nativeResult.hdrMetadata,
+                   fileInfo.absoluteFilePath(),
+                   fileInfo.size(),
+                   fileInfo.lastModified(),
+                   isMultiFrameImage,
+                   intrinsicSize,
+                   decodeTimer.nsecsElapsed() / 1000000.0,
+                   {} };
 
-    if (result.image.isNull())
+    if (result.image.isNull() && !result.hdrImage)
         result.errorData = ErrorData {imageReader.error(), errorString};
 
     return result;

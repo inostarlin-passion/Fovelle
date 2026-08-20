@@ -164,7 +164,7 @@ def main() -> int:
     test_evidence = {
         "kind": "test-evidence",
         "report_version": "1.0",
-        "release_tag": "v0.1.3",
+        "release_tag": "v0.1.4",
         "generated_at_utc": now,
         "repo": str(repo),
         "head_sha": git_head(repo),
@@ -254,7 +254,7 @@ def main() -> int:
     completion = {
         "kind": "test-completion-report",
         "report_version": "1.0",
-        "release_tag": "v0.1.3",
+        "release_tag": "v0.1.4",
         "generated_at_utc": now,
         "repo": str(repo),
         "head_sha": git_head(repo),
@@ -297,7 +297,7 @@ def main() -> int:
     code_quality = {
         "kind": "code-quality-assessment-report",
         "report_version": "1.0",
-        "release_tag": "v0.1.3",
+        "release_tag": "v0.1.4",
         "generated_at_utc": now,
         "repo": str(repo),
         "head_sha": git_head(repo),
@@ -373,7 +373,7 @@ def main() -> int:
             "All final report inputs are hash-addressed in test_evidence.json.",
         ],
         "inferences": [
-            "The implementation is suitable for the tested v0.1.3 macOS/Cocoa build and its declared workload thresholds.",
+            "The implementation is suitable for the tested v0.1.4 macOS/Cocoa build and its declared workload thresholds.",
         ],
         "uncertainties": [
             "The sample1.nef result is evidence for one installed decoder path, not a guarantee of pixel-level RAW output for every camera model.",

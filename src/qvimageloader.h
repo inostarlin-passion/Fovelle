@@ -1,6 +1,8 @@
 #ifndef QVIMAGELOADER_H
 #define QVIMAGELOADER_H
 
+#include "qvcocoafunctions.h"
+
 #include <optional>
 #include <memory>
 #include <QDateTime>
@@ -22,11 +24,14 @@ public:
     struct Result
     {
         QImage image;
+        QVCocoaFunctions::HDRImagePtr hdrImage;
+        QVCocoaFunctions::HDRMetadata hdrMetadata;
         QString absoluteFilePath;
         qint64 fileSize = 0;
         QDateTime lastModified;
         bool isMultiFrameImage = false;
         QSize intrinsicSize;
+        double decodeMilliseconds = 0.0;
         std::optional<ErrorData> errorData;
     };
 

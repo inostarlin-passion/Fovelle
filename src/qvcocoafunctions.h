@@ -9,22 +9,94 @@
 #include <QImage>
 #include <QByteArray>
 #include <QList>
+#include <QPolygonF>
 #include <QSize>
 
 #include <memory>
 
+class QWidget;
+
 class QVCocoaFunctions
 {
 public:
+    struct HDRMetadata
+    {
+        QString sourceKind;
+        QString typeIdentifier;
+        QString colorSpaceName;
+        QString transferFunction;
+        QSize pixelSize;
+        float contentHeadroom{ 1.0F };
+        int bitsPerComponent{ 0 };
+        bool isRaw{ false };
+        bool hasAppleGainMap{ false };
+        bool hasISOGainMap{ false };
+        bool decodedToHDR{ false };
+        bool usesRawExtendedDynamicRange{ false };
+        bool usedRawPreview{ false };
+    };
+
+    class HDRImage
+    {
+    public:
+        virtual ~HDRImage() = default;
+        virtual const HDRMetadata &metadata() const = 0;
+    };
+
+    using HDRImagePtr = std::shared_ptr<const HDRImage>;
+
     struct NativeImageReadResult
     {
         QImage image;
+        HDRImagePtr hdrImage;
+        HDRMetadata hdrMetadata;
         QSize intrinsicSize;
         QString typeIdentifier;
         QString errorString;
         bool isImageIOType {false};
         bool isRaw {false};
         bool usedRawPreview {false};
+    };
+
+    struct HDRRendererDiagnostics
+    {
+        bool rendererAvailable{ false };
+        bool imageActive{ false };
+        bool isRaw{ false };
+        bool hasGainMap{ false };
+        bool usesRGBA16Float{ false };
+        bool usesExtendedLinearDisplayP3{ false };
+        bool usesColorSync{ false };
+        bool wantsExtendedDynamicRangeContent{ false };
+        bool displayHeadroomOverridden{ false };
+        float contentHeadroom{ 1.0F };
+        float displayCurrentHeadroom{ 1.0F };
+        float displayPotentialHeadroom{ 1.0F };
+        float targetHeadroom{ 1.0F };
+        float transitionProgress{ 0.0F };
+        quint64 renderCount{ 0 };
+        double lastRenderMilliseconds{ 0.0 };
+    };
+
+    class HDRRenderer
+    {
+    public:
+        explicit HDRRenderer(QWidget *viewport);
+        ~HDRRenderer();
+
+        HDRRenderer(const HDRRenderer &) = delete;
+        HDRRenderer &operator=(const HDRRenderer &) = delete;
+
+        bool isAvailable() const;
+        bool setImage(const HDRImagePtr &image);
+        void clear();
+        void render(const QSize &viewportSize, const QPolygonF &imageCorners,
+                    qreal transitionProgress);
+        HDRRendererDiagnostics diagnostics() const;
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> impl;
     };
 
     class AnimatedImage
@@ -81,7 +153,15 @@ public:
     // a filename extension to decide whether this is a RAW image. Native
     // decoding intentionally preserves the source pixel dimensions so a later
     // zoom can reveal source detail instead of enlarging a screen thumbnail.
-    static NativeImageReadResult readImageWithImageIO(const QString &filePath);
+    static NativeImageReadResult readImageWithImageIO(const QString &filePath,
+                                                      int fallbackLargestDimension = 0);
+
+    // Pure transition policy helpers are exposed so headroom behavior can be
+    // verified without depending on a particular physical display.
+    static qreal easedHDRTransition(qreal progress);
+
+    static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
+                                      qreal transitionProgress);
 
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 

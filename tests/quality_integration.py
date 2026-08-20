@@ -177,7 +177,7 @@ def main() -> int:
             "fullResolutionThumbnailOptions",
             "QVCocoaFunctions::readImageWithImageIO",
             "CIRAWFilter",
-            "filterWithImageData",
+            "filterWithImageURL",
             "previewImage",
             "CIContext",
             "contextWithMTLDevice",
@@ -202,7 +202,7 @@ def main() -> int:
             "frameworks_linked": linked_frameworks,
             "native_decoder_is_primary": loader.find("QVCocoaFunctions::readImageWithImageIO") < loader.find("imageReader.read()"),
             "full_resolution_native_decode": "fullResolutionThumbnailOptions" in cocoa,
-            "loader_requests_full_resolution": "readImageWithImageIO(absoluteFilePath)" in loader,
+            "loader_bounds_only_hdr_fallback": "readImageWithImageIO(absoluteFilePath, qMin(largestDimension, 2048))" in loader,
             "raw_content_detection": "nativeResult.isRaw" in loader and "!nativeResult.isRaw" in loader,
             "preview_fallback": "rawFilter.previewImage" in cocoa and "usedRawPreview" in cocoa,
         },
@@ -452,9 +452,9 @@ def main() -> int:
     version_sources = text("CMakeLists.txt") + text("qView.pro") + text("tests/tst_qviewtests.cpp")
     apng_test_source = text("tests/tst_qviewtests.cpp")
     version_ci_contract = (
-        "VERSION 0.1.3" in version_sources
-        and "VERSION = 0.1.3" in version_sources
-        and 'QString("0.1.3")' in version_sources
+        "VERSION 0.1.4" in version_sources
+        and "VERSION = 0.1.4" in version_sources
+        and 'QString("0.1.4")' in version_sources
         and "0.1.0" not in version_sources
         and "FOVELLE_APNG_FIXTURE" in apng_test_source
         and "tinyAnimatedPngBase64" in apng_test_source
@@ -465,8 +465,8 @@ def main() -> int:
         "I-18-VERSION-CI",
         version_ci_contract,
         {
-            "version_0_1_3": "VERSION 0.1.3" in version_sources and "VERSION = 0.1.3" in version_sources,
-            "runtime_version_asserted": 'QString("0.1.3")' in version_sources,
+            "version_0_1_4": "VERSION 0.1.4" in version_sources and "VERSION = 0.1.4" in version_sources,
+            "runtime_version_asserted": 'QString("0.1.4")' in version_sources,
             "old_version_absent": "0.1.0" not in version_sources,
             "apng_env_override": "FOVELLE_APNG_FIXTURE" in apng_test_source,
             "embedded_apng_fallback": "tinyAnimatedPngBase64" in apng_test_source and "fallbackDirectory" in apng_test_source,

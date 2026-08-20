@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QDebug>
+#include <QJsonDocument>
 #include <QScopedValueRollback>
 #include <QtMath>
 #include <QGestureEvent>
@@ -58,6 +59,19 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 
     loadedPixmapItem = new QGraphicsPixmapItem();
     scene->addItem(loadedPixmapItem);
+
+    hdrRenderer = std::make_unique<QVCocoaFunctions::HDRRenderer>(viewport());
+    hdrTransitionTimer = new QTimer(this);
+    hdrTransitionTimer->setInterval(16);
+    connect(hdrTransitionTimer, &QTimer::timeout, this, [this]() {
+        updateHDRRenderer();
+        if (hdrTransitionClock.isValid() && hdrTransitionClock.elapsed() >= 1800)
+            hdrTransitionTimer->stop();
+    });
+    connect(horizontalScrollBar(), &QScrollBar::valueChanged, this,
+            [this]() { updateHDRRenderer(); });
+    connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
+            [this]() { updateHDRRenderer(); });
 
     // Connect to settings signal
     connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, [this]{settingsUpdated(false);});
@@ -113,6 +127,7 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
     handleDpiAdjustmentChange();
 
     QGraphicsView::paintEvent(event);
+    updateHDRRenderer();
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)
@@ -743,6 +758,25 @@ void QVGraphicsView::postLoad()
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
+    hdrRendererActive = hdrRenderer && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+    loadedPixmapItem->setVisible(!hdrRendererActive);
+    loadedPixmapItem->setTransform(QTransform());
+    const QSize fallbackSize = imageCore.getLoadedPixmap().size();
+    const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
+    if (!hdrRendererActive && getCurrentFileDetails().isNativeHDRLoaded && !fallbackSize.isEmpty()
+        && !sourceSize.isEmpty()) {
+        loadedPixmapItem->setTransform(QTransform::fromScale(
+                static_cast<qreal>(sourceSize.width()) / fallbackSize.width(),
+                static_cast<qreal>(sourceSize.height()) / fallbackSize.height()));
+    }
+    if (hdrRendererActive) {
+        hdrTransitionClock.start();
+        hdrTransitionTimer->start();
+    } else {
+        hdrTransitionTimer->stop();
+        if (hdrRenderer)
+            hdrRenderer->clear();
+    }
     updateSceneRect();
     logViewportState("post-load-before-layout");
 
@@ -764,6 +798,7 @@ void QVGraphicsView::postLoad()
             fitOrConstrainImage();
     }
     logViewportState("post-load-after-fit");
+    updateHDRRenderer();
     QTimer::singleShot(0, this, [this]() { logViewportState("post-load-next-turn"); });
     loadIsFromSessionRestore = false;
 
@@ -1208,7 +1243,9 @@ bool QVGraphicsView::isSmoothScalingRequested() const
 
 bool QVGraphicsView::isExpensiveScalingRequested() const
 {
-    if (!isSmoothScalingRequested() || smoothScalingMode != Qv::SmoothScalingMode::Expensive || !getCurrentFileDetails().isPixmapLoaded)
+    if (getCurrentFileDetails().isNativeHDRLoaded || !isSmoothScalingRequested()
+        || smoothScalingMode != Qv::SmoothScalingMode::Expensive
+        || !getCurrentFileDetails().isPixmapLoaded)
         return false;
 
     // Don't go over the maximum scaling size (a small tolerance is added to cover rounding errors)
@@ -1282,7 +1319,10 @@ void QVGraphicsView::setTransformScale(const qreal value)
 
 void QVGraphicsView::setTransformWithNormalization(const QTransform &matrix)
 {
-    setTransform(normalizeTransformOrigin(matrix, loadedPixmapItem->boundingRect().size()));
+    const QSizeF normalizationSize = getCurrentFileDetails().isNativeHDRLoaded
+            ? QSizeF(getCurrentFileDetails().loadedPixmapSize)
+            : loadedPixmapItem->boundingRect().size();
+    setTransform(normalizeTransformOrigin(matrix, normalizationSize));
 }
 
 void QVGraphicsView::logViewportState(const char *phase) const
@@ -1291,18 +1331,84 @@ void QVGraphicsView::logViewportState(const char *phase) const
         return;
 
     qInfo().noquote() << "FOVELLE_VIEW"
-        << "phase=" << phase
-        << "zoom=" << zoomLevel
-        << "sceneRect=" << sceneRect()
-        << "itemRect=" << (loadedPixmapItem ? loadedPixmapItem->sceneBoundingRect() : QRectF())
-        << "contentRect=" << getContentRect()
-        << "viewportRect=" << viewport()->rect()
-        << "usableViewportRect=" << getUsableViewportRect()
-        << "sceneOriginInViewport=" << mapFromScene(QPointF(0, 0))
-        << "viewportOriginInScene=" << mapToScene(QPoint(0, 0))
-        << "transform=" << transform()
-        << "hbar=" << horizontalScrollBar()->value() << horizontalScrollBar()->minimum() << horizontalScrollBar()->maximum()
-        << "vbar=" << verticalScrollBar()->value() << verticalScrollBar()->minimum() << verticalScrollBar()->maximum();
+                      << "phase=" << phase << "zoom=" << zoomLevel << "sceneRect=" << sceneRect()
+                      << "itemRect="
+                      << (getCurrentFileDetails().isNativeHDRLoaded
+                                  ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
+                                  : loadedPixmapItem->sceneBoundingRect())
+                      << "contentRect=" << getContentRect() << "viewportRect=" << viewport()->rect()
+                      << "usableViewportRect=" << getUsableViewportRect()
+                      << "sceneOriginInViewport=" << mapFromScene(QPointF(0, 0))
+                      << "viewportOriginInScene=" << mapToScene(QPoint(0, 0))
+                      << "transform=" << transform() << "hbar=" << horizontalScrollBar()->value()
+                      << horizontalScrollBar()->minimum() << horizontalScrollBar()->maximum()
+                      << "vbar=" << verticalScrollBar()->value() << verticalScrollBar()->minimum()
+                      << verticalScrollBar()->maximum();
+}
+
+void QVGraphicsView::updateHDRRenderer()
+{
+    if (!hdrRendererActive || !hdrRenderer)
+        return;
+
+    const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
+    if (sourceSize.isEmpty() || viewport()->size().isEmpty())
+        return;
+
+    const QPolygonF sourceCorners{ QPointF(0.0, 0.0), QPointF(sourceSize.width(), 0.0),
+                                   QPointF(sourceSize.width(), sourceSize.height()),
+                                   QPointF(0.0, sourceSize.height()) };
+    const QPolygonF viewportCorners = viewportTransform().map(sourceCorners);
+    const qreal transitionProgress = hdrTransitionClock.isValid()
+            ? std::clamp(hdrTransitionClock.elapsed() / 650.0, 0.0, 1.0)
+            : 1.0;
+    hdrRenderer->render(viewport()->size(), viewportCorners, transitionProgress);
+    logHDRState("render");
+}
+
+void QVGraphicsView::logHDRState(const char *phase) const
+{
+    if (!qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG") || !hdrRenderer)
+        return;
+
+    const auto &fileDetails = getCurrentFileDetails();
+    const auto &metadata = fileDetails.hdrMetadata;
+    const auto renderer = hdrRenderer->diagnostics();
+    QJsonObject object{
+        { QStringLiteral("phase"), QString::fromLatin1(phase) },
+        { QStringLiteral("path"), fileDetails.fileInfo.absoluteFilePath() },
+        { QStringLiteral("source_kind"), metadata.sourceKind },
+        { QStringLiteral("type_identifier"), metadata.typeIdentifier },
+        { QStringLiteral("color_space"), metadata.colorSpaceName },
+        { QStringLiteral("transfer_function"), metadata.transferFunction },
+        { QStringLiteral("pixel_width"), metadata.pixelSize.width() },
+        { QStringLiteral("pixel_height"), metadata.pixelSize.height() },
+        { QStringLiteral("bits_per_component"), metadata.bitsPerComponent },
+        { QStringLiteral("is_raw"), metadata.isRaw },
+        { QStringLiteral("has_apple_gain_map"), metadata.hasAppleGainMap },
+        { QStringLiteral("has_iso_gain_map"), metadata.hasISOGainMap },
+        { QStringLiteral("decoded_to_hdr"), metadata.decodedToHDR },
+        { QStringLiteral("uses_raw_extended_dynamic_range"), metadata.usesRawExtendedDynamicRange },
+        { QStringLiteral("used_raw_preview"), metadata.usedRawPreview },
+        { QStringLiteral("content_headroom"), renderer.contentHeadroom },
+        { QStringLiteral("decode_ms"), fileDetails.decodeMilliseconds },
+        { QStringLiteral("renderer_available"), renderer.rendererAvailable },
+        { QStringLiteral("image_active"), renderer.imageActive },
+        { QStringLiteral("rgba16_float"), renderer.usesRGBA16Float },
+        { QStringLiteral("extended_linear_display_p3"), renderer.usesExtendedLinearDisplayP3 },
+        { QStringLiteral("color_sync"), renderer.usesColorSync },
+        { QStringLiteral("wants_edr"), renderer.wantsExtendedDynamicRangeContent },
+        { QStringLiteral("display_headroom_overridden"), renderer.displayHeadroomOverridden },
+        { QStringLiteral("display_current_headroom"), renderer.displayCurrentHeadroom },
+        { QStringLiteral("display_potential_headroom"), renderer.displayPotentialHeadroom },
+        { QStringLiteral("target_headroom"), renderer.targetHeadroom },
+        { QStringLiteral("transition_progress"), renderer.transitionProgress },
+        { QStringLiteral("render_count"), static_cast<qint64>(renderer.renderCount) },
+        { QStringLiteral("last_render_ms"), renderer.lastRenderMilliseconds },
+        { QStringLiteral("transition_elapsed_ms"),
+          hdrTransitionClock.isValid() ? hdrTransitionClock.elapsed() : -1 }
+    };
+    qInfo().noquote() << "FOVELLE_HDR" << QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 
 QTransform QVGraphicsView::getUnspecializedTransform() const
@@ -1468,7 +1574,9 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
 
 QRectF QVGraphicsView::getSceneRectForViewport() const
 {
-    QRectF sceneRect = loadedPixmapItem->boundingRect();
+    QRectF sceneRect = getCurrentFileDetails().isNativeHDRLoaded
+            ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
+            : loadedPixmapItem->boundingRect();
     const MainWindow *mainWindow = getMainWindow();
     if (!mainWindow)
         return sceneRect;

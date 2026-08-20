@@ -203,7 +203,7 @@ def main() -> int:
             "readImageWithImageIO",
             "QVCocoaFunctions::readImageWithImageIO",
             "CIRAWFilter",
-            "filterWithImageData",
+            "filterWithImageURL",
             "previewImage",
             "CIContext",
             "contextWithMTLDevice",
@@ -226,7 +226,7 @@ def main() -> int:
             "loader_native_decoder": "useNativeImageIO" in loader_cpp,
             "loader_image_io_call": "QVCocoaFunctions::readImageWithImageIO" in loader_cpp,
             "full_resolution_native_decode": "fullResolutionThumbnailOptions" in cocoa_mm,
-            "loader_requests_full_resolution": "readImageWithImageIO(absoluteFilePath)" in loader_cpp,
+            "loader_bounds_only_hdr_fallback": "readImageWithImageIO(absoluteFilePath, qMin(largestDimension, 2048))" in loader_cpp,
             "raw_uses_content_type": "nativeResult.isRaw" in loader_cpp and "!nativeResult.isRaw" in loader_cpp,
             "preview_fallback": "rawFilter.previewImage" in cocoa_mm and "usedRawPreview" in cocoa_mm,
             "metal_context": "contextWithMTLDevice" in cocoa_mm and "MTLCreateSystemDefaultDevice" in cocoa_mm,
@@ -499,7 +499,7 @@ def main() -> int:
 
     version_contract = contains_all(
         source["CMakeLists.txt"] + source["qView.pro"] + test_source,
-        ("VERSION 0.1.3", "VERSION = 0.1.3", 'QString("0.1.3")'),
+        ("VERSION 0.1.4", "VERSION = 0.1.4", 'QString("0.1.4")'),
     ) and "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source
     apng_fixture_contract = contains_all(
         test_source,
@@ -514,7 +514,7 @@ def main() -> int:
             "apng_fixture_contract": apng_fixture_contract,
             "old_version_absent": "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source,
         },
-        "the released version is 0.1.3 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
+        "the released version is 0.1.4 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
     )
 
     zoom_continuity = contains_all(

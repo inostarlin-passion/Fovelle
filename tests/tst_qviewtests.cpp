@@ -93,6 +93,28 @@ private slots:
     void testOpenWithWorkerTeardownContract();
 };
 
+class HDRPolicyTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testTransitionCurveIsBoundedAndMonotonic();
+    void testHDRHeadroomIsClampedToContentAndDisplay();
+    void testSDRDisplayForcesUnitHeadroom();
+    void testRendererUsesFloatEDRColorManagedSurface();
+    void testSDRImageStaysOnSDRPath();
+    void testRequiredHDRFormatsAreAdvertised();
+};
+
+class HDRSampleTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testGainMapJPEGCreatesNativeHDRGraph();
+    void testDNGCreatesNativeRawEDRGraph();
+};
+
 class GraphicsViewTests : public QObject
 {
     Q_OBJECT
@@ -819,6 +841,194 @@ void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
     QVERIFY(loaderResult->image.pixelColor(0, 0) != loaderResult->image.pixelColor(1, 0));
 }
 
+// TC-HDR-UNIT-TRANSITION
+// Test purpose: verify the Quick Look-like activation curve is bounded,
+// deterministic, smooth at both endpoints, and monotonic.
+// Preconditions: no display or image fixture is required.
+// Input data: progress values below zero, from 0 through 1 in 1/100 steps,
+// and above one.
+// Steps: evaluate easedHDRTransition for every value and compare neighbors.
+// Expected result: output is clamped to [0,1], starts at 0, ends at 1, and
+// never decreases.
+// Postcondition: no global or display state changes.
+void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
+{
+    QCOMPARE(QVCocoaFunctions::easedHDRTransition(-1.0), 0.0);
+    QCOMPARE(QVCocoaFunctions::easedHDRTransition(0.0), 0.0);
+    QCOMPARE(QVCocoaFunctions::easedHDRTransition(1.0), 1.0);
+    QCOMPARE(QVCocoaFunctions::easedHDRTransition(2.0), 1.0);
+
+    qreal previous = 0.0;
+    for (int index = 1; index <= 100; ++index) {
+        const qreal value = QVCocoaFunctions::easedHDRTransition(index / 100.0);
+        QVERIFY(value >= previous);
+        QVERIFY(value >= 0.0 && value <= 1.0);
+        previous = value;
+    }
+}
+
+// TC-HDR-UNIT-HEADROOM-CLAMP
+// Test purpose: verify image highlights never request more headroom than both
+// the content and current display permit.
+// Preconditions: the pure policy helper is available.
+// Input data: content/display pairs 4/6, 8/3, and unknown-content/3 at full
+// transition, plus 4/4 at half transition.
+// Steps: evaluate effectiveHDRHeadroom for each pair.
+// Expected result: full results are 4, 3, and 3; the half result is strictly
+// between 1 and 4.
+// Postcondition: no global or display state changes.
+void HDRPolicyTests::testHDRHeadroomIsClampedToContentAndDisplay()
+{
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.0, 6.0, 1.0), 4.0);
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(8.0, 3.0, 1.0), 3.0);
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(0.0, 3.0, 1.0), 3.0);
+    const qreal midpoint = QVCocoaFunctions::effectiveHDRHeadroom(4.0, 4.0, 0.5);
+    QVERIFY(midpoint > 1.0 && midpoint < 4.0);
+}
+
+// TC-HDR-UNIT-SDR-FALLBACK
+// Test purpose: verify an SDR-only display deterministically collapses HDR
+// content to unit headroom at every transition phase.
+// Preconditions: the pure policy helper is available.
+// Input data: content headroom 4.9473, display headroom 1, and progress values
+// 0, 0.5, and 1.
+// Steps: evaluate effectiveHDRHeadroom for each progress value.
+// Expected result: every result is exactly 1, selecting the SDR/tone-mapped
+// representation without clipping through an SDR image-view path.
+// Postcondition: no global or display state changes.
+void HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()
+{
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.9473, 1.0, 0.0), 1.0);
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.9473, 1.0, 0.5), 1.0);
+    QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.9473, 1.0, 1.0), 1.0);
+}
+
+// TC-HDR-UNIT-RENDERER-CONTRACT
+// Test purpose: verify the native renderer declares the precision, color
+// management, and EDR surface required by the production pipeline.
+// Preconditions: the Cocoa Qt platform and a Metal-capable target Mac are
+// available.
+// Input data: a 320x200 native QWidget viewport with no source image.
+// Steps: create HDRRenderer and inspect its non-invasive diagnostics.
+// Expected result: the renderer is available and reports RGBA16Float,
+// extended-linear Display P3, ColorSync, and wants-EDR enabled.
+// Postcondition: the temporary native layer and widget are destroyed.
+void HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()
+{
+    QWidget viewport;
+    viewport.resize(320, 200);
+    QVCocoaFunctions::HDRRenderer renderer(&viewport);
+    QVERIFY(renderer.isAvailable());
+    const auto diagnostics = renderer.diagnostics();
+    QVERIFY(diagnostics.rendererAvailable);
+    QVERIFY(diagnostics.usesRGBA16Float);
+    QVERIFY(diagnostics.usesExtendedLinearDisplayP3);
+    QVERIFY(diagnostics.usesColorSync);
+    QVERIFY(diagnostics.wantsExtendedDynamicRangeContent);
+    QVERIFY(!diagnostics.imageActive);
+}
+
+// TC-HDR-UNIT-SDR-CLASSIFICATION
+// Test purpose: verify a conventional SDR file is not promoted to the native
+// HDR graph merely because the renderer supports EDR.
+// Preconditions: Image I/O supports PNG and a temporary directory is writable.
+// Input data: a deterministic 32x32 sRGB PNG.
+// Steps: decode the PNG through readImageWithImageIO and inspect both outputs.
+// Expected result: the SDR QImage is valid, the HDR handle is null, and
+// decodedToHDR is false.
+// Postcondition: the temporary PNG and decoder resources are released.
+void HDRPolicyTests::testSDRImageStaysOnSDRPath()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = createTestImage(directory, "sdr-contract", Qt::red);
+    QVERIFY(!path.isEmpty());
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(!result.hdrImage);
+    QVERIFY(!result.hdrMetadata.decodedToHDR);
+    QVERIFY(!result.isRaw);
+}
+
+// TC-HDR-UNIT-FORMAT-COVERAGE
+// Test purpose: verify the native platform decoder advertises every requested
+// RAW family and the principal metadata-bearing non-RAW HDR containers.
+// Preconditions: tests run on the target macOS Image I/O installation.
+// Input data: dng, nef, cr3, arw, raf, jpeg, heif, heic, and avif extensions.
+// Steps: query supportsAdditionalImageFormat for each extension.
+// Expected result: every extension is supported by Image I/O on the target.
+// Postcondition: the cached Image I/O type list is released normally.
+void HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()
+{
+    const QList<QByteArray> formats{ "dng",  "nef",  "cr3",  "arw", "raf",
+                                     "jpeg", "heif", "heic", "avif" };
+    for (const QByteArray &format : formats)
+        QVERIFY2(QVCocoaFunctions::supportsAdditionalImageFormat(format), format.constData());
+}
+
+// TC-HDR-INT-GAINMAP-JPEG
+// Test purpose: verify the supplied iPhone JPEG is reconstructed as a
+// full-resolution adaptive HDR graph rather than flattened to an SDR bitmap.
+// Preconditions: FOVELLE_HDR_JPEG_SAMPLE points to the supplied readable file
+// and macOS 15+ Image I/O/Core Image APIs are available.
+// Input data: IMG_1735.JPG and a 2048px-only SDR fallback budget.
+// Steps: decode once, then inspect content UTI, gain-map metadata, headroom,
+// intrinsic dimensions, native handle, and fallback dimensions.
+// Expected result: public.jpeg is non-RAW; at least one gain map exists;
+// decodedToHDR and the native handle are true; content headroom exceeds 1;
+// the graph keeps full resolution while only its SDR fallback is bounded.
+// Postcondition: all native image graphs and fallback pixels are released.
+void HDRSampleTests::testGainMapJPEGCreatesNativeHDRGraph()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_JPEG_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isImageIOType);
+    QCOMPARE(result.typeIdentifier, QStringLiteral("public.jpeg"));
+    QVERIFY(!result.isRaw);
+    QVERIFY(result.hdrImage);
+    QVERIFY(result.hdrMetadata.decodedToHDR);
+    QVERIFY(result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap);
+    QVERIFY(result.hdrMetadata.contentHeadroom > 1.0F);
+    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("adaptive-hdr"));
+    QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+}
+
+// TC-HDR-INT-RAW-DNG
+// Test purpose: verify the supplied DNG follows CIRAWFilter's sensor-derived
+// extended-dynamic-range graph and does not substitute its embedded preview.
+// Preconditions: FOVELLE_HDR_RAW_SAMPLE points to the supplied readable DNG
+// and the installed Apple RAW camera decoder supports it.
+// Input data: IMG_8625.DNG and a 2048px-only SDR fallback budget.
+// Steps: decode once, then inspect content UTI, RAW flags, precision, intrinsic
+// dimensions, native handle, preview usage, and fallback dimensions.
+// Expected result: the source is camera RAW; a 16-bit-contract native graph
+// using raw extendedDynamicRangeAmount is present; no preview is primary; full
+// sensor dimensions are retained while only the fallback is bounded.
+// Postcondition: all native RAW graphs and fallback pixels are released.
+void HDRSampleTests::testDNGCreatesNativeRawEDRGraph()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isImageIOType);
+    QVERIFY(result.isRaw);
+    QVERIFY(result.typeIdentifier.contains(QStringLiteral("raw")));
+    QVERIFY(result.hdrImage);
+    QVERIFY(result.hdrMetadata.decodedToHDR);
+    QVERIFY(result.hdrMetadata.usesRawExtendedDynamicRange);
+    QVERIFY(!result.usedRawPreview);
+    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("camera-raw"));
+    QCOMPARE(result.hdrMetadata.bitsPerComponent, 16);
+    QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+}
+
 void ActionManagerTests::testClonedActionsUntracked()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -851,7 +1061,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.3"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.4"));
 }
 
 // TC-APP-VERSION
@@ -860,11 +1070,11 @@ void ActionManagerTests::testApplicationIdentity()
 // definitions.
 // Input data: QCoreApplication::applicationVersion().
 // Steps: read the runtime application version.
-// Expected result: the value is exactly 0.1.3.
+// Expected result: the value is exactly 0.1.4.
 // Postcondition: no application or settings state changes.
 void FeatureTests::testApplicationVersionIsCurrent()
 {
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.3"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.4"));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -2120,7 +2330,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 0.1.3"));
+    QCOMPARE(subtitleLabel->text(), QString("version 0.1.4"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -3156,12 +3366,14 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("0.1.3");
+    QCoreApplication::setApplicationVersion("0.1.4");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 
     ImageLoaderTests imageLoaderTests;
     FeatureTests featureTests;
+    HDRPolicyTests hdrPolicyTests;
+    HDRSampleTests hdrSampleTests;
     GraphicsViewTests graphicsViewTests;
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
@@ -3172,10 +3384,13 @@ int main(int argc, char *argv[])
     };
     int result = runSuite("ImageLoaderTests", &imageLoaderTests);
     result |= runSuite("FeatureTests", &featureTests);
+    result |= runSuite("HDRPolicyTests", &hdrPolicyTests);
     result |= runSuite("GraphicsViewTests", &graphicsViewTests);
     result |= runSuite("ApplicationEventTests", &applicationEventTests);
     result |= runSuite("ImageCoreAndMovieTests", &imageCoreAndMovieTests);
     result |= runSuite("WindowBehaviorTests", &windowBehaviorTests);
+    if (selectedSuite == "HDRSampleTests")
+        result |= QTest::qExec(&hdrSampleTests, argc, argv);
     return result;
 }
 

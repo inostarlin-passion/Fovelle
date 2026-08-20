@@ -8,7 +8,9 @@
 #include <QFileIconProvider>
 #include <QCollator>
 #include <QColorSpace>
+#include <QElapsedTimer>
 #include <QFileInfo>
+#include <QWidget>
 
 #include <algorithm>
 #include <cmath>
@@ -21,6 +23,8 @@
 #import <CoreServices/CoreServices.h>
 #import <ImageIO/ImageIO.h>
 #import <Metal/Metal.h>
+#import <QuartzCore/QuartzCore.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 namespace
 {
@@ -47,33 +51,36 @@ QByteArray normalizedExtension(const QByteArray &extension)
 
 bool isRawImageType(CFStringRef typeIdentifier)
 {
-    return typeIdentifier && UTTypeConformsTo(typeIdentifier, CFSTR("public.camera-raw-image"));
+    if (!typeIdentifier)
+        return false;
+    UTType *type = [UTType typeWithIdentifier:(NSString *)typeIdentifier];
+    return type && [type conformsToType:UTTypeRAWImage];
 }
 
 bool isImageType(CFStringRef typeIdentifier)
 {
-    return typeIdentifier && UTTypeConformsTo(typeIdentifier, kUTTypeImage);
+    if (!typeIdentifier)
+        return false;
+    UTType *type = [UTType typeWithIdentifier:(NSString *)typeIdentifier];
+    return type && [type conformsToType:UTTypeImage];
 }
 
-QList<QByteArray> typeTags(CFStringRef typeIdentifier, CFStringRef tagClass)
+QList<QByteArray> typeTags(CFStringRef typeIdentifier, NSString *tagClass)
 {
     QList<QByteArray> tags;
     if (!typeIdentifier)
         return tags;
 
-    CFArrayRef allTags = UTTypeCopyAllTagsWithClass(typeIdentifier, tagClass);
-    if (!allTags)
+    UTType *type = [UTType typeWithIdentifier:(NSString *)typeIdentifier];
+    NSArray<NSString *> *allTags = type.tags[tagClass];
+    if (!type || !allTags)
         return tags;
 
-    const CFIndex count = CFArrayGetCount(allTags);
-    for (CFIndex index = 0; index < count; ++index)
-    {
-        const auto tag = static_cast<CFStringRef>(CFArrayGetValueAtIndex(allTags, index));
-        const QByteArray normalized = normalizedExtension(QByteArray(QStringFromCFString(tag).toUtf8()));
+    for (NSString *tag in allTags) {
+        const QByteArray normalized = normalizedExtension(QByteArray(tag.UTF8String));
         if (!normalized.isEmpty() && !tags.contains(normalized))
             tags.append(normalized);
     }
-    CFRelease(allTags);
     return tags;
 }
 
@@ -110,6 +117,44 @@ CGColorSpaceRef colorSyncSrgbColorSpace()
     return CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
 }
 
+CGColorSpaceRef colorSyncDisplayP3ColorSpace(const bool extendedLinear)
+{
+    CGColorSpaceRef displayP3 = nullptr;
+    ColorSyncProfileRef profile = ColorSyncProfileCreateWithName(kColorSyncDisplayP3Profile);
+    if (profile) {
+        displayP3 = CGColorSpaceCreateWithColorSyncProfile(profile, nullptr);
+        CFRelease(profile);
+    }
+
+    if (!displayP3)
+        displayP3 = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+
+    if (!displayP3 || !extendedLinear)
+        return displayP3;
+
+    CGColorSpaceRef extended = CGColorSpaceCreateExtendedLinearized(displayP3);
+    CGColorSpaceRelease(displayP3);
+    return extended ? extended : CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearDisplayP3);
+}
+
+CIContext *metalCIContext(CGColorSpaceRef workingColorSpace, CGColorSpaceRef outputColorSpace)
+{
+    if (!workingColorSpace || !outputColorSpace)
+        return nil;
+
+    NSDictionary *options = @{
+        (id)kCIContextUseSoftwareRenderer : @NO,
+        (id)kCIContextWorkingColorSpace : (id)workingColorSpace,
+        (id)kCIContextOutputColorSpace : (id)outputColorSpace,
+        (id)kCIContextWorkingFormat : @(kCIFormatRGBAh)
+    };
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    CIContext *context = device ? [CIContext contextWithMTLDevice:device options:options]
+                                : [CIContext contextWithOptions:options];
+    [device release];
+    return context;
+}
+
 QColorSpace qColorSpaceFromCGColorSpace(CGColorSpaceRef colorSpace)
 {
     if (!colorSpace)
@@ -142,6 +187,15 @@ QSize sourcePixelSize(CGImageSourceRef source)
     }
 
     return QSize(width, height);
+}
+
+QSize orientedPixelSize(const QSize &size, const CGImagePropertyOrientation orientation)
+{
+    if (orientation >= kCGImagePropertyOrientationLeftMirrored
+        && orientation <= kCGImagePropertyOrientationLeft) {
+        return size.transposed();
+    }
+    return size;
 }
 
 int sourceMaxPixelSize(CGImageSourceRef source)
@@ -211,7 +265,12 @@ QImage imageFromCGImage(CGImageRef cgImage)
     if (image.isNull())
         return {};
 
-    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
+    CGColorSpaceRef colorSpace = CGImageGetColorSpace(cgImage);
+    const bool canPreserveSourceSpace = colorSpace
+            && CGColorSpaceGetModel(colorSpace) == kCGColorSpaceModelRGB
+            && !CGColorSpaceUsesExtendedRange(colorSpace) && !CGColorSpaceIsHDR(colorSpace);
+    colorSpace =
+            canPreserveSourceSpace ? CGColorSpaceRetain(colorSpace) : colorSyncSrgbColorSpace();
     CGContextRef context = CGBitmapContextCreate(
         image.bits(),
         width,
@@ -228,8 +287,8 @@ QImage imageFromCGImage(CGImageRef cgImage)
 
     CGContextDrawImage(context, CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
     CGContextRelease(context);
+    const QColorSpace qColorSpace = qColorSpaceFromCGColorSpace(colorSpace);
     CGColorSpaceRelease(colorSpace);
-    const QColorSpace qColorSpace = qColorSpaceFromCGColorSpace(CGImageGetColorSpace(cgImage));
     if (qColorSpace.isValid())
         image.setColorSpace(qColorSpace);
     return image;
@@ -263,37 +322,108 @@ QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outp
     return result;
 }
 
-CFDictionaryRef fullResolutionThumbnailOptions(CGImageSourceRef source)
+CFDictionaryRef thumbnailOptions(CGImageSourceRef source, const int largestDimension,
+                                 const bool decodeToHDR)
 {
-    // Image I/O's thumbnail API is retained here because its transform option
-    // applies orientation metadata. Its maximum is deliberately the source's
-    // own largest dimension, never the screen-sized loader hint; otherwise a
-    // later zoom would only interpolate pixels that were already discarded.
-    const int maxDimension = sourceMaxPixelSize(source);
+    const int sourceDimension = sourceMaxPixelSize(source);
+    const int maxDimension =
+            largestDimension > 0 ? std::min(sourceDimension, largestDimension) : sourceDimension;
     CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
     if (!maxPixelSizeNumber)
         return nullptr;
 
-    const void *optionKeys[] = {
-        kCGImageSourceCreateThumbnailFromImageAlways,
-        kCGImageSourceCreateThumbnailWithTransform,
-        kCGImageSourceThumbnailMaxPixelSize
-    };
-    const void *optionValues[] = {
-        kCFBooleanTrue,
-        kCFBooleanTrue,
-        maxPixelSizeNumber
-    };
-    CFDictionaryRef options = CFDictionaryCreate(
-        kCFAllocatorDefault,
-        optionKeys,
-        optionValues,
-        sizeof(optionKeys) / sizeof(optionKeys[0]),
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
+    CFMutableDictionaryRef options =
+            CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                      &kCFTypeDictionaryValueCallBacks);
+    if (options) {
+        CFDictionarySetValue(options, kCGImageSourceCreateThumbnailFromImageAlways, kCFBooleanTrue);
+        CFDictionarySetValue(options, kCGImageSourceCreateThumbnailWithTransform, kCFBooleanTrue);
+        CFDictionarySetValue(options, kCGImageSourceThumbnailMaxPixelSize, maxPixelSizeNumber);
+        if (@available(macOS 14.0, *)) {
+            CFDictionarySetValue(options, kCGImageSourceDecodeRequest,
+                                 decodeToHDR ? kCGImageSourceDecodeToHDR
+                                             : kCGImageSourceDecodeToSDR);
+        }
+    }
     CFRelease(maxPixelSizeNumber);
     return options;
 }
+
+CFDictionaryRef fullResolutionThumbnailOptions(CGImageSourceRef source,
+                                               const bool decodeToHDR = false)
+{
+    // Non-HDR images keep source resolution for later zooming. HDR images keep
+    // their full-resolution CIImage graph and only bound the separate SDR
+    // fallback proxy.
+    return thumbnailOptions(source, 0, decodeToHDR);
+}
+
+bool hasAuxiliaryImage(CGImageSourceRef source, CFStringRef auxiliaryType)
+{
+    CFDictionaryRef auxiliary = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType);
+    if (!auxiliary)
+        return false;
+    CFRelease(auxiliary);
+    return true;
+}
+
+float cgImageContentHeadroom(CGImageRef image)
+{
+    if (@available(macOS 15.0, *))
+        return CGImageGetContentHeadroom(image);
+    return 0.0F;
+}
+
+float ciImageContentHeadroom(CIImage *image)
+{
+    if (@available(macOS 15.0, *))
+        return image ? image.contentHeadroom : 0.0F;
+    return 0.0F;
+}
+
+QString colorSpaceName(CGColorSpaceRef colorSpace)
+{
+    if (!colorSpace)
+        return QStringLiteral("unspecified");
+    return QStringFromCFString(CGColorSpaceGetName(colorSpace));
+}
+
+QString transferFunctionName(CGColorSpaceRef colorSpace, const bool hasGainMap)
+{
+    if (colorSpace) {
+        if (CGColorSpaceIsPQBased(colorSpace))
+            return QStringLiteral("PQ");
+        if (CGColorSpaceIsHLGBased(colorSpace))
+            return QStringLiteral("HLG");
+        if (CGColorSpaceUsesExtendedRange(colorSpace))
+            return QStringLiteral("extended-linear");
+    }
+    return hasGainMap ? QStringLiteral("gain-map") : QStringLiteral("ICC/SDR");
+}
+
+class NativeHDRImage final : public QVCocoaFunctions::HDRImage
+{
+public:
+    NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage, QVCocoaFunctions::HDRMetadata metadata)
+        : hdr([hdrImage retain]), sdr([sdrImage retain]), imageMetadata(std::move(metadata))
+    {
+    }
+
+    ~NativeHDRImage() override
+    {
+        [hdr release];
+        [sdr release];
+    }
+
+    const QVCocoaFunctions::HDRMetadata &metadata() const override { return imageMetadata; }
+    CIImage *hdrCIImage() const { return hdr; }
+    CIImage *sdrCIImage() const { return sdr; }
+
+private:
+    CIImage *hdr{ nil };
+    CIImage *sdr{ nil };
+    QVCocoaFunctions::HDRMetadata imageMetadata;
+};
 
 class NativeAnimatedImage final : public QVCocoaFunctions::AnimatedImage
 {
@@ -383,6 +513,310 @@ private:
     int loops {-1};
     bool valid {false};
 };
+}
+
+struct QVCocoaFunctions::HDRRenderer::Impl
+{
+    explicit Impl(QWidget *viewportWidget)
+    {
+        if (!viewportWidget)
+            return;
+
+        nativeView = reinterpret_cast<NSView *>(viewportWidget->winId());
+        device = MTLCreateSystemDefaultDevice();
+        if (!nativeView || !device)
+            return;
+
+        commandQueue = [device newCommandQueue];
+        outputColorSpace = colorSyncDisplayP3ColorSpace(true);
+        if (!commandQueue || !outputColorSpace)
+            return;
+
+        NSDictionary *contextOptions = @{
+            (id)kCIContextUseSoftwareRenderer : @NO,
+            (id)kCIContextWorkingColorSpace : (id)outputColorSpace,
+            (id)kCIContextOutputColorSpace : (id)outputColorSpace,
+            (id)kCIContextWorkingFormat : @(kCIFormatRGBAh),
+            (id)kCIContextCacheIntermediates : @NO
+        };
+        context = [[CIContext contextWithMTLDevice:device options:contextOptions] retain];
+        if (!context)
+            return;
+
+        nativeView.wantsLayer = YES;
+        metalLayer = [[CAMetalLayer layer] retain];
+        metalLayer.device = device;
+        metalLayer.pixelFormat = MTLPixelFormatRGBA16Float;
+        metalLayer.framebufferOnly = NO;
+        metalLayer.opaque = NO;
+        metalLayer.backgroundColor = NSColor.clearColor.CGColor;
+        metalLayer.colorspace = outputColorSpace;
+        metalLayer.wantsExtendedDynamicRangeContent = YES;
+        metalLayer.presentsWithTransaction = NO;
+        metalLayer.allowsNextDrawableTimeout = YES;
+        metalLayer.maximumDrawableCount = 3;
+        if (@available(macOS 15.0, *))
+            metalLayer.toneMapMode = CAToneMapModeAutomatic;
+        if (@available(macOS 26.0, *))
+            metalLayer.preferredDynamicRange = CADynamicRangeHigh;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        metalLayer.frame = nativeView.bounds;
+        metalLayer.hidden = YES;
+        [nativeView.layer addSublayer:metalLayer];
+        [CATransaction commit];
+
+        state.rendererAvailable = true;
+        state.usesRGBA16Float = true;
+        state.usesExtendedLinearDisplayP3 = CGColorSpaceUsesExtendedRange(outputColorSpace);
+        state.usesColorSync = true;
+        state.wantsExtendedDynamicRangeContent = metalLayer.wantsExtendedDynamicRangeContent;
+    }
+
+    ~Impl()
+    {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [metalLayer removeFromSuperlayer];
+        [CATransaction commit];
+        [metalLayer release];
+        [context release];
+        [commandQueue release];
+        [device release];
+        if (outputColorSpace)
+            CGColorSpaceRelease(outputColorSpace);
+    }
+
+    bool setImage(const HDRImagePtr &newImage)
+    {
+        const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
+        image = nativeImage;
+        state.imageActive = nativeImage != nullptr;
+        if (nativeImage) {
+            const HDRMetadata &metadata = nativeImage->metadata();
+            state.isRaw = metadata.isRaw;
+            state.hasGainMap = metadata.hasAppleGainMap || metadata.hasISOGainMap;
+            state.contentHeadroom = metadata.contentHeadroom;
+        } else {
+            state.isRaw = false;
+            state.hasGainMap = false;
+            state.contentHeadroom = 1.0F;
+        }
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        metalLayer.hidden = nativeImage == nullptr;
+        [CATransaction commit];
+        return nativeImage != nullptr && state.rendererAvailable;
+    }
+
+    static CIImage *mixImages(CIImage *sdr, CIImage *hdr, const float amount)
+    {
+        if (!hdr)
+            return sdr;
+        if (!sdr || amount >= 0.999F)
+            return hdr;
+        if (amount <= 0.001F)
+            return sdr;
+
+        CIFilter *transition = [CIFilter filterWithName:@"CIDissolveTransition"];
+        [transition setValue:sdr forKey:kCIInputImageKey];
+        [transition setValue:hdr forKey:kCIInputTargetImageKey];
+        [transition setValue:@(amount) forKey:kCIInputTimeKey];
+        return transition.outputImage ?: hdr;
+    }
+
+    CIImage *displayImage(const NativeHDRImage &nativeImage, const float targetHeadroom,
+                          const float progress)
+    {
+        CIImage *hdr = nativeImage.hdrCIImage();
+        CIImage *sdr = nativeImage.sdrCIImage();
+        const HDRMetadata &metadata = nativeImage.metadata();
+
+        if (metadata.isRaw) {
+            const float rawAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
+            return mixImages(sdr, hdr, rawAmount);
+        }
+
+        if (@available(macOS 15.0, *)) {
+            if (metadata.contentHeadroom > 1.0F) {
+                CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
+                [toneMap setValue:hdr forKey:kCIInputImageKey];
+                [toneMap setValue:@(metadata.contentHeadroom) forKey:@"inputSourceHeadroom"];
+                [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
+                if (toneMap.outputImage)
+                    return toneMap.outputImage;
+            }
+        }
+
+        const float fallbackAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
+        return mixImages(sdr, hdr, fallbackAmount);
+    }
+
+    void render(const QSize &viewportSize, const QPolygonF &corners, const qreal linearProgress)
+    {
+        if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
+            return;
+
+        @autoreleasepool {
+            NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
+            state.displayCurrentHeadroom = screen
+                    ? static_cast<float>(screen.maximumExtendedDynamicRangeColorComponentValue)
+                    : 1.0F;
+            state.displayPotentialHeadroom = screen
+                    ? static_cast<float>(
+                              screen.maximumPotentialExtendedDynamicRangeColorComponentValue)
+                    : 1.0F;
+            bool overrideIsValid = false;
+            const double overriddenHeadroom =
+                    qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM").toDouble(&overrideIsValid);
+            state.displayHeadroomOverridden = overrideIsValid;
+            if (overrideIsValid)
+                state.displayCurrentHeadroom =
+                        static_cast<float>(std::max(1.0, overriddenHeadroom));
+            state.transitionProgress =
+                    static_cast<float>(QVCocoaFunctions::easedHDRTransition(linearProgress));
+            state.targetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
+                    state.contentHeadroom, state.displayCurrentHeadroom, linearProgress));
+
+            const CGFloat backingScale = nativeView.window
+                    ? nativeView.window.backingScaleFactor
+                    : (screen ? screen.backingScaleFactor : 1.0);
+            const CGSize drawableSize =
+                    CGSizeMake(std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
+                               std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
+
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            metalLayer.frame = nativeView.bounds;
+            metalLayer.contentsScale = backingScale;
+            metalLayer.drawableSize = drawableSize;
+            metalLayer.hidden = NO;
+            if (@available(macOS 26.0, *))
+                metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom);
+            [CATransaction commit];
+
+            id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
+            id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
+            if (!drawable || !commandBuffer)
+                return;
+
+            CIImage *source = displayImage(*image, state.targetHeadroom, state.transitionProgress);
+            if (!source)
+                return;
+
+            const CGRect sourceExtent = source.extent;
+            if (CGRectIsEmpty(sourceExtent) || sourceExtent.size.width <= 0
+                || sourceExtent.size.height <= 0)
+                return;
+
+            const auto destinationPoint = [&](const QPointF &point) {
+                return CGPointMake(point.x() * backingScale,
+                                   (viewportSize.height() - point.y()) * backingScale);
+            };
+            const CGPoint destinationBottomLeft = destinationPoint(corners.at(3));
+            const CGPoint destinationBottomRight = destinationPoint(corners.at(2));
+            const CGPoint destinationTopLeft = destinationPoint(corners.at(0));
+            const CGFloat a =
+                    (destinationBottomRight.x - destinationBottomLeft.x) / sourceExtent.size.width;
+            const CGFloat b =
+                    (destinationBottomRight.y - destinationBottomLeft.y) / sourceExtent.size.width;
+            const CGFloat c =
+                    (destinationTopLeft.x - destinationBottomLeft.x) / sourceExtent.size.height;
+            const CGFloat d =
+                    (destinationTopLeft.y - destinationBottomLeft.y) / sourceExtent.size.height;
+            const CGFloat tx =
+                    destinationBottomLeft.x - a * sourceExtent.origin.x - c * sourceExtent.origin.y;
+            const CGFloat ty =
+                    destinationBottomLeft.y - b * sourceExtent.origin.x - d * sourceExtent.origin.y;
+            source = [source imageByApplyingTransform:CGAffineTransformMake(a, b, c, d, tx, ty)];
+
+            const CGRect destinationBounds =
+                    CGRectMake(0, 0, drawableSize.width, drawableSize.height);
+            CIColor *clearColor = [CIColor colorWithRed:0
+                                                  green:0
+                                                   blue:0
+                                                  alpha:0
+                                             colorSpace:outputColorSpace];
+            CIImage *clearImage =
+                    [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
+            source = [[source imageByCroppingToRect:destinationBounds]
+                    imageByCompositingOverImage:clearImage];
+
+            QElapsedTimer timer;
+            timer.start();
+            [context render:source
+                     toMTLTexture:drawable.texture
+                    commandBuffer:commandBuffer
+                           bounds:destinationBounds
+                       colorSpace:outputColorSpace];
+            [commandBuffer presentDrawable:drawable];
+            [commandBuffer commit];
+            state.lastRenderMilliseconds = timer.nsecsElapsed() / 1000000.0;
+            ++state.renderCount;
+        }
+    }
+
+    NSView *nativeView{ nil };
+    CAMetalLayer *metalLayer{ nil };
+    id<MTLDevice> device{ nil };
+    id<MTLCommandQueue> commandQueue{ nil };
+    CIContext *context{ nil };
+    CGColorSpaceRef outputColorSpace{ nullptr };
+    std::shared_ptr<const NativeHDRImage> image;
+    HDRRendererDiagnostics state;
+};
+
+QVCocoaFunctions::HDRRenderer::HDRRenderer(QWidget *viewport)
+    : impl(std::make_unique<Impl>(viewport))
+{
+}
+
+QVCocoaFunctions::HDRRenderer::~HDRRenderer() = default;
+
+bool QVCocoaFunctions::HDRRenderer::isAvailable() const
+{
+    return impl && impl->state.rendererAvailable;
+}
+
+bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image)
+{
+    return impl && impl->setImage(image);
+}
+
+void QVCocoaFunctions::HDRRenderer::clear()
+{
+    if (impl)
+        impl->setImage({});
+}
+
+void QVCocoaFunctions::HDRRenderer::render(const QSize &viewportSize, const QPolygonF &imageCorners,
+                                           const qreal transitionProgress)
+{
+    if (impl)
+        impl->render(viewportSize, imageCorners, transitionProgress);
+}
+
+QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
+{
+    return impl ? impl->state : HDRRendererDiagnostics{};
+}
+
+qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
+{
+    const qreal bounded = std::clamp(progress, 0.0, 1.0);
+    return bounded * bounded * (3.0 - 2.0 * bounded);
+}
+
+qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
+                                             const qreal displayHeadroom,
+                                             const qreal transitionProgress)
+{
+    const qreal safeDisplay = std::max(1.0, displayHeadroom);
+    const qreal safeContent = contentHeadroom > 0.0 ? std::max(1.0, contentHeadroom) : safeDisplay;
+    const qreal available = std::min(safeContent, safeDisplay);
+    return 1.0 + (available - 1.0) * easedHDRTransition(transitionProgress);
 }
 
 static void hideMenuShortcuts(NSMenu *nativeMenu)
@@ -656,8 +1090,7 @@ QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
     QList<QByteArray> formats;
     for (const auto identifier : imageIOTypeIdentifiers())
     {
-        for (const auto &format : typeTags(identifier, kUTTagClassFilenameExtension))
-        {
+        for (const auto &format : typeTags(identifier, UTTagClassFilenameExtension)) {
             if (!formats.contains(format))
                 formats.append(format);
         }
@@ -671,8 +1104,7 @@ QList<QString> QVCocoaFunctions::getAdditionalImageMimeTypes()
     QList<QString> mimeTypes;
     for (const auto identifier : imageIOTypeIdentifiers())
     {
-        for (const auto &mimeType : typeTags(identifier, kUTTagClassMIMEType))
-        {
+        for (const auto &mimeType : typeTags(identifier, UTTagClassMIMEType)) {
             const QString value = QString::fromUtf8(mimeType);
             if (!value.isEmpty() && !mimeTypes.contains(value))
                 mimeTypes.append(value);
@@ -689,7 +1121,8 @@ bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
         normalized = "avif";
     for (const auto identifier : imageIOTypeIdentifiers())
     {
-        const bool supported = typeTags(identifier, kUTTagClassFilenameExtension).contains(normalized);
+        const bool supported =
+                typeTags(identifier, UTTagClassFilenameExtension).contains(normalized);
         CFRelease(identifier);
         if (supported)
         {
@@ -700,7 +1133,8 @@ bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
     return false;
 }
 
-QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(const QString &filePath)
+QVCocoaFunctions::NativeImageReadResult
+QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallbackLargestDimension)
 {
     NativeImageReadResult result;
 
@@ -718,7 +1152,15 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
         result.typeIdentifier = QStringFromCFString(sourceType);
         result.isImageIOType = sourceType != nullptr;
         result.isRaw = isRawImageType(sourceType);
-        result.intrinsicSize = sourcePixelSize(source);
+        const CGImagePropertyOrientation orientation = sourceOrientation(source);
+        result.intrinsicSize = orientedPixelSize(sourcePixelSize(source), orientation);
+        result.hdrMetadata.typeIdentifier = result.typeIdentifier;
+        result.hdrMetadata.isRaw = result.isRaw;
+        result.hdrMetadata.hasAppleGainMap =
+                hasAuxiliaryImage(source, kCGImageAuxiliaryDataTypeHDRGainMap);
+        if (@available(macOS 15.0, *))
+            result.hdrMetadata.hasISOGainMap =
+                    hasAuxiliaryImage(source, kCGImageAuxiliaryDataTypeISOGainMap);
 
         // Read the source properties through Image I/O before decoding. This
         // keeps orientation, color profile and camera metadata on the native
@@ -726,82 +1168,180 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
         if (const CFDictionaryRef sourceProperties = CGImageSourceCopyProperties(source, nullptr))
             CFRelease(sourceProperties);
 
-        const CGImagePropertyOrientation orientation = sourceOrientation(source);
-
         if (result.isRaw)
         {
-            NSData *imageData = [NSData dataWithContentsOfURL:fileUrl.toNSURL()];
-            CIRAWFilter *rawFilter = imageData ? [CIRAWFilter filterWithImageData:imageData identifierHint:(NSString *)sourceType] : nil;
+            CIRAWFilter *rawFilter = nil;
+            if (@available(macOS 12.0, *))
+                rawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
 
             if (rawFilter)
             {
                 rawFilter.orientation = orientation;
 
-                CGColorSpaceRef outputColorSpace = colorSyncSrgbColorSpace();
-                if (outputColorSpace)
-                {
-                    NSDictionary *contextOptions = @{
-                        (id)kCIContextUseSoftwareRenderer: @NO,
-                        (id)kCIContextWorkingColorSpace: (id)outputColorSpace,
-                        (id)kCIContextOutputColorSpace: (id)outputColorSpace
-                    };
-                    id<MTLDevice> metalDevice = MTLCreateSystemDefaultDevice();
-                    CIContext *context = metalDevice
-                        ? [CIContext contextWithMTLDevice:metalDevice options:contextOptions]
-                        : [CIContext contextWithOptions:contextOptions];
-
-                    result.image = imageFromCIImage(rawFilter.outputImage, context, outputColorSpace, 0);
-                    if (result.image.isNull())
-                    {
-                        // A supported container can still contain a camera
-                        // model that the installed RAW decoder does not know.
-                        // Prefer the embedded JPEG preview before reporting an
-                        // error to the application.
-                        result.image = imageFromCIImage(rawFilter.previewImage, context, outputColorSpace, 0);
-                        result.usedRawPreview = !result.image.isNull();
+                rawFilter.extendedDynamicRangeAmount = 0.0F;
+                CIImage *sdrImage = rawFilter.outputImage;
+                rawFilter.extendedDynamicRangeAmount = 1.0F;
+                CIImage *hdrImage = rawFilter.outputImage;
+                if (hdrImage) {
+                    const CGRect extent = hdrImage.extent;
+                    if (!CGRectIsEmpty(extent)) {
+                        result.intrinsicSize =
+                                QSize(static_cast<int>(std::lround(extent.size.width)),
+                                      static_cast<int>(std::lround(extent.size.height)));
                     }
 
+                    result.hdrMetadata.sourceKind = QStringLiteral("camera-raw");
+                    result.hdrMetadata.pixelSize = result.intrinsicSize;
+                    result.hdrMetadata.contentHeadroom = ciImageContentHeadroom(hdrImage);
+                    result.hdrMetadata.bitsPerComponent = 16;
+                    result.hdrMetadata.decodedToHDR = true;
+                    result.hdrMetadata.usesRawExtendedDynamicRange = true;
+                    result.hdrMetadata.colorSpaceName = colorSpaceName(hdrImage.colorSpace);
+                    result.hdrMetadata.transferFunction =
+                            transferFunctionName(hdrImage.colorSpace, false);
+                    result.hdrImage = std::make_shared<NativeHDRImage>(hdrImage, sdrImage,
+                                                                       result.hdrMetadata);
+
+                    CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
+                    CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
+                    CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
+                    result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace,
+                                                    fallbackLargestDimension);
                     if (context)
                         [context clearCaches];
-                    CGColorSpaceRelease(outputColorSpace);
+                    if (workingColorSpace)
+                        CGColorSpaceRelease(workingColorSpace);
+                    if (fallbackColorSpace)
+                        CGColorSpaceRelease(fallbackColorSpace);
                 }
             }
 
             if (result.image.isNull())
             {
-                if (CFDictionaryRef options = fullResolutionThumbnailOptions(source))
-                {
-                    CGImageRef previewImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
-                    CFRelease(options);
-                    if (previewImage)
-                    {
-                        result.image = imageFromCGImage(previewImage);
-                        result.usedRawPreview = !result.image.isNull();
-                        CGImageRelease(previewImage);
+                if (rawFilter && rawFilter.previewImage) {
+                    CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
+                    CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
+                    CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
+                    result.image = imageFromCIImage(rawFilter.previewImage, context,
+                                                    fallbackColorSpace, fallbackLargestDimension);
+                    result.usedRawPreview = !result.image.isNull();
+                    if (context)
+                        [context clearCaches];
+                    if (workingColorSpace)
+                        CGColorSpaceRelease(workingColorSpace);
+                    if (fallbackColorSpace)
+                        CGColorSpaceRelease(fallbackColorSpace);
+                }
+
+                if (result.image.isNull()) {
+                    if (CFDictionaryRef options =
+                                thumbnailOptions(source, fallbackLargestDimension, false)) {
+                        CGImageRef previewImage =
+                                CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+                        CFRelease(options);
+                        if (previewImage) {
+                            result.image = imageFromCGImage(previewImage);
+                            result.usedRawPreview = !result.image.isNull();
+                            CGImageRelease(previewImage);
+                        }
                     }
                 }
             }
 
-            if (result.image.isNull())
-            {
+            result.hdrMetadata.usedRawPreview = result.usedRawPreview;
+
+            if (result.image.isNull() && !result.hdrImage) {
                 result.errorString = QStringLiteral(
                     "Core Image RAW decoder does not support this camera model and no embedded JPEG preview is available");
             }
         }
         else if (result.isImageIOType)
         {
-            if (CFDictionaryRef options = fullResolutionThumbnailOptions(source))
-            {
-                CGImageRef cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+            CGImageRef decodedImage = nullptr;
+            if (CFDictionaryRef options = fullResolutionThumbnailOptions(source, true)) {
+                decodedImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
                 CFRelease(options);
-                if (cgImage)
-                {
-                    result.image = imageFromCGImage(cgImage);
-                    CGImageRelease(cgImage);
+            }
+
+            const bool hasGainMap =
+                    result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap;
+            const float decodedHeadroom = cgImageContentHeadroom(decodedImage);
+            CGColorSpaceRef decodedColorSpace =
+                    decodedImage ? CGImageGetColorSpace(decodedImage) : nullptr;
+            const bool hdrColorSpace = decodedColorSpace
+                    && (CGColorSpaceIsHDR(decodedColorSpace)
+                        || CGColorSpaceUsesExtendedRange(decodedColorSpace));
+            const bool hdrCandidate = hasGainMap || decodedHeadroom > 1.0F || hdrColorSpace;
+
+            if (hdrCandidate) {
+                if (@available(macOS 14.0, *)) {
+                    NSDictionary *hdrOptions = @{
+                        (id)kCIImageExpandToHDR : @YES,
+                        (id)kCIImageApplyOrientationProperty : @YES
+                    };
+                    NSDictionary *sdrOptions = @{(id)kCIImageApplyOrientationProperty : @YES};
+                    CIImage *hdrImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                                options:hdrOptions];
+                    CIImage *sdrImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                                options:sdrOptions];
+                    if (hdrImage) {
+                        const CGRect extent = hdrImage.extent;
+                        if (!CGRectIsEmpty(extent)) {
+                            result.intrinsicSize =
+                                    QSize(static_cast<int>(std::lround(extent.size.width)),
+                                          static_cast<int>(std::lround(extent.size.height)));
+                        }
+
+                        const float ciHeadroom = ciImageContentHeadroom(hdrImage);
+                        result.hdrMetadata.sourceKind = hasGainMap ? QStringLiteral("adaptive-hdr")
+                                                                   : QStringLiteral("iso-hdr");
+                        result.hdrMetadata.pixelSize = result.intrinsicSize;
+                        result.hdrMetadata.contentHeadroom =
+                                ciHeadroom > 0.0F ? ciHeadroom : decodedHeadroom;
+                        result.hdrMetadata.bitsPerComponent = decodedImage
+                                ? static_cast<int>(CGImageGetBitsPerComponent(decodedImage))
+                                : 16;
+                        result.hdrMetadata.decodedToHDR = true;
+                        result.hdrMetadata.colorSpaceName = colorSpaceName(hdrImage.colorSpace);
+                        result.hdrMetadata.transferFunction =
+                                transferFunctionName(hdrImage.colorSpace, hasGainMap);
+                        result.hdrImage = std::make_shared<NativeHDRImage>(hdrImage, sdrImage,
+                                                                           result.hdrMetadata);
+
+                        CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
+                        CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
+                        CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
+                        result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace,
+                                                        fallbackLargestDimension);
+                        if (context)
+                            [context clearCaches];
+                        if (workingColorSpace)
+                            CGColorSpaceRelease(workingColorSpace);
+                        if (fallbackColorSpace)
+                            CGColorSpaceRelease(fallbackColorSpace);
+                    }
                 }
             }
 
-            if (result.image.isNull())
+            if (!result.hdrImage && decodedImage)
+                result.image = imageFromCGImage(decodedImage);
+            if (decodedImage)
+                CGImageRelease(decodedImage);
+
+            if (result.hdrImage && result.image.isNull()) {
+                if (CFDictionaryRef options =
+                            thumbnailOptions(source, fallbackLargestDimension, false)) {
+                    CGImageRef fallbackImage =
+                            CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+                    CFRelease(options);
+                    if (fallbackImage) {
+                        result.image = imageFromCGImage(fallbackImage);
+                        CGImageRelease(fallbackImage);
+                    }
+                }
+            }
+
+            if (result.image.isNull() && !result.hdrImage)
                 result.errorString = QStringLiteral("Image I/O could not decode the image");
         }
 

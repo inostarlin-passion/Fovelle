@@ -107,12 +107,23 @@ def main() -> int:
         result = None
         output = stdout + stderr
         timed_out = True
-    totals = [
-        {"passed": int(passed), "failed": int(failed), "skipped": int(skipped), "blacklisted": int(blacklisted)}
-        for passed, failed, skipped, blacklisted in re.findall(
-            r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted", output
+    totals = []
+    for suite in EXPECTED_SUITES:
+        start_marker = f"Start testing of {suite}"
+        end_marker = f"Finished testing of {suite}"
+        start_index = output.find(start_marker)
+        end_index = output.find(end_marker, start_index)
+        section = output[start_index:end_index] if start_index >= 0 and end_index >= 0 else ""
+        match = re.search(
+            r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted", section
         )
-    ]
+        if match:
+            totals.append({
+                "passed": int(match.group(1)),
+                "failed": int(match.group(2)),
+                "skipped": int(match.group(3)),
+                "blacklisted": int(match.group(4)),
+            })
     suites = [suite for suite in EXPECTED_SUITES if f"Start testing of {suite}" in output]
     cases = [
         {

@@ -85,8 +85,10 @@ target_link_libraries(fovelle_tests PRIVATE
     "-framework ImageIO"
     "-framework CoreImage"
     "-framework Metal"
+    "-framework QuartzCore"
     "-framework ColorSync"
     "-framework CoreServices"
+    "-framework UniformTypeIdentifiers"
 )
 target_compile_definitions(fovelle_tests PRIVATE
     "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"

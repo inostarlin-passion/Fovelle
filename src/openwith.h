@@ -2,6 +2,10 @@
 #define OPENWITH_H
 
 #include <QIcon>
+#include <QObject>
+#include <QMetaType>
+
+class QWidget;
 
 class OpenWith : public QObject
 {

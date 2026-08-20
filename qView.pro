@@ -1,5 +1,5 @@
 TARGET = Fovelle
-VERSION = 0.1.3
+VERSION = 0.1.4
 
 QT += core gui network widgets svg
 
@@ -43,7 +43,7 @@ CONFIG(debug, debug|release) {
 
 # macOS specific stuff
 macx {
-    LIBS += -framework Cocoa -framework CoreGraphics -framework ImageIO -framework CoreImage -framework Metal -framework ColorSync -framework CoreServices
+    LIBS += -framework Cocoa -framework CoreGraphics -framework ImageIO -framework CoreImage -framework Metal -framework QuartzCore -framework ColorSync -framework CoreServices -framework UniformTypeIdentifiers
 
     QMAKE_TARGET_BUNDLE_PREFIX = "io.github.inostarlin-passion"
     QMAKE_INFO_PLIST = "dist/mac/Info.plist"

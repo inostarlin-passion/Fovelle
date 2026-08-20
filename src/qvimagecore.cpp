@@ -143,14 +143,26 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 
     QImage readImage = readData.image;
     const QColorSpace targetColorSpace = getTargetColorSpace();
-    handleColorSpaceConversion(readImage, targetColorSpace);
-    loadedPixmap = QPixmap::fromImage(std::move(readImage));
+    if (!readImage.isNull()) {
+        handleColorSpaceConversion(readImage, targetColorSpace);
+        loadedPixmap = QPixmap::fromImage(std::move(readImage));
+    } else {
+        loadedPixmap = QPixmap();
+    }
+    loadedHDRImage = readData.hdrImage;
 
     // Set file details
     currentFileDetails.isPixmapLoaded = true;
-    currentFileDetails.baseImageSize = readData.intrinsicSize.isValid() ? readData.intrinsicSize : loadedPixmap.size();
-    currentFileDetails.loadedPixmapSize = loadedPixmap.size();
+    currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
+    currentFileDetails.baseImageSize = readData.intrinsicSize.isValid() ? readData.intrinsicSize
+            : readData.hdrMetadata.pixelSize.isValid() ? readData.hdrMetadata.pixelSize
+                                                       : loadedPixmap.size();
+    currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
+            ? currentFileDetails.baseImageSize
+            : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
+    currentFileDetails.hdrMetadata = readData.hdrMetadata;
+    currentFileDetails.decodeMilliseconds = readData.decodeMilliseconds;
 
     // Animation detection
     loadedMovie.stop();
@@ -193,6 +205,7 @@ void QVImageCore::closeImage(const bool stayInDir)
 void QVImageCore::loadEmptyPixmap()
 {
     loadedPixmap = QPixmap();
+    loadedHDRImage.reset();
     loadedMovie.stop();
     loadedMovie.setFileName("");
 
