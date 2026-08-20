@@ -94,6 +94,22 @@ def main() -> int:
         "orientation_applied": "kCIImageApplyOrientationProperty" in nonraw_decode,
         "hdr_candidate_from_metadata": "const bool hdrCandidate = hasGainMap" in nonraw_decode,
     })
+    case("ST-HDR-NONRAW-NONVOLATILE-DECODE", {
+        "hdr_decode_is_cached_at_initialization": (
+            nonraw_decode.count("kCIImageCacheImmediately") >= 2
+            and nonraw_decode.count("(id)kCIImageCacheImmediately : @YES") >= 2
+        ),
+        "both_hdr_and_sdr_recipes_are_cached": (
+            nonraw_decode.find("NSDictionary *hdrOptions")
+            < nonraw_decode.find("kCIImageCacheImmediately")
+            < nonraw_decode.find("NSDictionary *sdrOptions")
+            < nonraw_decode.rfind("kCIImageCacheImmediately")
+        ),
+        "viewport_transform_occurs_after_source_intermediate": (
+            renderer.find("preparedSDRImage = [[sdrSource imageByInsertingIntermediate:YES]")
+            < renderer.find("CIImage *preparedSDRFrame = imageForTexture")
+        ),
+    })
     case("ST-HDR-FLOAT-INTERMEDIATE", {
         "half_float_context": cocoa.count("kCIFormatRGBAh") >= 2,
         "retained_ci_graph": "CIImage *hdr" in cocoa and "[hdrImage retain]" in cocoa,
@@ -110,13 +126,25 @@ def main() -> int:
         "metal_ci_context": "contextWithMTLDevice" in renderer,
         "rgba16_float_layer": "MTLPixelFormatRGBA16Float" in renderer,
         "edr_requested": "wantsExtendedDynamicRangeContent = YES" in renderer,
+        "entire_drawable_is_opaque": (
+            "metalLayer.opaque = YES" in renderer and "alpha:1" in renderer
+        ),
         "quartzcore_linked": "-framework QuartzCore" in cmake and "-framework QuartzCore" in qmake,
     })
     case("ST-HDR-DISPLAY-ADAPTATION", {
         "current_headroom_per_render": "maximumExtendedDynamicRangeColorComponentValue" in renderer,
         "potential_headroom_per_render": "maximumPotentialExtendedDynamicRangeColorComponentValue" in renderer,
         "window_screen_selected": "nativeView.window.screen" in renderer,
-        "test_override": "FOVELLE_TEST_DISPLAY_HEADROOM" in renderer,
+        "full_display_override": "FOVELLE_TEST_DISPLAY_HEADROOM" in renderer,
+        "current_only_override": "FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM" in renderer,
+    })
+    case("ST-HDR-EDR-BOOTSTRAP", {
+        "pure_rendering_policy_declared": "displayHeadroomForRendering" in cocoa_header,
+        "policy_uses_current_potential_and_content": all(
+            token in cocoa for token in ("safeCurrent", "safePotential", "safeContent")
+        ),
+        "rendering_headroom_drives_target": "state.displayRenderingHeadroom, linearProgress" in renderer,
+        "bootstrap_is_observable": "state.bootstrappingEDR" in renderer,
     })
     case("ST-HDR-TONE-MAPPING", {
         "system_tone_map_filter": "CIToneMapHeadroom" in renderer,
@@ -134,23 +162,67 @@ def main() -> int:
     })
     case("ST-HDR-STAGED-FIRST-FRAME", {
         "layout_gate_closed_before_fit": view.count("hdrLayoutReady = false") >= 2,
-        "layout_gate_armed_after_fit": "hdrLayoutReady = hdrRendererActive" in view,
+        "layout_gate_armed_only_after_geometry_stabilizes": (
+            "finishHDRGeometryStabilization" in view and "hdrLayoutReady = true" in view
+        ),
         "sdr_proxy_kept_visible": "loadedPixmapItem->setVisible(true)" in view,
         "metal_starts_transparent": "metalLayer.opacity = 0.0F" in renderer,
         "reveal_after_presented_handler": "addPresentedHandler" in renderer and "firstFramePresented = YES" in renderer,
     })
     case("ST-HDR-OFFSCREEN-PREPARATION", {
-        "preparation_is_after_first_frame": "!presentationState->firstFramePresented" in renderer,
-        "two_float_endpoint_textures": "preparedSDRTexture" in renderer and "preparedHDRTexture" in renderer,
-        "raw_graph_rendered_offscreen": "scheduleHDRPreparation" in renderer and "toMTLTexture:preparedHDRTexture" in renderer,
+        "preparation_precedes_first_visible_frame": (
+            "needsManagedPreparation && !preparedRequestedGeometry" in renderer
+            and "scheduleHDRPreparation(viewportSize, corners, requestedSize)" in renderer
+            and renderer.index("needsManagedPreparation && !preparedRequestedGeometry")
+            < renderer.index("revealAfterPresentation(drawable, commandBuffer)")
+        ),
+        "core_image_manages_both_intermediates": renderer.count("imageByInsertingIntermediate:YES") == 2,
+        "float_scratch_texture_warms_intermediates": (
+            "MTLPixelFormatRGBA16Float" in renderer and "toMTLTexture:preparationTexture" in renderer
+        ),
+        "app_texture_is_never_reimported_as_ci_input": "imageWithMTLTexture" not in renderer,
+        "serial_command_buffers_complete_before_activation": (
+            "sdrPreparationBuffer" in renderer and "hdrPreparationBuffer" in renderer
+            and "transitionPreparationBuffer addCompletedHandler" in renderer
+        ),
+        "dynamic_ramp_states_are_prewarmed": (
+            "warmProgresses" in renderer and "preparedDisplayImage(targetHeadroom, easedProgress)" in renderer
+        ),
         "transition_waits_for_preparation": "shouldStartHDRTransition" in view and "hdrPrepared" in view,
         "prepared_endpoints_used_for_transition": "preparedDisplayImage" in renderer,
+    })
+    case("ST-HDR-GEOMETRY-LIFECYCLE", {
+        "complete_geometry_comparator": (
+            "hdrViewportGeometryEquivalent" in view and "lhsViewportSize != rhsViewportSize" in view
+            and "lhsImageCorners.size() != rhsImageCorners.size()" in view
+        ),
+        "geometry_debounce_is_single_shot": (
+            "hdrGeometryTimer->setSingleShot(true)" in view and "hdrGeometryTimer->setInterval(34)" in view
+        ),
+        "old_generation_invalidated": "hdrRenderer->invalidateGeometry()" in view,
+        "proxy_is_sole_pending_representation": (
+            "loadedPixmapItem->setVisible(true)" in view and "metalLayer.opacity = 0.0F" in renderer
+        ),
+        "layer_tracks_native_view_resize": "kCALayerWidthSizable | kCALayerHeightSizable" in renderer,
+        "drawable_background_prevents_reused_tile_ghosts": (
+            "imageByCompositingOverImage:clearImage" in renderer and "alpha:1" in renderer
+        ),
     })
     case("ST-HDR-OBSERVABILITY", {
         "json_telemetry": '"FOVELLE_HDR"' in view and "QJsonDocument::Compact" in view,
         "decode_timing": "decodeTimer.nsecsElapsed()" in loader,
         "render_timing": "lastRenderMilliseconds" in renderer,
-        "headroom_and_transition_fields": "display_current_headroom" in view and "transition_progress" in view,
+        "headroom_and_transition_fields": (
+            "display_current_headroom" in view and "display_rendering_headroom" in view
+            and "transition_progress" in view
+        ),
+        "geometry_generation_fields": "geometry_generation" in view and "geometry_reset_count" in view,
+        "viewport_crop_fields": all(
+            token in view for token in (
+                "viewport_global_x", "viewport_global_y", "viewport_logical_width",
+                "viewport_logical_height", "viewport_device_pixel_ratio",
+            )
+        ),
     })
     case("ST-HDR-VERSION-0.1.4", {
         "cmake_version": "project(Fovelle VERSION 0.1.4" in cmake,

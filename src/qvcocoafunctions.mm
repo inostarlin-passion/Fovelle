@@ -598,13 +598,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.device = device;
         metalLayer.pixelFormat = MTLPixelFormatRGBA16Float;
         metalLayer.framebufferOnly = NO;
-        metalLayer.opaque = NO;
-        metalLayer.backgroundColor = NSColor.clearColor.CGColor;
+        metalLayer.opaque = YES;
+        metalLayer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
         metalLayer.colorspace = outputColorSpace;
         metalLayer.wantsExtendedDynamicRangeContent = YES;
         metalLayer.presentsWithTransaction = NO;
         metalLayer.allowsNextDrawableTimeout = YES;
         metalLayer.maximumDrawableCount = 3;
+        metalLayer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
         if (@available(macOS 15.0, *))
             metalLayer.toneMapMode = CAToneMapModeAutomatic;
         if (@available(macOS 26.0, *))
@@ -624,6 +625,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.usesExtendedLinearDisplayP3 = CGColorSpaceUsesExtendedRange(outputColorSpace);
         state.usesColorSync = true;
         state.wantsExtendedDynamicRangeContent = metalLayer.wantsExtendedDynamicRangeContent;
+        state.clearsEntireDrawableOpaque = metalLayer.opaque;
+        state.usesCoreImageManagedIntermediates = true;
     }
 
     ~Impl()
@@ -654,12 +657,16 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.firstFramePresented = false;
         state.hdrPreparationInFlight = false;
         state.hdrPrepared = false;
+        state.preparedGeometryActive = false;
+        state.bootstrappingEDR = false;
         state.requestedDrawableWidth = 0;
         state.requestedDrawableHeight = 0;
         state.actualTextureWidth = 0;
         state.actualTextureHeight = 0;
         state.drawableGeometryMatches = false;
         state.layerOpacity = 0.0F;
+        state.geometryGeneration = presentationState->generation;
+        state.geometryResetCount = 0;
         state.transitionProgress = 0.0F;
         state.targetHeadroom = 1.0F;
         state.renderCount = 0;
@@ -683,6 +690,29 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
+    void invalidateGeometry()
+    {
+        if (!image)
+            return;
+
+        clearPreparedImages();
+        [presentationState resetForImage];
+        state.firstFrameSubmitted = false;
+        state.firstFramePresented = false;
+        state.hdrPreparationInFlight = false;
+        state.hdrPrepared = false;
+        state.preparedGeometryActive = false;
+        state.transitionProgress = 0.0F;
+        state.geometryGeneration = presentationState->generation;
+        ++state.geometryResetCount;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        metalLayer.opacity = 0.0F;
+        [CATransaction commit];
+        state.layerOpacity = 0.0F;
+    }
+
     static CIImage *mixImages(CIImage *sdr, CIImage *hdr, const float amount)
     {
         if (!hdr)
@@ -703,12 +733,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         [preparedHDRImage release];
         [preparedSDRImage release];
-        [preparedHDRTexture release];
-        [preparedSDRTexture release];
+        [preparationTexture release];
         preparedHDRImage = nil;
         preparedSDRImage = nil;
-        preparedHDRTexture = nil;
-        preparedSDRTexture = nil;
+        preparationTexture = nil;
         preparedViewportSize = {};
         preparedCorners.clear();
         preparedTextureSize = {};
@@ -723,11 +751,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         if (!sdr)
             return hdr;
-        if (state.displayCurrentHeadroom <= 1.001F || progress <= 0.001F)
+        if (state.displayRenderingHeadroom <= 1.001F || progress <= 0.001F)
             return sdr;
 
         if (metadata.isRaw) {
-            const float rawAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
+            const float rawAmount = state.displayRenderingHeadroom > 1.001F ? progress : 0.0F;
             return mixImages(sdr, hdr, rawAmount);
         }
 
@@ -742,7 +770,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             }
         }
 
-        const float fallbackAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
+        const float fallbackAmount = state.displayRenderingHeadroom > 1.001F ? progress : 0.0F;
         return mixImages(sdr, hdr, fallbackAmount);
     }
 
@@ -750,7 +778,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         if (!preparedSDRImage)
             return preparedHDRImage;
-        if (!preparedHDRImage || state.displayCurrentHeadroom <= 1.001F || progress <= 0.001F)
+        if (!preparedHDRImage || state.displayRenderingHeadroom <= 1.001F
+            || progress <= 0.001F)
             return preparedSDRImage;
 
         if (image->metadata().isRaw)
@@ -818,10 +847,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         source = [source imageByApplyingTransform:CGAffineTransformMake(a, b, c, d, tx, ty)];
 
         const CGRect destinationBounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
-        CIColor *clearColor = [CIColor colorWithRed:0
-                                              green:0
-                                               blue:0
-                                              alpha:0
+        NSColorSpace *nativeOutputSpace =
+                [[[NSColorSpace alloc] initWithCGColorSpace:outputColorSpace] autorelease];
+        NSColor *nativeBackground = nativeOutputSpace
+                ? [NSColor.windowBackgroundColor colorUsingColorSpace:nativeOutputSpace]
+                : nil;
+        const CGFloat backgroundRed = nativeBackground ? nativeBackground.redComponent : 0;
+        const CGFloat backgroundGreen = nativeBackground ? nativeBackground.greenComponent : 0;
+        const CGFloat backgroundBlue = nativeBackground ? nativeBackground.blueComponent : 0;
+        CIColor *clearColor = [CIColor colorWithRed:backgroundRed
+                                              green:backgroundGreen
+                                               blue:backgroundBlue
+                                              alpha:1
                                          colorSpace:outputColorSpace];
         CIImage *clearImage =
                 [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
@@ -871,23 +908,20 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     void scheduleHDRPreparation(const QSize &viewportSize, const QPolygonF &corners,
                                 const CGSize textureSize)
     {
-        if (!presentationState->firstFramePresented || presentationState->hdrPrepared
-            || presentationState->hdrPreparationInFlight)
+        if (presentationState->hdrPrepared || presentationState->hdrPreparationInFlight)
             return;
 
         // An SDR display never needs to evaluate the >1 branch merely to show
         // a compatible result.
-        if (state.displayCurrentHeadroom <= 1.001F) {
+        if (state.displayRenderingHeadroom <= 1.001F) {
             presentationState->hdrPrepared = YES;
             return;
         }
 
-        CIImage *sdrSource = imageForTexture(image->sdrCIImage(), viewportSize, corners, textureSize);
-        CIImage *hdrSource = imageForTexture(image->hdrCIImage(), viewportSize, corners, textureSize);
-        if (!sdrSource || !hdrSource) {
-            presentationState->hdrPrepared = YES;
+        CIImage *sdrSource = image->sdrCIImage();
+        CIImage *hdrSource = image->hdrCIImage();
+        if (!sdrSource || !hdrSource)
             return;
-        }
 
         clearPreparedImages();
         MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
@@ -898,19 +932,25 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         descriptor.storageMode = MTLStorageModePrivate;
         descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite
                 | MTLTextureUsageRenderTarget;
-        preparedSDRTexture = [device newTextureWithDescriptor:descriptor];
-        preparedHDRTexture = [device newTextureWithDescriptor:descriptor];
-        id<MTLCommandBuffer> preparationBuffer = [commandQueue commandBuffer];
-        if (!preparedSDRTexture || !preparedHDRTexture || !preparationBuffer) {
+        preparationTexture = [device newTextureWithDescriptor:descriptor];
+        id<MTLCommandBuffer> sdrPreparationBuffer = [commandQueue commandBuffer];
+        id<MTLCommandBuffer> hdrPreparationBuffer = [commandQueue commandBuffer];
+        id<MTLCommandBuffer> transitionPreparationBuffer = [commandQueue commandBuffer];
+        if (!preparationTexture || !sdrPreparationBuffer || !hdrPreparationBuffer
+            || !transitionPreparationBuffer) {
             clearPreparedImages();
             return;
         }
 
-        NSDictionary *imageOptions = @{ (id)kCIImageColorSpace : (id)outputColorSpace };
-        preparedSDRImage = [[CIImage imageWithMTLTexture:preparedSDRTexture
-                                                 options:imageOptions] retain];
-        preparedHDRImage = [[CIImage imageWithMTLTexture:preparedHDRTexture
-                                                 options:imageOptions] retain];
+        // Cache the high-precision source graphs, before viewport transforms
+        // and crops. Caching the final viewport image makes Core Image's
+        // intermediate ROI geometry-dependent: after zooming or panning a
+        // later evaluation can expose only the tiles resolved for an earlier
+        // crop (visible as black bands or stale pixels). The source-space
+        // intermediate remains valid while every visible frame is freshly
+        // transformed and composited across the entire drawable.
+        preparedSDRImage = [[sdrSource imageByInsertingIntermediate:YES] retain];
+        preparedHDRImage = [[hdrSource imageByInsertingIntermediate:YES] retain];
         if (!preparedSDRImage || !preparedHDRImage) {
             clearPreparedImages();
             return;
@@ -924,17 +964,54 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const NSUInteger preparationGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
         const CGRect bounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
-        [context render:sdrSource
-             toMTLTexture:preparedSDRTexture
-            commandBuffer:preparationBuffer
+        CIImage *preparedSDRFrame = imageForTexture(
+                preparedSDRImage, viewportSize, corners, textureSize);
+        CIImage *preparedHDRFrame = imageForTexture(
+                preparedHDRImage, viewportSize, corners, textureSize);
+        if (!preparedSDRFrame || !preparedHDRFrame) {
+            clearPreparedImages();
+            presentationState->hdrPreparationInFlight = NO;
+            return;
+        }
+        [context render:preparedSDRFrame
+             toMTLTexture:preparationTexture
+            commandBuffer:sdrPreparationBuffer
                    bounds:bounds
                colorSpace:outputColorSpace];
-        [context render:hdrSource
-             toMTLTexture:preparedHDRTexture
-            commandBuffer:preparationBuffer
+        [sdrPreparationBuffer commit];
+        [context render:preparedHDRFrame
+             toMTLTexture:preparationTexture
+            commandBuffer:hdrPreparationBuffer
                    bounds:bounds
                colorSpace:outputColorSpace];
-        [preparationBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
+        [hdrPreparationBuffer commit];
+
+        // Endpoint caching alone does not compile and schedule the dynamic
+        // dissolve/tone-map portion of the graph. Warm representative ramp
+        // states while the Qt proxy is still visible so shader setup and the
+        // first full-texture reads cannot consume the visible transition.
+        const qreal warmProgresses[]{ 0.1, 0.5, 1.0 };
+        for (const qreal linearProgress : warmProgresses) {
+            const float easedProgress = static_cast<float>(
+                    QVCocoaFunctions::easedHDRTransition(linearProgress));
+            const float targetHeadroom = static_cast<float>(
+                    QVCocoaFunctions::effectiveHDRHeadroom(
+                            state.contentHeadroom, state.displayRenderingHeadroom,
+                            linearProgress));
+            CIImage *warmImage = preparedDisplayImage(targetHeadroom, easedProgress);
+            if (warmImage) {
+                CIImage *warmFrame = imageForTexture(
+                        warmImage, viewportSize, corners, textureSize);
+                if (warmFrame) {
+                    [context render:warmFrame
+                         toMTLTexture:preparationTexture
+                        commandBuffer:transitionPreparationBuffer
+                               bounds:bounds
+                           colorSpace:outputColorSpace];
+                }
+            }
+        }
+        [transitionPreparationBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
             const BOOL completed = completedBuffer.status == MTLCommandBufferStatusCompleted;
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (gate->generation != preparationGeneration)
@@ -943,7 +1020,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 gate->hdrPrepared = completed;
             });
         }];
-        [preparationBuffer commit];
+        [transitionPreparationBuffer commit];
     }
 
     void render(const QSize &viewportSize, const QPolygonF &corners, const qreal linearProgress)
@@ -968,13 +1045,29 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const double overriddenHeadroom =
                     qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM").toDouble(&overrideIsValid);
             state.displayHeadroomOverridden = overrideIsValid;
-            if (overrideIsValid)
+            if (overrideIsValid) {
                 state.displayCurrentHeadroom =
                         static_cast<float>(std::max(1.0, overriddenHeadroom));
+                state.displayPotentialHeadroom = state.displayCurrentHeadroom;
+            }
+            bool currentOverrideIsValid = false;
+            const double overriddenCurrentHeadroom =
+                    qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM")
+                            .toDouble(&currentOverrideIsValid);
+            state.displayCurrentHeadroomOverridden = currentOverrideIsValid;
+            if (currentOverrideIsValid)
+                state.displayCurrentHeadroom =
+                        static_cast<float>(std::max(1.0, overriddenCurrentHeadroom));
+            state.displayRenderingHeadroom = static_cast<float>(
+                    QVCocoaFunctions::displayHeadroomForRendering(
+                            state.displayCurrentHeadroom, state.displayPotentialHeadroom,
+                            state.contentHeadroom));
+            state.bootstrappingEDR = state.displayCurrentHeadroom <= 1.001F
+                    && state.displayRenderingHeadroom > 1.001F;
             state.transitionProgress =
                     static_cast<float>(QVCocoaFunctions::easedHDRTransition(linearProgress));
             state.targetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
-                    state.contentHeadroom, state.displayCurrentHeadroom, linearProgress));
+                    state.contentHeadroom, state.displayRenderingHeadroom, linearProgress));
 
             const CGFloat backingScale = nativeView.window
                     ? nativeView.window.backingScaleFactor
@@ -995,6 +1088,35 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom);
             [CATransaction commit];
 
+            const QSize requestedTextureSize(
+                    static_cast<int>(std::lround(requestedSize.width)),
+                    static_cast<int>(std::lround(requestedSize.height)));
+            const bool needsManagedPreparation = state.displayRenderingHeadroom > 1.001F;
+            const bool preparedRequestedGeometry = presentationState->hdrPrepared
+                    && preparedSDRImage && preparedHDRImage
+                    && preparedViewportSize == viewportSize
+                    && preparedTextureSize == requestedTextureSize
+                    && preparedCorners == corners;
+
+            // A full-resolution RAW or adaptive-HDR graph may evaluate its
+            // tiles lazily. Never reveal that first evaluation: it can contain
+            // only the already-resolved top-left tiles even though its extent
+            // and drawable dimensions are correct. Keep the complete Qt SDR
+            // proxy visible while Core Image owns and warms full-frame float
+            // intermediates, then make the first visible Metal frame from the
+            // prepared graph.
+            if (needsManagedPreparation && !preparedRequestedGeometry) {
+                if (presentationState->hdrPrepared) {
+                    clearPreparedImages();
+                    presentationState->hdrPrepared = NO;
+                }
+                scheduleHDRPreparation(viewportSize, corners, requestedSize);
+                syncPresentationDiagnostics();
+                return;
+            }
+            if (!needsManagedPreparation && !presentationState->hdrPrepared)
+                scheduleHDRPreparation(viewportSize, corners, requestedSize);
+
             id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
             id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
             if (!drawable || !commandBuffer)
@@ -1005,17 +1127,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             state.drawableGeometryMatches =
                     state.actualTextureWidth == state.requestedDrawableWidth
                     && state.actualTextureHeight == state.requestedDrawableHeight;
+            if (!state.drawableGeometryMatches)
+                return;
 
             const QSize actualTextureSize(state.actualTextureWidth, state.actualTextureHeight);
             const bool preparedGeometryMatches = presentationState->hdrPrepared
                     && preparedSDRImage && preparedHDRImage
                     && preparedViewportSize == viewportSize && preparedTextureSize == actualTextureSize
                     && preparedCorners == corners;
+            state.preparedGeometryActive = preparedGeometryMatches;
+            if (needsManagedPreparation && !preparedGeometryMatches)
+                return;
             CIImage *source = preparedGeometryMatches
                     ? preparedDisplayImage(state.targetHeadroom, state.transitionProgress)
                     : displayImage(*image, state.targetHeadroom, state.transitionProgress);
-            if (!preparedGeometryMatches)
-                source = imageForTexture(source, viewportSize, corners, actualSize);
+            source = imageForTexture(source, viewportSize, corners, actualSize);
             if (!source)
                 return;
 
@@ -1032,8 +1158,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [commandBuffer commit];
             state.lastRenderMilliseconds = timer.nsecsElapsed() / 1000000.0;
             ++state.renderCount;
-
-            scheduleHDRPreparation(viewportSize, corners, actualSize);
             syncPresentationDiagnostics();
         }
     }
@@ -1051,8 +1175,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CIContext *context{ nil };
     CGColorSpaceRef outputColorSpace{ nullptr };
     QVHDRPresentationState *presentationState{ nil };
-    id<MTLTexture> preparedSDRTexture{ nil };
-    id<MTLTexture> preparedHDRTexture{ nil };
+    id<MTLTexture> preparationTexture{ nil };
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
     QSize preparedViewportSize;
@@ -1079,6 +1202,12 @@ bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image)
     return impl && impl->setImage(image);
 }
 
+void QVCocoaFunctions::HDRRenderer::invalidateGeometry()
+{
+    if (impl)
+        impl->invalidateGeometry();
+}
+
 void QVCocoaFunctions::HDRRenderer::clear()
 {
     if (impl)
@@ -1103,6 +1232,16 @@ qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
     return bounded * bounded * (3.0 - 2.0 * bounded);
 }
 
+qreal QVCocoaFunctions::pacedHDRTransitionProgress(const qreal previousProgress,
+                                                    const qreal desiredProgress,
+                                                    const qreal maximumStep)
+{
+    const qreal previous = std::clamp(previousProgress, 0.0, 1.0);
+    const qreal desired = std::clamp(desiredProgress, previous, 1.0);
+    const qreal step = std::max(0.0, maximumStep);
+    return std::min(desired, previous + step);
+}
+
 qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
                                              const qreal displayHeadroom,
                                              const qreal transitionProgress)
@@ -1111,6 +1250,21 @@ qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
     const qreal safeContent = contentHeadroom > 0.0 ? std::max(1.0, contentHeadroom) : safeDisplay;
     const qreal available = std::min(safeContent, safeDisplay);
     return 1.0 + (available - 1.0) * easedHDRTransition(transitionProgress);
+}
+
+qreal QVCocoaFunctions::displayHeadroomForRendering(const qreal currentHeadroom,
+                                                     const qreal potentialHeadroom,
+                                                     const qreal contentHeadroom)
+{
+    const qreal safeCurrent = std::max(1.0, currentHeadroom);
+    const qreal safePotential = std::max(1.0, potentialHeadroom);
+    if (safeCurrent > 1.001 || safePotential <= 1.001)
+        return std::min(safeCurrent, safePotential);
+
+    const qreal safeContent = contentHeadroom > 1.001
+            ? contentHeadroom
+            : safePotential;
+    return std::min(safeContent, safePotential);
 }
 
 bool QVCocoaFunctions::shouldStartHDRTransition(const bool layoutReady,
@@ -1628,9 +1782,13 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 if (@available(macOS 14.0, *)) {
                     NSDictionary *hdrOptions = @{
                         (id)kCIImageExpandToHDR : @YES,
-                        (id)kCIImageApplyOrientationProperty : @YES
+                        (id)kCIImageApplyOrientationProperty : @YES,
+                        (id)kCIImageCacheImmediately : @YES
                     };
-                    NSDictionary *sdrOptions = @{(id)kCIImageApplyOrientationProperty : @YES};
+                    NSDictionary *sdrOptions = @{
+                        (id)kCIImageApplyOrientationProperty : @YES,
+                        (id)kCIImageCacheImmediately : @YES
+                    };
                     CIImage *hdrImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
                                                                 options:hdrOptions];
                     CIImage *sdrImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()

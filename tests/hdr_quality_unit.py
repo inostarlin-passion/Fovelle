@@ -17,9 +17,12 @@ from pathlib import Path
 
 EXPECTED = (
     ("UT-HDR-TRANSITION", "HDRPolicyTests", "testTransitionCurveIsBoundedAndMonotonic"),
+    ("UT-HDR-PRESENTATION-PACING", "HDRPolicyTests", "testPresentationPacingBoundsDelayedFrameProgress"),
     ("UT-HDR-HEADROOM-CLAMP", "HDRPolicyTests", "testHDRHeadroomIsClampedToContentAndDisplay"),
     ("UT-HDR-SDR-FALLBACK", "HDRPolicyTests", "testSDRDisplayForcesUnitHeadroom"),
+    ("UT-HDR-EDR-BOOTSTRAP", "HDRPolicyTests", "testDisplayHeadroomBootstrapsFromPotentialCapability"),
     ("UT-HDR-STAGED-PRESENTATION", "HDRPolicyTests", "testTransitionStartsOnlyAfterStagedPresentation"),
+    ("UT-HDR-GEOMETRY-EQUIVALENCE", "HDRPolicyTests", "testHDRViewportGeometryEquivalenceUsesCompleteContract"),
     ("UT-HDR-RENDERER-CONTRACT", "HDRPolicyTests", "testRendererUsesFloatEDRColorManagedSurface"),
     ("UT-HDR-SDR-CLASSIFICATION", "HDRPolicyTests", "testSDRImageStaysOnSDRPath"),
     ("UT-HDR-FORMAT-COVERAGE", "HDRPolicyTests", "testRequiredHDRFormatsAreAdvertised"),

@@ -68,14 +68,20 @@ public:
         bool usesExtendedLinearDisplayP3{ false };
         bool usesColorSync{ false };
         bool wantsExtendedDynamicRangeContent{ false };
+        bool clearsEntireDrawableOpaque{ false };
         bool displayHeadroomOverridden{ false };
+        bool displayCurrentHeadroomOverridden{ false };
         bool firstFrameSubmitted{ false };
         bool firstFramePresented{ false };
         bool hdrPreparationInFlight{ false };
         bool hdrPrepared{ false };
+        bool usesCoreImageManagedIntermediates{ false };
+        bool preparedGeometryActive{ false };
+        bool bootstrappingEDR{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
+        float displayRenderingHeadroom{ 1.0F };
         float targetHeadroom{ 1.0F };
         float transitionProgress{ 0.0F };
         int requestedDrawableWidth{ 0 };
@@ -84,6 +90,8 @@ public:
         int actualTextureHeight{ 0 };
         bool drawableGeometryMatches{ false };
         float layerOpacity{ 0.0F };
+        quint64 geometryGeneration{ 0 };
+        quint64 geometryResetCount{ 0 };
         quint64 renderCount{ 0 };
         double lastRenderMilliseconds{ 0.0 };
     };
@@ -106,6 +114,7 @@ public:
 
         bool isAvailable() const;
         bool setImage(const HDRImagePtr &image);
+        void invalidateGeometry();
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
                     qreal transitionProgress);
@@ -177,8 +186,21 @@ public:
     // verified without depending on a particular physical display.
     static qreal easedHDRTransition(qreal progress);
 
+    // Advance a presentation-driven ramp without allowing a delayed GPU frame
+    // to turn elapsed wall time into a visible luminance jump.
+    static qreal pacedHDRTransitionProgress(qreal previousProgress,
+                                            qreal desiredProgress,
+                                            qreal maximumStep);
+
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
+
+    // The current EDR value can remain one until the first EDR frame is
+    // onscreen. Use potential capability to break that bootstrap cycle while
+    // still preferring the dynamic current value once WindowServer exposes it.
+    static qreal displayHeadroomForRendering(qreal currentHeadroom,
+                                             qreal potentialHeadroom,
+                                             qreal contentHeadroom);
 
     // A transition may begin only after the final view geometry is known, an
     // SDR Metal frame is actually visible, and the expensive HDR graph has

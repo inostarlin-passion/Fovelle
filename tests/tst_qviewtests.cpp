@@ -99,9 +99,12 @@ class HDRPolicyTests : public QObject
 
 private slots:
     void testTransitionCurveIsBoundedAndMonotonic();
+    void testPresentationPacingBoundsDelayedFrameProgress();
     void testHDRHeadroomIsClampedToContentAndDisplay();
     void testSDRDisplayForcesUnitHeadroom();
+    void testDisplayHeadroomBootstrapsFromPotentialCapability();
     void testTransitionStartsOnlyAfterStagedPresentation();
+    void testHDRViewportGeometryEquivalenceUsesCompleteContract();
     void testRendererUsesFloatEDRColorManagedSurface();
     void testSDRImageStaysOnSDRPath();
     void testRequiredHDRFormatsAreAdvertised();
@@ -113,6 +116,7 @@ class HDRSampleTests : public QObject
 
 private slots:
     void testGainMapJPEGCreatesNativeHDRGraph();
+    void testGainMapJPEGHDRContainsAboveSDRValues();
     void testDNGCreatesNativeRawEDRGraph();
     void testDNGRawEDRContainsAboveSDRValues();
 };
@@ -869,6 +873,29 @@ void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
     }
 }
 
+// TC-HDR-UNIT-PRESENTATION-PACING
+// Test purpose: verify a delayed GPU frame cannot convert elapsed wall time
+// into a large visible luminance step.
+// Preconditions: the pure transition pacing helper is available.
+// Input data: normal progress, a large desired jump, a backwards desired
+// value, out-of-range values, and a zero maximum step.
+// Steps: advance the linear ramp once for each deterministic input.
+// Expected result: progress is monotonic and clamped to [0,1], with each
+// delayed advance bounded by the supplied maximum step.
+// Postcondition: no clocks, timers, images, or display state change.
+void HDRPolicyTests::testPresentationPacingBoundsDelayedFrameProgress()
+{
+    const auto verify = [](const qreal actual, const qreal expected) {
+        QVERIFY(qAbs(actual - expected) < 1e-12);
+    };
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.10, 0.12, 0.04), 0.12);
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.10, 0.80, 0.04), 0.14);
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.50, 0.20, 0.04), 0.50);
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(-1.0, 2.0, 0.04), 0.04);
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.90, 1.0, 0.20), 1.0);
+    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.25, 0.90, 0.0), 0.25);
+}
+
 // TC-HDR-UNIT-HEADROOM-CLAMP
 // Test purpose: verify image highlights never request more headroom than both
 // the content and current display permit.
@@ -905,6 +932,24 @@ void HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()
     QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.9473, 1.0, 1.0), 1.0);
 }
 
+// TC-HDR-UNIT-EDR-BOOTSTRAP
+// Test purpose: verify a potential EDR display can accept the first EDR frame
+// even while NSScreen's dynamic current value still reports one.
+// Preconditions: the pure rendering-headroom policy helper is available.
+// Input data: SDR-only, clean-start XDR with known/unknown content headroom,
+// and an already-active XDR current headroom.
+// Steps: evaluate displayHeadroomForRendering for all four states.
+// Expected result: SDR remains one; clean-start XDR uses bounded potential
+// capability; once current rises, the dynamic current value is preferred.
+// Postcondition: no display or process environment state changes.
+void HDRPolicyTests::testDisplayHeadroomBootstrapsFromPotentialCapability()
+{
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 1.0, 5.0), 1.0);
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 16.0, 4.9473), 4.9473);
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 4.0, 0.0), 4.0);
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(3.5, 16.0, 5.0), 3.5);
+}
+
 // TC-HDR-UNIT-STAGED-PRESENTATION
 // Test purpose: verify HDR activation cannot race layout, the first visible
 // Metal frame, or the expensive first evaluation of the HDR graph.
@@ -925,6 +970,40 @@ void HDRPolicyTests::testTransitionStartsOnlyAfterStagedPresentation()
                          layoutReady, framePresented, hdrPrepared),
                  bits == 7);
     }
+}
+
+// TC-HDR-UNIT-GEOMETRY-EQUIVALENCE
+// Test purpose: verify Metal geometry stabilization compares the complete
+// viewport contract, not only zoom or drawable dimensions.
+// Preconditions: the pure geometry comparator is available.
+// Input data: identical four-corner geometry, sub/over-tolerance deltas,
+// a different viewport, and a polygon with one missing corner.
+// Steps: compare each candidate against the same reference contract.
+// Expected result: only identical and 0.005-pixel-delta geometry are
+// equivalent at the default 0.01-pixel tolerance.
+// Postcondition: no widget or renderer state changes.
+void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
+{
+    const QSize viewport(1200, 775);
+    const QPolygonF reference{ QPointF(100.0, 20.0), QPointF(900.0, 20.0),
+                               QPointF(900.0, 740.0), QPointF(100.0, 740.0) };
+    QPolygonF withinTolerance = reference;
+    withinTolerance[2] += QPointF(0.005, -0.005);
+    QPolygonF outsideTolerance = reference;
+    outsideTolerance[2] += QPointF(0.02, 0.0);
+    QPolygonF missingCorner = reference;
+    missingCorner.removeLast();
+
+    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(
+            viewport, reference, viewport, reference));
+    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(
+            viewport, reference, viewport, withinTolerance));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
+            viewport, reference, viewport, outsideTolerance));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
+            viewport, reference, QSize(1199, 775), reference));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
+            viewport, reference, viewport, missingCorner));
 }
 
 // TC-HDR-UNIT-RENDERER-CONTRACT
@@ -949,6 +1028,8 @@ void HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()
     QVERIFY(diagnostics.usesExtendedLinearDisplayP3);
     QVERIFY(diagnostics.usesColorSync);
     QVERIFY(diagnostics.wantsExtendedDynamicRangeContent);
+    QVERIFY(diagnostics.clearsEntireDrawableOpaque);
+    QVERIFY(diagnostics.usesCoreImageManagedIntermediates);
     QVERIFY(!diagnostics.imageActive);
 }
 
@@ -1019,6 +1100,31 @@ void HDRSampleTests::testGainMapJPEGCreatesNativeHDRGraph()
     QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
     QVERIFY(!result.image.isNull());
     QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+}
+
+// TC-HDR-INT-GAINMAP-JPEG-PEAK
+// Test purpose: prove the supplied JPEG's reconstructed adaptive-HDR graph
+// contains extended-linear pixel values above its SDR representation.
+// Preconditions: the sample is readable and Image I/O can expand its gain map.
+// Input data: IMG_1735.JPG's retained SDR and HDR CI graphs.
+// Steps: reduce both graphs with CIAreaMaximum in extended-linear Display P3
+// and compare their largest RGB components.
+// Expected result: HDR exceeds 1.05 and is at least 0.05 above SDR.
+// Postcondition: the probe context and both graph references are released.
+void HDRSampleTests::testGainMapJPEGHDRContainsAboveSDRValues()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_JPEG_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.hdrImage);
+    const auto statistics = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    qInfo("FOVELLE_JPEG_PEAK sdr_max=%.9f hdr_max=%.9f",
+          static_cast<double>(statistics.sdrMaximumComponent),
+          static_cast<double>(statistics.hdrMaximumComponent));
+    QVERIFY(statistics.valid);
+    QVERIFY(statistics.hdrMaximumComponent > 1.05F);
+    QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
 }
 
 // TC-HDR-INT-RAW-DNG

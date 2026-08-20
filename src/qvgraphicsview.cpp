@@ -65,9 +65,15 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     hdrTransitionTimer->setInterval(16);
     connect(hdrTransitionTimer, &QTimer::timeout, this, [this]() {
         updateHDRRenderer();
-        if (hdrTransitionClock.isValid() && hdrTransitionClock.elapsed() >= 1800)
+        if (hdrTransitionClock.isValid() && hdrTransitionClock.elapsed() >= 1800
+            && hdrTransitionLinearProgress >= 1.0)
             hdrTransitionTimer->stop();
     });
+    hdrGeometryTimer = new QTimer(this);
+    hdrGeometryTimer->setSingleShot(true);
+    hdrGeometryTimer->setInterval(34);
+    connect(hdrGeometryTimer, &QTimer::timeout, this,
+            &QVGraphicsView::finishHDRGeometryStabilization);
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this,
             [this]() { updateHDRRenderer(); });
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
@@ -639,6 +645,26 @@ bool QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
         imageSize.height() < viewportSize.height();
 }
 
+bool QVGraphicsView::hdrViewportGeometryEquivalent(
+    const QSize &lhsViewportSize,
+    const QPolygonF &lhsImageCorners,
+    const QSize &rhsViewportSize,
+    const QPolygonF &rhsImageCorners,
+    const qreal tolerance)
+{
+    if (lhsViewportSize != rhsViewportSize
+        || lhsImageCorners.size() != rhsImageCorners.size())
+        return false;
+
+    const qreal safeTolerance = qMax(0.0, tolerance);
+    for (qsizetype index = 0; index < lhsImageCorners.size(); ++index) {
+        const QPointF delta = lhsImageCorners.at(index) - rhsImageCorners.at(index);
+        if (qAbs(delta.x()) > safeTolerance || qAbs(delta.y()) > safeTolerance)
+            return false;
+    }
+    return true;
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -745,6 +771,9 @@ void QVGraphicsView::reloadFile()
 void QVGraphicsView::beforeLoad()
 {
     hdrLayoutReady = false;
+    hdrTransitionLinearProgress = 0.0;
+    hdrPendingGeometryValid = false;
+    hdrGeometryTimer->stop();
     lastCalculatedZoomMode.reset();
     lastCalculatedZoomLevel.reset();
 
@@ -756,6 +785,9 @@ void QVGraphicsView::beforeLoad()
 void QVGraphicsView::postLoad()
 {
     hdrLayoutReady = false;
+    hdrTransitionLinearProgress = 0.0;
+    hdrPendingGeometryValid = false;
+    hdrGeometryTimer->stop();
     scrollHelper->cancelAnimation();
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
@@ -779,6 +811,7 @@ void QVGraphicsView::postLoad()
         hdrTransitionTimer->start();
     } else {
         hdrTransitionTimer->stop();
+        hdrGeometryTimer->stop();
         if (hdrRenderer)
             hdrRenderer->clear();
     }
@@ -803,14 +836,45 @@ void QVGraphicsView::postLoad()
             fitOrConstrainImage();
     }
     logViewportState("post-load-after-fit");
-    // paintEvent can run synchronously while updateSceneRect/fit changes Qt
-    // scrollbars. Arm Metal only after the final transform is established.
-    hdrLayoutReady = hdrRendererActive;
+    // updateSceneRect, scrollbar policy and full-size titlebar layout can all
+    // settle on later event-loop turns. Record the complete geometry now and
+    // arm Metal only after it remains unchanged for two display intervals.
     updateHDRRenderer();
     QTimer::singleShot(0, this, [this]() { logViewportState("post-load-next-turn"); });
     loadIsFromSessionRestore = false;
 
     expensiveScaleTimer->start();
+
+    // Deterministic, opt-in system-test driver. It exercises the same public
+    // zoom and scrollbar paths as user interaction without synthetic global
+    // input or changes to persisted settings.
+    if (hdrRendererActive && !hdrInteractionTestScheduled
+        && qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_INTERACTION")) {
+        hdrInteractionTestScheduled = true;
+        QTimer::singleShot(2400, this, [this]() {
+            if (!hdrRendererActive)
+                return;
+            zoomRelative(4.0, Qv::CalculateViewportCenterPos);
+            fitOrConstrainImage();
+
+            auto *panTimer = new QTimer(this);
+            panTimer->setInterval(12);
+            panTimer->setProperty("step", 0);
+            connect(panTimer, &QTimer::timeout, this, [this, panTimer]() {
+                const int step = panTimer->property("step").toInt();
+                horizontalScrollBar()->setValue(horizontalScrollBar()->value() + 11);
+                verticalScrollBar()->setValue(verticalScrollBar()->value() + 7);
+                if (step >= 11) {
+                    panTimer->stop();
+                    panTimer->deleteLater();
+                    logHDRState("test-interaction-finished");
+                } else {
+                    panTimer->setProperty("step", step + 1);
+                }
+            });
+            panTimer->start();
+        });
+    }
 
     if (turboNavMode.has_value())
     {
@@ -1354,19 +1418,86 @@ void QVGraphicsView::logViewportState(const char *phase) const
                       << verticalScrollBar()->maximum();
 }
 
-void QVGraphicsView::updateHDRRenderer()
+QPolygonF QVGraphicsView::getHDRViewportCorners() const
 {
-    if (!hdrRendererActive || !hdrRenderer || !hdrLayoutReady)
-        return;
-
     const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
     if (sourceSize.isEmpty() || viewport()->size().isEmpty())
-        return;
+        return {};
 
     const QPolygonF sourceCorners{ QPointF(0.0, 0.0), QPointF(sourceSize.width(), 0.0),
                                    QPointF(sourceSize.width(), sourceSize.height()),
                                    QPointF(0.0, sourceSize.height()) };
-    const QPolygonF viewportCorners = viewportTransform().map(sourceCorners);
+    return viewportTransform().map(sourceCorners);
+}
+
+void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
+                                      const QPolygonF &imageCorners)
+{
+    const bool invalidatePresentedGeometry = hdrLayoutReady;
+    hdrLayoutReady = false;
+    hdrPendingGeometryValid = true;
+    hdrPendingViewportSize = viewportSize;
+    hdrPendingImageCorners = imageCorners;
+    hdrTransitionClock.invalidate();
+    hdrTransitionLinearProgress = 0.0;
+    loadedPixmapItem->setVisible(true);
+
+    if (invalidatePresentedGeometry && hdrRenderer)
+        hdrRenderer->invalidateGeometry();
+
+    // Keep the Qt proxy as the sole representation while resize, zoom or pan
+    // events are still changing the viewport. This avoids queuing stale Metal
+    // frames behind interactive movement and gives Qt one full repaint turn.
+    hdrGeometryTimer->start();
+    hdrTransitionTimer->start();
+    viewport()->update();
+    logHDRState("geometry-staged");
+}
+
+void QVGraphicsView::finishHDRGeometryStabilization()
+{
+    if (!hdrRendererActive || !hdrRenderer)
+        return;
+
+    const QSize viewportSize = viewport()->size();
+    const QPolygonF imageCorners = getHDRViewportCorners();
+    if (viewportSize.isEmpty() || imageCorners.size() < 4)
+        return;
+
+    if (!hdrPendingGeometryValid
+        || !hdrViewportGeometryEquivalent(
+                hdrPendingViewportSize, hdrPendingImageCorners,
+                viewportSize, imageCorners)) {
+        stageHDRGeometry(viewportSize, imageCorners);
+        return;
+    }
+
+    hdrLayoutReady = true;
+    updateHDRRenderer();
+    logHDRState("geometry-stable");
+}
+
+void QVGraphicsView::updateHDRRenderer()
+{
+    if (!hdrRendererActive || !hdrRenderer)
+        return;
+
+    const QSize viewportSize = viewport()->size();
+    const QPolygonF viewportCorners = getHDRViewportCorners();
+    if (viewportSize.isEmpty() || viewportCorners.size() < 4)
+        return;
+
+    if (!hdrPendingGeometryValid
+        || !hdrViewportGeometryEquivalent(
+                hdrPendingViewportSize, hdrPendingImageCorners,
+                viewportSize, viewportCorners)) {
+        stageHDRGeometry(viewportSize, viewportCorners);
+        return;
+    }
+
+    if (!hdrLayoutReady)
+        return;
+
     const auto beforeRender = hdrRenderer->diagnostics();
     if (!hdrTransitionClock.isValid()
         && QVCocoaFunctions::shouldStartHDRTransition(
@@ -1376,10 +1507,13 @@ void QVGraphicsView::updateHDRRenderer()
     if (beforeRender.firstFramePresented && beforeRender.drawableGeometryMatches)
         loadedPixmapItem->setVisible(false);
 
-    const qreal transitionProgress = hdrTransitionClock.isValid()
-            ? std::clamp(hdrTransitionClock.elapsed() / 650.0, 0.0, 1.0)
-            : 0.0;
-    hdrRenderer->render(viewport()->size(), viewportCorners, transitionProgress);
+    if (hdrTransitionClock.isValid()) {
+        const qreal desiredProgress =
+                std::clamp(hdrTransitionClock.elapsed() / 650.0, 0.0, 1.0);
+        hdrTransitionLinearProgress = QVCocoaFunctions::pacedHDRTransitionProgress(
+                hdrTransitionLinearProgress, desiredProgress, 0.04);
+    }
+    hdrRenderer->render(viewportSize, viewportCorners, hdrTransitionLinearProgress);
     logHDRState("render");
 }
 
@@ -1391,6 +1525,7 @@ void QVGraphicsView::logHDRState(const char *phase) const
     const auto &fileDetails = getCurrentFileDetails();
     const auto &metadata = fileDetails.hdrMetadata;
     const auto renderer = hdrRenderer->diagnostics();
+    const QPoint viewportGlobalOrigin = viewport()->mapToGlobal(QPoint(0, 0));
     QJsonObject object{
         { QStringLiteral("phase"), QString::fromLatin1(phase) },
         { QStringLiteral("path"), fileDetails.fileInfo.absoluteFilePath() },
@@ -1415,17 +1550,31 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("extended_linear_display_p3"), renderer.usesExtendedLinearDisplayP3 },
         { QStringLiteral("color_sync"), renderer.usesColorSync },
         { QStringLiteral("wants_edr"), renderer.wantsExtendedDynamicRangeContent },
+        { QStringLiteral("opaque_drawable_clear"), renderer.clearsEntireDrawableOpaque },
         { QStringLiteral("display_headroom_overridden"), renderer.displayHeadroomOverridden },
+        { QStringLiteral("display_current_headroom_overridden"),
+          renderer.displayCurrentHeadroomOverridden },
         { QStringLiteral("layout_ready"), hdrLayoutReady },
+        { QStringLiteral("geometry_pending"), hdrPendingGeometryValid && !hdrLayoutReady },
         { QStringLiteral("fallback_visible"), loadedPixmapItem->isVisible() },
         { QStringLiteral("zoom_level"), zoomLevel },
+        { QStringLiteral("viewport_global_x"), viewportGlobalOrigin.x() },
+        { QStringLiteral("viewport_global_y"), viewportGlobalOrigin.y() },
+        { QStringLiteral("viewport_logical_width"), viewport()->width() },
+        { QStringLiteral("viewport_logical_height"), viewport()->height() },
+        { QStringLiteral("viewport_device_pixel_ratio"), viewport()->devicePixelRatioF() },
         { QStringLiteral("first_frame_submitted"), renderer.firstFrameSubmitted },
         { QStringLiteral("first_frame_presented"), renderer.firstFramePresented },
         { QStringLiteral("hdr_preparation_in_flight"), renderer.hdrPreparationInFlight },
         { QStringLiteral("hdr_prepared"), renderer.hdrPrepared },
+        { QStringLiteral("core_image_managed_intermediates"),
+          renderer.usesCoreImageManagedIntermediates },
+        { QStringLiteral("prepared_geometry_active"), renderer.preparedGeometryActive },
+        { QStringLiteral("bootstrapping_edr"), renderer.bootstrappingEDR },
         { QStringLiteral("layer_opacity"), renderer.layerOpacity },
         { QStringLiteral("display_current_headroom"), renderer.displayCurrentHeadroom },
         { QStringLiteral("display_potential_headroom"), renderer.displayPotentialHeadroom },
+        { QStringLiteral("display_rendering_headroom"), renderer.displayRenderingHeadroom },
         { QStringLiteral("target_headroom"), renderer.targetHeadroom },
         { QStringLiteral("transition_progress"), renderer.transitionProgress },
         { QStringLiteral("requested_drawable_width"), renderer.requestedDrawableWidth },
@@ -1433,6 +1582,8 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("actual_texture_width"), renderer.actualTextureWidth },
         { QStringLiteral("actual_texture_height"), renderer.actualTextureHeight },
         { QStringLiteral("drawable_geometry_matches"), renderer.drawableGeometryMatches },
+        { QStringLiteral("geometry_generation"), static_cast<qint64>(renderer.geometryGeneration) },
+        { QStringLiteral("geometry_reset_count"), static_cast<qint64>(renderer.geometryResetCount) },
         { QStringLiteral("render_count"), static_cast<qint64>(renderer.renderCount) },
         { QStringLiteral("last_render_ms"), renderer.lastRenderMilliseconds },
         { QStringLiteral("transition_elapsed_ms"),

@@ -68,13 +68,19 @@ def main() -> int:
     )
     elapsed = time.perf_counter() - started
     output = result.stdout + result.stderr
-    peak_match = re.search(r"FOVELLE_RAW_PEAK sdr_max=([0-9.]+) hdr_max=([0-9.]+)", output)
+    raw_peak_match = re.search(r"FOVELLE_RAW_PEAK sdr_max=([0-9.]+) hdr_max=([0-9.]+)", output)
+    jpeg_peak_match = re.search(r"FOVELLE_JPEG_PEAK sdr_max=([0-9.]+) hdr_max=([0-9.]+)", output)
     raw_pixel_statistics = {
-        "sdr_maximum_component": float(peak_match.group(1)) if peak_match else None,
-        "hdr_maximum_component": float(peak_match.group(2)) if peak_match else None,
+        "sdr_maximum_component": float(raw_peak_match.group(1)) if raw_peak_match else None,
+        "hdr_maximum_component": float(raw_peak_match.group(2)) if raw_peak_match else None,
+    }
+    jpeg_pixel_statistics = {
+        "sdr_maximum_component": float(jpeg_peak_match.group(1)) if jpeg_peak_match else None,
+        "hdr_maximum_component": float(jpeg_peak_match.group(2)) if jpeg_peak_match else None,
     }
     expected = (
         ("IT-HDR-GAINMAP-JPEG", "testGainMapJPEGCreatesNativeHDRGraph"),
+        ("IT-HDR-GAINMAP-JPEG-PEAK", "testGainMapJPEGHDRContainsAboveSDRValues"),
         ("IT-HDR-RAW-DNG", "testDNGCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-DNG-PEAK", "testDNGRawEDRContainsAboveSDRValues"),
     )
@@ -87,9 +93,13 @@ def main() -> int:
             "status": "passed" if marker in output else "failed",
             "evidence_marker": marker,
         }
-        if identifier == "IT-HDR-RAW-DNG-PEAK":
+        if identifier == "IT-HDR-GAINMAP-JPEG-PEAK":
+            item["observations"] = jpeg_pixel_statistics
+            if not jpeg_peak_match:
+                item["status"] = "failed"
+        elif identifier == "IT-HDR-RAW-DNG-PEAK":
             item["observations"] = raw_pixel_statistics
-            if not peak_match:
+            if not raw_peak_match:
                 item["status"] = "failed"
         cases.append(item)
     totals_match = re.search(
@@ -103,7 +113,7 @@ def main() -> int:
     }
     passed = (
         result.returncode == 0
-        and totals == {"passed": 5, "failed": 0, "skipped": 0, "blacklisted": 0}
+        and totals == {"passed": 6, "failed": 0, "skipped": 0, "blacklisted": 0}
         and all(item["status"] == "passed" for item in cases)
     )
     record = {

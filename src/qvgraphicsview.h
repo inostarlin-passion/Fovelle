@@ -12,6 +12,7 @@
 #include <QImageReader>
 #include <QMimeData>
 #include <QNativeGestureEvent>
+#include <QPolygonF>
 #include <QDir>
 #include <QTimer>
 #include <QFileInfo>
@@ -120,6 +121,16 @@ public:
         bool settingEnabled,
         Qv::WindowResizeMode windowResizeMode);
 
+    // Compare the complete viewport contract used by the independent Metal
+    // layer. A zoom value alone is insufficient because scroll offsets,
+    // viewport resize and titlebar layout can change while zoom stays fixed.
+    static bool hdrViewportGeometryEquivalent(
+        const QSize &lhsViewportSize,
+        const QPolygonF &lhsImageCorners,
+        const QSize &rhsViewportSize,
+        const QPolygonF &rhsImageCorners,
+        qreal tolerance = 0.01);
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -197,6 +208,12 @@ protected:
     void logViewportState(const char *phase) const;
 
     void updateHDRRenderer();
+
+    QPolygonF getHDRViewportCorners() const;
+
+    void stageHDRGeometry(const QSize &viewportSize, const QPolygonF &imageCorners);
+
+    void finishHDRGeometryStabilization();
 
     void logHDRState(const char *phase) const;
 
@@ -289,9 +306,15 @@ private:
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrTransitionTimer;
+    QTimer *hdrGeometryTimer;
     QElapsedTimer hdrTransitionClock;
+    qreal hdrTransitionLinearProgress{ 0.0 };
     bool hdrRendererActive{ false };
     bool hdrLayoutReady{ false };
+    bool hdrPendingGeometryValid{ false };
+    bool hdrInteractionTestScheduled{ false };
+    QSize hdrPendingViewportSize;
+    QPolygonF hdrPendingImageCorners;
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;
