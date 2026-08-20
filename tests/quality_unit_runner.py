@@ -29,6 +29,7 @@ EXPECTED_CASES = (
     ("TC-ORI-AVIF", "ImageLoaderTests", "testImageLoaderAppliesAvifOrientation"),
     ("TC-IMG-TIFF", "ImageLoaderTests", "testImageLoaderLoadsTiffWithImageIO"),
     ("TC-RAW-TYPE-DETECTION", "ImageLoaderTests", "testImageIOUsesContentTypeInsteadOfFilenameExtension"),
+    ("TC-IMG-FULL-RES", "ImageLoaderTests", "testImageLoaderPreservesSourceResolutionForZoom"),
     ("TC-WIN-ICON", "FeatureTests", "testWindowIconIsCleared"),
     ("TC-TITLEBAR-DOCUMENT-ICON", "FeatureTests", "testTitlebarDocumentProxyIsClearedForLoadedFile"),
     ("TC-TITLEBAR-IDEMPOTENCE", "FeatureTests", "testTitlebarIconClearingIsIdempotent"),

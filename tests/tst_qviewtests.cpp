@@ -57,6 +57,7 @@ private slots:
     void testImageLoaderAppliesAvifOrientation();
     void testImageLoaderLoadsTiffWithImageIO();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
+    void testImageLoaderPreservesSourceResolutionForZoom();
 };
 
 class ActionManagerTests : public QObject
@@ -190,6 +191,20 @@ static QString createSplitImage(const QTemporaryDir &dir, const QString &name, c
     painter.fillRect(QRect(0, 0, size.width() / 2, size.height()), QColorConstants::White);
     painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()), QColorConstants::Black);
     painter.end();
+    if (!image.save(path))
+        return {};
+    return path;
+}
+
+static QString createHighResolutionDetailImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(2400, 1600))
+{
+    const QString path = dir.filePath(name + ".png");
+    QImage image(size, QImage::Format_RGB32);
+    for (int y = 0; y < size.height(); ++y)
+    {
+        for (int x = 0; x < size.width(); ++x)
+            image.setPixelColor(x, y, ((x + y) % 2 == 0) ? QColorConstants::White : QColorConstants::Black);
+    }
     if (!image.save(path))
         return {};
     return path;
@@ -768,6 +783,40 @@ void ImageLoaderTests::testImageIOUsesContentTypeInsteadOfFilenameExtension()
     QVERIFY(!result.isRaw);
     QVERIFY(!result.image.isNull());
     QCOMPARE(result.image.size(), QSize(4, 3));
+}
+
+// TC-IMG-FULL-RES
+// Test purpose: prove that a source larger than the screen-sized loader hint is
+// retained at full resolution so a later zoom can reveal original detail.
+// Preconditions: Image I/O supports PNG; a temporary directory is writable;
+// the deterministic fixture is larger than the loader's 1920px default hint.
+// Input data: a 2400x1600 one-pixel checkerboard PNG.
+// Steps: decode through Image I/O with a small hint, then load through the
+// asynchronous QVImageLoader using its production default.
+// Expected result: intrinsic size and decoded image size remain 2400x1600, and
+// alternating source pixels remain distinguishable rather than being decoded
+// as a 1920px thumbnail.
+// Postcondition: the temporary source and loader resources are released.
+void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QSize sourceSize(2400, 1600);
+    const QString path = createHighResolutionDetailImage(dir, "full-resolution-detail", sourceSize);
+    QVERIFY(!path.isEmpty());
+
+    const auto nativeResult = QVCocoaFunctions::readImageWithImageIO(path);
+    QVERIFY(nativeResult.isImageIOType);
+    QCOMPARE(nativeResult.intrinsicSize, sourceSize);
+    QCOMPARE(nativeResult.image.size(), sourceSize);
+    QVERIFY(nativeResult.image.pixelColor(0, 0) != nativeResult.image.pixelColor(1, 0));
+
+    const auto loaderResult = loadImage(path);
+    QVERIFY(loaderResult.has_value());
+    QVERIFY(!loaderResult->errorData.has_value());
+    QCOMPARE(loaderResult->intrinsicSize, sourceSize);
+    QCOMPARE(loaderResult->image.size(), sourceSize);
+    QVERIFY(loaderResult->image.pixelColor(0, 0) != loaderResult->image.pixelColor(1, 0));
 }
 
 void ActionManagerTests::testClonedActionsUntracked()

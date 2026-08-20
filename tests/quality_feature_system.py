@@ -16,6 +16,7 @@ from pathlib import Path
 CASES = (
     ("TC-IMG-TIFF", "ImageLoaderTests", "testImageLoaderLoadsTiffWithImageIO"),
     ("TC-RAW-TYPE-DETECTION", "ImageLoaderTests", "testImageIOUsesContentTypeInsteadOfFilenameExtension"),
+    ("TC-IMG-FULL-RES", "ImageLoaderTests", "testImageLoaderPreservesSourceResolutionForZoom"),
     ("TC-FMT-TIFF-RAW", "FeatureTests", "testSettingsFormatsIncludeTiffAndSystemRawFormats"),
     ("TC-IMG-SMALL-SETTING", "FeatureTests", "testSmallImageOneToOneSettingIsExposedInImageOptions"),
     ("TC-ISSUE-864-OPENWITH-TEARDOWN", "FeatureTests", "testOpenWithWorkerTeardownContract"),

@@ -8,12 +8,78 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 
 ## New Features
 
-1. Displays small images at their actual size (1:1).
-2. Supports both light and dark appearances.
-3. Press Esc to close the window or quit the app.
-4. Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
-5. Support full gesture operations.
-6. Conditionally display vertical and horizontal scrollbars.
+- Added support for most common RAW image formats.
+- Displays small images at their actual size (1:1).
+- Supports both light and dark appearances.
+- Press Esc to close the window or quit the app.
+- Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
+- Support full gesture operations.
+- Conditionally display vertical and horizontal scrollbars.
+
+## Supported Formats
+
+- Adobe Photoshop
+- APNG
+- Apple Icon
+- ASTC Textures
+- AVIF
+- Canon CR2 RAW
+- Canon CR3 RAW
+- Canon CRW RAW
+- Canon TIF RAW
+- Compressed SVG
+- DDS Textures
+- DNG
+- DxO RAW
+- Epson RAW
+- Fuji RAW
+- GIF
+- HEIF
+- HEIF Image Sequence
+- Hasselblad 3FR RAW
+- Hasselblad FFF RAW
+- JPEG
+- JPEG 2000
+- JPEG XL
+- KTX Textures
+- Kodak RAW
+- Leaf RAW
+- Leica RAW
+- Leica RWL RAW
+- Minolta RAW
+- Multiple Picture Object
+- Nikon NEF RAW
+- Nikon NEFX RAW
+- Nikon NRW RAW
+- OpenEXR
+- Olympus ORF RAW
+- Panasonic RAW
+- Panasonic RW2 RAW
+- Portable Bitmap
+- Portable Graymap
+- PNG
+- Portable Pixmap
+- PVRTC Textures
+- Pentax RAW
+- Phase One RAW
+- Portable FloatMap
+- QuickDraw Picture
+- Radiance HDR
+- Samsung RAW
+- Silicon Graphics
+- Sony ARW RAW
+- Sony AXR RAW
+- Sony SR2 RAW
+- Sony SRF RAW
+- SVG
+- TGA
+- TIFF
+- WebP
+- Windows Bitmap
+- Windows Cursor
+- Windows Icon
+- X11 Bitmap
+- X11 Pixmap
 
 ## Light Theme
 

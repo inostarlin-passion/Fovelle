@@ -83,17 +83,17 @@ def main() -> int:
         artifacts.append(artifact)
 
     specification = records.get("test-specification.json", {})
-    if specification.get("case_count") != 57:
+    if specification.get("case_count") != 59:
         errors.append(f"unexpected atomic test case count: {specification.get('case_count')}")
     if specification.get("validation_errors"):
         errors.append("test specification contains validation errors")
 
     unit = records.get("unit.json", {})
-    if unit.get("total_passed") != 70 or unit.get("total_failed") != 0 or unit.get("total_skipped") != 0:
-        errors.append("unit evidence does not report 70 passed and zero failed/skipped")
+    if unit.get("total_passed") != 71 or unit.get("total_failed") != 0 or unit.get("total_skipped") != 0:
+        errors.append("unit evidence does not report 71 passed and zero failed/skipped")
     unit_scale1 = records.get("unit_scale1.json", {})
-    if unit_scale1.get("total_passed") != 70 or unit_scale1.get("total_failed") != 0 or unit_scale1.get("total_skipped") != 0:
-        errors.append("QT_SCALE_FACTOR=1 unit evidence does not report 70 passed and zero failed/skipped")
+    if unit_scale1.get("total_passed") != 71 or unit_scale1.get("total_failed") != 0 or unit_scale1.get("total_skipped") != 0:
+        errors.append("QT_SCALE_FACTOR=1 unit evidence does not report 71 passed and zero failed/skipped")
 
     system_layout = records.get("system_layout.json", {})
     if system_layout.get("stable_after_queued_turn") is not True:

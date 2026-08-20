@@ -127,7 +127,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
 
     bool isMultiFrameImage = false;
     const QVCocoaFunctions::NativeImageReadResult nativeResult =
-        QVCocoaFunctions::readImageWithImageIO(absoluteFilePath, largestDimension);
+        QVCocoaFunctions::readImageWithImageIO(absoluteFilePath);
     const bool useNativeImageIO = nativeResult.isImageIOType;
     const bool useQtFallback = nativeResult.image.isNull() && !nativeResult.isRaw;
     QSize intrinsicSize = nativeResult.intrinsicSize;

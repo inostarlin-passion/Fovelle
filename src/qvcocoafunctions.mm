@@ -263,10 +263,13 @@ QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outp
     return result;
 }
 
-CFDictionaryRef thumbnailOptions(CGImageSourceRef source, const int largestDimension)
+CFDictionaryRef fullResolutionThumbnailOptions(CGImageSourceRef source)
 {
-    const int sourceDimension = sourceMaxPixelSize(source);
-    const int maxDimension = largestDimension > 0 ? std::min(sourceDimension, largestDimension) : sourceDimension;
+    // Image I/O's thumbnail API is retained here because its transform option
+    // applies orientation metadata. Its maximum is deliberately the source's
+    // own largest dimension, never the screen-sized loader hint; otherwise a
+    // later zoom would only interpolate pixels that were already discarded.
+    const int maxDimension = sourceMaxPixelSize(source);
     CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
     if (!maxPixelSizeNumber)
         return nullptr;
@@ -697,7 +700,7 @@ bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
     return false;
 }
 
-QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int largestDimension)
+QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(const QString &filePath)
 {
     NativeImageReadResult result;
 
@@ -734,13 +737,6 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
             {
                 rawFilter.orientation = orientation;
 
-                if (largestDimension > 0 && result.intrinsicSize.isValid())
-                {
-                    const int rawDimension = std::max(result.intrinsicSize.width(), result.intrinsicSize.height());
-                    if (rawDimension > largestDimension)
-                        rawFilter.scaleFactor = static_cast<CGFloat>(largestDimension) / rawDimension;
-                }
-
                 CGColorSpaceRef outputColorSpace = colorSyncSrgbColorSpace();
                 if (outputColorSpace)
                 {
@@ -754,14 +750,14 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
                         ? [CIContext contextWithMTLDevice:metalDevice options:contextOptions]
                         : [CIContext contextWithOptions:contextOptions];
 
-                    result.image = imageFromCIImage(rawFilter.outputImage, context, outputColorSpace, largestDimension);
+                    result.image = imageFromCIImage(rawFilter.outputImage, context, outputColorSpace, 0);
                     if (result.image.isNull())
                     {
                         // A supported container can still contain a camera
                         // model that the installed RAW decoder does not know.
                         // Prefer the embedded JPEG preview before reporting an
                         // error to the application.
-                        result.image = imageFromCIImage(rawFilter.previewImage, context, outputColorSpace, largestDimension);
+                        result.image = imageFromCIImage(rawFilter.previewImage, context, outputColorSpace, 0);
                         result.usedRawPreview = !result.image.isNull();
                     }
 
@@ -773,7 +769,7 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
 
             if (result.image.isNull())
             {
-                if (CFDictionaryRef options = thumbnailOptions(source, largestDimension))
+                if (CFDictionaryRef options = fullResolutionThumbnailOptions(source))
                 {
                     CGImageRef previewImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
                     CFRelease(options);
@@ -794,7 +790,7 @@ QVCocoaFunctions::NativeImageReadResult QVCocoaFunctions::readImageWithImageIO(c
         }
         else if (result.isImageIOType)
         {
-            if (CFDictionaryRef options = thumbnailOptions(source, largestDimension))
+            if (CFDictionaryRef options = fullResolutionThumbnailOptions(source))
             {
                 CGImageRef cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
                 CFRelease(options);

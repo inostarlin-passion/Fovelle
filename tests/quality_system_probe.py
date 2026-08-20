@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the built macOS app with native and oriented WebP/AVIF fixtures and collect resource evidence."""
+"""Exercise the built macOS app with native, oriented, and high-resolution fixtures."""
 
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ import os
 import re
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+import zlib
 from pathlib import Path
 from statistics import mean
 
@@ -24,6 +26,8 @@ TINY_AVIF = "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGR
 ORIENTED_WEBP = "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA="
 ORIENTED_AVIF = "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAEdAAAAYwAAAChpaW5mAAAAAAABAAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAAB0aXBycAAAAFRpcGNvAAAAFGlzcGUAAAAAAAAAAgAAAAMAAAAQcGl4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAAgAAAAAlpcm90AQAAABhpcG1hAAAAAAAAAAEAAQUBAoMEhQAAAGttZGF0EgAKBzgAcwgIaAEyVhAAAIu7FZVujlR7Yotii5zIf////////81uz4UZYgX13041615VbWdWdWb15VbWdWezuZv/////73qwfKnW17zgsHyp1tesH216wfKnW16wfKnSp2tA"
 TINY_APNG = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAACAAAAAgAAAAAAAAAAAAEACgAA6FTcAAAAABFJREFUeJxj+P+fgQGEGWAMAE/CB/njowPaAAAAGmZjVEwAAAABAAAAAgAAAAIAAAAAAAAAAAABAAoAAHMnNtQAAAAVZmRBVAAAAAJ4nGP4z8DwH4QZYAwAR8oH+YqD/xkAAAAASUVORK5CYII="
+
+HIGH_RESOLUTION_SIZE = (4000, 2500)
 
 THRESHOLDS = {
     "startup_average_seconds": 2.0,
@@ -118,6 +122,33 @@ def percentile99(values: list[float]) -> float | None:
     return ordered[index]
 
 
+def write_high_resolution_detail_png(path: Path) -> None:
+    """Write a deterministic RGB PNG without Pillow or Qt image plugins."""
+    width, height = HIGH_RESOLUTION_SIZE
+    row = bytearray([0])
+    for x in range(width):
+        value = 255 if x % 2 == 0 else 0
+        row.extend((value, value, value))
+    raw = bytes(row) * height
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return_data = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", ihdr)
+        + chunk(b"IDAT", zlib.compress(raw, level=6))
+        + chunk(b"IEND", b"")
+    )
+    path.write_bytes(return_data)
+
+
 def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> dict:
     started = time.perf_counter()
     process = subprocess.Popen(
@@ -160,6 +191,14 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
     diagnostic_output = stdout + stderr
     geometry_matches = re.findall(r"contentRect= QRect\([^)]* ([0-9.]+)x([0-9.]+)\)", diagnostic_output)
     decoded_image_observed = any(float(width) > 0 and float(height) > 0 for width, height in geometry_matches)
+    source_geometry_matches = re.findall(r"itemRect= QRectF\(0,0 ([0-9.]+)x([0-9.]+)\)", diagnostic_output)
+    source_resolution_observed = True
+    if case_id == "SYS-HIGH-RESOLUTION":
+        expected_width, expected_height = HIGH_RESOLUTION_SIZE
+        source_resolution_observed = any(
+            float(width) >= expected_width and float(height) >= expected_height
+            for width, height in source_geometry_matches
+        )
     return {
         "case": case_id,
         "image": str(image),
@@ -169,6 +208,7 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
         "return_code": process.returncode,
         "unsupported_format_error_absent": not unsupported_error,
         "decoded_image_observed": decoded_image_observed,
+        "source_resolution_observed": source_resolution_observed,
         "diagnostic_output": diagnostic_output[-3000:],
         "stderr": stderr[-2000:],
         "samples": samples,
@@ -182,7 +222,7 @@ def launch_probe(app: Path, image: Path, hold_seconds: float, case_id: str) -> d
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", type=Path, required=True)
-    parser.add_argument("--image", type=Path, default=None, help="optional single image; otherwise native WebP and AVIF fixtures are generated")
+    parser.add_argument("--image", type=Path, default=None, help="optional single image; otherwise native, oriented, and high-resolution fixtures are generated")
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--hold-seconds", type=float, default=0.8)
@@ -213,15 +253,18 @@ def main() -> int:
             avif = fixture_dir / "system-native.avif"
             oriented_webp = fixture_dir / "system-oriented.webp"
             oriented_avif = fixture_dir / "system-oriented.avif"
+            high_resolution = fixture_dir / "system-high-resolution.png"
             webp.write_bytes(base64.b64decode(TINY_WEBP))
             avif.write_bytes(base64.b64decode(TINY_AVIF))
             oriented_webp.write_bytes(base64.b64decode(ORIENTED_WEBP))
             oriented_avif.write_bytes(base64.b64decode(ORIENTED_AVIF))
+            write_high_resolution_detail_png(high_resolution)
             image_cases = [
                 ("SYS-WEBP", webp),
                 ("SYS-AVIF", avif),
                 ("SYS-WEBP-ORIENTATION", oriented_webp),
                 ("SYS-AVIF-ORIENTATION", oriented_avif),
+                ("SYS-HIGH-RESOLUTION", high_resolution),
             ]
 
         before_network = netstat_bytes()
@@ -277,6 +320,10 @@ def main() -> int:
             "S-02 all native format cases ran": {run["case"] for run in runs} == {case_id for case_id, _ in image_cases},
             "S-03 no unsupported format error": all(run["unsupported_format_error_absent"] for run in runs),
             "S-15 decoded content geometry observed": all(run["decoded_image_observed"] for run in runs),
+            "S-16 high-resolution source preserved": (
+                not any(case_id == "SYS-HIGH-RESOLUTION" for case_id, _ in image_cases)
+                or all(run["source_resolution_observed"] for run in runs if run["case"] == "SYS-HIGH-RESOLUTION")
+            ),
             "S-04 startup average": metrics["startup_average_seconds"] is not None and metrics["startup_average_seconds"] <= THRESHOLDS["startup_average_seconds"],
             "S-05 startup p99": metrics["startup_p99_seconds"] is not None and metrics["startup_p99_seconds"] <= THRESHOLDS["startup_p99_seconds"],
             "S-06 startup max": metrics["startup_max_seconds"] is not None and metrics["startup_max_seconds"] <= THRESHOLDS["startup_max_seconds"],
@@ -308,6 +355,7 @@ def main() -> int:
                 "CPU, RSS, handles, and network socket counts are per-process samples.",
                 "iostat and netstat byte counters are host-level observations and may include unrelated background activity.",
                 "absence of the user-visible Error 3 text is a system-level symptom check; decoded pixels and dimensions are verified by Qt unit tests.",
+                "The high-resolution system case verifies the logged source item rectangle; pixel-level detail fidelity is verified by the deterministic checkerboard unit fixture.",
             ],
         }
 

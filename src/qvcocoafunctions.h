@@ -78,8 +78,10 @@ public:
     static bool supportsAdditionalImageFormat(const QByteArray &format);
 
     // Image I/O identifies the file from its contents. The caller must not use
-    // a filename extension to decide whether this is a RAW image.
-    static NativeImageReadResult readImageWithImageIO(const QString &filePath, int largestDimension = 0);
+    // a filename extension to decide whether this is a RAW image. Native
+    // decoding intentionally preserves the source pixel dimensions so a later
+    // zoom can reveal source detail instead of enlarging a screen thumbnail.
+    static NativeImageReadResult readImageWithImageIO(const QString &filePath);
 
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 
