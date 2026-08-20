@@ -26,6 +26,56 @@
 #import <QuartzCore/QuartzCore.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+@interface QVHDRPresentationState : NSObject
+{
+@public
+    NSUInteger generation;
+    BOOL firstFrameSubmitted;
+    BOOL firstFramePresented;
+    BOOL hdrPreparationInFlight;
+    BOOL hdrPrepared;
+    CAMetalLayer *metalLayer;
+}
+
+- (instancetype)initWithMetalLayer:(CAMetalLayer *)layer;
+- (void)resetForImage;
+- (void)invalidate;
+@end
+
+@implementation QVHDRPresentationState
+
+- (instancetype)initWithMetalLayer:(CAMetalLayer *)layer
+{
+    self = [super init];
+    if (self)
+        metalLayer = [layer retain];
+    return self;
+}
+
+- (void)resetForImage
+{
+    ++generation;
+    firstFrameSubmitted = NO;
+    firstFramePresented = NO;
+    hdrPreparationInFlight = NO;
+    hdrPrepared = NO;
+}
+
+- (void)invalidate
+{
+    [self resetForImage];
+    [metalLayer release];
+    metalLayer = nil;
+}
+
+- (void)dealloc
+{
+    [metalLayer release];
+    [super dealloc];
+}
+
+@end
+
 namespace
 {
 QString QStringFromCFString(CFStringRef value)
@@ -564,10 +614,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction setDisableActions:YES];
         metalLayer.frame = nativeView.bounds;
         metalLayer.hidden = YES;
+        metalLayer.opacity = 0.0F;
         [nativeView.layer addSublayer:metalLayer];
         [CATransaction commit];
+        presentationState = [[QVHDRPresentationState alloc] initWithMetalLayer:metalLayer];
 
-        state.rendererAvailable = true;
+        state.rendererAvailable = presentationState != nil;
         state.usesRGBA16Float = true;
         state.usesExtendedLinearDisplayP3 = CGColorSpaceUsesExtendedRange(outputColorSpace);
         state.usesColorSync = true;
@@ -576,10 +628,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     ~Impl()
     {
+        [presentationState invalidate];
+        clearPreparedImages();
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         [metalLayer removeFromSuperlayer];
         [CATransaction commit];
+        [presentationState release];
         [metalLayer release];
         [context release];
         [commandQueue release];
@@ -590,9 +645,25 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
+        clearPreparedImages();
         const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
         image = nativeImage;
+        [presentationState resetForImage];
         state.imageActive = nativeImage != nullptr;
+        state.firstFrameSubmitted = false;
+        state.firstFramePresented = false;
+        state.hdrPreparationInFlight = false;
+        state.hdrPrepared = false;
+        state.requestedDrawableWidth = 0;
+        state.requestedDrawableHeight = 0;
+        state.actualTextureWidth = 0;
+        state.actualTextureHeight = 0;
+        state.drawableGeometryMatches = false;
+        state.layerOpacity = 0.0F;
+        state.transitionProgress = 0.0F;
+        state.targetHeadroom = 1.0F;
+        state.renderCount = 0;
+        state.lastRenderMilliseconds = 0.0;
         if (nativeImage) {
             const HDRMetadata &metadata = nativeImage->metadata();
             state.isRaw = metadata.isRaw;
@@ -607,6 +678,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.hidden = nativeImage == nullptr;
+        metalLayer.opacity = 0.0F;
         [CATransaction commit];
         return nativeImage != nullptr && state.rendererAvailable;
     }
@@ -627,12 +699,32 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return transition.outputImage ?: hdr;
     }
 
+    void clearPreparedImages()
+    {
+        [preparedHDRImage release];
+        [preparedSDRImage release];
+        [preparedHDRTexture release];
+        [preparedSDRTexture release];
+        preparedHDRImage = nil;
+        preparedSDRImage = nil;
+        preparedHDRTexture = nil;
+        preparedSDRTexture = nil;
+        preparedViewportSize = {};
+        preparedCorners.clear();
+        preparedTextureSize = {};
+    }
+
     CIImage *displayImage(const NativeHDRImage &nativeImage, const float targetHeadroom,
                           const float progress)
     {
         CIImage *hdr = nativeImage.hdrCIImage();
         CIImage *sdr = nativeImage.sdrCIImage();
         const HDRMetadata &metadata = nativeImage.metadata();
+
+        if (!sdr)
+            return hdr;
+        if (state.displayCurrentHeadroom <= 1.001F || progress <= 0.001F)
+            return sdr;
 
         if (metadata.isRaw) {
             const float rawAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
@@ -646,12 +738,212 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 [toneMap setValue:@(metadata.contentHeadroom) forKey:@"inputSourceHeadroom"];
                 [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
                 if (toneMap.outputImage)
-                    return toneMap.outputImage;
+                    return mixImages(sdr, toneMap.outputImage, progress);
             }
         }
 
         const float fallbackAmount = state.displayCurrentHeadroom > 1.001F ? progress : 0.0F;
         return mixImages(sdr, hdr, fallbackAmount);
+    }
+
+    CIImage *preparedDisplayImage(const float targetHeadroom, const float progress)
+    {
+        if (!preparedSDRImage)
+            return preparedHDRImage;
+        if (!preparedHDRImage || state.displayCurrentHeadroom <= 1.001F || progress <= 0.001F)
+            return preparedSDRImage;
+
+        if (image->metadata().isRaw)
+            return mixImages(preparedSDRImage, preparedHDRImage, progress);
+
+        if (@available(macOS 15.0, *)) {
+            if (image->metadata().contentHeadroom > 1.0F) {
+                CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
+                [toneMap setValue:preparedHDRImage forKey:kCIInputImageKey];
+                [toneMap setValue:@(image->metadata().contentHeadroom)
+                           forKey:@"inputSourceHeadroom"];
+                [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
+                if (toneMap.outputImage)
+                    return mixImages(preparedSDRImage, toneMap.outputImage, progress);
+            }
+        }
+        return mixImages(preparedSDRImage, preparedHDRImage, progress);
+    }
+
+    void syncPresentationDiagnostics()
+    {
+        state.firstFrameSubmitted = presentationState->firstFrameSubmitted;
+        state.firstFramePresented = presentationState->firstFramePresented;
+        state.hdrPreparationInFlight = presentationState->hdrPreparationInFlight;
+        state.hdrPrepared = presentationState->hdrPrepared;
+        state.layerOpacity = metalLayer ? metalLayer.opacity : 0.0F;
+    }
+
+    CIImage *imageForTexture(CIImage *source, const QSize &viewportSize,
+                             const QPolygonF &corners, const CGSize textureSize)
+    {
+        if (!source || viewportSize.isEmpty() || corners.size() < 4 || textureSize.width <= 0
+            || textureSize.height <= 0)
+            return nil;
+
+        const CGRect sourceExtent = source.extent;
+        if (CGRectIsEmpty(sourceExtent) || sourceExtent.size.width <= 0
+            || sourceExtent.size.height <= 0)
+            return nil;
+
+        // A drawable can briefly belong to the previous CAMetalLayer pool
+        // after a resize. Derive coordinates from the texture that will
+        // actually receive the pixels, never from an assumed Retina scale.
+        const CGFloat scaleX = textureSize.width / viewportSize.width();
+        const CGFloat scaleY = textureSize.height / viewportSize.height();
+        const auto destinationPoint = [&](const QPointF &point) {
+            return CGPointMake(point.x() * scaleX,
+                               (viewportSize.height() - point.y()) * scaleY);
+        };
+        const CGPoint destinationBottomLeft = destinationPoint(corners.at(3));
+        const CGPoint destinationBottomRight = destinationPoint(corners.at(2));
+        const CGPoint destinationTopLeft = destinationPoint(corners.at(0));
+        const CGFloat a =
+                (destinationBottomRight.x - destinationBottomLeft.x) / sourceExtent.size.width;
+        const CGFloat b =
+                (destinationBottomRight.y - destinationBottomLeft.y) / sourceExtent.size.width;
+        const CGFloat c =
+                (destinationTopLeft.x - destinationBottomLeft.x) / sourceExtent.size.height;
+        const CGFloat d =
+                (destinationTopLeft.y - destinationBottomLeft.y) / sourceExtent.size.height;
+        const CGFloat tx =
+                destinationBottomLeft.x - a * sourceExtent.origin.x - c * sourceExtent.origin.y;
+        const CGFloat ty =
+                destinationBottomLeft.y - b * sourceExtent.origin.x - d * sourceExtent.origin.y;
+        source = [source imageByApplyingTransform:CGAffineTransformMake(a, b, c, d, tx, ty)];
+
+        const CGRect destinationBounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
+        CIColor *clearColor = [CIColor colorWithRed:0
+                                              green:0
+                                               blue:0
+                                              alpha:0
+                                         colorSpace:outputColorSpace];
+        CIImage *clearImage =
+                [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
+        return [[source imageByCroppingToRect:destinationBounds]
+                imageByCompositingOverImage:clearImage];
+    }
+
+    void revealAfterPresentation(id<CAMetalDrawable> drawable,
+                                 id<MTLCommandBuffer> commandBuffer)
+    {
+        if (presentationState->firstFrameSubmitted || !state.drawableGeometryMatches)
+            return;
+
+        presentationState->firstFrameSubmitted = YES;
+        const NSUInteger frameGeneration = presentationState->generation;
+        QVHDRPresentationState *gate = presentationState;
+        void (^revealLayer)(void) = ^{
+            if (gate->generation != frameGeneration || !gate->metalLayer)
+                return;
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            gate->metalLayer.opacity = 1.0F;
+            [CATransaction commit];
+            gate->firstFramePresented = YES;
+        };
+
+        if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
+            [drawable addPresentedHandler:^(id<MTLDrawable>) {
+                dispatch_async(dispatch_get_main_queue(), revealLayer);
+            }];
+        } else {
+            [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
+                dispatch_async(dispatch_get_main_queue(), revealLayer);
+            }];
+        }
+
+        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
+            if (completedBuffer.status != MTLCommandBufferStatusError)
+                return;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (gate->generation == frameGeneration)
+                    gate->firstFrameSubmitted = NO;
+            });
+        }];
+    }
+
+    void scheduleHDRPreparation(const QSize &viewportSize, const QPolygonF &corners,
+                                const CGSize textureSize)
+    {
+        if (!presentationState->firstFramePresented || presentationState->hdrPrepared
+            || presentationState->hdrPreparationInFlight)
+            return;
+
+        // An SDR display never needs to evaluate the >1 branch merely to show
+        // a compatible result.
+        if (state.displayCurrentHeadroom <= 1.001F) {
+            presentationState->hdrPrepared = YES;
+            return;
+        }
+
+        CIImage *sdrSource = imageForTexture(image->sdrCIImage(), viewportSize, corners, textureSize);
+        CIImage *hdrSource = imageForTexture(image->hdrCIImage(), viewportSize, corners, textureSize);
+        if (!sdrSource || !hdrSource) {
+            presentationState->hdrPrepared = YES;
+            return;
+        }
+
+        clearPreparedImages();
+        MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
+                                              width:static_cast<NSUInteger>(textureSize.width)
+                                             height:static_cast<NSUInteger>(textureSize.height)
+                                          mipmapped:NO];
+        descriptor.storageMode = MTLStorageModePrivate;
+        descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite
+                | MTLTextureUsageRenderTarget;
+        preparedSDRTexture = [device newTextureWithDescriptor:descriptor];
+        preparedHDRTexture = [device newTextureWithDescriptor:descriptor];
+        id<MTLCommandBuffer> preparationBuffer = [commandQueue commandBuffer];
+        if (!preparedSDRTexture || !preparedHDRTexture || !preparationBuffer) {
+            clearPreparedImages();
+            return;
+        }
+
+        NSDictionary *imageOptions = @{ (id)kCIImageColorSpace : (id)outputColorSpace };
+        preparedSDRImage = [[CIImage imageWithMTLTexture:preparedSDRTexture
+                                                 options:imageOptions] retain];
+        preparedHDRImage = [[CIImage imageWithMTLTexture:preparedHDRTexture
+                                                 options:imageOptions] retain];
+        if (!preparedSDRImage || !preparedHDRImage) {
+            clearPreparedImages();
+            return;
+        }
+        preparedViewportSize = viewportSize;
+        preparedCorners = corners;
+        preparedTextureSize = QSize(static_cast<int>(textureSize.width),
+                                    static_cast<int>(textureSize.height));
+
+        presentationState->hdrPreparationInFlight = YES;
+        const NSUInteger preparationGeneration = presentationState->generation;
+        QVHDRPresentationState *gate = presentationState;
+        const CGRect bounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
+        [context render:sdrSource
+             toMTLTexture:preparedSDRTexture
+            commandBuffer:preparationBuffer
+                   bounds:bounds
+               colorSpace:outputColorSpace];
+        [context render:hdrSource
+             toMTLTexture:preparedHDRTexture
+            commandBuffer:preparationBuffer
+                   bounds:bounds
+               colorSpace:outputColorSpace];
+        [preparationBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
+            const BOOL completed = completedBuffer.status == MTLCommandBufferStatusCompleted;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (gate->generation != preparationGeneration)
+                    return;
+                gate->hdrPreparationInFlight = NO;
+                gate->hdrPrepared = completed;
+            });
+        }];
+        [preparationBuffer commit];
     }
 
     void render(const QSize &viewportSize, const QPolygonF &corners, const qreal linearProgress)
@@ -660,6 +952,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         @autoreleasepool {
+            syncPresentationDiagnostics();
+            if (presentationState->hdrPreparationInFlight)
+                return;
+
             NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
             state.displayCurrentHeadroom = screen
                     ? static_cast<float>(screen.maximumExtendedDynamicRangeColorComponentValue)
@@ -683,15 +979,17 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const CGFloat backingScale = nativeView.window
                     ? nativeView.window.backingScaleFactor
                     : (screen ? screen.backingScaleFactor : 1.0);
-            const CGSize drawableSize =
+            const CGSize requestedSize =
                     CGSizeMake(std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
                                std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
+            state.requestedDrawableWidth = static_cast<int>(std::lround(requestedSize.width));
+            state.requestedDrawableHeight = static_cast<int>(std::lround(requestedSize.height));
 
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
             metalLayer.frame = nativeView.bounds;
             metalLayer.contentsScale = backingScale;
-            metalLayer.drawableSize = drawableSize;
+            metalLayer.drawableSize = requestedSize;
             metalLayer.hidden = NO;
             if (@available(macOS 26.0, *))
                 metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom);
@@ -701,49 +999,27 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
             if (!drawable || !commandBuffer)
                 return;
+            const CGSize actualSize = CGSizeMake(drawable.texture.width, drawable.texture.height);
+            state.actualTextureWidth = static_cast<int>(drawable.texture.width);
+            state.actualTextureHeight = static_cast<int>(drawable.texture.height);
+            state.drawableGeometryMatches =
+                    state.actualTextureWidth == state.requestedDrawableWidth
+                    && state.actualTextureHeight == state.requestedDrawableHeight;
 
-            CIImage *source = displayImage(*image, state.targetHeadroom, state.transitionProgress);
+            const QSize actualTextureSize(state.actualTextureWidth, state.actualTextureHeight);
+            const bool preparedGeometryMatches = presentationState->hdrPrepared
+                    && preparedSDRImage && preparedHDRImage
+                    && preparedViewportSize == viewportSize && preparedTextureSize == actualTextureSize
+                    && preparedCorners == corners;
+            CIImage *source = preparedGeometryMatches
+                    ? preparedDisplayImage(state.targetHeadroom, state.transitionProgress)
+                    : displayImage(*image, state.targetHeadroom, state.transitionProgress);
+            if (!preparedGeometryMatches)
+                source = imageForTexture(source, viewportSize, corners, actualSize);
             if (!source)
                 return;
 
-            const CGRect sourceExtent = source.extent;
-            if (CGRectIsEmpty(sourceExtent) || sourceExtent.size.width <= 0
-                || sourceExtent.size.height <= 0)
-                return;
-
-            const auto destinationPoint = [&](const QPointF &point) {
-                return CGPointMake(point.x() * backingScale,
-                                   (viewportSize.height() - point.y()) * backingScale);
-            };
-            const CGPoint destinationBottomLeft = destinationPoint(corners.at(3));
-            const CGPoint destinationBottomRight = destinationPoint(corners.at(2));
-            const CGPoint destinationTopLeft = destinationPoint(corners.at(0));
-            const CGFloat a =
-                    (destinationBottomRight.x - destinationBottomLeft.x) / sourceExtent.size.width;
-            const CGFloat b =
-                    (destinationBottomRight.y - destinationBottomLeft.y) / sourceExtent.size.width;
-            const CGFloat c =
-                    (destinationTopLeft.x - destinationBottomLeft.x) / sourceExtent.size.height;
-            const CGFloat d =
-                    (destinationTopLeft.y - destinationBottomLeft.y) / sourceExtent.size.height;
-            const CGFloat tx =
-                    destinationBottomLeft.x - a * sourceExtent.origin.x - c * sourceExtent.origin.y;
-            const CGFloat ty =
-                    destinationBottomLeft.y - b * sourceExtent.origin.x - d * sourceExtent.origin.y;
-            source = [source imageByApplyingTransform:CGAffineTransformMake(a, b, c, d, tx, ty)];
-
-            const CGRect destinationBounds =
-                    CGRectMake(0, 0, drawableSize.width, drawableSize.height);
-            CIColor *clearColor = [CIColor colorWithRed:0
-                                                  green:0
-                                                   blue:0
-                                                  alpha:0
-                                             colorSpace:outputColorSpace];
-            CIImage *clearImage =
-                    [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
-            source = [[source imageByCroppingToRect:destinationBounds]
-                    imageByCompositingOverImage:clearImage];
-
+            const CGRect destinationBounds = CGRectMake(0, 0, actualSize.width, actualSize.height);
             QElapsedTimer timer;
             timer.start();
             [context render:source
@@ -751,11 +1027,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     commandBuffer:commandBuffer
                            bounds:destinationBounds
                        colorSpace:outputColorSpace];
+            revealAfterPresentation(drawable, commandBuffer);
             [commandBuffer presentDrawable:drawable];
             [commandBuffer commit];
             state.lastRenderMilliseconds = timer.nsecsElapsed() / 1000000.0;
             ++state.renderCount;
+
+            scheduleHDRPreparation(viewportSize, corners, actualSize);
+            syncPresentationDiagnostics();
         }
+    }
+
+    HDRRendererDiagnostics diagnostics()
+    {
+        syncPresentationDiagnostics();
+        return state;
     }
 
     NSView *nativeView{ nil };
@@ -764,6 +1050,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     id<MTLCommandQueue> commandQueue{ nil };
     CIContext *context{ nil };
     CGColorSpaceRef outputColorSpace{ nullptr };
+    QVHDRPresentationState *presentationState{ nil };
+    id<MTLTexture> preparedSDRTexture{ nil };
+    id<MTLTexture> preparedHDRTexture{ nil };
+    CIImage *preparedSDRImage{ nil };
+    CIImage *preparedHDRImage{ nil };
+    QSize preparedViewportSize;
+    QSize preparedTextureSize;
+    QPolygonF preparedCorners;
     std::shared_ptr<const NativeHDRImage> image;
     HDRRendererDiagnostics state;
 };
@@ -800,7 +1094,7 @@ void QVCocoaFunctions::HDRRenderer::render(const QSize &viewportSize, const QPol
 
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
 {
-    return impl ? impl->state : HDRRendererDiagnostics{};
+    return impl ? impl->diagnostics() : HDRRendererDiagnostics{};
 }
 
 qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
@@ -817,6 +1111,63 @@ qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
     const qreal safeContent = contentHeadroom > 0.0 ? std::max(1.0, contentHeadroom) : safeDisplay;
     const qreal available = std::min(safeContent, safeDisplay);
     return 1.0 + (available - 1.0) * easedHDRTransition(transitionProgress);
+}
+
+bool QVCocoaFunctions::shouldStartHDRTransition(const bool layoutReady,
+                                                const bool firstFramePresented,
+                                                const bool hdrPrepared)
+{
+    return layoutReady && firstFramePresented && hdrPrepared;
+}
+
+QVCocoaFunctions::HDRPixelStatistics
+QVCocoaFunctions::probeHDRPixelStatistics(const HDRImagePtr &opaqueImage)
+{
+    HDRPixelStatistics statistics;
+    const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(opaqueImage);
+    if (!nativeImage)
+        return statistics;
+
+    @autoreleasepool {
+        CGColorSpaceRef colorSpace = colorSyncDisplayP3ColorSpace(true);
+        CIContext *probeContext = metalCIContext(colorSpace, colorSpace);
+        if (!colorSpace || !probeContext) {
+            if (colorSpace)
+                CGColorSpaceRelease(colorSpace);
+            return statistics;
+        }
+
+        const auto maximumComponent = [&](CIImage *source, float &maximum) {
+            if (!source || CGRectIsEmpty(source.extent))
+                return false;
+            CIFilter *areaMaximum = [CIFilter filterWithName:@"CIAreaMaximum"];
+            [areaMaximum setValue:source forKey:kCIInputImageKey];
+            [areaMaximum setValue:[CIVector vectorWithCGRect:source.extent]
+                           forKey:kCIInputExtentKey];
+            CIImage *reduced = areaMaximum.outputImage;
+            if (!reduced)
+                return false;
+
+            float pixel[4]{ 0.0F, 0.0F, 0.0F, 0.0F };
+            [probeContext render:reduced
+                        toBitmap:pixel
+                        rowBytes:sizeof(pixel)
+                          bounds:CGRectMake(0, 0, 1, 1)
+                          format:kCIFormatRGBAf
+                      colorSpace:colorSpace];
+            maximum = std::max({ pixel[0], pixel[1], pixel[2] });
+            return std::isfinite(maximum);
+        };
+
+        const bool sdrValid = maximumComponent(nativeImage->sdrCIImage(),
+                                               statistics.sdrMaximumComponent);
+        const bool hdrValid = maximumComponent(nativeImage->hdrCIImage(),
+                                               statistics.hdrMaximumComponent);
+        statistics.valid = sdrValid && hdrValid;
+        [probeContext clearCaches];
+        CGColorSpaceRelease(colorSpace);
+    }
+    return statistics;
 }
 
 static void hideMenuShortcuts(NSMenu *nativeMenu)

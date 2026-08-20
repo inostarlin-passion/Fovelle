@@ -28,7 +28,8 @@ THRESHOLDS = {
     "steady_render_p99_ms_max": 120.0,
     "steady_render_max_ms_max": 200.0,
     "steady_render_equivalent_submissions_per_second_min": 33.0,
-    "observed_transition_frames_per_second_min": 10.0,
+    "observed_transition_frames_per_second_min": 30.0,
+    "transition_progress_step_max": 0.15,
 }
 
 
@@ -115,6 +116,15 @@ def transition_fps(records: list[dict]) -> float:
     return (last_count - first_count) * 1000.0 / span if span > 0 else 0.0
 
 
+def maximum_transition_step(records: list[dict]) -> float:
+    active = [
+        float(item.get("transition_progress", 0))
+        for item in records
+        if 0 <= float(item.get("transition_elapsed_ms", -1)) <= 700
+    ]
+    return max((current - previous for previous, current in zip(active, active[1:])), default=0.0)
+
+
 def make_case(identifier: str, checks: dict[str, bool], observations: dict) -> dict:
     passed = bool(checks) and all(checks.values())
     return {
@@ -162,15 +172,16 @@ def main() -> int:
         float(item["last_render_ms"])
         for run in real_runs
         for item in run["telemetry"]
-        if int(item.get("render_count", 0)) > 3
+        if int(item.get("render_count", 0)) > 3 and item.get("hdr_prepared") is True
     ]
     transition_rates = [transition_fps(run["telemetry"]) for run in real_runs]
+    transition_steps = [maximum_transition_step(run["telemetry"]) for run in real_runs]
     decode_average = statistics.fmean(decode_samples) if decode_samples else math.inf
     render_average = statistics.fmean(steady_render_samples) if steady_render_samples else math.inf
     performance = {
         "measurement_window": {
             "decode": "request start through native HDR graph and bounded SDR proxy completion",
-            "steady_render": "render_count > 3; first three Core Image/Metal warm-up submissions excluded",
+            "steady_render": "render_count > 3 and hdr_prepared=true; first-frame and offscreen endpoint preparation excluded",
             "runs_per_format": RUNS_PER_FORMAT,
             "formats": ["gain-map-jpeg", "raw-dng"],
         },
@@ -179,6 +190,7 @@ def main() -> int:
             "decode_ms": decode_samples,
             "steady_render_ms": steady_render_samples,
             "observed_transition_frames_per_second": transition_rates,
+            "maximum_transition_progress_step": transition_steps,
         },
         "metrics": {
             "decode_average_ms": decode_average,
@@ -190,6 +202,7 @@ def main() -> int:
             "steady_render_max_ms": max(steady_render_samples, default=math.inf),
             "steady_render_equivalent_submissions_per_second": 1000.0 / render_average if render_average > 0 else 0.0,
             "observed_transition_frames_per_second_min": min(transition_rates, default=0.0),
+            "transition_progress_step_max": max(transition_steps, default=math.inf),
         },
     }
     metrics = performance["metrics"]
@@ -218,6 +231,34 @@ def main() -> int:
             "record_count": len(raw_records),
             "max_target_headroom_by_run": [max(float(item["target_headroom"]) for item in run["telemetry"]) for run in raw_runs],
         }),
+        make_case("SYS-HDR-NO-PREMATURE-BLACK-FRAME", {
+            "telemetry_present": bool(all_real_records),
+            "fallback_covers_unpresented_frames": all(
+                item.get("fallback_visible") is True and abs(float(item.get("layer_opacity", -1))) < 1e-6
+                for item in all_real_records if item.get("first_frame_presented") is False
+            ),
+            "metal_revealed_only_after_presentation": all(
+                item.get("first_frame_presented") is True
+                for item in all_real_records if float(item.get("layer_opacity", 0)) > 0.5
+            ),
+            "revealed_frame_has_final_drawable_geometry": all(
+                item.get("drawable_geometry_matches") is True
+                for item in all_real_records if float(item.get("layer_opacity", 0)) > 0.5
+            ),
+        }, {
+            "unpresented_record_count": sum(item.get("first_frame_presented") is False for item in all_real_records),
+            "revealed_record_count": sum(float(item.get("layer_opacity", 0)) > 0.5 for item in all_real_records),
+        }),
+        make_case("SYS-HDR-FINAL-LAYOUT-BEFORE-METAL", {
+            "all_renders_are_layout_ready": bool(all_real_records) and all(item.get("layout_ready") is True for item in all_real_records),
+            "all_drawables_match_requested_geometry": bool(all_real_records) and all(item.get("drawable_geometry_matches") is True for item in all_real_records),
+            "raw_zoom_is_stable_from_first_submission": all(
+                len({round(float(item.get("zoom_level", -1)), 9) for item in run["telemetry"]}) == 1
+                for run in raw_runs
+            ),
+        }, {
+            "raw_zoom_values_by_run": [sorted({float(item.get("zoom_level", -1)) for item in run["telemetry"]}) for run in raw_runs],
+        }),
         make_case("SYS-HDR-FLOAT-COLORMANAGED-EDR-SURFACE", {
             "telemetry_present": bool(all_real_records),
             "rgba16_float": all(item.get("rgba16_float") is True for item in all_real_records),
@@ -236,9 +277,15 @@ def main() -> int:
                 )
                 for records in (run["telemetry"] for run in real_runs)
             ),
+            "transition_begins_only_after_present_and_prepare": all(
+                item.get("first_frame_presented") is True and item.get("hdr_prepared") is True
+                for item in all_real_records if float(item.get("transition_progress", 0)) > 0
+            ),
+            "progress_step_is_bounded": max(transition_steps, default=math.inf) <= THRESHOLDS["transition_progress_step_max"],
         }, {
             "first_progress_by_run": [run["telemetry"][0].get("transition_progress") for run in real_runs],
             "last_progress_by_run": [run["telemetry"][-1].get("transition_progress") for run in real_runs],
+            "maximum_progress_step_by_run": transition_steps,
         }),
         make_case("SYS-HDR-WINDOWSERVER-HEADROOM", {
             "potential_hdr_display": bool(all_real_records) and max(float(item.get("display_potential_headroom", 1)) for item in all_real_records) > 1,
@@ -269,6 +316,7 @@ def main() -> int:
             "render_max": metrics["steady_render_max_ms"] <= THRESHOLDS["steady_render_max_ms_max"],
             "render_throughput": metrics["steady_render_equivalent_submissions_per_second"] >= THRESHOLDS["steady_render_equivalent_submissions_per_second_min"],
             "observed_frame_rate": metrics["observed_transition_frames_per_second_min"] >= THRESHOLDS["observed_transition_frames_per_second_min"],
+            "transition_progress_step": metrics["transition_progress_step_max"] <= THRESHOLDS["transition_progress_step_max"],
         }, metrics),
     ]
 
@@ -298,9 +346,14 @@ def main() -> int:
             "Telemetry came from the compiled Cocoa application while its CAMetalLayer was attached to a visible window.",
             "The built-in display exposed potential EDR headroom above one during this run.",
             "The forced-SDR run overrides only the renderer's observed current headroom; it exercises the real Core Image/Metal output path with target headroom one.",
+            "Every record before first-frame presentation retained the SDR fallback with Metal layer opacity zero.",
+            "Every submitted DNG frame used one stable post-fit zoom and a drawable texture matching the requested geometry.",
+            "The visible HDR transition began only after endpoint preparation and met the recorded frame-rate and maximum-progress-step thresholds.",
         ],
         "inferences": [
             "Current display headroom above one together with wants_edr and target headroom above one demonstrates successful EDR negotiation with WindowServer.",
+            "Staging the handoff until drawable presentation removes the observable empty-layer interval that caused the JPEG black flash.",
+            "Deferring submission until final layout removes the stale-transform interval that caused the partial DNG frame.",
         ],
         "uncertainties": [
             "Telemetry cannot prove subjective equivalence with Quick Look's private tone curve.",

@@ -129,6 +129,22 @@ def main() -> int:
         "qt_viewport_transform": "viewportTransform().map(sourceCorners)" in view,
         "metal_affine_transform": "CGAffineTransformMake(a, b, c, d, tx, ty)" in renderer,
         "source_size_scene_rect": "QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)" in view,
+        "actual_drawable_texture_drives_coordinates": "textureSize.width / viewportSize.width()" in renderer,
+        "drawable_size_observed": "drawable.texture.width" in renderer and "drawableGeometryMatches" in renderer,
+    })
+    case("ST-HDR-STAGED-FIRST-FRAME", {
+        "layout_gate_closed_before_fit": view.count("hdrLayoutReady = false") >= 2,
+        "layout_gate_armed_after_fit": "hdrLayoutReady = hdrRendererActive" in view,
+        "sdr_proxy_kept_visible": "loadedPixmapItem->setVisible(true)" in view,
+        "metal_starts_transparent": "metalLayer.opacity = 0.0F" in renderer,
+        "reveal_after_presented_handler": "addPresentedHandler" in renderer and "firstFramePresented = YES" in renderer,
+    })
+    case("ST-HDR-OFFSCREEN-PREPARATION", {
+        "preparation_is_after_first_frame": "!presentationState->firstFramePresented" in renderer,
+        "two_float_endpoint_textures": "preparedSDRTexture" in renderer and "preparedHDRTexture" in renderer,
+        "raw_graph_rendered_offscreen": "scheduleHDRPreparation" in renderer and "toMTLTexture:preparedHDRTexture" in renderer,
+        "transition_waits_for_preparation": "shouldStartHDRTransition" in view and "hdrPrepared" in view,
+        "prepared_endpoints_used_for_transition": "preparedDisplayImage" in renderer,
     })
     case("ST-HDR-OBSERVABILITY", {
         "json_telemetry": '"FOVELLE_HDR"' in view and "QJsonDocument::Compact" in view,

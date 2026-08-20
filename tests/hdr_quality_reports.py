@@ -68,6 +68,8 @@ def main() -> int:
     phase_records = {phase: load(path) for phase, path in phase_paths.items()}
     intermediate_failure_path = evidence_dir / "intermediate/hdr_unit_failed_runner_and_geometry.json"
     intermediate_failure = load(intermediate_failure_path) if intermediate_failure_path.is_file() else {}
+    root_cause_path = evidence_dir / "intermediate/hdr_root_cause_before_fix.json"
+    root_cause = load(root_cause_path) if root_cause_path.is_file() else {}
     generated_at = datetime.now(timezone.utc).isoformat()
 
     evidence_cases = [
@@ -119,7 +121,58 @@ def main() -> int:
             "url": "https://developer.apple.com/documentation/quartzcore/cametallayer/wantsextendeddynamicrangecontent",
             "supports": ["EDR layer contract"],
         },
+        {
+            "kind": "fact-source",
+            "title": "Apple CAMetalLayer drawableSize",
+            "url": "https://developer.apple.com/documentation/quartzcore/cametallayer/drawablesize",
+            "supports": ["drawable texture dimensions are pixels", "bounds times contentsScale default"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple MTLDrawable addPresentedHandler",
+            "url": "https://developer.apple.com/documentation/metal/mtldrawable/addpresentedhandler(_:)",
+            "supports": ["callback after a drawable is presented", "first-frame handoff synchronization"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CIRAWFilter extendedDynamicRangeAmount",
+            "url": "https://developer.apple.com/documentation/coreimage/cirawfilter/extendeddynamicrangeamount",
+            "supports": ["0 means no EDR", "1 means default EDR", "2 means maximum EDR"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple NSScreen maximumExtendedDynamicRangeColorComponentValue",
+            "url": "https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue",
+            "supports": ["current EDR headroom is dynamic", "EDR contexts can use values above one"],
+        },
     ]
+
+    intermediate_iterations = []
+    if root_cause:
+        intermediate_iterations.append({
+            "status": "reproduced-and-superseded",
+            "evidence_file": str(root_cause_path.relative_to(repo)),
+            "evidence_sha256": sha256(root_cause_path),
+            "facts": root_cause.get("facts", []),
+            "inferences": root_cause.get("inferences", []),
+            "uncertainties": root_cause.get("uncertainties", []),
+            "used_as_final_pass_evidence": False,
+        })
+    if intermediate_failure:
+        intermediate_iterations.append({
+            "status": "failed-and-superseded",
+            "evidence_file": str(intermediate_failure_path.relative_to(repo)),
+            "evidence_sha256": sha256(intermediate_failure_path),
+            "facts": [
+                "The first formal unit attempt passed an invalid split Qt output argument and therefore selected a non-existent test function named txt.",
+                "The same attempt exposed a real non-HDR expensive-scaling scene-rectangle regression before completion.",
+            ],
+            "corrections": [
+                "Pass -,txt as one Qt Test argument.",
+                "Use logical source scene geometry only for native HDR; preserve the existing pixmap backing geometry for non-HDR expensive scaling.",
+            ],
+            "used_as_final_pass_evidence": False,
+        })
 
     artifact_records = [
         {
@@ -155,22 +208,7 @@ def main() -> int:
             "unexpected_ids": unexpected_ids,
             "duplicate_ids": duplicate_ids,
         },
-        "intermediate_iterations": [
-            {
-                "status": "failed-and-superseded",
-                "evidence_file": str(intermediate_failure_path.relative_to(repo)),
-                "evidence_sha256": sha256(intermediate_failure_path),
-                "facts": [
-                    "The first formal unit attempt passed an invalid split Qt output argument and therefore selected a non-existent test function named txt.",
-                    "The same attempt exposed a real non-HDR expensive-scaling scene-rectangle regression before completion.",
-                ],
-                "corrections": [
-                    "Pass -,txt as one Qt Test argument.",
-                    "Use logical source scene geometry only for native HDR; preserve the existing pixmap backing geometry for non-HDR expensive scaling.",
-                ],
-                "used_as_final_pass_evidence": False,
-            }
-        ] if intermediate_failure else [],
+        "intermediate_iterations": intermediate_iterations,
         "summary": {
             "total": len(evidence_cases),
             "passed": sum(item["status"] == "passed" for item in evidence_cases),
@@ -198,6 +236,8 @@ def main() -> int:
             "Non-RAW HDR: gain-map JPEG, HDR JPEG/HEIF/AVIF metadata-aware reconstruction",
             "ColorSync + Core Image/Metal RGBA16Float + CAMetalLayer EDR output",
             "SDR headroom compatibility and smooth activation",
+            "First-frame SDR proxy handoff synchronized to actual Metal presentation",
+            "Post-layout geometry gating and offscreen RAW/HDR endpoint preparation",
         ],
         "phase_results": [
             {
@@ -219,6 +259,9 @@ def main() -> int:
             "All specified static, unit, integration, and system cases passed in the recorded order.",
             "The supplied JPEG produced an adaptive-HDR graph with content headroom above one.",
             "The supplied DNG produced a CIRAWFilter EDR graph and did not use an embedded preview as primary content.",
+            "The supplied DNG pixel probe measured an HDR component above SDR white.",
+            "All pre-presentation system records retained the SDR fallback while Metal opacity was zero.",
+            "All DNG system records used final layout and stable zoom from the first Metal submission.",
             "The physical built-in display reported current EDR headroom above one during system tests.",
         ],
         "inferences": [
@@ -249,6 +292,7 @@ def main() -> int:
                 "status": "passed" if evidence_passed else "failed",
                 "atomic_evidence_ids": [
                     "ST-HDR-RAW-CIRAWFILTER", "ST-HDR-NONRAW-RECONSTRUCTION",
+                    "ST-HDR-STAGED-FIRST-FRAME", "ST-HDR-OFFSCREEN-PREPARATION",
                     "UT-HDR-FORMAT-COVERAGE", "ST-HDR-VERSION-0.1.4",
                 ],
                 "facts": [
@@ -265,12 +309,14 @@ def main() -> int:
                 "atomic_evidence_ids": [item["id"] for item in evidence_cases if item["phase"] in {"unit", "integration"}] + [
                     "SYS-HDR-GAINMAP-JPEG-EDR", "SYS-HDR-RAW-DNG-EDR",
                     "SYS-HDR-FLOAT-COLORMANAGED-EDR-SURFACE", "SYS-HDR-WINDOWSERVER-HEADROOM",
-                    "SYS-HDR-FORCED-SDR-COMPATIBILITY",
+                    "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
+                    "SYS-HDR-FINAL-LAYOUT-BEFORE-METAL",
                 ],
                 "facts": [
                     "Real JPEG and DNG inputs passed decoder invariants and rendered through an active RGBA16Float EDR surface.",
                     "SDR classification and forced unit-headroom behavior passed.",
                     "The complete pre-existing CTest regression target passed after the change.",
+                    "The RAW RGBAf peak probe proves extended values numerically instead of relying on metadata flags.",
                 ],
                 "inference": "The tested public-framework pipeline preserves HDR until the WindowServer boundary for these representative RAW and gain-map inputs.",
                 "uncertainty": "Visual identity across every camera model and every ISO HDR encoder remains outside the finite fixture matrix.",
@@ -282,8 +328,11 @@ def main() -> int:
                 "measurement_window": system_performance.get("measurement_window"),
                 "thresholds": system_performance.get("thresholds"),
                 "metrics": performance_metrics,
-                "facts": ["Average, P99, maximum, and throughput were computed from raw JSON samples for both decode and steady render windows."],
-                "inference": "The measured M3 Pro workload has sufficient interactive steady-state throughput after Core Image/Metal warm-up.",
+                "facts": [
+                    "Average, P99, maximum, and throughput were computed from raw JSON samples for both decode and steady render windows.",
+                    "Visible transition continuity is additionally bounded by a minimum observed frame rate and a maximum progress step.",
+                ],
+                "inference": "Offscreen endpoint preparation moves 48MP lazy evaluation outside the visible ramp and leaves sufficient interactive transition throughput on the measured M3 Pro.",
                 "uncertainty": "Performance will vary with sensor resolution, RAW demosaic complexity, GPU, memory pressure, and display mode.",
             },
             {
@@ -291,12 +340,13 @@ def main() -> int:
                 "status": "passed" if evidence_passed else "failed",
                 "atomic_evidence_ids": [
                     "ST-HDR-OBSERVABILITY", "UT-HDR-TRANSITION", "UT-HDR-HEADROOM-CLAMP",
-                    "SYS-HDR-SMOOTH-ACTIVATION", "SYS-HDR-FORCED-SDR-COMPATIBILITY",
+                    "UT-HDR-STAGED-PRESENTATION", "SYS-HDR-SMOOTH-ACTIVATION",
+                    "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
                 ],
                 "facts": [
                     "Pure helpers deterministically test transition and headroom policy.",
                     "A test-only environment override deterministically exercises SDR targeting without replacing the production renderer.",
-                    "Compact JSON telemetry exposes decoder metadata, layer configuration, display headroom, transition, render count, and timings only when enabled.",
+                    "Compact JSON telemetry exposes decoder metadata, layout/fallback state, drawable dimensions, presentation/preparation gates, display headroom, transition, render count, and timings only when enabled.",
                     "Every atomic criterion has one specification and one evidence record with a stable ID.",
                 ],
                 "inference": "Failures can be localized to a single layer of the pipeline without screenshot-based HDR ambiguity.",

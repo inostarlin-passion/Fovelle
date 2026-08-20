@@ -101,6 +101,7 @@ private slots:
     void testTransitionCurveIsBoundedAndMonotonic();
     void testHDRHeadroomIsClampedToContentAndDisplay();
     void testSDRDisplayForcesUnitHeadroom();
+    void testTransitionStartsOnlyAfterStagedPresentation();
     void testRendererUsesFloatEDRColorManagedSurface();
     void testSDRImageStaysOnSDRPath();
     void testRequiredHDRFormatsAreAdvertised();
@@ -113,6 +114,7 @@ class HDRSampleTests : public QObject
 private slots:
     void testGainMapJPEGCreatesNativeHDRGraph();
     void testDNGCreatesNativeRawEDRGraph();
+    void testDNGRawEDRContainsAboveSDRValues();
 };
 
 class GraphicsViewTests : public QObject
@@ -903,6 +905,28 @@ void HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()
     QCOMPARE(QVCocoaFunctions::effectiveHDRHeadroom(4.9473, 1.0, 1.0), 1.0);
 }
 
+// TC-HDR-UNIT-STAGED-PRESENTATION
+// Test purpose: verify HDR activation cannot race layout, the first visible
+// Metal frame, or the expensive first evaluation of the HDR graph.
+// Preconditions: the pure staging policy helper is available.
+// Input data: all eight combinations of layout-ready, frame-presented, and
+// HDR-prepared flags.
+// Steps: evaluate shouldStartHDRTransition for every combination.
+// Expected result: only the all-true state permits the transition clock to
+// start; every incomplete stage returns false.
+// Postcondition: no layer, image, or display state changes.
+void HDRPolicyTests::testTransitionStartsOnlyAfterStagedPresentation()
+{
+    for (int bits = 0; bits < 8; ++bits) {
+        const bool layoutReady = bits & 1;
+        const bool framePresented = bits & 2;
+        const bool hdrPrepared = bits & 4;
+        QCOMPARE(QVCocoaFunctions::shouldStartHDRTransition(
+                         layoutReady, framePresented, hdrPrepared),
+                 bits == 7);
+    }
+}
+
 // TC-HDR-UNIT-RENDERER-CONTRACT
 // Test purpose: verify the native renderer declares the precision, color
 // management, and EDR surface required by the production pipeline.
@@ -1027,6 +1051,33 @@ void HDRSampleTests::testDNGCreatesNativeRawEDRGraph()
     QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
     QVERIFY(!result.image.isNull());
     QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+}
+
+// TC-HDR-INT-RAW-DNG-PEAK
+// Test purpose: prove the supplied DNG's retained RAW EDR graph contains real
+// extended-linear values above SDR white, rather than only carrying HDR flags.
+// Preconditions: the sample is readable and Apple CIRAWFilter supports it.
+// Input data: IMG_8625.DNG decoded with EDR amounts 0 and 1.
+// Steps: reduce both floating-point CI graphs with CIAreaMaximum and compare
+// their largest RGB component in extended-linear Display P3.
+// Expected result: SDR is at most 1.01; EDR is above 1.05 and exceeds SDR by
+// at least 0.05.
+// Postcondition: the one-pixel probes, CI context, and RAW graphs are released.
+void HDRSampleTests::testDNGRawEDRContainsAboveSDRValues()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.hdrImage);
+    const auto statistics = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    qInfo("FOVELLE_RAW_PEAK sdr_max=%.9f hdr_max=%.9f",
+          static_cast<double>(statistics.sdrMaximumComponent),
+          static_cast<double>(statistics.hdrMaximumComponent));
+    QVERIFY(statistics.valid);
+    QVERIFY(statistics.sdrMaximumComponent <= 1.01F);
+    QVERIFY(statistics.hdrMaximumComponent > 1.05F);
+    QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
 }
 
 void ActionManagerTests::testClonedActionsUntracked()

@@ -19,6 +19,7 @@ EXPECTED = (
     ("UT-HDR-TRANSITION", "HDRPolicyTests", "testTransitionCurveIsBoundedAndMonotonic"),
     ("UT-HDR-HEADROOM-CLAMP", "HDRPolicyTests", "testHDRHeadroomIsClampedToContentAndDisplay"),
     ("UT-HDR-SDR-FALLBACK", "HDRPolicyTests", "testSDRDisplayForcesUnitHeadroom"),
+    ("UT-HDR-STAGED-PRESENTATION", "HDRPolicyTests", "testTransitionStartsOnlyAfterStagedPresentation"),
     ("UT-HDR-RENDERER-CONTRACT", "HDRPolicyTests", "testRendererUsesFloatEDRColorManagedSurface"),
     ("UT-HDR-SDR-CLASSIFICATION", "HDRPolicyTests", "testSDRImageStaysOnSDRPath"),
     ("UT-HDR-FORMAT-COVERAGE", "HDRPolicyTests", "testRequiredHDRFormatsAreAdvertised"),

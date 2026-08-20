@@ -69,13 +69,30 @@ public:
         bool usesColorSync{ false };
         bool wantsExtendedDynamicRangeContent{ false };
         bool displayHeadroomOverridden{ false };
+        bool firstFrameSubmitted{ false };
+        bool firstFramePresented{ false };
+        bool hdrPreparationInFlight{ false };
+        bool hdrPrepared{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
         float targetHeadroom{ 1.0F };
         float transitionProgress{ 0.0F };
+        int requestedDrawableWidth{ 0 };
+        int requestedDrawableHeight{ 0 };
+        int actualTextureWidth{ 0 };
+        int actualTextureHeight{ 0 };
+        bool drawableGeometryMatches{ false };
+        float layerOpacity{ 0.0F };
         quint64 renderCount{ 0 };
         double lastRenderMilliseconds{ 0.0 };
+    };
+
+    struct HDRPixelStatistics
+    {
+        bool valid{ false };
+        float sdrMaximumComponent{ 0.0F };
+        float hdrMaximumComponent{ 0.0F };
     };
 
     class HDRRenderer
@@ -162,6 +179,17 @@ public:
 
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
+
+    // A transition may begin only after the final view geometry is known, an
+    // SDR Metal frame is actually visible, and the expensive HDR graph has
+    // completed its first offscreen evaluation.
+    static bool shouldStartHDRTransition(bool layoutReady, bool firstFramePresented,
+                                         bool hdrPrepared);
+
+    // Non-invasive test/diagnostic probe. It reduces each retained CI graph to
+    // one floating-point maximum pixel without converting the source to an SDR
+    // CGImage or NSImage.
+    static HDRPixelStatistics probeHDRPixelStatistics(const HDRImagePtr &image);
 
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 

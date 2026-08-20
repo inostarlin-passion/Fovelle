@@ -291,6 +291,7 @@ private:
     QTimer *hdrTransitionTimer;
     QElapsedTimer hdrTransitionClock;
     bool hdrRendererActive{ false };
+    bool hdrLayoutReady{ false };
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;

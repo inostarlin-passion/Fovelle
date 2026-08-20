@@ -13,6 +13,19 @@ Fovelle 在 macOS 上把 HDR 文件保持为 Core Image 的高精度惰性图像
 3. Apple 在 [WWDC21: Capture and process ProRAW images](https://developer.apple.com/videos/play/wwdc2021/10160/) 中将 ProRAW 描述为 scene-referred/可线性化 RAW，并展示 `CIRAWFilter.extendedDynamicRangeAmount = 1` 与 RGBA half-float EDR 输出组合。
 4. Apple SDK 将 `CIRAWFilter.extendedDynamicRangeAmount` 定义为 0…2；1 表示默认 EDR 处理。`kCGImageSourceDecodeRequest`/`kCGImageSourceDecodeToHDR` 和 `kCIImageExpandToHDR` 从 macOS 14 可用，`CIImage.contentHeadroom` 与 `CIToneMapHeadroom` 从 macOS 15 可用。
 5. 本机 Image I/O 实际声明 DNG、NEF、CR3、ARW、RAF、JPEG、HEIF/HEIC 和 AVIF 支持。验收时，提供的 JPEG 被识别为 `public.jpeg`，同时带 Apple 与 ISO gain map，重建后的内容 headroom 约 4.947；提供的 DNG 被识别为 `com.adobe.raw-image`，并由 `CIRAWFilter` 生成全分辨率输出。
+6. Apple 将 [`CAMetalLayer.drawableSize`](https://developer.apple.com/documentation/quartzcore/cametallayer/drawablesize) 定义为 drawable texture 的像素尺寸；[`MTLDrawable.addPresentedHandler`](https://developer.apple.com/documentation/metal/mtldrawable/addpresentedhandler(_:)) 则在 drawable 实际呈现后回调。本实现分别用实际 texture 尺寸计算坐标，并以 presented handler 控制首帧交接。
+
+## 本次瞬态问题的根因与修复
+
+预修复的三次系统记录显示：JPEG 首次 render 均耗时约 300–306 ms，但代码在 `setImage` 时就隐藏 Qt proxy 并显示尚无已呈现内容的 Metal layer，因此出现黑块。DNG 的首次 HDR 求值均阻塞约 1084–1103 ms，随后可观察的过渡进度从约 0.026–0.029 一步跳到 1；从竖幅 JPEG 导航到横幅 DNG 时，Qt 的同步 paint 又能在最终 fit 前提交旧缩放，从而让错误几何在该阻塞窗口内停留。用户截图、旧系统 telemetry 和对应源码状态均已哈希到 `reports/evidence/intermediate/hdr_root_cause_before_fix.json`。
+
+修复采用三阶段展示协议：
+
+1. `hdrLayoutReady` 在 `updateSceneRect`、滚动条调整和 `fitOrConstrainImage` 全部完成前保持 false，任何同步 `paintEvent` 都不能提前提交 Metal；
+2. 全尺寸逻辑坐标对齐的 SDR proxy 保持可见，Metal layer 以 opacity 0 工作，只有目标尺寸 drawable 通过 `addPresentedHandler` 确认已上屏后才原子切换；
+3. 首个可见 SDR Metal 帧之后，把 SDR 与 HDR 端点离屏渲染为两张 viewport 尺寸的 RGBA16Float texture。昂贵的 48 MP RAW 惰性求值在不可见阶段完成，650 ms 渐亮只在已缓存的浮点端点之间合成。
+
+这不是把 RAW 降级成 SDR proxy：proxy 只负责首帧连续性；正式内容、预热端点和最终 surface 始终是 Core Image/Metal 浮点链。提供的 DNG 通过 `CIAreaMaximum` 的 RGBAf 探针测得 SDR 峰值约 1.000、EDR 峰值约 1.350，证明 EDR 图中存在超过 SDR white 的真实数值。
 
 ## 实现数据流
 
@@ -40,11 +53,11 @@ ColorSync 的 Display P3 profile 用于建立扩展线性 Display P3 工作/输�
 
 ## 性能测试合同
 
-目标工作负载是两张约 48 MP 的提供样例，在内建 Liquid Retina XDR/M3 Pro 上各冷/暖启动 3 次。解码窗口从请求开始到 HDR 图与 SDR proxy 就绪；渲染稳态窗口排除每次运行最初 3 次 Metal/Core Image warm-up submission。验收阈值为：
+目标工作负载是两张约 48 MP 的提供样例，在内建 Liquid Retina XDR/M3 Pro 上各冷/暖启动 3 次。解码窗口从请求开始到 HDR 图与 SDR proxy 就绪；渲染稳态窗口要求 `render_count > 3` 且 `hdr_prepared=true`，明确排除首帧与离屏端点准备。验收阈值为：
 
 - 解码平均 ≤ 2500 ms、P99 ≤ 3500 ms、最大 ≤ 4000 ms、吞吐量 ≥ 0.4 image/s；
 - 稳态 render submission 平均 ≤ 30 ms、P99 ≤ 120 ms、最大 ≤ 200 ms、等效吞吐量 ≥ 33 submissions/s；
-- 过渡采样吞吐量 ≥ 10 observed frames/s。
+- 过渡采样吞吐量 ≥ 30 observed frames/s，任意相邻进度步长 ≤ 0.15。
 
 阈值和测量窗口固定在测试代码中，JSON 同时保存原始样本、统计量和判定结果。
 
