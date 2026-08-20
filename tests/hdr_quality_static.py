@@ -43,6 +43,8 @@ def main() -> int:
     cocoa = (repo / "src/qvcocoafunctions.mm").read_text(encoding="utf-8")
     cocoa_header = (repo / "src/qvcocoafunctions.h").read_text(encoding="utf-8")
     view = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
+    namespace_source = (repo / "src/qvnamespace.h").read_text(encoding="utf-8")
+    main_window = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     loader = (repo / "src/qvimageloader.cpp").read_text(encoding="utf-8")
     cmake = (repo / "CMakeLists.txt").read_text(encoding="utf-8")
     qmake = (repo / "qView.pro").read_text(encoding="utf-8")
@@ -71,13 +73,16 @@ def main() -> int:
         "filename_suffix_not_used_in_decoder": "QFileInfo(filePath).suffix" not in raw_decode,
     })
     case("ST-HDR-RAW-CIRAWFILTER", {
-        "native_raw_filter": "CIRAWFilter filterWithImageURL" in raw_decode,
+        "independent_native_raw_filters": raw_decode.count("filterWithImageURL:fileUrl.toNSURL()") >= 2,
         "sdr_raw_graph": "extendedDynamicRangeAmount = 0.0F" in raw_decode,
         "edr_raw_graph": "extendedDynamicRangeAmount = 1.0F" in raw_decode,
+        "hdr_linear_baseline": "hdrRawFilter.baselineExposure = 0.0F" in raw_decode,
         "native_graph_published": "make_shared<NativeHDRImage>" in raw_decode,
     })
     case("ST-HDR-RAW-PREVIEW-FALLBACK", {
-        "preview_is_conditional_fallback": raw_decode.find("if (result.image.isNull())") < raw_decode.find("rawFilter.previewImage"),
+        "preview_is_conditional_fallback": (
+            raw_decode.find("if (result.image.isNull())") < raw_decode.find("CIImage *rawPreview")
+        ),
         "preview_usage_is_observable": "result.usedRawPreview" in raw_decode,
         "unsupported_camera_is_explicit": "does not support this camera model" in raw_decode,
     })
@@ -171,9 +176,9 @@ def main() -> int:
     })
     case("ST-HDR-OFFSCREEN-PREPARATION", {
         "preparation_precedes_first_visible_frame": (
-            "needsManagedPreparation && !preparedRequestedGeometry" in renderer
+            "needsManagedPreparation && !preparedEndpointsAvailable" in renderer
             and "scheduleHDRPreparation(viewportSize, corners, requestedSize)" in renderer
-            and renderer.index("needsManagedPreparation && !preparedRequestedGeometry")
+            and renderer.index("needsManagedPreparation && !preparedEndpointsAvailable")
             < renderer.index("revealAfterPresentation(drawable, commandBuffer)")
         ),
         "core_image_manages_both_intermediates": renderer.count("imageByInsertingIntermediate:YES") == 2,
@@ -199,9 +204,17 @@ def main() -> int:
         "geometry_debounce_is_single_shot": (
             "hdrGeometryTimer->setSingleShot(true)" in view and "hdrGeometryTimer->setInterval(34)" in view
         ),
-        "old_generation_invalidated": "hdrRenderer->invalidateGeometry()" in view,
-        "proxy_is_sole_pending_representation": (
-            "loadedPixmapItem->setVisible(true)" in view and "metalLayer.opacity = 0.0F" in renderer
+        "unpresented_generation_can_be_invalidated": (
+            "invalidateUnpresentedGeometry" in view and "hdrRenderer->invalidateGeometry()" in view
+        ),
+        "presented_hdr_is_reused_without_sdr_fallback": (
+            "reuseVisibleHDR" in view and "loadedPixmapItem->setVisible(!reuseVisibleHDR)" in view
+            and "if (!hdrActivationCompleted)" in view
+        ),
+        "cached_endpoints_are_geometry_independent": (
+            "preparedEndpointsAvailable" in renderer
+            and "preparedViewportSize == viewportSize" not in renderer
+            and "preparedCorners == corners" not in renderer
         ),
         "layer_tracks_native_view_resize": "kCALayerWidthSizable | kCALayerHeightSizable" in renderer,
         "drawable_background_prevents_reused_tile_ghosts": (
@@ -222,6 +235,74 @@ def main() -> int:
                 "viewport_global_x", "viewport_global_y", "viewport_logical_width",
                 "viewport_logical_height", "viewport_device_pixel_ratio",
             )
+        ),
+        "background_and_content_headroom_fields": all(
+            token in view for token in (
+                "viewport_background_red", "viewport_background_green",
+                "viewport_background_blue", "layer_contents_headroom",
+                "layer_contents_headroom_tag_supported", "image_corners",
+            )
+        ),
+    })
+    case("ST-HDR-RAW-STABLE-ENDPOINTS", {
+        "separate_sdr_and_hdr_filters": (
+            "CIRAWFilter *sdrRawFilter" in raw_decode
+            and "CIRAWFilter *hdrRawFilter" in raw_decode
+        ),
+        "interactive_context_caches_intermediates": (
+            "kCIContextCacheIntermediates : @YES" in renderer
+            and "state.cachesIntermediates = true" in renderer
+        ),
+        "source_intermediates_are_explicitly_cacheable": (
+            renderer.count("imageByInsertingIntermediate:YES") == 2
+        ),
+        "interactive_cache_is_cleared_on_image_replacement_only": (
+            "bool setImage(const HDRImagePtr &newImage)" in renderer
+            and "[context clearCaches]" in between(
+                renderer, "bool setImage(const HDRImagePtr &newImage)", "void invalidateGeometry()"
+            )
+            and "[context clearCaches]" not in between(
+                renderer, "void invalidateGeometry()", "static CIImage *mixImages"
+            )
+        ),
+    })
+    case("ST-HDR-RAW-CONTENT-HEADROOM", {
+        "raw_float_peak_is_measured": "maximumCIImageRGBComponent(hdrImage" in raw_decode,
+        "unknown_headroom_is_resolved_from_pixels": "resolvedHDRContentHeadroom" in raw_decode,
+        "raw_ciimage_is_tagged_when_supported": "imageBySettingContentHeadroom" in raw_decode,
+        "metal_layer_uses_content_target_not_potential_directly": (
+            "metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom)" in renderer
+        ),
+        "older_runtime_fallback_is_not_misreported_as_layer_tag": (
+            "state.usesLayerContentsHeadroomTag = true" in renderer
+            and "state.usesLayerContentsHeadroomTag = false" in renderer
+        ),
+    })
+    case("ST-HDR-THEME-BACKGROUND", {
+        "single_shared_theme_contract": (
+            "viewportBackgroundColor" in namespace_source
+            and "Qv::viewportBackgroundColor(theme)" in main_window
+            and "Qv::viewportBackgroundColor(theme)" in view
+        ),
+        "renderer_accepts_explicit_background": (
+            "setBackgroundColor(const QColor &newColor)" in renderer
+            and "backgroundColorSpace = colorSyncSrgbColorSpace()" in renderer
+        ),
+        "appkit_dynamic_background_removed": "NSColor.windowBackgroundColor" not in renderer,
+        "background_is_composited_opaque": "imageByCompositingOverImage:clearImage" in renderer,
+    })
+    case("ST-HDR-INTERACTION-NO-REACTIVATION", {
+        "reuse_policy_is_explicit": "canReuseHDRPresentation" in view,
+        "geometry_stage_does_not_reset_progress": (
+            "hdrTransitionClock.invalidate()" not in between(
+                view, "void QVGraphicsView::stageHDRGeometry", "void QVGraphicsView::finishHDRGeometryStabilization"
+            )
+            and "hdrTransitionLinearProgress = 0.0" not in between(
+                view, "void QVGraphicsView::stageHDRGeometry", "void QVGraphicsView::finishHDRGeometryStabilization"
+            )
+        ),
+        "activation_completion_is_observable": (
+            "hdrActivationCompleted = true" in view and "hdr_activation_completed" in view
         ),
     })
     case("ST-HDR-VERSION-0.1.4", {
@@ -270,7 +351,9 @@ def main() -> int:
     source_paths = [
         repo / "src/qvcocoafunctions.h",
         repo / "src/qvcocoafunctions.mm",
+        repo / "src/qvnamespace.h",
         repo / "src/qvgraphicsview.cpp",
+        repo / "src/mainwindow.cpp",
         repo / "src/qvimageloader.cpp",
         repo / "docs/hdr_pipeline.md",
     ]

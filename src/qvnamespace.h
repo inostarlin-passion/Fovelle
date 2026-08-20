@@ -246,6 +246,14 @@ namespace Qv
         return (color.red() * 0.299 + color.green() * 0.587 + color.blue() * 0.114) / 255.0;
     }
 
+    // The window painter and the independent Metal viewport layer must use
+    // one color contract. Otherwise revealing the HDR layer replaces the
+    // application's themed background with an AppKit dynamic color.
+    inline QColor viewportBackgroundColor(const Theme theme)
+    {
+        return theme == Theme::Dark ? QColor("#212121") : QColor("#969696");
+    }
+
     inline void alterWindowFlags(QWidget *window, std::function<Qt::WindowFlags(Qt::WindowFlags)> alterFlags)
     {
         const Qt::WindowFlags newFlags = alterFlags(window->windowFlags());

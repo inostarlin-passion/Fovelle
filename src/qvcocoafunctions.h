@@ -78,11 +78,18 @@ public:
         bool usesCoreImageManagedIntermediates{ false };
         bool preparedGeometryActive{ false };
         bool bootstrappingEDR{ false };
+        bool cachesIntermediates{ false };
+        bool usesLayerContentsHeadroomTag{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
         float displayRenderingHeadroom{ 1.0F };
         float targetHeadroom{ 1.0F };
+        float layerContentsHeadroom{ 0.0F };
+        int backgroundRed{ 0 };
+        int backgroundGreen{ 0 };
+        int backgroundBlue{ 0 };
+        quint64 backgroundUpdateCount{ 0 };
         float transitionProgress{ 0.0F };
         int requestedDrawableWidth{ 0 };
         int requestedDrawableHeight{ 0 };
@@ -114,6 +121,7 @@ public:
 
         bool isAvailable() const;
         bool setImage(const HDRImagePtr &image);
+        void setBackgroundColor(const QColor &color);
         void invalidateGeometry();
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
@@ -194,6 +202,12 @@ public:
 
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
+
+    // Some filter graphs (notably CIRAWFilter) report zero when their content
+    // headroom is unknown. A measured float peak is then the correct tag for
+    // Core Animation; it must never be replaced by display capability.
+    static qreal resolvedHDRContentHeadroom(qreal reportedHeadroom,
+                                            qreal measuredMaximumComponent);
 
     // The current EDR value can remain one until the first EDR frame is
     // onscreen. Use potential capability to break that bootstrap cycle while

@@ -105,6 +105,9 @@ private slots:
     void testDisplayHeadroomBootstrapsFromPotentialCapability();
     void testTransitionStartsOnlyAfterStagedPresentation();
     void testHDRViewportGeometryEquivalenceUsesCompleteContract();
+    void testRawContentHeadroomUsesMeasuredPeakWhenUnknown();
+    void testPreparedHDRPresentationCanBeReusedAcrossGeometry();
+    void testViewportBackgroundColorsMatchTheme();
     void testRendererUsesFloatEDRColorManagedSurface();
     void testSDRImageStaysOnSDRPath();
     void testRequiredHDRFormatsAreAdvertised();
@@ -119,6 +122,8 @@ private slots:
     void testGainMapJPEGHDRContainsAboveSDRValues();
     void testDNGCreatesNativeRawEDRGraph();
     void testDNGRawEDRContainsAboveSDRValues();
+    void testDNGRawHeadroomMatchesMeasuredFloatPeak();
+    void testDNGRawRepeatedFloatProbeIsStable();
 };
 
 class GraphicsViewTests : public QObject
@@ -1006,6 +1011,52 @@ void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
             viewport, reference, viewport, missingCorner));
 }
 
+// TC-HDR-UNIT-CONTENT-HEADROOM
+// Test purpose: ensure unknown RAW metadata is resolved from the measured
+// float endpoint rather than from unrelated display capability.
+// Preconditions: the pure headroom resolver is available.
+// Input data: reported, unknown+measured, and invalid/empty combinations.
+// Steps: call resolvedHDRContentHeadroom for each combination.
+// Expected result: a valid report wins; otherwise the measured peak is used;
+// invalid input falls back to SDR headroom one.
+// Postcondition: no image or display state changes.
+void HDRPolicyTests::testRawContentHeadroomUsesMeasuredPeakWhenUnknown()
+{
+    QCOMPARE(QVCocoaFunctions::resolvedHDRContentHeadroom(4.0, 1.8), 4.0);
+    QCOMPARE(QVCocoaFunctions::resolvedHDRContentHeadroom(0.0, 1.8321), 1.8321);
+    QCOMPARE(QVCocoaFunctions::resolvedHDRContentHeadroom(0.0, 0.7), 1.0);
+    QCOMPARE(QVCocoaFunctions::resolvedHDRContentHeadroom(-1.0, -2.0), 1.0);
+}
+
+// TC-HDR-UNIT-PRESENTATION-REUSE
+// Test purpose: verify only a fully prepared and presented HDR endpoint can be
+// reused during zoom, pan, or resize without an SDR fallback.
+// Preconditions: the pure reuse policy is available.
+// Input data: all four combinations of presented/prepared.
+// Steps: call canReuseHDRPresentation for every combination.
+// Expected result: only true/true permits reuse.
+// Postcondition: no renderer generation or widget state changes.
+void HDRPolicyTests::testPreparedHDRPresentationCanBeReusedAcrossGeometry()
+{
+    QVERIFY(!QVGraphicsView::canReuseHDRPresentation(false, false));
+    QVERIFY(!QVGraphicsView::canReuseHDRPresentation(true, false));
+    QVERIFY(!QVGraphicsView::canReuseHDRPresentation(false, true));
+    QVERIFY(QVGraphicsView::canReuseHDRPresentation(true, true));
+}
+
+// TC-HDR-UNIT-THEME-BACKGROUND
+// Test purpose: keep Qt and Metal viewport backgrounds on one exact contract.
+// Preconditions: no native window is required.
+// Input data: light and dark application themes.
+// Steps: resolve each theme through the shared helper.
+// Expected result: light is #969696 and dark is #212121.
+// Postcondition: no palette or settings changes.
+void HDRPolicyTests::testViewportBackgroundColorsMatchTheme()
+{
+    QCOMPARE(Qv::viewportBackgroundColor(Qv::Theme::Light), QColor("#969696"));
+    QCOMPARE(Qv::viewportBackgroundColor(Qv::Theme::Dark), QColor("#212121"));
+}
+
 // TC-HDR-UNIT-RENDERER-CONTRACT
 // Test purpose: verify the native renderer declares the precision, color
 // management, and EDR surface required by the production pipeline.
@@ -1030,6 +1081,10 @@ void HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()
     QVERIFY(diagnostics.wantsExtendedDynamicRangeContent);
     QVERIFY(diagnostics.clearsEntireDrawableOpaque);
     QVERIFY(diagnostics.usesCoreImageManagedIntermediates);
+    QVERIFY(diagnostics.cachesIntermediates);
+    QCOMPARE(diagnostics.backgroundRed, 150);
+    QCOMPARE(diagnostics.backgroundGreen, 150);
+    QCOMPARE(diagnostics.backgroundBlue, 150);
     QVERIFY(!diagnostics.imageActive);
 }
 
@@ -1184,6 +1239,53 @@ void HDRSampleTests::testDNGRawEDRContainsAboveSDRValues()
     QVERIFY(statistics.sdrMaximumComponent <= 1.01F);
     QVERIFY(statistics.hdrMaximumComponent > 1.05F);
     QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
+}
+
+// TC-HDR-INT-RAW-DNG-HEADROOM-TAG
+// Test purpose: verify the RAW drawable is tagged with measured content range,
+// not the XDR display's unrelated potential headroom.
+// Preconditions: the supplied DNG is readable by CIRAWFilter.
+// Input data: decoder metadata plus a float CIAreaMaximum probe.
+// Steps: decode once, probe the retained HDR graph, compare both values.
+// Expected result: metadata headroom is above 1.5 and within 0.02 of the
+// measured HDR maximum.
+// Postcondition: decoder graphs and probe context are released.
+void HDRSampleTests::testDNGRawHeadroomMatchesMeasuredFloatPeak()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    const auto statistics = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    qInfo("FOVELLE_RAW_HEADROOM metadata=%.9f measured=%.9f",
+          static_cast<double>(result.hdrMetadata.contentHeadroom),
+          static_cast<double>(statistics.hdrMaximumComponent));
+    QVERIFY(statistics.valid);
+    QVERIFY(result.hdrMetadata.contentHeadroom > 1.5F);
+    QVERIFY(qAbs(result.hdrMetadata.contentHeadroom
+                 - statistics.hdrMaximumComponent) <= 0.02F);
+}
+
+// TC-HDR-INT-RAW-DNG-REPEATABILITY
+// Test purpose: prove repeated evaluation of the retained RAW endpoints does
+// not produce timing-dependent partial or different pixel ranges.
+// Preconditions: the supplied DNG has decoded into independent SDR/HDR graphs.
+// Input data: two consecutive float endpoint probes of the same handle.
+// Steps: call probeHDRPixelStatistics twice and compare both endpoints.
+// Expected result: both probes are valid and each maximum agrees within 0.001.
+// Postcondition: no filter properties are mutated between probes.
+void HDRSampleTests::testDNGRawRepeatedFloatProbeIsStable()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_RAW_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    const auto first = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    const auto second = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    QVERIFY(first.valid);
+    QVERIFY(second.valid);
+    QVERIFY(qAbs(first.sdrMaximumComponent - second.sdrMaximumComponent) <= 0.001F);
+    QVERIFY(qAbs(first.hdrMaximumComponent - second.hdrMaximumComponent) <= 0.001F);
 }
 
 void ActionManagerTests::testClonedActionsUntracked()

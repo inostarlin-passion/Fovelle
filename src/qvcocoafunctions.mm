@@ -431,6 +431,31 @@ float ciImageContentHeadroom(CIImage *image)
     return 0.0F;
 }
 
+bool maximumCIImageRGBComponent(CIImage *source, CIContext *context,
+                                CGColorSpaceRef colorSpace, float &maximum)
+{
+    if (!source || !context || !colorSpace || CGRectIsEmpty(source.extent))
+        return false;
+
+    CIFilter *areaMaximum = [CIFilter filterWithName:@"CIAreaMaximum"];
+    [areaMaximum setValue:source forKey:kCIInputImageKey];
+    [areaMaximum setValue:[CIVector vectorWithCGRect:source.extent]
+                   forKey:kCIInputExtentKey];
+    CIImage *reduced = areaMaximum.outputImage;
+    if (!reduced)
+        return false;
+
+    float pixel[4]{ 0.0F, 0.0F, 0.0F, 0.0F };
+    [context render:reduced
+            toBitmap:pixel
+            rowBytes:sizeof(pixel)
+              bounds:CGRectMake(0, 0, 1, 1)
+              format:kCIFormatRGBAf
+          colorSpace:colorSpace];
+    maximum = std::max({ pixel[0], pixel[1], pixel[2] });
+    return std::isfinite(maximum);
+}
+
 QString colorSpaceName(CGColorSpaceRef colorSpace)
 {
     if (!colorSpace)
@@ -579,7 +604,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         commandQueue = [device newCommandQueue];
         outputColorSpace = colorSyncDisplayP3ColorSpace(true);
-        if (!commandQueue || !outputColorSpace)
+        backgroundColorSpace = colorSyncSrgbColorSpace();
+        if (!commandQueue || !outputColorSpace || !backgroundColorSpace)
             return;
 
         NSDictionary *contextOptions = @{
@@ -587,7 +613,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             (id)kCIContextWorkingColorSpace : (id)outputColorSpace,
             (id)kCIContextOutputColorSpace : (id)outputColorSpace,
             (id)kCIContextWorkingFormat : @(kCIFormatRGBAh),
-            (id)kCIContextCacheIntermediates : @NO
+            // This renderer repeatedly displays one RAW graph. Apple
+            // recommends caching intermediates for that interactive use case;
+            // disabling it is intended for one-shot exports and allowed RAW
+            // tiles to be recomputed after they had already been revealed.
+            (id)kCIContextCacheIntermediates : @YES
         };
         context = [[CIContext contextWithMTLDevice:device options:contextOptions] retain];
         if (!context)
@@ -599,7 +629,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.pixelFormat = MTLPixelFormatRGBA16Float;
         metalLayer.framebufferOnly = NO;
         metalLayer.opaque = YES;
-        metalLayer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
         metalLayer.colorspace = outputColorSpace;
         metalLayer.wantsExtendedDynamicRangeContent = YES;
         metalLayer.presentsWithTransaction = NO;
@@ -627,6 +656,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.wantsExtendedDynamicRangeContent = metalLayer.wantsExtendedDynamicRangeContent;
         state.clearsEntireDrawableOpaque = metalLayer.opaque;
         state.usesCoreImageManagedIntermediates = true;
+        state.cachesIntermediates = true;
+        setBackgroundColor(backgroundColor);
     }
 
     ~Impl()
@@ -644,11 +675,42 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [device release];
         if (outputColorSpace)
             CGColorSpaceRelease(outputColorSpace);
+        if (backgroundColorSpace)
+            CGColorSpaceRelease(backgroundColorSpace);
+    }
+
+    void setBackgroundColor(const QColor &newColor)
+    {
+        if (!newColor.isValid())
+            return;
+
+        backgroundColor = newColor.toRgb();
+        state.backgroundRed = backgroundColor.red();
+        state.backgroundGreen = backgroundColor.green();
+        state.backgroundBlue = backgroundColor.blue();
+        ++state.backgroundUpdateCount;
+
+        if (!metalLayer || !backgroundColorSpace)
+            return;
+        const CGFloat components[]{ backgroundColor.redF(), backgroundColor.greenF(),
+                                    backgroundColor.blueF(), 1.0 };
+        CGColorRef layerColor = CGColorCreate(backgroundColorSpace, components);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        metalLayer.backgroundColor = layerColor;
+        [CATransaction commit];
+        if (layerColor)
+            CGColorRelease(layerColor);
     }
 
     bool setImage(const HDRImagePtr &newImage)
     {
         clearPreparedImages();
+        // The context is intentionally long-lived for one interactive view,
+        // but intermediates from the previous source are no longer reusable.
+        // Release them only on image replacement, never on zoom or pan.
+        if (context)
+            [context clearCaches];
         const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
         image = nativeImage;
         [presentationState resetForImage];
@@ -737,9 +799,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         preparedHDRImage = nil;
         preparedSDRImage = nil;
         preparationTexture = nil;
-        preparedViewportSize = {};
-        preparedCorners.clear();
-        preparedTextureSize = {};
     }
 
     CIImage *displayImage(const NativeHDRImage &nativeImage, const float targetHeadroom,
@@ -847,19 +906,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         source = [source imageByApplyingTransform:CGAffineTransformMake(a, b, c, d, tx, ty)];
 
         const CGRect destinationBounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
-        NSColorSpace *nativeOutputSpace =
-                [[[NSColorSpace alloc] initWithCGColorSpace:outputColorSpace] autorelease];
-        NSColor *nativeBackground = nativeOutputSpace
-                ? [NSColor.windowBackgroundColor colorUsingColorSpace:nativeOutputSpace]
-                : nil;
-        const CGFloat backgroundRed = nativeBackground ? nativeBackground.redComponent : 0;
-        const CGFloat backgroundGreen = nativeBackground ? nativeBackground.greenComponent : 0;
-        const CGFloat backgroundBlue = nativeBackground ? nativeBackground.blueComponent : 0;
-        CIColor *clearColor = [CIColor colorWithRed:backgroundRed
-                                              green:backgroundGreen
-                                               blue:backgroundBlue
+        // QColor stores these constants in sRGB. Keep that source tag so
+        // ColorSync converts the exact Qt theme color into extended-linear P3
+        // instead of interpreting gamma-encoded components as linear values.
+        CIColor *clearColor = [CIColor colorWithRed:backgroundColor.redF()
+                                              green:backgroundColor.greenF()
+                                               blue:backgroundColor.blueF()
                                               alpha:1
-                                         colorSpace:outputColorSpace];
+                                         colorSpace:backgroundColorSpace];
         CIImage *clearImage =
                 [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
         return [[source imageByCroppingToRect:destinationBounds]
@@ -955,11 +1009,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             clearPreparedImages();
             return;
         }
-        preparedViewportSize = viewportSize;
-        preparedCorners = corners;
-        preparedTextureSize = QSize(static_cast<int>(textureSize.width),
-                                    static_cast<int>(textureSize.height));
-
         presentationState->hdrPreparationInFlight = YES;
         const NSUInteger preparationGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
@@ -1084,19 +1133,26 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             metalLayer.contentsScale = backingScale;
             metalLayer.drawableSize = requestedSize;
             metalLayer.hidden = NO;
-            if (@available(macOS 26.0, *))
+            if (@available(macOS 26.0, *)) {
+                // contentsHeadroom describes the pixels in the drawable, not
+                // the display's potential capability. Mis-tagging a 1.8x RAW
+                // image as 16x can cause automatic tone mapping to suppress its
+                // real highlights.
                 metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom);
+                state.layerContentsHeadroom = static_cast<float>(metalLayer.contentsHeadroom);
+                state.usesLayerContentsHeadroomTag = true;
+            } else {
+                // Earlier systems infer range from the extended-linear pixels
+                // and EDR layer contract; retain the intended content target in
+                // diagnostics without claiming the unavailable CALayer tag.
+                state.layerContentsHeadroom = state.targetHeadroom;
+                state.usesLayerContentsHeadroomTag = false;
+            }
             [CATransaction commit];
 
-            const QSize requestedTextureSize(
-                    static_cast<int>(std::lround(requestedSize.width)),
-                    static_cast<int>(std::lround(requestedSize.height)));
             const bool needsManagedPreparation = state.displayRenderingHeadroom > 1.001F;
-            const bool preparedRequestedGeometry = presentationState->hdrPrepared
-                    && preparedSDRImage && preparedHDRImage
-                    && preparedViewportSize == viewportSize
-                    && preparedTextureSize == requestedTextureSize
-                    && preparedCorners == corners;
+            const bool preparedEndpointsAvailable = presentationState->hdrPrepared
+                    && preparedSDRImage && preparedHDRImage;
 
             // A full-resolution RAW or adaptive-HDR graph may evaluate its
             // tiles lazily. Never reveal that first evaluation: it can contain
@@ -1105,7 +1161,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             // proxy visible while Core Image owns and warms full-frame float
             // intermediates, then make the first visible Metal frame from the
             // prepared graph.
-            if (needsManagedPreparation && !preparedRequestedGeometry) {
+            if (needsManagedPreparation && !preparedEndpointsAvailable) {
                 if (presentationState->hdrPrepared) {
                     clearPreparedImages();
                     presentationState->hdrPrepared = NO;
@@ -1130,15 +1186,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (!state.drawableGeometryMatches)
                 return;
 
-            const QSize actualTextureSize(state.actualTextureWidth, state.actualTextureHeight);
-            const bool preparedGeometryMatches = presentationState->hdrPrepared
-                    && preparedSDRImage && preparedHDRImage
-                    && preparedViewportSize == viewportSize && preparedTextureSize == actualTextureSize
-                    && preparedCorners == corners;
-            state.preparedGeometryActive = preparedGeometryMatches;
-            if (needsManagedPreparation && !preparedGeometryMatches)
+            const bool preparedEndpointsActive = presentationState->hdrPrepared
+                    && preparedSDRImage && preparedHDRImage;
+            state.preparedGeometryActive = preparedEndpointsActive;
+            if (needsManagedPreparation && !preparedEndpointsActive)
                 return;
-            CIImage *source = preparedGeometryMatches
+            CIImage *source = preparedEndpointsActive
                     ? preparedDisplayImage(state.targetHeadroom, state.transitionProgress)
                     : displayImage(*image, state.targetHeadroom, state.transitionProgress);
             source = imageForTexture(source, viewportSize, corners, actualSize);
@@ -1174,13 +1227,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     id<MTLCommandQueue> commandQueue{ nil };
     CIContext *context{ nil };
     CGColorSpaceRef outputColorSpace{ nullptr };
+    CGColorSpaceRef backgroundColorSpace{ nullptr };
+    QColor backgroundColor{ Qv::viewportBackgroundColor(Qv::Theme::Light) };
     QVHDRPresentationState *presentationState{ nil };
     id<MTLTexture> preparationTexture{ nil };
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
-    QSize preparedViewportSize;
-    QSize preparedTextureSize;
-    QPolygonF preparedCorners;
     std::shared_ptr<const NativeHDRImage> image;
     HDRRendererDiagnostics state;
 };
@@ -1200,6 +1252,12 @@ bool QVCocoaFunctions::HDRRenderer::isAvailable() const
 bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image)
 {
     return impl && impl->setImage(image);
+}
+
+void QVCocoaFunctions::HDRRenderer::setBackgroundColor(const QColor &color)
+{
+    if (impl)
+        impl->setBackgroundColor(color);
 }
 
 void QVCocoaFunctions::HDRRenderer::invalidateGeometry()
@@ -1252,6 +1310,16 @@ qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
     return 1.0 + (available - 1.0) * easedHDRTransition(transitionProgress);
 }
 
+qreal QVCocoaFunctions::resolvedHDRContentHeadroom(const qreal reportedHeadroom,
+                                                   const qreal measuredMaximumComponent)
+{
+    if (std::isfinite(reportedHeadroom) && reportedHeadroom > 0.0)
+        return std::max(1.0, reportedHeadroom);
+    if (std::isfinite(measuredMaximumComponent) && measuredMaximumComponent > 0.0)
+        return std::max(1.0, measuredMaximumComponent);
+    return 1.0;
+}
+
 qreal QVCocoaFunctions::displayHeadroomForRendering(const qreal currentHeadroom,
                                                      const qreal potentialHeadroom,
                                                      const qreal contentHeadroom)
@@ -1291,32 +1359,12 @@ QVCocoaFunctions::probeHDRPixelStatistics(const HDRImagePtr &opaqueImage)
             return statistics;
         }
 
-        const auto maximumComponent = [&](CIImage *source, float &maximum) {
-            if (!source || CGRectIsEmpty(source.extent))
-                return false;
-            CIFilter *areaMaximum = [CIFilter filterWithName:@"CIAreaMaximum"];
-            [areaMaximum setValue:source forKey:kCIInputImageKey];
-            [areaMaximum setValue:[CIVector vectorWithCGRect:source.extent]
-                           forKey:kCIInputExtentKey];
-            CIImage *reduced = areaMaximum.outputImage;
-            if (!reduced)
-                return false;
-
-            float pixel[4]{ 0.0F, 0.0F, 0.0F, 0.0F };
-            [probeContext render:reduced
-                        toBitmap:pixel
-                        rowBytes:sizeof(pixel)
-                          bounds:CGRectMake(0, 0, 1, 1)
-                          format:kCIFormatRGBAf
-                      colorSpace:colorSpace];
-            maximum = std::max({ pixel[0], pixel[1], pixel[2] });
-            return std::isfinite(maximum);
-        };
-
-        const bool sdrValid = maximumComponent(nativeImage->sdrCIImage(),
-                                               statistics.sdrMaximumComponent);
-        const bool hdrValid = maximumComponent(nativeImage->hdrCIImage(),
-                                               statistics.hdrMaximumComponent);
+        const bool sdrValid = maximumCIImageRGBComponent(
+                nativeImage->sdrCIImage(), probeContext, colorSpace,
+                statistics.sdrMaximumComponent);
+        const bool hdrValid = maximumCIImageRGBComponent(
+                nativeImage->hdrCIImage(), probeContext, colorSpace,
+                statistics.hdrMaximumComponent);
         statistics.valid = sdrValid && hdrValid;
         [probeContext clearCaches];
         CGColorSpaceRelease(colorSpace);
@@ -1675,18 +1723,32 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
         if (result.isRaw)
         {
-            CIRAWFilter *rawFilter = nil;
-            if (@available(macOS 12.0, *))
-                rawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
+            CIRAWFilter *sdrRawFilter = nil;
+            CIRAWFilter *hdrRawFilter = nil;
+            if (@available(macOS 12.0, *)) {
+                sdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
+                hdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
+            }
 
-            if (rawFilter)
+            if (sdrRawFilter && hdrRawFilter)
             {
-                rawFilter.orientation = orientation;
-
-                rawFilter.extendedDynamicRangeAmount = 0.0F;
-                CIImage *sdrImage = rawFilter.outputImage;
-                rawFilter.extendedDynamicRangeAmount = 1.0F;
-                CIImage *hdrImage = rawFilter.outputImage;
+                // Keep the SDR and EDR recipes on independent immutable filter
+                // graphs. Mutating one CIRAWFilter between lazy output reads
+                // made later tile evaluation depend on timing.
+                sdrRawFilter.orientation = orientation;
+                hdrRawFilter.orientation = orientation;
+                sdrRawFilter.extendedDynamicRangeAmount = 0.0F;
+                // Apple defines zero baselineExposure as linear response. This
+                // sample's negative camera default substantially lowers the
+                // EDR rendition, so request linear response only for HDR while
+                // the SDR companion preserves the camera default. The exact
+                // Quick Look exposure policy is private; this is the measured
+                // public-API approximation for the supplied fixture.
+                if (hdrRawFilter.baselineExposure < 0.0F)
+                    hdrRawFilter.baselineExposure = 0.0F;
+                hdrRawFilter.extendedDynamicRangeAmount = 1.0F;
+                CIImage *sdrImage = sdrRawFilter.outputImage;
+                CIImage *hdrImage = hdrRawFilter.outputImage;
                 if (hdrImage) {
                     const CGRect extent = hdrImage.extent;
                     if (!CGRectIsEmpty(extent)) {
@@ -1697,21 +1759,35 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
                     result.hdrMetadata.sourceKind = QStringLiteral("camera-raw");
                     result.hdrMetadata.pixelSize = result.intrinsicSize;
-                    result.hdrMetadata.contentHeadroom = ciImageContentHeadroom(hdrImage);
                     result.hdrMetadata.bitsPerComponent = 16;
                     result.hdrMetadata.decodedToHDR = true;
                     result.hdrMetadata.usesRawExtendedDynamicRange = true;
                     result.hdrMetadata.colorSpaceName = colorSpaceName(hdrImage.colorSpace);
                     result.hdrMetadata.transferFunction =
                             transferFunctionName(hdrImage.colorSpace, false);
-                    result.hdrImage = std::make_shared<NativeHDRImage>(hdrImage, sdrImage,
-                                                                       result.hdrMetadata);
 
                     CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
                     result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace,
                                                     fallbackLargestDimension);
+
+                    // CIRAWFilter currently reports contentHeadroom == 0 for
+                    // this class of camera RAW, meaning unknown. Measure the
+                    // float endpoint once and attach the truthful content tag
+                    // needed by CAMetalLayer/WindowServer tone mapping.
+                    float measuredHeadroom = 0.0F;
+                    maximumCIImageRGBComponent(hdrImage, context, workingColorSpace,
+                                               measuredHeadroom);
+                    result.hdrMetadata.contentHeadroom = static_cast<float>(
+                            resolvedHDRContentHeadroom(
+                                    ciImageContentHeadroom(hdrImage), measuredHeadroom));
+                    if (@available(macOS 26.0, *))
+                        hdrImage = [hdrImage imageBySettingContentHeadroom:
+                                result.hdrMetadata.contentHeadroom];
+                    result.hdrImage = std::make_shared<NativeHDRImage>(
+                            hdrImage, sdrImage, result.hdrMetadata);
+
                     if (context)
                         [context clearCaches];
                     if (workingColorSpace)
@@ -1723,11 +1799,12 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
             if (result.image.isNull())
             {
-                if (rawFilter && rawFilter.previewImage) {
+                CIImage *rawPreview = sdrRawFilter.previewImage ?: hdrRawFilter.previewImage;
+                if (rawPreview) {
                     CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                    result.image = imageFromCIImage(rawFilter.previewImage, context,
+                    result.image = imageFromCIImage(rawPreview, context,
                                                     fallbackColorSpace, fallbackLargestDimension);
                     result.usedRawPreview = !result.image.isNull();
                     if (context)

@@ -22,7 +22,7 @@ from PIL import Image, ImageFilter
 
 
 RUNS_PER_FORMAT = 3
-CAPTURE_SECONDS = 5.2
+CAPTURE_SECONDS = 7.0
 THRESHOLDS = {
     "decode_average_ms_max": 2500.0,
     "decode_p99_ms_max": 3500.0,
@@ -93,6 +93,41 @@ def viewport_pixel_crop(records: list[dict]) -> tuple[int, int, int, int] | None
     return None
 
 
+def image_pixel_crop(records: list[dict]) -> tuple[int, int, int, int] | None:
+    """Map the telemetry image polygon into full-screen physical pixels."""
+    viewport = viewport_pixel_crop(records)
+    for item in reversed(records):
+        corners = item.get("image_corners")
+        required = (
+            "viewport_global_x", "viewport_global_y", "viewport_device_pixel_ratio",
+        )
+        if not isinstance(corners, list) or len(corners) < 4:
+            continue
+        if not all(key in item for key in required):
+            continue
+        try:
+            xs = [float(point[0]) for point in corners]
+            ys = [float(point[1]) for point in corners]
+        except (TypeError, ValueError, IndexError):
+            continue
+        scale = float(item["viewport_device_pixel_ratio"])
+        origin_x = float(item["viewport_global_x"])
+        origin_y = float(item["viewport_global_y"])
+        crop = (
+            round((origin_x + min(xs)) * scale),
+            round((origin_y + min(ys)) * scale),
+            round((origin_x + max(xs)) * scale),
+            round((origin_y + max(ys)) * scale),
+        )
+        if viewport is None:
+            return crop
+        return (
+            max(crop[0], viewport[0]), max(crop[1], viewport[1]),
+            min(crop[2], viewport[2]), min(crop[3], viewport[3]),
+        )
+    return None
+
+
 def crop_to_bounds(image: Image.Image, crop: tuple[int, int, int, int] | None) -> Image.Image:
     if crop is None:
         return image
@@ -102,6 +137,92 @@ def crop_to_bounds(image: Image.Image, crop: tuple[int, int, int, int] | None) -
     right = min(max(right, left), image.width)
     bottom = min(max(bottom, top), image.height)
     return image.crop((left, top, right, bottom)) if right > left and bottom > top else image
+
+
+def background_sample_rgb(
+    path: Path,
+    viewport_crop: tuple[int, int, int, int] | None,
+    image_crop: tuple[int, int, int, int] | None,
+) -> dict:
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+    if viewport_crop is None:
+        return {"samples": [], "median_rgb": None}
+    vl, vt, vr, vb = viewport_crop
+    candidates: list[tuple[int, int]] = []
+    if image_crop is not None:
+        il, it, ir, ib = image_crop
+        if il - vl >= 24:
+            candidates.append(((vl + il) // 2, (vt + vb) // 2))
+        if vr - ir >= 24:
+            candidates.append(((ir + vr) // 2, (vt + vb) // 2))
+        if it - vt >= 24:
+            candidates.append(((vl + vr) // 2, (vt + it) // 2))
+        if vb - ib >= 24:
+            candidates.append(((vl + vr) // 2, (ib + vb) // 2))
+    if not candidates:
+        candidates = [(vl + 10, vt + 10), (vr - 11, vb - 11)]
+
+    samples = []
+    for x, y in candidates:
+        left, top = max(0, x - 4), max(0, y - 4)
+        right, bottom = min(image.width, x + 5), min(image.height, y + 5)
+        if right <= left or bottom <= top:
+            continue
+        pixels = list(image.crop((left, top, right, bottom)).getdata())
+        samples.append([
+            round(statistics.median(pixel[channel] for pixel in pixels))
+            for channel in range(3)
+        ])
+    median = [
+        round(statistics.median(sample[channel] for sample in samples))
+        for channel in range(3)
+    ] if samples else None
+    return {"samples": samples, "median_rgb": median}
+
+
+def missing_structure_metric(
+    path: Path,
+    reference_path: Path,
+    crop: tuple[int, int, int, int] | None,
+) -> dict:
+    def edges(file_path: Path) -> Image.Image:
+        with Image.open(file_path) as source:
+            frame = crop_to_bounds(source.convert("L"), crop)
+        return frame.resize((256, 192), Image.Resampling.LANCZOS).filter(ImageFilter.FIND_EDGES)
+
+    current = edges(path)
+    reference = edges(reference_path)
+    tile_columns, tile_rows = 8, 6
+    missing = []
+    energies = []
+    for row in range(tile_rows):
+        for column in range(tile_columns):
+            box = (
+                column * current.width // tile_columns,
+                row * current.height // tile_rows,
+                (column + 1) * current.width // tile_columns,
+                (row + 1) * current.height // tile_rows,
+            )
+            current_values = list(current.crop(box).getdata())
+            reference_values = list(reference.crop(box).getdata())
+            current_energy = statistics.fmean(current_values)
+            reference_energy = statistics.fmean(reference_values)
+            is_missing = reference_energy >= 3.0 and current_energy < reference_energy * 0.35
+            if is_missing:
+                missing.append([column, row])
+            energies.append({
+                "tile": [column, row],
+                "current": current_energy,
+                "reference": reference_energy,
+                "missing": is_missing,
+            })
+    return {
+        "missing_structural_tile_count": len(missing),
+        "missing_structural_tiles": missing,
+        "tile_count": tile_columns * tile_rows,
+        "energies": energies,
+    }
 
 
 def black_vertical_band_metric(
@@ -165,6 +286,7 @@ def launch(
     forced_headroom: float | None = None,
     forced_current_headroom: float | None = None,
     interaction: bool = False,
+    theme_switch: bool = False,
     capture_seconds: float = CAPTURE_SECONDS,
     capture_schedule: list[float] | None = None,
     capture_directory: Path | None = None,
@@ -181,6 +303,8 @@ def launch(
         environment["FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM"] = str(forced_current_headroom)
     if interaction:
         environment["FOVELLE_HDR_TEST_INTERACTION"] = "1"
+    if theme_switch:
+        environment["FOVELLE_HDR_TEST_THEME_SWITCH"] = "1"
     command = [str(app), str(image)]
     started = time.perf_counter()
     captures = []
@@ -199,7 +323,7 @@ def launch(
             if process.poll() is not None:
                 break
             if capture_directory is not None:
-                scenario = "interaction" if interaction else "launch"
+                scenario = "interaction" if interaction else "theme" if theme_switch else "launch"
                 capture_path = capture_directory / (
                     f"{'raw' if image.suffix.lower() == '.dng' else 'jpeg'}"
                     f"_{scenario}_{capture_index}_{int(offset * 1000):04d}ms.png"
@@ -235,6 +359,7 @@ def launch(
         "forced_headroom": forced_headroom,
         "forced_current_headroom": forced_current_headroom,
         "interaction": interaction,
+        "theme_switch": theme_switch,
         "command": command,
         "capture_seconds": capture_seconds,
         "elapsed_seconds": time.perf_counter() - started,
@@ -310,7 +435,8 @@ def main() -> int:
         raw,
         1,
         forced_current_headroom=1.0,
-        capture_schedule=[2.0, 2.3, 2.8, 3.5, 4.8],
+        capture_seconds=7.0,
+        capture_schedule=[3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.1, 5.5, 6.2],
         capture_directory=capture_directory,
     )
     interaction_run = launch(
@@ -323,13 +449,23 @@ def main() -> int:
         capture_schedule=[1.8, 2.9, 3.05, 3.25, 4.0, 5.8],
         capture_directory=capture_directory,
     )
-    runs.extend((forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run))
+    theme_run = launch(
+        app,
+        jpeg,
+        1,
+        theme_switch=True,
+        capture_seconds=5.8,
+        capture_schedule=[2.4, 4.5, 5.2],
+        capture_directory=capture_directory,
+    )
+    runs.extend((forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run, theme_run))
 
     real_runs = [
         run for run in runs
         if run["forced_headroom"] is None
         and run["forced_current_headroom"] is None
         and not run["interaction"]
+        and not run["theme_switch"]
     ]
     jpeg_runs = [run for run in real_runs if run["format"] == "gain-map-jpeg"]
     raw_runs = [run for run in real_runs if run["format"] == "raw"]
@@ -354,6 +490,9 @@ def main() -> int:
     interaction_staged_records = [
         item for item in interaction_records if item.get("phase") == "geometry-staged"
     ]
+    interaction_reused_records = [
+        item for item in interaction_records if item.get("phase") == "geometry-reused"
+    ]
     interaction_capture_metrics = []
     for capture in interaction_run["screen_captures"]:
         capture_path = Path(capture["path"])
@@ -375,7 +514,9 @@ def main() -> int:
             )
     raw_launch_captures = bootstrap_raw["screen_captures"]
     raw_viewport_crop = viewport_pixel_crop(bootstrap_raw["telemetry"])
+    raw_image_crop = image_pixel_crop(bootstrap_raw["telemetry"])
     raw_launch_similarities = []
+    raw_missing_structure_metrics = []
     if raw_launch_captures and all(
         item["return_code"] == 0 and Path(item["path"]).is_file()
         for item in raw_launch_captures
@@ -383,10 +524,52 @@ def main() -> int:
         reference = Path(raw_launch_captures[-1]["path"])
         raw_launch_similarities = [
             edge_cosine_similarity(
-                Path(item["path"]), reference, raw_viewport_crop, raw_viewport_crop
+                Path(item["path"]), reference, raw_image_crop, raw_image_crop
             )
             for item in raw_launch_captures
         ]
+        raw_missing_structure_metrics = [
+            missing_structure_metric(Path(item["path"]), reference, raw_image_crop)
+            for item in raw_launch_captures
+        ]
+
+    theme_records = theme_run["telemetry"]
+    theme_viewport_crop = viewport_pixel_crop(theme_records)
+    theme_image_crop = image_pixel_crop(theme_records)
+    theme_capture_samples = []
+    for capture in theme_run["screen_captures"]:
+        capture_path = Path(capture["path"])
+        if capture["return_code"] == 0 and capture_path.is_file():
+            sample = background_sample_rgb(
+                capture_path, theme_viewport_crop, theme_image_crop
+            )
+            capture["background_sample_rgb"] = sample
+            theme_capture_samples.append(sample)
+
+    theme_dark_event_indices = [
+        index for index, item in enumerate(theme_records)
+        if item.get("phase") == "test-theme-dark"
+    ]
+    theme_dark_indices = [
+        index for index, item in enumerate(theme_records)
+        if (
+            int(item.get("viewport_background_red", -1)),
+            int(item.get("viewport_background_green", -1)),
+            int(item.get("viewport_background_blue", -1)),
+        ) == (33, 33, 33)
+    ]
+    theme_pre_dark_records = (
+        theme_records[:theme_dark_indices[0]] if theme_dark_indices else theme_records
+    )
+    theme_post_dark_records = (
+        theme_records[theme_dark_indices[0]:] if theme_dark_indices else []
+    )
+
+    raw_completed_records = [
+        item for item in raw_records
+        if item.get("phase") == "render"
+        and float(item.get("transition_progress", 0)) >= 0.999
+    ]
 
     decode_samples = [float(run["telemetry"][0]["decode_ms"]) for run in real_runs if run["telemetry"]]
     steady_render_samples = [
@@ -462,6 +645,50 @@ def main() -> int:
             "record_count": len(raw_records),
             "max_target_headroom_by_run": [max(float(item["target_headroom"]) for item in run["telemetry"]) for run in raw_runs],
         }),
+        make_case("SYS-HDR-RAW-CONTENT-HEADROOM", {
+            "completed_raw_frames_present": bool(raw_completed_records),
+            "measured_content_headroom_is_hdr": all(
+                float(item.get("content_headroom", 0)) > 1.5
+                for item in raw_completed_records
+            ),
+            "layer_tag_matches_rendered_content": all(
+                item.get("layer_contents_headroom_tag_supported") is not True
+                or abs(float(item.get("layer_contents_headroom", 0))
+                       - float(item.get("target_headroom", 0))) <= 0.02
+                for item in raw_completed_records
+            ),
+            "target_is_clamped_to_content_and_display": all(
+                abs(float(item.get("target_headroom", 0)) - min(
+                    float(item.get("content_headroom", 0)),
+                    float(item.get("display_rendering_headroom", 0)),
+                )) <= 0.02
+                for item in raw_completed_records
+            ),
+            "content_tag_is_not_display_potential": all(
+                abs(float(item.get("content_headroom", 0))
+                    - float(item.get("display_potential_headroom", 0))) > 0.5
+                for item in raw_completed_records
+                if float(item.get("display_potential_headroom", 0)) > 2.5
+            ),
+        }, {
+            "completed_record_count": len(raw_completed_records),
+            "content_headroom_values": sorted({
+                float(item.get("content_headroom", 0))
+                for item in raw_completed_records
+            }),
+            "target_headroom_values": sorted({
+                float(item.get("target_headroom", 0))
+                for item in raw_completed_records
+            }),
+            "layer_contents_headroom_values": sorted({
+                float(item.get("layer_contents_headroom", 0))
+                for item in raw_completed_records
+            }),
+            "layer_contents_headroom_tag_supported": sorted({
+                bool(item.get("layer_contents_headroom_tag_supported", False))
+                for item in raw_completed_records
+            }),
+        }),
         make_case("SYS-HDR-NO-PREMATURE-BLACK-FRAME", {
             "telemetry_present": bool(all_real_records),
             "fallback_covers_unpresented_frames": all(
@@ -497,12 +724,12 @@ def main() -> int:
                 for run in raw_runs
             ),
             "raw_timed_captures_succeeded": (
-                len(raw_launch_captures) == 5
+                len(raw_launch_captures) == 10
                 and all(item["return_code"] == 0 and item["bytes"] > 0
                         for item in raw_launch_captures)
             ),
             "raw_full_frame_structure_is_stable": (
-                len(raw_launch_similarities) == 5
+                len(raw_launch_similarities) == 10
                 and min(raw_launch_similarities) >= 0.90
             ),
         }, {
@@ -516,6 +743,24 @@ def main() -> int:
             "raw_viewport_crop_pixels": list(raw_viewport_crop) if raw_viewport_crop else None,
             "raw_edge_cosine_similarity_to_final": raw_launch_similarities,
             "raw_edge_cosine_similarity_minimum": 0.90,
+        }),
+        make_case("SYS-HDR-RAW-NO-BLANK-REGION", {
+            "raw_bootstrap_process_healthy": bootstrap_raw["process_healthy"],
+            "all_ten_captures_measured": len(raw_missing_structure_metrics) == 10,
+            "final_reference_contains_structure": bool(raw_missing_structure_metrics)
+                and sum(
+                    1 for tile in raw_missing_structure_metrics[-1]["energies"]
+                    if float(tile["reference"]) >= 3.0
+                ) >= 20,
+            "no_capture_loses_structural_tiles": bool(raw_missing_structure_metrics)
+                and all(
+                    item["missing_structural_tile_count"] == 0
+                    for item in raw_missing_structure_metrics
+                ),
+        }, {
+            "capture_times_seconds": [3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.1, 5.5, 6.2],
+            "image_crop_pixels": list(raw_image_crop) if raw_image_crop else None,
+            "metrics": raw_missing_structure_metrics,
         }),
         make_case("SYS-HDR-FLOAT-COLORMANAGED-EDR-SURFACE", {
             "telemetry_present": bool(all_real_records),
@@ -644,19 +889,20 @@ def main() -> int:
                 round(float(item.get("zoom_level", -1)), 6)
                 for item in interaction_records
             }) >= 2,
-            "geometry_generation_reset": max(
-                (int(item.get("geometry_reset_count", 0)) for item in interaction_records),
-                default=0,
-            ) >= 1,
-            "invalidated_geometry_is_proxy_only": any(
-                int(item.get("geometry_reset_count", 0)) >= 1
-                for item in interaction_staged_records
-            ) and all(
-                item.get("fallback_visible") is True
-                and abs(float(item.get("layer_opacity", -1))) < 1e-6
-                for item in interaction_staged_records
-                if int(item.get("geometry_reset_count", 0)) >= 1
+            "prepared_geometry_is_reused": bool(interaction_reused_records),
+            "reused_geometry_keeps_hdr_visible": bool(interaction_reused_records) and all(
+                item.get("first_frame_presented") is True
+                and item.get("hdr_prepared") is True
+                and item.get("fallback_visible") is False
+                and float(item.get("layer_opacity", 0)) > 0.5
+                for item in interaction_reused_records
             ),
+            "reused_geometry_does_not_reset_generation": bool(interaction_reused_records)
+                and len({
+                    (int(item.get("geometry_generation", -1)),
+                     int(item.get("geometry_reset_count", -1)))
+                    for item in interaction_reused_records
+                }) == 1,
             "no_render_while_geometry_pending": all(
                 item.get("geometry_pending") is False
                 for item in interaction_render_records
@@ -672,12 +918,79 @@ def main() -> int:
             "record_count": len(interaction_records),
             "render_record_count": len(interaction_render_records),
             "geometry_staged_record_count": len(interaction_staged_records),
+            "geometry_reused_record_count": len(interaction_reused_records),
             "post_interaction_render_record_count": len(post_interaction_render_records),
             "maximum_geometry_reset_count": max(
                 (int(item.get("geometry_reset_count", 0)) for item in interaction_records),
                 default=0,
             ),
             "zoom_values": sorted({float(item.get("zoom_level", -1)) for item in interaction_records}),
+        }),
+        make_case("SYS-HDR-INTERACTION-NO-REACTIVATION", {
+            "interaction_process_healthy": interaction_run["process_healthy"],
+            "activation_completed_before_reuse": bool(interaction_reused_records)
+                and all(item.get("hdr_activation_completed") is True
+                        for item in interaction_reused_records),
+            "transition_never_restarts_during_reuse": bool(interaction_reused_records)
+                and all(float(item.get("transition_progress", 0)) >= 0.999
+                        for item in interaction_reused_records),
+            "post_interaction_remains_fully_bright": bool(post_interaction_render_records)
+                and all(
+                    float(item.get("transition_progress", 0)) >= 0.999
+                    and item.get("fallback_visible") is False
+                    and float(item.get("layer_opacity", 0)) > 0.5
+                    for item in post_interaction_render_records
+                ),
+        }, {
+            "reused_transition_progress": [
+                float(item.get("transition_progress", 0))
+                for item in interaction_reused_records
+            ],
+            "post_interaction_transition_progress": [
+                float(item.get("transition_progress", 0))
+                for item in post_interaction_render_records
+            ],
+        }),
+        make_case("SYS-HDR-THEME-BACKGROUND-STABILITY", {
+            "theme_process_healthy": theme_run["process_healthy"],
+            "pre_switch_records_present": bool(theme_pre_dark_records),
+            "metal_background_stays_light_gray": all(
+                int(item.get("viewport_background_red", -1)) == 150
+                and int(item.get("viewport_background_green", -1)) == 150
+                and int(item.get("viewport_background_blue", -1)) == 150
+                for item in theme_pre_dark_records
+            ),
+            "post_activation_screen_pixel_stays_light_gray": len(theme_capture_samples) == 3
+                and theme_capture_samples[0]["median_rgb"] is not None
+                and all(abs(value - 150) <= 8
+                        for value in theme_capture_samples[0]["median_rgb"]),
+        }, {
+            "pre_switch_record_count": len(theme_pre_dark_records),
+            "light_capture_sample": theme_capture_samples[0] if theme_capture_samples else None,
+            "expected_light_rgb": [150, 150, 150],
+            "tolerance": 8,
+        }),
+        make_case("SYS-HDR-THEME-BACKGROUND-SWITCH", {
+            "dark_theme_event_observed": bool(theme_dark_event_indices),
+            "post_switch_records_present": bool(theme_post_dark_records),
+            "renderer_background_updates_to_dark": bool(theme_post_dark_records) and all(
+                int(item.get("viewport_background_red", -1)) == 33
+                and int(item.get("viewport_background_green", -1)) == 33
+                and int(item.get("viewport_background_blue", -1)) == 33
+                for item in theme_post_dark_records
+            ),
+            "post_switch_screen_pixels_are_dark": len(theme_capture_samples) == 3
+                and all(
+                    sample["median_rgb"] is not None
+                    and all(abs(value - 33) <= 8 for value in sample["median_rgb"])
+                    for sample in theme_capture_samples[1:]
+                ),
+        }, {
+            "dark_event_indices": theme_dark_event_indices,
+            "first_dark_background_index": theme_dark_indices[0] if theme_dark_indices else None,
+            "dark_capture_samples": theme_capture_samples[1:],
+            "expected_dark_rgb": [33, 33, 33],
+            "tolerance": 8,
         }),
         make_case("SYS-HDR-TIME-BEHAVIOR", {
             "decode_sample_count": len(decode_samples) == RUNS_PER_FORMAT * 2,
@@ -725,7 +1038,10 @@ def main() -> int:
             "No render telemetry was emitted for pending geometry; every submitted DNG frame used a matching drawable.",
             "All six screen captures across steady state, zoom, and pan stayed below the ten-column near-black-band threshold.",
             "The final two post-interaction JPEG captures retained at least 0.995 edge-structure similarity after movement stopped.",
-            "Five DNG launch captures retained at least 0.90 edge-structure similarity to the final full frame; the fixed preflight measured 0.940 minimum while the captured partial-frame baseline measured below 0.64.",
+            "Ten DNG launch captures retained at least 0.90 edge-structure similarity to the final full frame and lost zero structured image tiles.",
+            "The DNG's completed frames reported content headroom above 1.5 and a content/display-clamped target rather than display potential; the telemetry separately records whether the runtime supports an actual CALayer contentsHeadroom tag.",
+            "Every geometry-reuse record retained its prepared generation, Metal opacity one, full transition progress, and no SDR fallback.",
+            "The post-reveal Light background sample measured (150,150,150); both samples after the test Dark update measured (33,33,33).",
             "Every production record reported an opaque full-drawable clear before image compositing.",
             "The visible HDR transition began only after endpoint preparation and met the recorded frame-rate and maximum-progress-step thresholds.",
         ],
@@ -733,10 +1049,13 @@ def main() -> int:
             "Potential headroom above one together with wants_edr, RGBA16Float, and target headroom above one demonstrates an EDR-capable WindowServer presentation path.",
             "The current-only bootstrap result breaks the circular dependency in which NSScreen current headroom can remain one until EDR content is already onscreen.",
             "Initialization-time non-volatile gain-map decode, source-space Core Image-managed intermediates, and band-free screen pixels remove the two cache boundaries associated with the persistent JPEG bands.",
-            "Invalidating the Metal generation and exposing only the Qt fallback during geometry changes removes the stale-transform intervals associated with partial DNG frames and drag ghosting.",
+            "Independent RAW graphs, context/source intermediate caching, and ten complete timed captures support removal of the timing-dependent RAW tile failure.",
+            "Reusing prepared source endpoints across interaction removes the SDR fallback and transition restart that caused visible dim-then-bright behavior.",
+            "A single explicit Qt/Metal background contract explains the stable reveal color and deterministic live theme update.",
         ],
         "uncertainties": [
             "Telemetry cannot prove subjective equivalence with Quick Look's private tone curve.",
+            "Apple does not publish the precise internal RAW tile-scheduling mechanism, so its low-level failure mode remains an inference.",
             "A physical SDR-only Mac was not available; a capability override of current=potential=1 exercises the production SDR branch deterministically.",
             "A still screenshot cannot encode absolute luminance or temporal persistence; HDR pixel peaks, headroom telemetry, multiple timed captures, and generation invariants provide complementary evidence.",
         ],

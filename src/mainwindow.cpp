@@ -812,7 +812,7 @@ void MainWindow::settingsUpdated()
 
     //theme
     const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
-    customBackgroundColor = theme == Qv::Theme::Dark ? QColor("#212121") : QColor("#969696");
+    customBackgroundColor = Qv::viewportBackgroundColor(theme);
 
     //checkerboardbackground
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");

@@ -74,8 +74,22 @@ def main() -> int:
     desktop_capture_failure = (
         load(desktop_capture_failure_path) if desktop_capture_failure_path.is_file() else {}
     )
+    theme_capture_timing_failure_path = (
+        evidence_dir / "intermediate/hdr_system_failed_theme_capture_timing.json"
+    )
+    theme_capture_timing_failure = (
+        load(theme_capture_timing_failure_path)
+        if theme_capture_timing_failure_path.is_file() else {}
+    )
     root_cause_path = evidence_dir / "intermediate/hdr_root_cause_before_fix.json"
     root_cause = load(root_cause_path) if root_cause_path.is_file() else {}
+    current_root_cause_path = (
+        evidence_dir
+        / "intermediate/hdr_root_cause_background_raw_reactivation_before_fix.json"
+    )
+    current_root_cause = (
+        load(current_root_cause_path) if current_root_cause_path.is_file() else {}
+    )
     generated_at = datetime.now(timezone.utc).isoformat()
 
     evidence_cases = [
@@ -180,6 +194,34 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "WWDC26 — Develop in HDR with Core Image",
+            "url": "https://developer.apple.com/videos/play/wwdc2026/305/",
+            "supports": [
+                "one CIContext per interactive view",
+                "cacheIntermediates=true for interactive RAW editing",
+                "cacheIntermediates=false for one-shot export",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CIRAWFilter baselineExposure",
+            "url": "https://developer.apple.com/documentation/coreimage/cirawfilter/baselineexposure",
+            "supports": [
+                "camera-dependent baseline exposure",
+                "zero requests linear response",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CALayer contentsHeadroom",
+            "url": "https://developer.apple.com/documentation/quartzcore/calayer/contentsheadroom",
+            "supports": [
+                "content headroom describes values used by layer contents",
+                "headroom above one tags HDR layer content",
+            ],
+        },
+        {
+            "kind": "fact-source",
             "title": "Apple CALayer autoresizingMask",
             "url": "https://developer.apple.com/documentation/quartzcore/calayer/autoresizingmask",
             "supports": ["layer bounds are not automatically resized without a layout manager or autoresizing mask"],
@@ -201,6 +243,16 @@ def main() -> int:
             "facts": root_cause.get("facts", []),
             "inferences": root_cause.get("inferences", []),
             "uncertainties": root_cause.get("uncertainties", []),
+            "used_as_final_pass_evidence": False,
+        })
+    if current_root_cause:
+        intermediate_iterations.append({
+            "status": "reproduced-and-corrected",
+            "evidence_file": str(current_root_cause_path.relative_to(repo)),
+            "evidence_sha256": sha256(current_root_cause_path),
+            "facts": current_root_cause.get("facts", []),
+            "inferences": current_root_cause.get("inferences", []),
+            "uncertainties": current_root_cause.get("uncertainties", []),
             "used_as_final_pass_evidence": False,
         })
     if intermediate_failure:
@@ -231,6 +283,21 @@ def main() -> int:
             "corrections": [
                 "Expose viewport global origin, logical size, and device-pixel ratio in opt-in telemetry.",
                 "Crop every screenshot metric to that exact physical viewport before black-band or edge-structure analysis.",
+            ],
+            "used_as_final_pass_evidence": False,
+        })
+    if theme_capture_timing_failure:
+        intermediate_iterations.append({
+            "status": "failed-test-timing-and-superseded",
+            "evidence_file": str(theme_capture_timing_failure_path.relative_to(repo)),
+            "evidence_sha256": sha256(theme_capture_timing_failure_path),
+            "facts": [
+                "The first formal system run passed 16 of 17 cases; only the first post-switch screenshot remained light while renderer telemetry and the later screenshot were already dark.",
+                "The application schedules the switch three seconds after postLoad, but the original screenshot offset was measured from process start and therefore did not include variable startup/decode time.",
+            ],
+            "corrections": [
+                "Retain the pre-switch sample at 2.4 seconds and move both post-switch samples to 4.5 and 5.2 seconds from process start.",
+                "Rerun the entire formal static, unit, integration, and system sequence after changing the test timing.",
             ],
             "used_as_final_pass_evidence": False,
         })
@@ -300,8 +367,11 @@ def main() -> int:
             "First-frame SDR proxy handoff synchronized to actual Metal presentation",
             "Core Image-managed RAW/HDR endpoint preparation without app-texture re-import",
             "Initialization-time non-volatile decoding of both gain-map JPEG source recipes",
-            "Source-space intermediates followed by per-generation viewport transformation",
-            "Generation-based viewport geometry invalidation across zoom, pan, and resize",
+            "Independent SDR/HDR CIRAWFilter graphs with interactive source-space caching",
+            "Measured RAW content headroom tagged on CIImage and CAMetalLayer",
+            "Linear-response HDR RAW baseline while retaining the camera-default SDR companion",
+            "Prepared HDR source reuse across zoom, pan, and resize without reactivation",
+            "One shared theme background contract for Qt and Metal with live theme updates",
             "Potential-headroom bootstrap when NSScreen current EDR headroom is still one",
         ],
         "phase_results": [
@@ -325,20 +395,26 @@ def main() -> int:
             "The supplied JPEG produced an adaptive-HDR graph with content headroom above one.",
             "The supplied JPEG and DNG pixel probes both measured HDR components above their SDR representations.",
             "The supplied DNG produced a CIRAWFilter EDR graph and did not use an embedded preview as primary content.",
+            "The supplied DNG measured an HDR maximum and metadata content headroom of 1.83203125 while its SDR companion measured one.",
             "All pre-presentation system records retained the SDR fallback while Metal opacity was zero.",
             "No system render was submitted with pending geometry; stable DNG drawables matched requested dimensions.",
             "Current-only bootstrap runs for both formats reached HDR targets while current headroom was held at one.",
             "Six timed steady/zoom/pan screen captures remained below the black-band threshold.",
             "The final two post-interaction JPEG captures retained at least 0.995 edge-structure similarity, detecting stale tile residue in addition to pure black columns.",
-            "Five timed DNG launch captures retained at least 0.90 edge-structure similarity to the final full frame, separated from the captured partial-frame baseline below 0.64.",
+            "Ten timed DNG launch captures retained at least 0.90 edge-structure similarity and lost zero structured tiles relative to the final frame.",
+            "Every geometry-reuse and post-interaction record retained full transition progress, the prepared HDR graph, Metal opacity one, and no SDR fallback.",
+            "The Light background screen sample remained (150,150,150) after Metal reveal; after the deterministic Dark update, two samples measured (33,33,33).",
             "The physical built-in display reported potential EDR headroom above one during system tests.",
         ],
         "inferences": [
             "Using the same public Image I/O/Core Image/Metal/EDR mechanisms documented by Apple yields behavior close to Quick Look, but not a clone of its private tuning.",
+            "The independent RAW graphs, interactive Core Image cache, and geometry-independent prepared endpoints remove the timing-dependent state that best explains intermittent missing RAW tiles.",
+            "Neutralizing only a negative HDR RAW baseline and tagging the measured 1.832 headroom is the public-API approximation that most closely matched the brighter system RAW preview in the supplied fixture.",
             "Not adding LibRaw is the lean choice for the currently supported Apple RAW inputs; it remains a possible backend for unsupported future cameras.",
         ],
         "uncertainties": [
             "Quick Look's private tone curve and precise brightness transition are not publicly specified.",
+            "The exact internal RAW tile-scheduling failure is not published by Apple; its mechanism remains an inference even though the mutable/cache/geometry contracts and final timed pixels are directly auditable.",
             "No physical SDR-only Mac was present; unit and current=potential=1 system tests cover the SDR branch deterministically.",
             "Apple RAW camera-model support varies with macOS and may change independently of this application.",
         ],
@@ -363,7 +439,9 @@ def main() -> int:
                     "ST-HDR-RAW-CIRAWFILTER", "ST-HDR-NONRAW-RECONSTRUCTION",
                     "ST-HDR-NONRAW-NONVOLATILE-DECODE",
                     "ST-HDR-STAGED-FIRST-FRAME", "ST-HDR-OFFSCREEN-PREPARATION",
-                    "ST-HDR-GEOMETRY-LIFECYCLE", "UT-HDR-FORMAT-COVERAGE",
+                    "ST-HDR-GEOMETRY-LIFECYCLE", "ST-HDR-RAW-STABLE-ENDPOINTS",
+                    "ST-HDR-RAW-CONTENT-HEADROOM", "ST-HDR-THEME-BACKGROUND",
+                    "ST-HDR-INTERACTION-NO-REACTIVATION", "UT-HDR-FORMAT-COVERAGE",
                     "ST-HDR-VERSION-0.1.4",
                 ],
                 "facts": [
@@ -381,9 +459,11 @@ def main() -> int:
                     "SYS-HDR-GAINMAP-JPEG-EDR", "SYS-HDR-RAW-DNG-EDR",
                     "SYS-HDR-FLOAT-COLORMANAGED-EDR-SURFACE", "SYS-HDR-WINDOWSERVER-HEADROOM",
                     "SYS-HDR-EDR-BOOTSTRAP", "SYS-HDR-JPEG-BAND-FREE",
-                    "SYS-HDR-INTERACTION-GEOMETRY",
+                    "SYS-HDR-INTERACTION-GEOMETRY", "SYS-HDR-INTERACTION-NO-REACTIVATION",
                     "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
-                    "SYS-HDR-FINAL-LAYOUT-BEFORE-METAL",
+                    "SYS-HDR-FINAL-LAYOUT-BEFORE-METAL", "SYS-HDR-RAW-NO-BLANK-REGION",
+                    "SYS-HDR-RAW-CONTENT-HEADROOM",
+                    "SYS-HDR-THEME-BACKGROUND-STABILITY", "SYS-HDR-THEME-BACKGROUND-SWITCH",
                 ],
                 "facts": [
                     "Real JPEG and DNG inputs passed decoder invariants and rendered through an active RGBA16Float EDR surface.",
@@ -391,6 +471,7 @@ def main() -> int:
                     "The complete pre-existing CTest regression target passed after the change.",
                     "JPEG and RAW RGBAf peak probes prove extended values numerically instead of relying on metadata flags.",
                     "Timed pixel captures and geometry-generation telemetry cover the reproduced black-band, partial-frame, and drag-trail failure modes.",
+                    "Theme pixels, RAW tile energy, content/display target headroom, conditional layer-tag support, and post-activation progress are asserted as independent atomic system cases.",
                 ],
                 "inference": "The tested public-framework pipeline preserves HDR until the WindowServer boundary for these representative RAW and gain-map inputs.",
                 "uncertainty": "Visual identity across every camera model and every ISO HDR encoder remains outside the finite fixture matrix.",
@@ -416,13 +497,16 @@ def main() -> int:
                     "ST-HDR-OBSERVABILITY", "UT-HDR-TRANSITION", "UT-HDR-HEADROOM-CLAMP",
                     "UT-HDR-EDR-BOOTSTRAP", "UT-HDR-GEOMETRY-EQUIVALENCE",
                     "UT-HDR-PRESENTATION-PACING", "UT-HDR-STAGED-PRESENTATION",
+                    "UT-HDR-CONTENT-HEADROOM", "UT-HDR-PRESENTATION-REUSE",
+                    "UT-HDR-THEME-BACKGROUND",
                     "SYS-HDR-SMOOTH-ACTIVATION",
                     "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
+                    "SYS-HDR-RAW-NO-BLANK-REGION", "SYS-HDR-THEME-BACKGROUND-STABILITY",
                 ],
                 "facts": [
                     "Pure helpers deterministically test transition and headroom policy.",
                     "Separate test-only overrides deterministically exercise SDR targeting and the current=1 EDR bootstrap without replacing the production renderer.",
-                    "Compact JSON telemetry exposes decoder metadata, layout/fallback state, drawable dimensions, viewport global geometry/DPR, geometry generation, managed-intermediate/preparation gates, three display-headroom values, transition, render count, and timings only when enabled.",
+                    "Compact JSON telemetry exposes decoder metadata, layout/fallback state, drawable dimensions, viewport and image geometry, theme RGB, managed-intermediate/preparation gates, content/target/display headroom, conditional layer-tag support, activation state, transition, render count, and timings only when enabled.",
                     "An opt-in deterministic interaction driver exercises production zoom and scrollbar paths; timed PNGs include hashes, quantitative band metrics, and post-interaction edge similarity.",
                     "Every atomic criterion has one specification and one evidence record with a stable ID.",
                 ],

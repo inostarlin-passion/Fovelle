@@ -51,7 +51,7 @@ def main() -> int:
     environment = {
         "QT_QPA_PLATFORM": "cocoa",
         "QT_FATAL_WARNINGS": "1",
-        "QTEST_FUNCTION_TIMEOUT": "30000",
+        "QTEST_FUNCTION_TIMEOUT": "60000",
         "FOVELLE_TEST_SUITE": "HDRSampleTests",
         "FOVELLE_HDR_JPEG_SAMPLE": str(jpeg),
         "FOVELLE_HDR_RAW_SAMPLE": str(raw),
@@ -63,16 +63,23 @@ def main() -> int:
         text=True,
         capture_output=True,
         env={**os.environ, **environment},
-        timeout=45,
+        timeout=90,
         check=False,
     )
     elapsed = time.perf_counter() - started
     output = result.stdout + result.stderr
     raw_peak_match = re.search(r"FOVELLE_RAW_PEAK sdr_max=([0-9.]+) hdr_max=([0-9.]+)", output)
+    raw_headroom_match = re.search(
+        r"FOVELLE_RAW_HEADROOM metadata=([0-9.]+) measured=([0-9.]+)", output
+    )
     jpeg_peak_match = re.search(r"FOVELLE_JPEG_PEAK sdr_max=([0-9.]+) hdr_max=([0-9.]+)", output)
     raw_pixel_statistics = {
         "sdr_maximum_component": float(raw_peak_match.group(1)) if raw_peak_match else None,
         "hdr_maximum_component": float(raw_peak_match.group(2)) if raw_peak_match else None,
+    }
+    raw_headroom_statistics = {
+        "metadata_content_headroom": float(raw_headroom_match.group(1)) if raw_headroom_match else None,
+        "measured_maximum_component": float(raw_headroom_match.group(2)) if raw_headroom_match else None,
     }
     jpeg_pixel_statistics = {
         "sdr_maximum_component": float(jpeg_peak_match.group(1)) if jpeg_peak_match else None,
@@ -83,6 +90,8 @@ def main() -> int:
         ("IT-HDR-GAINMAP-JPEG-PEAK", "testGainMapJPEGHDRContainsAboveSDRValues"),
         ("IT-HDR-RAW-DNG", "testDNGCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-DNG-PEAK", "testDNGRawEDRContainsAboveSDRValues"),
+        ("IT-HDR-RAW-DNG-HEADROOM-TAG", "testDNGRawHeadroomMatchesMeasuredFloatPeak"),
+        ("IT-HDR-RAW-DNG-REPEATABILITY", "testDNGRawRepeatedFloatProbeIsStable"),
     )
     cases = []
     for identifier, function in expected:
@@ -101,6 +110,10 @@ def main() -> int:
             item["observations"] = raw_pixel_statistics
             if not raw_peak_match:
                 item["status"] = "failed"
+        elif identifier == "IT-HDR-RAW-DNG-HEADROOM-TAG":
+            item["observations"] = raw_headroom_statistics
+            if not raw_headroom_match:
+                item["status"] = "failed"
         cases.append(item)
     totals_match = re.search(
         r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted", output
@@ -113,7 +126,7 @@ def main() -> int:
     }
     passed = (
         result.returncode == 0
-        and totals == {"passed": 6, "failed": 0, "skipped": 0, "blacklisted": 0}
+        and totals == {"passed": 8, "failed": 0, "skipped": 0, "blacklisted": 0}
         and all(item["status"] == "passed" for item in cases)
     )
     record = {

@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QDebug>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QScopedValueRollback>
 #include <QtMath>
@@ -665,6 +666,12 @@ bool QVGraphicsView::hdrViewportGeometryEquivalent(
     return true;
 }
 
+bool QVGraphicsView::canReuseHDRPresentation(const bool firstFramePresented,
+                                             const bool hdrPrepared)
+{
+    return firstFramePresented && hdrPrepared;
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -772,6 +779,7 @@ void QVGraphicsView::beforeLoad()
 {
     hdrLayoutReady = false;
     hdrTransitionLinearProgress = 0.0;
+    hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
     lastCalculatedZoomMode.reset();
@@ -786,6 +794,7 @@ void QVGraphicsView::postLoad()
 {
     hdrLayoutReady = false;
     hdrTransitionLinearProgress = 0.0;
+    hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
     scrollHelper->cancelAnimation();
@@ -873,6 +882,21 @@ void QVGraphicsView::postLoad()
                 }
             });
             panTimer->start();
+        });
+    }
+
+    // Opt-in deterministic theme driver for system tests. It does not mutate
+    // QSettings: both calls use the production renderer update path while the
+    // opened image and its completed HDR activation remain intact.
+    if (hdrRendererActive && !hdrThemeTestScheduled
+        && qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_THEME_SWITCH")) {
+        hdrThemeTestScheduled = true;
+        applyHDRViewportBackground(Qv::Theme::Light);
+        QTimer::singleShot(3000, this, [this]() {
+            if (!hdrRendererActive)
+                return;
+            applyHDRViewportBackground(Qv::Theme::Dark);
+            logHDRState("test-theme-dark");
         });
     }
 
@@ -1433,25 +1457,30 @@ QPolygonF QVGraphicsView::getHDRViewportCorners() const
 void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
                                       const QPolygonF &imageCorners)
 {
-    const bool invalidatePresentedGeometry = hdrLayoutReady;
-    hdrLayoutReady = false;
+    const auto rendererState = hdrRenderer
+            ? hdrRenderer->diagnostics() : QVCocoaFunctions::HDRRendererDiagnostics{};
+    const bool reuseVisibleHDR = canReuseHDRPresentation(
+            rendererState.firstFramePresented, rendererState.hdrPrepared);
+    const bool invalidateUnpresentedGeometry = hdrLayoutReady && !reuseVisibleHDR;
+    hdrLayoutReady = reuseVisibleHDR;
     hdrPendingGeometryValid = true;
     hdrPendingViewportSize = viewportSize;
     hdrPendingImageCorners = imageCorners;
-    hdrTransitionClock.invalidate();
-    hdrTransitionLinearProgress = 0.0;
-    loadedPixmapItem->setVisible(true);
+    loadedPixmapItem->setVisible(!reuseVisibleHDR);
 
-    if (invalidatePresentedGeometry && hdrRenderer)
+    if (invalidateUnpresentedGeometry && hdrRenderer)
         hdrRenderer->invalidateGeometry();
 
-    // Keep the Qt proxy as the sole representation while resize, zoom or pan
-    // events are still changing the viewport. This avoids queuing stale Metal
-    // frames behind interactive movement and gives Qt one full repaint turn.
+    // Before the first prepared HDR frame, keep the complete Qt proxy visible
+    // while layout settles. Afterwards the source-space cached endpoints can
+    // be transformed directly for every zoom/pan geometry. Keep the last HDR
+    // drawable visible until its replacement is presented: returning to the
+    // SDR proxy would cause the reported brightness dip and restart.
     hdrGeometryTimer->start();
-    hdrTransitionTimer->start();
+    if (!hdrActivationCompleted)
+        hdrTransitionTimer->start();
     viewport()->update();
-    logHDRState("geometry-staged");
+    logHDRState(reuseVisibleHDR ? "geometry-reused" : "geometry-staged");
 }
 
 void QVGraphicsView::finishHDRGeometryStabilization()
@@ -1492,7 +1521,8 @@ void QVGraphicsView::updateHDRRenderer()
                 hdrPendingViewportSize, hdrPendingImageCorners,
                 viewportSize, viewportCorners)) {
         stageHDRGeometry(viewportSize, viewportCorners);
-        return;
+        if (!hdrLayoutReady)
+            return;
     }
 
     if (!hdrLayoutReady)
@@ -1513,6 +1543,8 @@ void QVGraphicsView::updateHDRRenderer()
         hdrTransitionLinearProgress = QVCocoaFunctions::pacedHDRTransitionProgress(
                 hdrTransitionLinearProgress, desiredProgress, 0.04);
     }
+    if (hdrTransitionLinearProgress >= 1.0)
+        hdrActivationCompleted = true;
     hdrRenderer->render(viewportSize, viewportCorners, hdrTransitionLinearProgress);
     logHDRState("render");
 }
@@ -1526,6 +1558,9 @@ void QVGraphicsView::logHDRState(const char *phase) const
     const auto &metadata = fileDetails.hdrMetadata;
     const auto renderer = hdrRenderer->diagnostics();
     const QPoint viewportGlobalOrigin = viewport()->mapToGlobal(QPoint(0, 0));
+    QJsonArray imageCorners;
+    for (const QPointF &corner : getHDRViewportCorners())
+        imageCorners.append(QJsonArray{ corner.x(), corner.y() });
     QJsonObject object{
         { QStringLiteral("phase"), QString::fromLatin1(phase) },
         { QStringLiteral("path"), fileDetails.fileInfo.absoluteFilePath() },
@@ -1569,13 +1604,24 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("hdr_prepared"), renderer.hdrPrepared },
         { QStringLiteral("core_image_managed_intermediates"),
           renderer.usesCoreImageManagedIntermediates },
+        { QStringLiteral("core_image_cache_intermediates"), renderer.cachesIntermediates },
         { QStringLiteral("prepared_geometry_active"), renderer.preparedGeometryActive },
         { QStringLiteral("bootstrapping_edr"), renderer.bootstrappingEDR },
+        { QStringLiteral("hdr_activation_completed"), hdrActivationCompleted },
         { QStringLiteral("layer_opacity"), renderer.layerOpacity },
         { QStringLiteral("display_current_headroom"), renderer.displayCurrentHeadroom },
         { QStringLiteral("display_potential_headroom"), renderer.displayPotentialHeadroom },
         { QStringLiteral("display_rendering_headroom"), renderer.displayRenderingHeadroom },
         { QStringLiteral("target_headroom"), renderer.targetHeadroom },
+        { QStringLiteral("layer_contents_headroom"), renderer.layerContentsHeadroom },
+        { QStringLiteral("layer_contents_headroom_tag_supported"),
+          renderer.usesLayerContentsHeadroomTag },
+        { QStringLiteral("viewport_background_red"), renderer.backgroundRed },
+        { QStringLiteral("viewport_background_green"), renderer.backgroundGreen },
+        { QStringLiteral("viewport_background_blue"), renderer.backgroundBlue },
+        { QStringLiteral("background_update_count"),
+          static_cast<qint64>(renderer.backgroundUpdateCount) },
+        { QStringLiteral("image_corners"), imageCorners },
         { QStringLiteral("transition_progress"), renderer.transitionProgress },
         { QStringLiteral("requested_drawable_width"), renderer.requestedDrawableWidth },
         { QStringLiteral("requested_drawable_height"), renderer.requestedDrawableHeight },
@@ -1807,11 +1853,22 @@ void QVGraphicsView::applyScrollBarTheme(const Qv::Theme theme)
     }
 }
 
+void QVGraphicsView::applyHDRViewportBackground(const Qv::Theme theme)
+{
+    if (!hdrRenderer)
+        return;
+    hdrRenderer->setBackgroundColor(Qv::viewportBackgroundColor(theme));
+    if (hdrRendererActive)
+        updateHDRRenderer();
+}
+
 void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
 {
     auto &settingsManager = qvApp->getSettingsManager();
 
-    applyScrollBarTheme(settingsManager.getEnum<Qv::Theme>("theme"));
+    const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
+    applyScrollBarTheme(theme);
+    applyHDRViewportBackground(theme);
 
     if (isInitialLoad || globalNavigationResetsZoom != settingsManager.getBoolean("navresetszoom"))
     {

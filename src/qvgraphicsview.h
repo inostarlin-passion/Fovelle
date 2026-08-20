@@ -131,6 +131,10 @@ public:
         const QPolygonF &rhsImageCorners,
         qreal tolerance = 0.01);
 
+    // Once a prepared Metal frame is visible, geometry changes must reuse it
+    // instead of falling back to SDR and restarting the opening transition.
+    static bool canReuseHDRPresentation(bool firstFramePresented, bool hdrPrepared);
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -243,6 +247,8 @@ protected:
 
     void applyScrollBarTheme(Qv::Theme theme);
 
+    void applyHDRViewportBackground(Qv::Theme theme);
+
 private slots:
     void animatedFrameChanged(QRect rect);
 
@@ -309,10 +315,12 @@ private:
     QTimer *hdrGeometryTimer;
     QElapsedTimer hdrTransitionClock;
     qreal hdrTransitionLinearProgress{ 0.0 };
+    bool hdrActivationCompleted{ false };
     bool hdrRendererActive{ false };
     bool hdrLayoutReady{ false };
     bool hdrPendingGeometryValid{ false };
     bool hdrInteractionTestScheduled{ false };
+    bool hdrThemeTestScheduled{ false };
     QSize hdrPendingViewportSize;
     QPolygonF hdrPendingImageCorners;
 

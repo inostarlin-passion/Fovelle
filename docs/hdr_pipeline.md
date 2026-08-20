@@ -17,26 +17,31 @@ Fovelle 在 macOS 上把 HDR 文件保持为 Core Image 的高精度惰性图像
 7. Apple 对 [`NSScreen.maximumExtendedDynamicRangeColorComponentValue`](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue) 的说明明确指出：没有 EDR 内容在屏幕上时，当前值可能保持为 1；[`maximumPotentialExtendedDynamicRangeColorComponentValue`](https://developer.apple.com/documentation/appkit/nsscreen/maximumpotentialextendeddynamicrangecolorcomponentvalue) 才描述显示器潜在能力。因此首个 EDR 帧不能以 current>1 作为先决条件。
 8. Core Image 的 [`imageByInsertingIntermediate`](https://developer.apple.com/documentation/coreimage/ciimage/insertingintermediate(cache:)) 可显式插入由 Core Image 管理的缓存 intermediate。这里使用它缓存两条浮点图，而不再把应用自有 Metal render-target 反向导入为后续 `CIImage` 输入。
 9. Apple SDK 将 [`kCIImageCacheImmediately`](https://developer.apple.com/documentation/coreimage/ciimageoption/cacheimmediately) 的 `YES` 语义定义为：在初始化时尽可能解码到非易失缓存；`NO` 则延迟到 render 时的易失缓存。Gain-map JPEG 的 SDR/HDR recipe 均显式使用 `YES`，避免局部 ROI 首次求值决定源缓存内容。
+10. Apple 在 [WWDC26: Develop in HDR with Core Image](https://developer.apple.com/videos/play/wwdc2026/305/) 中把交互式 RAW 编辑与一次性导出明确区分：交互视图复用一个 `CIContext` 并启用 `cacheIntermediates=true`；`false` 适合只渲染一次的导出。本实现属于前者。
+11. Apple 将 [`CIRAWFilter.baselineExposure`](https://developer.apple.com/documentation/coreimage/cirawfilter/baselineexposure) 定义为随相机变化的 baseline exposure，并说明零表示 linear response。所给 DNG 的系统 RAW filter 默认值实测为 -0.961081；这不是显示器 headroom。
+12. macOS 26 SDK 对 `CALayer.contentsHeadroom` 的注释说明它描述 layer 内容/`MTLDrawable` 所使用的 headroom，默认零表示未标记；它不是显示器潜在能力。因此在支持该 API 的系统上，本实现给 layer 写入内容与当前显示可用范围的较小值，而不是内建 XDR 的潜在 16×；较早系统继续依赖扩展线性像素、layer EDR/colorspace 合同，并在 telemetry 中明确标记“无该 tag API”。
 
-## 本次黑带、局部帧、残影与无 HDR 的根因和修复
+## 本次背景变化、RAW 空白、偏暗与交互重激活的根因和修复
 
-修复前 JPEG 稳态截图中存在 80～243 个连续近黑列。与此同时 telemetry 已经报告 `hdr_prepared=true`、`transition_progress=1`、drawable geometry 匹配且 layer opacity 为 1，排除了“空 drawable”或“过渡尚未完成”。基线代码把 SDR/HDR 端点写入两张应用自有 `MTLStorageModePrivate` texture，随后通过 `imageWithMTLTexture` 把这些 render-target 再作为后续 Core Image 输入。移除该反向导入后，放大/拖动对照实验又进一步隔离出第二个条件：强制 SDR 的相同几何始终完整，只有延迟解码的 adaptive-HDR recipe 在局部 ROI 求值时丢失区域；加入 `kCIImageCacheImmediately=YES` 后，HDR 对照也连续完整。最终实现让两个源 recipe 在初始化时进入非易失缓存，再在源图空间插入 `imageByInsertingIntermediate:YES`，最后才针对每一代 viewport 做变换、裁剪和不透明整帧合成。私有 RGBA16Float texture 仅用于串行预热，永不被反向导入。RAW/自适应 HDR 的首次全分辨率求值也不再作为可见首帧：完整 SDR/HDR 端点和代表性过渡状态均预热完成后，Metal layer 才从 opacity 0 切到 1。
+背景变化是确定的双重颜色源错误。Qt painter 在 Light/Dark Theme 下分别填充 `#969696`/`#212121`，独立 Metal layer 却在创建和每帧合成时读取 `NSColor.windowBackgroundColor`；约两秒后 Metal 首帧揭示时，后者覆盖前者。`QVGraphicsView::settingsUpdated` 又没有把新主题通知 renderer，所以 Dark Theme 也无法改变已存在的 layer。现在 `Qv::viewportBackgroundColor` 是唯一合同：Qt 和 Metal 都从该函数取色，Metal 把 QColor 明确标为 sRGB，再由 ColorSync 转到扩展线性 Display P3；主题更新通过 `setBackgroundColor` 禁用隐式动画、重绘同一 HDR 图。系统像素证据中，揭示后的 Light 中位值保持 `(150,150,150)`，切换后两帧均为 `(33,33,33)`。
 
-DNG 的“完整→只剩左上角→完整”有两段原因。定时截图证明：初始完整图是 Qt proxy；随后 drawable 尺寸和仿射几何虽正确，但未预热的全分辨率 `CIRAWFilter` 图只出现已经解析的左上角区域；准备完成后才恢复完整。因此首次 RAW/自适应 HDR 求值现在严格位于可见交接之前。缩放、拖动时的残影则来自另一层生命周期：Qt viewport 已移动，独立 `CAMetalLayer` 仍可能展示/排队旧仿射矩阵。现在稳定合同包括 viewport size 与全部四个映射角点；任一变化立即使 presentation generation 失效、清除该几何的 prepared cache、将 Metal opacity 设为 0，并让 Qt proxy 成为唯一可见内容。几何连续 34 ms 不变且新几何预热完成后才提交可见帧，实际呈现回调后再隐藏 proxy。`CAMetalLayer.autoresizingMask` 同时跟随 native view resize。每帧还会先以当前窗口背景不透明写满整个 drawable，再绘制 HDR 图，避免 drawable 池复用时透明区露出底层 proxy 或旧位置。
+RAW 空白来自三项可直接审计的高风险合同叠加：基线从同一个惰性 `CIRAWFilter` 先读取 amount 0 图、再变异为 amount 1 读取 HDR 图；交互 renderer 又显式设置 `kCIContextCacheIntermediates=@NO`；已准备端点还把 viewport size、texture size 和四角当成有效性条件，缩放/移动会清掉昂贵 RAW 源并重新求值。Apple 不公开内部 tile scheduler，所以“具体哪条 GPU tile 竞争”仍是推断；但可变图、一次性 cache 策略和几何绑定均是源码事实。修复后 SDR/HDR 使用两个独立 filter，交互 context 开启 cache，两个源空间端点各插入 `imageByInsertingIntermediate:YES`，且这些端点不再依赖 viewport 几何。首次昂贵求值仍在 Metal 揭示前完成；揭示后 zoom/pan 只更新仿射与完整 drawable，不清源 cache。3.6～6.2 秒的十帧把图像划为 8×6 tile，所有帧缺失结构 tile 数均为零。
 
-“全程无 HDR”还有独立原因：基线以动态 current headroom>1 决定是否准备/输出 HDR，但 Apple 说明 current 可能在没有 EDR 内容时保持 1，形成“先有 HDR 才得到 headroom、先有 headroom 才输出 HDR”的循环。现在 `displayHeadroomForRendering` 在 current=1 且 potential>1 时，以 `min(content,potential)` 启动首个 EDR 帧；一旦 current 升高便重新跟随动态 current。若 potential 也为 1，仍严格走 SDR。
+偏暗也有两项独立事实。第一，所给 DNG 的 `CIImage.contentHeadroom` 是零（未知），旧路径直接传递零；显示层若用潜在显示能力代替内容范围，系统会把实际约 1.35× 的像素误解为 16× 内容并压缩。现在先以 `CIAreaMaximum` 在 float 图上实测，再把结果同时标到 macOS 26 的 `CIImage` 与 `CAMetalLayer`；target 始终是 `min(content, displayRendering)`。第二，所给相机默认 `baselineExposure=-0.961081` 会保留接近一档的 SDR highlight protection。独立探针中，默认 baseline + EDR amount 1 的峰值为 1.349609375；仅 HDR filter 改为 linear-response baseline 0 后为 1.83203125，SDR companion 仍为 1。这个公开 API 组合明显接近用户所见的更亮系统 RAW 预览，但 Quick Look 的私有曝光意图未公开，不能声称逐像素一致。
 
-用户两张截图、独立 JPEG 稳态帧、修复前 telemetry 和基线/当前源码合同均哈希到 `reports/evidence/intermediate/hdr_root_cause_before_fix.json`。这些结论分为可直接复核的事实和基于对照实验的推断；Apple GPU 内部 tile 解析细节仍属于不确定性。
+交互时“先暗后亮”是状态机直接造成的：旧 `stageHDRGeometry` 对每一次 zoom/pan 都执行 `hdrTransitionClock.invalidate()`、`hdrTransitionLinearProgress=0`、显示 SDR proxy 并失效 renderer generation，相当于把“打开图片”重放一遍。现在只有 `beforeLoad`/`postLoad` 为新图像重置激活；一旦首帧已呈现且端点已准备，几何变化复用同一 presentation，保持 `opacity=1`、fallback=false 和 progress=1。34 ms debounce 仅合并几何事件，不再控制亮度生命周期。
 
-系统截图测试不假定应用独占桌面：opt-in telemetry 同时记录 viewport 的全局逻辑坐标、尺寸与 device-pixel ratio，像素断言先换算并裁剪到被测 viewport，再计算近黑连续列和停止交互后的边缘结构相似度。第一次全桌面比较受到后台视频污染的失败记录被保留为中间证据，未被当作最终通过证据。
+此前 JPEG 黑带修复仍保留：gain-map 两个 recipe 在初始化时进入非易失缓存，源空间 float intermediate 由 Core Image 管理，应用自有 scratch texture 永不反向导入为 `CIImage`。每帧先以共享主题色不透明写满 drawable，再合成图像。首个 Metal drawable 只有在完整预热并实际 presented 后才取代 Qt SDR proxy。
 
-这不是把 RAW 降级成 SDR proxy：proxy 只负责首帧连续性；正式内容、预热端点和最终 surface 始终是 Core Image/Metal 浮点链。提供的 DNG 通过 `CIAreaMaximum` 的 RGBAf 探针测得 SDR 峰值约 1.000、EDR 峰值约 1.350，证明 EDR 图中存在超过 SDR white 的真实数值。
+两轮根因材料分别哈希到 `reports/evidence/intermediate/hdr_root_cause_before_fix.json` 与 `reports/evidence/intermediate/hdr_root_cause_background_raw_reactivation_before_fix.json`。后者含样例/用户空白截图哈希、HEAD 基线源码合同、可重复 Swift RAW 探针命令和事实/推断/不确定性分类。系统截图测试按 telemetry 给出的 viewport 与 image corners 裁剪，避免桌面其他窗口污染。
+
+这不是把 RAW 降级成 SDR proxy：proxy 只负责首帧连续性；正式内容、预热端点和最终 surface 始终是 Core Image/Metal 浮点链。当前 DNG 的生产 decoder 与独立 integration probe 均得到 SDR 峰值 1、HDR 峰值/内容 headroom 1.83203125。
 
 ## 实现数据流
 
 ### RAW
 
-`CGImageSource` 先按内容 UTI 判断 `public.camera-raw-image`，而不是按扩展名猜测。主路径随后创建 `CIRAWFilter`，分别在 `extendedDynamicRangeAmount = 0` 和 `1` 时捕获 SDR 与 EDR `CIImage` 图。两者保持惰性、高精度且全分辨率，EDR 图是显示主输入；只有单独的 SDR 回退代理会被限制到 2048 像素。
+`CGImageSource` 先按内容 UTI 判断 `public.camera-raw-image`，而不是按扩展名猜测。主路径创建两个独立 `CIRAWFilter`：SDR filter 保留相机默认并设 `extendedDynamicRangeAmount=0`；HDR filter 只在 baseline 为负时设 `baselineExposure=0`，再设 amount 1。两者保持惰性、高精度且全分辨率，EDR 图是显示主输入；只有单独的 SDR 回退代理会被限制到 2048 像素。若 RAW 图不报告 content headroom，生产 decoder 约减 float HDR 图的最大 RGB 分量并附上该标签。
 
 若 Apple RAW 解码器不支持某相机型号，才尝试 `previewImage` 或 Image I/O 内嵌预览，并显式记录 `usedRawPreview`；两者都不可用时返回可审计错误。因此预览不会冒充传感器 RAW HDR。
 
@@ -48,9 +53,9 @@ Image I/O 解析 UTI、方向、Apple HDR gain map、ISO gain map、色彩空间
 
 ColorSync 的 Display P3 profile 用于建立扩展线性 Display P3 工作/输出空间；Core Image 的 Metal context 使用 `kCIFormatRGBAh`。最终 surface 是 `CAMetalLayer` 的 `MTLPixelFormatRGBA16Float`，并设置 `wantsExtendedDynamicRangeContent = YES`。每次绘制读取窗口所在 `NSScreen` 的当前与潜在 EDR headroom。
 
-非 RAW HDR 在 macOS 15+ 使用 `CIToneMapHeadroom` 映射内容 headroom 到渲染目标；RAW 在 SDR/EDR 两个原生 RAW 图之间平滑过渡。650 ms smoothstep 内容过渡与约 1.8 s 的 headroom 轮询允许 WindowServer 自身的亮度协商继续完成。当 current 仍为 1 而 potential>1 时先用潜在能力 bootstrap；当 potential=1 时目标严格为 1，系统得到 SDR tone-mapped 图。`FOVELLE_TEST_DISPLAY_HEADROOM=1` 同时固定 current/potential，确定性验证 SDR；`FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM=1` 只固定 current，用来验证 clean-start EDR。
+非 RAW HDR 在 macOS 15+ 使用 `CIToneMapHeadroom` 映射内容 headroom 到渲染目标；RAW 在两个独立原生 RAW 图之间平滑过渡。650 ms smoothstep 只在新图片打开后执行一次；约 1.8 s 的 headroom 轮询允许 WindowServer 自身协商继续完成。当 current 仍为 1 而 potential>1 时先用潜在能力 bootstrap；当 potential=1 时目标严格为 1，系统得到 SDR tone-mapped 图。`FOVELLE_TEST_DISPLAY_HEADROOM=1` 同时固定 current/potential，确定性验证 SDR；`FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM=1` 只固定 current，用来验证 clean-start EDR。
 
-缩放、滚动、90° 旋转、镜像和翻转仍由 Qt 场景变换决定；四个源图角点映射到 viewport 后，再转换为 Core Image 到 Metal drawable 的仿射矩阵。缩放、滚动或 resize 期间暂时只显示随 Qt 同步更新的 SDR proxy，34 ms 稳定后重新生成 Metal 缓存和仿射矩阵，避免独立 layer 的旧帧残留。
+缩放、滚动、90° 旋转、镜像和翻转仍由 Qt 场景变换决定；四个源图角点映射到 viewport 后，再转换为 Core Image 到 Metal drawable 的仿射矩阵。首个 prepared/presented 帧之前，34 ms 稳定 gate 与 SDR proxy 隔离未完成求值；之后 zoom/pan/resize 始终保留 HDR layer 与 source intermediates，只为当前完整 drawable 计算新仿射，不重新执行激活渐亮。
 
 ## LibRaw 评估
 
@@ -69,6 +74,8 @@ ColorSync 的 Display P3 profile 用于建立扩展线性 Display P3 工作/输�
 ## 推断与不确定性
 
 - 推断：潜在 headroom>1、layer 请求 EDR、RGBA16Float surface 与内容目标>1 共同证明应用提供了 WindowServer 可接受的 EDR 表示；current-only=1 的两种真实样例仍达到 HDR target，证明 bootstrap 不依赖另一个 EDR 客户端。肉眼亮度体验仍是设备、环境亮度和系统策略共同结果。
+- 推断：独立 RAW 图、交互 context/source cache、几何无关端点与十帧零缺失结果共同支持“移除了定时相关 tile 故障”；Apple 未公开的具体调度路径不能直接证明。
+- 推断：对负 baseline 只在 HDR 图上请求 linear response，并使用实测 1.832 headroom，是在公开 API 范围内对所给 DNG 更接近 Quick Look 亮度的最小策略。
 - 不确定：Apple 不公开 Quick Look 的全部 tone curve、曝光意图和过渡时序，因此“接近”不能解释为完全复刻。
 - 不确定：物理 SDR Mac 不在本次硬件矩阵内。SDR 行为由纯策略单元测试与强制 current=potential=1 的真实 Cocoa/Metal 系统测试覆盖，但仍建议发布前在一台仅 SDR 的 Mac 上做人工视觉确认。
 - 不确定：Apple RAW 支持按 macOS 版本和相机型号变化；格式族被支持不等于未来每个型号都能解码。代码会明确回退或报错，不会把预览声称为 RAW HDR。
