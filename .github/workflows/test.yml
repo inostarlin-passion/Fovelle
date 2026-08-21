@@ -40,7 +40,7 @@ jobs:
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
 
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel 2
 
       - name: Run tests
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
