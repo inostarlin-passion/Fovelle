@@ -99,11 +99,11 @@ class HDRPolicyTests : public QObject
 
 private slots:
     void testTransitionCurveIsBoundedAndMonotonic();
-    void testPresentationPacingBoundsDelayedFrameProgress();
+    void testFinalFrameRevealRejectsPartialHeadroom();
     void testHDRHeadroomIsClampedToContentAndDisplay();
     void testSDRDisplayForcesUnitHeadroom();
     void testDisplayHeadroomBootstrapsFromPotentialCapability();
-    void testTransitionStartsOnlyAfterStagedPresentation();
+    void testFinalFrameRevealRequiresMatchedGeometry();
     void testHDRViewportGeometryEquivalenceUsesCompleteContract();
     void testRawContentHeadroomUsesMeasuredPeakWhenUnknown();
     void testPreparedHDRPresentationCanBeReusedAcrossGeometry();
@@ -124,6 +124,7 @@ private slots:
     void testDNGProcessedGainMapContainsAboveSDRValues();
     void testDNGGainMapHeadroomMatchesMetadataContract();
     void testDNGProcessedGraphRepeatedFloatProbeIsStable();
+    void testPlainDNGCreatesNativeRawEDRGraph();
     void testNEFCreatesNativeRawEDRGraph();
     void testNEFRawRepeatedFloatProbeIsStable();
 };
@@ -882,27 +883,25 @@ void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
     }
 }
 
-// TC-HDR-UNIT-PRESENTATION-PACING
-// Test purpose: verify a delayed GPU frame cannot convert elapsed wall time
-// into a large visible luminance step.
-// Preconditions: the pure transition pacing helper is available.
-// Input data: normal progress, a large desired jump, a backwards desired
-// value, out-of-range values, and a zero maximum step.
-// Steps: advance the linear ramp once for each deterministic input.
-// Expected result: progress is monotonic and clamped to [0,1], with each
-// delayed advance bounded by the supplied maximum step.
+// TC-HDR-UNIT-FIRST-VISIBLE-FINAL
+// Test purpose: verify an app-generated partial-headroom frame can never be
+// selected as the first visible Metal presentation.
+// Preconditions: the pure reveal policy helper is available.
+// Input data: matched drawable geometry and progress around the 0.999 final
+// endpoint boundary.
+// Steps: evaluate isFinalHDRFrameReadyForReveal for every input.
+// Expected result: all partial endpoints are rejected; only final endpoints
+// are eligible for reveal.
 // Postcondition: no clocks, timers, images, or display state change.
-void HDRPolicyTests::testPresentationPacingBoundsDelayedFrameProgress()
+void HDRPolicyTests::testFinalFrameRevealRejectsPartialHeadroom()
 {
-    const auto verify = [](const qreal actual, const qreal expected) {
-        QVERIFY(qAbs(actual - expected) < 1e-12);
-    };
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.10, 0.12, 0.04), 0.12);
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.10, 0.80, 0.04), 0.14);
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.50, 0.20, 0.04), 0.50);
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(-1.0, 2.0, 0.04), 0.04);
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.90, 1.0, 0.20), 1.0);
-    verify(QVCocoaFunctions::pacedHDRTransitionProgress(0.25, 0.90, 0.0), 0.25);
+    QVERIFY(!QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, -1.0));
+    QVERIFY(!QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 0.0));
+    QVERIFY(!QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 0.5));
+    QVERIFY(!QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 0.998));
+    QVERIFY(QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 0.999));
+    QVERIFY(QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 1.0));
+    QVERIFY(QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 2.0));
 }
 
 // TC-HDR-UNIT-HEADROOM-CLAMP
@@ -959,26 +958,19 @@ void HDRPolicyTests::testDisplayHeadroomBootstrapsFromPotentialCapability()
     QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(3.5, 16.0, 5.0), 3.5);
 }
 
-// TC-HDR-UNIT-STAGED-PRESENTATION
-// Test purpose: verify HDR activation cannot race layout, the first visible
-// Metal frame, or the expensive first evaluation of the HDR graph.
-// Preconditions: the pure staging policy helper is available.
-// Input data: all eight combinations of layout-ready, frame-presented, and
-// HDR-prepared flags.
-// Steps: evaluate shouldStartHDRTransition for every combination.
-// Expected result: only the all-true state permits the transition clock to
-// start; every incomplete stage returns false.
+// TC-HDR-UNIT-FIRST-VISIBLE-GEOMETRY
+// Test purpose: verify a final-headroom frame is not revealed unless its
+// physical drawable dimensions match the stable viewport contract.
+// Preconditions: the pure reveal policy helper is available.
+// Input data: final progress with matching and mismatching geometry.
+// Steps: evaluate isFinalHDRFrameReadyForReveal twice.
+// Expected result: mismatching geometry is rejected and matching geometry is
+// accepted.
 // Postcondition: no layer, image, or display state changes.
-void HDRPolicyTests::testTransitionStartsOnlyAfterStagedPresentation()
+void HDRPolicyTests::testFinalFrameRevealRequiresMatchedGeometry()
 {
-    for (int bits = 0; bits < 8; ++bits) {
-        const bool layoutReady = bits & 1;
-        const bool framePresented = bits & 2;
-        const bool hdrPrepared = bits & 4;
-        QCOMPARE(QVCocoaFunctions::shouldStartHDRTransition(
-                         layoutReady, framePresented, hdrPrepared),
-                 bits == 7);
-    }
+    QVERIFY(!QVCocoaFunctions::isFinalHDRFrameReadyForReveal(false, 1.0));
+    QVERIFY(QVCocoaFunctions::isFinalHDRFrameReadyForReveal(true, 1.0));
 }
 
 // TC-HDR-UNIT-GEOMETRY-EQUIVALENCE
@@ -1298,6 +1290,42 @@ void HDRSampleTests::testDNGProcessedGraphRepeatedFloatProbeIsStable()
     QVERIFY(second.valid);
     QVERIFY(qAbs(first.sdrMaximumComponent - second.sdrMaximumComponent) <= 0.001F);
     QVERIFY(qAbs(first.hdrMaximumComponent - second.hdrMaximumComponent) <= 0.001F);
+}
+
+// TC-HDR-INT-RAW-PLAIN-DNG
+// Test purpose: verify a DNG without the processed-preview gain-map contract
+// follows the same immutable sensor-RAW EDR path used by other camera RAWs.
+// Preconditions: FOVELLE_HDR_PLAIN_DNG_SAMPLE points to sample1.dng and the
+// installed Apple RAW decoder supports its camera.
+// Input data: sample1.dng and a 2048-pixel SDR fallback limit.
+// Steps: decode with the production Image I/O bridge, inspect the retained
+// graph contract, and compare SDR/HDR float peaks.
+// Expected result: the native graph is camera-raw, uses RAW EDR rather than a
+// processed preview, preserves 16-bit precision, and exceeds SDR white.
+// Postcondition: native graphs, probe context, and fallback pixels are released.
+void HDRSampleTests::testPlainDNGCreatesNativeRawEDRGraph()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_PLAIN_DNG_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isRaw);
+    QVERIFY(result.hdrImage);
+    QVERIFY(result.hdrMetadata.decodedToHDR);
+    QVERIFY(result.hdrMetadata.usesRawExtendedDynamicRange);
+    QVERIFY(!result.hdrMetadata.usesProcessedRawPreview);
+    QVERIFY(!result.usedRawPreview);
+    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("camera-raw"));
+    QCOMPARE(result.hdrMetadata.bitsPerComponent, 16);
+    QVERIFY(qMax(result.intrinsicSize.width(), result.intrinsicSize.height()) > 2048);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(qMax(result.image.width(), result.image.height()) <= 2048);
+    const auto statistics = QVCocoaFunctions::probeHDRPixelStatistics(result.hdrImage);
+    qInfo("FOVELLE_PLAIN_DNG_PEAK sdr_max=%.9f hdr_max=%.9f",
+          static_cast<double>(statistics.sdrMaximumComponent),
+          static_cast<double>(statistics.hdrMaximumComponent));
+    QVERIFY(statistics.valid);
+    QVERIFY(statistics.hdrMaximumComponent > statistics.sdrMaximumComponent + 0.05F);
 }
 
 // TC-HDR-INT-RAW-NEF
@@ -3157,8 +3185,10 @@ void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
     window.show();
     window.raise();
     window.activateWindow();
+    // QTest delivers the synthetic key directly to this widget. Do not make
+    // the deterministic shortcut contract depend on whether macOS lets the
+    // test process steal foreground ownership from the test runner.
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
 
     for (const auto *shortcut : window.findChildren<QShortcut *>())
     {
@@ -3195,6 +3225,14 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
     window.show();
     window.raise();
     window.activateWindow();
+    // QWidget shortcuts require an active top-level. The public test hook is
+    // deprecated in favor of activateWindow(), but the latter is deliberately
+    // subject to macOS foreground-stealing policy and is nondeterministic in a
+    // desktop test runner. Confine the compatibility hook to this test.
+    QT_WARNING_PUSH
+    QT_WARNING_DISABLE_DEPRECATED
+    QApplication::setActiveWindow(&window);
+    QT_WARNING_POP
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
 

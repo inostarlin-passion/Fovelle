@@ -67,13 +67,22 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     hdrFrameRequestTimer->setInterval(0);
     connect(hdrFrameRequestTimer, &QTimer::timeout, this,
             &QVGraphicsView::updateHDRRenderer);
-    hdrTransitionTimer = new QTimer(this);
-    hdrTransitionTimer->setInterval(16);
-    connect(hdrTransitionTimer, &QTimer::timeout, this, [this]() {
-        requestHDRRendererUpdate();
-        if (hdrTransitionClock.isValid() && hdrTransitionClock.elapsed() >= 1800
-            && hdrTransitionLinearProgress >= 1.0)
-            hdrTransitionTimer->stop();
+    hdrPresentationTimer = new QTimer(this);
+    hdrPresentationTimer->setInterval(16);
+    connect(hdrPresentationTimer, &QTimer::timeout, this, [this]() {
+        if (!hdrRendererActive || !hdrRenderer) {
+            hdrPresentationTimer->stop();
+            return;
+        }
+        const auto rendererState = hdrRenderer->diagnostics();
+        if (rendererState.firstFramePresented
+            && rendererState.firstVisibleFrameUsesFinalHeadroom) {
+            loadedPixmapItem->setVisible(false);
+            hdrActivationCompleted = true;
+            hdrPresentationTimer->stop();
+            logHDRState("final-frame-visible");
+            return;
+        }
     });
     hdrGeometryTimer = new QTimer(this);
     hdrGeometryTimer->setSingleShot(true);
@@ -574,6 +583,8 @@ void QVGraphicsView::resetDragState()
     viewport()->setCursor(Qt::ArrowCursor);
     setCursorVisible(true);
     scrollHelper->constrain();
+    if (hdrRendererActive)
+        requestHDRRendererUpdate();
 }
 
 void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, const QPoint delta, bool &isMovingWindow)
@@ -713,6 +724,27 @@ std::optional<qreal> QVGraphicsView::sampleDisplayedImageBrightness(
     return count > 0 ? std::optional<qreal>(total / count) : std::nullopt;
 }
 
+bool QVGraphicsView::usesNativeHDRNavigationOverlay() const
+{
+    return hdrRendererActive && hdrRenderer && hdrRenderer->isAvailable();
+}
+
+void QVGraphicsView::setHDRNavigationOverlay(
+        const int index, const QRectF &viewportRect, const qreal opacity,
+        const bool previous, const bool darkBackground, const bool hovered,
+        const bool pressed, const bool enabled)
+{
+    if (hdrRenderer)
+        hdrRenderer->setNavigationOverlay(index, viewportRect, opacity, previous,
+                                          darkBackground, hovered, pressed, enabled);
+}
+
+void QVGraphicsView::clearHDRNavigationOverlays()
+{
+    if (hdrRenderer)
+        hdrRenderer->clearNavigationOverlays();
+}
+
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
 {
     const int deltaPerWheelStep = 120;
@@ -819,7 +851,6 @@ void QVGraphicsView::reloadFile()
 void QVGraphicsView::beforeLoad()
 {
     hdrLayoutReady = false;
-    hdrTransitionLinearProgress = 0.0;
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
@@ -840,7 +871,6 @@ void QVGraphicsView::beforeLoad()
 void QVGraphicsView::postLoad()
 {
     hdrLayoutReady = false;
-    hdrTransitionLinearProgress = 0.0;
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
@@ -870,10 +900,9 @@ void QVGraphicsView::postLoad()
                 static_cast<qreal>(sourceSize.height()) / fallbackSize.height()));
     }
     if (hdrRendererActive) {
-        hdrTransitionClock.invalidate();
-        hdrTransitionTimer->start();
+        hdrPresentationTimer->start();
     } else {
-        hdrTransitionTimer->stop();
+        hdrPresentationTimer->stop();
         hdrGeometryTimer->stop();
         if (hdrRenderer)
             hdrRenderer->clear();
@@ -935,9 +964,11 @@ void QVGraphicsView::postLoad()
                 verticalScrollBar()->setValue(verticalScrollBar()->value() + 7);
                 hdrInteractionStep = step;
                 logHDRState("test-interaction-step");
-                if (step >= 11) {
+                if (step >= 47) {
                     panTimer->stop();
                     panTimer->deleteLater();
+                    hdrInteractionStep = 48;
+                    requestHDRRendererUpdate();
                     logHDRState("test-interaction-finished");
                     QTimer::singleShot(250, this, [this]() {
                         if (hdrRendererActive)
@@ -1544,7 +1575,7 @@ void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
     // SDR proxy would cause the reported brightness dip and restart.
     hdrGeometryTimer->start();
     if (!hdrActivationCompleted)
-        hdrTransitionTimer->start();
+        hdrPresentationTimer->start();
     viewport()->update();
     logHDRState(reuseVisibleHDR ? "geometry-reused" : "geometry-staged");
 }
@@ -1595,23 +1626,19 @@ void QVGraphicsView::updateHDRRenderer()
         return;
 
     const auto beforeRender = hdrRenderer->diagnostics();
-    if (!hdrTransitionClock.isValid()
-        && QVCocoaFunctions::shouldStartHDRTransition(
-                hdrLayoutReady, beforeRender.firstFramePresented, beforeRender.hdrPrepared))
-        hdrTransitionClock.start();
 
     if (beforeRender.firstFramePresented && beforeRender.drawableGeometryMatches)
         loadedPixmapItem->setVisible(false);
 
-    if (hdrTransitionClock.isValid()) {
-        const qreal desiredProgress =
-                std::clamp(hdrTransitionClock.elapsed() / 650.0, 0.0, 1.0);
-        hdrTransitionLinearProgress = QVCocoaFunctions::pacedHDRTransitionProgress(
-                hdrTransitionLinearProgress, desiredProgress, 0.04);
-    }
-    if (hdrTransitionLinearProgress >= 1.0)
-        hdrActivationCompleted = true;
-    hdrRenderer->render(viewportSize, viewportCorners, hdrTransitionLinearProgress);
+    // Submit only the final-headroom representation. The complete SDR proxy
+    // (or prior HDR drawable during navigation) remains visible until that
+    // frame is actually presented, leaving EDR activation smoothing to
+    // WindowServer instead of flashing through app-generated SDR/partial-HDR
+    // frames.
+    const bool interactive = pressedMouseButton != Qt::NoButton
+            || (hdrInteractionClock.isValid() && hdrInteractionStep >= 0
+                && hdrInteractionStep < 48);
+    hdrRenderer->render(viewportSize, viewportCorners, 1.0, interactive);
     logHDRState("render");
 }
 
@@ -1619,9 +1646,10 @@ void QVGraphicsView::requestHDRRendererUpdate()
 {
     if (!hdrRendererActive || !hdrRenderer || hdrFrameRequestTimer->isActive())
         return;
-    // All geometry/paint/transition events publish only a dirty request. Qt
-    // collapses them on the next event-loop turn; CAMetalDisplayLink performs
-    // the actual submission at the display cadence with the newest state.
+    // All geometry and paint events publish only a dirty request. Qt collapses
+    // them on the next event-loop turn. CAMetalDisplayLink consumes only the
+    // newest state at a sustainable display cadence; Core Image encoding stays
+    // off-main and no GPU-completion callback gates the next request.
     hdrFrameRequestTimer->start();
 }
 
@@ -1672,6 +1700,9 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("zoom_level"), zoomLevel },
         { QStringLiteral("viewport_global_x"), viewportGlobalOrigin.x() },
         { QStringLiteral("viewport_global_y"), viewportGlobalOrigin.y() },
+        { QStringLiteral("window_global_x"), renderer.nativeWindowGlobalX },
+        { QStringLiteral("window_global_y"), renderer.nativeWindowGlobalY },
+        { QStringLiteral("native_window_number"), renderer.nativeWindowNumber },
         { QStringLiteral("viewport_logical_width"), viewport()->width() },
         { QStringLiteral("viewport_logical_height"), viewport()->height() },
         { QStringLiteral("viewport_device_pixel_ratio"), viewport()->devicePixelRatioF() },
@@ -1694,8 +1725,13 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("layer_contents_headroom_tag_supported"),
           renderer.usesLayerContentsHeadroomTag },
         { QStringLiteral("uses_metal_display_link"), renderer.usesCAMetalDisplayLink },
+        { QStringLiteral("display_link_paused"), renderer.displayLinkPaused },
         { QStringLiteral("encodes_metal_off_main_thread"),
           renderer.encodesMetalOffMainThread },
+        { QStringLiteral("display_link_interaction_pacing"),
+          renderer.usesDisplayLinkInteractionPacing },
+        { QStringLiteral("display_link_interactive_submission_count"),
+          static_cast<qint64>(renderer.displayLinkInteractiveSubmissionCount) },
         { QStringLiteral("frame_in_flight"), renderer.frameInFlight },
         { QStringLiteral("viewport_background_red"), renderer.backgroundRed },
         { QStringLiteral("viewport_background_green"), renderer.backgroundGreen },
@@ -1716,6 +1752,8 @@ void QVGraphicsView::logHDRState(const char *phase) const
           static_cast<qint64>(renderer.coalescedRenderRequestCount) },
         { QStringLiteral("display_link_callback_count"),
           static_cast<qint64>(renderer.displayLinkCallbackCount) },
+        { QStringLiteral("display_link_rebuild_count"),
+          static_cast<qint64>(renderer.displayLinkRebuildCount) },
         { QStringLiteral("deferred_display_link_callback_count"),
           static_cast<qint64>(renderer.deferredDisplayLinkCallbackCount) },
         { QStringLiteral("requested_render_generation"),
@@ -1728,8 +1766,23 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("interaction_elapsed_ms"),
           hdrInteractionClock.isValid() ? hdrInteractionClock.elapsed() : -1 },
         { QStringLiteral("interaction_zoom_ms"), hdrInteractionZoomMilliseconds },
-        { QStringLiteral("transition_elapsed_ms"),
-          hdrTransitionClock.isValid() ? hdrTransitionClock.elapsed() : -1 }
+        { QStringLiteral("first_visible_final_headroom"),
+          renderer.firstVisibleFrameUsesFinalHeadroom },
+        { QStringLiteral("presented_frame_count"),
+          static_cast<qint64>(renderer.presentedFrameCount) },
+        { QStringLiteral("frames_in_flight"), renderer.framesInFlight },
+        { QStringLiteral("last_presented_interval_ms"),
+          renderer.lastPresentedIntervalMilliseconds },
+        { QStringLiteral("last_request_to_present_ms"),
+          renderer.lastRequestToPresentationMilliseconds },
+        { QStringLiteral("missed_target_deadline_count"),
+          static_cast<qint64>(renderer.missedTargetDeadlineCount) },
+        { QStringLiteral("native_navigation_overlay"),
+          renderer.usesNativeNavigationOverlay },
+        { QStringLiteral("native_navigation_visible_count"),
+          renderer.nativeNavigationVisibleCount },
+        { QStringLiteral("navigation_overlay_update_count"),
+          static_cast<qint64>(renderer.navigationOverlayUpdateCount) }
     };
     qInfo().noquote() << "FOVELLE_HDR" << QJsonDocument(object).toJson(QJsonDocument::Compact);
 }

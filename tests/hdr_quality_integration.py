@@ -65,6 +65,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--jpeg", type=Path, required=True)
     parser.add_argument("--raw", type=Path, required=True)
+    parser.add_argument("--plain-dng", type=Path, required=True)
     parser.add_argument("--nef", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -72,8 +73,12 @@ def main() -> int:
     binary = args.binary.resolve()
     jpeg = args.jpeg.resolve()
     raw = args.raw.resolve()
+    plain_dng = args.plain_dng.resolve()
     nef = args.nef.resolve()
-    missing = [str(path) for path in (binary, jpeg, raw, nef) if not path.is_file()]
+    missing = [
+        str(path) for path in (binary, jpeg, raw, plain_dng, nef)
+        if not path.is_file()
+    ]
     if missing:
         raise SystemExit(f"missing integration input: {missing}")
 
@@ -84,6 +89,7 @@ def main() -> int:
         "FOVELLE_TEST_SUITE": "HDRSampleTests",
         "FOVELLE_HDR_JPEG_SAMPLE": str(jpeg),
         "FOVELLE_HDR_RAW_SAMPLE": str(raw),
+        "FOVELLE_HDR_PLAIN_DNG_SAMPLE": str(plain_dng),
         "FOVELLE_HDR_NEF_SAMPLE": str(nef),
     }
     command = [str(binary), "-o", "-,txt"]
@@ -122,6 +128,7 @@ def main() -> int:
         ("IT-HDR-RAW-DNG-PEAK", "testDNGProcessedGainMapContainsAboveSDRValues"),
         ("IT-HDR-RAW-DNG-HEADROOM-TAG", "testDNGGainMapHeadroomMatchesMetadataContract"),
         ("IT-HDR-RAW-DNG-REPEATABILITY", "testDNGProcessedGraphRepeatedFloatProbeIsStable"),
+        ("IT-HDR-RAW-PLAIN-DNG", "testPlainDNGCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-NEF", "testNEFCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-NEF-REPEATABILITY", "testNEFRawRepeatedFloatProbeIsStable"),
     )
@@ -234,7 +241,7 @@ def main() -> int:
     }
     passed = (
         result.returncode == 0
-        and totals == {"passed": 10, "failed": 0, "skipped": 0, "blacklisted": 0}
+        and totals == {"passed": 11, "failed": 0, "skipped": 0, "blacklisted": 0}
         and all(item["status"] == "passed" for item in cases)
     )
     record = {
@@ -248,6 +255,7 @@ def main() -> int:
         "samples": {
             "jpeg": sample_record(jpeg),
             "raw": sample_record(raw),
+            "plain_dng": sample_record(plain_dng),
             "nef": sample_record(nef),
         },
         "elapsed_seconds": elapsed,

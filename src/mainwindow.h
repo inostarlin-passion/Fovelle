@@ -241,6 +241,10 @@ private:
 
     void hideNavigationButtonsImmediately();
 
+    void syncNavigationButtonOverlay(QPushButton *button);
+
+    void syncNavigationButtonOverlays();
+
     void updateTitlebarBubbleText();
 
     void revealTitlebarBubble();
@@ -257,6 +261,11 @@ private:
     QPushButton *nextImageButton {nullptr};
     QPropertyAnimation *previousImageButtonAnimation {nullptr};
     QPropertyAnimation *nextImageButtonAnimation {nullptr};
+    bool previousImageButtonRequestedVisible {false};
+    bool nextImageButtonRequestedVisible {false};
+    bool previousImageButtonHovered {false};
+    bool nextImageButtonHovered {false};
+    int pressedNavigationButton {-1};
 
     QMenu *contextMenu;
     QMenu *virtualMenu;

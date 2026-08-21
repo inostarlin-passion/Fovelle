@@ -98,6 +98,37 @@ def main() -> int:
         load(interaction_root_cause_path)
         if interaction_root_cause_path.is_file() else {}
     )
+    native_overlay_root_cause_path = (
+        evidence_dir
+        / "intermediate/hdr_native_overlay_async_flash_before_fix.json"
+    )
+    native_overlay_root_cause = (
+        load(native_overlay_root_cause_path)
+        if native_overlay_root_cause_path.is_file() else {}
+    )
+    pacing_capture_failure_path = (
+        evidence_dir
+        / "intermediate/hdr_system_failed_cua_shield_and_unpaced_drawable.json"
+    )
+    pacing_capture_failure = (
+        load(pacing_capture_failure_path)
+        if pacing_capture_failure_path.is_file() else {}
+    )
+    timed_present_failure_path = (
+        evidence_dir
+        / "intermediate/hdr_system_failed_displaylink_timed_present.json"
+    )
+    timed_present_failure = (
+        load(timed_present_failure_path)
+        if timed_present_failure_path.is_file() else {}
+    )
+    pause_race_failure_path = (
+        evidence_dir
+        / "intermediate/hdr_system_failed_displaylink_pause_race_and_texture_metric.json"
+    )
+    pause_race_failure = (
+        load(pause_race_failure_path) if pause_race_failure_path.is_file() else {}
+    )
     generated_at = datetime.now(timezone.utc).isoformat()
 
     evidence_cases = [
@@ -181,6 +212,30 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "Apple MTLDrawable presentedTime",
+            "url": "https://developer.apple.com/documentation/metal/mtldrawable/presentedtime",
+            "supports": ["host time when a drawable was displayed onscreen", "zero for not presented or dropped frames"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CAMetalDisplayLinkUpdate targetTimestamp",
+            "url": "https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/update/targettimestamp",
+            "supports": ["target presentation time for a display-link update", "deadline observability"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CAMetalDisplayLink preferredFrameLatency",
+            "url": "https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframelatency",
+            "supports": ["accepted preferred latency values are one or two frames", "windowed composition may add final latency"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CAMetalDisplayLink preferredFrameRateRange",
+            "url": "https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/preferredframeraterange",
+            "supports": ["application-declared sustainable refresh-rate range", "variable-refresh cadence selection"],
+        },
+        {
+            "kind": "fact-source",
             "title": "Apple CIRAWFilter extendedDynamicRangeAmount",
             "url": "https://developer.apple.com/documentation/coreimage/cirawfilter/extendeddynamicrangeamount",
             "supports": ["0 means no EDR", "1 means default EDR", "2 means maximum EDR"],
@@ -238,6 +293,12 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "Apple Core Image — Getting the Best Performance",
+            "url": "https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/CoreImaging/ci_performance/ci_performance.html",
+            "supports": ["reuse CIContext", "avoid unnecessary CPU/GPU texture transfers", "lower-level APIs for frequently updated output"],
+        },
+        {
+            "kind": "fact-source",
             "title": "WWDC26 — Develop in HDR with Core Image",
             "url": "https://developer.apple.com/videos/play/wwdc2026/305/",
             "supports": [
@@ -288,6 +349,24 @@ def main() -> int:
             "url": "https://doc.qt.io/qt-6/qgraphicseffect.html",
             "supports": ["graphics effects operate between source and destination", "effect drawing can obtain a pixmap containing the painted source"],
         },
+        {
+            "kind": "fact-source",
+            "title": "Qt QWidget native and alien widgets",
+            "url": "https://doc.qt.io/qt-6/qwidget.html",
+            "supports": ["widgets normally share a backing store", "native widgets create native window handles"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CALayer addSublayer",
+            "url": "https://developer.apple.com/documentation/quartzcore/calayer/addsublayer(_:)",
+            "supports": ["a layer can composite child layers in one layer tree"],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CAShapeLayer path and fill",
+            "url": "https://developer.apple.com/documentation/quartzcore/cashapelayer/path",
+            "supports": ["shape layers rasterize only a supplied path", "path-based rounded and chevron artwork"],
+        },
     ]
 
     intermediate_iterations = []
@@ -320,6 +399,53 @@ def main() -> int:
             "inferences": interaction_root_cause.get("inferences", []),
             "uncertainties": interaction_root_cause.get("uncertainties", []),
             "causal_chains": interaction_root_cause.get("causal_chains", []),
+            "used_as_final_pass_evidence": False,
+        })
+    if native_overlay_root_cause:
+        intermediate_iterations.append({
+            "status": "reproduced-analyzed-and-corrected-in-current-iteration",
+            "evidence_file": str(native_overlay_root_cause_path.relative_to(repo)),
+            "evidence_sha256": sha256(native_overlay_root_cause_path),
+            "facts": native_overlay_root_cause.get("facts", []),
+            "inferences": native_overlay_root_cause.get("inferences", []),
+            "uncertainties": native_overlay_root_cause.get("uncertainties", []),
+            "causal_chains": native_overlay_root_cause.get("causal_chains", []),
+            "used_as_final_pass_evidence": False,
+        })
+    if pacing_capture_failure:
+        intermediate_iterations.append({
+            "status": "failed-diagnosed-and-superseded-in-current-iteration",
+            "evidence_file": str(pacing_capture_failure_path.relative_to(repo)),
+            "evidence_sha256": sha256(pacing_capture_failure_path),
+            "facts": pacing_capture_failure.get("facts", []),
+            "inferences": pacing_capture_failure.get("inferences", []),
+            "uncertainties": pacing_capture_failure.get("uncertainties", []),
+            "corrections": pacing_capture_failure.get("corrections", []),
+            "used_as_final_pass_evidence": False,
+        })
+    if timed_present_failure:
+        intermediate_iterations.append({
+            "status": "failed-diagnosed-and-superseded-in-current-iteration",
+            "evidence_file": str(timed_present_failure_path.relative_to(repo)),
+            "evidence_sha256": sha256(timed_present_failure_path),
+            "facts": [
+                timed_present_failure.get("fact"),
+                timed_present_failure.get("primary_source_fact"),
+            ],
+            "inferences": [timed_present_failure.get("inference")],
+            "uncertainties": [timed_present_failure.get("uncertainty")],
+            "corrections": [timed_present_failure.get("correction")],
+            "used_as_final_pass_evidence": False,
+        })
+    if pause_race_failure:
+        intermediate_iterations.append({
+            "status": "failed-diagnosed-and-superseded-in-current-iteration",
+            "evidence_file": str(pause_race_failure_path.relative_to(repo)),
+            "evidence_sha256": sha256(pause_race_failure_path),
+            "facts": pause_race_failure.get("facts", []),
+            "inferences": pause_race_failure.get("inferences", []),
+            "uncertainties": pause_race_failure.get("uncertainties", []),
+            "corrections": pause_race_failure.get("corrections", []),
             "used_as_final_pass_evidence": False,
         })
     if intermediate_failure:
@@ -430,7 +556,7 @@ def main() -> int:
             "RAW HDR: DNG/NEF/CR3/ARW/RAF through Image I/O + CIRAWFilter",
             "Non-RAW HDR: gain-map JPEG, HDR JPEG/HEIF/AVIF metadata-aware reconstruction",
             "ColorSync + Core Image/Metal RGBA16Float + CAMetalLayer EDR output",
-            "SDR headroom compatibility and smooth activation",
+            "SDR headroom compatibility and WindowServer-managed EDR activation",
             "First-frame SDR proxy handoff synchronized to actual Metal presentation",
             "Core Image-managed RAW/HDR endpoint preparation without app-texture re-import",
             "Initialization-time non-volatile decoding of both gain-map JPEG source recipes",
@@ -439,9 +565,10 @@ def main() -> int:
             "Measured RAW content headroom tagged on CIImage and CAMetalLayer",
             "Camera-authored BaselineExposure retained without a one-parameter exposure rewrite",
             "Prepared HDR source reuse across zoom, pan, and resize without reactivation",
-            "CAMetalDisplayLink-paced, one-frame-in-flight latest-state presentation",
+            "CAMetalDisplayLink-paced opening and interaction with latest-only pending geometry and at most two frames in flight",
             "Event-loop-coalesced HDR requests for paint, zoom, and dual-axis scrolling",
-            "Bounded cached navigation contrast sampling and custom-pixel-only opacity animation",
+            "Shape-only native navigation overlay inside the Metal layer tree for HDR; QWidget fallback for SDR",
+            "Final-headroom-only first visible Metal frame with presented-handler proxy handoff",
             "One shared theme background contract for Qt and Metal with live theme updates",
             "Potential-headroom bootstrap when NSScreen current EDR headroom is still one",
         ],
@@ -474,20 +601,22 @@ def main() -> int:
             "Six timed steady/zoom/pan screen captures remained below the black-band threshold.",
             "The final two post-interaction JPEG captures retained at least 0.995 edge-structure similarity, detecting stale tile residue in addition to pure black columns.",
             "Ten timed DNG launch captures retained at least 0.90 edge-structure similarity and lost zero structured tiles relative to the final frame.",
-            "Every geometry-reuse and post-interaction record retained full transition progress, the prepared HDR graph, Metal opacity one, and no SDR fallback.",
-            "JPEG and NEF each emitted all twelve ordered pan steps and met the recorded zoom, average, P99, maximum, and throughput thresholds.",
-            "Both interaction runs settled with the latest requested Metal generation submitted and no frame left in flight.",
+            "Every geometry-reuse and post-interaction record retained the final headroom endpoint, the prepared HDR graph, Metal opacity one, and no SDR fallback.",
+            "JPEG, processed DNG, and NEF each emitted all forty-eight ordered pan steps and met the recorded event-loop and presented-frame average, P99, maximum, and throughput thresholds.",
+            "All three interaction runs stayed at or below two frames in flight and settled with the latest requested Metal generation submitted and no frame left in flight.",
             "Four timed NEF interaction captures lost no structured tile, stayed below the black-band limit, and met the final-frame edge threshold.",
-            "The real navigation widget reported no graphics effect; at half opacity its transparent corner patches remained within the screen-difference threshold while painted center pixels changed.",
+            "Over actual HDR pixels, navigation used shape-only Metal sublayers while the Qt widget was hidden; a single half-opacity window capture kept each exact rounded corner locally continuous with adjacent HDR pixels while the artwork center remained visibly distinct.",
+            "JPEG, processed DNG, plain DNG, and NEF revealed only prepared final-headroom first frames; no app-generated partial-headroom drawable was visible.",
             "The Light background screen sample remained (150,150,150) after Metal reveal; after the deterministic Dark update, two samples measured (33,33,33).",
             "The physical built-in display reported potential EDR headroom above one during system tests.",
         ],
         "inferences": [
             "Using the same public Image I/O/Core Image/Metal/EDR mechanisms documented by Apple yields behavior close to Quick Look, but not a clone of its private tuning.",
             "Using the DNG's camera-processed full-resolution preview with its authored gain map preserves more of the camera rendering recipe than rewriting one generic RAW exposure parameter.",
-            "Display-link pacing, one-frame-in-flight gating, and newest-state overwrite remove the old presentation queue that best explains transient NEF zoom ghosts.",
+            "Continuous DisplayLink pacing with latest-only pending geometry and two frames in flight removes both the one-frame serialization and unpaced drawable bursts that best explain slow HDR dragging.",
             "Coalescing UI render requests and eliminating viewport grabs removes the synchronous work that best explains slow panning and delayed hover response.",
-            "Painting opacity inside a transparent widget removes the rectangular effect source that best explains the navigation backing artifact.",
+            "Compositing navigation artwork inside the CAMetalLayer tree removes the cross-surface transparency boundary that best explains the navigation backing artifact.",
+            "Revealing only a final-headroom presented drawable removes the application-generated endpoint discontinuity that best explains the opening flash.",
             "Not adding LibRaw is the lean choice for the currently supported Apple RAW inputs; it remains a possible backend for unsupported future cameras.",
         ],
         "uncertainties": [
@@ -518,11 +647,12 @@ def main() -> int:
                     "ST-HDR-NONRAW-NONVOLATILE-DECODE",
                     "ST-HDR-DNG-PROCESSED-GAINMAP", "ST-HDR-DNG-GAINMAP-ROI",
                     "ST-HDR-STAGED-FIRST-FRAME", "ST-HDR-OFFSCREEN-PREPARATION",
+                    "ST-HDR-FIRST-VISIBLE-FINAL",
                     "ST-HDR-GEOMETRY-LIFECYCLE", "ST-HDR-RAW-STABLE-ENDPOINTS",
                     "ST-HDR-RAW-CONTENT-HEADROOM", "ST-HDR-THEME-BACKGROUND",
                     "ST-HDR-INTERACTION-NO-REACTIVATION", "UT-HDR-FORMAT-COVERAGE",
                     "ST-HDR-DISPLAYLINK-LATEST-ONLY", "ST-HDR-UI-REQUEST-COALESCING",
-                    "ST-HDR-NAV-CACHED-SAMPLING", "ST-HDR-NAV-NO-OFFSCREEN-SURFACE",
+                    "ST-HDR-NAV-CACHED-SAMPLING", "ST-HDR-NAV-NATIVE-COMPOSITOR",
                     "ST-HDR-VERSION-0.1.4",
                 ],
                 "facts": [
@@ -544,8 +674,8 @@ def main() -> int:
                     "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
                     "SYS-HDR-FINAL-LAYOUT-BEFORE-METAL", "SYS-HDR-RAW-NO-BLANK-REGION",
                     "SYS-HDR-RAW-CONTENT-HEADROOM",
-                    "SYS-HDR-DISPLAYLINK-LATEST-ONLY", "SYS-HDR-NEF-ZOOM-NO-GHOST",
-                    "SYS-HDR-NAV-TRANSPARENT-SURFACE",
+                    "SYS-HDR-FIRST-VISIBLE-FINAL", "SYS-HDR-DISPLAYLINK-LATEST-ONLY",
+                    "SYS-HDR-NEF-ZOOM-NO-GHOST", "SYS-HDR-NAV-NATIVE-COMPOSITOR",
                     "SYS-HDR-THEME-BACKGROUND-STABILITY", "SYS-HDR-THEME-BACKGROUND-SWITCH",
                 ],
                 "facts": [
@@ -554,7 +684,7 @@ def main() -> int:
                     "The complete pre-existing CTest regression target passed after the change.",
                     "JPEG and RAW RGBAf peak probes prove extended values numerically instead of relying on metadata flags.",
                     "Timed pixel captures and geometry-generation telemetry cover the reproduced black-band, DNG partial-frame, NEF zoom-ghost, and drag-trail failure modes.",
-                    "Quick Look comparison metrics cover DNG detail preservation, while transparent-corner/painted-center screen metrics cover the navigation surface artifact.",
+                    "Quick Look comparison metrics cover DNG detail preservation, while single-frame corner-continuity and painted-center metrics cover the navigation surface artifact without comparing different Metal drawables.",
                     "Theme pixels, RAW tile energy, content/display target headroom, conditional layer-tag support, and post-activation progress are asserted as independent atomic system cases.",
                 ],
                 "inference": "The tested public-framework pipeline preserves HDR until the WindowServer boundary for these representative RAW and gain-map inputs.",
@@ -565,18 +695,20 @@ def main() -> int:
                 "status": "passed" if phase_records["system"].get("passed") else "failed",
                 "atomic_evidence_ids": [
                     "ST-HDR-DISPLAYLINK-LATEST-ONLY", "ST-HDR-UI-REQUEST-COALESCING",
+                    "ST-HDR-PRESENTATION-TELEMETRY",
                     "UT-HDR-NAV-SAMPLING-LATENCY", "SYS-HDR-TIME-BEHAVIOR",
                     "SYS-HDR-INTERACTION-RESPONSIVENESS",
+                    "SYS-HDR-PRESENTATION-RESPONSIVENESS",
                 ],
                 "measurement_window": system_performance.get("measurement_window"),
                 "thresholds": system_performance.get("thresholds"),
                 "metrics": performance_metrics,
                 "facts": [
-                    "Average, P99, maximum, and throughput were computed from raw JSON samples for both decode and steady render windows.",
-                    "The same statistics were recorded for deterministic JPEG and NEF pan callbacks, with a separate synchronous zoom-main-thread bound.",
-                    "Visible transition continuity is additionally bounded by a minimum observed frame rate and a maximum progress step.",
+                    "Average, P99, maximum, and throughput were computed from raw JSON samples for decode, steady encode, AppKit callback, and actual drawable-presentation windows.",
+                    "The same statistics were recorded for deterministic JPEG, processed DNG, and NEF interactions, with a separate synchronous zoom-main-thread bound.",
+                    "Request-to-presentation latency comes from addPresentedHandler rather than submission timestamps, so the throughput claim includes GPU execution and presentation availability.",
                 ],
-                "inference": "Offscreen endpoint preparation, event-loop request coalescing, and display-link presentation leave sufficient interactive throughput on the measured Mac.",
+                "inference": "Offscreen endpoint preparation, event-loop coalescing, DisplayLink callback pacing, deadline-aware submission, and a bounded two-frame pipeline leave sufficient interactive throughput on the measured Mac.",
                 "uncertainty": "Performance will vary with sensor resolution, RAW demosaic complexity, GPU, memory pressure, and display mode.",
             },
             {
@@ -585,22 +717,23 @@ def main() -> int:
                 "atomic_evidence_ids": [
                     "ST-HDR-OBSERVABILITY", "UT-HDR-TRANSITION", "UT-HDR-HEADROOM-CLAMP",
                     "UT-HDR-EDR-BOOTSTRAP", "UT-HDR-GEOMETRY-EQUIVALENCE",
-                    "UT-HDR-PRESENTATION-PACING", "UT-HDR-STAGED-PRESENTATION",
+                    "UT-HDR-FIRST-VISIBLE-FINAL", "UT-HDR-FIRST-VISIBLE-GEOMETRY",
                     "UT-HDR-CONTENT-HEADROOM", "UT-HDR-PRESENTATION-REUSE",
                     "UT-HDR-THEME-BACKGROUND",
                     "UT-HDR-NAV-SAMPLING-LATENCY", "UT-HDR-NAV-TRANSPARENT-FADE",
-                    "SYS-HDR-SMOOTH-ACTIVATION",
+                    "SYS-HDR-FIRST-VISIBLE-FINAL",
                     "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
                     "SYS-HDR-RAW-NO-BLANK-REGION", "SYS-HDR-THEME-BACKGROUND-STABILITY",
                     "SYS-HDR-DISPLAYLINK-LATEST-ONLY", "SYS-HDR-INTERACTION-RESPONSIVENESS",
-                    "SYS-HDR-NEF-ZOOM-NO-GHOST", "SYS-HDR-NAV-TRANSPARENT-SURFACE",
+                    "SYS-HDR-PRESENTATION-RESPONSIVENESS",
+                    "SYS-HDR-NEF-ZOOM-NO-GHOST", "SYS-HDR-NAV-NATIVE-COMPOSITOR",
                 ],
                 "facts": [
-                    "Pure helpers deterministically test transition and headroom policy.",
+                    "Pure helpers deterministically test headroom policy plus final-endpoint and geometry reveal gates.",
                     "Separate test-only overrides deterministically exercise SDR targeting and the current=1 EDR bootstrap without replacing the production renderer.",
-                    "Compact JSON telemetry exposes decoder metadata, layout/fallback state, drawable dimensions, viewport and image geometry, theme RGB, preparation gates, content/target/display headroom, transition, render count, DisplayLink callbacks, frame state, generations, coalescing counts, and timings only when enabled.",
+                    "Compact JSON telemetry exposes decoder metadata, layout/fallback state, drawable dimensions, viewport and image geometry, theme RGB, preparation gates, content/target/display headroom, final-endpoint state, render count, DisplayLink pacing/submissions, frames in flight, actual presentations, generations, coalescing counts, and timings only when enabled.",
                     "An opt-in deterministic interaction driver exercises production zoom and scrollbar paths; timed PNGs include hashes, quantitative band metrics, and post-interaction edge similarity.",
-                    "A separate opt-in navigation probe holds the real production widget at fractional paint opacity and records its exact global rectangle for bounded screen-pixel analysis.",
+                    "A separate opt-in navigation probe holds the production shape layers at fractional opacity, records the hidden Qt widget state and exact global rectangle, proves the rectangle lies over HDR image pixels, and measures each rounded corner against its immediately adjacent exterior pixels in the same native-window capture.",
                     "Every atomic criterion has one specification and one evidence record with a stable ID.",
                 ],
                 "inference": "Failures can be localized to a single layer of the pipeline without screenshot-based HDR ambiguity.",

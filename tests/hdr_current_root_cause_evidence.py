@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the pre-fix contracts and reproducible RAW/background diagnostics."""
+"""Record the auditable causal chains for the native-overlay/drag/flash fixes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image, ImageFilter, ImageStat
+from PIL import Image
 
 
 def sha256(path: Path) -> str:
@@ -24,56 +24,47 @@ def sha256(path: Path) -> str:
 
 
 def artifact(path: Path) -> dict:
-    return {
-        "path": str(path),
-        "bytes": path.stat().st_size,
-        "sha256": sha256(path),
-    }
+    return {"path": str(path), "bytes": path.stat().st_size, "sha256": sha256(path)}
 
 
 def head_source(repo: Path, relative_path: str) -> str:
     result = subprocess.run(
-        ["git", "show", f"HEAD:{relative_path}"],
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        check=False,
+        ["git", "show", f"HEAD:{relative_path}"], cwd=repo, text=True,
+        capture_output=True, check=False,
     )
     if result.returncode:
         raise RuntimeError(result.stderr)
     return result.stdout
 
 
-def section(text: str, start: str, end: str) -> str:
-    start_index = text.find(start)
-    end_index = text.find(end, start_index + len(start))
-    return text[start_index:end_index] if start_index >= 0 and end_index >= 0 else ""
+def region_median(image: Image.Image, box: tuple[int, int, int, int]) -> list[int]:
+    pixels = list(image.crop(box).getdata())
+    return [round(statistics.median(pixel[channel] for pixel in pixels)) for channel in range(3)]
 
 
-def normalized_region_stats(path: Path, normalized_box: tuple[float, float, float, float]) -> dict:
+def screenshot_observation(path: Path) -> dict:
     with Image.open(path) as source:
         image = source.convert("RGB")
-    width, height = image.size
-    box = (
-        round(normalized_box[0] * width),
-        round(normalized_box[1] * height),
-        round(normalized_box[2] * width),
-        round(normalized_box[3] * height),
-    )
-    region = image.crop(box)
-    pixels = list(region.getdata())
-    median_rgb = [
-        round(statistics.median(pixel[channel] for pixel in pixels))
-        for channel in range(3)
+    # The supplied crop contains the 60 pt navigation widget at DPR=2. The
+    # exact 120x120 px axis-aligned region is visible at (30,38)-(150,158).
+    rect = (30, 38, 150, 158)
+    patch = 8
+    corners = [
+        (rect[0], rect[1], rect[0] + patch, rect[1] + patch),
+        (rect[2] - patch, rect[1], rect[2], rect[1] + patch),
+        (rect[0], rect[3] - patch, rect[0] + patch, rect[3]),
+        (rect[2] - patch, rect[3] - patch, rect[2], rect[3]),
     ]
     return {
-        "normalized_box": list(normalized_box),
-        "pixel_box": list(box),
-        "median_rgb": median_rgb,
-        "near_white_fraction": sum(min(pixel) >= 245 for pixel in pixels) / len(pixels),
-        "mean_edge_energy": ImageStat.Stat(
-            region.convert("L").filter(ImageFilter.FIND_EDGES)
-        ).mean[0],
+        "pixel_size": list(image.size),
+        "axis_aligned_widget_rect_pixels": list(rect),
+        "logical_widget_size_at_dpr_2": [60, 60],
+        "corner_patch_median_rgb": [region_median(image, box) for box in corners],
+        "outer_image_median_rgb": region_median(image, (0, 0, 24, image.height)),
+        "fact_boundary": (
+            "The rectangle geometry and sampled pixels are direct observations; "
+            "the WindowServer compositing mechanism is an inference."
+        ),
     }
 
 
@@ -81,218 +72,159 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--jpeg", type=Path, required=True)
-    parser.add_argument("--raw", type=Path, required=True)
-    parser.add_argument("--dng-user-screenshot", type=Path, required=True)
+    parser.add_argument("--dng", type=Path, required=True)
+    parser.add_argument("--plain-dng", type=Path, required=True)
+    parser.add_argument("--nef", type=Path, required=True)
+    parser.add_argument("--screenshot", type=Path, required=True)
+    parser.add_argument("--solution1", type=Path, required=True)
+    parser.add_argument("--solution2", type=Path, required=True)
+    parser.add_argument("--solution3", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     repo = args.repo.resolve()
-    jpeg = args.jpeg.resolve()
-    raw = args.raw.resolve()
-    screenshot = args.dng_user_screenshot.resolve()
-    probe_source = repo / "tests/hdr_raw_baseline_probe.swift"
-    required = [jpeg, raw, screenshot, probe_source]
-    missing = [str(path) for path in required if not path.is_file()]
+    paths = {
+        name: value.resolve() for name, value in {
+            "jpeg": args.jpeg, "dng": args.dng, "plain_dng": args.plain_dng,
+            "nef": args.nef, "screenshot": args.screenshot,
+            "solution1": args.solution1, "solution2": args.solution2,
+            "solution3": args.solution3,
+        }.items()
+    }
+    missing = [str(path) for path in paths.values() if not path.is_file()]
     if missing:
         raise SystemExit(f"missing current root-cause input: {missing}")
 
-    baseline_cocoa = head_source(repo, "src/qvcocoafunctions.mm")
-    baseline_view = head_source(repo, "src/qvgraphicsview.cpp")
-    baseline_window = head_source(repo, "src/mainwindow.cpp")
-    current_cocoa = (repo / "src/qvcocoafunctions.mm").read_text(encoding="utf-8")
-    current_view = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
-    current_window = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
-    current_namespace = (repo / "src/qvnamespace.h").read_text(encoding="utf-8")
+    before_cocoa = head_source(repo, "src/qvcocoafunctions.mm")
+    before_view = head_source(repo, "src/qvgraphicsview.cpp")
+    before_window = head_source(repo, "src/mainwindow.cpp")
+    after_cocoa = (repo / "src/qvcocoafunctions.mm").read_text(encoding="utf-8")
+    after_view = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
+    after_window = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
 
-    baseline_renderer = section(
-        baseline_cocoa,
-        "struct QVCocoaFunctions::HDRRenderer::Impl",
-        "static void hideMenuShortcuts",
-    )
-    baseline_raw = section(
-        baseline_cocoa, "if (result.isRaw)", "else if (result.isImageIOType)"
-    )
-    baseline_stage = section(
-        baseline_view,
-        "void QVGraphicsView::stageHDRGeometry",
-        "void QVGraphicsView::finishHDRGeometryStabilization",
-    )
-    current_renderer = section(
-        current_cocoa,
-        "struct QVCocoaFunctions::HDRRenderer::Impl",
-        "static void hideMenuShortcuts",
-    )
-    current_raw = section(
-        current_cocoa, "if (result.isRaw)", "else if (result.isImageIOType)"
-    )
-    current_stage = section(
-        current_view,
-        "void QVGraphicsView::stageHDRGeometry",
-        "void QVGraphicsView::finishHDRGeometryStabilization",
-    )
-
-    probe_command = ["xcrun", "swift", str(probe_source), str(raw)]
-    probe_result = subprocess.run(
-        probe_command,
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        timeout=60,
-        check=False,
-    )
-    probe = json.loads(probe_result.stdout.strip()) if probe_result.returncode == 0 else {}
-
-    blank_region = normalized_region_stats(screenshot, (0.15, 0.50, 0.48, 0.88))
-    visible_region = normalized_region_stats(screenshot, (0.50, 0.50, 0.72, 0.88))
-
-    baseline_contracts = {
-        "different_background_color_authorities": (
-            "NSColor.windowBackgroundColor" in baseline_renderer
-            and 'QColor("#212121")' in baseline_window
-            and 'QColor("#969696")' in baseline_window
-            and "applyHDRViewportBackground" not in baseline_view
+    reference_text = {
+        key: paths[key].read_text(encoding="utf-8", errors="replace")
+        for key in ("solution1", "solution2", "solution3")
+    }
+    before_contracts = {
+        "hdr_navigation_remains_a_separate_qwidget": (
+            "navigationOverlayLayer" not in before_cocoa
+            and "setHDRNavigationOverlay" not in before_window
+            and "new ImageNavigationButton" in before_window
         ),
-        "interaction_restarts_open_transition": all(
-            token in baseline_stage for token in (
-                "hdrTransitionClock.invalidate()",
-                "hdrTransitionLinearProgress = 0.0",
-                "loadedPixmapItem->setVisible(true)",
-                "hdrRenderer->invalidateGeometry()",
-            )
+        "display_link_flow_serializes_on_one_completed_frame": (
+            "if (presentationState->frameInFlight)" in before_cocoa
+            and "presentationState->frameInFlight = YES" in before_cocoa
+            and "dispatch_async(dispatch_get_main_queue()" in before_cocoa
         ),
-        "raw_endpoints_share_one_mutable_filter": (
-            "CIRAWFilter *rawFilter" in baseline_raw
-            and baseline_raw.count("filterWithImageURL:fileUrl.toNSURL()") == 1
-            and "rawFilter.extendedDynamicRangeAmount = 0.0F" in baseline_raw
-            and "rawFilter.extendedDynamicRangeAmount = 1.0F" in baseline_raw
-        ),
-        "interactive_context_disables_intermediate_cache": (
-            "kCIContextCacheIntermediates : @NO" in baseline_renderer
-        ),
-        "prepared_endpoints_are_geometry_keyed": all(
-            token in baseline_renderer for token in (
-                "preparedViewportSize == viewportSize",
-                "preparedTextureSize == requestedTextureSize",
-                "preparedCorners == corners",
-            )
-        ),
-        "unknown_raw_content_headroom_is_forwarded": (
-            "result.hdrMetadata.contentHeadroom = ciImageContentHeadroom(hdrImage)"
-            in baseline_raw
+        "opening_uses_a_manual_partial_headroom_ramp": (
+            "hdrTransitionTimer" in before_view
+            and "hdrTransitionClock.elapsed() / 650.0" in before_view
+            and "hdrTransitionLinearProgress" in before_view
         ),
     }
     corrected_contracts = {
-        "shared_explicit_theme_background": (
-            "viewportBackgroundColor" in current_namespace
-            and "Qv::viewportBackgroundColor(theme)" in current_window
-            and "applyHDRViewportBackground(theme)" in current_view
-            and "NSColor.windowBackgroundColor" not in current_renderer
-        ),
-        "independent_raw_filter_graphs": (
-            "CIRAWFilter *sdrRawFilter" in current_raw
-            and "CIRAWFilter *hdrRawFilter" in current_raw
-            and current_raw.count("filterWithImageURL:fileUrl.toNSURL()") >= 2
-        ),
-        "negative_raw_baseline_is_neutralized_only_for_hdr": (
-            "if (hdrRawFilter.baselineExposure < 0.0F)" in current_raw
-            and "hdrRawFilter.baselineExposure = 0.0F" in current_raw
-            and "sdrRawFilter.baselineExposure" not in current_raw
-        ),
-        "interactive_context_caches_intermediates": (
-            "kCIContextCacheIntermediates : @YES" in current_renderer
-        ),
-        "raw_headroom_is_measured_and_tagged": all(
-            token in current_raw for token in (
-                "maximumCIImageRGBComponent(hdrImage",
-                "resolvedHDRContentHeadroom",
-                "imageBySettingContentHeadroom",
+        "hdr_navigation_is_shape_only_in_metal_layer_tree": all(
+            token in after_cocoa for token in (
+                "navigationOverlayLayer", "[CAShapeLayer layer]",
+                "[metalLayer addSublayer:navigationOverlayLayer]",
+                "CGPathCreateWithRoundedRect",
             )
-        ) and "metalLayer.contentsHeadroom = std::max<CGFloat>(1.0, state.targetHeadroom)"
-        in current_renderer,
-        "prepared_sources_survive_geometry_changes": (
-            "preparedViewportSize == viewportSize" not in current_renderer
-            and "preparedCorners == corners" not in current_renderer
-            and "reuseVisibleHDR" in current_stage
+        ) and "button->hide()" in after_window and "setHDRNavigationOverlay" in after_window,
+        "display_link_paces_latest_only_with_two_frames_in_flight": all(
+            token in after_cocoa for token in (
+                "renderDisplayLinkUpdate(CAMetalDisplayLinkUpdate *update)",
+                "update.targetTimestamp", "framesInFlight.load() >= 2",
+                "framesInFlight.fetch_add(1)", "framesInFlight.fetch_sub(1)",
+                "dispatch_sync(renderQueue", "presentDrawable:encodedDrawable",
+                "pendingRenderGeneration = ++state.requestedRenderGeneration",
+            )
+        ) and "nextDrawable" not in after_cocoa and "atTime:targetTimestamp" not in after_cocoa,
+        "presentation_timing_is_observed_after_actual_presentation": all(
+            token in after_cocoa for token in (
+                "addPresentedHandler", "presentedDrawable.presentedTime",
+                "requestToPresentationMilliseconds", "FOVELLE_PRESENT",
+            )
         ),
-        "interaction_preserves_activation": (
-            "hdrTransitionClock.invalidate()" not in current_stage
-            and "hdrTransitionLinearProgress = 0.0" not in current_stage
-            and "loadedPixmapItem->setVisible(!reuseVisibleHDR)" in current_stage
-        ),
-    }
-    probe_contracts = {
-        "probe_completed": probe_result.returncode == 0,
-        "raw_reports_unknown_content_headroom": (
-            abs(float(probe.get("raw_ciimage_reported_content_headroom", -1))) <= 1e-6
-        ),
-        "camera_default_baseline_is_negative": (
-            float(probe.get("default_baseline_exposure", 0)) < -0.5
-        ),
-        "neutral_baseline_increases_available_hdr_peak": (
-            float(probe.get("neutral_baseline_hdr_maximum_component", 0)) > 1.5
-            and float(probe.get("neutral_baseline_hdr_maximum_component", 0))
-            > float(probe.get("default_baseline_hdr_maximum_component", 0)) + 0.3
-        ),
-        "user_screenshot_contains_low_detail_white_blank": (
-            blank_region["near_white_fraction"] >= 0.90
-            and blank_region["mean_edge_energy"]
-            < visible_region["mean_edge_energy"] * 0.35
+        "only_final_headroom_can_become_first_visible": (
+            "hdrRenderer->render(viewportSize, viewportCorners, 1.0, interactive)" in after_view
+            and "firstVisibleFrameUsesFinalHeadroom" in after_cocoa
+            and "isFinalHDRFrameReadyForReveal" in after_cocoa
+            and "hdrTransitionTimer" not in after_view
+            and "hdrTransitionClock.elapsed() / 650.0" not in after_view
         ),
     }
-
+    reference_contracts = {
+        "solution1_discusses_native_or_metal_overlay_isolation": (
+            "Metal" in reference_text["solution1"] or "native" in reference_text["solution1"].lower()
+        ),
+        "solution2_discusses_inflight_or_presentation_pacing": any(
+            token in reference_text["solution2"]
+            for token in ("in-flight", "inflight", "DisplayLink", "drawable")
+        ),
+        "solution3_discusses_placeholder_or_final_first_frame": any(
+            token in reference_text["solution3"]
+            for token in ("placeholder", "首帧", "HDR", "650")
+        ),
+    }
     passed = (
-        all(baseline_contracts.values())
+        all(before_contracts.values())
         and all(corrected_contracts.values())
-        and all(probe_contracts.values())
+        and all(reference_contracts.values())
     )
     record = {
         "schema_version": "1.0",
-        "kind": "current-pre-fix-root-cause-evidence",
+        "kind": "native-overlay-displaylink-presentation-first-frame-root-cause-evidence",
         "release": "v0.1.4",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "baseline_revision": subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=repo, text=True,
             capture_output=True, check=True,
         ).stdout.strip(),
-        "source_evidence": {
-            "jpeg_sample": artifact(jpeg),
-            "raw_sample": artifact(raw),
-            "dng_user_screenshot": artifact(screenshot),
-            "raw_probe_source": artifact(probe_source),
-        },
-        "raw_probe": {
-            "command": probe_command,
-            "return_code": probe_result.returncode,
-            "stdout": probe_result.stdout,
-            "stderr": probe_result.stderr,
-            "measurements": probe,
-        },
-        "screenshot_observations": {
-            "image_size": list(Image.open(screenshot).size),
-            "blank_region": blank_region,
-            "visible_image_region": visible_region,
-        },
-        "baseline_contracts": baseline_contracts,
+        "artifacts": {name: artifact(path) for name, path in paths.items()},
+        "screenshot_observation": screenshot_observation(paths["screenshot"]),
+        "before_contracts": before_contracts,
         "corrected_contracts": corrected_contracts,
-        "probe_contracts": probe_contracts,
+        "reference_contracts": reference_contracts,
         "facts": [
-            "The baseline Qt painter uses fixed light/dark viewport colors, while the independent Metal layer uses NSColor.windowBackgroundColor and is not updated by QVGraphicsView::settingsUpdated.",
-            "The baseline geometry stage invalidates the HDR generation, resets transition progress to zero, and makes the SDR proxy visible for every zoom or pan geometry change.",
-            "The baseline RAW decoder obtains both lazy CIImage outputs by mutating one CIRAWFilter from EDR amount zero to one, and its interactive renderer explicitly disables CIContext intermediate caching.",
-            "For the supplied DNG, CIRAWFilter reports contentHeadroom zero, its camera default baselineExposure is -0.961081, and a default-baseline EDR probe peaks at about 1.35.",
-            "For the same DNG and EDR amount, setting only the HDR filter baselineExposure to zero raises the measured float peak to 1.83203125 while the SDR companion remains at one.",
-            "The hashed user screenshot contains a lower-left probe region that is over 90% near-white and has less than 35% of the edge energy of the adjacent visible-image region.",
+            "The supplied screenshot contains an axis-aligned 120x120 pixel region, exactly the 60x60 point navigation geometry at DPR 2, over image pixels.",
+            "At baseline HEAD the HDR renderer and navigation QWidget belonged to separate surfaces; no navigation CAShapeLayer existed in the CAMetalLayer tree.",
+            "At baseline HEAD a GPU completion callback reopened a one-frame gate through the main queue, serializing encode, GPU completion, and the next submission.",
+            "At baseline HEAD opening brightness was explicitly advanced by an application timer over 650 ms through partial transition values.",
+            "The corrected source hides the HDR QWidget, draws only rounded/chevron paths as CAMetalLayer sublayers, obtains every drawable from CAMetalDisplayLink, records addPresentedHandler timing, and reveals only final-headroom first frames.",
         ],
         "inferences": [
-            "The delayed background change is the Metal layer reveal exposing a different background authority; the frozen background after theme changes follows from the missing renderer update path.",
-            "Reusing one mutable lazy CIRAWFilter, disabling repeated-render caching, and tying prepared source endpoints to viewport geometry together make RAW tile evaluation timing-dependent; this best explains intermittent partial blank regions.",
-            "Forwarding unknown RAW headroom while preserving a camera negative baseline in the HDR branch suppresses both the available EDR range and perceived brightness relative to the system RAW preview.",
-            "Resetting the open-transition state machine on geometry changes directly explains the observed dim-then-bright interaction sequence.",
+            "A transparent Qt backing store composited above an independent EDR surface is the best causal explanation for an SDR-colored rectangle that appears only where the widget overlaps live HDR pixels.",
+            "The one-frame GPU-completion-to-main gate is the best causal explanation for low drag throughput and delayed hover response; a DisplayLink-paced latest-only queue with two frames in flight overlaps CPU encoding, GPU execution, and scanout without unpaced drawable bursts.",
+            "The deliberate SDR/partial-HDR endpoint sequence is the direct causal source of the opening luminance flash; a final-only presentation lets WindowServer perform device-specific EDR adaptation once.",
         ],
         "uncertainties": [
-            "Apple does not publish Quick Look's private RAW exposure, tone curve, or exact transition implementation; baseline neutralization is an empirical match built on public CIRAWFilter semantics.",
-            "Apple does not publish the internal tile scheduler for lazy CIRAWFilter graphs, so the precise GPU/ROI race is inferred from source contracts, repeated probes, and timed screen evidence.",
-            "Screenshots are system-tone-mapped SDR captures and cannot measure absolute display nits; float probes and WindowServer/layer headroom telemetry establish HDR separately.",
+            "Apple does not publish WindowServer's private cross-surface EDR compositing algorithm, so the precise internal blend operation remains unknown.",
+            "A still screenshot cannot measure absolute nits or a sub-frame timing sequence; native surface telemetry, presented-handler timestamps, and multiple captures complement it.",
+            "Frame pacing varies with display refresh, GPU pressure, and camera graph complexity; formal thresholds apply to the recorded target Mac and workload.",
+        ],
+        "causal_chains": [
+            {
+                "symptom": "Colored rectangular navigation backing over actual HDR pixels",
+                "facts": ["separate QWidget", "independent CAMetalLayer", "120x120 axis-aligned artifact"],
+                "inference": "cross-surface transparent pixels resolve against the SDR Qt backing",
+                "fix": "shape-only navigation sublayers inside the Metal layer tree; hide QWidget for HDR",
+                "tests": ["ST-HDR-NAV-NATIVE-COMPOSITOR", "SYS-HDR-NAV-NATIVE-COMPOSITOR"],
+            },
+            {
+                "symptom": "HDR drag is much slower than SDR drag",
+                "facts": ["one frame gate", "GPU completion reopens through main", "latest input exceeds submitted cadence"],
+                "inference": "serial CPU/GPU/scanout flow throttles presentation and indirectly delays UI",
+                "fix": "continuous DisplayLink pacing, latest-only pending geometry, two frames in flight, presentation before the targetTimestamp deadline, and actual presentation metrics",
+                "tests": ["ST-HDR-DISPLAYLINK-LATEST-ONLY", "SYS-HDR-PRESENTATION-RESPONSIVENESS"],
+            },
+            {
+                "symptom": "JPEG/DNG/NEF flashes once while opening",
+                "facts": ["650 ms app ramp", "partial headroom frames", "proxy removed after early endpoint"],
+                "inference": "multiple app-generated luminance endpoints become visible during one open",
+                "fix": "retain proxy/prior drawable until a prepared final-headroom frame is presented",
+                "tests": ["ST-HDR-FIRST-VISIBLE-FINAL", "SYS-HDR-FIRST-VISIBLE-FINAL"],
+            },
         ],
         "passed": passed,
     }

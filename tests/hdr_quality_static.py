@@ -117,7 +117,7 @@ def main() -> int:
         ),
         "viewport_transform_occurs_after_source_intermediate": (
             renderer.find("preparedSDRImage = [[sdrSource imageByInsertingIntermediate:YES]")
-            < renderer.find("CIImage *preparedSDRFrame = imageForTexture")
+            < renderer.find("source = imageForTexture(source, viewportSize, corners, actualSize)")
         ),
     })
     case("ST-HDR-FLOAT-INTERMEDIATE", {
@@ -184,7 +184,7 @@ def main() -> int:
             "preparedHDRImage = [[hdrSource imageByInsertingIntermediate:YES] retain]" in renderer
         ),
         "source_roi_is_transformed_only_for_current_drawable": (
-            "CIImage *warmFrame = imageForTexture" in renderer
+            "imageForTexture(\n                finalDisplayImage, viewportSize" in renderer
             and "source = imageForTexture(source, viewportSize, corners, actualSize)" in renderer
         ),
     })
@@ -210,27 +210,60 @@ def main() -> int:
             "needsManagedPreparation && !preparedEndpointsAvailable" in renderer
             and "scheduleHDRPreparation(viewportSize, corners, requestedSize)" in renderer
             and renderer.index("needsManagedPreparation && !preparedEndpointsAvailable")
-            < renderer.index("revealAfterPresentation(drawable, commandBuffer)")
+            < renderer.index("revealAfterPresentation(drawable, commandBuffer, finalHeadroom)")
         ),
         "core_image_manages_both_intermediates": renderer.count("imageByInsertingIntermediate:YES") == 2,
         "float_scratch_texture_warms_intermediates": (
-            "MTLPixelFormatRGBA16Float" in renderer and "toMTLTexture:preparationTexture" in renderer
+            "MTLPixelFormatRGBA16Float" in renderer
+            and "id<MTLTexture> targetTexture = [preparationTexture retain]" in renderer
+            and "toMTLTexture:targetTexture" in renderer
         ),
         "app_texture_is_never_reimported_as_ci_input": "imageWithMTLTexture" not in renderer,
-        "serial_command_buffers_complete_before_activation": (
-            "sdrPreparationBuffer" in renderer and "hdrPreparationBuffer" in renderer
-            and "transitionPreparationBuffer addCompletedHandler" in renderer
+        "final_endpoint_is_prepared_on_serial_renderer_queue": (
+            "CIImage *finalDisplayImage = preparedDisplayImage(fullTargetHeadroom, 1.0F)" in renderer
+            and "dispatch_async(renderQueue" in renderer
+            and "[renderContext render:openingFrame" in renderer
         ),
-        "dynamic_ramp_states_are_prewarmed": (
-            "warmProgresses" in renderer and "preparedDisplayImage(targetHeadroom, easedProgress)" in renderer
+        "partial_headroom_ramp_is_not_prewarmed_or_submitted": (
+            "warmProgresses" not in renderer
+            and "hdrRenderer->render(viewportSize, viewportCorners, 1.0, interactive)" in view
         ),
         "representative_zoom_roi_is_prewarmed": (
             "interactionWarmCorners" in renderer
             and "(corner - viewportCenter) * 4.0" in renderer
-            and "interactionWarmFrame" in renderer
+            and "retainedWarmFrames" in renderer
+            and "warmOffsets" in renderer
         ),
-        "transition_waits_for_preparation": "shouldStartHDRTransition" in view and "hdrPrepared" in view,
-        "prepared_endpoints_used_for_transition": "preparedDisplayImage" in renderer,
+        "prepared_endpoints_used_for_visible_frame": "preparedDisplayImage" in renderer,
+    })
+    case("ST-HDR-FIRST-VISIBLE-FINAL", {
+        "production_submits_only_final_headroom": (
+            "hdrRenderer->render(viewportSize, viewportCorners, 1.0, interactive)" in view
+        ),
+        "reveal_policy_rejects_partial_endpoint": (
+            "isFinalHDRFrameReadyForReveal" in cocoa_header
+            and "transitionProgress >= 0.999" in cocoa
+            and "isFinalHDRFrameReadyForReveal(" in renderer
+        ),
+        "proxy_removed_only_after_final_frame_presentation": (
+            "rendererState.firstFramePresented" in view
+            and "rendererState.firstVisibleFrameUsesFinalHeadroom" in view
+            and "loadedPixmapItem->setVisible(false)" in view
+        ),
+        "manual_opening_ramp_removed": all(
+            token not in view for token in (
+                "hdrTransitionTimer", "hdrTransitionClock", "hdrTransitionLinearProgress",
+                "650.0", "1800",
+            )
+        ),
+        "windowserver_receives_one_final_edr_endpoint": (
+            "firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom)" in renderer
+            and "addPresentedHandler" in renderer
+        ),
+        "previous_hdr_drawable_can_cover_navigation": (
+            "retainPreviousPresentation" in renderer
+            and "metalLayer.opacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F" in renderer
+        ),
     })
     case("ST-HDR-GEOMETRY-LIFECYCLE", {
         "complete_geometry_comparator": (
@@ -257,36 +290,91 @@ def main() -> int:
             "imageByCompositingOverImage:clearImage" in renderer and "alpha:1" in renderer
         ),
     })
+    render_entry = between(
+        renderer, "void render(const QSize &viewportSize", "void renderDisplayLinkUpdate"
+    )
+    display_link_entry = between(
+        renderer, "void renderDisplayLinkUpdate", "bool renderToDrawable"
+    )
+    render_to_drawable = between(
+        renderer, "bool renderToDrawable", "HDRRendererDiagnostics diagnostics"
+    )
     case("ST-HDR-DISPLAYLINK-LATEST-ONLY", {
-        "display_link_supplies_drawables": (
+        "display_link_is_the_only_drawable_source": (
             "CAMetalDisplayLink" in renderer
             and "renderDisplayLinkUpdate(CAMetalDisplayLinkUpdate *update)" in renderer
-            and "renderToDrawable(update.drawable" in renderer
+            and "update.drawable, viewportSize" in renderer
+            and "nextDrawable" not in renderer
         ),
-        "synchronous_drawable_acquisition_removed": "nextDrawable" not in renderer,
-        "only_one_gpu_frame_in_flight": (
-            "presentationState->frameInFlight" in renderer
-            and "deferredDisplayLinkCallbackCount" in renderer
+        "display_link_stays_attached_and_is_unpaused_by_requests": (
+            "if (displayLink && displayLink.paused)" in render_entry
+            and "displayLink.paused = NO" in render_entry
+            and "detachDisplayLink" not in renderer
+            and "invalidate]" not in render_entry
+            and "const bool keepAlive" in display_link_entry
+            and "if (!renderPending && !keepAlive)" in display_link_entry
+            and "displayLink.paused = YES" in display_link_entry
+            and "interactiveKeepAliveUntil" in display_link_entry
+            and "pendingRequestTimestamp = CACurrentMediaTime()" in display_link_entry
+        ),
+        "drawable_resize_precedes_display_link_callback": (
+            "metalLayer.drawableSize = requestedSize" in render_entry
+            and "navigationOverlayLayer.frame = nativeView.bounds" in render_entry
+            and "metalLayer.drawableSize = requestedSize" not in render_to_drawable
+            and "rebuildDisplayLinkForDrawableResize" in renderer
+            and "[previous invalidate]" in renderer
+        ),
+        "at_most_two_frames_overlap": (
+            "framesInFlight.load() >= 2" in display_link_entry
+            and "framesInFlight.fetch_add(1)" in render_to_drawable
+            and "framesInFlight.fetch_sub(1)" in render_to_drawable
+            and "presentationState->frameInFlight" not in renderer
         ),
         "new_requests_overwrite_pending_state": (
             "pendingViewportSize = viewportSize" in renderer
             and "pendingCorners = corners" in renderer
             and "pendingRenderGeneration = ++state.requestedRenderGeneration" in renderer
+            and "pendingRequestTimestamp = CACurrentMediaTime()" in renderer
+        ),
+        "interactive_submissions_are_counted_at_display_cadence": (
+            "if (interactive)" in display_link_entry
+            and "++state.displayLinkInteractiveSubmissionCount" in display_link_entry
+            and "preferredFrameRateRange = CAFrameRateRangeMake(60.0, 120.0, 120.0)" in renderer
+        ),
+        "display_deadline_is_observed_without_timed_present": (
+            "update.targetTimestamp" in display_link_entry
+            and "presentDrawable:encodedDrawable" in render_to_drawable
+            and "atTime:targetTimestamp" not in render_to_drawable
+            and "presentationCallTime > targetTimestamp" in render_to_drawable
         ),
         "presentation_is_command_buffer_ordered": (
-            "presentDrawable:encodedDrawable" in renderer
-            and renderer.index("presentDrawable:encodedDrawable")
-            < renderer.index("[encodedCommandBuffer commit]")
-        ),
-        "submitted_activation_progress_is_frame_paced": (
-            "lastSubmittedLinearProgress" in renderer
-            and "pacedHDRTransitionProgress(" in renderer
-            and "linearProgress + 0.000001 < requestedLinearProgress" in renderer
+            render_to_drawable.index("presentDrawable:encodedDrawable") >= 0
+            and render_to_drawable.index("presentDrawable:encodedDrawable")
+            < render_to_drawable.index("[encodedCommandBuffer commit]")
         ),
         "core_image_encoding_uses_dedicated_serial_queue": (
             "com.fovelle.hdr-render-encode" in renderer
-            and "dispatch_async(renderQueue" in renderer
-            and "[renderContext render:encodedSource" in renderer
+            and "dispatch_sync(renderQueue" in render_to_drawable
+            and "[renderContext render:encodedSource" in render_to_drawable
+        ),
+    })
+    case("ST-HDR-PRESENTATION-TELEMETRY", {
+        "presented_handler_is_source_of_timing": (
+            "addPresentedHandler" in renderer
+            and "presentedDrawable.presentedTime" in renderer
+            and "CACurrentMediaTime()" in renderer
+        ),
+        "request_to_presentation_is_measured": (
+            "requestToPresentationMilliseconds" in renderer
+            and '\\"request_to_present_ms\\"' in renderer
+        ),
+        "presentation_interval_and_count_are_atomic": (
+            "presentedFrameCount" in renderer
+            and "lastPresentedIntervalMilliseconds" in renderer
+            and "std::atomic" in cocoa
+        ),
+        "final_endpoint_flag_is_logged_per_presented_frame": (
+            '\\"final_headroom\\"' in renderer and '\\"interactive\\"' in renderer
         ),
     })
     case("ST-HDR-UI-REQUEST-COALESCING", {
@@ -310,8 +398,8 @@ def main() -> int:
         main_window, "void MainWindow::initializeNavigationButtons()",
         "void MainWindow::updateNavigationButtonGeometry()"
     )
-    case("ST-HDR-NAV-NO-OFFSCREEN-SURFACE", {
-        "transparent_widget_backing": (
+    case("ST-HDR-NAV-NATIVE-COMPOSITOR", {
+        "sdr_fallback_widget_backing_is_transparent": (
             "WA_TranslucentBackground" in navigation_button_paint
             and "WA_NoSystemBackground" in navigation_button_paint
             and "setAutoFillBackground(false)" in navigation_button_paint
@@ -325,6 +413,30 @@ def main() -> int:
         ),
         "navigation_buttons_have_no_graphics_effect": (
             "QGraphicsOpacityEffect" not in navigation_initialization
+        ),
+        "hdr_artwork_is_shape_only_metal_sublayer": (
+            "navigationOverlayLayer" in renderer
+            and renderer.count("[CAShapeLayer layer]") >= 2
+            and "[metalLayer addSublayer:navigationOverlayLayer]" in renderer
+            and "CGPathCreateWithRoundedRect" in renderer
+        ),
+        "qt_widget_is_hidden_for_hdr": (
+            "usesNativeHDRNavigationOverlay" in main_window
+            and "button->hide()" in main_window
+            and "setHDRNavigationOverlay" in main_window
+        ),
+        "native_overlay_has_no_implicit_rectangular_animation": (
+            "[CATransaction setDisableActions:YES]" in renderer
+            and "navigationOverlayLayer.zPosition" in renderer
+        ),
+        "native_overlay_matches_qt_top_left_geometry": (
+            "CGRectGetHeight(navigationOverlayLayer.bounds)" in renderer
+            and "- viewportRect.y() - frameHeight" in renderer
+            and "const CGRect frame = CGRectMake(viewportRect.x(), frameY" in renderer
+        ),
+        "surface_choice_is_observable": (
+            'QStringLiteral("metal-sublayer")' in main_window
+            and 'QStringLiteral("qt_widget_visible")' in main_window
         ),
     })
     case("ST-HDR-NAV-CACHED-SAMPLING", {
@@ -352,13 +464,18 @@ def main() -> int:
                 "uses_metal_display_link", "encodes_metal_off_main_thread",
                 "render_request_count",
                 "coalesced_render_request_count", "requested_render_generation",
-                "submitted_render_generation",
+                "submitted_render_generation", "presented_frame_count",
+                "last_presented_interval_ms", "last_request_to_present_ms",
+                "display_link_interaction_pacing",
+                "display_link_interactive_submission_count",
+                "frames_in_flight",
             )
         ),
         "viewport_crop_fields": all(
             token in view for token in (
                 "viewport_global_x", "viewport_global_y", "viewport_logical_width",
                 "viewport_logical_height", "viewport_device_pixel_ratio",
+                "window_global_x", "window_global_y", "native_window_number",
             )
         ),
         "background_and_content_headroom_fields": all(
@@ -445,6 +562,21 @@ def main() -> int:
     if not clang_tidy_binary:
         bundled_tidy = Path("/opt/homebrew/opt/llvm/bin/clang-tidy")
         clang_tidy_binary = str(bundled_tidy) if bundled_tidy.is_file() else None
+    clang_tidy_sdk_args: list[str] = []
+    if platform.system() == "Darwin":
+        sdk_result = subprocess.run(
+            ["xcrun", "--show-sdk-path"], text=True, capture_output=True, check=False
+        )
+        sdk_path = Path(sdk_result.stdout.strip())
+        libcxx_path = sdk_path / "usr/include/c++/v1"
+        if sdk_result.returncode == 0 and sdk_path.is_dir() and libcxx_path.is_dir():
+            # CMake's compile database uses Apple's /usr/bin/c++, whose driver
+            # discovers the active SDK automatically. Homebrew clang-tidy uses
+            # a different driver and otherwise cannot resolve <type_traits>.
+            clang_tidy_sdk_args = [
+                "--extra-arg=-isysroot", f"--extra-arg={sdk_path}",
+                "--extra-arg=-isystem", f"--extra-arg={libcxx_path}",
+            ]
     clang_tidy_command = [
         clang_tidy_binary or "clang-tidy",
         "-p",
@@ -453,6 +585,7 @@ def main() -> int:
         str(repo / "src/qvgraphicsview.cpp"),
         str(repo / "src/qvimagecore.cpp"),
         str(repo / "src/qvimageloader.cpp"),
+        *clang_tidy_sdk_args,
         "--quiet",
     ]
     if clang_tidy_binary:

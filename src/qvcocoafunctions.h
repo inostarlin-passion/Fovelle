@@ -10,6 +10,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QPolygonF>
+#include <QRectF>
 #include <QSize>
 
 #include <memory>
@@ -82,8 +83,12 @@ public:
         bool cachesIntermediates{ false };
         bool usesLayerContentsHeadroomTag{ false };
         bool usesCAMetalDisplayLink{ false };
+        bool displayLinkPaused{ true };
         bool encodesMetalOffMainThread{ false };
         bool frameInFlight{ false };
+        bool usesNativeNavigationOverlay{ false };
+        bool firstVisibleFrameUsesFinalHeadroom{ false };
+        bool usesDisplayLinkInteractionPacing{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
@@ -106,11 +111,23 @@ public:
         quint64 renderRequestCount{ 0 };
         quint64 coalescedRenderRequestCount{ 0 };
         quint64 displayLinkCallbackCount{ 0 };
+        quint64 displayLinkRebuildCount{ 0 };
         quint64 deferredDisplayLinkCallbackCount{ 0 };
         quint64 requestedRenderGeneration{ 0 };
         quint64 submittedRenderGeneration{ 0 };
+        quint64 presentedFrameCount{ 0 };
+        quint64 missedTargetDeadlineCount{ 0 };
+        quint64 navigationOverlayUpdateCount{ 0 };
+        quint64 displayLinkInteractiveSubmissionCount{ 0 };
+        int framesInFlight{ 0 };
+        int nativeWindowNumber{ 0 };
+        int nativeWindowGlobalX{ 0 };
+        int nativeWindowGlobalY{ 0 };
+        int nativeNavigationVisibleCount{ 0 };
         quint64 renderCount{ 0 };
         double lastRenderMilliseconds{ 0.0 };
+        double lastPresentedIntervalMilliseconds{ 0.0 };
+        double lastRequestToPresentationMilliseconds{ 0.0 };
     };
 
     struct HDRPixelStatistics
@@ -135,7 +152,12 @@ public:
         void invalidateGeometry();
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
-                    qreal transitionProgress);
+                    qreal transitionProgress, bool interactive = false);
+        void setNavigationOverlay(int index, const QRectF &viewportRect,
+                                  qreal opacity, bool previous,
+                                  bool darkBackground, bool hovered,
+                                  bool pressed, bool enabled);
+        void clearNavigationOverlays();
         HDRRendererDiagnostics diagnostics() const;
 
     private:
@@ -200,15 +222,11 @@ public:
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
 
-    // Pure transition policy helpers are exposed so headroom behavior can be
-    // verified without depending on a particular physical display.
+    // Pure headroom policy helpers are exposed so endpoint behavior can be
+    // verified without depending on a particular physical display. Production
+    // presentation submits the final endpoint; the curve remains useful for
+    // deterministic policy compatibility and explicit callers.
     static qreal easedHDRTransition(qreal progress);
-
-    // Advance a presentation-driven ramp without allowing a delayed GPU frame
-    // to turn elapsed wall time into a visible luminance jump.
-    static qreal pacedHDRTransitionProgress(qreal previousProgress,
-                                            qreal desiredProgress,
-                                            qreal maximumStep);
 
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
@@ -226,11 +244,10 @@ public:
                                              qreal potentialHeadroom,
                                              qreal contentHeadroom);
 
-    // A transition may begin only after the final view geometry is known, an
-    // SDR Metal frame is actually visible, and the expensive HDR graph has
-    // completed its first offscreen evaluation.
-    static bool shouldStartHDRTransition(bool layoutReady, bool firstFramePresented,
-                                         bool hdrPrepared);
+    // Only a final-headroom drawable whose physical geometry is complete may
+    // replace the SDR proxy or prior HDR presentation.
+    static bool isFinalHDRFrameReadyForReveal(bool drawableGeometryMatches,
+                                              qreal transitionProgress);
 
     // Non-invasive test/diagnostic probe. It reduces each retained CI graph to
     // one floating-point maximum pixel without converting the source to an SDR

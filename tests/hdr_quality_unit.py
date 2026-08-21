@@ -17,11 +17,11 @@ from pathlib import Path
 
 EXPECTED = (
     ("UT-HDR-TRANSITION", "HDRPolicyTests", "testTransitionCurveIsBoundedAndMonotonic"),
-    ("UT-HDR-PRESENTATION-PACING", "HDRPolicyTests", "testPresentationPacingBoundsDelayedFrameProgress"),
+    ("UT-HDR-FIRST-VISIBLE-FINAL", "HDRPolicyTests", "testFinalFrameRevealRejectsPartialHeadroom"),
     ("UT-HDR-HEADROOM-CLAMP", "HDRPolicyTests", "testHDRHeadroomIsClampedToContentAndDisplay"),
     ("UT-HDR-SDR-FALLBACK", "HDRPolicyTests", "testSDRDisplayForcesUnitHeadroom"),
     ("UT-HDR-EDR-BOOTSTRAP", "HDRPolicyTests", "testDisplayHeadroomBootstrapsFromPotentialCapability"),
-    ("UT-HDR-STAGED-PRESENTATION", "HDRPolicyTests", "testTransitionStartsOnlyAfterStagedPresentation"),
+    ("UT-HDR-FIRST-VISIBLE-GEOMETRY", "HDRPolicyTests", "testFinalFrameRevealRequiresMatchedGeometry"),
     ("UT-HDR-GEOMETRY-EQUIVALENCE", "HDRPolicyTests", "testHDRViewportGeometryEquivalenceUsesCompleteContract"),
     ("UT-HDR-CONTENT-HEADROOM", "HDRPolicyTests", "testRawContentHeadroomUsesMeasuredPeakWhenUnknown"),
     ("UT-HDR-PRESENTATION-REUSE", "HDRPolicyTests", "testPreparedHDRPresentationCanBeReusedAcrossGeometry"),

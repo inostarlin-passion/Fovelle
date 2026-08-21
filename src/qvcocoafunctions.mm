@@ -13,7 +13,9 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <mutex>
 
@@ -35,8 +37,6 @@
     BOOL firstFramePresented;
     BOOL hdrPreparationInFlight;
     BOOL hdrPrepared;
-    BOOL frameInFlight;
-    NSUInteger inFlightGeneration;
     CAMetalLayer *metalLayer;
     CAMetalDisplayLink *displayLink;
 }
@@ -650,6 +650,17 @@ private:
     int loops {-1};
     bool valid {false};
 };
+
+struct HDRFrameFlowState
+{
+    std::atomic<int> framesInFlight{ 0 };
+    std::atomic<quint64> presentedFrameCount{ 0 };
+    std::atomic<quint64> missedTargetDeadlineCount{ 0 };
+    std::atomic<double> lastPresentedTime{ 0.0 };
+    std::atomic<double> lastPresentedIntervalMilliseconds{ 0.0 };
+    std::atomic<double> lastRequestToPresentationMilliseconds{ 0.0 };
+    std::atomic<bool> firstVisibleFrameUsesFinalHeadroom{ false };
+};
 }
 
 struct QVCocoaFunctions::HDRRenderer::Impl
@@ -704,6 +715,30 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (@available(macOS 26.0, *))
             metalLayer.preferredDynamicRange = CADynamicRangeHigh;
 
+        // UI which overlaps HDR pixels must belong to the same native layer
+        // tree as the drawable. A transparent QWidget is composited from Qt's
+        // separate SDR backing store; its nominally transparent corners then
+        // reveal that rectangular store instead of the Metal image below.
+        navigationOverlayLayer = [[CALayer layer] retain];
+        navigationOverlayLayer.geometryFlipped = YES;
+        navigationOverlayLayer.frame = nativeView.bounds;
+        navigationOverlayLayer.autoresizingMask =
+                kCALayerWidthSizable | kCALayerHeightSizable;
+        navigationOverlayLayer.zPosition = 1000.0;
+        for (int index = 0; index < 2; ++index) {
+            navigationBackgroundLayers[index] = [CAShapeLayer layer];
+            navigationBackgroundLayers[index].hidden = YES;
+            navigationChevronLayers[index] = [CAShapeLayer layer];
+            navigationChevronLayers[index].hidden = YES;
+            navigationChevronLayers[index].fillColor = nil;
+            navigationChevronLayers[index].lineWidth = 4.0;
+            navigationChevronLayers[index].lineCap = kCALineCapRound;
+            navigationChevronLayers[index].lineJoin = kCALineJoinRound;
+            [navigationOverlayLayer addSublayer:navigationBackgroundLayers[index]];
+            [navigationOverlayLayer addSublayer:navigationChevronLayers[index]];
+        }
+        [metalLayer addSublayer:navigationOverlayLayer];
+
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.frame = nativeView.bounds;
@@ -722,6 +757,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             displayLink = [[CAMetalDisplayLink alloc] initWithMetalLayer:metalLayer];
             displayLink.delegate = displayLinkDelegate;
             displayLink.preferredFrameLatency = 1.0F;
+            // Permit the display to use its native 60–120 Hz cadence while the
+            // latest-only queue and two-frame in-flight cap bound work.
+            displayLink.preferredFrameRateRange = CAFrameRateRangeMake(60.0, 120.0, 120.0);
             displayLink.paused = YES;
             [displayLink addToRunLoop:NSRunLoop.mainRunLoop
                               forMode:NSRunLoopCommonModes];
@@ -741,6 +779,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.cachesIntermediates = true;
         state.usesCAMetalDisplayLink = displayLink != nil;
         state.encodesMetalOffMainThread = renderQueue != nullptr;
+        state.usesDisplayLinkInteractionPacing = displayLink != nil;
+        state.usesNativeNavigationOverlay = navigationOverlayLayer != nil;
         setBackgroundColor(backgroundColor);
     }
 
@@ -759,11 +799,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         clearPreparedImages();
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
+        [navigationOverlayLayer removeFromSuperlayer];
         [metalLayer removeFromSuperlayer];
         [CATransaction commit];
         [presentationState release];
         [displayLink release];
         [displayLinkDelegate release];
+        [navigationOverlayLayer release];
         [metalLayer release];
         [context release];
         [commandQueue release];
@@ -802,8 +844,151 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             CGColorRelease(layerColor);
     }
 
+    CGColorRef navigationColor(const QColor &color) const
+    {
+        const QColor rgb = color.toRgb();
+        const CGFloat components[]{ rgb.redF(), rgb.greenF(), rgb.blueF(), rgb.alphaF() };
+        return CGColorCreate(backgroundColorSpace, components);
+    }
+
+    void setNavigationOverlay(const int index, const QRectF &viewportRect,
+                              const qreal opacity, const bool previous,
+                              const bool darkBackground, const bool hovered,
+                              const bool pressed, const bool enabled)
+    {
+        if (!navigationOverlayLayer || index < 0 || index >= 2)
+            return;
+
+        CAShapeLayer *backgroundLayer = navigationBackgroundLayers[index];
+        CAShapeLayer *chevronLayer = navigationChevronLayers[index];
+        const CGFloat boundedOpacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
+        const CGFloat frameWidth = std::max<qreal>(0.0, viewportRect.width());
+        const CGFloat frameHeight = std::max<qreal>(0.0, viewportRect.height());
+        // The CAMetalLayer subtree is composited in Core Animation's
+        // bottom-left coordinate system even though Qt supplies viewport
+        // geometry from the top-left. `geometryFlipped` does not change the
+        // interpretation of an already assigned sublayer frame here, so map
+        // the Y coordinate explicitly. This keeps the native paint surface
+        // aligned with the invisible QWidget used for hit testing.
+        const CGFloat frameY = CGRectGetHeight(navigationOverlayLayer.bounds)
+                - viewportRect.y() - frameHeight;
+        const CGRect frame = CGRectMake(viewportRect.x(), frameY,
+                                        frameWidth, frameHeight);
+        const bool artworkVisible = boundedOpacity > 0.001
+                && frame.size.width > 0.0 && frame.size.height > 0.0;
+        const bool highlighted = hovered || pressed;
+
+        QColor background;
+        if (darkBackground)
+            background = QColor(128, 128, 128, highlighted ? 235 : 220);
+        else if (highlighted)
+            background = QColor(255, 255, 255, 55);
+        if (!enabled && background.isValid())
+            background.setAlpha(100);
+
+        QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
+        if (!enabled)
+            foreground.setAlpha(90);
+
+        CGPathRef backgroundPath = CGPathCreateWithRoundedRect(
+                CGRectMake(1.0, 1.0, std::max<CGFloat>(0.0, frame.size.width - 2.0),
+                           std::max<CGFloat>(0.0, frame.size.height - 2.0)),
+                10.0, 10.0, nullptr);
+        CGMutablePathRef chevronPath = CGPathCreateMutable();
+        const CGFloat centerX = frame.size.width / 2.0;
+        const CGFloat centerY = frame.size.height / 2.0;
+        const CGFloat direction = previous ? -1.0 : 1.0;
+        CGPathMoveToPoint(chevronPath, nullptr,
+                          centerX - direction * 5.0, centerY - 12.0);
+        CGPathAddLineToPoint(chevronPath, nullptr,
+                             centerX + direction * 7.0, centerY);
+        CGPathAddLineToPoint(chevronPath, nullptr,
+                             centerX - direction * 5.0, centerY + 12.0);
+
+        CGColorRef backgroundCGColor = background.isValid()
+                ? navigationColor(background) : nullptr;
+        CGColorRef foregroundCGColor = navigationColor(foreground);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        navigationOverlayLayer.frame = nativeView.bounds;
+        backgroundLayer.frame = frame;
+        backgroundLayer.path = backgroundPath;
+        backgroundLayer.fillColor = backgroundCGColor;
+        backgroundLayer.opacity = boundedOpacity;
+        backgroundLayer.hidden = !artworkVisible || !background.isValid();
+        chevronLayer.frame = frame;
+        chevronLayer.path = chevronPath;
+        chevronLayer.strokeColor = foregroundCGColor;
+        chevronLayer.opacity = boundedOpacity;
+        chevronLayer.hidden = !artworkVisible;
+        [CATransaction commit];
+
+        if (backgroundPath)
+            CGPathRelease(backgroundPath);
+        if (chevronPath)
+            CGPathRelease(chevronPath);
+        if (backgroundCGColor)
+            CGColorRelease(backgroundCGColor);
+        if (foregroundCGColor)
+            CGColorRelease(foregroundCGColor);
+        ++state.navigationOverlayUpdateCount;
+        state.nativeNavigationVisibleCount = 0;
+        for (int layerIndex = 0; layerIndex < 2; ++layerIndex) {
+            if (!navigationChevronLayers[layerIndex].hidden
+                && navigationChevronLayers[layerIndex].opacity > 0.001F)
+                ++state.nativeNavigationVisibleCount;
+        }
+    }
+
+    void clearNavigationOverlays()
+    {
+        if (!navigationOverlayLayer)
+            return;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        for (int index = 0; index < 2; ++index) {
+            navigationBackgroundLayers[index].hidden = YES;
+            navigationChevronLayers[index].hidden = YES;
+        }
+        [CATransaction commit];
+        state.nativeNavigationVisibleCount = 0;
+        ++state.navigationOverlayUpdateCount;
+    }
+
+    void rebuildDisplayLinkForDrawableResize()
+    {
+        if (!displayLink || !displayLinkDelegate)
+            return;
+        if (@available(macOS 14.0, *)) {
+            CAMetalDisplayLink *replacement =
+                    [[CAMetalDisplayLink alloc] initWithMetalLayer:metalLayer];
+            if (!replacement)
+                return;
+
+            CAMetalDisplayLink *previous = displayLink;
+            previous.paused = YES;
+            previous.delegate = nil;
+            [previous invalidate];
+
+            replacement.delegate = displayLinkDelegate;
+            replacement.preferredFrameLatency = 1.0F;
+            replacement.preferredFrameRateRange =
+                    CAFrameRateRangeMake(60.0, 120.0, 120.0);
+            replacement.paused = YES;
+            [replacement addToRunLoop:NSRunLoop.mainRunLoop
+                              forMode:NSRunLoopCommonModes];
+            displayLink = replacement;
+            [presentationState setMetalDisplayLink:displayLink];
+            [previous release];
+            ++state.displayLinkRebuildCount;
+        }
+    }
+
     bool setImage(const HDRImagePtr &newImage)
     {
+        const bool retainPreviousPresentation = image
+                && presentationState->firstFramePresented
+                && metalLayer.opacity >= 0.999F;
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
@@ -812,7 +997,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         pendingViewportSize = {};
         pendingCorners.clear();
         pendingLinearProgress = 0.0;
-        lastSubmittedLinearProgress = 0.0;
+        pendingRequestTimestamp = 0.0;
+        pendingInteractive = false;
+        interactiveKeepAliveUntil = 0.0;
+        frameFlow = std::make_shared<HDRFrameFlowState>();
         clearPreparedImages();
         // The context is intentionally long-lived for one interactive view,
         // but intermediates from the previous source are no longer reusable.
@@ -840,13 +1028,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.renderRequestCount = 0;
         state.coalescedRenderRequestCount = 0;
         state.displayLinkCallbackCount = 0;
+        state.displayLinkRebuildCount = 0;
         state.deferredDisplayLinkCallbackCount = 0;
         state.requestedRenderGeneration = 0;
         state.submittedRenderGeneration = 0;
+        state.presentedFrameCount = 0;
+        state.missedTargetDeadlineCount = 0;
+        state.framesInFlight = 0;
+        state.displayLinkInteractiveSubmissionCount = 0;
+        state.firstVisibleFrameUsesFinalHeadroom = false;
         state.transitionProgress = 0.0F;
         state.targetHeadroom = 1.0F;
         state.renderCount = 0;
         state.lastRenderMilliseconds = 0.0;
+        state.lastPresentedIntervalMilliseconds = 0.0;
+        state.lastRequestToPresentationMilliseconds = 0.0;
         if (nativeImage) {
             const HDRMetadata &metadata = nativeImage->metadata();
             state.isRaw = metadata.isRaw;
@@ -861,8 +1057,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.hidden = nativeImage == nullptr;
-        metalLayer.opacity = 0.0F;
+        metalLayer.opacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
         [CATransaction commit];
+        state.layerOpacity = metalLayer.opacity;
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
@@ -872,7 +1069,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         renderPending = false;
-        lastSubmittedLinearProgress = 0.0;
+        interactiveKeepAliveUntil = 0.0;
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
@@ -975,6 +1172,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             || progress <= 0.001F)
             return preparedSDRImage;
 
+        // The decoded HDR endpoint already represents the complete gain-map or
+        // RAW graph at its declared content headroom. Reapplying the gain map
+        // for every pan at the same endpoint rebuilds an expensive full-frame
+        // graph without changing a pixel.
+        if (progress >= 0.999F
+            && targetHeadroom + 0.001F >= image->metadata().contentHeadroom)
+            return preparedHDRImage;
+
         if (image->metadata().isRaw && !image->metadata().usesProcessedRawPreview)
             return mixImages(preparedSDRImage, preparedHDRImage, progress);
 
@@ -1008,7 +1213,38 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.firstFramePresented = presentationState->firstFramePresented;
         state.hdrPreparationInFlight = presentationState->hdrPreparationInFlight;
         state.hdrPrepared = presentationState->hdrPrepared;
-        state.frameInFlight = presentationState->frameInFlight;
+        state.framesInFlight = frameFlow ? frameFlow->framesInFlight.load() : 0;
+        state.frameInFlight = state.framesInFlight > 0;
+        state.presentedFrameCount = frameFlow
+                ? frameFlow->presentedFrameCount.load() : 0;
+        state.missedTargetDeadlineCount = frameFlow
+                ? frameFlow->missedTargetDeadlineCount.load() : 0;
+        state.lastPresentedIntervalMilliseconds = frameFlow
+                ? frameFlow->lastPresentedIntervalMilliseconds.load() : 0.0;
+        state.lastRequestToPresentationMilliseconds = frameFlow
+                ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
+        state.firstVisibleFrameUsesFinalHeadroom = frameFlow
+                && frameFlow->firstVisibleFrameUsesFinalHeadroom.load();
+        state.displayLinkPaused = displayLink ? displayLink.paused : true;
+        NSWindow *window = nativeView.window;
+        state.nativeWindowNumber = window
+                ? static_cast<int>(window.windowNumber) : 0;
+        if (window) {
+            // NSWindow uses a bottom-left Cocoa global coordinate system,
+            // while screencapture window bounds and Qt global points use the
+            // primary display's top-left. Convert the full frame (including
+            // title bar), because `screencapture -l` captures that frame.
+            const NSRect frame = window.frame;
+            NSScreen *primaryScreen = NSScreen.screens.firstObject;
+            const CGFloat primaryTop = primaryScreen
+                    ? NSMaxY(primaryScreen.frame) : NSMaxY(frame);
+            state.nativeWindowGlobalX = static_cast<int>(std::lround(NSMinX(frame)));
+            state.nativeWindowGlobalY = static_cast<int>(
+                    std::lround(primaryTop - NSMaxY(frame)));
+        } else {
+            state.nativeWindowGlobalX = 0;
+            state.nativeWindowGlobalY = 0;
+        }
         state.layerOpacity = metalLayer ? metalLayer.opacity : 0.0F;
     }
 
@@ -1066,14 +1302,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     }
 
     void revealAfterPresentation(id<CAMetalDrawable> drawable,
-                                 id<MTLCommandBuffer> commandBuffer)
+                                 id<MTLCommandBuffer> commandBuffer,
+                                 const bool finalHeadroom)
     {
-        if (presentationState->firstFrameSubmitted || !state.drawableGeometryMatches)
+        if (presentationState->firstFrameSubmitted
+            || !QVCocoaFunctions::isFinalHDRFrameReadyForReveal(
+                    state.drawableGeometryMatches, finalHeadroom ? 1.0 : 0.0))
             return;
 
         presentationState->firstFrameSubmitted = YES;
         const NSUInteger frameGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
+        const auto visibleFlow = frameFlow;
         void (^revealLayer)(void) = ^{
             if (gate->generation != frameGeneration || !gate->metalLayer)
                 return;
@@ -1082,6 +1322,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             gate->metalLayer.opacity = 1.0F;
             [CATransaction commit];
             gate->firstFramePresented = YES;
+            if (visibleFlow)
+                visibleFlow->firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom);
         };
 
         if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
@@ -1132,11 +1374,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite
                 | MTLTextureUsageRenderTarget;
         preparationTexture = [device newTextureWithDescriptor:descriptor];
-        id<MTLCommandBuffer> sdrPreparationBuffer = [commandQueue commandBuffer];
-        id<MTLCommandBuffer> hdrPreparationBuffer = [commandQueue commandBuffer];
-        id<MTLCommandBuffer> transitionPreparationBuffer = [commandQueue commandBuffer];
-        if (!preparationTexture || !sdrPreparationBuffer || !hdrPreparationBuffer
-            || !transitionPreparationBuffer) {
+        id<MTLCommandBuffer> preparationBuffer = [commandQueue commandBuffer];
+        if (!preparationTexture || !preparationBuffer) {
             clearPreparedImages();
             return;
         }
@@ -1171,96 +1410,125 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const NSUInteger preparationGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
         const CGRect bounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
-        CIImage *preparedSDRFrame = imageForTexture(
-                preparedSDRImage, viewportSize, corners, textureSize);
+        const float fullTargetHeadroom = static_cast<float>(
+                QVCocoaFunctions::effectiveHDRHeadroom(
+                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
+        CIImage *finalDisplayImage = preparedDisplayImage(fullTargetHeadroom, 1.0F);
         CIImage *preparedHDRFrame = imageForTexture(
-                preparedHDRImage, viewportSize, corners, textureSize);
-        if (!preparedSDRFrame || !preparedHDRFrame) {
+                finalDisplayImage, viewportSize, corners, textureSize);
+        if (!preparedHDRFrame) {
             clearPreparedImages();
             presentationState->hdrPreparationInFlight = NO;
             return;
         }
-        [context render:preparedSDRFrame
-             toMTLTexture:preparationTexture
-            commandBuffer:sdrPreparationBuffer
-                   bounds:bounds
-               colorSpace:outputColorSpace];
-        [sdrPreparationBuffer commit];
-        [context render:preparedHDRFrame
-             toMTLTexture:preparationTexture
-            commandBuffer:hdrPreparationBuffer
-                   bounds:bounds
-               colorSpace:outputColorSpace];
-        [hdrPreparationBuffer commit];
 
-        // Endpoint caching alone does not compile and schedule the dynamic
-        // dissolve/tone-map portion of the graph. Warm representative ramp
-        // states while the Qt proxy is still visible so shader setup and the
-        // first full-texture reads cannot consume the visible transition.
-        const qreal warmProgresses[]{ 0.1, 0.5, 1.0 };
-        for (const qreal linearProgress : warmProgresses) {
-            const float easedProgress = static_cast<float>(
-                    QVCocoaFunctions::easedHDRTransition(linearProgress));
-            const float targetHeadroom = static_cast<float>(
-                    QVCocoaFunctions::effectiveHDRHeadroom(
-                            state.contentHeadroom, state.displayRenderingHeadroom,
-                            linearProgress));
-            CIImage *warmImage = preparedDisplayImage(targetHeadroom, easedProgress);
-            if (warmImage) {
-                CIImage *warmFrame = imageForTexture(
-                        warmImage, viewportSize, corners, textureSize);
-                if (warmFrame) {
-                    [context render:warmFrame
-                         toMTLTexture:preparationTexture
-                        commandBuffer:transitionPreparationBuffer
-                               bounds:bounds
-                           colorSpace:outputColorSpace];
-                }
-            }
-        }
-
-        // The first zoom changes Core Image's source ROI even though it reuses
-        // the same endpoint graph. Compiling that ROI on the display-link
-        // callback used to occupy the AppKit run loop for tens of milliseconds
-        // on a 48 MP gain-map image. Warm a representative 4x viewport while
-        // the complete SDR proxy still covers Metal; later zoom/pan frames then
-        // only update the already-compiled affine/crop workset.
+        // Compile the opening ROI and several representative 4x interaction
+        // ROIs on the renderer queue. The first *visible* drawable is still
+        // the final-headroom image, while shader compilation and full-texture
+        // reads cannot block AppKit or leak a partially evaluated frame. RAW
+        // gain-map graphs can specialize their ROI on first evaluation; a
+        // small cross-shaped warm set prevents the first few drag samples from
+        // paying that compilation cost after the user zooms.
         QPolygonF interactionWarmCorners = corners;
         const QPointF viewportCenter(viewportSize.width() / 2.0,
                                      viewportSize.height() / 2.0);
         for (QPointF &corner : interactionWarmCorners)
             corner = viewportCenter + (corner - viewportCenter) * 4.0
                     + QPointF(11.0, 7.0);
-        const float fullTargetHeadroom = static_cast<float>(
-                QVCocoaFunctions::effectiveHDRHeadroom(
-                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
-        CIImage *interactionWarmImage = preparedDisplayImage(fullTargetHeadroom, 1.0F);
-        CIImage *interactionWarmFrame = imageForTexture(
-                interactionWarmImage, viewportSize, interactionWarmCorners, textureSize);
-        if (interactionWarmFrame) {
-            [context render:interactionWarmFrame
-                 toMTLTexture:preparationTexture
-                commandBuffer:transitionPreparationBuffer
-                       bounds:bounds
-                   colorSpace:outputColorSpace];
+        NSMutableArray *interactionWarmFrames = [[NSMutableArray alloc] initWithCapacity:5];
+        const QPointF warmOffsets[] = {
+            QPointF(0.0, 0.0),
+            QPointF(viewportSize.width() * 0.25, 0.0),
+            QPointF(-viewportSize.width() * 0.25, 0.0),
+            QPointF(0.0, viewportSize.height() * 0.25),
+            QPointF(0.0, -viewportSize.height() * 0.25),
+        };
+        for (const QPointF &offset : warmOffsets) {
+            QPolygonF sampleCorners = interactionWarmCorners;
+            for (QPointF &corner : sampleCorners)
+                corner += offset;
+            CIImage *warmFrame = imageForTexture(
+                    finalDisplayImage, viewportSize, sampleCorners, textureSize);
+            if (warmFrame)
+                [interactionWarmFrames addObject:warmFrame];
         }
-        [transitionPreparationBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
-            const BOOL completed = completedBuffer.status == MTLCommandBufferStatusCompleted;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (gate->generation != preparationGeneration)
-                    return;
-                gate->hdrPreparationInFlight = NO;
-                gate->hdrPrepared = completed;
-            });
-        }];
-        [transitionPreparationBuffer commit];
+        NSArray *retainedWarmFrames = [interactionWarmFrames copy];
+        [interactionWarmFrames release];
+
+        CIImage *openingFrame = [preparedHDRFrame retain];
+        id<MTLTexture> targetTexture = [preparationTexture retain];
+        id<MTLCommandBuffer> retainedBuffer = [preparationBuffer retain];
+        CIContext *renderContext = [context retain];
+        CGColorSpaceRef renderColorSpace = CGColorSpaceRetain(outputColorSpace);
+        dispatch_async(renderQueue, ^{
+            [renderContext render:openingFrame
+                      toMTLTexture:targetTexture
+                     commandBuffer:retainedBuffer
+                            bounds:bounds
+                        colorSpace:renderColorSpace];
+            for (CIImage *warmFrame in retainedWarmFrames) {
+                [renderContext render:warmFrame
+                          toMTLTexture:targetTexture
+                         commandBuffer:retainedBuffer
+                                bounds:bounds
+                            colorSpace:renderColorSpace];
+            }
+            [retainedBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
+                const BOOL completed =
+                        completedBuffer.status == MTLCommandBufferStatusCompleted;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (gate->generation != preparationGeneration)
+                        return;
+                    gate->hdrPreparationInFlight = NO;
+                    gate->hdrPrepared = completed;
+                    if (gate->displayLink)
+                        gate->displayLink.paused = NO;
+                });
+            }];
+            [retainedBuffer commit];
+            [openingFrame release];
+            [retainedWarmFrames release];
+            [targetTexture release];
+            [retainedBuffer release];
+            [renderContext release];
+            CGColorSpaceRelease(renderColorSpace);
+        });
     }
 
     void render(const QSize &viewportSize, const QPolygonF &corners,
-                const qreal linearProgress)
+                const qreal linearProgress, const bool interactive)
     {
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
             return;
+
+        // Resize the CAMetalLayer on the AppKit/Qt thread that observed the
+        // viewport change, before CAMetalDisplayLink vends its next drawable.
+        // Mutating drawableSize from inside needsUpdate can leave the link
+        // waiting on the old drawable pool after scrollbars resize a viewport.
+        NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
+        const CGFloat backingScale = nativeView.window
+                ? nativeView.window.backingScaleFactor
+                : (screen ? screen.backingScaleFactor : 1.0);
+        const CGSize requestedSize = CGSizeMake(
+                std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
+                std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
+        state.requestedDrawableWidth = static_cast<int>(
+                std::lround(requestedSize.width));
+        state.requestedDrawableHeight = static_cast<int>(
+                std::lround(requestedSize.height));
+        const bool drawableSizeChanged =
+                std::abs(metalLayer.drawableSize.width - requestedSize.width) > 0.5
+                || std::abs(metalLayer.drawableSize.height - requestedSize.height) > 0.5;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        metalLayer.frame = nativeView.bounds;
+        metalLayer.contentsScale = backingScale;
+        if (drawableSizeChanged)
+            metalLayer.drawableSize = requestedSize;
+        navigationOverlayLayer.frame = nativeView.bounds;
+        [CATransaction commit];
+        if (drawableSizeChanged)
+            rebuildDisplayLinkForDrawableResize();
 
         ++state.renderRequestCount;
         if (renderPending)
@@ -1269,58 +1537,91 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         pendingViewportSize = viewportSize;
         pendingCorners = corners;
         pendingLinearProgress = linearProgress;
+        pendingInteractive = interactive;
+        pendingRequestTimestamp = CACurrentMediaTime();
+        // Keep CAMetalDisplayLink running for the short interaction window.
+        // Pausing immediately after the first interactive submission creates
+        // a pause/wake race: Qt can enqueue many latest-only geometry updates
+        // while the link is still parked, leaving one stale frame on screen.
+        // The deadline is refreshed by every input sample and expires shortly
+        // after the final sample, so idle images still use one-shot rendering.
+        interactiveKeepAliveUntil = interactive
+                ? pendingRequestTimestamp + 0.16
+                : 0.0;
         pendingRenderGeneration = ++state.requestedRenderGeneration;
-        displayLink.paused = NO;
+        if (displayLink && displayLink.paused)
+            displayLink.paused = NO;
     }
 
     void renderDisplayLinkUpdate(CAMetalDisplayLinkUpdate *update)
     {
         ++state.displayLinkCallbackCount;
         syncPresentationDiagnostics();
-        if (!renderPending) {
-            displayLink.paused = YES;
+        const bool keepAlive = pendingInteractive
+                && interactiveKeepAliveUntil > CACurrentMediaTime();
+        if (!renderPending && !keepAlive)
             return;
-        }
-        // Keep exactly one presented frame in flight. Requests arriving while
-        // the GPU is busy overwrite the pending state, so stale zoom/pan
-        // generations can never drain later as visible ghost frames.
-        if (presentationState->frameInFlight) {
+        // Do not pause from an idle callback: that callback can race a request
+        // that has just resumed the link. A successful submission below pauses
+        // atomically with consuming its exact pending generation; the next Qt
+        // request then performs the only wake-up.
+        // Two frames may overlap CPU encoding, GPU execution and scanout. A
+        // one-frame completion gate serialized those stages and capped a fast
+        // GPU at roughly 30 fps. Pending geometry is still latest-only.
+        if (frameFlow && frameFlow->framesInFlight.load() >= 2) {
             ++state.deferredDisplayLinkCallbackCount;
             return;
         }
 
         const QSize viewportSize = pendingViewportSize;
         const QPolygonF corners = pendingCorners;
-        const qreal requestedLinearProgress = pendingLinearProgress;
-        // Requests remain latest-only, but the one-time activation ramp is
-        // paced from the last frame actually encoded. If a cold GPU frame
-        // spans several 16 ms requests, do not expose the whole accumulated
-        // brightness jump at once; keep DisplayLink active to submit bounded
-        // follow-ups until it reaches the newest requested progress.
-        const qreal linearProgress = QVCocoaFunctions::pacedHDRTransitionProgress(
-                lastSubmittedLinearProgress, requestedLinearProgress, 0.04);
+        const qreal linearProgress = pendingLinearProgress;
+        const bool interactive = pendingInteractive;
+        const CFTimeInterval requestTimestamp = pendingRequestTimestamp;
         const quint64 renderGeneration = pendingRenderGeneration;
-        renderPending = linearProgress + 0.000001 < requestedLinearProgress;
-        renderToDrawable(update.drawable, viewportSize, corners,
-                         linearProgress, renderGeneration);
-        if (!renderPending)
-            displayLink.paused = YES;
+        const bool submitted = renderToDrawable(
+                update.drawable, viewportSize, corners, linearProgress,
+                renderGeneration, requestTimestamp, update.targetTimestamp,
+                interactive);
+        if (submitted && pendingRenderGeneration == renderGeneration) {
+            if (interactive)
+                ++state.displayLinkInteractiveSubmissionCount;
+            if (keepAlive || (pendingInteractive
+                              && interactiveKeepAliveUntil > CACurrentMediaTime())) {
+                // A display-link callback must receive a drawable on every
+                // cadence while interaction is active. Re-submit the latest
+                // geometry until the keep-alive deadline, refreshing the
+                // telemetry timestamp so repeated presents are measured as
+                // independent frames rather than one growing request.
+                renderPending = true;
+                pendingRequestTimestamp = CACurrentMediaTime();
+                displayLink.paused = NO;
+            } else {
+                renderPending = false;
+                displayLink.paused = YES;
+            }
+        }
     }
 
-    void renderToDrawable(id<CAMetalDrawable> drawable,
+    bool renderToDrawable(id<CAMetalDrawable> drawable,
                           const QSize &viewportSize,
                           const QPolygonF &corners,
                           const qreal linearProgress,
-                          const quint64 renderGeneration)
+                          const quint64 renderGeneration,
+                          const CFTimeInterval requestTimestamp,
+                          const CFTimeInterval targetTimestamp,
+                          const bool interactive)
     {
         if (!state.rendererAvailable || !image || !drawable
             || viewportSize.isEmpty() || corners.size() < 4)
-            return;
+            return false;
 
         @autoreleasepool {
             syncPresentationDiagnostics();
-            if (presentationState->hdrPreparationInFlight)
-                return;
+            if (presentationState->hdrPreparationInFlight) {
+                displayLink.paused = YES;
+                return false;
+            }
 
             NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
             state.displayCurrentHeadroom = screen
@@ -1358,20 +1659,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             state.targetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
                     state.contentHeadroom, state.displayRenderingHeadroom, linearProgress));
 
-            const CGFloat backingScale = nativeView.window
-                    ? nativeView.window.backingScaleFactor
-                    : (screen ? screen.backingScaleFactor : 1.0);
-            const CGSize requestedSize =
-                    CGSizeMake(std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
-                               std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
-            state.requestedDrawableWidth = static_cast<int>(std::lround(requestedSize.width));
-            state.requestedDrawableHeight = static_cast<int>(std::lround(requestedSize.height));
+            const CGSize requestedSize = CGSizeMake(
+                    state.requestedDrawableWidth,
+                    state.requestedDrawableHeight);
 
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
-            metalLayer.frame = nativeView.bounds;
-            metalLayer.contentsScale = backingScale;
-            metalLayer.drawableSize = requestedSize;
             metalLayer.hidden = NO;
             if (@available(macOS 26.0, *)) {
                 // contentsHeadroom describes the pixels in the drawable, not
@@ -1407,15 +1700,16 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     presentationState->hdrPrepared = NO;
                 }
                 scheduleHDRPreparation(viewportSize, corners, requestedSize);
+                displayLink.paused = YES;
                 syncPresentationDiagnostics();
-                return;
+                return false;
             }
             if (!needsManagedPreparation && !presentationState->hdrPrepared)
                 scheduleHDRPreparation(viewportSize, corners, requestedSize);
 
             id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
             if (!commandBuffer)
-                return;
+                return false;
             const CGSize actualSize = CGSizeMake(drawable.texture.width, drawable.texture.height);
             state.actualTextureWidth = static_cast<int>(drawable.texture.width);
             state.actualTextureHeight = static_cast<int>(drawable.texture.height);
@@ -1423,47 +1717,93 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     state.actualTextureWidth == state.requestedDrawableWidth
                     && state.actualTextureHeight == state.requestedDrawableHeight;
             if (!state.drawableGeometryMatches)
-                return;
+                return false;
 
             const bool preparedEndpointsActive = presentationState->hdrPrepared
                     && preparedSDRImage && preparedHDRImage;
             state.preparedGeometryActive = preparedEndpointsActive;
             if (needsManagedPreparation && !preparedEndpointsActive)
-                return;
+                return false;
             CIImage *source = preparedEndpointsActive
                     ? preparedDisplayImage(state.targetHeadroom, state.transitionProgress)
                     : displayImage(*image, state.targetHeadroom, state.transitionProgress);
             source = imageForTexture(source, viewportSize, corners, actualSize);
             if (!source)
-                return;
+                return false;
 
             const CGRect destinationBounds = CGRectMake(
                     0, 0, actualSize.width, actualSize.height);
-            revealAfterPresentation(drawable, commandBuffer);
-            presentationState->frameInFlight = YES;
-            presentationState->inFlightGeneration = renderGeneration;
+            const bool finalHeadroom = linearProgress >= 0.999;
+            revealAfterPresentation(drawable, commandBuffer, finalHeadroom);
             state.submittedRenderGeneration = renderGeneration;
-            QVHDRPresentationState *frameGate = presentationState;
+            const auto submittedFlow = frameFlow;
+            const auto presentationCallTimestamp =
+                    std::make_shared<std::atomic<double>>(0.0);
+            if (submittedFlow)
+                submittedFlow->framesInFlight.fetch_add(1);
             [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (frameGate->inFlightGeneration != renderGeneration)
-                        return;
-                    frameGate->frameInFlight = NO;
-                    if (frameGate->displayLink)
-                        frameGate->displayLink.paused = NO;
-                });
+                if (submittedFlow)
+                    submittedFlow->framesInFlight.fetch_sub(1);
             }];
-            // Core Image encoding can still compile a new high-resolution ROI
-            // even when drawable acquisition is display-link paced. Keep that
-            // work off AppKit's run loop. The immutable CIImage and Objective-C
-            // command objects are retained by the copied dispatch block; the
-            // destructor drains this serial queue before releasing the context.
+            if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
+                const bool presentationLogging =
+                        qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG");
+                [drawable addPresentedHandler:^(id<MTLDrawable> presentedDrawable) {
+                    if (!submittedFlow)
+                        return;
+                    const double reportedPresentedTime = presentedDrawable.presentedTime;
+                    // Some CAMetalDrawable implementations report zero even
+                    // inside addPresentedHandler. The handler invocation itself
+                    // is the documented post-presentation observation point,
+                    // so use its monotonic timestamp as the auditable fallback.
+                    const double presentedTime = reportedPresentedTime > 0.0
+                            ? reportedPresentedTime : CACurrentMediaTime();
+                    const double previousTime = submittedFlow->lastPresentedTime.exchange(
+                            presentedTime);
+                    const double intervalMilliseconds = previousTime > 0.0
+                            ? (presentedTime - previousTime) * 1000.0 : 0.0;
+                    const double requestToPresentationMilliseconds =
+                            std::max(0.0, (presentedTime - requestTimestamp) * 1000.0);
+                    submittedFlow->lastPresentedIntervalMilliseconds.store(
+                            intervalMilliseconds);
+                    submittedFlow->lastRequestToPresentationMilliseconds.store(
+                            requestToPresentationMilliseconds);
+                    const quint64 presentedCount =
+                            submittedFlow->presentedFrameCount.fetch_add(1) + 1;
+                    const double presentationCallTime =
+                            presentationCallTimestamp->load();
+                    const bool missedDeadline = targetTimestamp > 0.0
+                            && presentationCallTime > targetTimestamp;
+                    if (missedDeadline)
+                        submittedFlow->missedTargetDeadlineCount.fetch_add(1);
+                    if (presentationLogging) {
+                        std::fprintf(stderr,
+                                "FOVELLE_PRESENT {\"generation\":%llu,"
+                                "\"presented_count\":%llu,\"interactive\":%s,"
+                                "\"final_headroom\":%s,\"interval_ms\":%.3f,"
+                                "\"request_to_present_ms\":%.3f,"
+                                "\"missed_target\":%s}\n",
+                                static_cast<unsigned long long>(renderGeneration),
+                                static_cast<unsigned long long>(presentedCount),
+                                interactive ? "true" : "false",
+                                finalHeadroom ? "true" : "false",
+                                intervalMilliseconds,
+                                requestToPresentationMilliseconds,
+                                missedDeadline ? "true" : "false");
+                    }
+                }];
+            }
+            // Complete encoding, present, and commit before returning from the
+            // display-link callback. Running the CI work synchronously on the
+            // dedicated serial queue keeps it off the AppKit thread without
+            // introducing the post-callback scheduling bubble that misses the
+            // display link's targetTimestamp deadline.
             CIImage *encodedSource = source;
             id<CAMetalDrawable> encodedDrawable = drawable;
             id<MTLCommandBuffer> encodedCommandBuffer = commandBuffer;
             CIContext *renderContext = context;
             CGColorSpaceRef renderColorSpace = CGColorSpaceRetain(outputColorSpace);
-            dispatch_async(renderQueue, ^{
+            dispatch_sync(renderQueue, ^{
                 QElapsedTimer timer;
                 timer.start();
                 [renderContext render:encodedSource
@@ -1472,8 +1812,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                                 bounds:destinationBounds
                             colorSpace:renderColorSpace];
                 // Presentation is ordered after every Core Image command
-                // encoded in this command buffer. Enqueue it before commit so
-                // the display-link drawable can meet its target deadline.
+                // encoded in this command buffer. A drawable supplied by
+                // CAMetalDisplayLink must use ordinary present; targetTimestamp
+                // is the deadline by which present needs to be called, not a
+                // time to pass to a timed-presentation selector.
+                presentationCallTimestamp->store(CACurrentMediaTime());
                 [encodedCommandBuffer presentDrawable:encodedDrawable];
                 [encodedCommandBuffer commit];
                 const double elapsedMilliseconds =
@@ -1485,9 +1828,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 }
                 CGColorSpaceRelease(renderColorSpace);
             });
-            lastSubmittedLinearProgress = linearProgress;
             syncPresentationDiagnostics();
+            return true;
         }
+        return false;
     }
 
     HDRRendererDiagnostics diagnostics()
@@ -1499,6 +1843,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     NSView *nativeView{ nil };
     CAMetalLayer *metalLayer{ nil };
+    CALayer *navigationOverlayLayer{ nil };
+    CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
+    CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
     CAMetalDisplayLink *displayLink{ nil };
     QVHDRDisplayLinkDelegate *displayLinkDelegate{ nil };
     id<MTLDevice> device{ nil };
@@ -1509,6 +1856,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CGColorSpaceRef backgroundColorSpace{ nullptr };
     QColor backgroundColor{ Qv::viewportBackgroundColor(Qv::Theme::Light) };
     QVHDRPresentationState *presentationState{ nil };
+    std::shared_ptr<HDRFrameFlowState> frameFlow{ std::make_shared<HDRFrameFlowState>() };
     id<MTLTexture> preparationTexture{ nil };
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
@@ -1517,7 +1865,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     QSize pendingViewportSize;
     QPolygonF pendingCorners;
     qreal pendingLinearProgress{ 0.0 };
-    qreal lastSubmittedLinearProgress{ 0.0 };
+    bool pendingInteractive{ false };
+    CFTimeInterval pendingRequestTimestamp{ 0.0 };
+    CFTimeInterval interactiveKeepAliveUntil{ 0.0 };
     quint64 pendingRenderGeneration{ 0 };
     std::mutex telemetryMutex;
     HDRRendererDiagnostics state;
@@ -1559,10 +1909,27 @@ void QVCocoaFunctions::HDRRenderer::clear()
 }
 
 void QVCocoaFunctions::HDRRenderer::render(const QSize &viewportSize, const QPolygonF &imageCorners,
-                                           const qreal transitionProgress)
+                                           const qreal transitionProgress,
+                                           const bool interactive)
 {
     if (impl)
-        impl->render(viewportSize, imageCorners, transitionProgress);
+        impl->render(viewportSize, imageCorners, transitionProgress, interactive);
+}
+
+void QVCocoaFunctions::HDRRenderer::setNavigationOverlay(
+        const int index, const QRectF &viewportRect, const qreal opacity,
+        const bool previous, const bool darkBackground, const bool hovered,
+        const bool pressed, const bool enabled)
+{
+    if (impl)
+        impl->setNavigationOverlay(index, viewportRect, opacity, previous,
+                                   darkBackground, hovered, pressed, enabled);
+}
+
+void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()
+{
+    if (impl)
+        impl->clearNavigationOverlays();
 }
 
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
@@ -1574,16 +1941,6 @@ qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
 {
     const qreal bounded = std::clamp(progress, 0.0, 1.0);
     return bounded * bounded * (3.0 - 2.0 * bounded);
-}
-
-qreal QVCocoaFunctions::pacedHDRTransitionProgress(const qreal previousProgress,
-                                                    const qreal desiredProgress,
-                                                    const qreal maximumStep)
-{
-    const qreal previous = std::clamp(previousProgress, 0.0, 1.0);
-    const qreal desired = std::clamp(desiredProgress, previous, 1.0);
-    const qreal step = std::max(0.0, maximumStep);
-    return std::min(desired, previous + step);
 }
 
 qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
@@ -1621,11 +1978,10 @@ qreal QVCocoaFunctions::displayHeadroomForRendering(const qreal currentHeadroom,
     return std::min(safeContent, safePotential);
 }
 
-bool QVCocoaFunctions::shouldStartHDRTransition(const bool layoutReady,
-                                                const bool firstFramePresented,
-                                                const bool hdrPrepared)
+bool QVCocoaFunctions::isFinalHDRFrameReadyForReveal(
+        const bool drawableGeometryMatches, const qreal transitionProgress)
 {
-    return layoutReady && firstFramePresented && hdrPrepared;
+    return drawableGeometryMatches && transitionProgress >= 0.999;
 }
 
 QVCocoaFunctions::HDRPixelStatistics

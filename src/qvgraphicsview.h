@@ -137,6 +137,13 @@ public:
 
     std::optional<qreal> sampleDisplayedImageBrightness(const QPoint &viewportPoint) const;
 
+    bool usesNativeHDRNavigationOverlay() const;
+    void setHDRNavigationOverlay(int index, const QRectF &viewportRect,
+                                 qreal opacity, bool previous,
+                                 bool darkBackground, bool hovered,
+                                 bool pressed, bool enabled);
+    void clearHDRNavigationOverlays();
+
     int getFitOverscan() const { return fitOverscan; }
 
 signals:
@@ -315,12 +322,10 @@ private:
     QTimer *expensiveScaleTimer;
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;
-    QTimer *hdrTransitionTimer;
+    QTimer *hdrPresentationTimer;
     QTimer *hdrGeometryTimer;
     QTimer *hdrFrameRequestTimer;
-    QElapsedTimer hdrTransitionClock;
     QElapsedTimer hdrInteractionClock;
-    qreal hdrTransitionLinearProgress{ 0.0 };
     qreal hdrInteractionZoomMilliseconds{ 0.0 };
     int hdrInteractionStep{ -1 };
     bool hdrActivationCompleted{ false };

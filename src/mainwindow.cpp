@@ -227,35 +227,84 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
         // Opt-in system-test surface probe. Hold the real navigation widget at
         // a fractional paint opacity long enough for deterministic screen
         // capture, without moving the user's cursor or changing settings.
-        QTimer::singleShot(2500, this, [this]() {
+        const auto showNavigationProbe = [this]() {
             if (!nextImageButton)
                 return;
+            updateNavigationButtonGeometry();
             updateNavigationButtonAppearance();
             nextImageButtonAnimation->stop();
+            setProperty("fovelleNavigationProbeActive", true);
             nextImageButton->setProperty("paintOpacity", 0.5);
-            nextImageButton->show();
-            nextImageButton->raise();
-            nextImageButton->update();
-            const QPoint origin = nextImageButton->mapToGlobal(QPoint(0, 0));
+            nextImageButtonRequestedVisible = true;
+            if (graphicsView->usesNativeHDRNavigationOverlay()) {
+                nextImageButton->hide();
+                syncNavigationButtonOverlay(nextImageButton);
+            } else {
+                nextImageButton->show();
+                nextImageButton->raise();
+                nextImageButton->update();
+            }
+            const QPoint nativeOverlayOrigin = graphicsView->viewport()->mapFrom(
+                    graphicsView, nextImageButton->geometry().topLeft());
+            const QPoint origin = graphicsView->viewport()->mapToGlobal(
+                    nativeOverlayOrigin);
             const QJsonObject event{
                 { QStringLiteral("phase"), QStringLiteral("fractional-visible") },
                 { QStringLiteral("global_x"), origin.x() },
                 { QStringLiteral("global_y"), origin.y() },
+                { QStringLiteral("viewport_x"), nativeOverlayOrigin.x() },
+                { QStringLiteral("viewport_y"), nativeOverlayOrigin.y() },
                 { QStringLiteral("width"), nextImageButton->width() },
                 { QStringLiteral("height"), nextImageButton->height() },
                 { QStringLiteral("paint_opacity"),
                   nextImageButton->property("paintOpacity").toDouble() },
                 { QStringLiteral("has_graphics_effect"),
                   nextImageButton->graphicsEffect() != nullptr },
+                { QStringLiteral("presentation_surface"),
+                  graphicsView->usesNativeHDRNavigationOverlay()
+                          ? QStringLiteral("metal-sublayer")
+                          : QStringLiteral("qt-widget") },
+                { QStringLiteral("qt_widget_visible"), nextImageButton->isVisible() },
             };
             qInfo().noquote() << "FOVELLE_NAV"
                               << QJsonDocument(event).toJson(QJsonDocument::Compact);
-        });
-        QTimer::singleShot(4500, this, [this]() {
+        };
+        // Start only after all deterministic zoom/pan work and deferred
+        // geometry have settled.
+        QTimer::singleShot(8200, this, showNavigationProbe);
+        QTimer::singleShot(9600, this, [this]() {
             if (!nextImageButton)
                 return;
+            nextImageButton->setProperty("paintOpacity", 1.0);
+            syncNavigationButtonOverlay(nextImageButton);
+            const QPoint nativeOverlayOrigin = graphicsView->viewport()->mapFrom(
+                    graphicsView, nextImageButton->geometry().topLeft());
+            const QPoint origin = graphicsView->viewport()->mapToGlobal(
+                    nativeOverlayOrigin);
+            qInfo().noquote() << "FOVELLE_NAV"
+                              << QJsonDocument(QJsonObject{
+                                     { QStringLiteral("phase"),
+                                       QStringLiteral("fully-visible") },
+                                     { QStringLiteral("global_x"), origin.x() },
+                                     { QStringLiteral("global_y"), origin.y() },
+                                     { QStringLiteral("viewport_x"), nativeOverlayOrigin.x() },
+                                     { QStringLiteral("viewport_y"), nativeOverlayOrigin.y() },
+                                     { QStringLiteral("width"), nextImageButton->width() },
+                                     { QStringLiteral("height"), nextImageButton->height() },
+                                     { QStringLiteral("paint_opacity"), 1.0 },
+                                 }).toJson(QJsonDocument::Compact);
+        });
+        // Window-scoped HDR captures can take over a second on an XDR
+        // desktop. Keep the probe visible well beyond the interaction settle
+        // point so both comparison frames observe the same composition.
+        QTimer::singleShot(10800, this, [this]() {
+            if (!nextImageButton)
+                return;
+            setProperty("fovelleNavigationProbeActive", false);
+            nextImageButtonRequestedVisible = false;
             nextImageButton->hide();
             nextImageButton->setProperty("paintOpacity", 0.0);
+            syncNavigationButtonOverlay(nextImageButton);
             qInfo().noquote() << "FOVELLE_NAV"
                               << QJsonDocument(QJsonObject{
                                      { QStringLiteral("phase"),
@@ -441,6 +490,25 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         return QMainWindow::eventFilter(watched, event);
 
     QWidget *watchedWidget = qobject_cast<QWidget *>(watched);
+    const auto navigationWindowRect = [this](QPushButton *button) {
+        return QRect(graphicsView->mapTo(this, button->geometry().topLeft()), button->size());
+    };
+    const auto updateNativeHover = [this, &navigationWindowRect](const QPoint &position) {
+        if (!graphicsView->usesNativeHDRNavigationOverlay())
+            return;
+        const bool previousHovered = previousImageButtonRequestedVisible
+                && navigationWindowRect(previousImageButton).contains(position);
+        const bool nextHovered = nextImageButtonRequestedVisible
+                && navigationWindowRect(nextImageButton).contains(position);
+        if (previousHovered == previousImageButtonHovered
+            && nextHovered == nextImageButtonHovered)
+            return;
+        previousImageButtonHovered = previousHovered;
+        nextImageButtonHovered = nextHovered;
+        syncNavigationButtonOverlays();
+    };
+    const bool navigationProbeActive =
+            property("fovelleNavigationProbeActive").toBool();
     if (event->type() == QEvent::MouseMove && watchedWidget)
     {
         const auto *mouseEvent = static_cast<QMouseEvent *>(event);
@@ -449,15 +517,71 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 #else
         const QPoint watchedPosition = mouseEvent->pos();
 #endif
-        updateNavigationButtonVisibility(watchedWidget->mapTo(this, watchedPosition));
+        const QPoint windowPosition = watchedWidget->mapTo(this, watchedPosition);
+        if (!navigationProbeActive) {
+            updateNavigationButtonVisibility(windowPosition);
+            updateNativeHover(windowPosition);
+        }
+        if (pressedNavigationButton >= 0)
+            return true;
     }
     else if (event->type() == QEvent::Enter)
     {
-        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+        if (!navigationProbeActive) {
+            updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+            updateNativeHover(mapFromGlobal(QCursor::pos()));
+        }
     }
     else if (event->type() == QEvent::Leave)
     {
-        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+        if (!navigationProbeActive) {
+            updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+            updateNativeHover(mapFromGlobal(QCursor::pos()));
+        }
+    }
+    else if ((event->type() == QEvent::MouseButtonPress
+              || event->type() == QEvent::MouseButtonRelease)
+             && watchedWidget && graphicsView->usesNativeHDRNavigationOverlay())
+    {
+        const auto *mouseEvent = static_cast<QMouseEvent *>(event);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const QPoint watchedPosition = mouseEvent->position().toPoint();
+#else
+        const QPoint watchedPosition = mouseEvent->pos();
+#endif
+        const QPoint windowPosition = watchedWidget->mapTo(this, watchedPosition);
+        if (event->type() == QEvent::MouseButtonPress
+            && mouseEvent->button() == Qt::LeftButton) {
+            if (previousImageButtonRequestedVisible
+                && navigationWindowRect(previousImageButton).contains(windowPosition))
+                pressedNavigationButton = 0;
+            else if (nextImageButtonRequestedVisible
+                     && navigationWindowRect(nextImageButton).contains(windowPosition))
+                pressedNavigationButton = 1;
+            if (pressedNavigationButton >= 0) {
+                updateNativeHover(windowPosition);
+                syncNavigationButtonOverlays();
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease
+                   && pressedNavigationButton >= 0) {
+            const int releasedButton = pressedNavigationButton;
+            const bool activate = mouseEvent->button() == Qt::LeftButton
+                    && ((releasedButton == 0 && previousImageButtonRequestedVisible
+                         && navigationWindowRect(previousImageButton).contains(windowPosition))
+                        || (releasedButton == 1 && nextImageButtonRequestedVisible
+                            && navigationWindowRect(nextImageButton).contains(windowPosition)));
+            pressedNavigationButton = -1;
+            updateNativeHover(windowPosition);
+            syncNavigationButtonOverlays();
+            if (activate) {
+                if (releasedButton == 0)
+                    previousFile();
+                else
+                    nextFile();
+            }
+            return true;
+        }
     }
 
     return QMainWindow::eventFilter(watched, event);
@@ -510,11 +634,15 @@ void MainWindow::initializeNavigationButtons()
         (*animation)->setObjectName(objectName);
         (*animation)->setDuration(NavigationButtonAnimationDuration);
         connect(*animation, &QPropertyAnimation::valueChanged, button,
-                [button]() { button->update(); });
-        connect(*animation, &QPropertyAnimation::finished, button, [button, animation]() {
+                [this, button]() {
+                    button->update();
+                    syncNavigationButtonOverlay(button);
+                });
+        connect(*animation, &QPropertyAnimation::finished, button, [this, button, animation]() {
             if ((*animation)->endValue().toReal() <= 0.0
                 && button->property("paintOpacity").toReal() <= 0.001)
                 button->hide();
+            syncNavigationButtonOverlay(button);
         });
     };
 
@@ -554,6 +682,7 @@ void MainWindow::updateNavigationButtonGeometry()
         NavigationButtonSize);
     previousImageButton->raise();
     nextImageButton->raise();
+    syncNavigationButtonOverlays();
 }
 
 void MainWindow::updateNavigationButtonAppearance()
@@ -568,6 +697,60 @@ void MainWindow::updateNavigationButtonAppearance()
 
     updateButton(previousImageButton);
     updateButton(nextImageButton);
+    syncNavigationButtonOverlays();
+}
+
+void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
+{
+    if (!graphicsView || !button)
+        return;
+
+    const int index = button == previousImageButton ? 0
+            : button == nextImageButton ? 1 : -1;
+    if (index < 0)
+        return;
+
+    const bool nativeOverlay = graphicsView->usesNativeHDRNavigationOverlay();
+    const bool requestedVisible = index == 0
+            ? previousImageButtonRequestedVisible
+            : nextImageButtonRequestedVisible;
+    if (!nativeOverlay) {
+        if (requestedVisible && button->property("paintOpacity").toReal() > 0.001)
+            button->show();
+        button->update();
+        return;
+    }
+
+    // Never leave an alien/raster QWidget above EDR pixels. Its transparent
+    // corners resolve against Qt's SDR backing store instead of the sibling
+    // CAMetalLayer. The shape-only overlay below is a CAMetalLayer sublayer.
+    button->hide();
+    const QPoint viewportOrigin = graphicsView->viewport()->mapFrom(
+            graphicsView, button->geometry().topLeft());
+    const QRectF viewportRect(viewportOrigin, button->size());
+    const bool darkBackground =
+            button->property("contrastStyle").toString() == QStringLiteral("dark");
+    const bool hovered = index == 0
+            ? previousImageButtonHovered : nextImageButtonHovered;
+    graphicsView->setHDRNavigationOverlay(
+            index, viewportRect,
+            requestedVisible ? button->property("paintOpacity").toReal() : 0.0,
+            index == 0, darkBackground, hovered,
+            pressedNavigationButton == index, button->isEnabled());
+}
+
+void MainWindow::syncNavigationButtonOverlays()
+{
+    if (!graphicsView)
+        return;
+    if (!graphicsView->usesNativeHDRNavigationOverlay()) {
+        graphicsView->clearHDRNavigationOverlays();
+        syncNavigationButtonOverlay(previousImageButton);
+        syncNavigationButtonOverlay(nextImageButton);
+        return;
+    }
+    syncNavigationButtonOverlay(previousImageButton);
+    syncNavigationButtonOverlay(nextImageButton);
 }
 
 void MainWindow::setNavigationButtonVisible(
@@ -578,23 +761,33 @@ void MainWindow::setNavigationButtonVisible(
     if (!button || !animation)
         return;
 
+    bool &requestedVisible = button == previousImageButton
+            ? previousImageButtonRequestedVisible
+            : nextImageButtonRequestedVisible;
+    if (requestedVisible == visible) {
+        if (graphicsView->usesNativeHDRNavigationOverlay())
+            button->hide();
+        else if (visible && button->property("paintOpacity").toReal() > 0.001)
+            button->show();
+        syncNavigationButtonOverlay(button);
+        return;
+    }
+    requestedVisible = visible;
+
     if (visible)
     {
         animation->stop();
-        if (!button->isVisible())
-        {
-            button->setProperty("paintOpacity", 0.0);
+        const bool nativeOverlay = graphicsView->usesNativeHDRNavigationOverlay();
+        if (!nativeOverlay && button->property("paintOpacity").toReal() <= 0.001)
             button->show();
-        }
+        if (nativeOverlay)
+            button->hide();
         button->raise();
         animation->setStartValue(button->property("paintOpacity").toReal());
         animation->setEndValue(1.0);
         animation->start();
         return;
     }
-
-    if (!button->isVisible())
-        return;
 
     animation->stop();
     animation->setStartValue(button->property("paintOpacity").toReal());
@@ -609,12 +802,19 @@ void MainWindow::hideNavigationButtonsImmediately()
 
     previousImageButtonAnimation->stop();
     nextImageButtonAnimation->stop();
+    previousImageButtonRequestedVisible = false;
+    nextImageButtonRequestedVisible = false;
+    previousImageButtonHovered = false;
+    nextImageButtonHovered = false;
+    pressedNavigationButton = -1;
     previousImageButton->setProperty("paintOpacity", 0.0);
     nextImageButton->setProperty("paintOpacity", 0.0);
     previousImageButton->update();
     nextImageButton->update();
     previousImageButton->hide();
     nextImageButton->hide();
+    if (graphicsView)
+        graphicsView->clearHDRNavigationOverlays();
 }
 
 void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
@@ -643,7 +843,8 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
     const bool rightVisible = contentRect.contains(windowPosition) &&
         (windowPosition.x() >= contentRect.right() - activationWidth + 1 || nextWindowRect.contains(windowPosition));
 
-    if ((leftVisible && !previousImageButton->isVisible()) || (rightVisible && !nextImageButton->isVisible()))
+    if ((leftVisible && !previousImageButtonRequestedVisible)
+        || (rightVisible && !nextImageButtonRequestedVisible))
         updateNavigationButtonAppearance();
 
     setNavigationButtonVisible(

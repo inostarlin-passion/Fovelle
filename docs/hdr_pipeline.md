@@ -12,28 +12,29 @@ HDR 主图从解码到显示保持为 Core Image 高精度图和 Metal `RGBA16Fl
 - [`CIImage.auxiliaryHDRGainMap`](https://developer.apple.com/documentation/coreimage/ciimageoption/auxiliaryhdrgainmap) 可请求辅助 HDR gain map；[`applyingGainMap(_:headroom:)`](https://developer.apple.com/documentation/coreimage/ciimage/applyinggainmap%28_%3Aheadroom%3A%29) 可按目标 headroom 应用它。
 - [`CIRAWFilter`](https://developer.apple.com/documentation/coreimage/cirawfilter) 从传感器 RAW 生成 `CIImage`；其 [`previewImage`](https://developer.apple.com/documentation/coreimage/cirawfilter/previewimage) 是原图的可选辅助预览表示。
 - Apple 的 [WWDC22 EDR](https://developer.apple.com/videos/play/wwdc2022/10114/) 给出 `RGBA16Float`、扩展线性 Display P3、`CAMetalLayer.wantsExtendedDynamicRangeContent` 与 `NSScreen` headroom 的显示合同。
-- [`CAMetalLayer.nextDrawable()`](https://developer.apple.com/documentation/quartzcore/cametallayer/nextdrawable%28%29) 在 drawable pool 忙时会等待，最长可到一秒；[`CAMetalDisplayLink`](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink) 用显示同步回调控制 Metal 帧时序，以改善可变刷新率和视觉伪影。
-- Qt 明确说明 [`QWidget::grab`](https://doc.qt.io/qt-6/qwidget.html#grab) 会把 widget 重新渲染到 pixmap；[`QGraphicsEffect`](https://doc.qt.io/qt-6/qgraphicseffect.html) 位于 source 与 destination 之间，并可把整个 source 绨制成 pixmap 后处理。
+- [`CAMetalLayer.nextDrawable()`](https://developer.apple.com/documentation/quartzcore/cametallayer/nextdrawable%28%29) 在 drawable pool 忙时会等待，最长可到一秒；[`CAMetalDisplayLink`](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink) 按显示刷新提供 drawable 和目标 deadline。本实现的打开与交互只消费该回调提供的 drawable，并在 [`targetTimestamp`](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink/update/targettimestamp) 前调用普通 `present()`；DisplayLink drawable 禁止再用 `present(atTime:)`。实际显示时刻由 [`MTLDrawable.presentedTime`](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime) 在 `addPresentedHandler` 内观测，不能用 command-buffer 提交时刻代替。
+- Apple 说明 `CIContext` 是重量级、可跨线程复用的对象，并建议避免 CPU/GPU 间无谓纹理传输；本实现因此为每个视图复用一个 Metal `CIContext`，在专用串行队列编码。
+- Qt 明确区分共享 backing store 的 alien `QWidget` 与拥有窗口句柄的 native widget。HDR 按钮不再让透明 alien widget 跨越独立 EDR surface，而是通过 [`CALayer.addSublayer`](https://developer.apple.com/documentation/quartzcore/calayer/addsublayer%28_%3A%29) 把 `CAShapeLayer` artwork 放入同一 Metal layer tree。
 - Apple 的 [`NSScreen.maximumExtendedDynamicRangeColorComponentValue`](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue) 是动态 current headroom；[`maximumPotentialExtendedDynamicRangeColorComponentValue`](https://developer.apple.com/documentation/appkit/nsscreen/maximumpotentialextendeddynamicrangecolorcomponentvalue) 描述潜在能力。没有 EDR 内容时 current 可保持 1。
 - [`CIImage.imageByInsertingIntermediate`](https://developer.apple.com/documentation/coreimage/ciimage/insertingintermediate(cache:)) 与 [`CIContext.cacheIntermediates`](https://developer.apple.com/documentation/coreimage/cicontextoption/cacheintermediates) 支持重复交互渲染的中间缓存。Apple 的 [WWDC26 Core Image HDR](https://developer.apple.com/videos/play/wwdc2026/305/) 将交互式复用与一次性导出区分开。
 
-## 本轮四条根因链
+## 累计五条根因链
 
 ### 1. 放大后拖动和悬浮控件卡顿
 
-源码事实：修复前 `paintEvent`、水平 scrollbar、垂直 scrollbar 都同步调用完整 renderer；renderer 又在这条 AppKit 路径调用 `nextDrawable`。一个双轴拖动事件可以引发多次 CI/Metal 提交，而 drawable 获取本身允许等待。悬浮导航在每次进入边缘时还对 viewport 调用 `grab`，导致额外重绘。
+源码事实：第一轮修复已经把重复 paint/scroll 请求合并，也移除了 viewport `grab`；但上一版仍以“command buffer 完成后回主线程再开放下一帧”的单帧门串联 CPU 编码、GPU 执行和 scanout。用户提供的 Metal trace 中，CI 编码只占数毫秒，而相邻提交常达 16–42 ms，说明瓶颈不在单次 shader 成本。
 
-根因推断：这些同步工作共同占用主事件循环，因而拖动帧和 hover 事件互相阻塞。
+根因推断：单帧 GPU-completion→main gate 把本可重叠的阶段强制串行，并让下一次 drawable 调度依赖 AppKit 事件循环；这最能解释 HDR 拖动吞吐低且 hover 一起变慢。
 
-修复：所有 paint/scroll/transition 请求只启动一个 0 ms single-shot dirty timer；每轮事件循环最多把最新几何发布一次。`CAMetalDisplayLink` 提供 drawable，renderer 不再调用 `nextDrawable`；`CIContext.render(toMTLTexture:)` 在专用串行 encode queue 执行，而不是占用 AppKit run loop。GPU 同时最多一帧在途；忙时只覆盖 pending viewport/corners/progress/generation，旧状态不会排队。导航对比度改为 post-load 生成的最长边不超过 384 px SDR sample，并只读取映射点附近 3×3 像素。
+修复：opening 和持续交互统一由 `CAMetalDisplayLink` 调度，主线程只覆盖 latest-only 的 viewport/corners/generation；viewport/scrollbar resize 在 Qt/AppKit 线程先同步 `CAMetalLayer.drawableSize`，尺寸改变时重绑 DisplayLink 到新 drawable pool，下一次 callback 只消费尺寸已确定的 drawable。交互输入刷新一个短 keep-alive deadline，在 deadline 内 callback 持续提交最新几何，不在第一帧后暂停；keep-alive 到期后才在成功消费最新 generation 的 callback 内暂停，下一条 Qt 请求负责唤醒，避免 pause/wake 竞态和停在旧帧。回调最多允许两帧在途，从而让 CPU 编码、GPU 执行和 scanout 重叠，又不会像无节拍 `nextDrawable` 循环那样填满 drawable pool 后成批呈现。DisplayLink 回调同步等待专用串行队列完成 `CIContext.render(toMTLTexture:)`、普通 present 和 commit，因此 CI 编码不占用 AppKit 线程，但提交不会被延后到回调之后；`targetTimestamp` 只作为完成 deadline/漏帧观测值。由 `addPresentedHandler` 记录真实 interval 与 request-to-present，避免用 input callback 或 commit 数伪装流畅度。
 
 ### 2. 悬浮按钮出现标准矩形底面
 
-源码事实：修复前两个导航按钮都挂载 `QGraphicsOpacityEffect`，opacity 动画作用于整个 widget source surface。HDR 视口同时包含原生 EDR Metal sibling，而圆角只存在于按钮内部绘制像素。
+源码事实：移除 `QGraphicsOpacityEffect` 后，按钮仍是 Qt raster/alien `QWidget`，主图则是独立原生 EDR `CAMetalLayer`。用户截图中的有色区域是精确的 120×120 px 轴对齐矩形，等于 60×60 pt 按钮在 DPR 2 下的 backing 几何；问题只在矩形覆盖真实 HDR 像素时出现。
 
-根因推断：矩形 effect source 与圆角 artwork 的合成生命周期不同，解释了标准矩形先出现、后消失。
+根因推断：透明 Qt backing store 与 EDR sibling 跨 surface 合成时，透明角没有直接解析到 HDR drawable；这是“在 HDR 像素上显色、在视口背景或 SDR 图上正常”的最佳因果解释。WindowServer 的私有混合公式没有公开，因此内部运算仍属不确定项。
 
-修复：按钮使用透明且无系统背景的 backing，不挂 graphics effect；动画目标改为 `paintOpacity` 动态属性，`paintEvent` 在同一个 painter 上对圆角底和箭头统一设置 opacity。透明角从始至终没有可淡入的 backing 像素。
+修复：HDR 模式隐藏 Qt 按钮，圆角底和 chevron 改为 `CAMetalLayer` 树内的两个 `CAShapeLayer`，仅 shape path 有像素；frame、颜色、hover、press 与 opacity 均关闭隐式动画后同步。Qt 的左上原点 Y 坐标在写入 Core Animation 子层 frame 前显式转换为底部原点，保证 native artwork 与不可见 Qt 命中区重合。鼠标命中仍由 Qt event filter 处理。SDR 模式继续使用原 `QWidget`，避免扩大改动面。
 
 ### 3. DNG 有 HDR 但细节低于 Quick Look
 
@@ -51,7 +52,15 @@ Quick Look 质量验收不是主观描述：integration test 让 `qlmanage` 与�
 
 根因推断：相邻几何的命令在 drawable queue 中依次呈现，UI 已到新 zoom 时旧帧仍可能短暂上屏。
 
-修复：DisplayLink callback 只在无 frame in flight 时提交；其余请求覆盖 pending state。command buffer 在 commit 前按序 `presentDrawable`，完成后再开放下一帧。系统验收在 JPEG/NEF 交互结束时要求 `requestedGeneration == submittedGeneration` 且 `frameInFlight=false`，NEF 定时截图还独立检查结构 tile、黑带与最终帧 edge similarity。
+修复：缩放和拖动共用 DisplayLink-paced latest-only 调度；新输入覆盖未提交几何，最多两个已提交 frame 在途，停止输入后必须收敛到 `requestedGeneration == submittedGeneration` 且无 frame 在途。NEF 定时截图另外检查结构 tile、黑带与最终帧 edge similarity。
+
+### 5. JPEG、DNG、NEF 打开时闪一下
+
+源码事实：上一版为模拟 Quick Look 渐亮，先提交 SDR/部分 HDR endpoint，再由 650 ms 应用计时器逐步推进 headroom；昂贵 RAW/gain-map 图预热完成后，proxy 也可能在中间 endpoint 被移除。三个格式共享这条逻辑，所以都会出现一次亮度突变。
+
+根因推断：一张图片打开期间出现多个由应用生成的可见亮度 endpoint，是跨格式闪烁的直接原因；系统 EDR 自适配之外再叠加手工 ramp 既不可预测，也会在 GPU 延迟时形成较大的单帧跳变。
+
+修复：预热 opening ROI 和代表性的 4× interaction ROI，但只允许 `progress=1` 的最终 headroom drawable 提交为首个可见 Metal 帧。SDR proxy（HDR→HDR 时为上一张 drawable）持续覆盖，直到尺寸匹配、prepared 的最终帧触发 `addPresentedHandler`；随后一次性切换 layer opacity，亮度适配交给 WindowServer。缩放、平移和 resize 不重启任何亮度时钟。
 
 ## 完整数据流
 
@@ -77,7 +86,7 @@ Image I/O 解析方向、色彩空间、传输函数、Apple/ISO gain map 与 he
 
 ColorSync 创建扩展线性 Display P3 工作/输出空间；CI context 使用 `kCIFormatRGBAh`，Metal layer 使用 `MTLPixelFormatRGBA16Float`、`wantsExtendedDynamicRangeContent=YES` 和自动 tone map。每次实际提交读取窗口所在屏幕 current/potential headroom；current=1、potential>1 时可 bootstrap 首个 EDR 帧，potential=1 时 target 固定为 1。
 
-首个昂贵 endpoint 求值在 SDR proxy 可见时预热；drawable 真正 presented 后才令 Metal opacity=1。650 ms 平滑增亮只属于新图片打开生命周期；zoom/pan/resize 复用同一 prepared presentation，不重置 progress、不回切 SDR、不再次变亮。
+首个昂贵 endpoint 求值在 SDR proxy 或上一张 HDR drawable 可见时预热；只有最终 headroom、prepared 且 drawable 几何匹配的帧真正 presented 后，Metal opacity 才变为 1。应用不再生成 SDR→部分 HDR ramp；WindowServer 负责设备相关的 EDR headroom 适配。zoom/pan/resize 复用同一 prepared source，不回切 SDR、不再次激活亮度。
 
 ## 测试与可观测性
 
@@ -87,15 +96,16 @@ ColorSync 创建扩展线性 Display P3 工作/输出空间；CI context 使用 
 
 - 48 MP JPEG/DNG 解码平均 ≤2500 ms、P99 ≤3500 ms、最大 ≤4000 ms、吞吐 ≥0.4 image/s；
 - 稳态 Metal submission 平均 ≤30 ms、P99 ≤120 ms、最大 ≤200 ms、等效吞吐 ≥33/s；
-- JPEG/NEF zoom 主线程 ≤30 ms；12 步 pan 平均间隔 ≤25 ms、P99 ≤45 ms、最大 ≤60 ms、吞吐 ≥40 steps/s；
-- 激活阶段观察帧率 ≥30/s，相邻 progress 步长 ≤0.15。
+- JPEG/processed-DNG/NEF zoom 主线程 ≤30 ms；48 步 pan input callback 平均间隔 ≤25 ms、P99 ≤45 ms、最大 ≤60 ms、吞吐 ≥40 steps/s；
+- 三格式稳态 presented interval 平均 ≤18 ms、P99 ≤45 ms、最大 ≤60 ms、吞吐 ≥55 frame/s；opening→interaction 边界的前五个 warm-up 间隔（含初始 RAW/gain-map ROI 读取）保留在原始证据中但不计入稳态节奏；
+- windowed macOS request-to-presentation 平均 ≤45 ms、P99 ≤55 ms、最大 ≤65 ms；这些数值来自 `addPresentedHandler`，首个跨 opening idle 窗口的 interval 不计入交互样本。`preferredFrameLatency=1` 只是 DisplayLink 的调度请求，窗口合成后的实际 latency 仍以呈现回调测量。
 
 机器证据位于 `reports/evidence/`，聚合输出为 `reports/test_evidence.json`、`reports/test_case_specification.json`、`reports/test_completion_report.json` 和 `reports/code_quality_assessment_report.json`。
 
 ## 事实、推断与不确定性
 
 - 事实：pre-fix/working-tree 源码差异、样例哈希、RAW/gain-map 浮点探针、Quick Look 导出指标、真实 WindowServer telemetry、screen crops 和时延原始样本全部进入 JSON。
-- 推断：同步 drawable/重复 paint、effect source surface、DNG 配方不匹配和旧 geometry queue 分别是四个症状的最佳根因解释；对应修复同时移除了各自的可审计必要条件。
+- 推断：单帧 GPU-completion→main 串行门、跨 surface alien-widget backing、应用生成的中间 headroom、DNG 配方不匹配和旧 geometry queue 分别是当前症状的最佳根因解释；对应修复移除了各自的可审计必要条件。
 - 不确定：Apple 不公开 Quick Look 私有 RAW tone recipe 或 Core Image 内部 tile/ROI scheduler，不能证明内部算法相同。
 - 不确定：系统截图会被色调映射，不能单独证明绝对 nits 或捕获每个亚帧 ghost；浮点峰值、headroom、代际不变量和多时点截图互补。
 - 不确定：本轮没有物理 SDR-only Mac；纯策略单元测试和 current=potential=1 的真实 renderer override 确定性覆盖 SDR 分支，仍建议发布前补一台 SDR Mac 的人工视觉巡检。
