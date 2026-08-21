@@ -260,9 +260,11 @@ def main() -> int:
             "firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom)" in renderer
             and "addPresentedHandler" in renderer
         ),
-        "previous_hdr_drawable_can_cover_navigation": (
+        "previous_hdr_surface_can_cover_navigation": (
             "retainPreviousPresentation" in renderer
-            and "metalLayer.opacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F" in renderer
+            and "previousMetalPresentationVisible" in renderer
+            and "previousPersistentPresentationVisible" in renderer
+            and "nativeImage && retainPreviousPresentation ? 1.0F : 0.0F" in renderer
         ),
     })
     case("ST-HDR-GEOMETRY-LIFECYCLE", {
@@ -339,7 +341,7 @@ def main() -> int:
         "interactive_submissions_are_counted_at_display_cadence": (
             "if (interactive)" in display_link_entry
             and "++state.displayLinkInteractiveSubmissionCount" in display_link_entry
-            and "preferredFrameRateRange = CAFrameRateRangeMake(60.0, 120.0, 120.0)" in renderer
+            and "preferredFrameRateRange = CAFrameRateRangeMake(80.0, 120.0, 120.0)" in renderer
         ),
         "display_deadline_is_observed_without_timed_present": (
             "update.targetTimestamp" in display_link_entry
@@ -356,6 +358,40 @@ def main() -> int:
             "com.fovelle.hdr-render-encode" in renderer
             and "dispatch_sync(renderQueue" in render_to_drawable
             and "[renderContext render:encodedSource" in render_to_drawable
+        ),
+    })
+    case("ST-HDR-PERSISTENT-COMPOSITOR-FAST-PATH", {
+        "full_hdr_surface_is_materialized_off_main_thread": (
+            "com.fovelle.hdr-persistent-surface" in renderer
+            and "createCGImage:source" in renderer
+            and "format:kCIFormatRGBAh" in renderer
+            and "deferred:NO" in renderer
+        ),
+        "persistent_surface_allocation_is_bounded": (
+            "maximumPersistentBytes = 512ULL * 1024ULL * 1024ULL" in renderer
+            and "width > 16384" in renderer
+            and "height > 16384" in renderer
+        ),
+        "interaction_changes_only_compositor_geometry": (
+            "if (persistentSurfaceReady)" in render_entry
+            and "updatePersistentSurfaceGeometry(viewportSize, corners)" in render_entry
+            and "persistentImageLayer.affineTransform = transform" in renderer
+            and "displayLink.paused = YES" in render_entry
+        ),
+        "metal_fallback_is_hidden_atomically": (
+            "persistentImageLayer.contents = reinterpret_cast<id>(surface)" in renderer
+            and "metalLayer.hidden = YES" in renderer
+            and "[CATransaction setDisableActions:YES]" in renderer
+        ),
+        "hidden_qt_backing_store_is_parked": (
+            "setViewportUpdateMode(QGraphicsView::NoViewportUpdate)" in view
+            and "setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate)" in view
+        ),
+        "focused_120hz_probe_is_observable": (
+            "FOVELLE_HDR_TEST_120HZ_INTERACTION" in view
+            and '"FOVELLE_HDR_120HZ"' in view
+            and 'QStringLiteral("compositor_updates")' in view
+            and 'QStringLiteral("metal_presents")' in view
         ),
     })
     case("ST-HDR-PRESENTATION-TELEMETRY", {
@@ -414,10 +450,10 @@ def main() -> int:
         "navigation_buttons_have_no_graphics_effect": (
             "QGraphicsOpacityEffect" not in navigation_initialization
         ),
-        "hdr_artwork_is_shape_only_metal_sublayer": (
+        "hdr_artwork_is_shape_only_native_sublayer": (
             "navigationOverlayLayer" in renderer
             and renderer.count("[CAShapeLayer layer]") >= 2
-            and "[metalLayer addSublayer:navigationOverlayLayer]" in renderer
+            and "[nativeView.layer addSublayer:navigationOverlayLayer]" in renderer
             and "CGPathCreateWithRoundedRect" in renderer
         ),
         "qt_widget_is_hidden_for_hdr": (

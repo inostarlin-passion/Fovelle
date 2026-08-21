@@ -657,9 +657,18 @@ struct HDRFrameFlowState
     std::atomic<quint64> presentedFrameCount{ 0 };
     std::atomic<quint64> missedTargetDeadlineCount{ 0 };
     std::atomic<double> lastPresentedTime{ 0.0 };
+    std::atomic<double> lastGPUExecutionMilliseconds{ 0.0 };
     std::atomic<double> lastPresentedIntervalMilliseconds{ 0.0 };
     std::atomic<double> lastRequestToPresentationMilliseconds{ 0.0 };
     std::atomic<bool> firstVisibleFrameUsesFinalHeadroom{ false };
+};
+
+// A background full-resolution render can outlive the C++ renderer turn that
+// scheduled it.  Main-queue installation therefore resolves the owner through
+// this independently retained gate instead of capturing a raw `Impl *`.
+struct HDRPersistentSurfaceGate
+{
+    std::atomic<void *> owner{ nullptr };
 };
 }
 
@@ -678,9 +687,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         commandQueue = [device newCommandQueue];
         renderQueue = dispatch_queue_create(
                 "com.fovelle.hdr-render-encode", DISPATCH_QUEUE_SERIAL);
+        persistentSurfaceQueue = dispatch_queue_create(
+                "com.fovelle.hdr-persistent-surface",
+                dispatch_queue_attr_make_with_qos_class(
+                        DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0));
         outputColorSpace = colorSyncDisplayP3ColorSpace(true);
         backgroundColorSpace = colorSyncSrgbColorSpace();
-        if (!commandQueue || !renderQueue || !outputColorSpace || !backgroundColorSpace)
+        if (!commandQueue || !renderQueue || !persistentSurfaceQueue
+            || !outputColorSpace || !backgroundColorSpace)
             return;
 
         NSDictionary *contextOptions = @{
@@ -695,10 +709,38 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             (id)kCIContextCacheIntermediates : @YES
         };
         context = [[CIContext contextWithMTLDevice:device options:contextOptions] retain];
-        if (!context)
+        persistentContext = [[CIContext contextWithMTLDevice:device
+                                                     options:contextOptions] retain];
+        if (!context || !persistentContext)
             return;
 
         nativeView.wantsLayer = YES;
+        viewportBackgroundLayer = [[CALayer layer] retain];
+        viewportBackgroundLayer.opaque = YES;
+        viewportBackgroundLayer.frame = nativeView.bounds;
+        viewportBackgroundLayer.autoresizingMask =
+                kCALayerWidthSizable | kCALayerHeightSizable;
+        viewportBackgroundLayer.hidden = YES;
+
+        // The high-frequency path is a materialized half-float CGImage in a
+        // regular Core Animation layer.  Once ready, pan/zoom changes only
+        // this layer's affine geometry; they don't consume a new drawable.
+        // Large images that exceed the bounded cache budget stay on the
+        // viewport-sized CAMetalLayer fallback below.
+        persistentImageLayer = [[CALayer layer] retain];
+        persistentImageLayer.opaque = YES;
+        persistentImageLayer.contentsFormat = kCAContentsFormatRGBA16Float;
+        persistentImageLayer.contentsGravity = kCAGravityResize;
+        persistentImageLayer.minificationFilter = kCAFilterTrilinear;
+        persistentImageLayer.magnificationFilter = kCAFilterLinear;
+        persistentImageLayer.wantsExtendedDynamicRangeContent = YES;
+        persistentImageLayer.hidden = YES;
+        persistentImageLayer.opacity = 0.0F;
+        if (@available(macOS 15.0, *))
+            persistentImageLayer.toneMapMode = CAToneMapModeAutomatic;
+        if (@available(macOS 26.0, *))
+            persistentImageLayer.preferredDynamicRange = CADynamicRangeHigh;
+
         metalLayer = [[CAMetalLayer layer] retain];
         metalLayer.device = device;
         metalLayer.pixelFormat = MTLPixelFormatRGBA16Float;
@@ -737,16 +779,20 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [navigationOverlayLayer addSublayer:navigationBackgroundLayers[index]];
             [navigationOverlayLayer addSublayer:navigationChevronLayers[index]];
         }
-        [metalLayer addSublayer:navigationOverlayLayer];
-
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.frame = nativeView.bounds;
         metalLayer.hidden = YES;
         metalLayer.opacity = 0.0F;
+        [nativeView.layer addSublayer:viewportBackgroundLayer];
+        [nativeView.layer addSublayer:persistentImageLayer];
         [nativeView.layer addSublayer:metalLayer];
+        // Keep controls fixed in viewport coordinates while the persistent
+        // HDR image layer moves underneath them.
+        [nativeView.layer addSublayer:navigationOverlayLayer];
         [CATransaction commit];
         presentationState = [[QVHDRPresentationState alloc] initWithMetalLayer:metalLayer];
+        persistentSurfaceGate->owner.store(this);
 
         if (@available(macOS 14.0, *)) {
             Impl *renderer = this;
@@ -757,9 +803,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             displayLink = [[CAMetalDisplayLink alloc] initWithMetalLayer:metalLayer];
             displayLink.delegate = displayLinkDelegate;
             displayLink.preferredFrameLatency = 1.0F;
-            // Permit the display to use its native 60–120 Hz cadence while the
-            // latest-only queue and two-frame in-flight cap bound work.
-            displayLink.preferredFrameRateRange = CAFrameRateRangeMake(60.0, 120.0, 120.0);
+            // Prefer ProMotion's top cadence while retaining enough latitude
+            // for the compositor to select a sustainable variable rate.
+            displayLink.preferredFrameRateRange = CAFrameRateRangeMake(80.0, 120.0, 120.0);
             displayLink.paused = YES;
             [displayLink addToRunLoop:NSRunLoop.mainRunLoop
                               forMode:NSRunLoopCommonModes];
@@ -781,11 +827,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.encodesMetalOffMainThread = renderQueue != nullptr;
         state.usesDisplayLinkInteractionPacing = displayLink != nil;
         state.usesNativeNavigationOverlay = navigationOverlayLayer != nil;
+        state.usesPersistentHDRSurface = persistentImageLayer != nil;
         setBackgroundColor(backgroundColor);
     }
 
     ~Impl()
     {
+        persistentSurfaceGate->owner.store(nullptr);
         if (displayLink) {
             displayLink.paused = YES;
             displayLink.delegate = nil;
@@ -794,24 +842,36 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [displayLinkDelegate invalidate];
         if (renderQueue)
             dispatch_sync(renderQueue, ^{});
+        if (persistentSurfaceQueue)
+            dispatch_sync(persistentSurfaceQueue, ^{});
         [presentationState setMetalDisplayLink:nil];
         [presentationState invalidate];
         clearPreparedImages();
+        persistentImageLayer.contents = nil;
+        if (persistentImage)
+            CGImageRelease(persistentImage);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         [navigationOverlayLayer removeFromSuperlayer];
         [metalLayer removeFromSuperlayer];
+        [persistentImageLayer removeFromSuperlayer];
+        [viewportBackgroundLayer removeFromSuperlayer];
         [CATransaction commit];
         [presentationState release];
         [displayLink release];
         [displayLinkDelegate release];
         [navigationOverlayLayer release];
         [metalLayer release];
+        [persistentImageLayer release];
+        [viewportBackgroundLayer release];
         [context release];
+        [persistentContext release];
         [commandQueue release];
 #if !OS_OBJECT_USE_OBJC
         if (renderQueue)
             dispatch_release(renderQueue);
+        if (persistentSurfaceQueue)
+            dispatch_release(persistentSurfaceQueue);
 #endif
         [device release];
         if (outputColorSpace)
@@ -839,6 +899,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.backgroundColor = layerColor;
+        viewportBackgroundLayer.backgroundColor = layerColor;
         [CATransaction commit];
         if (layerColor)
             CGColorRelease(layerColor);
@@ -955,6 +1016,168 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         ++state.navigationOverlayUpdateCount;
     }
 
+    void discardPersistentSurface(const bool keepVisible)
+    {
+        persistentSurfacePreparationInFlight = false;
+        persistentSurfacePreparationGeneration = 0;
+        persistentSurfaceReady = false;
+        state.persistentHDRSurfaceReady = false;
+        state.persistentHDRSurfaceBytes = 0;
+        state.persistentHDRSurfacePreparationMilliseconds = 0.0;
+        if (keepVisible)
+            return;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        persistentImageLayer.contents = nil;
+        persistentImageLayer.hidden = YES;
+        persistentImageLayer.opacity = 0.0F;
+        viewportBackgroundLayer.hidden = YES;
+        [CATransaction commit];
+        if (persistentImage) {
+            CGImageRelease(persistentImage);
+            persistentImage = nullptr;
+        }
+    }
+
+    void updatePersistentSurfaceGeometry(const QSize &viewportSize,
+                                         const QPolygonF &corners)
+    {
+        latestViewportSize = viewportSize;
+        latestCorners = corners;
+        if (!persistentSurfaceReady || !persistentImage
+            || viewportSize.isEmpty() || corners.size() < 4)
+            return;
+
+        const CGFloat sourceWidth = CGImageGetWidth(persistentImage);
+        const CGFloat sourceHeight = CGImageGetHeight(persistentImage);
+        if (sourceWidth <= 0.0 || sourceHeight <= 0.0)
+            return;
+
+        const auto parentPoint = [&](const QPointF &point) {
+            return CGPointMake(point.x(), viewportSize.height() - point.y());
+        };
+        const CGPoint bottomLeft = parentPoint(corners.at(3));
+        const CGPoint bottomRight = parentPoint(corners.at(2));
+        const CGPoint topLeft = parentPoint(corners.at(0));
+        const CGAffineTransform transform = CGAffineTransformMake(
+                (bottomRight.x - bottomLeft.x) / sourceWidth,
+                (bottomRight.y - bottomLeft.y) / sourceWidth,
+                (topLeft.x - bottomLeft.x) / sourceHeight,
+                (topLeft.y - bottomLeft.y) / sourceHeight,
+                bottomLeft.x, bottomLeft.y);
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        viewportBackgroundLayer.frame = nativeView.bounds;
+        persistentImageLayer.bounds = CGRectMake(
+                0.0, 0.0, sourceWidth, sourceHeight);
+        persistentImageLayer.anchorPoint = CGPointZero;
+        persistentImageLayer.position = CGPointZero;
+        persistentImageLayer.affineTransform = transform;
+        navigationOverlayLayer.frame = nativeView.bounds;
+        [CATransaction commit];
+        ++state.compositorGeometryUpdateCount;
+    }
+
+    void installPersistentSurface(CGImageRef surface,
+                                  const NSUInteger generation,
+                                  const double preparationMilliseconds)
+    {
+        if (generation != presentationState->generation
+            || generation != persistentSurfacePreparationGeneration)
+            return;
+
+        persistentSurfacePreparationInFlight = false;
+        state.persistentHDRSurfacePreparationMilliseconds =
+                preparationMilliseconds;
+        if (!surface)
+            return;
+
+        if (persistentImage)
+            CGImageRelease(persistentImage);
+        persistentImage = CGImageRetain(surface);
+        persistentSurfaceReady = true;
+        state.persistentHDRSurfaceReady = true;
+        state.persistentHDRSurfaceBytes = static_cast<quint64>(
+                CGImageGetBytesPerRow(surface)) * CGImageGetHeight(surface);
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        persistentImageLayer.contents = reinterpret_cast<id>(surface);
+        persistentImageLayer.contentsScale = 1.0;
+        persistentImageLayer.hidden = NO;
+        persistentImageLayer.opacity = 1.0F;
+        viewportBackgroundLayer.hidden = NO;
+        // The viewport drawable and persistent image contain the same final
+        // HDR endpoint.  Switch both visibility and geometry in one Core
+        // Animation transaction, then keep the drawable pool idle.
+        metalLayer.opacity = 0.0F;
+        metalLayer.hidden = YES;
+        [CATransaction commit];
+        updatePersistentSurfaceGeometry(latestViewportSize, latestCorners);
+        state.layerOpacity = 1.0F;
+        renderPending = false;
+        if (displayLink)
+            displayLink.paused = YES;
+    }
+
+    void schedulePersistentSurfacePreparation()
+    {
+        if (persistentSurfaceReady || persistentSurfacePreparationInFlight
+            || !preparedHDRImage || !persistentContext || !persistentSurfaceQueue)
+            return;
+
+        const CGRect extent = CGRectIntegral(preparedHDRImage.extent);
+        if (CGRectIsEmpty(extent) || !std::isfinite(extent.size.width)
+            || !std::isfinite(extent.size.height))
+            return;
+        const quint64 width = static_cast<quint64>(extent.size.width);
+        const quint64 height = static_cast<quint64>(extent.size.height);
+        constexpr quint64 maximumPersistentBytes = 512ULL * 1024ULL * 1024ULL;
+        if (width == 0 || height == 0 || width > 16384 || height > 16384
+            || width > std::numeric_limits<quint64>::max() / height
+            || width * height > maximumPersistentBytes / 8ULL)
+            return;
+
+        persistentSurfacePreparationInFlight = true;
+        persistentSurfacePreparationGeneration = presentationState->generation;
+        const NSUInteger generation = persistentSurfacePreparationGeneration;
+        CIImage *source = [preparedHDRImage retain];
+        CIContext *surfaceContext = [persistentContext retain];
+        CGColorSpaceRef surfaceColorSpace = CGColorSpaceRetain(outputColorSpace);
+        const auto gate = persistentSurfaceGate;
+        dispatch_async(persistentSurfaceQueue, ^{
+            @autoreleasepool {
+                const CFTimeInterval started = CACurrentMediaTime();
+                CGImageRef surface = [surfaceContext
+                        createCGImage:source
+                             fromRect:extent
+                               format:kCIFormatRGBAh
+                           colorSpace:surfaceColorSpace
+                             deferred:NO];
+                // The CGImage is fully materialized (`deferred:NO`), so the
+                // one-shot CI evaluation cache can be released immediately.
+                // Retaining it would duplicate a substantial fraction of an
+                // 8-byte-per-pixel source while the persistent surface lives.
+                [surfaceContext clearCaches];
+                const double elapsedMilliseconds =
+                        (CACurrentMediaTime() - started) * 1000.0;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    auto *owner = static_cast<Impl *>(gate->owner.load());
+                    if (owner)
+                        owner->installPersistentSurface(
+                                surface, generation, elapsedMilliseconds);
+                    if (surface)
+                        CGImageRelease(surface);
+                });
+                [source release];
+                [surfaceContext release];
+                CGColorSpaceRelease(surfaceColorSpace);
+            }
+        });
+    }
+
     void rebuildDisplayLinkForDrawableResize()
     {
         if (!displayLink || !displayLinkDelegate)
@@ -973,7 +1196,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             replacement.delegate = displayLinkDelegate;
             replacement.preferredFrameLatency = 1.0F;
             replacement.preferredFrameRateRange =
-                    CAFrameRateRangeMake(60.0, 120.0, 120.0);
+                    CAFrameRateRangeMake(80.0, 120.0, 120.0);
             replacement.paused = YES;
             [replacement addToRunLoop:NSRunLoop.mainRunLoop
                               forMode:NSRunLoopCommonModes];
@@ -986,9 +1209,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
-        const bool retainPreviousPresentation = image
+        const bool previousMetalPresentationVisible = image
                 && presentationState->firstFramePresented
                 && metalLayer.opacity >= 0.999F;
+        const bool previousPersistentPresentationVisible = image
+                && presentationState->firstFramePresented
+                && persistentSurfaceReady
+                && persistentImageLayer.opacity >= 0.999F;
+        const bool retainPreviousPresentation = previousMetalPresentationVisible
+                || previousPersistentPresentationVisible;
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
@@ -1010,6 +1239,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
         image = nativeImage;
         [presentationState resetForImage];
+        discardPersistentSurface(
+                nativeImage && previousPersistentPresentationVisible);
+        latestViewportSize = {};
+        latestCorners.clear();
         state.imageActive = nativeImage != nullptr;
         state.firstFrameSubmitted = false;
         state.firstFramePresented = false;
@@ -1036,11 +1269,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.missedTargetDeadlineCount = 0;
         state.framesInFlight = 0;
         state.displayLinkInteractiveSubmissionCount = 0;
+        state.compositorGeometryUpdateCount = 0;
         state.firstVisibleFrameUsesFinalHeadroom = false;
         state.transitionProgress = 0.0F;
         state.targetHeadroom = 1.0F;
         state.renderCount = 0;
         state.lastRenderMilliseconds = 0.0;
+        state.lastGPUExecutionMilliseconds = 0.0;
         state.lastPresentedIntervalMilliseconds = 0.0;
         state.lastRequestToPresentationMilliseconds = 0.0;
         if (nativeImage) {
@@ -1057,9 +1292,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.hidden = nativeImage == nullptr;
-        metalLayer.opacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
+        metalLayer.opacity = nativeImage && previousMetalPresentationVisible
+                ? 1.0F : 0.0F;
+        if (!nativeImage) {
+            viewportBackgroundLayer.hidden = YES;
+            persistentImageLayer.hidden = YES;
+            persistentImageLayer.opacity = 0.0F;
+        }
         [CATransaction commit];
-        state.layerOpacity = metalLayer.opacity;
+        state.layerOpacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
@@ -1076,6 +1317,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             dispatch_sync(renderQueue, ^{});
         clearPreparedImages();
         [presentationState resetForImage];
+        discardPersistentSurface(false);
         state.firstFrameSubmitted = false;
         state.firstFramePresented = false;
         state.hdrPreparationInFlight = false;
@@ -1087,6 +1329,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
+        metalLayer.hidden = NO;
         metalLayer.opacity = 0.0F;
         [CATransaction commit];
         state.layerOpacity = 0.0F;
@@ -1221,6 +1464,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 ? frameFlow->missedTargetDeadlineCount.load() : 0;
         state.lastPresentedIntervalMilliseconds = frameFlow
                 ? frameFlow->lastPresentedIntervalMilliseconds.load() : 0.0;
+        state.lastGPUExecutionMilliseconds = frameFlow
+                ? frameFlow->lastGPUExecutionMilliseconds.load() : 0.0;
         state.lastRequestToPresentationMilliseconds = frameFlow
                 ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
         state.firstVisibleFrameUsesFinalHeadroom = frameFlow
@@ -1245,7 +1490,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             state.nativeWindowGlobalX = 0;
             state.nativeWindowGlobalY = 0;
         }
-        state.layerOpacity = metalLayer ? metalLayer.opacity : 0.0F;
+        const float metalOpacity = metalLayer && !metalLayer.hidden
+                ? metalLayer.opacity : 0.0F;
+        const float persistentOpacity = persistentImageLayer
+                && !persistentImageLayer.hidden
+                ? persistentImageLayer.opacity : 0.0F;
+        state.layerOpacity = std::max(metalOpacity, persistentOpacity);
+        state.persistentHDRSurfaceReady = persistentSurfaceReady;
     }
 
     CIImage *imageForTexture(CIImage *source, const QSize &viewportSize,
@@ -1501,6 +1752,26 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
+        latestViewportSize = viewportSize;
+        latestCorners = corners;
+        if (persistentSurfaceReady) {
+            QElapsedTimer geometryTimer;
+            geometryTimer.start();
+            ++state.renderRequestCount;
+            const quint64 geometryGeneration = ++state.requestedRenderGeneration;
+            updatePersistentSurfaceGeometry(viewportSize, corners);
+            state.submittedRenderGeneration = geometryGeneration;
+            state.lastRenderMilliseconds =
+                    geometryTimer.nsecsElapsed() / 1000000.0;
+            ++state.renderCount;
+            renderPending = false;
+            pendingInteractive = interactive;
+            interactiveKeepAliveUntil = 0.0;
+            if (displayLink)
+                displayLink.paused = YES;
+            return;
+        }
+
         // Resize the CAMetalLayer on the AppKit/Qt thread that observed the
         // viewport change, before CAMetalDisplayLink vends its next drawable.
         // Mutating drawableSize from inside needsUpdate can leave the link
@@ -1741,13 +2012,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     std::make_shared<std::atomic<double>>(0.0);
             if (submittedFlow)
                 submittedFlow->framesInFlight.fetch_add(1);
-            [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-                if (submittedFlow)
+            [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
+                if (submittedFlow) {
+                    const double gpuStart = completedBuffer.GPUStartTime;
+                    const double gpuEnd = completedBuffer.GPUEndTime;
+                    if (gpuEnd >= gpuStart && gpuStart > 0.0) {
+                        submittedFlow->lastGPUExecutionMilliseconds.store(
+                                (gpuEnd - gpuStart) * 1000.0);
+                    }
                     submittedFlow->framesInFlight.fetch_sub(1);
+                }
             }];
             if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
                 const bool presentationLogging =
-                        qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG");
+                        qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG")
+                        || qEnvironmentVariableIsSet("FOVELLE_HDR_PRESENTATION_LOG");
                 [drawable addPresentedHandler:^(id<MTLDrawable> presentedDrawable) {
                     if (!submittedFlow)
                         return;
@@ -1829,6 +2108,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 CGColorSpaceRelease(renderColorSpace);
             });
             syncPresentationDiagnostics();
+            if (finalHeadroom && presentationState->hdrPrepared)
+                schedulePersistentSurfacePreparation();
             return true;
         }
         return false;
@@ -1842,6 +2123,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     }
 
     NSView *nativeView{ nil };
+    CALayer *viewportBackgroundLayer{ nil };
+    CALayer *persistentImageLayer{ nil };
     CAMetalLayer *metalLayer{ nil };
     CALayer *navigationOverlayLayer{ nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
@@ -1851,12 +2134,23 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     id<MTLDevice> device{ nil };
     id<MTLCommandQueue> commandQueue{ nil };
     dispatch_queue_t renderQueue{ nullptr };
+    dispatch_queue_t persistentSurfaceQueue{ nullptr };
     CIContext *context{ nil };
+    CIContext *persistentContext{ nil };
     CGColorSpaceRef outputColorSpace{ nullptr };
     CGColorSpaceRef backgroundColorSpace{ nullptr };
     QColor backgroundColor{ Qv::viewportBackgroundColor(Qv::Theme::Light) };
     QVHDRPresentationState *presentationState{ nil };
     std::shared_ptr<HDRFrameFlowState> frameFlow{ std::make_shared<HDRFrameFlowState>() };
+    std::shared_ptr<HDRPersistentSurfaceGate> persistentSurfaceGate{
+        std::make_shared<HDRPersistentSurfaceGate>()
+    };
+    CGImageRef persistentImage{ nullptr };
+    bool persistentSurfaceReady{ false };
+    bool persistentSurfacePreparationInFlight{ false };
+    NSUInteger persistentSurfacePreparationGeneration{ 0 };
+    QSize latestViewportSize;
+    QPolygonF latestCorners;
     id<MTLTexture> preparationTexture{ nil };
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };

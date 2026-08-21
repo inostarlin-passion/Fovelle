@@ -48,6 +48,9 @@ THRESHOLDS = {
     "request_to_presentation_average_ms_max": 45.0,
     "request_to_presentation_p99_ms_max": 55.0,
     "request_to_presentation_max_ms_max": 65.0,
+    "compositor_probe_elapsed_ms_max": 400.0,
+    "compositor_probe_updates_per_second_min": 120.0,
+    "compositor_geometry_update_ms_max": 1.0,
 }
 
 
@@ -548,6 +551,55 @@ def launch(
     }
 
 
+def launch_120hz_compositor_probe(app: Path, image: Path) -> dict:
+    """Run the focused probe without verbose telemetry perturbing its 8 ms timer."""
+    environment = {
+        **os.environ,
+        "QT_QPA_PLATFORM": "cocoa",
+        "FOVELLE_HDR_TEST_120HZ_INTERACTION": "1",
+        "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
+    }
+    command = [str(app), str(image)]
+    with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as output_file:
+        process = subprocess.Popen(
+            command,
+            text=True,
+            stdout=output_file,
+            stderr=subprocess.STDOUT,
+            env=environment,
+        )
+        try:
+            process.wait(timeout=4.2)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        output_file.flush()
+        output_file.seek(0)
+        output = output_file.read()
+
+    records = []
+    for match in re.finditer(r"FOVELLE_HDR_120HZ\s+(\{[^\n\r]+\})", output):
+        try:
+            records.append(json.loads(match.group(1)))
+        except json.JSONDecodeError:
+            continue
+    return {
+        "command": command,
+        "records": records,
+        "output": output,
+        "process_healthy": (
+            bool(records)
+            and "Segmentation fault" not in output
+            and "ASSERT" not in output
+            and "CAMetalLayerInvalidOperation" not in output
+        ),
+    }
+
+
 def interaction_timing(records: list[dict]) -> dict:
     step_records = [
         item for item in records if item.get("phase") == "test-interaction-step"
@@ -590,18 +642,24 @@ def presentation_timing(events: list[dict]) -> dict:
     ]
     average_interval = statistics.fmean(intervals) if intervals else math.inf
     average_latency = statistics.fmean(latencies) if latencies else math.inf
+    interval_p99 = percentile(intervals, 0.99)
+    latency_p99 = percentile(latencies, 0.99)
     return {
         "presented_interactive_frame_count": len(interactive),
         "presented_generations": [int(item.get("generation", -1)) for item in interactive],
         "intervals_ms": intervals,
-        "interval_average_ms": average_interval,
-        "interval_p99_ms": percentile(intervals, 0.99),
-        "interval_max_ms": max(intervals, default=math.inf),
+        "interval_average_ms": average_interval if math.isfinite(average_interval) else None,
+        "interval_p99_ms": interval_p99 if math.isfinite(interval_p99) else None,
+        "interval_max_ms": max(intervals) if intervals else None,
         "frames_per_second": 1000.0 / average_interval if average_interval > 0 else 0.0,
         "request_to_presentation_ms": latencies,
-        "request_to_presentation_average_ms": average_latency,
-        "request_to_presentation_p99_ms": percentile(latencies, 0.99),
-        "request_to_presentation_max_ms": max(latencies, default=math.inf),
+        "request_to_presentation_average_ms": (
+            average_latency if math.isfinite(average_latency) else None
+        ),
+        "request_to_presentation_p99_ms": (
+            latency_p99 if math.isfinite(latency_p99) else None
+        ),
+        "request_to_presentation_max_ms": max(latencies) if latencies else None,
         "all_final_headroom": bool(interactive) and all(
             item.get("final_headroom") is True for item in interactive
         ),
@@ -712,6 +770,7 @@ def main() -> int:
         capture_schedule=[8.8, 10.2, 11.8],
         capture_directory=capture_directory,
     )
+    compositor_120hz_probe = launch_120hz_compositor_probe(app, jpeg)
     runs.extend((
         forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run,
         theme_run, nef_interaction_run, raw_interaction_run,
@@ -743,12 +802,13 @@ def main() -> int:
     interaction_viewport_crop = viewport_pixel_crop(
         interaction_records, interaction_capture_origin
     )
-    # QVGraphicsView emits a diagnostic snapshot after every render request,
-    # including requests that intentionally stop at offscreen preparation.
-    # render_count advances only after a drawable is actually committed.
+    # The request-side `phase=render` snapshot is emitted before the display
+    # link callback commits a drawable. Select the post-presentation snapshot
+    # by state, not by that phase label.
     render_records = [
         item for item in all_real_records
-        if item.get("phase") == "render" and int(item.get("render_count", 0)) > 0
+        if item.get("first_frame_presented") is True
+        and int(item.get("render_count", 0)) > 0
     ]
     interaction_render_records = [
         item for item in interaction_records if item.get("phase") == "render"
@@ -958,7 +1018,7 @@ def main() -> int:
 
     raw_completed_records = [
         item for item in raw_records
-        if item.get("phase") == "render"
+        if item.get("first_frame_presented") is True
         and float(item.get("transition_progress", 0)) >= 0.999
     ]
 
@@ -979,6 +1039,30 @@ def main() -> int:
         "processed-dng": raw_presentation_timing,
         "raw-nef": nef_presentation_timing,
     }
+    interaction_runs = (interaction_run, raw_interaction_run, nef_interaction_run)
+    persistent_fast_path_active = all(
+        any(item.get("persistent_hdr_surface_ready") is True
+            for item in run["telemetry"])
+        for run in interaction_runs
+    )
+    compositor_probe_record = (
+        compositor_120hz_probe["records"][-1]
+        if compositor_120hz_probe["records"] else {}
+    )
+    compositor_probe_passed = (
+        compositor_120hz_probe["process_healthy"]
+        and int(compositor_probe_record.get("sample_count", 0)) == 48
+        and float(compositor_probe_record.get("elapsed_ms", math.inf))
+            <= THRESHOLDS["compositor_probe_elapsed_ms_max"]
+        and float(compositor_probe_record.get("updates_per_second", 0))
+            >= THRESHOLDS["compositor_probe_updates_per_second_min"]
+        and compositor_probe_record.get("persistent_surface_ready") is True
+        and int(compositor_probe_record.get("compositor_updates", 0)) >= 48
+        and int(compositor_probe_record.get("metal_presents", -1)) == 0
+        and float(compositor_probe_record.get(
+                "last_geometry_update_ms", math.inf))
+            <= THRESHOLDS["compositor_geometry_update_ms_max"]
+    )
     decode_average = statistics.fmean(decode_samples) if decode_samples else math.inf
     render_average = statistics.fmean(steady_render_samples) if steady_render_samples else math.inf
     performance = {
@@ -986,8 +1070,8 @@ def main() -> int:
             "decode": "request start through native HDR graph and bounded SDR proxy completion",
             "steady_render": "one unique last_render_ms sample per committed interaction render_count > 3 with hdr_prepared=true; opening and duplicate telemetry excluded",
             "interaction_presentation": (
-                "addPresentedHandler timestamps across the 48-step zoom/pan window; "
-                "the first idle-to-interaction interval is excluded"
+                "persistent compositor geometry telemetry across the 48-step "
+                "zoom/pan window plus a focused unlogged 8 ms probe"
             ),
             "runs_per_format": RUNS_PER_FORMAT,
             "decode_formats": ["gain-map-jpeg", "processed-dng"],
@@ -1001,6 +1085,7 @@ def main() -> int:
             "raw_interaction": raw_interaction_timing,
             "nef_interaction": nef_interaction_timing,
             "actual_presentations": presentation_timings,
+            "compositor_120hz_probe": compositor_probe_record,
         },
         "metrics": {
             "decode_average_ms": decode_average,
@@ -1011,30 +1096,43 @@ def main() -> int:
             "steady_render_p99_ms": percentile(steady_render_samples, 0.99),
             "steady_render_max_ms": max(steady_render_samples, default=math.inf),
             "steady_render_equivalent_submissions_per_second": 1000.0 / render_average if render_average > 0 else 0.0,
-            "presentation_interval_average_ms_max_observed": max(
-                item["interval_average_ms"] for item in presentation_timings.values()
-            ),
-            "presentation_interval_p99_ms_max_observed": max(
-                item["interval_p99_ms"] for item in presentation_timings.values()
-            ),
-            "presentation_interval_max_ms_observed": max(
-                item["interval_max_ms"] for item in presentation_timings.values()
-            ),
-            "presentation_frames_per_second_min_observed": min(
-                item["frames_per_second"] for item in presentation_timings.values()
-            ),
-            "request_to_presentation_average_ms_max_observed": max(
-                item["request_to_presentation_average_ms"]
-                for item in presentation_timings.values()
-            ),
-            "request_to_presentation_p99_ms_max_observed": max(
-                item["request_to_presentation_p99_ms"]
-                for item in presentation_timings.values()
-            ),
-            "request_to_presentation_max_ms_observed": max(
-                item["request_to_presentation_max_ms"]
-                for item in presentation_timings.values()
-            ),
+            # A persistent layer changes geometry without presenting a new
+            # MTLDrawable. Keep legacy drawable cadence fields explicitly N/A
+            # instead of serializing Infinity/NaN as if they were failures.
+            "presentation_interval_average_ms_max_observed": None
+                if persistent_fast_path_active else max(
+                    item["interval_average_ms"]
+                    for item in presentation_timings.values()),
+            "presentation_interval_p99_ms_max_observed": None
+                if persistent_fast_path_active else max(
+                    item["interval_p99_ms"]
+                    for item in presentation_timings.values()),
+            "presentation_interval_max_ms_observed": None
+                if persistent_fast_path_active else max(
+                    item["interval_max_ms"]
+                    for item in presentation_timings.values()),
+            "presentation_frames_per_second_min_observed": None
+                if persistent_fast_path_active else min(
+                    item["frames_per_second"]
+                    for item in presentation_timings.values()),
+            "request_to_presentation_average_ms_max_observed": None
+                if persistent_fast_path_active else max(
+                    item["request_to_presentation_average_ms"]
+                    for item in presentation_timings.values()),
+            "request_to_presentation_p99_ms_max_observed": None
+                if persistent_fast_path_active else max(
+                    item["request_to_presentation_p99_ms"]
+                    for item in presentation_timings.values()),
+            "request_to_presentation_max_ms_observed": None
+                if persistent_fast_path_active else max(
+                    item["request_to_presentation_max_ms"]
+                    for item in presentation_timings.values()),
+            "compositor_probe_elapsed_ms": float(
+                compositor_probe_record.get("elapsed_ms", math.inf)),
+            "compositor_probe_updates_per_second": float(
+                compositor_probe_record.get("updates_per_second", 0)),
+            "compositor_probe_last_geometry_update_ms": float(
+                compositor_probe_record.get("last_geometry_update_ms", math.inf)),
         },
     }
     metrics = performance["metrics"]
@@ -1481,13 +1579,24 @@ def main() -> int:
                 ) > 0
                 for run in real_runs
             ),
-            "all_three_interactions_submit_at_display_link_cadence": all(
+            "all_three_interactions_handoff_to_persistent_surface": (
+                persistent_fast_path_active
+            ),
+            "all_three_interactions_update_compositor_geometry": all(
+                max(
+                    (int(item.get("compositor_geometry_update_count", 0))
+                     for item in run["telemetry"]),
+                    default=0,
+                ) >= 48
+                for run in interaction_runs
+            ),
+            "persistent_interaction_submits_no_metal_drawables": all(
                 max(
                     (int(item.get("display_link_interactive_submission_count", 0))
                      for item in run["telemetry"]),
                     default=0,
-                ) >= 24
-                for run in (interaction_run, raw_interaction_run, nef_interaction_run)
+                ) == 0
+                for run in interaction_runs
             ),
             "at_most_two_frames_are_in_flight": all(
                 int(item.get("frames_in_flight", 0)) <= 2
@@ -1532,6 +1641,14 @@ def main() -> int:
                  for item in scheduler_records),
                 default=0,
             ),
+            "maximum_compositor_geometry_updates_by_format": {
+                run["format"]: max(
+                    (int(item.get("compositor_geometry_update_count", 0))
+                     for item in run["telemetry"]),
+                    default=0,
+                )
+                for run in interaction_runs
+            },
             "jpeg_settled_generations": [
                 [int(item.get("requested_render_generation", 0)),
                  int(item.get("submitted_render_generation", 0))]
@@ -1612,60 +1729,53 @@ def main() -> int:
             "nef": nef_interaction_timing,
         }),
         make_case("SYS-HDR-PRESENTATION-RESPONSIVENESS", {
-            "all_formats_present_at_least_24_interactive_frames": all(
-                timing["presented_interactive_frame_count"] >= 24
+            "all_formats_use_persistent_compositor_fast_path":
+                persistent_fast_path_active,
+            "all_opening_metal_frames_are_final_headroom": all(
+                run["presentation_events"]
+                and all(event.get("final_headroom") is True
+                        for event in run["presentation_events"])
+                for run in interaction_runs
+            ),
+            "no_interaction_rebuilds_metal_drawables": all(
+                timing["presented_interactive_frame_count"] == 0
                 for timing in presentation_timings.values()
             ),
-            "all_presented_interaction_frames_are_final_headroom": all(
-                timing["all_final_headroom"]
-                for timing in presentation_timings.values()
+            "all_formats_publish_at_least_48_compositor_updates": all(
+                max((int(item.get("compositor_geometry_update_count", 0))
+                     for item in run["telemetry"]), default=0) >= 48
+                for run in interaction_runs
             ),
-            "presentation_interval_average_bounded": all(
-                timing["interval_average_ms"]
-                <= THRESHOLDS["presentation_interval_average_ms_max"]
-                for timing in presentation_timings.values()
+            "focused_120hz_probe_is_healthy":
+                compositor_120hz_probe["process_healthy"],
+            "focused_probe_covers_48_samples":
+                int(compositor_probe_record.get("sample_count", 0)) == 48,
+            "focused_probe_reaches_120_updates_per_second": (
+                float(compositor_probe_record.get("elapsed_ms", math.inf))
+                    <= THRESHOLDS["compositor_probe_elapsed_ms_max"]
+                and float(compositor_probe_record.get("updates_per_second", 0))
+                    >= THRESHOLDS["compositor_probe_updates_per_second_min"]
             ),
-            "presentation_interval_p99_bounded": all(
-                timing["interval_p99_ms"]
-                <= THRESHOLDS["presentation_interval_p99_ms_max"]
-                for timing in presentation_timings.values()
-            ),
-            "presentation_interval_maximum_bounded": all(
-                timing["interval_max_ms"]
-                <= THRESHOLDS["presentation_interval_max_ms_max"]
-                for timing in presentation_timings.values()
-            ),
-            "presentation_throughput_bounded": all(
-                timing["frames_per_second"]
-                >= THRESHOLDS["presentation_frames_per_second_min"]
-                for timing in presentation_timings.values()
-            ),
-            "request_to_presentation_average_bounded": all(
-                timing["request_to_presentation_average_ms"]
-                <= THRESHOLDS["request_to_presentation_average_ms_max"]
-                for timing in presentation_timings.values()
-            ),
-            "request_to_presentation_p99_bounded": all(
-                timing["request_to_presentation_p99_ms"]
-                <= THRESHOLDS["request_to_presentation_p99_ms_max"]
-                for timing in presentation_timings.values()
-            ),
-            "request_to_presentation_maximum_bounded": all(
-                timing["request_to_presentation_max_ms"]
-                <= THRESHOLDS["request_to_presentation_max_ms_max"]
-                for timing in presentation_timings.values()
+            "focused_probe_uses_geometry_without_metal_present": (
+                compositor_probe_record.get("persistent_surface_ready") is True
+                and int(compositor_probe_record.get("compositor_updates", 0)) >= 48
+                and int(compositor_probe_record.get("metal_presents", -1)) == 0
+                and float(compositor_probe_record.get(
+                        "last_geometry_update_ms", math.inf))
+                    <= THRESHOLDS["compositor_geometry_update_ms_max"]
             ),
         }, {
             "measurement_window": (
-                "MTLDrawable.addPresentedHandler callbacks for the contiguous "
-                "48-step zoom/pan interval; the first idle-to-interaction interval is excluded"
+                "Opening MTLDrawable.addPresentedHandler handoff followed by a "
+                "persistent Core Animation surface; the focused 48-step probe "
+                "runs without verbose logging"
             ),
             "thresholds": {
                 key: value for key, value in THRESHOLDS.items()
-                if key.startswith("presentation_")
-                or key.startswith("request_to_presentation_")
+                if key.startswith("compositor_")
             },
             "formats": presentation_timings,
+            "focused_probe": compositor_120hz_probe,
         }),
         make_case("SYS-HDR-NEF-ZOOM-NO-GHOST", {
             "nef_process_healthy": nef_interaction_run["process_healthy"],
@@ -1819,13 +1929,12 @@ def main() -> int:
             "render_p99": metrics["steady_render_p99_ms"] <= THRESHOLDS["steady_render_p99_ms_max"],
             "render_max": metrics["steady_render_max_ms"] <= THRESHOLDS["steady_render_max_ms_max"],
             "render_throughput": metrics["steady_render_equivalent_submissions_per_second"] >= THRESHOLDS["steady_render_equivalent_submissions_per_second_min"],
-            "presentation_interval_average": metrics["presentation_interval_average_ms_max_observed"] <= THRESHOLDS["presentation_interval_average_ms_max"],
-            "presentation_interval_p99": metrics["presentation_interval_p99_ms_max_observed"] <= THRESHOLDS["presentation_interval_p99_ms_max"],
-            "presentation_interval_max": metrics["presentation_interval_max_ms_observed"] <= THRESHOLDS["presentation_interval_max_ms_max"],
-            "presentation_throughput": metrics["presentation_frames_per_second_min_observed"] >= THRESHOLDS["presentation_frames_per_second_min"],
-            "request_to_presentation_average": metrics["request_to_presentation_average_ms_max_observed"] <= THRESHOLDS["request_to_presentation_average_ms_max"],
-            "request_to_presentation_p99": metrics["request_to_presentation_p99_ms_max_observed"] <= THRESHOLDS["request_to_presentation_p99_ms_max"],
-            "request_to_presentation_max": metrics["request_to_presentation_max_ms_observed"] <= THRESHOLDS["request_to_presentation_max_ms_max"],
+            "persistent_compositor_active": persistent_fast_path_active,
+            "persistent_compositor_120hz_probe": compositor_probe_passed,
+            "no_interaction_metal_present": all(
+                timing["presented_interactive_frame_count"] == 0
+                for timing in presentation_timings.values()
+            ),
         }, metrics),
     ]
 
@@ -1855,7 +1964,7 @@ def main() -> int:
             "failed": sum(item["status"] != "passed" for item in cases),
         },
         "facts": [
-            "Telemetry came from the compiled Cocoa application while its CAMetalLayer was attached to a visible window.",
+            "Telemetry came from the compiled Cocoa application while its Metal opening layer and persistent Core Animation layer were attached to a visible window.",
             "The built-in display exposed potential EDR headroom above one during this run.",
             "The forced-SDR run overrides current and potential capability to one while retaining the real Core Image/Metal output path.",
             "Separate current-only override runs held current headroom at one while preserving the display's potential capability, and both supplied formats reached HDR targets.",
@@ -1870,19 +1979,19 @@ def main() -> int:
             "Every production record reported an opaque full-drawable clear before image compositing.",
             "For JPEG, processed DNG, plain DNG, and NEF, the first visible Metal frame was a prepared, geometry-complete final-headroom endpoint; no app-generated partial-headroom drawable became visible.",
             "The DNG path reported a full-resolution processed preview with its authored gain map; the traditional NEF path reported independent RAW EDR endpoints.",
-            "Every scheduler record reported continuous CAMetalDisplayLink interaction pacing and off-main Metal encoding; JPEG, processed DNG, and NEF stayed at or below two frames in flight and settled on the latest requested generation.",
-            "Forty-eight ordered pan steps for JPEG, processed DNG, and NEF met the recorded event-loop and actual-presented-frame average, P99, maximum, and throughput thresholds.",
+            "Every tested format used CAMetalDisplayLink for its final-headroom opening frame, handed interaction to a persistent half-float layer, submitted no interactive Metal drawable, and settled on the latest requested generation.",
+            "Forty-eight ordered pan steps for JPEG, processed DNG, and NEF met the event-loop bounds; the focused unlogged probe separately met 120 compositor geometry updates per second with zero interactive Metal presents.",
             "Four NEF interaction captures lost no structured tile and contained no persistent black band; the three stopped-composition captures met the recorded final-frame edge threshold.",
-            "At half opacity over actual HDR pixels, navigation artwork was emitted by shape-only Metal sublayers while the Qt widget remained hidden; changed artwork pixels were observed while all four transparent corner patches stayed within the recorded difference threshold.",
+            "At half opacity over actual HDR pixels, navigation artwork was emitted by fixed shape-only native sibling layers while the Qt widget remained hidden; changed artwork pixels were observed while all four transparent corner patches stayed within the recorded difference threshold.",
         ],
         "inferences": [
             "Potential headroom above one together with wants_edr, RGBA16Float, and target headroom above one demonstrates an EDR-capable WindowServer presentation path.",
             "The current-only bootstrap result breaks the circular dependency in which NSScreen current headroom can remain one until EDR content is already onscreen.",
             "Initialization-time non-volatile gain-map decode, source-space Core Image-managed intermediates, and band-free screen pixels remove the two cache boundaries associated with the persistent JPEG bands.",
-            "Continuous DisplayLink callback pacing, latest-only pending geometry, two frames in flight, deadline-aware ordinary presentation, and off-main CI encoding remove the serial completion gate and unpaced drawable bursts that best explain the former HDR drag stall.",
+            "Moving repeated interaction out of the drawable lifecycle and into persistent layer transforms removes the measured present-delay/drawable-pool throughput ceiling; DisplayLink latest-only pacing remains the bounded opening and oversized-image fallback.",
             "The processed-preview plus authored-gain-map representation preserves more of this DNG's camera recipe than changing one generic RAW exposure parameter.",
-            "Moving HDR-overlapping navigation artwork into the CAMetalLayer tree removes the cross-surface transparency boundary that best explains the colored rectangular backing.",
-            "Keeping the proxy or prior drawable until a final-headroom presentation removes the staged SDR-to-partial-HDR luminance discontinuity that best explains the opening flash.",
+            "Moving HDR-overlapping navigation artwork into the native layer tree removes the cross-surface transparency boundary that best explains the colored rectangular backing.",
+            "Keeping the proxy or prior native HDR surface until a final-headroom presentation removes the staged SDR-to-partial-HDR luminance discontinuity that best explains the opening flash.",
             "Reusing prepared source endpoints across interaction removes the SDR fallback and transition restart that caused visible dim-then-bright behavior.",
             "A single explicit Qt/Metal background contract explains the stable reveal color and deterministic live theme update.",
         ],
@@ -1892,6 +2001,7 @@ def main() -> int:
             "Quick Look's private RAW rendering recipe and subjective local contrast are not fully public; integration evidence therefore compares exported edge structure and RGB error rather than claiming pixel identity.",
             "A physical SDR-only Mac was not available; a capability override of current=potential=1 exercises the production SDR branch deterministically.",
             "A still screenshot cannot encode absolute luminance or temporal persistence; HDR pixel peaks, headroom telemetry, multiple timed captures, and generation invariants provide complementary evidence.",
+            "The focused probe proves application-side geometry throughput; a concurrent 8.33 ms VSync trace with no Core Animation hitches is needed to support a 120 Hz on-screen claim, and neither replaces high-speed optical measurement.",
         ],
         "passed": passed,
     }

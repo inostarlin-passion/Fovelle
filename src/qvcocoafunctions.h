@@ -89,6 +89,8 @@ public:
         bool usesNativeNavigationOverlay{ false };
         bool firstVisibleFrameUsesFinalHeadroom{ false };
         bool usesDisplayLinkInteractionPacing{ false };
+        bool usesPersistentHDRSurface{ false };
+        bool persistentHDRSurfaceReady{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
@@ -119,6 +121,8 @@ public:
         quint64 missedTargetDeadlineCount{ 0 };
         quint64 navigationOverlayUpdateCount{ 0 };
         quint64 displayLinkInteractiveSubmissionCount{ 0 };
+        quint64 compositorGeometryUpdateCount{ 0 };
+        quint64 persistentHDRSurfaceBytes{ 0 };
         int framesInFlight{ 0 };
         int nativeWindowNumber{ 0 };
         int nativeWindowGlobalX{ 0 };
@@ -126,6 +130,8 @@ public:
         int nativeNavigationVisibleCount{ 0 };
         quint64 renderCount{ 0 };
         double lastRenderMilliseconds{ 0.0 };
+        double lastGPUExecutionMilliseconds{ 0.0 };
+        double persistentHDRSurfacePreparationMilliseconds{ 0.0 };
         double lastPresentedIntervalMilliseconds{ 0.0 };
         double lastRequestToPresentationMilliseconds{ 0.0 };
     };

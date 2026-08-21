@@ -79,6 +79,13 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             && rendererState.firstVisibleFrameUsesFinalHeadroom) {
             loadedPixmapItem->setVisible(false);
             hdrActivationCompleted = true;
+            // Once the opaque native HDR surface is visible, repainting the
+            // hidden QGraphicsScene only creates an additional Qt backing
+            // store transaction for every scrollbar change.  The Metal layer
+            // and its native navigation sublayers are now the sole viewport
+            // presentation path, so leave the Qt pixels parked until the next
+            // image load.
+            setViewportUpdateMode(QGraphicsView::NoViewportUpdate);
             hdrPresentationTimer->stop();
             logHDRState("final-frame-visible");
             return;
@@ -850,6 +857,10 @@ void QVGraphicsView::reloadFile()
 
 void QVGraphicsView::beforeLoad()
 {
+    // A native HDR presentation may have parked Qt viewport painting.  The
+    // SDR proxy for the next file must be paintable while its renderer is
+    // decoded and prepared.
+    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
     hdrLayoutReady = false;
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
@@ -940,10 +951,13 @@ void QVGraphicsView::postLoad()
     // Deterministic, opt-in system-test driver. It exercises the same public
     // zoom and scrollbar paths as user interaction without synthetic global
     // input or changes to persisted settings.
+    const bool run120HzInteractionProbe =
+            qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_120HZ_INTERACTION");
     if (hdrRendererActive && !hdrInteractionTestScheduled
-        && qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_INTERACTION")) {
+        && (qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_INTERACTION")
+            || run120HzInteractionProbe)) {
         hdrInteractionTestScheduled = true;
-        QTimer::singleShot(2400, this, [this]() {
+        QTimer::singleShot(2400, this, [this, run120HzInteractionProbe]() {
             if (!hdrRendererActive)
                 return;
             hdrInteractionClock.start();
@@ -954,11 +968,15 @@ void QVGraphicsView::postLoad()
             hdrInteractionZoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
             hdrInteractionStep = 0;
             logHDRState("test-interaction-start");
+            const auto probeStartDiagnostics = hdrRenderer->diagnostics();
 
             auto *panTimer = new QTimer(this);
-            panTimer->setInterval(12);
+            panTimer->setTimerType(Qt::PreciseTimer);
+            panTimer->setInterval(run120HzInteractionProbe ? 8 : 12);
             panTimer->setProperty("step", 0);
-            connect(panTimer, &QTimer::timeout, this, [this, panTimer]() {
+            connect(panTimer, &QTimer::timeout, this,
+                    [this, panTimer, run120HzInteractionProbe,
+                     probeStartDiagnostics]() {
                 const int step = panTimer->property("step").toInt();
                 horizontalScrollBar()->setValue(horizontalScrollBar()->value() + 11);
                 verticalScrollBar()->setValue(verticalScrollBar()->value() + 7);
@@ -970,6 +988,48 @@ void QVGraphicsView::postLoad()
                     hdrInteractionStep = 48;
                     requestHDRRendererUpdate();
                     logHDRState("test-interaction-finished");
+                    const qint64 interactionElapsed = hdrInteractionClock.elapsed();
+                    if (run120HzInteractionProbe) {
+                        // The verbose diagnostic stream perturbs an 8 ms test
+                        // interval. Emit one compact record after the final
+                        // coalesced geometry request instead, so the probe can
+                        // run with FOVELLE_HDR_DIAGNOSTIC_LOG unset.
+                        QTimer::singleShot(50, this,
+                                [this, interactionElapsed,
+                                 probeStartDiagnostics]() {
+                            if (!hdrRendererActive || !hdrRenderer)
+                                return;
+                            const auto finalDiagnostics =
+                                    hdrRenderer->diagnostics();
+                            const double updatesPerSecond = interactionElapsed > 0
+                                    ? 48000.0 / interactionElapsed : 0.0;
+                            const QJsonObject probe{
+                                { QStringLiteral("sample_count"), 48 },
+                                { QStringLiteral("elapsed_ms"),
+                                  interactionElapsed },
+                                { QStringLiteral("updates_per_second"),
+                                  updatesPerSecond },
+                                { QStringLiteral("persistent_surface_ready"),
+                                  finalDiagnostics.persistentHDRSurfaceReady },
+                                { QStringLiteral("compositor_updates"),
+                                  static_cast<qint64>(
+                                          finalDiagnostics.compositorGeometryUpdateCount
+                                          - probeStartDiagnostics
+                                                    .compositorGeometryUpdateCount) },
+                                { QStringLiteral("metal_presents"),
+                                  static_cast<qint64>(
+                                          finalDiagnostics.presentedFrameCount
+                                          - probeStartDiagnostics
+                                                    .presentedFrameCount) },
+                                { QStringLiteral("last_geometry_update_ms"),
+                                  finalDiagnostics.lastRenderMilliseconds },
+                            };
+                            qInfo().noquote()
+                                    << "FOVELLE_HDR_120HZ"
+                                    << QJsonDocument(probe).toJson(
+                                               QJsonDocument::Compact);
+                        });
+                    }
                     QTimer::singleShot(250, this, [this]() {
                         if (hdrRendererActive)
                             logHDRState("test-interaction-settled");
@@ -1576,7 +1636,12 @@ void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
     hdrGeometryTimer->start();
     if (!hdrActivationCompleted)
         hdrPresentationTimer->start();
-    viewport()->update();
+    // The last prepared Metal frame deliberately remains visible while an
+    // interactive replacement is pending.  Repainting the hidden Qt proxy at
+    // this point adds a second window surface update without changing any
+    // visible pixel.
+    if (!reuseVisibleHDR)
+        viewport()->update();
     logHDRState(reuseVisibleHDR ? "geometry-reused" : "geometry-staged");
 }
 
@@ -1730,6 +1795,16 @@ void QVGraphicsView::logHDRState(const char *phase) const
           renderer.encodesMetalOffMainThread },
         { QStringLiteral("display_link_interaction_pacing"),
           renderer.usesDisplayLinkInteractionPacing },
+        { QStringLiteral("uses_persistent_hdr_surface"),
+          renderer.usesPersistentHDRSurface },
+        { QStringLiteral("persistent_hdr_surface_ready"),
+          renderer.persistentHDRSurfaceReady },
+        { QStringLiteral("persistent_hdr_surface_bytes"),
+          static_cast<qint64>(renderer.persistentHDRSurfaceBytes) },
+        { QStringLiteral("persistent_hdr_surface_preparation_ms"),
+          renderer.persistentHDRSurfacePreparationMilliseconds },
+        { QStringLiteral("compositor_geometry_update_count"),
+          static_cast<qint64>(renderer.compositorGeometryUpdateCount) },
         { QStringLiteral("display_link_interactive_submission_count"),
           static_cast<qint64>(renderer.displayLinkInteractiveSubmissionCount) },
         { QStringLiteral("frame_in_flight"), renderer.frameInFlight },
@@ -1762,6 +1837,8 @@ void QVGraphicsView::logHDRState(const char *phase) const
           static_cast<qint64>(renderer.submittedRenderGeneration) },
         { QStringLiteral("render_count"), static_cast<qint64>(renderer.renderCount) },
         { QStringLiteral("last_render_ms"), renderer.lastRenderMilliseconds },
+        { QStringLiteral("last_gpu_execution_ms"),
+          renderer.lastGPUExecutionMilliseconds },
         { QStringLiteral("interaction_step"), hdrInteractionStep },
         { QStringLiteral("interaction_elapsed_ms"),
           hdrInteractionClock.isValid() ? hdrInteractionClock.elapsed() : -1 },
