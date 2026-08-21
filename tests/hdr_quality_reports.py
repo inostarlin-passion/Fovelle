@@ -512,6 +512,20 @@ def main() -> int:
                 ),
                 "evidence": "GitHub Actions run https://github.com/inostarlin-passion/Fovelle/actions/runs/32467097203, job 96725894439 Test log",
             },
+            {
+                "id": "CI-F-010",
+                "statement": (
+                    "On final fix commit 88cc3fd, Build Fovelle run 32469105608 passed build, "
+                    "CTest, packaging, and artifact upload in 2m29s; Checks run 32469108136 "
+                    "passed clang-format, clang-tidy, and unit tests in 2m16s on macOS 26.5.2 "
+                    "with Xcode 26.6, macOS SDK 26.5, and Qt 6.11.2."
+                ),
+                "evidence": (
+                    "GitHub Actions runs "
+                    "https://github.com/inostarlin-passion/Fovelle/actions/runs/32469105608 and "
+                    "https://github.com/inostarlin-passion/Fovelle/actions/runs/32469108136"
+                ),
+            },
         ],
         "inferences": [
             {
