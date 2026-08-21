@@ -751,8 +751,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentImageLayer.opacity = 0.0F;
         if (@available(macOS 15.0, *))
             persistentImageLayer.toneMapMode = CAToneMapModeAutomatic;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
         if (@available(macOS 26.0, *))
             persistentImageLayer.preferredDynamicRange = CADynamicRangeHigh;
+#endif
 
         metalLayer = [[CAMetalLayer layer] retain];
         metalLayer.device = device;
@@ -767,8 +769,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
         if (@available(macOS 15.0, *))
             metalLayer.toneMapMode = CAToneMapModeAutomatic;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
         if (@available(macOS 26.0, *))
             metalLayer.preferredDynamicRange = CADynamicRangeHigh;
+#endif
 
         // UI which overlaps HDR pixels must belong to the same native layer
         // tree as the drawable. A transparent QWidget is composited from Qt's
@@ -932,12 +936,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         metalLayer.wantsExtendedDynamicRangeContent = enabled;
         persistentImageLayer.wantsExtendedDynamicRangeContent = enabled;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
         if (@available(macOS 26.0, *)) {
             const CADynamicRange range = enabled
                     ? CADynamicRangeHigh : CADynamicRangeStandard;
             metalLayer.preferredDynamicRange = range;
             persistentImageLayer.preferredDynamicRange = range;
         }
+#endif
         state.wantsExtendedDynamicRangeContent = enabled;
     }
 
@@ -2108,6 +2114,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
             metalLayer.hidden = NO;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
             if (@available(macOS 26.0, *)) {
                 // contentsHeadroom describes the pixels in the drawable, not
                 // the display's potential capability. Mis-tagging a 1.8x RAW
@@ -2123,6 +2130,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 state.layerContentsHeadroom = state.targetHeadroom;
                 state.usesLayerContentsHeadroomTag = false;
             }
+#else
+            // SDK15 has no CALayer contentsHeadroom declaration. Earlier
+            // systems infer range from the extended-linear pixels and EDR
+            // layer contract; keep the intended target in diagnostics.
+            state.layerContentsHeadroom = state.targetHeadroom;
+            state.usesLayerContentsHeadroomTag = false;
+#endif
             [CATransaction commit];
 
             const bool needsManagedPreparation = state.displayRenderingHeadroom > 1.001F;
@@ -3006,9 +3020,15 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     result.hdrMetadata.contentHeadroom = static_cast<float>(
                             resolvedHDRContentHeadroom(
                                     ciImageContentHeadroom(hdrImage), measuredHeadroom));
-                    if (@available(macOS 26.0, *))
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 160000
+                    // CIImage content-headroom tagging was introduced after
+                    // SDK15. Keep it when a newer compile SDK is selected,
+                    // while the SDK15 Release build uses the same pixel graph
+                    // and layer-level fallback contract.
+                    if (@available(macOS 16.0, *))
                         hdrImage = [hdrImage imageBySettingContentHeadroom:
                                 result.hdrMetadata.contentHeadroom];
+#endif
                     result.hdrImage = std::make_shared<NativeHDRImage>(
                             hdrImage, sdrImage, result.hdrMetadata);
 

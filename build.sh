@@ -3,7 +3,7 @@
 # Every developer build produces a runnable app. Pass this explicitly so an
 # older CMakeCache.txt configured with translations disabled cannot override
 # the project's current multilingual default.
-CMAKE_ARGS="-DFOVELLE_BUILD_TRANSLATIONS=ON"
+CMAKE_ARGS="-DFOVELLE_BUILD_TRANSLATIONS=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"
 
 CLEAN=false
 

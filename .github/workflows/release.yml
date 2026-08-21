@@ -12,7 +12,7 @@ jobs:
   release:
     name: Build and publish macOS release
     timeout-minutes: 60
-    runs-on: macos-26
+    runs-on: macos-15
     steps:
       - name: Checkout tagged commit
         uses: actions/checkout@v4
@@ -24,10 +24,13 @@ jobs:
         run: |
           XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
           SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
           echo "Xcode ${XCODE_VERSION}"
           echo "macOS SDK ${SDK_VERSION}"
-          test "${XCODE_VERSION%%.*}" -ge 26
-          test "${SDK_VERSION%%.*}" -ge 26
+          echo "macOS SDK path ${SDK_PATH}"
+          test "${XCODE_VERSION%%.*}" -ge 16
+          test "${SDK_VERSION%%.*}" -eq 15
+          test -d "${SDK_PATH}"
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -43,6 +46,8 @@ jobs:
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
           -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
 
       - name: Build
         run: cmake --build build --parallel 2

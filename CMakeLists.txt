@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
+# Keep the minimum runnable system explicit and deterministic. Release jobs
+# pass the same value explicitly, while local builds and older build trees get
+# a safe default without preventing an intentional caller override.
+if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING
+        "Minimum macOS version supported by Fovelle" FORCE)
+endif()
+
 project(Fovelle VERSION 0.1.4 LANGUAGES CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")

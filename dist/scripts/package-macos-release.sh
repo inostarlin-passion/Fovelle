@@ -26,18 +26,25 @@ APP_PATH="${RELEASE_APP_PATH:-build/Fovelle.app}"
 RELEASE_ZIP_PATH="${RELEASE_ZIP_PATH:-Fovelle-${GITHUB_REF_NAME:-local}-macOS-universal.zip}"
 RELEASE_DRY_RUN="${RELEASE_DRY_RUN:-false}"
 NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"
+EXPECTED_MACOS_DEPLOYMENT_TARGET="${FOVELLE_EXPECTED_MACOS_DEPLOYMENT_TARGET:-15.0}"
 
 validate_notarization_timeout() {
     [[ "$NOTARIZATION_TIMEOUT" =~ ^[1-9][0-9]*(s|m|h)?$ ]] || fail "NOTARIZATION_TIMEOUT must be a positive integer with optional s/m/h suffix: $NOTARIZATION_TIMEOUT"
 }
 
+validate_deployment_target() {
+    [[ "$EXPECTED_MACOS_DEPLOYMENT_TARGET" =~ ^[0-9]+\.[0-9]+$ ]] || fail "FOVELLE_EXPECTED_MACOS_DEPLOYMENT_TARGET must be a numeric macOS version: $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+}
+
 validate_notarization_timeout
+validate_deployment_target
 
 if [[ "$RELEASE_DRY_RUN" == "true" ]]; then
     echo "DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip"
     echo "DRY_RUN_APP_PATH: $APP_PATH"
     echo "DRY_RUN_RELEASE_ZIP_PATH: $RELEASE_ZIP_PATH"
     echo "DRY_RUN_NOTARIZATION_TIMEOUT: $NOTARIZATION_TIMEOUT"
+    echo "DRY_RUN_EXPECTED_MACOS_DEPLOYMENT_TARGET: $EXPECTED_MACOS_DEPLOYMENT_TARGET"
     exit 0
 fi
 
@@ -58,13 +65,56 @@ if [[ -z "$MACDEPLOYQT" ]]; then
 fi
 [[ -x "$MACDEPLOYQT" ]] || fail "macdeployqt was not found"
 
-for tool in base64 codesign ditto file lipo security spctl xattr xcrun; do
+for tool in base64 codesign ditto file lipo otool security spctl xattr xcrun; do
     command -v "$tool" >/dev/null 2>&1 || fail "required macOS tool was not found: $tool"
 done
 
 echo "Deploying Qt and plugin dependencies with $MACDEPLOYQT"
 "$MACDEPLOYQT" "$APP_PATH" -always-overwrite
 xattr -cr "$APP_PATH"
+
+assert_macos_deployment_target() {
+    local app_path="$1"
+    local candidate
+    local minos
+    local sdk
+    local main_binary="$app_path/Contents/MacOS/Fovelle"
+    local main_minos=""
+    local main_sdk=""
+    local plist_target
+    local macho_count=0
+
+    while IFS= read -r -d '' candidate; do
+        if ! is_macho "$candidate"; then
+            continue
+        fi
+        minos="$(otool -l "$candidate" | awk '$1 == "minos" { print $2; exit }')"
+        sdk="$(otool -l "$candidate" | awk '$1 == "sdk" { print $2; exit }')"
+        [[ -n "$minos" ]] || fail "Mach-O has no readable minimum macOS version: $candidate"
+        if [[ "$candidate" == "$main_binary" ]]; then
+            main_minos="$minos"
+            main_sdk="$sdk"
+        else
+            local minos_major="${minos%%.*}"
+            local minos_minor="${minos#*.}"
+            local expected_major="${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}"
+            local expected_minor="${EXPECTED_MACOS_DEPLOYMENT_TARGET#*.}"
+            (( minos_major < expected_major ||
+               (minos_major == expected_major && minos_minor <= expected_minor) )) || \
+                fail "embedded dependency requires newer macOS: $candidate requires $minos, target is $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+        fi
+        macho_count=$((macho_count + 1))
+    done < <(find "$app_path/Contents" -type f -print0)
+
+    ((macho_count > 0)) || fail "no Mach-O files were found while checking deployment target: $app_path"
+    [[ "$main_minos" == "$EXPECTED_MACOS_DEPLOYMENT_TARGET" ]] || fail "main executable minimum macOS version mismatch: ${main_minos:-<missing>}, expected $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+    [[ "${main_sdk%%.*}" == "${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}" ]] || fail "main executable was not compiled with the expected macOS SDK family: ${main_sdk:-<missing>}, expected ${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}.x"
+    plist_target="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app_path/Contents/Info.plist" 2>/dev/null || true)"
+    [[ "$plist_target" == "$EXPECTED_MACOS_DEPLOYMENT_TARGET" ]] || fail "Info.plist LSMinimumSystemVersion mismatch: ${plist_target:-<missing>}, expected $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+    echo "macOS deployment target verified: $EXPECTED_MACOS_DEPLOYMENT_TARGET across $macho_count Mach-O files and Info.plist"
+}
+
+assert_macos_deployment_target "$APP_PATH"
 
 assert_universal_app() {
     local app_path="$1"
@@ -212,6 +262,7 @@ ditto -x -k "$RELEASE_ZIP_PATH" "$VERIFY_ROOT"
 VERIFIED_APP="$VERIFY_ROOT/$(basename "$APP_PATH")"
 [[ -d "$VERIFIED_APP" ]] || fail "release zip did not contain the expected app bundle"
 assert_universal_app "$VERIFIED_APP"
+assert_macos_deployment_target "$VERIFIED_APP"
 codesign --verify --deep --strict --verbose=2 "$VERIFIED_APP"
 xcrun stapler validate "$VERIFIED_APP"
 spctl --assess --type execute --verbose=4 --ignore-cache "$VERIFIED_APP"

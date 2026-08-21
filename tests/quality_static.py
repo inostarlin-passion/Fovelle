@@ -57,6 +57,7 @@ def main() -> int:
         ".github/workflows/test.yml",
         ".github/workflows/build.yml",
         ".github/workflows/release.yml",
+        ".github/workflows/release-compatibility.yml",
         "dist/scripts/package-macos-release.sh",
     )
     source = {relative: (repo / relative).read_text(encoding="utf-8") for relative in relative_sources}
@@ -484,33 +485,61 @@ def main() -> int:
         source[".github/workflows/test.yml"],
         source[".github/workflows/build.yml"],
         source[".github/workflows/release.yml"],
+        source[".github/workflows/release-compatibility.yml"],
     )
-    runner_sdk_contract = all(
-        "runs-on: macos-26" in workflow
-        and "runs-on: macos-14" not in workflow
-        and "xcodebuild -version" in workflow
-        and "xcrun --sdk macosx --show-sdk-version" in workflow
-        and 'test "${XCODE_VERSION%%.*}" -ge 26' in workflow
-        and 'test "${SDK_VERSION%%.*}" -ge 26' in workflow
-        and "version: '6.11.2'" in workflow
-        and "version: '6.8" not in workflow
-        for workflow in workflow_sources
+    build_workflow = source[".github/workflows/build.yml"]
+    checks_workflow = source[".github/workflows/test.yml"]
+    release_workflow = source[".github/workflows/release.yml"]
+    compatibility_workflow = source[".github/workflows/release-compatibility.yml"]
+    runner_sdk_contract = (
+        all(
+            "runs-on: macos-26" in workflow
+            and "runs-on: macos-14" not in workflow
+            and "xcodebuild -version" in workflow
+            and "xcrun --sdk macosx --show-sdk-version" in workflow
+            and 'test "${XCODE_VERSION%%.*}" -ge 26' in workflow
+            and 'test "${SDK_VERSION%%.*}" -ge 26' in workflow
+            and "version: '6.11.2'" in workflow
+            and "version: '6.8" not in workflow
+            and "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow
+            for workflow in (checks_workflow, build_workflow)
+        )
+        and "runs-on: macos-15" in release_workflow
+        and "runs-on: macos-14" not in release_workflow
+        and "xcodebuild -version" in release_workflow
+        and "xcrun --sdk macosx --show-sdk-version" in release_workflow
+        and 'test "${XCODE_VERSION%%.*}" -ge 16' in release_workflow
+        and 'test "${SDK_VERSION%%.*}" -eq 15' in release_workflow
+        and "version: '6.11.2'" in release_workflow
+        and "version: '6.8" not in release_workflow
+        and "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in release_workflow
+        and "runs-on: macos-15" in compatibility_workflow
+        and 'test "${XCODE_VERSION%%.*}" -ge 16' in compatibility_workflow
+        and 'test "${SDK_VERSION%%.*}" -eq 15' in compatibility_workflow
+        and "version: '6.11.2'" in compatibility_workflow
+        and "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in compatibility_workflow
     )
     add_check(
         checks,
         "ST-27-CI-APPLE-SDK",
         runner_sdk_contract,
         {
-            "all_workflows_use_macos_26": all("runs-on: macos-26" in workflow for workflow in workflow_sources),
+            "build_and_checks_use_macos_26": all("runs-on: macos-26" in workflow for workflow in (build_workflow, checks_workflow)),
+            "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
+            "release_compatibility_uses_macos_15": "runs-on: macos-15" in compatibility_workflow,
             "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflow_sources),
             "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflow_sources),
             "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflow_sources),
-            "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
-            "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
+            "build_and_checks_xcode_26_minimum": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in (build_workflow, checks_workflow)),
+            "build_and_checks_sdk_26_minimum": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in (build_workflow, checks_workflow)),
+            "release_xcode_16_minimum": 'test "${XCODE_VERSION%%.*}" -ge 16' in release_workflow,
+            "release_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in release_workflow,
+            "release_compatibility_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in compatibility_workflow,
             "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflow_sources),
             "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflow_sources),
+            "deployment_target_15_is_explicit": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in workflow_sources),
         },
-        "all build, check, and release jobs run on macOS 26 with Qt 6.11.2 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
+        "build/check jobs use macOS 26 for HDR headers while Release uses the macOS 15 SDK and all jobs pin Qt 6.11.2 and deployment target 15.0",
     )
 
     bounded_build_contract = (
@@ -518,6 +547,7 @@ def main() -> int:
             ".github/workflows/test.yml",
             ".github/workflows/build.yml",
             ".github/workflows/release.yml",
+            ".github/workflows/release-compatibility.yml",
         ))
         and "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"]
     )

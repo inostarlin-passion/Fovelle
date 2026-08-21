@@ -46,6 +46,38 @@ def main() -> int:
         "Release builds and verifies both arm64 and x86_64 in the app and publishes an explicitly Universal asset",
     )
 
+    sdk15_contract = all(
+        marker in workflow
+        for marker in (
+            "runs-on: macos-15",
+            'test "${XCODE_VERSION%%.*}" -ge 16',
+            'test "${SDK_VERSION%%.*}" -eq 15',
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0",
+            'CMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"',
+        )
+    ) and all(
+        marker in script
+        for marker in (
+            "EXPECTED_MACOS_DEPLOYMENT_TARGET",
+            "assert_macos_deployment_target",
+            "otool -l",
+            "LSMinimumSystemVersion",
+        )
+    )
+    add_check(
+        checks,
+        "R-10",
+        sdk15_contract,
+        {
+            "release_runner_is_macos15": "runs-on: macos-15" in workflow,
+            "release_sdk_is_exactly_15": 'test "${SDK_VERSION%%.*}" -eq 15' in workflow,
+            "deployment_target_is_15": "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow,
+            "artifact_min_os_is_verified": "LSMinimumSystemVersion" in script,
+            "artifact_sdk_is_verified": "otool -l" in script,
+        },
+        "Release compiles against the macOS 15 SDK and fails closed unless the final bundle targets macOS 15",
+    )
+
     deployment_contract = "macdeployqt" in script and "-always-overwrite" in script and "Sign, notarize, validate, and package" in workflow
     add_check(
         checks,

@@ -38,6 +38,7 @@ jobs:
           -DBUILD_TESTS=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
 
       - name: Build
         run: cmake --build build --parallel 2
