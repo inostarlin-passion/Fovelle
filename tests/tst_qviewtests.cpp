@@ -105,6 +105,7 @@ private slots:
     void testDisplayHeadroomBootstrapsFromPotentialCapability();
     void testFinalFrameRevealRequiresMatchedGeometry();
     void testHDRViewportGeometryEquivalenceUsesCompleteContract();
+    void testPersistentHDRLayerUsesQtViewportCoordinates();
     void testRawContentHeadroomUsesMeasuredPeakWhenUnknown();
     void testPreparedHDRPresentationCanBeReusedAcrossGeometry();
     void testViewportBackgroundColorsMatchTheme();
@@ -1005,6 +1006,58 @@ void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
             viewport, reference, QSize(1199, 775), reference));
     QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
             viewport, reference, viewport, missingCorner));
+}
+
+// TC-HDR-UNIT-PERSISTENT-LAYER-COORDINATES
+// Test purpose: verify the persistent Core Animation HDR surface consumes the
+// same top-left-origin viewport corners as QGraphicsView, without a second
+// vertical inversion.
+// Preconditions: no native view, display, or HDR fixture is required.
+// Input data: fitted and rotated four-corner viewport geometries, plus a
+// positive vertical translation.
+// Steps: build the layer transform and map all four source-image corners.
+// Expected result: every corner lands on the corresponding Qt viewport corner;
+// moving Qt geometry down also moves the native layer down by the same amount.
+// Postcondition: no native layer or renderer state is created.
+void HDRPolicyTests::testPersistentHDRLayerUsesQtViewportCoordinates()
+{
+    const QSizeF sourceSize(6048.0, 8064.0);
+    const auto verifyCornerMapping = [&](const QPolygonF &corners) {
+        const QTransform transform = QVCocoaFunctions::persistentHDRLayerTransform(
+                sourceSize, corners);
+        const QPolygonF sourceCorners{
+            QPointF(0.0, 0.0),
+            QPointF(sourceSize.width(), 0.0),
+            QPointF(sourceSize.width(), sourceSize.height()),
+            QPointF(0.0, sourceSize.height())
+        };
+        for (qsizetype index = 0; index < sourceCorners.size(); ++index)
+            QVERIFY(QLineF(transform.map(sourceCorners.at(index)),
+                           corners.at(index)).length() < 1e-9);
+    };
+
+    const QPolygonF fitted{
+        QPointF(505.0, 27.0), QPointF(1222.75, 27.0),
+        QPointF(1222.75, 984.0), QPointF(505.0, 984.0)
+    };
+    verifyCornerMapping(fitted);
+
+    QPolygonF translated = fitted;
+    for (QPointF &corner : translated)
+        corner += QPointF(0.0, 37.0);
+    const QTransform fittedTransform = QVCocoaFunctions::persistentHDRLayerTransform(
+            sourceSize, fitted);
+    const QTransform translatedTransform = QVCocoaFunctions::persistentHDRLayerTransform(
+            sourceSize, translated);
+    QCOMPARE(translatedTransform.map(QPointF(0.0, 0.0)).y()
+                     - fittedTransform.map(QPointF(0.0, 0.0)).y(),
+             37.0);
+
+    const QPolygonF rotated{
+        QPointF(140.0, 80.0), QPointF(940.0, 280.0),
+        QPointF(760.0, 1000.0), QPointF(-40.0, 800.0)
+    };
+    verifyCornerMapping(rotated);
 }
 
 // TC-HDR-UNIT-CONTENT-HEADROOM

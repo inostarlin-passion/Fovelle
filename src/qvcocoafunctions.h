@@ -12,6 +12,7 @@
 #include <QPolygonF>
 #include <QRectF>
 #include <QSize>
+#include <QTransform>
 
 #include <memory>
 
@@ -254,6 +255,14 @@ public:
     // replace the SDR proxy or prior HDR presentation.
     static bool isFinalHDRFrameReadyForReveal(bool drawableGeometryMatches,
                                               qreal transitionProgress);
+
+    // QGraphicsView supplies viewport coordinates in Qt's top-left-origin
+    // coordinate system. QNSView is already flipped to the same convention,
+    // so a persistent Core Animation sublayer must consume those corners
+    // directly. This is intentionally separate from the Metal texture path,
+    // whose render target still uses bottom-left-origin coordinates.
+    static QTransform persistentHDRLayerTransform(const QSizeF &sourceSize,
+                                                  const QPolygonF &imageCorners);
 
     // Non-invasive test/diagnostic probe. It reduces each retained CI graph to
     // one floating-point maximum pixel without converting the source to an SDR

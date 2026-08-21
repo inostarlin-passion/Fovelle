@@ -1054,18 +1054,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (sourceWidth <= 0.0 || sourceHeight <= 0.0)
             return;
 
-        const auto parentPoint = [&](const QPointF &point) {
-            return CGPointMake(point.x(), viewportSize.height() - point.y());
-        };
-        const CGPoint bottomLeft = parentPoint(corners.at(3));
-        const CGPoint bottomRight = parentPoint(corners.at(2));
-        const CGPoint topLeft = parentPoint(corners.at(0));
+        const QTransform qtTransform = QVCocoaFunctions::persistentHDRLayerTransform(
+                QSizeF(sourceWidth, sourceHeight), corners);
         const CGAffineTransform transform = CGAffineTransformMake(
-                (bottomRight.x - bottomLeft.x) / sourceWidth,
-                (bottomRight.y - bottomLeft.y) / sourceWidth,
-                (topLeft.x - bottomLeft.x) / sourceHeight,
-                (topLeft.y - bottomLeft.y) / sourceHeight,
-                bottomLeft.x, bottomLeft.y);
+                qtTransform.m11(), qtTransform.m12(),
+                qtTransform.m21(), qtTransform.m22(),
+                qtTransform.dx(), qtTransform.dy());
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
@@ -2276,6 +2270,26 @@ bool QVCocoaFunctions::isFinalHDRFrameReadyForReveal(
         const bool drawableGeometryMatches, const qreal transitionProgress)
 {
     return drawableGeometryMatches && transitionProgress >= 0.999;
+}
+
+QTransform QVCocoaFunctions::persistentHDRLayerTransform(
+        const QSizeF &sourceSize, const QPolygonF &imageCorners)
+{
+    if (sourceSize.width() <= 0.0 || sourceSize.height() <= 0.0
+        || imageCorners.size() < 4)
+        return {};
+
+    const QPointF topLeft = imageCorners.at(0);
+    const QPointF topRight = imageCorners.at(1);
+    const QPointF bottomLeft = imageCorners.at(3);
+    return QTransform(
+            (topRight.x() - topLeft.x()) / sourceSize.width(),
+            (topRight.y() - topLeft.y()) / sourceSize.width(),
+            0.0,
+            (bottomLeft.x() - topLeft.x()) / sourceSize.height(),
+            (bottomLeft.y() - topLeft.y()) / sourceSize.height(),
+            0.0,
+            topLeft.x(), topLeft.y(), 1.0);
 }
 
 QVCocoaFunctions::HDRPixelStatistics
