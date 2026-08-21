@@ -10,10 +10,20 @@ on:
 jobs:
   unit-tests:
     name: Run Unit Tests
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Xcode and macOS SDK
+        shell: bash
+        run: |
+          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
+          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          echo "Xcode ${XCODE_VERSION}"
+          echo "macOS SDK ${SDK_VERSION}"
+          test "${XCODE_VERSION%%.*}" -ge 26
+          test "${SDK_VERSION%%.*}" -ge 26
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -37,10 +47,20 @@ jobs:
 
   clang-tidy:
     name: Run clang-tidy
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Xcode and macOS SDK
+        shell: bash
+        run: |
+          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
+          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          echo "Xcode ${XCODE_VERSION}"
+          echo "macOS SDK ${SDK_VERSION}"
+          test "${XCODE_VERSION%%.*}" -ge 26
+          test "${SDK_VERSION%%.*}" -ge 26
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -59,10 +79,20 @@ jobs:
 
   format:
     name: Run clang-format
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Xcode and macOS SDK
+        shell: bash
+        run: |
+          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
+          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          echo "Xcode ${XCODE_VERSION}"
+          echo "macOS SDK ${SDK_VERSION}"
+          test "${XCODE_VERSION%%.*}" -ge 26
+          test "${SDK_VERSION%%.*}" -ge 26
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4

@@ -158,6 +158,42 @@ def main() -> int:
     research_sources = [
         {
             "kind": "fact-source",
+            "title": "GitHub Actions macOS 26 runner image manifest",
+            "url": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md",
+            "supports": [
+                "macos-26 runner image",
+                "Xcode 26.6 default",
+                "macOS 26 SDK family",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "GitHub Actions runner images",
+            "url": "https://github.com/actions/runner-images",
+            "supports": [
+                "hosted runner image labels",
+                "image version and installed software are externally maintained",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CALayer preferredDynamicRange",
+            "url": "https://developer.apple.com/documentation/quartzcore/calayer/preferreddynamicrange",
+            "supports": [
+                "macOS 26 dynamic-range layer API",
+                "preferred high/standard dynamic range selection",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple Image I/O HDR gain-map auxiliary data type",
+            "url": "https://developer.apple.com/documentation/imageio/kcgimageauxiliarydatatypehdrgainmap",
+            "supports": [
+                "current public HDR gain-map auxiliary-data identifier",
+            ],
+        },
+        {
+            "kind": "fact-source",
             "title": "WWDC24 — Use HDR for dynamic image experiences in your app",
             "url": "https://developer.apple.com/videos/play/wwdc2024/10177/",
             "supports": ["adaptive HDR expansion", "content headroom", "CIToneMapHeadroom", "Quick Look/Preview adoption"],
@@ -368,6 +404,75 @@ def main() -> int:
             "supports": ["shape layers rasterize only a supplied path", "path-based rounded and chevron artwork"],
         },
     ]
+
+    ci_root_cause = {
+        "facts": [
+            {
+                "id": "CI-F-001",
+                "statement": (
+                    "GitHub Actions run 32456565876 (Checks) and build run "
+                    "32456565857 executed on Xcode_15.4.app with MacOSX14.5.sdk."
+                ),
+                "evidence": "GitHub Actions job logs collected with gh run view --log",
+            },
+            {
+                "id": "CI-F-002",
+                "statement": (
+                    "The failing compiler diagnostics were in qvcocoafunctions.mm "
+                    "for macOS 26 HDR APIs, including preferredDynamicRange, "
+                    "CADynamicRangeHigh, contentHeadroom, "
+                    "CGImageGetContentHeadroom, and the gain-map auxiliary-data "
+                    "identifier."
+                ),
+                "evidence": "same failed build and clang-tidy logs",
+            },
+            {
+                "id": "CI-F-003",
+                "statement": (
+                    "The local target environment is macOS 15.7.7 with Xcode 26.3 "
+                    "and macOS SDK 26.2; the configured build and all four test "
+                    "phases pass with that toolchain family."
+                ),
+                "evidence": "xcodebuild -version, xcrun --sdk macosx --show-sdk-version, and reports/evidence/hdr_*.json",
+            },
+        ],
+        "inferences": [
+            {
+                "id": "CI-I-001",
+                "statement": (
+                    "The primary CI failure was a runner/SDK mismatch, not a "
+                    "runtime HDR data failure: the source references APIs newer "
+                    "than the SDK selected by macos-14/Xcode 15.4."
+                ),
+                "basis": ["CI-F-001", "CI-F-002", "CI-F-003"],
+            },
+            {
+                "id": "CI-I-002",
+                "statement": (
+                    "macos-26 is the minimal hosted-image family that supplies "
+                    "Xcode 26 and macOS 26 SDK headers required by this source; "
+                    "the workflow fail-fast checks make that assumption explicit."
+                ),
+                "basis": ["CI-F-002", "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md"],
+            },
+        ],
+        "uncertainties": [
+            {
+                "id": "CI-U-001",
+                "statement": (
+                    "The hosted macos-26 image can advance from Xcode 26.6 to a "
+                    "newer 26.x image; the workflow asserts the major version and "
+                    "SDK family, not a patch-level pin."
+                ),
+                "mitigation": "The verify step prints both versions and fails below major version 26.",
+            },
+        ],
+        "remediation": [
+            "Use macos-26 for build, test, clang-tidy, format, and release jobs.",
+            "Verify xcodebuild major version >= 26 and macOS SDK major version >= 26 before installing Qt.",
+            "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14.",
+        ],
+    }
 
     intermediate_iterations = []
     if root_cause:
@@ -586,6 +691,7 @@ def main() -> int:
         "iteration_history": test_evidence["intermediate_iterations"],
         "static_analysis": phase_records["static"].get("clang_tidy"),
         "performance": system_performance,
+        "ci_root_cause_analysis": ci_root_cause,
         "research_sources": research_sources,
         "facts": [
             "The project and bundle version sources are v0.1.4.",
@@ -741,6 +847,7 @@ def main() -> int:
             },
         ],
         "source_artifacts": artifact_records,
+        "ci_root_cause_analysis": ci_root_cause,
         "research_sources": research_sources,
         "facts_inference_uncertainty_separated": True,
         "passed": evidence_passed,

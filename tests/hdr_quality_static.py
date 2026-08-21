@@ -51,6 +51,12 @@ def main() -> int:
     qmake = (repo / "qView.pro").read_text(encoding="utf-8")
     plist = (repo / "dist/mac/Info.plist").read_text(encoding="utf-8")
     tests = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
+    workflow_paths = (
+        repo / ".github/workflows/test.yml",
+        repo / ".github/workflows/build.yml",
+        repo / ".github/workflows/release.yml",
+    )
+    workflows = {str(path.relative_to(repo)): path.read_text(encoding="utf-8") for path in workflow_paths}
 
     cases: list[dict] = []
 
@@ -67,6 +73,15 @@ def main() -> int:
     raw_decode = between(cocoa, "if (result.isRaw)", "else if (result.isImageIOType)")
     nonraw_decode = between(cocoa, "else if (result.isImageIOType)", "CFRelease(source);")
     renderer = between(cocoa, "struct QVCocoaFunctions::HDRRenderer::Impl", "static void hideMenuShortcuts")
+
+    case("ST-CI-APPLE-SDK", {
+        "all_workflows_use_macos_26": all("runs-on: macos-26" in workflow for workflow in workflows.values()),
+        "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflows.values()),
+        "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflows.values()),
+        "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflows.values()),
+        "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
+        "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
+    })
 
     case("ST-HDR-RAW-CONTENT-UTI", {
         "camera_raw_conformance_check": "UTTypeRAWImage" in cocoa and "conformsToType" in cocoa,

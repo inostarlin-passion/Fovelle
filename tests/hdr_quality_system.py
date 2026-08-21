@@ -237,9 +237,16 @@ def navigation_surface_diff_metric(
     event: dict,
     device_pixel_ratio: float,
     viewport_crop: tuple[int, int, int, int] | None,
+    comparison_paths: Path | list[Path] | None = None,
 ) -> dict:
     with Image.open(visible_path) as visible_source:
         visible = visible_source.convert("RGB")
+    if comparison_paths is None:
+        candidates = []
+    elif isinstance(comparison_paths, Path):
+        candidates = [comparison_paths]
+    else:
+        candidates = list(comparison_paths)
     scale = max(1.0, device_pixel_ratio)
     viewport_left = viewport_crop[0] if viewport_crop else 0
     viewport_top = viewport_crop[1] if viewport_crop else 0
@@ -302,7 +309,7 @@ def navigation_surface_diff_metric(
         min(mean_difference(corner, adjacent) for adjacent in neighbors)
         for corner, neighbors in zip(corner_boxes, adjacent_boxes)
     ]
-    return {
+    result = {
         "button_rect_pixels": [left, top, right, bottom],
         "corner_local_discontinuity_mae": corner_discontinuities,
         "maximum_corner_local_discontinuity_mae": max(
@@ -318,6 +325,63 @@ def navigation_surface_diff_metric(
         ),
         "device_pixel_ratio": scale,
     }
+    if candidates:
+        def corresponding_mean_difference(box: tuple[int, int, int, int]) -> float:
+            lhs_pixels = list(visible.crop(box).getdata())
+            rhs_pixels = list(comparison.crop(box).getdata())
+            if len(lhs_pixels) != len(rhs_pixels) or not lhs_pixels:
+                return math.inf
+            return statistics.fmean(
+                statistics.fmean(abs(a - b) for a, b in zip(lhs, rhs))
+                for lhs, rhs in zip(lhs_pixels, rhs_pixels)
+            )
+
+        comparisons = []
+        for path in candidates:
+            with Image.open(path) as comparison_source:
+                comparison = comparison_source.convert("RGB")
+                center_opacity_delta = corresponding_mean_difference(center_box)
+                corner_opacity_deltas = [
+                    corresponding_mean_difference(box) for box in corner_boxes
+                ]
+            if math.isfinite(center_opacity_delta) and all(
+                math.isfinite(value) for value in corner_opacity_deltas
+            ):
+                comparisons.append({
+                    "path": str(path),
+                    "center_opacity_delta_mean_rgb": center_opacity_delta,
+                    "corner_opacity_delta_mean_rgb": corner_opacity_deltas,
+                    "maximum_corner_opacity_delta_mean_rgb": max(
+                        corner_opacity_deltas, default=math.inf
+                    ),
+                })
+        selected = max(
+            comparisons,
+            key=lambda item: item["center_opacity_delta_mean_rgb"],
+            default=None,
+        )
+        center_opacity_delta = (
+            selected["center_opacity_delta_mean_rgb"] if selected else math.inf
+        )
+        corner_opacity_deltas = (
+            selected["corner_opacity_delta_mean_rgb"] if selected else [math.inf]
+        )
+        result.update({
+            "center_opacity_delta_mean_rgb": center_opacity_delta,
+            "corner_opacity_delta_mean_rgb": corner_opacity_deltas,
+            "maximum_corner_opacity_delta_mean_rgb": max(
+                corner_opacity_deltas, default=math.inf
+            ),
+            "comparison_capture": selected["path"] if selected else None,
+            "comparison_candidates": comparisons,
+            "opacity_comparison_measurement": (
+                "corresponding pixels in the fractional-opacity and full-opacity "
+                "window captures; center artwork must change while exact corners "
+                "remain stable; the largest valid center delta is selected when "
+                "screencapture timing returns adjacent frames with the same state"
+            ),
+        })
+    return result
 
 
 def missing_structure_metric(
@@ -954,6 +1018,7 @@ def main() -> int:
             navigation_visible_events[-1],
             navigation_device_pixel_ratio,
             navigation_viewport_crop,
+            [Path(item["path"]) for item in navigation_captures[1:]],
         )
         navigation_captures[0]["navigation_surface_diff_metric"] = metric
         navigation_capture_metrics.append(metric)
@@ -1862,7 +1927,11 @@ def main() -> int:
                 for item in navigation_capture_metrics
             ),
             "shape_artwork_has_visible_center_contrast": bool(navigation_capture_metrics) and all(
-                item["center_to_corner_mean_rgb_difference"] >= 5.0
+                item.get("center_opacity_delta_mean_rgb", 0.0) >= 5.0
+                for item in navigation_capture_metrics
+            ),
+            "opacity_change_does_not_reveal_corners": bool(navigation_capture_metrics) and all(
+                item.get("maximum_corner_opacity_delta_mean_rgb", math.inf) <= 8.0
                 for item in navigation_capture_metrics
             ),
         }, {
@@ -1874,7 +1943,8 @@ def main() -> int:
             "button_rect_pixels": list(navigation_button_rect) if navigation_button_rect else None,
             "button_over_hdr_pixels": navigation_button_over_hdr_pixels,
             "corner_local_discontinuity_maximum": 8.0,
-            "center_to_corner_difference_minimum": 5.0,
+            "center_opacity_delta_minimum": 5.0,
+            "corner_opacity_delta_maximum": 8.0,
         }),
         make_case("SYS-HDR-THEME-BACKGROUND-STABILITY", {
             "theme_process_healthy": theme_run["process_healthy"],

@@ -518,13 +518,14 @@ def main() -> int:
     )
 
     theme_contract = all_present(
-        text("src/settingsmanager.cpp") + options + options_ui + mainwindow + cocoa,
+        text("src/settingsmanager.cpp") + options + options_ui + mainwindow + cocoa + text("src/qvnamespace.h") + text("src/qvgraphicsview.cpp"),
         (
             'settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});',
             'syncComboBox(ui->themeComboBox, "theme"',
             'name="themeComboBox"',
             'NSAppearanceNameAqua',
             'NSAppearanceNameDarkAqua',
+            'viewportBackgroundColor',
             'QColor("#212121")',
             'QColor("#969696")',
         ),
@@ -548,7 +549,7 @@ def main() -> int:
             "previousImageButton",
             "nextImageButton",
             "eventFilter(QObject *watched, QEvent *event)",
-            "viewport()->grab(sampleRect)",
+            "sampleDisplayedImageBrightness",
             "QPropertyAnimation",
             "navigationEdgeWidth",
             "NavigationButtonActivationMinimumWidth",
@@ -565,7 +566,7 @@ def main() -> int:
         {
             "buttons": "previousImageButton" in mainwindow and "nextImageButton" in mainwindow,
             "pointer_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow,
-            "underlying_content_sample": "viewport()->grab(sampleRect)" in mainwindow,
+            "underlying_content_sample": "sampleDisplayedImageBrightness" in mainwindow,
             "transition": "QPropertyAnimation" in mainwindow,
             "edge_width": "navigationEdgeWidth" in mainwindow + text("src/mainwindow.h"),
             "minimum_strip": "NavigationButtonActivationMinimumWidth" in mainwindow + text("src/mainwindow.h"),

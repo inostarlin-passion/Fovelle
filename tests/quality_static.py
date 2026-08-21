@@ -480,6 +480,35 @@ def main() -> int:
         "scene-rect updates cannot recursively trigger fit passes, and CI/CTest terminate a stuck test within a documented bounded window",
     )
 
+    workflow_sources = (
+        source[".github/workflows/test.yml"],
+        source[".github/workflows/build.yml"],
+        source[".github/workflows/release.yml"],
+    )
+    runner_sdk_contract = all(
+        "runs-on: macos-26" in workflow
+        and "runs-on: macos-14" not in workflow
+        and "xcodebuild -version" in workflow
+        and "xcrun --sdk macosx --show-sdk-version" in workflow
+        and 'test "${XCODE_VERSION%%.*}" -ge 26' in workflow
+        and 'test "${SDK_VERSION%%.*}" -ge 26' in workflow
+        for workflow in workflow_sources
+    )
+    add_check(
+        checks,
+        "ST-27-CI-APPLE-SDK",
+        runner_sdk_contract,
+        {
+            "all_workflows_use_macos_26": all("runs-on: macos-26" in workflow for workflow in workflow_sources),
+            "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflow_sources),
+            "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflow_sources),
+            "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflow_sources),
+            "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
+            "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
+        },
+        "all build, check, and release jobs run on macOS 26 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
+    )
+
     cross_dpi_test_contract = (
         "itemsBoundingRect().width() >= 1200" in test_source
         and "itemsBoundingRect().width() > 1200" not in test_source
@@ -671,7 +700,13 @@ def main() -> int:
         "Practical and Verbose titlebar modes follow the requested filename-first field order",
     )
 
-    theme_cpp = source["src/qvcocoafunctions.mm"] + source["src/qvcocoafunctions.h"]
+    theme_cpp = (
+        source["src/qvcocoafunctions.mm"]
+        + source["src/qvcocoafunctions.h"]
+        + source["src/qvnamespace.h"]
+        + source["src/qvgraphicsview.cpp"]
+        + window_cpp
+    )
     theme_ui_contract = all(
         marker in settings_cpp + options_cpp + options_ui + window_cpp + theme_cpp
         for marker in (
@@ -684,6 +719,7 @@ def main() -> int:
             'setWindowTheme(Qv::Theme theme, QWindow *window);',
             'NSAppearanceNameAqua',
             'NSAppearanceNameDarkAqua',
+            'viewportBackgroundColor',
             'QColor("#212121")',
             'QColor("#969696")',
         )
@@ -698,7 +734,11 @@ def main() -> int:
             "two_theme_labels": 'tr("Light Theme")' in options_cpp and 'tr("Dark Theme")' in options_cpp,
             "old_controls_removed": 'name="bgColorCheckbox"' not in options_ui and 'name="darkTitlebarCheckbox"' not in options_ui,
             "standard_native_appearances": 'NSAppearanceNameAqua' in theme_cpp and 'NSAppearanceNameDarkAqua' in theme_cpp,
-            "viewport_colors": 'QColor("#212121")' in window_cpp and 'QColor("#969696")' in window_cpp,
+            "viewport_colors": (
+                "viewportBackgroundColor" in source["src/qvnamespace.h"]
+                and 'QColor("#212121")' in source["src/qvnamespace.h"]
+                and 'QColor("#969696")' in source["src/qvnamespace.h"]
+            ),
         },
         "Theme is the only Window color control, defaults to Light, and maps to standard Aqua/DarkAqua plus deterministic viewport colors",
     )
@@ -721,7 +761,7 @@ def main() -> int:
         (
             "eventFilter(QObject *watched, QEvent *event)",
             "sampledContentBrightness",
-            "viewport()->grab(sampleRect)",
+            "sampleDisplayedImageBrightness",
             "QGraphicsOpacityEffect",
             "NavigationButtonAnimationDuration",
             "NavigationButtonMinimumWindowWidth",
@@ -740,7 +780,7 @@ def main() -> int:
         navigation_contract and "setToolTip" not in window_cpp,
         {
             "mouse_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow_header,
-            "actual_content_sample": "viewport()->grab(sampleRect)" in window_cpp,
+            "actual_content_sample": "sampleDisplayedImageBrightness" in window_cpp,
             "per_side_style": "sampledContentBrightness" in window_cpp and "setDarkBackground" in window_cpp,
             "fade_effect": "QGraphicsOpacityEffect" in window_cpp and "NavigationButtonAnimationDuration" in window_cpp,
             "deterministic_tests": all(marker in test_source for marker in (
