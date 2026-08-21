@@ -2006,12 +2006,12 @@ void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
 // TC-LAYOUT-ZOOM-SCROLLBAR-THRESHOLD
 // Test purpose: verify that zooming across the point where AsNeeded
 // scrollbars appear does not change the image-relative point at the viewport
-// center.
-// Preconditions: a visible 640x480 Cocoa window uses OriginalSize and loads a
-// 600x800 image, so the initial image has only vertical overflow and the next
-// 1.25x step introduces horizontal overflow.
+// center of the usable viewport.
+// Preconditions: a visible Cocoa window uses OriginalSize and loads an image
+// sized to 90% of its current viewport, so the initial image fits and the next
+// 1.25x step introduces overflow on both axes.
 // Input data: one center-anchored zoom-in step.
-// Steps: record the normalized image coordinate at the viewport center, zoom
+// Steps: record the normalized image coordinate at the usable viewport center, zoom
 // in once, inspect the immediate scrollbar layout, then wait for high-quality
 // scaling and inspect it again.
 // Expected result: both overflow axes are available and the normalized image
@@ -2032,8 +2032,6 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "zoom-scrollbar-threshold", Qt::darkYellow, QSize(600, 800));
-    QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -2041,36 +2039,90 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
     window.resize(640, 480);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-    window.openFile(imagePath);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(view->viewport()->width() >= 200 && view->viewport()->height() >= 200, 1000);
+    QRect usableViewport = view->viewport()->rect();
+    usableViewport.setTop(window.getViewportPosition().obscuredHeight);
+    if (usableViewport.width() < 200 || usableViewport.height() < 200)
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
+
+    const QSize imageSize(usableViewport.width() * 9 / 10, usableViewport.height() * 9 / 10);
+    const QString imagePath = createTestImage(dir, "zoom-scrollbar-threshold", Qt::darkYellow, imageSize);
+    QVERIFY(!imagePath.isEmpty());
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    if (!window.getIsPixmapLoaded())
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
+
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    const auto noScrollBars = [view]() {
+        return !view->horizontalScrollBar()->isVisible() && !view->verticalScrollBar()->isVisible();
+    };
     QTRY_VERIFY_WITH_TIMEOUT(
-        !view->horizontalScrollBar()->isVisible() && !view->verticalScrollBar()->isVisible(),
+        noScrollBars(),
         2000);
-    const auto normalizedImageCoordinateAtViewportCenter = [view]() {
+    if (!noScrollBars())
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
+    const auto normalizedImageCoordinateAtUsableViewportCenter = [&window, view]() {
         const QRectF imageRect = view->scene()->itemsBoundingRect();
-        const QPointF scenePoint = view->mapToScene(view->viewport()->rect().center());
+        QRect currentUsableViewport = view->viewport()->rect();
+        currentUsableViewport.setTop(window.getViewportPosition().obscuredHeight);
+        const QPointF scenePoint = view->mapToScene(currentUsableViewport.center());
         return QPointF(
             (scenePoint.x() - imageRect.left()) / imageRect.width(),
             (scenePoint.y() - imageRect.top()) / imageRect.height());
     };
-    const QPointF imageCoordinateBefore = normalizedImageCoordinateAtViewportCenter();
+    const QPointF imageCoordinateBefore = normalizedImageCoordinateAtUsableViewportCenter();
 
     view->zoomIn();
+    const auto bothScrollBars = [view]() {
+        return view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible();
+    };
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
+        bothScrollBars(),
         2000);
+    if (!bothScrollBars())
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
     QCoreApplication::processEvents();
 
-    const QPointF imageCoordinateAfterLayout = normalizedImageCoordinateAtViewportCenter();
-    QVERIFY(QLineF(imageCoordinateBefore, imageCoordinateAfterLayout).length() <= 0.005);
+    const QPointF imageCoordinateAfterLayout = normalizedImageCoordinateAtUsableViewportCenter();
+    const bool layoutStable = QLineF(imageCoordinateBefore, imageCoordinateAfterLayout).length() <= 0.005;
+    QVERIFY(layoutStable);
+    if (!layoutStable)
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
     QTest::qWait(150);
     QCoreApplication::processEvents();
-    const QPointF imageCoordinateAfterScaling = normalizedImageCoordinateAtViewportCenter();
-    QVERIFY(QLineF(imageCoordinateAfterLayout, imageCoordinateAfterScaling).length() <= 0.005);
+    const QPointF imageCoordinateAfterScaling = normalizedImageCoordinateAtUsableViewportCenter();
+    const bool scalingStable = QLineF(imageCoordinateAfterLayout, imageCoordinateAfterScaling).length() <= 0.005;
+    QVERIFY(scalingStable);
+    if (!scalingStable)
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        return;
+    }
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
