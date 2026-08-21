@@ -76,7 +76,31 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         }
         const auto rendererState = hdrRenderer->diagnostics();
         if (rendererState.firstFramePresented
-            && rendererState.firstVisibleFrameUsesFinalHeadroom) {
+            && qEnvironmentVariableIsSet("FOVELLE_HDR_TRANSITION_LOG")) {
+            qInfo().noquote() << "FOVELLE_HDR_TRANSITION"
+                              << QJsonDocument(QJsonObject{
+                                     { QStringLiteral("active_requested"),
+                                       rendererState.presentationActiveRequested },
+                                     { QStringLiteral("animation_in_flight"),
+                                       rendererState.presentationAnimationInFlight },
+                                     { QStringLiteral("fallback_visible"),
+                                       loadedPixmapItem->isVisible() },
+                                     { QStringLiteral("opacity"),
+                                       rendererState.layerOpacity },
+                                     { QStringLiteral("transition_count"),
+                                       static_cast<qint64>(
+                                               rendererState.presentationTransitionCount) },
+                                     { QStringLiteral("wants_edr"),
+                                       rendererState.wantsExtendedDynamicRangeContent },
+                                 }).toJson(QJsonDocument::Compact);
+        }
+        const bool fullyVisible = hdrPresentationActive
+                && rendererState.firstFramePresented
+                && rendererState.firstVisibleFrameUsesFinalHeadroom
+                && rendererState.presentationActiveRequested
+                && !rendererState.presentationAnimationInFlight
+                && rendererState.layerOpacity >= 0.999F;
+        if (fullyVisible) {
             loadedPixmapItem->setVisible(false);
             hdrActivationCompleted = true;
             // Once the opaque native HDR surface is visible, repainting the
@@ -90,6 +114,15 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             logHDRState("final-frame-visible");
             return;
         }
+        setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+        loadedPixmapItem->setVisible(true);
+        hdrActivationCompleted = false;
+        if (rendererState.firstFramePresented
+            && !rendererState.presentationActiveRequested
+            && !rendererState.presentationAnimationInFlight) {
+            hdrPresentationTimer->stop();
+            logHDRState("inactive-sdr-visible");
+        }
     });
     hdrGeometryTimer = new QTimer(this);
     hdrGeometryTimer->setSingleShot(true);
@@ -100,6 +133,13 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             [this]() { requestHDRRendererUpdate(); });
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
             [this]() { requestHDRRendererUpdate(); });
+    connect(qvApp, &QGuiApplication::applicationStateChanged, this,
+            [this](const Qt::ApplicationState state) {
+        const bool active = state == Qt::ApplicationActive
+                && window() && window()->isActiveWindow();
+        if (active != hdrPresentationActive)
+            setHDRPresentationActive(active);
+    });
 
     // Connect to settings signal
     connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, [this]{settingsUpdated(false);});
@@ -736,6 +776,33 @@ bool QVGraphicsView::usesNativeHDRNavigationOverlay() const
     return hdrRendererActive && hdrRenderer && hdrRenderer->isAvailable();
 }
 
+void QVGraphicsView::setHDRPresentationActive(const bool active)
+{
+    if (hdrPresentationActive == active)
+        return;
+    hdrPresentationActive = active;
+    const quint64 requestGeneration = ++hdrPresentationRequestGeneration;
+    if (!hdrRendererActive || !hdrRenderer)
+        return;
+
+    // The SDR proxy must be committed behind the native HDR container before
+    // a fade-out begins. Re-enable viewport updates now, then begin that fade
+    // on the next display interval so there is no empty intermediate frame.
+    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+    loadedPixmapItem->setVisible(true);
+    viewport()->update();
+    hdrActivationCompleted = false;
+    hdrPresentationTimer->start();
+    QTimer::singleShot(active ? 0 : 16, this,
+                       [this, active, requestGeneration]() {
+        if (requestGeneration != hdrPresentationRequestGeneration
+            || !hdrRendererActive || !hdrRenderer)
+            return;
+        hdrRenderer->setPresentationActive(active, true);
+        logHDRState(active ? "window-activated" : "window-deactivated");
+    });
+}
+
 void QVGraphicsView::setHDRNavigationOverlay(
         const int index, const QRectF &viewportRect, const qreal opacity,
         const bool previous, const bool darkBackground, const bool hovered,
@@ -910,7 +977,9 @@ void QVGraphicsView::postLoad()
                 static_cast<qreal>(sourceSize.width()) / fallbackSize.width(),
                 static_cast<qreal>(sourceSize.height()) / fallbackSize.height()));
     }
+    hdrPresentationActive = window()->isActiveWindow();
     if (hdrRendererActive) {
+        hdrRenderer->setPresentationActive(hdrPresentationActive, true);
         hdrPresentationTimer->start();
     } else {
         hdrPresentationTimer->stop();
@@ -1055,6 +1124,18 @@ void QVGraphicsView::postLoad()
             applyHDRViewportBackground(Qv::Theme::Dark);
             logHDRState("test-theme-dark");
         });
+    }
+
+    // Opt-in focus-transition probe. It drives the same production state
+    // method as WindowDeactivate/ApplicationStateChange while leaving the
+    // window onscreen, so presentation-layer opacity can be sampled at 16 ms.
+    if (hdrRendererActive && !hdrFocusTransitionTestScheduled
+        && qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_FOCUS_TRANSITION")) {
+        hdrFocusTransitionTestScheduled = true;
+        QTimer::singleShot(1400, this,
+                           [this]() { setHDRPresentationActive(false); });
+        QTimer::singleShot(2200, this,
+                           [this]() { setHDRPresentationActive(true); });
     }
 
     if (turboNavMode.has_value())
@@ -1623,7 +1704,11 @@ void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
     hdrPendingGeometryValid = true;
     hdrPendingViewportSize = viewportSize;
     hdrPendingImageCorners = imageCorners;
-    loadedPixmapItem->setVisible(!reuseVisibleHDR);
+    const bool presentationFullyVisible = hdrPresentationActive
+            && rendererState.presentationActiveRequested
+            && !rendererState.presentationAnimationInFlight
+            && rendererState.layerOpacity >= 0.999F;
+    loadedPixmapItem->setVisible(!reuseVisibleHDR || !presentationFullyVisible);
 
     if (invalidateUnpresentedGeometry && hdrRenderer)
         hdrRenderer->invalidateGeometry();
@@ -1692,14 +1777,17 @@ void QVGraphicsView::updateHDRRenderer()
 
     const auto beforeRender = hdrRenderer->diagnostics();
 
-    if (beforeRender.firstFramePresented && beforeRender.drawableGeometryMatches)
+    if (hdrPresentationActive
+        && beforeRender.firstFramePresented && beforeRender.drawableGeometryMatches
+        && beforeRender.presentationActiveRequested
+        && !beforeRender.presentationAnimationInFlight
+        && beforeRender.layerOpacity >= 0.999F)
         loadedPixmapItem->setVisible(false);
 
     // Submit only the final-headroom representation. The complete SDR proxy
     // (or prior HDR drawable during navigation) remains visible until that
-    // frame is actually presented, leaving EDR activation smoothing to
-    // WindowServer instead of flashing through app-generated SDR/partial-HDR
-    // frames.
+    // frame is actually presented; the native presentation container then
+    // crossfades that final endpoint without generating partial-HDR pixels.
     const bool interactive = pressedMouseButton != Qt::NoButton
             || (hdrInteractionClock.isValid() && hdrInteractionStep >= 0
                 && hdrInteractionStep < 48);
@@ -1799,6 +1887,12 @@ void QVGraphicsView::logHDRState(const char *phase) const
           renderer.usesPersistentHDRSurface },
         { QStringLiteral("persistent_hdr_surface_ready"),
           renderer.persistentHDRSurfaceReady },
+        { QStringLiteral("presentation_active_requested"),
+          renderer.presentationActiveRequested },
+        { QStringLiteral("presentation_animation_in_flight"),
+          renderer.presentationAnimationInFlight },
+        { QStringLiteral("presentation_transition_count"),
+          static_cast<qint64>(renderer.presentationTransitionCount) },
         { QStringLiteral("persistent_hdr_surface_bytes"),
           static_cast<qint64>(renderer.persistentHDRSurfaceBytes) },
         { QStringLiteral("persistent_hdr_surface_preparation_ms"),

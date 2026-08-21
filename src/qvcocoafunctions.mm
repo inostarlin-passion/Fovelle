@@ -10,6 +10,8 @@
 #include <QColorSpace>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QTimer>
 #include <QWidget>
 
 #include <algorithm>
@@ -715,6 +717,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         nativeView.wantsLayer = YES;
+        presentationContainerLayer = [[CALayer layer] retain];
+        presentationContainerLayer.frame = nativeView.bounds;
+        presentationContainerLayer.autoresizingMask =
+                kCALayerWidthSizable | kCALayerHeightSizable;
+        presentationContainerLayer.geometryFlipped = nativeView.layer.geometryFlipped;
+        presentationContainerLayer.opacity = 0.0F;
+        presentationContainerLayer.hidden = YES;
         viewportBackgroundLayer = [[CALayer layer] retain];
         viewportBackgroundLayer.opaque = YES;
         viewportBackgroundLayer.frame = nativeView.bounds;
@@ -784,9 +793,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.frame = nativeView.bounds;
         metalLayer.hidden = YES;
         metalLayer.opacity = 0.0F;
-        [nativeView.layer addSublayer:viewportBackgroundLayer];
-        [nativeView.layer addSublayer:persistentImageLayer];
-        [nativeView.layer addSublayer:metalLayer];
+        [nativeView.layer addSublayer:presentationContainerLayer];
+        [presentationContainerLayer addSublayer:viewportBackgroundLayer];
+        [presentationContainerLayer addSublayer:persistentImageLayer];
+        [presentationContainerLayer addSublayer:metalLayer];
         // Keep controls fixed in viewport coordinates while the persistent
         // HDR image layer moves underneath them.
         [nativeView.layer addSublayer:navigationOverlayLayer];
@@ -853,14 +863,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         [navigationOverlayLayer removeFromSuperlayer];
-        [metalLayer removeFromSuperlayer];
-        [persistentImageLayer removeFromSuperlayer];
-        [viewportBackgroundLayer removeFromSuperlayer];
+        [presentationContainerLayer removeFromSuperlayer];
         [CATransaction commit];
         [presentationState release];
         [displayLink release];
         [displayLinkDelegate release];
         [navigationOverlayLayer release];
+        [presentationContainerLayer release];
         [metalLayer release];
         [persistentImageLayer release];
         [viewportBackgroundLayer release];
@@ -903,6 +912,124 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction commit];
         if (layerColor)
             CGColorRelease(layerColor);
+    }
+
+    float currentPresentationOpacity() const
+    {
+        if (!presentationContainerLayer || presentationContainerLayer.hidden)
+            return 0.0F;
+        CALayer *presented = presentationContainerLayer.presentationLayer;
+        return std::clamp<float>(presented ? presented.opacity
+                                           : presentationContainerLayer.opacity,
+                                 0.0F, 1.0F);
+    }
+
+    void setExtendedDynamicRangeEnabled(const bool enabled)
+    {
+        metalLayer.wantsExtendedDynamicRangeContent = enabled;
+        persistentImageLayer.wantsExtendedDynamicRangeContent = enabled;
+        if (@available(macOS 26.0, *)) {
+            const CADynamicRange range = enabled
+                    ? CADynamicRangeHigh : CADynamicRangeStandard;
+            metalLayer.preferredDynamicRange = range;
+            persistentImageLayer.preferredDynamicRange = range;
+        }
+        state.wantsExtendedDynamicRangeContent = enabled;
+    }
+
+    void finishPresentationTransition(const quint64 transitionGeneration,
+                                      const NSUInteger imageGeneration)
+    {
+        if (transitionGeneration != presentationTransitionGeneration
+            || imageGeneration != presentationState->generation)
+            return;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [presentationContainerLayer removeAnimationForKey:@"fovelle.hdr.presentation"];
+        presentationContainerLayer.opacity = presentationActiveRequested ? 1.0F : 0.0F;
+        presentationContainerLayer.hidden = !presentationActiveRequested;
+        [CATransaction commit];
+        if (!presentationActiveRequested)
+            setExtendedDynamicRangeEnabled(false);
+        presentationAnimationInFlight = false;
+        state.presentationAnimationInFlight = false;
+        state.layerOpacity = presentationActiveRequested ? 1.0F : 0.0F;
+    }
+
+    void applyPresentationTarget(const bool animated)
+    {
+        state.presentationActiveRequested = presentationActiveRequested;
+        // Enable EDR before fading the HDR surface in.  While fading it out,
+        // keep EDR enabled until the surface is fully transparent; disabling
+        // it here would clamp the still-visible HDR pixels in a single frame.
+        if (presentationActiveRequested)
+            setExtendedDynamicRangeEnabled(true);
+        if (!image || !presentationState->firstFramePresented) {
+            if (!presentationActiveRequested) {
+                [CATransaction begin];
+                [CATransaction setDisableActions:YES];
+                presentationContainerLayer.opacity = 0.0F;
+                presentationContainerLayer.hidden = YES;
+                [CATransaction commit];
+                setExtendedDynamicRangeEnabled(false);
+                state.layerOpacity = 0.0F;
+            }
+            return;
+        }
+
+        const float targetOpacity = presentationActiveRequested ? 1.0F : 0.0F;
+        const float startOpacity = currentPresentationOpacity();
+        const float distance = std::abs(targetOpacity - startOpacity);
+        const quint64 transitionGeneration = ++presentationTransitionGeneration;
+        const NSUInteger imageGeneration = presentationState->generation;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [presentationContainerLayer removeAnimationForKey:@"fovelle.hdr.presentation"];
+        presentationContainerLayer.hidden = NO;
+        presentationContainerLayer.opacity = targetOpacity;
+        [CATransaction commit];
+
+        if (!animated || distance <= 0.001F) {
+            finishPresentationTransition(transitionGeneration, imageGeneration);
+            return;
+        }
+
+        constexpr CFTimeInterval fullTransitionDuration = 0.45;
+        const CFTimeInterval duration = std::max<CFTimeInterval>(
+                0.08, fullTransitionDuration * distance);
+        CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        animation.fromValue = @(startOpacity);
+        animation.toValue = @(targetOpacity);
+        animation.duration = duration;
+        animation.timingFunction = [CAMediaTimingFunction
+                functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [presentationContainerLayer addAnimation:animation
+                                          forKey:@"fovelle.hdr.presentation"];
+        presentationAnimationInFlight = true;
+        state.presentationAnimationInFlight = true;
+        state.layerOpacity = startOpacity;
+        ++state.presentationTransitionCount;
+
+        const auto gate = persistentSurfaceGate;
+        dispatch_after(dispatch_time(
+                               DISPATCH_TIME_NOW,
+                               static_cast<int64_t>((duration + 0.03) * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            auto *owner = static_cast<Impl *>(gate->owner.load());
+            if (owner)
+                owner->finishPresentationTransition(
+                        transitionGeneration, imageGeneration);
+        });
+    }
+
+    void setPresentationActive(const bool active, const bool animated)
+    {
+        if (presentationActiveRequested == active && presentationAnimationInFlight)
+            return;
+        presentationActiveRequested = active;
+        applyPresentationTarget(animated);
     }
 
     CGColorRef navigationColor(const QColor &color) const
@@ -1110,7 +1237,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.hidden = YES;
         [CATransaction commit];
         updatePersistentSurfaceGeometry(latestViewportSize, latestCorners);
-        state.layerOpacity = 1.0F;
+        state.layerOpacity = currentPresentationOpacity();
         renderPending = false;
         if (displayLink)
             displayLink.paused = YES;
@@ -1203,15 +1330,19 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
+        const bool presentationFullyVisible = currentPresentationOpacity() >= 0.999F;
         const bool previousMetalPresentationVisible = image
                 && presentationState->firstFramePresented
+                && presentationFullyVisible
                 && metalLayer.opacity >= 0.999F;
         const bool previousPersistentPresentationVisible = image
                 && presentationState->firstFramePresented
+                && presentationFullyVisible
                 && persistentSurfaceReady
                 && persistentImageLayer.opacity >= 0.999F;
-        const bool retainPreviousPresentation = previousMetalPresentationVisible
-                || previousPersistentPresentationVisible;
+        const bool retainPreviousPresentation = presentationActiveRequested
+                && (previousMetalPresentationVisible
+                    || previousPersistentPresentationVisible);
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
@@ -1233,6 +1364,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
         image = nativeImage;
         [presentationState resetForImage];
+        ++presentationTransitionGeneration;
+        presentationAnimationInFlight = false;
         discardPersistentSurface(
                 nativeImage && previousPersistentPresentationVisible);
         latestViewportSize = {};
@@ -1265,6 +1398,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.displayLinkInteractiveSubmissionCount = 0;
         state.compositorGeometryUpdateCount = 0;
         state.firstVisibleFrameUsesFinalHeadroom = false;
+        state.presentationActiveRequested = presentationActiveRequested;
+        state.presentationAnimationInFlight = false;
         state.transitionProgress = 0.0F;
         state.targetHeadroom = 1.0F;
         state.renderCount = 0;
@@ -1285,6 +1420,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
+        [presentationContainerLayer removeAnimationForKey:@"fovelle.hdr.presentation"];
+        presentationContainerLayer.hidden = !nativeImage || !retainPreviousPresentation;
+        presentationContainerLayer.opacity = nativeImage && retainPreviousPresentation
+                ? 1.0F : 0.0F;
         metalLayer.hidden = nativeImage == nullptr;
         metalLayer.opacity = nativeImage && previousMetalPresentationVisible
                 ? 1.0F : 0.0F;
@@ -1295,6 +1434,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [CATransaction commit];
         state.layerOpacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
+        setExtendedDynamicRangeEnabled(nativeImage && presentationActiveRequested);
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
@@ -1323,9 +1463,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
+        [presentationContainerLayer removeAnimationForKey:@"fovelle.hdr.presentation"];
+        presentationContainerLayer.hidden = YES;
+        presentationContainerLayer.opacity = 0.0F;
         metalLayer.hidden = NO;
-        metalLayer.opacity = 0.0F;
+        metalLayer.opacity = 1.0F;
         [CATransaction commit];
+        ++presentationTransitionGeneration;
+        presentationAnimationInFlight = false;
         state.layerOpacity = 0.0F;
     }
 
@@ -1484,12 +1629,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             state.nativeWindowGlobalX = 0;
             state.nativeWindowGlobalY = 0;
         }
-        const float metalOpacity = metalLayer && !metalLayer.hidden
-                ? metalLayer.opacity : 0.0F;
-        const float persistentOpacity = persistentImageLayer
-                && !persistentImageLayer.hidden
-                ? persistentImageLayer.opacity : 0.0F;
-        state.layerOpacity = std::max(metalOpacity, persistentOpacity);
+        state.layerOpacity = currentPresentationOpacity();
+        state.presentationActiveRequested = presentationActiveRequested;
+        state.presentationAnimationInFlight = presentationAnimationInFlight
+                || [presentationContainerLayer
+                           animationForKey:@"fovelle.hdr.presentation"] != nil;
         state.persistentHDRSurfaceReady = persistentSurfaceReady;
     }
 
@@ -1558,17 +1702,22 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         presentationState->firstFrameSubmitted = YES;
         const NSUInteger frameGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
+        const auto ownerGate = persistentSurfaceGate;
         const auto visibleFlow = frameFlow;
         void (^revealLayer)(void) = ^{
             if (gate->generation != frameGeneration || !gate->metalLayer)
                 return;
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
+            gate->metalLayer.hidden = NO;
             gate->metalLayer.opacity = 1.0F;
             [CATransaction commit];
             gate->firstFramePresented = YES;
             if (visibleFlow)
                 visibleFlow->firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom);
+            auto *owner = static_cast<Impl *>(ownerGate->owner.load());
+            if (owner)
+                owner->applyPresentationTarget(true);
         };
 
         if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
@@ -2117,6 +2266,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     }
 
     NSView *nativeView{ nil };
+    CALayer *presentationContainerLayer{ nil };
     CALayer *viewportBackgroundLayer{ nil };
     CALayer *persistentImageLayer{ nil };
     CAMetalLayer *metalLayer{ nil };
@@ -2142,6 +2292,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CGImageRef persistentImage{ nullptr };
     bool persistentSurfaceReady{ false };
     bool persistentSurfacePreparationInFlight{ false };
+    bool presentationActiveRequested{ true };
+    bool presentationAnimationInFlight{ false };
+    quint64 presentationTransitionGeneration{ 0 };
     NSUInteger persistentSurfacePreparationGeneration{ 0 };
     QSize latestViewportSize;
     QPolygonF latestCorners;
@@ -2182,6 +2335,13 @@ void QVCocoaFunctions::HDRRenderer::setBackgroundColor(const QColor &color)
 {
     if (impl)
         impl->setBackgroundColor(color);
+}
+
+void QVCocoaFunctions::HDRRenderer::setPresentationActive(const bool active,
+                                                          const bool animated)
+{
+    if (impl)
+        impl->setPresentationActive(active, animated);
 }
 
 void QVCocoaFunctions::HDRRenderer::invalidateGeometry()
@@ -2322,35 +2482,41 @@ QVCocoaFunctions::probeHDRPixelStatistics(const HDRImagePtr &opaqueImage)
     return statistics;
 }
 
-static void hideMenuShortcuts(NSMenu *nativeMenu)
+static void hideMenuShortcuts(QMenu *menu)
 {
-    for (NSMenuItem *item in nativeMenu.itemArray)
-    {
-        [item setKeyEquivalent:@""];
-
-        if (item.hasSubmenu)
-            hideMenuShortcuts(item.submenu);
+    for (QAction *action : menu->actions()) {
+        action->setShortcutVisibleInContextMenu(false);
+        if (action->menu())
+            hideMenuShortcuts(action->menu());
     }
 }
 
-void QVCocoaFunctions::showMenu(QMenu *menu, const QPoint &point, QWindow *window)
+static void popUpNativeContextMenuAfterRelease(QMenu *menu,
+                                               const NSPoint screenPoint)
 {
-    NSView *view = reinterpret_cast<NSView*>(window->winId());
-    NSMenu *nativeMenu = menu->toNSMenu();
+    if (!menu)
+        return;
+    if (QGuiApplication::mouseButtons().testFlag(Qt::RightButton)) {
+        // Qt < 6.8 has no configurable release trigger. Keep that build
+        // compatible by waiting for its real release instead of manufacturing
+        // one. On Qt 6.8+ the release trigger makes this branch unnecessary.
+        QTimer::singleShot(8, menu, [menu, screenPoint]() {
+            popUpNativeContextMenuAfterRelease(menu, screenPoint);
+        });
+        return;
+    }
+    [menu->toNSMenu() popUpMenuPositioningItem:nil
+                                   atLocation:screenPoint
+                                       inView:nil];
+}
 
-    hideMenuShortcuts(nativeMenu);
-
-    // Synthesize right mouse down event to open menu
-    NSPoint downPoint = [view convertPoint:NSMakePoint(point.x(), point.y()) toView:nil];
-    NSEvent *downEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown location:downPoint modifierFlags:0
-        timestamp:0 windowNumber:view.window.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1.0];
-    [NSMenu popUpContextMenu:nativeMenu withEvent:downEvent forView:view];
-
-    // Synthesize right mouse up event to avoid stuck button press
-    NSPoint upPoint = view.window.mouseLocationOutsideOfEventStream;
-    NSEvent *upEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:upPoint modifierFlags:0
-        timestamp:0 windowNumber:view.window.windowNumber context:nil eventNumber:0 clickCount:1 pressure:0];
-    [view rightMouseUp:upEvent];
+void QVCocoaFunctions::showMenu(QMenu *menu)
+{
+    if (!menu)
+        return;
+    hideMenuShortcuts(menu);
+    const NSPoint screenPoint = NSEvent.mouseLocation;
+    popUpNativeContextMenuAfterRelease(menu, screenPoint);
 }
 
 void QVCocoaFunctions::setUserDefaults()

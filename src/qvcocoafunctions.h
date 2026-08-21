@@ -92,6 +92,8 @@ public:
         bool usesDisplayLinkInteractionPacing{ false };
         bool usesPersistentHDRSurface{ false };
         bool persistentHDRSurfaceReady{ false };
+        bool presentationActiveRequested{ true };
+        bool presentationAnimationInFlight{ false };
         float contentHeadroom{ 1.0F };
         float displayCurrentHeadroom{ 1.0F };
         float displayPotentialHeadroom{ 1.0F };
@@ -123,6 +125,7 @@ public:
         quint64 navigationOverlayUpdateCount{ 0 };
         quint64 displayLinkInteractiveSubmissionCount{ 0 };
         quint64 compositorGeometryUpdateCount{ 0 };
+        quint64 presentationTransitionCount{ 0 };
         quint64 persistentHDRSurfaceBytes{ 0 };
         int framesInFlight{ 0 };
         int nativeWindowNumber{ 0 };
@@ -156,6 +159,7 @@ public:
         bool isAvailable() const;
         bool setImage(const HDRImagePtr &image);
         void setBackgroundColor(const QColor &color);
+        void setPresentationActive(bool active, bool animated = true);
         void invalidateGeometry();
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
@@ -184,7 +188,7 @@ public:
         virtual int frameDelay(int frameNumber) const = 0;
     };
 
-    static void showMenu(QMenu *menu, const QPoint &point, QWindow *window);
+    static void showMenu(QMenu *menu);
 
     static void setUserDefaults();
 

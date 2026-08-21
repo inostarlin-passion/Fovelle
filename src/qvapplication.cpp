@@ -18,6 +18,12 @@
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
     setQuitOnLastWindowClosed(true);
+#if defined(Q_OS_MACOS) && QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    // Native context-menu tracking consumes the initiating mouse-up. Ask Qt
+    // to create QContextMenuEvent only after that real release has updated
+    // its pointer state, so the menu bridge never needs synthetic events.
+    styleHints()->setContextMenuTrigger(Qt::ContextMenuTrigger::Release);
+#endif
 
     // Connections
     connect(this, &QGuiApplication::commitDataRequest, this, &QVApplication::onCommitDataRequest, Qt::DirectConnection);

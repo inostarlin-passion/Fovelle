@@ -472,10 +472,18 @@ MainWindow::~MainWindow()
 
 bool MainWindow::event(QEvent *event)
 {
-    if (event->type() == QEvent::WindowActivate && !qvApp->getIsApplicationQuitting())
+    const bool activated = event->type() == QEvent::WindowActivate
+            || (event->type() == QEvent::ActivationChange && isActiveWindow());
+    const bool deactivated = event->type() == QEvent::WindowDeactivate
+            || (event->type() == QEvent::ActivationChange && !isActiveWindow());
+    if (activated && !qvApp->getIsApplicationQuitting())
     {
         lastActivated.start();
+        if (graphicsView)
+            graphicsView->setHDRPresentationActive(true);
     }
+    else if (deactivated && graphicsView)
+        graphicsView->setHDRPresentationActive(false);
     return QMainWindow::event(event);
 }
 
@@ -734,7 +742,7 @@ void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
             ? previousImageButtonHovered : nextImageButtonHovered;
     graphicsView->setHDRNavigationOverlay(
             index, viewportRect,
-            requestedVisible ? button->property("paintOpacity").toReal() : 0.0,
+            button->property("paintOpacity").toReal(),
             index == 0, darkBackground, hovered,
             pressedNavigationButton == index, button->isEnabled());
 }
@@ -859,10 +867,11 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
-    // Workaround to show native context menus on macOS
-    QVCocoaFunctions::showMenu(contextMenu, event->pos(), windowHandle());
-
-    QMainWindow::contextMenuEvent(event);
+    // Qt is configured to send this after the real right-button release. The
+    // Cocoa bridge can therefore start menu tracking without manufacturing a
+    // second down/up pair or leaving Qt's pointer state pressed.
+    event->accept();
+    QVCocoaFunctions::showMenu(contextMenu);
 }
 
 void MainWindow::showEvent(QShowEvent *event)

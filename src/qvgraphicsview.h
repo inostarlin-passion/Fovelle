@@ -138,6 +138,7 @@ public:
     std::optional<qreal> sampleDisplayedImageBrightness(const QPoint &viewportPoint) const;
 
     bool usesNativeHDRNavigationOverlay() const;
+    void setHDRPresentationActive(bool active);
     void setHDRNavigationOverlay(int index, const QRectF &viewportRect,
                                  qreal opacity, bool previous,
                                  bool darkBackground, bool hovered,
@@ -329,11 +330,14 @@ private:
     qreal hdrInteractionZoomMilliseconds{ 0.0 };
     int hdrInteractionStep{ -1 };
     bool hdrActivationCompleted{ false };
+    bool hdrPresentationActive{ true };
+    quint64 hdrPresentationRequestGeneration{ 0 };
     bool hdrRendererActive{ false };
     bool hdrLayoutReady{ false };
     bool hdrPendingGeometryValid{ false };
     bool hdrInteractionTestScheduled{ false };
     bool hdrThemeTestScheduled{ false };
+    bool hdrFocusTransitionTestScheduled{ false };
     QSize hdrPendingViewportSize;
     QPolygonF hdrPendingImageCorners;
     QImage navigationSamplingImage;

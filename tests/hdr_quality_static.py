@@ -45,6 +45,7 @@ def main() -> int:
     view = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     namespace_source = (repo / "src/qvnamespace.h").read_text(encoding="utf-8")
     main_window = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
+    application = (repo / "src/qvapplication.cpp").read_text(encoding="utf-8")
     loader = (repo / "src/qvimageloader.cpp").read_text(encoding="utf-8")
     cmake = (repo / "CMakeLists.txt").read_text(encoding="utf-8")
     qmake = (repo / "qView.pro").read_text(encoding="utf-8")
@@ -260,11 +261,52 @@ def main() -> int:
             "firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom)" in renderer
             and "addPresentedHandler" in renderer
         ),
+        "final_endpoint_uses_compositor_fade": (
+            "presentationContainerLayer" in renderer
+            and 'animationWithKeyPath:@"opacity"' in renderer
+            and "fullTransitionDuration = 0.45" in renderer
+        ),
         "previous_hdr_surface_can_cover_navigation": (
             "retainPreviousPresentation" in renderer
             and "previousMetalPresentationVisible" in renderer
             and "previousPersistentPresentationVisible" in renderer
             and "nativeImage && retainPreviousPresentation ? 1.0F : 0.0F" in renderer
+        ),
+    })
+    focus_event_handler = between(
+        main_window, "bool MainWindow::event(QEvent *event)",
+        "bool MainWindow::eventFilter(QObject *watched, QEvent *event)"
+    )
+    focus_transition = between(
+        renderer, "float currentPresentationOpacity() const",
+        "CGColorRef navigationColor"
+    )
+    case("ST-HDR-FOCUS-PRESENTATION-TRANSITION", {
+        "window_activation_is_propagated": (
+            "QEvent::WindowActivate" in focus_event_handler
+            and "QEvent::WindowDeactivate" in focus_event_handler
+            and "setHDRPresentationActive(true)" in focus_event_handler
+            and "setHDRPresentationActive(false)" in focus_event_handler
+            and "applicationStateChanged" in view
+        ),
+        "sdr_proxy_is_committed_before_fade_out": (
+            "loadedPixmapItem->setVisible(true)" in view
+            and "QTimer::singleShot(active ? 0 : 16" in view
+        ),
+        "reversal_starts_at_onscreen_opacity": (
+            "presentationContainerLayer.presentationLayer" in focus_transition
+            and "const float startOpacity = currentPresentationOpacity()" in focus_transition
+        ),
+        "opacity_transition_is_explicit_and_bounded": (
+            'animationWithKeyPath:@"opacity"' in focus_transition
+            and "fullTransitionDuration = 0.45" in focus_transition
+            and "fullTransitionDuration * distance" in focus_transition
+        ),
+        "edr_is_disabled_only_after_fade_out": (
+            "if (!presentationActiveRequested)\n            setExtendedDynamicRangeEnabled(false);"
+            in focus_transition
+            and "if (presentationActiveRequested)\n            setExtendedDynamicRangeEnabled(true);"
+            in focus_transition
         ),
     })
     case("ST-HDR-GEOMETRY-LIFECYCLE", {
@@ -279,7 +321,10 @@ def main() -> int:
             "invalidateUnpresentedGeometry" in view and "hdrRenderer->invalidateGeometry()" in view
         ),
         "presented_hdr_is_reused_without_sdr_fallback": (
-            "reuseVisibleHDR" in view and "loadedPixmapItem->setVisible(!reuseVisibleHDR)" in view
+            "reuseVisibleHDR" in view
+            and "loadedPixmapItem->setVisible(!reuseVisibleHDR || !presentationFullyVisible)" in view
+            and "rendererState.presentationActiveRequested" in view
+            and "rendererState.presentationAnimationInFlight" in view
             and "if (!hdrActivationCompleted)" in view
         ),
         "cached_endpoints_are_geometry_independent": (
@@ -434,6 +479,10 @@ def main() -> int:
         main_window, "void MainWindow::initializeNavigationButtons()",
         "void MainWindow::updateNavigationButtonGeometry()"
     )
+    navigation_overlay_sync = between(
+        main_window, "void MainWindow::syncNavigationButtonOverlay(",
+        "void MainWindow::syncNavigationButtonOverlays()"
+    )
     case("ST-HDR-NAV-NATIVE-COMPOSITOR", {
         "sdr_fallback_widget_backing_is_transparent": (
             "WA_TranslucentBackground" in navigation_button_paint
@@ -446,6 +495,10 @@ def main() -> int:
         ),
         "navigation_animation_targets_paint_property": (
             'QPropertyAnimation(button, "paintOpacity"' in navigation_initialization
+        ),
+        "native_fade_uses_live_animation_opacity": (
+            'button->property("paintOpacity").toReal(),' in navigation_overlay_sync
+            and 'requestedVisible ? button->property("paintOpacity")' not in navigation_overlay_sync
         ),
         "navigation_buttons_have_no_graphics_effect": (
             "QGraphicsOpacityEffect" not in navigation_initialization
@@ -581,6 +634,31 @@ def main() -> int:
         ),
         "activation_completion_is_observable": (
             "hdrActivationCompleted = true" in view and "hdr_activation_completed" in view
+        ),
+    })
+    menu_bridge = between(
+        cocoa, "static void hideMenuShortcuts",
+        "void QVCocoaFunctions::setUserDefaults()"
+    )
+    case("ST-CONTEXT-MENU-POINTER-OWNERSHIP", {
+        "qt_context_trigger_runs_after_real_release": (
+            "setContextMenuTrigger(Qt::ContextMenuTrigger::Release)" in application
+            and "QGuiApplication::mouseButtons().testFlag(Qt::RightButton)" in menu_bridge
+            and "popUpNativeContextMenuAfterRelease" in menu_bridge
+        ),
+        "native_menu_popup_requires_no_pointer_event": (
+            "popUpMenuPositioningItem:nil" in menu_bridge
+            and "atLocation:screenPoint" in menu_bridge
+            and "inView:nil" in menu_bridge
+        ),
+        "synthetic_pointer_events_are_absent": (
+            "mouseEventWithType" not in menu_bridge
+            and "[view rightMouseDown:" not in menu_bridge
+            and "[view rightMouseUp:" not in menu_bridge
+        ),
+        "context_event_is_consumed_once": (
+            "event->accept()" in main_window
+            and "QMainWindow::contextMenuEvent(event)" not in main_window
         ),
     })
     case("ST-HDR-VERSION-0.1.4", {
