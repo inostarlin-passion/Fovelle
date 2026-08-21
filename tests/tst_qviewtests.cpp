@@ -3264,8 +3264,10 @@ void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
 // Test purpose: verify that a user-specified Full Screen shortcut remains the
 // only source of entry behavior after the hardcoded Enter shortcut is removed.
 // Preconditions: a visible non-fullscreen MainWindow and a saved Space binding.
-// Input data: Qt::Key_Space followed by Qt::Key_Escape.
-// Steps: send Space, wait for fullscreen, then send Escape.
+// Input data: a configured Space shortcut action followed by the Escape
+// shortcut.
+// Steps: dispatch the configured action, wait for fullscreen, then invoke the
+// Escape shortcut through the same QShortcut object used by the window.
 // Expected result: Space enters fullscreen and Escape exits it.
 // Postcondition: the window and shortcut setting are restored.
 void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
@@ -3655,16 +3657,6 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
     QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
-    qInfo().noquote() << "NAV_CONTRAST next_brightness="
-                      << nextButton->property("sampledContentBrightness").toDouble()
-                      << "next_style=" << nextButton->property("contrastStyle").toString()
-                      << "viewport=" << view->viewport()->size()
-                      << "next_geometry=" << nextButton->geometry()
-                      << "scene_point="
-                      << view->mapToScene(view->viewport()->mapFrom(
-                                 view, nextButton->geometry().center()))
-                      << "scene_rect=" << view->sceneRect()
-                      << "loaded_size=" << window.getCurrentFileDetails().loadedPixmapSize;
     QCOMPARE(nextButton->property("contrastStyle").toString(), QStringLiteral("dark"));
     QVERIFY(nextButton->property("sampledContentBrightness").toDouble() < 0.5);
 

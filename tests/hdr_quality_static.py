@@ -555,6 +555,10 @@ def main() -> int:
             "sampleDisplayedImageBrightness" in main_window
             and "navigationSamplingImage.pixelColor" in view
         ),
+        "sampling_uses_device_independent_pixmap_geometry": (
+            "loadedPixmapItem->mapFromScene" in view
+            and "loadedPixmapItem->boundingRect" in view
+        ),
     })
     case("ST-HDR-OBSERVABILITY", {
         "json_telemetry": '"FOVELLE_HDR"' in view and "QJsonDocument::Compact" in view,
