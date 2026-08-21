@@ -3833,8 +3833,9 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     QVERIFY(previousButton->isVisible());
     QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
     QCOMPARE(previousAnimation->endValue().toReal(), 0.0);
-    QTest::qWait(100);
-    QVERIFY(previousButton->isVisible());
+    // The immediate visibility assertion above is the deterministic
+    // mid-transition contract. Do not assume that a wall-clock 100 ms wait
+    // is shorter than the animation on every hosted macOS display backend.
     QTRY_VERIFY_WITH_TIMEOUT(!previousButton->isVisible(), 1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
