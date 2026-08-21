@@ -501,6 +501,17 @@ def main() -> int:
                 ),
                 "evidence": "GitHub Actions run https://github.com/inostarlin-passion/Fovelle/actions/runs/32465117975, job 96719994157",
             },
+            {
+                "id": "CI-F-009",
+                "statement": (
+                    "On merged main run 32467097203, Xcode 26.6, macOS SDK 26.5.2, "
+                    "and Qt 6.11.2 completed build, but CTest failed in "
+                    "GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable: "
+                    "the fixed 640x480/600x800 fixture did not reach its assumed initial scrollbar state, "
+                    "then the failing QTRY assertion was followed by SIGSEGV."
+                ),
+                "evidence": "GitHub Actions run https://github.com/inostarlin-passion/Fovelle/actions/runs/32467097203, job 96725894439 Test log",
+            },
         ],
         "inferences": [
             {
@@ -541,6 +552,15 @@ def main() -> int:
                 ),
                 "basis": ["CI-F-007", "CI-F-008", "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes"],
             },
+            {
+                "id": "CI-I-005",
+                "statement": (
+                    "The merged-main failure was a cross-host test-contract defect rather than an HDR rendering failure: "
+                    "the test encoded a physical viewport/image-size assumption and sampled the raw viewport center "
+                    "even though production zoom anchors the usable viewport center."
+                ),
+                "basis": ["CI-F-009", "tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable"],
+            },
         ],
         "uncertainties": [
             {
@@ -561,6 +581,14 @@ def main() -> int:
                 ),
                 "mitigation": "Keep the 10-minute job timeout, retain the bounded parallelism static guard, and re-run Checks on workflow changes.",
             },
+            {
+                "id": "CI-U-003",
+                "statement": (
+                    "Native scrollbar metrics and titlebar-obscured viewport geometry can vary with the hosted "
+                    "macOS/Qt combination, so a fixed pixel fixture is not a portable proxy for the overflow boundary."
+                ),
+                "mitigation": "Generate the fixture from the visible viewport, sample the usable viewport center, and return after failed preconditions.",
+            },
         ],
         "remediation": [
             "Use macos-26 for build, test, clang-tidy, format, and release jobs.",
@@ -568,6 +596,7 @@ def main() -> int:
             "Pin Qt 6.11.2 in every workflow to avoid the Qt 6.8.3 AGL link dependency on macOS 26.",
             "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14 or Qt 6.8.",
             "Use cmake --build build --parallel 2 in test, build, and release workflows; keep ST-CI-BUILD-PARALLELISM as a timeout-regression guard.",
+            "Make the scrollbar-threshold unit fixture viewport-relative, use the production usable-center contract, and stop safely after failed asynchronous preconditions.",
         ],
     }
 

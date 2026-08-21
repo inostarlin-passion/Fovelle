@@ -23,6 +23,7 @@ EXPECTED = (
     ("UT-HDR-EDR-BOOTSTRAP", "HDRPolicyTests", "testDisplayHeadroomBootstrapsFromPotentialCapability"),
     ("UT-HDR-FIRST-VISIBLE-GEOMETRY", "HDRPolicyTests", "testFinalFrameRevealRequiresMatchedGeometry"),
     ("UT-HDR-GEOMETRY-EQUIVALENCE", "HDRPolicyTests", "testHDRViewportGeometryEquivalenceUsesCompleteContract"),
+    ("UT-HDR-SCROLLBAR-CENTER", "GraphicsViewTests", "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable"),
     ("UT-HDR-CONTENT-HEADROOM", "HDRPolicyTests", "testRawContentHeadroomUsesMeasuredPeakWhenUnknown"),
     ("UT-HDR-PRESENTATION-REUSE", "HDRPolicyTests", "testPreparedHDRPresentationCanBeReusedAcrossGeometry"),
     ("UT-HDR-THEME-BACKGROUND", "HDRPolicyTests", "testViewportBackgroundColorsMatchTheme"),
@@ -83,7 +84,7 @@ def main() -> int:
     }
     suites = {
         name: run_suite(binary, name, environment)
-        for name in ("HDRPolicyTests", "FeatureTests", "WindowBehaviorTests")
+        for name in ("HDRPolicyTests", "FeatureTests", "GraphicsViewTests", "WindowBehaviorTests")
     }
     cases = []
     navigation_sample_match = re.search(
