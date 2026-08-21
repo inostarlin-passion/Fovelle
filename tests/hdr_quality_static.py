@@ -55,6 +55,7 @@ def main() -> int:
         repo / ".github/workflows/test.yml",
         repo / ".github/workflows/build.yml",
         repo / ".github/workflows/release.yml",
+        repo / ".github/workflows/release-compatibility.yml",
     )
     workflows = {str(path.relative_to(repo)): path.read_text(encoding="utf-8") for path in workflow_paths}
 
@@ -76,11 +77,13 @@ def main() -> int:
     build_workflow = workflows[".github/workflows/build.yml"]
     test_workflow = workflows[".github/workflows/test.yml"]
     release_workflow = workflows[".github/workflows/release.yml"]
+    compatibility_workflow = workflows[".github/workflows/release-compatibility.yml"]
     release_script = (repo / "dist/scripts/package-macos-release.sh").read_text(encoding="utf-8")
 
     case("ST-CI-APPLE-SDK", {
         "build_and_test_use_macos_26": "runs-on: macos-26" in build_workflow and "runs-on: macos-26" in test_workflow,
         "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
+        "release_compatibility_uses_macos_15": "runs-on: macos-15" in compatibility_workflow,
         "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflows.values()),
         "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflows.values()),
         "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflows.values()),
@@ -88,11 +91,13 @@ def main() -> int:
         "build_and_test_sdk_26_minimum": 'test "${SDK_VERSION%%.*}" -ge 26' in build_workflow and 'test "${SDK_VERSION%%.*}" -ge 26' in test_workflow,
         "release_xcode_16_minimum": 'test "${XCODE_VERSION%%.*}" -ge 16' in release_workflow,
         "release_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in release_workflow,
+        "release_compatibility_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in compatibility_workflow,
         "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflows.values()),
         "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflows.values()),
         "deployment_target_is_explicit_everywhere": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in workflows.values()),
         "deployment_target_is_defaulted_in_cmake": 'set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0"' in cmake,
         "sdk15_only_release_sysroot_is_explicit": 'CMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"' in release_workflow,
+        "sdk15_compatibility_job_has_release_sysroot": 'CMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"' in compatibility_workflow,
         "release_artifact_checks_sdk_and_min_os": all(token in release_script for token in (
             "assert_macos_deployment_target", "otool -l", "LSMinimumSystemVersion",
             "EXPECTED_MACOS_DEPLOYMENT_TARGET",
@@ -115,6 +120,9 @@ def main() -> int:
         ),
         "release_workflow_uses_same_bound": (
             "run: cmake --build build --parallel 2" in workflows[".github/workflows/release.yml"]
+        ),
+        "release_compatibility_workflow_uses_same_bound": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/release-compatibility.yml"]
         ),
     })
 

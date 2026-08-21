@@ -1,0 +1,70 @@
+name: macOS 15 Release Compatibility
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release-sdk15-compatibility:
+    name: Compile Release artifact with macOS 15 SDK
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Xcode and macOS SDK
+        shell: bash
+        run: |
+          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
+          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+          echo "Xcode ${XCODE_VERSION}"
+          echo "macOS SDK ${SDK_VERSION}"
+          echo "macOS SDK path ${SDK_PATH}"
+          test "${XCODE_VERSION%%.*}" -ge 16
+          test "${SDK_VERSION%%.*}" -eq 15
+          test -d "${SDK_PATH}"
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.2'
+          modules: 'qtimageformats'
+          cache: true
+
+      - name: Configure Release-compatible universal build
+        run: >-
+          cmake -S . -B build
+          -DBUILD_TESTS=ON
+          -DFOVELLE_BUILD_TRANSLATIONS=ON
+          -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Test
+        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
+
+      - name: Deploy Qt and verify installable zip contract
+        shell: bash
+        run: |
+          macdeployqt build/Fovelle.app -always-overwrite
+          RELEASE_ZIP_PATH="${RUNNER_TEMP}/Fovelle-macos15-compatibility.zip"
+          ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app "${RELEASE_ZIP_PATH}"
+          VERIFY_ROOT="${RUNNER_TEMP}/fovelle-macos15-verified"
+          mkdir -p "${VERIFY_ROOT}"
+          ditto -x -k "${RELEASE_ZIP_PATH}" "${VERIFY_ROOT}"
+          VERIFIED_APP="${VERIFY_ROOT}/Fovelle.app"
+          MAIN_BINARY="${VERIFIED_APP}/Contents/MacOS/Fovelle"
+          MAIN_MIN_OS="$(otool -l "${MAIN_BINARY}" | awk '$1 == "minos" { print $2; exit }')"
+          MAIN_SDK="$(otool -l "${MAIN_BINARY}" | awk '$1 == "sdk" { print $2; exit }')"
+          PLIST_MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "${VERIFIED_APP}/Contents/Info.plist")"
+          echo "main minos=${MAIN_MIN_OS} sdk=${MAIN_SDK} plist=${PLIST_MIN_OS}"
+          test "${MAIN_MIN_OS}" = 15.0
+          test "${MAIN_SDK%%.*}" -eq 15
+          test "${PLIST_MIN_OS}" = 15.0
