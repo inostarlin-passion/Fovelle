@@ -85,6 +85,21 @@ def main() -> int:
         "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflows.values()),
     })
 
+    case("ST-CI-BUILD-PARALLELISM", {
+        "checks_build_parallelism_is_bounded": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/test.yml"]
+        ),
+        "checks_unbounded_parallelism_is_absent": (
+            "run: cmake --build build --parallel\n" not in workflows[".github/workflows/test.yml"]
+        ),
+        "build_workflow_uses_same_bound": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/build.yml"]
+        ),
+        "release_workflow_uses_same_bound": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/release.yml"]
+        ),
+    })
+
     case("ST-HDR-RAW-CONTENT-UTI", {
         "camera_raw_conformance_check": "UTTypeRAWImage" in cocoa and "conformsToType" in cocoa,
         "classification_uses_source_type": "result.isRaw = isRawImageType(sourceType)" in cocoa,

@@ -513,6 +513,27 @@ def main() -> int:
         "all build, check, and release jobs run on macOS 26 with Qt 6.11.2 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
     )
 
+    bounded_build_contract = (
+        all("run: cmake --build build --parallel 2" in source[path] for path in (
+            ".github/workflows/test.yml",
+            ".github/workflows/build.yml",
+            ".github/workflows/release.yml",
+        ))
+        and "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"]
+    )
+    add_check(
+        checks,
+        "ST-28-CI-BUILD-PARALLELISM",
+        bounded_build_contract,
+        {
+            "test_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/test.yml"],
+            "build_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/build.yml"],
+            "release_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/release.yml"],
+            "unbounded_test_build_is_absent": "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"],
+        },
+        "CI compilation uses a bounded parallelism contract that keeps the Checks job inside its timeout window",
+    )
+
     cross_dpi_test_contract = (
         "itemsBoundingRect().width() >= 1200" in test_source
         and "itemsBoundingRect().width() > 1200" not in test_source

@@ -392,6 +392,12 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "GitHub Actions workflow job timeout",
+            "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes",
+            "supports": ["jobs can declare a timeout-minutes execution limit"],
+        },
+        {
+            "kind": "fact-source",
             "title": "Qt QWidget grab",
             "url": "https://doc.qt.io/qt-6/qwidget.html#grab",
             "supports": ["QWidget::grab renders the widget into a pixmap", "child widgets are painted into that result"],
@@ -477,6 +483,24 @@ def main() -> int:
                 ),
                 "evidence": "local build/CMakeFiles/*/link.txt and cmake --build build",
             },
+            {
+                "id": "CI-F-007",
+                "statement": (
+                    "Checks run 32464125820 passed clang-format and clang-tidy, but "
+                    "its Run Unit Tests Build step exceeded the 10-minute job limit "
+                    "while executing the unbounded command cmake --build build --parallel."
+                ),
+                "evidence": "GitHub Actions run https://github.com/inostarlin-passion/Fovelle/actions/runs/32464125820, job 96717025246",
+            },
+            {
+                "id": "CI-F-008",
+                "statement": (
+                    "After changing the Checks build command to cmake --build build "
+                    "--parallel 2, Checks run 32465117975 completed all three jobs; "
+                    "Run Unit Tests completed in 2m14s."
+                ),
+                "evidence": "GitHub Actions run https://github.com/inostarlin-passion/Fovelle/actions/runs/32465117975, job 96719994157",
+            },
         ],
         "inferences": [
             {
@@ -507,6 +531,16 @@ def main() -> int:
                 ),
                 "basis": ["CI-F-004", "CI-F-005", "CI-F-006", "https://doc.qt.io/qt-6/macos.html"],
             },
+            {
+                "id": "CI-I-004",
+                "statement": (
+                    "The remaining Checks failure was a build-time resource/timeout "
+                    "problem rather than a test assertion: bounding CMake parallelism "
+                    "to two concurrent jobs brought the same unit-test job from timeout "
+                    "to a completed 2m14s run."
+                ),
+                "basis": ["CI-F-007", "CI-F-008", "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes"],
+            },
         ],
         "uncertainties": [
             {
@@ -518,12 +552,22 @@ def main() -> int:
                 ),
                 "mitigation": "The verify step prints both versions and fails below major version 26.",
             },
+            {
+                "id": "CI-U-002",
+                "statement": (
+                    "The successful 2-way build timing is observed on one hosted "
+                    "macos-26 run; compile time can still vary with runner load, "
+                    "cache state, and future source size."
+                ),
+                "mitigation": "Keep the 10-minute job timeout, retain the bounded parallelism static guard, and re-run Checks on workflow changes.",
+            },
         ],
         "remediation": [
             "Use macos-26 for build, test, clang-tidy, format, and release jobs.",
             "Verify xcodebuild major version >= 26 and macOS SDK major version >= 26 before installing Qt.",
             "Pin Qt 6.11.2 in every workflow to avoid the Qt 6.8.3 AGL link dependency on macOS 26.",
             "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14 or Qt 6.8.",
+            "Use cmake --build build --parallel 2 in test, build, and release workflows; keep ST-CI-BUILD-PARALLELISM as a timeout-regression guard.",
         ],
     }
 
