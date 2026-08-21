@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Default values
-CMAKE_ARGS=""
+# Every developer build produces a runnable app. Pass this explicitly so an
+# older CMakeCache.txt configured with translations disabled cannot override
+# the project's current multilingual default.
+CMAKE_ARGS="-DFOVELLE_BUILD_TRANSLATIONS=ON"
 
 CLEAN=false
 
@@ -14,7 +16,7 @@ fi
 # Find a valid macOS SDK and set it for CMake to fix a potential mismatch.
 SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)
 if [ -n "$SDK_PATH" ]; then
-    CMAKE_ARGS="-DCMAKE_OSX_SYSROOT=$SDK_PATH"
+    CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_OSX_SYSROOT=$SDK_PATH"
 fi
 
 # Parse command-line arguments

@@ -107,7 +107,7 @@ def main() -> int:
         "head_sha": git(repo, "rev-parse", "HEAD"),
         "working_tree_status": git(repo, "status", "--short", "--untracked-files=all").splitlines(),
         "commands_executed": [
-            "cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_BUILD_TRANSLATIONS=OFF -DQV_DISABLE_ONLINE_VERSION_CHECK=ON",
+            "cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_BUILD_TRANSLATIONS=ON -DQV_DISABLE_ONLINE_VERSION_CHECK=ON",
             "cmake --build build --parallel 2",
             "ctest --test-dir build --output-on-failure --timeout 90",
             "python3 tests/quality_static.py --repo . --build-dir build",

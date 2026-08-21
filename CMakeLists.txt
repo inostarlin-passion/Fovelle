@@ -165,7 +165,23 @@ if(FOVELLE_BUILD_TRANSLATIONS)
         )
     else()
         qt5_add_translation(FOVELLE_QM_FILES ${FOVELLE_TRANSLATIONS})
-        target_sources(${PROJECT_NAME} PRIVATE ${FOVELLE_QM_FILES})
+
+        # qt5_add_translation only generates .qm files; unlike the Qt 6
+        # target-based helper, it does not embed them. Generate an equivalent
+        # /i18n resource so the runtime lookup is identical on both versions.
+        set(FOVELLE_TRANSLATION_QRC "${CMAKE_CURRENT_BINARY_DIR}/Fovelle_translations.qrc")
+        set(FOVELLE_TRANSLATION_QRC_CONTENT "<RCC>\n  <qresource prefix=\"/i18n\">\n")
+        foreach(FOVELLE_QM_FILE IN LISTS FOVELLE_QM_FILES)
+            get_filename_component(FOVELLE_QM_NAME "${FOVELLE_QM_FILE}" NAME)
+            string(APPEND FOVELLE_TRANSLATION_QRC_CONTENT
+                "    <file>${FOVELLE_QM_NAME}</file>\n"
+            )
+        endforeach()
+        string(APPEND FOVELLE_TRANSLATION_QRC_CONTENT "  </qresource>\n</RCC>\n")
+        file(WRITE "${FOVELLE_TRANSLATION_QRC}" "${FOVELLE_TRANSLATION_QRC_CONTENT}")
+
+        qt5_add_resources(FOVELLE_TRANSLATION_RESOURCE_SOURCES "${FOVELLE_TRANSLATION_QRC}")
+        target_sources(${PROJECT_NAME} PRIVATE ${FOVELLE_TRANSLATION_RESOURCE_SOURCES})
     endif()
 endif()
 

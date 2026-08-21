@@ -14,7 +14,6 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Supports both light and dark appearances.
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
-- **Supports full gesture operations.**
 - Conditionally displays vertical and horizontal scrollbars.
 
 ## Supported Formats
