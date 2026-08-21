@@ -23,7 +23,11 @@ jobs:
           modules: 'qtimageformats'
 
       - name: Configure CMake
-        run: cmake -B build -DBUILD_TESTS=ON -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+        run: >-
+          cmake -B build
+          -DBUILD_TESTS=ON
+          -DFOVELLE_BUILD_TRANSLATIONS=ON
+          -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
 
       - name: Build
         run: cmake --build build --parallel

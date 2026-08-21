@@ -105,7 +105,7 @@ private slots:
     void testDisplayHeadroomBootstrapsFromPotentialCapability();
     void testFinalFrameRevealRequiresMatchedGeometry();
     void testHDRViewportGeometryEquivalenceUsesCompleteContract();
-    void testPersistentHDRLayerUsesQtViewportCoordinates();
+    void testPersistentHDRLayerUsesStableQtViewportCoordinates();
     void testRawContentHeadroomUsesMeasuredPeakWhenUnknown();
     void testPreparedHDRPresentationCanBeReusedAcrossGeometry();
     void testViewportBackgroundColorsMatchTheme();
@@ -1009,19 +1009,21 @@ void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
 }
 
 // TC-HDR-UNIT-PERSISTENT-LAYER-COORDINATES
-// Test purpose: verify the persistent Core Animation HDR surface consumes the
-// same top-left-origin viewport corners as QGraphicsView, without a second
-// vertical inversion.
+// Test purpose: verify the persistent Core Animation HDR surface has one stable
+// unflipped container contract and consumes QGraphicsView viewport coordinates
+// without a second vertical conversion.
 // Preconditions: no native view, display, or HDR fixture is required.
 // Input data: fitted and rotated four-corner viewport geometries, plus a
 // positive vertical translation.
 // Steps: build the layer transform and map all four source-image corners.
-// Expected result: every corner lands on the corresponding Qt viewport corner;
-// moving Qt geometry down also moves the native layer down by the same amount.
+// Expected result: the standalone layer is unflipped, every source corner lands
+// on the corresponding Qt corner, and moving Qt geometry down moves the native
+// geometry down by the same amount.
 // Postcondition: no native layer or renderer state is created.
-void HDRPolicyTests::testPersistentHDRLayerUsesQtViewportCoordinates()
+void HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()
 {
     const QSizeF sourceSize(6048.0, 8064.0);
+    QVERIFY(!QVCocoaFunctions::persistentHDRLayerGeometryFlipped());
     const auto verifyCornerMapping = [&](const QPolygonF &corners) {
         const QTransform transform = QVCocoaFunctions::persistentHDRLayerTransform(
                 sourceSize, corners);

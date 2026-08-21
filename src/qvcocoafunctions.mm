@@ -721,7 +721,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         presentationContainerLayer.frame = nativeView.bounds;
         presentationContainerLayer.autoresizingMask =
                 kCALayerWidthSizable | kCALayerHeightSizable;
-        presentationContainerLayer.geometryFlipped = nativeView.layer.geometryFlipped;
+        // Do not snapshot QNSView's AppKit-managed backing-layer flag here.
+        // During attachment it can still be YES and later settle to NO, which
+        // leaves this standalone subtree in the opposite coordinate system.
+        presentationContainerLayer.geometryFlipped =
+                QVCocoaFunctions::persistentHDRLayerGeometryFlipped();
         presentationContainerLayer.opacity = 0.0F;
         presentationContainerLayer.hidden = YES;
         viewportBackgroundLayer = [[CALayer layer] retain];
@@ -1198,6 +1202,30 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentImageLayer.affineTransform = transform;
         navigationOverlayLayer.frame = nativeView.bounds;
         [CATransaction commit];
+        if (qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG")) {
+            const CGRect viewBounds = nativeView.bounds;
+            const CGRect rootBounds = nativeView.layer.bounds;
+            const CGRect containerFrame = presentationContainerLayer.frame;
+            const CGRect containerBounds = presentationContainerLayer.bounds;
+            const CGRect imageFrame = persistentImageLayer.frame;
+            qInfo().nospace()
+                    << "FOVELLE_HDR_LAYER view_flipped=" << nativeView.isFlipped
+                    << " root_flipped=" << nativeView.layer.geometryFlipped
+                    << " container_flipped=" << presentationContainerLayer.geometryFlipped
+                    << " viewport=" << viewportSize.width() << "x" << viewportSize.height()
+                    << " view_bounds=" << viewBounds.origin.x << "," << viewBounds.origin.y
+                    << "," << viewBounds.size.width << "," << viewBounds.size.height
+                    << " root_bounds=" << rootBounds.origin.x << "," << rootBounds.origin.y
+                    << "," << rootBounds.size.width << "," << rootBounds.size.height
+                    << " container_frame=" << containerFrame.origin.x << ","
+                    << containerFrame.origin.y << "," << containerFrame.size.width << ","
+                    << containerFrame.size.height
+                    << " container_bounds=" << containerBounds.origin.x << ","
+                    << containerBounds.origin.y << "," << containerBounds.size.width << ","
+                    << containerBounds.size.height
+                    << " image_frame=" << imageFrame.origin.x << "," << imageFrame.origin.y
+                    << "," << imageFrame.size.width << "," << imageFrame.size.height;
+        }
         ++state.compositorGeometryUpdateCount;
     }
 
@@ -2450,6 +2478,11 @@ QTransform QVCocoaFunctions::persistentHDRLayerTransform(
             (bottomLeft.y() - topLeft.y()) / sourceSize.height(),
             0.0,
             topLeft.x(), topLeft.y(), 1.0);
+}
+
+bool QVCocoaFunctions::persistentHDRLayerGeometryFlipped()
+{
+    return false;
 }
 
 QVCocoaFunctions::HDRPixelStatistics

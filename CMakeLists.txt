@@ -7,7 +7,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 option(BUILD_TESTS "Build the deterministic Qt test suite" OFF)
-option(FOVELLE_BUILD_TRANSLATIONS "Build Qt translation catalogs" OFF)
+option(FOVELLE_BUILD_TRANSLATIONS "Build and embed Qt translation catalogs" ON)
 option(QV_DISABLE_ONLINE_VERSION_CHECK "Disable automatic version checks" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -153,15 +153,19 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 if(FOVELLE_BUILD_TRANSLATIONS)
-    find_package(Qt${QT_VERSION_MAJOR} QUIET COMPONENTS LinguistTools)
-    if(Qt${QT_VERSION_MAJOR}_LinguistTools_FOUND)
-        file(GLOB FOVELLE_TRANSLATIONS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_*.ts")
-        if(QT_VERSION_MAJOR EQUAL 6)
-            qt_add_translations(${PROJECT_NAME} TS_FILES ${FOVELLE_TRANSLATIONS})
-        else()
-            qt5_add_translation(FOVELLE_QM_FILES ${FOVELLE_TRANSLATIONS})
-            target_sources(${PROJECT_NAME} PRIVATE ${FOVELLE_QM_FILES})
-        endif()
+    # A multilingual build without LinguistTools silently produces an
+    # English-only bundle, while the settings dialog enumerates only embedded
+    # .qm resources. Treat catalogs as a required release input instead.
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS LinguistTools)
+    file(GLOB FOVELLE_TRANSLATIONS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_*.ts")
+    if(QT_VERSION_MAJOR EQUAL 6)
+        qt_add_translations(${PROJECT_NAME}
+            TS_FILES ${FOVELLE_TRANSLATIONS}
+            RESOURCE_PREFIX /i18n
+        )
+    else()
+        qt5_add_translation(FOVELLE_QM_FILES ${FOVELLE_TRANSLATIONS})
+        target_sources(${PROJECT_NAME} PRIVATE ${FOVELLE_QM_FILES})
     endif()
 endif()
 

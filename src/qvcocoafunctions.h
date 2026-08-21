@@ -260,11 +260,11 @@ public:
     static bool isFinalHDRFrameReadyForReveal(bool drawableGeometryMatches,
                                               qreal transitionProgress);
 
-    // QGraphicsView supplies viewport coordinates in Qt's top-left-origin
-    // coordinate system. QNSView is already flipped to the same convention,
-    // so a persistent Core Animation sublayer must consume those corners
-    // directly. This is intentionally separate from the Metal texture path,
-    // whose render target still uses bottom-left-origin coordinates.
+    // The persistent surface is installed below Qt's flipped QNSView. Keep
+    // the standalone Core Animation container unflipped and consume the
+    // QGraphicsView viewport corners directly. The opening Metal render-target
+    // path has a different coordinate contract and performs its own Y flip.
+    static bool persistentHDRLayerGeometryFlipped();
     static QTransform persistentHDRLayerTransform(const QSizeF &sourceSize,
                                                   const QPolygonF &imageCorners);
 

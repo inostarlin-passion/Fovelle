@@ -26,7 +26,7 @@ jobs:
         run: >-
           cmake -S . -B build
           -DBUILD_TESTS=ON
-          -DFOVELLE_BUILD_TRANSLATIONS=OFF
+          -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
 
       - name: Build
