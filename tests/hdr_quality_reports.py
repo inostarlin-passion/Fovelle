@@ -194,6 +194,23 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "Qt for macOS 6.11 supported configurations",
+            "url": "https://doc.qt.io/qt-6/macos.html",
+            "supports": [
+                "Qt 6.11 supports macOS 26 targets",
+                "Xcode/macOS SDK is the build environment",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Qt 6.11 official release index",
+            "url": "https://download.qt.io/official_releases/qt/6.11/",
+            "supports": [
+                "Qt 6.11.2 release availability",
+            ],
+        },
+        {
+            "kind": "fact-source",
             "title": "WWDC24 — Use HDR for dynamic image experiences in your app",
             "url": "https://developer.apple.com/videos/play/wwdc2024/10177/",
             "supports": ["adaptive HDR expansion", "content headroom", "CIToneMapHeadroom", "Quick Look/Preview adoption"],
@@ -435,6 +452,31 @@ def main() -> int:
                 ),
                 "evidence": "xcodebuild -version, xcrun --sdk macosx --show-sdk-version, and reports/evidence/hdr_*.json",
             },
+            {
+                "id": "CI-F-004",
+                "statement": (
+                    "After the runner change, build run 32460611133 selected "
+                    "Xcode 26.6 and macOS SDK 26.5 successfully, then installed "
+                    "Qt 6.8.3 before the link step."
+                ),
+                "evidence": "GitHub Actions job 96706639231 log, Verify Xcode and macOS SDK and Install Qt steps",
+            },
+            {
+                "id": "CI-F-005",
+                "statement": (
+                    "The new build failure was at application and test link time: "
+                    "ld reported framework AGL not found."
+                ),
+                "evidence": "GitHub Actions job 96706639231 Build step log",
+            },
+            {
+                "id": "CI-F-006",
+                "statement": (
+                    "The local Qt 6.11.1 link commands contain no AGL framework and "
+                    "the same project builds with Xcode 26.3 and macOS SDK 26.2."
+                ),
+                "evidence": "local build/CMakeFiles/*/link.txt and cmake --build build",
+            },
         ],
         "inferences": [
             {
@@ -455,6 +497,16 @@ def main() -> int:
                 ),
                 "basis": ["CI-F-002", "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md"],
             },
+            {
+                "id": "CI-I-003",
+                "statement": (
+                    "Once the SDK mismatch was removed, Qt 6.8.3 became the "
+                    "remaining compatibility boundary: its macOS link metadata "
+                    "requested the removed AGL framework, so the CI dependency "
+                    "must move to a Qt 6.11.2 build compatible with macOS 26."
+                ),
+                "basis": ["CI-F-004", "CI-F-005", "CI-F-006", "https://doc.qt.io/qt-6/macos.html"],
+            },
         ],
         "uncertainties": [
             {
@@ -470,7 +522,8 @@ def main() -> int:
         "remediation": [
             "Use macos-26 for build, test, clang-tidy, format, and release jobs.",
             "Verify xcodebuild major version >= 26 and macOS SDK major version >= 26 before installing Qt.",
-            "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14.",
+            "Pin Qt 6.11.2 in every workflow to avoid the Qt 6.8.3 AGL link dependency on macOS 26.",
+            "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14 or Qt 6.8.",
         ],
     }
 
@@ -730,6 +783,7 @@ def main() -> int:
             "The exact internal RAW/gain-map ROI scheduler is not published by Apple; its mechanism remains an inference even though the 2:1 extent, source contracts, and final timed pixels are directly auditable.",
             "No physical SDR-only Mac was present; unit and current=potential=1 system tests cover the SDR branch deterministically.",
             "Apple RAW camera-model support varies with macOS and may change independently of this application.",
+            "The current system run intentionally used the persistent compositor fast path after first-frame handoff, so interactive MTLDrawable presentation latency fields were not observed; the report does not treat null presentation samples as measured values.",
         ],
         "remaining_required_work": [],
         "passed": evidence_passed,
@@ -810,12 +864,12 @@ def main() -> int:
                 "thresholds": system_performance.get("thresholds"),
                 "metrics": performance_metrics,
                 "facts": [
-                    "Average, P99, maximum, and throughput were computed from raw JSON samples for decode, steady encode, AppKit callback, and actual drawable-presentation windows.",
-                    "The same statistics were recorded for deterministic JPEG, processed DNG, and NEF interactions, with a separate synchronous zoom-main-thread bound.",
-                    "Request-to-presentation latency comes from addPresentedHandler rather than submission timestamps, so the throughput claim includes GPU execution and presentation availability.",
+                    "Average, P99, maximum, and throughput were computed from raw JSON samples for decode and steady render windows; JPEG, processed DNG, and NEF interaction intervals were also recorded.",
+                    "The persistent compositor fast path produced 48-step geometry samples at 124.675 updates per second with 0.014 ms last-geometry-update time; interactive Metal presentation callbacks were zero in this run because no new drawable was needed after first-frame handoff.",
+                    "The implementation retains an addPresentedHandler first-frame handoff path, but this run's null interactive presentation latency fields are explicitly treated as unobserved rather than as zero-latency measurements.",
                 ],
                 "inference": "Offscreen endpoint preparation, event-loop coalescing, DisplayLink callback pacing, deadline-aware submission, and a bounded two-frame pipeline leave sufficient interactive throughput on the measured Mac.",
-                "uncertainty": "Performance will vary with sensor resolution, RAW demosaic complexity, GPU, memory pressure, and display mode.",
+                "uncertainty": "Performance will vary with sensor resolution, RAW demosaic complexity, GPU, memory pressure, and display mode; a separate run that forces repeated drawable presentation is needed for non-null interactive request-to-presentation percentiles.",
             },
             {
                 "quality_attribute": "可测试性",

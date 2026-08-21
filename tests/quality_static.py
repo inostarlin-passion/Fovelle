@@ -492,6 +492,8 @@ def main() -> int:
         and "xcrun --sdk macosx --show-sdk-version" in workflow
         and 'test "${XCODE_VERSION%%.*}" -ge 26' in workflow
         and 'test "${SDK_VERSION%%.*}" -ge 26' in workflow
+        and "version: '6.11.2'" in workflow
+        and "version: '6.8" not in workflow
         for workflow in workflow_sources
     )
     add_check(
@@ -505,8 +507,10 @@ def main() -> int:
             "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflow_sources),
             "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
             "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
+            "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflow_sources),
+            "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflow_sources),
         },
-        "all build, check, and release jobs run on macOS 26 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
+        "all build, check, and release jobs run on macOS 26 with Qt 6.11.2 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
     )
 
     cross_dpi_test_contract = (

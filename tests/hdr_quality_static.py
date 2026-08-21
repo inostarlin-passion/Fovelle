@@ -81,6 +81,8 @@ def main() -> int:
         "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflows.values()),
         "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
         "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
+        "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflows.values()),
+        "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflows.values()),
     })
 
     case("ST-HDR-RAW-CONTENT-UTI", {
