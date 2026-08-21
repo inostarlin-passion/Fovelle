@@ -73,16 +73,34 @@ def main() -> int:
     raw_decode = between(cocoa, "if (result.isRaw)", "else if (result.isImageIOType)")
     nonraw_decode = between(cocoa, "else if (result.isImageIOType)", "CFRelease(source);")
     renderer = between(cocoa, "struct QVCocoaFunctions::HDRRenderer::Impl", "static void hideMenuShortcuts")
+    build_workflow = workflows[".github/workflows/build.yml"]
+    test_workflow = workflows[".github/workflows/test.yml"]
+    release_workflow = workflows[".github/workflows/release.yml"]
+    release_script = (repo / "dist/scripts/package-macos-release.sh").read_text(encoding="utf-8")
 
     case("ST-CI-APPLE-SDK", {
-        "all_workflows_use_macos_26": all("runs-on: macos-26" in workflow for workflow in workflows.values()),
+        "build_and_test_use_macos_26": "runs-on: macos-26" in build_workflow and "runs-on: macos-26" in test_workflow,
+        "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
         "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflows.values()),
         "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflows.values()),
         "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflows.values()),
-        "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
-        "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
+        "build_and_test_xcode_26_minimum": 'test "${XCODE_VERSION%%.*}" -ge 26' in build_workflow and 'test "${XCODE_VERSION%%.*}" -ge 26' in test_workflow,
+        "build_and_test_sdk_26_minimum": 'test "${SDK_VERSION%%.*}" -ge 26' in build_workflow and 'test "${SDK_VERSION%%.*}" -ge 26' in test_workflow,
+        "release_xcode_16_minimum": 'test "${XCODE_VERSION%%.*}" -ge 16' in release_workflow,
+        "release_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in release_workflow,
         "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflows.values()),
         "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflows.values()),
+        "deployment_target_is_explicit_everywhere": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in workflows.values()),
+        "deployment_target_is_defaulted_in_cmake": 'set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0"' in cmake,
+        "sdk15_only_release_sysroot_is_explicit": 'CMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"' in release_workflow,
+        "release_artifact_checks_sdk_and_min_os": all(token in release_script for token in (
+            "assert_macos_deployment_target", "otool -l", "LSMinimumSystemVersion",
+            "EXPECTED_MACOS_DEPLOYMENT_TARGET",
+        )),
+        "sdk15_compile_guards_cover_new_apis": all(token in cocoa for token in (
+            "#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000",
+            "#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 160000",
+        )),
     })
 
     case("ST-CI-BUILD-PARALLELISM", {

@@ -18,6 +18,8 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter
 
+from macos15_release_contract import validate_app
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -67,6 +69,7 @@ def main() -> int:
     parser.add_argument("--raw", type=Path, required=True)
     parser.add_argument("--plain-dng", type=Path, required=True)
     parser.add_argument("--nef", type=Path, required=True)
+    parser.add_argument("--app", type=Path, default=None)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -75,6 +78,7 @@ def main() -> int:
     raw = args.raw.resolve()
     plain_dng = args.plain_dng.resolve()
     nef = args.nef.resolve()
+    app = (args.app or binary.parent.parent / "Fovelle.app").resolve()
     missing = [
         str(path) for path in (binary, jpeg, raw, plain_dng, nef)
         if not path.is_file()
@@ -230,6 +234,24 @@ def main() -> int:
         },
     }
     cases.append(quality_case)
+    release_contract = validate_app(app)
+    cases.append({
+        "id": "IT-RELEASE-MACOS15-ARTIFACT",
+        "test_code": "tests/macos15_release_contract.py::validate_app",
+        "status": "passed" if release_contract["passed"] else "failed",
+        "checks": {
+            "main_executable_minimum_is_15": release_contract[
+                "main_minimum_system_version_matches"
+            ],
+            "info_plist_minimum_is_15": release_contract[
+                "info_plist_minimum_system_version_matches"
+            ],
+            "embedded_dependencies_run_on_macos15": release_contract[
+                "embedded_dependencies_are_compatible"
+            ],
+        },
+        "observations": release_contract,
+    })
     totals_match = re.search(
         r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted", output
     )
@@ -252,6 +274,7 @@ def main() -> int:
         "host": {"platform": platform.platform(), "python": platform.python_version()},
         "command": command,
         "environment": environment,
+        "app": str(app),
         "samples": {
             "jpeg": sample_record(jpeg),
             "raw": sample_record(raw),

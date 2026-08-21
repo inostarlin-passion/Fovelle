@@ -177,6 +177,16 @@ def main() -> int:
         },
         {
             "kind": "fact-source",
+            "title": "GitHub Actions macOS 15 arm64 runner image manifest",
+            "url": "https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md",
+            "supports": [
+                "macos-15 runner image",
+                "macOS 15 host and SDK families",
+                "Xcode 16 default toolchain on the current macOS 15 arm64 image",
+            ],
+        },
+        {
+            "kind": "fact-source",
             "title": "Apple CALayer preferredDynamicRange",
             "url": "https://developer.apple.com/documentation/quartzcore/calayer/preferreddynamicrange",
             "supports": [
@@ -197,8 +207,35 @@ def main() -> int:
             "title": "Qt for macOS 6.11 supported configurations",
             "url": "https://doc.qt.io/qt-6/macos.html",
             "supports": [
-                "Qt 6.11 supports macOS 26 targets",
+                "Qt 6.11 supports macOS 13 and newer targets",
                 "Xcode/macOS SDK is the build environment",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Qt 6.11 macOS build requirements",
+            "url": "https://doc.qt.io/qt-6.11/macos-building.html",
+            "supports": [
+                "supported Xcode/macOS SDK build environment",
+                "macOS deployment target configuration",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CIImage settingContentHeadroom availability",
+            "url": "https://developer.apple.com/documentation/coreimage/ciimage/settingcontentheadroom%28_%3A%29?changes=__1&language=objc",
+            "supports": [
+                "content-headroom API availability after SDK15",
+                "compile-time guard for the optional CIImage tag",
+            ],
+        },
+        {
+            "kind": "fact-source",
+            "title": "Apple CALayer preferredDynamicRange availability",
+            "url": "https://developer.apple.com/documentation/quartzcore/calayer/preferreddynamicrange?changes=_5&language=objc",
+            "supports": [
+                "macOS 26 preferred dynamic-range layer API",
+                "SDK15 compile-time guard for the layer property",
             ],
         },
         {
@@ -526,6 +563,23 @@ def main() -> int:
                     "https://github.com/inostarlin-passion/Fovelle/actions/runs/32469108136"
                 ),
             },
+            {
+                "id": "CI-F-011",
+                "statement": (
+                    "The current source now defaults CMAKE_OSX_DEPLOYMENT_TARGET to 15.0, "
+                    "and build/test/release configure commands pass the same explicit value."
+                ),
+                "evidence": "CMakeLists.txt and .github/workflows/{build,test,release}.yml",
+            },
+            {
+                "id": "CI-F-012",
+                "statement": (
+                    "The Release workflow selects macos-15, rejects an SDK major other than 15, "
+                    "and the packaging script checks the main Mach-O SDK/minOS plus "
+                    "LSMinimumSystemVersion before and after zip extraction."
+                ),
+                "evidence": ".github/workflows/release.yml and dist/scripts/package-macos-release.sh",
+            },
         ],
         "inferences": [
             {
@@ -575,6 +629,19 @@ def main() -> int:
                 ),
                 "basis": ["CI-F-009", "tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable"],
             },
+            {
+                "id": "CI-I-006",
+                "statement": (
+                    "Keeping HDR build/test jobs on macos-26 supplies the headers used by the full HDR test matrix, "
+                    "while SDK15 compile-time guards make the Release target buildable on macos-15 without removing "
+                    "runtime availability checks for newer displays."
+                ),
+                "basis": [
+                    "CI-F-002", "CI-F-011", "CI-F-012",
+                    "https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md",
+                    "https://developer.apple.com/documentation/quartzcore/calayer/preferreddynamicrange?changes=_5&language=objc",
+                ],
+            },
         ],
         "uncertainties": [
             {
@@ -603,12 +670,22 @@ def main() -> int:
                 ),
                 "mitigation": "Generate the fixture from the visible viewport, sample the usable viewport center, and return after failed preconditions.",
             },
+            {
+                "id": "CI-U-004",
+                "statement": (
+                    "This macOS 15.7.7 host has Xcode 26.3/SDK 26.2 and no locally installed SDK15 image, "
+                    "so the local Release smoke proves installation and launch on macOS15 but cannot replace "
+                    "the hosted macos-15 exact-SDK compile evidence."
+                ),
+                "mitigation": "The Release workflow fail-fast check and package script enforce SDK15 in the remote signed job; local reports record the observed SDK separately.",
+            },
         ],
         "remediation": [
-            "Use macos-26 for build, test, clang-tidy, format, and release jobs.",
-            "Verify xcodebuild major version >= 26 and macOS SDK major version >= 26 before installing Qt.",
+            "Use macos-26 for build, test, clang-tidy, and format jobs; use macos-15 for the Release SDK15 build.",
+            "Verify Xcode/SDK major versions before installing Qt: build/test >=26, Release Xcode >=16 and SDK exactly 15.",
             "Pin Qt 6.11.2 in every workflow to avoid the Qt 6.8.3 AGL link dependency on macOS 26.",
-            "Keep ST-CI-APPLE-SDK as a static guard against regression to macos-14 or Qt 6.8.",
+            "Keep ST-CI-APPLE-SDK as a static guard against runner/SDK drift, deployment-target drift, or Qt 6.8.",
+            "Check the signed Release bundle's main Mach-O SDK/minOS, embedded dependency minOS, and LSMinimumSystemVersion before publishing and after extracting the final zip.",
             "Use cmake --build build --parallel 2 in test, build, and release workflows; keep ST-CI-BUILD-PARALLELISM as a timeout-regression guard.",
             "Make the scrollbar-threshold unit fixture viewport-relative, use the production usable-center contract, and stop safely after failed asynchronous preconditions.",
         ],

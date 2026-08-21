@@ -20,6 +20,8 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter
 
+from macos15_release_contract import install_extract_and_launch
+
 
 RUNS_PER_FORMAT = 3
 CAPTURE_SECONDS = 7.0
@@ -763,6 +765,10 @@ def main() -> int:
     if missing:
         raise SystemExit(f"missing system-test input: {missing}")
 
+    app_bundle = app if app.is_dir() else app.parents[2]
+    release_smoke = install_extract_and_launch(
+        app_bundle, args.output.resolve().parent / "release_smoke"
+    )
     capture_directory = args.output.resolve().parent / "screens"
     runs = []
     for index in range(1, RUNS_PER_FORMAT + 1):
@@ -1240,6 +1246,16 @@ def main() -> int:
         })
 
     cases = [
+        make_case("SYS-RELEASE-MACOS15-INSTALL-SMOKE", {
+            "copy_succeeded": release_smoke["copy_return_code"] == 0,
+            "qt_dependencies_deployed": release_smoke["macdeployqt_return_code"] == 0,
+            "zip_round_trip_succeeded": (
+                release_smoke["zip_return_code"] == 0
+                and release_smoke["extract_return_code"] == 0
+            ),
+            "macos15_install_contract_passed": release_smoke["artifact_contract"]["passed"],
+            "extracted_app_started": release_smoke["launch_started_before_timeout"],
+        }, release_smoke),
         make_case("SYS-HDR-GAINMAP-JPEG-EDR", {
             "all_runs_healthy": all(run["process_healthy"] for run in jpeg_runs),
             "adaptive_hdr_identified": bool(jpeg_records) and all(item.get("source_kind") == "adaptive-hdr" for item in jpeg_records),
@@ -2026,6 +2042,7 @@ def main() -> int:
             "plain_dng": str(plain_dng), "nef": str(nef),
         },
         "runs": runs,
+        "release_smoke": release_smoke,
         "performance": performance,
         "cases": cases,
         "summary": {
