@@ -492,6 +492,8 @@ def main() -> int:
         and "xcrun --sdk macosx --show-sdk-version" in workflow
         and 'test "${XCODE_VERSION%%.*}" -ge 26' in workflow
         and 'test "${SDK_VERSION%%.*}" -ge 26' in workflow
+        and "version: '6.11.2'" in workflow
+        and "version: '6.8" not in workflow
         for workflow in workflow_sources
     )
     add_check(
@@ -505,8 +507,31 @@ def main() -> int:
             "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflow_sources),
             "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
             "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflow_sources),
+            "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflow_sources),
+            "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflow_sources),
         },
-        "all build, check, and release jobs run on macOS 26 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
+        "all build, check, and release jobs run on macOS 26 with Qt 6.11.2 and fail fast unless Xcode 26 and macOS SDK 26 are selected",
+    )
+
+    bounded_build_contract = (
+        all("run: cmake --build build --parallel 2" in source[path] for path in (
+            ".github/workflows/test.yml",
+            ".github/workflows/build.yml",
+            ".github/workflows/release.yml",
+        ))
+        and "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"]
+    )
+    add_check(
+        checks,
+        "ST-28-CI-BUILD-PARALLELISM",
+        bounded_build_contract,
+        {
+            "test_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/test.yml"],
+            "build_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/build.yml"],
+            "release_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/release.yml"],
+            "unbounded_test_build_is_absent": "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"],
+        },
+        "CI compilation uses a bounded parallelism contract that keeps the Checks job inside its timeout window",
     )
 
     cross_dpi_test_contract = (

@@ -81,6 +81,23 @@ def main() -> int:
         "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflows.values()),
         "xcode_26_minimum_is_enforced": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
         "sdk_26_minimum_is_enforced": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in workflows.values()),
+        "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflows.values()),
+        "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflows.values()),
+    })
+
+    case("ST-CI-BUILD-PARALLELISM", {
+        "checks_build_parallelism_is_bounded": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/test.yml"]
+        ),
+        "checks_unbounded_parallelism_is_absent": (
+            "run: cmake --build build --parallel\n" not in workflows[".github/workflows/test.yml"]
+        ),
+        "build_workflow_uses_same_bound": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/build.yml"]
+        ),
+        "release_workflow_uses_same_bound": (
+            "run: cmake --build build --parallel 2" in workflows[".github/workflows/release.yml"]
+        ),
     })
 
     case("ST-HDR-RAW-CONTENT-UTI", {
@@ -552,6 +569,10 @@ def main() -> int:
         "hover_reads_cached_pixels": (
             "sampleDisplayedImageBrightness" in main_window
             and "navigationSamplingImage.pixelColor" in view
+        ),
+        "sampling_uses_device_independent_pixmap_geometry": (
+            "loadedPixmapItem->mapFromScene" in view
+            and "loadedPixmapItem->boundingRect" in view
         ),
     })
     case("ST-HDR-OBSERVABILITY", {

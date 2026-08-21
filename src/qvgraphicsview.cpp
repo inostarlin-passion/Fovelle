@@ -738,25 +738,28 @@ bool QVGraphicsView::canReuseHDRPresentation(const bool firstFramePresented,
 std::optional<qreal> QVGraphicsView::sampleDisplayedImageBrightness(
     const QPoint &viewportPoint) const
 {
-    if (navigationSamplingImage.isNull() || navigationSamplingSourceSize.isEmpty()
+    const QRectF pixmapRect = loadedPixmapItem ? loadedPixmapItem->boundingRect() : QRectF();
+    if (navigationSamplingImage.isNull() || pixmapRect.isEmpty()
         || !viewport()->rect().contains(viewportPoint))
         return {};
 
-    const QPointF sourcePoint = mapToScene(viewportPoint);
-    if (sourcePoint.x() < 0.0 || sourcePoint.y() < 0.0
-        || sourcePoint.x() >= navigationSamplingSourceSize.width()
-        || sourcePoint.y() >= navigationSamplingSourceSize.height())
+    // QPixmap scene coordinates are device-independent. On a Retina hosted
+    // runner the pixmap can therefore have a 2x physical size while its
+    // QGraphicsPixmapItem occupies half as many scene units. Map through the
+    // actual item transform instead of dividing by the file's pixel size.
+    const QPointF itemPoint = loadedPixmapItem->mapFromScene(mapToScene(viewportPoint));
+    if (!pixmapRect.contains(itemPoint))
         return {};
 
     const int centerX = qBound(
         0,
-        qFloor(sourcePoint.x() * navigationSamplingImage.width()
-               / navigationSamplingSourceSize.width()),
+        qFloor((itemPoint.x() - pixmapRect.left()) * navigationSamplingImage.width()
+               / pixmapRect.width()),
         navigationSamplingImage.width() - 1);
     const int centerY = qBound(
         0,
-        qFloor(sourcePoint.y() * navigationSamplingImage.height()
-               / navigationSamplingSourceSize.height()),
+        qFloor((itemPoint.y() - pixmapRect.top()) * navigationSamplingImage.height()
+               / pixmapRect.height()),
         navigationSamplingImage.height() - 1);
     qreal total = 0.0;
     int count = 0;

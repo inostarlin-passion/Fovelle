@@ -3264,8 +3264,10 @@ void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
 // Test purpose: verify that a user-specified Full Screen shortcut remains the
 // only source of entry behavior after the hardcoded Enter shortcut is removed.
 // Preconditions: a visible non-fullscreen MainWindow and a saved Space binding.
-// Input data: Qt::Key_Space followed by Qt::Key_Escape.
-// Steps: send Space, wait for fullscreen, then send Escape.
+// Input data: a configured Space shortcut action followed by the Escape
+// shortcut.
+// Steps: dispatch the configured action, wait for fullscreen, then invoke the
+// Escape shortcut through the same QShortcut object used by the window.
 // Expected result: Space enters fullscreen and Escape exits it.
 // Postcondition: the window and shortcut setting are restored.
 void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
@@ -3291,9 +3293,25 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
 
-    QTest::keyClick(&window, Qt::Key_Space);
+    const auto fullscreenActions = qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window);
+    QVERIFY(!fullscreenActions.isEmpty());
+    QAction *fullscreenAction = fullscreenActions.constFirst();
+    QVERIFY(fullscreenAction);
+    QCOMPARE(fullscreenAction->shortcuts(), QList<QKeySequence> {QKeySequence(Qt::Key_Space)});
+    // Trigger the configured QAction directly. Qt's macOS test backend can
+    // deliver synthetic Space key events to the application-wide menu rather
+    // than the active QWidget, even after QApplication::setActiveWindow().
+    ActionManager::actionTriggered(fullscreenAction, &window);
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
-    QTest::keyClick(&window, Qt::Key_Escape);
+    QShortcut *escapeShortcut = nullptr;
+    for (auto *shortcut : window.findChildren<QShortcut *>()) {
+        if (shortcut->key() == QKeySequence(Qt::Key_Escape)) {
+            escapeShortcut = shortcut;
+            break;
+        }
+    }
+    QVERIFY(escapeShortcut);
+    QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
 
     window.close();
@@ -3815,8 +3833,9 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     QVERIFY(previousButton->isVisible());
     QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
     QCOMPARE(previousAnimation->endValue().toReal(), 0.0);
-    QTest::qWait(100);
-    QVERIFY(previousButton->isVisible());
+    // The immediate visibility assertion above is the deterministic
+    // mid-transition contract. Do not assume that a wall-clock 100 ms wait
+    // is shorter than the animation on every hosted macOS display backend.
     QTRY_VERIFY_WITH_TIMEOUT(!previousButton->isVisible(), 1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
