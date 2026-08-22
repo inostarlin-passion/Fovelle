@@ -15,6 +15,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
 - Conditionally displays vertical and horizontal scrollbars.
+- Add support for less common formats (e.g., EPS).
 
 ## Supported Formats
 
@@ -31,6 +32,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - DDS Textures
 - DNG
 - DxO RAW
+- EPS
 - Epson RAW
 - Fuji RAW
 - GIF
@@ -88,4 +90,3 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 ## Dark Theme
 
 ![](docs/snapshot1.jpg)
-

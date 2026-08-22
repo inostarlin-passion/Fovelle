@@ -56,6 +56,10 @@ private slots:
     void testImageLoaderAppliesWebpOrientation();
     void testImageLoaderAppliesAvifOrientation();
     void testImageLoaderLoadsTiffWithImageIO();
+    void testEPSFormatIsAdvertised();
+    void testEPSPreviewDecode();
+    void testImageLoaderLoadsEPS();
+    void testMalformedEPSFailsSafely();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
     void testImageLoaderPreservesSourceResolutionForZoom();
 };
@@ -89,6 +93,7 @@ private slots:
     void testTitlebarIconClearingIsIdempotent();
     void testSettingsFormatsIncludeNativeImageFormats();
     void testSettingsFormatsIncludeTiffAndSystemRawFormats();
+    void testSettingsFormatsIncludeEPS();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
 };
@@ -260,6 +265,43 @@ static QString createTiffImage(const QTemporaryDir &dir, const QString &name, co
     if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray::fromBase64(tinyTiffBase64)) <= 0)
         return {};
     return path;
+}
+
+static QString createEPSIPreviewImage(const QTemporaryDir &dir, const QString &name)
+{
+    const QString path = dir.filePath(name + ".epsi");
+    const QByteArray content =
+        "%!PS-Adobe-3.0 EPSF-3.0\n"
+        "%%BoundingBox: 0 0 8 4\n"
+        "%%BeginPreview: 8 4 1 4\n"
+        "%AA\n"
+        "%55\n"
+        "%AA\n"
+        "%55\n"
+        "%%EndPreview\n"
+        "%%EOF\n";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
+        return {};
+    return path;
+}
+
+static QString epsSamplePath(const QTemporaryDir &fallbackDirectory, bool *usesExternalSample = nullptr)
+{
+    const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_EPS_SAMPLE"));
+    const QString suppliedPath = configuredPath.isEmpty()
+        ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps")
+        : configuredPath;
+    if (QFileInfo::exists(suppliedPath))
+    {
+        if (usesExternalSample)
+            *usesExternalSample = true;
+        return suppliedPath;
+    }
+
+    if (usesExternalSample)
+        *usesExternalSample = false;
+    return createEPSIPreviewImage(fallbackDirectory, "fallback-epsi");
 }
 
 static void sendMouseMove(QWidget *widget, const QPoint &position)
@@ -795,6 +837,117 @@ void ImageLoaderTests::testImageLoaderLoadsTiffWithImageIO()
     QVERIFY(!result->image.isNull());
     QCOMPARE(result->image.size(), QSize(4, 3));
     QVERIFY(!result->errorData.has_value());
+}
+
+// TC-EPS-UNIT-FORMAT
+// Test purpose: verify that EPS, EPSF, and EPSI are advertised by the native
+// format registry used by the application.
+// Preconditions: the macOS test process has initialized QVCocoaFunctions.
+// Input data: the three conventional Encapsulated PostScript extensions.
+// Operation steps: query the additional-format list, support predicate, and
+// application extension set for every alias.
+// Expected result: every alias is advertised and accepted.
+// Postconditions: no settings or files are changed.
+void ImageLoaderTests::testEPSFormatIsAdvertised()
+{
+    const QList<QByteArray> formats{ "eps", "epsf", "epsi" };
+    const auto advertisedFormats = QVCocoaFunctions::getAdditionalImageFormats();
+    for (const QByteArray &format : formats)
+    {
+        QVERIFY(advertisedFormats.contains(format));
+        QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat(format));
+        QVERIFY(qvApp->getAllFileExtensionList().contains("." + QString::fromUtf8(format)));
+    }
+}
+
+// TC-EPS-UNIT-DECODE
+// Test purpose: verify that the native bridge decodes both the supplied DOS
+// EPS sample and the deterministic EPSI fallback when the sample is absent.
+// Preconditions: a readable sample path is available, or a writable temporary
+// directory can hold the generated EPSI fixture.
+// Input data: a DOS EPS with a TIFF preview, or an 8x4 EPSI bitmap.
+// Operation steps: call readImageWithImageIO and inspect UTI, dimensions, and
+// pixels without invoking an external PostScript interpreter.
+// Expected result: the result is tagged as com.adobe.encapsulated-postscript,
+// contains pixels, and has no decode error.
+// Postconditions: temporary fallback data and native image resources are released.
+void ImageLoaderTests::testEPSPreviewDecode()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    bool usesExternalSample = false;
+    const QString path = epsSamplePath(dir, &usesExternalSample);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isImageIOType);
+    QCOMPARE(result.typeIdentifier, QStringLiteral("com.adobe.encapsulated-postscript"));
+    QVERIFY(!result.image.isNull());
+    QVERIFY(!result.intrinsicSize.isEmpty());
+    QCOMPARE(result.intrinsicSize, result.image.size());
+    if (usesExternalSample)
+        QCOMPARE(result.image.size(), QSize(120, 40));
+    else
+        QCOMPARE(result.image.size(), QSize(8, 4));
+}
+
+// TC-EPS-UNIT-LOADER
+// Test purpose: verify that EPS pixels travel through the production
+// asynchronous QVImageLoader path with the same result contract as other images.
+// Preconditions: the EPS sample or deterministic EPSI fallback is readable.
+// Input data: the path returned by epsSamplePath.
+// Operation steps: request the image, wait for imageReady, and inspect the
+// result, source identity, and error state.
+// Expected result: one matching request completes with non-empty pixels and no
+// error data; the intrinsic size is retained by the loader.
+// Postconditions: the loader and temporary fixture are destroyed.
+void ImageLoaderTests::testImageLoaderLoadsEPS()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = epsSamplePath(dir);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY(!result->image.isNull());
+    QVERIFY(!result->errorData.has_value());
+    QVERIFY(!result->intrinsicSize.isEmpty());
+    QCOMPARE(result->image.size(), result->intrinsicSize);
+    QCOMPARE(result->absoluteFilePath, QFileInfo(path).absoluteFilePath());
+}
+
+// TC-EPS-UNIT-MALFORMED
+// Test purpose: verify that a truncated DOS EPS header fails closed without a
+// crash, unbounded read, or false-positive image.
+// Preconditions: a writable temporary directory is available.
+// Input data: a DOS EPS magic header whose TIFF range exceeds file length.
+// Operation steps: write the malformed header and call the native decoder.
+// Expected result: the result keeps the EPS type identifier, has no image, and
+// reports a non-empty error string.
+// Postconditions: the malformed fixture and decoder result are released.
+void ImageLoaderTests::testMalformedEPSFailsSafely()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("malformed.eps");
+    QByteArray header(32, '\0');
+    header[0] = static_cast<char>(0xC5);
+    header[1] = static_cast<char>(0xD0);
+    header[2] = static_cast<char>(0xD3);
+    header[3] = static_cast<char>(0xC6);
+    header[20] = 32;
+    header[24] = 100;
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QCOMPARE(file.write(header), header.size());
+    file.close();
+
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path);
+    QCOMPARE(result.typeIdentifier, QStringLiteral("com.adobe.encapsulated-postscript"));
+    QVERIFY(result.image.isNull());
+    QVERIFY(!result.errorString.isEmpty());
 }
 
 // TC-RAW-TYPE-DETECTION
@@ -1628,6 +1781,40 @@ void FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()
         tableExtensions.insert(formatsTable->item(row, 0)->text());
     QVERIFY(tableExtensions.contains(".tif"));
     QVERIFY(tableExtensions.contains(".tiff"));
+}
+
+// TC-EPS-INT-SETTINGS
+// Test purpose: verify that the Settings → Formats table exposes the EPS
+// aliases produced by the same registry used by folder enumeration.
+// Preconditions: QVApplication has initialized its format registry and the
+// options dialog can be constructed under Cocoa.
+// Input data: .eps, .epsf, and .epsi extension entries.
+// Operation steps: construct QVOptionsDialog and collect the first-column
+// extension values from formatsTable.
+// Expected result: all three EPS aliases are present and enabled by default.
+// Postconditions: the dialog is destroyed without persisting settings.
+void FeatureTests::testSettingsFormatsIncludeEPS()
+{
+    QVOptionsDialog dialog;
+    const auto *formatsTable = dialog.findChild<QTableWidget *>("formatsTable");
+    QVERIFY(formatsTable);
+
+    QSet<QString> tableExtensions;
+    QSet<QString> enabledExtensions;
+    for (int row = 0; row < formatsTable->rowCount(); ++row)
+    {
+        tableExtensions.insert(formatsTable->item(row, 0)->text());
+        if (formatsTable->item(row, 1)->checkState() == Qt::Checked)
+            enabledExtensions.insert(formatsTable->item(row, 0)->text());
+    }
+
+    for (const QString &extension : {QStringLiteral(".eps"),
+                                     QStringLiteral(".epsf"),
+                                     QStringLiteral(".epsi")})
+    {
+        QVERIFY(tableExtensions.contains(extension));
+        QVERIFY(enabledExtensions.contains(extension));
+    }
 }
 
 // TC-IMG-SMALL-SETTING

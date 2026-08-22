@@ -60,6 +60,9 @@
 				<string>avif</string>
 				<string>avifs</string>
 				<string>bw</string>
+				<string>eps</string>
+				<string>epsf</string>
+				<string>epsi</string>
 				<string>exr</string>
 				<string>hdr</string>
 				<string>heic</string>
@@ -83,6 +86,7 @@
 			<array>
 				<string>public.image</string>
 				<string>public.camera-raw-image</string>
+				<string>com.adobe.encapsulated-postscript</string>
 			</array>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
