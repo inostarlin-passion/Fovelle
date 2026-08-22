@@ -8,10 +8,13 @@
 #include <QFileIconProvider>
 #include <QCollator>
 #include <QColorSpace>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
-#include <QRegularExpression>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QWidget>
 
@@ -535,18 +538,20 @@ QString transferFunctionName(CGColorSpaceRef colorSpace, const bool hasGainMap)
     return hasGainMap ? QStringLiteral("gain-map") : QStringLiteral("ICC/SDR");
 }
 
-// macOS Image I/O does not expose an EPS image source on the target OS. EPS
-// files can nevertheless contain a device-independent TIFF preview (the DOS
-// EPS binary header) or an EPSI hexadecimal bitmap preview. Keep preview
-// extraction bounded and decode the embedded raster through Image I/O so the
-// rest of the loader remains unchanged.
+// macOS 14 removed every system PostScript/EPS conversion path. An embedded
+// EPS TIFF/EPSI image is only a low-resolution placement preview and is not the
+// document artwork; treating it as the image both loses vector detail and can
+// expose decoder-specific TIFF errors. Convert the PostScript program with a
+// bounded Ghostscript child process, then rasterize the cropped PDF through
+// Core Graphics at the screen-sized resolution requested by the loader.
 constexpr quint32 DosEPSMagic = 0xC6D3D0C5;
-constexpr quint64 MaxEPSPreviewBytes = 64ULL * 1024ULL * 1024ULL;
-constexpr qsizetype MaxEPSScanBytes = 8 * 1024 * 1024;
-constexpr int MaxEPSIPreviewDimension = 16384;
-constexpr quint64 MaxEPSIPreviewPixels = 64ULL * 1024ULL * 1024ULL;
+constexpr int EPSRendererStartTimeoutMs = 5000;
+constexpr int EPSRendererTimeoutMs = 30000;
+constexpr qsizetype MaxEPSRendererDiagnosticBytes = 64 * 1024;
+constexpr quint64 MaxEPSRenderedPixels = 64ULL * 1024ULL * 1024ULL;
+constexpr quint64 MaxEPSIntermediatePDFBytes = 256ULL * 1024ULL * 1024ULL;
 
-struct EPSPreviewReadResult
+struct EPSReadResult
 {
     bool recognized {false};
     QImage image;
@@ -590,179 +595,213 @@ bool isAsciiEPSHeader(const QByteArray &data)
     return header.contains("EPSF");
 }
 
-bool readEPSFileRange(QFile &file, const quint64 offset, const quint64 length,
-                      QByteArray &data, QString &errorString)
+QString ghostscriptExecutable()
 {
-    const quint64 fileSize = static_cast<quint64>(file.size());
-    if (offset > fileSize || length > fileSize - offset)
+    const QString configured = QString::fromLocal8Bit(qgetenv("FOVELLE_GHOSTSCRIPT"));
+    if (!configured.isEmpty())
+        return QFileInfo(configured).isExecutable() ? configured : QString();
+
+    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("gs"));
+    if (!fromPath.isEmpty())
+        return fromPath;
+
+    static const QStringList standardPaths {
+        QStringLiteral("/opt/homebrew/bin/gs"),
+        QStringLiteral("/usr/local/bin/gs"),
+        QStringLiteral("/opt/local/bin/gs"),
+        QStringLiteral("/opt/sw/bin/gs"),
+        QStringLiteral("/Library/TeX/texbin/gs")
+    };
+    for (const QString &path : standardPaths)
     {
-        errorString = QStringLiteral("EPS preview range is outside the file");
-        return false;
+        if (QFileInfo(path).isExecutable())
+            return path;
     }
-    if (length > MaxEPSPreviewBytes)
+    return {};
+}
+
+QString boundedProcessError(QProcess &process)
+{
+    QByteArray diagnostic = process.readAllStandardError();
+    if (diagnostic.size() > MaxEPSRendererDiagnosticBytes)
+        diagnostic.truncate(MaxEPSRendererDiagnosticBytes);
+    return QString::fromLocal8Bit(diagnostic).simplified();
+}
+
+bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
+                     QString &errorString)
+{
+    const QString executable = ghostscriptExecutable();
+    if (executable.isEmpty())
     {
-        errorString = QStringLiteral("EPS preview is larger than the safety limit");
-        return false;
-    }
-    if (!file.seek(static_cast<qint64>(offset)))
-    {
-        errorString = QStringLiteral("EPS preview could not be read");
+        errorString = QStringLiteral(
+            "EPS rendering requires Ghostscript (gs); install Ghostscript or set FOVELLE_GHOSTSCRIPT");
         return false;
     }
 
-    data = file.read(static_cast<qint64>(length));
-    if (static_cast<quint64>(data.size()) != length)
+    QProcess process;
+    process.setProgram(executable);
+    process.setArguments({
+        QStringLiteral("-q"),
+        QStringLiteral("-dSAFER"),
+        QStringLiteral("-dBATCH"),
+        QStringLiteral("-dNOPAUSE"),
+        QStringLiteral("-dEPSCrop"),
+        QStringLiteral("-dAutoRotatePages=/None"),
+        QStringLiteral("-dALLOWPSTRANSPARENCY"),
+        QStringLiteral("-sDEVICE=pdfwrite"),
+        QStringLiteral("-dCompatibilityLevel=1.7"),
+        QStringLiteral("-sOutputFile=") + pdfPath,
+        QStringLiteral("-f"),
+        filePath
+    });
+    process.setWorkingDirectory(QFileInfo(pdfPath).absolutePath());
+    process.setStandardOutputFile(QProcess::nullDevice());
+    process.start();
+    if (!process.waitForStarted(EPSRendererStartTimeoutMs))
     {
-        errorString = QStringLiteral("EPS preview is truncated");
+        errorString = QStringLiteral("Ghostscript could not be started: %1")
+                          .arg(process.errorString());
+        return false;
+    }
+    if (!process.waitForFinished(EPSRendererTimeoutMs))
+    {
+        process.kill();
+        process.waitForFinished();
+        errorString = QStringLiteral("Ghostscript exceeded the 30 second EPS rendering limit");
+        return false;
+    }
+
+    const QString diagnostic = boundedProcessError(process);
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
+    {
+        errorString = diagnostic.isEmpty()
+            ? QStringLiteral("Ghostscript could not interpret the EPS document")
+            : QStringLiteral("Ghostscript could not interpret the EPS document: %1").arg(diagnostic);
+        return false;
+    }
+
+    const QFileInfo pdfInfo(pdfPath);
+    if (!pdfInfo.isFile() || pdfInfo.size() <= 0)
+    {
+        errorString = QStringLiteral("Ghostscript did not produce an EPS rendering");
+        return false;
+    }
+    if (static_cast<quint64>(pdfInfo.size()) > MaxEPSIntermediatePDFBytes)
+    {
+        errorString = QStringLiteral("Ghostscript EPS rendering exceeded the safety limit");
         return false;
     }
     return true;
 }
 
-QImage imageFromEPSRasterPreview(const QByteArray &data, const int fallbackLargestDimension,
-                                 QSize &intrinsicSize, QString &errorString)
+QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimension,
+                        QSize &intrinsicSize, QString &errorString)
 {
-    if (data.isEmpty())
+    const QUrl pdfUrl = QUrl::fromLocalFile(pdfPath);
+    CGPDFDocumentRef document = CGPDFDocumentCreateWithURL((CFURLRef)pdfUrl.toNSURL());
+    if (!document)
     {
-        errorString = QStringLiteral("EPS preview is empty");
+        errorString = QStringLiteral("The Ghostscript EPS rendering is not a valid PDF");
         return {};
     }
 
-    CFDataRef cfData = CFDataCreate(kCFAllocatorDefault,
-                                    reinterpret_cast<const UInt8 *>(data.constData()),
-                                    static_cast<CFIndex>(data.size()));
-    if (!cfData)
+    CGPDFPageRef page = CGPDFDocumentGetPage(document, 1);
+    if (!page)
     {
-        errorString = QStringLiteral("EPS preview data could not be allocated");
+        CGPDFDocumentRelease(document);
+        errorString = QStringLiteral("The Ghostscript EPS rendering has no page");
         return {};
     }
 
-    CGImageSourceRef source = CGImageSourceCreateWithData(cfData, nullptr);
-    CFRelease(cfData);
-    if (!source)
+    CGPDFBox drawingBox = kCGPDFCropBox;
+    CGRect pageBox = CGPDFPageGetBoxRect(page, drawingBox);
+    if (CGRectIsEmpty(pageBox))
     {
-        errorString = QStringLiteral("EPS TIFF preview is not a supported image");
+        drawingBox = kCGPDFMediaBox;
+        pageBox = CGPDFPageGetBoxRect(page, drawingBox);
+    }
+    const int rotation = ((CGPDFPageGetRotationAngle(page) % 360) + 360) % 360;
+    double logicalWidth = CGRectGetWidth(pageBox);
+    double logicalHeight = CGRectGetHeight(pageBox);
+    if (rotation == 90 || rotation == 270)
+        std::swap(logicalWidth, logicalHeight);
+    constexpr double MaximumLogicalDimension =
+        static_cast<double>(std::numeric_limits<int>::max());
+    if (!(logicalWidth > 0.0) || !(logicalHeight > 0.0)
+        || !std::isfinite(logicalWidth) || !std::isfinite(logicalHeight)
+        || logicalWidth > MaximumLogicalDimension
+        || logicalHeight > MaximumLogicalDimension)
+    {
+        CGPDFDocumentRelease(document);
+        errorString = QStringLiteral("The Ghostscript EPS rendering has an invalid page box");
         return {};
     }
 
-    intrinsicSize = orientedPixelSize(sourcePixelSize(source), sourceOrientation(source));
-
-    CGImageRef decodedImage = nullptr;
-    if (CFDictionaryRef options = thumbnailOptions(source, fallbackLargestDimension, false))
+    intrinsicSize = QSize(qMax(1, qCeil(logicalWidth)), qMax(1, qCeil(logicalHeight)));
+    const double sourceLargestDimension = std::max(logicalWidth, logicalHeight);
+    const int targetLargestDimension = requestedLargestDimension > 0
+        ? requestedLargestDimension
+        : qMax(intrinsicSize.width(), intrinsicSize.height());
+    const double scale = static_cast<double>(targetLargestDimension) / sourceLargestDimension;
+    const int targetWidth = qMax(1, qRound(logicalWidth * scale));
+    const int targetHeight = qMax(1, qRound(logicalHeight * scale));
+    if (static_cast<quint64>(targetWidth) * static_cast<quint64>(targetHeight)
+        > MaxEPSRenderedPixels)
     {
-        decodedImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
-        CFRelease(options);
+        CGPDFDocumentRelease(document);
+        errorString = QStringLiteral("EPS rendering dimensions exceed the safety limit");
+        return {};
     }
-    if (!decodedImage)
-        decodedImage = CGImageSourceCreateImageAtIndex(source, 0, nullptr);
 
-    QImage image;
-    if (decodedImage)
-    {
-        image = imageFromCGImage(decodedImage);
-        CGImageRelease(decodedImage);
-    }
-    CFRelease(source);
-
+    QImage image(targetWidth, targetHeight, QImage::Format_RGBA8888_Premultiplied);
     if (image.isNull())
-        errorString = QStringLiteral("EPS TIFF preview could not be decoded");
-    else if (intrinsicSize.isEmpty())
-        intrinsicSize = image.size();
+    {
+        CGPDFDocumentRelease(document);
+        errorString = QStringLiteral("EPS rendering pixels could not be allocated");
+        return {};
+    }
+    image.fill(Qt::transparent);
+
+    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
+    CGContextRef context = CGBitmapContextCreate(
+        image.bits(),
+        static_cast<size_t>(targetWidth),
+        static_cast<size_t>(targetHeight),
+        8,
+        static_cast<size_t>(image.bytesPerLine()),
+        colorSpace,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(colorSpace);
+    if (!context)
+    {
+        CGPDFDocumentRelease(document);
+        errorString = QStringLiteral("EPS rendering context could not be created");
+        return {};
+    }
+
+    // CGPDFPageGetDrawingTransform fits oversized pages but deliberately does
+    // not enlarge a small page into a larger destination. Build the pixel
+    // scale explicitly, while retaining its box-origin/rotation transform in
+    // logical PDF-point coordinates.
+    const CGRect logicalDestination = CGRectMake(0, 0, logicalWidth, logicalHeight);
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    CGContextScaleCTM(context,
+                      static_cast<CGFloat>(targetWidth) / logicalWidth,
+                      static_cast<CGFloat>(targetHeight) / logicalHeight);
+    CGContextConcatCTM(context, CGPDFPageGetDrawingTransform(
+        page, drawingBox, logicalDestination, 0, true));
+    CGContextDrawPDFPage(context, page);
+    CGContextRelease(context);
+    CGPDFDocumentRelease(document);
+    image.setColorSpace(QColorSpace::SRgb);
     return image;
 }
 
-int hexDigitValue(const char value)
+EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimension)
 {
-    if (value >= '0' && value <= '9')
-        return value - '0';
-    if (value >= 'a' && value <= 'f')
-        return value - 'a' + 10;
-    if (value >= 'A' && value <= 'F')
-        return value - 'A' + 10;
-    return -1;
-}
-
-QImage imageFromEPSIPreview(const QByteArray &data, QSize &intrinsicSize,
-                            QString &errorString)
-{
-    const QRegularExpression beginPreview(
-        QStringLiteral("%%BeginPreview\\s*:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)"));
-    const QString text = QString::fromLatin1(data);
-    const QRegularExpressionMatch match = beginPreview.match(text);
-    if (!match.hasMatch())
-        return {};
-
-    const int width = match.captured(1).toInt();
-    const int height = match.captured(2).toInt();
-    const int bitsPerPixel = match.captured(3).toInt();
-    const int scanLines = match.captured(4).toInt();
-    if (width <= 0 || height <= 0 || width > MaxEPSIPreviewDimension
-        || height > MaxEPSIPreviewDimension || bitsPerPixel != 1 || scanLines != height
-        || static_cast<quint64>(width) * static_cast<quint64>(height) > MaxEPSIPreviewPixels)
-    {
-        errorString = QStringLiteral("EPSI preview dimensions or depth are unsupported");
-        return {};
-    }
-
-    const int previewStart = match.capturedEnd();
-    const int previewEnd = text.indexOf(QStringLiteral("%%EndPreview"), previewStart);
-    if (previewEnd < 0)
-    {
-        errorString = QStringLiteral("EPSI preview is missing its end marker");
-        return {};
-    }
-
-    QByteArray hexadecimal;
-    hexadecimal.reserve((previewEnd - previewStart) / 2);
-    for (int index = previewStart; index < previewEnd; ++index)
-    {
-        const char value = data.at(index);
-        if (hexDigitValue(value) >= 0)
-            hexadecimal.append(value);
-    }
-
-    const qsizetype rowBytes = (width + 7) / 8;
-    const qsizetype requiredBytes = rowBytes * height;
-    if (hexadecimal.size() < requiredBytes * 2)
-    {
-        errorString = QStringLiteral("EPSI preview is truncated");
-        return {};
-    }
-
-    QImage image(width, height, QImage::Format_Grayscale8);
-    if (image.isNull())
-    {
-        errorString = QStringLiteral("EPSI preview could not be allocated");
-        return {};
-    }
-
-    qsizetype hexOffset = 0;
-    for (int y = 0; y < height; ++y)
-    {
-        uchar *scanLine = image.scanLine(y);
-        for (qsizetype byteIndex = 0; byteIndex < rowBytes; ++byteIndex)
-        {
-            const int high = hexDigitValue(hexadecimal.at(hexOffset++));
-            const int low = hexDigitValue(hexadecimal.at(hexOffset++));
-            const uchar byte = static_cast<uchar>((high << 4) | low);
-            for (int bit = 0; bit < 8; ++bit)
-            {
-                const int x = static_cast<int>(byteIndex * 8 + bit);
-                if (x < width)
-                    scanLine[x] = (byte & (0x80 >> bit)) ? 0 : 255;
-            }
-        }
-    }
-
-    intrinsicSize = image.size();
-    return image;
-}
-
-EPSPreviewReadResult readEPSPreview(const QString &filePath, const int fallbackLargestDimension)
-{
-    EPSPreviewReadResult result;
+    EPSReadResult result;
     const bool extensionSuggestsEPS = isEPSFilename(filePath);
-
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly))
     {
@@ -775,67 +814,24 @@ EPSPreviewReadResult readEPSPreview(const QString &filePath, const int fallbackL
     }
 
     const QByteArray prefix = file.read(64);
-    const bool dosEPS = isDosEPSHeader(prefix);
-    const bool asciiEPS = isAsciiEPSHeader(prefix);
-    if (!extensionSuggestsEPS && !dosEPS && !asciiEPS)
+    if (!extensionSuggestsEPS && !isDosEPSHeader(prefix) && !isAsciiEPSHeader(prefix))
         return result;
-
     result.recognized = true;
-    QString previewError;
+    file.close();
 
-    if (dosEPS)
+    QTemporaryDir temporaryDirectory(
+        QDir::tempPath() + QStringLiteral("/Fovelle-eps-render-XXXXXX"));
+    if (!temporaryDirectory.isValid())
     {
-        quint32 postScriptOffset = 0;
-        quint32 postScriptLength = 0;
-        quint32 tiffOffset = 0;
-        quint32 tiffLength = 0;
-        if (!readLittleEndianUInt32(prefix, 4, postScriptOffset)
-            || !readLittleEndianUInt32(prefix, 8, postScriptLength)
-            || !readLittleEndianUInt32(prefix, 20, tiffOffset)
-            || !readLittleEndianUInt32(prefix, 24, tiffLength))
-        {
-            result.errorString = QStringLiteral("EPS binary header is truncated");
-            return result;
-        }
-
-        QByteArray previewData;
-        if (tiffLength > 0
-            && readEPSFileRange(file, tiffOffset, tiffLength, previewData, previewError))
-        {
-            result.image = imageFromEPSRasterPreview(previewData, fallbackLargestDimension,
-                                                     result.intrinsicSize, previewError);
-            if (!result.image.isNull())
-                return result;
-        }
-
-        // A DOS EPS may carry an EPSI preview in its PostScript section even
-        // when the TIFF preview is absent or malformed.
-        if (postScriptLength > 0
-            && readEPSFileRange(file, postScriptOffset, postScriptLength, previewData,
-                                previewError))
-        {
-            result.image = imageFromEPSIPreview(previewData, result.intrinsicSize, previewError);
-            if (!result.image.isNull())
-                return result;
-        }
-    }
-    else
-    {
-        if (!file.seek(0))
-        {
-            result.errorString = QStringLiteral("EPS source could not be read");
-            return result;
-        }
-
-        const QByteArray source = file.read(MaxEPSScanBytes);
-        result.image = imageFromEPSIPreview(source, result.intrinsicSize, previewError);
-        if (!result.image.isNull())
-            return result;
+        result.errorString = QStringLiteral("A temporary EPS rendering directory could not be created");
+        return result;
     }
 
-    result.errorString = previewError.isEmpty()
-        ? QStringLiteral("EPS has no supported embedded preview")
-        : previewError;
+    const QString pdfPath = temporaryDirectory.filePath(QStringLiteral("rendered.pdf"));
+    if (!convertEPSToPDF(filePath, pdfPath, result.errorString))
+        return result;
+    result.image = imageFromPDFPage(pdfPath, requestedLargestDimension,
+                                    result.intrinsicSize, result.errorString);
     return result;
 }
 
@@ -3119,9 +3115,9 @@ QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
     }
 
     // EPS is a document UTI rather than an Image I/O image-source UTI on
-    // macOS. The native bridge handles its embedded TIFF/EPSI preview, so
-    // expose the conventional EPS filename aliases through the same registry
-    // consumed by Settings and folder enumeration.
+    // current macOS releases. The native bridge renders its PostScript program
+    // through Ghostscript, so expose the conventional filename aliases through
+    // the same registry consumed by Settings and folder enumeration.
     for (const QByteArray &format : {QByteArrayLiteral("eps"),
                                      QByteArrayLiteral("epsf"),
                                      QByteArrayLiteral("epsi")})
@@ -3175,15 +3171,17 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
     @autoreleasepool
     {
-        const EPSPreviewReadResult epsResult = readEPSPreview(filePath, fallbackLargestDimension);
+        const EPSReadResult epsResult = readEPS(filePath, fallbackLargestDimension);
         if (epsResult.recognized)
         {
             result.image = epsResult.image;
             result.intrinsicSize = epsResult.intrinsicSize;
             result.typeIdentifier = QStringLiteral("com.adobe.encapsulated-postscript");
             // Keep the result on the native bridge path. This prevents the
-            // asynchronous loader from attempting an unrelated Qt fallback.
+            // asynchronous loader from interpreting a placement preview after
+            // either a successful render or an actionable renderer failure.
             result.isImageIOType = true;
+            result.allowsQtFallback = false;
             result.hdrMetadata.typeIdentifier = result.typeIdentifier;
             result.hdrMetadata.pixelSize = result.intrinsicSize;
             result.errorString = epsResult.errorString;

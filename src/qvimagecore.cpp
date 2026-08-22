@@ -168,9 +168,18 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     loadedMovie.stop();
     loadedMovie.setFormat("");
     loadedMovie.setCacheMode(QVMovie::CacheAll);
-    loadedMovie.setFileName(currentFileDetails.fileInfo.absoluteFilePath());
+    // EPS is a static PostScript document. QImageReader may still expose its
+    // embedded low-resolution placement preview as a readable frame; probing
+    // that frame here would asynchronously replace the authoritative
+    // Ghostscript rendering loaded above.
+    const bool isEPSDocument = readData.hdrMetadata.typeIdentifier
+            == QStringLiteral("com.adobe.encapsulated-postscript");
+    loadedMovie.setFileName(isEPSDocument
+            ? QString()
+            : currentFileDetails.fileInfo.absoluteFilePath());
 
-    if (!readData.isMultiFrameImage && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
+    if (!isEPSDocument && !readData.isMultiFrameImage
+        && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 
     currentFileDetails.isMovieLoaded = loadedMovie.state() == QVMovie::Running;

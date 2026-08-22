@@ -32,6 +32,9 @@ jobs:
           modules: 'qtimageformats'
           cache: true
 
+      - name: Install Ghostscript for EPS rendering
+        run: brew install ghostscript
+
       - name: Configure
         run: >-
           cmake -S . -B build

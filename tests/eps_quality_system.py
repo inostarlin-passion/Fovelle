@@ -41,13 +41,17 @@ def default_sample() -> Path:
 
 
 def write_fallback_sample(directory: Path) -> Path:
-    path = directory / "system-fallback.epsi"
+    path = directory / "system-fallback.eps"
     path.write_text(
         "%!PS-Adobe-3.0 EPSF-3.0\n"
-        "%%BoundingBox: 0 0 8 4\n"
-        "%%BeginPreview: 8 4 1 4\n"
-        "%AA\n%55\n%AA\n%55\n"
-        "%%EndPreview\n%%EOF\n",
+        "%%BoundingBox: 0 0 1200 400\n"
+        "%%HiResBoundingBox: 0 0 1200 400\n"
+        "%%Pages: 1\n"
+        "%%EndComments\n"
+        "0 setgray 0 0 1200 400 rectfill\n"
+        "1 setgray 100 100 300 200 rectfill 800 100 300 200 rectfill\n"
+        "showpage\n"
+        "%%EOF\n",
         encoding="ascii",
     )
     return path
@@ -110,10 +114,20 @@ def launch_once(app: Path, image: Path, hold_seconds: float) -> dict:
     if response_seconds is None and "FOVELLE_VIEW" in combined:
         response_seconds = time.perf_counter() - started
     geometry = re.findall(r"itemRect= QRectF\([^)]* ([0-9.]+)x([0-9.]+)\)", combined)
-    decoded = any(float(width) > 0 and float(height) > 0 for width, height in geometry)
+    nonzero_geometry = [
+        (float(width), float(height))
+        for width, height in geometry
+        if float(width) > 0 and float(height) > 0
+    ]
+    authoritative_sized = bool(nonzero_geometry) and max(nonzero_geometry[-1]) > 120
     unsupported = any(
         marker in combined.lower()
-        for marker in ("unsupported image format", "eps has no supported embedded preview")
+        for marker in (
+            "unsupported image format",
+            "eps rendering requires ghostscript",
+            "ghostscript could not",
+            "ghostscript exceeded",
+        )
     )
     return {
         "image": str(image),
@@ -121,7 +135,8 @@ def launch_once(app: Path, image: Path, hold_seconds: float) -> dict:
         "elapsed_seconds": time.perf_counter() - started,
         "return_code": process.returncode,
         "terminated": True,
-        "decoded_geometry_observed": decoded,
+        "decoded_geometry_observed": bool(nonzero_geometry),
+        "authoritative_sized_geometry_observed": authoritative_sized,
         "unsupported_error_absent": not unsupported,
         "geometry_observations": geometry,
         "stdout_tail": stdout[-6000:],
@@ -135,7 +150,7 @@ def main() -> int:
     parser.add_argument("--image", type=Path, default=None)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--hold-seconds", type=float, default=1.0)
+    parser.add_argument("--hold-seconds", type=float, default=2.0)
     args = parser.parse_args()
 
     app = args.app.resolve()
@@ -163,6 +178,8 @@ def main() -> int:
         "app_exists": app.is_file(),
         "all_runs_completed": len(runs) == max(args.runs, 1),
         "all_runs_observed_decoded_geometry": bool(runs) and all(run["decoded_geometry_observed"] for run in runs),
+        "all_runs_observed_authoritative_sized_geometry": bool(runs)
+        and all(run["authoritative_sized_geometry_observed"] for run in runs),
         "all_runs_absent_unsupported_error": bool(runs) and all(run["unsupported_error_absent"] for run in runs),
         "response_average": metrics["response_average_seconds"] is not None
         and metrics["response_average_seconds"] <= THRESHOLDS["response_average_seconds_max"],
@@ -197,6 +214,7 @@ def main() -> int:
                         "app_exists",
                         "all_runs_completed",
                         "all_runs_observed_decoded_geometry",
+                        "all_runs_observed_authoritative_sized_geometry",
                         "all_runs_absent_unsupported_error",
                     )
                 ),
@@ -206,6 +224,7 @@ def main() -> int:
                         "app_exists",
                         "all_runs_completed",
                         "all_runs_observed_decoded_geometry",
+                        "all_runs_observed_authoritative_sized_geometry",
                         "all_runs_absent_unsupported_error",
                     )
                 },
@@ -230,14 +249,15 @@ def main() -> int:
         "facts": [
             "The system case launches the built Fovelle.app executable with the EPS path as a command-line input.",
             "Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.",
+            "The final observed geometry must exceed the supplied 120x40 TIFF preview's largest dimension, and the process remains open long enough to catch delayed replacement.",
             "The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.",
         ],
         "inferences": [
-            "Observed non-zero item geometry without an unsupported-format error supports the inference that the end-to-end open path rendered EPS pixels.",
+            "Stable, authoritative-sized geometry without a renderer error supports the inference that the end-to-end path kept the PostScript render rather than the embedded preview.",
         ],
         "uncertainties": [
             "The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.",
-            "The system fixture matrix covers the supplied DOS EPS sample on this host; EPS files without an embedded TIFF/EPSI preview are not claimed to render.",
+            "The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.",
         ],
         "passed": all(pass_flags.values()),
     }

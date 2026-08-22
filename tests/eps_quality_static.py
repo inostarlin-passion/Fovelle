@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Static EPS acceptance checks and machine-readable evidence.
-
-The checks deliberately inspect the implementation contract rather than
-reimplementing the decoder. Runtime behavior is covered by the Qt and Cocoa
-stages in the EPS quality pipeline.
-"""
+"""Static EPS rendering acceptance checks and machine-readable evidence."""
 
 from __future__ import annotations
 
@@ -19,19 +14,19 @@ from pathlib import Path
 
 EXTERNAL_RESEARCH = [
     {
-        "url": "https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_basics/ikpg_basics.html",
-        "title": "Apple Image I/O Programming Guide",
-        "fact": "Apple documents CGImageSourceCopyTypeIdentifiers as the runtime query for image-source formats; EPS is not present in the target host's returned list.",
+        "url": "https://developer.apple.com/documentation/macos-release-notes/macos-14-release-notes",
+        "title": "Apple macOS Sonoma 14 Release Notes",
+        "fact": "Apple removed system PostScript/EPS conversion in macOS 14; ImageIO no longer converts EPS and NSEPSImageRep can no longer display it.",
     },
     {
-        "url": "https://developer.apple.com/documentation/appkit/nspasteboard/pasteboardtype/postscript?language=o_2%2Co_2",
-        "title": "Apple AppKit postScript pasteboard type",
-        "fact": "Apple identifies the modern EPS pasteboard UTI as com.adobe.encapsulated-postscript.",
+        "url": "https://helpx.adobe.com/uk/illustrator/using/saving-artwork.html",
+        "title": "Adobe Illustrator: Save artwork",
+        "fact": "Adobe describes EPS as a PostScript format and its embedded preview as a display aid for applications that cannot display EPS directly.",
     },
     {
-        "url": "https://www.loc.gov/preservation/digital/formats/fdd/fdd000246.shtml",
-        "title": "Library of Congress EPS format description",
-        "fact": "EPS can contain device-specific preview data, including TIFF for DOS EPS files.",
+        "url": "https://ghostscript.readthedocs.io/en/gs10.03.0/Use.html",
+        "title": "Ghostscript: Using Ghostscript",
+        "fact": "Ghostscript documents -dEPSCrop for cropping an EPS render to its DSC BoundingBox.",
     },
 ]
 
@@ -81,10 +76,20 @@ def main() -> int:
     native = (repo / "src" / "qvcocoafunctions.mm").read_text(encoding="utf-8")
     application = (repo / "src" / "qvapplication.cpp").read_text(encoding="utf-8")
     loader = (repo / "src" / "qvimageloader.cpp").read_text(encoding="utf-8")
+    image_core = (repo / "src" / "qvimagecore.cpp").read_text(encoding="utf-8")
     options = (repo / "src" / "qvoptionsdialog.cpp").read_text(encoding="utf-8")
     plist = (repo / "dist" / "mac" / "Info.plist.in").read_text(encoding="utf-8")
     readme = (repo / "README.md").read_text(encoding="utf-8")
     tests = (repo / "tests" / "tst_qviewtests.cpp").read_text(encoding="utf-8")
+    workflows = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            repo / ".github" / "workflows" / "build.yml",
+            repo / ".github" / "workflows" / "test.yml",
+            repo / ".github" / "workflows" / "release.yml",
+            repo / ".github" / "workflows" / "release-compatibility.yml",
+        )
+    )
 
     checks: list[dict] = []
     aliases = ["eps", "epsf", "epsi"]
@@ -104,46 +109,47 @@ def main() -> int:
         ["src/qvcocoafunctions.mm", "src/qvapplication.cpp"],
     )
 
-    bounded_reads = all(
+    renderer_contract = all(
         marker in native
         for marker in (
-            "MaxEPSPreviewBytes",
-            "MaxEPSScanBytes",
-            "readEPSFileRange",
-            "length > fileSize - offset",
-            "EPS preview is larger than the safety limit",
+            "ghostscriptExecutable",
+            "FOVELLE_GHOSTSCRIPT",
+            "QProcess process",
+            'QStringLiteral("-dSAFER")',
+            'QStringLiteral("-dEPSCrop")',
+            'QStringLiteral("-sDEVICE=pdfwrite")',
+            "CGPDFDocumentCreateWithURL",
+            "CGContextDrawPDFPage",
         )
     )
-    dos_decoder = all(
+    bounded_execution = all(
         marker in native
         for marker in (
-            "DosEPSMagic",
-            "tiffOffset",
-            "tiffLength",
-            "imageFromEPSRasterPreview",
-            "com.adobe.encapsulated-postscript",
+            "EPSRendererStartTimeoutMs",
+            "EPSRendererTimeoutMs",
+            "MaxEPSRendererDiagnosticBytes",
+            "MaxEPSRenderedPixels",
+            "MaxEPSIntermediatePDFBytes",
+            "waitForStarted",
+            "waitForFinished",
+            "process.kill()",
         )
     )
-    epsi_decoder = all(
-        marker in native
-        for marker in (
-            "%%BeginPreview",
-            "%%EndPreview",
-            "bitsPerPixel != 1",
-            "imageFromEPSIPreview",
-        )
+    authoritative_content = (
+        "convertEPSToPDF(filePath" in native
+        and "imageFromPDFPage(pdfPath" in native
+        and "imageFromEPSRasterPreview" not in native
+        and "imageFromEPSIPreview" not in native
     )
-    no_external_renderer = "QProcess" not in native and "Ghostscript" not in native and "ImageMagick" not in native
     check(
         checks,
         "ST-EPS-PARSER-SAFETY",
-        "The native EPS path must decode bounded DOS TIFF/EPSI previews and fail closed without an external process.",
-        bounded_reads and dos_decoder and epsi_decoder and no_external_renderer,
+        "EPS must render authoritative PostScript through a bounded Ghostscript-to-PDF process and CoreGraphics, never through an embedded preview.",
+        renderer_contract and bounded_execution and authoritative_content,
         {
-            "bounded_reads": bounded_reads,
-            "dos_tiff_preview_decoder": dos_decoder,
-            "epsi_decoder": epsi_decoder,
-            "external_renderer_invocation_absent": no_external_renderer,
+            "ghostscript_pdf_contract": renderer_contract,
+            "bounded_external_renderer": bounded_execution,
+            "authoritative_postscript_not_preview": authoritative_content,
         },
         ["src/qvcocoafunctions.mm"],
     )
@@ -154,51 +160,70 @@ def main() -> int:
     )
     docs_and_bundle = (
         "- EPS" in readme
+        and "brew install ghostscript" in readme
         and all(f"<string>{alias}</string>" in plist for alias in aliases)
         and "com.adobe.encapsulated-postscript" in plist
+        and workflows.count("brew install ghostscript") >= 4
     )
     check(
         checks,
         "ST-EPS-DOCS-SETTINGS",
-        "The Settings format table, README Supported Formats, and macOS bundle declaration must expose EPS.",
+        "Settings, README, the macOS bundle declaration, and CI must expose EPS and its Ghostscript dependency.",
         settings_wiring and docs_and_bundle,
         {
             "settings_table_uses_application_extension_set": settings_wiring,
             "readme_contains_eps": "- EPS" in readme,
+            "readme_documents_ghostscript": "brew install ghostscript" in readme,
             "bundle_contains_eps_aliases": all(f"<string>{alias}</string>" in plist for alias in aliases),
             "bundle_contains_eps_uti": "com.adobe.encapsulated-postscript" in plist,
+            "ci_installs_ghostscript": workflows.count("brew install ghostscript") >= 4,
         },
-        ["src/qvoptionsdialog.cpp", "src/qvapplication.cpp", "README.md", "dist/mac/Info.plist.in"],
+        ["src/qvoptionsdialog.cpp", "src/qvapplication.cpp", "README.md", "dist/mac/Info.plist.in", ".github/workflows/*.yml"],
     )
 
     loader_delegation = (
         "readImageWithImageIO" in loader
         and "nativeResult.image.isNull()" in loader
+        and "nativeResult.allowsQtFallback" in loader
+        and "result.allowsQtFallback = false" in native
         and "suffix == \"eps\"" not in loader
         and "eps" not in loader.lower()
+    )
+    static_document_guard = all(
+        marker in image_core
+        for marker in (
+            "com.adobe.encapsulated-postscript",
+            "isEPSDocument",
+            "!isEPSDocument && !readData.isMultiFrameImage",
+        )
     )
     check(
         checks,
         "ST-EPS-LOADER-DELEGATION",
-        "QVImageLoader must consume the native decoder result without adding an EPS-specific suffix branch.",
-        loader_delegation,
+        "QVImageLoader must consume the native result without a suffix branch, and QVImageCore must not let movie probing replace static EPS pixels.",
+        loader_delegation and static_document_guard,
         {
-            "native_decoder_used": "readImageWithImageIO" in loader,
+            "native_bridge_used": "readImageWithImageIO" in loader,
             "native_image_null_guard_present": "nativeResult.image.isNull()" in loader,
+            "native_result_controls_qt_fallback": "nativeResult.allowsQtFallback" in loader,
             "extension_branch_absent": "eps" not in loader.lower(),
+            "static_document_movie_guard": static_document_guard,
         },
-        ["src/qvimageloader.cpp", "src/qvcocoafunctions.mm"],
+        ["src/qvimageloader.cpp", "src/qvimagecore.cpp", "src/qvcocoafunctions.mm"],
     )
 
     test_contracts = all(
         marker in tests
         for marker in (
             "testEPSFormatIsAdvertised",
-            "testEPSPreviewDecode",
+            "testEPSPostScriptRender",
             "testImageLoaderLoadsEPS",
+            "testEPSRenderSurvivesStaticMovieProbe",
             "testMalformedEPSFailsSafely",
+            "testEPSMissingRendererFailsActionably",
             "testSettingsFormatsIncludeEPS",
             "FOVELLE_EPS_SAMPLE",
+            "createEPSVectorImage",
         )
     )
     check(
@@ -224,15 +249,15 @@ def main() -> int:
         },
         "facts": [
             "The implementation uses the existing macOS native bridge and the existing application extension registry.",
-            "The static contract contains bounded range checks for DOS EPS preview offsets and lengths.",
-            "The static contract does not invoke Ghostscript, ImageMagick, or another external renderer.",
+            "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped PDF output, bounded diagnostics, and pixel/PDF limits.",
+            "The embedded preview decoders are absent from the authoritative rendering path.",
         ],
         "inferences": [
-            "Passing the registry and delegation checks indicates EPS follows the same format-to-loader path as the existing native Image I/O extensions.",
+            "Passing the registry and delegation checks indicates EPS follows the existing loader Result contract while retaining a document-specific renderer.",
             "The Settings table will reflect EPS at runtime because it enumerates QVApplication's all-file-extension set.",
         ],
         "uncertainties": [
-            "Static checks cannot prove that every PostScript program has a usable embedded preview; runtime evidence covers the supplied DOS EPS and a deterministic EPSI fixture.",
+            "Static checks cannot prove compatibility with every PostScript dialect, external font dependency, or Ghostscript version; runtime evidence covers the supplied DOS EPS and a deterministic vector EPS.",
         ],
         "external_research": EXTERNAL_RESEARCH,
         "passed": all(item["passed"] for item in checks),

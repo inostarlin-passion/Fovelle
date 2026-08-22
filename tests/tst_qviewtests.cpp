@@ -57,9 +57,11 @@ private slots:
     void testImageLoaderAppliesAvifOrientation();
     void testImageLoaderLoadsTiffWithImageIO();
     void testEPSFormatIsAdvertised();
-    void testEPSPreviewDecode();
+    void testEPSPostScriptRender();
     void testImageLoaderLoadsEPS();
+    void testEPSRenderSurvivesStaticMovieProbe();
     void testMalformedEPSFailsSafely();
+    void testEPSMissingRendererFailsActionably();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
     void testImageLoaderPreservesSourceResolutionForZoom();
 };
@@ -204,7 +206,9 @@ private slots:
 class TestableImageCore : public QVImageCore
 {
 public:
+    using QVImageCore::QVImageCore;
     using QVImageCore::handleColorSpaceConversion;
+    using QVImageCore::loadPixmap;
 };
 
 static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color, const QSize size = QSize(32, 32))
@@ -267,18 +271,21 @@ static QString createTiffImage(const QTemporaryDir &dir, const QString &name, co
     return path;
 }
 
-static QString createEPSIPreviewImage(const QTemporaryDir &dir, const QString &name)
+static QString createEPSVectorImage(const QTemporaryDir &dir, const QString &name)
 {
-    const QString path = dir.filePath(name + ".epsi");
+    const QString path = dir.filePath(name + ".eps");
     const QByteArray content =
         "%!PS-Adobe-3.0 EPSF-3.0\n"
         "%%BoundingBox: 0 0 8 4\n"
-        "%%BeginPreview: 8 4 1 4\n"
-        "%AA\n"
-        "%55\n"
-        "%AA\n"
-        "%55\n"
-        "%%EndPreview\n"
+        "%%HiResBoundingBox: 0 0 8 4\n"
+        "%%Pages: 1\n"
+        "%%EndComments\n"
+        "0 setgray\n"
+        "newpath 0 0 moveto 8 0 lineto 8 4 lineto 0 4 lineto closepath fill\n"
+        "1 setgray\n"
+        "newpath 1 1 moveto 3 1 lineto 3 3 lineto 1 3 lineto closepath fill\n"
+        "newpath 5 1 moveto 7 1 lineto 7 3 lineto 5 3 lineto closepath fill\n"
+        "showpage\n"
         "%%EOF\n";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
@@ -301,7 +308,7 @@ static QString epsSamplePath(const QTemporaryDir &fallbackDirectory, bool *usesE
 
     if (usesExternalSample)
         *usesExternalSample = false;
-    return createEPSIPreviewImage(fallbackDirectory, "fallback-epsi");
+    return createEPSVectorImage(fallbackDirectory, "fallback-vector");
 }
 
 static void sendMouseMove(QWidget *widget, const QPoint &position)
@@ -860,18 +867,19 @@ void ImageLoaderTests::testEPSFormatIsAdvertised()
     }
 }
 
-// TC-EPS-UNIT-DECODE
-// Test purpose: verify that the native bridge decodes both the supplied DOS
-// EPS sample and the deterministic EPSI fallback when the sample is absent.
-// Preconditions: a readable sample path is available, or a writable temporary
-// directory can hold the generated EPSI fixture.
-// Input data: a DOS EPS with a TIFF preview, or an 8x4 EPSI bitmap.
-// Operation steps: call readImageWithImageIO and inspect UTI, dimensions, and
-// pixels without invoking an external PostScript interpreter.
-// Expected result: the result is tagged as com.adobe.encapsulated-postscript,
-// contains pixels, and has no decode error.
-// Postconditions: temporary fallback data and native image resources are released.
-void ImageLoaderTests::testEPSPreviewDecode()
+// TC-EPS-UNIT-RENDER
+// Test purpose: prove that EPS uses its authoritative PostScript program rather
+// than the low-resolution embedded placement preview.
+// Preconditions: Ghostscript is installed; a readable sample is available, or
+// a writable temporary directory can hold the deterministic vector fixture.
+// Input data: the supplied DOS EPS (120x40 points with a 120x40 TIFF preview),
+// or an 8x4 EPS containing two vector white squares on black.
+// Operation steps: request a 2048px render and inspect UTI, logical page size,
+// raster size, alpha/luminance distribution, and the sample's upright layout.
+// Expected result: the result is a cropped, high-resolution PostScript render;
+// for the supplied badge, its larger lower lettering remains below the caption.
+// Postconditions: the child process and temporary conversion files are released.
+void ImageLoaderTests::testEPSPostScriptRender()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -879,28 +887,68 @@ void ImageLoaderTests::testEPSPreviewDecode()
     const QString path = epsSamplePath(dir, &usesExternalSample);
     QVERIFY(!path.isEmpty());
 
-    const auto result = QVCocoaFunctions::readImageWithImageIO(path);
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
     QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
     QVERIFY(result.isImageIOType);
     QCOMPARE(result.typeIdentifier, QStringLiteral("com.adobe.encapsulated-postscript"));
     QVERIFY(!result.image.isNull());
     QVERIFY(!result.intrinsicSize.isEmpty());
-    QCOMPARE(result.intrinsicSize, result.image.size());
+    QCOMPARE(qMax(result.image.width(), result.image.height()), 2048);
+    QVERIFY(result.image.size() != result.intrinsicSize);
     if (usesExternalSample)
-        QCOMPARE(result.image.size(), QSize(120, 40));
+    {
+        QCOMPARE(result.intrinsicSize, QSize(120, 40));
+        QVERIFY(result.image.width() >= 2000);
+
+        qint64 upperLightPixels = 0;
+        qint64 lowerLightPixels = 0;
+        qint64 opaqueDarkPixels = 0;
+        for (int y = 0; y < result.image.height(); y += 2)
+        {
+            for (int x = 0; x < result.image.width(); x += 2)
+            {
+                const QColor pixel = result.image.pixelColor(x, y);
+                if (pixel.alpha() < 220)
+                    continue;
+                const int luminance = pixel.lightness();
+                if (luminance >= 220)
+                {
+                    if (y < result.image.height() / 2)
+                        ++upperLightPixels;
+                    else
+                        ++lowerLightPixels;
+                }
+                else if (luminance <= 32)
+                {
+                    ++opaqueDarkPixels;
+                }
+            }
+        }
+        QVERIFY(opaqueDarkPixels > result.image.width() * result.image.height() / 16);
+        QVERIFY(lowerLightPixels > upperLightPixels);
+    }
     else
-        QCOMPARE(result.image.size(), QSize(8, 4));
+    {
+        QCOMPARE(result.intrinsicSize, QSize(8, 4));
+        const QColor background = result.image.pixelColor(result.image.width() / 2,
+                                                           result.image.height() / 8);
+        const QColor square = result.image.pixelColor(result.image.width() / 4,
+                                                       result.image.height() / 2);
+        QVERIFY(background.lightness() < 32);
+        QVERIFY(square.lightness() > 220);
+    }
 }
 
 // TC-EPS-UNIT-LOADER
 // Test purpose: verify that EPS pixels travel through the production
 // asynchronous QVImageLoader path with the same result contract as other images.
-// Preconditions: the EPS sample or deterministic EPSI fallback is readable.
+// Preconditions: Ghostscript and the EPS sample or deterministic vector
+// fallback are readable.
 // Input data: the path returned by epsSamplePath.
 // Operation steps: request the image, wait for imageReady, and inspect the
 // result, source identity, and error state.
-// Expected result: one matching request completes with non-empty pixels and no
-// error data; the intrinsic size is retained by the loader.
+// Expected result: one matching request completes with a screen-sized render,
+// no error data, and a separate logical EPS page size.
 // Postconditions: the loader and temporary fixture are destroyed.
 void ImageLoaderTests::testImageLoaderLoadsEPS()
 {
@@ -914,16 +962,52 @@ void ImageLoaderTests::testImageLoaderLoadsEPS()
     QVERIFY(!result->image.isNull());
     QVERIFY(!result->errorData.has_value());
     QVERIFY(!result->intrinsicSize.isEmpty());
-    QCOMPARE(result->image.size(), result->intrinsicSize);
+    QCOMPARE(qMax(result->image.width(), result->image.height()), 1920);
+    QVERIFY(result->image.size() != result->intrinsicSize);
     QCOMPARE(result->absoluteFilePath, QFileInfo(path).absoluteFilePath());
 }
 
+// TC-EPS-UNIT-STATIC-DOCUMENT
+// Test purpose: ensure animation probing cannot replace the authoritative EPS
+// render with an embedded placement preview after the initial load.
+// Preconditions: the production loader has returned a valid EPS result.
+// Input data: the same supplied or deterministic EPS fixture.
+// Operation steps: feed the result into QVImageCore, process delayed movie
+// callbacks, and compare the retained pixmap size and movie state.
+// Expected result: the high-resolution render remains loaded and no movie runs.
+// Postconditions: QVImageCore and any image-reader device are destroyed.
+void ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = epsSamplePath(dir);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY(!result->errorData.has_value());
+    const QSize renderedSize = result->image.size();
+    QVERIFY(qMax(renderedSize.width(), renderedSize.height()) > 120);
+
+    QWidget owner;
+    owner.resize(32, 32);
+    owner.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&owner));
+    TestableImageCore imageCore(&owner);
+    imageCore.loadPixmap(*result);
+    QCOMPARE(imageCore.getLoadedMovie().state(), QVMovie::NotRunning);
+    QCOMPARE(imageCore.getLoadedPixmap().size(), renderedSize);
+    QTest::qWait(1100);
+    QCOMPARE(imageCore.getLoadedMovie().state(), QVMovie::NotRunning);
+    QCOMPARE(imageCore.getLoadedPixmap().size(), renderedSize);
+}
+
 // TC-EPS-UNIT-MALFORMED
-// Test purpose: verify that a truncated DOS EPS header fails closed without a
-// crash, unbounded read, or false-positive image.
+// Test purpose: verify that malformed DOS EPS input fails closed without a
+// crash or false-positive image.
 // Preconditions: a writable temporary directory is available.
-// Input data: a DOS EPS magic header whose TIFF range exceeds file length.
-// Operation steps: write the malformed header and call the native decoder.
+// Input data: a truncated DOS EPS binary wrapper without PostScript content.
+// Operation steps: write the malformed header and call the bounded renderer.
 // Expected result: the result keeps the EPS type identifier, has no image, and
 // reports a non-empty error string.
 // Postconditions: the malformed fixture and decoder result are released.
@@ -948,6 +1032,40 @@ void ImageLoaderTests::testMalformedEPSFailsSafely()
     QCOMPARE(result.typeIdentifier, QStringLiteral("com.adobe.encapsulated-postscript"));
     QVERIFY(result.image.isNull());
     QVERIFY(!result.errorString.isEmpty());
+}
+
+// TC-EPS-UNIT-DEPENDENCY
+// Test purpose: ensure a missing Ghostscript executable produces an actionable
+// error and cannot fall back to the EPS placement preview.
+// Preconditions: a readable EPS fixture and writable process environment exist.
+// Input data: the EPS path plus an explicitly invalid FOVELLE_GHOSTSCRIPT path.
+// Operation steps: load through QVImageLoader, restore the environment, and
+// inspect the final image/error result.
+// Expected result: no image is returned and the error names Ghostscript and
+// explains how to provide it.
+// Postconditions: the original FOVELLE_GHOSTSCRIPT environment is restored.
+void ImageLoaderTests::testEPSMissingRendererFailsActionably()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = epsSamplePath(dir);
+    QVERIFY(!path.isEmpty());
+
+    constexpr auto Variable = "FOVELLE_GHOSTSCRIPT";
+    const bool variableWasSet = qEnvironmentVariableIsSet(Variable);
+    const QByteArray previousValue = qgetenv(Variable);
+    qputenv(Variable, "/path/that/does/not/contain/ghostscript");
+    const auto result = loadImage(path);
+    if (variableWasSet)
+        qputenv(Variable, previousValue);
+    else
+        qunsetenv(Variable);
+
+    QVERIFY(result.has_value());
+    QVERIFY(result->image.isNull());
+    QVERIFY(result->errorData.has_value());
+    QVERIFY(result->errorData->errorString.contains(QStringLiteral("requires Ghostscript")));
+    QVERIFY(result->errorData->errorString.contains(QStringLiteral("FOVELLE_GHOSTSCRIPT")));
 }
 
 // TC-RAW-TYPE-DETECTION

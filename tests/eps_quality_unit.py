@@ -16,9 +16,11 @@ from pathlib import Path
 
 CASES = {
     "UT-EPS-FORMAT": "testEPSFormatIsAdvertised",
-    "UT-EPS-DECODE": "testEPSPreviewDecode",
+    "UT-EPS-RENDER": "testEPSPostScriptRender",
     "UT-EPS-LOADER": "testImageLoaderLoadsEPS",
+    "UT-EPS-STATIC": "testEPSRenderSurvivesStaticMovieProbe",
     "UT-EPS-MALFORMED": "testMalformedEPSFailsSafely",
+    "UT-EPS-DEPENDENCY": "testEPSMissingRendererFailsActionably",
 }
 
 
@@ -122,14 +124,16 @@ def main() -> int:
         "raw_output": output[-24000:],
         "facts": [
             "Each deterministic EPS unit case is executed by the production fovelle_tests binary.",
-            "The EPS decode case uses the supplied sample when present and falls back to a deterministic EPSI fixture otherwise.",
-            "The asynchronous loader case exercises QVImageLoader rather than only the native bridge.",
+            "The EPS render case uses the supplied sample when present and falls back to a deterministic vector EPS otherwise.",
+            "The renderer case verifies a 2048-pixel raster whose logical size remains the EPS BoundingBox size.",
+            "The asynchronous loader and delayed movie-probe cases exercise QVImageLoader and QVImageCore, not only the native bridge.",
+            "The dependency case forces an invalid Ghostscript path and verifies that Qt fallback cannot expose the placement preview.",
         ],
         "inferences": [
-            "A zero-failure Qt run supports the inference that native EPS preview results preserve the loader's existing Result contract.",
+            "A zero-failure Qt run supports the inference that authoritative EPS pixels preserve the loader Result contract and remain stable after delayed static-document probing.",
         ],
         "uncertainties": [
-            "The unit fallback fixture does not represent the full PostScript language; pure EPS without an embedded preview remains outside this decoder's contract.",
+            "The deterministic fixture does not represent every PostScript dialect, external font dependency, or Ghostscript version.",
         ],
         "passed": passed,
     }

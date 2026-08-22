@@ -57,6 +57,7 @@ public:
         QString typeIdentifier;
         QString errorString;
         bool isImageIOType {false};
+        bool allowsQtFallback {true};
         bool isRaw {false};
         bool usedRawPreview {false};
     };
