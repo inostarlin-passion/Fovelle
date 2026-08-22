@@ -951,7 +951,13 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::paintEvent(QPaintEvent *event)
 {
-    Q_UNUSED(event);
+    static const bool sdrPerformanceLoggingEnabled =
+            qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
+    const bool logSDRPerformance = sdrPerformanceLoggingEnabled
+            && !getCurrentFileDetails().isNativeHDRLoaded;
+    QElapsedTimer paintTimer;
+    if (logSDRPerformance)
+        paintTimer.start();
 
     QPainter painter(this);
 
@@ -1003,6 +1009,24 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 painter.drawText(viewportRect, errorMessage, QTextOption(Qt::AlignCenter));
             }
         }
+    }
+
+    if (logSDRPerformance)
+    {
+        qint64 dirtyArea = 0;
+        for (const QRect &rect : event->region())
+            dirtyArea += static_cast<qint64>(rect.width()) * rect.height();
+        const qint64 windowArea = static_cast<qint64>(width()) * height();
+        qInfo().noquote() << "FOVELLE_SDR_WINDOW_PAINT"
+                          << "duration_ms=" << paintTimer.nsecsElapsed() / 1000000.0
+                          << "dirty_rects=" << event->region().rectCount()
+                          << "dirty_area=" << dirtyArea
+                          << "window_area=" << windowArea
+                          << "dirty_ratio="
+                          << (windowArea > 0
+                                  ? static_cast<qreal>(dirtyArea) / windowArea
+                                  : 0.0)
+                          << "dpr=" << devicePixelRatioF();
     }
 }
 

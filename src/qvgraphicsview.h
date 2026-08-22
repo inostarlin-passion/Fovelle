@@ -16,6 +16,7 @@
 #include <QDir>
 #include <QTimer>
 #include <QFileInfo>
+#include <QBrush>
 
 class MainWindow;
 class QVGraphicsImageItem;
@@ -172,6 +173,8 @@ protected:
 
     void paintEvent(QPaintEvent *event) override;
 
+    void drawBackground(QPainter *painter, const QRectF &rect) override;
+
     void dropEvent(QDropEvent *event) override;
 
     void dragEnterEvent(QDragEnterEvent *event) override;
@@ -242,6 +245,8 @@ protected:
 
     void setTransformWithNormalization(const QTransform &matrix);
 
+    void updateViewportOpacityContract();
+
     QTransform getUnspecializedTransform() const;
 
     QTransform normalizeTransformOrigin(const QTransform &matrix, const QSizeF &pixmapSize) const;
@@ -290,6 +295,9 @@ private:
     bool constrainImagePosition {true};
     bool constrainToCenterWhenSmaller {true};
     bool disableDelayedConstraint {false};
+    bool checkerboardBackground {false};
+    QBrush viewportBackgroundBrush;
+    QBrush checkerboardBackgroundBrush;
     Qv::CalculatedZoomMode defaultCalculatedZoomMode {Qv::CalculatedZoomMode::ZoomToFit};
     qreal zoomMultiplier {1.25};
 

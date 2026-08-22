@@ -15,6 +15,7 @@
 #include <QtMath>
 #include <QGestureEvent>
 #include <QScrollBar>
+#include <QPainter>
 
 #include <algorithm>
 #include <cmath>
@@ -200,12 +201,71 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
 
 void QVGraphicsView::paintEvent(QPaintEvent *event)
 {
+    static const bool sdrPerformanceLoggingEnabled =
+            qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
+    const bool logSDRPerformance =
+            sdrPerformanceLoggingEnabled && !hdrRendererActive;
+    QElapsedTimer paintTimer;
+    if (logSDRPerformance)
+        paintTimer.start();
+
     // This is the most reliable place to detect DPI changes. QWindow::screenChanged()
     // doesn't detect when the DPI is changed on the current monitor, for example.
     handleDpiAdjustmentChange();
 
     QGraphicsView::paintEvent(event);
+
+    if (logSDRPerformance)
+    {
+        qint64 dirtyArea = 0;
+        for (const QRect &rect : event->region())
+            dirtyArea += static_cast<qint64>(rect.width()) * rect.height();
+        const qint64 viewportArea = static_cast<qint64>(viewport()->width())
+                * viewport()->height();
+        qInfo().noquote() << "FOVELLE_SDR_PAINT"
+                          << "duration_ms=" << paintTimer.nsecsElapsed() / 1000000.0
+                          << "dirty_rects=" << event->region().rectCount()
+                          << "dirty_area=" << dirtyArea
+                          << "viewport_area=" << viewportArea
+                          << "dirty_ratio="
+                          << (viewportArea > 0
+                                  ? static_cast<qreal>(dirtyArea) / viewportArea
+                                  : 0.0)
+                          << "dpr=" << devicePixelRatioF()
+                          << "zoom=" << zoomLevel
+                          << "expensive_scale_zoom=" << appliedExpensiveScaleZoomLevel
+                          << "pixmap_size=" << loadedPixmapItem->pixmap().size();
+    }
     requestHDRRendererUpdate();
+}
+
+void QVGraphicsView::drawBackground(QPainter *painter, const QRectF &rect)
+{
+    Q_UNUSED(rect)
+    if (!painter || !viewport()->testAttribute(Qt::WA_OpaquePaintEvent))
+        return;
+
+    painter->save();
+    painter->resetTransform();
+    const bool showCheckerboard = checkerboardBackground
+            && getCurrentFileDetails().isPixmapLoaded;
+    painter->fillRect(viewport()->rect(),
+                      showCheckerboard ? checkerboardBackgroundBrush
+                                       : viewportBackgroundBrush);
+    painter->restore();
+}
+
+void QVGraphicsView::updateViewportOpacityContract()
+{
+    const auto &details = getCurrentFileDetails();
+    const bool paintsOpaqueRasterBackground = details.isPixmapLoaded
+            && !details.isNativeHDRLoaded && !details.isVectorLoaded;
+    // QWidget::scroll() can preserve the existing backing-store pixels and
+    // repaint only newly exposed strips only when the widget is known to be
+    // opaque. SDR raster images paint the complete background above, so they
+    // can opt in without changing the legacy vector, HDR, or error paths.
+    viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
+                             paintsOpaqueRasterBackground);
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)
@@ -1001,6 +1061,7 @@ void QVGraphicsView::postLoad()
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
     hdrRendererActive = hdrRenderer && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+    updateViewportOpacityContract();
     // Keep the bounded SDR proxy visible until a correctly sized Metal frame
     // has actually reached the display. It is a seamless placeholder, not the
     // HDR primary representation.
@@ -2249,6 +2310,26 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
     auto &settingsManager = qvApp->getSettingsManager();
 
     const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
+    viewportBackgroundBrush = QBrush(Qv::viewportBackgroundColor(theme));
+    checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
+    if (checkerboardBackground)
+    {
+        constexpr int checkerSize = 16;
+        constexpr int tileSize = checkerSize * 2;
+        const qreal dpr = qMax<qreal>(1.0, viewport()->devicePixelRatioF());
+        QPixmap checkerboardTile(qRound(tileSize * dpr),
+                                 qRound(tileSize * dpr));
+        checkerboardTile.setDevicePixelRatio(dpr);
+        checkerboardTile.fill(QColorConstants::White);
+        QPainter tilePainter(&checkerboardTile);
+        tilePainter.fillRect(0, 0, checkerSize, checkerSize,
+                             QColor(204, 204, 204));
+        tilePainter.fillRect(checkerSize, checkerSize,
+                             checkerSize, checkerSize,
+                             QColor(204, 204, 204));
+        checkerboardBackgroundBrush = QBrush(checkerboardTile);
+    }
+    viewport()->update();
     applyScrollBarTheme(theme);
     applyHDRViewportBackground(theme);
 

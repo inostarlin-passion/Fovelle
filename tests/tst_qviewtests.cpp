@@ -2,11 +2,13 @@
 #include <algorithm>
 #include <numeric>
 #include <QFileInfo>
+#include <QDir>
 #include <QFileOpenEvent>
 #include <QImage>
 #include <QLineF>
 #include <QFile>
 #include <QPainter>
+#include <QPaintEvent>
 #include <QPropertyAnimation>
 #include <QMouseEvent>
 #include <QElapsedTimer>
@@ -141,6 +143,14 @@ private slots:
     void testNEFRawRepeatedFloatProbeIsStable();
 };
 
+class SDRSampleInteractionTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testProvidedSamplesPanWithPartialRepaints();
+};
+
 class GraphicsViewTests : public QObject
 {
     Q_OBJECT
@@ -163,6 +173,7 @@ private slots:
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
+    void testRasterPanRepaintsOnlyExposedStrip();
     void testZoomIsBoundedAt3200Percent();
     void testVectorFormatsUseDocumentSceneItem();
     void testVectorInteractionPaintPerformanceAt120Hz();
@@ -216,6 +227,31 @@ public:
     using QVImageCore::QVImageCore;
     using QVImageCore::handleColorSpaceConversion;
     using QVImageCore::loadPixmap;
+};
+
+class PaintRegionRecorder : public QObject
+{
+public:
+    void clear() { areas.clear(); }
+    const QVector<qint64> &recordedAreas() const { return areas; }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        Q_UNUSED(watched)
+        if (event->type() == QEvent::Paint)
+        {
+            const auto *paintEvent = static_cast<QPaintEvent *>(event);
+            qint64 area = 0;
+            for (const QRect &rect : paintEvent->region())
+                area += static_cast<qint64>(rect.width()) * rect.height();
+            areas.append(area);
+        }
+        return false;
+    }
+
+private:
+    QVector<qint64> areas;
 };
 
 static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color, const QSize size = QSize(32, 32))
@@ -3289,6 +3325,210 @@ void GraphicsViewTests::testNativeGestureResponsePerformance()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// TC-SDR-PAN-PARTIAL-REPAINT
+// Test purpose: verify raster-image panning keeps Qt's backing-store scroll
+// acceleration instead of repainting the complete Retina viewport per input
+// event.
+// Preconditions: a visible 640x480 Cocoa window contains a 1600x900 raster
+// image at 2:1 and both scroll axes have room to move.
+// Input data: one six-pixel horizontal scrollbar change after all opening
+// paints have settled.
+// Steps: first clear WA_OpaquePaintEvent and measure a six-pixel pan, then
+// restore it, repeat the same pan, and compare both paint regions.
+// Expected result: the transparent control repaints nearly the whole viewport;
+// the opaque production path repaints at most five percent (the edge strip).
+// Postcondition: the recorder, window, fixture, and settings are released.
+void GraphicsViewTests::testRasterPanRepaintsOnlyExposedStrip()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, "raster-pan-partial-repaint", Qt::darkCyan, QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    // Force a non-sticky zoom well above the viewport size. This also makes
+    // the test independent of the previous session's window geometry and the
+    // timing of the initial calculated-zoom restoration.
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum(),
+        2000);
+    view->horizontalScrollBar()->setValue(
+        (view->horizontalScrollBar()->minimum()
+         + view->horizontalScrollBar()->maximum()) / 2);
+    QCoreApplication::processEvents();
+    view->viewport()->repaint();
+    QCoreApplication::processEvents();
+
+    QScrollBar *bar = view->horizontalScrollBar();
+    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, false);
+    PaintRegionRecorder transparentRecorder;
+    view->viewport()->installEventFilter(&transparentRecorder);
+    bar->setValue(bar->value() + 6);
+    QTRY_VERIFY_WITH_TIMEOUT(!transparentRecorder.recordedAreas().isEmpty(), 1000);
+    view->viewport()->removeEventFilter(&transparentRecorder);
+    const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
+            * view->viewport()->height();
+    const qint64 transparentPaintArea = *std::max_element(
+        transparentRecorder.recordedAreas().cbegin(),
+        transparentRecorder.recordedAreas().cend());
+    const qreal transparentDirtyRatio =
+            static_cast<qreal>(transparentPaintArea) / viewportArea;
+
+    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, true);
+    view->viewport()->repaint();
+    QCoreApplication::processEvents();
+    PaintRegionRecorder recorder;
+    view->viewport()->installEventFilter(&recorder);
+    bar->setValue(bar->value() + 6);
+    QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+    view->viewport()->removeEventFilter(&recorder);
+
+    const qint64 maximumPaintArea = *std::max_element(
+        recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
+    const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
+    qInfo().noquote() << QStringLiteral(
+        "SDR_PAN_REPAINT transparent_dirty_ratio=%1 "
+        "opaque_dirty_ratio=%2 viewport_area=%3")
+        .arg(transparentDirtyRatio, 0, 'f', 6)
+        .arg(dirtyRatio, 0, 'f', 6)
+        .arg(viewportArea);
+    QVERIFY2(transparentDirtyRatio >= 0.95,
+             qPrintable(QStringLiteral("unexpected transparent pan ratio %1")
+                        .arg(transparentDirtyRatio, 0, 'f', 6)));
+    QVERIFY2(dirtyRatio <= 0.05,
+             qPrintable(QStringLiteral("unexpected full pan repaint ratio %1")
+                        .arg(dirtyRatio, 0, 'f', 6)));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-INT-SAMPLE-PAN
+// Test purpose: exercise real, externally supplied SDR files through the full
+// decoder -> QPixmap -> QGraphicsView path and verify that format-specific
+// loading does not regress backing-store scroll acceleration.
+// Preconditions: FOVELLE_SDR_SAMPLE_DIR names a readable directory containing
+// one or more supported raster images.
+// Input data: every regular file in the supplied directory.
+// Steps: load each image, assert the SDR path, force an overflowing zoom,
+// settle the full-frame paint, pan by six pixels, and inspect the paint region.
+// Expected result: each image loads at intrinsic resolution and its pan repaint
+// covers at most five percent of the viewport.
+// Postcondition: the recorder, window, samples, and settings are released.
+void SDRSampleInteractionTests::testProvidedSamplesPanWithPartialRepaints()
+{
+    const QString sampleDirectory =
+            QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
+    const QDir directory(sampleDirectory);
+    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(),
+             qPrintable(sampleDirectory));
+    const QFileInfoList samples = directory.entryInfoList(
+            QDir::Files | QDir::Readable, QDir::Name);
+    QVERIFY2(!samples.isEmpty(), qPrintable(sampleDirectory));
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(1200, 800);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+
+    for (const QFileInfo &sample : samples)
+    {
+        window.openFile(sample.absoluteFilePath());
+        QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            sample.absoluteFilePath(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+        const auto &details = window.getCurrentFileDetails();
+        QVERIFY2(!details.isNativeHDRLoaded, qPrintable(sample.fileName()));
+        QVERIFY2(!details.loadedPixmapSize.isEmpty(), qPrintable(sample.fileName()));
+        QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+
+        view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            view->horizontalScrollBar()->maximum()
+                > view->horizontalScrollBar()->minimum(),
+            2000);
+        QScrollBar *bar = view->horizontalScrollBar();
+        const int centerValue = (bar->minimum() + bar->maximum()) / 2;
+        bar->setValue(centerValue);
+        QCoreApplication::processEvents();
+        view->viewport()->repaint();
+        QCoreApplication::processEvents();
+        // Exclude one-time scrollbar/layout work from the measured pan.
+        bar->setValue(centerValue + 6);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        bar->setValue(centerValue);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+
+        PaintRegionRecorder recorder;
+        view->viewport()->installEventFilter(&recorder);
+        QElapsedTimer timer;
+        timer.start();
+        bar->setValue(bar->value() + 6);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        const double elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
+        QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+        view->viewport()->removeEventFilter(&recorder);
+
+        const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
+                * view->viewport()->height();
+        const qint64 maximumPaintArea = *std::max_element(
+            recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
+        const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
+        qInfo().noquote() << QStringLiteral(
+            "SDR_SAMPLE_PAN file=%1 size=%2x%3 decode_ms=%4 "
+            "pan_dispatch_and_paint_ms=%5 dirty_ratio=%6")
+            .arg(sample.fileName())
+            .arg(details.loadedPixmapSize.width())
+            .arg(details.loadedPixmapSize.height())
+            .arg(details.decodeMilliseconds, 0, 'f', 3)
+            .arg(elapsedMilliseconds, 0, 'f', 3)
+            .arg(dirtyRatio, 0, 'f', 6);
+        QVERIFY2(dirtyRatio <= 0.05,
+                 qPrintable(QStringLiteral("%1 full pan repaint ratio %2")
+                            .arg(sample.fileName()).arg(dirtyRatio, 0, 'f', 6)));
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 void GraphicsViewTests::testZoomIsBoundedAt3200Percent()
 {
     QCOMPARE(QVGraphicsView::boundedZoomLevel(1.0), 1.0);
@@ -3331,6 +3571,7 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     window.openFile(epsPath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+    QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Pdf);
     view->removeExpensiveScaling();
     QVERIFY(view->usesVectorRendering());
@@ -3353,6 +3594,7 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
         window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
         QFileInfo(svgPath).absoluteFilePath(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+    QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Svg);
     view->removeExpensiveScaling();
     QVERIFY(view->usesVectorRendering());
@@ -4685,6 +4927,7 @@ int main(int argc, char *argv[])
     FeatureTests featureTests;
     HDRPolicyTests hdrPolicyTests;
     HDRSampleTests hdrSampleTests;
+    SDRSampleInteractionTests sdrSampleInteractionTests;
     GraphicsViewTests graphicsViewTests;
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
@@ -4702,6 +4945,8 @@ int main(int argc, char *argv[])
     result |= runSuite("WindowBehaviorTests", &windowBehaviorTests);
     if (selectedSuite == "HDRSampleTests")
         result |= QTest::qExec(&hdrSampleTests, argc, argv);
+    if (selectedSuite == "SDRSampleInteractionTests")
+        result |= QTest::qExec(&sdrSampleInteractionTests, argc, argv);
     return result;
 }
 

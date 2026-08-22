@@ -10,6 +10,7 @@
 #include <QIcon>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QElapsedTimer>
 
 QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
 {
@@ -476,6 +477,12 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
     if (!currentFileDetails.isPixmapLoaded)
         return QPixmap();
 
+    static const bool logSDRPerformance =
+            qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
+    QElapsedTimer scaleTimer;
+    if (logSDRPerformance)
+        scaleTimer.start();
+
     // If we are really close to the original size, just return the original
     if (abs(desiredSize.width() - loadedPixmap.width()) < 1 &&
         abs(desiredSize.height() - loadedPixmap.height()) < 1)
@@ -487,7 +494,22 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
     size.rwidth() = qMax(size.width(), 1);
     size.rheight() = qMax(size.height(), 1);
 
-    return loadedPixmap.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    QPixmap result = loadedPixmap.scaled(
+            size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    if (logSDRPerformance)
+    {
+        qInfo().noquote() << "FOVELLE_SDR_SCALE"
+                          << "duration_ms=" << scaleTimer.nsecsElapsed() / 1000000.0
+                          << "source_size=" << loadedPixmap.size()
+                          << "target_size=" << size
+                          << "source_bytes="
+                          << static_cast<qint64>(loadedPixmap.width())
+                                  * loadedPixmap.height() * loadedPixmap.depth() / 8
+                          << "target_bytes="
+                          << static_cast<qint64>(result.width())
+                                  * result.height() * result.depth() / 8;
+    }
+    return result;
 }
 
 void QVImageCore::settingsUpdated()
