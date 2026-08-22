@@ -67,6 +67,7 @@ def launch_once(app: Path, image: Path, hold_seconds: float) -> dict:
             **os.environ,
             "QT_QPA_PLATFORM": "cocoa",
             "FOVELLE_DIAGNOSTIC_LOG": "1",
+            "FOVELLE_VECTOR_RENDER_LOG": "1",
             "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
         },
         start_new_session=True,
@@ -119,7 +120,15 @@ def launch_once(app: Path, image: Path, hold_seconds: float) -> dict:
         for width, height in geometry
         if float(width) > 0 and float(height) > 0
     ]
-    authoritative_sized = bool(nonzero_geometry) and max(nonzero_geometry[-1]) > 120
+    vector_renders = re.findall(
+        r"FOVELLE_VECTOR_RENDER format=pdf source=vector.*?tilePixels= QSize\((\d+), (\d+)\)",
+        combined,
+    )
+    nonzero_vector_tiles = [
+        (int(width), int(height))
+        for width, height in vector_renders
+        if int(width) > 0 and int(height) > 0
+    ]
     unsupported = any(
         marker in combined.lower()
         for marker in (
@@ -136,9 +145,10 @@ def launch_once(app: Path, image: Path, hold_seconds: float) -> dict:
         "return_code": process.returncode,
         "terminated": True,
         "decoded_geometry_observed": bool(nonzero_geometry),
-        "authoritative_sized_geometry_observed": authoritative_sized,
+        "vector_pdf_render_observed": bool(nonzero_vector_tiles),
         "unsupported_error_absent": not unsupported,
         "geometry_observations": geometry,
+        "vector_tile_observations": vector_renders,
         "stdout_tail": stdout[-6000:],
         "stderr_tail": stderr[-6000:],
     }
@@ -178,8 +188,8 @@ def main() -> int:
         "app_exists": app.is_file(),
         "all_runs_completed": len(runs) == max(args.runs, 1),
         "all_runs_observed_decoded_geometry": bool(runs) and all(run["decoded_geometry_observed"] for run in runs),
-        "all_runs_observed_authoritative_sized_geometry": bool(runs)
-        and all(run["authoritative_sized_geometry_observed"] for run in runs),
+        "all_runs_observed_vector_pdf_render": bool(runs)
+        and all(run["vector_pdf_render_observed"] for run in runs),
         "all_runs_absent_unsupported_error": bool(runs) and all(run["unsupported_error_absent"] for run in runs),
         "response_average": metrics["response_average_seconds"] is not None
         and metrics["response_average_seconds"] <= THRESHOLDS["response_average_seconds_max"],
@@ -214,7 +224,7 @@ def main() -> int:
                         "app_exists",
                         "all_runs_completed",
                         "all_runs_observed_decoded_geometry",
-                        "all_runs_observed_authoritative_sized_geometry",
+                        "all_runs_observed_vector_pdf_render",
                         "all_runs_absent_unsupported_error",
                     )
                 ),
@@ -224,7 +234,7 @@ def main() -> int:
                         "app_exists",
                         "all_runs_completed",
                         "all_runs_observed_decoded_geometry",
-                        "all_runs_observed_authoritative_sized_geometry",
+                        "all_runs_observed_vector_pdf_render",
                         "all_runs_absent_unsupported_error",
                     )
                 },
@@ -249,11 +259,11 @@ def main() -> int:
         "facts": [
             "The system case launches the built Fovelle.app executable with the EPS path as a command-line input.",
             "Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.",
-            "The final observed geometry must exceed the supplied 120x40 TIFF preview's largest dimension, and the process remains open long enough to catch delayed replacement.",
+            "The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.",
             "The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.",
         ],
         "inferences": [
-            "Stable, authoritative-sized geometry without a renderer error supports the inference that the end-to-end path kept the PostScript render rather than the embedded preview.",
+            "A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.",
         ],
         "uncertainties": [
             "The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.",

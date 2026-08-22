@@ -542,19 +542,22 @@ QString transferFunctionName(CGColorSpaceRef colorSpace, const bool hasGainMap)
 // EPS TIFF/EPSI image is only a low-resolution placement preview and is not the
 // document artwork; treating it as the image both loses vector detail and can
 // expose decoder-specific TIFF errors. Convert the PostScript program with a
-// bounded Ghostscript child process, then rasterize the cropped PDF through
-// Core Graphics at the screen-sized resolution requested by the loader.
+// bounded Ghostscript child process into a high-level PDF document.  A small
+// preview is retained for UI sampling, while the PDF drawing commands remain
+// the authoritative source used by the viewport at every zoom level.
 constexpr quint32 DosEPSMagic = 0xC6D3D0C5;
 constexpr int EPSRendererStartTimeoutMs = 5000;
 constexpr int EPSRendererTimeoutMs = 30000;
 constexpr qsizetype MaxEPSRendererDiagnosticBytes = 64 * 1024;
 constexpr quint64 MaxEPSRenderedPixels = 64ULL * 1024ULL * 1024ULL;
 constexpr quint64 MaxEPSIntermediatePDFBytes = 256ULL * 1024ULL * 1024ULL;
+constexpr int EPSPreviewLargestDimension = 512;
 
 struct EPSReadResult
 {
     bool recognized {false};
     QImage image;
+    Qv::VectorImageData vectorImage;
     QSize intrinsicSize;
     QString errorString;
 };
@@ -830,8 +833,33 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     const QString pdfPath = temporaryDirectory.filePath(QStringLiteral("rendered.pdf"));
     if (!convertEPSToPDF(filePath, pdfPath, result.errorString))
         return result;
-    result.image = imageFromPDFPage(pdfPath, requestedLargestDimension,
+
+    const int previewLargestDimension = requestedLargestDimension > 0
+            ? qMin(requestedLargestDimension, EPSPreviewLargestDimension)
+            : EPSPreviewLargestDimension;
+    result.image = imageFromPDFPage(pdfPath, previewLargestDimension,
                                     result.intrinsicSize, result.errorString);
+    if (result.image.isNull())
+        return result;
+
+    QFile pdfFile(pdfPath);
+    if (!pdfFile.open(QIODevice::ReadOnly))
+    {
+        result.image = {};
+        result.errorString = QStringLiteral("The Ghostscript EPS rendering could not be retained");
+        return result;
+    }
+    const QByteArray pdfData = pdfFile.readAll();
+    if (pdfData.isEmpty()
+        || static_cast<quint64>(pdfData.size()) > MaxEPSIntermediatePDFBytes)
+    {
+        result.image = {};
+        result.errorString = QStringLiteral("The Ghostscript EPS rendering exceeded the safety limit");
+        return result;
+    }
+    result.vectorImage.format = Qv::VectorImageFormat::Pdf;
+    result.vectorImage.encodedData = pdfData;
+    result.vectorImage.logicalSize = QSizeF(result.intrinsicSize);
     return result;
 }
 
@@ -3164,6 +3192,168 @@ bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
     return false;
 }
 
+struct QVCocoaFunctions::PDFVectorDocument::Impl
+{
+    explicit Impl(const QByteArray &bytes) : sourceData(bytes)
+    {
+        data = CFDataCreateWithBytesNoCopy(
+            kCFAllocatorDefault,
+            reinterpret_cast<const UInt8 *>(sourceData.constData()),
+            static_cast<CFIndex>(sourceData.size()),
+            kCFAllocatorNull);
+        if (!data)
+            return;
+        CGDataProviderRef provider = CGDataProviderCreateWithCFData(data);
+        if (!provider)
+            return;
+        document = CGPDFDocumentCreateWithProvider(provider);
+        CGDataProviderRelease(provider);
+        if (!document || !CGPDFDocumentGetPage(document, 1))
+            return;
+        drawingBox = kCGPDFCropBox;
+        if (CGRectIsEmpty(CGPDFPageGetBoxRect(
+                CGPDFDocumentGetPage(document, 1), drawingBox)))
+        {
+            drawingBox = kCGPDFMediaBox;
+        }
+        valid = !CGRectIsEmpty(CGPDFPageGetBoxRect(
+            CGPDFDocumentGetPage(document, 1), drawingBox));
+    }
+
+    ~Impl()
+    {
+        if (document)
+            CGPDFDocumentRelease(document);
+        if (data)
+            CFRelease(data);
+    }
+
+    QByteArray sourceData;
+    CFDataRef data {nullptr};
+    CGPDFDocumentRef document {nullptr};
+    CGPDFBox drawingBox {kCGPDFCropBox};
+    bool valid {false};
+};
+
+QVCocoaFunctions::PDFVectorDocument::PDFVectorDocument(const QByteArray &pdfData)
+    : impl(std::make_unique<Impl>(pdfData))
+{
+}
+
+QVCocoaFunctions::PDFVectorDocument::~PDFVectorDocument() = default;
+
+bool QVCocoaFunctions::PDFVectorDocument::isValid() const
+{
+    return impl && impl->valid;
+}
+
+QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
+        const QSizeF &logicalPageSize, const QRectF &sourceRect,
+        const QSize &pixelSize, QString *errorString) const
+{
+    const auto fail = [errorString](const QString &message) {
+        if (errorString)
+            *errorString = message;
+        return QImage();
+    };
+    if (errorString)
+        errorString->clear();
+
+    const QRectF pageRect(QPointF(), logicalPageSize);
+    const QRectF clippedSource = sourceRect.intersected(pageRect);
+    if (!isValid() || !logicalPageSize.isValid()
+        || logicalPageSize.isEmpty() || clippedSource.isEmpty()
+        || pixelSize.isEmpty())
+    {
+        return fail(QStringLiteral("The vector PDF tile request is invalid"));
+    }
+    if (static_cast<quint64>(pixelSize.width())
+            * static_cast<quint64>(pixelSize.height()) > MaxEPSRenderedPixels)
+    {
+        return fail(QStringLiteral("The vector PDF tile exceeds the safety limit"));
+    }
+
+    CGPDFPageRef page = CGPDFDocumentGetPage(impl->document, 1);
+
+    QImage tile(pixelSize, QImage::Format_RGBA8888_Premultiplied);
+    if (tile.isNull())
+        return fail(QStringLiteral("The vector PDF tile could not be allocated"));
+    tile.fill(Qt::transparent);
+
+    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
+    CGContextRef context = CGBitmapContextCreate(
+        tile.bits(),
+        static_cast<size_t>(pixelSize.width()),
+        static_cast<size_t>(pixelSize.height()),
+        8,
+        static_cast<size_t>(tile.bytesPerLine()),
+        colorSpace,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(colorSpace);
+    if (!context)
+        return fail(QStringLiteral("The vector PDF tile context could not be created"));
+
+    // First establish the full logical page exactly as imageFromPDFPage does,
+    // then translate the requested local rectangle to the tile origin.  The
+    // final bitmap dimensions come from QPainter's device transform, so this
+    // is final-device rasterization rather than a persistent zoomed image.
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    CGContextScaleCTM(
+        context,
+        static_cast<CGFloat>(pixelSize.width()) / clippedSource.width(),
+        static_cast<CGFloat>(pixelSize.height()) / clippedSource.height());
+    // QGraphicsItem uses a top-left origin while a PDF destination uses a
+    // bottom-left origin.  Convert the exposed item's vertical interval to
+    // its matching Quartz interval before translating it to the tile origin.
+    const qreal quartzSourceBottom = logicalPageSize.height()
+            - clippedSource.bottom();
+    CGContextTranslateCTM(context, -clippedSource.left(), -quartzSourceBottom);
+    const CGRect logicalDestination = CGRectMake(
+        0, 0, logicalPageSize.width(), logicalPageSize.height());
+    CGContextConcatCTM(context, CGPDFPageGetDrawingTransform(
+        page, impl->drawingBox, logicalDestination, 0, true));
+    CGContextDrawPDFPage(context, page);
+    CGContextRelease(context);
+    tile.setColorSpace(QColorSpace::SRgb);
+    return tile;
+}
+
+QVCocoaFunctions::PDFVectorDocumentPtr
+QVCocoaFunctions::createPDFVectorDocument(const QByteArray &pdfData,
+                                           QString *errorString)
+{
+    if (errorString)
+        errorString->clear();
+    if (pdfData.isEmpty())
+    {
+        if (errorString)
+            *errorString = QStringLiteral("The vector PDF data is empty");
+        return {};
+    }
+    const auto document = std::shared_ptr<PDFVectorDocument>(
+        new PDFVectorDocument(pdfData));
+    if (!document->isValid())
+    {
+        if (errorString)
+            *errorString = QStringLiteral("The vector PDF document is invalid");
+        return {};
+    }
+    return document;
+}
+
+QImage QVCocoaFunctions::renderPDFVectorTile(const QByteArray &pdfData,
+                                              const QSizeF &logicalPageSize,
+                                              const QRectF &sourceRect,
+                                              const QSize &pixelSize,
+                                              QString *errorString)
+{
+    const PDFVectorDocumentPtr document = createPDFVectorDocument(pdfData,
+                                                                   errorString);
+    return document ? document->renderTile(logicalPageSize, sourceRect,
+                                            pixelSize, errorString)
+                    : QImage();
+}
+
 QVCocoaFunctions::NativeImageReadResult
 QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallbackLargestDimension)
 {
@@ -3175,6 +3365,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         if (epsResult.recognized)
         {
             result.image = epsResult.image;
+            result.vectorImage = epsResult.vectorImage;
             result.intrinsicSize = epsResult.intrinsicSize;
             result.typeIdentifier = QStringLiteral("com.adobe.encapsulated-postscript");
             // Keep the result on the native bridge path. This prevents the

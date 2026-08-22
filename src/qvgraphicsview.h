@@ -18,6 +18,7 @@
 #include <QFileInfo>
 
 class MainWindow;
+class QVGraphicsImageItem;
 
 class QVGraphicsView : public QGraphicsView
 {
@@ -96,6 +97,12 @@ public:
     const QVMovie& getLoadedMovie() const { return imageCore.getLoadedMovie(); }
     bool hasFileOrPendingLoad() const { return imageCore.hasFileOrPendingLoad(); }
     qreal getZoomLevel() const { return zoomLevel; }
+    bool usesVectorRendering() const;
+    Qv::VectorImageFormat vectorImageFormat() const;
+    QSize lastVectorRasterSize() const;
+    bool hasPendingVectorRefinement() const;
+
+    static qreal boundedZoomLevel(qreal requestedLevel);
 
     // Keep wheel-step calculation pure so mouse and touchpad behavior can be
     // verified without depending on platform event delivery.
@@ -269,7 +276,7 @@ private slots:
     void postLoad();
 
 private:
-    QGraphicsPixmapItem *loadedPixmapItem;
+    QVGraphicsImageItem *loadedPixmapItem;
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 
     Qv::SmoothScalingMode smoothScalingMode {Qv::SmoothScalingMode::Disabled};
@@ -321,6 +328,7 @@ private:
     QVImageCore imageCore {this};
 
     QTimer *expensiveScaleTimer;
+    QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrPresentationTimer;

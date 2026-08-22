@@ -6,6 +6,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/openwith.cpp
     ../src/qvfileenumerator.cpp
     ../src/qvgraphicsview.cpp
+    ../src/qvgraphicsimageitem.cpp
     ../src/qvmenu.cpp
     ../src/qvoptionsdialog.cpp
     ../src/qvapplication.cpp
@@ -33,6 +34,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/openwith.h
     ../src/qvfileenumerator.h
     ../src/qvgraphicsview.h
+    ../src/qvgraphicsimageitem.h
     ../src/qvmenu.h
     ../src/qvnamespace.h
     ../src/qvoptionsdialog.h

@@ -125,12 +125,13 @@ def main() -> int:
         "facts": [
             "Each deterministic EPS unit case is executed by the production fovelle_tests binary.",
             "The EPS render case uses the supplied sample when present and falls back to a deterministic vector EPS otherwise.",
-            "The renderer case verifies a 2048-pixel raster whose logical size remains the EPS BoundingBox size.",
+            "The renderer case verifies retained PDF bytes, a persistent Core Graphics document, a 512-pixel non-authoritative preview, and an independently requested 2048-pixel final-density render.",
+            "A partial upper-page tile is compared with the matching region of a full-page render to verify top-left scene to bottom-left PDF coordinate conversion.",
             "The asynchronous loader and delayed movie-probe cases exercise QVImageLoader and QVImageCore, not only the native bridge.",
             "The dependency case forces an invalid Ghostscript path and verifies that Qt fallback cannot expose the placement preview.",
         ],
         "inferences": [
-            "A zero-failure Qt run supports the inference that authoritative EPS pixels preserve the loader Result contract and remain stable after delayed static-document probing.",
+            "A zero-failure Qt run supports the inference that the authoritative EPS document preserves the loader Result contract and remains stable after delayed static-document probing.",
         ],
         "uncertainties": [
             "The deterministic fixture does not represent every PostScript dialect, external font dependency, or Ghostscript version.",

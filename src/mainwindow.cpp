@@ -9,7 +9,6 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QString>
-#include <QGraphicsPixmapItem>
 #include <QPixmap>
 #include <QClipboard>
 #include <QCoreApplication>
@@ -1905,7 +1904,9 @@ void MainWindow::zoomCustom()
 {
     bool ok;
     const double oldValue = graphicsView->getZoomLevel() * 100.0;
-    const double newValue = QInputDialog::getDouble(this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue, 1.0, 10000.0, 1, &ok);
+    const double newValue = QInputDialog::getDouble(
+        this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue,
+        Qv::MinimumZoomLevel * 100.0, Qv::MaximumZoomLevel * 100.0, 1, &ok);
     if (!ok) return;
     graphicsView->zoomAbsolute(newValue / 100.0, Qv::CalculateViewportCenterPos);
     graphicsView->fitOrConstrainImage();

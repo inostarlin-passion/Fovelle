@@ -1,10 +1,10 @@
 #include "qvgraphicsview.h"
+#include "qvgraphicsimageitem.h"
 #include "qvapplication.h"
 #include "qvinfodialog.h"
 #include "qvmovie.h"
 #include "qvcocoafunctions.h"
 #include <QWheelEvent>
-#include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QSettings>
 #include <QMessageBox>
@@ -15,6 +15,9 @@
 #include <QtMath>
 #include <QGestureEvent>
 #include <QScrollBar>
+
+#include <algorithm>
+#include <cmath>
 
 QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 {
@@ -49,6 +52,13 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     expensiveScaleTimer->setInterval(50);
     connect(expensiveScaleTimer, &QTimer::timeout, this, [this]{applyExpensiveScaling();});
 
+    vectorRefineTimer = new QTimer(this);
+    vectorRefineTimer->setSingleShot(true);
+    vectorRefineTimer->setInterval(50);
+    connect(vectorRefineTimer, &QTimer::timeout, this, [this]() {
+        loadedPixmapItem->setVectorInteractionActive(false);
+    });
+
     constrainBoundsTimer = new QTimer(this);
     constrainBoundsTimer->setSingleShot(true);
     connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{scrollHelper->constrain(disableDelayedConstraint);});
@@ -58,7 +68,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     hideCursorTimer->setInterval(1000);
     connect(hideCursorTimer, &QTimer::timeout, this, [this]{setCursorVisible(false);});
 
-    loadedPixmapItem = new QGraphicsPixmapItem();
+    loadedPixmapItem = new QVGraphicsImageItem();
     scene->addItem(loadedPixmapItem);
 
     hdrRenderer = std::make_unique<QVCocoaFunctions::HDRRenderer>(viewport());
@@ -664,6 +674,36 @@ qreal QVGraphicsView::nativeGestureZoomFactor(const qreal value)
     return qMax(0.01, 1.0 + value);
 }
 
+qreal QVGraphicsView::boundedZoomLevel(const qreal requestedLevel)
+{
+    if (std::isnan(requestedLevel))
+        return Qv::MinimumZoomLevel;
+    return std::clamp(requestedLevel, Qv::MinimumZoomLevel,
+                      Qv::MaximumZoomLevel);
+}
+
+bool QVGraphicsView::usesVectorRendering() const
+{
+    return loadedPixmapItem && loadedPixmapItem->hasVectorImage();
+}
+
+Qv::VectorImageFormat QVGraphicsView::vectorImageFormat() const
+{
+    return loadedPixmapItem ? loadedPixmapItem->vectorImageFormat()
+                            : Qv::VectorImageFormat::None;
+}
+
+QSize QVGraphicsView::lastVectorRasterSize() const
+{
+    return loadedPixmapItem ? loadedPixmapItem->lastVectorRasterSize() : QSize();
+}
+
+bool QVGraphicsView::hasPendingVectorRefinement() const
+{
+    return loadedPixmapItem
+            && loadedPixmapItem->isVectorInteractionActive();
+}
+
 QPointF QVGraphicsView::nativeGesturePanScrollDelta(const QPointF &delta, const bool isRightToLeft)
 {
     return QPointF(-delta.x() * (isRightToLeft ? -1.0 : 1.0), -delta.y());
@@ -743,10 +783,9 @@ std::optional<qreal> QVGraphicsView::sampleDisplayedImageBrightness(
         || !viewport()->rect().contains(viewportPoint))
         return {};
 
-    // QPixmap scene coordinates are device-independent. On a Retina hosted
-    // runner the pixmap can therefore have a 2x physical size while its
-    // QGraphicsPixmapItem occupies half as many scene units. Map through the
-    // actual item transform instead of dividing by the file's pixel size.
+    // Scene coordinates are device-independent. On a Retina host the sampling
+    // preview can therefore have twice as many physical pixels as scene units.
+    // Map through the actual item instead of dividing by the preview size.
     const QPointF itemPoint = loadedPixmapItem->mapFromScene(mapToScene(viewportPoint));
     if (!pixmapRect.contains(itemPoint))
         return {};
@@ -941,6 +980,8 @@ void QVGraphicsView::beforeLoad()
     hdrInteractionStep = -1;
     navigationSamplingImage = {};
     navigationSamplingSourceSize = {};
+    vectorRefineTimer->stop();
+    loadedPixmapItem->setVectorInteractionActive(false);
     lastCalculatedZoomMode.reset();
     lastCalculatedZoomLevel.reset();
 
@@ -1175,13 +1216,14 @@ void QVGraphicsView::zoomOut()
 
 void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos)
 {
-    const qreal absoluteLevel = std::clamp(zoomLevel * relativeLevel, 0.01, 100.0);
+    const qreal absoluteLevel = boundedZoomLevel(zoomLevel * relativeLevel);
     const std::optional<QPoint> pos = !mousePos.has_value() ? std::nullopt : zoomToCursor && isCursorVisible ? mousePos : Qv::CalculateViewportCenterPos;
     zoomAbsolute(absoluteLevel, pos);
 }
 
 void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos, const bool isApplyingCalculation)
 {
+    const qreal requestedLevel = boundedZoomLevel(absoluteLevel);
     const bool keepsCalculatedZoomMode =
         isApplyingCalculation &&
         calculatedZoomMode.has_value() &&
@@ -1191,14 +1233,20 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         !calculatedZoomMode.has_value() &&
         lastCalculatedZoomMode.has_value() &&
         lastCalculatedZoomLevel.has_value() &&
-        zoomLevelsEquivalent(absoluteLevel, lastCalculatedZoomLevel.value());
+        zoomLevelsEquivalent(requestedLevel, lastCalculatedZoomLevel.value());
     if (!keepsCalculatedZoomMode && calculatedZoomMode.has_value())
     {
         calculatedZoomMode.reset();
         emit calculatedZoomModeChanged();
     }
 
-    const bool isChanging = absoluteLevel != zoomLevel;
+    const bool isChanging = requestedLevel != zoomLevel;
+    if (isChanging && !isApplyingCalculation
+        && getCurrentFileDetails().isVectorLoaded)
+    {
+        loadedPixmapItem->setVectorInteractionActive(true);
+        vectorRefineTimer->start();
+    }
     const std::optional<QPoint> pos = targetPos == Qv::CalculateViewportCenterPos ? getUsableViewportRect().center() : targetPos;
     if (pos != lastZoomEventPos)
     {
@@ -1210,14 +1258,14 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     if (appliedExpensiveScaleZoomLevel != 0.0)
     {
         const qreal baseTransformScale = 1.0 / devicePixelRatioF();
-        const qreal relativeLevel = absoluteLevel / appliedExpensiveScaleZoomLevel;
+        const qreal relativeLevel = requestedLevel / appliedExpensiveScaleZoomLevel;
         setTransformScale(baseTransformScale * relativeLevel);
     }
     else
     {
-        setTransformScale(absoluteLevel * appliedDpiAdjustment);
+        setTransformScale(requestedLevel * appliedDpiAdjustment);
     }
-    zoomLevel = absoluteLevel;
+    zoomLevel = requestedLevel;
     updateSceneRect();
 
     if (shouldRestoreCalculatedZoom)
@@ -1328,6 +1376,11 @@ void QVGraphicsView::removeExpensiveScaling()
 
     // Return to original size
     loadedPixmapItem->setPixmap(imageCore.getLoadedPixmap());
+    if (getCurrentFileDetails().isVectorLoaded
+        && !loadedPixmapItem->setVectorImage(imageCore.getLoadedVectorImage()))
+    {
+        qWarning() << "The validated vector document could not be attached to the scene";
+    }
 
     // Set appropriate scale factor
     const qreal dpiAdjustment = getDpiAdjustment();
@@ -1433,6 +1486,7 @@ void QVGraphicsView::recalculateZoom()
     if (fitZoomLimit.has_value() && targetRatio > fitZoomLimit.value())
         targetRatio = fitZoomLimit.value();
 
+    targetRatio = boundedZoomLevel(targetRatio);
     lastCalculatedZoomMode = calculatedZoomMode;
     lastCalculatedZoomLevel = targetRatio;
 
@@ -1580,7 +1634,8 @@ bool QVGraphicsView::isSmoothScalingRequested() const
 
 bool QVGraphicsView::isExpensiveScalingRequested() const
 {
-    if (getCurrentFileDetails().isNativeHDRLoaded || !isSmoothScalingRequested()
+    if (getCurrentFileDetails().isNativeHDRLoaded
+        || getCurrentFileDetails().isVectorLoaded || !isSmoothScalingRequested()
         || smoothScalingMode != Qv::SmoothScalingMode::Expensive
         || !getCurrentFileDetails().isPixmapLoaded)
         return false;
@@ -2033,8 +2088,12 @@ bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
     switch (event->gestureType())
     {
     case Qt::BeginNativeGesture:
+        if (getCurrentFileDetails().isVectorLoaded)
+            loadedPixmapItem->setVectorInteractionActive(true);
         break;
     case Qt::EndNativeGesture:
+        vectorRefineTimer->stop();
+        loadedPixmapItem->setVectorInteractionActive(false);
         constrainBoundsTimer->start();
         break;
     case Qt::ZoomNativeGesture:

@@ -24,6 +24,7 @@ public:
     struct Result
     {
         QImage image;
+        Qv::VectorImageData vectorImage;
         QVCocoaFunctions::HDRImagePtr hdrImage;
         QVCocoaFunctions::HDRMetadata hdrMetadata;
         QString absoluteFilePath;

@@ -19,6 +19,8 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSettings>
+#include <QStyleOptionGraphicsItem>
+#include <QSvgRenderer>
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
 #include <QThreadPool>
@@ -31,6 +33,7 @@
 #include "mainwindow.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
+#include "qvgraphicsimageitem.h"
 #include "qvgraphicsview.h"
 #include "qvimagecore.h"
 #include "qvimageloader.h"
@@ -59,6 +62,7 @@ private slots:
     void testEPSFormatIsAdvertised();
     void testEPSPostScriptRender();
     void testImageLoaderLoadsEPS();
+    void testImageLoaderLoadsSVGAsVectorDocument();
     void testEPSRenderSurvivesStaticMovieProbe();
     void testMalformedEPSFailsSafely();
     void testEPSMissingRendererFailsActionably();
@@ -159,6 +163,9 @@ private slots:
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
+    void testZoomIsBoundedAt3200Percent();
+    void testVectorFormatsUseDocumentSceneItem();
+    void testVectorInteractionPaintPerformanceAt120Hz();
 };
 
 class ApplicationEventTests : public QObject
@@ -293,6 +300,21 @@ static QString createEPSVectorImage(const QTemporaryDir &dir, const QString &nam
     return path;
 }
 
+static QString createSVGVectorImage(const QTemporaryDir &dir, const QString &name)
+{
+    const QString path = dir.filePath(name + ".svg");
+    const QByteArray content =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" viewBox=\"0 0 120 40\">"
+        "<rect width=\"120\" height=\"40\" rx=\"8\" fill=\"#000\"/>"
+        "<path d=\"M12 8 L32 20 L12 32 Z M108 8 L88 20 L108 32 Z\" fill=\"#fff\"/>"
+        "<circle cx=\"60\" cy=\"20\" r=\"10\" fill=\"#fff\"/>"
+        "</svg>";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
+        return {};
+    return path;
+}
+
 static QString epsSamplePath(const QTemporaryDir &fallbackDirectory, bool *usesExternalSample = nullptr)
 {
     const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_EPS_SAMPLE"));
@@ -309,6 +331,25 @@ static QString epsSamplePath(const QTemporaryDir &fallbackDirectory, bool *usesE
     if (usesExternalSample)
         *usesExternalSample = false;
     return createEPSVectorImage(fallbackDirectory, "fallback-vector");
+}
+
+static QString svgSamplePath(const QTemporaryDir &fallbackDirectory,
+                             bool *usesExternalSample = nullptr)
+{
+    const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_SVG_SAMPLE"));
+    const QString suppliedPath = configuredPath.isEmpty()
+        ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/SVG/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg")
+        : configuredPath;
+    if (QFileInfo::exists(suppliedPath))
+    {
+        if (usesExternalSample)
+            *usesExternalSample = true;
+        return suppliedPath;
+    }
+
+    if (usesExternalSample)
+        *usesExternalSample = false;
+    return createSVGVectorImage(fallbackDirectory, "fallback-vector");
 }
 
 static void sendMouseMove(QWidget *widget, const QPoint &position)
@@ -387,6 +428,32 @@ static bool containsColor(const QImage &image, const QRect &area, const QColor &
     return false;
 }
 
+static double sampledChannelDifference(const QImage &actual,
+                                       const QImage &expected)
+{
+    if (actual.size() != expected.size() || actual.isNull())
+        return std::numeric_limits<double>::infinity();
+
+    qint64 difference = 0;
+    qint64 channelSamples = 0;
+    for (int y = 0; y < actual.height(); y += 8)
+    {
+        for (int x = 0; x < actual.width(); x += 8)
+        {
+            const QColor lhs = actual.pixelColor(x, y);
+            const QColor rhs = expected.pixelColor(x, y);
+            difference += qAbs(lhs.red() - rhs.red())
+                    + qAbs(lhs.green() - rhs.green())
+                    + qAbs(lhs.blue() - rhs.blue())
+                    + qAbs(lhs.alpha() - rhs.alpha());
+            channelSamples += 4;
+        }
+    }
+    return channelSamples > 0
+            ? static_cast<double>(difference) / channelSamples
+            : std::numeric_limits<double>::infinity();
+}
+
 static QString createBase64Image(const QTemporaryDir &dir, const QString &name, const QString &extension, const QByteArray &base64)
 {
     const QString path = dir.filePath(name + "." + extension);
@@ -429,6 +496,33 @@ public:
 
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class ScopedSettingPreserver
+{
+public:
+    explicit ScopedSettingPreserver(QString key)
+        : settingKey(std::move(key))
+    {
+        QSettings settings;
+        existed = settings.contains(settingKey);
+        savedValue = settings.value(settingKey);
+    }
+
+    ~ScopedSettingPreserver()
+    {
+        QSettings settings;
+        if (existed)
+            settings.setValue(settingKey, savedValue);
+        else
+            settings.remove(settingKey);
+        settings.sync();
+    }
+
+private:
+    QString settingKey;
+    QVariant savedValue;
+    bool existed {false};
 };
 
 class ScopedShortcutValues
@@ -893,27 +987,85 @@ void ImageLoaderTests::testEPSPostScriptRender()
     QCOMPARE(result.typeIdentifier, QStringLiteral("com.adobe.encapsulated-postscript"));
     QVERIFY(!result.image.isNull());
     QVERIFY(!result.intrinsicSize.isEmpty());
-    QCOMPARE(qMax(result.image.width(), result.image.height()), 2048);
+    QVERIFY(result.vectorImage.isValid());
+    QCOMPARE(result.vectorImage.format, Qv::VectorImageFormat::Pdf);
+    QCOMPARE(result.vectorImage.logicalSize, QSizeF(result.intrinsicSize));
+    QVERIFY(result.vectorImage.encodedData.startsWith("%PDF-"));
+    QCOMPARE(qMax(result.image.width(), result.image.height()), 512);
     QVERIFY(result.image.size() != result.intrinsicSize);
+
+    QString pdfError;
+    const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
+        result.vectorImage.encodedData, &pdfError);
+    QVERIFY2(pdfDocument, qPrintable(pdfError));
+    const QSize renderedSize = result.intrinsicSize.scaled(
+        2048, 2048, Qt::KeepAspectRatio);
+    const QImage renderedImage = pdfDocument->renderTile(
+        result.vectorImage.logicalSize,
+        QRectF(QPointF(), result.vectorImage.logicalSize),
+        renderedSize, &pdfError);
+    QVERIFY2(!renderedImage.isNull(), qPrintable(pdfError));
+    QCOMPARE(qMax(renderedImage.width(), renderedImage.height()), 2048);
+
+    QVGraphicsImageItem sceneItem;
+    sceneItem.setPixmap(QPixmap::fromImage(result.image));
+    QVERIFY(sceneItem.setVectorImage(result.vectorImage));
+    QImage sceneRender(renderedImage.size(), QImage::Format_ARGB32_Premultiplied);
+    sceneRender.fill(Qt::transparent);
+    QPainter scenePainter(&sceneRender);
+    scenePainter.scale(
+        renderedImage.width() / result.vectorImage.logicalSize.width(),
+        renderedImage.height() / result.vectorImage.logicalSize.height());
+    QStyleOptionGraphicsItem sceneOption;
+    sceneOption.exposedRect = sceneItem.boundingRect();
+    sceneItem.paint(&scenePainter, &sceneOption);
+    scenePainter.end();
+    QVERIFY(sampledChannelDifference(sceneRender, renderedImage) < 3.0);
+
+    const QRectF upperSourceRect(
+        0, 0, result.vectorImage.logicalSize.width(),
+        result.vectorImage.logicalSize.height() / 2.0);
+    const QImage upperTile = pdfDocument->renderTile(
+        result.vectorImage.logicalSize, upperSourceRect,
+        QSize(renderedImage.width(), renderedImage.height() / 2), &pdfError);
+    QVERIFY2(!upperTile.isNull(), qPrintable(pdfError));
+    qint64 upperTileDifference = 0;
+    qint64 upperTileSamples = 0;
+    for (int y = 0; y < upperTile.height(); y += 8)
+    {
+        for (int x = 0; x < upperTile.width(); x += 8)
+        {
+            const QColor actual = upperTile.pixelColor(x, y);
+            const QColor expected = renderedImage.pixelColor(x, y);
+            upperTileDifference += qAbs(actual.red() - expected.red())
+                    + qAbs(actual.green() - expected.green())
+                    + qAbs(actual.blue() - expected.blue())
+                    + qAbs(actual.alpha() - expected.alpha());
+            upperTileSamples += 4;
+        }
+    }
+    QVERIFY(upperTileSamples > 0);
+    QVERIFY(static_cast<double>(upperTileDifference) / upperTileSamples < 3.0);
+
     if (usesExternalSample)
     {
         QCOMPARE(result.intrinsicSize, QSize(120, 40));
-        QVERIFY(result.image.width() >= 2000);
+        QVERIFY(renderedImage.width() >= 2000);
 
         qint64 upperLightPixels = 0;
         qint64 lowerLightPixels = 0;
         qint64 opaqueDarkPixels = 0;
-        for (int y = 0; y < result.image.height(); y += 2)
+        for (int y = 0; y < renderedImage.height(); y += 2)
         {
-            for (int x = 0; x < result.image.width(); x += 2)
+            for (int x = 0; x < renderedImage.width(); x += 2)
             {
-                const QColor pixel = result.image.pixelColor(x, y);
+                const QColor pixel = renderedImage.pixelColor(x, y);
                 if (pixel.alpha() < 220)
                     continue;
                 const int luminance = pixel.lightness();
                 if (luminance >= 220)
                 {
-                    if (y < result.image.height() / 2)
+                    if (y < renderedImage.height() / 2)
                         ++upperLightPixels;
                     else
                         ++lowerLightPixels;
@@ -924,16 +1076,16 @@ void ImageLoaderTests::testEPSPostScriptRender()
                 }
             }
         }
-        QVERIFY(opaqueDarkPixels > result.image.width() * result.image.height() / 16);
+        QVERIFY(opaqueDarkPixels > renderedImage.width() * renderedImage.height() / 16);
         QVERIFY(lowerLightPixels > upperLightPixels);
     }
     else
     {
         QCOMPARE(result.intrinsicSize, QSize(8, 4));
-        const QColor background = result.image.pixelColor(result.image.width() / 2,
-                                                           result.image.height() / 8);
-        const QColor square = result.image.pixelColor(result.image.width() / 4,
-                                                       result.image.height() / 2);
+        const QColor background = renderedImage.pixelColor(renderedImage.width() / 2,
+                                                            renderedImage.height() / 8);
+        const QColor square = renderedImage.pixelColor(renderedImage.width() / 4,
+                                                        renderedImage.height() / 2);
         QVERIFY(background.lightness() < 32);
         QVERIFY(square.lightness() > 220);
     }
@@ -947,8 +1099,8 @@ void ImageLoaderTests::testEPSPostScriptRender()
 // Input data: the path returned by epsSamplePath.
 // Operation steps: request the image, wait for imageReady, and inspect the
 // result, source identity, and error state.
-// Expected result: one matching request completes with a screen-sized render,
-// no error data, and a separate logical EPS page size.
+// Expected result: one matching request completes with a retained PDF vector
+// document, a bounded preview, no error data, and its logical EPS page size.
 // Postconditions: the loader and temporary fixture are destroyed.
 void ImageLoaderTests::testImageLoaderLoadsEPS()
 {
@@ -962,7 +1114,9 @@ void ImageLoaderTests::testImageLoaderLoadsEPS()
     QVERIFY(!result->image.isNull());
     QVERIFY(!result->errorData.has_value());
     QVERIFY(!result->intrinsicSize.isEmpty());
-    QCOMPARE(qMax(result->image.width(), result->image.height()), 1920);
+    QVERIFY(result->vectorImage.isValid());
+    QCOMPARE(result->vectorImage.format, Qv::VectorImageFormat::Pdf);
+    QCOMPARE(qMax(result->image.width(), result->image.height()), 512);
     QVERIFY(result->image.size() != result->intrinsicSize);
     QCOMPARE(result->absoluteFilePath, QFileInfo(path).absoluteFilePath());
 }
@@ -974,7 +1128,7 @@ void ImageLoaderTests::testImageLoaderLoadsEPS()
 // Input data: the same supplied or deterministic EPS fixture.
 // Operation steps: feed the result into QVImageCore, process delayed movie
 // callbacks, and compare the retained pixmap size and movie state.
-// Expected result: the high-resolution render remains loaded and no movie runs.
+// Expected result: the PDF vector document remains loaded and no movie runs.
 // Postconditions: QVImageCore and any image-reader device are destroyed.
 void ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()
 {
@@ -987,7 +1141,7 @@ void ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()
     QVERIFY(result.has_value());
     QVERIFY(!result->errorData.has_value());
     const QSize renderedSize = result->image.size();
-    QVERIFY(qMax(renderedSize.width(), renderedSize.height()) > 120);
+    QVERIFY(result->vectorImage.isValid());
 
     QWidget owner;
     owner.resize(32, 32);
@@ -996,10 +1150,58 @@ void ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()
     TestableImageCore imageCore(&owner);
     imageCore.loadPixmap(*result);
     QCOMPARE(imageCore.getLoadedMovie().state(), QVMovie::NotRunning);
+    QVERIFY(imageCore.getLoadedVectorImage().isValid());
     QCOMPARE(imageCore.getLoadedPixmap().size(), renderedSize);
     QTest::qWait(1100);
     QCOMPARE(imageCore.getLoadedMovie().state(), QVMovie::NotRunning);
+    QVERIFY(imageCore.getLoadedVectorImage().isValid());
     QCOMPARE(imageCore.getLoadedPixmap().size(), renderedSize);
+}
+
+void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = svgSamplePath(dir);
+    QVERIFY(!path.isEmpty());
+
+    const auto result = loadImage(path);
+    QVERIFY(result.has_value());
+    QVERIFY2(!result->errorData.has_value(),
+             result->errorData.has_value()
+                ? qPrintable(result->errorData->errorString) : "");
+    QVERIFY(result->vectorImage.isValid());
+    QCOMPARE(result->vectorImage.format, Qv::VectorImageFormat::Svg);
+    QCOMPARE(result->vectorImage.sourcePath, QFileInfo(path).absoluteFilePath());
+    QCOMPARE(result->vectorImage.logicalSize, QSizeF(result->intrinsicSize));
+    QVERIFY(!result->image.isNull());
+    QVERIFY(qMax(result->image.width(), result->image.height()) <= 512);
+
+    const QSize renderedSize = result->intrinsicSize.scaled(
+        2048, 2048, Qt::KeepAspectRatio);
+    QImage reference(renderedSize, QImage::Format_ARGB32_Premultiplied);
+    reference.fill(Qt::transparent);
+    QSvgRenderer referenceRenderer(path);
+    QVERIFY(referenceRenderer.isValid());
+    QPainter referencePainter(&reference);
+    referenceRenderer.render(
+        &referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
+    referencePainter.end();
+
+    QVGraphicsImageItem sceneItem;
+    sceneItem.setPixmap(QPixmap::fromImage(result->image));
+    QVERIFY(sceneItem.setVectorImage(result->vectorImage));
+    QImage sceneRender(renderedSize, QImage::Format_ARGB32_Premultiplied);
+    sceneRender.fill(Qt::transparent);
+    QPainter scenePainter(&sceneRender);
+    scenePainter.scale(
+        renderedSize.width() / result->vectorImage.logicalSize.width(),
+        renderedSize.height() / result->vectorImage.logicalSize.height());
+    QStyleOptionGraphicsItem sceneOption;
+    sceneOption.exposedRect = sceneItem.boundingRect();
+    sceneItem.paint(&scenePainter, &sceneOption);
+    scenePainter.end();
+    QVERIFY(sampledChannelDifference(sceneRender, reference) < 3.0);
 }
 
 // TC-EPS-UNIT-MALFORMED
@@ -3087,6 +3289,213 @@ void GraphicsViewTests::testNativeGestureResponsePerformance()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+void GraphicsViewTests::testZoomIsBoundedAt3200Percent()
+{
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(1.0), 1.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(32.0), 32.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(32.0001), 32.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(100.0), 32.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(
+        std::numeric_limits<qreal>::infinity()), 32.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(-1.0), 0.01);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(
+        std::numeric_limits<qreal>::quiet_NaN()), 0.01);
+}
+
+void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString epsPath = epsSamplePath(dir);
+    const QString svgPath = svgSamplePath(dir);
+    QVERIFY(!epsPath.isEmpty());
+    QVERIFY(!svgPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+
+    window.openFile(epsPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+    QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Pdf);
+    view->removeExpensiveScaling();
+    QVERIFY(view->usesVectorRendering());
+    view->zoomAbsolute(100.0, Qv::CalculateViewportCenterPos);
+    QCOMPARE(view->getZoomLevel(), Qv::MaximumZoomLevel);
+    QVERIFY(view->hasPendingVectorRefinement());
+    view->viewport()->repaint();
+    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 500);
+    view->viewport()->repaint();
+    QVERIFY(!view->lastVectorRasterSize().isEmpty());
+    QVERIFY(qMax(view->lastVectorRasterSize().width(),
+                 view->lastVectorRasterSize().height()) > 512);
+    const QSize maximumVisibleTile = view->viewport()->size()
+            * view->viewport()->devicePixelRatioF() + QSize(264, 264);
+    QVERIFY(view->lastVectorRasterSize().width() <= maximumVisibleTile.width());
+    QVERIFY(view->lastVectorRasterSize().height() <= maximumVisibleTile.height());
+
+    window.openFile(svgPath);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+        QFileInfo(svgPath).absoluteFilePath(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+    QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Svg);
+    view->removeExpensiveScaling();
+    QVERIFY(view->usesVectorRendering());
+    view->zoomAbsolute(100.0, Qv::CalculateViewportCenterPos);
+    QCOMPARE(view->getZoomLevel(), Qv::MaximumZoomLevel);
+    QVERIFY(view->hasPendingVectorRefinement());
+    view->viewport()->repaint();
+    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 500);
+    view->viewport()->repaint();
+    QVERIFY(!view->lastVectorRasterSize().isEmpty());
+    QVERIFY(qMax(view->lastVectorRasterSize().width(),
+                 view->lastVectorRasterSize().height()) > 512);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
+{
+    ScopedSettingPreserver geometrySetting(QStringLiteral("geometry"));
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QList<QPair<QString, QString>> documents {
+        {QStringLiteral("eps"), epsSamplePath(dir)},
+        {QStringLiteral("svg"), svgSamplePath(dir)}
+    };
+    for (const auto &document : documents)
+        QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(QGuiApplication::primaryScreen()->availableGeometry().size());
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    qInfo().noquote() << QStringLiteral(
+        "VECTOR_120HZ_DISPLAY refresh_hz=%1 viewport=%2x%3 dpr=%4")
+        .arg(window.screen() ? window.screen()->refreshRate() : 0.0, 0, 'f', 1)
+        .arg(view->viewport()->width())
+        .arg(view->viewport()->height())
+        .arg(view->viewport()->devicePixelRatioF(), 0, 'f', 1);
+
+    constexpr int FrameCount = 120;
+    constexpr double FrameBudgetMilliseconds = 1000.0 / 120.0;
+    const auto verifySamples = [&](QVector<double> samples,
+                                   const QString &format,
+                                   const QString &interaction) {
+        std::sort(samples.begin(), samples.end());
+        const double average = std::accumulate(
+            samples.cbegin(), samples.cend(), 0.0) / samples.size();
+        const int p99Index = qMax(
+            0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
+        const double p99 = samples.at(p99Index);
+        const double maximum = samples.constLast();
+        const double throughput = 1000.0 / average;
+        qInfo().noquote() << QStringLiteral(
+            "VECTOR_120HZ format=%1 interaction=%2 average_ms=%3 p99_ms=%4 max_ms=%5 throughput_fps=%6 count=%7")
+            .arg(format, interaction)
+            .arg(average, 0, 'f', 3)
+            .arg(p99, 0, 'f', 3)
+            .arg(maximum, 0, 'f', 3)
+            .arg(throughput, 0, 'f', 3)
+            .arg(samples.size());
+        QVERIFY2(average <= FrameBudgetMilliseconds,
+                 qPrintable(format + " " + interaction + " average"));
+        QVERIFY2(p99 <= FrameBudgetMilliseconds,
+                 qPrintable(format + " " + interaction + " p99"));
+        QVERIFY2(maximum <= FrameBudgetMilliseconds,
+                 qPrintable(format + " " + interaction + " maximum"));
+        QVERIFY2(throughput >= 120.0,
+                 qPrintable(format + " " + interaction + " throughput"));
+    };
+
+    for (const auto &document : documents)
+    {
+        window.openFile(document.second);
+        QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            QFileInfo(document.second).absoluteFilePath(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+
+        for (int i = 0; i < 12; ++i)
+        {
+            view->zoomAbsolute(i % 2 == 0 ? 24.0 : 32.0,
+                               Qv::CalculateViewportCenterPos);
+            view->viewport()->repaint();
+        }
+        QVector<double> zoomSamples;
+        zoomSamples.reserve(FrameCount);
+        for (int i = 0; i < FrameCount; ++i)
+        {
+            QElapsedTimer frameTimer;
+            frameTimer.start();
+            const int triangularStep = i < FrameCount / 2
+                    ? i : FrameCount - 1 - i;
+            const qreal continuousZoom = 24.0
+                    + triangularStep * 8.0 / (FrameCount / 2 - 1);
+            view->zoomAbsolute(continuousZoom,
+                               Qv::CalculateViewportCenterPos);
+            view->viewport()->repaint();
+            zoomSamples.append(frameTimer.nsecsElapsed() / 1000000.0);
+        }
+        verifySamples(zoomSamples, document.first, QStringLiteral("zoom"));
+
+        view->zoomAbsolute(32.0, Qv::CalculateViewportCenterPos);
+        view->horizontalScrollBar()->setValue(
+            (view->horizontalScrollBar()->minimum()
+             + view->horizontalScrollBar()->maximum()) / 2);
+        view->verticalScrollBar()->setValue(
+            (view->verticalScrollBar()->minimum()
+             + view->verticalScrollBar()->maximum()) / 2);
+        view->viewport()->repaint();
+        QVector<double> panSamples;
+        panSamples.reserve(FrameCount);
+        for (int i = 0; i < FrameCount; ++i)
+        {
+            QElapsedTimer frameTimer;
+            frameTimer.start();
+            view->horizontalScrollBar()->setValue(
+                view->horizontalScrollBar()->value() + (i % 2 == 0 ? 2 : -2));
+            view->verticalScrollBar()->setValue(
+                view->verticalScrollBar()->value() + (i % 3 == 0 ? 1 : -1));
+            view->viewport()->repaint();
+            panSamples.append(frameTimer.nsecsElapsed() / 1000000.0);
+        }
+        verifySamples(panSamples, document.first, QStringLiteral("pan"));
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 void ActionManagerTests::testAboutDialogIdentity()
 {
     QVAboutDialog dialog;
@@ -3989,6 +4398,7 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
     window.resize(800, 600);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);

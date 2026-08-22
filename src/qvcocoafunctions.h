@@ -21,6 +21,29 @@ class QWidget;
 class QVCocoaFunctions
 {
 public:
+    class PDFVectorDocument
+    {
+    public:
+        ~PDFVectorDocument();
+
+        PDFVectorDocument(const PDFVectorDocument &) = delete;
+        PDFVectorDocument &operator=(const PDFVectorDocument &) = delete;
+
+        bool isValid() const;
+        QImage renderTile(const QSizeF &logicalPageSize,
+                          const QRectF &sourceRect,
+                          const QSize &pixelSize,
+                          QString *errorString = nullptr) const;
+
+    private:
+        friend class QVCocoaFunctions;
+        explicit PDFVectorDocument(const QByteArray &pdfData);
+        struct Impl;
+        std::unique_ptr<Impl> impl;
+    };
+
+    using PDFVectorDocumentPtr = std::shared_ptr<const PDFVectorDocument>;
+
     struct HDRMetadata
     {
         QString sourceKind;
@@ -51,6 +74,7 @@ public:
     struct NativeImageReadResult
     {
         QImage image;
+        Qv::VectorImageData vectorImage;
         HDRImagePtr hdrImage;
         HDRMetadata hdrMetadata;
         QSize intrinsicSize;
@@ -233,6 +257,18 @@ public:
     // zoom can reveal source detail instead of enlarging a screen thumbnail.
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
+
+    // Rasterize only the requested PDF page region at the final device-pixel
+    // size.  EPS uses this after its PostScript program has been normalized to
+    // a vector PDF; callers never need a zoom-sized whole-document bitmap.
+    static QImage renderPDFVectorTile(const QByteArray &pdfData,
+                                      const QSizeF &logicalPageSize,
+                                      const QRectF &sourceRect,
+                                      const QSize &pixelSize,
+                                      QString *errorString = nullptr);
+
+    static PDFVectorDocumentPtr createPDFVectorDocument(
+        const QByteArray &pdfData, QString *errorString = nullptr);
 
     // Pure headroom policy helpers are exposed so endpoint behavior can be
     // verified without depending on a particular physical display. Production

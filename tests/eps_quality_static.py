@@ -28,6 +28,16 @@ EXTERNAL_RESEARCH = [
         "title": "Ghostscript: Using Ghostscript",
         "fact": "Ghostscript documents -dEPSCrop for cropping an EPS render to its DSC BoundingBox.",
     },
+    {
+        "url": "https://ghostscript.readthedocs.io/en/latest/VectorDevices.html",
+        "title": "Ghostscript: High-level vector output devices",
+        "fact": "Ghostscript documents pdfwrite as a high-level output device that normally preserves drawing primitives instead of rendering the input to a bitmap.",
+    },
+    {
+        "url": "https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_pdf/dq_pdf.html",
+        "title": "Apple Quartz 2D Programming Guide: PDF",
+        "fact": "Apple documents PDF as resolution-independent and CGContextDrawPDFPage as the page-drawing path for a graphics context.",
+    },
 ]
 
 
@@ -77,6 +87,10 @@ def main() -> int:
     application = (repo / "src" / "qvapplication.cpp").read_text(encoding="utf-8")
     loader = (repo / "src" / "qvimageloader.cpp").read_text(encoding="utf-8")
     image_core = (repo / "src" / "qvimagecore.cpp").read_text(encoding="utf-8")
+    graphics_item = (repo / "src" / "qvgraphicsimageitem.cpp").read_text(encoding="utf-8")
+    graphics_view = (repo / "src" / "qvgraphicsview.cpp").read_text(encoding="utf-8")
+    namespace = (repo / "src" / "qvnamespace.h").read_text(encoding="utf-8")
+    main_window = (repo / "src" / "mainwindow.cpp").read_text(encoding="utf-8")
     options = (repo / "src" / "qvoptionsdialog.cpp").read_text(encoding="utf-8")
     plist = (repo / "dist" / "mac" / "Info.plist.in").read_text(encoding="utf-8")
     readme = (repo / "README.md").read_text(encoding="utf-8")
@@ -118,7 +132,7 @@ def main() -> int:
             'QStringLiteral("-dSAFER")',
             'QStringLiteral("-dEPSCrop")',
             'QStringLiteral("-sDEVICE=pdfwrite")',
-            "CGPDFDocumentCreateWithURL",
+            "CGPDFDocumentCreateWithProvider",
             "CGContextDrawPDFPage",
         )
     )
@@ -137,14 +151,16 @@ def main() -> int:
     )
     authoritative_content = (
         "convertEPSToPDF(filePath" in native
-        and "imageFromPDFPage(pdfPath" in native
+        and "result.vectorImage.format = Qv::VectorImageFormat::Pdf" in native
+        and "result.vectorImage.encodedData = pdfData" in native
+        and "EPSPreviewLargestDimension = 512" in native
         and "imageFromEPSRasterPreview" not in native
         and "imageFromEPSIPreview" not in native
     )
     check(
         checks,
         "ST-EPS-PARSER-SAFETY",
-        "EPS must render authoritative PostScript through a bounded Ghostscript-to-PDF process and CoreGraphics, never through an embedded preview.",
+        "EPS must retain authoritative PostScript as a bounded Ghostscript-produced PDF document and never substitute its embedded placement preview.",
         renderer_contract and bounded_execution and authoritative_content,
         {
             "ghostscript_pdf_contract": renderer_contract,
@@ -152,6 +168,40 @@ def main() -> int:
             "authoritative_postscript_not_preview": authoritative_content,
         },
         ["src/qvcocoafunctions.mm"],
+    )
+
+    viewport_vector_contract = all(
+        marker in graphics_item
+        for marker in (
+            "QGraphicsItem::NoCache",
+            "QGraphicsItem::ItemUsesExtendedStyleOption",
+            "option->exposedRect",
+            "painter->deviceTransform()",
+            "pdfDocument->renderTile",
+            "renderedSourceRect.width() * deviceScaleX",
+            "VectorTilePanOverscanPixels = 128",
+            "InteractiveVectorRenderScale = 0.75",
+            "MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL",
+            "MaxRetainedVectorTiles = 2",
+            "QtConcurrent::run",
+        )
+    )
+    zoom_contract = (
+        "MaximumZoomLevel = 32.0" in namespace
+        and "boundedZoomLevel" in graphics_view
+        and "Qv::MaximumZoomLevel * 100.0" in main_window
+        and "vectorRefineTimer->setInterval(50)" in graphics_view
+    )
+    check(
+        checks,
+        "ST-EPS-VECTOR-VIEWPORT",
+        "The scene must use bounded exposed-region EPS tiles at final device density and every zoom path must stop at 3200%.",
+        viewport_vector_contract and zoom_contract,
+        {
+            "bounded_async_interaction_tile_contract": viewport_vector_contract,
+            "central_3200_percent_zoom_contract": zoom_contract,
+        },
+        ["src/qvgraphicsimageitem.cpp", "src/qvgraphicsview.cpp", "src/qvnamespace.h", "src/mainwindow.cpp"],
     )
 
     settings_wiring = all(
@@ -192,15 +242,15 @@ def main() -> int:
     static_document_guard = all(
         marker in image_core
         for marker in (
-            "com.adobe.encapsulated-postscript",
-            "isEPSDocument",
-            "!isEPSDocument && !readData.isMultiFrameImage",
+            "isVectorDocument",
+            "loadedVectorImage.isValid()",
+            "!isVectorDocument && !readData.isMultiFrameImage",
         )
     )
     check(
         checks,
         "ST-EPS-LOADER-DELEGATION",
-        "QVImageLoader must consume the native result without a suffix branch, and QVImageCore must not let movie probing replace static EPS pixels.",
+        "QVImageLoader must consume the native vector result without a suffix branch, and QVImageCore must not let movie probing replace the static EPS document.",
         loader_delegation and static_document_guard,
         {
             "native_bridge_used": "readImageWithImageIO" in loader,
@@ -224,6 +274,8 @@ def main() -> int:
             "testSettingsFormatsIncludeEPS",
             "FOVELLE_EPS_SAMPLE",
             "createEPSVectorImage",
+            "testVectorFormatsUseDocumentSceneItem",
+            "testVectorInteractionPaintPerformanceAt120Hz",
         )
     )
     check(
@@ -249,11 +301,12 @@ def main() -> int:
         },
         "facts": [
             "The implementation uses the existing macOS native bridge and the existing application extension registry.",
-            "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped PDF output, bounded diagnostics, and pixel/PDF limits.",
-            "The embedded preview decoders are absent from the authoritative rendering path.",
+            "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped high-level PDF output, bounded diagnostics, and pixel/PDF limits.",
+            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction refinement, then returns to exact device scale after 50 ms idle; the 512-pixel image is a non-authoritative fallback preview.",
+            "Every zoom entry point is bounded by the central 32.0 (3200%) contract.",
         ],
         "inferences": [
-            "Passing the registry and delegation checks indicates EPS follows the existing loader Result contract while retaining a document-specific renderer.",
+            "Passing the registry, delegation, and viewport checks indicates EPS follows the existing loader Result contract while retaining a document-specific renderer.",
             "The Settings table will reflect EPS at runtime because it enumerates QVApplication's all-file-extension set.",
         ],
         "uncertainties": [

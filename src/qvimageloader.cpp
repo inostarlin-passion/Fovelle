@@ -3,10 +3,19 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QMetaObject>
+#include <QPainter>
+#include <QSvgRenderer>
 #include <QThreadPool>
+
+namespace
+{
+constexpr qint64 MaxVectorSourceBytes = 256LL * 1024LL * 1024LL;
+constexpr int VectorPreviewLargestDimension = 512;
+}
 
 QVImageLoader::QVImageLoader(QObject *parent) : QObject(parent)
 {
@@ -134,23 +143,65 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
     const bool useNativeImageIO = nativeResult.isImageIOType;
     const bool useQtFallback =
             nativeResult.allowsQtFallback && nativeResult.image.isNull()
+            && !nativeResult.vectorImage.isValid()
             && !nativeResult.isRaw && !nativeResult.hdrImage;
     QSize intrinsicSize = nativeResult.intrinsicSize;
     QImage image = nativeResult.image;
+    Qv::VectorImageData vectorImage = nativeResult.vectorImage;
+    QString errorString;
 
     if (useQtFallback && (imageReader.format() == "svg" || imageReader.format() == "svgz") && !imageReader.size().isEmpty())
     {
-        intrinsicSize = imageReader.size();
-        imageReader.setScaledSize(intrinsicSize.scaled(largestDimension, largestDimension, Qt::KeepAspectRatio));
-        image = imageReader.read();
+        const QFileInfo vectorFileInfo(absoluteFilePath);
+        QFile vectorFile(absoluteFilePath);
+        if (vectorFileInfo.size() <= 0 || vectorFileInfo.size() > MaxVectorSourceBytes
+            || !vectorFile.open(QIODevice::ReadOnly))
+        {
+            errorString = vectorFileInfo.size() > MaxVectorSourceBytes
+                    ? QStringLiteral("SVG source exceeds the safety limit")
+                    : QStringLiteral("SVG source could not be opened");
+        }
+        else
+        {
+            const QByteArray svgData = vectorFile.readAll();
+            QSvgRenderer svgRenderer;
+            const bool valid = svgRenderer.load(absoluteFilePath);
+            QSize svgSize = svgRenderer.defaultSize();
+            if (svgSize.isEmpty() && svgRenderer.viewBoxF().isValid())
+                svgSize = svgRenderer.viewBoxF().size().toSize();
+            if (!valid || svgSize.isEmpty())
+            {
+                errorString = QStringLiteral("SVG document is invalid or has no drawable size");
+            }
+            else
+            {
+                intrinsicSize = svgSize;
+                vectorImage.format = Qv::VectorImageFormat::Svg;
+                vectorImage.encodedData = svgData;
+                vectorImage.sourcePath = vectorFileInfo.absoluteFilePath();
+                vectorImage.logicalSize = QSizeF(intrinsicSize);
+
+                const int previewLimit = qMax(1, qMin(largestDimension,
+                                                       VectorPreviewLargestDimension));
+                const QSize previewSize = intrinsicSize.scaled(
+                    previewLimit, previewLimit, Qt::KeepAspectRatio);
+                image = QImage(previewSize, QImage::Format_ARGB32_Premultiplied);
+                if (!image.isNull())
+                {
+                    image.fill(Qt::transparent);
+                    QPainter previewPainter(&image);
+                    svgRenderer.render(&previewPainter, QRectF(QPointF(), QSizeF(previewSize)));
+                }
+            }
+        }
     }
     else if (useQtFallback)
     {
         isMultiFrameImage = !imageReader.supportsOption(QImageIOHandler::Animation) && imageReader.imageCount() > 1;
         image = imageReader.read();
+        errorString = imageReader.errorString();
     }
 
-    QString errorString = imageReader.errorString();
     if (image.isNull() && useNativeImageIO && !nativeResult.errorString.isEmpty())
     {
         errorString = nativeResult.errorString;
@@ -173,18 +224,19 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
 
     const QFileInfo fileInfo(absoluteFilePath);
 
-    Result result{ std::move(image),
-                   nativeResult.hdrImage,
-                   nativeResult.hdrMetadata,
-                   fileInfo.absoluteFilePath(),
-                   fileInfo.size(),
-                   fileInfo.lastModified(),
-                   isMultiFrameImage,
-                   intrinsicSize,
-                   decodeTimer.nsecsElapsed() / 1000000.0,
-                   {} };
+    Result result;
+    result.image = std::move(image);
+    result.vectorImage = std::move(vectorImage);
+    result.hdrImage = nativeResult.hdrImage;
+    result.hdrMetadata = nativeResult.hdrMetadata;
+    result.absoluteFilePath = fileInfo.absoluteFilePath();
+    result.fileSize = fileInfo.size();
+    result.lastModified = fileInfo.lastModified();
+    result.isMultiFrameImage = isMultiFrameImage;
+    result.intrinsicSize = intrinsicSize;
+    result.decodeMilliseconds = decodeTimer.nsecsElapsed() / 1000000.0;
 
-    if (result.image.isNull() && !result.hdrImage)
+    if (result.image.isNull() && !result.vectorImage.isValid() && !result.hdrImage)
         result.errorData = ErrorData {imageReader.error(), errorString};
 
     return result;

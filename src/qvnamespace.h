@@ -1,8 +1,10 @@
 #ifndef QVNAMESPACE_H
 #define QVNAMESPACE_H
 
+#include <QByteArray>
 #include <QColor>
 #include <QSet>
+#include <QSizeF>
 #include <QString>
 #include <QWidget>
 #include <QWindow>
@@ -12,6 +14,13 @@ namespace Qv
     // Data constants
 
     inline constexpr int SessionStateVersion = 1;
+
+    // All zoom entry points use this one contract.  A maximum of 32.0 is
+    // presented to users as 3200%; keeping it in scene-transform units avoids
+    // format-specific limits and makes session restore obey the same bound as
+    // wheel, pinch, keyboard, and custom zoom input.
+    inline constexpr qreal MinimumZoomLevel = 0.01;
+    inline constexpr qreal MaximumZoomLevel = 32.0;
 
     inline constexpr QPoint CalculateViewportCenterPos(std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
@@ -129,6 +138,33 @@ namespace Qv
         Never = 0,
         WhenLaunching = 1,
         WhenOpeningImages = 2
+    };
+
+    enum class VectorImageFormat
+    {
+        None,
+        Svg,
+        Pdf
+    };
+
+    // Vector sources stay encoded until the graphics item paints them.  SVG
+    // retains its source path so relative resources keep their base URL; the
+    // temporary PDF produced from EPS is retained as bytes because its
+    // conversion directory is intentionally short-lived.
+    struct VectorImageData
+    {
+        VectorImageFormat format {VectorImageFormat::None};
+        QByteArray encodedData;
+        QString sourcePath;
+        QSizeF logicalSize;
+
+        bool isValid() const
+        {
+            const bool hasSource = format == VectorImageFormat::Svg
+                    ? (!sourcePath.isEmpty() || !encodedData.isEmpty())
+                    : format == VectorImageFormat::Pdf && !encodedData.isEmpty();
+            return hasSource && logicalSize.isValid() && !logicalSize.isEmpty();
+        }
     };
 
     // Other enums

@@ -149,15 +149,24 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     } else {
         loadedPixmap = QPixmap();
     }
+    loadedVectorImage = readData.vectorImage;
     loadedHDRImage = readData.hdrImage;
 
     // Set file details
-    currentFileDetails.isPixmapLoaded = true;
+    currentFileDetails.isPixmapLoaded = !loadedPixmap.isNull()
+            || loadedVectorImage.isValid() || loadedHDRImage != nullptr;
     currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
-    currentFileDetails.baseImageSize = readData.intrinsicSize.isValid() ? readData.intrinsicSize
-            : readData.hdrMetadata.pixelSize.isValid() ? readData.hdrMetadata.pixelSize
-                                                       : loadedPixmap.size();
+    currentFileDetails.isVectorLoaded = loadedVectorImage.isValid();
+    if (loadedVectorImage.isValid())
+        currentFileDetails.baseImageSize = loadedVectorImage.logicalSize.toSize();
+    else if (readData.intrinsicSize.isValid())
+        currentFileDetails.baseImageSize = readData.intrinsicSize;
+    else if (readData.hdrMetadata.pixelSize.isValid())
+        currentFileDetails.baseImageSize = readData.hdrMetadata.pixelSize;
+    else
+        currentFileDetails.baseImageSize = loadedPixmap.size();
     currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
+            || currentFileDetails.isVectorLoaded
             ? currentFileDetails.baseImageSize
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
@@ -168,17 +177,15 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     loadedMovie.stop();
     loadedMovie.setFormat("");
     loadedMovie.setCacheMode(QVMovie::CacheAll);
-    // EPS is a static PostScript document. QImageReader may still expose its
-    // embedded low-resolution placement preview as a readable frame; probing
-    // that frame here would asynchronously replace the authoritative
-    // Ghostscript rendering loaded above.
-    const bool isEPSDocument = readData.hdrMetadata.typeIdentifier
-            == QStringLiteral("com.adobe.encapsulated-postscript");
-    loadedMovie.setFileName(isEPSDocument
+    // Vector documents own their repaint lifecycle.  In particular, probing a
+    // DOS EPS through QImageReader can expose its low-resolution placement
+    // preview and asynchronously replace the authoritative PDF document.
+    const bool isVectorDocument = loadedVectorImage.isValid();
+    loadedMovie.setFileName(isVectorDocument
             ? QString()
             : currentFileDetails.fileInfo.absoluteFilePath());
 
-    if (!isEPSDocument && !readData.isMultiFrameImage
+    if (!isVectorDocument && !readData.isMultiFrameImage
         && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 
@@ -214,6 +221,7 @@ void QVImageCore::closeImage(const bool stayInDir)
 void QVImageCore::loadEmptyPixmap()
 {
     loadedPixmap = QPixmap();
+    loadedVectorImage = {};
     loadedHDRImage.reset();
     loadedMovie.stop();
     loadedMovie.setFileName("");
