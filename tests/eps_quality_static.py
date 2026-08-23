@@ -177,29 +177,39 @@ def main() -> int:
             "QGraphicsItem::ItemUsesExtendedStyleOption",
             "option->exposedRect",
             "painter->deviceTransform()",
-            "pdfDocument->renderTile",
-            "renderedSourceRect.width() * deviceScaleX",
+            "document->renderTile",
+            "renderedSourceRect.width() * requestedScaleX",
             "VectorTilePanOverscanPixels = 128",
             "InteractiveVectorRenderScale = 0.75",
             "MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL",
             "MaxRetainedVectorTiles = 2",
             "QtConcurrent::run",
+            "requestAsyncVectorTile(request)",
+            "matchingVectorTile(sourceRect",
+            "!vectorInteractionActive",
         )
     )
     zoom_contract = (
-        "MaximumZoomLevel = 32.0" in namespace
+        "MaximumZoomLevel = 64.0" in namespace
         and "boundedZoomLevel" in graphics_view
         and "Qv::MaximumZoomLevel * 100.0" in main_window
         and "vectorRefineTimer->setInterval(50)" in graphics_view
     )
+    interaction_scroll_contract = (
+        "paintsOpaqueViewportBackground" in graphics_view
+        and "Qt::WA_OpaquePaintEvent" in graphics_view
+        and "viewportScrollChanged" in graphics_view
+        and "setVectorInteractionActive(true)" in graphics_view
+    )
     check(
         checks,
         "ST-EPS-VECTOR-VIEWPORT",
-        "The scene must use bounded exposed-region EPS tiles at final device density and every zoom path must stop at 3200%.",
-        viewport_vector_contract and zoom_contract,
+        "The scene must render bounded exposed-region EPS tiles asynchronously, use backing-store scroll reuse, and stop every zoom path at 6400%.",
+        viewport_vector_contract and zoom_contract and interaction_scroll_contract,
         {
             "bounded_async_interaction_tile_contract": viewport_vector_contract,
-            "central_3200_percent_zoom_contract": zoom_contract,
+            "opaque_scroll_interaction_contract": interaction_scroll_contract,
+            "central_6400_percent_zoom_contract": zoom_contract,
         },
         ["src/qvgraphicsimageitem.cpp", "src/qvgraphicsview.cpp", "src/qvnamespace.h", "src/mainwindow.cpp"],
     )
@@ -275,7 +285,7 @@ def main() -> int:
             "FOVELLE_EPS_SAMPLE",
             "createEPSVectorImage",
             "testVectorFormatsUseDocumentSceneItem",
-            "testVectorInteractionPaintPerformanceAt120Hz",
+            "testVectorInteractionPaintCpuBudgetFor120Hz",
         )
     )
     check(
@@ -302,8 +312,8 @@ def main() -> int:
         "facts": [
             "The implementation uses the existing macOS native bridge and the existing application extension registry.",
             "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped high-level PDF output, bounded diagnostics, and pixel/PDF limits.",
-            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction refinement, then returns to exact device scale after 50 ms idle; the 512-pixel image is a non-authoritative fallback preview.",
-            "Every zoom entry point is bounded by the central 32.0 (3200%) contract.",
+            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction and idle refinement, and reuses opaque backing-store pixels while panning; the 512-pixel image is a non-authoritative fallback preview.",
+            "Every zoom entry point is bounded by the central 64.0 (6400%) contract.",
         ],
         "inferences": [
             "Passing the registry, delegation, and viewport checks indicates EPS follows the existing loader Result contract while retaining a document-specific renderer.",

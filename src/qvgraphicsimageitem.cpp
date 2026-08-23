@@ -66,6 +66,7 @@ void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
     lastVectorTilePixelSize = {};
     lastVectorTileSourceRect = {};
     completedVectorRenderCount = 0;
+    completedVectorTileGenerationCount = 0;
     update();
 }
 
@@ -113,6 +114,7 @@ bool QVGraphicsImageItem::setVectorImage(const Qv::VectorImageData &image)
     lastVectorTilePixelSize = {};
     lastVectorTileSourceRect = {};
     completedVectorRenderCount = 0;
+    completedVectorTileGenerationCount = 0;
     if (svgRenderer)
     {
         QObject::connect(svgRenderer.get(), &QSvgRenderer::repaintNeeded,
@@ -134,9 +136,9 @@ void QVGraphicsImageItem::setVectorInteractionActive(const bool active)
     vectorInteractionActive = active;
     if (!active)
     {
-        // The next paint only accepts an exact-scale tile.  If the asynchronous
-        // interaction renderer has not already produced one, paint() performs
-        // one final source render after the gesture is idle.
+        // The next paint only accepts an exact-scale tile and queues it on the
+        // worker when needed.  Stale interaction work is replaced by that
+        // latest idle request; source rendering never blocks the GUI thread.
         pendingAsyncRequest.reset();
         update();
     }
@@ -257,6 +259,7 @@ bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs,
             && lhs.pixelSize == rhs.pixelSize
             && scaleEquivalent(lhs.deviceScaleX, rhs.deviceScaleX)
             && scaleEquivalent(lhs.deviceScaleY, rhs.deviceScaleY)
+            && lhs.svgFrame == rhs.svgFrame
             && lhs.sourceRect == rhs.sourceRect;
 }
 
@@ -310,6 +313,10 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                     loaded = renderer.load(request.vectorImage.encodedData);
                 if (loaded && renderer.isValid())
                 {
+                    // The GUI-thread renderer owns the animation clock.  A
+                    // worker-local renderer is reentrant, and selecting the
+                    // captured frame keeps animated SVG refinement coherent.
+                    renderer.setCurrentFrame(request.svgFrame);
                     result.tile.image = QImage(
                         request.pixelSize, QImage::Format_ARGB32_Premultiplied);
                     if (!result.tile.image.isNull())
@@ -318,17 +325,40 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                         QPainter tilePainter(&result.tile.image);
                         tilePainter.setRenderHint(QPainter::Antialiasing, true);
                         tilePainter.setRenderHint(QPainter::TextAntialiasing, true);
-                        const qreal scaleX = request.pixelSize.width()
-                                / request.sourceRect.width();
-                        const qreal scaleY = request.pixelSize.height()
-                                / request.sourceRect.height();
-                        tilePainter.setWorldTransform(QTransform(
-                            scaleX, 0.0, 0.0, scaleY,
-                            -request.sourceRect.left() * scaleX,
-                            -request.sourceRect.top() * scaleY));
-                        renderer.render(
-                            &tilePainter,
-                            QRectF(QPointF(), request.vectorImage.logicalSize));
+                        // Crop in SVG user space before rasterization instead
+                        // of transforming the full document far outside this
+                        // bitmap. Qt's raster paint engine only guarantees
+                        // coordinates within roughly +/- 2^15; a 6400% view
+                        // of a large document can otherwise cross that range
+                        // even though the requested tile itself is bounded.
+                        const QRectF declaredViewBox = renderer.viewBoxF();
+                        const QSizeF logicalSize = request.vectorImage.logicalSize;
+                        // Width/height-only SVG documents are valid as well.
+                        // Keep their historical full-document mapping instead
+                        // of publishing a transparent tile when no explicit
+                        // viewBox was declared.
+                        const QRectF originalViewBox =
+                            declaredViewBox.isValid() && !declaredViewBox.isEmpty()
+                                ? declaredViewBox
+                                : QRectF(QPointF(), logicalSize);
+                        const QRectF tileViewBox(
+                            originalViewBox.left()
+                                + request.sourceRect.left()
+                                    * originalViewBox.width() / logicalSize.width(),
+                            originalViewBox.top()
+                                + request.sourceRect.top()
+                                    * originalViewBox.height() / logicalSize.height(),
+                            request.sourceRect.width()
+                                * originalViewBox.width() / logicalSize.width(),
+                            request.sourceRect.height()
+                                * originalViewBox.height() / logicalSize.height());
+                        if (tileViewBox.isValid() && !tileViewBox.isEmpty())
+                        {
+                            renderer.setViewBox(tileViewBox);
+                            renderer.render(
+                                &tilePainter,
+                                QRectF(QPointF(), QSizeF(request.pixelSize)));
+                        }
                         tilePainter.end();
                         result.tile.image.setColorSpace(QColorSpace::SRgb);
                     }
@@ -347,11 +377,14 @@ void QVGraphicsImageItem::asyncVectorTileFinished()
 {
     const AsyncTileResult result = asyncTileWatcher->result();
     activeAsyncRequest.reset();
-    if (vectorInteractionActive
-        && result.generation == vectorSourceGeneration
+    if (result.generation == vectorSourceGeneration
         && !result.tile.image.isNull())
     {
+        // Retain both transient interaction tiles and the exact tile requested
+        // after the gesture becomes idle.  Vector parsing/rasterization never
+        // needs to fall back to the GUI thread.
         retainVectorTile(result.tile);
+        ++completedVectorTileGenerationCount;
         update();
     }
     else if (!result.errorString.isEmpty()
@@ -365,8 +398,7 @@ void QVGraphicsImageItem::asyncVectorTileFinished()
     {
         AsyncTileRequest pending = std::move(pendingAsyncRequest.value());
         pendingAsyncRequest.reset();
-        if (vectorInteractionActive
-            && pending.generation == vectorSourceGeneration)
+        if (pending.generation == vectorSourceGeneration)
         {
             startAsyncVectorTile(std::move(pending));
         }
@@ -457,104 +489,54 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     const qreal paddingY = 1.0 / deviceScaleY;
     const QRectF sourceRect = exposedRect.adjusted(
         -paddingX, -paddingY, paddingX, paddingY).intersected(boundingRect());
-    const auto interactionRequest = [this, sourceRect,
-                                     deviceScaleX, deviceScaleY]() {
+    const auto tileRequest = [this, sourceRect, deviceScaleX, deviceScaleY](
+                                 const qreal renderScale) {
         const qreal overscanX = VectorTilePanOverscanPixels / deviceScaleX;
         const qreal overscanY = VectorTilePanOverscanPixels / deviceScaleY;
         const QRectF renderedSourceRect = sourceRect.adjusted(
             -overscanX, -overscanY, overscanX, overscanY)
             .intersected(boundingRect());
+        const qreal requestedScaleX = deviceScaleX * renderScale;
+        const qreal requestedScaleY = deviceScaleY * renderScale;
         const QSize tileSize = boundedTileSize(QSizeF(
-            renderedSourceRect.width() * deviceScaleX
-                * InteractiveVectorRenderScale,
-            renderedSourceRect.height() * deviceScaleY
-                * InteractiveVectorRenderScale));
-        const qreal renderedScaleX = tileSize.isEmpty() ? 0.0
-                : tileSize.width() / renderedSourceRect.width();
-        const qreal renderedScaleY = tileSize.isEmpty() ? 0.0
-                : tileSize.height() / renderedSourceRect.height();
+            renderedSourceRect.width() * requestedScaleX,
+            renderedSourceRect.height() * requestedScaleY));
         return AsyncTileRequest {
             vectorImage, renderedSourceRect, tileSize,
-            renderedScaleX, renderedScaleY, vectorSourceGeneration
+            requestedScaleX, requestedScaleY,
+            svgRenderer ? svgRenderer->currentFrame() : 0,
+            vectorSourceGeneration
         };
     };
     int tileIndex = matchingVectorTile(sourceRect, deviceScaleX, deviceScaleY);
     const bool cacheHit = tileIndex >= 0;
     bool scaledInteractionTile = false;
-    if (tileIndex < 0 && vectorInteractionActive)
+    if (tileIndex < 0)
     {
-        requestAsyncVectorTile(interactionRequest());
+        const AsyncTileRequest request = tileRequest(vectorInteractionActive
+                ? InteractiveVectorRenderScale : 1.0);
+        // A tile already generated for this requested density can cover the
+        // visible rect even when it intentionally cannot be an exact device-
+        // density match (the 75% interaction case).  Do not continuously
+        // regenerate that same tile on every repaint; its device-pixel
+        // overscan determines when a pan really needs another request.
+        if (matchingVectorTile(sourceRect,
+                               request.deviceScaleX,
+                               request.deviceScaleY) < 0)
+        {
+            requestAsyncVectorTile(request);
+        }
         tileIndex = bestInteractiveVectorTile(
             sourceRect, deviceScaleX, deviceScaleY);
         scaledInteractionTile = tileIndex >= 0;
         if (tileIndex < 0)
         {
             // There is no source coverage to transform yet.  The bounded
-            // preview keeps the gesture responsive; the idle refinement timer
-            // will replace it from the vector source after 50 ms.
+            // preview keeps the UI responsive until the worker publishes the
+            // requested interaction or exact terminal-density tile.
             paintRasterFallback(painter);
             return;
         }
-    }
-    if (tileIndex < 0)
-    {
-        const qreal overscanX = VectorTilePanOverscanPixels / deviceScaleX;
-        const qreal overscanY = VectorTilePanOverscanPixels / deviceScaleY;
-        const QRectF renderedSourceRect = sourceRect.adjusted(
-            -overscanX, -overscanY, overscanX, overscanY)
-            .intersected(boundingRect());
-        const QSize tileSize = boundedTileSize(QSizeF(
-            renderedSourceRect.width() * deviceScaleX,
-            renderedSourceRect.height() * deviceScaleY));
-        if (tileSize.isEmpty())
-            return;
-
-        QString errorString;
-        QImage renderedTile;
-        if (isPdf)
-        {
-            renderedTile = pdfDocument->renderTile(
-                vectorImage.logicalSize, renderedSourceRect,
-                tileSize, &errorString);
-        }
-        else
-        {
-            renderedTile = QImage(
-                tileSize, QImage::Format_ARGB32_Premultiplied);
-            if (!renderedTile.isNull())
-            {
-                renderedTile.fill(Qt::transparent);
-                QPainter tilePainter(&renderedTile);
-                tilePainter.setRenderHint(QPainter::Antialiasing, true);
-                tilePainter.setRenderHint(QPainter::TextAntialiasing, true);
-                const qreal renderScaleX = tileSize.width()
-                        / renderedSourceRect.width();
-                const qreal renderScaleY = tileSize.height()
-                        / renderedSourceRect.height();
-                tilePainter.setWorldTransform(QTransform(
-                    renderScaleX, 0.0, 0.0, renderScaleY,
-                    -renderedSourceRect.left() * renderScaleX,
-                    -renderedSourceRect.top() * renderScaleY));
-                svgRenderer->render(&tilePainter, boundingRect());
-                tilePainter.end();
-                renderedTile.setColorSpace(QColorSpace::SRgb);
-            }
-        }
-        if (renderedTile.isNull())
-        {
-            if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG"))
-                qWarning().noquote() << "FOVELLE_VECTOR_RENDER error="
-                                     << errorString;
-            paintRasterFallback(painter);
-            return;
-        }
-        retainVectorTile(VectorTile {
-            std::move(renderedTile), renderedSourceRect,
-            deviceScaleX, deviceScaleY, 0
-        });
-        tileIndex = matchingVectorTile(sourceRect, deviceScaleX, deviceScaleY);
-        if (tileIndex < 0)
-            return;
     }
 
     VectorTile &tile = vectorTiles[tileIndex];
@@ -578,7 +560,11 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         (drawnSourceRect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
         drawnSourceRect.width() * sourcePixelScaleX,
         drawnSourceRect.height() * sourcePixelScaleY);
-    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    // During a live transform, nearest-neighbor reuse of the most recent tile
+    // avoids spending most of an 8.33 ms 120 Hz frame on CPU bilinear scaling.
+    // The asynchronously generated exact idle tile restores final quality.
+    painter->setRenderHint(QPainter::SmoothPixmapTransform,
+                           !vectorInteractionActive);
     painter->drawImage(drawnSourceRect, tile.image, tilePixelRect);
     lastVectorTilePixelSize = tile.image.size();
     lastVectorTileSourceRect = tile.sourceRect;

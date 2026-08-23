@@ -15,12 +15,12 @@ namespace Qv
 
     inline constexpr int SessionStateVersion = 1;
 
-    // All zoom entry points use this one contract.  A maximum of 32.0 is
-    // presented to users as 3200%; keeping it in scene-transform units avoids
+    // All zoom entry points use this one contract.  A maximum of 64.0 is
+    // presented to users as 6400%; keeping it in scene-transform units avoids
     // format-specific limits and makes session restore obey the same bound as
     // wheel, pinch, keyboard, and custom zoom input.
     inline constexpr qreal MinimumZoomLevel = 0.01;
-    inline constexpr qreal MaximumZoomLevel = 32.0;
+    inline constexpr qreal MaximumZoomLevel = 64.0;
 
     inline constexpr QPoint CalculateViewportCenterPos(std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 

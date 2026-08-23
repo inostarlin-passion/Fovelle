@@ -46,6 +46,8 @@ public:
     QSize lastVectorRasterSize() const { return lastVectorTilePixelSize; }
     QRectF lastVectorSourceRect() const { return lastVectorTileSourceRect; }
     quint64 vectorRenderCount() const { return completedVectorRenderCount; }
+    quint64 vectorTileGenerationCount() const
+        { return completedVectorTileGenerationCount; }
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
@@ -68,6 +70,7 @@ private:
         QSize pixelSize;
         qreal deviceScaleX {0.0};
         qreal deviceScaleY {0.0};
+        int svgFrame {0};
         quint64 generation {0};
     };
 
@@ -109,6 +112,7 @@ private:
     mutable QSize lastVectorTilePixelSize;
     mutable QRectF lastVectorTileSourceRect;
     mutable quint64 completedVectorRenderCount {0};
+    quint64 completedVectorTileGenerationCount {0};
 };
 
 #endif // QVGRAPHICSIMAGEITEM_H

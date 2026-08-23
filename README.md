@@ -15,7 +15,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
 - Conditionally displays vertical and horizontal scrollbars.
-- **Vector rendering for EPS and SVG, with zoom levels of up to 3200%.**
+- **Vector rendering for EPS and SVG, with zoom levels of up to 6400%.**
 
 ### EPS requirement
 

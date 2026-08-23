@@ -140,10 +140,22 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     hdrGeometryTimer->setInterval(34);
     connect(hdrGeometryTimer, &QTimer::timeout, this,
             &QVGraphicsView::finishHDRGeometryStabilization);
+    const auto viewportScrollChanged = [this]() {
+        requestHDRRendererUpdate();
+        if (getCurrentFileDetails().isVectorLoaded)
+        {
+            // Every pan source eventually changes a scrollbar: mouse drag,
+            // wheel/trackpad, keyboard, scrollbar thumb, and constraint
+            // animation.  Keep source rasterization off the GUI thread for
+            // the whole burst, then request one exact terminal-density tile.
+            loadedPixmapItem->setVectorInteractionActive(true);
+            vectorRefineTimer->start();
+        }
+    };
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { requestHDRRendererUpdate(); });
+            viewportScrollChanged);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { requestHDRRendererUpdate(); });
+            viewportScrollChanged);
     connect(qvApp, &QGuiApplication::applicationStateChanged, this,
             [this](const Qt::ApplicationState state) {
         const bool active = state == Qt::ApplicationActive
@@ -258,14 +270,15 @@ void QVGraphicsView::drawBackground(QPainter *painter, const QRectF &rect)
 void QVGraphicsView::updateViewportOpacityContract()
 {
     const auto &details = getCurrentFileDetails();
-    const bool paintsOpaqueRasterBackground = details.isPixmapLoaded
-            && !details.isNativeHDRLoaded && !details.isVectorLoaded;
+    const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
+            && !details.isNativeHDRLoaded;
     // QWidget::scroll() can preserve the existing backing-store pixels and
     // repaint only newly exposed strips only when the widget is known to be
-    // opaque. SDR raster images paint the complete background above, so they
-    // can opt in without changing the legacy vector, HDR, or error paths.
+    // opaque. SDR raster and vector images paint the complete background
+    // above, so both can opt in. SVG/PDF alpha is composited over that opaque
+    // brush; native HDR remains excluded because it owns a separate layer.
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
-                             paintsOpaqueRasterBackground);
+                             paintsOpaqueViewportBackground);
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)

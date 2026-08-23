@@ -174,9 +174,10 @@ private slots:
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
     void testRasterPanRepaintsOnlyExposedStrip();
-    void testZoomIsBoundedAt3200Percent();
+    void testZoomIsBoundedAt6400Percent();
+    void testVectorPanRepaintsOnlyExposedStrip();
     void testVectorFormatsUseDocumentSceneItem();
-    void testVectorInteractionPaintPerformanceAt120Hz();
+    void testVectorInteractionPaintCpuBudgetFor120Hz();
 };
 
 class ApplicationEventTests : public QObject
@@ -1047,16 +1048,35 @@ void ImageLoaderTests::testEPSPostScriptRender()
     sceneItem.setPixmap(QPixmap::fromImage(result.image));
     QVERIFY(sceneItem.setVectorImage(result.vectorImage));
     QImage sceneRender(renderedImage.size(), QImage::Format_ARGB32_Premultiplied);
-    sceneRender.fill(Qt::transparent);
-    QPainter scenePainter(&sceneRender);
-    scenePainter.scale(
-        renderedImage.width() / result.vectorImage.logicalSize.width(),
-        renderedImage.height() / result.vectorImage.logicalSize.height());
     QStyleOptionGraphicsItem sceneOption;
     sceneOption.exposedRect = sceneItem.boundingRect();
-    sceneItem.paint(&scenePainter, &sceneOption);
-    scenePainter.end();
+    const auto paintSceneItem = [&]() {
+        sceneRender.fill(Qt::transparent);
+        QPainter scenePainter(&sceneRender);
+        scenePainter.scale(
+            renderedImage.width() / result.vectorImage.logicalSize.width(),
+            renderedImage.height() / result.vectorImage.logicalSize.height());
+        sceneItem.paint(&scenePainter, &sceneOption);
+    };
+    paintSceneItem();
+    QElapsedTimer exactTileTimer;
+    exactTileTimer.start();
+    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000)
+    {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        QTest::qWait(5);
+        paintSceneItem();
+    }
+    QVERIFY2(sceneItem.vectorRenderCount() > 0,
+             "the asynchronous exact PDF tile did not become paintable");
     QVERIFY(sampledChannelDifference(sceneRender, renderedImage) < 3.0);
+    const quint64 pdfTileGenerationCount =
+            sceneItem.vectorTileGenerationCount();
+    for (int repaint = 0; repaint < 8; ++repaint)
+        paintSceneItem();
+    QTest::qWait(50);
+    QCoreApplication::processEvents();
+    QCOMPARE(sceneItem.vectorTileGenerationCount(), pdfTileGenerationCount);
 
     const QRectF upperSourceRect(
         0, 0, result.vectorImage.logicalSize.width(),
@@ -1228,16 +1248,35 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     sceneItem.setPixmap(QPixmap::fromImage(result->image));
     QVERIFY(sceneItem.setVectorImage(result->vectorImage));
     QImage sceneRender(renderedSize, QImage::Format_ARGB32_Premultiplied);
-    sceneRender.fill(Qt::transparent);
-    QPainter scenePainter(&sceneRender);
-    scenePainter.scale(
-        renderedSize.width() / result->vectorImage.logicalSize.width(),
-        renderedSize.height() / result->vectorImage.logicalSize.height());
     QStyleOptionGraphicsItem sceneOption;
     sceneOption.exposedRect = sceneItem.boundingRect();
-    sceneItem.paint(&scenePainter, &sceneOption);
-    scenePainter.end();
+    const auto paintSceneItem = [&]() {
+        sceneRender.fill(Qt::transparent);
+        QPainter scenePainter(&sceneRender);
+        scenePainter.scale(
+            renderedSize.width() / result->vectorImage.logicalSize.width(),
+            renderedSize.height() / result->vectorImage.logicalSize.height());
+        sceneItem.paint(&scenePainter, &sceneOption);
+    };
+    paintSceneItem();
+    QElapsedTimer exactTileTimer;
+    exactTileTimer.start();
+    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000)
+    {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        QTest::qWait(5);
+        paintSceneItem();
+    }
+    QVERIFY2(sceneItem.vectorRenderCount() > 0,
+             "the asynchronous exact SVG tile did not become paintable");
     QVERIFY(sampledChannelDifference(sceneRender, reference) < 3.0);
+    const quint64 svgTileGenerationCount =
+            sceneItem.vectorTileGenerationCount();
+    for (int repaint = 0; repaint < 8; ++repaint)
+        paintSceneItem();
+    QTest::qWait(50);
+    QCoreApplication::processEvents();
+    QCOMPARE(sceneItem.vectorTileGenerationCount(), svgTileGenerationCount);
 }
 
 // TC-EPS-UNIT-MALFORMED
@@ -3529,17 +3568,86 @@ void SDRSampleInteractionTests::testProvidedSamplesPanWithPartialRepaints()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-void GraphicsViewTests::testZoomIsBoundedAt3200Percent()
+void GraphicsViewTests::testZoomIsBoundedAt6400Percent()
 {
     QCOMPARE(QVGraphicsView::boundedZoomLevel(1.0), 1.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(32.0), 32.0);
-    QCOMPARE(QVGraphicsView::boundedZoomLevel(32.0001), 32.0);
-    QCOMPARE(QVGraphicsView::boundedZoomLevel(100.0), 32.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(64.0), 64.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(64.0001), 64.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(100.0), 64.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(
-        std::numeric_limits<qreal>::infinity()), 32.0);
+        std::numeric_limits<qreal>::infinity()), 64.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(-1.0), 0.01);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(
         std::numeric_limits<qreal>::quiet_NaN()), 0.01);
+}
+
+void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = svgSamplePath(dir);
+    QVERIFY(!path.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
+    view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum(),
+        2000);
+    QTest::qWait(100);
+    view->viewport()->repaint();
+    QCoreApplication::processEvents();
+
+    QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+    QScrollBar *bar = view->horizontalScrollBar();
+    bar->setValue((bar->minimum() + bar->maximum()) / 2);
+    QCoreApplication::processEvents();
+    view->viewport()->repaint();
+    QCoreApplication::processEvents();
+
+    PaintRegionRecorder recorder;
+    view->viewport()->installEventFilter(&recorder);
+    bar->setValue(bar->value() + 6);
+    QVERIFY(view->hasPendingVectorRefinement());
+    QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+    view->viewport()->removeEventFilter(&recorder);
+
+    const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
+            * view->viewport()->height();
+    const qint64 maximumPaintArea = *std::max_element(
+        recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
+    const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
+    qInfo().noquote() << QStringLiteral(
+        "VECTOR_PAN_REPAINT dirty_ratio=%1 viewport_area=%2")
+        .arg(dirtyRatio, 0, 'f', 6)
+        .arg(viewportArea);
+    QVERIFY2(dirtyRatio <= 0.05,
+             qPrintable(QStringLiteral("unexpected full vector pan repaint ratio %1")
+                        .arg(dirtyRatio, 0, 'f', 6)));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
@@ -3571,7 +3679,7 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     window.openFile(epsPath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
-    QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+    QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Pdf);
     view->removeExpensiveScaling();
     QVERIFY(view->usesVectorRendering());
@@ -3594,7 +3702,7 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
         window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
         QFileInfo(svgPath).absoluteFilePath(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
-    QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+    QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Svg);
     view->removeExpensiveScaling();
     QVERIFY(view->usesVectorRendering());
@@ -3612,8 +3720,11 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
+void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
 {
+    // This is deliberately an application-side CPU paint budget probe. A
+    // synchronous QWidget::repaint() cannot observe WindowServer submission,
+    // VSync pacing, or photons on the panel, so no presented-FPS claim is made.
     ScopedSettingPreserver geometrySetting(QStringLiteral("geometry"));
     ScopedOptionValues options({
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
@@ -3660,14 +3771,14 @@ void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
             0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
         const double p99 = samples.at(p99Index);
         const double maximum = samples.constLast();
-        const double throughput = 1000.0 / average;
+        const double cpuCapacity = 1000.0 / average;
         qInfo().noquote() << QStringLiteral(
-            "VECTOR_120HZ format=%1 interaction=%2 average_ms=%3 p99_ms=%4 max_ms=%5 throughput_fps=%6 count=%7")
+            "VECTOR_120HZ_CPU_BUDGET format=%1 interaction=%2 average_ms=%3 p99_ms=%4 max_ms=%5 cpu_capacity_fps=%6 count=%7")
             .arg(format, interaction)
             .arg(average, 0, 'f', 3)
             .arg(p99, 0, 'f', 3)
             .arg(maximum, 0, 'f', 3)
-            .arg(throughput, 0, 'f', 3)
+            .arg(cpuCapacity, 0, 'f', 3)
             .arg(samples.size());
         QVERIFY2(average <= FrameBudgetMilliseconds,
                  qPrintable(format + " " + interaction + " average"));
@@ -3675,8 +3786,8 @@ void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
                  qPrintable(format + " " + interaction + " p99"));
         QVERIFY2(maximum <= FrameBudgetMilliseconds,
                  qPrintable(format + " " + interaction + " maximum"));
-        QVERIFY2(throughput >= 120.0,
-                 qPrintable(format + " " + interaction + " throughput"));
+        QVERIFY2(cpuCapacity >= 120.0,
+                 qPrintable(format + " " + interaction + " CPU capacity"));
     };
 
     for (const auto &document : documents)
@@ -3689,7 +3800,7 @@ void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
 
         for (int i = 0; i < 12; ++i)
         {
-            view->zoomAbsolute(i % 2 == 0 ? 24.0 : 32.0,
+            view->zoomAbsolute(i % 2 == 0 ? 48.0 : 64.0,
                                Qv::CalculateViewportCenterPos);
             view->viewport()->repaint();
         }
@@ -3701,8 +3812,8 @@ void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
             frameTimer.start();
             const int triangularStep = i < FrameCount / 2
                     ? i : FrameCount - 1 - i;
-            const qreal continuousZoom = 24.0
-                    + triangularStep * 8.0 / (FrameCount / 2 - 1);
+            const qreal continuousZoom = 48.0
+                    + triangularStep * 16.0 / (FrameCount / 2 - 1);
             view->zoomAbsolute(continuousZoom,
                                Qv::CalculateViewportCenterPos);
             view->viewport()->repaint();
@@ -3710,7 +3821,7 @@ void GraphicsViewTests::testVectorInteractionPaintPerformanceAt120Hz()
         }
         verifySamples(zoomSamples, document.first, QStringLiteral("zoom"));
 
-        view->zoomAbsolute(32.0, Qv::CalculateViewportCenterPos);
+        view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
         view->horizontalScrollBar()->setValue(
             (view->horizontalScrollBar()->minimum()
              + view->horizontalScrollBar()->maximum()) / 2);
