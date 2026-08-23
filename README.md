@@ -9,7 +9,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 ## New Features
 
 - **Added support for most common RAW image formats.**
-- **Supports HDR rendering and display for both RAW and non-RAW image formats.**
+- **Supports HDR rendering and display for both RAW and non-RAW image formats. Supports smooth brightness adjustment, allowing brightness to be increased or decreased seamlessly.**
 - Displays small images at their actual size (1:1).
 - Supports both light and dark appearances.
 - Press Esc to close the window or quit the app.
