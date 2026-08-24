@@ -390,7 +390,19 @@ def main() -> int:
             and "preparedViewportSize == viewportSize" not in renderer
             and "preparedCorners == corners" not in renderer
         ),
-        "layer_tracks_native_view_resize": "kCALayerWidthSizable | kCALayerHeightSizable" in renderer,
+        "layer_tracks_native_view_resize": (
+            "syncViewportLayerGeometry" in renderer
+            and "viewport->mapTo(hostWidget, QPoint(0, 0))" in renderer
+            and "presentationContainerLayer.frame = viewportFrame" in renderer
+        ),
+        "hdr_host_does_not_promote_sdr_viewport": (
+            "viewportWidget->window()->winId()" in renderer
+            and "viewportWidget->winId()" not in renderer
+        ),
+        "hdr_host_clips_to_mapped_viewport": (
+            "presentationContainerLayer.masksToBounds = YES" in renderer
+            and "presentationContainerLayer.frame = viewportFrame" in renderer
+        ),
         "drawable_background_prevents_reused_tile_ghosts": (
             "imageByCompositingOverImage:clearImage" in renderer and "alpha:1" in renderer
         ),
@@ -424,7 +436,8 @@ def main() -> int:
         ),
         "drawable_resize_precedes_display_link_callback": (
             "metalLayer.drawableSize = requestedSize" in render_entry
-            and "navigationOverlayLayer.frame = nativeView.bounds" in render_entry
+            and "syncViewportLayerGeometry();" in render_entry
+            and "metalLayer.frame = presentationContainerLayer.bounds" in render_entry
             and "metalLayer.drawableSize = requestedSize" not in render_to_drawable
             and "rebuildDisplayLinkForDrawableResize" in renderer
             and "[previous invalidate]" in renderer

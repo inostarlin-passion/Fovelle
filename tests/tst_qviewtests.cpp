@@ -148,7 +148,7 @@ class SDRSampleInteractionTests : public QObject
     Q_OBJECT
 
 private slots:
-    void testProvidedSamplesPanWithPartialRepaints();
+    void testProvidedSamplesUseMacOSPanPresentationPolicy();
 };
 
 class GraphicsViewTests : public QObject
@@ -173,7 +173,7 @@ private slots:
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
-    void testRasterPanRepaintsOnlyExposedStrip();
+    void testRasterPanUsesCompleteRepaintOnMacOS();
     void testZoomIsBoundedAt6400Percent();
     void testVectorPanRepaintsOnlyExposedStrip();
     void testVectorFormatsUseDocumentSceneItem();
@@ -3364,21 +3364,23 @@ void GraphicsViewTests::testNativeGestureResponsePerformance()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-SDR-PAN-PARTIAL-REPAINT
-// Test purpose: verify raster-image panning keeps Qt's backing-store scroll
-// acceleration instead of repainting the complete Retina viewport per input
-// event.
+// TC-SDR-PAN-MACOS-PRESENTATION
+// Test purpose: verify raster-image panning avoids Qt's Cocoa backing-store
+// scroll acceleration and repaints a complete, presentation-ready IOSurface.
 // Preconditions: a visible 640x480 Cocoa window contains a 1600x900 raster
 // image at 2:1 and both scroll axes have room to move.
 // Input data: one six-pixel horizontal scrollbar change after all opening
 // paints have settled.
-// Steps: first clear WA_OpaquePaintEvent and measure a six-pixel pan, then
-// restore it, repeat the same pan, and compare both paint regions.
-// Expected result: the transparent control repaints nearly the whole viewport;
-// the opaque production path repaints at most five percent (the edge strip).
+// Steps: measure the non-opaque production path, then enable the former opaque
+// optimization and repeat the same pan as a control.
+// Expected result: production repaints at least 95 percent of the viewport;
+// the former opaque path repaints at most five percent (the edge strip).
 // Postcondition: the recorder, window, fixture, and settings are released.
-void GraphicsViewTests::testRasterPanRepaintsOnlyExposedStrip()
+void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
 {
+#ifndef Q_OS_MACOS
+    QSKIP("The Cocoa backing-store presentation contract is macOS-specific.");
+#endif
     ScopedOptionValues options({
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
@@ -3421,44 +3423,49 @@ void GraphicsViewTests::testRasterPanRepaintsOnlyExposedStrip()
     QCoreApplication::processEvents();
 
     QScrollBar *bar = view->horizontalScrollBar();
-    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, false);
-    PaintRegionRecorder transparentRecorder;
-    view->viewport()->installEventFilter(&transparentRecorder);
+    QVERIFY(!view->viewport()->testAttribute(Qt::WA_NativeWindow));
+    QVERIFY(!view->viewport()->windowHandle());
+    QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+    PaintRegionRecorder productionRecorder;
+    view->viewport()->installEventFilter(&productionRecorder);
     bar->setValue(bar->value() + 6);
-    QTRY_VERIFY_WITH_TIMEOUT(!transparentRecorder.recordedAreas().isEmpty(), 1000);
-    view->viewport()->removeEventFilter(&transparentRecorder);
+    QTRY_VERIFY_WITH_TIMEOUT(!productionRecorder.recordedAreas().isEmpty(), 1000);
+    view->viewport()->removeEventFilter(&productionRecorder);
     const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
             * view->viewport()->height();
-    const qint64 transparentPaintArea = *std::max_element(
-        transparentRecorder.recordedAreas().cbegin(),
-        transparentRecorder.recordedAreas().cend());
-    const qreal transparentDirtyRatio =
-            static_cast<qreal>(transparentPaintArea) / viewportArea;
+    const qint64 productionPaintArea = *std::max_element(
+        productionRecorder.recordedAreas().cbegin(),
+        productionRecorder.recordedAreas().cend());
+    const qreal productionDirtyRatio =
+            static_cast<qreal>(productionPaintArea) / viewportArea;
 
     view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, true);
     view->viewport()->repaint();
     QCoreApplication::processEvents();
-    PaintRegionRecorder recorder;
-    view->viewport()->installEventFilter(&recorder);
+    PaintRegionRecorder opaqueControlRecorder;
+    view->viewport()->installEventFilter(&opaqueControlRecorder);
     bar->setValue(bar->value() + 6);
-    QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
-    view->viewport()->removeEventFilter(&recorder);
+    QTRY_VERIFY_WITH_TIMEOUT(!opaqueControlRecorder.recordedAreas().isEmpty(), 1000);
+    view->viewport()->removeEventFilter(&opaqueControlRecorder);
 
-    const qint64 maximumPaintArea = *std::max_element(
-        recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
-    const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
+    const qint64 opaqueControlPaintArea = *std::max_element(
+        opaqueControlRecorder.recordedAreas().cbegin(),
+        opaqueControlRecorder.recordedAreas().cend());
+    const qreal opaqueControlDirtyRatio =
+            static_cast<qreal>(opaqueControlPaintArea) / viewportArea;
     qInfo().noquote() << QStringLiteral(
-        "SDR_PAN_REPAINT transparent_dirty_ratio=%1 "
-        "opaque_dirty_ratio=%2 viewport_area=%3")
-        .arg(transparentDirtyRatio, 0, 'f', 6)
-        .arg(dirtyRatio, 0, 'f', 6)
+        "SDR_PAN_PRESENTATION production_dirty_ratio=%1 "
+        "opaque_control_dirty_ratio=%2 viewport_area=%3")
+        .arg(productionDirtyRatio, 0, 'f', 6)
+        .arg(opaqueControlDirtyRatio, 0, 'f', 6)
         .arg(viewportArea);
-    QVERIFY2(transparentDirtyRatio >= 0.95,
-             qPrintable(QStringLiteral("unexpected transparent pan ratio %1")
-                        .arg(transparentDirtyRatio, 0, 'f', 6)));
-    QVERIFY2(dirtyRatio <= 0.05,
-             qPrintable(QStringLiteral("unexpected full pan repaint ratio %1")
-                        .arg(dirtyRatio, 0, 'f', 6)));
+    QVERIFY2(productionDirtyRatio >= 0.95,
+             qPrintable(QStringLiteral("unexpected production pan ratio %1")
+                        .arg(productionDirtyRatio, 0, 'f', 6)));
+    QVERIFY2(opaqueControlDirtyRatio <= 0.05,
+             qPrintable(QStringLiteral("unexpected opaque control ratio %1")
+                        .arg(opaqueControlDirtyRatio, 0, 'f', 6)));
+    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, false);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -3466,18 +3473,22 @@ void GraphicsViewTests::testRasterPanRepaintsOnlyExposedStrip()
 
 // TC-SDR-INT-SAMPLE-PAN
 // Test purpose: exercise real, externally supplied SDR files through the full
-// decoder -> QPixmap -> QGraphicsView path and verify that format-specific
-// loading does not regress backing-store scroll acceleration.
+// decoder -> scene item -> QGraphicsView path and verify the macOS presentation
+// policy selected for each supplied format.
 // Preconditions: FOVELLE_SDR_SAMPLE_DIR names a readable directory containing
-// one or more supported raster images.
+// one or more supported SDR image documents.
 // Input data: every regular file in the supplied directory.
 // Steps: load each image, assert the SDR path, force an overflowing zoom,
 // settle the full-frame paint, pan by six pixels, and inspect the paint region.
-// Expected result: each image loads at intrinsic resolution and its pan repaint
-// covers at most five percent of the viewport.
+// Expected result: raster images use a non-opaque, complete repaint; vector
+// documents retain their opaque tile-rendering policy (covered independently
+// by TC-EPS-VECTOR-PAN-PARTIAL-REPAINT).
 // Postcondition: the recorder, window, samples, and settings are released.
-void SDRSampleInteractionTests::testProvidedSamplesPanWithPartialRepaints()
+void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy()
 {
+#ifndef Q_OS_MACOS
+    QSKIP("The Cocoa backing-store presentation contract is macOS-specific.");
+#endif
     const QString sampleDirectory =
             QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
     const QDir directory(sampleDirectory);
@@ -3516,9 +3527,13 @@ void SDRSampleInteractionTests::testProvidedSamplesPanWithPartialRepaints()
         const auto &details = window.getCurrentFileDetails();
         QVERIFY2(!details.isNativeHDRLoaded, qPrintable(sample.fileName()));
         QVERIFY2(!details.loadedPixmapSize.isEmpty(), qPrintable(sample.fileName()));
-        QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+        QCOMPARE(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent),
+                 details.isVectorLoaded);
 
-        view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+        // The supplied SVG logo and portrait EPS are much narrower than the
+        // test viewport. 16:1 guarantees horizontal overflow for every sample
+        // while remaining well below the common 64:1 zoom ceiling.
+        view->zoomAbsolute(16.0, Qv::CalculateViewportCenterPos);
         QTRY_VERIFY_WITH_TIMEOUT(
             view->horizontalScrollBar()->maximum()
                 > view->horizontalScrollBar()->minimum(),
@@ -3559,9 +3574,12 @@ void SDRSampleInteractionTests::testProvidedSamplesPanWithPartialRepaints()
             .arg(details.decodeMilliseconds, 0, 'f', 3)
             .arg(elapsedMilliseconds, 0, 'f', 3)
             .arg(dirtyRatio, 0, 'f', 6);
-        QVERIFY2(dirtyRatio <= 0.05,
-                 qPrintable(QStringLiteral("%1 full pan repaint ratio %2")
-                            .arg(sample.fileName()).arg(dirtyRatio, 0, 'f', 6)));
+        if (!details.isVectorLoaded)
+        {
+            QVERIFY2(dirtyRatio >= 0.95,
+                     qPrintable(QStringLiteral("%1 raster pan repaint ratio %2")
+                                .arg(sample.fileName()).arg(dirtyRatio, 0, 'f', 6)));
+        }
     }
 
     window.close();

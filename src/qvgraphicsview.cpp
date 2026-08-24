@@ -244,6 +244,8 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
                                   ? static_cast<qreal>(dirtyArea) / viewportArea
                                   : 0.0)
                           << "dpr=" << devicePixelRatioF()
+                          << "viewport_opaque="
+                          << viewport()->testAttribute(Qt::WA_OpaquePaintEvent)
                           << "zoom=" << zoomLevel
                           << "expensive_scale_zoom=" << appliedExpensiveScaleZoomLevel
                           << "pixmap_size=" << loadedPixmapItem->pixmap().size();
@@ -270,13 +272,22 @@ void QVGraphicsView::drawBackground(QPainter *painter, const QRectF &rect)
 void QVGraphicsView::updateViewportOpacityContract()
 {
     const auto &details = getCurrentFileDetails();
+#ifdef Q_OS_MACOS
+    // Do not opt SDR raster images into QWidget's accelerated backing-store
+    // scroll on macOS. QCALayerBackingStore has to synchronize the unpainted
+    // part of each IOSurface before presenting it, so repainting only the
+    // newly exposed strip creates a hidden near-full-surface copy and can
+    // exhaust the normal triple-buffer chain during a 120 Hz drag. Leaving
+    // the raster viewport non-opaque makes Qt repaint the complete viewport,
+    // which is the stable presentation path used by qView. Vector documents
+    // retain opaque scroll reuse because their bounded tile renderer makes a
+    // full repaint materially more expensive.
+    const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
+            && !details.isNativeHDRLoaded && details.isVectorLoaded;
+#else
     const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
             && !details.isNativeHDRLoaded;
-    // QWidget::scroll() can preserve the existing backing-store pixels and
-    // repaint only newly exposed strips only when the widget is known to be
-    // opaque. SDR raster and vector images paint the complete background
-    // above, so both can opt in. SVG/PDF alpha is composited over that opaque
-    // brush; native HDR remains excluded because it owns a separate layer.
+#endif
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
                              paintsOpaqueViewportBackground);
 }
@@ -1073,7 +1084,8 @@ void QVGraphicsView::postLoad()
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
-    hdrRendererActive = hdrRenderer && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+    hdrRendererActive = hdrRenderer
+            && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
     updateViewportOpacityContract();
     // Keep the bounded SDR proxy visible until a correctly sized Metal frame
     // has actually reached the display. It is a seamless placeholder, not the

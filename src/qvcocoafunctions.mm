@@ -1010,7 +1010,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!viewportWidget)
             return;
 
-        nativeView = reinterpret_cast<NSView *>(viewportWidget->winId());
+        viewport = viewportWidget;
+        // A QWidget::winId() call on the QGraphicsView viewport promotes the
+        // complete QAbstractScrollArea ancestry to native child windows. That
+        // splits SDR dragging across several independent Cocoa backing stores.
+        // The top-level widget is native already, so host the HDR-only CALayer
+        // subtree there and clip it to the alien viewport's mapped rectangle.
+        nativeView = reinterpret_cast<NSView *>(viewportWidget->window()->winId());
         device = MTLCreateSystemDefaultDevice();
         if (!nativeView || !device)
             return;
@@ -1047,19 +1053,19 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         nativeView.wantsLayer = YES;
         presentationContainerLayer = [[CALayer layer] retain];
-        presentationContainerLayer.frame = nativeView.bounds;
-        presentationContainerLayer.autoresizingMask =
-                kCALayerWidthSizable | kCALayerHeightSizable;
+        presentationContainerLayer.frame = CGRectZero;
+        presentationContainerLayer.autoresizingMask = kCALayerNotSizable;
         // Do not snapshot QNSView's AppKit-managed backing-layer flag here.
         // During attachment it can still be YES and later settle to NO, which
         // leaves this standalone subtree in the opposite coordinate system.
         presentationContainerLayer.geometryFlipped =
                 QVCocoaFunctions::persistentHDRLayerGeometryFlipped();
+        presentationContainerLayer.masksToBounds = YES;
         presentationContainerLayer.opacity = 0.0F;
         presentationContainerLayer.hidden = YES;
         viewportBackgroundLayer = [[CALayer layer] retain];
         viewportBackgroundLayer.opaque = YES;
-        viewportBackgroundLayer.frame = nativeView.bounds;
+        viewportBackgroundLayer.frame = CGRectZero;
         viewportBackgroundLayer.autoresizingMask =
                 kCALayerWidthSizable | kCALayerHeightSizable;
         viewportBackgroundLayer.hidden = YES;
@@ -1109,9 +1115,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // reveal that rectangular store instead of the Metal image below.
         navigationOverlayLayer = [[CALayer layer] retain];
         navigationOverlayLayer.geometryFlipped = YES;
-        navigationOverlayLayer.frame = nativeView.bounds;
-        navigationOverlayLayer.autoresizingMask =
-                kCALayerWidthSizable | kCALayerHeightSizable;
+        navigationOverlayLayer.frame = CGRectZero;
+        navigationOverlayLayer.autoresizingMask = kCALayerNotSizable;
         navigationOverlayLayer.zPosition = 1000.0;
         for (int index = 0; index < 2; ++index) {
             navigationBackgroundLayers[index] = [CAShapeLayer layer];
@@ -1127,7 +1132,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        metalLayer.frame = nativeView.bounds;
+        metalLayer.frame = CGRectZero;
         metalLayer.hidden = YES;
         metalLayer.opacity = 0.0F;
         [nativeView.layer addSublayer:presentationContainerLayer];
@@ -1138,6 +1143,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // HDR image layer moves underneath them.
         [nativeView.layer addSublayer:navigationOverlayLayer];
         [CATransaction commit];
+        syncViewportLayerGeometry();
         presentationState = [[QVHDRPresentationState alloc] initWithMetalLayer:metalLayer];
         persistentSurfaceGate->owner.store(this);
 
@@ -1249,6 +1255,42 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction commit];
         if (layerColor)
             CGColorRelease(layerColor);
+    }
+
+    CGRect viewportFrameInNativeView() const
+    {
+        if (!viewport || !nativeView)
+            return CGRectZero;
+
+        QWidget *hostWidget = viewport->window();
+        const QPoint origin = viewport->mapTo(hostWidget, QPoint(0, 0));
+        const QSize size = viewport->size();
+        const CGFloat width = std::max(0, size.width());
+        const CGFloat height = std::max(0, size.height());
+        const CGFloat y = nativeView.layer.geometryFlipped
+                ? origin.y()
+                : CGRectGetHeight(nativeView.bounds) - origin.y() - height;
+        return CGRectMake(origin.x(), y, width, height);
+    }
+
+    void syncViewportLayerGeometry()
+    {
+        if (!presentationContainerLayer || !navigationOverlayLayer
+            || !viewportBackgroundLayer || !metalLayer)
+            return;
+
+        const CGRect viewportFrame = viewportFrameInNativeView();
+        const CGRect viewportBounds = CGRectMake(
+                0.0, 0.0, viewportFrame.size.width, viewportFrame.size.height);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        presentationContainerLayer.frame = viewportFrame;
+        presentationContainerLayer.bounds = viewportBounds;
+        viewportBackgroundLayer.frame = viewportBounds;
+        metalLayer.frame = viewportBounds;
+        navigationOverlayLayer.frame = viewportFrame;
+        navigationOverlayLayer.bounds = viewportBounds;
+        [CATransaction commit];
     }
 
     float currentPresentationOpacity() const
@@ -1386,6 +1428,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!navigationOverlayLayer || index < 0 || index >= 2)
             return;
 
+        syncViewportLayerGeometry();
+
         CAShapeLayer *backgroundLayer = navigationBackgroundLayers[index];
         CAShapeLayer *chevronLayer = navigationChevronLayers[index];
         const CGFloat boundedOpacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
@@ -1437,7 +1481,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CGColorRef foregroundCGColor = navigationColor(foreground);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        navigationOverlayLayer.frame = nativeView.bounds;
         backgroundLayer.frame = frame;
         backgroundLayer.path = backgroundPath;
         backgroundLayer.fillColor = backgroundCGColor;
@@ -1511,6 +1554,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         latestViewportSize = viewportSize;
         latestCorners = corners;
+        syncViewportLayerGeometry();
         if (!persistentSurfaceReady || !persistentImage
             || viewportSize.isEmpty() || corners.size() < 4)
             return;
@@ -1529,13 +1573,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        viewportBackgroundLayer.frame = nativeView.bounds;
+        viewportBackgroundLayer.frame = presentationContainerLayer.bounds;
         persistentImageLayer.bounds = CGRectMake(
                 0.0, 0.0, sourceWidth, sourceHeight);
         persistentImageLayer.anchorPoint = CGPointZero;
         persistentImageLayer.position = CGPointZero;
         persistentImageLayer.affineTransform = transform;
-        navigationOverlayLayer.frame = nativeView.bounds;
         [CATransaction commit];
         if (qEnvironmentVariableIsSet("FOVELLE_HDR_DIAGNOSTIC_LOG")) {
             const CGRect viewBounds = nativeView.bounds;
@@ -2258,6 +2301,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
+        syncViewportLayerGeometry();
         latestViewportSize = viewportSize;
         latestCorners = corners;
         if (persistentSurfaceReady) {
@@ -2298,11 +2342,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 || std::abs(metalLayer.drawableSize.height - requestedSize.height) > 0.5;
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        metalLayer.frame = nativeView.bounds;
+        metalLayer.frame = presentationContainerLayer.bounds;
         metalLayer.contentsScale = backingScale;
         if (drawableSizeChanged)
             metalLayer.drawableSize = requestedSize;
-        navigationOverlayLayer.frame = nativeView.bounds;
         [CATransaction commit];
         if (drawableSizeChanged)
             rebuildDisplayLinkForDrawableResize();
@@ -2636,6 +2679,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return state;
     }
 
+    QWidget *viewport{ nullptr };
     NSView *nativeView{ nil };
     CALayer *presentationContainerLayer{ nil };
     CALayer *viewportBackgroundLayer{ nil };
