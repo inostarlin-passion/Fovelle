@@ -22,6 +22,10 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     resize(650, 550);
     ui->categoryTabs->setShape(QTabBar::RoundedNorth);
+    // QTabBar remains the lightweight Qt page model used by tests and the
+    // stacked widget connection.  AppKit supplies the visible Settings
+    // toolbar once the native window exists.
+    ui->categoryTabs->hide();
 
     connect(ui->categoryTabs, &QTabBar::currentChanged, this, [this](int currentIndex) {
         ui->stackedWidget->setCurrentIndex(currentIndex);
@@ -95,16 +99,16 @@ void QVOptionsDialog::showEvent(QShowEvent *event)
     };
     updateWindowOnTop();
     connect(qvApp, &QVApplication::windowOnTopChanged, this, updateWindowOnTop);
-    NativeDialogs::applyTheme(this);
     QDialog::showEvent(event);
+    NativeDialogs::applyTheme(this);
+    QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
 }
 
 void QVOptionsDialog::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::PaletteChange)
-    {
-        populateCategories(ui->categoryTabs->currentIndex());
-    }
+    // Native toolbar symbols and labels resolve against effectiveAppearance
+    // automatically.  Rebuilding the page model on PaletteChange used to
+    // cause a transient pane/title jump while switching themes.
     QDialog::changeEvent(event);
 }
 

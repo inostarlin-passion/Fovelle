@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "kind": "atomic-test-evidence-index",
-  "generated_at_utc": "2026-08-24T15:26:18.462573+00:00",
+  "generated_at_utc": "2026-08-24T16:27:58.547995+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "6644f2142e8c8ddb00656150ffdf20cda65e7261",
+  "head_sha": "8019354fb481110f1c2594af9d0e77f7c84b05c3",
   "execution_order": [
     "static",
     "unit",
@@ -18,6 +18,28 @@
     "static": {
       "test_level": "static",
       "cases": {
+        "ST-GS-LOOKUP": {
+          "passed": true,
+          "actual": {
+            "bundle_lookup": true,
+            "support_path": true
+          }
+        },
+        "ST-SETTINGS-TAB-LAYOUT": {
+          "passed": true,
+          "actual": {
+            "xml_parse": true,
+            "category_model": "QTabBar",
+            "native_preference_toolbar": true,
+            "hidden_qt_model": true
+          }
+        },
+        "ST-EDIT-DICTATION": {
+          "passed": true,
+          "actual": {
+            "filter": true
+          }
+        },
         "ST-GS-AGPL-BUNDLE": {
           "passed": true,
           "actual": {
@@ -26,22 +48,16 @@
             "checksum_pinned": true
           }
         },
-        "ST-TITLEBAR-REMOVED": {
-          "passed": true,
-          "actual": {
-            "forbidden_controls_absent": true
-          }
-        },
-        "ST-EDIT-EMOJI": {
+        "ST-EDIT-AUTOFILL": {
           "passed": true,
           "actual": {
             "filter": true
           }
         },
-        "ST-HELP-WELCOME-REMOVED": {
+        "ST-TITLEBAR-REMOVED": {
           "passed": true,
           "actual": {
-            "welcome_absent": true
+            "forbidden_controls_absent": true
           }
         },
         "ST-INFO-NATIVE": {
@@ -50,11 +66,10 @@
             "show_theme": true
           }
         },
-        "ST-THEME-SYSTEM-ENTRY": {
+        "ST-WELCOME-PAGE-REMOVED": {
           "passed": true,
           "actual": {
-            "theme_order": true,
-            "system": true
+            "welcome_files": false
           }
         },
         "ST-SETTINGS-ACTION-BUTTONS-REMOVED": {
@@ -63,23 +78,17 @@
             "old_action_model_absent": true
           }
         },
-        "ST-UPDATE-NATIVE": {
+        "Q-LEAN": {
           "passed": true,
           "actual": {
-            "update_dialog": true
+            "shared_adapter": true,
+            "welcome_removed": true
           }
         },
-        "ST-THEME-SYSTEM-RESOLUTION": {
+        "ST-EDIT-EMOJI": {
           "passed": true,
           "actual": {
-            "resolver": true,
-            "test_override": true
-          }
-        },
-        "ST-LANGUAGE-RESTART": {
-          "passed": true,
-          "actual": {
-            "native_restart_popup": true
+            "filter": true
           }
         },
         "ST-HELP-PROJECT-ITEM": {
@@ -88,29 +97,68 @@
             "item": true
           }
         },
-        "ST-WELCOME-PAGE-REMOVED": {
+        "ST-URL-NATIVE": {
           "passed": true,
           "actual": {
-            "welcome_files": false
+            "input": true,
+            "progress": true,
+            "palette_regression_test": true
           }
         },
-        "ST-HELP-PROJECT-URL": {
+        "ST-LANGUAGE-RESTART": {
           "passed": true,
           "actual": {
-            "url": true
+            "native_restart_popup": true
           }
         },
-        "ST-SMOOTH-BILINEAR": {
+        "ST-TITLEBAR-PRACTICAL-DEFAULT": {
           "passed": true,
           "actual": {
             "default": true
           }
         },
-        "ST-URL-NATIVE": {
+        "ST-UPDATE-NATIVE": {
           "passed": true,
           "actual": {
-            "input": true,
-            "progress": true
+            "update_dialog": true
+          }
+        },
+        "ST-HELP-CHECK-UPDATES": {
+          "passed": true,
+          "actual": {
+            "manual_check": true
+          }
+        },
+        "ST-README-EPS-REQUIREMENT-REMOVED": {
+          "passed": true,
+          "actual": {
+            "old_heading": false,
+            "manual_install": false
+          }
+        },
+        "ST-HELP-WELCOME-REMOVED": {
+          "passed": true,
+          "actual": {
+            "welcome_absent": true
+          }
+        },
+        "ST-ABOUT-NATIVE": {
+          "passed": true,
+          "actual": {
+            "show_theme": true
+          }
+        },
+        "ST-SETTINGS-IMMEDIATE": {
+          "passed": true,
+          "actual": {
+            "immediate_write_path": true
+          }
+        },
+        "ST-THEME-SYSTEM-ENTRY": {
+          "passed": true,
+          "actual": {
+            "theme_order": true,
+            "system": true
           }
         },
         "ST-POPUPS-NATIVE": {
@@ -130,46 +178,6 @@
             "direct_static_message_boxes": false
           }
         },
-        "ST-EDIT-DICTATION": {
-          "passed": true,
-          "actual": {
-            "filter": true
-          }
-        },
-        "ST-EDIT-AUTOFILL": {
-          "passed": true,
-          "actual": {
-            "filter": true
-          }
-        },
-        "ST-README-EPS-REQUIREMENT-REMOVED": {
-          "passed": true,
-          "actual": {
-            "old_heading": false,
-            "manual_install": false
-          }
-        },
-        "ST-SETTINGS-TAB-LAYOUT": {
-          "passed": true,
-          "actual": {
-            "xml_parse": true,
-            "categoryTabs": "QTabBar",
-            "document_mode": true
-          }
-        },
-        "ST-TITLEBAR-PRACTICAL-DEFAULT": {
-          "passed": true,
-          "actual": {
-            "default": true
-          }
-        },
-        "Q-LEAN": {
-          "passed": true,
-          "actual": {
-            "shared_adapter": true,
-            "welcome_removed": true
-          }
-        },
         "ST-DIALOG-NATIVE-THEME": {
           "passed": true,
           "actual": {
@@ -183,32 +191,28 @@
               "qvinfodialog.cpp": true,
               "openwith.cpp": true,
               "updatechecker.cpp": true
-            }
+            },
+            "application_scheme": true,
+            "palette_assertions": true
           }
         },
-        "ST-HELP-CHECK-UPDATES": {
+        "ST-THEME-SYSTEM-RESOLUTION": {
           "passed": true,
           "actual": {
-            "manual_check": true
+            "resolver": true,
+            "test_override": true
           }
         },
-        "ST-ABOUT-NATIVE": {
+        "ST-HELP-PROJECT-URL": {
           "passed": true,
           "actual": {
-            "show_theme": true
+            "url": true
           }
         },
-        "ST-SETTINGS-IMMEDIATE": {
+        "ST-SMOOTH-BILINEAR": {
           "passed": true,
           "actual": {
-            "immediate_write_path": true
-          }
-        },
-        "ST-GS-LOOKUP": {
-          "passed": true,
-          "actual": {
-            "bundle_lookup": true,
-            "support_path": true
+            "default": true
           }
         }
       },
@@ -223,13 +227,13 @@
           "--binary",
           "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
           "--output",
-          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-unit-__ppmzy4/unit.json"
+          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-unit-p4prdqvx/unit.json"
         ],
         "return_code": 0,
         "timed_out": false,
-        "elapsed_seconds": 11.352938583000196,
-        "output_sha256": "f296e6d01c8c9a7a27eee912f0f250ad8c1cd2bc37b74f9b5209ccb5376143fc",
-        "output_tail": "()\\nPASS   : HDRPolicyTests::testRawContentHeadroomUsesMeasuredPeakWhenUnknown()\\nPASS   : HDRPolicyTests::testPreparedHDRPresentationCanBeReusedAcrossGeometry()\\nPASS   : HDRPolicyTests::testViewportBackgroundColorsMatchTheme()\\nPASS   : HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()\\nPASS   : HDRPolicyTests::testSDRImageStaysOnSDRPath()\\nPASS   : HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()\\nPASS   : HDRPolicyTests::cleanupTestCase()\\nTotals: 16 passed, 0 failed, 0 skipped, 0 blacklisted, 6ms\\n********* Finished testing of HDRPolicyTests *********\\n********* Start testing of GraphicsViewTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : GraphicsViewTests::initTestCase()\\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\\nQINFO  : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars() center verification QRectF(0,0 1200x900) QRect(0,28 628x468) QPointF(314,262) QPoint(313,261)\\nPASS   : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()\\nPASS   : GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()\\nPASS   : GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()\\nPASS   : GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()\\nPASS   : GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()\\nPASS   : GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()\\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=30\\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=0\\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\\nPASS   : GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()\\nPASS   : GraphicsViewTests::testNativePanChangesViewport()\\nPASS   : GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()\\nPASS   : GraphicsViewTests::testScrollBarsMatchTheme()\\nQINFO  : GraphicsViewTests::testNativeGestureResponsePerformance() GESTURE_PERF average_ms=0.005 p99_ms=0.010 max_ms=0.014 throughput_events_per_second=181400.137 count=240\\nPASS   : GraphicsViewTests::testNativeGestureResponsePerformance()\\nQINFO  : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS() SDR_PAN_PRESENTATION production_dirty_ratio=1.000000 opaque_control_dirty_ratio=0.009554 viewport_area=311488\\nPASS   : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()\\nPASS   : GraphicsViewTests::testZoomIsBoundedAt6400Percent()\\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_DISPLAY refresh_hz=120.0 viewport=1728x985 dpr=2.0\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=zoom average_ms=4.068 p99_ms=4.375 max_ms=4.397 cpu_capacity_fps=245.806 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=pan average_ms=3.983 p99_ms=4.334 max_ms=4.380 cpu_capacity_fps=251.060 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=zoom average_ms=4.846 p99_ms=5.440 max_ms=5.520 cpu_capacity_fps=206.346 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=pan average_ms=4.766 p99_ms=5.444 max_ms=5.538 cpu_capacity_fps=209.799 count=120\\nPASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()\\nPASS   : GraphicsViewTests::cleanupTestCase()\\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 5537ms\\n********* Finished testing of GraphicsViewTests *********\\n********* Start testing of ApplicationEventTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : ApplicationEventTests::initTestCase()\\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\\nPASS   : ApplicationEventTests::cleanupTestCase()\\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 70ms\\n********* Finished testing of ApplicationEventTests *********\\n********* Start testing of ImageCoreAndMovieTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : ImageCoreAndMovieTests::initTestCase()\\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\\nPASS   : ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()\\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\\nTotals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 59ms\\n********* Finished testing of ImageCoreAndMovieTests *********\\n********* Start testing of WindowBehaviorTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : WindowBehaviorTests::initTestCase()\\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\\nPASS   : WindowBehaviorTests::testHelpMenuContract()\\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.849584\\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\\nPASS   : WindowBehaviorTests::cleanupTestCase()\\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 1880ms\\n********* Finished testing of WindowBehaviorTests *********\\n\",\n  \"passed\": true\n}\n",
+        "elapsed_seconds": 12.94098004100033,
+        "output_sha256": "832c2f65ceb1e817307ce21fd231fad72831cb3b0dfb62f6700e68467c7224a9",
+        "output_tail": "Unknown()\\nPASS   : HDRPolicyTests::testPreparedHDRPresentationCanBeReusedAcrossGeometry()\\nPASS   : HDRPolicyTests::testViewportBackgroundColorsMatchTheme()\\nPASS   : HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()\\nPASS   : HDRPolicyTests::testSDRImageStaysOnSDRPath()\\nPASS   : HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()\\nPASS   : HDRPolicyTests::cleanupTestCase()\\nTotals: 16 passed, 0 failed, 0 skipped, 0 blacklisted, 7ms\\n********* Finished testing of HDRPolicyTests *********\\n********* Start testing of GraphicsViewTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : GraphicsViewTests::initTestCase()\\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\\nQINFO  : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars() center verification QRectF(0,0 1200x900) QRect(0,28 628x468) QPointF(314,262) QPoint(313,261)\\nPASS   : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()\\nPASS   : GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()\\nPASS   : GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()\\nPASS   : GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()\\nPASS   : GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()\\nPASS   : GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()\\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=27\\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=0\\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\\nPASS   : GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()\\nPASS   : GraphicsViewTests::testNativePanChangesViewport()\\nPASS   : GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()\\nPASS   : GraphicsViewTests::testScrollBarsMatchTheme()\\nQINFO  : GraphicsViewTests::testNativeGestureResponsePerformance() GESTURE_PERF average_ms=0.008 p99_ms=0.014 max_ms=0.017 throughput_events_per_second=120661.102 count=240\\nPASS   : GraphicsViewTests::testNativeGestureResponsePerformance()\\nQINFO  : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS() SDR_PAN_PRESENTATION production_dirty_ratio=1.000000 opaque_control_dirty_ratio=0.009554 viewport_area=311488\\nPASS   : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()\\nPASS   : GraphicsViewTests::testZoomIsBoundedAt6400Percent()\\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_DISPLAY refresh_hz=120.0 viewport=1728x985 dpr=2.0\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=zoom average_ms=4.954 p99_ms=5.771 max_ms=5.831 cpu_capacity_fps=201.852 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=pan average_ms=4.808 p99_ms=5.491 max_ms=5.612 cpu_capacity_fps=207.967 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=zoom average_ms=4.868 p99_ms=5.589 max_ms=5.675 cpu_capacity_fps=205.430 count=120\\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=pan average_ms=4.779 p99_ms=5.672 max_ms=5.846 cpu_capacity_fps=209.239 count=120\\nPASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()\\nPASS   : GraphicsViewTests::cleanupTestCase()\\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 5896ms\\n********* Finished testing of GraphicsViewTests *********\\n********* Start testing of ApplicationEventTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : ApplicationEventTests::initTestCase()\\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\\nPASS   : ApplicationEventTests::cleanupTestCase()\\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 65ms\\n********* Finished testing of ApplicationEventTests *********\\n********* Start testing of ImageCoreAndMovieTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : ImageCoreAndMovieTests::initTestCase()\\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\\nPASS   : ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()\\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\\nTotals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 59ms\\n********* Finished testing of ImageCoreAndMovieTests *********\\n********* Start testing of WindowBehaviorTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : WindowBehaviorTests::initTestCase()\\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\\nPASS   : WindowBehaviorTests::testHelpMenuContract()\\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.714333\\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\\nPASS   : WindowBehaviorTests::cleanupTestCase()\\nTotals: 25 passed, 0 failed, 0 skipped, 0 blacklisted, 3173ms\\n********* Finished testing of WindowBehaviorTests *********\\n\",\n  \"passed\": true\n}\n",
         "passed": true
       },
       "runner": {
@@ -244,7 +248,7 @@
           "QT_QPA_PLATFORM": "cocoa",
           "QT_FATAL_WARNINGS": "1"
         },
-        "elapsed_seconds": 11.307870042000104,
+        "elapsed_seconds": 12.896833207999407,
         "timeout_seconds": 90,
         "timed_out": false,
         "return_code": 0,
@@ -288,13 +292,13 @@
             "blacklisted": 0
           },
           {
-            "passed": 24,
+            "passed": 25,
             "failed": 0,
             "skipped": 0,
             "blacklisted": 0
           }
         ],
-        "total_passed": 92,
+        "total_passed": 93,
         "total_failed": 0,
         "total_skipped": 0,
         "cases": [
@@ -499,6 +503,16 @@
             "status": "passed"
           },
           {
+            "id": "TC-SETTINGS-NATIVE-TOOLBAR",
+            "test": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
+            "status": "passed"
+          },
+          {
+            "id": "TC-OPEN-URL-THEME",
+            "test": "WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme",
+            "status": "passed"
+          },
+          {
             "id": "TC-THEME-COLORS",
             "test": "WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground",
             "status": "passed"
@@ -534,7 +548,7 @@
             "status": "passed"
           }
         ],
-        "output": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderAppliesWebpOrientation()\nPASS   : ImageLoaderTests::testImageLoaderAppliesAvifOrientation()\nPASS   : ImageLoaderTests::testImageLoaderLoadsTiffWithImageIO()\nPASS   : ImageLoaderTests::testEPSFormatIsAdvertised()\nPASS   : ImageLoaderTests::testEPSPostScriptRender()\nPASS   : ImageLoaderTests::testImageLoaderLoadsEPS()\nPASS   : ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()\nPASS   : ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()\nPASS   : ImageLoaderTests::testMalformedEPSFailsSafely()\nPASS   : ImageLoaderTests::testEPSMissingRendererFailsActionably()\nPASS   : ImageLoaderTests::testImageIOUsesContentTypeInsteadOfFilenameExtension()\nPASS   : ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 3133ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 372ms\n********* Finished testing of FeatureTests *********\n********* Start testing of HDRPolicyTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : HDRPolicyTests::initTestCase()\nPASS   : HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()\nPASS   : HDRPolicyTests::testFinalFrameRevealRejectsPartialHeadroom()\nPASS   : HDRPolicyTests::testHDRHeadroomIsClampedToContentAndDisplay()\nPASS   : HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()\nPASS   : HDRPolicyTests::testDisplayHeadroomBootstrapsFromPotentialCapability()\nPASS   : HDRPolicyTests::testFinalFrameRevealRequiresMatchedGeometry()\nPASS   : HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()\nPASS   : HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()\nPASS   : HDRPolicyTests::testRawContentHeadroomUsesMeasuredPeakWhenUnknown()\nPASS   : HDRPolicyTests::testPreparedHDRPresentationCanBeReusedAcrossGeometry()\nPASS   : HDRPolicyTests::testViewportBackgroundColorsMatchTheme()\nPASS   : HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()\nPASS   : HDRPolicyTests::testSDRImageStaysOnSDRPath()\nPASS   : HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()\nPASS   : HDRPolicyTests::cleanupTestCase()\nTotals: 16 passed, 0 failed, 0 skipped, 0 blacklisted, 6ms\n********* Finished testing of HDRPolicyTests *********\n********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\nQINFO  : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars() center verification QRectF(0,0 1200x900) QRect(0,28 628x468) QPointF(314,262) QPoint(313,261)\nPASS   : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()\nPASS   : GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()\nPASS   : GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()\nPASS   : GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()\nPASS   : GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()\nPASS   : GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=30\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=0\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\nPASS   : GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()\nPASS   : GraphicsViewTests::testNativePanChangesViewport()\nPASS   : GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()\nPASS   : GraphicsViewTests::testScrollBarsMatchTheme()\nQINFO  : GraphicsViewTests::testNativeGestureResponsePerformance() GESTURE_PERF average_ms=0.005 p99_ms=0.010 max_ms=0.014 throughput_events_per_second=181400.137 count=240\nPASS   : GraphicsViewTests::testNativeGestureResponsePerformance()\nQINFO  : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS() SDR_PAN_PRESENTATION production_dirty_ratio=1.000000 opaque_control_dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()\nPASS   : GraphicsViewTests::testZoomIsBoundedAt6400Percent()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_DISPLAY refresh_hz=120.0 viewport=1728x985 dpr=2.0\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=zoom average_ms=4.068 p99_ms=4.375 max_ms=4.397 cpu_capacity_fps=245.806 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=pan average_ms=3.983 p99_ms=4.334 max_ms=4.380 cpu_capacity_fps=251.060 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=zoom average_ms=4.846 p99_ms=5.440 max_ms=5.520 cpu_capacity_fps=206.346 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=pan average_ms=4.766 p99_ms=5.444 max_ms=5.538 cpu_capacity_fps=209.799 count=120\nPASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 5537ms\n********* Finished testing of GraphicsViewTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 70ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 59ms\n********* Finished testing of ImageCoreAndMovieTests *********\n********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.849584\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 1880ms\n********* Finished testing of WindowBehaviorTests *********\n",
+        "output": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testImageLoaderPriorities()\nPASS   : ImageLoaderTests::testImageLoaderCacheAndAttachment()\nPASS   : ImageLoaderTests::testImageLoaderRetainedDuringDelivery()\nPASS   : ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()\nPASS   : ImageLoaderTests::testImageLoaderSupersededForegroundDiscarded()\nPASS   : ImageLoaderTests::testImageLoaderDisabledRetention()\nPASS   : ImageLoaderTests::testImageLoaderCachedErrorRetry()\nPASS   : ImageLoaderTests::testImageLoaderDestructionDuringLoad()\nPASS   : ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderLoadsAvifWithImageIOFallback()\nPASS   : ImageLoaderTests::testImageLoaderAppliesWebpOrientation()\nPASS   : ImageLoaderTests::testImageLoaderAppliesAvifOrientation()\nPASS   : ImageLoaderTests::testImageLoaderLoadsTiffWithImageIO()\nPASS   : ImageLoaderTests::testEPSFormatIsAdvertised()\nPASS   : ImageLoaderTests::testEPSPostScriptRender()\nPASS   : ImageLoaderTests::testImageLoaderLoadsEPS()\nPASS   : ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()\nPASS   : ImageLoaderTests::testEPSRenderSurvivesStaticMovieProbe()\nPASS   : ImageLoaderTests::testMalformedEPSFailsSafely()\nPASS   : ImageLoaderTests::testEPSMissingRendererFailsActionably()\nPASS   : ImageLoaderTests::testImageIOUsesContentTypeInsteadOfFilenameExtension()\nPASS   : ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 3077ms\n********* Finished testing of ImageLoaderTests *********\n********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 364ms\n********* Finished testing of FeatureTests *********\n********* Start testing of HDRPolicyTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : HDRPolicyTests::initTestCase()\nPASS   : HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()\nPASS   : HDRPolicyTests::testFinalFrameRevealRejectsPartialHeadroom()\nPASS   : HDRPolicyTests::testHDRHeadroomIsClampedToContentAndDisplay()\nPASS   : HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()\nPASS   : HDRPolicyTests::testDisplayHeadroomBootstrapsFromPotentialCapability()\nPASS   : HDRPolicyTests::testFinalFrameRevealRequiresMatchedGeometry()\nPASS   : HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()\nPASS   : HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()\nPASS   : HDRPolicyTests::testRawContentHeadroomUsesMeasuredPeakWhenUnknown()\nPASS   : HDRPolicyTests::testPreparedHDRPresentationCanBeReusedAcrossGeometry()\nPASS   : HDRPolicyTests::testViewportBackgroundColorsMatchTheme()\nPASS   : HDRPolicyTests::testRendererUsesFloatEDRColorManagedSurface()\nPASS   : HDRPolicyTests::testSDRImageStaysOnSDRPath()\nPASS   : HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()\nPASS   : HDRPolicyTests::cleanupTestCase()\nTotals: 16 passed, 0 failed, 0 skipped, 0 blacklisted, 7ms\n********* Finished testing of HDRPolicyTests *********\n********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nPASS   : GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()\nPASS   : GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()\nQINFO  : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars() center verification QRectF(0,0 1200x900) QRect(0,28 628x468) QPointF(314,262) QPoint(313,261)\nPASS   : GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()\nPASS   : GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()\nPASS   : GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()\nPASS   : GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()\nPASS   : GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()\nPASS   : GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=27\nQINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=0\nPASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()\nPASS   : GraphicsViewTests::testManualZoomRemainsManualAcrossResize()\nPASS   : GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()\nPASS   : GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()\nPASS   : GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()\nPASS   : GraphicsViewTests::testNativePanChangesViewport()\nPASS   : GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()\nPASS   : GraphicsViewTests::testScrollBarsMatchTheme()\nQINFO  : GraphicsViewTests::testNativeGestureResponsePerformance() GESTURE_PERF average_ms=0.008 p99_ms=0.014 max_ms=0.017 throughput_events_per_second=120661.102 count=240\nPASS   : GraphicsViewTests::testNativeGestureResponsePerformance()\nQINFO  : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS() SDR_PAN_PRESENTATION production_dirty_ratio=1.000000 opaque_control_dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()\nPASS   : GraphicsViewTests::testZoomIsBoundedAt6400Percent()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_DISPLAY refresh_hz=120.0 viewport=1728x985 dpr=2.0\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=zoom average_ms=4.954 p99_ms=5.771 max_ms=5.831 cpu_capacity_fps=201.852 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=eps interaction=pan average_ms=4.808 p99_ms=5.491 max_ms=5.612 cpu_capacity_fps=207.967 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=zoom average_ms=4.868 p99_ms=5.589 max_ms=5.675 cpu_capacity_fps=205.430 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET format=svg interaction=pan average_ms=4.779 p99_ms=5.672 max_ms=5.846 cpu_capacity_fps=209.239 count=120\nPASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 5896ms\n********* Finished testing of GraphicsViewTests *********\n********* Start testing of ApplicationEventTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ApplicationEventTests::initTestCase()\nPASS   : ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()\nPASS   : ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()\nPASS   : ApplicationEventTests::cleanupTestCase()\nTotals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 65ms\n********* Finished testing of ApplicationEventTests *********\n********* Start testing of ImageCoreAndMovieTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageCoreAndMovieTests::initTestCase()\nPASS   : ImageCoreAndMovieTests::testColorSpaceConversion()\nPASS   : ImageCoreAndMovieTests::testMovieSpeedAndSingleFrameRead()\nPASS   : ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()\nPASS   : ImageCoreAndMovieTests::cleanupTestCase()\nTotals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 59ms\n********* Finished testing of ImageCoreAndMovieTests *********\n********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.714333\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 25 passed, 0 failed, 0 skipped, 0 blacklisted, 3173ms\n********* Finished testing of WindowBehaviorTests *********\n",
         "passed": true
       },
       "cases": {
@@ -580,7 +594,8 @@
           "passed": true,
           "actual": {
             "methods": {
-              "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme": true
+              "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme": true,
+              "WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme": true
             },
             "return_code": 0
           }
@@ -630,19 +645,19 @@
                 "--binary",
                 "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
                 "--output",
-                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-hzqqk3ne/eps_integration.json"
+                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-mn62gts1/eps_integration.json"
               ],
               "return_code": 0,
               "timed_out": false,
-              "elapsed_seconds": 0.639815833999819,
-              "output_sha256": "82c5009278c57647c626f26332a1c881571c57dd9fa19613276f6e345833c7ef",
-              "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T15:26:12.131949+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.5941751670002304,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
+              "elapsed_seconds": 0.658920500000022,
+              "output_sha256": "c9d0881f938ac665705bdcc0b15e210839560e543e0969a4a8aebfbeccbbc83b",
+              "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T16:27:52.232765+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.6132355409999946,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
               "passed": true
             },
             "runner": {
               "schema_version": "1.0",
               "kind": "eps-integration-test-evidence",
-              "generated_at_utc": "2026-08-24T15:26:12.131949+00:00",
+              "generated_at_utc": "2026-08-24T16:27:52.232765+00:00",
               "test_level": "integration",
               "command": [
                 "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
@@ -656,7 +671,7 @@
                 "QTEST_FUNCTION_TIMEOUT": "30000"
               },
               "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-              "elapsed_seconds": 0.5941751670002304,
+              "elapsed_seconds": 0.6132355409999946,
               "return_code": 0,
               "timed_out": false,
               "cases": [
@@ -676,7 +691,7 @@
                 "skipped": 0,
                 "blacklisted": 0
               },
-              "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\n********* Finished testing of FeatureTests *********\n",
+              "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\n********* Finished testing of FeatureTests *********\n",
               "facts": [
                 "The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.",
                 "The same test also checks that EPS aliases are present in QVApplication's runtime extension set."
@@ -714,7 +729,7 @@
               ],
               "return_code": 0,
               "timed_out": false,
-              "elapsed_seconds": 0.011290915999779827,
+              "elapsed_seconds": 0.012596874999871943,
               "output_sha256": "11e415dc337940d11bae2c66cba66624710a909c82fe6884940e71191dac008c",
               "output_tail": "10.07.1\n",
               "passed": true
@@ -732,13 +747,13 @@
               "-dNOPAUSE",
               "-dEPSCrop",
               "-sDEVICE=pdfwrite",
-              "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-90pfu_8d/fixture.pdf",
+              "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-qsgd1v2f/fixture.pdf",
               "-f",
-              "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-90pfu_8d/fixture.eps"
+              "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-qsgd1v2f/fixture.eps"
             ],
             "return_code": 0,
             "timed_out": false,
-            "elapsed_seconds": 0.04969675000029383,
+            "elapsed_seconds": 0.052038332999472914,
             "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "output_tail": "",
             "passed": true,
@@ -753,7 +768,7 @@
       "runner": {
         "schema_version": "1.0",
         "kind": "eps-integration-test-evidence",
-        "generated_at_utc": "2026-08-24T15:26:12.131949+00:00",
+        "generated_at_utc": "2026-08-24T16:27:52.232765+00:00",
         "test_level": "integration",
         "command": [
           "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
@@ -767,7 +782,7 @@
           "QTEST_FUNCTION_TIMEOUT": "30000"
         },
         "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-        "elapsed_seconds": 0.5941751670002304,
+        "elapsed_seconds": 0.6132355409999946,
         "return_code": 0,
         "timed_out": false,
         "cases": [
@@ -787,7 +802,7 @@
           "skipped": 0,
           "blacklisted": 0
         },
-        "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\n********* Finished testing of FeatureTests *********\n",
+        "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\n********* Finished testing of FeatureTests *********\n",
         "facts": [
           "The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.",
           "The same test also checks that EPS aliases are present in QVApplication's runtime extension set."
@@ -807,13 +822,13 @@
           "--binary",
           "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
           "--output",
-          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-hzqqk3ne/eps_integration.json"
+          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-mn62gts1/eps_integration.json"
         ],
         "return_code": 0,
         "timed_out": false,
-        "elapsed_seconds": 0.639815833999819,
-        "output_sha256": "82c5009278c57647c626f26332a1c881571c57dd9fa19613276f6e345833c7ef",
-        "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T15:26:12.131949+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.5941751670002304,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
+        "elapsed_seconds": 0.658920500000022,
+        "output_sha256": "c9d0881f938ac665705bdcc0b15e210839560e543e0969a4a8aebfbeccbbc83b",
+        "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T16:27:52.232765+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.6132355409999946,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
         "passed": true
       },
       "passed": true
@@ -835,19 +850,19 @@
                 "--hold-seconds",
                 "2",
                 "--output",
-                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-e517m82_/eps_system.json"
+                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-hepr88ds/eps_system.json"
               ],
               "return_code": 0,
               "timed_out": false,
-              "elapsed_seconds": 6.246378332999939,
-              "output_sha256": "b5de00e9fbb2a29804af2b8be790b00113ab9a5468f293d0d750d56e77cb5921",
-              "output_tail": "pe=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.5618505409997852,\n      \"elapsed_seconds\": 2.06940454100004,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.556005208333166,\n    \"response_p99_seconds\": 0.5618505409997852,\n    \"response_max_seconds\": 0.5618505409997852,\n    \"response_throughput_runs_per_second\": 0.48429365721503825,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.556005208333166,\n          \"response_p99_seconds\": 0.5618505409997852,\n          \"response_max_seconds\": 0.5618505409997852,\n          \"response_throughput_runs_per_second\": 0.48429365721503825,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
+              "elapsed_seconds": 6.225837582999702,
+              "output_sha256": "f51b181e6a309da22e9a57e8c11f93d3ca1efe8678e3707a49c4abfca25af77a",
+              "output_tail": "xScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.6193374999993466,\n      \"elapsed_seconds\": 2.0599990000000616,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.5979482219994073,\n    \"response_p99_seconds\": 0.6193374999993466,\n    \"response_max_seconds\": 0.6193374999993466,\n    \"response_throughput_runs_per_second\": 0.48612226274459114,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.5979482219994073,\n          \"response_p99_seconds\": 0.6193374999993466,\n          \"response_max_seconds\": 0.6193374999993466,\n          \"response_throughput_runs_per_second\": 0.48612226274459114,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
               "passed": true
             },
             "runner": {
               "schema_version": "1.0",
               "kind": "eps-system-test-evidence",
-              "generated_at_utc": "2026-08-24T15:26:18.449375+00:00",
+              "generated_at_utc": "2026-08-24T16:27:58.533670+00:00",
               "test_level": "system",
               "app": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
@@ -858,8 +873,8 @@
               "runs": [
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5492308339998999,
-                  "elapsed_seconds": 2.0594523750000917,
+                  "response_seconds": 0.55581358299969,
+                  "elapsed_seconds": 2.040651582999999,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -906,8 +921,8 @@
                 },
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5569342499998129,
-                  "elapsed_seconds": 2.065731749999941,
+                  "response_seconds": 0.6186935829991853,
+                  "elapsed_seconds": 2.0706364159996156,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -954,8 +969,8 @@
                 },
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5618505409997852,
-                  "elapsed_seconds": 2.06940454100004,
+                  "response_seconds": 0.6193374999993466,
+                  "elapsed_seconds": 2.0599990000000616,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -1002,10 +1017,10 @@
                 }
               ],
               "metrics": {
-                "response_average_seconds": 0.556005208333166,
-                "response_p99_seconds": 0.5618505409997852,
-                "response_max_seconds": 0.5618505409997852,
-                "response_throughput_runs_per_second": 0.48429365721503825,
+                "response_average_seconds": 0.5979482219994073,
+                "response_p99_seconds": 0.6193374999993466,
+                "response_max_seconds": 0.6193374999993466,
+                "response_throughput_runs_per_second": 0.48612226274459114,
                 "response_observation_count": 3
               },
               "thresholds": {
@@ -1042,10 +1057,10 @@
                   "passed": true,
                   "actual": {
                     "metrics": {
-                      "response_average_seconds": 0.556005208333166,
-                      "response_p99_seconds": 0.5618505409997852,
-                      "response_max_seconds": 0.5618505409997852,
-                      "response_throughput_runs_per_second": 0.48429365721503825,
+                      "response_average_seconds": 0.5979482219994073,
+                      "response_p99_seconds": 0.6193374999993466,
+                      "response_max_seconds": 0.6193374999993466,
+                      "response_throughput_runs_per_second": 0.48612226274459114,
                       "response_observation_count": 3
                     },
                     "thresholds": {
@@ -1090,19 +1105,19 @@
                 "--hold-seconds",
                 "2",
                 "--output",
-                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-e517m82_/eps_system.json"
+                "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-hepr88ds/eps_system.json"
               ],
               "return_code": 0,
               "timed_out": false,
-              "elapsed_seconds": 6.246378332999939,
-              "output_sha256": "b5de00e9fbb2a29804af2b8be790b00113ab9a5468f293d0d750d56e77cb5921",
-              "output_tail": "pe=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.5618505409997852,\n      \"elapsed_seconds\": 2.06940454100004,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.556005208333166,\n    \"response_p99_seconds\": 0.5618505409997852,\n    \"response_max_seconds\": 0.5618505409997852,\n    \"response_throughput_runs_per_second\": 0.48429365721503825,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.556005208333166,\n          \"response_p99_seconds\": 0.5618505409997852,\n          \"response_max_seconds\": 0.5618505409997852,\n          \"response_throughput_runs_per_second\": 0.48429365721503825,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
+              "elapsed_seconds": 6.225837582999702,
+              "output_sha256": "f51b181e6a309da22e9a57e8c11f93d3ca1efe8678e3707a49c4abfca25af77a",
+              "output_tail": "xScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.6193374999993466,\n      \"elapsed_seconds\": 2.0599990000000616,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.5979482219994073,\n    \"response_p99_seconds\": 0.6193374999993466,\n    \"response_max_seconds\": 0.6193374999993466,\n    \"response_throughput_runs_per_second\": 0.48612226274459114,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.5979482219994073,\n          \"response_p99_seconds\": 0.6193374999993466,\n          \"response_max_seconds\": 0.6193374999993466,\n          \"response_throughput_runs_per_second\": 0.48612226274459114,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
               "passed": true
             },
             "runner": {
               "schema_version": "1.0",
               "kind": "eps-system-test-evidence",
-              "generated_at_utc": "2026-08-24T15:26:18.449375+00:00",
+              "generated_at_utc": "2026-08-24T16:27:58.533670+00:00",
               "test_level": "system",
               "app": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
@@ -1113,8 +1128,8 @@
               "runs": [
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5492308339998999,
-                  "elapsed_seconds": 2.0594523750000917,
+                  "response_seconds": 0.55581358299969,
+                  "elapsed_seconds": 2.040651582999999,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -1161,8 +1176,8 @@
                 },
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5569342499998129,
-                  "elapsed_seconds": 2.065731749999941,
+                  "response_seconds": 0.6186935829991853,
+                  "elapsed_seconds": 2.0706364159996156,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -1209,8 +1224,8 @@
                 },
                 {
                   "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-                  "response_seconds": 0.5618505409997852,
-                  "elapsed_seconds": 2.06940454100004,
+                  "response_seconds": 0.6193374999993466,
+                  "elapsed_seconds": 2.0599990000000616,
                   "return_code": -15,
                   "terminated": true,
                   "decoded_geometry_observed": true,
@@ -1257,10 +1272,10 @@
                 }
               ],
               "metrics": {
-                "response_average_seconds": 0.556005208333166,
-                "response_p99_seconds": 0.5618505409997852,
-                "response_max_seconds": 0.5618505409997852,
-                "response_throughput_runs_per_second": 0.48429365721503825,
+                "response_average_seconds": 0.5979482219994073,
+                "response_p99_seconds": 0.6193374999993466,
+                "response_max_seconds": 0.6193374999993466,
+                "response_throughput_runs_per_second": 0.48612226274459114,
                 "response_observation_count": 3
               },
               "thresholds": {
@@ -1297,10 +1312,10 @@
                   "passed": true,
                   "actual": {
                     "metrics": {
-                      "response_average_seconds": 0.556005208333166,
-                      "response_p99_seconds": 0.5618505409997852,
-                      "response_max_seconds": 0.5618505409997852,
-                      "response_throughput_runs_per_second": 0.48429365721503825,
+                      "response_average_seconds": 0.5979482219994073,
+                      "response_p99_seconds": 0.6193374999993466,
+                      "response_max_seconds": 0.6193374999993466,
+                      "response_throughput_runs_per_second": 0.48612226274459114,
                       "response_observation_count": 3
                     },
                     "thresholds": {
@@ -1335,7 +1350,7 @@
       "runner": {
         "schema_version": "1.0",
         "kind": "eps-system-test-evidence",
-        "generated_at_utc": "2026-08-24T15:26:18.449375+00:00",
+        "generated_at_utc": "2026-08-24T16:27:58.533670+00:00",
         "test_level": "system",
         "app": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
         "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
@@ -1346,8 +1361,8 @@
         "runs": [
           {
             "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-            "response_seconds": 0.5492308339998999,
-            "elapsed_seconds": 2.0594523750000917,
+            "response_seconds": 0.55581358299969,
+            "elapsed_seconds": 2.040651582999999,
             "return_code": -15,
             "terminated": true,
             "decoded_geometry_observed": true,
@@ -1394,8 +1409,8 @@
           },
           {
             "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-            "response_seconds": 0.5569342499998129,
-            "elapsed_seconds": 2.065731749999941,
+            "response_seconds": 0.6186935829991853,
+            "elapsed_seconds": 2.0706364159996156,
             "return_code": -15,
             "terminated": true,
             "decoded_geometry_observed": true,
@@ -1442,8 +1457,8 @@
           },
           {
             "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-            "response_seconds": 0.5618505409997852,
-            "elapsed_seconds": 2.06940454100004,
+            "response_seconds": 0.6193374999993466,
+            "elapsed_seconds": 2.0599990000000616,
             "return_code": -15,
             "terminated": true,
             "decoded_geometry_observed": true,
@@ -1490,10 +1505,10 @@
           }
         ],
         "metrics": {
-          "response_average_seconds": 0.556005208333166,
-          "response_p99_seconds": 0.5618505409997852,
-          "response_max_seconds": 0.5618505409997852,
-          "response_throughput_runs_per_second": 0.48429365721503825,
+          "response_average_seconds": 0.5979482219994073,
+          "response_p99_seconds": 0.6193374999993466,
+          "response_max_seconds": 0.6193374999993466,
+          "response_throughput_runs_per_second": 0.48612226274459114,
           "response_observation_count": 3
         },
         "thresholds": {
@@ -1530,10 +1545,10 @@
             "passed": true,
             "actual": {
               "metrics": {
-                "response_average_seconds": 0.556005208333166,
-                "response_p99_seconds": 0.5618505409997852,
-                "response_max_seconds": 0.5618505409997852,
-                "response_throughput_runs_per_second": 0.48429365721503825,
+                "response_average_seconds": 0.5979482219994073,
+                "response_p99_seconds": 0.6193374999993466,
+                "response_max_seconds": 0.6193374999993466,
+                "response_throughput_runs_per_second": 0.48612226274459114,
                 "response_observation_count": 3
               },
               "thresholds": {
@@ -1571,13 +1586,13 @@
           "--hold-seconds",
           "2",
           "--output",
-          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-e517m82_/eps_system.json"
+          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-hepr88ds/eps_system.json"
         ],
         "return_code": 0,
         "timed_out": false,
-        "elapsed_seconds": 6.246378332999939,
-        "output_sha256": "b5de00e9fbb2a29804af2b8be790b00113ab9a5468f293d0d750d56e77cb5921",
-        "output_tail": "pe=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.5618505409997852,\n      \"elapsed_seconds\": 2.06940454100004,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.556005208333166,\n    \"response_p99_seconds\": 0.5618505409997852,\n    \"response_max_seconds\": 0.5618505409997852,\n    \"response_throughput_runs_per_second\": 0.48429365721503825,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.556005208333166,\n          \"response_p99_seconds\": 0.5618505409997852,\n          \"response_max_seconds\": 0.5618505409997852,\n          \"response_throughput_runs_per_second\": 0.48429365721503825,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
+        "elapsed_seconds": 6.225837582999702,
+        "output_sha256": "f51b181e6a309da22e9a57e8c11f93d3ca1efe8678e3707a49c4abfca25af77a",
+        "output_tail": "xScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.6193374999993466,\n      \"elapsed_seconds\": 2.0599990000000616,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.5979482219994073,\n    \"response_p99_seconds\": 0.6193374999993466,\n    \"response_max_seconds\": 0.6193374999993466,\n    \"response_throughput_runs_per_second\": 0.48612226274459114,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.5979482219994073,\n          \"response_p99_seconds\": 0.6193374999993466,\n          \"response_max_seconds\": 0.6193374999993466,\n          \"response_throughput_runs_per_second\": 0.48612226274459114,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
         "passed": true
       },
       "passed": true
@@ -1632,8 +1647,9 @@
       "passed": true,
       "actual": {
         "xml_parse": true,
-        "categoryTabs": "QTabBar",
-        "document_mode": true
+        "category_model": "QTabBar",
+        "native_preference_toolbar": true,
+        "hidden_qt_model": true
       }
     },
     {
@@ -1675,7 +1691,9 @@
           "qvinfodialog.cpp": true,
           "openwith.cpp": true,
           "updatechecker.cpp": true
-        }
+        },
+        "application_scheme": true,
+        "palette_assertions": true
       }
     },
     {
@@ -1684,7 +1702,8 @@
       "passed": true,
       "actual": {
         "input": true,
-        "progress": true
+        "progress": true,
+        "palette_regression_test": true
       }
     },
     {
@@ -1851,6 +1870,7 @@
           "passed": true,
           "actual": {
             "controlled_theme": true,
+            "dialog_palette_regression": true,
             "system_telemetry": true
           }
         },
@@ -1909,7 +1929,8 @@
       "passed": true,
       "actual": {
         "methods": {
-          "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme": true
+          "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme": true,
+          "WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme": true
         },
         "return_code": 0
       }
@@ -1961,19 +1982,19 @@
             "--binary",
             "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
             "--output",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-hzqqk3ne/eps_integration.json"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-integration-mn62gts1/eps_integration.json"
           ],
           "return_code": 0,
           "timed_out": false,
-          "elapsed_seconds": 0.639815833999819,
-          "output_sha256": "82c5009278c57647c626f26332a1c881571c57dd9fa19613276f6e345833c7ef",
-          "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T15:26:12.131949+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.5941751670002304,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
+          "elapsed_seconds": 0.658920500000022,
+          "output_sha256": "c9d0881f938ac665705bdcc0b15e210839560e543e0969a4a8aebfbeccbbc83b",
+          "output_tail": "{\n  \"schema_version\": \"1.0\",\n  \"kind\": \"eps-integration-test-evidence\",\n  \"generated_at_utc\": \"2026-08-24T16:27:52.232765+00:00\",\n  \"test_level\": \"integration\",\n  \"command\": [\n    \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n    \"-o\",\n    \"-,txt\"\n  ],\n  \"environment\": {\n    \"FOVELLE_TEST_SUITE\": \"FeatureTests\",\n    \"QT_QPA_PLATFORM\": \"cocoa\",\n    \"QT_FATAL_WARNINGS\": \"1\",\n    \"QTEST_FUNCTION_TIMEOUT\": \"30000\"\n  },\n  \"binary\": \"/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests\",\n  \"elapsed_seconds\": 0.6132355409999946,\n  \"return_code\": 0,\n  \"timed_out\": false,\n  \"cases\": [\n    {\n      \"id\": \"IT-EPS-SETTINGS\",\n      \"test_method\": \"testSettingsFormatsIncludeEPS\",\n      \"passed\": true,\n      \"actual\": {\n        \"observed_pass_line\": true,\n        \"observed_fail_line\": false\n      }\n    }\n  ],\n  \"qt_totals\": {\n    \"passed\": 11,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"blacklisted\": 0\n  },\n  \"raw_output\": \"********* Start testing of FeatureTests *********\\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\\nPASS   : FeatureTests::initTestCase()\\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\\nPASS   : FeatureTests::testWindowIconIsCleared()\\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\\nPASS   : FeatureTests::cleanupTestCase()\\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\\n********* Finished testing of FeatureTests *********\\n\",\n  \"facts\": [\n    \"The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.\",\n    \"The same test also checks that EPS aliases are present in QVApplication's runtime extension set.\"\n  ],\n  \"inferences\": [\n    \"Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.\"\n  ],\n  \"uncertainties\": [\n    \"The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.\"\n  ],\n  \"passed\": true\n}\n",
           "passed": true
         },
         "runner": {
           "schema_version": "1.0",
           "kind": "eps-integration-test-evidence",
-          "generated_at_utc": "2026-08-24T15:26:12.131949+00:00",
+          "generated_at_utc": "2026-08-24T16:27:52.232765+00:00",
           "test_level": "integration",
           "command": [
             "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
@@ -1987,7 +2008,7 @@
             "QTEST_FUNCTION_TIMEOUT": "30000"
           },
           "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-          "elapsed_seconds": 0.5941751670002304,
+          "elapsed_seconds": 0.6132355409999946,
           "return_code": 0,
           "timed_out": false,
           "cases": [
@@ -2007,7 +2028,7 @@
             "skipped": 0,
             "blacklisted": 0
           },
-          "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 399ms\n********* Finished testing of FeatureTests *********\n",
+          "raw_output": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()\nPASS   : FeatureTests::testSettingsFormatsIncludeEPS()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 416ms\n********* Finished testing of FeatureTests *********\n",
           "facts": [
             "The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.",
             "The same test also checks that EPS aliases are present in QVApplication's runtime extension set."
@@ -2047,7 +2068,7 @@
           ],
           "return_code": 0,
           "timed_out": false,
-          "elapsed_seconds": 0.011290915999779827,
+          "elapsed_seconds": 0.012596874999871943,
           "output_sha256": "11e415dc337940d11bae2c66cba66624710a909c82fe6884940e71191dac008c",
           "output_tail": "10.07.1\n",
           "passed": true
@@ -2067,13 +2088,13 @@
           "-dNOPAUSE",
           "-dEPSCrop",
           "-sDEVICE=pdfwrite",
-          "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-90pfu_8d/fixture.pdf",
+          "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-qsgd1v2f/fixture.pdf",
           "-f",
-          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-90pfu_8d/fixture.eps"
+          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-gs-conversion-qsgd1v2f/fixture.eps"
         ],
         "return_code": 0,
         "timed_out": false,
-        "elapsed_seconds": 0.04969675000029383,
+        "elapsed_seconds": 0.052038332999472914,
         "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "output_tail": "",
         "passed": true,
@@ -2100,19 +2121,19 @@
             "--hold-seconds",
             "2",
             "--output",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-e517m82_/eps_system.json"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-hepr88ds/eps_system.json"
           ],
           "return_code": 0,
           "timed_out": false,
-          "elapsed_seconds": 6.246378332999939,
-          "output_sha256": "b5de00e9fbb2a29804af2b8be790b00113ab9a5468f293d0d750d56e77cb5921",
-          "output_tail": "pe=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.5618505409997852,\n      \"elapsed_seconds\": 2.06940454100004,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.556005208333166,\n    \"response_p99_seconds\": 0.5618505409997852,\n    \"response_max_seconds\": 0.5618505409997852,\n    \"response_throughput_runs_per_second\": 0.48429365721503825,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.556005208333166,\n          \"response_p99_seconds\": 0.5618505409997852,\n          \"response_max_seconds\": 0.5618505409997852,\n          \"response_throughput_runs_per_second\": 0.48429365721503825,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
+          "elapsed_seconds": 6.225837582999702,
+          "output_sha256": "f51b181e6a309da22e9a57e8c11f93d3ca1efe8678e3707a49c4abfca25af77a",
+          "output_tail": "xScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.6193374999993466,\n      \"elapsed_seconds\": 2.0599990000000616,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.5979482219994073,\n    \"response_p99_seconds\": 0.6193374999993466,\n    \"response_max_seconds\": 0.6193374999993466,\n    \"response_throughput_runs_per_second\": 0.48612226274459114,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.5979482219994073,\n          \"response_p99_seconds\": 0.6193374999993466,\n          \"response_max_seconds\": 0.6193374999993466,\n          \"response_throughput_runs_per_second\": 0.48612226274459114,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
           "passed": true
         },
         "runner": {
           "schema_version": "1.0",
           "kind": "eps-system-test-evidence",
-          "generated_at_utc": "2026-08-24T15:26:18.449375+00:00",
+          "generated_at_utc": "2026-08-24T16:27:58.533670+00:00",
           "test_level": "system",
           "app": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
           "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
@@ -2123,8 +2144,8 @@
           "runs": [
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5492308339998999,
-              "elapsed_seconds": 2.0594523750000917,
+              "response_seconds": 0.55581358299969,
+              "elapsed_seconds": 2.040651582999999,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2171,8 +2192,8 @@
             },
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5569342499998129,
-              "elapsed_seconds": 2.065731749999941,
+              "response_seconds": 0.6186935829991853,
+              "elapsed_seconds": 2.0706364159996156,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2219,8 +2240,8 @@
             },
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5618505409997852,
-              "elapsed_seconds": 2.06940454100004,
+              "response_seconds": 0.6193374999993466,
+              "elapsed_seconds": 2.0599990000000616,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2267,10 +2288,10 @@
             }
           ],
           "metrics": {
-            "response_average_seconds": 0.556005208333166,
-            "response_p99_seconds": 0.5618505409997852,
-            "response_max_seconds": 0.5618505409997852,
-            "response_throughput_runs_per_second": 0.48429365721503825,
+            "response_average_seconds": 0.5979482219994073,
+            "response_p99_seconds": 0.6193374999993466,
+            "response_max_seconds": 0.6193374999993466,
+            "response_throughput_runs_per_second": 0.48612226274459114,
             "response_observation_count": 3
           },
           "thresholds": {
@@ -2307,10 +2328,10 @@
               "passed": true,
               "actual": {
                 "metrics": {
-                  "response_average_seconds": 0.556005208333166,
-                  "response_p99_seconds": 0.5618505409997852,
-                  "response_max_seconds": 0.5618505409997852,
-                  "response_throughput_runs_per_second": 0.48429365721503825,
+                  "response_average_seconds": 0.5979482219994073,
+                  "response_p99_seconds": 0.6193374999993466,
+                  "response_max_seconds": 0.6193374999993466,
+                  "response_throughput_runs_per_second": 0.48612226274459114,
                   "response_observation_count": 3
                 },
                 "thresholds": {
@@ -2357,19 +2378,19 @@
             "--hold-seconds",
             "2",
             "--output",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-e517m82_/eps_system.json"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-system-hepr88ds/eps_system.json"
           ],
           "return_code": 0,
           "timed_out": false,
-          "elapsed_seconds": 6.246378332999939,
-          "output_sha256": "b5de00e9fbb2a29804af2b8be790b00113ab9a5468f293d0d750d56e77cb5921",
-          "output_tail": "pe=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.5618505409997852,\n      \"elapsed_seconds\": 2.06940454100004,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.556005208333166,\n    \"response_p99_seconds\": 0.5618505409997852,\n    \"response_max_seconds\": 0.5618505409997852,\n    \"response_throughput_runs_per_second\": 0.48429365721503825,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.556005208333166,\n          \"response_p99_seconds\": 0.5618505409997852,\n          \"response_max_seconds\": 0.5618505409997852,\n          \"response_throughput_runs_per_second\": 0.48429365721503825,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
+          "elapsed_seconds": 6.225837582999702,
+          "output_sha256": "f51b181e6a309da22e9a57e8c11f93d3ca1efe8678e3707a49c4abfca25af77a",
+          "output_tail": "xScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    },\n    {\n      \"image\": \"/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps\",\n      \"response_seconds\": 0.6193374999993466,\n      \"elapsed_seconds\": 2.0599990000000616,\n      \"return_code\": -15,\n      \"terminated\": true,\n      \"decoded_geometry_observed\": true,\n      \"vector_pdf_render_observed\": true,\n      \"unsupported_error_absent\": true,\n      \"geometry_observations\": [\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ],\n        [\n          \"120\",\n          \"40\"\n        ]\n      ],\n      \"vector_tile_observations\": [\n        [\n          \"1280\",\n          \"427\"\n        ]\n      ],\n      \"stdout_tail\": \"\",\n      \"stderr_tail\": \"FOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-before-layout zoom= 1 sceneRect= QRectF(0,-28 120x68) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 120x40) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(260,248) viewportOriginInScene= QPointF(-260,-248) transform= QTransform(type=TxNone, 11=1 12=0 13=0 21=0 22=1 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= scene-rect-viewport-restored zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-before zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= center-after zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-after-fit zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VIEW phase= post-load-next-turn zoom= 5.33333 sceneRect= QRectF(0,-5.25 120x45.25) itemRect= QRectF(0,0 120x40) contentRect= QRect(0,0 640x213) viewportRect= QRect(0,0 640x508) usableViewportRect= QRect(0,28 640x480) sceneOriginInViewport= QPoint(0,161) viewportOriginInScene= QPointF(0,-30.1875) transform= QTransform(type=TxScale, 11=5.33333 12=0 13=0 21=0 22=5.33333 23=0 31=0 32=0 33=1) hbar= 0 0 0 vbar= 0 0 0\\nFOVELLE_VECTOR_RENDER format=pdf source=vector cache=hit sourceRect= QRectF(0,0 120x40) tilePixels= QSize(1280, 427)\\n\"\n    }\n  ],\n  \"metrics\": {\n    \"response_average_seconds\": 0.5979482219994073,\n    \"response_p99_seconds\": 0.6193374999993466,\n    \"response_max_seconds\": 0.6193374999993466,\n    \"response_throughput_runs_per_second\": 0.48612226274459114,\n    \"response_observation_count\": 3\n  },\n  \"thresholds\": {\n    \"response_average_seconds_max\": 5.0,\n    \"response_p99_seconds_max\": 8.0,\n    \"response_max_seconds_max\": 10.0,\n    \"response_throughput_runs_per_second_min\": 0.2\n  },\n  \"pass_flags\": {\n    \"app_exists\": true,\n    \"all_runs_completed\": true,\n    \"all_runs_observed_decoded_geometry\": true,\n    \"all_runs_observed_vector_pdf_render\": true,\n    \"all_runs_absent_unsupported_error\": true,\n    \"response_average\": true,\n    \"response_p99\": true,\n    \"response_max\": true,\n    \"response_throughput\": true\n  },\n  \"cases\": [\n    {\n      \"id\": \"SYS-EPS-OPEN\",\n      \"passed\": true,\n      \"actual\": {\n        \"app_exists\": true,\n        \"all_runs_completed\": true,\n        \"all_runs_observed_decoded_geometry\": true,\n        \"all_runs_observed_vector_pdf_render\": true,\n        \"all_runs_absent_unsupported_error\": true\n      }\n    },\n    {\n      \"id\": \"SYS-EPS-TIME\",\n      \"passed\": true,\n      \"actual\": {\n        \"metrics\": {\n          \"response_average_seconds\": 0.5979482219994073,\n          \"response_p99_seconds\": 0.6193374999993466,\n          \"response_max_seconds\": 0.6193374999993466,\n          \"response_throughput_runs_per_second\": 0.48612226274459114,\n          \"response_observation_count\": 3\n        },\n        \"thresholds\": {\n          \"response_average_seconds_max\": 5.0,\n          \"response_p99_seconds_max\": 8.0,\n          \"response_max_seconds_max\": 10.0,\n          \"response_throughput_runs_per_second_min\": 0.2\n        }\n      }\n    }\n  ],\n  \"facts\": [\n    \"The system case launches the built Fovelle.app executable with the EPS path as a command-line input.\",\n    \"Decoded geometry is observed through the application's existing non-invasive FOVELLE_VIEW diagnostic output.\",\n    \"The vector-render diagnostic must report format=pdf, source=vector, and a non-empty final-device tile; logical item geometry is allowed to remain the EPS 120x40 BoundingBox.\",\n    \"The response window is process launch through the first observed decoded viewport record; average, P99, maximum, and throughput are retained.\"\n  ],\n  \"inferences\": [\n    \"A persistent PDF-vector diagnostic without a renderer error supports the inference that the end-to-end path kept the normalized PostScript document rather than the embedded preview.\"\n  ],\n  \"uncertainties\": [\n    \"The timing values are host observations and include macOS process/window startup; they are not a cross-machine performance guarantee.\",\n    \"The system fixture matrix covers the supplied DOS EPS and a no-preview deterministic vector EPS, but not every PostScript dialect or external font dependency.\"\n  ],\n  \"passed\": true\n}\n",
           "passed": true
         },
         "runner": {
           "schema_version": "1.0",
           "kind": "eps-system-test-evidence",
-          "generated_at_utc": "2026-08-24T15:26:18.449375+00:00",
+          "generated_at_utc": "2026-08-24T16:27:58.533670+00:00",
           "test_level": "system",
           "app": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
           "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
@@ -2380,8 +2401,8 @@
           "runs": [
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5492308339998999,
-              "elapsed_seconds": 2.0594523750000917,
+              "response_seconds": 0.55581358299969,
+              "elapsed_seconds": 2.040651582999999,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2428,8 +2449,8 @@
             },
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5569342499998129,
-              "elapsed_seconds": 2.065731749999941,
+              "response_seconds": 0.6186935829991853,
+              "elapsed_seconds": 2.0706364159996156,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2476,8 +2497,8 @@
             },
             {
               "image": "/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps",
-              "response_seconds": 0.5618505409997852,
-              "elapsed_seconds": 2.06940454100004,
+              "response_seconds": 0.6193374999993466,
+              "elapsed_seconds": 2.0599990000000616,
               "return_code": -15,
               "terminated": true,
               "decoded_geometry_observed": true,
@@ -2524,10 +2545,10 @@
             }
           ],
           "metrics": {
-            "response_average_seconds": 0.556005208333166,
-            "response_p99_seconds": 0.5618505409997852,
-            "response_max_seconds": 0.5618505409997852,
-            "response_throughput_runs_per_second": 0.48429365721503825,
+            "response_average_seconds": 0.5979482219994073,
+            "response_p99_seconds": 0.6193374999993466,
+            "response_max_seconds": 0.6193374999993466,
+            "response_throughput_runs_per_second": 0.48612226274459114,
             "response_observation_count": 3
           },
           "thresholds": {
@@ -2564,10 +2585,10 @@
               "passed": true,
               "actual": {
                 "metrics": {
-                  "response_average_seconds": 0.556005208333166,
-                  "response_p99_seconds": 0.5618505409997852,
-                  "response_max_seconds": 0.5618505409997852,
-                  "response_throughput_runs_per_second": 0.48429365721503825,
+                  "response_average_seconds": 0.5979482219994073,
+                  "response_p99_seconds": 0.6193374999993466,
+                  "response_max_seconds": 0.6193374999993466,
+                  "response_throughput_runs_per_second": 0.48612226274459114,
                   "response_observation_count": 3
                 },
                 "thresholds": {

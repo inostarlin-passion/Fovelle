@@ -17,6 +17,7 @@
 #include <memory>
 
 class QWidget;
+class QTabBar;
 
 class QVCocoaFunctions
 {
@@ -232,9 +233,21 @@ public:
     // production builds use the current AppKit effective appearance.
     static Qv::Theme resolvedTheme(Qv::Theme theme);
 
+    // Apply the user-selected scheme at the application level.  Qt's Cocoa
+    // platform theme builds QWidget palettes from NSApp.effectiveAppearance,
+    // so a window-only override is insufficient for dialog contents.
+    static void setApplicationTheme(Qv::Theme theme);
+
     static void setWindowTheme(Qv::Theme theme, QWindow *window);
 
     static QString getWindowAppearanceName(const QWindow *window);
+
+    // Install the system Settings toolbar used to switch the hidden Qt page
+    // model.  The AppKit toolbar supplies native layout, selection, vibrancy,
+    // accessibility, and automatic Light/Dark rendering.
+    static void configureSettingsToolbar(QWindow *window, QTabBar *categoryTabs);
+
+    static bool hasNativeSettingsToolbar(const QWindow *window);
 
     static int getObscuredHeight(QWindow *window);
 

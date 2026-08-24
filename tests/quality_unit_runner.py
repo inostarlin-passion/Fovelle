@@ -63,6 +63,8 @@ EXPECTED_CASES = (
     ("TC-TITLE-DEFAULT", "WindowBehaviorTests", "testDefaultTitlebarTextIsPractical"),
     ("TC-TITLE-VERBOSE", "WindowBehaviorTests", "testVerboseTitlebarTextUsesAllRequestedFields"),
     ("TC-THEME-SETTINGS", "WindowBehaviorTests", "testThemeSettingsReplaceRemovedColorControls"),
+    ("TC-SETTINGS-NATIVE-TOOLBAR", "WindowBehaviorTests", "testSettingsDialogUsesNativeTabContractAndImmediatePersistence"),
+    ("TC-OPEN-URL-THEME", "WindowBehaviorTests", "testOpenUrlDialogFollowsSelectedTheme"),
     ("TC-THEME-COLORS", "WindowBehaviorTests", "testThemeAppliesNativeAppearanceAndViewportBackground"),
     ("TC-THEME-CHECKERBOARD", "WindowBehaviorTests", "testCheckerboardOverridesThemeAndRestoresBackground"),
     ("TC-NAV-EDGE", "WindowBehaviorTests", "testNavigationEdgeActivationExcludesTitlebar"),

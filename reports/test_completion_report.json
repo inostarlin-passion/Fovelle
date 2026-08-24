@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "kind": "test-completion-report",
-  "generated_at_utc": "2026-08-24T15:26:18.472216+00:00",
+  "generated_at_utc": "2026-08-24T16:27:58.557846+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "6644f2142e8c8ddb00656150ffdf20cda65e7261",
+  "head_sha": "8019354fb481110f1c2594af9d0e77f7c84b05c3",
   "preflight_build": {
     "passed": true,
     "skipped": true
@@ -53,15 +53,15 @@
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 36076,
-      "sha256": "7a079965407955184fbf79c0c0adbf96b4e3319f272f3c29fd3f4244fed45ebf"
+      "bytes": 36733,
+      "sha256": "bbe88c4674a6e21632aa8ad27d071d6f99b32c59a508d9332de9d667a2d36d17"
     },
     "test_evidence.json": {
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 208605,
-      "sha256": "77c744884fac1924146994faa36ef06d8cbd08699aa61f103080fd83cfe54223"
+      "bytes": 209618,
+      "sha256": "047b25b72b4db26db8d9cb365836194c2fb5d192b5ffffc9210f4445f813f5f6"
     }
   },
   "facts": [

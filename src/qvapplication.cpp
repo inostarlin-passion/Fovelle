@@ -321,6 +321,10 @@ void QVApplication::settingsUpdated()
 {
     auto &settingsManager = getSettingsManager();
 
+    // Theme is an application-wide preference.  Apply it before any new
+    // window or dialog asks Qt's Cocoa platform theme for its palette.
+    QVCocoaFunctions::setApplicationTheme(settingsManager.getEnum<Qv::Theme>("theme"));
+
     QString disabledFileExtensionsStr = settingsManager.getString("disabledfileextensions");
     disabledFileExtensions = Qv::listToSet(!disabledFileExtensionsStr.isEmpty() ? disabledFileExtensionsStr.split(';') : QStringList());
 

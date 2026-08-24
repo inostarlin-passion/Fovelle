@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFileOpenEvent>
 #include <QImage>
+#include <QInputDialog>
 #include <QLineF>
 #include <QFile>
 #include <QPainter>
@@ -20,9 +21,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QPalette>
 #include <QSignalSpy>
 #include <QSettings>
 #include <QStyleOptionGraphicsItem>
+#include <QStyleHints>
 #include <QSvgRenderer>
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
@@ -223,6 +226,7 @@ private slots:
     void testHelpMenuContract();
     void testEditMenuRemovesMacOSServiceItems();
     void testNativeDialogsFollowSelectedTheme();
+    void testOpenUrlDialogFollowsSelectedTheme();
     void testThemeAppliesNativeAppearanceAndViewportBackground();
     void testCheckerboardOverridesThemeAndRestoresBackground();
     void testNavigationEdgeActivationExcludesTitlebar();
@@ -4609,6 +4613,7 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVERIFY(tabs);
     QCOMPARE(tabs->count(), 6);
     QVERIFY(tabs->shape() == QTabBar::RoundedNorth || tabs->shape() == QTabBar::TriangularNorth);
+    QVERIFY(tabs->isHidden());
     QVERIFY(!dialog.findChild<QDialogButtonBox *>("buttonBox"));
     QVERIFY(!dialog.findChild<QComboBox *>("titlebarComboBox"));
     QVERIFY(!dialog.findChild<QLineEdit *>("customTitlebarLineEdit"));
@@ -4617,6 +4622,10 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVERIFY(themeComboBox);
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
     dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QVCocoaFunctions::hasNativeSettingsToolbar(dialog.windowHandle()),
+        2000);
+    QTRY_COMPARE_WITH_TIMEOUT(dialog.windowTitle(), tabs->tabText(tabs->currentIndex()), 2000);
     QTRY_COMPARE_WITH_TIMEOUT(
         QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
         QStringLiteral("Aqua"),
@@ -4737,13 +4746,22 @@ void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
         const QString expectedAppearance = theme == Qv::Theme::Dark
             ? QStringLiteral("DarkAqua")
             : QStringLiteral("Aqua");
+        const bool expectsDarkPalette = theme == Qv::Theme::Dark;
 
-        const auto assertAppearance = [&expectedAppearance](QWidget *dialog) {
+        const auto assertAppearance = [&expectedAppearance, expectsDarkPalette](QWidget *dialog) {
             dialog->setAttribute(Qt::WA_DeleteOnClose, false);
             dialog->show();
             QTRY_COMPARE_WITH_TIMEOUT(
                 QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
                 expectedAppearance,
+                2000);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                (dialog->palette().color(QPalette::Window).lightness() < 128)
+                    == expectsDarkPalette,
+                2000);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                (dialog->palette().color(QPalette::WindowText).lightness() > 128)
+                    == expectsDarkPalette,
                 2000);
             dialog->close();
             delete dialog;
@@ -4760,6 +4778,77 @@ void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
             QMessageBox::Ok);
         assertAppearance(messageBox);
     }
+}
+
+// TC-OPEN-URL-THEME
+// Test purpose: verify that File -> Open URL changes both its native Cocoa
+// appearance and its Qt widget palette under Light and Dark Theme.
+// Preconditions: a visible MainWindow and the production pickUrl path.
+// Input data: Light Theme followed by Dark Theme.
+// Steps: open the production QInputDialog, inspect its window, label/edit
+// palette, then reject it without starting a network request.
+// Expected result: Aqua uses a light Window/Base with dark text; DarkAqua uses
+// a dark Window/Base with light text, and the two rendered palettes differ.
+// Postcondition: dialogs/windows close and the original Theme is restored.
+void WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()
+{
+    QColor lightWindow;
+    QColor lightBase;
+    QColor darkWindow;
+    QColor darkBase;
+
+    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
+    {
+        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
+        MainWindow window;
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.resize(640, 480);
+        window.show();
+        QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+        window.pickUrl();
+        auto *dialog = window.findChild<QInputDialog *>();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog && dialog->isVisible(), 2000);
+        auto *lineEdit = dialog->findChild<QLineEdit *>();
+        QVERIFY(lineEdit);
+
+        const bool isDark = theme == Qv::Theme::Dark;
+        const QString expectedAppearance = isDark
+            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+        QTRY_COMPARE_WITH_TIMEOUT(
+            QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
+            expectedAppearance,
+            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (dialog->palette().color(QPalette::Window).lightness() < 128) == isDark,
+            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (lineEdit->palette().color(QPalette::Base).lightness() < 128) == isDark,
+            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (lineEdit->palette().color(QPalette::Text).lightness() > 128) == isDark,
+            2000);
+
+        if (isDark)
+        {
+            darkWindow = dialog->palette().color(QPalette::Window);
+            darkBase = lineEdit->palette().color(QPalette::Base);
+        }
+        else
+        {
+            lightWindow = dialog->palette().color(QPalette::Window);
+            lightBase = lineEdit->palette().color(QPalette::Base);
+        }
+
+        dialog->reject();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window.close();
+    }
+
+    QVERIFY(lightWindow != darkWindow);
+    QVERIFY(lightBase != darkBase);
+    QVERIFY(lightWindow.lightness() > darkWindow.lightness());
+    QVERIFY(lightBase.lightness() > darkBase.lightness());
 }
 
 // TC-THEME-COLORS

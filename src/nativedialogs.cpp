@@ -19,17 +19,17 @@ void applyTheme(QWidget *dialog)
     if (!dialog)
         return;
 
-    const Qv::Theme theme = currentTheme();
-    const auto apply = [dialog, theme]() {
+    const auto apply = [dialog]() {
         if (dialog->windowHandle())
-            QVCocoaFunctions::setWindowTheme(theme, dialog->windowHandle());
+            QVCocoaFunctions::setWindowTheme(currentTheme(), dialog->windowHandle());
     };
 
-    // Calling winId() makes the operation deterministic for dialogs that are
-    // about to be executed synchronously, while the queued pass covers native
-    // panels whose NSWindow is created by Cocoa during show().
-    dialog->winId();
-    apply();
+    // Do not force winId() before QDialog::open()/exec(): on Cocoa that can
+    // create and expose an NSWindow before Qt begins its own visibility
+    // transition.  The application scheme already supplies the correct Qt
+    // palette; these passes only pin the native window once it exists.
+    if (dialog->windowHandle())
+        apply();
     QTimer::singleShot(0, dialog, apply);
 }
 

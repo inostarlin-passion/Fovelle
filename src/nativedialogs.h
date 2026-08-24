@@ -15,8 +15,8 @@ namespace NativeDialogs
     Qv::Theme currentTheme();
 
     // Apply the selected AppKit appearance to a Qt dialog. The native window
-    // may not exist until show()/open()/exec(), so the helper applies once now
-    // and once on the next event-loop turn.
+    // may not exist until show()/open()/exec(), so the helper never forces an
+    // early winId(); it applies to an existing handle and on the next turn.
     void applyTheme(QWidget *dialog);
 
     QMessageBox *createMessageBox(QMessageBox::Icon icon,

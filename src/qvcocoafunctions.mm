@@ -15,7 +15,10 @@
 #include <QGuiApplication>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QPointer>
 #include <QStandardPaths>
+#include <QStyleHints>
+#include <QTabBar>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QWidget>
@@ -36,6 +39,133 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <objc/runtime.h>
+
+static constexpr char SettingsToolbarAssociationKey = 0;
+
+@interface FovelleSettingsToolbarController : NSObject<NSToolbarDelegate>
+{
+@private
+    QPointer<QTabBar> *_categoryTabs;
+    NSArray<NSToolbarItemIdentifier> *_itemIdentifiers;
+    NSArray<NSString *> *_symbolNames;
+    NSToolbar *_toolbar;
+}
+
+- (instancetype)initWithCategoryTabs:(QTabBar *)categoryTabs;
+- (void)selectPane:(NSToolbarItem *)sender;
+- (void)syncSelection:(NSInteger)index;
+- (void)setToolbar:(NSToolbar *)toolbar;
+@end
+
+@implementation FovelleSettingsToolbarController
+
+- (instancetype)initWithCategoryTabs:(QTabBar *)categoryTabs
+{
+    self = [super init];
+    if (!self)
+        return nil;
+
+    _categoryTabs = new QPointer<QTabBar>(categoryTabs);
+    _itemIdentifiers = [@[
+        @"io.github.inostarlin-passion.Fovelle.settings.window",
+        @"io.github.inostarlin-passion.Fovelle.settings.image",
+        @"io.github.inostarlin-passion.Fovelle.settings.miscellaneous",
+        @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
+        @"io.github.inostarlin-passion.Fovelle.settings.mouse",
+        @"io.github.inostarlin-passion.Fovelle.settings.formats"
+    ] retain];
+    _symbolNames = [@[
+        @"macwindow",
+        @"photo.on.rectangle.angled",
+        @"slider.horizontal.3",
+        @"keyboard",
+        @"computermouse",
+        @"puzzlepiece.extension"
+    ] retain];
+    return self;
+}
+
+- (void)dealloc
+{
+    delete _categoryTabs;
+    [_itemIdentifiers release];
+    [_symbolNames release];
+    [super dealloc];
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar
+{
+    Q_UNUSED(toolbar);
+    return _itemIdentifiers;
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar
+{
+    Q_UNUSED(toolbar);
+    return _itemIdentifiers;
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar
+{
+    Q_UNUSED(toolbar);
+    return _itemIdentifiers;
+}
+
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
+      itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier
+  willBeInsertedIntoToolbar:(BOOL)flag
+{
+    Q_UNUSED(toolbar);
+    Q_UNUSED(flag);
+    if (!_categoryTabs || _categoryTabs->isNull())
+        return nil;
+
+    const NSUInteger index = [_itemIdentifiers indexOfObject:itemIdentifier];
+    if (index == NSNotFound || index >= static_cast<NSUInteger>((*_categoryTabs)->count()))
+        return nil;
+
+    auto *item = [[[NSToolbarItem alloc] initWithItemIdentifier:itemIdentifier] autorelease];
+    const QString qtLabel = (*_categoryTabs)->tabText(static_cast<int>(index));
+    NSString *label = qtLabel.toNSString();
+    item.label = label;
+    item.paletteLabel = label;
+    item.toolTip = label;
+    item.image = [NSImage imageWithSystemSymbolName:_symbolNames[index]
+                          accessibilityDescription:label];
+    item.target = self;
+    item.action = @selector(selectPane:);
+    return item;
+}
+
+- (void)selectPane:(NSToolbarItem *)sender
+{
+    const NSUInteger index = [_itemIdentifiers indexOfObject:sender.itemIdentifier];
+    if (index == NSNotFound || !_categoryTabs || _categoryTabs->isNull())
+        return;
+
+    (*_categoryTabs)->setCurrentIndex(static_cast<int>(index));
+    [self syncSelection:static_cast<NSInteger>(index)];
+}
+
+- (void)syncSelection:(NSInteger)index
+{
+    if (!_toolbar || !_categoryTabs || _categoryTabs->isNull()
+        || index < 0 || index >= (*_categoryTabs)->count())
+        return;
+
+    _toolbar.selectedItemIdentifier = _itemIdentifiers[static_cast<NSUInteger>(index)];
+    QWidget *settingsWindow = (*_categoryTabs)->window();
+    if (settingsWindow)
+        settingsWindow->setWindowTitle((*_categoryTabs)->tabText(static_cast<int>(index)));
+}
+
+- (void)setToolbar:(NSToolbar *)toolbar
+{
+    _toolbar = toolbar;
+}
+
+@end
 
 @interface QVHDRPresentationState : NSObject
 {
@@ -3082,24 +3212,58 @@ Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
     return [match isEqualToString:NSAppearanceNameDarkAqua] ? Qv::Theme::Dark : Qv::Theme::Light;
 }
 
+void QVCocoaFunctions::setApplicationTheme(const Qv::Theme theme)
+{
+    const QByteArray systemOverride = qgetenv("FOVELLE_SYSTEM_THEME").toLower();
+    const bool hasControlledSystemTheme = theme == Qv::Theme::System
+        && (systemOverride == "light" || systemOverride == "dark");
+    const bool followsSystem = theme == Qv::Theme::System && !hasControlledSystemTheme;
+    const Qv::Theme effectiveTheme = followsSystem ? Qv::Theme::System : resolvedTheme(theme);
+
+    NSAppearanceName requestedAppearanceName = nil;
+    if (effectiveTheme == Qv::Theme::Light)
+        requestedAppearanceName = NSAppearanceNameAqua;
+    else if (effectiveTheme == Qv::Theme::Dark)
+        requestedAppearanceName = NSAppearanceNameDarkAqua;
+
+    // settingsUpdated() runs for every preference, not just Theme.  Avoid a
+    // needless application-wide palette rebuild when the scheme is already
+    // the requested one.
+    NSAppearance *explicitAppearance = NSApp.appearance;
+    if ((!requestedAppearanceName && !explicitAppearance)
+        || (requestedAppearanceName &&
+            [explicitAppearance.name isEqualToString:requestedAppearanceName]))
+        return;
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    Qt::ColorScheme colorScheme = Qt::ColorScheme::Unknown;
+    if (effectiveTheme == Qv::Theme::Light)
+        colorScheme = Qt::ColorScheme::Light;
+    else if (effectiveTheme == Qv::Theme::Dark)
+        colorScheme = Qt::ColorScheme::Dark;
+
+    // On Cocoa, Qt maps this public API to NSApp.appearance.  Its platform
+    // theme observer then invalidates the cached system/role palettes and
+    // sends ApplicationPaletteChange to every QWidget.
+    QGuiApplication::styleHints()->setColorScheme(colorScheme);
+#else
+    NSApp.appearance = requestedAppearanceName
+        ? [NSAppearance appearanceNamed:requestedAppearanceName]
+        : nil;
+#endif
+}
+
 void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
 {
     if (!window)
         return;
 
+    // Theme is application-wide.  Keep this compatibility entry point for
+    // existing callers, but make every window inherit NSApp rather than
+    // creating a second, potentially stale per-window appearance override.
+    setApplicationTheme(theme);
     auto *view = reinterpret_cast<NSView*>(window->winId());
-    if (theme == Qv::Theme::System)
-    {
-        // A nil appearance inherits the system setting and updates live when
-        // the user changes macOS appearance while Fovelle is running.
-        [view.window setAppearance:nil];
-        return;
-    }
-
-    const NSAppearanceName appearanceName = resolvedTheme(theme) == Qv::Theme::Dark
-        ? NSAppearanceNameDarkAqua
-        : NSAppearanceNameAqua;
-    [view.window setAppearance:[NSAppearance appearanceNamed:appearanceName]];
+    [view.window setAppearance:nil];
 }
 
 QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
@@ -3114,6 +3278,81 @@ QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
     if ([name isEqualToString:NSAppearanceNameDarkAqua])
         return QStringLiteral("DarkAqua");
     return name ? QString::fromUtf8(name.UTF8String) : QString();
+}
+
+void QVCocoaFunctions::configureSettingsToolbar(QWindow *window, QTabBar *categoryTabs)
+{
+    if (!window || !categoryTabs || categoryTabs->count() == 0)
+        return;
+
+    auto *view = reinterpret_cast<NSView *>(window->winId());
+    NSWindow *nativeWindow = view.window;
+    if (!nativeWindow)
+        return;
+
+    auto *controller = static_cast<FovelleSettingsToolbarController *>(
+        objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey));
+    if (controller)
+    {
+        [controller syncSelection:categoryTabs->currentIndex()];
+        return;
+    }
+
+    controller = [[FovelleSettingsToolbarController alloc]
+        initWithCategoryTabs:categoryTabs];
+    auto *toolbar = [[NSToolbar alloc]
+        initWithIdentifier:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"];
+    toolbar.delegate = controller;
+    toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
+    toolbar.sizeMode = NSToolbarSizeModeRegular;
+    toolbar.allowsUserCustomization = NO;
+    toolbar.autosavesConfiguration = NO;
+    toolbar.allowsExtensionItems = NO;
+    toolbar.visible = YES;
+    [controller setToolbar:toolbar];
+
+    nativeWindow.toolbarStyle = NSWindowToolbarStylePreference;
+    nativeWindow.titleVisibility = NSWindowTitleVisible;
+    nativeWindow.titlebarSeparatorStyle = NSTitlebarSeparatorStyleAutomatic;
+    nativeWindow.tabbingMode = NSWindowTabbingModeDisallowed;
+    nativeWindow.toolbar = toolbar;
+
+    // Settings windows don't need Dock minimization or zooming; this also
+    // produces the standard dimmed yellow/green controls used by Preview.
+    [[nativeWindow standardWindowButton:NSWindowMiniaturizeButton] setEnabled:NO];
+    [[nativeWindow standardWindowButton:NSWindowZoomButton] setEnabled:NO];
+
+    objc_setAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey,
+                             controller, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [toolbar release];
+    [controller release];
+
+    QPointer<QWindow> guardedWindow(window);
+    QObject::connect(categoryTabs, &QTabBar::currentChanged, categoryTabs,
+                     [guardedWindow](const int index) {
+        if (!guardedWindow)
+            return;
+        auto *nativeView = reinterpret_cast<NSView *>(guardedWindow->winId());
+        auto *toolbarController = static_cast<FovelleSettingsToolbarController *>(
+            objc_getAssociatedObject(nativeView.window, &SettingsToolbarAssociationKey));
+        [toolbarController syncSelection:index];
+    });
+    [static_cast<FovelleSettingsToolbarController *>(
+        objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey))
+        syncSelection:categoryTabs->currentIndex()];
+}
+
+bool QVCocoaFunctions::hasNativeSettingsToolbar(const QWindow *window)
+{
+    if (!window)
+        return false;
+
+    auto *view = reinterpret_cast<NSView *>(window->winId());
+    NSToolbar *toolbar = view.window.toolbar;
+    return toolbar
+        && [toolbar.identifier isEqualToString:
+            @"io.github.inostarlin-passion.Fovelle.settings.toolbar"]
+        && view.window.toolbarStyle == NSWindowToolbarStylePreference;
 }
 
 int QVCocoaFunctions::getObscuredHeight(QWindow *window)
