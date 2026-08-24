@@ -34,20 +34,16 @@ protected:
     void changeEvent(QEvent *event) override;
 
     void modifySetting(QString key, QVariant value);
-    void saveSettings();
     void syncSettings(bool defaults = false, bool makeConnections = false);
     void syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncRadioButtons(QList<QRadioButton*> buttons, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncComboBox(QComboBox *comboBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false, bool makeConnection = false);
-    void syncLineEdit(QLineEdit *lineEdit, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
     void syncFormats(bool defaults = false);
-    void updateButtonBox();
     void restartNotifyForCheckbox(const QString &key, const Qt::CheckState state);
-    void customizePalette();
     void populateCategories(int selectedRow);
     void populateLanguages();
     void populateComboBoxes();
@@ -61,7 +57,6 @@ protected:
     const Ui::ComboBoxItems<Qv::SmoothScalingMode> mapSmoothScalingMode();
     const Ui::ComboBoxItems<Qv::SortMode> mapSortMode();
     const Ui::ComboBoxItems<Qv::Theme> mapTheme();
-    const Ui::ComboBoxItems<Qv::TitleBarText> mapTitleBarText();
     const Ui::ComboBoxItems<Qv::WindowResizeMode> mapWindowResizeMode();
     const Ui::ComboBoxItems<Qv::ViewportClickAction> mapViewportClickAction();
     const Ui::ComboBoxItems<Qv::ViewportDragAction> mapViewportDragAction();
@@ -69,10 +64,6 @@ protected:
 
 private slots:
     void shortcutCellDoubleClicked(int row, int column);
-
-    void buttonBoxClicked(QAbstractButton *button);
-
-    void titlebarComboBoxCurrentIndexChanged(int index);
 
     void smoothScalingComboBoxCurrentIndexChanged(int index);
 
@@ -92,8 +83,6 @@ private slots:
 
 private:
     Ui::QVOptionsDialog *ui;
-
-    QHash<QString, QVariant> transientSettings;
 
     QList<QStringList> transientShortcuts;
 

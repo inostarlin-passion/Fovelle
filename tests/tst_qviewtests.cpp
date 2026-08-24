@@ -18,6 +18,7 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSettings>
@@ -30,9 +31,12 @@
 #include <QWheelEvent>
 #include <QScrollBar>
 #include <QSet>
+#include <QTabBar>
 #include <QTableWidget>
+#include <QMenu>
 
 #include "mainwindow.h"
+#include "actionmanager.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
 #include "qvgraphicsimageitem.h"
@@ -42,6 +46,8 @@
 #include "qvmovie.h"
 #include "qvoptionsdialog.h"
 #include "qvinfodialog.h"
+#include "qvaboutdialog.h"
+#include "nativedialogs.h"
 
 class ImageLoaderTests : public QObject
 {
@@ -211,6 +217,12 @@ private slots:
     void testDefaultTitlebarTextIsPractical();
     void testVerboseTitlebarTextUsesAllRequestedFields();
     void testThemeSettingsReplaceRemovedColorControls();
+    void testSettingsDialogUsesNativeTabContractAndImmediatePersistence();
+    void testSmoothScalingDefaultIsBilinear();
+    void testSystemThemeResolvesFromControlledAppearance();
+    void testHelpMenuContract();
+    void testEditMenuRemovesMacOSServiceItems();
+    void testNativeDialogsFollowSelectedTheme();
     void testThemeAppliesNativeAppearanceAndViewportBackground();
     void testCheckerboardOverridesThemeAndRestoresBackground();
     void testNavigationEdgeActivationExcludesTitlebar();
@@ -533,6 +545,28 @@ public:
 
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class ScopedEnvironmentValue
+{
+public:
+    explicit ScopedEnvironmentValue(const QByteArray &name)
+        : variableName(name), existed(qEnvironmentVariableIsSet(name.constData())), value(qgetenv(name.constData()))
+    {
+    }
+
+    ~ScopedEnvironmentValue()
+    {
+        if (existed)
+            qputenv(variableName, value);
+        else
+            qunsetenv(variableName);
+    }
+
+private:
+    QByteArray variableName;
+    bool existed;
+    QByteArray value;
 };
 
 class ScopedSettingPreserver
@@ -2217,8 +2251,8 @@ void FeatureTests::testSettingsFormatsIncludeEPS()
 // new small-image 1:1 option.
 // Preconditions: a QVApplication exists and the settings store is writable.
 // Input data: the option starts disabled, then the Image-page checkbox is enabled.
-// Steps: construct QVOptionsDialog, locate the named checkbox, invoke Apply,
-// and read the persisted SettingsManager value.
+// Steps: construct QVOptionsDialog, locate the named checkbox, change it,
+// and read the persisted SettingsManager value immediately.
 // Expected result: the checkbox is present, labeled for 1:1 display, and the
 // saved setting becomes true.
 // Postcondition: ScopedOptionValues restores the user's original setting.
@@ -2232,17 +2266,7 @@ void FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
     QVERIFY(checkbox->text().contains(QStringLiteral("1:1")));
     QVERIFY(!checkbox->isChecked());
 
-    auto *buttonBox = dialog.findChild<QDialogButtonBox *>("buttonBox");
-    QVERIFY(buttonBox);
-    QAbstractButton *applyButton = buttonBox->button(QDialogButtonBox::Apply);
-    QVERIFY(applyButton);
-
     checkbox->setChecked(true);
-    QVERIFY(QMetaObject::invokeMethod(
-        &dialog,
-        "buttonBoxClicked",
-        Qt::DirectConnection,
-        Q_ARG(QAbstractButton *, applyButton)));
     QVERIFY(qvApp->getSettingsManager().getBoolean("smallimageoneone"));
 }
 
@@ -4539,10 +4563,10 @@ void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
 // Test purpose: verify Theme replaces both removed color controls and persists.
 // Preconditions: Settings dialog can be constructed with Light Theme selected.
 // Input data: Light Theme and Dark Theme combo-box entries.
-// Steps: inspect the combo, confirm removed controls are absent, select Dark,
-// and invoke Apply.
-// Expected result: exactly two entries exist, Light is the default, and Dark is
-// saved under the theme setting.
+// Steps: inspect the combo, confirm removed controls are absent, and select
+// Dark without using a dialog action button.
+// Expected result: Light, Dark, and System entries exist in that order, Light
+// is the default, and Dark is saved immediately under the theme setting.
 // Postcondition: the original theme setting is restored.
 void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 {
@@ -4551,27 +4575,191 @@ void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
     QVOptionsDialog dialog;
     auto *themeComboBox = dialog.findChild<QComboBox *>("themeComboBox");
     QVERIFY(themeComboBox);
-    QCOMPARE(themeComboBox->count(), 2);
+    QCOMPARE(themeComboBox->count(), 3);
     QCOMPARE(themeComboBox->itemText(0), QStringLiteral("Light Theme"));
     QCOMPARE(themeComboBox->itemText(1), QStringLiteral("Dark Theme"));
     QCOMPARE(themeComboBox->itemData(0).toInt(), static_cast<int>(Qv::Theme::Light));
     QCOMPARE(themeComboBox->itemData(1).toInt(), static_cast<int>(Qv::Theme::Dark));
+    QCOMPARE(themeComboBox->itemText(2), QStringLiteral("System"));
+    QCOMPARE(themeComboBox->itemData(2).toInt(), static_cast<int>(Qv::Theme::System));
     QCOMPARE(themeComboBox->currentData().toInt(), static_cast<int>(Qv::Theme::Light));
     QVERIFY(!dialog.findChild<QCheckBox *>("bgColorCheckbox"));
     QVERIFY(!dialog.findChild<QPushButton *>("bgColorButton"));
     QVERIFY(!dialog.findChild<QCheckBox *>("darkTitlebarCheckbox"));
 
     themeComboBox->setCurrentIndex(1);
-    auto *buttonBox = dialog.findChild<QDialogButtonBox *>("buttonBox");
-    QVERIFY(buttonBox);
-    auto *applyButton = buttonBox->button(QDialogButtonBox::Apply);
-    QVERIFY(applyButton);
-    QVERIFY(QMetaObject::invokeMethod(
-        &dialog,
-        "buttonBoxClicked",
-        Qt::DirectConnection,
-        Q_ARG(QAbstractButton *, applyButton)));
     QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), Qv::Theme::Dark);
+}
+
+// TC-SETTINGS-NATIVE-TABS
+// Test purpose: verify that Settings uses the Preview-style horizontal tab
+// contract and persists non-restart settings in the same event turn.
+// Preconditions: SettingsManager is initialized and Theme is Light.
+// Input data: the Settings dialog and the Theme combo-box selection Dark.
+// Steps: inspect the tab bar and removed controls, then change Theme.
+// Expected result: tabs are horizontal, Settings has no global action button
+// box or Titlebar text controls, and the manager immediately reports Dark.
+// Postcondition: ScopedOptionValues restores the original Theme.
+void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()
+{
+    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}});
+
+    QVOptionsDialog dialog;
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    QVERIFY(tabs);
+    QCOMPARE(tabs->count(), 6);
+    QVERIFY(tabs->shape() == QTabBar::RoundedNorth || tabs->shape() == QTabBar::TriangularNorth);
+    QVERIFY(!dialog.findChild<QDialogButtonBox *>("buttonBox"));
+    QVERIFY(!dialog.findChild<QComboBox *>("titlebarComboBox"));
+    QVERIFY(!dialog.findChild<QLineEdit *>("customTitlebarLineEdit"));
+
+    auto *themeComboBox = dialog.findChild<QComboBox *>("themeComboBox");
+    QVERIFY(themeComboBox);
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.show();
+    QTRY_COMPARE_WITH_TIMEOUT(
+        QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
+        QStringLiteral("Aqua"),
+        2000);
+    themeComboBox->setCurrentIndex(themeComboBox->findData(static_cast<int>(Qv::Theme::Dark)));
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), Qv::Theme::Dark);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
+        QStringLiteral("DarkAqua"),
+        2000);
+    dialog.close();
+}
+
+// TC-SETTINGS-SMOOTH-DEFAULT
+// Test purpose: verify the Image → Smooth scaling default.
+// Preconditions: SettingsManager has initialized its default-value library.
+// Input data: the smoothscalingmode setting read with defaults=true.
+// Steps: read the default without changing a stored user value.
+// Expected result: the default is Bilinear.
+// Postcondition: no persistent setting is changed.
+void WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()
+{
+    QCOMPARE(
+        qvApp->getSettingsManager().getEnum<Qv::SmoothScalingMode>("smoothscalingmode", true),
+        Qv::SmoothScalingMode::Bilinear);
+}
+
+// TC-SETTINGS-SYSTEM-THEME
+// Test purpose: verify System is the terminal Theme option and resolves to the
+// system appearance deterministically for both appearance branches.
+// Preconditions: the native appearance resolver is available.
+// Input data: FOVELLE_SYSTEM_THEME=light and =dark test overrides.
+// Steps: resolve Qv::Theme::System under each controlled override.
+// Expected result: light maps to Light and dark maps to Dark.
+// Postcondition: the process environment is restored.
+void WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()
+{
+    ScopedEnvironmentValue environment("FOVELLE_SYSTEM_THEME");
+    qputenv("FOVELLE_SYSTEM_THEME", "light");
+    QCOMPARE(QVCocoaFunctions::resolvedTheme(Qv::Theme::System), Qv::Theme::Light);
+    qputenv("FOVELLE_SYSTEM_THEME", "dark");
+    QCOMPARE(QVCocoaFunctions::resolvedTheme(Qv::Theme::System), Qv::Theme::Dark);
+}
+
+// TC-HELP-MENU
+// Test purpose: verify Help removes Welcome and exposes the two requested
+// actions.
+// Preconditions: the application ActionManager has built the application menu.
+// Input data: the Help menu action library.
+// Steps: inspect the menu's action texts and action-library keys.
+// Expected result: Project Homepage and Check for Updates exist; Welcome does
+// not exist.
+// Postcondition: the temporary menu is released with its parent.
+void WindowBehaviorTests::testHelpMenuContract()
+{
+    QMenu *helpMenu = nullptr;
+    for (QAction *menuAction : qvApp->getMenuBar()->actions())
+    {
+        if (menuAction->text().contains(QStringLiteral("Help"), Qt::CaseInsensitive))
+        {
+            helpMenu = menuAction->menu();
+            break;
+        }
+    }
+    QVERIFY(helpMenu);
+    QVERIFY(qvApp->getActionManager().getAction("projecthomepage"));
+    QVERIFY(qvApp->getActionManager().getAction("checkupdates"));
+    QVERIFY(!qvApp->getActionManager().getAction("welcome"));
+
+    const QStringList actionTexts = std::accumulate(
+        helpMenu->actions().cbegin(), helpMenu->actions().cend(), QStringList {},
+        [](QStringList texts, QAction *action) {
+            texts.append(action->text());
+            return texts;
+        });
+    QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Project Homepage")));
+    QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Check for Updates")));
+    QVERIFY(!actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Welcome")));
+}
+
+// TC-EDIT-MACOS-SERVICES
+// Test purpose: verify the Edit menu does not expose macOS text-service items
+// requested for removal.
+// Preconditions: the application menu bar has been initialized.
+// Input data: all nested Edit-menu actions.
+// Steps: inspect action text case-insensitively.
+// Expected result: AutoFill, Start Dictation, Emoji & Symbols, and Emoji and
+// Symbols are absent.
+// Postcondition: no menu state is changed.
+void WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()
+{
+    const auto allActions = ActionManager::getAllNestedActions(qvApp->getMenuBar()->actions());
+    const QStringList forbidden {
+        QStringLiteral("AutoFill"), QStringLiteral("Start Dictation"),
+        QStringLiteral("Emoji & Symbols"), QStringLiteral("Emoji and Symbols")
+    };
+    for (const QAction *action : allActions)
+    {
+        for (const QString &text : forbidden)
+            QVERIFY2(action->text().compare(text, Qt::CaseInsensitive) != 0, qPrintable(action->text()));
+    }
+}
+
+// TC-DIALOGS-THEME
+// Test purpose: verify the shared native-dialog adapter applies both selected
+// appearances to Settings, About, image information, and message boxes.
+// Preconditions: the Cocoa test application is running.
+// Input data: Light Theme and Dark Theme settings.
+// Steps: create and show each production dialog under each theme, then read
+// its AppKit window appearance.
+// Expected result: Light uses Aqua and Dark uses DarkAqua for every dialog.
+// Postcondition: dialogs are closed and the original theme is restored.
+void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
+{
+    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
+    {
+        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
+        const QString expectedAppearance = theme == Qv::Theme::Dark
+            ? QStringLiteral("DarkAqua")
+            : QStringLiteral("Aqua");
+
+        const auto assertAppearance = [&expectedAppearance](QWidget *dialog) {
+            dialog->setAttribute(Qt::WA_DeleteOnClose, false);
+            dialog->show();
+            QTRY_COMPARE_WITH_TIMEOUT(
+                QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
+                expectedAppearance,
+                2000);
+            dialog->close();
+            delete dialog;
+        };
+
+        assertAppearance(new QVOptionsDialog());
+        assertAppearance(new QVAboutDialog());
+        assertAppearance(new QVInfoDialog());
+
+        QMessageBox *messageBox = NativeDialogs::createMessageBox(
+            QMessageBox::Information,
+            QStringLiteral("Theme test"),
+            QStringLiteral("Native dialog"),
+            QMessageBox::Ok);
+        assertAppearance(messageBox);
+    }
 }
 
 // TC-THEME-COLORS

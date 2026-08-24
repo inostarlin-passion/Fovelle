@@ -1,6 +1,7 @@
 #include "updatechecker.h"
 
 #include "qvapplication.h"
+#include "nativedialogs.h"
 
 #include <QMessageBox>
 #include <QPushButton>
@@ -26,6 +27,7 @@ void UpdateChecker::check(bool isManualCheck)
     }
 
     isChecking = true;
+    lastCheckWasManual = isManualCheck;
     QNetworkRequest request(API_BASE_URL + "/latest");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
@@ -121,6 +123,8 @@ void UpdateChecker::openDialog(QWidget *parent, bool isAutoCheck)
         return;
 
     auto *msgBox = new QMessageBox(parent);
+    msgBox->setAttribute(Qt::WA_DeleteOnClose);
+    NativeDialogs::applyTheme(msgBox);
     msgBox->setWindowTitle(tr("Fovelle Update Available"));
     msgBox->setText(tr("A newer version is available to download.")
                     + "\n\n" + checkResult.releaseName + ":\n" + checkResult.changelog);
@@ -147,7 +151,9 @@ void UpdateChecker::openDialog(QWidget *parent, bool isAutoCheck)
             settings.beginGroup("options");
             settings.setValue("updatenotifications", false);
             qvApp->getSettingsManager().loadSettings();
-            QMessageBox::information(nullptr, tr("Fovelle Update Checking Disabled"), tr("Update notifications on startup have been disabled.\nYou can reenable them in the options dialog."), QMessageBox::Ok);
+            NativeDialogs::showMessage(QMessageBox::Information,
+                                       tr("Fovelle Update Checking Disabled"),
+                                       tr("Update notifications on startup have been disabled.\nYou can reenable them in the options dialog."));
         });
     }
     msgBox->open();

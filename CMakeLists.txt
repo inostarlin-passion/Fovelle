@@ -17,6 +17,7 @@ endif()
 option(BUILD_TESTS "Build the deterministic Qt test suite" OFF)
 option(FOVELLE_BUILD_TRANSLATIONS "Build and embed Qt translation catalogs" ON)
 option(QV_DISABLE_ONLINE_VERSION_CHECK "Disable automatic version checks" OFF)
+option(FOVELLE_BUNDLE_GHOSTSCRIPT "Bundle the pinned AGPL Ghostscript runtime" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,7 +47,6 @@ set(FOVELLE_SOURCES
     src/qvapplication.cpp
     src/qvaboutdialog.cpp
     src/qvrenamedialog.cpp
-    src/qvwelcomedialog.cpp
     src/qvinfodialog.cpp
     src/qvimagecore.cpp
     src/qvimageloader.cpp
@@ -60,6 +60,7 @@ set(FOVELLE_SOURCES
     src/shortcutmanager.cpp
     src/simplefonticonengine.cpp
     src/updatechecker.cpp
+    src/nativedialogs.cpp
     src/qvcocoafunctions.mm
 )
 
@@ -75,7 +76,6 @@ set(FOVELLE_HEADERS
     src/qvapplication.h
     src/qvaboutdialog.h
     src/qvrenamedialog.h
-    src/qvwelcomedialog.h
     src/qvinfodialog.h
     src/qvimagecore.h
     src/qvimageloader.h
@@ -89,6 +89,7 @@ set(FOVELLE_HEADERS
     src/shortcutmanager.h
     src/simplefonticonengine.h
     src/updatechecker.h
+    src/nativedialogs.h
     src/qvcocoafunctions.h
 )
 
@@ -96,7 +97,6 @@ set(FOVELLE_FORMS
     src/mainwindow.ui
     src/qvoptionsdialog.ui
     src/qvaboutdialog.ui
-    src/qvwelcomedialog.ui
     src/qvinfodialog.ui
     src/qvshortcutdialog.ui
 )
@@ -161,6 +161,22 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
 )
+
+if(FOVELLE_BUNDLE_GHOSTSCRIPT)
+    # Make changes to the staging policy or license notice invalidate the
+    # bundle link step, so the POST_BUILD copy cannot silently become stale.
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/dist/scripts/prepare-ghostscript.sh"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ghostscript/NOTICE.md")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E env
+            "FOVELLE_GHOSTSCRIPT=$ENV{FOVELLE_GHOSTSCRIPT}"
+            bash "${CMAKE_CURRENT_SOURCE_DIR}/dist/scripts/prepare-ghostscript.sh"
+            --output "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources/ghostscript"
+        VERBATIM
+        COMMENT "Staging the AGPL Ghostscript runtime for EPS support"
+    )
+endif()
 
 if(FOVELLE_BUILD_TRANSLATIONS)
     # A multilingual build without LinguistTools silently produces an

@@ -9,17 +9,14 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 ## New Features
 
 - **Added support for most common RAW image formats.**
-- **Supports HDR rendering and display for both RAW and non-RAW image formats. Supports smooth brightness adjustment, allowing brightness to be increased or decreased seamlessly.**
+- **Supports HDR rendering and display for both RAW and non-RAW image formats, with smooth, seamless brightness adjustment for increasing or decreasing brightness.**
 - Displays small images at their actual size (1:1).
 - Supports both light and dark appearances.
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the image and automatically shown or hidden.
 - Conditionally displays vertical and horizontal scrollbars.
 - **Vector rendering for EPS and SVG, with zoom levels of up to 6400%.**
-
-### EPS requirement
-
-macOS 14 and later no longer include a system PostScript/EPS renderer. Fovelle therefore requires [Ghostscript](https://www.ghostscript.com/) to open EPS files. Install it with `brew install ghostscript`. If `gs` is installed in a custom location, set `FOVELLE_GHOSTSCRIPT` to its executable path before launching Fovelle.
+- EPS decoding uses the AGPL Ghostscript runtime bundled in release app bundles.
 
 ## Supported Formats
 

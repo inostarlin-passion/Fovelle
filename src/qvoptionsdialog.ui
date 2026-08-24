@@ -39,24 +39,25 @@
     <number>12</number>
    </property>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <property name="spacing">
-      <number>0</number>
+    <widget class="QTabBar" name="categoryTabs">
+     <property name="drawBase">
+      <bool>true</bool>
      </property>
-     <item>
-      <widget class="QListWidget" name="categoryList">
-       <property name="maximumSize">
-        <size>
-         <width>150</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="horizontalScrollBarPolicy">
-        <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
+     <property name="expanding">
+      <bool>false</bool>
+     </property>
+     <property name="usesScrollButtons">
+      <bool>true</bool>
+     </property>
+     <property name="documentMode">
+      <bool>true</bool>
+     </property>
+     <property name="elideMode">
+      <enum>Qt::TextElideMode::ElideRight</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
       <widget class="QStackedWidget" name="stackedWidget">
        <property name="currentIndex">
         <number>0</number>
@@ -124,57 +125,6 @@
           </item>
           <item row="2" column="1">
            <spacer name="horizontalSpacer_12">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label">
-            <property name="toolTip">
-             <string>Changes the amount of information displayed in the titlebar</string>
-            </property>
-            <property name="text">
-             <string>Titlebar text:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QComboBox" name="titlebarComboBox"/>
-          </item>
-          <item row="4" column="1">
-           <widget class="QLineEdit" name="customTitlebarLineEdit">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>225</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>%n - Filename
-%i - Image Index in Folder
-%c - Image Count in Folder
-%s - File Size
-%w - Image Width
-%h - Image Height
-%z - Zoom Level</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1">
-           <spacer name="horizontalSpacer_4">
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
             </property>
@@ -1424,58 +1374,10 @@
          </item>
         </layout>
        </widget>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="focusPolicy">
-      <enum>Qt::FocusPolicy::NoFocus</enum>
-     </property>
-     <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok|QDialogButtonBox::StandardButton::RestoreDefaults</set>
-     </property>
-    </widget>
+       </widget>
    </item>
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>QVOptionsDialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>325</x>
-     <y>332</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>QVOptionsDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>257</x>
-     <y>332</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

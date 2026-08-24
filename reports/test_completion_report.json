@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "kind": "test-completion-report",
+  "generated_at_utc": "2026-08-24T15:26:18.472216+00:00",
+  "repository": "/Users/inostarlin/code/Fovelle",
+  "head_sha": "6644f2142e8c8ddb00656150ffdf20cda65e7261",
+  "preflight_build": {
+    "passed": true,
+    "skipped": true
+  },
+  "execution_order": [
+    "static",
+    "unit",
+    "integration",
+    "system"
+  ],
+  "stages": {
+    "static": {
+      "passed": true,
+      "case_count": 27,
+      "passed_case_count": 27
+    },
+    "unit": {
+      "passed": true,
+      "case_count": 8,
+      "passed_case_count": 8
+    },
+    "integration": {
+      "passed": true,
+      "case_count": 5,
+      "passed_case_count": 5
+    },
+    "system": {
+      "passed": true,
+      "case_count": 2,
+      "passed_case_count": 2
+    }
+  },
+  "counts": {
+    "atomic_case_count": 42,
+    "passed_case_count": 42,
+    "failed_case_count": 0,
+    "missing_case_ids": [],
+    "stage_passed": {
+      "static": true,
+      "unit": true,
+      "integration": true,
+      "system": true
+    }
+  },
+  "artifacts": {
+    "test_case_specification.json": {
+      "path": "reports/test_case_specification.json",
+      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
+      "exists": true,
+      "bytes": 36076,
+      "sha256": "7a079965407955184fbf79c0c0adbf96b4e3319f272f3c29fd3f4244fed45ebf"
+    },
+    "test_evidence.json": {
+      "path": "reports/test_evidence.json",
+      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
+      "exists": true,
+      "bytes": 208605,
+      "sha256": "77c744884fac1924146994faa36ef06d8cbd08699aa61f103080fd83cfe54223"
+    }
+  },
+  "facts": [
+    "The four stages are executed in static, unit, integration, system order after build preflight.",
+    "Unit evidence includes the existing 91-case Qt regression run and the new atomic dialog/menu/theme methods.",
+    "System evidence launches the actual Fovelle.app with PATH restricted to /usr/bin:/bin and FOVELLE_GHOSTSCRIPT removed."
+  ],
+  "uncertainties": [
+    "Timing and AppKit appearance observations are host-specific macOS observations.",
+    "The Ghostscript package includes the pinned runtime and recursively copied dynamic dependencies; other PostScript dialects remain outside the finite fixture."
+  ],
+  "passed": true
+}

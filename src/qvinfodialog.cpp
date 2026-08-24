@@ -1,9 +1,11 @@
 #include "qvinfodialog.h"
 #include "ui_qvinfodialog.h"
 #include "qvapplication.h"
+#include "nativedialogs.h"
 #include <QDateTime>
 #include <QMimeDatabase>
 #include <QTimer>
+#include <QShowEvent>
 
 static int getGcd (int a, int b) {
     return (b == 0) ? a : getGcd(b, a % b);
@@ -14,13 +16,19 @@ QVInfoDialog::QVInfoDialog(QWidget *parent) :
     ui(new Ui::QVInfoDialog)
 {
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint | Qt::CustomizeWindowHint));
+    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setFixedSize(0, 0);
 }
 
 QVInfoDialog::~QVInfoDialog()
 {
     delete ui;
+}
+
+void QVInfoDialog::showEvent(QShowEvent *event)
+{
+    NativeDialogs::applyTheme(this);
+    QDialog::showEvent(event);
 }
 
 void QVInfoDialog::setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount)

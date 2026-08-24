@@ -2,12 +2,14 @@
 
 #include <QDir>
 #include <QMessageBox>
+#include "nativedialogs.h"
 
 QVRenameDialog::QVRenameDialog(QWidget *parent, QFileInfo fileInfo) :
     QInputDialog(parent)
 {
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    NativeDialogs::applyTheme(this);
 
     this->fileInfo = fileInfo;
 
@@ -23,7 +25,9 @@ void QVRenameDialog::onFinished(int result)
 {
     if (!fileInfo.isWritable())
     {
-        QMessageBox::critical(this, tr("Error"), tr("Could not rename %1:\nNo write permission or file is read-only.").arg(fileInfo.fileName()));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
+                                   tr("Could not rename %1:\nNo write permission or file is read-only.").arg(fileInfo.fileName()),
+                                   QMessageBox::Ok, this);
         return;
     }
 
@@ -42,7 +46,9 @@ void QVRenameDialog::onFinished(int result)
             }
             else
             {
-                QMessageBox::critical(this, tr("Error"), tr("Could not rename %1:\n(Check that all characters are valid)").arg(fileInfo.fileName()));
+                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
+                                           tr("Could not rename %1:\n(Check that all characters are valid)").arg(fileInfo.fileName()),
+                                           QMessageBox::Ok, this);
             }
         }
     }
@@ -51,6 +57,7 @@ void QVRenameDialog::onFinished(int result)
 void QVRenameDialog::showEvent(QShowEvent *event)
 {
     QInputDialog::showEvent(event);
+    NativeDialogs::applyTheme(this);
 
     QLineEdit *lineEdit = findChild<QLineEdit*>();
     const auto &lastDot = lineEdit->text().lastIndexOf(".");

@@ -1,6 +1,7 @@
 #include "qvshortcutdialog.h"
 #include "ui_qvshortcutdialog.h"
 #include "qvapplication.h"
+#include "nativedialogs.h"
 
 #include <QMessageBox>
 
@@ -13,7 +14,8 @@ QVShortcutDialog::QVShortcutDialog(int index, GetTransientShortcutCallback getTr
     ui->setupUi(this);
 
     setAttribute(Qt::WA_DeleteOnClose);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint | Qt::CustomizeWindowHint));
+    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    NativeDialogs::applyTheme(this);
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this, &QVShortcutDialog::buttonBoxClicked);
 
@@ -52,7 +54,9 @@ void QVShortcutDialog::buttonBoxClicked(QAbstractButton *button)
             if (!conflictingShortcut.isEmpty())
             {
                 QString nativeShortcutString = sequence.toString(QKeySequence::NativeText);
-                QMessageBox::warning(this, tr("Shortcut Already Used"), tr("\"%1\" is already bound to \"%2\"").arg(nativeShortcutString, conflictingShortcut));
+                NativeDialogs::showMessage(QMessageBox::Warning, tr("Shortcut Already Used"),
+                                           tr("\"%1\" is already bound to \"%2\"").arg(nativeShortcutString, conflictingShortcut),
+                                           QMessageBox::Ok, this);
                 return;
             }
         }

@@ -10,7 +10,6 @@ SOURCES += \
     $$PWD/qvapplication.cpp \
     $$PWD/qvaboutdialog.cpp \
     $$PWD/qvrenamedialog.cpp \
-    $$PWD/qvwelcomedialog.cpp \
     $$PWD/qvinfodialog.cpp \
     $$PWD/qvimagecore.cpp \
     $$PWD/qvimageloader.cpp \
@@ -23,7 +22,8 @@ SOURCES += \
     $$PWD/settingsmanager.cpp \
     $$PWD/shortcutmanager.cpp \
     $$PWD/simplefonticonengine.cpp \
-    $$PWD/updatechecker.cpp
+    $$PWD/updatechecker.cpp \
+    $$PWD/nativedialogs.cpp
 
 macx:SOURCES += $$PWD/qvcocoafunctions.mm
 
@@ -39,7 +39,6 @@ HEADERS += \
     $$PWD/qvapplication.h \
     $$PWD/qvaboutdialog.h \
     $$PWD/qvrenamedialog.h \
-    $$PWD/qvwelcomedialog.h \
     $$PWD/qvinfodialog.h \
     $$PWD/qvimagecore.h \
     $$PWD/qvimageloader.h \
@@ -52,7 +51,8 @@ HEADERS += \
     $$PWD/settingsmanager.h \
     $$PWD/shortcutmanager.h \
     $$PWD/simplefonticonengine.h \
-    $$PWD/updatechecker.h
+    $$PWD/updatechecker.h \
+    $$PWD/nativedialogs.h
 
 macx:HEADERS += $$PWD/qvcocoafunctions.h
 
@@ -60,6 +60,5 @@ FORMS += \
     $$PWD/mainwindow.ui \
     $$PWD/qvoptionsdialog.ui \
     $$PWD/qvaboutdialog.ui \
-    $$PWD/qvwelcomedialog.ui \
     $$PWD/qvinfodialog.ui \
     $$PWD/qvshortcutdialog.ui

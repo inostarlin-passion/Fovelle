@@ -1,6 +1,12 @@
 .DS_Store
 .directory
 reports/
+!reports/
+reports/*
+!reports/test_evidence.json
+!reports/test_case_specification.json
+!reports/test_completion_report.json
+!reports/code_quality_assessment_report.json
 
 # C++ objects and libs
 

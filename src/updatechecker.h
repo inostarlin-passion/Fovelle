@@ -28,6 +28,8 @@ public:
 
     bool getHasChecked() const { return hasChecked; }
 
+    bool getLastCheckWasManual() const { return lastCheckWasManual; }
+
     CheckResult getCheckResult() const { return checkResult; }
 
 signals:
@@ -58,6 +60,7 @@ private:
 
     bool isChecking {false};
     bool hasChecked {false};
+    bool lastCheckWasManual {false};
     CheckResult checkResult;
 
     QNetworkAccessManager netAccessManager;

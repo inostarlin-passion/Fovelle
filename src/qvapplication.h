@@ -8,7 +8,6 @@
 #include "updatechecker.h"
 #include "qvoptionsdialog.h"
 #include "qvaboutdialog.h"
-#include "qvwelcomedialog.h"
 
 #include <QApplication>
 #include <QRegularExpression>
@@ -74,8 +73,6 @@ public:
     }
 
     void openOptionsDialog(QWidget *parent = nullptr);
-
-    void openWelcomeDialog(QWidget *parent = nullptr);
 
     void openAboutDialog(QWidget *parent = nullptr);
 
@@ -170,7 +167,6 @@ private:
     ShortcutManager shortcutManager;
 
     QPointer<QVOptionsDialog> optionsDialog;
-    QPointer<QVWelcomeDialog> welcomeDialog;
     QPointer<QVAboutDialog> aboutDialog;
 
     bool showMainMenuIcons {true};

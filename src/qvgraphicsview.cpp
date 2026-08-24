@@ -2313,11 +2313,12 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
 
 void QVGraphicsView::applyScrollBarTheme(const Qv::Theme theme)
 {
-    const QString style = scrollBarStyleSheet(theme);
+    const Qv::Theme resolvedTheme = QVCocoaFunctions::resolvedTheme(theme);
+    const QString style = scrollBarStyleSheet(resolvedTheme);
     for (QScrollBar *scrollBar : {horizontalScrollBar(), verticalScrollBar()})
     {
         scrollBar->setStyleSheet(style);
-        scrollBar->setProperty("scrollBarTheme", static_cast<int>(theme));
+        scrollBar->setProperty("scrollBarTheme", static_cast<int>(resolvedTheme));
     }
 }
 
@@ -2325,7 +2326,7 @@ void QVGraphicsView::applyHDRViewportBackground(const Qv::Theme theme)
 {
     if (!hdrRenderer)
         return;
-    hdrRenderer->setBackgroundColor(Qv::viewportBackgroundColor(theme));
+    hdrRenderer->setBackgroundColor(Qv::viewportBackgroundColor(QVCocoaFunctions::resolvedTheme(theme)));
     if (hdrRendererActive)
         requestHDRRendererUpdate();
 }
@@ -2335,7 +2336,8 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
     auto &settingsManager = qvApp->getSettingsManager();
 
     const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
-    viewportBackgroundBrush = QBrush(Qv::viewportBackgroundColor(theme));
+    const Qv::Theme resolvedTheme = QVCocoaFunctions::resolvedTheme(theme);
+    viewportBackgroundBrush = QBrush(Qv::viewportBackgroundColor(resolvedTheme));
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
     if (checkerboardBackground)
     {
@@ -2355,7 +2357,7 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
         checkerboardBackgroundBrush = QBrush(checkerboardTile);
     }
     viewport()->update();
-    applyScrollBarTheme(theme);
+    applyScrollBarTheme(resolvedTheme);
     applyHDRViewportBackground(theme);
 
     if (isInitialLoad || globalNavigationResetsZoom != settingsManager.getBoolean("navresetszoom"))

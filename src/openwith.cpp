@@ -2,6 +2,7 @@
 #include "openwith.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
+#include "nativedialogs.h"
 
 #include <QCollator>
 #include <QDir>
@@ -45,6 +46,7 @@ void OpenWith::showOpenWithDialog(QWidget *parent)
     auto openWithDialog = new QFileDialog(parent);
     openWithDialog->setNameFilters({tr("All Applications (*.app)")});
     openWithDialog->setDirectory("/Applications");
+    NativeDialogs::applyTheme(openWithDialog);
     openWithDialog->open();
     connect(openWithDialog, &QFileDialog::fileSelected, [filePath](const QString &executablePath){
         openWithExecutable("open", {"-a", executablePath}, filePath);

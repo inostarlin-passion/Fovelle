@@ -95,7 +95,8 @@ namespace Qv
     enum class Theme
     {
         Light = 0,
-        Dark = 1
+        Dark = 1,
+        System = 2
     };
 
     enum class TitleBarText

@@ -2,11 +2,14 @@
 #include "ui_qvoptionsdialog.h"
 #include "qvapplication.h"
 #include "qvshortcutdialog.h"
-#include <QPalette>
+#include "qvcocoafunctions.h"
+#include "nativedialogs.h"
+
 #include <QMessageBox>
 #include <QSettings>
 #include <QWindow>
-#include <QPushButton>
+#include <QSignalBlocker>
+#include <QTabBar>
 
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     QDialog(parent),
@@ -15,12 +18,14 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     ui->setupUi(this);
 
     setAttribute(Qt::WA_DeleteOnClose);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint | Qt::CustomizeWindowHint));
+    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
 
     resize(650, 550);
+    ui->categoryTabs->setShape(QTabBar::RoundedNorth);
 
-    connect(ui->categoryList, &QListWidget::currentRowChanged, this, [this](int currentRow) { ui->stackedWidget->setCurrentIndex(currentRow); });
-    connect(ui->buttonBox, &QDialogButtonBox::clicked, this, &QVOptionsDialog::buttonBoxClicked);
+    connect(ui->categoryTabs, &QTabBar::currentChanged, this, [this](int currentIndex) {
+        ui->stackedWidget->setCurrentIndex(currentIndex);
+    });
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
     connect(ui->mainMenuIconsCheckbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) { restartNotifyForCheckbox("mainmenuicons", state); });
     connect(ui->contextMenuIconsCheckbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) { restartNotifyForCheckbox("contextmenuicons", state); });
@@ -31,14 +36,12 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     connect(ui->cursorAutoHideFullscreenCheckbox, &QCheckBox::checkStateChanged, this, &QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged);
     connect(ui->middleButtonModeClickRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
     connect(ui->middleButtonModeDragRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
-    connect(ui->titlebarComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::titlebarComboBoxCurrentIndexChanged);
     connect(ui->smoothScalingComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::smoothScalingComboBoxCurrentIndexChanged);
     connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
     connect(ui->formatsTable, &QTableWidget::itemChanged, this, &QVOptionsDialog::formatsItemChanged);
 
     QSettings settings;
 
-    customizePalette();
     populateCategories(settings.value("optionstab", 1).toInt());
     populateComboBoxes();
     populateLanguages();
@@ -64,7 +67,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     syncSettings(false, true);
     syncShortcuts();
     syncFormats();
-    updateButtonBox();
 
     isInitialLoad = false;
 }
@@ -79,7 +81,7 @@ void QVOptionsDialog::done(int r)
     // Save window geometry
     QSettings settings;
     settings.setValue("optionsgeometry", saveGeometry());
-    settings.setValue("optionstab", ui->categoryList->currentRow());
+    settings.setValue("optionstab", ui->categoryTabs->currentIndex());
 
     QDialog::done(r);
 }
@@ -88,10 +90,12 @@ void QVOptionsDialog::showEvent(QShowEvent *event)
 {
     // On macOS, we don't make this dialog modal, so make sure it doesn't get covered by on top windows
     const auto updateWindowOnTop = [this]() {
-        windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
+        if (windowHandle())
+            windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     };
     updateWindowOnTop();
     connect(qvApp, &QVApplication::windowOnTopChanged, this, updateWindowOnTop);
+    NativeDialogs::applyTheme(this);
     QDialog::showEvent(event);
 }
 
@@ -99,45 +103,21 @@ void QVOptionsDialog::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::PaletteChange)
     {
-        customizePalette();
-        populateCategories(ui->categoryList->currentRow());
+        populateCategories(ui->categoryTabs->currentIndex());
     }
     QDialog::changeEvent(event);
 }
 
 void QVOptionsDialog::modifySetting(QString key, QVariant value)
 {
-    transientSettings.insert(key, value);
-    updateButtonBox();
-}
-
-void QVOptionsDialog::saveSettings()
-{
     QSettings settings;
-
     settings.beginGroup("options");
-
-    const auto keys = transientSettings.keys();
-    for (const auto &key : keys)
-    {
-        const auto &value = transientSettings[key];
-        settings.setValue(key, value);
-    }
-
-    settings.setValue("disabledfileextensions", Qv::setToList(transientDisabledFileExtensions).join(';'));
-
+    settings.setValue(key, value);
     settings.endGroup();
-
-    settings.beginGroup("shortcuts");
-
-    const auto &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
-    for (int i = 0; i < transientShortcuts.length(); i++)
-    {
-        settings.setValue(shortcutsList.value(i).name, transientShortcuts.value(i));
-    }
-
-    qvApp->getShortcutManager().updateShortcuts();
+    settings.sync();
     qvApp->getSettingsManager().loadSettings();
+    if (key == QStringLiteral("theme"))
+        NativeDialogs::applyTheme(this);
 }
 
 void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
@@ -149,10 +129,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncComboBox(ui->themeComboBox, "theme", defaults, makeConnections);
     // checkerboardbackground
     syncCheckbox(ui->checkerboardBackgroundCheckbox, "checkerboardbackground", defaults, makeConnections);
-    // titlebarmode
-    syncComboBox(ui->titlebarComboBox, "titlebarmode", defaults, makeConnections);
-    // customtitlebartext
-    syncLineEdit(ui->customTitlebarLineEdit, "customtitlebartext", defaults, makeConnections);
     // windowresizemode
     syncComboBox(ui->windowResizeComboBox, "windowresizemode", defaults, makeConnections);
     // aftermatchingsize
@@ -267,8 +243,8 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
 void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults, bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getBoolean(key, defaults);
+    const QSignalBlocker blocker(checkbox);
     checkbox->setChecked(val);
-    transientSettings.insert(key, val);
 
     if (makeConnection)
     {
@@ -281,9 +257,9 @@ void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool
 void QVOptionsDialog::syncRadioButtons(QList<QRadioButton *> buttons, const QString &key, bool defaults, bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getInteger(key, defaults);
+    const QSignalBlocker blocker(buttons.value(0));
     if (auto widget = buttons.value(val))
         widget->setChecked(true);
-    transientSettings.insert(key, val);
 
     if (makeConnection)
     {
@@ -298,9 +274,12 @@ void QVOptionsDialog::syncRadioButtons(QList<QRadioButton *> buttons, const QStr
 
 void QVOptionsDialog::syncComboBox(QComboBox *comboBox, const QString &key, bool defaults, bool makeConnection)
 {
-    auto val = qvApp->getSettingsManager().getString(key, defaults);
-    comboBox->setCurrentIndex(comboBox->findData(val));
-    transientSettings.insert(key, val);
+    const QVariant val = qvApp->getSettingsManager().getSetting(key, defaults);
+    const QSignalBlocker blocker(comboBox);
+    int index = comboBox->findData(val);
+    if (index < 0)
+        index = comboBox->findData(val.toInt());
+    comboBox->setCurrentIndex(index);
 
     if (makeConnection)
     {
@@ -314,8 +293,8 @@ void QVOptionsDialog::syncComboBox(QComboBox *comboBox, const QString &key, bool
 void QVOptionsDialog::syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults, bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getInteger(key, defaults);
+    const QSignalBlocker blocker(spinBox);
     spinBox->setValue(val);
-    transientSettings.insert(key, val);
 
     if (makeConnection)
     {
@@ -328,27 +307,13 @@ void QVOptionsDialog::syncSpinBox(QSpinBox *spinBox, const QString &key, bool de
 void QVOptionsDialog::syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults, bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getDouble(key, defaults);
+    const QSignalBlocker blocker(doubleSpinBox);
     doubleSpinBox->setValue(val);
-    transientSettings.insert(key, val);
 
     if (makeConnection)
     {
         connect(doubleSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, key](double d) {
             modifySetting(key, d);
-        });
-    }
-}
-
-void QVOptionsDialog::syncLineEdit(QLineEdit *lineEdit, const QString &key, bool defaults, bool makeConnection)
-{
-    auto val = qvApp->getSettingsManager().getString(key, defaults);
-    lineEdit->setText(val);
-    transientSettings.insert(key, val);
-
-    if (makeConnection)
-    {
-        connect(lineEdit, &QLineEdit::textEdited, this, [this, key](const QString &text) {
-            modifySetting(key, text);
         });
     }
 }
@@ -391,7 +356,6 @@ void QVOptionsDialog::updateShortcutsTable()
         const QStringList &shortcuts = transientShortcuts.value(i);
         ui->shortcutsTable->item(i, 1)->setText(ShortcutManager::stringListToReadableString(shortcuts));
     }
-    updateButtonBox();
 }
 
 void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)
@@ -403,6 +367,11 @@ void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)
     auto *shortcutDialog = new QVShortcutDialog(row, getTransientShortcutCallback, this);
     connect(shortcutDialog, &QVShortcutDialog::shortcutsListChanged, this, [this](int index, const QStringList &stringListShortcuts) {
         transientShortcuts.replace(index, stringListShortcuts);
+        const auto &shortcut = qvApp->getShortcutManager().getShortcutsList().value(index);
+        QSettings settings;
+        settings.setValue(QStringLiteral("shortcuts/") + shortcut.name, stringListShortcuts);
+        settings.sync();
+        qvApp->getShortcutManager().updateShortcuts();
         updateShortcutsTable();
     });
     shortcutDialog->open();
@@ -441,73 +410,13 @@ void QVOptionsDialog::syncFormats(bool defaults)
     isLoadingFormats = false;
 }
 
-void QVOptionsDialog::buttonBoxClicked(QAbstractButton *button)
-{
-    auto role = ui->buttonBox->buttonRole(button);
-    if (role == QDialogButtonBox::AcceptRole || role == QDialogButtonBox::ApplyRole)
-    {
-        saveSettings();
-        if (role == QDialogButtonBox::ApplyRole)
-            button->setEnabled(false);
-    }
-    else if (role == QDialogButtonBox::ResetRole)
-    {
-        syncSettings(true);
-        syncShortcuts(true);
-        syncFormats(true);
-    }
-}
-
-void QVOptionsDialog::updateButtonBox()
-{
-    QPushButton *defaultsButton = ui->buttonBox->button(QDialogButtonBox::RestoreDefaults);
-    QPushButton *applyButton = ui->buttonBox->button(QDialogButtonBox::Apply);
-    bool anyUnsaved = false;
-    bool anyNonDefault = false;
-
-    // settings
-    const QList<QString> settingKeys = transientSettings.keys();
-    for (const auto &key : settingKeys)
-    {
-        const auto &transientValue = transientSettings.value(key);
-        const auto &savedValue = qvApp->getSettingsManager().getSetting(key);
-        const auto &defaultValue = qvApp->getSettingsManager().getSetting(key, true);
-
-        anyUnsaved |= transientValue != savedValue;
-        anyNonDefault |= transientValue != defaultValue;
-    }
-
-    // shortcuts
-    const QList<ShortcutManager::SShortcut> &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
-    for (int i = 0; i < transientShortcuts.length(); i++)
-    {
-        const auto &transientValue = transientShortcuts.value(i);
-        QStringList savedValue = shortcutsList.value(i).shortcuts;
-        QStringList defaultValue = shortcutsList.value(i).defaultShortcuts;
-
-        anyUnsaved |= transientValue != savedValue;
-        anyNonDefault |= transientValue != defaultValue;
-    }
-
-    // formats
-    anyUnsaved |= transientDisabledFileExtensions != qvApp->getDisabledFileExtensions();
-    anyNonDefault |= !transientDisabledFileExtensions.isEmpty();
-
-    applyButton->setEnabled(anyUnsaved);
-    defaultsButton->setEnabled(anyNonDefault);
-}
-
 void QVOptionsDialog::restartNotifyForCheckbox(const QString &key, const Qt::CheckState state)
 {
     const bool savedValue = qvApp->getSettingsManager().getBoolean(key);
     if (static_cast<bool>(state) != savedValue)
-        QMessageBox::information(this, tr("Restart Required"), tr("You must restart Fovelle for the setting change to take effect."));
-}
-
-void QVOptionsDialog::titlebarComboBoxCurrentIndexChanged(int index)
-{
-    const auto value = static_cast<Qv::TitleBarText>(ui->titlebarComboBox->itemData(index).toInt());
-    ui->customTitlebarLineEdit->setEnabled(value == Qv::TitleBarText::Custom);
+        NativeDialogs::showMessage(QMessageBox::Information, tr("Restart Required"),
+                                   tr("You must restart Fovelle for the setting change to take effect."),
+                                   QMessageBox::Ok, this);
 }
 
 void QVOptionsDialog::smoothScalingComboBoxCurrentIndexChanged(int index)
@@ -539,39 +448,24 @@ void QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged(Qt::Chec
     ui->cursorAutoHideFullscreenDelaySpinBox->setEnabled(static_cast<bool>(state));
 }
 
-void QVOptionsDialog::customizePalette()
-{
-    const QString currentStyle = qApp->style()->objectName();
-    const QPalette appPalette = QApplication::palette();
-    if (currentStyle.compare("fusion", Qt::CaseInsensitive) == 0 ||
-        currentStyle.compare("macos", Qt::CaseInsensitive) == 0)
-    {
-        const QColor textColor = appPalette.color(QPalette::WindowText);
-        QPalette palette = ui->categoryList->palette();
-        palette.setColor(QPalette::HighlightedText, textColor);
-        palette.setColor(QPalette::Highlight, Qv::getPerceivedBrightness(textColor) > 0.5 ? QColor(0, 65, 127) : QColor(75, 166, 255));
-        ui->categoryList->setPalette(palette);
-    }
-}
-
 void QVOptionsDialog::populateCategories(int selectedRow)
 {
-    const int iconSize = 24;
-    const int listRightPadding = 3;
+    const int iconSize = 20;
     const auto addItem = [&](const Qv::MaterialIcon iconName, const QString &text) {
-        ui->categoryList->addItem(new QListWidgetItem(qvApp->iconFromFont(iconName), text));
+        ui->categoryTabs->addTab(qvApp->iconFromFont(iconName), text);
     };
-    ui->categoryList->setIconSize(QSize(iconSize, iconSize));
-    ui->categoryList->setFont(QApplication::font());
-    ui->categoryList->clear();
+    ui->categoryTabs->setIconSize(QSize(iconSize, iconSize));
+    while (ui->categoryTabs->count() > 0)
+        ui->categoryTabs->removeTab(0);
     addItem(Qv::MaterialIcon::WebAsset, tr("Window"));
     addItem(Qv::MaterialIcon::Image, tr("Image"));
     addItem(Qv::MaterialIcon::Tune, tr("Miscellaneous"));
     addItem(Qv::MaterialIcon::Keyboard, tr("Shortcuts"));
     addItem(Qv::MaterialIcon::Mouse, tr("Mouse"));
     addItem(Qv::MaterialIcon::Extension, tr("Formats"));
-    ui->categoryList->setCurrentRow(selectedRow);
-    ui->categoryList->setFixedWidth(ui->categoryList->sizeHintForColumn(0) + ui->categoryList->frameWidth() + listRightPadding);
+    const int safeRow = qBound(0, selectedRow, ui->categoryTabs->count() - 1);
+    ui->categoryTabs->setCurrentIndex(safeRow);
+    ui->stackedWidget->setCurrentIndex(safeRow);
 }
 
 void QVOptionsDialog::populateLanguages()
@@ -601,7 +495,9 @@ void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
     Q_UNUSED(index)
     if (!isInitialLoad && !languageRestartMessageShown)
     {
-        QMessageBox::information(this, tr("Restart Required"), tr("You must restart Fovelle for the language change to take effect."));
+        NativeDialogs::showMessage(QMessageBox::Information, tr("Restart Required"),
+                                   tr("You must restart Fovelle for the language change to take effect."),
+                                   QMessageBox::Ok, this);
         languageRestartMessageShown = true;
     }
 }
@@ -617,7 +513,11 @@ void QVOptionsDialog::formatsItemChanged(QTableWidgetItem *item)
     else
         transientDisabledFileExtensions.remove(extension);
 
-    updateButtonBox();
+    QSettings settings;
+    settings.setValue(QStringLiteral("options/disabledfileextensions"),
+                      Qv::setToList(transientDisabledFileExtensions).join(';'));
+    settings.sync();
+    qvApp->getSettingsManager().loadSettings();
 }
 
 void QVOptionsDialog::middleButtonModeChanged()
@@ -702,20 +602,11 @@ const Ui::ComboBoxItems<Qv::SortMode> QVOptionsDialog::mapSortMode() {
     };
 }
 
-const Ui::ComboBoxItems<Qv::TitleBarText> QVOptionsDialog::mapTitleBarText() {
-    return {
-        { Qv::TitleBarText::Basic, tr("Basic") },
-        { Qv::TitleBarText::Minimal, tr("Minimal") },
-        { Qv::TitleBarText::Practical, tr("Practical") },
-        { Qv::TitleBarText::Verbose, tr("Verbose") },
-        { Qv::TitleBarText::Custom, tr("Custom") }
-    };
-}
-
 const Ui::ComboBoxItems<Qv::Theme> QVOptionsDialog::mapTheme() {
     return {
         { Qv::Theme::Light, tr("Light Theme") },
-        { Qv::Theme::Dark, tr("Dark Theme") }
+        { Qv::Theme::Dark, tr("Dark Theme") },
+        { Qv::Theme::System, tr("System") }
     };
 }
 
@@ -769,8 +660,6 @@ static void populateComboBox(QComboBox *comboBox, const Ui::ComboBoxItems<TEnum>
 void QVOptionsDialog::populateComboBoxes()
 {
     populateComboBox(ui->themeComboBox, mapTheme());
-
-    populateComboBox(ui->titlebarComboBox, mapTitleBarText());
 
     populateComboBox(ui->windowResizeComboBox, mapWindowResizeMode());
 

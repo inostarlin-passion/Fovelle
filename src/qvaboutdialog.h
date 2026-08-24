@@ -18,6 +18,9 @@ public:
 
     void updateCheckForUpdatesButtonState();
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 private slots:
     void checkForUpdatesButtonClicked();
 

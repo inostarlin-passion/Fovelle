@@ -212,7 +212,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("reusewindow", {false, {}});
     settingsLibrary.insert("persistsession", {false, {}});
     // Image
-    settingsLibrary.insert("smoothscalingmode", {static_cast<int>(Qv::SmoothScalingMode::Expensive), {}});
+    settingsLibrary.insert("smoothscalingmode", {static_cast<int>(Qv::SmoothScalingMode::Bilinear), {}});
     settingsLibrary.insert("scalingtwoenabled", {true, {}});
     settingsLibrary.insert("smoothscalinglimitenabled", {false, {}});
     settingsLibrary.insert("smoothscalinglimitpercent", {400, {}});

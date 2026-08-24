@@ -3,6 +3,7 @@
 #include "qvcocoafunctions.h"
 #include "simplefonticonengine.h"
 #include "updatechecker.h"
+#include "nativedialogs.h"
 
 #include <QFileOpenEvent>
 #include <QSettings>
@@ -88,11 +89,7 @@ bool QVApplication::event(QEvent *event)
         // A Launch Services callback must return promptly. Defer window creation and image
         // decoding to the event loop so the caller is not blocked by application startup.
         if (!file.isEmpty())
-        {
             queueFileOpen(file);
-            if (welcomeDialog)
-                welcomeDialog->close();
-        }
 
         return true;
     }
@@ -163,6 +160,7 @@ void QVApplication::pickFile(MainWindow *parent)
     fileDialog->setNameFilters(qvApp->getNameFilterList());
     if (parent)
         fileDialog->setWindowModality(Qt::WindowModal);
+    NativeDialogs::applyTheme(fileDialog);
 
     connect(fileDialog, &QFileDialog::filesSelected, fileDialog, [parent](const QStringList &selected){
         bool isFirstLoop = true;
@@ -216,18 +214,23 @@ void QVApplication::checkedUpdates()
 {
     const UpdateChecker::CheckResult checkResult = updateChecker.getCheckResult();
 
-    QWidget *dialogParent = aboutDialog ? aboutDialog : nullptr;
+    QWidget *dialogParent = aboutDialog ? aboutDialog.data() : activeWindow();
+    const bool isManualCheck = updateChecker.getLastCheckWasManual();
 
     if (checkResult.wasSuccessful && checkResult.isConsideredUpdate())
     {
-        updateChecker.openDialog(dialogParent, !aboutDialog);
+        updateChecker.openDialog(dialogParent, !aboutDialog && !isManualCheck);
     }
-    else if (aboutDialog)
+    else if (aboutDialog || isManualCheck)
     {
         if (!checkResult.wasSuccessful)
-            QMessageBox::critical(dialogParent, tr("Error"), tr("Error checking for updates:\n%1").arg(checkResult.errorMessage));
+            NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
+                                       tr("Error checking for updates:\n%1").arg(checkResult.errorMessage),
+                                       QMessageBox::Ok, dialogParent);
         else
-            QMessageBox::information(dialogParent, tr("No Updates"), tr("You already have the latest version."));
+            NativeDialogs::showMessage(QMessageBox::Information, tr("No Updates"),
+                                       tr("You already have the latest version."),
+                                       QMessageBox::Ok, dialogParent);
     }
 
     if (aboutDialog)
@@ -293,21 +296,6 @@ void QVApplication::openOptionsDialog(QWidget *parent)
 
     optionsDialog = new QVOptionsDialog(parent);
     optionsDialog->show();
-}
-
-void QVApplication::openWelcomeDialog(QWidget *parent)
-{
-    parent = nullptr;
-
-    if (welcomeDialog)
-    {
-        welcomeDialog->raise();
-        welcomeDialog->activateWindow();
-        return;
-    }
-
-    welcomeDialog = new QVWelcomeDialog(parent);
-    welcomeDialog->show();
 }
 
 void QVApplication::openAboutDialog(QWidget *parent)
@@ -519,6 +507,7 @@ QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
 
     QMessageBox msgBox;
     msgBox.setWindowModality(Qt::ApplicationModal);
+    NativeDialogs::applyTheme(&msgBox);
     msgBox.setWindowTitle(tr("Remember Session?"));
     msgBox.setText(tr("Would you like to remember your opened images and re-open them at next launch?"));
     QPushButton *yesButton = msgBox.addButton(tr("&Remember"), QMessageBox::YesRole);

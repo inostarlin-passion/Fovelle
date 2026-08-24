@@ -37,6 +37,9 @@ public:
         QLocale locale;
         return locale.formattedDataSize(bytes);
     }
+
+protected:
+    void showEvent(QShowEvent *event) override;
 };
 
 #endif // QVINFODIALOG_H

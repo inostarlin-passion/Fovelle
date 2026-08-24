@@ -12,7 +12,6 @@ set(FOVELLE_TEST_SOURCES
     ../src/qvapplication.cpp
     ../src/qvaboutdialog.cpp
     ../src/qvrenamedialog.cpp
-    ../src/qvwelcomedialog.cpp
     ../src/qvinfodialog.cpp
     ../src/qvimagecore.cpp
     ../src/qvimageloader.cpp
@@ -26,6 +25,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/shortcutmanager.cpp
     ../src/simplefonticonengine.cpp
     ../src/updatechecker.cpp
+    ../src/nativedialogs.cpp
     ../src/qvcocoafunctions.mm
 )
 
@@ -41,7 +41,6 @@ set(FOVELLE_TEST_HEADERS
     ../src/qvapplication.h
     ../src/qvaboutdialog.h
     ../src/qvrenamedialog.h
-    ../src/qvwelcomedialog.h
     ../src/qvinfodialog.h
     ../src/qvimagecore.h
     ../src/qvimageloader.h
@@ -55,6 +54,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/shortcutmanager.h
     ../src/simplefonticonengine.h
     ../src/updatechecker.h
+    ../src/nativedialogs.h
     ../src/qvcocoafunctions.h
 )
 
@@ -62,7 +62,6 @@ set(FOVELLE_TEST_FORMS
     ../src/mainwindow.ui
     ../src/qvoptionsdialog.ui
     ../src/qvaboutdialog.ui
-    ../src/qvwelcomedialog.ui
     ../src/qvinfodialog.ui
     ../src/qvshortcutdialog.ui
 )
@@ -107,3 +106,16 @@ set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
     TIMEOUT 90
 )
+
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+    add_test(
+        NAME FovelleRequirementsAudit
+        COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/requirements_pipeline.py"
+            --repo "${PROJECT_SOURCE_DIR}"
+            --build-dir "${CMAKE_BINARY_DIR}"
+            --skip-build
+    )
+    set_tests_properties(FovelleRequirementsAudit PROPERTIES TIMEOUT 360)
+endif()

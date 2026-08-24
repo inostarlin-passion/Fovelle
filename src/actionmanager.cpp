@@ -8,6 +8,9 @@
 #include <QActionGroup>
 #include <QFileIconProvider>
 #include <QKeyEvent>
+#include <QDesktopServices>
+
+#include <algorithm>
 
 ActionManager::ActionManager(QObject *parent) : QObject(parent)
 {
@@ -219,6 +222,26 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     addCloneOfAction(editMenu, "deletepermanent");
     QVCocoaFunctions::setAlternate(editMenu, editMenu->actions().length()-1);
 
+    const auto removeMacOSServiceItems = [editMenu]() {
+        const QStringList unwantedItems {
+            QStringLiteral("AutoFill"),
+            QStringLiteral("Start Dictation"),
+            QStringLiteral("Emoji & Symbols"),
+            QStringLiteral("Emoji and Symbols")
+        };
+        for (QAction *action : editMenu->actions())
+        {
+            QString text = action->text();
+            text.remove('&');
+            if (std::any_of(unwantedItems.cbegin(), unwantedItems.cend(), [&text](const QString &item) {
+                    return text.contains(item, Qt::CaseInsensitive);
+                }))
+                editMenu->removeAction(action);
+        }
+    };
+    removeMacOSServiceItems();
+    connect(editMenu, &QMenu::aboutToShow, editMenu, removeMacOSServiceItems);
+
     menuBar->addMenu(editMenu);
     // End of edit menu
 
@@ -323,7 +346,9 @@ QMenu *ActionManager::buildHelpMenu(QWidget *parent)
         helpMenu->setIcon(qvApp->iconFromFont(Qv::MaterialIcon::HelpOutline));
 
     addCloneOfAction(helpMenu, "about");
-    addCloneOfAction(helpMenu, "welcome");
+    helpMenu->addSeparator();
+    addCloneOfAction(helpMenu, "projecthomepage");
+    addCloneOfAction(helpMenu, "checkupdates");
 
     menuCloneLibrary.insert(helpMenu->menuAction()->data().toString(), helpMenu);
     return helpMenu;
@@ -588,7 +613,7 @@ void ActionManager::actionTriggered(QAction *triggeredAction)
     auto key = triggeredAction->data().toStringList().first();
 
     // For some actions, do not look for a relevant window
-    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "welcome", "options"};
+    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "options", "projecthomepage", "checkupdates"};
     for (const auto &actionName : std::as_const(windowlessActions))
     {
         if (key == actionName)
@@ -630,8 +655,10 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         qvApp->openOptionsDialog(relevantWindow);
     } else if (key == "about") {
         qvApp->openAboutDialog(relevantWindow);
-    } else if (key == "welcome") {
-        qvApp->openWelcomeDialog(relevantWindow);
+    } else if (key == "projecthomepage") {
+        QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/inostarlin-passion/Fovelle")));
+    } else if (key == "checkupdates") {
+        qvApp->getUpdateChecker().check(true);
     } else if (key == "clearrecents") {
         qvApp->getActionManager().clearRecentsList();
     }
@@ -936,8 +963,11 @@ void ActionManager::initializeActionLibrary()
     aboutAction->setMenuRole(QAction::AboutRole);
     actionLibrary.insert("about", aboutAction);
 
-    auto *welcomeAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Start), tr("&Welcome"));
-    actionLibrary.insert("welcome", welcomeAction);
+    auto *projectHomepageAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Project Homepage"));
+    actionLibrary.insert("projecthomepage", projectHomepageAction);
+
+    auto *checkUpdatesAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Check for Updates"));
+    actionLibrary.insert("checkupdates", checkUpdatesAction);
 
     //: This is for clearing the recents menu
     auto *clearRecentsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::PlaylistRemove), tr("Clear &Menu"));

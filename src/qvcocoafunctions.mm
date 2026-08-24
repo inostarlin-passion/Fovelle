@@ -8,11 +8,13 @@
 #include <QFileIconProvider>
 #include <QCollator>
 #include <QColorSpace>
+#include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -604,6 +606,18 @@ QString ghostscriptExecutable()
     if (!configured.isEmpty())
         return QFileInfo(configured).isExecutable() ? configured : QString();
 
+    const QString applicationDirectory = QCoreApplication::applicationDirPath();
+    const QStringList bundledPaths {
+        QDir(applicationDirectory).filePath("../Resources/ghostscript/bin/gs"),
+        QDir(applicationDirectory).filePath("../Resources/Ghostscript/bin/gs"),
+        QDir(applicationDirectory).filePath("../Resources/ghostscript/gs")
+    };
+    for (const QString &path : bundledPaths)
+    {
+        if (QFileInfo(path).isExecutable())
+            return QFileInfo(path).absoluteFilePath();
+    }
+
     const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("gs"));
     if (!fromPath.isEmpty())
         return fromPath;
@@ -638,7 +652,7 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
     if (executable.isEmpty())
     {
         errorString = QStringLiteral(
-            "EPS rendering requires Ghostscript (gs); install Ghostscript or set FOVELLE_GHOSTSCRIPT");
+            "EPS rendering requires Ghostscript; the bundled runtime is unavailable or FOVELLE_GHOSTSCRIPT is invalid");
         return false;
     }
 
@@ -659,6 +673,40 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
         filePath
     });
     process.setWorkingDirectory(QFileInfo(pdfPath).absolutePath());
+    const QFileInfo executableInfo(executable);
+    const QString executablePath = executableInfo.absoluteFilePath();
+    if (executablePath.contains(QStringLiteral("/Contents/Resources/ghostscript/")))
+    {
+        QDir runtimeRoot(executableInfo.absolutePath());
+        runtimeRoot.cdUp();
+        const QDir shareRoot(runtimeRoot.filePath("share/ghostscript"));
+        QDir versionRoot(shareRoot);
+        if (!versionRoot.exists(QStringLiteral("Resource/Init")))
+        {
+            const QStringList versions = shareRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+            for (const QString &version : versions)
+            {
+                QDir candidate(shareRoot.filePath(version));
+                if (candidate.exists(QStringLiteral("Resource/Init")))
+                {
+                    versionRoot = candidate;
+                    break;
+                }
+            }
+        }
+        if (versionRoot.exists(QStringLiteral("Resource/Init")))
+        {
+            QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+            environment.insert("GS_LIB", QStringList {
+                versionRoot.filePath("Resource/Init"),
+                versionRoot.filePath("lib"),
+                versionRoot.filePath("Resource"),
+                versionRoot.filePath("iccprofiles")
+            }.join(QDir::listSeparator()));
+            environment.insert("GS_FONTPATH", versionRoot.filePath("fonts"));
+            process.setProcessEnvironment(environment);
+        }
+    }
     process.setStandardOutputFile(QProcess::nullDevice());
     process.start();
     if (!process.waitForStarted(EPSRendererStartTimeoutMs))
@@ -3014,13 +3062,43 @@ void QVCocoaFunctions::setWindowCollectionBehaviorManaged(QWidget *window)
         ~(NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorStationary);
 }
 
+Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
+{
+    if (theme != Qv::Theme::System)
+        return theme;
+
+    const QByteArray override = qgetenv("FOVELLE_SYSTEM_THEME").toLower();
+    if (override == "dark")
+        return Qv::Theme::Dark;
+    if (override == "light")
+        return Qv::Theme::Light;
+
+    NSAppearance *appearance = NSApp ? NSApp.effectiveAppearance : [NSAppearance currentDrawingAppearance];
+    if (!appearance)
+        return Qv::Theme::Light;
+
+    NSArray *candidates = @[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ];
+    const NSAppearanceName match = [appearance bestMatchFromAppearancesWithNames:candidates];
+    return [match isEqualToString:NSAppearanceNameDarkAqua] ? Qv::Theme::Dark : Qv::Theme::Light;
+}
+
 void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
 {
     if (!window)
         return;
 
     auto *view = reinterpret_cast<NSView*>(window->winId());
-    const NSAppearanceName appearanceName = theme == Qv::Theme::Dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua;
+    if (theme == Qv::Theme::System)
+    {
+        // A nil appearance inherits the system setting and updates live when
+        // the user changes macOS appearance while Fovelle is running.
+        [view.window setAppearance:nil];
+        return;
+    }
+
+    const NSAppearanceName appearanceName = resolvedTheme(theme) == Qv::Theme::Dark
+        ? NSAppearanceNameDarkAqua
+        : NSAppearanceNameAqua;
     [view.window setAppearance:[NSAppearance appearanceNamed:appearanceName]];
 }
 

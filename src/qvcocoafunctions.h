@@ -227,6 +227,11 @@ public:
 
     static void setWindowCollectionBehaviorManaged(QWidget *window);
 
+    // Resolve the user-facing System option to a deterministic color theme.
+    // FOVELLE_SYSTEM_THEME is intentionally supported for repeatable tests;
+    // production builds use the current AppKit effective appearance.
+    static Qv::Theme resolvedTheme(Qv::Theme theme);
+
     static void setWindowTheme(Qv::Theme theme, QWindow *window);
 
     static QString getWindowAppearanceName(const QWindow *window);

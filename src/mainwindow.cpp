@@ -5,6 +5,7 @@
 #include "qvrenamedialog.h"
 #include "qvmenu.h"
 #include "qvmovie.h"
+#include "nativedialogs.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -439,20 +440,6 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
         restoreGeometry(settings.value("geometry").toByteArray());
     }
 
-    // Give a Finder/Launch Services document-open event priority over the first-launch modal.
-    QTimer::singleShot(250, this, [this]() {
-        if (!isVisible() || hasFileOrPendingLoad()
-            || qvApp->hasPendingFileOpenEvents())
-            return;
-
-        QSettings settings;
-        if (!settings.value("firstlaunch", false).toBool())
-        {
-            settings.setValue("firstlaunch", true);
-            settings.setValue("configversion", VERSION);
-            qvApp->openWelcomeDialog(this);
-        }
-    });
 }
 
 MainWindow::~MainWindow()
@@ -935,6 +922,12 @@ void MainWindow::changeEvent(QEvent *event)
         if (windowState().testFlag(Qt::WindowFullScreen) != changeEvent->oldState().testFlag(Qt::WindowFullScreen))
             fullscreenChanged();
     }
+    else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
+    {
+        // System Theme inherits the AppKit appearance. Recompute the
+        // viewport and native titlebar immediately when macOS changes it.
+        settingsUpdated();
+    }
 
     QMainWindow::changeEvent(event);
 }
@@ -1080,7 +1073,7 @@ void MainWindow::settingsUpdated()
 
     //theme
     const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
-    customBackgroundColor = Qv::viewportBackgroundColor(theme);
+    customBackgroundColor = Qv::viewportBackgroundColor(QVCocoaFunctions::resolvedTheme(theme));
 
     //checkerboardbackground
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
@@ -1631,7 +1624,7 @@ void MainWindow::setJustLaunchedWithImage(bool value)
 void MainWindow::openUrl(const QUrl &url)
 {
     if (!url.isValid()) {
-        QMessageBox::critical(this, tr("Error"), tr("Error: URL is invalid"));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error: URL is invalid"), QMessageBox::Ok, this);
         return;
     }
 
@@ -1642,6 +1635,7 @@ void MainWindow::openUrl(const QUrl &url)
     progressDialog->setAutoClose(false);
     progressDialog->setAutoReset(false);
     progressDialog->setWindowTitle(tr("Open URL..."));
+    NativeDialogs::applyTheme(progressDialog);
     progressDialog->open();
 
     connect(progressDialog, &QProgressDialog::canceled, reply, [reply]{
@@ -1657,7 +1651,7 @@ void MainWindow::openUrl(const QUrl &url)
         if (reply->error())
         {
             progressDialog->close();
-            QMessageBox::critical(this, tr("Error"), tr("Error ") + QString::number(reply->error()) + ": " + reply->errorString());
+            NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error ") + QString::number(reply->error()) + ": " + reply->errorString(), QMessageBox::Ok, this);
 
             progressDialog->deleteLater();
             return;
@@ -1680,7 +1674,7 @@ void MainWindow::openUrl(const QUrl &url)
             }
             else
             {
-                QMessageBox::critical(this, tr("Error"), tr("Error: Invalid image"));
+                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error: Invalid image"), QMessageBox::Ok, this);
                 tempFile->deleteLater();
             }
             progressDialog->deleteLater();
@@ -1700,6 +1694,7 @@ void MainWindow::pickUrl()
     inputDialog->setLabelText(tr("URL of a supported image file:"));
     inputDialog->resize(350, inputDialog->height());
     inputDialog->setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    NativeDialogs::applyTheme(inputDialog);
     connect(inputDialog, &QInputDialog::finished, this, [inputDialog, this](int result) {
         if (result)
         {
@@ -1752,7 +1747,7 @@ void MainWindow::askDeleteFile(bool permanent)
 
     if (!fileInfo.isWritable())
     {
-        QMessageBox::critical(this, tr("Error"), tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName), QMessageBox::Ok, this);
         return;
     }
 
@@ -1766,7 +1761,7 @@ void MainWindow::askDeleteFile(bool permanent)
         messageText = tr("Are you sure you want to move %1 to the Trash?").arg(fileName);
     }
 
-    auto *msgBox = new QMessageBox(QMessageBox::Question, tr("Delete"), messageText,
+    auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, tr("Delete"), messageText,
                        QMessageBox::Yes | QMessageBox::No, this);
     if (!permanent)
         msgBox->setCheckBox(new QCheckBox(tr("Do not ask again")));
@@ -1813,7 +1808,7 @@ void MainWindow::deleteFile(bool permanent)
     if (!success || QFile::exists(filePath))
     {
         openFile(filePath);
-        QMessageBox::critical(this, tr("Error"), tr("Can't delete %1.").arg(fileName));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't delete %1.").arg(fileName), QMessageBox::Ok, this);
         return;
     }
 
@@ -1847,15 +1842,15 @@ void MainWindow::undoDelete()
     const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
     if (!fileInfo.isWritable())
     {
-        QMessageBox::critical(this, tr("Error"), tr("Can't undo deletion of %1:\n"
-                                                    "No write permission or file is read-only.").arg(fileInfo.fileName()));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't undo deletion of %1:\n"
+                                                    "No write permission or file is read-only.").arg(fileInfo.fileName()), QMessageBox::Ok, this);
         return;
     }
 
     bool success = QFile::rename(lastDeletedFile.pathInTrash, lastDeletedFile.previousPath);
     if (!success)
     {
-        QMessageBox::critical(this, tr("Error"), tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()));
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()), QMessageBox::Ok, this);
         return;
     }
 
@@ -1928,7 +1923,7 @@ void MainWindow::zoomCustom()
 {
     bool ok;
     const double oldValue = graphicsView->getZoomLevel() * 100.0;
-    const double newValue = QInputDialog::getDouble(
+    const double newValue = NativeDialogs::getDouble(
         this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue,
         Qv::MinimumZoomLevel * 100.0, Qv::MaximumZoomLevel * 100.0, 1, &ok);
     if (!ok) return;
@@ -2041,6 +2036,7 @@ void MainWindow::saveFrameAs()
     saveDialog->selectFile(getCurrentFileDetails().fileInfo.baseName() + "-" + QString::number(graphicsView->getLoadedMovie().currentFrameNumber()) + ".png");
     saveDialog->setDefaultSuffix("png");
     saveDialog->setAcceptMode(QFileDialog::AcceptSave);
+    NativeDialogs::applyTheme(saveDialog);
     saveDialog->open();
     connect(saveDialog, &QFileDialog::fileSelected, this, [this](const QString &fileName){
         if (!graphicsView->getLoadedMovie().currentImage().save(fileName, nullptr, 100))

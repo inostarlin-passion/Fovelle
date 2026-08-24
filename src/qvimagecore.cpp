@@ -2,7 +2,6 @@
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
 #include <cstring>
-#include <QMessageBox>
 #include <QDir>
 #include <QUrl>
 #include <QSettings>
