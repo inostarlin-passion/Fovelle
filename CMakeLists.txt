@@ -8,7 +8,7 @@ if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
         "Minimum macOS version supported by Fovelle" FORCE)
 endif()
 
-project(Fovelle VERSION 0.1.4 LANGUAGES CXX)
+project(Fovelle VERSION 1.0.0 LANGUAGES CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
@@ -183,7 +183,12 @@ if(FOVELLE_BUILD_TRANSLATIONS)
     # English-only bundle, while the settings dialog enumerates only embedded
     # .qm resources. Treat catalogs as a required release input instead.
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS LinguistTools)
-    file(GLOB FOVELLE_TRANSLATIONS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_*.ts")
+    set(FOVELLE_TRANSLATIONS
+        "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_es.ts"
+        "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_ja.ts"
+        "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_zh_Hans.ts"
+        "${CMAKE_CURRENT_SOURCE_DIR}/i18n/qview_zh_Hant.ts"
+    )
     if(QT_VERSION_MAJOR EQUAL 6)
         qt_add_translations(${PROJECT_NAME}
             TS_FILES ${FOVELLE_TRANSLATIONS}

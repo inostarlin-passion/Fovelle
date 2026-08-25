@@ -45,15 +45,15 @@ protected:
     void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
+    void configureGeneralPage();
+    void resizeForCategory(int categoryIndex);
     void populateCategories(int selectedRow);
     void populateLanguages();
     void populateComboBoxes();
 
     const Ui::ComboBoxItems<Qv::AfterDelete> mapAfterDelete();
-    const Ui::ComboBoxItems<Qv::PreloadMode> mapPreloadMode();
     const Ui::ComboBoxItems<Qv::SlideshowDirection> mapSlideshowDirection();
     const Ui::ComboBoxItems<Qv::SmoothScalingMode> mapSmoothScalingMode();
-    const Ui::ComboBoxItems<Qv::SortMode> mapSortMode();
     const Ui::ComboBoxItems<Qv::Theme> mapTheme();
     const Ui::ComboBoxItems<Qv::UpdateCheckFrequency> mapUpdateCheckFrequency();
     const Ui::ComboBoxItems<Qv::ViewportClickAction> mapViewportClickAction();
@@ -72,6 +72,9 @@ private slots:
     void middleButtonModeChanged();
 
 private:
+    static constexpr int SettingsDialogWidth = 600;
+    static constexpr int ShortcutsVisibleRows = 16;
+
     Ui::QVOptionsDialog *ui;
 
     QList<QStringList> transientShortcuts;
@@ -79,6 +82,8 @@ private:
     bool isInitialLoad {true};
 
     bool languageRestartMessageShown {false};
+
+    bool displayPrepared {false};
 };
 
 #endif // QVOPTIONSDIALOG_H

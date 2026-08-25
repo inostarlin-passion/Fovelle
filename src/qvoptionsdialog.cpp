@@ -13,6 +13,10 @@
 #include <QTabBar>
 #include <QHBoxLayout>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QTableWidget>
+#include <QHeaderView>
+#include <QVBoxLayout>
 
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     QDialog(parent),
@@ -31,10 +35,15 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     associationRow->addStretch();
     ui->miscLayout->setLayout(16, QFormLayout::SpanningRole, associationRow);
 
+    configureGeneralPage();
+
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    setSizeGripEnabled(false);
+    setProperty("settingsFixedWidth", SettingsDialogWidth);
+    setProperty("settingsVisibleShortcutRows", ShortcutsVisibleRows);
 
-    resize(650, 550);
+    resize(SettingsDialogWidth, 600);
     ui->categoryTabs->setShape(QTabBar::RoundedNorth);
     // QTabBar remains the lightweight Qt page model used by tests and the
     // stacked widget connection.  AppKit supplies the visible Settings
@@ -43,6 +52,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     connect(ui->categoryTabs, &QTabBar::currentChanged, this, [this](int currentIndex) {
         ui->stackedWidget->setCurrentIndex(currentIndex);
+        resizeForCategory(currentIndex);
     });
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
     connect(ui->cursorAutoHideFullscreenCheckbox, &QCheckBox::checkStateChanged, this, &QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged);
@@ -53,15 +63,14 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     QSettings settings;
 
-    // The former Window and Image tabs occupied indexes 0 and 1. Map an old
-    // saved selection once so the merged Display tab is the first page while
-    // later selections retain their new four-tab indexes.
+    // The former Display and Miscellaneous tabs occupied indexes 0 and 1.
+    // Map both to General, and shift Shortcuts/Mouse down by one.
     int selectedTab = settings.value("optionstab", 0).toInt();
-    if (settings.value("optionstabversion", 0).toInt() < 1)
+    if (settings.value("optionstabversion", 0).toInt() < 2)
     {
         selectedTab = selectedTab <= 1 ? 0 : selectedTab - 1;
         settings.setValue("optionstab", selectedTab);
-        settings.setValue("optionstabversion", 1);
+        settings.setValue("optionstabversion", 2);
         settings.sync();
     }
     populateCategories(selectedTab);
@@ -69,6 +78,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     populateLanguages();
 
     restoreGeometry(settings.value("optionsgeometry").toByteArray());
+    setFixedWidth(SettingsDialogWidth);
 
     if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13))
         setWindowTitle(tr("Preferences"));
@@ -85,6 +95,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     syncSettings(false, true);
     syncShortcuts();
+    resizeForCategory(ui->categoryTabs->currentIndex());
 
     connect(qvApp, &QVApplication::windowOnTopChanged, this, [this]() {
         if (windowHandle())
@@ -100,8 +111,110 @@ QVOptionsDialog::~QVOptionsDialog()
     delete ui;
 }
 
+void QVOptionsDialog::configureGeneralPage()
+{
+    auto *generalWidget = ui->generalScrollArea->takeWidget();
+    auto *miscWidget = ui->miscScrollArea->takeWidget();
+    if (!generalWidget || !miscWidget)
+        return;
+
+    // The .ui pages were formerly independent fixed-height scroll contents.
+    // General must measure the two retained forms from their layouts after
+    // the removed rows are gone, so discard those legacy fixed-height hints.
+    generalWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    miscWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
+    // Language is the first General control, before the former Display
+    // controls. Moving the existing widgets keeps their signal wiring and
+    // translation context intact.
+    ui->miscLayout->removeWidget(ui->langComboLabel);
+    ui->miscLayout->removeWidget(ui->langComboBox);
+    ui->displayLayout->insertRow(0, ui->langComboLabel, ui->langComboBox);
+
+    auto *generalContent = new QWidget(ui->generalScrollArea);
+    generalContent->setObjectName(QStringLiteral("generalContent"));
+    generalContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    auto *generalLayout = new QVBoxLayout(generalContent);
+    generalLayout->setContentsMargins(0, 0, 0, 0);
+    generalLayout->setSpacing(0);
+    generalLayout->addWidget(generalWidget);
+    generalLayout->addWidget(miscWidget);
+
+    ui->generalScrollArea->setWidget(generalContent);
+    ui->generalScrollArea->setWidgetResizable(true);
+    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    generalWidget->adjustSize();
+    miscWidget->adjustSize();
+    generalContent->adjustSize();
+
+    // The old page is no longer a category. Its content has been absorbed
+    // into General, so remove the page rather than leaving an inaccessible
+    // duplicate in the stacked widget.
+    ui->stackedWidget->removeWidget(ui->miscScrollArea);
+    ui->miscScrollArea->deleteLater();
+}
+
+void QVOptionsDialog::resizeForCategory(const int categoryIndex)
+{
+    if (!ui || !ui->stackedWidget)
+        return;
+
+    QWidget *page = ui->stackedWidget->widget(categoryIndex);
+    if (!page)
+        return;
+
+    int pageHeight = 0;
+    if (categoryIndex == 0)
+    {
+        auto *content = ui->generalScrollArea->widget();
+        if (content->layout())
+            content->layout()->activate();
+        pageHeight = content->layout()
+                ? content->layout()->sizeHint().height() + 2 * ui->generalScrollArea->frameWidth()
+                : content->sizeHint().height() + 2 * ui->generalScrollArea->frameWidth();
+        ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    }
+    else if (categoryIndex == 1)
+    {
+        auto *table = ui->shortcutsTable;
+        const int rowHeight = table->rowCount() > 0
+                ? table->rowHeight(0)
+                : table->verticalHeader()->defaultSectionSize();
+        const int tableHeight = table->horizontalHeader()->height()
+                + ShortcutsVisibleRows * qMax(1, rowHeight)
+                + 2 * table->frameWidth();
+        table->setFixedHeight(tableHeight);
+        pageHeight = tableHeight;
+    }
+    else
+    {
+        auto *scrollArea = ui->mouseScrollArea;
+        auto *content = scrollArea->widget();
+        if (content->layout())
+            content->layout()->activate();
+        pageHeight = content->layout()
+                ? content->layout()->sizeHint().height() + 2 * scrollArea->frameWidth()
+                : content->sizeHint().height() + 2 * scrollArea->frameWidth();
+        scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    }
+
+    pageHeight = qMax(1, pageHeight);
+    ui->stackedWidget->setFixedHeight(pageHeight);
+    setMinimumHeight(0);
+    setMaximumHeight(QWIDGETSIZE_MAX);
+    setFixedWidth(SettingsDialogWidth);
+    adjustSize();
+    setFixedSize(SettingsDialogWidth, height());
+    setProperty("settingsCategoryIndex", categoryIndex);
+    setProperty("settingsCategoryContentHeight", pageHeight);
+}
+
 void QVOptionsDialog::prepareForDisplay()
 {
+    if (displayPrepared)
+        return;
+
     ensurePolished();
     // QWidget::winId() creates the native NSWindow without ordering it front.
     // The toolbar therefore contributes to frameGeometry before centering.
@@ -111,6 +224,11 @@ void QVOptionsDialog::prepareForDisplay()
                                 qvApp->foundOnTopWindow());
     NativeDialogs::applyTheme(this);
     QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
+    // The native toolbar changes the available content width. Re-measure once
+    // after it exists, while the dialog is still hidden, so the first frame
+    // uses the final natural height.
+    resizeForCategory(ui->categoryTabs->currentIndex());
+    displayPrepared = true;
 }
 
 void QVOptionsDialog::done(int r)
@@ -119,6 +237,7 @@ void QVOptionsDialog::done(int r)
     QSettings settings;
     settings.setValue("optionsgeometry", saveGeometry());
     settings.setValue("optionstab", ui->categoryTabs->currentIndex());
+    settings.setValue("optionstabversion", 2);
 
     QDialog::done(r);
 }
@@ -170,12 +289,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncCheckbox(ui->smallImagesOneToOneCheckbox, "smallimageoneone", defaults, makeConnections);
     // language
     syncComboBox(ui->langComboBox, "language", defaults, makeConnections);
-    // sortmode
-    syncComboBox(ui->sortComboBox, "sortmode", defaults, makeConnections);
-    // sortdescending
-    syncRadioButtons({ui->descendingRadioButton0, ui->descendingRadioButton1}, "sortdescending", defaults, makeConnections);
-    // preloadingmode
-    syncComboBox(ui->preloadingComboBox, "preloadingmode", defaults, makeConnections);
     // slideshowdirection
     syncComboBox(ui->slideshowDirectionComboBox, "slideshowdirection", defaults, makeConnections);
     // slideshowtimer
@@ -360,8 +473,7 @@ void QVOptionsDialog::populateCategories(int selectedRow)
     ui->categoryTabs->setIconSize(QSize(iconSize, iconSize));
     while (ui->categoryTabs->count() > 0)
         ui->categoryTabs->removeTab(0);
-    addItem(Qv::MaterialIcon::WebAsset, tr("Display"));
-    addItem(Qv::MaterialIcon::Tune, tr("Miscellaneous"));
+    addItem(Qv::MaterialIcon::Tune, tr("General"));
     addItem(Qv::MaterialIcon::Keyboard, tr("Shortcuts"));
     addItem(Qv::MaterialIcon::Mouse, tr("Mouse"));
     const int safeRow = qBound(0, selectedRow, ui->categoryTabs->count() - 1);
@@ -375,20 +487,11 @@ void QVOptionsDialog::populateLanguages()
 
     ui->langComboBox->addItem(tr("System Language"), "system");
 
-    // Put english at the top seperately because it has no file
-    ui->langComboBox->addItem("English (en)", "en");
-
-    const auto entries = QDir(":/i18n/").entryList();
-    for (auto entry : entries)
-    {
-        entry.remove(0, 6);
-        entry.remove(entry.length()-3, 3);
-        QLocale locale(entry);
-
-        const QString langString = locale.nativeLanguageName() + " (" + entry + ")";
-
-        ui->langComboBox->addItem(langString, entry);
-    }
+    ui->langComboBox->addItem(QStringLiteral("English"), QStringLiteral("en"));
+    ui->langComboBox->addItem(QStringLiteral("简体中文"), QStringLiteral("zh_Hans"));
+    ui->langComboBox->addItem(QStringLiteral("繁體中文"), QStringLiteral("zh_Hant"));
+    ui->langComboBox->addItem(QStringLiteral("Español"), QStringLiteral("es"));
+    ui->langComboBox->addItem(QStringLiteral("日本語"), QStringLiteral("ja"));
 }
 
 void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
@@ -441,14 +544,6 @@ const Ui::ComboBoxItems<Qv::AfterDelete> QVOptionsDialog::mapAfterDelete() {
     };
 }
 
-const Ui::ComboBoxItems<Qv::PreloadMode> QVOptionsDialog::mapPreloadMode() {
-    return {
-        { Qv::PreloadMode::Disabled, tr("Disabled") },
-        { Qv::PreloadMode::Adjacent, tr("Adjacent") },
-        { Qv::PreloadMode::Extended, tr("Extended") }
-    };
-}
-
 const Ui::ComboBoxItems<Qv::SlideshowDirection> QVOptionsDialog::mapSlideshowDirection() {
     return {
         { Qv::SlideshowDirection::Forward, tr("Forward") },
@@ -462,17 +557,6 @@ const Ui::ComboBoxItems<Qv::SmoothScalingMode> QVOptionsDialog::mapSmoothScaling
         { Qv::SmoothScalingMode::Disabled, tr("Disabled") },
         { Qv::SmoothScalingMode::Bilinear, tr("Bilinear") },
         { Qv::SmoothScalingMode::Expensive, tr("Expensive") }
-    };
-}
-
-const Ui::ComboBoxItems<Qv::SortMode> QVOptionsDialog::mapSortMode() {
-    return {
-        { Qv::SortMode::Name, tr("Name") },
-        { Qv::SortMode::DateModified, tr("Date Modified") },
-        { Qv::SortMode::DateCreated, tr("Date Created") },
-        { Qv::SortMode::Size, tr("Size") },
-        { Qv::SortMode::Type, tr("Type") },
-        { Qv::SortMode::Random, tr("Random") }
     };
 }
 
@@ -537,10 +621,6 @@ void QVOptionsDialog::populateComboBoxes()
     populateComboBox(ui->themeComboBox, mapTheme());
 
     populateComboBox(ui->smoothScalingComboBox, mapSmoothScalingMode());
-
-    populateComboBox(ui->sortComboBox, mapSortMode());
-
-    populateComboBox(ui->preloadingComboBox, mapPreloadMode());
 
     populateComboBox(ui->slideshowDirectionComboBox, mapSlideshowDirection());
 

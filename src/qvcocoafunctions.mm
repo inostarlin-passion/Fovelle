@@ -70,14 +70,12 @@ static constexpr char FullScreenExitPendingAssociationKey = 0;
 
     _categoryTabs = new QPointer<QTabBar>(categoryTabs);
     _itemIdentifiers = [@[
-        @"io.github.inostarlin-passion.Fovelle.settings.display",
-        @"io.github.inostarlin-passion.Fovelle.settings.miscellaneous",
+        @"io.github.inostarlin-passion.Fovelle.settings.general",
         @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
         @"io.github.inostarlin-passion.Fovelle.settings.mouse"
     ] retain];
     _symbolNames = [@[
-        @"macwindow",
-        @"slider.horizontal.3",
+        @"gearshape",
         @"keyboard",
         @"computermouse"
     ] retain];
@@ -1636,8 +1634,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         QColor background;
         if (darkBackground)
             background = QColor(128, 128, 128, highlighted ? 235 : 220);
-        else if (highlighted)
-            background = QColor(255, 255, 255, 55);
+        // Light artwork is the transparent-chevron variant: it has no hover
+        // tile, matching the reference Photos control.
         if (!enabled && background.isValid())
             background.setAlpha(100);
 

@@ -1,4 +1,4 @@
-# Fovelle RAW/HDR 浏览管线（v0.1.4）
+# Fovelle RAW/HDR 浏览管线（v1.0.0）
 
 ## 目标与边界
 

@@ -865,26 +865,6 @@ No write permission or file is read-only.</source>
         <translation>言語:</translation>
     </message>
     <message>
-        <source>Sort files by:</source>
-        <translation>並び順:</translation>
-    </message>
-    <message>
-        <source>A&amp;scending</source>
-        <translation>昇順</translation>
-    </message>
-    <message>
-        <source>D&amp;escending</source>
-        <translation>降順</translation>
-    </message>
-    <message>
-        <source>Controls the amount of images preloaded</source>
-        <translation>プリロードされる画像の量を制御します</translation>
-    </message>
-    <message>
-        <source>Preloading:</source>
-        <translation>画像プリロード:</translation>
-    </message>
-    <message>
         <source>Navigation speed:</source>
         <translation>ナビゲーション速度:</translation>
     </message>
@@ -1082,8 +1062,8 @@ No write permission or file is read-only.</source>
         <translation>画像</translation>
     </message>
     <message>
-        <source>Miscellaneous</source>
-        <translation>その他</translation>
+        <source>General</source>
+        <translation>一般</translation>
     </message>
     <message>
         <source>Mouse</source>

@@ -1,5 +1,5 @@
 TARGET = Fovelle
-VERSION = 0.1.4
+VERSION = 1.0.0
 
 QT += core gui network widgets svg
 
@@ -69,7 +69,11 @@ DEFINES += QT_NO_FOREACH
 include(src/src.pri)
 
 CONFIG += lrelease embed_translations
-TRANSLATIONS += $$files(i18n/qview_*.ts)
+TRANSLATIONS += \
+    i18n/qview_es.ts \
+    i18n/qview_ja.ts \
+    i18n/qview_zh_Hans.ts \
+    i18n/qview_zh_Hant.ts
 
 lupdate_only {
     TRANSLATIONS += i18n/template.ts

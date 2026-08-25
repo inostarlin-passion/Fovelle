@@ -864,26 +864,6 @@ No write permission or file is read-only.</source>
         <translation>语言:</translation>
     </message>
     <message>
-        <source>Sort files by:</source>
-        <translation>文件排序:</translation>
-    </message>
-    <message>
-        <source>A&amp;scending</source>
-        <translation>升序</translation>
-    </message>
-    <message>
-        <source>D&amp;escending</source>
-        <translation>降序</translation>
-    </message>
-    <message>
-        <source>Controls the amount of images preloaded</source>
-        <translation>% 屏幕大小</translation>
-    </message>
-    <message>
-        <source>Preloading:</source>
-        <translation>预加载:</translation>
-    </message>
-    <message>
         <source>Navigation speed:</source>
         <translation>导航速度：</translation>
     </message>
@@ -1081,8 +1061,8 @@ No write permission or file is read-only.</source>
         <translation>图像</translation>
     </message>
     <message>
-        <source>Miscellaneous</source>
-        <translation>其他</translation>
+        <source>General</source>
+        <translation>通用</translation>
     </message>
     <message>
         <source>Mouse</source>
@@ -1154,7 +1134,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Adjacent</source>
-        <translation>下一个</translation>
+        <translation>相邻</translation>
     </message>
     <message>
         <source>Extended</source>

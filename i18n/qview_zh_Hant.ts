@@ -923,13 +923,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="495"/>
-        <source>Miscellaneous</source>
-        <translation>雜項</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="511"/>
-        <source>Sort files by:</source>
-        <translation>檔案排序依據:</translation>
+        <source>General</source>
+        <translation>一般</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="519"/>
@@ -954,27 +949,6 @@ No write permission or file is read-only.</source>
         <location filename="../src/qvoptionsdialog.ui" line="544"/>
         <source>Random</source>
         <translation>隨機</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="552"/>
-        <source>A&amp;scending</source>
-        <translation>升序</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="562"/>
-        <source>D&amp;escending</source>
-        <translation>降序</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="582"/>
-        <location filename="../src/qvoptionsdialog.ui" line="592"/>
-        <source>Controls the amount of images preloaded</source>
-        <translation>決定預載影像數量</translation>
-    </message>
-    <message>
-        <location filename="../src/qvoptionsdialog.ui" line="585"/>
-        <source>Preloading:</source>
-        <translation>預載:</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="471"/>

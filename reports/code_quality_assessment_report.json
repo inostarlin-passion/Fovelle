@@ -1,75 +1,95 @@
 {
-  "schema_version": "2.0",
-  "kind": "code-quality-assessment-report",
-  "generated_at_utc": "2026-08-25T05:45:55.551504+00:00",
-  "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "56c5ca8e8f602ef06daacef00074d237fb8401af",
-  "scope": "floating navigation fade, View/fullscreen actions, merged Display Preferences, file association, window state persistence, and auditable tests",
-  "dimensions": [
+  "schema_version": "1.0",
+  "report_type": "code_quality_assessment",
+  "generated_at": "2026-08-25T11:54:10.741833+00:00",
+  "quality_requirements": [
+    "精益完整性",
+    "功能正确性",
+    "可测试性"
+  ],
+  "research_trace": [
     {
-      "id": "精益完整性",
-      "passed": true,
-      "evidence": [
-        "test_evidence.json#stages.static",
-        "test_case_specification.json#cases"
-      ]
+      "hop": 1,
+      "dimension": "native settings geometry",
+      "source": "https://doc.qt.io/qt-6/qdialog.html",
+      "finding": "Qt documents SetFixedSize as the layout constraint that prevents manual dialog resizing.",
+      "explicit_premise": "The existing settings UI minimum width is 600 px; therefore W is fixed as 600 px."
     },
     {
-      "id": "功能正确性",
-      "passed": true,
-      "evidence": [
-        "test_evidence.json#stages.unit",
-        "test_evidence.json#stages.integration",
-        "test_evidence.json#stages.system"
-      ]
+      "hop": 2,
+      "dimension": "scroll-free per-tab height",
+      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
+      "finding": "QScrollArea exposes independent vertical scrollbar policies and a resizable content widget.",
+      "explicit_premise": "General and Mouse use natural layout size plus frame; Shortcuts uses the table header plus exactly 16 row heights."
     },
     {
-      "id": "可测试性",
-      "passed": true,
-      "evidence": [
-        "test_case_specification.json",
-        "test_evidence.json"
-      ]
+      "hop": 3,
+      "dimension": "Photos navigation reference",
+      "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
+      "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
+      "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button."
     }
   ],
-  "facts": [
-    "The native HDR button has one opacity owner and full-opacity child artwork.",
-    "The association prompt uses NativeDialogs, which applies the selected Light/Dark Cocoa appearance.",
-    "The frequency policy is a pure timestamp function and the association bridge exposes dry-run mode.",
-    "Fullscreen action clones clear their icon when main-menu icons are disabled, for both Enter and Exit labels.",
-    "Fullscreen exit restores saved normal geometry after macOS completes the asynchronous state transition.",
-    "Preferences uses four native toolbar categories and centers both the dialog frame and the association button's visible content row.",
-    "Hide Titlebar persists options/titlebarhidden and applies it during each new MainWindow show event."
-  ],
-  "inferences": [
-    "When all four stages pass, the requested behavior is covered for the tested macOS host."
-  ],
-  "uncertainties": [
-    "The native HDR compositor observation is host-specific to macOS/CALayer.",
-    "The visual perception of opacity depends on the active display compositor; the fix removes independent alpha owners."
-  ],
-  "evidence_artifacts": {
-    "test_evidence.json": {
-      "path": "reports/test_evidence.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
-      "exists": true,
-      "bytes": 132041,
-      "sha256": "d863e2e75032c01187f5aa16a67597fbf4be4546b53fa8a25b0ae0d777ab397f"
+  "checks": [
+    {
+      "id": "CQ-001",
+      "criterion": "精益完整性",
+      "method": "原子验收标准覆盖审计",
+      "passed": true,
+      "observed": {
+        "case_count": 20,
+        "all_cases_passed": true
+      }
     },
-    "test_case_specification.json": {
-      "path": "reports/test_case_specification.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
-      "exists": true,
-      "bytes": 74913,
-      "sha256": "38d2b603162c565b3e6b4fa34d0f1cdb1c8f4488a61c93e34b730aa85190d534"
+    {
+      "id": "CQ-002",
+      "criterion": "功能正确性",
+      "method": "静态/单元/集成/系统四级结果交叉检查",
+      "passed": true,
+      "observed": {
+        "static": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "status": "passed"
+        },
+        "unit": {
+          "total": 10,
+          "passed": 10,
+          "failed": 0,
+          "status": "passed"
+        },
+        "integration": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "status": "passed"
+        },
+        "system": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "status": "passed"
+        }
+      }
     },
-    "test_completion_report.json": {
-      "path": "reports/test_completion_report.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_completion_report.json",
-      "exists": true,
-      "bytes": 10732,
-      "sha256": "75c43ab3ef28f2612e9128b712e4afe5332fdf2d410fcafa13631eb785fc8314"
+    {
+      "id": "CQ-003",
+      "criterion": "可测试性",
+      "method": "测试代码 AST、QtTest 选择器和系统探针审计",
+      "passed": true,
+      "observed": {
+        "unit_harness": true,
+        "system_probe": true
+      }
     }
+  ],
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "status": "passed"
   },
-  "passed": true
+  "evidence_file": "reports/test_evidence.json",
+  "specification_file": "reports/test_case_specification.json"
 }

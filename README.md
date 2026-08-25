@@ -11,7 +11,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - **Added support for most common RAW image formats.**
 - **Supports HDR rendering and display for both RAW and non-RAW image formats, with smooth, seamless adjustment for increasing or decreasing brightness.**
 - **Vector rendering for EPS and SVG, with zoom levels of up to 6400%.**
-- Supports both light and dark appearances.
+- **Supports both light and dark appearances.**
 - Displays small images at their actual size (1:1).
 - Press Esc to close the window or quit the app.
 - Floating navigation buttons are displayed on the left and right sides of the window and automatically shown or hidden.

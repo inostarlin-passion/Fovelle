@@ -110,12 +110,12 @@ set_tests_properties(FovelleTests PROPERTIES
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
     add_test(
-        NAME FovelleRequirementsAudit
+        NAME FovelleTaskAcceptanceAudit
         COMMAND ${Python3_EXECUTABLE}
-            "${CMAKE_CURRENT_SOURCE_DIR}/requirements_pipeline.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/task_acceptance_pipeline.py"
             --repo "${PROJECT_SOURCE_DIR}"
             --build-dir "${CMAKE_BINARY_DIR}"
             --skip-build
     )
-    set_tests_properties(FovelleRequirementsAudit PROPERTIES TIMEOUT 360)
+    set_tests_properties(FovelleTaskAcceptanceAudit PROPERTIES TIMEOUT 360)
 endif()

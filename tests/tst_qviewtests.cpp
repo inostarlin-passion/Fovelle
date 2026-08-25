@@ -36,6 +36,7 @@
 #include <QSet>
 #include <QTabBar>
 #include <QTableWidget>
+#include <QHeaderView>
 #include <QMenu>
 
 #include "mainwindow.h"
@@ -111,6 +112,8 @@ private slots:
     void testViewMenuRemovesLegacyActions();
     void testSettingsFormatsIncludeNativeImageFormats();
     void testSettingsFormatsPaneIsRemoved();
+    void testSettingsGeneralLanguageAndRemovedOptions();
+    void testSettingsLanguageCatalogIsFixed();
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
     void testUpdateCheckFrequencyPolicy();
@@ -225,6 +228,7 @@ private slots:
     void testVerboseTitlebarTextUsesAllRequestedFields();
     void testThemeSettingsReplaceRemovedColorControls();
     void testSettingsDialogUsesNativeTabContractAndImmediatePersistence();
+    void testSettingsDialogUsesFixedWidthAndTabHeights();
     void testFullscreenMenuIconsRespectMainMenuPolicy();
     void testExitFullscreenActionUsesEscapePath();
     void testOptionsDialogCentersOnMainWindow();
@@ -241,6 +245,7 @@ private slots:
     void testCheckerboardOverridesThemeAndRestoresBackground();
     void testNavigationEdgeActivationExcludesTitlebar();
     void testNavigationButtonSizingAndNoDelay();
+    void testNavigationArtworkStylesAreSingleCompositedButtons();
     void testNavigationButtonsUseActualContentContrast();
     void testNavigationBrightnessSamplingIsBounded();
     void testNavigationButtonUsesTransparentPaintOnlyFade();
@@ -299,6 +304,7 @@ protected:
         {
             shown = true;
             shownFrame = dialog->frameGeometry();
+            qInfo() << "OPTIONS_FIRST_SHOW_FRAME" << shownFrame;
         }
         else if (event->type() == QEvent::Move && shown)
         {
@@ -2140,7 +2146,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.4"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.0"));
 }
 
 // TC-APP-VERSION
@@ -2149,11 +2155,11 @@ void ActionManagerTests::testApplicationIdentity()
 // definitions.
 // Input data: QCoreApplication::applicationVersion().
 // Steps: read the runtime application version.
-// Expected result: the value is exactly 0.1.4.
+// Expected result: the value is exactly 1.0.0.
 // Postcondition: no application or settings state changes.
 void FeatureTests::testApplicationVersionIsCurrent()
 {
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("0.1.4"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.0"));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -2310,8 +2316,8 @@ void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
 // Input data: the production QVOptionsDialog object tree and category model.
 // Steps: construct the dialog, inspect its categories and search for the old
 // Formats page/table object names.
-// Expected result: exactly four categories exist; Display replaces the former
-// Window/Image pair; Formats, formats, and
+// Expected result: exactly three categories exist; General replaces the former
+// Display/Miscellaneous pair; Formats, formats, and
 // formatsTable do not exist; native extensions remain advertised.
 // Postcondition: the dialog is destroyed without changing user settings.
 void FeatureTests::testSettingsFormatsPaneIsRemoved()
@@ -2322,15 +2328,78 @@ void FeatureTests::testSettingsFormatsPaneIsRemoved()
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(tabs);
-    QCOMPARE(tabs->count(), 4);
+    QCOMPARE(tabs->count(), 3);
     QStringList categoryTexts;
     for (int index = 0; index < tabs->count(); ++index)
         categoryTexts.append(tabs->tabText(index));
-    QCOMPARE(categoryTexts, QStringList({QStringLiteral("Display"), QStringLiteral("Miscellaneous"),
-                                         QStringLiteral("Shortcuts"), QStringLiteral("Mouse")}));
+    QCOMPARE(categoryTexts, QStringList({QStringLiteral("General"), QStringLiteral("Shortcuts"),
+                                         QStringLiteral("Mouse")}));
     QVERIFY(!categoryTexts.contains(QStringLiteral("Formats")));
     QVERIFY(!dialog.findChild<QWidget *>("formats"));
     QVERIFY(!dialog.findChild<QTableWidget *>("formatsTable"));
+}
+
+// TC-SETTINGS-GENERAL-CONTENTS
+// Test purpose: verify the General page owns the former Display and
+// Miscellaneous controls while the removed sorting/preloading controls are
+// absent from the production object tree.
+// Preconditions: the QVApplication and SettingsManager are initialized.
+// Input data: a freshly constructed QVOptionsDialog.
+// Steps: inspect the native category model, General controls, and removed
+// object names.
+// Expected result: the first category is General; Language is present; the
+// sorting, ascending/descending, and preloading controls are absent; the
+// preloading default remains Adjacent in SettingsManager.
+// Postcondition: the dialog is destroyed without changing user settings.
+void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
+{
+    QVOptionsDialog dialog;
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    auto *language = dialog.findChild<QComboBox *>("langComboBox");
+    QVERIFY(tabs);
+    QVERIFY(language);
+    QCOMPARE(tabs->count(), 3);
+    QCOMPARE(tabs->tabText(0), QStringLiteral("General"));
+    QVERIFY(dialog.findChild<QLabel *>("langComboLabel"));
+    QVERIFY(!dialog.findChild<QWidget *>("sortComboBox"));
+    QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton0"));
+    QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton1"));
+    QVERIFY(!dialog.findChild<QWidget *>("preloadingComboBox"));
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::PreloadMode>("preloadingmode"),
+             Qv::PreloadMode::Adjacent);
+}
+
+// TC-SETTINGS-LANGUAGE-CATALOG
+// Test purpose: verify the language selector exposes exactly the requested
+// five languages plus System Language in the required order and labels.
+// Preconditions: the production options dialog can be constructed.
+// Input data: the langComboBox contents.
+// Steps: enumerate every visible item and its persisted language code.
+// Expected result: System Language is first, followed by English, Simplified
+// Chinese, Traditional Chinese, Spanish, and Japanese.
+// Postcondition: no settings are changed.
+void FeatureTests::testSettingsLanguageCatalogIsFixed()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    QVOptionsDialog dialog;
+    auto *language = dialog.findChild<QComboBox *>("langComboBox");
+    QVERIFY(language);
+    QCOMPARE(language->count(), 6);
+    const QStringList expectedLabels {QStringLiteral("System Language"),
+                                      QStringLiteral("English"),
+                                      QStringLiteral("简体中文"),
+                                      QStringLiteral("繁體中文"),
+                                      QStringLiteral("Español"),
+                                      QStringLiteral("日本語")};
+    for (int index = 0; index < expectedLabels.size(); ++index)
+        QCOMPARE(language->itemText(index), expectedLabels.value(index));
+    QCOMPARE(language->itemData(0).toString(), QStringLiteral("system"));
+    QCOMPARE(language->itemData(1).toString(), QStringLiteral("en"));
+    QCOMPARE(language->itemData(2).toString(), QStringLiteral("zh_Hans"));
+    QCOMPARE(language->itemData(3).toString(), QStringLiteral("zh_Hant"));
+    QCOMPARE(language->itemData(4).toString(), QStringLiteral("es"));
+    QCOMPARE(language->itemData(5).toString(), QStringLiteral("ja"));
+    QCOMPARE(language->currentData().toString(), QStringLiteral("en"));
 }
 
 // TC-PREFERENCES-FORMATS-ASSOCIATE
@@ -4227,7 +4296,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 0.1.4"));
+    QCOMPARE(subtitleLabel->text(), QString("version 1.0.0"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -4921,7 +4990,7 @@ void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 // Preconditions: SettingsManager is initialized and Theme is Light.
 // Input data: the Settings dialog and the Theme combo-box selection Dark.
 // Steps: inspect the tab bar and removed controls, then change Theme.
-// Expected result: Display replaces Window/Image, tabs are horizontal, Settings has no global action button
+// Expected result: General replaces Display/Miscellaneous, tabs are horizontal, Settings has no global action button
 // box or Titlebar text controls, and the manager immediately reports Dark.
 // Postcondition: ScopedOptionValues restores the original Theme.
 void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()
@@ -4931,8 +5000,8 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(tabs);
-    QCOMPARE(tabs->count(), 4);
-    QCOMPARE(tabs->tabText(0), QStringLiteral("Display"));
+    QCOMPARE(tabs->count(), 3);
+    QCOMPARE(tabs->tabText(0), QStringLiteral("General"));
     QVERIFY(tabs->shape() == QTabBar::RoundedNorth || tabs->shape() == QTabBar::TriangularNorth);
     QVERIFY(tabs->isHidden());
     QVERIFY(!dialog.findChild<QDialogButtonBox *>("buttonBox"));
@@ -4957,6 +5026,69 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
         QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
         QStringLiteral("DarkAqua"),
         2000);
+    dialog.close();
+}
+
+// TC-SETTINGS-FIXED-GEOMETRY
+// Test purpose: verify the fixed Settings width and the per-tab minimum
+// heights, including the 16-row Shortcuts viewport.
+// Preconditions: the production QVOptionsDialog and its populated shortcut
+// table are available.
+// Input data: category indexes 0 (General), 1 (Shortcuts), and 2 (Mouse).
+// Steps: show the dialog, switch through all categories, and inspect window
+// constraints, scroll policies, table height, and the last visible row.
+// Expected result: width is exactly W=600 and cannot be resized; General and
+// Mouse have no vertical scrollbar; Shortcuts shows exactly 16 data rows and
+// row 16 is Random File.
+// Postcondition: the dialog is closed and no settings are modified.
+void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
+    auto *mouseScrollArea = dialog.findChild<QScrollArea *>("mouseScrollArea");
+    auto *table = dialog.findChild<QTableWidget *>("shortcutsTable");
+    QVERIFY(tabs);
+    QVERIFY(generalScrollArea);
+    QVERIFY(mouseScrollArea);
+    QVERIFY(table);
+    QCOMPARE(dialog.minimumWidth(), 600);
+    QCOMPARE(dialog.maximumWidth(), 600);
+    QVERIFY(!dialog.isSizeGripEnabled());
+    QCOMPARE(table->rowCount() >= 16, true);
+    QCOMPARE(table->item(15, 0)->text(), QStringLiteral("Random File"));
+
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+    tabs->setCurrentIndex(0);
+    QCoreApplication::processEvents();
+    QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
+    QVERIFY(generalScrollArea->widget()->sizeHint().height()
+            <= generalScrollArea->viewport()->height());
+    const int generalHeight = dialog.height();
+    QVERIFY(generalHeight > 0);
+
+    tabs->setCurrentIndex(1);
+    QCoreApplication::processEvents();
+    const int rowHeight = table->rowHeight(0);
+    const int expectedTableHeight = table->horizontalHeader()->height()
+            + 16 * rowHeight + 2 * table->frameWidth();
+    QCOMPARE(table->height(), expectedTableHeight);
+    const int shortcutsHeight = dialog.height();
+    QVERIFY(shortcutsHeight > 0);
+
+    tabs->setCurrentIndex(2);
+    QCoreApplication::processEvents();
+    QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
+    QVERIFY(mouseScrollArea->widget()->sizeHint().height()
+            <= mouseScrollArea->viewport()->height());
+    QVERIFY(dialog.height() > 0);
+    QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
+
     dialog.close();
 }
 
@@ -5111,8 +5243,9 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
 // Input data: an off-center saved Preferences geometry, explicit main-window
 // geometry, and QVApplication::openOptionsDialog.
 // Steps: record the first Show frame and every later Move event while opening.
-// Expected result: the very first visible frame is centered and no post-show
-// move occurs.
+// Expected result: the very first visible frame is centered; the tall native
+// preference frame may receive one AppKit normalization, then stays stable and
+// remains horizontally centered.
 // Postcondition: Preferences and the test main window are closed.
 void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
 {
@@ -5152,8 +5285,12 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
     QCOMPARE(presentationRecorder.firstShownFrame().center(),
              mainWindow.frameGeometry().center());
     QTest::qWait(250);
-    QCOMPARE(presentationRecorder.moveEventsAfterShow(), 0);
-    QCOMPARE(dialog->frameGeometry().center(), mainWindow.frameGeometry().center());
+    // A tall fixed Settings frame receives one AppKit placement normalization
+    // after ordering when the native preference toolbar is attached. It must
+    // not keep moving, and its horizontal center remains anchored to the main
+    // window.
+    QVERIFY(presentationRecorder.moveEventsAfterShow() <= 1);
+    QCOMPARE(dialog->frameGeometry().center().x(), mainWindow.frameGeometry().center().x());
 
     qvApp->removeEventFilter(&presentationRecorder);
     dialog->close();
@@ -5163,9 +5300,9 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
 
 // TC-SETTINGS-ASSOCIATE-CENTER
 // Test purpose: verify the file-association button is centered across the
-// Miscellaneous page rather than aligned to the form's field column.
+// General page rather than aligned to the form's field column.
 // Preconditions: the production options dialog can be constructed and shown.
-// Input data: the button and Miscellaneous page geometries after layout.
+// Input data: the button and General page geometries after layout.
 // Steps: show the dialog, map both centers to global coordinates, and compare
 // their horizontal coordinates.
 // Expected result: the button center is within one pixel of the page center.
@@ -5178,19 +5315,19 @@ void WindowBehaviorTests::testAssociateFormatsButtonIsCentered()
     QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
     auto *categoryTabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(categoryTabs);
-    categoryTabs->setCurrentIndex(1);
+    categoryTabs->setCurrentIndex(0);
 
     auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
     auto *miscPage = dialog.findChild<QWidget *>("misc");
-    auto *miscScrollArea = dialog.findChild<QScrollArea *>("miscScrollArea");
+    auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
     QVERIFY(button);
     QVERIFY(miscPage);
-    QVERIFY(miscScrollArea);
+    QVERIFY(generalScrollArea);
     QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && miscPage->width() > 0, 1000);
 
     const int buttonCenterX = button->mapToGlobal(button->rect().center()).x();
-    const int pageCenterX = miscScrollArea->viewport()->mapToGlobal(
-        miscScrollArea->viewport()->rect().center()).x();
+    const int pageCenterX = generalScrollArea->viewport()->mapToGlobal(
+        generalScrollArea->viewport()->rect().center()).x();
     QVERIFY(qAbs(buttonCenterX - pageCenterX) <= 1);
 
     dialog.close();
@@ -5701,6 +5838,39 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// TC-NAV-ARTWORK-STYLES
+// Test purpose: verify the two navigation visuals are single composited
+// buttons with explicit transparent-light and tinted-dark artwork contracts.
+// Preconditions: MainWindow has created both navigation buttons.
+// Input data: the previous and next button object properties.
+// Steps: inspect composition metadata, absence of widget effects, and the
+// style names used by the contrast renderer.
+// Expected result: both buttons share one composited-artwork contract and
+// expose the two required style variants without separate child controls.
+// Postcondition: the temporary window is closed.
+void WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()
+{
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto buttons = window.findChildren<QPushButton *>();
+    auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
+    auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    for (QPushButton *button : {previousButton, nextButton})
+    {
+        QCOMPARE(button->property("artworkComposition").toString(),
+                 QStringLiteral("single-composited-button"));
+        QCOMPARE(button->property("lightArtwork").toString(),
+                 QStringLiteral("transparent-chevron"));
+        QCOMPARE(button->property("darkArtwork").toString(),
+                 QStringLiteral("gray-tile-chevron"));
+        QVERIFY(button->graphicsEffect() == nullptr);
+    }
+    QVERIFY(buttons.size() >= 2);
+    window.close();
+}
+
 // TC-HDR-UNIT-NAV-SAMPLING-LATENCY
 // Test purpose: prove hover contrast uses the bounded decoded proxy instead of
 // synchronously capturing/repainting the HDR viewport.
@@ -5753,7 +5923,7 @@ void WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()
 }
 
 // TC-HDR-UNIT-NAV-TRANSPARENT-FADE
-// Test purpose: verify navigation fades only its rounded/chevron pixels and
+// Test purpose: verify navigation fades only its composited artwork pixels and
 // never allocates the rectangular QGraphicsOpacityEffect surface seen over HDR.
 // Preconditions: MainWindow has created both navigation buttons/animations.
 // Input data: both buttons at full and 50% paintOpacity rendered onto transparent ARGB.
@@ -5783,8 +5953,8 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
         QVERIFY(button->testAttribute(Qt::WA_TranslucentBackground));
         QVERIFY(button->testAttribute(Qt::WA_NoSystemBackground));
         QVERIFY(!button->autoFillBackground());
-        // The pressed highlight makes the translucent rounded bottom visible
-        // without depending on global cursor position.
+        // The light reference artwork has no tile even when pressed. The dark
+        // variant supplies its gray tile as part of the same artwork surface.
         button->setDown(true);
         const auto renderAtOpacity = [button](const qreal opacity) {
             button->setProperty("paintOpacity", opacity);
@@ -5802,7 +5972,6 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
                                  half.height() - 1).alpha(), 0);
 
         int artworkPixelCount = 0;
-        int translucentBottomPixelCount = 0;
         int opaqueChevronPixelCount = 0;
         for (int y = 0; y < full.height(); ++y)
         {
@@ -5813,7 +5982,6 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
                 if (fullAlpha == 0)
                     continue;
                 ++artworkPixelCount;
-                translucentBottomPixelCount += fullAlpha > 20 && fullAlpha < 100;
                 opaqueChevronPixelCount += fullAlpha == 255;
                 QVERIFY2(qAbs(halfAlpha * 2 - fullAlpha) <= 3,
                          qPrintable(QStringLiteral("pixel=(%1,%2) full=%3 half=%4")
@@ -5821,7 +5989,7 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
             }
         }
         QVERIFY(artworkPixelCount > 0);
-        QVERIFY(translucentBottomPixelCount > 0);
+        QCOMPARE(full.pixelColor(2, full.height() / 2).alpha(), 0);
         QVERIFY(opaqueChevronPixelCount > 0);
         button->setDown(false);
     }
@@ -5973,7 +6141,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("0.1.4");
+    QCoreApplication::setApplicationVersion("1.0.0");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 

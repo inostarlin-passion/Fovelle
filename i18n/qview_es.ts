@@ -865,26 +865,6 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Idioma:</translation>
     </message>
     <message>
-        <source>Sort files by:</source>
-        <translation>Ordenar archivos por:</translation>
-    </message>
-    <message>
-        <source>A&amp;scending</source>
-        <translation>Ascendente</translation>
-    </message>
-    <message>
-        <source>D&amp;escending</source>
-        <translation>Descendente</translation>
-    </message>
-    <message>
-        <source>Controls the amount of images preloaded</source>
-        <translation>Controla el número de imágenes precargadas</translation>
-    </message>
-    <message>
-        <source>Preloading:</source>
-        <translation>Precarga:</translation>
-    </message>
-    <message>
         <source>Navigation speed:</source>
         <translation>Velocidad de navegación:</translation>
     </message>
@@ -1082,8 +1062,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Imagen</translation>
     </message>
     <message>
-        <source>Miscellaneous</source>
-        <translation>Miscelánea</translation>
+        <source>General</source>
+        <translation>General</translation>
     </message>
     <message>
         <source>Mouse</source>

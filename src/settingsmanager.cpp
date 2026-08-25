@@ -19,29 +19,25 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent)
 
 QString SettingsManager::getSystemLanguage() const
 {
-    auto entries = QDir(":/i18n/").entryList();
-    entries.prepend("qview_en.ts");
-    const auto centries = entries;
-
     const auto languages = QLocale::system().uiLanguages();
     for (auto language : languages)
     {
         language.replace('-', '_');
-        const auto countryless = language.left(2);
-
-        for (auto entry : centries)
-        {
-            entry.remove(0, 6);
-            entry.remove(entry.length()-3, 3);
-
-            if (entry == language)
-                return language;
-
-            if (entry == countryless)
-                return countryless;
-        }
+        const QString lowerLanguage = language.toLower();
+        if (lowerLanguage.startsWith(QStringLiteral("zh_tw"))
+            || lowerLanguage.startsWith(QStringLiteral("zh_hk"))
+            || lowerLanguage.startsWith(QStringLiteral("zh_hant")))
+            return QStringLiteral("zh_Hant");
+        if (lowerLanguage.startsWith(QStringLiteral("zh")))
+            return QStringLiteral("zh_Hans");
+        if (lowerLanguage.startsWith(QStringLiteral("es")))
+            return QStringLiteral("es");
+        if (lowerLanguage.startsWith(QStringLiteral("ja")))
+            return QStringLiteral("ja");
+        if (lowerLanguage.startsWith(QStringLiteral("en")))
+            return QStringLiteral("en");
     }
-    return "en";
+    return QStringLiteral("en");
 }
 
 void SettingsManager::loadTranslations()
@@ -178,6 +174,14 @@ void SettingsManager::migrateOldSettings()
     // the obsolete format-disable store now that the Formats pane is gone.
     if (!settings.contains("updatecheckfrequency"))
         settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
+    const QString language = settings.value("language", QStringLiteral("en")).toString();
+    if (language != QStringLiteral("system")
+        && language != QStringLiteral("en")
+        && language != QStringLiteral("zh_Hans")
+        && language != QStringLiteral("zh_Hant")
+        && language != QStringLiteral("es")
+        && language != QStringLiteral("ja"))
+        settings.setValue("language", QStringLiteral("en"));
     settings.remove("updatenotifications");
     settings.remove("disabledfileextensions");
     settings.remove("slideshowkeepswindowontop");
@@ -280,7 +284,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("originalsizeastoggle", {false, {}});
     settingsLibrary.insert("colorspaceconversion", {static_cast<int>(Qv::ColorSpaceConversion::AutoDetect), {}});
     // Miscellaneous
-    settingsLibrary.insert("language", {"system", {}});
+    settingsLibrary.insert("language", {"en", {}});
     settingsLibrary.insert("sortmode", {static_cast<int>(Qv::SortMode::Name), {}});
     settingsLibrary.insert("sortdescending", {false, {}});
     settingsLibrary.insert("preloadingmode", {static_cast<int>(Qv::PreloadMode::Adjacent), {}});

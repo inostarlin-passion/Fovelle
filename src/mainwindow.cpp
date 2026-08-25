@@ -63,6 +63,9 @@ public:
         setFlat(true);
         setStyleSheet(QStringLiteral("QPushButton { background: transparent; border: none; padding: 0; }"));
         setProperty("paintOpacity", 0.0);
+        setProperty("artworkComposition", QStringLiteral("single-composited-button"));
+        setProperty("lightArtwork", QStringLiteral("transparent-chevron"));
+        setProperty("darkArtwork", QStringLiteral("gray-tile-chevron"));
     }
 
     void setDarkBackground(const bool value)
@@ -70,11 +73,17 @@ public:
         if (darkBackground == value)
         {
             setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+            setProperty("navigationStyle", darkBackground
+                        ? QStringLiteral("dark-tinted")
+                        : QStringLiteral("light-transparent"));
             return;
         }
 
         darkBackground = value;
         setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+        setProperty("navigationStyle", darkBackground
+                    ? QStringLiteral("dark-tinted")
+                    : QStringLiteral("light-transparent"));
         update();
     }
 
@@ -111,12 +120,9 @@ protected:
             artworkPainter.setBrush(background);
             artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
         }
-        else if (isHovered)
-        {
-            artworkPainter.setPen(Qt::NoPen);
-            artworkPainter.setBrush(QColor(255, 255, 255, 55));
-            artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
-        }
+        // The light-background artwork intentionally has no hover tile. The
+        // reference style is a transparent plate with only the chevron; the
+        // entire button remains one composited artwork surface.
 
         QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
         if (!isEnabled())
