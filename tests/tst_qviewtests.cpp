@@ -41,6 +41,8 @@
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QMenu>
+#include <QStackedWidget>
+#include <QTranslator>
 
 #include "mainwindow.h"
 #include "actionmanager.h"
@@ -240,6 +242,8 @@ private slots:
     void testSettingsTabTransitionAndMouseReopen();
     void testSettingsTabSwitchDoesNotFocusAppearance();
     void testLocalizedSettingsFormsUseSharedLabelColumns();
+    void testSettingsDialogSizesFollowTranslations();
+    void testMacMenuTranslationCatalogsAreComplete();
     void testFullscreenMenuIconsRespectMainMenuPolicy();
     void testExitFullscreenActionUsesEscapePath();
     void testOptionsDialogCentersOnMainWindow();
@@ -647,6 +651,25 @@ public:
 
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class SourceLanguageTranslator final : public QTranslator
+{
+public:
+    bool isEmpty() const override
+    {
+        return false;
+    }
+
+    QString translate(const char *context, const char *sourceText,
+                      const char *disambiguation = nullptr,
+                      int n = -1) const override
+    {
+        Q_UNUSED(context)
+        Q_UNUSED(disambiguation)
+        Q_UNUSED(n)
+        return QString::fromUtf8(sourceText);
+    }
 };
 
 class ScopedEnvironmentValue
@@ -5111,17 +5134,17 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     dialog.close();
 }
 
-// TC-SETTINGS-FIXED-GEOMETRY
-// Test purpose: verify the fixed Settings width and the per-tab minimum
-// heights, including the 16-row Shortcuts viewport.
+// TC-SETTINGS-CONTENT-GEOMETRY
+// Test purpose: verify the shared content-derived Settings width and per-tab
+// minimum heights, including the 16-row Shortcuts viewport.
 // Preconditions: the production QVOptionsDialog and its populated shortcut
 // table are available.
 // Input data: category indexes 0 (General), 1 (Shortcuts), and 2 (Mouse).
 // Steps: show the dialog, switch through all categories, and inspect window
-// constraints, scroll policies, table height, and the last visible row.
-// Expected result: width is exactly W=600 and cannot be resized; General and
-// Mouse have no vertical scrollbar; Shortcuts shows exactly 16 data rows and
-// row 16 is Random File.
+// constraints, scroll ranges, natural content sizes, and the last visible row.
+// Expected result: every tab has the same minimum no-horizontal-scroll width;
+// General and Mouse have exact no-vertical-scroll heights; Shortcuts shows
+// exactly 16 complete data rows and row 16 is Random File.
 // Postcondition: the dialog is closed and no settings are modified.
 void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 {
@@ -5133,12 +5156,24 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
     auto *mouseScrollArea = dialog.findChild<QScrollArea *>("mouseScrollArea");
     auto *table = dialog.findChild<QTableWidget *>("shortcutsTable");
+    auto *stack = dialog.findChild<QStackedWidget *>("stackedWidget");
     QVERIFY(tabs);
     QVERIFY(generalScrollArea);
     QVERIFY(mouseScrollArea);
     QVERIFY(table);
-    QCOMPARE(dialog.minimumWidth(), 600);
-    QCOMPARE(dialog.maximumWidth(), 600);
+    QVERIFY(stack);
+    dialog.prepareForDisplay();
+    const int fixedWidth = dialog.property("settingsFixedWidth").toInt();
+    const int naturalPageWidth = dialog.property("settingsNaturalPageWidth").toInt();
+    QVERIFY(fixedWidth > 0);
+    QVERIFY(naturalPageWidth > 0);
+    QCOMPARE(dialog.minimumWidth(), fixedWidth);
+    QCOMPARE(dialog.maximumWidth(), fixedWidth);
+    QCOMPARE(stack->width(), naturalPageWidth);
+    QCOMPARE(naturalPageWidth,
+             qMax(dialog.property("settingsGeneralNaturalWidth").toInt(),
+                  qMax(dialog.property("settingsMouseNaturalWidth").toInt(),
+                       dialog.property("settingsShortcutsNaturalWidth").toInt())));
     QVERIFY(!dialog.isSizeGripEnabled());
     QCOMPARE(table->rowCount() >= 16, true);
     QCOMPARE(table->item(15, 0)->text(), QStringLiteral("Random File"));
@@ -5148,26 +5183,49 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 
     tabs->setCurrentIndex(0);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    QCOMPARE(dialog.width(), fixedWidth);
+    QCOMPARE(generalScrollArea->horizontalScrollBar()->maximum(), 0);
+    QCOMPARE(generalScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
-    QVERIFY(generalScrollArea->widget()->sizeHint().height()
-            <= generalScrollArea->viewport()->height());
+    QCOMPARE(generalScrollArea->widget()->minimumHeight(),
+             generalScrollArea->viewport()->height());
+    if (dialog.property("settingsGeneralNaturalWidth").toInt() == naturalPageWidth)
+        QCOMPARE(generalScrollArea->widget()->minimumWidth(),
+                 generalScrollArea->viewport()->width());
     const int generalHeight = dialog.height();
     QVERIFY(generalHeight > 0);
 
     tabs->setCurrentIndex(1);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    const int rowHeight = table->rowHeight(0);
+    int visibleRowsHeight = 0;
+    for (int row = 0; row < 16; ++row)
+        visibleRowsHeight += table->rowHeight(row);
     const int expectedTableHeight = table->horizontalHeader()->height()
-            + 16 * rowHeight + 2 * table->frameWidth();
+            + visibleRowsHeight + 2 * table->frameWidth();
     QCOMPARE(table->height(), expectedTableHeight);
+    QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
+    QCOMPARE(table->viewport()->height(), visibleRowsHeight);
+    if (dialog.property("settingsShortcutsNaturalWidth").toInt() == naturalPageWidth)
+        QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
+    QVERIFY(table->visualItemRect(table->item(15, 0)).bottom()
+            <= table->viewport()->rect().bottom());
+    if (table->rowCount() > 16)
+        QVERIFY(table->visualItemRect(table->item(16, 0)).bottom()
+                > table->viewport()->rect().bottom());
     const int shortcutsHeight = dialog.height();
     QVERIFY(shortcutsHeight > 0);
 
     tabs->setCurrentIndex(2);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    QCOMPARE(dialog.width(), fixedWidth);
+    QCOMPARE(mouseScrollArea->horizontalScrollBar()->maximum(), 0);
+    QCOMPARE(mouseScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
-    QVERIFY(mouseScrollArea->widget()->sizeHint().height()
-            <= mouseScrollArea->viewport()->height());
+    QCOMPARE(mouseScrollArea->widget()->minimumHeight(),
+             mouseScrollArea->viewport()->height());
+    if (dialog.property("settingsMouseNaturalWidth").toInt() == naturalPageWidth)
+        QCOMPARE(mouseScrollArea->widget()->minimumWidth(),
+                 mouseScrollArea->viewport()->width());
     QVERIFY(dialog.height() > 0);
     QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
 
@@ -5191,39 +5249,52 @@ void WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()
     ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
     ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
 
-    QVOptionsDialog dialog;
-    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
-    auto *animation = dialog.findChild<QPropertyAnimation *>(QStringLiteral("settingsCategorySizeAnimation"));
-    QVERIFY(tabs);
-    QVERIFY(animation);
-    QCOMPARE(animation->duration(), 180);
+    QSize mouseSize;
+    {
+        QVOptionsDialog dialog;
+        dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+        auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+        auto *animation = dialog.findChild<QPropertyAnimation *>(QStringLiteral("settingsCategorySizeAnimation"));
+        QVERIFY(tabs);
+        QVERIFY(animation);
+        QCOMPARE(animation->duration(), 180);
 
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-    tabs->setCurrentIndex(0);
-    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    const int generalHeight = dialog.height();
+        dialog.show();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+        tabs->setCurrentIndex(0);
+        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+        const int generalHeight = dialog.height();
 
-    tabs->setCurrentIndex(2);
-    QVERIFY(dialog.property("settingsCategoryTransitionActive").toBool());
-    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    const int mouseHeight = dialog.height();
-    QVERIFY(mouseHeight > 0);
-    QVERIFY(mouseHeight != generalHeight);
+        tabs->setCurrentIndex(2);
+        QVERIFY(dialog.property("settingsCategoryTransitionActive").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+        mouseSize = dialog.size();
+        QVERIFY(mouseSize.height() > 0);
+        QVERIFY(mouseSize.height() != generalHeight);
+        dialog.close();
+        QVERIFY(!dialog.isVisible());
+    }
 
-    // Reopen the same QDialog instance, matching QVApplication's reuse path.
-    // done() must have finalized the animation before saving geometry.
-    dialog.close();
-    QVERIFY(!dialog.isVisible());
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-    QCOMPARE(tabs->currentIndex(), 2);
-    QCOMPARE(dialog.width(), 600);
-    QCOMPARE(dialog.height(), mouseHeight);
-    QVERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+    // QVApplication creates a fresh WA_DeleteOnClose dialog on every open.
+    // A deliberately unrelated legacy geometry must not compete with the
+    // content-derived size of the persisted Mouse category.
+    QDialog unrelatedGeometry;
+    unrelatedGeometry.setGeometry(40, 80, 420, 420);
+    QSettings settings;
+    settings.setValue(QStringLiteral("optionsgeometry"), unrelatedGeometry.saveGeometry());
+    settings.sync();
 
-    dialog.close();
+    QVOptionsDialog reopened;
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *reopenedTabs = reopened.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    QVERIFY(reopenedTabs);
+    QCOMPARE(reopenedTabs->currentIndex(), 2);
+    reopened.show();
+    QTRY_VERIFY_WITH_TIMEOUT(reopened.isVisible(), 1000);
+    QCOMPARE(reopened.size(), mouseSize);
+    QVERIFY(!reopened.property("settingsCategoryTransitionActive").toBool());
+    reopened.close();
+    QVERIFY(!QSettings().contains(QStringLiteral("optionsgeometry")));
 }
 
 // TC-SETTINGS-TAB-FOCUS
@@ -5305,6 +5376,181 @@ void WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()
     verifyPage(mouse->widget());
     QCOMPARE(general->widget()->property("settingsAlignedLabelColumnWidth").toInt(),
              mouse->widget()->property("settingsAlignedLabelColumnWidth").toInt());
+}
+
+// TC-SETTINGS-PER-LANGUAGE-GEOMETRY
+// Test purpose: verify geometry is re-derived from each installed language
+// catalog while retaining the same no-scroll / 16-row constraints.
+void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
+    const QList<QString> languages {
+        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
+        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
+    };
+    QHash<QString, QList<QSize>> sizesByLanguage;
+
+    for (const QString &language : languages)
+    {
+        SourceLanguageTranslator sourceTranslator;
+        QTranslator catalogTranslator;
+        QTranslator *translator = &sourceTranslator;
+        if (language != QStringLiteral("en"))
+        {
+            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                    .arg(language);
+            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
+            QVERIFY(!catalogTranslator.translate("ShortcutManager", "Random File").isNull());
+            translator = &catalogTranslator;
+        }
+        QVERIFY(QCoreApplication::installTranslator(translator));
+
+        {
+            ScopedOptionValues options({{"language", language}});
+            QSettings settings;
+            settings.setValue(QStringLiteral("optionstab"), 0);
+            settings.setValue(QStringLiteral("optionstabversion"), 2);
+            settings.sync();
+
+            QVOptionsDialog dialog;
+            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+            auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+            QVERIFY(tabs);
+            QVERIFY(general);
+            QVERIFY(mouse);
+            QVERIFY(table);
+
+            // ShortcutManager is constructed once before this test installs
+            // its per-row translator. Mirror a real restart by translating
+            // those startup-owned readable names before the dialog's final
+            // native-toolbar measurement pass.
+            const auto &shortcutSources = qvApp->getShortcutManager().getShortcutsList();
+            for (int row = 0; row < table->rowCount() && row < shortcutSources.size(); ++row)
+            {
+                const QByteArray source = shortcutSources.at(row).readableName.toUtf8();
+                table->item(row, 0)->setText(
+                    QCoreApplication::translate("ShortcutManager", source.constData()));
+            }
+            dialog.prepareForDisplay();
+
+            dialog.show();
+            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+            QList<QSize> categorySizes;
+            for (int category = 0; category < tabs->count(); ++category)
+            {
+                tabs->setCurrentIndex(category);
+                QTRY_VERIFY_WITH_TIMEOUT(
+                    !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+                categorySizes.append(dialog.size());
+                QCOMPARE(dialog.width(), dialog.property("settingsFixedWidth").toInt());
+            }
+
+            QCOMPARE(categorySizes.at(0).width(), categorySizes.at(1).width());
+            QCOMPARE(categorySizes.at(1).width(), categorySizes.at(2).width());
+            QCOMPARE(general->horizontalScrollBar()->maximum(), 0);
+            QCOMPARE(general->verticalScrollBar()->maximum(), 0);
+            QCOMPARE(mouse->horizontalScrollBar()->maximum(), 0);
+            QCOMPARE(mouse->verticalScrollBar()->maximum(), 0);
+            QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
+            QCOMPARE(general->viewport()->height(), general->widget()->minimumHeight());
+            QCOMPARE(mouse->viewport()->height(), mouse->widget()->minimumHeight());
+            QCOMPARE(table->item(15, 0)->text(),
+                     QCoreApplication::translate("ShortcutManager", "Random File"));
+
+            int visibleRowsHeight = 0;
+            for (int row = 0; row < 16; ++row)
+                visibleRowsHeight += table->rowHeight(row);
+            QCOMPARE(table->viewport()->height(), visibleRowsHeight);
+            sizesByLanguage.insert(language, categorySizes);
+            dialog.close();
+        }
+
+        QVERIFY(QCoreApplication::removeTranslator(translator));
+    }
+
+    QSet<int> languageWidths;
+    for (const QString &language : languages)
+        languageWidths.insert(sizesByLanguage.value(language).constFirst().width());
+    QVERIFY2(languageWidths.size() > 1,
+             "Translated content must produce content-derived, not globally fixed, geometry");
+#endif
+}
+
+// TC-MAC-MENU-LOCALIZATION
+// Test purpose: verify every supported non-English catalog contains Qt's
+// native application-menu contract and the AppKit Window-menu fallback.
+void WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    const QList<QByteArray> applicationSources {
+        "About %1", "Preferences...", "Services", "Hide %1",
+        "Hide Others", "Show All", "Quit %1"
+    };
+    const QList<QByteArray> windowSources {
+        "Minimize", "Minimize All", "Zoom", "Zoom All", "Fill", "Center",
+        "Move & Resize", "Full Screen Tile", "Remove Window from Set", "Halves",
+        "Left", "Right", "Top", "Bottom", "Quarters", "Top Left", "Top Right",
+        "Bottom Left", "Bottom Right", "Arrange", "Left & Right",
+        "Left & Quarters", "Right & Left", "Right & Quarters", "Top & Bottom",
+        "Top & Quarters", "Bottom & Top", "Bottom & Quarters",
+        "Return to Previous Size", "Left of Screen", "Right of Screen",
+        "Bring All to Front", "Arrange in Front", "Enter Full Screen",
+        "Exit Full Screen", "Make Window Full Screen",
+        "Tile Window to Left of Screen", "Tile Window to Right of Screen",
+        "Move Window to Left Side of Screen", "Move Window to Right Side of Screen",
+        "Cycle Through Windows"
+    };
+    const QList<QString> languages {
+        QStringLiteral("es"), QStringLiteral("ja"),
+        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
+    };
+
+    for (const QString &language : languages)
+    {
+        QTranslator translator;
+        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                .arg(language);
+        QVERIFY2(translator.load(path), qPrintable(path));
+        for (const QByteArray &source : applicationSources)
+        {
+            QVERIFY2(!translator.translate("MAC_APPLICATION_MENU", source.constData()).isNull(),
+                     qPrintable(language + QStringLiteral(": ") + QString::fromUtf8(source)));
+        }
+        for (const QByteArray &source : windowSources)
+        {
+            QVERIFY2(!translator.translate("MAC_WINDOW_MENU", source.constData()).isNull(),
+                     qPrintable(language + QStringLiteral(": ") + QString::fromUtf8(source)));
+        }
+
+        QVERIFY(QCoreApplication::installTranslator(&translator));
+        {
+            ScopedOptionValues options({{"language", language}});
+            QCOMPARE(QCoreApplication::translate("MAC_APPLICATION_MENU", "Services"),
+                     translator.translate("MAC_APPLICATION_MENU", "Services"));
+            QCOMPARE(QCoreApplication::translate("MAC_APPLICATION_MENU", "Quit %1"),
+                     translator.translate("MAC_APPLICATION_MENU", "Quit %1"));
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Minimize")),
+                     translator.translate("MAC_WINDOW_MENU", "Minimize"));
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Move & Resize"), true),
+                     translator.translate("MAC_WINDOW_MENU", "Move & Resize"));
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Quarters"), true),
+                     translator.translate("MAC_WINDOW_MENU", "Quarters"));
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("A Dynamic Window Title")),
+                     QStringLiteral("A Dynamic Window Title"));
+        }
+        QVERIFY(QCoreApplication::removeTranslator(&translator));
+    }
+#endif
 }
 
 // TC-VIEW-FULLSCREEN-MAIN-ICON

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_evidence",
-  "generated_at": "2026-08-25T13:33:01.354024+00:00",
+  "generated_at": "2026-08-25T14:47:18.686148+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "test_execution_order": [
     "static",
@@ -15,7 +15,7 @@
       "dimension": "native settings geometry",
       "source": "https://doc.qt.io/qt-6/qdialog.html",
       "finding": "Qt documents SetFixedSize as the layout constraint that prevents manual dialog resizing.",
-      "explicit_premise": "The existing settings UI minimum width is 600 px; therefore W is fixed as 600 px."
+      "explicit_premise": "For each active translation, W is the maximum natural width of General, Shortcuts, and Mouse, including the scrollbar chrome required by the 16-row table."
     },
     {
       "hop": 2,
@@ -36,14 +36,14 @@
       "dimension": "tab-size transition",
       "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
       "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
-      "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated."
+      "explicit_premise": "The Settings width remains fixed at the current language's content-derived W; only the natural per-tab height is animated."
     },
     {
       "hop": 5,
       "dimension": "reopen geometry determinism",
       "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
       "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
-      "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry()."
+      "explicit_premise": "The selected category and current translation are authoritative; only the category is persisted, while any legacy saved geometry is removed."
     },
     {
       "hop": 6,
@@ -120,7 +120,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_version_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353671+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685603+00:00"
     },
     {
       "evidence_id": "EV-NAV-001",
@@ -145,7 +145,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353899+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685886+00:00"
     },
     {
       "evidence_id": "EV-NAV-002",
@@ -170,7 +170,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353903+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685901+00:00"
     },
     {
       "evidence_id": "EV-NAV-003",
@@ -192,10 +192,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 312.548,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 111ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 290.936,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 106ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353908+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685912+00:00"
     },
     {
       "evidence_id": "EV-SET-001",
@@ -217,10 +217,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 263.188,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 73ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 277.784,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353912+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685919+00:00"
     },
     {
       "evidence_id": "EV-SET-002",
@@ -242,10 +242,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 259.218,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 73ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 282.581,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353914+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685924+00:00"
     },
     {
       "evidence_id": "EV-SET-003",
@@ -267,10 +267,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 263.433,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 283.081,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353915+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685928+00:00"
     },
     {
       "evidence_id": "EV-SET-004",
@@ -292,17 +292,17 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 259.237,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 277.354,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353916+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685933+00:00"
     },
     {
       "evidence_id": "EV-SET-005",
       "case_id": "SET-005",
       "stage": "unit",
       "status": "passed",
-      "assertion": "设置页固定宽度 W=600 且禁用手动调整尺寸。",
+      "assertion": "设置页使用当前语言下三个 Tab 无水平滚动所需的共同最小宽度，并禁用手动调整尺寸。",
       "observed": {
         "suite": "WindowBehaviorTests",
         "test": "testSettingsDialogUsesFixedWidthAndTabHeights",
@@ -317,10 +317,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1126.624,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 934ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 876.085,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 679ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353918+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685937+00:00"
     },
     {
       "evidence_id": "EV-SET-006",
@@ -342,10 +342,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1152.788,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 942ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1109.835,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 893ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353919+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685941+00:00"
     },
     {
       "evidence_id": "EV-SET-007",
@@ -367,10 +367,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1118.531,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 913ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1095.949,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 889ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353922+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685947+00:00"
     },
     {
       "evidence_id": "EV-SET-008",
@@ -392,10 +392,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 937.156,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 732ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 920.282,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 719ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353924+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685951+00:00"
     },
     {
       "evidence_id": "EV-SET-009",
@@ -417,10 +417,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 931.511,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 727ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 927.648,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 729ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353926+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685955+00:00"
     },
     {
       "evidence_id": "EV-SET-010",
@@ -442,10 +442,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1135.359,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 925ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1117.397,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 900ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353927+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685960+00:00"
     },
     {
       "evidence_id": "EV-SET-011",
@@ -467,10 +467,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 287.218,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 74ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 299.516,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353931+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685967+00:00"
     },
     {
       "evidence_id": "EV-SET-012",
@@ -492,10 +492,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 261.385,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 74ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 285.261,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353934+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685973+00:00"
     },
     {
       "evidence_id": "EV-SET-013",
@@ -517,10 +517,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 262.783,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 71ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 282.126,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353936+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685977+00:00"
     },
     {
       "evidence_id": "EV-LANG-001",
@@ -928,7 +928,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353943+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685986+00:00"
     },
     {
       "evidence_id": "EV-LANG-002",
@@ -950,10 +950,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 264.148,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 76ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 284.99,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 96ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353946+00:00"
+      "recorded_at": "2026-08-25T14:47:18.685992+00:00"
     },
     {
       "evidence_id": "EV-LANG-003",
@@ -1361,7 +1361,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353949+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686025+00:00"
     },
     {
       "evidence_id": "EV-LANG-004",
@@ -1769,7 +1769,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353971+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686033+00:00"
     },
     {
       "evidence_id": "EV-LANG-005",
@@ -1787,12 +1787,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-moi3fa57/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-awl7sysc/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 22.377,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-moi3fa57/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 32.452,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-awl7sysc/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -2230,7 +2230,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353974+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686040+00:00"
     },
     {
       "evidence_id": "EV-LANG-006",
@@ -2248,12 +2248,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-pn8iibvj/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-fltrpprl/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 21.127,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-pn8iibvj/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 20.792,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-fltrpprl/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -2691,7 +2691,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353979+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686050+00:00"
     },
     {
       "evidence_id": "EV-LANG-007",
@@ -2709,12 +2709,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-sl1tmh0f/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-nnejvqif/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 21.382,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-sl1tmh0f/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 20.992,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-nnejvqif/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -3152,7 +3152,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353981+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686059+00:00"
     },
     {
       "evidence_id": "EV-LANG-008",
@@ -3168,12 +3168,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-ya1qm3z_/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r9b2d1r4/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 27.029,
-          "output_tail": "Scanning directory 'src'...\nUpdating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-ya1qm3z_/current.ts'...\n    Found 275 source text(s) (275 new and 0 already existing)\n"
+          "duration_ms": 31.014,
+          "output_tail": "Scanning directory 'src'...\nUpdating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r9b2d1r4/current.ts'...\n    Found 275 source text(s) (275 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -3455,7 +3455,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_full_translation_catalog_contract"
       },
-      "recorded_at": "2026-08-25T13:33:01.353984+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686067+00:00"
     },
     {
       "evidence_id": "EV-LANG-009",
@@ -3477,10 +3477,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 190.602,
+        "duration_ms": 195.537,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353988+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686075+00:00"
     },
     {
       "evidence_id": "EV-LANG-010",
@@ -3502,10 +3502,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 191.718,
+        "duration_ms": 191.773,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353991+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686080+00:00"
     },
     {
       "evidence_id": "EV-UNIT-001",
@@ -3527,10 +3527,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 266.019,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 75ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 287.76,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 96ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353994+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686104+00:00"
     },
     {
       "evidence_id": "EV-INT-001",
@@ -3561,11 +3561,11 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 25293.038,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   25.28 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  25.29 sec\n"
+          "duration_ms": 28439.764,
+          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   28.43 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  28.43 sec\n"
         }
       },
-      "recorded_at": "2026-08-25T13:33:01.353995+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686109+00:00"
     },
     {
       "evidence_id": "EV-INT-002",
@@ -3584,10 +3584,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 165.96,
+        "duration_ms": 173.787,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353997+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686111+00:00"
     },
     {
       "evidence_id": "EV-SYS-001",
@@ -3604,10 +3604,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 641.089,
+        "duration_ms": 658.627,
         "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.353998+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686113+00:00"
     },
     {
       "evidence_id": "EV-SYS-002",
@@ -3625,10 +3625,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 187.641,
+        "duration_ms": 194.946,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T13:33:01.354000+00:00"
+      "recorded_at": "2026-08-25T14:47:18.686115+00:00"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-25T13:33:01.355321+00:00",
+  "generated_at": "2026-08-25T14:47:18.690049+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "status": "passed",
   "execution_order": [
@@ -16,7 +16,7 @@
       "dimension": "native settings geometry",
       "source": "https://doc.qt.io/qt-6/qdialog.html",
       "finding": "Qt documents SetFixedSize as the layout constraint that prevents manual dialog resizing.",
-      "explicit_premise": "The existing settings UI minimum width is 600 px; therefore W is fixed as 600 px."
+      "explicit_premise": "For each active translation, W is the maximum natural width of General, Shortcuts, and Mouse, including the scrollbar chrome required by the 16-row table."
     },
     {
       "hop": 2,
@@ -37,14 +37,14 @@
       "dimension": "tab-size transition",
       "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
       "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
-      "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated."
+      "explicit_premise": "The Settings width remains fixed at the current language's content-derived W; only the natural per-tab height is animated."
     },
     {
       "hop": 5,
       "dimension": "reopen geometry determinism",
       "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
       "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
-      "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry()."
+      "explicit_premise": "The selected category and current translation are authoritative; only the category is persisted, while any legacy saved geometry is removed."
     },
     {
       "hop": 6,
@@ -109,22 +109,22 @@
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 128504,
-      "sha256": "95ce4fc107477ba575ea363ee0db99b492e434a79af9e29c03d8f2895a3fa0cd"
+      "bytes": 128677,
+      "sha256": "2539e898ae7b10ff6f69707ce10740c453d330f0a820d9d5a83d76c94aa213ae"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 42046,
-      "sha256": "eb01210288c279e24d3fc9cf49ba32b8c2d5c874948f18ed31b835062a78692b"
+      "bytes": 42366,
+      "sha256": "3d66942fdcbfff159764611c8bc086a0cace0d421bfc39bb2a7465bf5a8c903a"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
-      "bytes": 5835,
-      "sha256": "507703db018cd4eb26e7309b8387425fb0add9a19b64e3b7a9e1021f6e37f7ed"
+      "bytes": 5952,
+      "sha256": "34ca7840b8bd9eefd5eabf273dc2df4b37b9e2f4c539ab5f098178835e6d4ba3"
     }
   ],
   "self_artifact": {

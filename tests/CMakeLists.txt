@@ -97,6 +97,14 @@ target_compile_definitions(fovelle_tests PRIVATE
     QT_DEPRECATED_WARNINGS
     QT_NO_FOREACH
 )
+if(FOVELLE_BUILD_TRANSLATIONS)
+    target_compile_definitions(fovelle_tests PRIVATE
+        "FOVELLE_TRANSLATIONS_DIR=\"${PROJECT_BINARY_DIR}\""
+    )
+    if(TARGET Fovelle_lrelease)
+        add_dependencies(fovelle_tests Fovelle_lrelease)
+    endif()
+endif()
 if(QV_DISABLE_ONLINE_VERSION_CHECK)
     target_compile_definitions(fovelle_tests PRIVATE QV_DISABLE_ONLINE_VERSION_CHECK)
 endif()

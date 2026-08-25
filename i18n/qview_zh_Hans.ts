@@ -1646,4 +1646,202 @@ You can reenable it in Preferences.</source>
 你可以在“偏好设置”中重新启用。</translation>
     </message>
 </context>
+<context>
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>关于 %1</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>首选项...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>服务</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>隐藏 %1</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>隐藏其他</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>全部显示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>退出 %1</translation>
+    </message>
+</context>
+<context>
+    <name>MAC_WINDOW_MENU</name>
+    <message>
+        <source>Minimize</source>
+        <translation>最小化</translation>
+    </message>
+    <message>
+        <source>Minimize All</source>
+        <translation>全部最小化</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>缩放</translation>
+    </message>
+    <message>
+        <source>Zoom All</source>
+        <translation>全部缩放</translation>
+    </message>
+    <message>
+        <source>Fill</source>
+        <translation>填充</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>居中</translation>
+    </message>
+    <message>
+        <source>Move &amp; Resize</source>
+        <translation>移动与调整大小</translation>
+    </message>
+    <message>
+        <source>Full Screen Tile</source>
+        <translation>全屏幕拼贴</translation>
+    </message>
+    <message>
+        <source>Remove Window from Set</source>
+        <translation>从组中移除窗口</translation>
+    </message>
+    <message>
+        <source>Halves</source>
+        <translation>二等分</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左侧</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右侧</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>顶部</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>底部</translation>
+    </message>
+    <message>
+        <source>Quarters</source>
+        <translation>四等分</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>左上</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>右上</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>左下</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>右下</translation>
+    </message>
+    <message>
+        <source>Arrange</source>
+        <translation>排列</translation>
+    </message>
+    <message>
+        <source>Left &amp; Right</source>
+        <translation>左侧与右侧</translation>
+    </message>
+    <message>
+        <source>Left &amp; Quarters</source>
+        <translation>左侧与四等分</translation>
+    </message>
+    <message>
+        <source>Right &amp; Left</source>
+        <translation>右侧与左侧</translation>
+    </message>
+    <message>
+        <source>Right &amp; Quarters</source>
+        <translation>右侧与四等分</translation>
+    </message>
+    <message>
+        <source>Top &amp; Bottom</source>
+        <translation>顶部与底部</translation>
+    </message>
+    <message>
+        <source>Top &amp; Quarters</source>
+        <translation>顶部与四等分</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Top</source>
+        <translation>底部与顶部</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Quarters</source>
+        <translation>底部与四等分</translation>
+    </message>
+    <message>
+        <source>Return to Previous Size</source>
+        <translation>恢复上一个大小</translation>
+    </message>
+    <message>
+        <source>Left of Screen</source>
+        <translation>屏幕左侧</translation>
+    </message>
+    <message>
+        <source>Right of Screen</source>
+        <translation>屏幕右侧</translation>
+    </message>
+    <message>
+        <source>Bring All to Front</source>
+        <translation>前置全部窗口</translation>
+    </message>
+    <message>
+        <source>Arrange in Front</source>
+        <translation>排在前面</translation>
+    </message>
+    <message>
+        <source>Enter Full Screen</source>
+        <translation>进入全屏幕</translation>
+    </message>
+    <message>
+        <source>Exit Full Screen</source>
+        <translation>退出全屏幕</translation>
+    </message>
+    <message>
+        <source>Make Window Full Screen</source>
+        <translation>全屏显示窗口</translation>
+    </message>
+    <message>
+        <source>Tile Window to Left of Screen</source>
+        <translation>将窗口拼贴到屏幕左侧</translation>
+    </message>
+    <message>
+        <source>Tile Window to Right of Screen</source>
+        <translation>将窗口拼贴到屏幕右侧</translation>
+    </message>
+    <message>
+        <source>Move Window to Left Side of Screen</source>
+        <translation>将窗口移到屏幕左侧</translation>
+    </message>
+    <message>
+        <source>Move Window to Right Side of Screen</source>
+        <translation>将窗口移到屏幕右侧</translation>
+    </message>
+    <message>
+        <source>Cycle Through Windows</source>
+        <translation>循环显示窗口</translation>
+    </message>
+</context>
 </TS>

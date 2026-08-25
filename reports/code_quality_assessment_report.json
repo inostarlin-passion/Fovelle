@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment",
-  "generated_at": "2026-08-25T13:33:01.354039+00:00",
+  "generated_at": "2026-08-25T14:47:18.686176+00:00",
   "quality_requirements": [
     "精益完整性",
     "功能正确性",
@@ -13,7 +13,7 @@
       "dimension": "native settings geometry",
       "source": "https://doc.qt.io/qt-6/qdialog.html",
       "finding": "Qt documents SetFixedSize as the layout constraint that prevents manual dialog resizing.",
-      "explicit_premise": "The existing settings UI minimum width is 600 px; therefore W is fixed as 600 px."
+      "explicit_premise": "For each active translation, W is the maximum natural width of General, Shortcuts, and Mouse, including the scrollbar chrome required by the 16-row table."
     },
     {
       "hop": 2,
@@ -34,14 +34,14 @@
       "dimension": "tab-size transition",
       "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
       "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
-      "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated."
+      "explicit_premise": "The Settings width remains fixed at the current language's content-derived W; only the natural per-tab height is animated."
     },
     {
       "hop": 5,
       "dimension": "reopen geometry determinism",
       "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
       "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
-      "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry()."
+      "explicit_premise": "The selected category and current translation are authoritative; only the category is persisted, while any legacy saved geometry is removed."
     },
     {
       "hop": 6,

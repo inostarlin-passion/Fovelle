@@ -20,6 +20,8 @@
 #include <QHeaderView>
 #include <QEasingCurve>
 #include <QPropertyAnimation>
+#include <QScrollBar>
+#include <QStyleOptionViewItem>
 #include <QVBoxLayout>
 
 namespace
@@ -41,6 +43,52 @@ int formLabelColumnWidth(QWidget *page)
         }
     }
     return labelColumnWidth;
+}
+
+void clearFormLabelColumnWidths(QWidget *page)
+{
+    if (!page)
+        return;
+
+    const auto layouts = page->findChildren<QFormLayout *>();
+    for (auto *layout : layouts)
+    {
+        for (int row = 0; row < layout->rowCount(); ++row)
+        {
+            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
+            if (item && item->widget())
+                item->widget()->setMinimumWidth(0);
+        }
+    }
+}
+
+QSize naturalLayoutSize(QWidget *widget)
+{
+    if (!widget)
+        return {};
+
+    widget->setMinimumSize(0, 0);
+    if (auto *layout = widget->layout())
+    {
+        layout->invalidate();
+        layout->activate();
+        return layout->sizeHint().expandedTo(layout->minimumSize());
+    }
+    return widget->sizeHint().expandedTo(widget->minimumSizeHint());
+}
+
+int naturalTableColumnWidth(QTableWidget *table, const int column)
+{
+    auto *header = table->horizontalHeader();
+    int width = qMax(header->minimumSectionSize(), header->sectionSizeHint(column));
+    QStyleOptionViewItem option;
+    option.initFrom(table->viewport());
+    for (int row = 0; row < table->rowCount(); ++row)
+    {
+        const QModelIndex index = table->model()->index(row, column);
+        width = qMax(width, table->itemDelegate()->sizeHint(option, index).width());
+    }
+    return width;
 }
 
 void alignFormLayouts(QWidget *page, const int labelColumnWidth)
@@ -92,7 +140,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setSizeGripEnabled(false);
-    setProperty("settingsFixedWidth", SettingsDialogWidth);
     setProperty("settingsVisibleShortcutRows", ShortcutsVisibleRows);
     setProperty("settingsCategoryTransitionDuration", SettingsCategoryTransitionDuration);
     setProperty("settingsCategoryTransitionActive", false);
@@ -102,11 +149,10 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     categorySizeAnimation->setDuration(SettingsCategoryTransitionDuration);
     categorySizeAnimation->setEasingCurve(QEasingCurve::InOutCubic);
     connect(categorySizeAnimation, &QPropertyAnimation::finished, this, [this]() {
-        setFixedSize(SettingsDialogWidth, categoryTargetHeight);
+        setFixedSize(settingsDialogWidth, categoryTargetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     });
 
-    resize(SettingsDialogWidth, 600);
     ui->categoryTabs->setShape(QTabBar::RoundedNorth);
     // QTabBar remains the lightweight Qt page model used by tests and the
     // stacked widget connection.  AppKit supplies the visible Settings
@@ -149,9 +195,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     populateComboBoxes();
     populateLanguages();
 
-    restoreGeometry(settings.value("optionsgeometry").toByteArray());
-    setFixedWidth(SettingsDialogWidth);
-
     if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13))
         setWindowTitle(tr("Preferences"));
 
@@ -167,6 +210,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     syncSettings(false, true);
     syncShortcuts();
+    updateNaturalPageSizes();
     resizeForCategory(ui->categoryTabs->currentIndex());
 
     connect(qvApp, &QVApplication::windowOnTopChanged, this, [this]() {
@@ -214,12 +258,10 @@ void QVOptionsDialog::configureGeneralPage()
 
     ui->generalScrollArea->setWidget(generalContent);
     ui->generalScrollArea->setWidgetResizable(true);
-    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
-                                      formLabelColumnWidth(ui->mouseScrollArea->widget()));
-    alignFormLayouts(generalContent, labelColumnWidth);
-    alignFormLayouts(ui->mouseScrollArea->widget(), labelColumnWidth);
+    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     generalWidget->adjustSize();
     miscWidget->adjustSize();
     generalContent->adjustSize();
@@ -231,9 +273,112 @@ void QVOptionsDialog::configureGeneralPage()
     ui->miscScrollArea->deleteLater();
 }
 
+void QVOptionsDialog::updateNaturalPageSizes()
+{
+    auto *generalContent = ui->generalScrollArea->widget();
+    auto *mouseContent = ui->mouseScrollArea->widget();
+    if (!generalContent || !mouseContent)
+        return;
+
+    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    // Translation and the native modifier-key labels are final by this point.
+    // Rebuild one shared form column before measuring so the window width is a
+    // function of the current language rather than of the legacy .ui geometry.
+    clearFormLabelColumnWidths(generalContent);
+    clearFormLabelColumnWidths(mouseContent);
+    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
+                                      formLabelColumnWidth(mouseContent));
+    alignFormLayouts(generalContent, labelColumnWidth);
+    alignFormLayouts(mouseContent, labelColumnWidth);
+
+    // QStackedWidget does not lay out never-selected pages. Activate each page
+    // while measuring, then restore the user's category, so starting directly
+    // on Mouse produces the same hints as reaching Mouse from General.
+    const int selectedPage = ui->stackedWidget->currentIndex();
+    ui->stackedWidget->setCurrentIndex(0);
+    generalContent->ensurePolished();
+    const QSize generalNaturalSize = naturalLayoutSize(generalContent);
+    ui->stackedWidget->setCurrentIndex(2);
+    mouseContent->ensurePolished();
+    const QSize mouseNaturalSize = naturalLayoutSize(mouseContent);
+    generalContent->setMinimumSize(generalNaturalSize);
+    mouseContent->setMinimumSize(mouseNaturalSize);
+    generalContent->setProperty("settingsNaturalContentSize", generalNaturalSize);
+    mouseContent->setProperty("settingsNaturalContentSize", mouseNaturalSize);
+
+    auto *table = ui->shortcutsTable;
+    ui->stackedWidget->setCurrentIndex(1);
+    table->ensurePolished();
+    table->setWordWrap(false);
+    table->horizontalHeader()->setStretchLastSection(false);
+    // QHeaderView::ResizeToContents can defer its first resize until a hidden
+    // table is shown, which would make the pre-show window measurement use the
+    // legacy .ui section geometry. Query the header and delegate size hints
+    // synchronously and freeze them; shortcut edits call this method again.
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    for (int column = 0; column < table->columnCount(); ++column)
+        table->horizontalHeader()->resizeSection(
+                    column, naturalTableColumnWidth(table, column));
+    table->resizeRowsToContents();
+    table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    table->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    int visibleRowsHeight = 0;
+    const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
+    for (int row = 0; row < visibleRows; ++row)
+        visibleRowsHeight += qMax(1, table->rowHeight(row));
+    const int tableHeight = table->horizontalHeader()->height()
+            + visibleRowsHeight + 2 * table->frameWidth();
+    table->setFixedHeight(qMax(1, tableHeight));
+
+    // At the 16-row height, the remaining rows require the vertical scrollbar.
+    // Account for its style-provided width and the frame directly. Resizing a
+    // hidden table to infer this value is not reliable because its parent
+    // layout still owns the table geometry until first presentation.
+    const int headerWidth = table->horizontalHeader()->length();
+    const int tableChromeWidth = 2 * table->frameWidth()
+            + (table->rowCount() > visibleRows
+               ? table->verticalScrollBar()->sizeHint().width() : 0);
+    const QMargins shortcutMargins = ui->shortcutsLayout->contentsMargins();
+    const int shortcutsNaturalWidth = shortcutMargins.left() + headerWidth
+            + tableChromeWidth + shortcutMargins.right();
+
+    const int generalNaturalWidth = generalNaturalSize.width()
+            + 2 * ui->generalScrollArea->frameWidth();
+    const int mouseNaturalWidth = mouseNaturalSize.width()
+            + 2 * ui->mouseScrollArea->frameWidth();
+    int pageWidth = qMax(generalNaturalWidth,
+                         qMax(mouseNaturalWidth, shortcutsNaturalWidth));
+
+    ui->stackedWidget->setFixedWidth(pageWidth);
+    setMinimumSize(0, 0);
+    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
+    settingsDialogWidth = qMax(1, pageWidth
+                               + dialogMargins.left() + dialogMargins.right());
+    setProperty("settingsFixedWidth", settingsDialogWidth);
+    setProperty("settingsNaturalPageWidth", pageWidth);
+    setProperty("settingsGeneralNaturalWidth", generalNaturalWidth);
+    setProperty("settingsMouseNaturalWidth", mouseNaturalWidth);
+    setProperty("settingsShortcutsNaturalWidth", shortcutsNaturalWidth);
+    setProperty("settingsShortcutHeaderWidth", headerWidth);
+    ui->stackedWidget->setCurrentIndex(selectedPage);
+    // Exact content dimensions above make scrolling unnecessary. Keeping the
+    // bars off also avoids a transient overlay flash while Cocoa swaps panes.
+    ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    pageMetricsReady = true;
+}
+
 void QVOptionsDialog::resizeForCategory(const int categoryIndex)
 {
-    if (!ui || !ui->stackedWidget)
+    if (!ui || !ui->stackedWidget || !pageMetricsReady)
         return;
 
     QWidget *page = ui->stackedWidget->widget(categoryIndex);
@@ -244,45 +389,36 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     if (categoryIndex == 0)
     {
         auto *content = ui->generalScrollArea->widget();
-        if (content->layout())
-            content->layout()->activate();
-        pageHeight = content->layout()
-                ? content->layout()->sizeHint().height() + 2 * ui->generalScrollArea->frameWidth()
-                : content->sizeHint().height() + 2 * ui->generalScrollArea->frameWidth();
-        ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        pageHeight = content->minimumHeight()
+                + 2 * ui->generalScrollArea->frameWidth();
     }
     else if (categoryIndex == 1)
     {
         auto *table = ui->shortcutsTable;
-        const int rowHeight = table->rowCount() > 0
-                ? table->rowHeight(0)
-                : table->verticalHeader()->defaultSectionSize();
+        int visibleRowsHeight = 0;
+        const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
+        for (int row = 0; row < visibleRows; ++row)
+            visibleRowsHeight += qMax(1, table->rowHeight(row));
         const int tableHeight = table->horizontalHeader()->height()
-                + ShortcutsVisibleRows * qMax(1, rowHeight)
+                + visibleRowsHeight
                 + 2 * table->frameWidth();
         table->setFixedHeight(tableHeight);
-        pageHeight = tableHeight;
+        const QMargins margins = ui->shortcutsLayout->contentsMargins();
+        pageHeight = margins.top() + tableHeight + margins.bottom();
     }
     else
     {
         auto *scrollArea = ui->mouseScrollArea;
         auto *content = scrollArea->widget();
-        if (content->layout())
-            content->layout()->activate();
-        pageHeight = content->layout()
-                ? content->layout()->sizeHint().height() + 2 * scrollArea->frameWidth()
-                : content->sizeHint().height() + 2 * scrollArea->frameWidth();
-        scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        pageHeight = content->minimumHeight() + 2 * scrollArea->frameWidth();
     }
 
     const int currentHeight = height();
     pageHeight = qMax(1, pageHeight);
     ui->stackedWidget->setFixedHeight(pageHeight);
-    setMinimumHeight(0);
-    setMaximumHeight(QWIDGETSIZE_MAX);
-    setFixedWidth(SettingsDialogWidth);
-    adjustSize();
-    const int targetHeight = qMax(1, height());
+    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
+    const int targetHeight = qMax(1, pageHeight
+                                  + dialogMargins.top() + dialogMargins.bottom());
     categoryTargetHeight = targetHeight;
 
     const bool shouldAnimate = isVisible()
@@ -292,15 +428,15 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     {
         categorySizeAnimation->stop();
         setProperty("settingsCategoryTransitionActive", true);
-        categorySizeAnimation->setStartValue(QSize(SettingsDialogWidth, currentHeight));
-        categorySizeAnimation->setEndValue(QSize(SettingsDialogWidth, targetHeight));
+        categorySizeAnimation->setStartValue(QSize(settingsDialogWidth, currentHeight));
+        categorySizeAnimation->setEndValue(QSize(settingsDialogWidth, targetHeight));
         categorySizeAnimation->start();
     }
     else
     {
         if (categorySizeAnimation)
             categorySizeAnimation->stop();
-        setFixedSize(SettingsDialogWidth, targetHeight);
+        setFixedSize(settingsDialogWidth, targetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     }
     setProperty("settingsCategoryIndex", categoryIndex);
@@ -314,7 +450,7 @@ QSize QVOptionsDialog::settingsAnimatedSize() const
 
 void QVOptionsDialog::setSettingsAnimatedSize(const QSize &size)
 {
-    setFixedSize(SettingsDialogWidth, qMax(1, size.height()));
+    setFixedSize(settingsDialogWidth, qMax(1, size.height()));
 }
 
 void QVOptionsDialog::finishCategoryTransition()
@@ -322,7 +458,7 @@ void QVOptionsDialog::finishCategoryTransition()
     if (categorySizeAnimation)
         categorySizeAnimation->stop();
     if (categoryTargetHeight > 0)
-        setFixedSize(SettingsDialogWidth, categoryTargetHeight);
+        setFixedSize(settingsDialogWidth, categoryTargetHeight);
     setProperty("settingsCategoryTransitionActive", false);
 }
 
@@ -343,20 +479,21 @@ void QVOptionsDialog::prepareForDisplay()
     // The native toolbar changes the available content width. Re-measure once
     // after it exists, while the dialog is still hidden, so the first frame
     // uses the final natural height.
+    updateNaturalPageSizes();
     resizeForCategory(ui->categoryTabs->currentIndex());
     displayPrepared = true;
 }
 
 void QVOptionsDialog::done(int r)
 {
-    // Never persist an interpolated frame.  The dialog can be reopened as the
-    // same QDialog instance by QVApplication, so the final category size must
-    // be deterministic before saveGeometry() and before the next show().
+    // Never persist an interpolated frame. Settings size is derived from the
+    // selected language and page contents; only the selected category is user
+    // state. A saved size would introduce a competing source of truth when a
+    // fresh dialog instance is opened.
     finishCategoryTransition();
 
-    // Save window geometry
     QSettings settings;
-    settings.setValue("optionsgeometry", saveGeometry());
+    settings.remove("optionsgeometry");
     settings.setValue("optionstab", ui->categoryTabs->currentIndex());
     settings.setValue("optionstabversion", 2);
 
@@ -369,6 +506,11 @@ void QVOptionsDialog::showEvent(QShowEvent *event)
     // QVApplication invokes this before positioning to prevent visible moves.
     prepareForDisplay();
     QDialog::showEvent(event);
+    // Cocoa finalizes the preference-toolbar content border while dispatching
+    // the first show event. Reapply the already-measured fixed frame inside
+    // that event so a dialog that starts on Mouse has the same client size as
+    // one switched to Mouse after presentation.
+    finishCategoryTransition();
 }
 
 void QVOptionsDialog::changeEvent(QEvent *event)
@@ -555,6 +697,12 @@ void QVOptionsDialog::updateShortcutsTable()
     {
         const QStringList &shortcuts = transientShortcuts.value(i);
         ui->shortcutsTable->item(i, 1)->setText(ShortcutManager::stringListToReadableString(shortcuts));
+    }
+
+    if (pageMetricsReady)
+    {
+        updateNaturalPageSizes();
+        resizeForCategory(ui->categoryTabs->currentIndex());
     }
 }
 

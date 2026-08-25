@@ -1647,4 +1647,202 @@ You can reenable it in Preferences.</source>
 Puedes volver a activarla en Configuración.</translation>
     </message>
 </context>
+<context>
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>Acerca de %1</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>Preferencias…</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>Servicios</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>Ocultar %1</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>Ocultar otros</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>Mostrar todo</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>Salir de %1</translation>
+    </message>
+</context>
+<context>
+    <name>MAC_WINDOW_MENU</name>
+    <message>
+        <source>Minimize</source>
+        <translation>Minimizar</translation>
+    </message>
+    <message>
+        <source>Minimize All</source>
+        <translation>Minimizar todo</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>Zoom</translation>
+    </message>
+    <message>
+        <source>Zoom All</source>
+        <translation>Aplicar zoom a todas las ventanas</translation>
+    </message>
+    <message>
+        <source>Fill</source>
+        <translation>Rellenar</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>Centrar</translation>
+    </message>
+    <message>
+        <source>Move &amp; Resize</source>
+        <translation>Trasladar y redimensionar</translation>
+    </message>
+    <message>
+        <source>Full Screen Tile</source>
+        <translation>Ventana a pantalla completa</translation>
+    </message>
+    <message>
+        <source>Remove Window from Set</source>
+        <translation>Eliminar ventana del grupo</translation>
+    </message>
+    <message>
+        <source>Halves</source>
+        <translation>Mitades</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Izquierda</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Derecha</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Superior</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>Inferior</translation>
+    </message>
+    <message>
+        <source>Quarters</source>
+        <translation>Cuartos</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>Parte superior izquierda</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>Parte superior derecha</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>Parte inferior izquierda</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>Parte inferior derecha</translation>
+    </message>
+    <message>
+        <source>Arrange</source>
+        <translation>Disposición</translation>
+    </message>
+    <message>
+        <source>Left &amp; Right</source>
+        <translation>Izquierda y derecha</translation>
+    </message>
+    <message>
+        <source>Left &amp; Quarters</source>
+        <translation>Izquierda y cuartos</translation>
+    </message>
+    <message>
+        <source>Right &amp; Left</source>
+        <translation>Derecha e izquierda</translation>
+    </message>
+    <message>
+        <source>Right &amp; Quarters</source>
+        <translation>Derecha y cuartos</translation>
+    </message>
+    <message>
+        <source>Top &amp; Bottom</source>
+        <translation>Superior e inferior</translation>
+    </message>
+    <message>
+        <source>Top &amp; Quarters</source>
+        <translation>Superior y cuartos</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Top</source>
+        <translation>Inferior y superior</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Quarters</source>
+        <translation>Inferior y cuartos</translation>
+    </message>
+    <message>
+        <source>Return to Previous Size</source>
+        <translation>Volver al tamaño anterior</translation>
+    </message>
+    <message>
+        <source>Left of Screen</source>
+        <translation>Izquierda de la pantalla</translation>
+    </message>
+    <message>
+        <source>Right of Screen</source>
+        <translation>Derecha de la pantalla</translation>
+    </message>
+    <message>
+        <source>Bring All to Front</source>
+        <translation>Traer todo al frente</translation>
+    </message>
+    <message>
+        <source>Arrange in Front</source>
+        <translation>Traer al frente</translation>
+    </message>
+    <message>
+        <source>Enter Full Screen</source>
+        <translation>Usar pantalla completa</translation>
+    </message>
+    <message>
+        <source>Exit Full Screen</source>
+        <translation>Salir de pantalla completa</translation>
+    </message>
+    <message>
+        <source>Make Window Full Screen</source>
+        <translation>Mostrar ventana a pantalla completa</translation>
+    </message>
+    <message>
+        <source>Tile Window to Left of Screen</source>
+        <translation>Ajustar ventana a la izquierda de la pantalla</translation>
+    </message>
+    <message>
+        <source>Tile Window to Right of Screen</source>
+        <translation>Ajustar ventana a la derecha de la pantalla</translation>
+    </message>
+    <message>
+        <source>Move Window to Left Side of Screen</source>
+        <translation>Mover ventana al lado izquierdo de la pantalla</translation>
+    </message>
+    <message>
+        <source>Move Window to Right Side of Screen</source>
+        <translation>Mover ventana al lado derecho de la pantalla</translation>
+    </message>
+    <message>
+        <source>Cycle Through Windows</source>
+        <translation>Recorrer ventanas</translation>
+    </message>
+</context>
 </TS>

@@ -262,6 +262,12 @@ public:
 
     static void setWindowMenu(QMenu *menu);
 
+    // Resolve an AppKit Window-menu command using Fovelle's selected
+    // application language rather than the macOS login language. The public
+    // helper also gives localization tests the same path used by NSMenu.
+    static QString localizedWindowMenuTitle(const QString &sourceTitle,
+                                            bool submenuTitle = false);
+
     static void setAlternate(QMenu *menu, int index);
 
     static void setDockRecents(const QStringList &recentPathsList);

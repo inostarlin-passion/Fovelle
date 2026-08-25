@@ -1647,4 +1647,202 @@ You can reenable it in Preferences.</source>
 「環境設定」で再度有効にできます。</translation>
     </message>
 </context>
+<context>
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>%1 について</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>設定...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>サービス</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>%1 を隠す</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>ほかを隠す</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>すべて表示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>%1 を終了</translation>
+    </message>
+</context>
+<context>
+    <name>MAC_WINDOW_MENU</name>
+    <message>
+        <source>Minimize</source>
+        <translation>しまう</translation>
+    </message>
+    <message>
+        <source>Minimize All</source>
+        <translation>すべてをしまう</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>拡大/縮小</translation>
+    </message>
+    <message>
+        <source>Zoom All</source>
+        <translation>すべてを拡大/縮小</translation>
+    </message>
+    <message>
+        <source>Fill</source>
+        <translation>画面全体に表示</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>中央に配置</translation>
+    </message>
+    <message>
+        <source>Move &amp; Resize</source>
+        <translation>移動とサイズ変更</translation>
+    </message>
+    <message>
+        <source>Full Screen Tile</source>
+        <translation>フルスクリーンのタイル表示</translation>
+    </message>
+    <message>
+        <source>Remove Window from Set</source>
+        <translation>ウインドウをセットから削除</translation>
+    </message>
+    <message>
+        <source>Halves</source>
+        <translation>2分割</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>上</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>下</translation>
+    </message>
+    <message>
+        <source>Quarters</source>
+        <translation>4分割</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>左上</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>右上</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>左下</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>右下</translation>
+    </message>
+    <message>
+        <source>Arrange</source>
+        <translation>配置</translation>
+    </message>
+    <message>
+        <source>Left &amp; Right</source>
+        <translation>左と右</translation>
+    </message>
+    <message>
+        <source>Left &amp; Quarters</source>
+        <translation>左と4分割</translation>
+    </message>
+    <message>
+        <source>Right &amp; Left</source>
+        <translation>右と左</translation>
+    </message>
+    <message>
+        <source>Right &amp; Quarters</source>
+        <translation>右と4分割</translation>
+    </message>
+    <message>
+        <source>Top &amp; Bottom</source>
+        <translation>上と下</translation>
+    </message>
+    <message>
+        <source>Top &amp; Quarters</source>
+        <translation>上と4分割</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Top</source>
+        <translation>下と上</translation>
+    </message>
+    <message>
+        <source>Bottom &amp; Quarters</source>
+        <translation>下と4分割</translation>
+    </message>
+    <message>
+        <source>Return to Previous Size</source>
+        <translation>前のサイズに戻す</translation>
+    </message>
+    <message>
+        <source>Left of Screen</source>
+        <translation>画面左側</translation>
+    </message>
+    <message>
+        <source>Right of Screen</source>
+        <translation>画面右側</translation>
+    </message>
+    <message>
+        <source>Bring All to Front</source>
+        <translation>すべてを手前に移動</translation>
+    </message>
+    <message>
+        <source>Arrange in Front</source>
+        <translation>ウインドウを整理</translation>
+    </message>
+    <message>
+        <source>Enter Full Screen</source>
+        <translation>フルスクリーンにする</translation>
+    </message>
+    <message>
+        <source>Exit Full Screen</source>
+        <translation>フルスクリーンを解除</translation>
+    </message>
+    <message>
+        <source>Make Window Full Screen</source>
+        <translation>ウインドウをフルスクリーン表示</translation>
+    </message>
+    <message>
+        <source>Tile Window to Left of Screen</source>
+        <translation>ウインドウを画面左側にタイル表示</translation>
+    </message>
+    <message>
+        <source>Tile Window to Right of Screen</source>
+        <translation>ウインドウを画面右側にタイル表示</translation>
+    </message>
+    <message>
+        <source>Move Window to Left Side of Screen</source>
+        <translation>ウインドウを画面左側に移動</translation>
+    </message>
+    <message>
+        <source>Move Window to Right Side of Screen</source>
+        <translation>ウインドウを画面右側に移動</translation>
+    </message>
+    <message>
+        <source>Cycle Through Windows</source>
+        <translation>ウインドウを巡回</translation>
+    </message>
+</context>
 </TS>

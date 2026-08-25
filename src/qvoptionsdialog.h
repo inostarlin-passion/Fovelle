@@ -53,6 +53,7 @@ protected:
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
     void configureGeneralPage();
+    void updateNaturalPageSizes();
     void resizeForCategory(int categoryIndex);
     void finishCategoryTransition();
     void populateCategories(int selectedRow);
@@ -78,7 +79,6 @@ private slots:
     void middleButtonModeChanged();
 
 private:
-    static constexpr int SettingsDialogWidth = 600;
     static constexpr int ShortcutsVisibleRows = 16;
     static constexpr int SettingsCategoryTransitionDuration = 180;
 
@@ -92,7 +92,10 @@ private:
 
     bool displayPrepared {false};
 
+    bool pageMetricsReady {false};
+
     QPropertyAnimation *categorySizeAnimation {nullptr};
+    int settingsDialogWidth {0};
     int categoryTargetHeight {0};
 };
 

@@ -86,8 +86,8 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 
 ## Light Appearance
 
-![](docs/snapshot2.jpg)
+![](docs/snapshot1.jpg)
 
 ## Dark Appearance
 
-![](docs/snapshot1.jpg)
+![](docs/snapshot2.jpg)

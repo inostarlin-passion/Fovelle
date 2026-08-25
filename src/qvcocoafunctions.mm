@@ -13,6 +13,7 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QLocale>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QPointer>
@@ -44,6 +45,63 @@
 static constexpr char SettingsToolbarAssociationKey = 0;
 static constexpr char FullScreenTransitionCompleteAssociationKey = 0;
 static constexpr char FullScreenExitPendingAssociationKey = 0;
+
+// Qt's Cocoa platform plugin looks these strings up in this exact context
+// when it refreshes the native Fovelle application menu. Keeping the markers
+// in application source makes lupdate retain the self-contained catalogs.
+[[maybe_unused]] static const char *const MacApplicationMenuTranslationSources[] = {
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "About %1"),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Preferences..."),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Services"),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Hide %1"),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Hide Others"),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Show All"),
+    QT_TRANSLATE_NOOP("MAC_APPLICATION_MENU", "Quit %1")
+};
+
+[[maybe_unused]] static const char *const MacWindowMenuTranslationSources[] = {
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Minimize"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Minimize All"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Zoom"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Zoom All"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Fill"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Center"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Move & Resize"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Full Screen Tile"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Remove Window from Set"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Halves"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Left"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Right"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Top"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bottom"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Quarters"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Top Left"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Top Right"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bottom Left"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bottom Right"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Arrange"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Left & Right"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Left & Quarters"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Right & Left"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Right & Quarters"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Top & Bottom"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Top & Quarters"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bottom & Top"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bottom & Quarters"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Return to Previous Size"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Left of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Right of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Bring All to Front"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Arrange in Front"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Enter Full Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Exit Full Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Make Window Full Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Tile Window to Left of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Tile Window to Right of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Move Window to Left Side of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Move Window to Right Side of Screen"),
+    QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Cycle Through Windows")
+};
 
 @interface FovelleSettingsToolbarController : NSObject<NSToolbarDelegate>
 {
@@ -279,6 +337,79 @@ QString QStringFromCFString(CFStringRef value)
     if (!CFStringGetCString(value, utf8.data(), maximumSize, kCFStringEncodingUTF8))
         return {};
     return QString::fromUtf8(utf8.constData());
+}
+
+QString selectedMacMenuLocalization()
+{
+    QString language = qvApp->getSettingsManager().getString(QStringLiteral("language"));
+    if (language == QStringLiteral("system"))
+        language = SettingsManager::languageCodeForLocale(QLocale::system());
+
+    if (language == QStringLiteral("zh_Hans"))
+        return QStringLiteral("zh-CN");
+    if (language == QStringLiteral("zh_Hant"))
+        return QStringLiteral("zh-TW");
+    if (language == QStringLiteral("es") || language == QStringLiteral("ja"))
+        return language;
+    return {};
+}
+
+QString appKitMenuCommandTranslation(const QString &sourceTitle,
+                                     const QString &tableKey)
+{
+    const QString localization = selectedMacMenuLocalization();
+    if (localization.isEmpty())
+        return sourceTitle;
+
+    // macOS 15.4 introduced an explicit-localization lookup. It is important
+    // here because Fovelle's chosen UI language can differ from AppleLanguages.
+    if (@available(macOS 15.4, *))
+    {
+        CFBundleRef appKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.AppKit"));
+        if (appKitBundle)
+        {
+            const auto key = static_cast<CFStringRef>(tableKey.toNSString());
+            const auto fallback = static_cast<CFStringRef>(sourceTitle.toNSString());
+            const auto locale = static_cast<CFStringRef>(localization.toNSString());
+            const void *localeValues[] = { locale };
+            CFArrayRef locales = CFArrayCreate(kCFAllocatorDefault, localeValues, 1,
+                                               &kCFTypeArrayCallBacks);
+            CFStringRef translated = CFBundleCopyLocalizedStringForLocalizations(
+                        appKitBundle, key, fallback, CFSTR("MenuCommands"), locales);
+            CFRelease(locales);
+            const QString result = QStringFromCFString(translated);
+            if (translated)
+                CFRelease(translated);
+            if (!result.isEmpty() && result != sourceTitle)
+                return result;
+        }
+    }
+
+    // 15.0-15.3, or a future AppKit table change, uses the catalogs shipped
+    // with Fovelle. Unknown/dynamic window titles intentionally pass through.
+    return QCoreApplication::translate("MAC_WINDOW_MENU",
+                                       sourceTitle.toUtf8().constData());
+}
+
+void localizeNativeWindowMenu(NSMenu *menu)
+{
+    if (!menu)
+        return;
+
+    for (NSMenuItem *item in menu.itemArray)
+    {
+        if (item.separatorItem)
+            continue;
+
+        const QString sourceTitle = QString::fromNSString(item.title);
+        const bool isSubmenuTitle = item.submenu != nil;
+        const QString translated = QVCocoaFunctions::localizedWindowMenuTitle(
+                    sourceTitle, isSubmenuTitle);
+        if (!translated.isEmpty() && translated != sourceTitle)
+            item.title = translated.toNSString();
+        if (item.submenu)
+            localizeNativeWindowMenu(item.submenu);
+    }
 }
 
 QByteArray normalizedExtension(const QByteArray &extension)
@@ -3502,6 +3633,25 @@ void QVCocoaFunctions::setWindowMenu(QMenu *menu)
 
     [nativeMenu addItemWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""];
     [[NSApplication sharedApplication] setWindowsMenu:nativeMenu];
+
+    // AppKit augments this menu after windows are registered and again while
+    // opening its nested Move & Resize / Full Screen Tile menus. Translate at
+    // both lifecycle points, always starting from the native menu's titles.
+    const auto localizeMenu = [menu]() {
+        localizeNativeWindowMenu(menu->toNSMenu());
+    };
+    QObject::connect(menu, &QMenu::aboutToShow, menu, localizeMenu);
+    QTimer::singleShot(0, menu, localizeMenu);
+}
+
+QString QVCocoaFunctions::localizedWindowMenuTitle(const QString &sourceTitle,
+                                                   const bool submenuTitle)
+{
+    QString tableKey = sourceTitle;
+    if (sourceTitle == QStringLiteral("Quarters"))
+        tableKey = submenuTitle ? QStringLiteral("Quarters_Header")
+                                : QStringLiteral("Quarters_MenuItem");
+    return appKitMenuCommandTranslation(sourceTitle, tableKey);
 }
 
 void QVCocoaFunctions::setAlternate(QMenu *menu, int index)
