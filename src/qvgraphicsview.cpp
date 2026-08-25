@@ -1706,6 +1706,13 @@ void QVGraphicsView::goToFile(const Qv::GoToFileMode mode, const int index)
 
 void QVGraphicsView::fitOrConstrainImage()
 {
+    // The explicit scene rect is also the scrollable range. Its titlebar
+    // compensation depends on the current native contentLayoutRect, which
+    // changes at the full-screen boundary even when the zoom transform does
+    // not. Rebase it before every viewport fit/constraint pass so a padding
+    // row from the previous window mode can never remain scrollable.
+    updateSceneRect();
+
     if (calculatedZoomMode.has_value())
         recalculateZoom();
     else

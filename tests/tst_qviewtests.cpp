@@ -177,6 +177,7 @@ private slots:
     void testZoomAcrossScrollbarThresholdKeepsViewportCenterStable();
     void testTouchpadPanUsesPixelsWithoutChangingZoom();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
+    void testFullscreenAfterOverflowRemovesTitlebarScenePadding();
     void testManualZoomRemainsManualAcrossResize();
     void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
     void testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages();
@@ -3131,6 +3132,111 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-FULLSCREEN-SCROLL-TOP-EDGE
+// Test purpose: reproduce the ordering-dependent blank band above a manually
+// zoomed image after entering full screen.
+// Preconditions: the normal window uses a full-size Cocoa content view with a
+// visible titlebar; a tall SDR image overflows vertically at manual zoom 1.0.
+// Input data: one 1200x2400 solid PNG and both orderings: zoom -> full screen
+// and full screen -> zoom, each followed by vertical scrollbar minimum.
+// Steps: verify the normal scene contains titlebar compensation, run the
+// reported ordering, then repeat with the control ordering.
+// Expected result: both full-screen scenes start at the image edge and that
+// edge maps to the first viewport row; no stale padding remains scrollable.
+// Postcondition: both windows exit full screen and all settings are restored.
+void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    ScopedSettingPreserver titlebarSetting(QStringLiteral("options/titlebarhidden"));
+    QSettings settings;
+    settings.setValue(QStringLiteral("options/titlebarhidden"), false);
+    settings.sync();
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, "fullscreen-scroll-top", Qt::darkBlue, QSize(1200, 2400));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight > 0, 3000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
+    const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
+    QVERIFY(view->sceneRect().top() < imageSceneRect.top());
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight, 0, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->minimum());
+    QCoreApplication::processEvents();
+    const qreal zoomFirstSceneTop = view->sceneRect().top();
+    const int zoomFirstImageTop = view->mapFromScene(imageSceneRect.topLeft()).y();
+    const int zoomFirstViewportTop = view->viewport()->rect().top();
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    window.close();
+
+    MainWindow fullScreenFirstWindow;
+    fullScreenFirstWindow.setAttribute(Qt::WA_DeleteOnClose, false);
+    fullScreenFirstWindow.setWindowState(Qt::WindowNoState);
+    fullScreenFirstWindow.resize(640, 480);
+    fullScreenFirstWindow.show();
+    QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.isVisible(), 1000);
+    fullScreenFirstWindow.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.getIsPixmapLoaded(), 5000);
+    auto *fullScreenFirstView =
+        fullScreenFirstWindow.findChild<QVGraphicsView *>();
+    QVERIFY(fullScreenFirstView);
+
+    fullScreenFirstWindow.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.isFullScreen(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        fullScreenFirstWindow.getViewportPosition().obscuredHeight, 0, 3000);
+    fullScreenFirstView->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        fullScreenFirstView->verticalScrollBar()->isVisible(), 2000);
+    const QRectF fullScreenFirstImageRect =
+        fullScreenFirstView->scene()->itemsBoundingRect();
+    fullScreenFirstView->verticalScrollBar()->setValue(
+        fullScreenFirstView->verticalScrollBar()->minimum());
+    QCoreApplication::processEvents();
+    const qreal fullScreenFirstSceneTop = fullScreenFirstView->sceneRect().top();
+    const int fullScreenFirstImageTop =
+        fullScreenFirstView->mapFromScene(fullScreenFirstImageRect.topLeft()).y();
+    const int fullScreenFirstViewportTop =
+        fullScreenFirstView->viewport()->rect().top();
+
+    fullScreenFirstWindow.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!fullScreenFirstWindow.isFullScreen(), 5000);
+    fullScreenFirstWindow.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+
+    QCOMPARE(zoomFirstSceneTop, imageSceneRect.top());
+    QCOMPARE(zoomFirstImageTop, zoomFirstViewportTop);
+    QCOMPARE(fullScreenFirstSceneTop, fullScreenFirstImageRect.top());
+    QCOMPARE(fullScreenFirstImageTop, fullScreenFirstViewportTop);
 }
 
 // TC-ZOOM-MANUAL-RESIZE

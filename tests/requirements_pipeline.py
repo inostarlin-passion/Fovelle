@@ -90,6 +90,34 @@ RESEARCH_TRACE = [
         "finding": "AppKit menu items have an image slot that is rendered beside menu item titles.",
         "assumption": "Clearing the Qt QAction icon before AppKit menu synchronization prevents the unwanted left-hand symbol in both fullscreen states.",
     },
+    {
+        "hop": 10,
+        "dimension": "native unobscured content geometry",
+        "source": "https://developer.apple.com/documentation/appkit/nswindow/contentlayoutrect",
+        "finding": "NSWindow contentLayoutRect is the content area not obscured by the titlebar or toolbar, including full-size content-view windows.",
+        "assumption": "Fovelle's normal-window scene padding is derived from this mode-dependent native inset and must be removed in full screen.",
+    },
+    {
+        "hop": 11,
+        "dimension": "Qt scrollable scene contract",
+        "source": "https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop",
+        "finding": "An explicit QGraphicsView sceneRect defines the area navigable with the scroll bars and adjusts their ranges.",
+        "assumption": "A stale padding row in sceneRect is real scrollable content, not a painting or scrollbar-style artifact.",
+    },
+    {
+        "hop": 12,
+        "dimension": "Qt 6.11.1 vertical range implementation",
+        "source": "https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp",
+        "finding": "QGraphicsView maps sceneRect through the current transform and uses its top edge as the vertical scrollbar minimum when the scene overflows.",
+        "assumption": "Rebasing sceneRect at the viewport geometry boundary removes the blank band without special-casing scrollbar values.",
+    },
+    {
+        "hop": 13,
+        "dimension": "Qt Cocoa full-screen completion boundary",
+        "source": "https://github.com/qt/qtbase/blob/v6.11.1/src/plugins/platforms/cocoa/qcocoawindow.mm",
+        "finding": "QCocoaWindow reports the entered full-screen state from windowDidEnterFullScreen after AppKit has completed the native transition.",
+        "assumption": "The existing resize/fit pass at this boundary can own scene-range synchronization for both entry orderings.",
+    },
 ]
 
 
@@ -235,6 +263,8 @@ CASES = [
     c("UT-VIEW-LEGACY-ACTIONS", "实际 View 菜单对象树不包含两个已移除动作。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testViewMenuRemovesLegacyActions"),
     c("UT-FULLSCREEN-MENU-ICONS", "全屏进入和退出后主 View 菜单动作均保持无图标。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy"),
     c("UT-FULLSCREEN-EXIT-SHARED", "View → Exit Full Screen 通过 AppKit 异步边界退出，Qt 状态不提前发布且恢复几何稳定。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath"),
+    c("ST-FULLSCREEN-SCENE-REBASE", "每次视口适配或约束前先重建依赖当前标题栏遮挡的可滚动场景矩形。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-FULLSCREEN-SCROLL-TOP-EDGE", "放大后进入全屏与进入全屏后放大两种顺序滚到顶部时，图像均紧贴视口首行。", "unit", "tests/tst_qviewtests.cpp::GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding"),
     c("ST-WINDOW-CONTROLS-REMOVED", "Window 页移除匹配图像大小、匹配后行为、最小尺寸和最大尺寸。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-WINDOW-MAXIMIZE-PATH", "应用创建窗口时调用 showMaximized。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-WINDOW-MAXIMIZED", "每次打开的新窗口实际处于最大化状态。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNewWindowStartsMaximized"),
@@ -301,6 +331,7 @@ UNIT_METHOD_MARKERS = {
     "UT-VIEW-LEGACY-ACTIONS": "FeatureTests::testViewMenuRemovesLegacyActions",
     "UT-FULLSCREEN-MENU-ICONS": "WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy",
     "UT-FULLSCREEN-EXIT-SHARED": "WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
+    "UT-FULLSCREEN-SCROLL-TOP-EDGE": "GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding",
     "UT-WINDOW-MAXIMIZED": "WindowBehaviorTests::testNewWindowStartsMaximized",
     "UT-PREFERENCES-REMOVED": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-THEME-LABELS": "WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls",
@@ -334,6 +365,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     application = read(repo, "src/qvapplication.cpp")
     actionmanager = read(repo, "src/actionmanager.cpp")
     mainwindow = read(repo, "src/mainwindow.cpp")
+    graphicsview = read(repo, "src/qvgraphicsview.cpp")
     main_cpp = read(repo, "src/main.cpp")
     cocoa = read(repo, "src/qvcocoafunctions.mm")
     cocoa_header = read(repo, "src/qvcocoafunctions.h")
@@ -436,6 +468,16 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         and "[nativeWindow toggleFullScreen:nil]" in cocoa
         and "setWindowState(storedWindowState)" not in mainwindow
     )
+    fit_start = graphicsview.find("void QVGraphicsView::fitOrConstrainImage()")
+    fit_end = graphicsview.find("bool QVGraphicsView::isSmoothScalingRequested", fit_start)
+    fit_contract = graphicsview[fit_start:fit_end]
+    fullscreen_scene_rebase = (
+        fit_start >= 0
+        and fit_end > fit_start
+        and "updateSceneRect();" in fit_contract
+        and fit_contract.find("updateSceneRect();")
+            < fit_contract.find("if (calculatedZoomMode.has_value())")
+    )
     appearance_ok = 'name="appearanceLabel"' in options_ui and 'Appearance:' in options_ui
     display_ok = (
         'name="displayScrollArea"' in options_ui
@@ -500,6 +542,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     result["ST-FULLSCREEN-ENTER-ICON"] = check(fullscreen_icon_policy, {"main_menu_icon_policy": fullscreen_icon_policy})
     result["ST-FULLSCREEN-EXIT-ICON"] = check(fullscreen_icon_policy, {"main_menu_icon_policy": fullscreen_icon_policy})
     result["ST-FULLSCREEN-EXIT-SHARED"] = check(fullscreen_exit_shared, {"shared_exit_path": fullscreen_exit_shared})
+    result["ST-FULLSCREEN-SCENE-REBASE"] = check(fullscreen_scene_rebase, {"scene_rect_precedes_fit_or_constraint": fullscreen_scene_rebase})
     result["ST-WINDOW-CONTROLS-REMOVED"] = check(ui_parse and old_controls_absent and old_labels_absent, {"ui_parse": ui_parse, "controls_absent": old_controls_absent, "labels_absent": old_labels_absent})
     result["ST-WINDOW-MAXIMIZE-PATH"] = check("w->showMaximized();" in application and "FOVELLE_SYSTEM_PROBE" in main_cpp, {"show_maximized": "w->showMaximized();" in application, "probe": "FOVELLE_SYSTEM_PROBE" in main_cpp})
     result["ST-FULLSCREEN-TITLEBAR-REMOVED"] = check("detailsInFullscreen" not in options_ui and defaults["full_false"] and 'getBoolean("fullscreendetails")' not in mainwindow, {"control_absent": "detailsInFullscreen" not in options_ui, "default_false": defaults["full_false"], "runtime_always_hidden": 'getBoolean("fullscreendetails")' not in mainwindow})
@@ -561,7 +604,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
 
 
 def run_unit(repo: Path, binary: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    suites = ("FeatureTests", "WindowBehaviorTests")
+    suites = ("FeatureTests", "GraphicsViewTests", "WindowBehaviorTests")
     executions: dict[str, dict[str, Any]] = {}
     combined_output = ""
     for suite in suites:
