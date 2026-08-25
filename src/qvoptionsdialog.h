@@ -71,8 +71,6 @@ protected:
 private slots:
     void shortcutCellDoubleClicked(int row, int column);
 
-    void cursorAutoHideFullscreenCheckboxCheckStateChanged(Qt::CheckState state);
-
     void languageComboBoxCurrentIndexChanged(int index);
 
     void associateSupportedFormats();

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment",
-  "generated_at": "2026-08-25T13:02:34.785343+00:00",
+  "generated_at": "2026-08-25T13:33:01.354039+00:00",
   "quality_requirements": [
     "精益完整性",
     "功能正确性",
@@ -56,6 +56,20 @@
       "source": "https://doc.qt.io/qt-6/qformlayout.html",
       "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
       "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows."
+    },
+    {
+      "hop": 8,
+      "dimension": "system-language resolution",
+      "source": "https://doc.qt.io/qt-6/qlocale.html",
+      "finding": "QLocale exposes uiLanguages(), allowing the application to inspect the ordered user-interface language preferences instead of relying on a single display-language string.",
+      "explicit_premise": "The supported application codes are en, zh_Hans, zh_Hant, es, and ja; an ordered list with no supported match resolves to en."
+    },
+    {
+      "hop": 9,
+      "dimension": "default-setting semantics",
+      "source": "https://doc.qt.io/qt-6/qsettings.html",
+      "finding": "QSettings distinguishes an absent key from an explicitly stored value and supports a caller-provided default, so a new installation can use system while preserving an explicit user language choice.",
+      "explicit_premise": "The language default is system; invalid persisted language codes are migrated to system, and only system-language resolution falls back to en for unsupported locales."
     }
   ],
   "checks": [
@@ -65,7 +79,7 @@
       "method": "原子验收标准覆盖审计",
       "passed": true,
       "observed": {
-        "case_count": 29,
+        "case_count": 32,
         "all_cases_passed": true
       }
     },
@@ -82,8 +96,8 @@
           "status": "passed"
         },
         "unit": {
-          "total": 15,
-          "passed": 15,
+          "total": 18,
+          "passed": 18,
           "failed": 0,
           "status": "passed"
         },

@@ -19,7 +19,12 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent)
 
 QString SettingsManager::getSystemLanguage() const
 {
-    const auto languages = QLocale::system().uiLanguages();
+    return languageCodeForLocale(QLocale::system());
+}
+
+QString SettingsManager::languageCodeForLocale(const QLocale &locale)
+{
+    const auto languages = locale.uiLanguages();
     for (auto language : languages)
     {
         language.replace('-', '_');
@@ -174,14 +179,14 @@ void SettingsManager::migrateOldSettings()
     // the obsolete format-disable store now that the Formats pane is gone.
     if (!settings.contains("updatecheckfrequency"))
         settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
-    const QString language = settings.value("language", QStringLiteral("en")).toString();
+    const QString language = settings.value("language", QStringLiteral("system")).toString();
     if (language != QStringLiteral("system")
         && language != QStringLiteral("en")
         && language != QStringLiteral("zh_Hans")
         && language != QStringLiteral("zh_Hant")
         && language != QStringLiteral("es")
         && language != QStringLiteral("ja"))
-        settings.setValue("language", QStringLiteral("en"));
+        settings.setValue("language", QStringLiteral("system"));
     settings.remove("updatenotifications");
     settings.remove("disabledfileextensions");
     settings.remove("slideshowkeepswindowontop");
@@ -284,7 +289,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("originalsizeastoggle", {false, {}});
     settingsLibrary.insert("colorspaceconversion", {static_cast<int>(Qv::ColorSpaceConversion::AutoDetect), {}});
     // Miscellaneous
-    settingsLibrary.insert("language", {"en", {}});
+    settingsLibrary.insert("language", {"system", {}});
     settingsLibrary.insert("sortmode", {static_cast<int>(Qv::SortMode::Name), {}});
     settingsLibrary.insert("sortdescending", {false, {}});
     settingsLibrary.insert("preloadingmode", {static_cast<int>(Qv::PreloadMode::Adjacent), {}});

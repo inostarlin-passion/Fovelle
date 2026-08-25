@@ -3,6 +3,7 @@
 
 #include <QTranslator>
 #include <QVariant>
+#include <QLocale>
 
 class SettingsManager : public QObject
 {
@@ -34,6 +35,8 @@ public:
     const QString getString(const QString &key, bool defaults = false) const;
 
     const QHash<QString, SSetting> &getSettings() const { return settingsLibrary; }
+
+    static QString languageCodeForLocale(const QLocale &locale);
 
     bool isDefault(const QString &key) const;
 

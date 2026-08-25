@@ -17,8 +17,10 @@
 #include <QPointingDevice>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -50,6 +52,7 @@
 #include "qvimageloader.h"
 #include "qvmovie.h"
 #include "qvoptionsdialog.h"
+#include "settingsmanager.h"
 #include "qvinfodialog.h"
 #include "qvaboutdialog.h"
 #include "nativedialogs.h"
@@ -114,7 +117,10 @@ private slots:
     void testSettingsFormatsIncludeNativeImageFormats();
     void testSettingsFormatsPaneIsRemoved();
     void testSettingsGeneralLanguageAndRemovedOptions();
+    void testSettingsMouseCursorPanelIsRemoved();
     void testSettingsLanguageCatalogIsFixed();
+    void testSettingsLanguageDefaultsToSystem();
+    void testSystemLanguageMappingFallsBackToEnglish();
     void testAutoUpdateCheckLabelIsRenamed();
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
@@ -2374,6 +2380,25 @@ void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
              Qv::PreloadMode::Adjacent);
 }
 
+// TC-SETTINGS-MOUSE-CURSOR-REMOVED
+// Test purpose: verify the Mouse page no longer exposes the obsolete Cursor
+// panel or either of its auto-hide controls.
+// Preconditions: the production options dialog can be constructed.
+// Input data: the Mouse page object tree.
+// Steps: inspect the named group, controls, and form layout objects.
+// Expected result: Cursor, cursorGroup, cursorLayout, and both auto-hide
+// controls are absent from the Settings dialog.
+// Postcondition: the dialog is destroyed without changing cursor behavior
+// settings used by the graphics view.
+void FeatureTests::testSettingsMouseCursorPanelIsRemoved()
+{
+    QVOptionsDialog dialog;
+    QVERIFY(!dialog.findChild<QGroupBox *>(QStringLiteral("cursorGroup")));
+    QVERIFY(!dialog.findChild<QFormLayout *>(QStringLiteral("cursorLayout")));
+    QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("cursorAutoHideFullscreenCheckbox")));
+    QVERIFY(!dialog.findChild<QDoubleSpinBox *>(QStringLiteral("cursorAutoHideFullscreenDelaySpinBox")));
+}
+
 // TC-SETTINGS-LANGUAGE-CATALOG
 // Test purpose: verify the language selector exposes exactly the requested
 // five languages plus System Language in the required order and labels.
@@ -2385,7 +2410,7 @@ void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
 // Postcondition: no settings are changed.
 void FeatureTests::testSettingsLanguageCatalogIsFixed()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedOptionValues options({{"language", QStringLiteral("system")}});
     QVOptionsDialog dialog;
     auto *language = dialog.findChild<QComboBox *>("langComboBox");
     QVERIFY(language);
@@ -2404,7 +2429,41 @@ void FeatureTests::testSettingsLanguageCatalogIsFixed()
     QCOMPARE(language->itemData(3).toString(), QStringLiteral("zh_Hant"));
     QCOMPARE(language->itemData(4).toString(), QStringLiteral("es"));
     QCOMPARE(language->itemData(5).toString(), QStringLiteral("ja"));
-    QCOMPARE(language->currentData().toString(), QStringLiteral("en"));
+    QCOMPARE(language->currentData().toString(), QStringLiteral("system"));
+}
+
+// TC-SETTINGS-LANGUAGE-DEFAULT
+// Test purpose: verify a new installation's Language default is System
+// Language rather than a hard-coded English selection.
+// Preconditions: SettingsManager has initialized its default-value library.
+// Input data: the language setting requested with defaults=true.
+// Steps: read the default value without consulting persisted user settings.
+// Expected result: the default language code is system.
+// Postcondition: no persistent setting is modified.
+void FeatureTests::testSettingsLanguageDefaultsToSystem()
+{
+    QCOMPARE(qvApp->getSettingsManager().getString(QStringLiteral("language"), true),
+             QStringLiteral("system"));
+}
+
+// TC-SETTINGS-SYSTEM-LANGUAGE-FALLBACK
+// Test purpose: verify supported system locales map to the five allowed
+// language codes and an unsupported locale deterministically maps to English.
+// Preconditions: the pure SettingsManager locale mapper is available.
+// Input data: representative English, Simplified Chinese, Traditional
+// Chinese, Spanish, Japanese, and German locales.
+// Steps: call languageCodeForLocale for each controlled locale.
+// Expected result: supported locales map to their catalog code; German, which
+// is outside the application list, maps to en.
+// Postcondition: no process locale or persistent setting is changed.
+void FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
+{
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("en-US"))), QStringLiteral("en"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-CN"))), QStringLiteral("zh_Hans"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-TW"))), QStringLiteral("zh_Hant"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("es-ES"))), QStringLiteral("es"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("ja-JP"))), QStringLiteral("ja"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("de-DE"))), QStringLiteral("en"));
 }
 
 // TC-SETTINGS-AUTO-UPDATE-LABEL

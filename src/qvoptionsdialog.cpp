@@ -128,7 +128,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
         });
     });
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
-    connect(ui->cursorAutoHideFullscreenCheckbox, &QCheckBox::checkStateChanged, this, &QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged);
     connect(ui->middleButtonModeClickRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
     connect(ui->middleButtonModeDragRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
     connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
@@ -439,9 +438,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncComboBox(ui->altVerticalScrollComboBox, "viewportaltverticalscrollaction", defaults, makeConnections);
     syncComboBox(ui->altHorizontalScrollComboBox, "viewportalthorizontalscrollaction", defaults, makeConnections);
     syncCheckbox(ui->scrollActionCooldownCheckbox, "scrollactioncooldown", defaults, makeConnections);
-    syncCheckbox(ui->cursorAutoHideFullscreenCheckbox, "cursorautohidefullscreenenabled", defaults, makeConnections);
-    cursorAutoHideFullscreenCheckboxCheckStateChanged(ui->cursorAutoHideFullscreenCheckbox->checkState());
-    syncDoubleSpinBox(ui->cursorAutoHideFullscreenDelaySpinBox, "cursorautohidefullscreendelay", defaults, makeConnections);
 }
 
 void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults, bool makeConnection)
@@ -579,11 +575,6 @@ void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)
         updateShortcutsTable();
     });
     shortcutDialog->open();
-}
-
-void QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged(Qt::CheckState state)
-{
-    ui->cursorAutoHideFullscreenDelaySpinBox->setEnabled(static_cast<bool>(state));
 }
 
 void QVOptionsDialog::populateCategories(int selectedRow)

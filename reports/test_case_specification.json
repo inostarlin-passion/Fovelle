@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-25T13:02:34.785324+00:00",
+  "generated_at": "2026-08-25T13:33:01.354020+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "test_execution_order": [
     "static",
@@ -58,6 +58,20 @@
       "source": "https://doc.qt.io/qt-6/qformlayout.html",
       "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
       "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows."
+    },
+    {
+      "hop": 8,
+      "dimension": "system-language resolution",
+      "source": "https://doc.qt.io/qt-6/qlocale.html",
+      "finding": "QLocale exposes uiLanguages(), allowing the application to inspect the ordered user-interface language preferences instead of relying on a single display-language string.",
+      "explicit_premise": "The supported application codes are en, zh_Hans, zh_Hant, es, and ja; an ordered list with no supported match resolves to en."
+    },
+    {
+      "hop": 9,
+      "dimension": "default-setting semantics",
+      "source": "https://doc.qt.io/qt-6/qsettings.html",
+      "finding": "QSettings distinguishes an absent key from an explicitly stored value and supports a caller-provided default, so a new installation can use system while preserving an explicit user language choice.",
+      "explicit_premise": "The language default is system; invalid persisted language codes are migrated to system, and only system-language resolution falls back to en for unsupported locales."
     }
   ],
   "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准。",
@@ -470,6 +484,30 @@
       "evidence_file": "reports/test_evidence.json"
     },
     {
+      "id": "SET-013",
+      "atomic_acceptance_criterion": "Mouse Tab 不再显示 Cursor 面板及其自动隐藏控件。",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsMouseCursorPanelIsRemoved",
+      "test_purpose": "验证移除 Cursor 面板后，旧控件不会残留在设置页对象树中。",
+      "preconditions": [
+        "Debug 测试二进制已构建。"
+      ],
+      "input_data": {
+        "suite": "FeatureTests",
+        "test": "testSettingsMouseCursorPanelIsRemoved",
+        "removed_panel": "Cursor"
+      },
+      "operation_steps": [
+        "创建设置对话框。",
+        "查找 Cursor group、form 和两个自动隐藏控件。"
+      ],
+      "expected_result": "Cursor 面板及其控件均不存在，鼠标行为设置键仍由图形视图保留使用。",
+      "postconditions": [
+        "设置对话框销毁，不修改鼠标行为设置。"
+      ],
+      "evidence_file": "reports/test_evidence.json"
+    },
+    {
       "id": "LANG-001",
       "atomic_acceptance_criterion": "仅保留英语、简体中文、繁体中文、西班牙语和日语五种应用语言。",
       "test_layer": "static",
@@ -506,7 +544,7 @@
     },
     {
       "id": "LANG-002",
-      "atomic_acceptance_criterion": "Language 下拉列表首项为 System Language，随后按要求显示五种语言，默认英语。",
+      "atomic_acceptance_criterion": "Language 下拉列表首项为 System Language，随后按要求显示五种语言，默认 System Language。",
       "test_layer": "unit",
       "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageCatalogIsFixed",
       "test_purpose": "验证下拉列表的顺序、显示名、数据码和默认值。",
@@ -548,7 +586,7 @@
         "读取每个 combo item 的文本和 userData。",
         "读取默认 currentData。"
       ],
-      "expected_result": "列表为 System Language、English、简体中文、繁體中文、Español、日本語，默认数据码为 en。",
+      "expected_result": "列表为 System Language、English、简体中文、繁體中文、Español、日本語，默认数据码为 system。",
       "postconditions": [
         "语言设置恢复到测试前状态。"
       ],
@@ -674,14 +712,16 @@
           "zh_Hant",
           "es",
           "ja"
-        ]
+        ],
+        "default_code": "system",
+        "unsupported_fallback": "en"
       },
       "operation_steps": [
-        "检查 getSystemLanguage 的分支。",
+        "检查 QLocale.uiLanguages 的归一化分支。",
         "检查 migrateOldSettings 的白名单。",
-        "检查默认 language 值。"
+        "检查默认 language 值和未知语言回退。"
       ],
-      "expected_result": "中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
+      "expected_result": "System Language 默认码为 system；中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
       "postconditions": [
         "不改变用户已选择的合法语言码。"
       ],
@@ -811,6 +851,55 @@
       "expected_result": "当前应用英文源文案清单中的每个上下文和 source 均有四种非空完成翻译。",
       "postconditions": [
         "不修改源码和翻译目录。"
+      ],
+      "evidence_file": "reports/test_evidence.json"
+    },
+    {
+      "id": "LANG-009",
+      "atomic_acceptance_criterion": "Language 设置的默认值为 System Language。",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageDefaultsToSystem",
+      "test_purpose": "直接读取 SettingsManager 的默认值，避免把持久化用户选择误判为新安装默认值。",
+      "preconditions": [
+        "Debug 测试二进制已构建。"
+      ],
+      "input_data": {
+        "suite": "FeatureTests",
+        "test": "testSettingsLanguageDefaultsToSystem",
+        "default_code": "system"
+      },
+      "operation_steps": [
+        "以 defaults=true 读取 language。",
+        "不读取或修改 QSettings 中的已保存值。"
+      ],
+      "expected_result": "默认 language 数据码为 system。",
+      "postconditions": [
+        "不写入持久化语言设置。"
+      ],
+      "evidence_file": "reports/test_evidence.json"
+    },
+    {
+      "id": "LANG-010",
+      "atomic_acceptance_criterion": "系统语言不属于允许列表时，System Language 解析为英语。",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSystemLanguageMappingFallsBackToEnglish",
+      "test_purpose": "通过可控 QLocale 输入验证系统语言归一化和英语兜底，而不依赖运行机器的真实区域设置。",
+      "preconditions": [
+        "Debug 测试二进制已构建。"
+      ],
+      "input_data": {
+        "suite": "FeatureTests",
+        "test": "testSystemLanguageMappingFallsBackToEnglish",
+        "unsupported_locale": "de-DE",
+        "fallback": "en"
+      },
+      "operation_steps": [
+        "依次传入英语、简体中文、繁体中文、西班牙语、日语和德语 QLocale。",
+        "比较返回的应用语言码。"
+      ],
+      "expected_result": "允许语言映射到对应代码，德语等未支持语言返回 en。",
+      "postconditions": [
+        "不改变进程系统区域设置。"
       ],
       "evidence_file": "reports/test_evidence.json"
     },

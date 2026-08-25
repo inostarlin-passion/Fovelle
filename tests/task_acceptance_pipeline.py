@@ -138,6 +138,20 @@ RESEARCH_TRACE = [
         "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
         "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows.",
     },
+    {
+        "hop": 8,
+        "dimension": "system-language resolution",
+        "source": "https://doc.qt.io/qt-6/qlocale.html",
+        "finding": "QLocale exposes uiLanguages(), allowing the application to inspect the ordered user-interface language preferences instead of relying on a single display-language string.",
+        "explicit_premise": "The supported application codes are en, zh_Hans, zh_Hant, es, and ja; an ordered list with no supported match resolves to en.",
+    },
+    {
+        "hop": 9,
+        "dimension": "default-setting semantics",
+        "source": "https://doc.qt.io/qt-6/qsettings.html",
+        "finding": "QSettings distinguishes an absent key from an explicitly stored value and supports a caller-provided default, so a new installation can use system while preserving an explicit user language choice.",
+        "explicit_premise": "The language default is system; invalid persisted language codes are migrated to system, and only system-language resolution falls back to en for unsupported locales.",
+    },
 ]
 
 
@@ -435,6 +449,18 @@ CASES = [
         ["更新频率值不被修改。"],
     ),
     make_case(
+        "SET-013",
+        "Mouse Tab 不再显示 Cursor 面板及其自动隐藏控件。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsMouseCursorPanelIsRemoved",
+        "验证移除 Cursor 面板后，旧控件不会残留在设置页对象树中。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "FeatureTests", "test": "testSettingsMouseCursorPanelIsRemoved", "removed_panel": "Cursor"},
+        ["创建设置对话框。", "查找 Cursor group、form 和两个自动隐藏控件。"],
+        "Cursor 面板及其控件均不存在，鼠标行为设置键仍由图形视图保留使用。",
+        ["设置对话框销毁，不修改鼠标行为设置。"],
+    ),
+    make_case(
         "LANG-001",
         "仅保留英语、简体中文、繁体中文、西班牙语和日语五种应用语言。",
         "static",
@@ -448,14 +474,14 @@ CASES = [
     ),
     make_case(
         "LANG-002",
-        "Language 下拉列表首项为 System Language，随后按要求显示五种语言，默认英语。",
+        "Language 下拉列表首项为 System Language，随后按要求显示五种语言，默认 System Language。",
         "unit",
         "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageCatalogIsFixed",
         "验证下拉列表的顺序、显示名、数据码和默认值。",
         ["Debug 测试二进制已构建。"],
         {"suite": "FeatureTests", "test": "testSettingsLanguageCatalogIsFixed", "entries": LANGUAGE_LABELS},
         ["创建设置对话框。", "读取每个 combo item 的文本和 userData。", "读取默认 currentData。"],
-        "列表为 System Language、English、简体中文、繁體中文、Español、日本語，默认数据码为 en。",
+        "列表为 System Language、English、简体中文、繁體中文、Español、日本語，默认数据码为 system。",
         ["语言设置恢复到测试前状态。"],
     ),
     make_case(
@@ -477,9 +503,9 @@ CASES = [
         "tests/task_acceptance_pipeline.py::static_language_catalog_contract",
         "验证系统语言归一化和迁移校验覆盖允许集合。",
         ["SettingsManager 源码可读。"],
-        {"allowed_codes": ["en", "zh_Hans", "zh_Hant", "es", "ja"]},
-        ["检查 getSystemLanguage 的分支。", "检查 migrateOldSettings 的白名单。", "检查默认 language 值。"],
-        "中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
+        {"allowed_codes": ["en", "zh_Hans", "zh_Hant", "es", "ja"], "default_code": "system", "unsupported_fallback": "en"},
+        ["检查 QLocale.uiLanguages 的归一化分支。", "检查 migrateOldSettings 的白名单。", "检查默认 language 值和未知语言回退。"],
+        "System Language 默认码为 system；中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
         ["不改变用户已选择的合法语言码。"],
     ),
     make_case(
@@ -529,6 +555,30 @@ CASES = [
         ["用 lupdate 提取 src 下的全部当前 source。", "逐个检查四个 TS 目录。", "拒绝缺失、空翻译和 unfinished。"],
         "当前应用英文源文案清单中的每个上下文和 source 均有四种非空完成翻译。",
         ["不修改源码和翻译目录。"],
+    ),
+    make_case(
+        "LANG-009",
+        "Language 设置的默认值为 System Language。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageDefaultsToSystem",
+        "直接读取 SettingsManager 的默认值，避免把持久化用户选择误判为新安装默认值。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "FeatureTests", "test": "testSettingsLanguageDefaultsToSystem", "default_code": "system"},
+        ["以 defaults=true 读取 language。", "不读取或修改 QSettings 中的已保存值。"],
+        "默认 language 数据码为 system。",
+        ["不写入持久化语言设置。"],
+    ),
+    make_case(
+        "LANG-010",
+        "系统语言不属于允许列表时，System Language 解析为英语。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testSystemLanguageMappingFallsBackToEnglish",
+        "通过可控 QLocale 输入验证系统语言归一化和英语兜底，而不依赖运行机器的真实区域设置。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "FeatureTests", "test": "testSystemLanguageMappingFallsBackToEnglish", "unsupported_locale": "de-DE", "fallback": "en"},
+        ["依次传入英语、简体中文、繁体中文、西班牙语、日语和德语 QLocale。", "比较返回的应用语言码。"],
+        "允许语言映射到对应代码，德语等未支持语言返回 en。",
+        ["不改变进程系统区域设置。"],
     ),
     make_case(
         "UNIT-001",
@@ -607,7 +657,10 @@ UNIT_CASES = {
     "SET-010": ("WindowBehaviorTests", "testSettingsTabSwitchDoesNotFocusAppearance"),
     "SET-011": ("WindowBehaviorTests", "testLocalizedSettingsFormsUseSharedLabelColumns"),
     "SET-012": ("FeatureTests", "testAutoUpdateCheckLabelIsRenamed"),
+    "SET-013": ("FeatureTests", "testSettingsMouseCursorPanelIsRemoved"),
     "LANG-002": ("FeatureTests", "testSettingsLanguageCatalogIsFixed"),
+    "LANG-009": ("FeatureTests", "testSettingsLanguageDefaultsToSystem"),
+    "LANG-010": ("FeatureTests", "testSystemLanguageMappingFallsBackToEnglish"),
     "UNIT-001": ("FeatureTests", "testSettingsLanguageCatalogIsFixed"),
 }
 
@@ -670,10 +723,18 @@ def static_settings_contract(repo: Path, sources: dict[str, str]) -> tuple[bool,
         "preloadingComboBox",
     ]
     removed_text = ["Sort files by:", "Ascending", "Descending", "Preloading:"]
+    removed_cursor_markers = [
+        "cursorGroup",
+        "cursorLayout",
+        "cursorAutoHideFullscreenCheckbox",
+        "cursorAutoHideFullscreenDelaySpinBox",
+        "Auto-hide in fullscreen:",
+    ]
     checks = {
         "removed_widget_names": all(name not in ui for name in removed_names),
         "removed_widget_text": all(text not in ui for text in removed_text),
         "removed_sync_code": all(marker not in cpp for marker in ["sortComboBox", "preloadingComboBox"]),
+        "cursor_panel_removed": all(marker not in ui and marker not in cpp and marker not in header for marker in removed_cursor_markers),
         "general_category": 'addItem(Qv::MaterialIcon::Tune, tr("General"))' in cpp,
         "old_category_labels_removed": all(f'tr("{label}")' not in cpp for label in ["Display", "Miscellaneous"]),
         "general_page_reused": "configureGeneralPage();" in cpp and "ui->stackedWidget->removeWidget(ui->miscScrollArea)" in cpp,
@@ -869,9 +930,11 @@ def static_language_catalog_contract(repo: Path, sources: dict[str, str]) -> tup
         "catalogs_exact": catalog_checks,
         "catalog_names": sorted(catalogs),
         "runtime_order": all(marker in cpp for marker in runtime_markers),
-        "default_english": 'settingsLibrary.insert("language", {"en", {}})' in settings,
+        "default_system_language": 'settingsLibrary.insert("language", {"system", {}})' in settings,
         "allowed_system_codes": all(code in settings for code in language_codes),
-        "fallback_english": 'settings.setValue("language", QStringLiteral("en"))' in settings,
+        "locale_mapper": "QString SettingsManager::languageCodeForLocale(const QLocale &locale)" in settings,
+        "fallback_english": "return QStringLiteral(\"en\");" in settings,
+        "invalid_setting_falls_back_to_system": 'settings.setValue("language", QStringLiteral("system"))' in settings,
         "removed_settings_sources_absent": all(
             source not in "\n".join((i18n / name).read_text(encoding="utf-8") for name in ALLOWED_CATALOGS)
             for source in ["<source>Miscellaneous</source>", "<source>Sort files by:</source>", "<source>Preloading:</source>"]
@@ -917,7 +980,10 @@ def static_test_code_contract(repo: Path, sources: dict[str, str]) -> tuple[bool
     pipeline_path = repo / "tests" / "task_acceptance_pipeline.py"
     markers = [
         "testSettingsGeneralLanguageAndRemovedOptions",
+        "testSettingsMouseCursorPanelIsRemoved",
         "testSettingsLanguageCatalogIsFixed",
+        "testSettingsLanguageDefaultsToSystem",
+        "testSystemLanguageMappingFallsBackToEnglish",
         "testAutoUpdateCheckLabelIsRenamed",
         "testSettingsDialogUsesFixedWidthAndTabHeights",
         "testSettingsTabTransitionAndMouseReopen",
