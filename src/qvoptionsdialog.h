@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QRadioButton>
 #include <QComboBox>
+#include <QSize>
 #include <QSpinBox>
 
 namespace Ui {
@@ -16,14 +17,20 @@ template <typename TEnum>
 using ComboBoxItems = QVector<std::pair<TEnum, QString>>;
 }
 
+class QPropertyAnimation;
+
 class QVOptionsDialog : public QDialog
 {
     Q_OBJECT
+    Q_PROPERTY(QSize settingsAnimatedSize READ settingsAnimatedSize WRITE setSettingsAnimatedSize)
 
 public:
 
     explicit QVOptionsDialog(QWidget *parent = nullptr);
     ~QVOptionsDialog() override;
+
+    QSize settingsAnimatedSize() const;
+    void setSettingsAnimatedSize(const QSize &size);
 
     // Create and finish configuring the hidden native Settings window so its
     // final frame can be positioned before the first visible presentation.
@@ -47,6 +54,7 @@ protected:
     void updateShortcutsTable();
     void configureGeneralPage();
     void resizeForCategory(int categoryIndex);
+    void finishCategoryTransition();
     void populateCategories(int selectedRow);
     void populateLanguages();
     void populateComboBoxes();
@@ -74,6 +82,7 @@ private slots:
 private:
     static constexpr int SettingsDialogWidth = 600;
     static constexpr int ShortcutsVisibleRows = 16;
+    static constexpr int SettingsCategoryTransitionDuration = 180;
 
     Ui::QVOptionsDialog *ui;
 
@@ -84,6 +93,9 @@ private:
     bool languageRestartMessageShown {false};
 
     bool displayPrepared {false};
+
+    QPropertyAnimation *categorySizeAnimation {nullptr};
+    int categoryTargetHeight {0};
 };
 
 #endif // QVOPTIONSDIALOG_H

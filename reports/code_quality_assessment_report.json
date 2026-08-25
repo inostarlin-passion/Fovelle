@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment",
-  "generated_at": "2026-08-25T11:54:10.741833+00:00",
+  "generated_at": "2026-08-25T13:02:34.785343+00:00",
   "quality_requirements": [
     "精益完整性",
     "功能正确性",
@@ -28,6 +28,34 @@
       "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
       "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
       "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button."
+    },
+    {
+      "hop": 4,
+      "dimension": "tab-size transition",
+      "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
+      "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
+      "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated."
+    },
+    {
+      "hop": 5,
+      "dimension": "reopen geometry determinism",
+      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+      "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
+      "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry()."
+    },
+    {
+      "hop": 6,
+      "dimension": "translation extraction and runtime catalogs",
+      "source": "https://doc.qt.io/qt-6/localization.html",
+      "finding": "Qt uses lupdate/lrelease with TS/QM catalogs, so current source coverage and completed translations can be audited from the same source contexts.",
+      "explicit_premise": "The menu and Settings source contexts are the scoped English inventory; all four non-English catalogs must contain non-empty completed entries for that inventory."
+    },
+    {
+      "hop": 7,
+      "dimension": "localized form layout",
+      "source": "https://doc.qt.io/qt-6/qformlayout.html",
+      "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
+      "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows."
     }
   ],
   "checks": [
@@ -37,7 +65,7 @@
       "method": "原子验收标准覆盖审计",
       "passed": true,
       "observed": {
-        "case_count": 20,
+        "case_count": 29,
         "all_cases_passed": true
       }
     },
@@ -48,14 +76,14 @@
       "passed": true,
       "observed": {
         "static": {
-          "total": 6,
-          "passed": 6,
+          "total": 10,
+          "passed": 10,
           "failed": 0,
           "status": "passed"
         },
         "unit": {
-          "total": 10,
-          "passed": 10,
+          "total": 15,
+          "passed": 15,
           "failed": 0,
           "status": "passed"
         },

@@ -4,6 +4,10 @@
 <context>
     <name>ActionManager</name>
     <message>
+        <source>Fovelle</source>
+        <translation>Fovelle</translation>
+    </message>
+    <message>
         <source>Window</source>
         <translation>Ventana</translation>
     </message>
@@ -326,6 +330,14 @@
         <extracomment>Open with other program for macos</extracomment>
         <translation>Otra...</translation>
     </message>
+    <message>
+        <source>Project Homepage</source>
+        <translation>Página principal del proyecto</translation>
+    </message>
+    <message>
+        <source>Check for Updates</source>
+        <translation>Buscar actualizaciones</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -453,6 +465,14 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>Start S&amp;lideshow</source>
         <translation>Iniciar la presentación</translation>
     </message>
+    <message>
+        <source>Previous File</source>
+        <translation>Archivo anterior</translation>
+    </message>
+    <message>
+        <source>Next File</source>
+        <translation>Archivo siguiente</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -509,6 +529,14 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
     <message>
         <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
         <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
+    </message>
+    <message>
+        <source>version %1</source>
+        <translation>versión %1</translation>
+    </message>
+    <message>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>Basado en qView&lt;br&gt;Copyright © 2018–2025 jurplel y los colaboradores de qView&lt;br&gt;Modificaciones de Fovelle © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; y sus colaboradores&lt;br&gt;Incluye partes de commits de &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; por jdpurcell&lt;br&gt;&lt;br&gt;Licenciado bajo GPLv3</translation>
     </message>
 </context>
 <context>
@@ -1245,6 +1273,64 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>Navigate</source>
         <translation>Navegar</translation>
     </message>
+    <message>
+        <source>Appearance:</source>
+        <translation>Apariencia:</translation>
+    </message>
+    <message>
+        <source>Show images smaller than the display area at their original 1:1 size</source>
+        <translation>Mostrar las imágenes más pequeñas que el área de visualización en su tamaño original 1:1</translation>
+    </message>
+    <message>
+        <source>Show small images at 1:1</source>
+        <translation>Mostrar imágenes pequeñas a 1:1</translation>
+    </message>
+    <message>
+        <source>Auto update check:</source>
+        <translation>Comprobar actualizaciones automáticamente:</translation>
+    </message>
+    <message>
+        <source>Associate all supported formats</source>
+        <translation>Asociar todos los formatos compatibles</translation>
+    </message>
+    <message>
+        <source>Associated %1 supported formats with Fovelle.</source>
+        <translation>Se asociaron %1 formatos compatibles con Fovelle.</translation>
+    </message>
+    <message>
+        <source>
+Unable to associate: %1.</source>
+        <translation>
+No se pudo asociar: %1.</translation>
+    </message>
+    <message>
+        <source>File Associations</source>
+        <translation>Asociaciones de archivos</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Claro</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Oscuro</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Sistema</translation>
+    </message>
+    <message>
+        <source>Daily</source>
+        <translation>Diario</translation>
+    </message>
+    <message>
+        <source>Weekly</source>
+        <translation>Semanal</translation>
+    </message>
+    <message>
+        <source>Monthly</source>
+        <translation>Mensual</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1553,6 +1639,12 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
 You can reenable them in the options dialog.</source>
         <translation>Se han desactivado las notificaciones de actualización al inicio.
 Es posible reactivarlas en el dialogo de opciones.</translation>
+    </message>
+    <message>
+        <source>Automatic update checking has been disabled.
+You can reenable it in Preferences.</source>
+        <translation>La comprobación automática de actualizaciones se ha desactivado.
+Puedes volver a activarla en Configuración.</translation>
     </message>
 </context>
 </TS>

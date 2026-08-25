@@ -322,7 +322,7 @@
           <item row="15" column="0">
            <widget class="QLabel" name="updateFrequencyLabel">
             <property name="text">
-             <string>Automatically check for updates:</string>
+             <string>Auto update check:</string>
             </property>
            </widget>
           </item>

@@ -6,9 +6,11 @@
 #include "nativedialogs.h"
 
 #include <QMessageBox>
+#include <QApplication>
 #include <QSettings>
 #include <QWindow>
 #include <QSignalBlocker>
+#include <QTimer>
 #include <QFormLayout>
 #include <QTabBar>
 #include <QHBoxLayout>
@@ -16,7 +18,57 @@
 #include <QScrollArea>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QEasingCurve>
+#include <QPropertyAnimation>
 #include <QVBoxLayout>
+
+namespace
+{
+int formLabelColumnWidth(QWidget *page)
+{
+    if (!page)
+        return 0;
+
+    const auto layouts = page->findChildren<QFormLayout *>();
+    int labelColumnWidth = 0;
+    for (auto *layout : layouts)
+    {
+        for (int row = 0; row < layout->rowCount(); ++row)
+        {
+            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
+            if (item && item->widget())
+                labelColumnWidth = qMax(labelColumnWidth, item->widget()->sizeHint().width());
+        }
+    }
+    return labelColumnWidth;
+}
+
+void alignFormLayouts(QWidget *page, const int labelColumnWidth)
+{
+    if (!page || labelColumnWidth <= 0)
+        return;
+
+    const auto layouts = page->findChildren<QFormLayout *>();
+
+    for (auto *layout : layouts)
+    {
+        // Each translated form used to center its own size hint.  That made
+        // every group choose a different field-column origin as label widths
+        // changed between languages. A shared label column and left-aligned
+        // form origin keep General and Mouse controls on one vertical grid.
+        layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
+        layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
+        for (int row = 0; row < layout->rowCount(); ++row)
+        {
+            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
+            if (item && item->widget())
+                item->widget()->setMinimumWidth(labelColumnWidth);
+        }
+    }
+
+    page->setProperty("settingsAlignedLabelColumnWidth", labelColumnWidth);
+}
+}
 
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     QDialog(parent),
@@ -42,6 +94,17 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     setSizeGripEnabled(false);
     setProperty("settingsFixedWidth", SettingsDialogWidth);
     setProperty("settingsVisibleShortcutRows", ShortcutsVisibleRows);
+    setProperty("settingsCategoryTransitionDuration", SettingsCategoryTransitionDuration);
+    setProperty("settingsCategoryTransitionActive", false);
+
+    categorySizeAnimation = new QPropertyAnimation(this, "settingsAnimatedSize", this);
+    categorySizeAnimation->setObjectName(QStringLiteral("settingsCategorySizeAnimation"));
+    categorySizeAnimation->setDuration(SettingsCategoryTransitionDuration);
+    categorySizeAnimation->setEasingCurve(QEasingCurve::InOutCubic);
+    connect(categorySizeAnimation, &QPropertyAnimation::finished, this, [this]() {
+        setFixedSize(SettingsDialogWidth, categoryTargetHeight);
+        setProperty("settingsCategoryTransitionActive", false);
+    });
 
     resize(SettingsDialogWidth, 600);
     ui->categoryTabs->setShape(QTabBar::RoundedNorth);
@@ -53,6 +116,16 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     connect(ui->categoryTabs, &QTabBar::currentChanged, this, [this](int currentIndex) {
         ui->stackedWidget->setCurrentIndex(currentIndex);
         resizeForCategory(currentIndex);
+
+        // AppKit may move first-responder status back to the first focusable
+        // Qt control after the native Settings toolbar changes panes.  The
+        // toolbar is the navigation control, so a pane change must not make
+        // General's Appearance combo look selected or steal keyboard input.
+        QTimer::singleShot(0, this, [this]() {
+            if (auto *focused = QApplication::focusWidget(); focused
+                && focused->window() == this)
+                focused->clearFocus();
+        });
     });
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
     connect(ui->cursorAutoHideFullscreenCheckbox, &QCheckBox::checkStateChanged, this, &QVOptionsDialog::cursorAutoHideFullscreenCheckboxCheckStateChanged);
@@ -144,6 +217,10 @@ void QVOptionsDialog::configureGeneralPage()
     ui->generalScrollArea->setWidgetResizable(true);
     ui->generalScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
+                                      formLabelColumnWidth(ui->mouseScrollArea->widget()));
+    alignFormLayouts(generalContent, labelColumnWidth);
+    alignFormLayouts(ui->mouseScrollArea->widget(), labelColumnWidth);
     generalWidget->adjustSize();
     miscWidget->adjustSize();
     generalContent->adjustSize();
@@ -199,15 +276,55 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
         scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     }
 
+    const int currentHeight = height();
     pageHeight = qMax(1, pageHeight);
     ui->stackedWidget->setFixedHeight(pageHeight);
     setMinimumHeight(0);
     setMaximumHeight(QWIDGETSIZE_MAX);
     setFixedWidth(SettingsDialogWidth);
     adjustSize();
-    setFixedSize(SettingsDialogWidth, height());
+    const int targetHeight = qMax(1, height());
+    categoryTargetHeight = targetHeight;
+
+    const bool shouldAnimate = isVisible()
+        && currentHeight != targetHeight
+        && categorySizeAnimation;
+    if (shouldAnimate)
+    {
+        categorySizeAnimation->stop();
+        setProperty("settingsCategoryTransitionActive", true);
+        categorySizeAnimation->setStartValue(QSize(SettingsDialogWidth, currentHeight));
+        categorySizeAnimation->setEndValue(QSize(SettingsDialogWidth, targetHeight));
+        categorySizeAnimation->start();
+    }
+    else
+    {
+        if (categorySizeAnimation)
+            categorySizeAnimation->stop();
+        setFixedSize(SettingsDialogWidth, targetHeight);
+        setProperty("settingsCategoryTransitionActive", false);
+    }
     setProperty("settingsCategoryIndex", categoryIndex);
     setProperty("settingsCategoryContentHeight", pageHeight);
+}
+
+QSize QVOptionsDialog::settingsAnimatedSize() const
+{
+    return size();
+}
+
+void QVOptionsDialog::setSettingsAnimatedSize(const QSize &size)
+{
+    setFixedSize(SettingsDialogWidth, qMax(1, size.height()));
+}
+
+void QVOptionsDialog::finishCategoryTransition()
+{
+    if (categorySizeAnimation)
+        categorySizeAnimation->stop();
+    if (categoryTargetHeight > 0)
+        setFixedSize(SettingsDialogWidth, categoryTargetHeight);
+    setProperty("settingsCategoryTransitionActive", false);
 }
 
 void QVOptionsDialog::prepareForDisplay()
@@ -233,6 +350,11 @@ void QVOptionsDialog::prepareForDisplay()
 
 void QVOptionsDialog::done(int r)
 {
+    // Never persist an interpolated frame.  The dialog can be reopened as the
+    // same QDialog instance by QVApplication, so the final category size must
+    // be deterministic before saveGeometry() and before the next show().
+    finishCategoryTransition();
+
     // Save window geometry
     QSettings settings;
     settings.setValue("optionsgeometry", saveGeometry());

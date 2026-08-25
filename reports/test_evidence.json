@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_evidence",
-  "generated_at": "2026-08-25T11:54:10.741817+00:00",
+  "generated_at": "2026-08-25T13:02:34.785330+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "test_execution_order": [
     "static",
@@ -30,18 +30,46 @@
       "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
       "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
       "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button."
+    },
+    {
+      "hop": 4,
+      "dimension": "tab-size transition",
+      "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
+      "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
+      "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated."
+    },
+    {
+      "hop": 5,
+      "dimension": "reopen geometry determinism",
+      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+      "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
+      "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry()."
+    },
+    {
+      "hop": 6,
+      "dimension": "translation extraction and runtime catalogs",
+      "source": "https://doc.qt.io/qt-6/localization.html",
+      "finding": "Qt uses lupdate/lrelease with TS/QM catalogs, so current source coverage and completed translations can be audited from the same source contexts.",
+      "explicit_premise": "The menu and Settings source contexts are the scoped English inventory; all four non-English catalogs must contain non-empty completed entries for that inventory."
+    },
+    {
+      "hop": 7,
+      "dimension": "localized form layout",
+      "source": "https://doc.qt.io/qt-6/qformlayout.html",
+      "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
+      "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows."
     }
   ],
   "stage_summaries": {
     "static": {
-      "total": 6,
-      "passed": 6,
+      "total": 10,
+      "passed": 10,
       "failed": 0,
       "status": "passed"
     },
     "unit": {
-      "total": 10,
-      "passed": 10,
+      "total": 15,
+      "passed": 15,
       "failed": 0,
       "status": "passed"
     },
@@ -78,7 +106,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_version_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741316+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785057+00:00"
     },
     {
       "evidence_id": "EV-NAV-001",
@@ -103,7 +131,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741745+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785225+00:00"
     },
     {
       "evidence_id": "EV-NAV-002",
@@ -128,7 +156,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741747+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785230+00:00"
     },
     {
       "evidence_id": "EV-NAV-003",
@@ -150,10 +178,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 323.616,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 109ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 284.123,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 101ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741750+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785234+00:00"
     },
     {
       "evidence_id": "EV-SET-001",
@@ -175,10 +203,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 289.315,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 99ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 251.764,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741753+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785237+00:00"
     },
     {
       "evidence_id": "EV-SET-002",
@@ -200,10 +228,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 276.162,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 260.217,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741759+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785240+00:00"
     },
     {
       "evidence_id": "EV-SET-003",
@@ -225,10 +253,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 287.208,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 96ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 256.759,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741760+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785241+00:00"
     },
     {
       "evidence_id": "EV-SET-004",
@@ -250,10 +278,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 285.677,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 98ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 259.364,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 72ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741762+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785242+00:00"
     },
     {
       "evidence_id": "EV-SET-005",
@@ -275,10 +303,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 477.417,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 291ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1114.925,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 925ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741764+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785244+00:00"
     },
     {
       "evidence_id": "EV-SET-006",
@@ -300,10 +328,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 490.407,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 291ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1116.62,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 927ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741766+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785245+00:00"
     },
     {
       "evidence_id": "EV-SET-007",
@@ -325,10 +353,135 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 482.928,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 291ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1125.258,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 934ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741770+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785248+00:00"
+    },
+    {
+      "evidence_id": "EV-SET-008",
+      "case_id": "SET-008",
+      "stage": "unit",
+      "status": "passed",
+      "assertion": "切换不同 Settings Tab 时，窗口高度通过确定性的过渡动画变化。",
+      "observed": {
+        "suite": "WindowBehaviorTests",
+        "test": "testSettingsTabTransitionAndMouseReopen",
+        "pass_marker": "PASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()"
+      },
+      "execution": {
+        "command": [
+          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "-o",
+          "-,txt",
+          "testSettingsTabTransitionAndMouseReopen"
+        ],
+        "return_code": 0,
+        "passed": true,
+        "duration_ms": 931.272,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 729ms\n********* Finished testing of WindowBehaviorTests *********\n"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785251+00:00"
+    },
+    {
+      "evidence_id": "EV-SET-009",
+      "case_id": "SET-009",
+      "stage": "unit",
+      "status": "passed",
+      "assertion": "Settings 在 Mouse Tab 关闭并重新打开后保持 Mouse Tab 和相同尺寸。",
+      "observed": {
+        "suite": "WindowBehaviorTests",
+        "test": "testSettingsTabTransitionAndMouseReopen",
+        "pass_marker": "PASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()"
+      },
+      "execution": {
+        "command": [
+          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "-o",
+          "-,txt",
+          "testSettingsTabTransitionAndMouseReopen"
+        ],
+        "return_code": 0,
+        "passed": true,
+        "duration_ms": 922.506,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 722ms\n********* Finished testing of WindowBehaviorTests *********\n"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785254+00:00"
+    },
+    {
+      "evidence_id": "EV-SET-010",
+      "case_id": "SET-010",
+      "stage": "unit",
+      "status": "passed",
+      "assertion": "从其他 Tab 返回 General 时 Appearance 下拉列表不获得焦点。",
+      "observed": {
+        "suite": "WindowBehaviorTests",
+        "test": "testSettingsTabSwitchDoesNotFocusAppearance",
+        "pass_marker": "PASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()"
+      },
+      "execution": {
+        "command": [
+          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "-o",
+          "-,txt",
+          "testSettingsTabSwitchDoesNotFocusAppearance"
+        ],
+        "return_code": 0,
+        "passed": true,
+        "duration_ms": 1109.563,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 914ms\n********* Finished testing of WindowBehaviorTests *********\n"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785255+00:00"
+    },
+    {
+      "evidence_id": "EV-SET-011",
+      "case_id": "SET-011",
+      "stage": "unit",
+      "status": "passed",
+      "assertion": "翻译标签变长时，General 和 Mouse 的选项列仍保持水平对齐。",
+      "observed": {
+        "suite": "WindowBehaviorTests",
+        "test": "testLocalizedSettingsFormsUseSharedLabelColumns",
+        "pass_marker": "PASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()"
+      },
+      "execution": {
+        "command": [
+          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "-o",
+          "-,txt",
+          "testLocalizedSettingsFormsUseSharedLabelColumns"
+        ],
+        "return_code": 0,
+        "passed": true,
+        "duration_ms": 278.653,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 74ms\n********* Finished testing of WindowBehaviorTests *********\n"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785256+00:00"
+    },
+    {
+      "evidence_id": "EV-SET-012",
+      "case_id": "SET-012",
+      "stage": "unit",
+      "status": "passed",
+      "assertion": "General 中更新频率标签重命名为 Auto update check，并有四种语言翻译。",
+      "observed": {
+        "suite": "FeatureTests",
+        "test": "testAutoUpdateCheckLabelIsRenamed",
+        "pass_marker": "PASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()"
+      },
+      "execution": {
+        "command": [
+          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "-o",
+          "-,txt",
+          "testAutoUpdateCheckLabelIsRenamed"
+        ],
+        "return_code": 0,
+        "passed": true,
+        "duration_ms": 260.063,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 75ms\n********* Finished testing of FeatureTests *********\n"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785258+00:00"
     },
     {
       "evidence_id": "EV-LANG-001",
@@ -354,6 +507,21 @@
         },
         "translations": {
           "qview_es.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
             "General": {
               "expected": "General",
               "actual": "General",
@@ -368,9 +536,84 @@
               "expected": "Idioma del sistema",
               "actual": "Idioma del sistema",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
             }
           },
           "qview_ja.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -385,9 +628,84 @@
               "expected": "システム言語",
               "actual": "システム言語",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
             }
           },
           "qview_zh_Hans.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
             "General": {
               "expected": "通用",
               "actual": "通用",
@@ -402,9 +720,84 @@
               "expected": "系统语言",
               "actual": "系统语言",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
             }
           },
           "qview_zh_Hant.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -418,6 +811,66 @@
             "System Language": {
               "expected": "系統語言",
               "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
               "passed": true
             }
           }
@@ -434,7 +887,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741774+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785263+00:00"
     },
     {
       "evidence_id": "EV-LANG-002",
@@ -456,10 +909,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 260.406,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 74ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 269.222,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 75ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741776+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785267+00:00"
     },
     {
       "evidence_id": "EV-LANG-003",
@@ -485,6 +938,21 @@
         },
         "translations": {
           "qview_es.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
             "General": {
               "expected": "General",
               "actual": "General",
@@ -499,9 +967,84 @@
               "expected": "Idioma del sistema",
               "actual": "Idioma del sistema",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
             }
           },
           "qview_ja.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -516,9 +1059,84 @@
               "expected": "システム言語",
               "actual": "システム言語",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
             }
           },
           "qview_zh_Hans.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
             "General": {
               "expected": "通用",
               "actual": "通用",
@@ -533,9 +1151,84 @@
               "expected": "系统语言",
               "actual": "系统语言",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
             }
           },
           "qview_zh_Hant.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -549,6 +1242,66 @@
             "System Language": {
               "expected": "系統語言",
               "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
               "passed": true
             }
           }
@@ -565,7 +1318,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741778+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785272+00:00"
     },
     {
       "evidence_id": "EV-LANG-004",
@@ -591,6 +1344,21 @@
         },
         "translations": {
           "qview_es.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
             "General": {
               "expected": "General",
               "actual": "General",
@@ -605,9 +1373,84 @@
               "expected": "Idioma del sistema",
               "actual": "Idioma del sistema",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
             }
           },
           "qview_ja.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -622,9 +1465,84 @@
               "expected": "システム言語",
               "actual": "システム言語",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
             }
           },
           "qview_zh_Hans.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
             "General": {
               "expected": "通用",
               "actual": "通用",
@@ -639,9 +1557,84 @@
               "expected": "系统语言",
               "actual": "系统语言",
               "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
             }
           },
           "qview_zh_Hant.ts": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
             "General": {
               "expected": "一般",
               "actual": "一般",
@@ -655,6 +1648,66 @@
             "System Language": {
               "expected": "系統語言",
               "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
               "passed": true
             }
           }
@@ -671,7 +1724,1693 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T11:54:10.741782+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785278+00:00"
+    },
+    {
+      "evidence_id": "EV-LANG-005",
+      "case_id": "LANG-005",
+      "stage": "static",
+      "status": "passed",
+      "assertion": "菜单上下文中的每一项当前英文内容（含 Fovelle、Window、Help）在四种语言中均有完成翻译。",
+      "observed": {
+        "lupdate": {
+          "command": [
+            "lupdate",
+            "src/actionmanager.cpp",
+            "src/qvoptionsdialog.cpp",
+            "src/qvoptionsdialog.ui",
+            "-locations",
+            "none",
+            "-ts",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-1l1in60l/current.ts"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 20.644,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-1l1in60l/current.ts'...\n    Found 153 source text(s) (153 new and 0 already existing)\n"
+        },
+        "inventory_counts": {
+          "ActionManager": 74,
+          "QVOptionsDialog": 79
+        },
+        "qview_es.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
+            "General": {
+              "expected": "General",
+              "actual": "General",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "Idioma:",
+              "actual": "Idioma:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "Idioma del sistema",
+              "actual": "Idioma del sistema",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_ja.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "言語:",
+              "actual": "言語:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "システム言語",
+              "actual": "システム言語",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hans.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
+            "General": {
+              "expected": "通用",
+              "actual": "通用",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "语言:",
+              "actual": "语言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系统语言",
+              "actual": "系统语言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hant.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "語言:",
+              "actual": "語言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系統語言",
+              "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        }
+      },
+      "execution": {
+        "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785282+00:00"
+    },
+    {
+      "evidence_id": "EV-LANG-006",
+      "case_id": "LANG-006",
+      "stage": "static",
+      "status": "passed",
+      "assertion": "General 当前英文选项（含 Appearance、Smooth scaling、下拉项和 Auto update check）在四种语言中均有准确翻译。",
+      "observed": {
+        "lupdate": {
+          "command": [
+            "lupdate",
+            "src/actionmanager.cpp",
+            "src/qvoptionsdialog.cpp",
+            "src/qvoptionsdialog.ui",
+            "-locations",
+            "none",
+            "-ts",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-8gxlr721/current.ts"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 19.982,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-8gxlr721/current.ts'...\n    Found 153 source text(s) (153 new and 0 already existing)\n"
+        },
+        "inventory_counts": {
+          "ActionManager": 74,
+          "QVOptionsDialog": 79
+        },
+        "qview_es.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
+            "General": {
+              "expected": "General",
+              "actual": "General",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "Idioma:",
+              "actual": "Idioma:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "Idioma del sistema",
+              "actual": "Idioma del sistema",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_ja.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "言語:",
+              "actual": "言語:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "システム言語",
+              "actual": "システム言語",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hans.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
+            "General": {
+              "expected": "通用",
+              "actual": "通用",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "语言:",
+              "actual": "语言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系统语言",
+              "actual": "系统语言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hant.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "語言:",
+              "actual": "語言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系統語言",
+              "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        }
+      },
+      "execution": {
+        "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785288+00:00"
+    },
+    {
+      "evidence_id": "EV-LANG-007",
+      "case_id": "LANG-007",
+      "stage": "static",
+      "status": "passed",
+      "assertion": "Shortcuts 和 Mouse Tab 的每一项当前英文内容在四种语言中均有完成翻译。",
+      "observed": {
+        "lupdate": {
+          "command": [
+            "lupdate",
+            "src/actionmanager.cpp",
+            "src/qvoptionsdialog.cpp",
+            "src/qvoptionsdialog.ui",
+            "-locations",
+            "none",
+            "-ts",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r6tiitkw/current.ts"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 19.765,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r6tiitkw/current.ts'...\n    Found 153 source text(s) (153 new and 0 already existing)\n"
+        },
+        "inventory_counts": {
+          "ActionManager": 74,
+          "QVOptionsDialog": 79
+        },
+        "qview_es.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "Ventana",
+              "actual": "Ventana",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "Ayuda",
+              "actual": "Ayuda",
+              "passed": true
+            },
+            "General": {
+              "expected": "General",
+              "actual": "General",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "Idioma:",
+              "actual": "Idioma:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "Idioma del sistema",
+              "actual": "Idioma del sistema",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "Apariencia:",
+              "actual": "Apariencia:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "Claro",
+              "actual": "Claro",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "Oscuro",
+              "actual": "Oscuro",
+              "passed": true
+            },
+            "System": {
+              "expected": "Sistema",
+              "actual": "Sistema",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "Mostrar imágenes pequeñas a 1:1",
+              "actual": "Mostrar imágenes pequeñas a 1:1",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "Asociar todos los formatos compatibles",
+              "actual": "Asociar todos los formatos compatibles",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "Patrón de tablero de ajedrez al cargar la imagen",
+              "actual": "Patrón de tablero de ajedrez al cargar la imagen",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "Reutilizar ventana al abrir imágenes",
+              "actual": "Reutilizar ventana al abrir imágenes",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "Escalado suave:",
+              "actual": "Escalado suave:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "Accesos rápidos",
+              "actual": "Accesos rápidos",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "Ratón",
+              "actual": "Ratón",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "Comprobar actualizaciones automáticamente:",
+              "actual": "Comprobar actualizaciones automáticamente:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_ja.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "ウィンドウ",
+              "actual": "ウィンドウ",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "ヘルプ",
+              "actual": "ヘルプ",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "言語:",
+              "actual": "言語:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "システム言語",
+              "actual": "システム言語",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外観:",
+              "actual": "外観:",
+              "passed": true
+            },
+            "Light": {
+              "expected": "ライト",
+              "actual": "ライト",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "ダーク",
+              "actual": "ダーク",
+              "passed": true
+            },
+            "System": {
+              "expected": "システム",
+              "actual": "システム",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "小さい画像を 1:1 で表示",
+              "actual": "小さい画像を 1:1 で表示",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "対応するすべての形式を関連付け",
+              "actual": "対応するすべての形式を関連付け",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "画像読み込み時にチェック柄を表示",
+              "actual": "画像読み込み時にチェック柄を表示",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "画像を開く際にウィンドウを再利用",
+              "actual": "画像を開く際にウィンドウを再利用",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "スムーズなスケーリング:",
+              "actual": "スムーズなスケーリング:",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "ショートカット",
+              "actual": "ショートカット",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "マウス",
+              "actual": "マウス",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "アップデートの自動確認:",
+              "actual": "アップデートの自動確認:",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hans.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "窗口",
+              "actual": "窗口",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "帮助",
+              "actual": "帮助",
+              "passed": true
+            },
+            "General": {
+              "expected": "通用",
+              "actual": "通用",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "语言:",
+              "actual": "语言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系统语言",
+              "actual": "系统语言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外观：",
+              "actual": "外观：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "浅色",
+              "actual": "浅色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系统",
+              "actual": "系统",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 显示小图像",
+              "actual": "以 1:1 显示小图像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "关联所有支持的格式",
+              "actual": "关联所有支持的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "加载图片时显示棋盘格",
+              "actual": "加载图片时显示棋盘格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用图片启动时重用窗口",
+              "actual": "使用图片启动时重用窗口",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑缩放：",
+              "actual": "平滑缩放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "快捷键",
+              "actual": "快捷键",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "鼠标",
+              "actual": "鼠标",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自动检查更新：",
+              "actual": "自动检查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        },
+        "qview_zh_Hant.ts": {
+          "contexts": {
+            "ActionManager": {
+              "source_count": 74,
+              "missing_or_unfinished": [],
+              "passed": true
+            },
+            "QVOptionsDialog": {
+              "source_count": 79,
+              "missing_or_unfinished": [],
+              "passed": true
+            }
+          },
+          "exact": {
+            "Fovelle": {
+              "expected": "Fovelle",
+              "actual": "Fovelle",
+              "passed": true
+            },
+            "Window": {
+              "expected": "視窗",
+              "actual": "視窗",
+              "passed": true
+            },
+            "&Help": {
+              "expected": "說明(&H)",
+              "actual": "說明(&H)",
+              "passed": true
+            },
+            "General": {
+              "expected": "一般",
+              "actual": "一般",
+              "passed": true
+            },
+            "Language:": {
+              "expected": "語言:",
+              "actual": "語言:",
+              "passed": true
+            },
+            "System Language": {
+              "expected": "系統語言",
+              "actual": "系統語言",
+              "passed": true
+            },
+            "Appearance:": {
+              "expected": "外觀：",
+              "actual": "外觀：",
+              "passed": true
+            },
+            "Light": {
+              "expected": "淺色",
+              "actual": "淺色",
+              "passed": true
+            },
+            "Dark": {
+              "expected": "深色",
+              "actual": "深色",
+              "passed": true
+            },
+            "System": {
+              "expected": "系統",
+              "actual": "系統",
+              "passed": true
+            },
+            "Show small images at 1:1": {
+              "expected": "以 1:1 顯示小型影像",
+              "actual": "以 1:1 顯示小型影像",
+              "passed": true
+            },
+            "Associate all supported formats": {
+              "expected": "關聯所有支援的格式",
+              "actual": "關聯所有支援的格式",
+              "passed": true
+            },
+            "Checkerboard when image loaded": {
+              "expected": "載入影像時顯示棋盤格",
+              "actual": "載入影像時顯示棋盤格",
+              "passed": true
+            },
+            "Reuse window when launching with image": {
+              "expected": "使用影像啟動時重複使用視窗",
+              "actual": "使用影像啟動時重複使用視窗",
+              "passed": true
+            },
+            "Smooth scaling:": {
+              "expected": "平滑縮放：",
+              "actual": "平滑縮放：",
+              "passed": true
+            },
+            "Shortcuts": {
+              "expected": "捷徑",
+              "actual": "捷徑",
+              "passed": true
+            },
+            "Mouse": {
+              "expected": "滑鼠",
+              "actual": "滑鼠",
+              "passed": true
+            },
+            "Auto update check:": {
+              "expected": "自動檢查更新：",
+              "actual": "自動檢查更新：",
+              "passed": true
+            }
+          },
+          "passed": true
+        }
+      },
+      "execution": {
+        "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785291+00:00"
+    },
+    {
+      "evidence_id": "EV-LANG-008",
+      "case_id": "LANG-008",
+      "stage": "static",
+      "status": "passed",
+      "assertion": "当前 src 目录中的每一项英文源文案在四种语言中均有完成翻译。",
+      "observed": {
+        "lupdate": {
+          "command": [
+            "lupdate",
+            "src",
+            "-locations",
+            "none",
+            "-ts",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-sw667oae/current.ts"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 25.268,
+          "output_tail": "Scanning directory 'src'...\nUpdating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-sw667oae/current.ts'...\n    Found 278 source text(s) (278 new and 0 already existing)\n"
+        },
+        "inventory_counts": {
+          "ActionManager": 74,
+          "MainWindow": 30,
+          "OpenWith": 2,
+          "QObject": 2,
+          "QVAboutDialog": 4,
+          "QVApplication": 11,
+          "QVInfoDialog": 13,
+          "QVOptionsDialog": 79,
+          "QVRenameDialog": 5,
+          "QVShortcutDialog": 3,
+          "ShortcutManager": 47,
+          "UpdateChecker": 8
+        },
+        "catalogs": {
+          "qview_es.ts": {
+            "contexts": {
+              "ActionManager": {
+                "source_count": 74,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "MainWindow": {
+                "source_count": 30,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "OpenWith": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QObject": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVAboutDialog": {
+                "source_count": 4,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVApplication": {
+                "source_count": 11,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVInfoDialog": {
+                "source_count": 13,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVOptionsDialog": {
+                "source_count": 79,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVRenameDialog": {
+                "source_count": 5,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVShortcutDialog": {
+                "source_count": 3,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "ShortcutManager": {
+                "source_count": 47,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "UpdateChecker": {
+                "source_count": 8,
+                "missing_or_unfinished": [],
+                "passed": true
+              }
+            },
+            "passed": true
+          },
+          "qview_ja.ts": {
+            "contexts": {
+              "ActionManager": {
+                "source_count": 74,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "MainWindow": {
+                "source_count": 30,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "OpenWith": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QObject": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVAboutDialog": {
+                "source_count": 4,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVApplication": {
+                "source_count": 11,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVInfoDialog": {
+                "source_count": 13,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVOptionsDialog": {
+                "source_count": 79,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVRenameDialog": {
+                "source_count": 5,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVShortcutDialog": {
+                "source_count": 3,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "ShortcutManager": {
+                "source_count": 47,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "UpdateChecker": {
+                "source_count": 8,
+                "missing_or_unfinished": [],
+                "passed": true
+              }
+            },
+            "passed": true
+          },
+          "qview_zh_Hans.ts": {
+            "contexts": {
+              "ActionManager": {
+                "source_count": 74,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "MainWindow": {
+                "source_count": 30,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "OpenWith": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QObject": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVAboutDialog": {
+                "source_count": 4,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVApplication": {
+                "source_count": 11,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVInfoDialog": {
+                "source_count": 13,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVOptionsDialog": {
+                "source_count": 79,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVRenameDialog": {
+                "source_count": 5,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVShortcutDialog": {
+                "source_count": 3,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "ShortcutManager": {
+                "source_count": 47,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "UpdateChecker": {
+                "source_count": 8,
+                "missing_or_unfinished": [],
+                "passed": true
+              }
+            },
+            "passed": true
+          },
+          "qview_zh_Hant.ts": {
+            "contexts": {
+              "ActionManager": {
+                "source_count": 74,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "MainWindow": {
+                "source_count": 30,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "OpenWith": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QObject": {
+                "source_count": 2,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVAboutDialog": {
+                "source_count": 4,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVApplication": {
+                "source_count": 11,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVInfoDialog": {
+                "source_count": 13,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVOptionsDialog": {
+                "source_count": 79,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVRenameDialog": {
+                "source_count": 5,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "QVShortcutDialog": {
+                "source_count": 3,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "ShortcutManager": {
+                "source_count": 47,
+                "missing_or_unfinished": [],
+                "passed": true
+              },
+              "UpdateChecker": {
+                "source_count": 8,
+                "missing_or_unfinished": [],
+                "passed": true
+              }
+            },
+            "passed": true
+          }
+        }
+      },
+      "execution": {
+        "test_code": "tests/task_acceptance_pipeline.py::static_full_translation_catalog_contract"
+      },
+      "recorded_at": "2026-08-25T13:02:34.785292+00:00"
     },
     {
       "evidence_id": "EV-UNIT-001",
@@ -693,10 +3432,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 256.073,
+        "duration_ms": 263.626,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 73ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741783+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785296+00:00"
     },
     {
       "evidence_id": "EV-INT-001",
@@ -727,11 +3466,11 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 23405.547,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   23.40 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  23.40 sec\n"
+          "duration_ms": 25134.685,
+          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   25.13 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  25.13 sec\n"
         }
       },
-      "recorded_at": "2026-08-25T11:54:10.741786+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785300+00:00"
     },
     {
       "evidence_id": "EV-INT-002",
@@ -750,10 +3489,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 170.487,
+        "duration_ms": 182.242,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741789+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785301+00:00"
     },
     {
       "evidence_id": "EV-SYS-001",
@@ -770,10 +3509,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 635.849,
+        "duration_ms": 644.574,
         "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741793+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785303+00:00"
     },
     {
       "evidence_id": "EV-SYS-002",
@@ -791,10 +3530,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 177.024,
+        "duration_ms": 175.422,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T11:54:10.741794+00:00"
+      "recorded_at": "2026-08-25T13:02:34.785304+00:00"
     }
   ]
 }

@@ -4,6 +4,10 @@
 <context>
     <name>ActionManager</name>
     <message>
+        <source>Fovelle</source>
+        <translation>Fovelle</translation>
+    </message>
+    <message>
         <location filename="../src/actionmanager.cpp" line="30"/>
         <source>Window</source>
         <translation>視窗</translation>
@@ -320,6 +324,90 @@
         <extracomment>Open with other program for macos</extracomment>
         <translation>其他…</translation>
     </message>
+    <message>
+        <source>Sort Files By</source>
+        <translation>排序方式</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名稱</translation>
+    </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>修改日期</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>建立日期</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>類型</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>隨機</translation>
+    </message>
+    <message>
+        <source>Ascending</source>
+        <translation>遞增</translation>
+    </message>
+    <message>
+        <source>Descending</source>
+        <translation>遞減</translation>
+    </message>
+    <message>
+        <source>Set Zoom &amp;Level...</source>
+        <translation>設定縮放等級(&amp;L)…</translation>
+    </message>
+    <message>
+        <source>&amp;Zoom to Fit</source>
+        <translation>縮放至適合(&amp;Z)</translation>
+    </message>
+    <message>
+        <source>Fill &amp;Window</source>
+        <translation>填滿視窗(&amp;W)</translation>
+    </message>
+    <message>
+        <source>&amp;Navigation Resets Zoom</source>
+        <translation>導覽時重設縮放(&amp;N)</translation>
+    </message>
+    <message>
+        <source>Reset &amp;Transformation</source>
+        <translation>重設轉換(&amp;T)</translation>
+    </message>
+    <message>
+        <source>M&amp;atch Image Size</source>
+        <translation>符合影像大小(&amp;A)</translation>
+    </message>
+    <message>
+        <source>Window On To&amp;p</source>
+        <translation>視窗置頂(&amp;P)</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>隱藏標題列(&amp;B)</translation>
+    </message>
+    <message>
+        <source>&amp;Random File</source>
+        <translation>隨機檔案(&amp;R)</translation>
+    </message>
+    <message>
+        <source>&amp;Previous Frame</source>
+        <translation>上一幀(&amp;P)</translation>
+    </message>
+    <message>
+        <source>Project Homepage</source>
+        <translation>專案首頁</translation>
+    </message>
+    <message>
+        <source>Check for Updates</source>
+        <translation>檢查更新</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -481,9 +569,45 @@ No write permission or file is read-only.</source>
         <source>Stop S&amp;lideshow</source>
         <translation>停止幻燈片(&amp;L)</translation>
     </message>
+    <message>
+        <source>Are you sure you want to permanently delete %1? This can&apos;t be undone.</source>
+        <translation>您確定要永久刪除 %1 嗎？此操作無法復原。</translation>
+    </message>
+    <message>
+        <source>Previous File</source>
+        <translation>前一個檔案</translation>
+    </message>
+    <message>
+        <source>Pa&amp;use</source>
+        <translation>暫停(&amp;U)</translation>
+    </message>
+    <message>
+        <source>Next File</source>
+        <translation>後一個檔案</translation>
+    </message>
+    <message>
+        <source>Hide Title&amp;bar</source>
+        <translation>隱藏標題列(&amp;B)</translation>
+    </message>
+    <message>
+        <source>Set Zoom Level</source>
+        <translation>設定縮放等級</translation>
+    </message>
+    <message>
+        <source>Show Title&amp;bar</source>
+        <translation>顯示標題列(&amp;B)</translation>
+    </message>
+    <message>
+        <source>Zoom Level (%):</source>
+        <translation>縮放等級（%）：</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
+    <message>
+        <source> (default)</source>
+        <translation>（預設）</translation>
+    </message>
     <message>
         <location filename="../src/openwith.cpp" line="163"/>
         <source>All Applications (*.app)</source>
@@ -532,8 +656,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="62"/>
-        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
-        <translation type="unfinished"></translation>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>基於 qView&lt;br&gt;版權所有 © 2018–2025 jurplel 與 qView 貢獻者&lt;br&gt;Fovelle 修改 © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; 貢獻者&lt;br&gt;包含 jdpurcell 對 &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; 提交的部分內容&lt;br&gt;&lt;br&gt;依 GPLv3 授權</translation>
     </message>
     <message>
         <location filename="../src/qvaboutdialog.cpp" line="93"/>
@@ -556,6 +680,10 @@ No write permission or file is read-only.</source>
         <source>Error checking for updates</source>
         <translation>檢查更新出錯</translation>
     </message>
+    <message>
+        <source>Check for Updates</source>
+        <translation>檢查更新</translation>
+    </message>
 </context>
 <context>
     <name>QVApplication</name>
@@ -573,6 +701,40 @@ No write permission or file is read-only.</source>
         <location filename="../src/qvapplication.cpp" line="115"/>
         <source>Open...</source>
         <translation>開啟…</translation>
+    </message>
+    <message>
+        <source>You already have the latest version.</source>
+        <translation>已是最新版本。</translation>
+    </message>
+    <message>
+        <source>&amp;Remember</source>
+        <translation>記住(&amp;R)</translation>
+    </message>
+    <message>
+        <source>No Updates</source>
+        <translation>沒有更新</translation>
+    </message>
+    <message>
+        <source>Would you like to remember your opened images and re-open them at next launch?</source>
+        <translation>要記住已開啟的影像，並在下次啟動時重新開啟嗎？</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>錯誤</translation>
+    </message>
+    <message>
+        <source>Error checking for updates:
+%1</source>
+        <translation>檢查更新時發生錯誤：
+%1</translation>
+    </message>
+    <message>
+        <source>&amp;End Session</source>
+        <translation>結束工作階段(&amp;E)</translation>
+    </message>
+    <message>
+        <source>Remember Session?</source>
+        <translation>要記住工作階段嗎？</translation>
     </message>
 </context>
 <context>
@@ -1104,6 +1266,240 @@ No write permission or file is read-only.</source>
         <source>You must restart Fovelle to change the language.</source>
         <translation>你必須重啟Fovelle以改變語言。</translation>
     </message>
+    <message>
+        <source>Appearance:</source>
+        <translation>外觀：</translation>
+    </message>
+    <message>
+        <source>Checkerboard when image loaded</source>
+        <translation>載入影像時顯示棋盤格</translation>
+    </message>
+    <message>
+        <source>Reuse window when launching with image</source>
+        <translation>使用影像啟動時重複使用視窗</translation>
+    </message>
+    <message>
+        <source>Smooth scaling:</source>
+        <translation>平滑縮放：</translation>
+    </message>
+    <message>
+        <source>Show images smaller than the display area at their original 1:1 size</source>
+        <translation>將小於顯示區域的影像以原始 1:1 大小顯示</translation>
+    </message>
+    <message>
+        <source>Show small images at 1:1</source>
+        <translation>以 1:1 顯示小型影像</translation>
+    </message>
+    <message>
+        <source>Auto update check:</source>
+        <translation>自動檢查更新：</translation>
+    </message>
+    <message>
+        <source>Associate all supported formats</source>
+        <translation>關聯所有支援的格式</translation>
+    </message>
+    <message>
+        <source>Left Button</source>
+        <translation>左鍵</translation>
+    </message>
+    <message>
+        <source>Double Click:</source>
+        <translation>雙擊：</translation>
+    </message>
+    <message>
+        <source>Drag:</source>
+        <translation>拖曳：</translation>
+    </message>
+    <message>
+        <source>Navigate when clicking on the left/right edges of the viewport</source>
+        <translation>點按檢視區左／右邊緣時導覽</translation>
+    </message>
+    <message>
+        <source>Side navigation regions</source>
+        <translation>側邊導覽區域</translation>
+    </message>
+    <message>
+        <source>Middle Button</source>
+        <translation>中鍵</translation>
+    </message>
+    <message>
+        <source>Mode:</source>
+        <translation>模式：</translation>
+    </message>
+    <message>
+        <source>Click</source>
+        <translation>點按</translation>
+    </message>
+    <message>
+        <source>Drag</source>
+        <translation>拖曳</translation>
+    </message>
+    <message>
+        <source>Middle Click:</source>
+        <translation>中鍵點按：</translation>
+    </message>
+    <message>
+        <source>Middle Drag:</source>
+        <translation>中鍵拖曳：</translation>
+    </message>
+    <message>
+        <source>Scroll Wheel / Touchpad</source>
+        <translation>滾輪／觸控式軌跡板</translation>
+    </message>
+    <message>
+        <source>Vertical Scroll:</source>
+        <translation>垂直捲動：</translation>
+    </message>
+    <message>
+        <source>Horizontal Scroll:</source>
+        <translation>水平捲動：</translation>
+    </message>
+    <message>
+        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
+        <translation>適用於觸控式軌跡板，例如可避免單次滑動觸發多次導覽</translation>
+    </message>
+    <message>
+        <source>Cooldown for discrete actions</source>
+        <translation>離散動作冷卻時間</translation>
+    </message>
+    <message>
+        <source>Cursor</source>
+        <translation>游標</translation>
+    </message>
+    <message>
+        <source>Auto-hide in fullscreen:</source>
+        <translation>全螢幕時自動隱藏：</translation>
+    </message>
+    <message>
+        <source> sec delay</source>
+        <translation> 秒延遲</translation>
+    </message>
+    <message>
+        <source>Preferences</source>
+        <translation>偏好設定</translation>
+    </message>
+    <message>
+        <source>%1 + Double Click:</source>
+        <translation>%1 + 雙擊：</translation>
+    </message>
+    <message>
+        <source>%1 + Drag:</source>
+        <translation>%1 + 拖曳：</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Click:</source>
+        <translation>%1 + 中鍵點按：</translation>
+    </message>
+    <message>
+        <source>%1 + Middle Drag:</source>
+        <translation>%1 + 中鍵拖曳：</translation>
+    </message>
+    <message>
+        <source>%1 + Vertical Scroll:</source>
+        <translation>%1 + 垂直捲動：</translation>
+    </message>
+    <message>
+        <source>%1 + Horizontal Scroll:</source>
+        <translation>%1 + 水平捲動：</translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation>滑鼠</translation>
+    </message>
+    <message>
+        <source>You must restart Fovelle for the language change to take effect.</source>
+        <translation>必須重新啟動 Fovelle 才能套用語言變更。</translation>
+    </message>
+    <message>
+        <source>Associated %1 supported formats with Fovelle.</source>
+        <translation>已將 %1 種支援格式與 Fovelle 建立關聯。</translation>
+    </message>
+    <message>
+        <source>
+Unable to associate: %1.</source>
+        <translation>
+無法建立關聯：%1。</translation>
+    </message>
+    <message>
+        <source>File Associations</source>
+        <translation>檔案關聯</translation>
+    </message>
+    <message>
+        <source>Bilinear</source>
+        <translation>雙線性</translation>
+    </message>
+    <message>
+        <source>Expensive</source>
+        <translation>高負荷</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>淺色</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>深色</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>系統</translation>
+    </message>
+    <message>
+        <source>Daily</source>
+        <translation>每日</translation>
+    </message>
+    <message>
+        <source>Weekly</source>
+        <translation>每週</translation>
+    </message>
+    <message>
+        <source>Monthly</source>
+        <translation>每月</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>無</translation>
+    </message>
+    <message>
+        <source>Zoom to Fit</source>
+        <translation>縮放至適合</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>填滿視窗</translation>
+    </message>
+    <message>
+        <source>Original Size</source>
+        <translation>原始大小</translation>
+    </message>
+    <message>
+        <source>Center Image</source>
+        <translation>置中影像</translation>
+    </message>
+    <message>
+        <source>Toggle Full Screen</source>
+        <translation>切換全螢幕</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>切換隱藏標題列</translation>
+    </message>
+    <message>
+        <source>Pan</source>
+        <translation>平移</translation>
+    </message>
+    <message>
+        <source>Move Window</source>
+        <translation>移動視窗</translation>
+    </message>
+    <message>
+        <source>Zoom</source>
+        <translation>縮放</translation>
+    </message>
+    <message>
+        <source>Navigate</source>
+        <translation>導覽</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1396,6 +1792,46 @@ No write permission or file is read-only.</source>
         <source>Exit</source>
         <translation>離開</translation>
     </message>
+    <message>
+        <source>Navigation Resets Zoom</source>
+        <translation>導覽時重設縮放</translation>
+    </message>
+    <message>
+        <source>Match Image Size</source>
+        <translation>符合影像大小</translation>
+    </message>
+    <message>
+        <source>Fill Window</source>
+        <translation>填滿視窗</translation>
+    </message>
+    <message>
+        <source>Zoom to Fit</source>
+        <translation>縮放至適合</translation>
+    </message>
+    <message>
+        <source>Set Zoom Level</source>
+        <translation>設定縮放等級</translation>
+    </message>
+    <message>
+        <source>Previous Frame</source>
+        <translation>上一幀</translation>
+    </message>
+    <message>
+        <source>Toggle Titlebar Hidden</source>
+        <translation>切換隱藏標題列</translation>
+    </message>
+    <message>
+        <source>Window On Top</source>
+        <translation>視窗置頂</translation>
+    </message>
+    <message>
+        <source>Reset Transformation</source>
+        <translation>重設轉換</translation>
+    </message>
+    <message>
+        <source>Random File</source>
+        <translation>隨機檔案</translation>
+    </message>
 </context>
 <context>
     <name>UpdateChecker</name>
@@ -1430,6 +1866,28 @@ No write permission or file is read-only.</source>
 You can reenable them in the options dialog.</source>
         <translation>啟動時的更新通知已被停用。
 你可在選項中將其重新啟用。</translation>
+    </message>
+    <message>
+        <source>Received null JSON.</source>
+        <translation>收到空的 JSON。</translation>
+    </message>
+    <message>
+        <source>Automatic update checking has been disabled.
+You can reenable it in Preferences.</source>
+        <translation>自動檢查更新已停用。
+你可以在「偏好設定」中重新啟用。</translation>
+    </message>
+    <message>
+        <source>A newer version is available to download.</source>
+        <translation>有較新版本可供下載。</translation>
+    </message>
+    <message>
+        <source>&amp;Disable Checking</source>
+        <translation>停用檢查(&amp;D)</translation>
+    </message>
+    <message>
+        <source>Skip Version</source>
+        <translation>略過版本</translation>
     </message>
 </context>
 </TS>

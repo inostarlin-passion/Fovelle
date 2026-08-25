@@ -18,6 +18,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -114,6 +115,7 @@ private slots:
     void testSettingsFormatsPaneIsRemoved();
     void testSettingsGeneralLanguageAndRemovedOptions();
     void testSettingsLanguageCatalogIsFixed();
+    void testAutoUpdateCheckLabelIsRenamed();
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
     void testUpdateCheckFrequencyPolicy();
@@ -229,6 +231,9 @@ private slots:
     void testThemeSettingsReplaceRemovedColorControls();
     void testSettingsDialogUsesNativeTabContractAndImmediatePersistence();
     void testSettingsDialogUsesFixedWidthAndTabHeights();
+    void testSettingsTabTransitionAndMouseReopen();
+    void testSettingsTabSwitchDoesNotFocusAppearance();
+    void testLocalizedSettingsFormsUseSharedLabelColumns();
     void testFullscreenMenuIconsRespectMainMenuPolicy();
     void testExitFullscreenActionUsesEscapePath();
     void testOptionsDialogCentersOnMainWindow();
@@ -2400,6 +2405,24 @@ void FeatureTests::testSettingsLanguageCatalogIsFixed()
     QCOMPARE(language->itemData(4).toString(), QStringLiteral("es"));
     QCOMPARE(language->itemData(5).toString(), QStringLiteral("ja"));
     QCOMPARE(language->currentData().toString(), QStringLiteral("en"));
+}
+
+// TC-SETTINGS-AUTO-UPDATE-LABEL
+// Test purpose: verify the update-frequency label uses the new concise
+// English wording and no longer exposes the former phrase.
+// Preconditions: the production options dialog can be constructed in English.
+// Input data: the updateFrequencyLabel text from a fresh dialog.
+// Steps: construct the dialog and inspect the label text.
+// Expected result: the label is exactly "Auto update check:".
+// Postcondition: the dialog is destroyed without changing update settings.
+void FeatureTests::testAutoUpdateCheckLabelIsRenamed()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    QVOptionsDialog dialog;
+    auto *label = dialog.findChild<QLabel *>(QStringLiteral("updateFrequencyLabel"));
+    QVERIFY(label);
+    QCOMPARE(label->text(), QStringLiteral("Auto update check:"));
+    QVERIFY(!label->text().contains(QStringLiteral("Automatically check for updates")));
 }
 
 // TC-PREFERENCES-FORMATS-ASSOCIATE
@@ -5065,7 +5088,7 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
 
     tabs->setCurrentIndex(0);
-    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
     QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
     QVERIFY(generalScrollArea->widget()->sizeHint().height()
             <= generalScrollArea->viewport()->height());
@@ -5073,7 +5096,7 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QVERIFY(generalHeight > 0);
 
     tabs->setCurrentIndex(1);
-    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
     const int rowHeight = table->rowHeight(0);
     const int expectedTableHeight = table->horizontalHeader()->height()
             + 16 * rowHeight + 2 * table->frameWidth();
@@ -5082,7 +5105,7 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QVERIFY(shortcutsHeight > 0);
 
     tabs->setCurrentIndex(2);
-    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
     QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
     QVERIFY(mouseScrollArea->widget()->sizeHint().height()
             <= mouseScrollArea->viewport()->height());
@@ -5090,6 +5113,139 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
 
     dialog.close();
+}
+
+// TC-SETTINGS-TAB-TRANSITION
+// Test purpose: verify that changing a Settings category animates the
+// different fixed window heights instead of jumping directly between frames.
+// Preconditions: a visible production Settings dialog with General,
+// Shortcuts, and Mouse categories.
+// Input data: category indexes 0 and 2, plus the production animation object.
+// Steps: show General, switch to Mouse, observe the transition state, and
+// wait for the animation to settle.
+// Expected result: the animation is configured for 180 ms, becomes active for
+// the size change, and ends at the Mouse natural height.
+// Postcondition: the dialog is closed and tab/geometry settings are restored.
+void WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()
+{
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *animation = dialog.findChild<QPropertyAnimation *>(QStringLiteral("settingsCategorySizeAnimation"));
+    QVERIFY(tabs);
+    QVERIFY(animation);
+    QCOMPARE(animation->duration(), 180);
+
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    tabs->setCurrentIndex(0);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    const int generalHeight = dialog.height();
+
+    tabs->setCurrentIndex(2);
+    QVERIFY(dialog.property("settingsCategoryTransitionActive").toBool());
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    const int mouseHeight = dialog.height();
+    QVERIFY(mouseHeight > 0);
+    QVERIFY(mouseHeight != generalHeight);
+
+    // Reopen the same QDialog instance, matching QVApplication's reuse path.
+    // done() must have finalized the animation before saving geometry.
+    dialog.close();
+    QVERIFY(!dialog.isVisible());
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    QCOMPARE(tabs->currentIndex(), 2);
+    QCOMPARE(dialog.width(), 600);
+    QCOMPARE(dialog.height(), mouseHeight);
+    QVERIFY(!dialog.property("settingsCategoryTransitionActive").toBool());
+
+    dialog.close();
+}
+
+// TC-SETTINGS-TAB-FOCUS
+// Test purpose: verify returning to General never transfers keyboard focus to
+// the Appearance combo box as a side effect of native toolbar navigation.
+// Preconditions: a visible production Settings dialog and the General theme
+// combo box.
+// Input data: a focus request on the Appearance combo followed by Mouse →
+// General category changes.
+// Steps: focus Appearance, leave General, return to General, and process the
+// native/Qt event turn that settles first-responder state.
+// Expected result: Appearance is not focused after the return transition.
+// Postcondition: the dialog is closed without changing the theme value.
+void WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()
+{
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *appearance = dialog.findChild<QComboBox *>(QStringLiteral("themeComboBox"));
+    QVERIFY(tabs);
+    QVERIFY(appearance);
+
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    tabs->setCurrentIndex(0);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    appearance->setFocus(Qt::OtherFocusReason);
+    QVERIFY(appearance->hasFocus());
+
+    tabs->setCurrentIndex(2);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    tabs->setCurrentIndex(0);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(!appearance->hasFocus(), 500);
+
+    dialog.close();
+}
+
+// TC-SETTINGS-LOCALIZED-ALIGNMENT
+// Test purpose: verify all translated General and Mouse form layouts share a
+// label column and do not center independent form size hints.
+// Preconditions: the production Settings dialog can be constructed.
+// Input data: QFormLayout objects under General and Mouse content pages.
+// Steps: enumerate each page's form layouts and compare column minimum widths,
+// wrap policy, and horizontal form alignment.
+// Expected result: each page has one shared label-column width, no row wrapping,
+// both pages use the same label-column width, and left-aligned form origins keep
+// localized labels from shifting fields.
+// Postcondition: the dialog is destroyed without changing settings.
+void WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()
+{
+    QVOptionsDialog dialog;
+    auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+    auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+    QVERIFY(general);
+    QVERIFY(mouse);
+
+    const auto verifyPage = [](QWidget *page) {
+        const auto layouts = page->findChildren<QFormLayout *>();
+        QVERIFY(!layouts.isEmpty());
+        const int expectedWidth = page->property("settingsAlignedLabelColumnWidth").toInt();
+        QVERIFY(expectedWidth > 0);
+        for (auto *layout : layouts)
+        {
+            QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
+            QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
+            for (int row = 0; row < layout->rowCount(); ++row)
+            {
+                auto *item = layout->itemAt(row, QFormLayout::LabelRole);
+                if (item && item->widget())
+                    QCOMPARE(item->widget()->minimumWidth(), expectedWidth);
+            }
+        }
+    };
+
+    verifyPage(general->widget());
+    verifyPage(mouse->widget());
+    QCOMPARE(general->widget()->property("settingsAlignedLabelColumnWidth").toInt(),
+             mouse->widget()->property("settingsAlignedLabelColumnWidth").toInt());
 }
 
 // TC-VIEW-FULLSCREEN-MAIN-ICON

@@ -19,6 +19,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -42,10 +43,50 @@ LANGUAGE_LABELS = [
     ("日本語", "ja"),
 ]
 TRANSLATION_EXPECTATIONS = {
-    "qview_es.ts": {"General": "General", "Language:": "Idioma:", "System Language": "Idioma del sistema"},
-    "qview_ja.ts": {"General": "一般", "Language:": "言語:", "System Language": "システム言語"},
-    "qview_zh_Hans.ts": {"General": "通用", "Language:": "语言:", "System Language": "系统语言"},
-    "qview_zh_Hant.ts": {"General": "一般", "Language:": "語言:", "System Language": "系統語言"},
+    "qview_es.ts": {
+        "Fovelle": "Fovelle", "Window": "Ventana", "&Help": "Ayuda",
+        "General": "General", "Language:": "Idioma:", "System Language": "Idioma del sistema",
+        "Appearance:": "Apariencia:", "Light": "Claro", "Dark": "Oscuro", "System": "Sistema",
+        "Show small images at 1:1": "Mostrar imágenes pequeñas a 1:1",
+        "Associate all supported formats": "Asociar todos los formatos compatibles",
+        "Checkerboard when image loaded": "Patrón de tablero de ajedrez al cargar la imagen",
+        "Reuse window when launching with image": "Reutilizar ventana al abrir imágenes",
+        "Smooth scaling:": "Escalado suave:", "Shortcuts": "Accesos rápidos", "Mouse": "Ratón",
+        "Auto update check:": "Comprobar actualizaciones automáticamente:",
+    },
+    "qview_ja.ts": {
+        "Fovelle": "Fovelle", "Window": "ウィンドウ", "&Help": "ヘルプ",
+        "General": "一般", "Language:": "言語:", "System Language": "システム言語",
+        "Appearance:": "外観:", "Light": "ライト", "Dark": "ダーク", "System": "システム",
+        "Show small images at 1:1": "小さい画像を 1:1 で表示",
+        "Associate all supported formats": "対応するすべての形式を関連付け",
+        "Checkerboard when image loaded": "画像読み込み時にチェック柄を表示",
+        "Reuse window when launching with image": "画像を開く際にウィンドウを再利用",
+        "Smooth scaling:": "スムーズなスケーリング:", "Shortcuts": "ショートカット", "Mouse": "マウス",
+        "Auto update check:": "アップデートの自動確認:",
+    },
+    "qview_zh_Hans.ts": {
+        "Fovelle": "Fovelle", "Window": "窗口", "&Help": "帮助",
+        "General": "通用", "Language:": "语言:", "System Language": "系统语言",
+        "Appearance:": "外观：", "Light": "浅色", "Dark": "深色", "System": "系统",
+        "Show small images at 1:1": "以 1:1 显示小图像",
+        "Associate all supported formats": "关联所有支持的格式",
+        "Checkerboard when image loaded": "加载图片时显示棋盘格",
+        "Reuse window when launching with image": "使用图片启动时重用窗口",
+        "Smooth scaling:": "平滑缩放：", "Shortcuts": "快捷键", "Mouse": "鼠标",
+        "Auto update check:": "自动检查更新：",
+    },
+    "qview_zh_Hant.ts": {
+        "Fovelle": "Fovelle", "Window": "視窗", "&Help": "說明(&H)",
+        "General": "一般", "Language:": "語言:", "System Language": "系統語言",
+        "Appearance:": "外觀：", "Light": "淺色", "Dark": "深色", "System": "系統",
+        "Show small images at 1:1": "以 1:1 顯示小型影像",
+        "Associate all supported formats": "關聯所有支援的格式",
+        "Checkerboard when image loaded": "載入影像時顯示棋盤格",
+        "Reuse window when launching with image": "使用影像啟動時重複使用視窗",
+        "Smooth scaling:": "平滑縮放：", "Shortcuts": "捷徑", "Mouse": "滑鼠",
+        "Auto update check:": "自動檢查更新：",
+    },
 }
 RESEARCH_TRACE = [
     {
@@ -68,6 +109,34 @@ RESEARCH_TRACE = [
         "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
         "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
         "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button.",
+    },
+    {
+        "hop": 4,
+        "dimension": "tab-size transition",
+        "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
+        "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
+        "explicit_premise": "The Settings width remains fixed at W=600; only the natural per-tab height is animated.",
+    },
+    {
+        "hop": 5,
+        "dimension": "reopen geometry determinism",
+        "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+        "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
+        "explicit_premise": "The selected category and its natural height are authoritative at close time, so the transition is finalized before saveGeometry().",
+    },
+    {
+        "hop": 6,
+        "dimension": "translation extraction and runtime catalogs",
+        "source": "https://doc.qt.io/qt-6/localization.html",
+        "finding": "Qt uses lupdate/lrelease with TS/QM catalogs, so current source coverage and completed translations can be audited from the same source contexts.",
+        "explicit_premise": "The menu and Settings source contexts are the scoped English inventory; all four non-English catalogs must contain non-empty completed entries for that inventory.",
+    },
+    {
+        "hop": 7,
+        "dimension": "localized form layout",
+        "source": "https://doc.qt.io/qt-6/qformlayout.html",
+        "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
+        "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows.",
     },
 ]
 
@@ -306,6 +375,66 @@ CASES = [
         ["快捷键设置值不被修改。"],
     ),
     make_case(
+        "SET-008",
+        "切换不同 Settings Tab 时，窗口高度通过确定性的过渡动画变化。",
+        "unit",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen",
+        "验证不同 Tab 的自然高度切换不是突变，并且动画参数可被测试观测。",
+        ["Debug 测试二进制已构建。", "Qt Cocoa 平台插件可用。"],
+        {"suite": "WindowBehaviorTests", "test": "testSettingsTabTransitionAndMouseReopen", "duration_ms": 180},
+        ["显示 General。", "切换到 Mouse。", "读取动画对象状态和最终窗口高度。"],
+        "设置页进入活动过渡状态，动画时长为 180ms，结束后落在 Mouse 的目标高度。",
+        ["设置页关闭，测试设置恢复。"],
+    ),
+    make_case(
+        "SET-009",
+        "Settings 在 Mouse Tab 关闭并重新打开后保持 Mouse Tab 和相同尺寸。",
+        "unit",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen",
+        "验证保存几何前不会把正在插值的中间帧写入 QSettings。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "WindowBehaviorTests", "test": "testSettingsTabTransitionAndMouseReopen", "tab": "Mouse"},
+        ["切到 Mouse。", "关闭同一个 QDialog 实例。", "重新显示并比较 Tab、宽度和高度。"],
+        "重新打开仍为 Mouse，宽度为 600，且高度与关闭前的稳定 Mouse 高度完全相同。",
+        ["原始 optionstab、optionstabversion 和 optionsgeometry 恢复。"],
+    ),
+    make_case(
+        "SET-010",
+        "从其他 Tab 返回 General 时 Appearance 下拉列表不获得焦点。",
+        "unit",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance",
+        "验证原生 toolbar 切换页后的默认 first-responder 不会落到 Appearance combo。",
+        ["Debug 测试二进制已构建。", "Qt Cocoa 平台插件可用。"],
+        {"suite": "WindowBehaviorTests", "test": "testSettingsTabSwitchDoesNotFocusAppearance", "focus_target": "themeComboBox"},
+        ["主动聚焦 Appearance。", "切到 Mouse 再返回 General。", "处理原生/Qt 延迟事件。"],
+        "返回 General 后 themeComboBox 没有键盘焦点。",
+        ["主题值不被修改，Tab 设置恢复。"],
+    ),
+    make_case(
+        "SET-011",
+        "翻译标签变长时，General 和 Mouse 的选项列仍保持水平对齐。",
+        "unit",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns",
+        "验证独立居中的 QFormLayout 不会因语言变化产生不同的字段起点。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "WindowBehaviorTests", "test": "testLocalizedSettingsFormsUseSharedLabelColumns", "locales": ["zh_Hans", "zh_Hant", "es", "ja"]},
+        ["创建设置页。", "枚举 General/Mouse 下的所有 QFormLayout。", "比较标签宽度、对齐和换行策略。"],
+        "每个页面的表单共享动态标签宽度，使用左对齐且不换行，字段列不会随翻译漂移。",
+        ["设置对话框销毁，不修改用户设置。"],
+    ),
+    make_case(
+        "SET-012",
+        "General 中更新频率标签重命名为 Auto update check，并有四种语言翻译。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testAutoUpdateCheckLabelIsRenamed",
+        "验证英文源文案切换到新名称，翻译覆盖由静态目录审计同时确认。",
+        ["Debug 测试二进制已构建。"],
+        {"suite": "FeatureTests", "test": "testAutoUpdateCheckLabelIsRenamed", "source": "Auto update check:"},
+        ["创建英文设置页。", "读取 updateFrequencyLabel。"],
+        "标签准确为 Auto update check:，旧 Automatically check for updates 文案不存在。",
+        ["更新频率值不被修改。"],
+    ),
+    make_case(
         "LANG-001",
         "仅保留英语、简体中文、繁体中文、西班牙语和日语五种应用语言。",
         "static",
@@ -352,6 +481,54 @@ CASES = [
         ["检查 getSystemLanguage 的分支。", "检查 migrateOldSettings 的白名单。", "检查默认 language 值。"],
         "中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
         ["不改变用户已选择的合法语言码。"],
+    ),
+    make_case(
+        "LANG-005",
+        "菜单上下文中的每一项当前英文内容（含 Fovelle、Window、Help）在四种语言中均有完成翻译。",
+        "static",
+        "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
+        "用 lupdate 生成当前 ActionManager 英文清单，并逐个审计四个 TS 目录。",
+        ["Qt Linguist lupdate 可执行。", "四个 TS 文件可读。"],
+        {"contexts": ["ActionManager"], "explicit_menu_entries": ["Fovelle", "Window", "&Help"]},
+        ["提取当前 ActionManager source 集合。", "逐个查找四个语言目录。", "检查翻译非空、非 unfinished，并核对菜单关键项。"],
+        "菜单当前英文清单全部有四种语言的完成翻译，Fovelle 保持品牌原文。",
+        ["不修改 TS 以外的运行时状态。"],
+    ),
+    make_case(
+        "LANG-006",
+        "General 当前英文选项（含 Appearance、Smooth scaling、下拉项和 Auto update check）在四种语言中均有准确翻译。",
+        "static",
+        "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
+        "审计 QVOptionsDialog 的 General/通用源文案和四个目标目录。",
+        ["Qt Linguist lupdate 可执行。", "四个 TS 文件可读。"],
+        {"contexts": ["QVOptionsDialog"], "scope": "General", "explicit_entries": ["Appearance:", "Show small images at 1:1", "Associate all supported formats", "Checkerboard when image loaded", "Reuse window when launching with image", "Smooth scaling:", "Auto update check:"]},
+        ["提取 QVOptionsDialog 当前源集合。", "检查 General 关键 source 的四种翻译。", "检查每一项非空且非 unfinished。"],
+        "General 当前英文选项及其枚举值全部有准确、符合习惯的四种翻译。",
+        ["不载入额外应用语言。"],
+    ),
+    make_case(
+        "LANG-007",
+        "Shortcuts 和 Mouse Tab 的每一项当前英文内容在四种语言中均有完成翻译。",
+        "static",
+        "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
+        "审计 QVOptionsDialog 中快捷键表格、鼠标分组和动作下拉项的完整覆盖。",
+        ["Qt Linguist lupdate 可执行。", "四个 TS 文件可读。"],
+        {"contexts": ["QVOptionsDialog"], "scope": ["Shortcuts", "Mouse"]},
+        ["提取 Shortcuts/Mouse 当前源集合。", "逐个核对四种语言目录。", "拒绝缺失、空翻译和 unfinished。"],
+        "快捷键和鼠标页所有当前英文内容均有非空完成翻译。",
+        ["不修改快捷键设置。"],
+    ),
+    make_case(
+        "LANG-008",
+        "当前 src 目录中的每一项英文源文案在四种语言中均有完成翻译。",
+        "static",
+        "tests/task_acceptance_pipeline.py::static_full_translation_catalog_contract",
+        "从完整应用源代码提取当前英文清单，防止菜单和设置页之外的运行时文案遗漏翻译。",
+        ["Qt Linguist lupdate 可执行。", "四个 TS 文件可读。"],
+        {"source_root": "src", "catalogs": sorted(ALLOWED_CATALOGS)},
+        ["用 lupdate 提取 src 下的全部当前 source。", "逐个检查四个 TS 目录。", "拒绝缺失、空翻译和 unfinished。"],
+        "当前应用英文源文案清单中的每个上下文和 source 均有四种非空完成翻译。",
+        ["不修改源码和翻译目录。"],
     ),
     make_case(
         "UNIT-001",
@@ -425,6 +602,11 @@ UNIT_CASES = {
     "SET-005": ("WindowBehaviorTests", "testSettingsDialogUsesFixedWidthAndTabHeights"),
     "SET-006": ("WindowBehaviorTests", "testSettingsDialogUsesFixedWidthAndTabHeights"),
     "SET-007": ("WindowBehaviorTests", "testSettingsDialogUsesFixedWidthAndTabHeights"),
+    "SET-008": ("WindowBehaviorTests", "testSettingsTabTransitionAndMouseReopen"),
+    "SET-009": ("WindowBehaviorTests", "testSettingsTabTransitionAndMouseReopen"),
+    "SET-010": ("WindowBehaviorTests", "testSettingsTabSwitchDoesNotFocusAppearance"),
+    "SET-011": ("WindowBehaviorTests", "testLocalizedSettingsFormsUseSharedLabelColumns"),
+    "SET-012": ("FeatureTests", "testAutoUpdateCheckLabelIsRenamed"),
     "LANG-002": ("FeatureTests", "testSettingsLanguageCatalogIsFixed"),
     "UNIT-001": ("FeatureTests", "testSettingsLanguageCatalogIsFixed"),
 }
@@ -438,6 +620,7 @@ def source_files(repo: Path) -> dict[str, str]:
         "options_cpp": read(repo, "src/qvoptionsdialog.cpp"),
         "options_header": read(repo, "src/qvoptionsdialog.h"),
         "options_ui": read(repo, "src/qvoptionsdialog.ui"),
+        "actionmanager": read(repo, "src/actionmanager.cpp"),
         "settings": read(repo, "src/settingsmanager.cpp"),
         "mainwindow": read(repo, "src/mainwindow.cpp"),
         "cocoa": read(repo, "src/qvcocoafunctions.mm"),
@@ -496,11 +679,175 @@ def static_settings_contract(repo: Path, sources: dict[str, str]) -> tuple[bool,
         "general_page_reused": "configureGeneralPage();" in cpp and "ui->stackedWidget->removeWidget(ui->miscScrollArea)" in cpp,
         "language_inserted_first": "ui->displayLayout->insertRow(0, ui->langComboLabel, ui->langComboBox)" in cpp,
         "fixed_width_constant": "SettingsDialogWidth = 600" in header and "setFixedWidth(SettingsDialogWidth)" in cpp,
-        "resize_disabled": "setSizeGripEnabled(false)" in cpp and "setFixedSize(SettingsDialogWidth, height())" in cpp,
+        "resize_disabled": "setSizeGripEnabled(false)" in cpp and "setFixedSize(SettingsDialogWidth, targetHeight)" in cpp,
         "natural_general_mouse_height": "ScrollBarAlwaysOff" in cpp and "content->sizeHint().height()" in cpp,
         "shortcut_rows_constant": "ShortcutsVisibleRows = 16" in header and "ShortcutsVisibleRows *" in cpp,
+        "auto_update_label_renamed": "<string>Auto update check:</string>" in ui and "Automatically check for updates:" not in ui,
+        "tab_size_transition": "QPropertyAnimation" in header and "settingsCategorySizeAnimation" in cpp and "SettingsCategoryTransitionDuration = 180" in header,
+        "transition_finalized_before_save": "finishCategoryTransition();" in cpp and "categoryTargetHeight" in cpp,
+        "general_focus_guard": "QTimer::singleShot(0, this" in cpp and "focused->clearFocus();" in cpp,
+        "localized_form_alignment": "alignFormLayouts(generalContent, labelColumnWidth);" in cpp and "alignFormLayouts(ui->mouseScrollArea->widget(), labelColumnWidth);" in cpp and "setMinimumWidth(labelColumnWidth)" in cpp and "QFormLayout::DontWrapRows" in cpp and "Qt::AlignLeft" in cpp,
     }
     return all(checks.values()), {"checks": checks, "removed_names": removed_names}
+
+
+def current_translation_sources(
+    repo: Path,
+    all_source_files: bool = False,
+) -> tuple[dict[str, set[str]], dict[str, Any]]:
+    """Extract the current English inventory without mutating the repo."""
+    with tempfile.TemporaryDirectory(prefix="fovelle-lupdate-") as temporary:
+        output = Path(temporary) / "current.ts"
+        input_files = ["src"] if all_source_files else [
+            "src/actionmanager.cpp",
+            "src/qvoptionsdialog.cpp",
+            "src/qvoptionsdialog.ui",
+        ]
+        extraction = run_command(
+            [
+                "lupdate",
+                *input_files,
+                "-locations",
+                "none",
+                "-ts",
+                str(output),
+            ],
+            repo,
+            timeout=45,
+        )
+        if not extraction["passed"] or not output.is_file():
+            return {}, compact_execution(extraction)
+        try:
+            root = ET.parse(output).getroot()
+            inventory = {
+                context.findtext("name"): {
+                    message.findtext("source") or ""
+                    for message in context.findall("message")
+                    if message.findtext("source")
+                }
+                for context in root.findall("context")
+            }
+            return inventory, compact_execution(extraction)
+        except ET.ParseError as error:
+            return {}, {"passed": False, "reason": f"lupdate output parse failed: {error}"}
+
+
+def static_translation_scope_contract(repo: Path, sources: dict[str, str]) -> tuple[bool, dict[str, Any]]:
+    inventory, extraction = current_translation_sources(repo)
+    observations: dict[str, Any] = {"lupdate": extraction, "inventory_counts": {key: len(value) for key, value in inventory.items()}}
+    all_ok = bool(inventory)
+
+    for catalog_name in sorted(ALLOWED_CATALOGS):
+        path = repo / "i18n" / catalog_name
+        catalog_observation: dict[str, Any] = {"contexts": {}, "exact": {}}
+        try:
+            root = ET.parse(path).getroot()
+            context_messages: dict[str, dict[str, list[tuple[str, str | None]]]] = {}
+            for context in root.findall("context"):
+                name = context.findtext("name") or ""
+                messages: dict[str, list[tuple[str, str | None]]] = {}
+                for message in context.findall("message"):
+                    source = message.findtext("source") or ""
+                    translation = message.find("translation")
+                    value = "".join(translation.itertext()).strip() if translation is not None else ""
+                    message_type = translation.get("type") if translation is not None else None
+                    messages.setdefault(source, []).append((value, message_type))
+                context_messages[name] = messages
+
+            for context_name, source_set in inventory.items():
+                missing: list[str] = []
+                for source in sorted(source_set):
+                    candidates = context_messages.get(context_name, {}).get(source, [])
+                    completed = [value for value, message_type in candidates if value and message_type != "unfinished"]
+                    if not completed:
+                        missing.append(source)
+                catalog_observation["contexts"][context_name] = {
+                    "source_count": len(source_set),
+                    "missing_or_unfinished": missing,
+                    "passed": not missing,
+                }
+
+            # Fovelle is the application-menu brand supplied by macOS rather
+            # than a tr() call, so it is audited as an explicit identity entry.
+            for source, expected in TRANSLATION_EXPECTATIONS[catalog_name].items():
+                candidates = [
+                    (value, message_type)
+                    for messages in context_messages.values()
+                    for value, message_type in messages.get(source, [])
+                    if value and message_type != "unfinished"
+                ]
+                actual = candidates[-1][0] if candidates else None
+                catalog_observation["exact"][source] = {
+                    "expected": expected,
+                    "actual": actual,
+                    "passed": actual == expected,
+                }
+            catalog_ok = all(
+                item.get("passed", False)
+                for group in catalog_observation["contexts"].values()
+                for item in [group]
+            ) and all(item["passed"] for item in catalog_observation["exact"].values())
+            catalog_observation["passed"] = catalog_ok
+            all_ok = all_ok and catalog_ok
+        except (ET.ParseError, OSError) as error:
+            catalog_observation["passed"] = False
+            catalog_observation["error"] = str(error)
+            all_ok = False
+        observations[catalog_name] = catalog_observation
+
+    return all_ok, observations
+
+
+def static_full_translation_catalog_contract(repo: Path, sources: dict[str, str]) -> tuple[bool, dict[str, Any]]:
+    inventory, extraction = current_translation_sources(repo, all_source_files=True)
+    observations: dict[str, Any] = {
+        "lupdate": extraction,
+        "inventory_counts": {key: len(value) for key, value in inventory.items()},
+        "catalogs": {},
+    }
+    all_ok = bool(inventory)
+
+    for catalog_name in sorted(ALLOWED_CATALOGS):
+        path = repo / "i18n" / catalog_name
+        catalog_observation: dict[str, Any] = {"contexts": {}}
+        try:
+            root = ET.parse(path).getroot()
+            context_messages: dict[str, dict[str, list[tuple[str, str | None]]]] = {}
+            for context in root.findall("context"):
+                context_name = context.findtext("name") or ""
+                messages: dict[str, list[tuple[str, str | None]]] = {}
+                for message in context.findall("message"):
+                    source = message.findtext("source") or ""
+                    translation = message.find("translation")
+                    value = "" if translation is None else "".join(translation.itertext()).strip()
+                    message_type = translation.get("type") if translation is not None else None
+                    messages.setdefault(source, []).append((value, message_type))
+                context_messages[context_name] = messages
+
+            catalog_ok = True
+            for context_name, source_set in sorted(inventory.items()):
+                missing = []
+                for source in sorted(source_set):
+                    candidates = context_messages.get(context_name, {}).get(source, [])
+                    completed = [value for value, message_type in candidates if value and message_type != "unfinished"]
+                    if not completed:
+                        missing.append(source)
+                context_passed = not missing
+                catalog_observation["contexts"][context_name] = {
+                    "source_count": len(source_set),
+                    "missing_or_unfinished": missing,
+                    "passed": context_passed,
+                }
+                catalog_ok = catalog_ok and context_passed
+            catalog_observation["passed"] = catalog_ok
+            all_ok = all_ok and catalog_ok
+        except (ET.ParseError, OSError) as error:
+            catalog_observation["passed"] = False
+            catalog_observation["error"] = str(error)
+            all_ok = False
+        observations["catalogs"][catalog_name] = catalog_observation
+
+    return all_ok, observations
 
 
 def static_language_catalog_contract(repo: Path, sources: dict[str, str]) -> tuple[bool, dict[str, Any]]:
@@ -571,7 +918,11 @@ def static_test_code_contract(repo: Path, sources: dict[str, str]) -> tuple[bool
     markers = [
         "testSettingsGeneralLanguageAndRemovedOptions",
         "testSettingsLanguageCatalogIsFixed",
+        "testAutoUpdateCheckLabelIsRenamed",
         "testSettingsDialogUsesFixedWidthAndTabHeights",
+        "testSettingsTabTransitionAndMouseReopen",
+        "testSettingsTabSwitchDoesNotFocusAppearance",
+        "testLocalizedSettingsFormsUseSharedLabelColumns",
         "testNavigationArtworkStylesAreSingleCompositedButtons",
         "testNavigationButtonUsesTransparentPaintOnlyFade",
     ]
@@ -604,6 +955,10 @@ def run_static(repo: Path) -> dict[str, dict[str, Any]]:
         "LANG-001": static_language_catalog_contract,
         "LANG-003": static_language_catalog_contract,
         "LANG-004": static_language_catalog_contract,
+        "LANG-005": static_translation_scope_contract,
+        "LANG-006": static_translation_scope_contract,
+        "LANG-007": static_translation_scope_contract,
+        "LANG-008": static_full_translation_catalog_contract,
         "UNIT-001": static_test_code_contract,
     }
     results: dict[str, dict[str, Any]] = {}

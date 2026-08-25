@@ -4,6 +4,10 @@
 <context>
     <name>ActionManager</name>
     <message>
+        <source>Fovelle</source>
+        <translation>Fovelle</translation>
+    </message>
+    <message>
         <source>Window</source>
         <translation>窗口</translation>
     </message>
@@ -326,6 +330,14 @@
         <extracomment>Open with other program for macos</extracomment>
         <translation>其他...</translation>
     </message>
+    <message>
+        <source>Project Homepage</source>
+        <translation>项目主页</translation>
+    </message>
+    <message>
+        <source>Check for Updates</source>
+        <translation>检查更新</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -452,6 +464,14 @@ No write permission or file is read-only.</source>
         <source>Start S&amp;lideshow</source>
         <translation>开始幻灯播放</translation>
     </message>
+    <message>
+        <source>Previous File</source>
+        <translation>上一个文件</translation>
+    </message>
+    <message>
+        <source>Next File</source>
+        <translation>下一个文件</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -508,6 +528,14 @@ No write permission or file is read-only.</source>
     <message>
         <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
         <translation>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a style=&quot;color: #03A9F4; text-decoration:none;&quot; href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</translation>
+    </message>
+    <message>
+        <source>version %1</source>
+        <translation>版本 %1</translation>
+    </message>
+    <message>
+        <source>Based on qView&lt;br&gt;Copyright © 2018–2025 jurplel and qView contributors&lt;br&gt;Fovelle modifications © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; contributors&lt;br&gt;Includes portions of commits from &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; by jdpurcell&lt;br&gt;&lt;br&gt;Licensed under GPLv3</source>
+        <translation>基于 qView&lt;br&gt;版权所有 © 2018–2025 jurplel 和 qView 贡献者&lt;br&gt;Fovelle 修改 © 2026 &lt;a href=&quot;https://github.com/inostarlin-passion/Fovelle&quot;&gt;Fovelle&lt;/a&gt; 贡献者&lt;br&gt;包含 jdpurcell 对 &lt;a href=&quot;https://github.com/jdpurcell/qView&quot;&gt;jdpurcell/qView&lt;/a&gt; 提交的部分内容&lt;br&gt;&lt;br&gt;基于 GPLv3 授权</translation>
     </message>
 </context>
 <context>
@@ -1244,6 +1272,64 @@ No write permission or file is read-only.</source>
         <source>Navigate</source>
         <translation>导航</translation>
     </message>
+    <message>
+        <source>Appearance:</source>
+        <translation>外观：</translation>
+    </message>
+    <message>
+        <source>Show images smaller than the display area at their original 1:1 size</source>
+        <translation>以原始 1:1 大小显示小于显示区域的图像</translation>
+    </message>
+    <message>
+        <source>Show small images at 1:1</source>
+        <translation>以 1:1 显示小图像</translation>
+    </message>
+    <message>
+        <source>Auto update check:</source>
+        <translation>自动检查更新：</translation>
+    </message>
+    <message>
+        <source>Associate all supported formats</source>
+        <translation>关联所有支持的格式</translation>
+    </message>
+    <message>
+        <source>Associated %1 supported formats with Fovelle.</source>
+        <translation>已将 %1 种支持的格式与 Fovelle 关联。</translation>
+    </message>
+    <message>
+        <source>
+Unable to associate: %1.</source>
+        <translation>
+无法关联：%1。</translation>
+    </message>
+    <message>
+        <source>File Associations</source>
+        <translation>文件关联</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>浅色</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>深色</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>系统</translation>
+    </message>
+    <message>
+        <source>Daily</source>
+        <translation>每天</translation>
+    </message>
+    <message>
+        <source>Weekly</source>
+        <translation>每周</translation>
+    </message>
+    <message>
+        <source>Monthly</source>
+        <translation>每月</translation>
+    </message>
 </context>
 <context>
     <name>QVRenameDialog</name>
@@ -1552,6 +1638,12 @@ No write permission or file is read-only.</source>
 You can reenable them in the options dialog.</source>
         <translation>已禁用更新通知.
 你可以在选项中重新启用它们.</translation>
+    </message>
+    <message>
+        <source>Automatic update checking has been disabled.
+You can reenable it in Preferences.</source>
+        <translation>自动检查更新已禁用。
+你可以在“偏好设置”中重新启用。</translation>
     </message>
 </context>
 </TS>
