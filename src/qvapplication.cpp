@@ -308,18 +308,26 @@ void QVApplication::openOptionsDialog(QWidget *parent)
 
     if (optionsDialog)
     {
-        centerDialog();
+        if (!optionsDialog->isVisible())
+        {
+            optionsDialog->prepareForDisplay();
+            centerDialog();
+            optionsDialog->show();
+        }
         optionsDialog->raise();
         optionsDialog->activateWindow();
-        QTimer::singleShot(0, this, centerDialog);
         return;
     }
 
     // Keep the Preferences window independent so Cocoa can provide its native
-    // toolbar, but explicitly position its frame relative to the main window.
+    // toolbar. Create the hidden native peer and attach that toolbar before
+    // positioning, then order the already-centered frame front exactly once.
     optionsDialog = new QVOptionsDialog(nullptr);
+    optionsDialog->prepareForDisplay();
+    centerDialog();
     optionsDialog->show();
-    QTimer::singleShot(0, this, centerDialog);
+    optionsDialog->raise();
+    optionsDialog->activateWindow();
 }
 
 void QVApplication::openAboutDialog(QWidget *parent)

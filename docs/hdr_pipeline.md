@@ -38,7 +38,7 @@ HDR 主图从解码到显示保持为 Core Image 高精度图。首个可见 HDR
 
 根因推断：透明 Qt backing store 与 EDR sibling 跨 surface 合成时，透明角没有直接解析到 HDR drawable；这是“在 HDR 像素上显色、在视口背景或 SDR 图上正常”的最佳因果解释。WindowServer 的私有混合公式没有公开，因此内部运算仍属不确定项。
 
-修复：HDR 模式隐藏 Qt 按钮，圆角底和 chevron 改为 native view layer tree 内的两个 `CAShapeLayer`，仅 shape path 有像素；overlay 是 Metal/persistent image 的固定 sibling，因此主图平移时控件不移动。frame、颜色、hover、press 与 opacity 均关闭隐式动画后同步。Qt 的左上原点 Y 坐标在写入 Core Animation 子层 frame 前显式转换为底部原点，保证 native artwork 与不可见 Qt 命中区重合。鼠标命中仍由 Qt event filter 处理。此前 HDR 同步函数在目标可见性变为 false 的同一刻把 native opacity 强制为 0，截断了 `QPropertyAnimation` 的 1→0 中间值；现在 native layer 始终读取实时 `paintOpacity`，因此出现和消失都复用与 SDR 相同的 180 ms 曲线。SDR 模式继续使用原 `QWidget`。
+修复：HDR 模式隐藏 Qt 按钮，圆角底和 chevron 改为 native view layer tree 内的两个 `CAShapeLayer`，仅 shape path 有像素；overlay 是 Metal/persistent image 的固定 sibling，因此主图平移时控件不移动。两个 shape 先进入启用 `allowsGroupOpacity` 的单一按钮父层，子层固定为 opacity=1，再只动画父层，避免半透明底板与不透明 chevron 在重叠区分别累积 alpha。frame、颜色、hover、press 与 opacity 均关闭隐式动画后同步。Qt 的左上原点 Y 坐标在写入 Core Animation 子层 frame 前显式转换为底部原点，保证 native artwork 与不可见 Qt 命中区重合。鼠标命中仍由 Qt event filter 处理。此前 HDR 同步函数在目标可见性变为 false 的同一刻把 native opacity 强制为 0，截断了 `QPropertyAnimation` 的 1→0 中间值；现在 native layer 始终读取实时 `paintOpacity`，因此出现和消失都复用与 SDR 相同的 180 ms 曲线。SDR 模式不再逐笔设置透明度，而是先在透明 ARGB 图像中以完整强度合成底板和 chevron，再把 `paintOpacity` 一次性应用于合成结果；两条路径由同一“先组合、后淡化”合同约束。
 
 ### 3. DNG 有 HDR 但细节低于 Quick Look
 

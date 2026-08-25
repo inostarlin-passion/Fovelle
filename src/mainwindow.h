@@ -288,8 +288,6 @@ private:
     bool isClosing {false};
     QElapsedTimer lastActivated;
 
-    Qt::WindowStates storedWindowState {Qt::WindowNoState};
-    QRect storedWindowGeometry;
     bool storedTitlebarHidden {false};
 
     QNetworkAccessManager networkAccessManager;

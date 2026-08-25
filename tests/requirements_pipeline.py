@@ -64,20 +64,27 @@ RESEARCH_TRACE = [
     },
     {
         "hop": 6,
-        "dimension": "Qt fullscreen state transition",
-        "source": "https://doc.qt.io/qt-6/qwindow.html",
-        "finding": "QWindow exposes showFullScreen(), showNormal(), showMaximized(), and setWindowState() for explicit window-state transitions.",
-        "assumption": "The macOS asynchronous transition requires restoring saved normal geometry after the WindowStateChange event.",
+        "dimension": "Core Animation grouped fade",
+        "source": "https://developer.apple.com/documentation/quartzcore/calayer/allowsgroupopacity",
+        "finding": "CALayer allowsGroupOpacity composites a layer's children as a group when the parent opacity is below one.",
+        "assumption": "The rounded bottom and chevron must be flattened before their shared animation opacity is applied.",
     },
     {
         "hop": 7,
-        "dimension": "top-level window centering",
-        "source": "https://doc.qt.io/QT-6/application-windows.html",
-        "finding": "Top-level frameGeometry() includes the native frame and positioning should be performed after the platform window is created.",
-        "assumption": "A deferred frame-center operation is the deterministic cross-layer boundary for the Cocoa Preferences window.",
+        "dimension": "AppKit fullscreen state transition",
+        "source": "https://developer.apple.com/documentation/appkit/nswindow/togglefullscreen(_:)",
+        "finding": "Apple directs a View-menu fullscreen item to the native toggleFullScreen action; AppKit separately publishes did-exit completion.",
+        "assumption": "View and Escape must share the native action and Qt must observe completion instead of publishing a requested state early.",
     },
     {
         "hop": 8,
+        "dimension": "top-level window centering",
+        "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+        "finding": "Qt documents resize/move before show as the direct window-positioning sequence.",
+        "assumption": "The hidden Cocoa peer and toolbar must exist before calculating the final frame center, but show must remain last.",
+    },
+    {
+        "hop": 9,
         "dimension": "AppKit menu item image behavior",
         "source": "https://developer.apple.com/documentation/appkit/nsmenuitem/image",
         "finding": "AppKit menu items have an image slot that is rendered beside menu item titles.",
@@ -219,7 +226,7 @@ def c(identifier: str, criterion: str, layer: str, test_code: str, **kwargs: str
 CASES = [
     c("ST-NAV-SINGLE-OPACITY", "原生 HDR 悬浮按钮由单一父图层统一控制透明度。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-NAV-CHILD-OPAQUE", "原生按钮矩形与中心符号不会各自独立淡出。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("UT-NAV-PAINT-FADE", "非 HDR 路径只淡出按钮绘制像素，不产生矩形 opacity effect。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade"),
+    c("UT-NAV-PAINT-FADE", "非 HDR 路径先合成底板与符号，再对全部绘制像素施加同一透明度。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade"),
     c("UT-NAV-BOTH-SIDES", "左右按钮使用同一动画时长和同一显隐状态机。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationButtonsFadeTransition"),
     c("ST-VIEW-LEGACY-ACTIONS", "View 菜单移除 Navigation Resets Zoom 和 Match Image Size。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-FULLSCREEN-ENTER-ICON", "View → Enter Full Screen 在主菜单图标关闭时不显示左侧符号。", "static", "tests/requirements_pipeline.py::static_contracts"),
@@ -227,7 +234,7 @@ CASES = [
     c("ST-FULLSCREEN-EXIT-SHARED", "View → Exit Full Screen 与 Esc 复用同一退出全屏逻辑。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-VIEW-LEGACY-ACTIONS", "实际 View 菜单对象树不包含两个已移除动作。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testViewMenuRemovesLegacyActions"),
     c("UT-FULLSCREEN-MENU-ICONS", "全屏进入和退出后主 View 菜单动作均保持无图标。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy"),
-    c("UT-FULLSCREEN-EXIT-SHARED", "直接触发 View → Exit Full Screen 后窗口按 Esc 路径离开全屏并恢复普通几何。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath"),
+    c("UT-FULLSCREEN-EXIT-SHARED", "View → Exit Full Screen 通过 AppKit 异步边界退出，Qt 状态不提前发布且恢复几何稳定。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath"),
     c("ST-WINDOW-CONTROLS-REMOVED", "Window 页移除匹配图像大小、匹配后行为、最小尺寸和最大尺寸。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-WINDOW-MAXIMIZE-PATH", "应用创建窗口时调用 showMaximized。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-WINDOW-MAXIMIZED", "每次打开的新窗口实际处于最大化状态。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNewWindowStartsMaximized"),
@@ -272,8 +279,8 @@ CASES = [
     c("UT-ASSOCIATE-DIALOG-THEME", "Light/Dark 原生弹窗适配器可实际应用。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNativeDialogsFollowSelectedTheme"),
     c("ST-DISPLAY-MERGED", "设置页只保留 Display、Miscellaneous、Shortcuts、Mouse 四个分类。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-DISPLAY-MERGED", "实际设置原生工具栏首项为 Display 且不再有 Window/Image。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence"),
-    c("ST-SETTINGS-CENTER", "打开设置页时通过主窗口 frameGeometry 中心定位。", "static", "tests/requirements_pipeline.py::static_contracts"),
-    c("UT-SETTINGS-CENTER", "设置页实际显示后相对主窗口 frameGeometry 居中。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testOptionsDialogCentersOnMainWindow"),
+    c("ST-SETTINGS-CENTER", "设置页原生窗口在隐藏状态完成配置和居中后才显示。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-SETTINGS-CENTER", "设置页首个可见 frame 已居中且显示后不再收到 Move。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testOptionsDialogCentersOnMainWindow"),
     c("ST-TITLEBAR-PERSIST", "Hide Titlebar 使用 options/titlebarhidden 持久化并在新窗口 showEvent 读取。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-TITLEBAR-PERSIST", "当前窗口隐藏标题栏后，新建窗口继承隐藏状态。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow"),
     c("ST-FORMATS-REMOVED", "Preferences 分类和原生设置 toolbar 中移除 Formats。", "static", "tests/requirements_pipeline.py::static_contracts"),
@@ -425,7 +432,9 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     fullscreen_exit_shared = (
         "void MainWindow::exitFullScreen()" in mainwindow
         and mainwindow.count("exitFullScreen();") >= 2
-        and "if (windowState().testFlag(Qt::WindowFullScreen))" in mainwindow
+        and "QVCocoaFunctions::requestFullScreenExit(windowHandle())" in mainwindow
+        and "[nativeWindow toggleFullScreen:nil]" in cocoa
+        and "setWindowState(storedWindowState)" not in mainwindow
     )
     appearance_ok = 'name="appearanceLabel"' in options_ui and 'Appearance:' in options_ui
     display_ok = (
@@ -435,7 +444,15 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         and 'name="imageScrollArea"' not in options_ui
         and '"io.github.inostarlin-passion.Fovelle.settings.display"' in cocoa
     )
-    dialog_center_ok = "frameGeometry().center()" in application and "QTimer::singleShot(0, this, centerDialog)" in application
+    dialog_center_ok = (
+        "optionsDialog->prepareForDisplay();" in application
+        and application.find("optionsDialog->prepareForDisplay();")
+            < application.find("centerDialog();", application.find("optionsDialog = new QVOptionsDialog"))
+            < application.find("optionsDialog->show();", application.find("optionsDialog = new QVOptionsDialog"))
+        and "QTimer::singleShot(0, this, centerDialog)" not in application
+        and "(void)winId();" in options_cpp
+        and "configureSettingsToolbar(windowHandle(), ui->categoryTabs)" in options_cpp
+    )
     titlebar_persist_ok = all(
         marker in mainwindow
         for marker in (
@@ -449,6 +466,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         marker in cocoa
         for marker in (
             "navigationButtonLayers[index] = [CALayer layer]",
+            "navigationButtonLayers[index].allowsGroupOpacity = YES",
             "[navigationButtonLayers[index] addSublayer:navigationBackgroundLayers[index]]",
             "[navigationButtonLayers[index] addSublayer:navigationChevronLayers[index]]",
             "buttonLayer.opacity = boundedOpacity",
@@ -528,7 +546,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     formats_ok = category_ok and display_ok and "formatsTable" not in options_ui + options_cpp + options_header and "puzzlepiece.extension" not in cocoa and len(set(toolbar_items)) == 4
     result["ST-DISPLAY-MERGED"] = check(display_ok and category_ok, {"display_contract": display_ok, "categories": category_ok})
     result["ST-FORMATS-REMOVED"] = check(formats_ok, {"categories": category_ok, "formats_table_absent": "formatsTable" not in options_ui + options_cpp + options_header, "native_toolbar_items": sorted(set(toolbar_items))})
-    result["ST-SETTINGS-CENTER"] = check(dialog_center_ok, {"deferred_frame_center": dialog_center_ok})
+    result["ST-SETTINGS-CENTER"] = check(dialog_center_ok, {"hidden_frame_center": dialog_center_ok})
     result["ST-TITLEBAR-PERSIST"] = check(titlebar_persist_ok, {"persistent_key_and_restore": titlebar_persist_ok})
     result["ST-MIGRATION-OBSOLETE"] = check(migration_ok, {"migration_contract": migration_ok})
     result["ST-TEST-SCHEMA"] = check(specification_valid, {"specification_valid": specification_valid, "case_count": len(CASES)})
@@ -744,8 +762,8 @@ def run_pipeline(repo: Path, build_dir: Path, skip_build: bool) -> int:
             "The execution order is static, unit, integration, system.",
             "The association bridge has a dry-run unit path; the system stage never changes Launch Services.",
             "The system stage launches the actual Fovelle.app and observes the maximized window through a bounded probe.",
-            "Both Enter Full Screen and Exit Full Screen reapply the main-menu icon policy; Escape and the View exit action call the same exitFullScreen path.",
-            "The Display settings page is centered relative to the invoking main-window frame, and titlebarhidden is read by every new window.",
+            "Escape and the View exit action share one AppKit-backed exitFullScreen path and wait for the native asynchronous completion boundary.",
+            "The Display settings page creates and centers its hidden native frame before its first visible presentation.",
         ],
         "uncertainties": [
             "The native HDR compositor observation is host-specific to macOS/CALayer.",
@@ -772,7 +790,7 @@ def run_pipeline(repo: Path, build_dir: Path, skip_build: bool) -> int:
             "The association prompt uses NativeDialogs, which applies the selected Light/Dark Cocoa appearance.",
             "The frequency policy is a pure timestamp function and the association bridge exposes dry-run mode.",
             "Fullscreen action clones clear their icon when main-menu icons are disabled, for both Enter and Exit labels.",
-            "Fullscreen exit restores saved normal geometry after macOS completes the asynchronous state transition.",
+            "Fullscreen exit uses AppKit's native asynchronous action; Qt Cocoa publishes the final state and preserves the native restored geometry.",
             "Preferences uses four native toolbar categories and centers both the dialog frame and the association button's visible content row.",
             "Hide Titlebar persists options/titlebarhidden and applies it during each new MainWindow show event.",
         ],

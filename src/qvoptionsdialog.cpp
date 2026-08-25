@@ -86,12 +86,31 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     syncSettings(false, true);
     syncShortcuts();
 
+    connect(qvApp, &QVApplication::windowOnTopChanged, this, [this]() {
+        if (windowHandle())
+            windowHandle()->setFlag(Qt::WindowStaysOnTopHint,
+                                    qvApp->foundOnTopWindow());
+    });
+
     isInitialLoad = false;
 }
 
 QVOptionsDialog::~QVOptionsDialog()
 {
     delete ui;
+}
+
+void QVOptionsDialog::prepareForDisplay()
+{
+    ensurePolished();
+    // QWidget::winId() creates the native NSWindow without ordering it front.
+    // The toolbar therefore contributes to frameGeometry before centering.
+    (void)winId();
+    if (windowHandle())
+        windowHandle()->setFlag(Qt::WindowStaysOnTopHint,
+                                qvApp->foundOnTopWindow());
+    NativeDialogs::applyTheme(this);
+    QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
 }
 
 void QVOptionsDialog::done(int r)
@@ -106,16 +125,10 @@ void QVOptionsDialog::done(int r)
 
 void QVOptionsDialog::showEvent(QShowEvent *event)
 {
-    // On macOS, we don't make this dialog modal, so make sure it doesn't get covered by on top windows
-    const auto updateWindowOnTop = [this]() {
-        if (windowHandle())
-            windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
-    };
-    updateWindowOnTop();
-    connect(qvApp, &QVApplication::windowOnTopChanged, this, updateWindowOnTop);
+    // Direct callers still receive the native toolbar and application theme;
+    // QVApplication invokes this before positioning to prevent visible moves.
+    prepareForDisplay();
     QDialog::showEvent(event);
-    NativeDialogs::applyTheme(this);
-    QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
 }
 
 void QVOptionsDialog::changeEvent(QEvent *event)

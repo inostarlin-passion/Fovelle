@@ -42,6 +42,8 @@
 #import <objc/runtime.h>
 
 static constexpr char SettingsToolbarAssociationKey = 0;
+static constexpr char FullScreenTransitionCompleteAssociationKey = 0;
+static constexpr char FullScreenExitPendingAssociationKey = 0;
 
 @interface FovelleSettingsToolbarController : NSObject<NSToolbarDelegate>
 {
@@ -1294,6 +1296,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         navigationOverlayLayer.zPosition = 1000.0;
         for (int index = 0; index < 2; ++index) {
             navigationButtonLayers[index] = [CALayer layer];
+            // Flatten the translucent bottom and opaque chevron before the
+            // container opacity is applied. Without group opacity, Core
+            // Animation applies opacity to overlapping children separately.
+            navigationButtonLayers[index].allowsGroupOpacity = YES;
             navigationButtonLayers[index].hidden = YES;
             navigationBackgroundLayers[index] = [CAShapeLayer layer];
             navigationBackgroundLayers[index].hidden = YES;
@@ -3129,6 +3135,66 @@ void QVCocoaFunctions::showMenu(QMenu *menu)
 void QVCocoaFunctions::setUserDefaults()
 {
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"NSFullScreenMenuItemEverywhere"];
+
+    // QWindow publishes its requested FullScreen state before AppKit finishes
+    // the Space transition. Track the native completion boundary so an Escape
+    // or View command issued during entry can be delivered exactly once after
+    // the NSWindow becomes actionable.
+    static dispatch_once_t fullScreenObserversOnce;
+    dispatch_once(&fullScreenObserversOnce, ^{
+        NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+        [center addObserverForName:NSWindowWillEnterFullScreenNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *notification) {
+            NSWindow *window = notification.object;
+            objc_setAssociatedObject(
+                window, &FullScreenTransitionCompleteAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }];
+        [center addObserverForName:NSWindowDidEnterFullScreenNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *notification) {
+            NSWindow *window = notification.object;
+            objc_setAssociatedObject(
+                window, &FullScreenTransitionCompleteAssociationKey,
+                @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            NSNumber *pending = objc_getAssociatedObject(
+                window, &FullScreenExitPendingAssociationKey);
+            if (!pending.boolValue)
+                return;
+
+            objc_setAssociatedObject(
+                window, &FullScreenExitPendingAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (window.styleMask & NSWindowStyleMaskFullScreen)
+                    [window toggleFullScreen:nil];
+            });
+        }];
+        [center addObserverForName:NSWindowWillExitFullScreenNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *notification) {
+            NSWindow *window = notification.object;
+            objc_setAssociatedObject(
+                window, &FullScreenTransitionCompleteAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }];
+        [center addObserverForName:NSWindowDidExitFullScreenNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *notification) {
+            NSWindow *window = notification.object;
+            objc_setAssociatedObject(
+                window, &FullScreenTransitionCompleteAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(
+                window, &FullScreenExitPendingAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }];
+    });
 }
 
 void QVCocoaFunctions::registerWillPowerOffObserver()
@@ -3141,6 +3207,45 @@ void QVCocoaFunctions::registerWillPowerOffObserver()
             if (qvApp)
                 qvApp->onSystemInitiatedQuit();
         }];
+}
+
+bool QVCocoaFunctions::requestFullScreenExit(QWindow *window)
+{
+    if (!window)
+        return false;
+
+    auto *view = reinterpret_cast<NSView *>(window->winId());
+    NSWindow *nativeWindow = view.window;
+    if (!nativeWindow)
+        return false;
+
+    const bool nativeFullScreen =
+        nativeWindow.styleMask & NSWindowStyleMaskFullScreen;
+    if (!nativeFullScreen && window->windowState() != Qt::WindowFullScreen)
+        return false;
+
+    NSNumber *transitionComplete = objc_getAssociatedObject(
+        nativeWindow, &FullScreenTransitionCompleteAssociationKey);
+    if (!transitionComplete && nativeFullScreen)
+    {
+        // Compatibility fallback for a native full-screen window created
+        // before observer installation.
+        [nativeWindow toggleFullScreen:nil];
+        return true;
+    }
+    if (!transitionComplete.boolValue)
+    {
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenExitPendingAssociationKey,
+            @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        return true;
+    }
+
+    // This is the same AppKit action used by Escape and by a native View →
+    // Exit Full Screen menu item. QCocoaWindow observes the asynchronous
+    // completion notification and publishes the final Qt state itself.
+    [nativeWindow toggleFullScreen:nil];
+    return true;
 }
 
 // This function should only be enabled once because it sets observers

@@ -25,6 +25,10 @@ public:
     explicit QVOptionsDialog(QWidget *parent = nullptr);
     ~QVOptionsDialog() override;
 
+    // Create and finish configuring the hidden native Settings window so its
+    // final frame can be positioned before the first visible presentation.
+    void prepareForDisplay();
+
 protected:
     void done(int r) override;
 

@@ -280,6 +280,77 @@ private:
     QVector<qint64> areas;
 };
 
+class OptionsDialogPresentationRecorder : public QObject
+{
+public:
+    bool wasShown() const { return shown; }
+    QRect firstShownFrame() const { return shownFrame; }
+    int moveEventsAfterShow() const { return movesAfterShow; }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        auto *dialog = qobject_cast<QVOptionsDialog *>(watched);
+        if (!dialog)
+            return false;
+
+        if (event->type() == QEvent::Show && !shown)
+        {
+            shown = true;
+            shownFrame = dialog->frameGeometry();
+        }
+        else if (event->type() == QEvent::Move && shown)
+        {
+            ++movesAfterShow;
+        }
+        return false;
+    }
+
+private:
+    bool shown {false};
+    QRect shownFrame;
+    int movesAfterShow {0};
+};
+
+class FullScreenExitGeometryRecorder : public QObject
+{
+public:
+    int geometryEventsAfterExit() const { return postExitGeometryEvents; }
+
+    void reset()
+    {
+        exitObserved = false;
+        postExitGeometryEvents = 0;
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        auto *window = qobject_cast<MainWindow *>(watched);
+        if (!window)
+            return false;
+
+        if (event->type() == QEvent::WindowStateChange)
+        {
+            const auto *stateEvent = static_cast<QWindowStateChangeEvent *>(event);
+            if (stateEvent->oldState().testFlag(Qt::WindowFullScreen)
+                && !window->windowState().testFlag(Qt::WindowFullScreen))
+                exitObserved = true;
+        }
+        else if (exitObserved
+                 && (event->type() == QEvent::Move
+                     || event->type() == QEvent::Resize))
+        {
+            ++postExitGeometryEvents;
+        }
+        return false;
+    }
+
+private:
+    bool exitObserved {false};
+    int postExitGeometryEvents {0};
+};
+
 static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color, const QSize size = QSize(32, 32))
 {
     const QString path = dir.filePath(name + ".png");
@@ -4620,7 +4691,7 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
     }
     QVERIFY(escapeShortcut);
     QVERIFY(QMetaObject::invokeMethod(escapeShortcut, "activated", Qt::DirectConnection));
-    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4832,7 +4903,7 @@ void WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()
     QVERIFY(fullscreenAction->icon().isNull());
 
     window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
     fullscreenAction = findMainFullscreenAction();
     QVERIFY(fullscreenAction);
     QVERIFY(fullscreenAction->text().contains(QStringLiteral("Enter")));
@@ -4848,10 +4919,10 @@ void WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()
 // Preconditions: a visible normal MainWindow with a stable normal geometry.
 // Input data: the production Full Screen QAction clone while the window is in
 // full screen.
-// Steps: enter full screen, dispatch the Exit action directly, and wait for
-// the native transition to finish.
-// Expected result: the window leaves full screen and returns to its original
-// normal geometry without a second state request.
+// Steps: enter full screen, dispatch the Exit action directly, inspect the
+// immediate Qt state, and wait for the native transition to finish.
+// Expected result: the Qt state stays full screen until AppKit reports native
+// completion; the restored geometry is then stable without a second write.
 // Postcondition: the test window is closed and the quit policy is restored.
 void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
 {
@@ -4869,7 +4940,14 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
     settings.sync();
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    // Let the deferred full-size-content-view setup establish the steady
+    // decorated/client geometry before capturing the pre-full-screen frame.
+    QTest::qWait(250);
+    window.setGeometry(QRect(220, 180, 720, 500));
+    QCoreApplication::processEvents();
     const QRect normalGeometry = window.geometry();
+    FullScreenExitGeometryRecorder geometryRecorder;
+    window.installEventFilter(&geometryRecorder);
 
     window.toggleFullScreen();
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
@@ -4886,9 +4964,32 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
     QVERIFY(exitAction);
     ActionManager::actionTriggered(exitAction, &window);
 
-    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
-    QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), normalGeometry, 3000);
+    // A native Escape exit does not publish the requested Qt state before the
+    // asynchronous AppKit transition has completed. The View action must use
+    // that same native boundary instead of calling QWidget::setWindowState().
+    QCOMPARE(window.windowHandle()->windowState(), Qt::WindowFullScreen);
 
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), normalGeometry, 3000);
+    const QRect settledGeometry = window.geometry();
+    QTest::qWait(250);
+    QCOMPARE(window.geometry(), settledGeometry);
+    QCOMPARE(geometryRecorder.geometryEventsAfterExit(), 0);
+
+    // Exercise the physical Escape binding as a second cycle. Both inputs
+    // must retain the native asynchronous state boundary and produce no
+    // post-exit resize/move.
+    geometryRecorder.reset();
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    QTest::keyClick(&window, Qt::Key_Escape);
+    QCOMPARE(window.windowHandle()->windowState(), Qt::WindowFullScreen);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), normalGeometry, 3000);
+    QTest::qWait(250);
+    QCOMPARE(geometryRecorder.geometryEventsAfterExit(), 0);
+
+    window.removeEventFilter(&geometryRecorder);
     window.close();
     if (originalTitlebarPreference.isValid())
         settings.setValue(QStringLiteral("options/titlebarhidden"), originalTitlebarPreference);
@@ -4901,15 +5002,25 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
 // TC-SETTINGS-CENTER
 // Test purpose: verify Preferences opens centered on the invoking main window.
 // Preconditions: a visible main window and no stale Preferences dialog.
-// Input data: explicit main-window geometry and QVApplication::openOptionsDialog.
-// Steps: open Preferences, wait for the native window frame, and compare the
-// frame centers.
-// Expected result: the Preferences and main-window frame centers match.
+// Input data: an off-center saved Preferences geometry, explicit main-window
+// geometry, and QVApplication::openOptionsDialog.
+// Steps: record the first Show frame and every later Move event while opening.
+// Expected result: the very first visible frame is centered and no post-show
+// move occurs.
 // Postcondition: Preferences and the test main window are closed.
 void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
 {
+    ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
+
+    // Reproduce the reported precondition: the previous Settings window was
+    // closed at a visibly different location.
+    QVOptionsDialog rememberedDialog;
+    rememberedDialog.setGeometry(QRect(40, 80, 650, 550));
+    QSettings settings;
+    settings.setValue(QStringLiteral("optionsgeometry"), rememberedDialog.saveGeometry());
+    settings.sync();
 
     MainWindow mainWindow;
     mainWindow.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -4918,6 +5029,8 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
     mainWindow.show();
     QTRY_VERIFY_WITH_TIMEOUT(mainWindow.isVisible(), 1000);
 
+    OptionsDialogPresentationRecorder presentationRecorder;
+    qvApp->installEventFilter(&presentationRecorder);
     qvApp->openOptionsDialog(&mainWindow);
     QVOptionsDialog *dialog = nullptr;
     const auto findVisibleOptionsDialog = []() -> QVOptionsDialog * {
@@ -4929,8 +5042,14 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
         return nullptr;
     };
     QTRY_VERIFY_WITH_TIMEOUT((dialog = findVisibleOptionsDialog()) != nullptr, 3000);
-    QTRY_COMPARE_WITH_TIMEOUT(dialog->frameGeometry().center(), mainWindow.frameGeometry().center(), 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(presentationRecorder.wasShown(), 1000);
+    QCOMPARE(presentationRecorder.firstShownFrame().center(),
+             mainWindow.frameGeometry().center());
+    QTest::qWait(250);
+    QCOMPARE(presentationRecorder.moveEventsAfterShow(), 0);
+    QCOMPARE(dialog->frameGeometry().center(), mainWindow.frameGeometry().center());
 
+    qvApp->removeEventFilter(&presentationRecorder);
     dialog->close();
     mainWindow.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -5531,11 +5650,12 @@ void WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()
 // Test purpose: verify navigation fades only its rounded/chevron pixels and
 // never allocates the rectangular QGraphicsOpacityEffect surface seen over HDR.
 // Preconditions: MainWindow has created both navigation buttons/animations.
-// Input data: both buttons at 50% paintOpacity rendered onto transparent ARGB.
-// Steps: inspect attributes/effects/animation targets and rendered corner alpha.
+// Input data: both buttons at full and 50% paintOpacity rendered onto transparent ARGB.
+// Steps: inspect attributes/effects/animation targets and compare every artwork
+// pixel between the full and half-opacity renderings.
 // Expected result: effects are null, transparent/no-system-background flags are
-// set, animations target paintOpacity, corners stay transparent, and artwork
-// contains partially opaque pixels.
+// set, animations target paintOpacity, corners stay transparent, and every
+// already-composited bottom/chevron pixel receives the same 50% multiplier.
 // Postcondition: temporary widgets/images are destroyed without settings writes.
 void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
 {
@@ -5557,22 +5677,47 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
         QVERIFY(button->testAttribute(Qt::WA_TranslucentBackground));
         QVERIFY(button->testAttribute(Qt::WA_NoSystemBackground));
         QVERIFY(!button->autoFillBackground());
-        button->setProperty("paintOpacity", 0.5);
-        QImage rendered(button->size(), QImage::Format_ARGB32_Premultiplied);
-        rendered.fill(Qt::transparent);
-        button->render(&rendered);
-        QCOMPARE(rendered.pixelColor(0, 0).alpha(), 0);
-        QCOMPARE(rendered.pixelColor(rendered.width() - 1, 0).alpha(), 0);
-        QCOMPARE(rendered.pixelColor(0, rendered.height() - 1).alpha(), 0);
-        QCOMPARE(rendered.pixelColor(rendered.width() - 1,
-                                     rendered.height() - 1).alpha(), 0);
-        int partialPixelCount = 0;
-        for (int y = 0; y < rendered.height(); ++y)
-            for (int x = 0; x < rendered.width(); ++x) {
-                const int alpha = rendered.pixelColor(x, y).alpha();
-                partialPixelCount += alpha > 0 && alpha < 255;
+        // The pressed highlight makes the translucent rounded bottom visible
+        // without depending on global cursor position.
+        button->setDown(true);
+        const auto renderAtOpacity = [button](const qreal opacity) {
+            button->setProperty("paintOpacity", opacity);
+            QImage rendered(button->size(), QImage::Format_ARGB32_Premultiplied);
+            rendered.fill(Qt::transparent);
+            button->render(&rendered);
+            return rendered;
+        };
+        const QImage full = renderAtOpacity(1.0);
+        const QImage half = renderAtOpacity(0.5);
+        QCOMPARE(half.pixelColor(0, 0).alpha(), 0);
+        QCOMPARE(half.pixelColor(half.width() - 1, 0).alpha(), 0);
+        QCOMPARE(half.pixelColor(0, half.height() - 1).alpha(), 0);
+        QCOMPARE(half.pixelColor(half.width() - 1,
+                                 half.height() - 1).alpha(), 0);
+
+        int artworkPixelCount = 0;
+        int translucentBottomPixelCount = 0;
+        int opaqueChevronPixelCount = 0;
+        for (int y = 0; y < full.height(); ++y)
+        {
+            for (int x = 0; x < full.width(); ++x)
+            {
+                const int fullAlpha = full.pixelColor(x, y).alpha();
+                const int halfAlpha = half.pixelColor(x, y).alpha();
+                if (fullAlpha == 0)
+                    continue;
+                ++artworkPixelCount;
+                translucentBottomPixelCount += fullAlpha > 20 && fullAlpha < 100;
+                opaqueChevronPixelCount += fullAlpha == 255;
+                QVERIFY2(qAbs(halfAlpha * 2 - fullAlpha) <= 3,
+                         qPrintable(QStringLiteral("pixel=(%1,%2) full=%3 half=%4")
+                             .arg(x).arg(y).arg(fullAlpha).arg(halfAlpha)));
             }
-        QVERIFY(partialPixelCount > 0);
+        }
+        QVERIFY(artworkPixelCount > 0);
+        QVERIFY(translucentBottomPixelCount > 0);
+        QVERIFY(opaqueChevronPixelCount > 0);
+        button->setDown(false);
     }
     QCOMPARE(previousAnimation->propertyName(), QByteArray("paintOpacity"));
     QCOMPARE(nextAnimation->propertyName(), QByteArray("paintOpacity"));

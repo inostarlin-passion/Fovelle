@@ -18,6 +18,7 @@
 #include <QDesktopServices>
 #include <QContextMenuEvent>
 #include <QImageWriter>
+#include <QImage>
 #include <QSettings>
 #include <QStyle>
 #include <QIcon>
@@ -82,16 +83,23 @@ protected:
     {
         Q_UNUSED(event);
 
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
         const qreal paintOpacity = qBound(0.0, property("paintOpacity").toReal(), 1.0);
         if (paintOpacity <= 0.001)
             return;
-        // Fade only pixels painted by this widget. QGraphicsOpacityEffect
-        // creates a rectangular offscreen source surface; over an EDR Metal
-        // sibling that surface can become visible before/after the rounded
-        // artwork. Keeping the widget backing transparent removes that seam.
-        painter.setOpacity(paintOpacity);
+
+        // Compose the translucent bottom and opaque chevron at full strength
+        // before applying the animated opacity once. Applying opacity to each
+        // primitive separately makes their overlap accumulate alpha and gives
+        // the two elements visibly different fade curves.
+        const qreal dpr = devicePixelRatioF();
+        QImage artwork(
+            QSize(qMax(1, qCeil(width() * dpr)),
+                  qMax(1, qCeil(height() * dpr))),
+            QImage::Format_ARGB32_Premultiplied);
+        artwork.setDevicePixelRatio(dpr);
+        artwork.fill(Qt::transparent);
+        QPainter artworkPainter(&artwork);
+        artworkPainter.setRenderHint(QPainter::Antialiasing);
 
         const bool isHovered = underMouse() || isDown();
         if (darkBackground)
@@ -99,15 +107,15 @@ protected:
             QColor background(128, 128, 128, isHovered ? 235 : 220);
             if (!isEnabled())
                 background.setAlpha(100);
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(background);
-            painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+            artworkPainter.setPen(Qt::NoPen);
+            artworkPainter.setBrush(background);
+            artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
         }
         else if (isHovered)
         {
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(QColor(255, 255, 255, 55));
-            painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+            artworkPainter.setPen(Qt::NoPen);
+            artworkPainter.setBrush(QColor(255, 255, 255, 55));
+            artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
         }
 
         QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
@@ -123,9 +131,16 @@ protected:
         chevron.lineTo(centerX - direction * 5.0, centerY + 12.0);
 
         QPen pen(foreground, 4.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-        painter.setPen(pen);
-        painter.setBrush(Qt::NoBrush);
-        painter.drawPath(chevron);
+        artworkPainter.setPen(pen);
+        artworkPainter.setBrush(Qt::NoBrush);
+        artworkPainter.drawPath(chevron);
+        artworkPainter.end();
+
+        // Fade only the already-composited artwork. The widget backing remains
+        // transparent, avoiding the rectangular SDR surface over HDR content.
+        QPainter painter(this);
+        painter.setOpacity(paintOpacity);
+        painter.drawImage(QPointF(0.0, 0.0), artwork);
     }
 
 private:
@@ -1053,17 +1068,6 @@ void MainWindow::fullscreenChanged()
     {
         setTitlebarHidden(true, false);
         storedTitlebarHidden = false;
-    }
-
-    if (!isFullscreen && storedWindowState == Qt::WindowNoState
-        && !storedWindowGeometry.isEmpty())
-    {
-        const QRect normalGeometry = storedWindowGeometry;
-        storedWindowGeometry = {};
-        QTimer::singleShot(0, this, [this, normalGeometry]() {
-            if (!isFullScreen() && windowState() == Qt::WindowNoState)
-                setGeometry(normalGeometry);
-        });
     }
 
     updateMenuBarVisible();
@@ -2166,12 +2170,10 @@ void MainWindow::exitFullScreen()
     if (!windowState().testFlag(Qt::WindowFullScreen))
         return;
 
-    // Keep the menu Exit Full Screen path identical to the Escape path. On
-    // macOS leaving native full screen is asynchronous, so issue exactly one
-    // restore request using the state captured on entry.
-    setUpdatesEnabled(false);
-    setWindowState(storedWindowState);
-    setUpdatesEnabled(true);
+    // Escape is handled by AppKit's native full-screen action. Route the View
+    // command through the same asynchronous action and let Qt publish the
+    // resulting state only after NSWindowDidExitFullScreenNotification.
+    QVCocoaFunctions::requestFullScreenExit(windowHandle());
 }
 
 void MainWindow::toggleFullScreen()
@@ -2185,8 +2187,6 @@ void MainWindow::toggleFullScreen()
         // Disable updates during window state change to resolve visual glitches
         // on macOS if the titlebar is hidden.
         setUpdatesEnabled(false);
-        storedWindowState = windowState();
-        storedWindowGeometry = geometry();
 
         // Restore the titlebar before entering fullscreen because macOS may apply special titlebar handling.
         storedTitlebarHidden = getTitlebarHidden();

@@ -221,6 +221,12 @@ public:
 
     static void registerWillPowerOffObserver();
 
+    // Ask AppKit to leave native full screen without publishing a premature
+    // Qt window state. Requests made during entry are delivered once AppKit's
+    // did-enter notification arrives; exit completion remains owned by the Qt
+    // Cocoa platform plugin.
+    static bool requestFullScreenExit(QWindow *window);
+
     static void setFullSizeContentView(QWidget *window, const bool enable);
 
     static bool getTitlebarHidden(const QWidget *window);

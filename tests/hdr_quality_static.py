@@ -571,6 +571,12 @@ def main() -> int:
             'button->property("paintOpacity").toReal(),' in navigation_overlay_sync
             and 'requestedVisible ? button->property("paintOpacity")' not in navigation_overlay_sync
         ),
+        "native_button_uses_group_opacity": (
+            "navigationButtonLayers[index].allowsGroupOpacity = YES" in renderer
+            and "buttonLayer.opacity = boundedOpacity" in renderer
+            and "backgroundLayer.opacity = 1.0F" in renderer
+            and "chevronLayer.opacity = 1.0F" in renderer
+        ),
         "navigation_buttons_have_no_graphics_effect": (
             "QGraphicsOpacityEffect" not in navigation_initialization
         ),
