@@ -84,8 +84,6 @@ public:
 
     QMenuBar *getMenuBar() const {  return menuBar; }
 
-    const QSet<QString> &getDisabledFileExtensions() const { return disabledFileExtensions; }
-
     const QSet<QString> &getAllFileExtensionList() const { return allFileExtensionSet; }
 
     const QSet<QString> &getFileExtensionSet() const { return fileExtensionSet; }
@@ -154,8 +152,6 @@ private:
 
     QMenuBar *menuBar;
 
-    QSet<QString> disabledFileExtensions;
-
     QSet<QString> allFileExtensionSet;
     QSet<QString> fileExtensionSet;
     QSet<QString> mimeTypeNameSet;
@@ -169,7 +165,7 @@ private:
     QPointer<QVOptionsDialog> optionsDialog;
     QPointer<QVAboutDialog> aboutDialog;
 
-    bool showMainMenuIcons {true};
+    bool showMainMenuIcons {false};
     bool showContextMenuIcons {true};
     bool showSubmenuIcons {true};
     UpdateChecker updateChecker;

@@ -136,148 +136,10 @@
             </property>
            </spacer>
           </item>
-          <item row="6" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="toolTip">
-             <string>Control when the window should resize to fit the image's actual size</string>
-            </property>
-            <property name="text">
-             <string>Window matches image size:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="1">
-           <widget class="QComboBox" name="windowResizeComboBox">
-            <property name="toolTip">
-             <string>Control when the window should resize to fit the image's actual size</string>
-            </property>
-           </widget>
-          </item>
-          <item row="7" column="0">
-           <widget class="QLabel" name="afterMatchingSizeLabel">
-            <property name="text">
-             <string>After matching image size:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="7" column="1">
-           <widget class="QComboBox" name="afterMatchingSizeComboBox"/>
-          </item>
-          <item row="8" column="0">
-           <widget class="QLabel" name="minWindowResizeLabel">
-            <property name="text">
-             <string>Minimum size:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="8" column="1">
-           <widget class="QSpinBox" name="minWindowResizeSpinBox">
-            <property name="toolTip">
-             <string>Control the minimum size that the window should reach when matching the image's actual size</string>
-            </property>
-            <property name="suffix">
-             <string>% of screen size</string>
-            </property>
-            <property name="minimum">
-             <number>0</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="singleStep">
-             <number>5</number>
-            </property>
-            <property name="value">
-             <number>20</number>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="0">
-           <widget class="QLabel" name="maxWindowResizeLabel">
-            <property name="toolTip">
-             <string>Control the maximum size that the window should reach when matching the image's actual size</string>
-            </property>
-            <property name="text">
-             <string>Maximum size:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="1">
-           <widget class="QSpinBox" name="maxWindowResizeSpinBox">
-            <property name="toolTip">
-             <string>Control the maximum size that the window should reach when matching the image's actual size</string>
-            </property>
-            <property name="suffix">
-             <string>% of screen size</string>
-            </property>
-            <property name="minimum">
-             <number>0</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="singleStep">
-             <number>5</number>
-            </property>
-            <property name="value">
-             <number>70</number>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="1">
-           <spacer name="horizontalSpacer_3">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
           <item row="11" column="1">
            <widget class="QCheckBox" name="menubarCheckbox">
             <property name="text">
              <string>Show menubar</string>
-            </property>
-           </widget>
-          </item>
-          <item row="12" column="1">
-           <widget class="QCheckBox" name="detailsInFullscreen">
-            <property name="toolTip">
-             <string>Choose whether or not to display the titlebar text while in fullscreen</string>
-            </property>
-            <property name="text">
-             <string>Show titlebar text in fullscreen</string>
-            </property>
-           </widget>
-          </item>
-          <item row="13" column="1">
-           <widget class="QCheckBox" name="mainMenuIconsCheckbox">
-            <property name="text">
-             <string>Show icons in main menus</string>
-            </property>
-           </widget>
-          </item>
-          <item row="14" column="1">
-           <widget class="QCheckBox" name="contextMenuIconsCheckbox">
-            <property name="text">
-             <string>Show icons in context menus</string>
-            </property>
-           </widget>
-          </item>
-          <item row="15" column="1">
-           <widget class="QCheckBox" name="submenuIconsCheckbox">
-            <property name="toolTip">
-             <string>Show icons in &quot;Open Recent&quot; and &quot;Open With&quot; submenus</string>
-            </property>
-            <property name="text">
-             <string>Show icons in submenus</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
             </property>
            </widget>
           </item>
@@ -292,13 +154,6 @@
            <widget class="QCheckBox" name="reuseWindowCheckbox">
             <property name="text">
              <string>Reuse window when launching with image</string>
-            </property>
-           </widget>
-          </item>
-          <item row="19" column="1">
-           <widget class="QCheckBox" name="persistSessionCheckbox">
-            <property name="text">
-             <string>Persist session across app restarts</string>
             </property>
            </widget>
           </item>
@@ -359,51 +214,6 @@
           <item row="0" column="1">
            <widget class="QComboBox" name="smoothScalingComboBox"/>
           </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="scalingTwoCheckbox">
-            <property name="toolTip">
-             <string>Use expensive scaling when zooming above the window size (can be laggier with large images)</string>
-            </property>
-            <property name="text">
-             <string>Expensive scaling above window size</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QCheckBox" name="smoothScalingLimitCheckbox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Disable above:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="smoothScalingLimitSpinBox">
-            <property name="suffix">
-             <string>%</string>
-            </property>
-            <property name="minimum">
-             <number>100</number>
-            </property>
-            <property name="maximum">
-             <number>6400</number>
-            </property>
-            <property name="singleStep">
-             <number>25</number>
-            </property>
-            <property name="value">
-             <number>400</number>
-            </property>
-           </widget>
-          </item>
           <item row="3" column="1">
            <spacer name="horizontalSpacer_2">
             <property name="orientation">
@@ -417,127 +227,13 @@
             </property>
            </spacer>
           </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="label_3">
-            <property name="toolTip">
-             <string>The amount to zoom every scroll wheel click</string>
-            </property>
-            <property name="text">
-             <string>Zoom amount:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
-           <widget class="QSpinBox" name="scaleFactorSpinBox">
-            <property name="toolTip">
-             <string>The amount to zoom every scroll wheel click</string>
-            </property>
-            <property name="suffix">
-             <string>%</string>
-            </property>
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>200</number>
-            </property>
-            <property name="singleStep">
-             <number>5</number>
-            </property>
-            <property name="value">
-             <number>25</number>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1">
-           <widget class="QCheckBox" name="cursorZoomCheckbox">
-            <property name="text">
-             <string>Zoom &amp;towards cursor</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="1">
-           <widget class="QCheckBox" name="oneToOnePixelSizingCheckbox">
-            <property name="text">
-             <string>Zoom level is relative to screen pixels</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
           <item row="7" column="1">
            <widget class="QCheckBox" name="smallImagesOneToOneCheckbox">
             <property name="toolTip">
-             <string>When Window matches image size is set to Never, show images smaller than the actual display area at their original 1:1 size</string>
+             <string>Show images smaller than the display area at their original 1:1 size</string>
             </property>
             <property name="text">
              <string>Show small images at 1:1</string>
-            </property>
-           </widget>
-          </item>
-          <item row="8" column="0">
-           <widget class="QLabel" name="zoomDefaultLabel">
-            <property name="text">
-             <string>Zoom default:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="8" column="1">
-           <widget class="QComboBox" name="zoomDefaultComboBox"/>
-          </item>
-          <item row="9" column="0">
-           <widget class="QCheckBox" name="fitZoomLimitCheckbox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Limit fit/fill zoom:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="1">
-           <widget class="QSpinBox" name="fitZoomLimitSpinBox">
-            <property name="suffix">
-             <string>%</string>
-            </property>
-            <property name="minimum">
-             <number>100</number>
-            </property>
-            <property name="maximum">
-             <number>800</number>
-            </property>
-            <property name="singleStep">
-             <number>25</number>
-            </property>
-            <property name="value">
-             <number>100</number>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="1">
-           <widget class="QSpinBox" name="fitOverscanSpinBox">
-            <property name="suffix">
-             <string> pixel overscan</string>
-            </property>
-            <property name="minimum">
-             <number>-5</number>
-            </property>
-            <property name="maximum">
-             <number>5</number>
-            </property>
-           </widget>
-          </item>
-          <item row="11" column="1">
-           <widget class="QCheckBox" name="navResetsZoomCheckbox">
-            <property name="text">
-             <string>Navigation resets zoom</string>
             </property>
            </widget>
           </item>
@@ -554,26 +250,6 @@
             </property>
            </spacer>
           </item>
-          <item row="13" column="1">
-           <widget class="QCheckBox" name="constrainImagePositionCheckbox">
-            <property name="text">
-             <string>&amp;Constrain image position</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="14" column="1">
-           <widget class="QCheckBox" name="constrainCentersSmallImageCheckbox">
-            <property name="text">
-             <string>Keep ce&amp;ntered if smaller</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
           <item row="15" column="1">
            <spacer name="horizontalSpacer_10">
             <property name="orientation">
@@ -587,13 +263,6 @@
             </property>
            </spacer>
           </item>
-          <item row="16" column="1">
-           <widget class="QCheckBox" name="originalSizeAsToggleCheckbox">
-            <property name="text">
-             <string>Original Size functions as toggle</string>
-            </property>
-           </widget>
-          </item>
           <item row="17" column="1">
            <spacer name="horizontalSpacer_11">
             <property name="orientation">
@@ -606,16 +275,6 @@
              </size>
             </property>
            </spacer>
-          </item>
-          <item row="18" column="0">
-           <widget class="QLabel" name="colorSpaceConversionLabel">
-            <property name="text">
-             <string>Color space conversion:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="18" column="1">
-           <widget class="QComboBox" name="colorSpaceConversionComboBox"/>
           </item>
          </layout>
         </widget>
@@ -633,7 +292,7 @@
            <x>0</x>
            <y>0</y>
            <width>482</width>
-           <height>498</height>
+           <height>560</height>
           </rect>
          </property>
          <property name="sizePolicy">
@@ -728,36 +387,6 @@
            <widget class="QComboBox" name="preloadingComboBox">
             <property name="toolTip">
              <string>Controls the amount of images preloaded</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="0">
-           <widget class="QLabel" name="label_9">
-            <property name="text">
-             <string>Navigation speed:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="1">
-           <widget class="QSpinBox" name="navSpeedSpinBox">
-            <property name="suffix">
-             <string> ms</string>
-            </property>
-            <property name="maximum">
-             <number>500</number>
-            </property>
-           </widget>
-          </item>
-          <item row="7" column="1">
-           <widget class="QCheckBox" name="loopFoldersCheckbox">
-            <property name="toolTip">
-             <string>Controls whether or not Fovelle should go back to the first item after reaching the end of a folder</string>
-            </property>
-            <property name="text">
-             <string>&amp;Loop through folders</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
             </property>
            </widget>
           </item>
@@ -880,10 +509,20 @@
             </property>
            </widget>
           </item>
-          <item row="18" column="1">
-           <widget class="QCheckBox" name="updateCheckbox">
+          <item row="18" column="0">
+           <widget class="QLabel" name="updateFrequencyLabel">
             <property name="text">
-             <string extracomment="The notifications are for new Fovelle releases">&amp;Update notifications on startup</string>
+             <string>Automatically check for updates:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="18" column="1">
+           <widget class="QComboBox" name="updateFrequencyComboBox"/>
+          </item>
+          <item row="19" column="1">
+           <widget class="QPushButton" name="associateFormatsButton">
+            <property name="text">
+             <string>Associate all supported formats</string>
             </property>
            </widget>
           </item>
@@ -1310,69 +949,6 @@
           </item>
          </layout>
         </widget>
-       </widget>
-       <widget class="QWidget" name="formats">
-        <layout class="QVBoxLayout" name="formatsLayout">
-         <property name="leftMargin">
-          <number>10</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QTableWidget" name="formatsTable">
-           <property name="editTriggers">
-            <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-           </property>
-           <property name="alternatingRowColors">
-            <bool>true</bool>
-           </property>
-           <property name="selectionMode">
-            <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
-           </property>
-           <property name="selectionBehavior">
-            <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
-           </property>
-           <property name="showGrid">
-            <bool>false</bool>
-           </property>
-           <property name="rowCount">
-            <number>0</number>
-           </property>
-           <property name="columnCount">
-            <number>2</number>
-           </property>
-           <attribute name="horizontalHeaderCascadingSectionResizes">
-            <bool>true</bool>
-           </attribute>
-           <attribute name="horizontalHeaderDefaultSectionSize">
-            <number>120</number>
-           </attribute>
-           <attribute name="horizontalHeaderHighlightSections">
-            <bool>false</bool>
-           </attribute>
-           <attribute name="verticalHeaderVisible">
-            <bool>false</bool>
-           </attribute>
-           <column>
-            <property name="text">
-             <string>Extension</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Enabled</string>
-            </property>
-           </column>
-          </widget>
-         </item>
-        </layout>
        </widget>
        </widget>
    </item>

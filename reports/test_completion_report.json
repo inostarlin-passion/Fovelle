@@ -1,34 +1,43 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "kind": "test-completion-report",
-  "generated_at_utc": "2026-08-24T16:27:58.557846+00:00",
+  "generated_at_utc": "2026-08-25T04:41:01.727540+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "8019354fb481110f1c2594af9d0e77f7c84b05c3",
-  "preflight_build": {
-    "passed": true,
-    "skipped": true
-  },
+  "head_sha": "d01b47a5cbddf96d74f3da962c5ab489dfd17dd8",
   "execution_order": [
     "static",
     "unit",
     "integration",
     "system"
   ],
+  "preflight_build": {
+    "command": [
+      "cmake",
+      "--build",
+      "/Users/inostarlin/code/Fovelle/build",
+      "--parallel",
+      "2"
+    ],
+    "return_code": 0,
+    "passed": true,
+    "duration_ms": 63.749,
+    "output_tail": "[0/2] Re-checking globbed directories...\nninja: no work to do.\n"
+  },
   "stages": {
     "static": {
       "passed": true,
-      "case_count": 27,
-      "passed_case_count": 27
+      "case_count": 33,
+      "passed_case_count": 33
     },
     "unit": {
       "passed": true,
-      "case_count": 8,
-      "passed_case_count": 8
+      "case_count": 11,
+      "passed_case_count": 11
     },
     "integration": {
       "passed": true,
-      "case_count": 5,
-      "passed_case_count": 5
+      "case_count": 3,
+      "passed_case_count": 3
     },
     "system": {
       "passed": true,
@@ -37,8 +46,8 @@
     }
   },
   "counts": {
-    "atomic_case_count": 42,
-    "passed_case_count": 42,
+    "atomic_case_count": 49,
+    "passed_case_count": 49,
     "failed_case_count": 0,
     "missing_case_ids": [],
     "stage_passed": {
@@ -53,25 +62,25 @@
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 36733,
-      "sha256": "bbe88c4674a6e21632aa8ad27d071d6f99b32c59a508d9332de9d667a2d36d17"
+      "bytes": 51563,
+      "sha256": "43a9eb6ef3f07d30157b40eb259fa743a9d2ac5d47c8dbae98ee78236ba11160"
     },
     "test_evidence.json": {
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 209618,
-      "sha256": "047b25b72b4db26db8d9cb365836194c2fb5d192b5ffffc9210f4445f813f5f6"
+      "bytes": 77300,
+      "sha256": "64531c90dc74de51449434e69f2d5b876022d8638fb37631ca28a8ce01e003f8"
     }
   },
   "facts": [
-    "The four stages are executed in static, unit, integration, system order after build preflight.",
-    "Unit evidence includes the existing 91-case Qt regression run and the new atomic dialog/menu/theme methods.",
-    "System evidence launches the actual Fovelle.app with PATH restricted to /usr/bin:/bin and FOVELLE_GHOSTSCRIPT removed."
+    "The execution order is static, unit, integration, system.",
+    "The association bridge has a dry-run unit path; the system stage never changes Launch Services.",
+    "The system stage launches the actual Fovelle.app and observes the maximized window through a bounded probe."
   ],
   "uncertainties": [
-    "Timing and AppKit appearance observations are host-specific macOS observations.",
-    "The Ghostscript package includes the pinned runtime and recursively copied dynamic dependencies; other PostScript dialects remain outside the finite fixture."
+    "The native HDR compositor observation is host-specific to macOS/CALayer.",
+    "The visual perception of opacity depends on the active display compositor; the fix removes independent alpha owners."
   ],
   "passed": true
 }

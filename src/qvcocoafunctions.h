@@ -12,6 +12,7 @@
 #include <QPolygonF>
 #include <QRectF>
 #include <QSize>
+#include <QStringList>
 #include <QTransform>
 
 #include <memory>
@@ -260,6 +261,19 @@ public:
     static void setDockRecents(const QStringList &recentPathsList);
 
     static QList<OpenWith::OpenWithItem> getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
+
+    struct FileAssociationResult
+    {
+        int requestedCount {0};
+        int associatedCount {0};
+        QStringList failedExtensions;
+    };
+
+    // Set Fovelle as the Launch Services viewer for every extension in the
+    // application registry.  The dry-run switch keeps unit tests non-invasive
+    // while the Preferences action uses the real Launch Services operation.
+    static FileAssociationResult associateAllSupportedFormats(const QStringList &extensions,
+                                                              bool dryRun = false);
 
     static QByteArray getIccProfileForWindow(const QWindow *window);
 

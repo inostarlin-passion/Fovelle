@@ -8,7 +8,6 @@
 #include <QRadioButton>
 #include <QComboBox>
 #include <QSpinBox>
-#include <QTableWidget>
 
 namespace Ui {
 class QVOptionsDialog;
@@ -42,22 +41,17 @@ protected:
     void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
-    void syncFormats(bool defaults = false);
-    void restartNotifyForCheckbox(const QString &key, const Qt::CheckState state);
     void populateCategories(int selectedRow);
     void populateLanguages();
     void populateComboBoxes();
 
     const Ui::ComboBoxItems<Qv::AfterDelete> mapAfterDelete();
-    const Ui::ComboBoxItems<Qv::AfterMatchingSize> mapAfterMatchingSize();
-    const Ui::ComboBoxItems<Qv::CalculatedZoomMode> mapCalculatedZoomMode();
-    const Ui::ComboBoxItems<Qv::ColorSpaceConversion> mapColorSpaceConversion();
     const Ui::ComboBoxItems<Qv::PreloadMode> mapPreloadMode();
     const Ui::ComboBoxItems<Qv::SlideshowDirection> mapSlideshowDirection();
     const Ui::ComboBoxItems<Qv::SmoothScalingMode> mapSmoothScalingMode();
     const Ui::ComboBoxItems<Qv::SortMode> mapSortMode();
     const Ui::ComboBoxItems<Qv::Theme> mapTheme();
-    const Ui::ComboBoxItems<Qv::WindowResizeMode> mapWindowResizeMode();
+    const Ui::ComboBoxItems<Qv::UpdateCheckFrequency> mapUpdateCheckFrequency();
     const Ui::ComboBoxItems<Qv::ViewportClickAction> mapViewportClickAction();
     const Ui::ComboBoxItems<Qv::ViewportDragAction> mapViewportDragAction();
     const Ui::ComboBoxItems<Qv::ViewportScrollAction> mapViewportScrollAction();
@@ -65,19 +59,11 @@ protected:
 private slots:
     void shortcutCellDoubleClicked(int row, int column);
 
-    void smoothScalingComboBoxCurrentIndexChanged(int index);
-
-    void smoothScalingLimitCheckboxCheckStateChanged(Qt::CheckState state);
-
-    void fitZoomLimitCheckboxCheckStateChanged(Qt::CheckState state);
-
-    void constrainImagePositionCheckboxCheckStateChanged(Qt::CheckState state);
-
     void cursorAutoHideFullscreenCheckboxCheckStateChanged(Qt::CheckState state);
 
     void languageComboBoxCurrentIndexChanged(int index);
 
-    void formatsItemChanged(QTableWidgetItem *item);
+    void associateSupportedFormats();
 
     void middleButtonModeChanged();
 
@@ -86,13 +72,9 @@ private:
 
     QList<QStringList> transientShortcuts;
 
-    QSet<QString> transientDisabledFileExtensions;
-
     bool isInitialLoad {true};
 
     bool languageRestartMessageShown {false};
-
-    bool isLoadingFormats {false};
 };
 
 #endif // QVOPTIONSDIALOG_H

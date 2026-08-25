@@ -67,21 +67,19 @@ static constexpr char SettingsToolbarAssociationKey = 0;
         return nil;
 
     _categoryTabs = new QPointer<QTabBar>(categoryTabs);
-    _itemIdentifiers = [@[
+        _itemIdentifiers = [@[
         @"io.github.inostarlin-passion.Fovelle.settings.window",
         @"io.github.inostarlin-passion.Fovelle.settings.image",
         @"io.github.inostarlin-passion.Fovelle.settings.miscellaneous",
         @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
-        @"io.github.inostarlin-passion.Fovelle.settings.mouse",
-        @"io.github.inostarlin-passion.Fovelle.settings.formats"
+        @"io.github.inostarlin-passion.Fovelle.settings.mouse"
     ] retain];
     _symbolNames = [@[
         @"macwindow",
         @"photo.on.rectangle.angled",
         @"slider.horizontal.3",
         @"keyboard",
-        @"computermouse",
-        @"puzzlepiece.extension"
+        @"computermouse"
     ] retain];
     return self;
 }
@@ -1297,6 +1295,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         navigationOverlayLayer.autoresizingMask = kCALayerNotSizable;
         navigationOverlayLayer.zPosition = 1000.0;
         for (int index = 0; index < 2; ++index) {
+            navigationButtonLayers[index] = [CALayer layer];
+            navigationButtonLayers[index].hidden = YES;
             navigationBackgroundLayers[index] = [CAShapeLayer layer];
             navigationBackgroundLayers[index].hidden = YES;
             navigationChevronLayers[index] = [CAShapeLayer layer];
@@ -1305,8 +1305,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             navigationChevronLayers[index].lineWidth = 4.0;
             navigationChevronLayers[index].lineCap = kCALineCapRound;
             navigationChevronLayers[index].lineJoin = kCALineJoinRound;
-            [navigationOverlayLayer addSublayer:navigationBackgroundLayers[index]];
-            [navigationOverlayLayer addSublayer:navigationChevronLayers[index]];
+            [navigationOverlayLayer addSublayer:navigationButtonLayers[index]];
+            [navigationButtonLayers[index] addSublayer:navigationBackgroundLayers[index]];
+            [navigationButtonLayers[index] addSublayer:navigationChevronLayers[index]];
         }
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
@@ -1608,6 +1609,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         syncViewportLayerGeometry();
 
+        CALayer *buttonLayer = navigationButtonLayers[index];
         CAShapeLayer *backgroundLayer = navigationBackgroundLayers[index];
         CAShapeLayer *chevronLayer = navigationChevronLayers[index];
         const CGFloat boundedOpacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
@@ -1659,15 +1661,24 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CGColorRef foregroundCGColor = navigationColor(foreground);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        backgroundLayer.frame = frame;
+        // The old implementation drove two sibling shape layers with the
+        // same numeric opacity. Their independent compositor surfaces still
+        // produced different perceived fade curves because the rounded fill
+        // has translucent color while the chevron is opaque. A single button
+        // container is now the only animated surface; its children stay at
+        // full opacity and therefore enter/leave in one compositor step.
+        buttonLayer.frame = frame;
+        buttonLayer.opacity = boundedOpacity;
+        buttonLayer.hidden = !artworkVisible;
+        backgroundLayer.frame = CGRectMake(0.0, 0.0, frameWidth, frameHeight);
         backgroundLayer.path = backgroundPath;
         backgroundLayer.fillColor = backgroundCGColor;
-        backgroundLayer.opacity = boundedOpacity;
+        backgroundLayer.opacity = 1.0F;
         backgroundLayer.hidden = !artworkVisible || !background.isValid();
-        chevronLayer.frame = frame;
+        chevronLayer.frame = CGRectMake(0.0, 0.0, frameWidth, frameHeight);
         chevronLayer.path = chevronPath;
         chevronLayer.strokeColor = foregroundCGColor;
-        chevronLayer.opacity = boundedOpacity;
+        chevronLayer.opacity = 1.0F;
         chevronLayer.hidden = !artworkVisible;
         [CATransaction commit];
 
@@ -1682,8 +1693,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         ++state.navigationOverlayUpdateCount;
         state.nativeNavigationVisibleCount = 0;
         for (int layerIndex = 0; layerIndex < 2; ++layerIndex) {
-            if (!navigationChevronLayers[layerIndex].hidden
-                && navigationChevronLayers[layerIndex].opacity > 0.001F)
+            if (!navigationButtonLayers[layerIndex].hidden
+                && navigationButtonLayers[layerIndex].opacity > 0.001F)
                 ++state.nativeNavigationVisibleCount;
         }
     }
@@ -1695,8 +1706,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         for (int index = 0; index < 2; ++index) {
-            navigationBackgroundLayers[index].hidden = YES;
-            navigationChevronLayers[index].hidden = YES;
+            navigationButtonLayers[index].hidden = YES;
         }
         [CATransaction commit];
         state.nativeNavigationVisibleCount = 0;
@@ -2864,6 +2874,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CALayer *persistentImageLayer{ nil };
     CAMetalLayer *metalLayer{ nil };
     CALayer *navigationOverlayLayer{ nil };
+    CALayer *navigationButtonLayers[2]{ nil, nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
     CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
     CAMetalDisplayLink *displayLink{ nil };
@@ -3474,6 +3485,49 @@ QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &
     }
 
     return listOfOpenWithItems;
+}
+
+QVCocoaFunctions::FileAssociationResult QVCocoaFunctions::associateAllSupportedFormats(
+        const QStringList &extensions, const bool dryRun)
+{
+    FileAssociationResult result;
+    QSet<QByteArray> seen;
+    NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+
+    for (const QString &extension : extensions)
+    {
+        const QByteArray normalized = normalizedExtension(extension.toUtf8());
+        if (normalized.isEmpty() || seen.contains(normalized))
+            continue;
+        seen.insert(normalized);
+        ++result.requestedCount;
+
+        if (dryRun)
+        {
+            ++result.associatedCount;
+            continue;
+        }
+
+        NSString *tag = [NSString stringWithUTF8String:normalized.constData()];
+        UTType *type = [UTType typeWithTag:tag
+                                  tagClass:UTTagClassFilenameExtension
+                         conformingToType:nil];
+        NSString *identifier = type.identifier;
+        if (!bundleIdentifier || !identifier)
+        {
+            result.failedExtensions.append(QString::fromUtf8(normalized));
+            continue;
+        }
+
+        const OSStatus status = LSSetDefaultRoleHandlerForContentType(
+                (CFStringRef)identifier, kLSRolesViewer, (CFStringRef)bundleIdentifier);
+        if (status == noErr)
+            ++result.associatedCount;
+        else
+            result.failedExtensions.append(QString::fromUtf8(normalized));
+    }
+
+    return result;
 }
 
 QByteArray QVCocoaFunctions::getIccProfileForWindow(const QWindow *window)

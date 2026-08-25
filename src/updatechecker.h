@@ -1,6 +1,8 @@
 #ifndef UPDATECHECKER_H
 #define UPDATECHECKER_H
 
+#include "qvnamespace.h"
+
 #include <QtNetwork>
 
 class UpdateChecker : public QObject
@@ -21,6 +23,10 @@ public:
     };
 
     void check(bool isManualCheck = false);
+
+    static bool shouldCheckAutomatically(const QDateTime &now,
+                                         const QDateTime &lastCheck,
+                                         Qv::UpdateCheckFrequency frequency);
 
     void openDialog(QWidget *parent, bool isAutoCheck);
 
@@ -55,9 +61,6 @@ protected:
 private:
     const QString API_BASE_URL = "https://api.github.com/repos/inostarlin-passion/Fovelle/releases";
     const QString DOWNLOAD_URL = "https://github.com/inostarlin-passion/Fovelle/releases";
-    // Auto-check happens only at startup (if enabled); this is to rate limit across launches
-    const int AUTO_CHECK_INTERVAL_HOURS = 4;
-
     bool isChecking {false};
     bool hasChecked {false};
     bool lastCheckWasManual {false};

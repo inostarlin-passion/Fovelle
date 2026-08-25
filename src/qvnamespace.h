@@ -99,6 +99,14 @@ namespace Qv
         System = 2
     };
 
+    enum class UpdateCheckFrequency
+    {
+        Never = 0,
+        Daily = 1,
+        Weekly = 2,
+        Monthly = 3
+    };
+
     enum class TitleBarText
     {
         Basic = 0,

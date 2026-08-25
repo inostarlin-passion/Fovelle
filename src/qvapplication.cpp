@@ -37,13 +37,18 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
 #ifndef QV_DISABLE_ONLINE_VERSION_CHECK
     // Check for updates after the application identity and settings are ready.
-    if (getSettingsManager().getBoolean("updatenotifications"))
-        updateChecker.check();
+    if (!qEnvironmentVariableIsSet("FOVELLE_DISABLE_AUTO_UPDATE_CHECK")
+        && getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency")
+        != Qv::UpdateCheckFrequency::Never)
+        QTimer::singleShot(0, this, [this]() { updateChecker.check(); });
 #endif
 
-    showMainMenuIcons = getSettingsManager().getBoolean("mainmenuicons");
-    showContextMenuIcons = getSettingsManager().getBoolean("contextmenuicons");
-    showSubmenuIcons = getSettingsManager().getBoolean("submenuicons");
+    // Menu icon policy is intentionally fixed.  The former checkboxes were
+    // removed from Preferences, so the runtime must not be affected by stale
+    // values left in an older QSettings database.
+    showMainMenuIcons = false;
+    showContextMenuIcons = true;
+    showSubmenuIcons = true;
     // Ask Qt to show menu icons - the action clone logic decides whether to actually set icons
     setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
@@ -185,7 +190,7 @@ void QVApplication::pickFile(MainWindow *parent)
 MainWindow *QVApplication::newWindow(const QJsonObject &windowSessionState)
 {
     auto *w = new MainWindow(nullptr, windowSessionState);
-    w->show();
+    w->showMaximized();
     w->raise();
 
     return w;
@@ -325,9 +330,6 @@ void QVApplication::settingsUpdated()
     // window or dialog asks Qt's Cocoa platform theme for its palette.
     QVCocoaFunctions::setApplicationTheme(settingsManager.getEnum<Qv::Theme>("theme"));
 
-    QString disabledFileExtensionsStr = settingsManager.getString("disabledfileextensions");
-    disabledFileExtensions = Qv::listToSet(!disabledFileExtensionsStr.isEmpty() ? disabledFileExtensionsStr.split(';') : QStringList());
-
     setQuitOnLastWindowClosed(true);
 
     defineFilterLists();
@@ -344,8 +346,6 @@ void QVApplication::defineFilterLists()
         if (allFileExtensionSet.contains(extension))
             return;
         allFileExtensionSet << extension;
-        if (disabledFileExtensions.contains(extension))
-            return;
         fileExtensionSet << extension;
     };
 

@@ -21,8 +21,9 @@ void UpdateChecker::check(bool isManualCheck)
 
     if (!isManualCheck)
     {
-        QDateTime lastCheckTime = getLastCheckTime();
-        if (lastCheckTime.isValid() && QDateTime::currentDateTimeUtc() < lastCheckTime.addSecs(AUTO_CHECK_INTERVAL_HOURS * 3600))
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        const auto frequency = qvApp->getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency");
+        if (!shouldCheckAutomatically(now, getLastCheckTime(), frequency))
             return;
     }
 
@@ -32,6 +33,32 @@ void UpdateChecker::check(bool isManualCheck)
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     netAccessManager.get(request);
+}
+
+bool UpdateChecker::shouldCheckAutomatically(const QDateTime &now,
+                                             const QDateTime &lastCheck,
+                                             const Qv::UpdateCheckFrequency frequency)
+{
+    if (frequency == Qv::UpdateCheckFrequency::Never || !now.isValid())
+        return false;
+    if (!lastCheck.isValid())
+        return true;
+
+    const QDateTime nextCheck = [&]() {
+        switch (frequency)
+        {
+        case Qv::UpdateCheckFrequency::Daily:
+            return lastCheck.addDays(1);
+        case Qv::UpdateCheckFrequency::Weekly:
+            return lastCheck.addDays(7);
+        case Qv::UpdateCheckFrequency::Monthly:
+            return lastCheck.addMonths(1);
+        case Qv::UpdateCheckFrequency::Never:
+            break;
+        }
+        return lastCheck;
+    }();
+    return now >= nextCheck;
 }
 
 void UpdateChecker::readReply(QNetworkReply *reply)
@@ -149,11 +176,11 @@ void UpdateChecker::openDialog(QWidget *parent, bool isAutoCheck)
         connect(msgBox->button(QMessageBox::Reset), &QAbstractButton::clicked, qvApp, []{
             QSettings settings;
             settings.beginGroup("options");
-            settings.setValue("updatenotifications", false);
+            settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Never));
             qvApp->getSettingsManager().loadSettings();
             NativeDialogs::showMessage(QMessageBox::Information,
                                        tr("Fovelle Update Checking Disabled"),
-                                       tr("Update notifications on startup have been disabled.\nYou can reenable them in the options dialog."));
+                                       tr("Automatic update checking has been disabled.\nYou can reenable it in Preferences."));
         });
     }
     msgBox->open();

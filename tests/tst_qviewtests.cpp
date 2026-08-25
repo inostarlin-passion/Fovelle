@@ -109,8 +109,10 @@ private slots:
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
     void testTitlebarIconClearingIsIdempotent();
     void testSettingsFormatsIncludeNativeImageFormats();
-    void testSettingsFormatsIncludeTiffAndSystemRawFormats();
-    void testSettingsFormatsIncludeEPS();
+    void testSettingsFormatsPaneIsRemoved();
+    void testAssociateAllSupportedFormatsDryRun();
+    void testPreferencesDefaultsAndRemovedControls();
+    void testUpdateCheckFrequencyPolicy();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
 };
@@ -222,6 +224,7 @@ private slots:
     void testThemeSettingsReplaceRemovedColorControls();
     void testSettingsDialogUsesNativeTabContractAndImmediatePersistence();
     void testSmoothScalingDefaultIsBilinear();
+    void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
     void testHelpMenuContract();
     void testEditMenuRemovesMacOSServiceItems();
@@ -2185,69 +2188,155 @@ void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
     QVERIFY(qvApp->getAllFileExtensionList().contains(".avifs"));
 }
 
-// TC-FMT-TIFF-RAW
-// Test purpose: verify Settings → Formats is sourced from the same Image I/O
-// registry as the loader, including TIFF and any RAW types available on this OS.
-// Preconditions: QVApplication has initialized its Image I/O-backed extension registry.
-// Input data: the current CGImageSource-supported type/tag set and a constructed
-// Settings dialog.
-// Steps: inspect the registry, the application extension set, and the Formats table.
-// Expected result: TIFF aliases are present; every dynamically advertised RAW
-// extension is reflected in the application and Settings table without a hardcoded
-// camera-model list.
-// Postcondition: the Settings dialog is destroyed without changing user settings.
-void FeatureTests::testSettingsFormatsIncludeTiffAndSystemRawFormats()
+// TC-PREFERENCES-FORMATS-REMOVED
+// Test purpose: verify the Formats page and its old table are removed while
+// the native image-extension registry remains available to the application.
+// Preconditions: the application has initialized its Image I/O-backed
+// extension registry and the options dialog can be constructed.
+// Input data: the production QVOptionsDialog object tree and category model.
+// Steps: construct the dialog, inspect its categories and search for the old
+// Formats page/table object names.
+// Expected result: exactly five categories exist; Formats, formats, and
+// formatsTable do not exist; native extensions remain advertised.
+// Postcondition: the dialog is destroyed without changing user settings.
+void FeatureTests::testSettingsFormatsPaneIsRemoved()
 {
-    const auto additionalFormats = QVCocoaFunctions::getAdditionalImageFormats();
-    QVERIFY(additionalFormats.contains("tif") || additionalFormats.contains("tiff"));
-    QVERIFY(qvApp->getAllFileExtensionList().contains(".tif"));
-    QVERIFY(qvApp->getAllFileExtensionList().contains(".tiff"));
-
-    for (const auto &format : additionalFormats)
-        QVERIFY(qvApp->getAllFileExtensionList().contains("." + QString::fromUtf8(format)));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".webp"));
+    QVERIFY(qvApp->getAllFileExtensionList().contains(".avif"));
 
     QVOptionsDialog dialog;
-    const auto *formatsTable = dialog.findChild<QTableWidget *>("formatsTable");
-    QVERIFY(formatsTable);
-    QSet<QString> tableExtensions;
-    for (int row = 0; row < formatsTable->rowCount(); ++row)
-        tableExtensions.insert(formatsTable->item(row, 0)->text());
-    QVERIFY(tableExtensions.contains(".tif"));
-    QVERIFY(tableExtensions.contains(".tiff"));
+    auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
+    QVERIFY(tabs);
+    QCOMPARE(tabs->count(), 5);
+    QStringList categoryTexts;
+    for (int index = 0; index < tabs->count(); ++index)
+        categoryTexts.append(tabs->tabText(index));
+    QVERIFY(!categoryTexts.contains(QStringLiteral("Formats")));
+    QVERIFY(!dialog.findChild<QWidget *>("formats"));
+    QVERIFY(!dialog.findChild<QTableWidget *>("formatsTable"));
 }
 
-// TC-EPS-INT-SETTINGS
-// Test purpose: verify that the Settings → Formats table exposes the EPS
-// aliases produced by the same registry used by folder enumeration.
-// Preconditions: QVApplication has initialized its format registry and the
-// options dialog can be constructed under Cocoa.
-// Input data: .eps, .epsf, and .epsi extension entries.
-// Operation steps: construct QVOptionsDialog and collect the first-column
-// extension values from formatsTable.
-// Expected result: all three EPS aliases are present and enabled by default.
-// Postconditions: the dialog is destroyed without persisting settings.
-void FeatureTests::testSettingsFormatsIncludeEPS()
+// TC-PREFERENCES-FORMATS-ASSOCIATE
+// Test purpose: verify the file-association operation is deterministic and
+// non-invasive in its unit-test dry-run mode.
+// Preconditions: the Cocoa bridge is linked and Launch Services integration
+// is available to the production implementation.
+// Input data: duplicate, mixed-case, dotted and undotted extensions.
+// Steps: invoke associateAllSupportedFormats with dryRun=true and inspect the
+// returned counts and failure list.
+// Expected result: extensions are normalized and de-duplicated; every valid
+// extension is counted as associated and no real Launch Services registration
+// occurs.
+// Postcondition: the user's default application associations are unchanged.
+void FeatureTests::testAssociateAllSupportedFormatsDryRun()
 {
+    const auto result = QVCocoaFunctions::associateAllSupportedFormats(
+        {QStringLiteral(".JPG"), QStringLiteral("jpg"), QStringLiteral("PNG"),
+         QStringLiteral(""), QStringLiteral(".")}, true);
+    QCOMPARE(result.requestedCount, 2);
+    QCOMPARE(result.associatedCount, 2);
+    QVERIFY(result.failedExtensions.isEmpty());
+}
+
+// TC-PREFERENCES-DEFAULTS
+// Test purpose: verify every fixed default requested by the new Preferences
+// contract and verify that each removed option has no UI object.
+// Preconditions: SettingsManager has initialized its default-value library.
+// Input data: SettingsManager defaults and the production options dialog.
+// Steps: read defaults with defaults=true, construct the dialog, and inspect
+// the object names of all removed controls plus the new update controls.
+// Expected result: fixed defaults match the specification; all removed
+// controls are absent; update frequency has four choices and defaults Weekly.
+// Postcondition: no persistent settings are changed.
+void FeatureTests::testPreferencesDefaultsAndRemovedControls()
+{
+    const auto &settings = qvApp->getSettingsManager();
+    QCOMPARE(settings.getBoolean("fullscreendetails", true), false);
+    QCOMPARE(settings.getBoolean("mainmenuicons", true), false);
+    QCOMPARE(settings.getBoolean("contextmenuicons", true), true);
+    QCOMPARE(settings.getBoolean("submenuicons", true), true);
+    QCOMPARE(settings.getBoolean("persistsession", true), false);
+    QCOMPARE(settings.getBoolean("scalingtwoenabled", true), true);
+    QCOMPARE(settings.getBoolean("smoothscalinglimitenabled", true), false);
+    QCOMPARE(settings.getBoolean("cursorzoom", true), true);
+    QCOMPARE(settings.getBoolean("onetoonepixelsizing", true), false);
+    QCOMPARE(settings.getEnum<Qv::CalculatedZoomMode>("calculatedzoommode", true), Qv::CalculatedZoomMode::ZoomToFit);
+    QCOMPARE(settings.getBoolean("fitzoomlimitenabled", true), false);
+    QCOMPARE(settings.getBoolean("navresetszoom", true), true);
+    QCOMPARE(settings.getBoolean("constrainimageposition", true), true);
+    QCOMPARE(settings.getBoolean("constraincentersmallimage", true), true);
+    QCOMPARE(settings.getBoolean("originalsizeastoggle", true), false);
+    QCOMPARE(settings.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion", true), Qv::ColorSpaceConversion::AutoDetect);
+    QCOMPARE(settings.getInteger("navspeed", true), 50);
+    QCOMPARE(settings.getBoolean("loopfoldersenabled", true), false);
+    QCOMPARE(settings.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency", true), Qv::UpdateCheckFrequency::Weekly);
+
     QVOptionsDialog dialog;
-    const auto *formatsTable = dialog.findChild<QTableWidget *>("formatsTable");
-    QVERIFY(formatsTable);
+    const QStringList removedObjects {
+        QStringLiteral("windowResizeComboBox"), QStringLiteral("afterMatchingSizeComboBox"),
+        QStringLiteral("minWindowResizeSpinBox"), QStringLiteral("maxWindowResizeSpinBox"),
+        QStringLiteral("detailsInFullscreen"), QStringLiteral("mainMenuIconsCheckbox"),
+        QStringLiteral("contextMenuIconsCheckbox"), QStringLiteral("submenuIconsCheckbox"),
+        QStringLiteral("persistSessionCheckbox"), QStringLiteral("scalingTwoCheckbox"),
+        QStringLiteral("smoothScalingLimitCheckbox"), QStringLiteral("scaleFactorSpinBox"),
+        QStringLiteral("cursorZoomCheckbox"), QStringLiteral("oneToOnePixelSizingCheckbox"),
+        QStringLiteral("zoomDefaultComboBox"), QStringLiteral("fitZoomLimitCheckbox"),
+        QStringLiteral("fitOverscanSpinBox"), QStringLiteral("navResetsZoomCheckbox"),
+        QStringLiteral("constrainImagePositionCheckbox"),
+        QStringLiteral("constrainCentersSmallImageCheckbox"),
+        QStringLiteral("originalSizeAsToggleCheckbox"),
+        QStringLiteral("colorSpaceConversionComboBox"), QStringLiteral("navSpeedSpinBox"),
+        QStringLiteral("loopFoldersCheckbox"), QStringLiteral("updateCheckbox"),
+        QStringLiteral("formatsTable")
+    };
+    for (const auto &objectName : removedObjects)
+        QVERIFY2(!dialog.findChild<QWidget *>(objectName), qPrintable(objectName));
 
-    QSet<QString> tableExtensions;
-    QSet<QString> enabledExtensions;
-    for (int row = 0; row < formatsTable->rowCount(); ++row)
-    {
-        tableExtensions.insert(formatsTable->item(row, 0)->text());
-        if (formatsTable->item(row, 1)->checkState() == Qt::Checked)
-            enabledExtensions.insert(formatsTable->item(row, 0)->text());
-    }
+    auto *theme = dialog.findChild<QComboBox *>("themeComboBox");
+    QVERIFY(theme);
+    QCOMPARE(theme->itemText(0), QStringLiteral("Light"));
+    QCOMPARE(theme->itemText(1), QStringLiteral("Dark"));
+    auto *frequency = dialog.findChild<QComboBox *>("updateFrequencyComboBox");
+    QVERIFY(frequency);
+    QCOMPARE(frequency->count(), 4);
+    QCOMPARE(frequency->itemText(0), QStringLiteral("Never"));
+    QCOMPARE(frequency->itemText(1), QStringLiteral("Daily"));
+    QCOMPARE(frequency->itemText(2), QStringLiteral("Weekly"));
+    QCOMPARE(frequency->itemText(3), QStringLiteral("Monthly"));
+    QCOMPARE(frequency->currentData().toInt(), static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
+    auto *associateButton = dialog.findChild<QPushButton *>("associateFormatsButton");
+    QVERIFY(associateButton);
+    QCOMPARE(associateButton->text(), QStringLiteral("Associate all supported formats"));
+}
 
-    for (const QString &extension : {QStringLiteral(".eps"),
-                                     QStringLiteral(".epsf"),
-                                     QStringLiteral(".epsi")})
-    {
-        QVERIFY(tableExtensions.contains(extension));
-        QVERIFY(enabledExtensions.contains(extension));
-    }
+// TC-UPDATE-FREQUENCY-POLICY
+// Test purpose: verify Never/Daily/Weekly/Monthly interval semantics without
+// network access or wall-clock dependence.
+// Preconditions: UpdateChecker's pure policy helper is available.
+// Input data: fixed UTC timestamps and each frequency enum.
+// Steps: evaluate before, at, and after each interval, plus an invalid last
+// check timestamp.
+// Expected result: Never never checks; a missing last check checks immediately;
+// each other frequency checks exactly at its calendar interval.
+// Postcondition: no network request or persistent setting is produced.
+void FeatureTests::testUpdateCheckFrequencyPolicy()
+{
+    const QDateTime last(QDate(2026, 8, 1), QTime(12, 0), QTimeZone::UTC);
+    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addDays(30), last,
+                                                      Qv::UpdateCheckFrequency::Never));
+    QVERIFY(UpdateChecker::shouldCheckAutomatically(last, {}, Qv::UpdateCheckFrequency::Daily));
+    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addSecs(24 * 3600 - 1), last,
+                                                       Qv::UpdateCheckFrequency::Daily));
+    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addDays(1), last,
+                                                    Qv::UpdateCheckFrequency::Daily));
+    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addDays(7).addSecs(-1), last,
+                                                       Qv::UpdateCheckFrequency::Weekly));
+    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addDays(7), last,
+                                                    Qv::UpdateCheckFrequency::Weekly));
+    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addMonths(1).addSecs(-1), last,
+                                                       Qv::UpdateCheckFrequency::Monthly));
+    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addMonths(1), last,
+                                                    Qv::UpdateCheckFrequency::Monthly));
 }
 
 // TC-IMG-SMALL-SETTING
@@ -4580,8 +4669,8 @@ void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
     auto *themeComboBox = dialog.findChild<QComboBox *>("themeComboBox");
     QVERIFY(themeComboBox);
     QCOMPARE(themeComboBox->count(), 3);
-    QCOMPARE(themeComboBox->itemText(0), QStringLiteral("Light Theme"));
-    QCOMPARE(themeComboBox->itemText(1), QStringLiteral("Dark Theme"));
+    QCOMPARE(themeComboBox->itemText(0), QStringLiteral("Light"));
+    QCOMPARE(themeComboBox->itemText(1), QStringLiteral("Dark"));
     QCOMPARE(themeComboBox->itemData(0).toInt(), static_cast<int>(Qv::Theme::Light));
     QCOMPARE(themeComboBox->itemData(1).toInt(), static_cast<int>(Qv::Theme::Dark));
     QCOMPARE(themeComboBox->itemText(2), QStringLiteral("System"));
@@ -4611,7 +4700,7 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(tabs);
-    QCOMPARE(tabs->count(), 6);
+    QCOMPARE(tabs->count(), 5);
     QVERIFY(tabs->shape() == QTabBar::RoundedNorth || tabs->shape() == QTabBar::TriangularNorth);
     QVERIFY(tabs->isHidden());
     QVERIFY(!dialog.findChild<QDialogButtonBox *>("buttonBox"));
@@ -4651,6 +4740,33 @@ void WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()
     QCOMPARE(
         qvApp->getSettingsManager().getEnum<Qv::SmoothScalingMode>("smoothscalingmode", true),
         Qv::SmoothScalingMode::Bilinear);
+}
+
+// TC-WINDOW-MAXIMIZED
+// Test purpose: verify every application-created image window is shown
+// maximized, independent of the removed image-size matching preferences.
+// Preconditions: the Cocoa application is running and last-window quit is
+// temporarily disabled so the test-owned window can be inspected.
+// Input data: an empty QVApplication::newWindow() request.
+// Steps: create the production window, wait for the native show operation,
+// and inspect its Qt window state.
+// Expected result: WindowMaximized is set before the function returns to the
+// event loop.
+// Postcondition: the test-owned window is closed and deleted; app policy is restored.
+void WindowBehaviorTests::testNewWindowStartsMaximized()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow *window = QVApplication::newWindow();
+    QVERIFY(window);
+    window->setAttribute(Qt::WA_DeleteOnClose, false);
+    QTRY_VERIFY_WITH_TIMEOUT(window->isVisible(), 1000);
+    QVERIFY(window->windowState().testFlag(Qt::WindowMaximized));
+    window->close();
+    delete window;
+
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-SETTINGS-SYSTEM-THEME

@@ -1034,7 +1034,9 @@ void MainWindow::fullscreenChanged()
         fullscreenAction->setIcon(qvApp->iconFromFont(isFullscreen ? Qv::MaterialIcon::FullscreenExit : Qv::MaterialIcon::Fullscreen));
     }
 
-    ui->fullscreenLabel->setVisible(isFullscreen && qvApp->getSettingsManager().getBoolean("fullscreendetails"));
+    // The former "Show titlebar text in full screen" preference was removed;
+    // fullscreen titlebar details are now always hidden.
+    ui->fullscreenLabel->setVisible(false);
 
     if (!isFullscreen && storedTitlebarHidden)
     {
@@ -1087,7 +1089,9 @@ void MainWindow::settingsUpdated()
     //slideshow timer
     slideshowTimer->setInterval(static_cast<int>(settingsManager.getDouble("slideshowtimer")*1000));
 
-    ui->fullscreenLabel->setVisible(qvApp->getSettingsManager().getBoolean("fullscreendetails") && windowState().testFlag(Qt::WindowFullScreen));
+    // The former "Show titlebar text in full screen" preference was removed;
+    // fullscreen titlebar details are now always hidden.
+    ui->fullscreenLabel->setVisible(false);
 
     updateMenuBarVisible();
 

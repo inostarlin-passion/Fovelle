@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "qvapplication.h"
 #include <QCommandLineParser>
+#include <QTimer>
 
 int main(int argc, char *argv[])
 {
@@ -13,6 +14,7 @@ int main(int argc, char *argv[])
     SettingsManager::migrateOldSettings();
 
     QVApplication app(argc, argv);
+    const bool systemProbe = qEnvironmentVariableIsSet("FOVELLE_SYSTEM_PROBE");
 
     QCommandLineParser parser;
     parser.addHelpOption();
@@ -24,9 +26,30 @@ int main(int argc, char *argv[])
     {
         QVApplication::openFile(QVApplication::newWindow(), parser.positionalArguments().constFirst(), true);
     }
-    else if (!QVApplication::tryRestoreLastSession())
+    else if (systemProbe || !QVApplication::tryRestoreLastSession())
     {
         QVApplication::newWindow();
+    }
+
+    if (systemProbe)
+    {
+        QTimer::singleShot(300, &app, [&app]() {
+            int mainWindowCount = 0;
+            bool allWindowsMaximized = true;
+            for (QWidget *widget : app.topLevelWidgets())
+            {
+                auto *window = qobject_cast<MainWindow *>(widget);
+                if (!window)
+                    continue;
+                ++mainWindowCount;
+                allWindowsMaximized = allWindowsMaximized
+                    && window->windowState().testFlag(Qt::WindowMaximized);
+            }
+            qInfo().noquote() << QStringLiteral("FOVELLE_SYSTEM_PROBE windows=%1 maximized=%2")
+                                     .arg(mainWindowCount)
+                                     .arg(allWindowsMaximized ? QStringLiteral("true") : QStringLiteral("false"));
+            app.quit();
+        });
     }
 
     return QApplication::exec();

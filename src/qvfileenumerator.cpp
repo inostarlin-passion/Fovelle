@@ -18,7 +18,6 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const 
 
     const QMimeDatabase mimeDb;
     const auto &extensions = qvApp->getFileExtensionSet();
-    const auto &disabledExtensions = qvApp->getDisabledFileExtensions();
     const auto &mimeTypes = qvApp->getMimeTypeNameSet();
     const QMimeDatabase::MatchMode mimeMatchMode = allowMimeContentDetection ? QMimeDatabase::MatchDefault : QMimeDatabase::MatchExtension;
 
@@ -50,7 +49,7 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const 
         if (!matched || sortMode == Qv::SortMode::Type)
         {
             mimeType = mimeDb.mimeTypeForFile(absoluteFilePath, mimeMatchMode).name();
-            matched |= mimeTypes.contains(mimeType) && (suffix.isEmpty() || !disabledExtensions.contains("." + suffix));
+            matched |= mimeTypes.contains(mimeType);
         }
 
         // ignore macOS ._ metadata files

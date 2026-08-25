@@ -172,6 +172,48 @@ void SettingsManager::migrateOldSettings()
             QColor(settings.value("bgcolor").toString()).name().compare(QStringLiteral("#212121"), Qt::CaseInsensitive) == 0;
         settings.setValue("theme", static_cast<int>(oldDarkTitlebar || oldDarkBackground ? Qv::Theme::Dark : Qv::Theme::Light));
     }
+
+    // The old startup-notification switch was replaced by an explicit
+    // frequency.  Keep the new installation default deterministic and remove
+    // the obsolete format-disable store now that the Formats pane is gone.
+    if (!settings.contains("updatecheckfrequency"))
+        settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
+    settings.remove("updatenotifications");
+    settings.remove("disabledfileextensions");
+
+    // Removed Preferences controls are now fixed policies. Reset values from
+    // older installations so an obsolete, previously customized checkbox
+    // cannot silently revive after the control disappears.
+    const QHash<QString, QVariant> removedPreferenceDefaults {
+        { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+        { "aftermatchingsizemode", static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious) },
+        { "minwindowresizedpercentage", 20 },
+        { "maxwindowresizedpercentage", 70 },
+        { "fullscreendetails", false },
+        { "mainmenuicons", false },
+        { "contextmenuicons", true },
+        { "submenuicons", true },
+        { "persistsession", false },
+        { "scalingtwoenabled", true },
+        { "smoothscalinglimitenabled", false },
+        { "smoothscalinglimitpercent", 400 },
+        { "scalefactor", 25 },
+        { "cursorzoom", true },
+        { "onetoonepixelsizing", false },
+        { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+        { "fitzoomlimitenabled", false },
+        { "fitzoomlimitpercent", 100 },
+        { "fitoverscan", 0 },
+        { "navresetszoom", true },
+        { "constrainimageposition", true },
+        { "constraincentersmallimage", true },
+        { "originalsizeastoggle", false },
+        { "colorspaceconversion", static_cast<int>(Qv::ColorSpaceConversion::AutoDetect) },
+        { "navspeed", 50 },
+        { "loopfoldersenabled", false },
+    };
+    for (auto it = removedPreferenceDefaults.cbegin(); it != removedPreferenceDefaults.cend(); ++it)
+        settings.setValue(it.key(), it.value());
 }
 
 void SettingsManager::copyFromOfficial()
@@ -205,7 +247,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("maxwindowresizedpercentage", {70, {}});
     settingsLibrary.insert("menubarenabled", {false, {}});
     settingsLibrary.insert("fullscreendetails", {false, {}});
-    settingsLibrary.insert("mainmenuicons", {true, {}});
+    settingsLibrary.insert("mainmenuicons", {false, {}});
     settingsLibrary.insert("contextmenuicons", {true, {}});
     settingsLibrary.insert("submenuicons", {true, {}});
     settingsLibrary.insert("slideshowkeepswindowontop", {false, {}});
@@ -237,7 +279,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("sortdescending", {false, {}});
     settingsLibrary.insert("preloadingmode", {static_cast<int>(Qv::PreloadMode::Adjacent), {}});
     settingsLibrary.insert("navspeed", {50, {}});
-    settingsLibrary.insert("loopfoldersenabled", {true, {}});
+    settingsLibrary.insert("loopfoldersenabled", {false, {}});
     settingsLibrary.insert("slideshowdirection", {static_cast<int>(Qv::SlideshowDirection::Forward), {}});
     settingsLibrary.insert("slideshowtimer", {5, {}});
     settingsLibrary.insert("afterdelete", {static_cast<int>(Qv::AfterDelete::MoveForward), {}});
@@ -245,9 +287,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("allowmimecontentdetection", {false, {}});
     settingsLibrary.insert("skiphidden", {false, {}});
     settingsLibrary.insert("saverecents", {true, {}});
-    settingsLibrary.insert("updatenotifications", {false, {}});
-    // Formats
-    settingsLibrary.insert("disabledfileextensions", {"", {}});
+    settingsLibrary.insert("updatecheckfrequency", {static_cast<int>(Qv::UpdateCheckFrequency::Weekly), {}});
     // Mouse
     settingsLibrary.insert("navigationregionsenabled", {false, {}});
     settingsLibrary.insert("viewportdoubleclickaction", {static_cast<int>(Qv::ViewportClickAction::ToggleFullScreen), {}});
