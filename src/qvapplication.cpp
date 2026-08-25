@@ -290,17 +290,36 @@ bool QVApplication::foundOnTopWindow() const
 
 void QVApplication::openOptionsDialog(QWidget *parent)
 {
-    parent = nullptr;
+    auto *anchorWindow = qobject_cast<MainWindow *>(parent);
+    if (!anchorWindow)
+        anchorWindow = qobject_cast<MainWindow *>(QApplication::activeWindow());
+    if (!anchorWindow)
+        anchorWindow = getMainWindow(false);
+
+    const QPointer<MainWindow> guardedAnchor(anchorWindow);
+    const auto centerDialog = [this, guardedAnchor]() {
+        if (!optionsDialog || !guardedAnchor)
+            return;
+
+        QRect centeredGeometry = optionsDialog->frameGeometry();
+        centeredGeometry.moveCenter(guardedAnchor->frameGeometry().center());
+        optionsDialog->move(centeredGeometry.topLeft());
+    };
 
     if (optionsDialog)
     {
+        centerDialog();
         optionsDialog->raise();
         optionsDialog->activateWindow();
+        QTimer::singleShot(0, this, centerDialog);
         return;
     }
 
-    optionsDialog = new QVOptionsDialog(parent);
+    // Keep the Preferences window independent so Cocoa can provide its native
+    // toolbar, but explicitly position its frame relative to the main window.
+    optionsDialog = new QVOptionsDialog(nullptr);
     optionsDialog->show();
+    QTimer::singleShot(0, this, centerDialog);
 }
 
 void QVApplication::openAboutDialog(QWidget *parent)

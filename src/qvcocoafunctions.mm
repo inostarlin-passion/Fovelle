@@ -67,16 +67,14 @@ static constexpr char SettingsToolbarAssociationKey = 0;
         return nil;
 
     _categoryTabs = new QPointer<QTabBar>(categoryTabs);
-        _itemIdentifiers = [@[
-        @"io.github.inostarlin-passion.Fovelle.settings.window",
-        @"io.github.inostarlin-passion.Fovelle.settings.image",
+    _itemIdentifiers = [@[
+        @"io.github.inostarlin-passion.Fovelle.settings.display",
         @"io.github.inostarlin-passion.Fovelle.settings.miscellaneous",
         @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
         @"io.github.inostarlin-passion.Fovelle.settings.mouse"
     ] retain];
     _symbolNames = [@[
         @"macwindow",
-        @"photo.on.rectangle.angled",
         @"slider.horizontal.3",
         @"keyboard",
         @"computermouse"

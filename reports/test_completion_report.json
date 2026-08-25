@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0",
   "kind": "test-completion-report",
-  "generated_at_utc": "2026-08-25T04:41:01.727540+00:00",
+  "generated_at_utc": "2026-08-25T05:45:55.542438+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "d01b47a5cbddf96d74f3da962c5ab489dfd17dd8",
+  "head_sha": "56c5ca8e8f602ef06daacef00074d237fb8401af",
   "execution_order": [
     "static",
     "unit",
@@ -20,19 +20,19 @@
     ],
     "return_code": 0,
     "passed": true,
-    "duration_ms": 63.749,
-    "output_tail": "[0/2] Re-checking globbed directories...\nninja: no work to do.\n"
+    "duration_ms": 4275.822,
+    "output_tail": "_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libgif.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libgif.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libtesseract.5.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/liblz4.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/liblz4.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libb2.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libb2.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libtesseract.5.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n"
   },
   "stages": {
     "static": {
       "passed": true,
-      "case_count": 33,
-      "passed_case_count": 33
+      "case_count": 46,
+      "passed_case_count": 46
     },
     "unit": {
       "passed": true,
-      "case_count": 11,
-      "passed_case_count": 11
+      "case_count": 18,
+      "passed_case_count": 18
     },
     "integration": {
       "passed": true,
@@ -46,8 +46,8 @@
     }
   },
   "counts": {
-    "atomic_case_count": 49,
-    "passed_case_count": 49,
+    "atomic_case_count": 69,
+    "passed_case_count": 69,
     "failed_case_count": 0,
     "missing_case_ids": [],
     "stage_passed": {
@@ -62,21 +62,23 @@
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 51563,
-      "sha256": "43a9eb6ef3f07d30157b40eb259fa743a9d2ac5d47c8dbae98ee78236ba11160"
+      "bytes": 74913,
+      "sha256": "38d2b603162c565b3e6b4fa34d0f1cdb1c8f4488a61c93e34b730aa85190d534"
     },
     "test_evidence.json": {
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 77300,
-      "sha256": "64531c90dc74de51449434e69f2d5b876022d8638fb37631ca28a8ce01e003f8"
+      "bytes": 132041,
+      "sha256": "d863e2e75032c01187f5aa16a67597fbf4be4546b53fa8a25b0ae0d777ab397f"
     }
   },
   "facts": [
     "The execution order is static, unit, integration, system.",
     "The association bridge has a dry-run unit path; the system stage never changes Launch Services.",
-    "The system stage launches the actual Fovelle.app and observes the maximized window through a bounded probe."
+    "The system stage launches the actual Fovelle.app and observes the maximized window through a bounded probe.",
+    "Both Enter Full Screen and Exit Full Screen reapply the main-menu icon policy; Escape and the View exit action call the same exitFullScreen path.",
+    "The Display settings page is centered relative to the invoking main-window frame, and titlebarhidden is read by every new window."
   ],
   "uncertainties": [
     "The native HDR compositor observation is host-specific to macOS/CALayer.",

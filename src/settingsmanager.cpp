@@ -180,6 +180,7 @@ void SettingsManager::migrateOldSettings()
         settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
     settings.remove("updatenotifications");
     settings.remove("disabledfileextensions");
+    settings.remove("slideshowkeepswindowontop");
 
     // Removed Preferences controls are now fixed policies. Reset values from
     // older installations so an obsolete, previously customized checkbox
@@ -194,6 +195,9 @@ void SettingsManager::migrateOldSettings()
         { "contextmenuicons", true },
         { "submenuicons", true },
         { "persistsession", false },
+        { "allowmimecontentdetection", true },
+        { "skiphidden", true },
+        { "saverecents", true },
         { "scalingtwoenabled", true },
         { "smoothscalinglimitenabled", false },
         { "smoothscalinglimitpercent", 400 },
@@ -250,6 +254,8 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("mainmenuicons", {false, {}});
     settingsLibrary.insert("contextmenuicons", {true, {}});
     settingsLibrary.insert("submenuicons", {true, {}});
+    // Compatibility value retained as a fixed false policy after the
+    // Preferences control was removed.
     settingsLibrary.insert("slideshowkeepswindowontop", {false, {}});
     settingsLibrary.insert("reusewindow", {false, {}});
     settingsLibrary.insert("persistsession", {false, {}});
@@ -284,8 +290,8 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("slideshowtimer", {5, {}});
     settingsLibrary.insert("afterdelete", {static_cast<int>(Qv::AfterDelete::MoveForward), {}});
     settingsLibrary.insert("askdelete", {true, {}});
-    settingsLibrary.insert("allowmimecontentdetection", {false, {}});
-    settingsLibrary.insert("skiphidden", {false, {}});
+    settingsLibrary.insert("allowmimecontentdetection", {true, {}});
+    settingsLibrary.insert("skiphidden", {true, {}});
     settingsLibrary.insert("saverecents", {true, {}});
     settingsLibrary.insert("updatecheckfrequency", {static_cast<int>(Qv::UpdateCheckFrequency::Weekly), {}});
     // Mouse

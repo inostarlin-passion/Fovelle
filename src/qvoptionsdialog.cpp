@@ -9,7 +9,9 @@
 #include <QSettings>
 #include <QWindow>
 #include <QSignalBlocker>
+#include <QFormLayout>
 #include <QTabBar>
+#include <QHBoxLayout>
 #include <QPushButton>
 
 QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
@@ -17,6 +19,17 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     ui(new Ui::QVOptionsDialog)
 {
     ui->setupUi(this);
+
+    // The association action is a full-width action, not a form-field value.
+    // Put it in a spanning row so its center is the center of the page rather
+    // than the center of the form's right-hand field column.
+    ui->miscLayout->removeWidget(ui->associateFormatsButton);
+    auto *associationRow = new QHBoxLayout;
+    associationRow->setContentsMargins(0, 0, 0, 0);
+    associationRow->addStretch();
+    associationRow->addWidget(ui->associateFormatsButton);
+    associationRow->addStretch();
+    ui->miscLayout->setLayout(16, QFormLayout::SpanningRole, associationRow);
 
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
@@ -40,7 +53,18 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     QSettings settings;
 
-    populateCategories(settings.value("optionstab", 1).toInt());
+    // The former Window and Image tabs occupied indexes 0 and 1. Map an old
+    // saved selection once so the merged Display tab is the first page while
+    // later selections retain their new four-tab indexes.
+    int selectedTab = settings.value("optionstab", 0).toInt();
+    if (settings.value("optionstabversion", 0).toInt() < 1)
+    {
+        selectedTab = selectedTab <= 1 ? 0 : selectedTab - 1;
+        settings.setValue("optionstab", selectedTab);
+        settings.setValue("optionstabversion", 1);
+        settings.sync();
+    }
+    populateCategories(selectedTab);
     populateComboBoxes();
     populateLanguages();
 
@@ -125,8 +149,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncCheckbox(ui->checkerboardBackgroundCheckbox, "checkerboardbackground", defaults, makeConnections);
     // menubarenabled
     syncCheckbox(ui->menubarCheckbox, "menubarenabled", defaults, makeConnections);
-    // slideshowkeepswindowontop
-    syncCheckbox(ui->slideshowKeepsWindowOnTopCheckbox, "slideshowkeepswindowontop", defaults, makeConnections);
     // reusewindow
     syncCheckbox(ui->reuseWindowCheckbox, "reusewindow", defaults, makeConnections);
     // smoothscalingmode
@@ -149,12 +171,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncComboBox(ui->afterDeletionComboBox, "afterdelete", defaults, makeConnections);
     // askdelete
     syncCheckbox(ui->askDeleteCheckbox, "askdelete", defaults, makeConnections);
-    // allowmimecontentdetection
-    syncCheckbox(ui->mimeContentDetectionCheckbox, "allowmimecontentdetection", defaults, makeConnections);
-    // skiphidden
-    syncCheckbox(ui->skipHiddenCheckbox, "skiphidden", defaults, makeConnections);
-    // saverecents
-    syncCheckbox(ui->saveRecentsCheckbox, "saverecents", defaults, makeConnections);
     // updatecheckfrequency
     syncComboBox(ui->updateFrequencyComboBox, "updatecheckfrequency", defaults, makeConnections);
 
@@ -331,8 +347,7 @@ void QVOptionsDialog::populateCategories(int selectedRow)
     ui->categoryTabs->setIconSize(QSize(iconSize, iconSize));
     while (ui->categoryTabs->count() > 0)
         ui->categoryTabs->removeTab(0);
-    addItem(Qv::MaterialIcon::WebAsset, tr("Window"));
-    addItem(Qv::MaterialIcon::Image, tr("Image"));
+    addItem(Qv::MaterialIcon::WebAsset, tr("Display"));
     addItem(Qv::MaterialIcon::Tune, tr("Miscellaneous"));
     addItem(Qv::MaterialIcon::Keyboard, tr("Shortcuts"));
     addItem(Qv::MaterialIcon::Mouse, tr("Mouse"));

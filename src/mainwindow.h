@@ -55,7 +55,7 @@ public:
 
     bool getTitlebarHidden() const;
 
-    void setTitlebarHidden(const bool shouldHide);
+    void setTitlebarHidden(const bool shouldHide, const bool persistPreference = true);
 
     void setWindowSize(const bool isReapplying = false, const bool isExplicitRequest = false);
 
@@ -229,6 +229,8 @@ protected slots:
 private:
     void clearTitlebarIcons();
 
+    void exitFullScreen();
+
     void initializeNavigationButtons();
 
     void updateNavigationButtonGeometry();
@@ -287,8 +289,8 @@ private:
     QElapsedTimer lastActivated;
 
     Qt::WindowStates storedWindowState {Qt::WindowNoState};
+    QRect storedWindowGeometry;
     bool storedTitlebarHidden {false};
-    bool slideshowSetOnTopFlag {false};
 
     QNetworkAccessManager networkAccessManager;
 

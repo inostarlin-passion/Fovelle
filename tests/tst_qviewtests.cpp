@@ -108,6 +108,7 @@ private slots:
     void testWindowIconIsCleared();
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
     void testTitlebarIconClearingIsIdempotent();
+    void testViewMenuRemovesLegacyActions();
     void testSettingsFormatsIncludeNativeImageFormats();
     void testSettingsFormatsPaneIsRemoved();
     void testAssociateAllSupportedFormatsDryRun();
@@ -223,6 +224,11 @@ private slots:
     void testVerboseTitlebarTextUsesAllRequestedFields();
     void testThemeSettingsReplaceRemovedColorControls();
     void testSettingsDialogUsesNativeTabContractAndImmediatePersistence();
+    void testFullscreenMenuIconsRespectMainMenuPolicy();
+    void testExitFullscreenActionUsesEscapePath();
+    void testOptionsDialogCentersOnMainWindow();
+    void testAssociateFormatsButtonIsCentered();
+    void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
@@ -2177,6 +2183,42 @@ void FeatureTests::testTitlebarIconClearingIsIdempotent()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// TC-VIEW-LEGACY-ACTIONS
+// Test purpose: verify that the View menu no longer exposes the two removed
+// image/window sizing actions while retaining Full Screen.
+// Preconditions: ActionManager has built the production menu clones.
+// Input data: every action in each non-context View menu clone.
+// Steps: inspect action data keys and classify the main-menu View clone.
+// Expected result: navresetszoom and matchimagesize are absent; fullscreen is
+// still present in the main menu.
+// Postcondition: no menu or settings state is changed.
+void FeatureTests::testViewMenuRemovesLegacyActions()
+{
+    bool foundMainMenu = false;
+    bool foundFullscreen = false;
+    const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu("view");
+    QVERIFY(!viewMenus.isEmpty());
+
+    for (const auto *viewMenu : viewMenus)
+    {
+        if (viewMenu->property("isContextMenu").toBool())
+            continue;
+
+        foundMainMenu = true;
+        for (const auto *action : viewMenu->actions())
+        {
+            const QString key = action->data().toStringList().value(0);
+            QVERIFY(key != QStringLiteral("navresetszoom"));
+            QVERIFY(key != QStringLiteral("matchimagesize"));
+            if (key == QStringLiteral("fullscreen"))
+                foundFullscreen = true;
+        }
+    }
+
+    QVERIFY(foundMainMenu);
+    QVERIFY(foundFullscreen);
+}
+
 void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
 {
     const auto additionalFormats = QVCocoaFunctions::getAdditionalImageFormats();
@@ -2196,7 +2238,8 @@ void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
 // Input data: the production QVOptionsDialog object tree and category model.
 // Steps: construct the dialog, inspect its categories and search for the old
 // Formats page/table object names.
-// Expected result: exactly five categories exist; Formats, formats, and
+// Expected result: exactly four categories exist; Display replaces the former
+// Window/Image pair; Formats, formats, and
 // formatsTable do not exist; native extensions remain advertised.
 // Postcondition: the dialog is destroyed without changing user settings.
 void FeatureTests::testSettingsFormatsPaneIsRemoved()
@@ -2207,10 +2250,12 @@ void FeatureTests::testSettingsFormatsPaneIsRemoved()
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(tabs);
-    QCOMPARE(tabs->count(), 5);
+    QCOMPARE(tabs->count(), 4);
     QStringList categoryTexts;
     for (int index = 0; index < tabs->count(); ++index)
         categoryTexts.append(tabs->tabText(index));
+    QCOMPARE(categoryTexts, QStringList({QStringLiteral("Display"), QStringLiteral("Miscellaneous"),
+                                         QStringLiteral("Shortcuts"), QStringLiteral("Mouse")}));
     QVERIFY(!categoryTexts.contains(QStringLiteral("Formats")));
     QVERIFY(!dialog.findChild<QWidget *>("formats"));
     QVERIFY(!dialog.findChild<QTableWidget *>("formatsTable"));
@@ -2256,6 +2301,10 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QCOMPARE(settings.getBoolean("contextmenuicons", true), true);
     QCOMPARE(settings.getBoolean("submenuicons", true), true);
     QCOMPARE(settings.getBoolean("persistsession", true), false);
+    QCOMPARE(settings.getBoolean("slideshowkeepswindowontop", true), false);
+    QCOMPARE(settings.getBoolean("allowmimecontentdetection", true), true);
+    QCOMPARE(settings.getBoolean("skiphidden", true), true);
+    QCOMPARE(settings.getBoolean("saverecents", true), true);
     QCOMPARE(settings.getBoolean("scalingtwoenabled", true), true);
     QCOMPARE(settings.getBoolean("smoothscalinglimitenabled", true), false);
     QCOMPARE(settings.getBoolean("cursorzoom", true), true);
@@ -2277,7 +2326,9 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
         QStringLiteral("minWindowResizeSpinBox"), QStringLiteral("maxWindowResizeSpinBox"),
         QStringLiteral("detailsInFullscreen"), QStringLiteral("mainMenuIconsCheckbox"),
         QStringLiteral("contextMenuIconsCheckbox"), QStringLiteral("submenuIconsCheckbox"),
-        QStringLiteral("persistSessionCheckbox"), QStringLiteral("scalingTwoCheckbox"),
+        QStringLiteral("persistSessionCheckbox"), QStringLiteral("slideshowKeepsWindowOnTopCheckbox"),
+        QStringLiteral("mimeContentDetectionCheckbox"), QStringLiteral("skipHiddenCheckbox"),
+        QStringLiteral("saveRecentsCheckbox"), QStringLiteral("scalingTwoCheckbox"),
         QStringLiteral("smoothScalingLimitCheckbox"), QStringLiteral("scaleFactorSpinBox"),
         QStringLiteral("cursorZoomCheckbox"), QStringLiteral("oneToOnePixelSizingCheckbox"),
         QStringLiteral("zoomDefaultComboBox"), QStringLiteral("fitZoomLimitCheckbox"),
@@ -2294,6 +2345,9 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
 
     auto *theme = dialog.findChild<QComboBox *>("themeComboBox");
     QVERIFY(theme);
+    auto *appearanceLabel = dialog.findChild<QLabel *>("appearanceLabel");
+    QVERIFY(appearanceLabel);
+    QCOMPARE(appearanceLabel->text(), QStringLiteral("Appearance:"));
     QCOMPARE(theme->itemText(0), QStringLiteral("Light"));
     QCOMPARE(theme->itemText(1), QStringLiteral("Dark"));
     auto *frequency = dialog.findChild<QComboBox *>("updateFrequencyComboBox");
@@ -4690,7 +4744,7 @@ void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 // Preconditions: SettingsManager is initialized and Theme is Light.
 // Input data: the Settings dialog and the Theme combo-box selection Dark.
 // Steps: inspect the tab bar and removed controls, then change Theme.
-// Expected result: tabs are horizontal, Settings has no global action button
+// Expected result: Display replaces Window/Image, tabs are horizontal, Settings has no global action button
 // box or Titlebar text controls, and the manager immediately reports Dark.
 // Postcondition: ScopedOptionValues restores the original Theme.
 void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()
@@ -4700,7 +4754,8 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
     QVERIFY(tabs);
-    QCOMPARE(tabs->count(), 5);
+    QCOMPARE(tabs->count(), 4);
+    QCOMPARE(tabs->tabText(0), QStringLiteral("Display"));
     QVERIFY(tabs->shape() == QTabBar::RoundedNorth || tabs->shape() == QTabBar::TriangularNorth);
     QVERIFY(tabs->isHidden());
     QVERIFY(!dialog.findChild<QDialogButtonBox *>("buttonBox"));
@@ -4726,6 +4781,232 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
         QStringLiteral("DarkAqua"),
         2000);
     dialog.close();
+}
+
+// TC-VIEW-FULLSCREEN-MAIN-ICON
+// Test purpose: verify both full-screen labels never acquire an icon in the
+// main View menu when main-menu icons are disabled.
+// Preconditions: a visible MainWindow and the production View menu clones.
+// Input data: the Full Screen action before entering and after leaving full
+// screen.
+// Steps: enter and leave full screen through the window state path, then read
+// the main-menu Full Screen action icon after each state transition.
+// Expected result: the action text changes state, but its icon remains null in
+// both Enter and Exit states.
+// Postcondition: the test window is closed and the quit policy is restored.
+void WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+    const auto findMainFullscreenAction = [&]() -> QAction * {
+        const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu("view");
+        for (auto *viewMenu : viewMenus)
+        {
+            if (viewMenu->property("isContextMenu").toBool())
+                continue;
+            for (auto *action : viewMenu->actions())
+            {
+                if (action->data().toStringList().value(0) == QStringLiteral("fullscreen"))
+                    return action;
+            }
+        }
+        return nullptr;
+    };
+
+    QAction *fullscreenAction = findMainFullscreenAction();
+    QVERIFY(fullscreenAction);
+    QVERIFY(fullscreenAction->icon().isNull());
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+    fullscreenAction = findMainFullscreenAction();
+    QVERIFY(fullscreenAction);
+    QVERIFY(fullscreenAction->text().contains(QStringLiteral("Exit")));
+    QVERIFY(fullscreenAction->icon().isNull());
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    fullscreenAction = findMainFullscreenAction();
+    QVERIFY(fullscreenAction);
+    QVERIFY(fullscreenAction->text().contains(QStringLiteral("Enter")));
+    QVERIFY(fullscreenAction->icon().isNull());
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-VIEW-EXIT-FULLSCREEN
+// Test purpose: verify the View → Exit Full Screen action uses the same restore
+// request as the Escape shortcut.
+// Preconditions: a visible normal MainWindow with a stable normal geometry.
+// Input data: the production Full Screen QAction clone while the window is in
+// full screen.
+// Steps: enter full screen, dispatch the Exit action directly, and wait for
+// the native transition to finish.
+// Expected result: the window leaves full screen and returns to its original
+// normal geometry without a second state request.
+// Postcondition: the test window is closed and the quit policy is restored.
+void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.setGeometry(QRect(220, 180, 720, 500));
+    QSettings settings;
+    const QVariant originalTitlebarPreference =
+        settings.value(QStringLiteral("options/titlebarhidden"));
+    settings.setValue(QStringLiteral("options/titlebarhidden"), false);
+    settings.sync();
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    const QRect normalGeometry = window.geometry();
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
+
+    QAction *exitAction = nullptr;
+    for (auto *action : qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window))
+    {
+        if (action->text().contains(QStringLiteral("Exit")))
+        {
+            exitAction = action;
+            break;
+        }
+    }
+    QVERIFY(exitAction);
+    ActionManager::actionTriggered(exitAction, &window);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), normalGeometry, 3000);
+
+    window.close();
+    if (originalTitlebarPreference.isValid())
+        settings.setValue(QStringLiteral("options/titlebarhidden"), originalTitlebarPreference);
+    else
+        settings.remove(QStringLiteral("options/titlebarhidden"));
+    settings.sync();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SETTINGS-CENTER
+// Test purpose: verify Preferences opens centered on the invoking main window.
+// Preconditions: a visible main window and no stale Preferences dialog.
+// Input data: explicit main-window geometry and QVApplication::openOptionsDialog.
+// Steps: open Preferences, wait for the native window frame, and compare the
+// frame centers.
+// Expected result: the Preferences and main-window frame centers match.
+// Postcondition: Preferences and the test main window are closed.
+void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DeleteOnClose, false);
+    mainWindow.setWindowState(Qt::WindowNoState);
+    mainWindow.setGeometry(QRect(180, 160, 760, 520));
+    mainWindow.show();
+    QTRY_VERIFY_WITH_TIMEOUT(mainWindow.isVisible(), 1000);
+
+    qvApp->openOptionsDialog(&mainWindow);
+    QVOptionsDialog *dialog = nullptr;
+    const auto findVisibleOptionsDialog = []() -> QVOptionsDialog * {
+        for (QWidget *widget : QApplication::topLevelWidgets())
+        {
+            if (auto *candidate = qobject_cast<QVOptionsDialog *>(widget); candidate && candidate->isVisible())
+                return candidate;
+        }
+        return nullptr;
+    };
+    QTRY_VERIFY_WITH_TIMEOUT((dialog = findVisibleOptionsDialog()) != nullptr, 3000);
+    QTRY_COMPARE_WITH_TIMEOUT(dialog->frameGeometry().center(), mainWindow.frameGeometry().center(), 3000);
+
+    dialog->close();
+    mainWindow.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SETTINGS-ASSOCIATE-CENTER
+// Test purpose: verify the file-association button is centered across the
+// Miscellaneous page rather than aligned to the form's field column.
+// Preconditions: the production options dialog can be constructed and shown.
+// Input data: the button and Miscellaneous page geometries after layout.
+// Steps: show the dialog, map both centers to global coordinates, and compare
+// their horizontal coordinates.
+// Expected result: the button center is within one pixel of the page center.
+// Postcondition: the dialog is closed without invoking the association action.
+void WindowBehaviorTests::testAssociateFormatsButtonIsCentered()
+{
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    auto *categoryTabs = dialog.findChild<QTabBar *>("categoryTabs");
+    QVERIFY(categoryTabs);
+    categoryTabs->setCurrentIndex(1);
+
+    auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
+    auto *miscPage = dialog.findChild<QWidget *>("misc");
+    auto *miscScrollArea = dialog.findChild<QScrollArea *>("miscScrollArea");
+    QVERIFY(button);
+    QVERIFY(miscPage);
+    QVERIFY(miscScrollArea);
+    QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && miscPage->width() > 0, 1000);
+
+    const int buttonCenterX = button->mapToGlobal(button->rect().center()).x();
+    const int pageCenterX = miscScrollArea->viewport()->mapToGlobal(
+        miscScrollArea->viewport()->rect().center()).x();
+    QVERIFY(qAbs(buttonCenterX - pageCenterX) <= 1);
+
+    dialog.close();
+}
+
+// TC-TITLEBAR-PERSISTENCE
+// Test purpose: verify a manually hidden titlebar becomes the default for a
+// newly opened window.
+// Preconditions: a visible main window and writable QSettings.
+// Input data: the titlebarhidden preference and QVApplication::newWindow().
+// Steps: set the first window's titlebar hidden, create a second production
+// window, and inspect its native titlebar state.
+// Expected result: the second window is also titlebar-hidden.
+// Postcondition: both windows close and the original persistent value returns.
+void WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QSettings settings;
+    const bool originalPreference = settings.value(QStringLiteral("options/titlebarhidden"), false).toBool();
+    settings.setValue(QStringLiteral("options/titlebarhidden"), false);
+    settings.sync();
+
+    MainWindow firstWindow;
+    firstWindow.setAttribute(Qt::WA_DeleteOnClose, false);
+    firstWindow.show();
+    QTRY_VERIFY_WITH_TIMEOUT(firstWindow.isVisible(), 1000);
+    firstWindow.setTitlebarHidden(true);
+    QVERIFY(firstWindow.getTitlebarHidden());
+
+    MainWindow *secondWindow = qvApp->newWindow();
+    QVERIFY(secondWindow);
+    QTRY_VERIFY_WITH_TIMEOUT(secondWindow->isVisible(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(secondWindow->getTitlebarHidden(), 2000);
+
+    secondWindow->close();
+    firstWindow.close();
+    settings.setValue(QStringLiteral("options/titlebarhidden"), originalPreference);
+    settings.sync();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-SETTINGS-SMOOTH-DEFAULT

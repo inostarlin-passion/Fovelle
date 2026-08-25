@@ -292,7 +292,6 @@ QMenu *ActionManager::buildViewMenu(QWidget *parent)
     addCloneOfAction(viewMenu, "originalsize");
     addCloneOfAction(viewMenu, "zoomtofit");
     addCloneOfAction(viewMenu, "fillwindow");
-    addCloneOfAction(viewMenu, "navresetszoom");
     viewMenu->addSeparator();
     addCloneOfAction(viewMenu, "rotateright");
     addCloneOfAction(viewMenu, "rotateleft");
@@ -300,7 +299,6 @@ QMenu *ActionManager::buildViewMenu(QWidget *parent)
     addCloneOfAction(viewMenu, "flip");
     addCloneOfAction(viewMenu, "resettransformation");
     viewMenu->addSeparator();
-    addCloneOfAction(viewMenu, "matchimagesize");
     addCloneOfAction(viewMenu, "windowontop");
     addCloneOfAction(viewMenu, "toggletitlebar");
     addCloneOfAction(viewMenu, "fullscreen");

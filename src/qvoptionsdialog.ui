@@ -62,20 +62,20 @@
        <property name="currentIndex">
         <number>0</number>
        </property>
-       <widget class="QScrollArea" name="windowScrollArea">
+       <widget class="QScrollArea" name="displayScrollArea">
         <property name="frameShape">
          <enum>QFrame::Shape::NoFrame</enum>
         </property>
         <property name="widgetResizable">
          <bool>true</bool>
         </property>
-        <widget class="QWidget" name="window">
+        <widget class="QWidget" name="display">
          <property name="geometry">
           <rect>
            <x>0</x>
            <y>0</y>
            <width>482</width>
-           <height>543</height>
+           <height>460</height>
           </rect>
          </property>
          <property name="sizePolicy">
@@ -84,7 +84,7 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <layout class="QFormLayout" name="windowLayout">
+         <layout class="QFormLayout" name="displayLayout">
           <property name="fieldGrowthPolicy">
            <enum>QFormLayout::FieldGrowthPolicy::FieldsStayAtSizeHint</enum>
           </property>
@@ -107,9 +107,9 @@
            <number>10</number>
           </property>
           <item row="0" column="0">
-           <widget class="QLabel" name="themeLabel">
+           <widget class="QLabel" name="appearanceLabel">
             <property name="text">
-             <string>Theme:</string>
+             <string>Appearance:</string>
             </property>
            </widget>
           </item>
@@ -136,98 +136,31 @@
             </property>
            </spacer>
           </item>
-          <item row="11" column="1">
+          <item row="3" column="1">
            <widget class="QCheckBox" name="menubarCheckbox">
             <property name="text">
              <string>Show menubar</string>
             </property>
            </widget>
           </item>
-          <item row="16" column="1">
-           <widget class="QCheckBox" name="slideshowKeepsWindowOnTopCheckbox">
-            <property name="text">
-             <string>Keep window on top during slideshow</string>
-            </property>
-           </widget>
-          </item>
-          <item row="17" column="1">
+          <item row="4" column="1">
            <widget class="QCheckBox" name="reuseWindowCheckbox">
             <property name="text">
              <string>Reuse window when launching with image</string>
             </property>
            </widget>
           </item>
-         </layout>
-        </widget>
-       </widget>
-       <widget class="QScrollArea" name="imageScrollArea">
-        <property name="frameShape">
-         <enum>QFrame::Shape::NoFrame</enum>
-        </property>
-        <property name="widgetResizable">
-         <bool>true</bool>
-        </property>
-        <widget class="QWidget" name="image">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>0</y>
-           <width>482</width>
-           <height>478</height>
-          </rect>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <layout class="QFormLayout" name="imageLayout">
-          <property name="fieldGrowthPolicy">
-           <enum>QFormLayout::FieldGrowthPolicy::FieldsStayAtSizeHint</enum>
-          </property>
-          <property name="labelAlignment">
-           <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
-          </property>
-          <property name="formAlignment">
-           <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
-          </property>
-          <property name="leftMargin">
-           <number>10</number>
-          </property>
-          <property name="topMargin">
-           <number>10</number>
-          </property>
-          <property name="rightMargin">
-           <number>10</number>
-          </property>
-          <property name="bottomMargin">
-           <number>10</number>
-          </property>
-          <item row="0" column="0">
+          <item row="5" column="0">
            <widget class="QLabel" name="label_2">
             <property name="text">
              <string>Smooth scaling:</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
+          <item row="5" column="1">
            <widget class="QComboBox" name="smoothScalingComboBox"/>
           </item>
-          <item row="3" column="1">
-           <spacer name="horizontalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="7" column="1">
+          <item row="6" column="1">
            <widget class="QCheckBox" name="smallImagesOneToOneCheckbox">
             <property name="toolTip">
              <string>Show images smaller than the display area at their original 1:1 size</string>
@@ -237,34 +170,8 @@
             </property>
            </widget>
           </item>
-          <item row="12" column="1">
+          <item row="7" column="1">
            <spacer name="horizontalSpacer_9">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="15" column="1">
-           <spacer name="horizontalSpacer_10">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>5</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="17" column="1">
-           <spacer name="horizontalSpacer_11">
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
             </property>
@@ -482,44 +389,17 @@
             </property>
            </spacer>
           </item>
-          <item row="15" column="1">
-           <widget class="QCheckBox" name="mimeContentDetectionCheckbox">
-            <property name="toolTip">
-             <string>Detect supported files in folder even if extension isn't recognized (may be slow with larger/network folders)</string>
-            </property>
-            <property name="text">
-             <string>Allow &amp;MIME content detection</string>
-            </property>
-           </widget>
-          </item>
-          <item row="16" column="1">
-           <widget class="QCheckBox" name="skipHiddenCheckbox">
-            <property name="toolTip">
-             <string>May be slow with network folders</string>
-            </property>
-            <property name="text">
-             <string>Skip hidden files</string>
-            </property>
-           </widget>
-          </item>
-          <item row="17" column="1">
-           <widget class="QCheckBox" name="saveRecentsCheckbox">
-            <property name="text">
-             <string>Save &amp;recent files</string>
-            </property>
-           </widget>
-          </item>
-          <item row="18" column="0">
+          <item row="15" column="0">
            <widget class="QLabel" name="updateFrequencyLabel">
             <property name="text">
              <string>Automatically check for updates:</string>
             </property>
            </widget>
           </item>
-          <item row="18" column="1">
+          <item row="15" column="1">
            <widget class="QComboBox" name="updateFrequencyComboBox"/>
           </item>
-          <item row="19" column="1">
+          <item row="16" column="1">
            <widget class="QPushButton" name="associateFormatsButton">
             <property name="text">
              <string>Associate all supported formats</string>

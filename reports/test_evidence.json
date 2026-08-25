@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0",
   "kind": "atomic-test-evidence-index",
-  "generated_at_utc": "2026-08-25T04:41:01.716857+00:00",
+  "generated_at_utc": "2026-08-25T05:45:55.531427+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "d01b47a5cbddf96d74f3da962c5ab489dfd17dd8",
+  "head_sha": "56c5ca8e8f602ef06daacef00074d237fb8401af",
   "execution_order": [
     "static",
     "unit",
@@ -20,8 +20,8 @@
     ],
     "return_code": 0,
     "passed": true,
-    "duration_ms": 63.749,
-    "output_tail": "[0/2] Re-checking globbed directories...\nninja: no work to do.\n"
+    "duration_ms": 4275.822,
+    "output_tail": "_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libgif.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libgif.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libwebpmux.3.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libleptonica.6.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libtesseract.5.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/liblz4.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/liblz4.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libb2.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libb2.1.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libarchive.13.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/lib/libtesseract.5.dylib\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T//fovelle-ghostscript.4otNGQ/stage/bin/gs\n"
   },
   "stages": {
     "static": {
@@ -37,6 +37,30 @@
           "passed": true,
           "actual": {
             "children_are_full_opacity": true
+          }
+        },
+        "ST-VIEW-LEGACY-ACTIONS": {
+          "passed": true,
+          "actual": {
+            "legacy_actions_absent": true
+          }
+        },
+        "ST-FULLSCREEN-ENTER-ICON": {
+          "passed": true,
+          "actual": {
+            "main_menu_icon_policy": true
+          }
+        },
+        "ST-FULLSCREEN-EXIT-ICON": {
+          "passed": true,
+          "actual": {
+            "main_menu_icon_policy": true
+          }
+        },
+        "ST-FULLSCREEN-EXIT-SHARED": {
+          "passed": true,
+          "actual": {
+            "shared_exit_path": true
           }
         },
         "ST-WINDOW-CONTROLS-REMOVED": {
@@ -87,6 +111,19 @@
           }
         },
         "ST-SESSION-REMOVED": {
+          "passed": true,
+          "actual": {
+            "control_absent": true,
+            "default_false": true
+          }
+        },
+        "ST-APPEARANCE-LABEL": {
+          "passed": true,
+          "actual": {
+            "appearance_label": true
+          }
+        },
+        "ST-SLIDESHOW-ON-TOP-REMOVED": {
           "passed": true,
           "actual": {
             "control_absent": true,
@@ -205,6 +242,27 @@
             "default_false": true
           }
         },
+        "ST-MISC-MIME-REMOVED": {
+          "passed": true,
+          "actual": {
+            "widget_absent": true,
+            "default_true": true
+          }
+        },
+        "ST-MISC-SKIP-HIDDEN-REMOVED": {
+          "passed": true,
+          "actual": {
+            "widget_absent": true,
+            "default_true": true
+          }
+        },
+        "ST-MISC-SAVE-RECENTS-REMOVED": {
+          "passed": true,
+          "actual": {
+            "widget_absent": true,
+            "default_true": true
+          }
+        },
         "ST-MISC-UPDATE-OLD": {
           "passed": true,
           "actual": {
@@ -228,6 +286,12 @@
             "connection": true
           }
         },
+        "ST-ASSOCIATE-CENTER": {
+          "passed": true,
+          "actual": {
+            "center_layout": true
+          }
+        },
         "ST-ASSOCIATE-LAUNCHSERVICES": {
           "passed": true,
           "actual": {
@@ -241,17 +305,35 @@
             "theme_adapter": false
           }
         },
+        "ST-DISPLAY-MERGED": {
+          "passed": true,
+          "actual": {
+            "display_contract": true,
+            "categories": true
+          }
+        },
+        "ST-SETTINGS-CENTER": {
+          "passed": true,
+          "actual": {
+            "deferred_frame_center": true
+          }
+        },
+        "ST-TITLEBAR-PERSIST": {
+          "passed": true,
+          "actual": {
+            "persistent_key_and_restore": true
+          }
+        },
         "ST-FORMATS-REMOVED": {
           "passed": true,
           "actual": {
             "categories": true,
             "formats_table_absent": true,
             "native_toolbar_items": [
-              "image",
+              "display",
               "miscellaneous",
               "mouse",
-              "shortcuts",
-              "window"
+              "shortcuts"
             ]
           }
         },
@@ -265,7 +347,7 @@
           "passed": true,
           "actual": {
             "specification_valid": true,
-            "case_count": 49,
+            "case_count": 69,
             "namespace_enum": true,
             "test_methods_present": true
           }
@@ -285,8 +367,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -296,12 +378,12 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       },
-      "case_count": 11
+      "case_count": 18
     },
     "integration": {
       "test_level": "integration",
@@ -331,8 +413,8 @@
               ],
               "return_code": 0,
               "passed": true,
-              "duration_ms": 12870.862,
-              "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   12.86 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  12.86 sec\n"
+              "duration_ms": 13196.535,
+              "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   13.18 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  13.19 sec\n"
             }
           }
         },
@@ -347,7 +429,7 @@
               ],
               "return_code": 0,
               "passed": true,
-              "duration_ms": 171.62,
+              "duration_ms": 186.476,
               "output_tail": "Fovelle 0.1.4\n"
             }
           }
@@ -368,7 +450,7 @@
               ],
               "return_code": 0,
               "passed": true,
-              "duration_ms": 639.879,
+              "duration_ms": 653.429,
               "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
             }
           }
@@ -383,7 +465,7 @@
               ],
               "return_code": 0,
               "passed": true,
-              "duration_ms": 639.879,
+              "duration_ms": 653.429,
               "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
             }
           }
@@ -427,8 +509,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -438,8 +520,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -461,8 +543,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -472,8 +554,146 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST-VIEW-LEGACY-ACTIONS",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "legacy_actions_absent": true
+      }
+    },
+    {
+      "id": "ST-FULLSCREEN-ENTER-ICON",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "main_menu_icon_policy": true
+      }
+    },
+    {
+      "id": "ST-FULLSCREEN-EXIT-ICON",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "main_menu_icon_policy": true
+      }
+    },
+    {
+      "id": "ST-FULLSCREEN-EXIT-SHARED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "shared_exit_path": true
+      }
+    },
+    {
+      "id": "UT-VIEW-LEGACY-ACTIONS",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testViewMenuRemovesLegacyActions",
+      "passed": true,
+      "actual": {
+        "marker": "FeatureTests::testViewMenuRemovesLegacyActions",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "UT-FULLSCREEN-MENU-ICONS",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "UT-FULLSCREEN-EXIT-SHARED",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -516,8 +736,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -527,8 +747,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -588,6 +808,25 @@
       }
     },
     {
+      "id": "ST-APPEARANCE-LABEL",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "appearance_label": true
+      }
+    },
+    {
+      "id": "ST-SLIDESHOW-ON-TOP-REMOVED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "control_absent": true,
+        "default_false": true
+      }
+    },
+    {
       "id": "UT-PREFERENCES-REMOVED",
       "test_layer": "unit",
       "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testPreferencesDefaultsAndRemovedControls",
@@ -604,8 +843,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -615,8 +854,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -638,8 +877,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -649,8 +888,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -812,8 +1051,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -823,8 +1062,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -847,6 +1086,36 @@
       "actual": {
         "widget_absent": true,
         "default_false": true
+      }
+    },
+    {
+      "id": "ST-MISC-MIME-REMOVED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "widget_absent": true,
+        "default_true": true
+      }
+    },
+    {
+      "id": "ST-MISC-SKIP-HIDDEN-REMOVED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "widget_absent": true,
+        "default_true": true
+      }
+    },
+    {
+      "id": "ST-MISC-SAVE-RECENTS-REMOVED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "widget_absent": true,
+        "default_true": true
       }
     },
     {
@@ -887,8 +1156,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -898,8 +1167,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -913,6 +1182,15 @@
         "button": true,
         "slot": true,
         "connection": true
+      }
+    },
+    {
+      "id": "ST-ASSOCIATE-CENTER",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "center_layout": true
       }
     },
     {
@@ -941,8 +1219,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -952,8 +1230,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -966,6 +1244,40 @@
       "actual": {
         "native_message": true,
         "theme_adapter": false
+      }
+    },
+    {
+      "id": "UT-ASSOCIATE-CENTER",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testAssociateFormatsButtonIsCentered",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testAssociateFormatsButtonIsCentered",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
       }
     },
     {
@@ -985,8 +1297,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -996,8 +1308,138 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST-DISPLAY-MERGED",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "display_contract": true,
+        "categories": true
+      }
+    },
+    {
+      "id": "UT-DISPLAY-MERGED",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST-SETTINGS-CENTER",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "deferred_frame_center": true
+      }
+    },
+    {
+      "id": "UT-SETTINGS-CENTER",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testOptionsDialogCentersOnMainWindow",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testOptionsDialogCentersOnMainWindow",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST-TITLEBAR-PERSIST",
+      "test_layer": "static",
+      "test_code": "tests/requirements_pipeline.py::static_contracts",
+      "passed": true,
+      "actual": {
+        "persistent_key_and_restore": true
+      }
+    },
+    {
+      "id": "UT-TITLEBAR-PERSIST",
+      "test_layer": "unit",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow",
+      "passed": true,
+      "actual": {
+        "marker": "WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow",
+        "marker_present": true,
+        "suite_executions": {
+          "FeatureTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
+          },
+          "WindowBehaviorTests": {
+            "command": [
+              "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+              "-maxwarnings",
+              "0"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -1011,11 +1453,10 @@
         "categories": true,
         "formats_table_absent": true,
         "native_toolbar_items": [
-          "image",
+          "display",
           "miscellaneous",
           "mouse",
-          "shortcuts",
-          "window"
+          "shortcuts"
         ]
       }
     },
@@ -1036,8 +1477,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -1047,8 +1488,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
@@ -1092,8 +1533,8 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 12870.862,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   12.86 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  12.86 sec\n"
+          "duration_ms": 13196.535,
+          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   13.18 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  13.19 sec\n"
         }
       }
     },
@@ -1111,7 +1552,7 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 171.62,
+          "duration_ms": 186.476,
           "output_tail": "Fovelle 0.1.4\n"
         }
       }
@@ -1129,7 +1570,7 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 639.879,
+          "duration_ms": 653.429,
           "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
         }
       }
@@ -1147,7 +1588,7 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 639.879,
+          "duration_ms": 653.429,
           "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
         }
       }
@@ -1159,7 +1600,7 @@
       "passed": true,
       "actual": {
         "specification_valid": true,
-        "case_count": 49,
+        "case_count": 69,
         "namespace_enum": true,
         "test_methods_present": true
       }
@@ -1181,8 +1622,8 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 666.242,
-            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 13 passed, 0 failed, 0 skipped, 0 blacklisted, 447ms\n********* Finished testing of FeatureTests *********\n"
+            "duration_ms": 643.848,
+            "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 443ms\n********* Finished testing of FeatureTests *********\n"
           },
           "WindowBehaviorTests": {
             "command": [
@@ -1192,16 +1633,16 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 3468.889,
-            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.845959\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 26 passed, 0 failed, 0 skipped, 0 blacklisted, 3244ms\n********* Finished testing of WindowBehaviorTests *********\n"
+            "duration_ms": 4171.552,
+            "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.626708\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 3948ms\n********* Finished testing of WindowBehaviorTests *********\n"
           }
         }
       }
     }
   ],
   "summary": {
-    "atomic_case_count": 49,
-    "passed_case_count": 49,
+    "atomic_case_count": 69,
+    "passed_case_count": 69,
     "failed_case_count": 0,
     "missing_case_ids": [],
     "stage_passed": {
@@ -1239,6 +1680,34 @@
       "source": "https://doc.qt.io/qt-6/qsettings.html",
       "finding": "QSettings supports grouped values, contains(), key enumeration, and remove().",
       "assumption": "Removed controls can keep compatible runtime keys while no longer exposing them in Preferences."
+    },
+    {
+      "hop": 5,
+      "dimension": "Qt menu icon visibility",
+      "source": "https://doc.qt.io/qt-6.8/qaction.html",
+      "finding": "QAction can carry an icon independently of text, and iconVisibleInMenu controls whether a menu shows it; a null icon clears the action icon.",
+      "assumption": "The main-menu policy must be reapplied after fullscreen text/icon state changes because fullscreen action clones are updated at runtime."
+    },
+    {
+      "hop": 6,
+      "dimension": "Qt fullscreen state transition",
+      "source": "https://doc.qt.io/qt-6/qwindow.html",
+      "finding": "QWindow exposes showFullScreen(), showNormal(), showMaximized(), and setWindowState() for explicit window-state transitions.",
+      "assumption": "The macOS asynchronous transition requires restoring saved normal geometry after the WindowStateChange event."
+    },
+    {
+      "hop": 7,
+      "dimension": "top-level window centering",
+      "source": "https://doc.qt.io/QT-6/application-windows.html",
+      "finding": "Top-level frameGeometry() includes the native frame and positioning should be performed after the platform window is created.",
+      "assumption": "A deferred frame-center operation is the deterministic cross-layer boundary for the Cocoa Preferences window."
+    },
+    {
+      "hop": 8,
+      "dimension": "AppKit menu item image behavior",
+      "source": "https://developer.apple.com/documentation/appkit/nsmenuitem/image",
+      "finding": "AppKit menu items have an image slot that is rendered beside menu item titles.",
+      "assumption": "Clearing the Qt QAction icon before AppKit menu synchronization prevents the unwanted left-hand symbol in both fullscreen states."
     }
   ],
   "passed": true

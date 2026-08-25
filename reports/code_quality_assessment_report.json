@@ -1,10 +1,10 @@
 {
   "schema_version": "2.0",
   "kind": "code-quality-assessment-report",
-  "generated_at_utc": "2026-08-25T04:41:01.740498+00:00",
+  "generated_at_utc": "2026-08-25T05:45:55.551504+00:00",
   "repository": "/Users/inostarlin/code/Fovelle",
-  "head_sha": "d01b47a5cbddf96d74f3da962c5ab489dfd17dd8",
-  "scope": "floating navigation fade, Preferences Window/Image/Miscellaneous, file association, and auditable tests",
+  "head_sha": "56c5ca8e8f602ef06daacef00074d237fb8401af",
+  "scope": "floating navigation fade, View/fullscreen actions, merged Display Preferences, file association, window state persistence, and auditable tests",
   "dimensions": [
     {
       "id": "精益完整性",
@@ -35,7 +35,11 @@
   "facts": [
     "The native HDR button has one opacity owner and full-opacity child artwork.",
     "The association prompt uses NativeDialogs, which applies the selected Light/Dark Cocoa appearance.",
-    "The frequency policy is a pure timestamp function and the association bridge exposes dry-run mode."
+    "The frequency policy is a pure timestamp function and the association bridge exposes dry-run mode.",
+    "Fullscreen action clones clear their icon when main-menu icons are disabled, for both Enter and Exit labels.",
+    "Fullscreen exit restores saved normal geometry after macOS completes the asynchronous state transition.",
+    "Preferences uses four native toolbar categories and centers both the dialog frame and the association button's visible content row.",
+    "Hide Titlebar persists options/titlebarhidden and applies it during each new MainWindow show event."
   ],
   "inferences": [
     "When all four stages pass, the requested behavior is covered for the tested macOS host."
@@ -49,22 +53,22 @@
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 77300,
-      "sha256": "64531c90dc74de51449434e69f2d5b876022d8638fb37631ca28a8ce01e003f8"
+      "bytes": 132041,
+      "sha256": "d863e2e75032c01187f5aa16a67597fbf4be4546b53fa8a25b0ae0d777ab397f"
     },
     "test_case_specification.json": {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 51563,
-      "sha256": "43a9eb6ef3f07d30157b40eb259fa743a9d2ac5d47c8dbae98ee78236ba11160"
+      "bytes": 74913,
+      "sha256": "38d2b603162c565b3e6b4fa34d0f1cdb1c8f4488a61c93e34b730aa85190d534"
     },
     "test_completion_report.json": {
       "path": "reports/test_completion_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_completion_report.json",
       "exists": true,
-      "bytes": 2476,
-      "sha256": "fdfc02f036d70f513fd2aa0732571bcf83f1e355ef789696219aa120ee8079c2"
+      "bytes": 10732,
+      "sha256": "75c43ab3ef28f2612e9128b712e4afe5332fdf2d410fcafa13631eb785fc8314"
     }
   },
   "passed": true

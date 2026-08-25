@@ -55,6 +55,34 @@ RESEARCH_TRACE = [
         "finding": "QSettings supports grouped values, contains(), key enumeration, and remove().",
         "assumption": "Removed controls can keep compatible runtime keys while no longer exposing them in Preferences.",
     },
+    {
+        "hop": 5,
+        "dimension": "Qt menu icon visibility",
+        "source": "https://doc.qt.io/qt-6.8/qaction.html",
+        "finding": "QAction can carry an icon independently of text, and iconVisibleInMenu controls whether a menu shows it; a null icon clears the action icon.",
+        "assumption": "The main-menu policy must be reapplied after fullscreen text/icon state changes because fullscreen action clones are updated at runtime.",
+    },
+    {
+        "hop": 6,
+        "dimension": "Qt fullscreen state transition",
+        "source": "https://doc.qt.io/qt-6/qwindow.html",
+        "finding": "QWindow exposes showFullScreen(), showNormal(), showMaximized(), and setWindowState() for explicit window-state transitions.",
+        "assumption": "The macOS asynchronous transition requires restoring saved normal geometry after the WindowStateChange event.",
+    },
+    {
+        "hop": 7,
+        "dimension": "top-level window centering",
+        "source": "https://doc.qt.io/QT-6/application-windows.html",
+        "finding": "Top-level frameGeometry() includes the native frame and positioning should be performed after the platform window is created.",
+        "assumption": "A deferred frame-center operation is the deterministic cross-layer boundary for the Cocoa Preferences window.",
+    },
+    {
+        "hop": 8,
+        "dimension": "AppKit menu item image behavior",
+        "source": "https://developer.apple.com/documentation/appkit/nsmenuitem/image",
+        "finding": "AppKit menu items have an image slot that is rendered beside menu item titles.",
+        "assumption": "Clearing the Qt QAction icon before AppKit menu synchronization prevents the unwanted left-hand symbol in both fullscreen states.",
+    },
 ]
 
 
@@ -193,6 +221,13 @@ CASES = [
     c("ST-NAV-CHILD-OPAQUE", "原生按钮矩形与中心符号不会各自独立淡出。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-NAV-PAINT-FADE", "非 HDR 路径只淡出按钮绘制像素，不产生矩形 opacity effect。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade"),
     c("UT-NAV-BOTH-SIDES", "左右按钮使用同一动画时长和同一显隐状态机。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationButtonsFadeTransition"),
+    c("ST-VIEW-LEGACY-ACTIONS", "View 菜单移除 Navigation Resets Zoom 和 Match Image Size。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-FULLSCREEN-ENTER-ICON", "View → Enter Full Screen 在主菜单图标关闭时不显示左侧符号。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-FULLSCREEN-EXIT-ICON", "View → Exit Full Screen 在主菜单图标关闭时不显示左侧符号。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-FULLSCREEN-EXIT-SHARED", "View → Exit Full Screen 与 Esc 复用同一退出全屏逻辑。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-VIEW-LEGACY-ACTIONS", "实际 View 菜单对象树不包含两个已移除动作。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testViewMenuRemovesLegacyActions"),
+    c("UT-FULLSCREEN-MENU-ICONS", "全屏进入和退出后主 View 菜单动作均保持无图标。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy"),
+    c("UT-FULLSCREEN-EXIT-SHARED", "直接触发 View → Exit Full Screen 后窗口按 Esc 路径离开全屏并恢复普通几何。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath"),
     c("ST-WINDOW-CONTROLS-REMOVED", "Window 页移除匹配图像大小、匹配后行为、最小尺寸和最大尺寸。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-WINDOW-MAXIMIZE-PATH", "应用创建窗口时调用 showMaximized。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-WINDOW-MAXIMIZED", "每次打开的新窗口实际处于最大化状态。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNewWindowStartsMaximized"),
@@ -201,6 +236,8 @@ CASES = [
     c("ST-CONTEXT-MENU-ICONS-REMOVED", "Show icons in context menus 控件被移除且默认值为勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-SUBMENU-ICONS-REMOVED", "Show icons in submenus 控件被移除且默认值为勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-SESSION-REMOVED", "Persist session across app restarts 控件被移除且默认值为不勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-APPEARANCE-LABEL", "Window/Image 合并页将 Theme 标签重命名为 Appearance。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-SLIDESHOW-ON-TOP-REMOVED", "Keep window on top during slideshow 控件被移除且固定默认值为不勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-PREFERENCES-REMOVED", "已移除的 Window/Image/Misc 控件不出现在实际对象树。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testPreferencesDefaultsAndRemovedControls"),
     c("UT-THEME-LABELS", "Theme 项目命名为 Light、Dark，且顺序保持稳定。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls"),
     c("ST-THEME-LABELS", "Theme 映射不再生成 Light Theme/Dark Theme 文案。", "static", "tests/requirements_pipeline.py::static_contracts"),
@@ -220,14 +257,25 @@ CASES = [
     c("UT-IMAGE-DEFAULTS", "Image 固定默认值在 SettingsManager 中可重复读取。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testPreferencesDefaultsAndRemovedControls"),
     c("ST-MISC-NAV-SPEED", "Navigation speed 控件移除，默认值为 50ms。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-MISC-LOOP", "Loop through folders 控件移除，默认不勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-MISC-MIME-REMOVED", "Allow MIME content detection 控件移除，默认值为勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-MISC-SKIP-HIDDEN-REMOVED", "Skip hidden files 控件移除，默认值为勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-MISC-SAVE-RECENTS-REMOVED", "Save recent files 控件移除，默认值为勾选。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-MISC-UPDATE-OLD", "Update notifications on startup 控件和旧设置键移除。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-UPDATE-FREQUENCY-UI", "Automatically check for updates 下拉列表包含四项且默认 Weekly。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-UPDATE-FREQUENCY", "Never/Daily/Weekly/Monthly 的更新策略按日历间隔判定。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testUpdateCheckFrequencyPolicy"),
     c("ST-ASSOCIATE-BUTTON", "Miscellaneous 末尾有 Associate all supported formats 按钮。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("ST-ASSOCIATE-CENTER", "Associate all supported formats 按钮在 Miscellaneous 可视内容区水平居中。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("ST-ASSOCIATE-LAUNCHSERVICES", "关联实现按扩展名解析 UTI 并调用 Launch Services。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-ASSOCIATE-DRYRUN", "文件关联计算支持无副作用 dry-run。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testAssociateAllSupportedFormatsDryRun"),
     c("ST-ASSOCIATE-DIALOG", "文件关联完成后使用原生主题感知弹窗提示。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-ASSOCIATE-CENTER", "关联按钮运行时水平中心与 Miscellaneous 可视内容区中心一致。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testAssociateFormatsButtonIsCentered"),
     c("UT-ASSOCIATE-DIALOG-THEME", "Light/Dark 原生弹窗适配器可实际应用。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNativeDialogsFollowSelectedTheme"),
+    c("ST-DISPLAY-MERGED", "设置页只保留 Display、Miscellaneous、Shortcuts、Mouse 四个分类。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-DISPLAY-MERGED", "实际设置原生工具栏首项为 Display 且不再有 Window/Image。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence"),
+    c("ST-SETTINGS-CENTER", "打开设置页时通过主窗口 frameGeometry 中心定位。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-SETTINGS-CENTER", "设置页实际显示后相对主窗口 frameGeometry 居中。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testOptionsDialogCentersOnMainWindow"),
+    c("ST-TITLEBAR-PERSIST", "Hide Titlebar 使用 options/titlebarhidden 持久化并在新窗口 showEvent 读取。", "static", "tests/requirements_pipeline.py::static_contracts"),
+    c("UT-TITLEBAR-PERSIST", "当前窗口隐藏标题栏后，新建窗口继承隐藏状态。", "unit", "tests/tst_qviewtests.cpp::WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow"),
     c("ST-FORMATS-REMOVED", "Preferences 分类和原生设置 toolbar 中移除 Formats。", "static", "tests/requirements_pipeline.py::static_contracts"),
     c("UT-FORMATS-REMOVED", "实际 Preferences 对象树中不存在 Formats 页面。", "unit", "tests/tst_qviewtests.cpp::FeatureTests::testSettingsFormatsPaneIsRemoved"),
     c("ST-MIGRATION-OBSOLETE", "旧更新通知和格式禁用键在迁移时被清理，新频率按 Weekly 初始化。", "static", "tests/requirements_pipeline.py::static_contracts"),
@@ -243,13 +291,20 @@ CASES = [
 UNIT_METHOD_MARKERS = {
     "UT-NAV-PAINT-FADE": "WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade",
     "UT-NAV-BOTH-SIDES": "WindowBehaviorTests::testNavigationButtonsFadeTransition",
+    "UT-VIEW-LEGACY-ACTIONS": "FeatureTests::testViewMenuRemovesLegacyActions",
+    "UT-FULLSCREEN-MENU-ICONS": "WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy",
+    "UT-FULLSCREEN-EXIT-SHARED": "WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
     "UT-WINDOW-MAXIMIZED": "WindowBehaviorTests::testNewWindowStartsMaximized",
     "UT-PREFERENCES-REMOVED": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-THEME-LABELS": "WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls",
     "UT-IMAGE-DEFAULTS": "FeatureTests::testPreferencesDefaultsAndRemovedControls",
     "UT-UPDATE-FREQUENCY": "FeatureTests::testUpdateCheckFrequencyPolicy",
     "UT-ASSOCIATE-DRYRUN": "FeatureTests::testAssociateAllSupportedFormatsDryRun",
+    "UT-ASSOCIATE-CENTER": "WindowBehaviorTests::testAssociateFormatsButtonIsCentered",
     "UT-ASSOCIATE-DIALOG-THEME": "WindowBehaviorTests::testNativeDialogsFollowSelectedTheme",
+    "UT-DISPLAY-MERGED": "WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence",
+    "UT-SETTINGS-CENTER": "WindowBehaviorTests::testOptionsDialogCentersOnMainWindow",
+    "UT-TITLEBAR-PERSIST": "WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow",
     "UT-FORMATS-REMOVED": "FeatureTests::testSettingsFormatsPaneIsRemoved",
     "UT-TASK-REGRESSION": "Finished testing of WindowBehaviorTests",
 }
@@ -270,6 +325,7 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     settings = read(repo, "src/settingsmanager.cpp")
     namespace = read(repo, "src/qvnamespace.h")
     application = read(repo, "src/qvapplication.cpp")
+    actionmanager = read(repo, "src/actionmanager.cpp")
     mainwindow = read(repo, "src/mainwindow.cpp")
     main_cpp = read(repo, "src/main.cpp")
     cocoa = read(repo, "src/qvcocoafunctions.mm")
@@ -290,6 +346,8 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         "windowResizeComboBox", "afterMatchingSizeComboBox", "minWindowResizeSpinBox",
         "maxWindowResizeSpinBox", "detailsInFullscreen", "mainMenuIconsCheckbox",
         "contextMenuIconsCheckbox", "submenuIconsCheckbox", "persistSessionCheckbox",
+        "slideshowKeepsWindowOnTopCheckbox", "mimeContentDetectionCheckbox",
+        "skipHiddenCheckbox", "saveRecentsCheckbox",
         "scalingTwoCheckbox", "smoothScalingLimitCheckbox", "scaleFactorSpinBox",
         "cursorZoomCheckbox", "oneToOnePixelSizingCheckbox", "zoomDefaultComboBox",
         "fitZoomLimitCheckbox", "fitOverscanSpinBox", "navResetsZoomCheckbox",
@@ -307,7 +365,8 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         "pixel overscan", "Navigation resets zoom", "Constrain image position",
         "Keep centered if smaller", "Original Size functions as toggle",
         "Color space conversion", "Navigation speed", "Loop through folders",
-        "Update notifications on startup",
+        "Update notifications on startup", "Keep window on top during slideshow",
+        "Allow MIME content detection", "Skip hidden files", "Save recent files",
     )
     old_controls_absent = all(name not in widgets for name in removed_widgets) and all(
         name not in options_cpp + options_header for name in removed_widgets
@@ -319,6 +378,10 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         "context_true": '"contextmenuicons", {true' in settings,
         "submenu_true": '"submenuicons", {true' in settings,
         "session_false": '"persistsession", {false' in settings,
+        "slideshow_false": '"slideshowkeepswindowontop", {false' in settings,
+        "mime_true": '"allowmimecontentdetection", {true' in settings,
+        "skip_true": '"skiphidden", {true' in settings,
+        "recents_true": '"saverecents", {true' in settings,
         "scaling_true": '"scalingtwoenabled", {true' in settings,
         "limit_false": '"smoothscalinglimitenabled", {false' in settings,
         "cursor_true": '"cursorzoom", {true' in settings,
@@ -343,9 +406,45 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
         and "Dark Theme" not in options_ui
     )
     category_ok = (
-        all(f'tr("{name}")' in options_cpp for name in ("Window", "Image", "Miscellaneous", "Shortcuts", "Mouse"))
-        and 'tr("Formats")' not in options_cpp
+        all(f'tr("{name}")' in options_cpp for name in ("Display", "Miscellaneous", "Shortcuts", "Mouse"))
+        and all(f'tr("{name}")' not in options_cpp for name in ("Window", "Image", "Formats"))
     )
+    view_menu_segment = actionmanager[actionmanager.find("QMenu *ActionManager::buildViewMenu") :]
+    view_legacy_removed = all(
+        f'addCloneOfAction(viewMenu, "{key}")' not in view_menu_segment.split("QMenu *ActionManager::buildToolsMenu", 1)[0]
+        for key in ("navresetszoom", "matchimagesize")
+    )
+    fullscreen_icon_policy = all(
+        marker in mainwindow
+        for marker in (
+            "getShowMainMenuIcons()",
+            "setIconVisibleInMenu(showIcon)",
+            "fullscreenAction->setIcon(showIcon",
+        )
+    ) and "setIcon(qvApp->iconFromFont(isFullscreen" not in mainwindow
+    fullscreen_exit_shared = (
+        "void MainWindow::exitFullScreen()" in mainwindow
+        and mainwindow.count("exitFullScreen();") >= 2
+        and "if (windowState().testFlag(Qt::WindowFullScreen))" in mainwindow
+    )
+    appearance_ok = 'name="appearanceLabel"' in options_ui and 'Appearance:' in options_ui
+    display_ok = (
+        'name="displayScrollArea"' in options_ui
+        and 'name="display"' in options_ui
+        and 'name="windowScrollArea"' not in options_ui
+        and 'name="imageScrollArea"' not in options_ui
+        and '"io.github.inostarlin-passion.Fovelle.settings.display"' in cocoa
+    )
+    dialog_center_ok = "frameGeometry().center()" in application and "QTimer::singleShot(0, this, centerDialog)" in application
+    titlebar_persist_ok = all(
+        marker in mainwindow
+        for marker in (
+            '"options/titlebarhidden"',
+            "persistPreference",
+            "setValue(QStringLiteral(\"options/titlebarhidden\"), shouldHide)",
+        )
+    )
+    association_center_ok = all(marker in options_cpp for marker in ("QHBoxLayout", "setContentsMargins(0, 0, 0, 0)", "QFormLayout::SpanningRole"))
     nav_ok = all(
         marker in cocoa
         for marker in (
@@ -379,6 +478,10 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     result: dict[str, dict[str, Any]] = {}
     result["ST-NAV-SINGLE-OPACITY"] = check(nav_ok, {"single_opacity_owner": nav_ok})
     result["ST-NAV-CHILD-OPAQUE"] = check(nav_ok, {"children_are_full_opacity": nav_ok})
+    result["ST-VIEW-LEGACY-ACTIONS"] = check(view_legacy_removed, {"legacy_actions_absent": view_legacy_removed})
+    result["ST-FULLSCREEN-ENTER-ICON"] = check(fullscreen_icon_policy, {"main_menu_icon_policy": fullscreen_icon_policy})
+    result["ST-FULLSCREEN-EXIT-ICON"] = check(fullscreen_icon_policy, {"main_menu_icon_policy": fullscreen_icon_policy})
+    result["ST-FULLSCREEN-EXIT-SHARED"] = check(fullscreen_exit_shared, {"shared_exit_path": fullscreen_exit_shared})
     result["ST-WINDOW-CONTROLS-REMOVED"] = check(ui_parse and old_controls_absent and old_labels_absent, {"ui_parse": ui_parse, "controls_absent": old_controls_absent, "labels_absent": old_labels_absent})
     result["ST-WINDOW-MAXIMIZE-PATH"] = check("w->showMaximized();" in application and "FOVELLE_SYSTEM_PROBE" in main_cpp, {"show_maximized": "w->showMaximized();" in application, "probe": "FOVELLE_SYSTEM_PROBE" in main_cpp})
     result["ST-FULLSCREEN-TITLEBAR-REMOVED"] = check("detailsInFullscreen" not in options_ui and defaults["full_false"] and 'getBoolean("fullscreendetails")' not in mainwindow, {"control_absent": "detailsInFullscreen" not in options_ui, "default_false": defaults["full_false"], "runtime_always_hidden": 'getBoolean("fullscreendetails")' not in mainwindow})
@@ -386,6 +489,8 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     result["ST-CONTEXT-MENU-ICONS-REMOVED"] = check("contextMenuIconsCheckbox" not in options_ui and defaults["context_true"] and "showContextMenuIcons = true" in application, {"control_absent": "contextMenuIconsCheckbox" not in options_ui, "default_true": defaults["context_true"], "runtime_true": "showContextMenuIcons = true" in application})
     result["ST-SUBMENU-ICONS-REMOVED"] = check("submenuIconsCheckbox" not in options_ui and defaults["submenu_true"] and "showSubmenuIcons = true" in application, {"control_absent": "submenuIconsCheckbox" not in options_ui, "default_true": defaults["submenu_true"], "runtime_true": "showSubmenuIcons = true" in application})
     result["ST-SESSION-REMOVED"] = check("persistSessionCheckbox" not in options_ui and defaults["session_false"], {"control_absent": "persistSessionCheckbox" not in options_ui, "default_false": defaults["session_false"]})
+    result["ST-APPEARANCE-LABEL"] = check(appearance_ok, {"appearance_label": appearance_ok})
+    result["ST-SLIDESHOW-ON-TOP-REMOVED"] = check("slideshowKeepsWindowOnTopCheckbox" not in options_ui and defaults["slideshow_false"], {"control_absent": "slideshowKeepsWindowOnTopCheckbox" not in options_ui, "default_false": defaults["slideshow_false"]})
     result["ST-THEME-LABELS"] = check(theme_ok, {"theme_mapping": theme_ok})
 
     image_checks = {
@@ -409,15 +514,22 @@ def static_contracts(repo: Path, specification_valid: bool) -> dict[str, dict[st
     result["ST-THEME-LABELS"] = check(theme_ok, {"theme_mapping": theme_ok, "old_labels_absent": "Light Theme" not in options_ui and "Dark Theme" not in options_ui})
     result["ST-MISC-NAV-SPEED"] = check("navSpeedSpinBox" not in options_ui and defaults["nav_50"], {"widget_absent": "navSpeedSpinBox" not in options_ui, "default_50": defaults["nav_50"]})
     result["ST-MISC-LOOP"] = check("loopFoldersCheckbox" not in options_ui and defaults["loop_false"], {"widget_absent": "loopFoldersCheckbox" not in options_ui, "default_false": defaults["loop_false"]})
+    result["ST-MISC-MIME-REMOVED"] = check("mimeContentDetectionCheckbox" not in options_ui and defaults["mime_true"], {"widget_absent": "mimeContentDetectionCheckbox" not in options_ui, "default_true": defaults["mime_true"]})
+    result["ST-MISC-SKIP-HIDDEN-REMOVED"] = check("skipHiddenCheckbox" not in options_ui and defaults["skip_true"], {"widget_absent": "skipHiddenCheckbox" not in options_ui, "default_true": defaults["skip_true"]})
+    result["ST-MISC-SAVE-RECENTS-REMOVED"] = check("saveRecentsCheckbox" not in options_ui and defaults["recents_true"], {"widget_absent": "saveRecentsCheckbox" not in options_ui, "default_true": defaults["recents_true"]})
     result["ST-MISC-UPDATE-OLD"] = check("updateCheckbox" not in options_ui and '"updatenotifications", {' not in settings and "getBoolean(\"updatenotifications\")" not in update_checker, {"widget_absent": "updateCheckbox" not in options_ui, "settings_library_absent": '"updatenotifications", {' not in settings, "runtime_read_absent": "getBoolean(\"updatenotifications\")" not in update_checker})
     frequency_ok = all(marker in options_ui + options_cpp for marker in ("updateFrequencyComboBox", "updatecheckfrequency", "Never", "Daily", "Weekly", "Monthly")) and defaults["weekly"]
     result["ST-UPDATE-FREQUENCY-UI"] = check(frequency_ok, {"frequency_contract": frequency_ok, "default_weekly": defaults["weekly"]})
     result["ST-ASSOCIATE-BUTTON"] = check("associateFormatsButton" in options_ui and "associateSupportedFormats" in options_cpp and "clicked" in options_cpp, {"button": "associateFormatsButton" in options_ui, "slot": "associateSupportedFormats" in options_cpp, "connection": "clicked" in options_cpp})
+    result["ST-ASSOCIATE-CENTER"] = check(association_center_ok, {"center_layout": association_center_ok})
     result["ST-ASSOCIATE-LAUNCHSERVICES"] = check(association_ok, {"association_contract": association_ok})
     result["ST-ASSOCIATE-DIALOG"] = check(popup_ok, {"native_message": "NativeDialogs::showMessage" in options_cpp, "theme_adapter": "NativeDialogs::applyTheme" in native_dialogs})
-    toolbar_items = re.findall(r'Fovelle\.settings\.(window|image|miscellaneous|shortcuts|mouse)', cocoa)
-    formats_ok = category_ok and "formatsTable" not in options_ui + options_cpp + options_header and "puzzlepiece.extension" not in cocoa and len(set(toolbar_items)) == 5
+    toolbar_items = re.findall(r'Fovelle\.settings\.(display|miscellaneous|shortcuts|mouse)', cocoa)
+    formats_ok = category_ok and display_ok and "formatsTable" not in options_ui + options_cpp + options_header and "puzzlepiece.extension" not in cocoa and len(set(toolbar_items)) == 4
+    result["ST-DISPLAY-MERGED"] = check(display_ok and category_ok, {"display_contract": display_ok, "categories": category_ok})
     result["ST-FORMATS-REMOVED"] = check(formats_ok, {"categories": category_ok, "formats_table_absent": "formatsTable" not in options_ui + options_cpp + options_header, "native_toolbar_items": sorted(set(toolbar_items))})
+    result["ST-SETTINGS-CENTER"] = check(dialog_center_ok, {"deferred_frame_center": dialog_center_ok})
+    result["ST-TITLEBAR-PERSIST"] = check(titlebar_persist_ok, {"persistent_key_and_restore": titlebar_persist_ok})
     result["ST-MIGRATION-OBSOLETE"] = check(migration_ok, {"migration_contract": migration_ok})
     result["ST-TEST-SCHEMA"] = check(specification_valid, {"specification_valid": specification_valid, "case_count": len(CASES)})
 
@@ -632,6 +744,8 @@ def run_pipeline(repo: Path, build_dir: Path, skip_build: bool) -> int:
             "The execution order is static, unit, integration, system.",
             "The association bridge has a dry-run unit path; the system stage never changes Launch Services.",
             "The system stage launches the actual Fovelle.app and observes the maximized window through a bounded probe.",
+            "Both Enter Full Screen and Exit Full Screen reapply the main-menu icon policy; Escape and the View exit action call the same exitFullScreen path.",
+            "The Display settings page is centered relative to the invoking main-window frame, and titlebarhidden is read by every new window.",
         ],
         "uncertainties": [
             "The native HDR compositor observation is host-specific to macOS/CALayer.",
@@ -647,7 +761,7 @@ def run_pipeline(repo: Path, build_dir: Path, skip_build: bool) -> int:
         "generated_at_utc": utc_now(),
         "repository": str(repo),
         "head_sha": git_head(repo),
-        "scope": "floating navigation fade, Preferences Window/Image/Miscellaneous, file association, and auditable tests",
+        "scope": "floating navigation fade, View/fullscreen actions, merged Display Preferences, file association, window state persistence, and auditable tests",
         "dimensions": [
             {"id": "精益完整性", "passed": stage_passed["static"], "evidence": ["test_evidence.json#stages.static", "test_case_specification.json#cases"]},
             {"id": "功能正确性", "passed": stage_passed["unit"] and stage_passed["integration"] and stage_passed["system"], "evidence": ["test_evidence.json#stages.unit", "test_evidence.json#stages.integration", "test_evidence.json#stages.system"]},
@@ -657,6 +771,10 @@ def run_pipeline(repo: Path, build_dir: Path, skip_build: bool) -> int:
             "The native HDR button has one opacity owner and full-opacity child artwork.",
             "The association prompt uses NativeDialogs, which applies the selected Light/Dark Cocoa appearance.",
             "The frequency policy is a pure timestamp function and the association bridge exposes dry-run mode.",
+            "Fullscreen action clones clear their icon when main-menu icons are disabled, for both Enter and Exit labels.",
+            "Fullscreen exit restores saved normal geometry after macOS completes the asynchronous state transition.",
+            "Preferences uses four native toolbar categories and centers both the dialog frame and the association button's visible content row.",
+            "Hide Titlebar persists options/titlebarhidden and applies it during each new MainWindow show event.",
         ],
         "inferences": ["When all four stages pass, the requested behavior is covered for the tested macOS host."],
         "uncertainties": completion["uncertainties"],
