@@ -1,9 +1,14 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-26T12:26:48.283972+00:00",
+  "generated_at": "2026-08-26T13:18:54.610948+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "status": "passed",
+  "verification_scope": {
+    "local_pipeline": "executed",
+    "remote_workflow_reexecuted": false,
+    "remote_reexecution_note": "本次修复未执行 push 或远端工作流重跑；远端链接记录的是修复前的失败/对照运行。"
+  },
   "execution_order": [
     "static",
     "unit",
@@ -14,162 +19,150 @@
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
-      "finding": "The Checks run for commit 87ffbe4 failed in WindowBehaviorTests::testExitFullscreenActionUsesEscapePath; clang-tidy and clang-format passed.",
-      "premise": "The hosted runner log is the authoritative observation for this repair."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+      "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
+      "premise": "The hosted Release log is the authoritative observation for the currently failing check."
     },
     {
       "hop": 2,
-      "layer": "cross-job confirmation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
-      "finding": "The Build Fovelle job reported the same full-test failure, so the regression is shared by the registered test binary rather than isolated to one job wrapper.",
-      "premise": "The same failing QtTest method in both jobs is stronger evidence than a single job observation."
+      "layer": "cross-job isolation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
+      "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
+      "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract."
     },
     {
       "hop": 3,
-      "layer": "runner capability",
-      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
-      "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
-      "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure."
+      "layer": "version-format observation",
+      "source": "dist/scripts/package-macos-release.sh",
+      "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
+      "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing."
     },
     {
       "hop": 4,
-      "layer": "build-tool semantics",
-      "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
-      "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
-      "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled."
+      "layer": "build-tool contract",
+      "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
+      "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
+      "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target."
     },
     {
       "hop": 5,
-      "layer": "async completion semantics",
-      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
-      "finding": "QFutureWatcher emits finished() when the watched future finishes.",
-      "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted."
+      "layer": "bundle metadata contract",
+      "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
+      "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
+      "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility."
     },
     {
       "hop": 6,
-      "layer": "test synchronization",
-      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-      "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
-      "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size."
+      "layer": "dependency provenance",
+      "source": "dist/scripts/prepare-ghostscript.sh",
+      "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
+      "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced."
     },
     {
       "hop": 7,
-      "layer": "deduction",
-      "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
-      "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
+      "layer": "upstream multi-architecture build guidance",
+      "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
+      "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
+      "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags."
     },
     {
       "hop": 8,
-      "layer": "window geometry semantics",
-      "source": "https://doc.qt.io/qt-6/application-windows.html",
-      "finding": "Qt documents top-level QWidget::geometry() as client geometry excluding the window frame, while frameGeometry() includes the frame.",
-      "premise": "A client rectangle is not a stable cross-platform proxy for the native normal frame when titlebar insets are changed by the platform."
+      "layer": "source-build counterexample",
+      "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
+      "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
+      "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries."
     },
     {
       "hop": 9,
-      "layer": "platform restoration semantics",
-      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
-      "finding": "Qt documents that windowing-system decoration and restoration can adjust the geometry after a window becomes visible.",
-      "premise": "The test must capture the geometry after the deferred native decoration setup has settled instead of overwriting that observation with a pre-decoration request."
+      "layer": "implementation verification",
+      "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
+      "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
+      "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together."
     },
     {
       "hop": 10,
-      "layer": "repository deduction",
-      "source": "tests/tst_qviewtests.cpp and src/mainwindow.cpp",
-      "finding": "The remote failure compared requested QRect(220,180 720x500) with AppKit-restored QRect(220,148 720x532); the test's second setGeometry() occurred after showEvent's deferred full-size-content-view setup.",
-      "premise": "Removing that second write makes the baseline the platform's settled normal geometry, so the test measures the View action's native exit path rather than titlebar decoration conversion."
+      "layer": "final deduction",
+      "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
+      "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
+      "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract."
     }
   ],
   "diagnosis": {
-    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
-    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
-    "commit": "87ffbe4",
+    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+    "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
+    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851796",
+    "commit": "47b4eba",
     "observations": [
-      "Run Unit Tests: WindowBehaviorTests::testExitFullscreenActionUsesEscapePath 在远端比较 QWidget::geometry() 时实际为 QRect(220,148 720x532)，预期为 QRect(220,180 720x500)；随后清理阶段出现 SIGSEGV。",
-      "Build Fovelle: 同一 WindowBehaviorTests 失败，说明不是仅限独立测试 job 的环境差异。",
-      "Run clang-tidy: passed。",
-      "Run clang-format: passed。"
+      "Release 的 Deploy/Package 阶段报告 minos 15.7.5，并在旧比较器中出现 7.5 的 Bash arithmetic syntax error。",
+      "同一失败步骤指出 build/Fovelle.app/Contents/Resources/ghostscript/lib/libtesseract.5.dylib 要求 15.7.5，而目标为 15.0。",
+      "Checks 和 Build Fovelle 对提交 47b4eba 均通过，说明普通编译、静态检查和 Qt 测试链没有复现该失败。"
     ],
-    "deduction": "macos-26 runner 标签有官方支持；当前剩余失败是测试把平台归一化前的 requested client rect 当成跨 macOS 稳定基线。捕获 deferred native decoration 完成后的实际 geometry 后，断言只验证退出路径的可重复恢复结果。"
+    "deduction": "Release 必须同时修复版本解析和依赖来源：三段版本只能按数值组件比较；Ghostscript 必须从固定源码以 15.0、双架构构建，再在签名之前对最终 bundle 做闭合校验。"
   },
   "repairs": [
     {
-      "path": "build.sh",
-      "change": "tidy 分支关闭 Ghostscript bundle"
+      "path": "dist/scripts/package-macos-release.sh",
+      "change": "增加三段 minos 比较、无凭据版本单元入口，并在 macdeployqt 后强制覆盖为目标版本的源码 Ghostscript runtime"
     },
     {
-      "path": "src/qvgraphicsimageitem.h",
-      "change": "暴露包含 active/queued async work 的 pending 观察点"
+      "path": "dist/scripts/prepare-ghostscript.sh",
+      "change": "增加目标版本/架构校验、固定源码构建 flags 和禁用不需要的 Tesseract/桌面可选集成"
     },
     {
-      "path": "src/qvgraphicsimageitem.cpp",
-      "change": "实现异步 refinement 状态聚合"
-    },
-    {
-      "path": "src/qvgraphicsview.cpp",
-      "change": "委托新的 pending 观察点"
-    },
-    {
-      "path": "tests/tst_qviewtests.cpp",
-      "change": "等待稳定 painted vector tile，使用真实绘制观察点，并以 native decoration 稳定后的 geometry 验证全屏退出"
-    },
-    {
-      "path": "tests/CMakeLists.txt",
-      "change": "将 CTest 审计入口切换到当前 CI 质量流水线"
+      "path": "tests/ci_quality_pipeline.py",
+      "change": "增加 Release 静态、版本单元、源码构建集成和发布 dry-run 系统验收，并更新四份审计 JSON"
     }
   ],
   "stage_summaries": {
     "static": {
-      "total": 5,
-      "passed": 5,
+      "total": 6,
+      "passed": 6,
       "failed": 0,
       "status": "passed"
     },
     "unit": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    "integration": {
       "total": 4,
       "passed": 4,
       "failed": 0,
       "status": "passed"
     },
-    "integration": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "status": "passed"
-    },
     "system": {
-      "total": 2,
-      "passed": 2,
+      "total": 3,
+      "passed": 3,
       "failed": 0,
       "status": "passed"
     }
   },
-  "case_count": 13,
-  "passed_case_count": 13,
+  "case_count": 19,
+  "passed_case_count": 19,
   "failed_case_count": 0,
   "artifacts": [
     {
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 18486,
-      "sha256": "2ffca6cfba7c0d3474286db88735294fc928d9cffedc13dc519500c126de5f69"
+      "bytes": 41794,
+      "sha256": "39fa700f41e78683b5c3caf46c42ead1498451985608a6b58ffe1b749ce7a99d"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 18235,
-      "sha256": "0f3e83261b65718fb22026a3eceddcea7066340cad80cec142b5cb7cb341c050"
+      "bytes": 26050,
+      "sha256": "f0f7f037ae32726cac24271d874df84b00b2fb94ed81707edf2416cd57b78977"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
-      "bytes": 8006,
-      "sha256": "0692555cf4f597b8bfcbbef0e721ea7be74ec288e50f0db7e14e4964a6c9b151"
+      "bytes": 8459,
+      "sha256": "2a2ef1d9e2d7e7797079edee8d8a593c3f9218b630722d33d602a437340f59e0"
     }
   ],
   "self_artifact": {

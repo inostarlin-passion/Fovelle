@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-26T12:26:48.283972+00:00",
+  "generated_at": "2026-08-26T13:18:54.610948+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "test_execution_order": [
     "static",
@@ -14,72 +14,72 @@
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
-      "finding": "The Checks run for commit 87ffbe4 failed in WindowBehaviorTests::testExitFullscreenActionUsesEscapePath; clang-tidy and clang-format passed.",
-      "premise": "The hosted runner log is the authoritative observation for this repair."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+      "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
+      "premise": "The hosted Release log is the authoritative observation for the currently failing check."
     },
     {
       "hop": 2,
-      "layer": "cross-job confirmation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
-      "finding": "The Build Fovelle job reported the same full-test failure, so the regression is shared by the registered test binary rather than isolated to one job wrapper.",
-      "premise": "The same failing QtTest method in both jobs is stronger evidence than a single job observation."
+      "layer": "cross-job isolation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
+      "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
+      "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract."
     },
     {
       "hop": 3,
-      "layer": "runner capability",
-      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
-      "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
-      "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure."
+      "layer": "version-format observation",
+      "source": "dist/scripts/package-macos-release.sh",
+      "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
+      "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing."
     },
     {
       "hop": 4,
-      "layer": "build-tool semantics",
-      "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
-      "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
-      "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled."
+      "layer": "build-tool contract",
+      "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
+      "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
+      "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target."
     },
     {
       "hop": 5,
-      "layer": "async completion semantics",
-      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
-      "finding": "QFutureWatcher emits finished() when the watched future finishes.",
-      "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted."
+      "layer": "bundle metadata contract",
+      "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
+      "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
+      "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility."
     },
     {
       "hop": 6,
-      "layer": "test synchronization",
-      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-      "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
-      "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size."
+      "layer": "dependency provenance",
+      "source": "dist/scripts/prepare-ghostscript.sh",
+      "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
+      "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced."
     },
     {
       "hop": 7,
-      "layer": "deduction",
-      "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
-      "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
+      "layer": "upstream multi-architecture build guidance",
+      "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
+      "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
+      "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags."
     },
     {
       "hop": 8,
-      "layer": "window geometry semantics",
-      "source": "https://doc.qt.io/qt-6/application-windows.html",
-      "finding": "Qt documents top-level QWidget::geometry() as client geometry excluding the window frame, while frameGeometry() includes the frame.",
-      "premise": "A client rectangle is not a stable cross-platform proxy for the native normal frame when titlebar insets are changed by the platform."
+      "layer": "source-build counterexample",
+      "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
+      "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
+      "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries."
     },
     {
       "hop": 9,
-      "layer": "platform restoration semantics",
-      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
-      "finding": "Qt documents that windowing-system decoration and restoration can adjust the geometry after a window becomes visible.",
-      "premise": "The test must capture the geometry after the deferred native decoration setup has settled instead of overwriting that observation with a pre-decoration request."
+      "layer": "implementation verification",
+      "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
+      "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
+      "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together."
     },
     {
       "hop": 10,
-      "layer": "repository deduction",
-      "source": "tests/tst_qviewtests.cpp and src/mainwindow.cpp",
-      "finding": "The remote failure compared requested QRect(220,180 720x500) with AppKit-restored QRect(220,148 720x532); the test's second setGeometry() occurred after showEvent's deferred full-size-content-view setup.",
-      "premise": "Removing that second write makes the baseline the platform's settled normal geometry, so the test measures the View action's native exit path rather than titlebar decoration conversion."
+      "layer": "final deduction",
+      "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
+      "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
+      "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract."
     }
   ],
   "test_cases": [
@@ -163,6 +163,34 @@
     {
       "id": "CI-STATIC-004",
       "test_layer": "static",
+      "atomic_acceptance_criterion": "Release 必须在 macOS 15.0 应用合同下，用修复过的三段版本比较器和固定源码构建出 x86_64/arm64 Ghostscript 运行时。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::static_release_packaging_contract",
+      "test_purpose": "验证 Release 的依赖来源、版本解析和目标架构/最低系统版本合同在源码层面完整闭合。",
+      "preconditions": [
+        "Release workflow、打包脚本和 Ghostscript 准备脚本可读。"
+      ],
+      "input_data": {
+        "release_target": "15.0",
+        "ghostscript_version": "10.07.1",
+        "architectures": [
+          "x86_64",
+          "arm64"
+        ]
+      },
+      "operation_steps": [
+        "读取 Release workflow 的 SDK/deployment target。",
+        "读取版本比较和依赖 staging 路径。",
+        "读取 Ghostscript configure 的架构、SDK 和可选依赖参数。"
+      ],
+      "expected_result": "源码层面同时存在三段版本比较、15.0 deployment target、双架构 source staging、固定校验和以及禁用 Tesseract/可选 Homebrew 集成的配置。",
+      "postconditions": [
+        "不执行源码编译；真实二进制结果由 CI-INTEGRATION-004 验证。"
+      ]
+    },
+    {
+      "id": "CI-STATIC-005",
+      "test_layer": "static",
       "atomic_acceptance_criterion": "CTest 注册完整 Qt 回归测试和四层审计流水线，并保留 skip-build 调用契约。",
       "quality_requirement": "精益完整性",
       "test_code": "tests/ci_quality_pipeline.py::static_test_registration_contract",
@@ -187,7 +215,7 @@
       ]
     },
     {
-      "id": "CI-STATIC-005",
+      "id": "CI-STATIC-006",
       "test_layer": "static",
       "atomic_acceptance_criterion": "任务范围内的工作树差异不包含空白错误。",
       "quality_requirement": "精益完整性",
@@ -202,7 +230,8 @@
           "src",
           "tests",
           ".github",
-          "CMakeLists.txt"
+          "CMakeLists.txt",
+          "dist"
         ]
       },
       "operation_steps": [
@@ -318,6 +347,54 @@
       ]
     },
     {
+      "id": "CI-UNIT-005",
+      "test_layer": "unit",
+      "atomic_acceptance_criterion": "Release 版本比较器必须接受与目标相等的两段 macOS 版本。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_release_version_unit::compatible",
+      "test_purpose": "隔离验证修复后的版本比较器基本成功路径，不触发任何签名或系统工具。",
+      "preconditions": [
+        "package-macos-release.sh 可执行。"
+      ],
+      "input_data": {
+        "candidate_version": "15.0",
+        "expected_version": "15.0",
+        "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"
+      },
+      "operation_steps": [
+        "以测试模式调用打包脚本。",
+        "读取 VERSION_COMPATIBLE 标记和退出码。"
+      ],
+      "expected_result": "脚本返回 0，并输出 15.0 <= 15.0 的兼容标记。",
+      "postconditions": [
+        "测试模式进程退出，不访问 Apple 凭据或应用 bundle。"
+      ]
+    },
+    {
+      "id": "CI-UNIT-006",
+      "test_layer": "unit",
+      "atomic_acceptance_criterion": "Release 版本比较器必须正确拒绝带 patch 的高版本，并且不能把 7.5 当作 Bash 算术表达式。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_release_version_unit::incompatible",
+      "test_purpose": "直接回归远端 15.7.5 依赖版本触发的解析路径。",
+      "preconditions": [
+        "package-macos-release.sh 可执行。"
+      ],
+      "input_data": {
+        "candidate_version": "15.7.5",
+        "expected_version": "15.0",
+        "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"
+      },
+      "operation_steps": [
+        "以测试模式调用打包脚本。",
+        "检查非零退出、VERSION_INCOMPATIBLE 标记和错误输出。"
+      ],
+      "expected_result": "脚本非零退出，明确报告 15.7.5 > 15.0，且没有 invalid arithmetic operator。",
+      "postconditions": [
+        "测试模式进程退出，不创建 release artifact。"
+      ]
+    },
+    {
       "id": "CI-INTEGRATION-001",
       "test_layer": "integration",
       "atomic_acceptance_criterion": "完整 FovelleTests CTest 目标通过。",
@@ -361,6 +438,57 @@
       "expected_result": "列表输出包含两个目标。",
       "postconditions": [
         "不执行递归审计，仅验证注册契约。"
+      ]
+    },
+    {
+      "id": "CI-INTEGRATION-003",
+      "test_layer": "integration",
+      "atomic_acceptance_criterion": "Release 合同检查必须通过并覆盖源码 Ghostscript staging 与三段版本验证路径。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/quality_release.py",
+      "test_purpose": "在不消耗 Apple 凭据的情况下验证 Release workflow、签名/公证编排和兼容性修复的静态合同。",
+      "preconditions": [
+        "Python 解释器和 macOS Release 脚本存在。"
+      ],
+      "input_data": {
+        "command": "python3 tests/quality_release.py --repo . --output reports/evidence/release_contract.json"
+      },
+      "operation_steps": [
+        "运行 release contract 测试。",
+        "检查所有 R-* 原子检查均为 pass。"
+      ],
+      "expected_result": "命令返回 0，Release 合同 JSON 的 passed 为 true。",
+      "postconditions": [
+        "合同证据写入 reports/evidence/release_contract.json。"
+      ]
+    },
+    {
+      "id": "CI-INTEGRATION-004",
+      "test_layer": "integration",
+      "atomic_acceptance_criterion": "固定 Ghostscript 源码必须在目标 15.0 下生成同时包含 x86_64 与 arm64 的可安装 runtime。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_release_source_build",
+      "test_purpose": "执行真实源码下载校验、configure、编译、安装和 Mach-O 检查，闭合远端 Release 失败的依赖根因。",
+      "preconditions": [
+        "macOS SDK、clang、make、curl、tar、file、lipo 和 otool 可用。",
+        "网络可访问固定 Ghostscript archive。"
+      ],
+      "input_data": {
+        "ghostscript_version": "10.07.1",
+        "deployment_target": "15.0",
+        "architectures": [
+          "x86_64",
+          "arm64"
+        ]
+      },
+      "operation_steps": [
+        "调用 prepare-ghostscript.sh 的 force-source 路径。",
+        "检查生成 bin/gs。",
+        "读取 file/lipo/otool 输出及 runtime.json。"
+      ],
+      "expected_result": "源码构建返回 0，bin/gs 为双架构 Mach-O，所有读取到的 minos 为 15.0，且 runtime.json 存在。",
+      "postconditions": [
+        "临时源码和 runtime 在测试结束后清理。"
       ]
     },
     {
@@ -411,6 +539,31 @@
       "expected_result": "进程返回 0 且输出包含 1.0.0。",
       "postconditions": [
         "版本进程退出。"
+      ]
+    },
+    {
+      "id": "CI-SYSTEM-003",
+      "test_layer": "system",
+      "atomic_acceptance_criterion": "Release 编排必须在无凭据模式下可快速、确定性地完成 dry-run 和超时参数校验。",
+      "quality_requirement": "可测试性",
+      "test_code": "tests/quality_release_system.py",
+      "test_purpose": "验证最终发布流程具备不侵入外部 Apple 服务的系统级可观测入口。",
+      "preconditions": [
+        "真实 Fovelle.app 已通过前两个系统探针。",
+        "Python 解释器可运行 Release system harness。"
+      ],
+      "input_data": {
+        "dry_run": true,
+        "notarization_timeout": "45s",
+        "invalid_timeout": "forever"
+      },
+      "operation_steps": [
+        "运行 Release system harness。",
+        "检查 dry-run performance、超时配置和输出 JSON。"
+      ],
+      "expected_result": "system-release JSON 的 passed 为 true，dry-run 在 5 秒内完成，且无效超时被拒绝。",
+      "postconditions": [
+        "测试使用临时报告路径，不访问 Apple 凭据。"
       ]
     }
   ]

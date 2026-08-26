@@ -78,6 +78,48 @@ def main() -> int:
         "Release compiles against the macOS 15 SDK and fails closed unless the final bundle targets macOS 15",
     )
 
+    ghostscript_script_path = repo / "dist/scripts/prepare-ghostscript.sh"
+    ghostscript_script = ghostscript_script_path.read_text(encoding="utf-8")
+    source_runtime_contract = all(
+        marker in script
+        for marker in (
+            "version_is_at_most",
+            "FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true",
+            'FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET="$EXPECTED_MACOS_DEPLOYMENT_TARGET"',
+            'FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64"',
+            "prepare-ghostscript.sh",
+        )
+    ) and all(
+        marker in ghostscript_script
+        for marker in (
+            "ARCHIVE_SHA256",
+            "FOVELLE_GHOSTSCRIPT_ARCHITECTURES",
+            "FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET",
+            "--without-tesseract",
+            "--disable-fontconfig",
+            "--disable-dbus",
+            "CXXCPP=\"$cpp_command\"",
+            "-mmacosx-version-min=$DEPLOYMENT_TARGET",
+        )
+    )
+    add_check(
+        checks,
+        "R-11",
+        source_runtime_contract,
+        {
+            "three_component_version_comparison": "version_is_at_most" in script,
+            "source_runtime_forced_after_deploy": "FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true" in script,
+            "universal_runtime_requested": 'FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64"' in script,
+            "pinned_archive_checksum": "ARCHIVE_SHA256" in ghostscript_script,
+            "targeted_source_build": "-mmacosx-version-min=$DEPLOYMENT_TARGET" in ghostscript_script,
+            "avx_and_optional_dependency_surface_reduced": all(
+                marker in ghostscript_script
+                for marker in ("--without-tesseract", "--disable-fontconfig", "--disable-dbus")
+            ),
+        },
+        "the Release path replaces the too-new Homebrew Ghostscript runtime with a pinned, target-versioned, Universal source build and validates three-component minos values",
+    )
+
     deployment_contract = "macdeployqt" in script and "-always-overwrite" in script and "Sign, notarize, validate, and package" in workflow
     add_check(
         checks,

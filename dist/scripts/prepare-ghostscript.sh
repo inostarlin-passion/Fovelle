@@ -10,6 +10,29 @@ VERSION="10.07.1"
 ARCHIVE_SHA256="2fc74362f9be6fae1b0a65d38fdcfd4f0b518cc3b07c5581fb661eb4d2e15251"
 SOURCE_URL="https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10071/ghostscript-10.07.1.tar.gz"
 OUTPUT=""
+FORCE_SOURCE="${FOVELLE_GHOSTSCRIPT_FORCE_SOURCE:-false}"
+DEPLOYMENT_TARGET="${FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET:-${MACOSX_DEPLOYMENT_TARGET:-15.0}}"
+ARCHITECTURES_VALUE="${FOVELLE_GHOSTSCRIPT_ARCHITECTURES:-$(uname -m)}"
+
+validate_deployment_target() {
+    [[ "$DEPLOYMENT_TARGET" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
+        echo "FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET must be a numeric macOS version: $DEPLOYMENT_TARGET" >&2
+        exit 1
+    }
+}
+
+validate_architectures() {
+    local architecture
+    for architecture in "${TARGET_ARCHITECTURES[@]}"; do
+        case "$architecture" in
+            arm64|x86_64) ;;
+            *)
+                echo "FOVELLE_GHOSTSCRIPT_ARCHITECTURES contains unsupported architecture: $architecture" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,6 +49,12 @@ done
 
 [[ -n "$OUTPUT" ]] || { echo "--output is required" >&2; exit 2; }
 
+ARCHITECTURES_VALUE="${ARCHITECTURES_VALUE//;/ }"
+read -r -a TARGET_ARCHITECTURES <<< "$ARCHITECTURES_VALUE"
+[[ "${#TARGET_ARCHITECTURES[@]}" -gt 0 ]] || { echo "FOVELLE_GHOSTSCRIPT_ARCHITECTURES must not be empty" >&2; exit 1; }
+validate_deployment_target
+validate_architectures
+
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/fovelle-ghostscript.XXXXXX")"
 cleanup() {
     rm -rf "$TEMP_ROOT"
@@ -35,15 +64,17 @@ trap cleanup EXIT
 runtime_root=""
 ghostscript=""
 
-if [[ -n "${FOVELLE_GHOSTSCRIPT:-}" ]]; then
-    if [[ -x "$FOVELLE_GHOSTSCRIPT" ]]; then
-        ghostscript="$FOVELLE_GHOSTSCRIPT"
-    else
-        echo "FOVELLE_GHOSTSCRIPT is not executable: $FOVELLE_GHOSTSCRIPT" >&2
-        exit 1
+if [[ "$FORCE_SOURCE" != "true" && "$FORCE_SOURCE" != "1" ]]; then
+    if [[ -n "${FOVELLE_GHOSTSCRIPT:-}" ]]; then
+        if [[ -x "$FOVELLE_GHOSTSCRIPT" ]]; then
+            ghostscript="$FOVELLE_GHOSTSCRIPT"
+        else
+            echo "FOVELLE_GHOSTSCRIPT is not executable: $FOVELLE_GHOSTSCRIPT" >&2
+            exit 1
+        fi
+    elif command -v gs >/dev/null 2>&1; then
+        ghostscript="$(command -v gs)"
     fi
-elif command -v gs >/dev/null 2>&1; then
-    ghostscript="$(command -v gs)"
 fi
 
 if [[ -n "$ghostscript" ]]; then
@@ -59,9 +90,44 @@ if [[ -z "$ghostscript" || ! -d "$runtime_root/share/ghostscript" ]]; then
     tar -xzf "$archive" -C "$TEMP_ROOT"
     source_root="$TEMP_ROOT/ghostscript-${VERSION}"
     install_root="$TEMP_ROOT/install"
+    compiler="$(xcrun --find clang 2>/dev/null || true)"
+    if [[ -z "$compiler" ]]; then
+        compiler="$(command -v clang || true)"
+    fi
+    [[ -n "$compiler" ]] || { echo "clang was not found for the Ghostscript source build" >&2; exit 1; }
+    sdk_path="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+    [[ -n "$sdk_path" ]] || { echo "the macOS SDK was not found for the Ghostscript source build" >&2; exit 1; }
+    compiler_flags=()
+    for architecture in "${TARGET_ARCHITECTURES[@]}"; do
+        compiler_flags+=("-arch" "$architecture")
+    done
+    compiler_command="$compiler ${compiler_flags[*]}"
+    cpp_command="$compiler -E"
+    export MACOSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET"
+    export SDKROOT="$sdk_path"
+    export CFLAGS="${CFLAGS:+$CFLAGS }-isysroot $sdk_path -mmacosx-version-min=$DEPLOYMENT_TARGET"
+    export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-isysroot $sdk_path -mmacosx-version-min=$DEPLOYMENT_TARGET"
+    export LDFLAGS="${LDFLAGS:+$LDFLAGS }-isysroot $sdk_path -mmacosx-version-min=$DEPLOYMENT_TARGET ${compiler_flags[*]}"
     (
         cd "$source_root"
-        ./configure --prefix="$install_root"
+        # Ghostscript documents separate CC and CPP settings for multi-arch
+        # macOS builds because configure's preprocessor probes do not accept
+        # multiple -arch options.
+        ./configure \
+            --prefix="$install_root" \
+            --without-tesseract \
+            --disable-fontconfig \
+            --disable-dbus \
+            --disable-gtk \
+            --disable-cups \
+            --without-libidn \
+            --without-libpaper \
+            --without-x \
+            --with-libiconv=no \
+            CC="$compiler_command" \
+            CPP="$cpp_command" \
+            CXX="$compiler_command" \
+            CXXCPP="$cpp_command"
         make -j"$(sysctl -n hw.ncpu)"
         make install
     )

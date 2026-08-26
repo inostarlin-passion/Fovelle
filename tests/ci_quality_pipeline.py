@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run the CI-repair acceptance matrix and emit machine-auditable reports.
 
-The matrix is deliberately small and atomic.  Static checks inspect the CI
-contract and the asynchronous-rendering contract, unit checks invoke the
-affected QtTest methods, integration checks exercise the registered CTest
-target, and system checks start the real application bundle.
+The matrix is deliberately small and atomic. Static checks inspect the CI and
+Release contracts, unit checks invoke affected QtTest methods and the version
+parser, integration checks exercise the registered CTest target and real
+Ghostscript source staging, and system checks start the real application
+bundle plus the credential-free release dry run.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,72 +38,72 @@ RESEARCH_TRACE = [
     {
         "hop": 1,
         "layer": "observed CI failure",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
-        "finding": "The Checks run for commit 87ffbe4 failed in WindowBehaviorTests::testExitFullscreenActionUsesEscapePath; clang-tidy and clang-format passed.",
-        "premise": "The hosted runner log is the authoritative observation for this repair.",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+        "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
+        "premise": "The hosted Release log is the authoritative observation for the currently failing check.",
     },
     {
         "hop": 2,
-        "layer": "cross-job confirmation",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
-        "finding": "The Build Fovelle job reported the same full-test failure, so the regression is shared by the registered test binary rather than isolated to one job wrapper.",
-        "premise": "The same failing QtTest method in both jobs is stronger evidence than a single job observation.",
+        "layer": "cross-job isolation",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
+        "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
+        "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract.",
     },
     {
         "hop": 3,
-        "layer": "runner capability",
-        "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
-        "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
-        "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure.",
+        "layer": "version-format observation",
+        "source": "dist/scripts/package-macos-release.sh",
+        "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
+        "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing.",
     },
     {
         "hop": 4,
-        "layer": "build-tool semantics",
-        "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
-        "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
-        "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled.",
+        "layer": "build-tool contract",
+        "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
+        "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
+        "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target.",
     },
     {
         "hop": 5,
-        "layer": "async completion semantics",
-        "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
-        "finding": "QFutureWatcher emits finished() when the watched future finishes.",
-        "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted.",
+        "layer": "bundle metadata contract",
+        "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
+        "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
+        "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility.",
     },
     {
         "hop": 6,
-        "layer": "test synchronization",
-        "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-        "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
-        "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size.",
+        "layer": "dependency provenance",
+        "source": "dist/scripts/prepare-ghostscript.sh",
+        "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
+        "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced.",
     },
     {
         "hop": 7,
-        "layer": "deduction",
-        "source": "https://doc.qt.io/qt-6/qtest.html",
-        "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
-        "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant.",
+        "layer": "upstream multi-architecture build guidance",
+        "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
+        "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
+        "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags.",
     },
     {
         "hop": 8,
-        "layer": "window geometry semantics",
-        "source": "https://doc.qt.io/qt-6/application-windows.html",
-        "finding": "Qt documents top-level QWidget::geometry() as client geometry excluding the window frame, while frameGeometry() includes the frame.",
-        "premise": "A client rectangle is not a stable cross-platform proxy for the native normal frame when titlebar insets are changed by the platform.",
+        "layer": "source-build counterexample",
+        "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
+        "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
+        "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries.",
     },
     {
         "hop": 9,
-        "layer": "platform restoration semantics",
-        "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
-        "finding": "Qt documents that windowing-system decoration and restoration can adjust the geometry after a window becomes visible.",
-        "premise": "The test must capture the geometry after the deferred native decoration setup has settled instead of overwriting that observation with a pre-decoration request.",
+        "layer": "implementation verification",
+        "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
+        "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
+        "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together.",
     },
     {
         "hop": 10,
-        "layer": "repository deduction",
-        "source": "tests/tst_qviewtests.cpp and src/mainwindow.cpp",
-        "finding": "The remote failure compared requested QRect(220,180 720x500) with AppKit-restored QRect(220,148 720x532); the test's second setGeometry() occurred after showEvent's deferred full-size-content-view setup.",
-        "premise": "Removing that second write makes the baseline the platform's settled normal geometry, so the test measures the View action's native exit path rather than titlebar decoration conversion.",
+        "layer": "final deduction",
+        "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
+        "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
+        "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract.",
     },
 ]
 
@@ -264,6 +266,46 @@ def static_runner_contract(repo: Path) -> dict[str, Any]:
     )
 
 
+def static_release_packaging_contract(repo: Path) -> dict[str, Any]:
+    workflow = read(repo, ".github/workflows/release.yml")
+    package_script = read(repo, "dist/scripts/package-macos-release.sh")
+    ghostscript_script = read(repo, "dist/scripts/prepare-ghostscript.sh")
+    passed = all(
+        (
+            'runs-on: macos-15' in workflow,
+            '-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0' in workflow,
+            'version_is_at_most()' in package_script,
+            'RELEASE_VALIDATE_VERSION_ONLY' in package_script,
+            'FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true' in package_script,
+            'FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET="$EXPECTED_MACOS_DEPLOYMENT_TARGET"' in package_script,
+            'FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64"' in package_script,
+            'FOVELLE_GHOSTSCRIPT_ARCHITECTURES' in ghostscript_script,
+            'FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET' in ghostscript_script,
+            '--without-tesseract' in ghostscript_script,
+            '--disable-fontconfig' in ghostscript_script,
+            '--disable-dbus' in ghostscript_script,
+            '-mmacosx-version-min=$DEPLOYMENT_TARGET' in ghostscript_script,
+            'CXXCPP="$cpp_command"' in ghostscript_script,
+        )
+    )
+    return static_result(
+        "tests/ci_quality_pipeline.py::static_release_packaging_contract",
+        passed,
+        {
+            "release_uses_macos15_target": '-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0' in workflow,
+            "version_parser_handles_patch_component": 'version_is_at_most()' in package_script,
+            "source_runtime_is_forced_after_macdeployqt": 'FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true' in package_script,
+            "source_runtime_is_universal": 'FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64"' in package_script,
+            "source_runtime_is_targeted": '-mmacosx-version-min=$DEPLOYMENT_TARGET' in ghostscript_script,
+            "architecture_specific_ocr_is_disabled": '--without-tesseract' in ghostscript_script,
+            "optional_homebrew_integrations_are_disabled": all(
+                marker in ghostscript_script
+                for marker in ('--disable-fontconfig', '--disable-dbus', '--disable-cups', '--without-libidn')
+            ),
+        },
+    )
+
+
 def static_test_registration_contract(repo: Path) -> dict[str, Any]:
     cmake = read(repo, "tests/CMakeLists.txt")
     pipeline = read(repo, "tests/ci_quality_pipeline.py")
@@ -308,6 +350,7 @@ def static_scope_contract(repo: Path) -> dict[str, Any]:
             "tests",
             ".github",
             "CMakeLists.txt",
+            "dist",
         ],
         repo,
         timeout=30,
@@ -318,7 +361,7 @@ def static_scope_contract(repo: Path) -> dict[str, Any]:
         {
             "return_code": result["return_code"],
             "output": result["output_tail"],
-            "scope": ["build.sh", "src", "tests", ".github", "CMakeLists.txt"],
+            "scope": ["build.sh", "src", "tests", ".github", "CMakeLists.txt", "dist"],
             "unrelated_preexisting_paths_excluded": ["README.md"],
         },
     )
@@ -328,8 +371,9 @@ STATIC_TESTS: tuple[tuple[str, str, Callable[[Path], dict[str, Any]]], ...] = (
     ("CI-STATIC-001", "static_tidy_path_contract", static_tidy_path_contract),
     ("CI-STATIC-002", "static_async_observation_contract", static_async_observation_contract),
     ("CI-STATIC-003", "static_runner_contract", static_runner_contract),
-    ("CI-STATIC-004", "static_test_registration_contract", static_test_registration_contract),
-    ("CI-STATIC-005", "static_scope_contract", static_scope_contract),
+    ("CI-STATIC-004", "static_release_packaging_contract", static_release_packaging_contract),
+    ("CI-STATIC-005", "static_test_registration_contract", static_test_registration_contract),
+    ("CI-STATIC-006", "static_scope_contract", static_scope_contract),
 )
 
 
@@ -353,6 +397,132 @@ def run_static(repo: Path) -> dict[str, dict[str, Any]]:
                 {"error": f"{type(error).__name__}: {error}"},
             )
     return results
+
+
+def run_release_version_unit(
+    repo: Path,
+    case_id: str,
+    candidate: str,
+    expected: str,
+    expected_compatible: bool,
+) -> dict[str, Any]:
+    result = run_command(
+        ["bash", str(repo / "dist/scripts/package-macos-release.sh")],
+        repo,
+        {
+            "RELEASE_VALIDATE_VERSION_ONLY": "true",
+            "RELEASE_CANDIDATE_VERSION": candidate,
+            "FOVELLE_EXPECTED_MACOS_DEPLOYMENT_TARGET": expected,
+        },
+        timeout=15,
+    )
+    output = result["output_tail"]
+    compatible_marker = f"VERSION_COMPATIBLE: {candidate} <= {expected}"
+    incompatible_marker = f"VERSION_INCOMPATIBLE: {candidate} > {expected}"
+    if expected_compatible:
+        passed = result["return_code"] == 0 and compatible_marker in output
+    else:
+        passed = (
+            result["return_code"] != 0
+            and incompatible_marker in output
+            and "invalid arithmetic operator" not in output
+        )
+    return {
+        "passed": passed,
+        "observed": {
+            "candidate": candidate,
+            "expected": expected,
+            "expected_compatible": expected_compatible,
+            "compatible_marker_observed": compatible_marker in output,
+            "incompatible_marker_observed": incompatible_marker in output,
+            "arithmetic_error_absent": "invalid arithmetic operator" not in output,
+        },
+        "execution": result,
+    }
+
+
+def run_release_source_build(repo: Path) -> dict[str, Any]:
+    script = repo / "dist/scripts/prepare-ghostscript.sh"
+    with tempfile.TemporaryDirectory(prefix="fovelle-ghostscript-audit-") as directory:
+        output = Path(directory) / "runtime"
+        build = run_command(
+            ["bash", str(script), "--output", str(output)],
+            repo,
+            {
+                "FOVELLE_GHOSTSCRIPT_FORCE_SOURCE": "true",
+                "FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET": "15.0",
+                "FOVELLE_GHOSTSCRIPT_ARCHITECTURES": "x86_64;arm64",
+            },
+            timeout=300,
+        )
+        executable = output / "bin" / "gs"
+        file_result: dict[str, Any] = {"passed": False, "output_tail": "not executed"}
+        lipo_result: dict[str, Any] = {"passed": False, "output_tail": "not executed"}
+        otool_result: dict[str, Any] = {"passed": False, "output_tail": "not executed"}
+        if executable.is_file():
+            file_result = run_command(["file", "-b", str(executable)], repo, timeout=15)
+            lipo_result = run_command(["lipo", "-archs", str(executable)], repo, timeout=15)
+            otool_result = run_command(["otool", "-l", str(executable)], repo, timeout=15)
+        architectures = set(lipo_result["output_tail"].split())
+        minos_values = sorted(set(re.findall(r"\bminos\s+([0-9]+(?:\.[0-9]+){1,2})", otool_result["output_tail"])))
+        universal = {"arm64", "x86_64"}.issubset(architectures)
+        minos_is_targeted = minos_values == ["15.0"]
+        runtime_metadata = (output / "runtime.json").is_file()
+        eps_fixture = Path(directory) / "fixture.eps"
+        pdf_output = Path(directory) / "fixture.pdf"
+        eps_fixture.write_text(
+            "%!PS-Adobe-3.0 EPSF-3.0\n"
+            "%%BoundingBox: 0 0 8 4\n"
+            "newpath 0 0 moveto 8 0 lineto 8 4 lineto 0 4 lineto closepath\n"
+            "0.2 setgray fill\nshowpage\n",
+            encoding="ascii",
+        )
+        render = run_command(
+            [
+                str(executable),
+                "-dSAFER",
+                "-dBATCH",
+                "-dNOPAUSE",
+                "-dEPSCrop",
+                "-sDEVICE=pdfwrite",
+                f"-sOutputFile={pdf_output}",
+                str(eps_fixture),
+            ],
+            repo,
+            {"GS_LIB": str(output / "share" / "ghostscript")},
+            timeout=30,
+        ) if executable.is_file() else {"passed": False, "return_code": None, "output_tail": "not executed"}
+        pdf_header = pdf_output.is_file() and pdf_output.read_bytes()[:5] == b"%PDF-"
+        passed = bool(
+            build["passed"]
+            and executable.is_file()
+            and universal
+            and minos_is_targeted
+            and runtime_metadata
+            and render["passed"]
+            and pdf_header
+        )
+        return {
+            "passed": passed,
+            "observed": {
+                "executable_exists": executable.is_file(),
+                "file_output": file_result["output_tail"],
+                "architectures": sorted(architectures),
+                "universal": universal,
+                "minos_values": minos_values,
+                "minos_is_targeted": minos_is_targeted,
+                "runtime_metadata_exists": runtime_metadata,
+                "eps_render_passed": render["passed"],
+                "pdf_header": "%PDF-" if pdf_header else None,
+            },
+            "execution": {
+                "source_build": build,
+                "file": file_result,
+                "lipo": lipo_result,
+                "otool": otool_result,
+                "eps_render": render,
+            },
+        }
 
 
 def run_unit(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
@@ -390,6 +560,12 @@ def run_unit(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
             },
             "execution": result,
         }
+    results["CI-UNIT-005"] = run_release_version_unit(
+        repo, "CI-UNIT-005", "15.0", "15.0", True
+    )
+    results["CI-UNIT-006"] = run_release_version_unit(
+        repo, "CI-UNIT-006", "15.7.5", "15.0", False
+    )
     return results
 
 
@@ -416,7 +592,12 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
             "observed": {"build_skipped": skip_build, "reason": "CMake build failed"},
             "execution": {"build": build_result},
         }
-        return {"CI-INTEGRATION-001": failure, "CI-INTEGRATION-002": failure.copy()}
+        return {
+            "CI-INTEGRATION-001": failure,
+            "CI-INTEGRATION-002": failure.copy(),
+            "CI-INTEGRATION-003": failure.copy(),
+            "CI-INTEGRATION-004": failure.copy(),
+        }
 
     ctest = run_command(
         [
@@ -458,6 +639,27 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
         },
         "execution": {"ctest_list": registered},
     }
+    release_contract = run_command(
+        [
+            sys.executable,
+            str(repo / "tests/quality_release.py"),
+            "--repo",
+            str(repo),
+            "--output",
+            str(repo / "reports/evidence/release_contract.json"),
+        ],
+        repo,
+        timeout=60,
+    )
+    results["CI-INTEGRATION-003"] = {
+        "passed": bool(release_contract["passed"]),
+        "observed": {
+            "release_contract_command_passed": release_contract["passed"],
+            "evidence_path": "reports/evidence/release_contract.json",
+        },
+        "execution": release_contract,
+    }
+    results["CI-INTEGRATION-004"] = run_release_source_build(repo)
     return results
 
 
@@ -469,7 +671,11 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
             "observed": {"reason": "application binary does not exist", "binary": str(binary)},
             "execution": {"test_code": "src/main.cpp::system_probe"},
         }
-        return {"CI-SYSTEM-001": missing, "CI-SYSTEM-002": missing.copy()}
+        return {
+            "CI-SYSTEM-001": missing,
+            "CI-SYSTEM-002": missing.copy(),
+            "CI-SYSTEM-003": missing.copy(),
+        }
 
     probe = run_command(
         [str(binary)],
@@ -486,6 +692,26 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
     )
     version = run_command([str(binary), "--version"], repo, timeout=15)
     version_match = re.search(r"\b1\.0\.0\b", version["output_tail"])
+    with tempfile.TemporaryDirectory(prefix="fovelle-release-system-audit-") as directory:
+        release_output_path = Path(directory) / "release-system.json"
+        release_system = run_command(
+            [
+                sys.executable,
+                str(repo / "tests/quality_release_system.py"),
+                "--repo",
+                str(repo),
+                "--output",
+                str(release_output_path),
+            ],
+            repo,
+            timeout=30,
+        )
+        release_record: dict[str, Any] = {}
+        if release_output_path.is_file():
+            try:
+                release_record = json.loads(release_output_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                release_record = {}
     return {
         "CI-SYSTEM-001": {
             "passed": bool(probe["passed"] and probe_match),
@@ -501,6 +727,15 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
                 "version_observed": version_match.group(0) if version_match else None,
             },
             "execution": version,
+        },
+        "CI-SYSTEM-003": {
+            "passed": bool(release_system["passed"] and release_record.get("passed") is True),
+            "observed": {
+                "release_system_passed": release_record.get("passed"),
+                "artifact_validation": release_record.get("artifact_validation"),
+                "dry_run_performance_passed": release_record.get("performance", {}).get("passed"),
+            },
+            "execution": release_system,
         },
     }
 
@@ -576,6 +811,23 @@ CASES = [
     case(
         "CI-STATIC-004",
         "static",
+        "Release 必须在 macOS 15.0 应用合同下，用修复过的三段版本比较器和固定源码构建出 x86_64/arm64 Ghostscript 运行时。",
+        "功能正确性",
+        "tests/ci_quality_pipeline.py::static_release_packaging_contract",
+        "验证 Release 的依赖来源、版本解析和目标架构/最低系统版本合同在源码层面完整闭合。",
+        ["Release workflow、打包脚本和 Ghostscript 准备脚本可读。"],
+        {
+            "release_target": "15.0",
+            "ghostscript_version": "10.07.1",
+            "architectures": ["x86_64", "arm64"],
+        },
+        ["读取 Release workflow 的 SDK/deployment target。", "读取版本比较和依赖 staging 路径。", "读取 Ghostscript configure 的架构、SDK 和可选依赖参数。"],
+        "源码层面同时存在三段版本比较、15.0 deployment target、双架构 source staging、固定校验和以及禁用 Tesseract/可选 Homebrew 集成的配置。",
+        ["不执行源码编译；真实二进制结果由 CI-INTEGRATION-004 验证。"],
+    ),
+    case(
+        "CI-STATIC-005",
+        "static",
         "CTest 注册完整 Qt 回归测试和四层审计流水线，并保留 skip-build 调用契约。",
         "精益完整性",
         "tests/ci_quality_pipeline.py::static_test_registration_contract",
@@ -587,14 +839,14 @@ CASES = [
         ["CTest 可在构建完成后重复运行审计。"],
     ),
     case(
-        "CI-STATIC-005",
+        "CI-STATIC-006",
         "static",
         "任务范围内的工作树差异不包含空白错误。",
         "精益完整性",
         "tests/ci_quality_pipeline.py::static_scope_contract",
         "避免修复引入不可见格式噪声。",
         ["Git 工作树可执行 git diff --check。"],
-        {"scope": ["build.sh", "src", "tests", ".github", "CMakeLists.txt"]},
+        {"scope": ["build.sh", "src", "tests", ".github", "CMakeLists.txt", "dist"]},
         ["运行 git diff --check HEAD。", "仅审计任务范围路径。"],
         "命令返回 0 且没有 whitespace error。",
         ["README.md 中既有的用户变更保持不动。"],
@@ -652,6 +904,32 @@ CASES = [
         ["测试窗口关闭。", "临时 titlebar 设置和 quit policy 恢复。"],
     ),
     case(
+        "CI-UNIT-005",
+        "unit",
+        "Release 版本比较器必须接受与目标相等的两段 macOS 版本。",
+        "功能正确性",
+        "tests/ci_quality_pipeline.py::run_release_version_unit::compatible",
+        "隔离验证修复后的版本比较器基本成功路径，不触发任何签名或系统工具。",
+        ["package-macos-release.sh 可执行。"],
+        {"candidate_version": "15.0", "expected_version": "15.0", "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"},
+        ["以测试模式调用打包脚本。", "读取 VERSION_COMPATIBLE 标记和退出码。"],
+        "脚本返回 0，并输出 15.0 <= 15.0 的兼容标记。",
+        ["测试模式进程退出，不访问 Apple 凭据或应用 bundle。"],
+    ),
+    case(
+        "CI-UNIT-006",
+        "unit",
+        "Release 版本比较器必须正确拒绝带 patch 的高版本，并且不能把 7.5 当作 Bash 算术表达式。",
+        "功能正确性",
+        "tests/ci_quality_pipeline.py::run_release_version_unit::incompatible",
+        "直接回归远端 15.7.5 依赖版本触发的解析路径。",
+        ["package-macos-release.sh 可执行。"],
+        {"candidate_version": "15.7.5", "expected_version": "15.0", "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"},
+        ["以测试模式调用打包脚本。", "检查非零退出、VERSION_INCOMPATIBLE 标记和错误输出。"],
+        "脚本非零退出，明确报告 15.7.5 > 15.0，且没有 invalid arithmetic operator。",
+        ["测试模式进程退出，不创建 release artifact。"],
+    ),
+    case(
         "CI-INTEGRATION-001",
         "integration",
         "完整 FovelleTests CTest 目标通过。",
@@ -678,6 +956,32 @@ CASES = [
         ["不执行递归审计，仅验证注册契约。"],
     ),
     case(
+        "CI-INTEGRATION-003",
+        "integration",
+        "Release 合同检查必须通过并覆盖源码 Ghostscript staging 与三段版本验证路径。",
+        "精益完整性",
+        "tests/quality_release.py",
+        "在不消耗 Apple 凭据的情况下验证 Release workflow、签名/公证编排和兼容性修复的静态合同。",
+        ["Python 解释器和 macOS Release 脚本存在。"],
+        {"command": "python3 tests/quality_release.py --repo . --output reports/evidence/release_contract.json"},
+        ["运行 release contract 测试。", "检查所有 R-* 原子检查均为 pass。"],
+        "命令返回 0，Release 合同 JSON 的 passed 为 true。",
+        ["合同证据写入 reports/evidence/release_contract.json。"],
+    ),
+    case(
+        "CI-INTEGRATION-004",
+        "integration",
+        "固定 Ghostscript 源码必须在目标 15.0 下生成同时包含 x86_64 与 arm64 的可安装 runtime。",
+        "功能正确性",
+        "tests/ci_quality_pipeline.py::run_release_source_build",
+        "执行真实源码下载校验、configure、编译、安装和 Mach-O 检查，闭合远端 Release 失败的依赖根因。",
+        ["macOS SDK、clang、make、curl、tar、file、lipo 和 otool 可用。", "网络可访问固定 Ghostscript archive。"],
+        {"ghostscript_version": "10.07.1", "deployment_target": "15.0", "architectures": ["x86_64", "arm64"]},
+        ["调用 prepare-ghostscript.sh 的 force-source 路径。", "检查生成 bin/gs。", "读取 file/lipo/otool 输出及 runtime.json。"],
+        "源码构建返回 0，bin/gs 为双架构 Mach-O，所有读取到的 minos 为 15.0，且 runtime.json 存在。",
+        ["临时源码和 runtime 在测试结束后清理。"],
+    ),
+    case(
         "CI-SYSTEM-001",
         "system",
         "实际 Fovelle.app 可启动并通过系统探针报告一个最大化窗口。",
@@ -702,6 +1006,19 @@ CASES = [
         ["执行 --version。", "匹配版本号。"],
         "进程返回 0 且输出包含 1.0.0。",
         ["版本进程退出。"],
+    ),
+    case(
+        "CI-SYSTEM-003",
+        "system",
+        "Release 编排必须在无凭据模式下可快速、确定性地完成 dry-run 和超时参数校验。",
+        "可测试性",
+        "tests/quality_release_system.py",
+        "验证最终发布流程具备不侵入外部 Apple 服务的系统级可观测入口。",
+        ["真实 Fovelle.app 已通过前两个系统探针。", "Python 解释器可运行 Release system harness。"],
+        {"dry_run": True, "notarization_timeout": "45s", "invalid_timeout": "forever"},
+        ["运行 Release system harness。", "检查 dry-run performance、超时配置和输出 JSON。"],
+        "system-release JSON 的 passed 为 true，dry-run 在 5 秒内完成，且无效超时被拒绝。",
+        ["测试使用临时报告路径，不访问 Apple 凭据。"],
     ),
 ]
 
@@ -781,16 +1098,15 @@ def quality_report(
         "task": "修复 Fovelle GitHub Actions 检查失败",
         "quality_requirements": ["精益完整性", "功能正确性", "可测试性"],
         "root_cause_summary": [
-            "最新远端 macOS 26 的 WindowBehaviorTests::testExitFullscreenActionUsesEscapePath 将 showEvent 之后已由 native full-size-content-view 归一化的窗口 client geometry 再次强行写成 QRect(220,180 720x500)，而 AppKit 退出全屏恢复 QRect(220,148 720x532)，导致跨版本的错误精确几何断言并放大清理期崩溃风险。",
-            "此前远端没有外部 EPS 样本，矢量测试使用 8×4 fallback；6400% 下合法 vector tile 是 512×256，旧测试错误地要求 qMax(tile.width, tile.height)>512，该问题已改为等待真实绘制次数和非空 tile。",
-            "此前 clang-tidy 构建复用了应用 target 的 Ghostscript POST_BUILD 打包钩子；该问题已通过 tidy 分支关闭可选 Ghostscript bundle 修复。",
-            "补充的完整 CTest 暴露出平移 recorder 可能与异步 tile 完成重叠、120Hz maximum 可能包含系统调度抖动；两者已通过稳定观察点和抗抖动统计约束。",
+            "最新 Release run 在 macdeployqt 后解析依赖 minos=15.7.5 时把 minor=7.5 送入 Bash 算术比较，触发 invalid arithmetic operator。",
+            "同一 Release 日志随后确认 Homebrew 的 libtesseract.5.dylib 要求 macOS 15.7.5，而应用合同和 CMake deployment target 是 macOS 15.0；仅修正比较器不能修复真实运行时不兼容。",
+            "Checks 与 Build Fovelle 对同一提交通过，故失败边界收敛到 Release-only 的依赖 staging/产物校验，而非应用编译或普通 Qt 回归。",
         ],
         "repair_summary": [
-            "build.sh 的 --tidy/--tidy-fix 显式关闭 FOVELLE_BUNDLE_GHOSTSCRIPT，普通构建默认保持开启。",
-            "hasPendingVectorRefinement() 同时反映 interaction、active async request 和 queued async request；矢量测试轮询 vectorRenderCount 与非空 tile，并删除脆弱的 >512 尺寸假设。",
-            "矢量平移测量在 recorder 前等待稳定 tile；120Hz probe 保留 maximum 诊断值，仅用平均值、P99 和 CPU 容量判定，避免单次系统调度抖动污染结果。",
-            "全屏回归测试在 deferred native decoration 稳定后采集实际正常 client geometry，不再覆盖平台归一化基线；View 动作和 Escape 均等待原生退出完成后检查稳定性。",
+            "package-macos-release.sh 使用三段数字版本比较，并提供无凭据的 RELEASE_VALIDATE_VERSION_ONLY 单元路径。",
+            "Release 在 macdeployqt 后强制以固定 Ghostscript 10.07.1 源码重建并覆盖运行时，显式传入 x86_64/arm64、SDKROOT 和 macOS 15.0 deployment target。",
+            "Ghostscript 源码构建关闭不属于 EPS pdfwrite 路径的 Tesseract、Fontconfig、DBus、GTK、CUPS、libidn、libpaper 和 X 集成，避免复用带有更高 minos 或 AVX 假设的 Homebrew 依赖。",
+            "打包前仍逐个检查 Mach-O 的 minos、主程序 SDK 家族、Universal 架构和 Info.plist LSMinimumSystemVersion；原有 tidy、异步矢量和全屏回归保护保持有效。",
         ],
         "research_trace": RESEARCH_TRACE,
         "checks": checks,
@@ -891,27 +1207,29 @@ def main() -> int:
         "generated_at": generated_at,
         "task": "修复 Fovelle GitHub Actions 检查失败",
         "status": "passed" if passed_cases == len(CASES) else "failed",
+        "verification_scope": {
+            "local_pipeline": "executed",
+            "remote_workflow_reexecuted": False,
+            "remote_reexecution_note": "本次修复未执行 push 或远端工作流重跑；远端链接记录的是修复前的失败/对照运行。",
+        },
         "execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "diagnosis": {
-            "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
-            "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
-            "commit": "87ffbe4",
+            "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+            "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
+            "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851796",
+            "commit": "47b4eba",
             "observations": [
-                "Run Unit Tests: WindowBehaviorTests::testExitFullscreenActionUsesEscapePath 在远端比较 QWidget::geometry() 时实际为 QRect(220,148 720x532)，预期为 QRect(220,180 720x500)；随后清理阶段出现 SIGSEGV。",
-                "Build Fovelle: 同一 WindowBehaviorTests 失败，说明不是仅限独立测试 job 的环境差异。",
-                "Run clang-tidy: passed。",
-                "Run clang-format: passed。",
+                "Release 的 Deploy/Package 阶段报告 minos 15.7.5，并在旧比较器中出现 7.5 的 Bash arithmetic syntax error。",
+                "同一失败步骤指出 build/Fovelle.app/Contents/Resources/ghostscript/lib/libtesseract.5.dylib 要求 15.7.5，而目标为 15.0。",
+                "Checks 和 Build Fovelle 对提交 47b4eba 均通过，说明普通编译、静态检查和 Qt 测试链没有复现该失败。",
             ],
-            "deduction": "macos-26 runner 标签有官方支持；当前剩余失败是测试把平台归一化前的 requested client rect 当成跨 macOS 稳定基线。捕获 deferred native decoration 完成后的实际 geometry 后，断言只验证退出路径的可重复恢复结果。",
+            "deduction": "Release 必须同时修复版本解析和依赖来源：三段版本只能按数值组件比较；Ghostscript 必须从固定源码以 15.0、双架构构建，再在签名之前对最终 bundle 做闭合校验。",
         },
         "repairs": [
-            {"path": "build.sh", "change": "tidy 分支关闭 Ghostscript bundle"},
-            {"path": "src/qvgraphicsimageitem.h", "change": "暴露包含 active/queued async work 的 pending 观察点"},
-            {"path": "src/qvgraphicsimageitem.cpp", "change": "实现异步 refinement 状态聚合"},
-            {"path": "src/qvgraphicsview.cpp", "change": "委托新的 pending 观察点"},
-            {"path": "tests/tst_qviewtests.cpp", "change": "等待稳定 painted vector tile，使用真实绘制观察点，并以 native decoration 稳定后的 geometry 验证全屏退出"},
-            {"path": "tests/CMakeLists.txt", "change": "将 CTest 审计入口切换到当前 CI 质量流水线"},
+            {"path": "dist/scripts/package-macos-release.sh", "change": "增加三段 minos 比较、无凭据版本单元入口，并在 macdeployqt 后强制覆盖为目标版本的源码 Ghostscript runtime"},
+            {"path": "dist/scripts/prepare-ghostscript.sh", "change": "增加目标版本/架构校验、固定源码构建 flags 和禁用不需要的 Tesseract/桌面可选集成"},
+            {"path": "tests/ci_quality_pipeline.py", "change": "增加 Release 静态、版本单元、源码构建集成和发布 dry-run 系统验收，并更新四份审计 JSON"},
         ],
         "stage_summaries": stage_summaries,
         "case_count": len(CASES),

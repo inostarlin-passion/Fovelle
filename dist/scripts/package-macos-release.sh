@@ -22,6 +22,28 @@ is_macho() {
     file -b "$1" | grep -q "Mach-O"
 }
 
+version_is_at_most() {
+    local candidate="$1"
+    local expected="$2"
+    local candidate_major
+    local candidate_minor
+    local candidate_patch
+    local candidate_extra
+    local expected_major
+    local expected_minor
+    local expected_patch
+
+    [[ "$candidate" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || return 1
+    IFS=. read -r candidate_major candidate_minor candidate_patch candidate_extra <<< "$candidate"
+    IFS=. read -r expected_major expected_minor expected_patch <<< "$expected"
+    [[ -z "${candidate_extra:-}" ]] || return 1
+    candidate_patch="${candidate_patch:-0}"
+    expected_patch="${expected_patch:-0}"
+    (( candidate_major < expected_major ||
+       (candidate_major == expected_major && candidate_minor < expected_minor) ||
+       (candidate_major == expected_major && candidate_minor == expected_minor && candidate_patch <= expected_patch) ))
+}
+
 APP_PATH="${RELEASE_APP_PATH:-build/Fovelle.app}"
 RELEASE_ZIP_PATH="${RELEASE_ZIP_PATH:-Fovelle-${GITHUB_REF_NAME:-local}-macOS-universal.zip}"
 RELEASE_DRY_RUN="${RELEASE_DRY_RUN:-false}"
@@ -38,6 +60,16 @@ validate_deployment_target() {
 
 validate_notarization_timeout
 validate_deployment_target
+
+if [[ "${RELEASE_VALIDATE_VERSION_ONLY:-false}" == "true" ]]; then
+    candidate_version="${RELEASE_CANDIDATE_VERSION:-}"
+    [[ -n "$candidate_version" ]] || fail "RELEASE_CANDIDATE_VERSION is required for version validation"
+    if version_is_at_most "$candidate_version" "$EXPECTED_MACOS_DEPLOYMENT_TARGET"; then
+        echo "VERSION_COMPATIBLE: $candidate_version <= $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+        exit 0
+    fi
+    fail "VERSION_INCOMPATIBLE: $candidate_version > $EXPECTED_MACOS_DEPLOYMENT_TARGET"
+fi
 
 if [[ "$RELEASE_DRY_RUN" == "true" ]]; then
     echo "DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip"
@@ -71,6 +103,14 @@ done
 
 echo "Deploying Qt and plugin dependencies with $MACDEPLOYQT"
 "$MACDEPLOYQT" "$APP_PATH" -always-overwrite
+
+RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+echo "Staging a macOS ${EXPECTED_MACOS_DEPLOYMENT_TARGET}-compatible universal Ghostscript runtime from source"
+FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true \
+FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET="$EXPECTED_MACOS_DEPLOYMENT_TARGET" \
+FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64" \
+    bash "$RELEASE_ROOT/dist/scripts/prepare-ghostscript.sh" \
+    --output "$APP_PATH/Contents/Resources/ghostscript"
 xattr -cr "$APP_PATH"
 
 assert_macos_deployment_target() {
@@ -95,12 +135,7 @@ assert_macos_deployment_target() {
             main_minos="$minos"
             main_sdk="$sdk"
         else
-            local minos_major="${minos%%.*}"
-            local minos_minor="${minos#*.}"
-            local expected_major="${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}"
-            local expected_minor="${EXPECTED_MACOS_DEPLOYMENT_TARGET#*.}"
-            (( minos_major < expected_major ||
-               (minos_major == expected_major && minos_minor <= expected_minor) )) || \
+            version_is_at_most "$minos" "$EXPECTED_MACOS_DEPLOYMENT_TARGET" || \
                 fail "embedded dependency requires newer macOS: $candidate requires $minos, target is $EXPECTED_MACOS_DEPLOYMENT_TARGET"
         fi
         macho_count=$((macho_count + 1))
