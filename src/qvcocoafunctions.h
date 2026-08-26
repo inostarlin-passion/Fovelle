@@ -131,8 +131,8 @@ public:
         bool usesDisplayLinkInteractionPacing{ false };
         bool usesPersistentHDRSurface{ false };
         bool persistentHDRSurfaceReady{ false };
-        bool usesSDRPreview{ false };
-        bool sdrFullResolutionRefinementPending{ false };
+        bool usesMaterializedSDRTiles{ false };
+        bool usesSDRFullSingleImage{ false };
         bool presentationActiveRequested{ true };
         bool presentationAnimationInFlight{ false };
         float contentHeadroom{ 1.0F };
@@ -169,8 +169,10 @@ public:
         quint64 compositorGeometryUpdateCount{ 0 };
         quint64 presentationTransitionCount{ 0 };
         quint64 persistentHDRSurfaceBytes{ 0 };
-        quint64 sdrPreviewPresentedFrameCount{ 0 };
-        quint64 sdrFullResolutionPresentedFrameCount{ 0 };
+        quint64 sdrAuthoritativePresentedFrameCount{ 0 };
+        quint64 sdrMaterializedBytes{ 0 };
+        int sdrTileCount{ 0 };
+        int sdrVisibleTileCount{ 0 };
         int framesInFlight{ 0 };
         int nativeWindowNumber{ 0 };
         int nativeWindowGlobalX{ 0 };

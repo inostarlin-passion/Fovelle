@@ -174,10 +174,11 @@ class SDRSampleInteractionTests : public QObject
 
 private slots:
     void testProvidedSamplesUseMacOSPanPresentationPolicy();
-    void testProvidedRasterRefinesAfterIdle();
+    void testProvidedRasterStaysAuthoritativeDuringInteraction();
     void testProvidedRaster120HzInteractionProbe();
     void testProvidedSamplesPerformanceProbe();
     void testLargeNeighborPreloadShutdownProbe();
+    void testLargeRasterWindowCaptureHasNoBlackTileBlock();
 };
 
 class GraphicsViewTests : public QObject
@@ -4145,11 +4146,10 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-SDR-INT-NATIVE-REFINEMENT
-// Test purpose: prove the responsive bounded Metal frame does not become a
-// permanent resolution cap. At high zoom, an unchanged geometry must replace
-// the preview with a frame evaluated from the full native SDR graph.
-void SDRSampleInteractionTests::testProvidedRasterRefinesAfterIdle()
+// TC-SDR-INT-AUTHORITATIVE-PIXELS
+// Test purpose: prove zoom never presents a bounded proxy followed by a later
+// refinement. Every SDR Metal frame must use the authoritative decoded tiles.
+void SDRSampleInteractionTests::testProvidedRasterStaysAuthoritativeDuringInteraction()
 {
 #ifndef Q_OS_MACOS
     QSKIP("The native Metal refinement contract is macOS-specific.");
@@ -4182,31 +4182,40 @@ void SDRSampleInteractionTests::testProvidedRasterRefinesAfterIdle()
     QTRY_VERIFY_WITH_TIMEOUT(
             view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
 
-    const quint64 previewBefore = view->nativeMetalRendererDiagnostics()
-            .sdrPreviewPresentedFrameCount;
-    const quint64 fullBefore = view->nativeMetalRendererDiagnostics()
-            .sdrFullResolutionPresentedFrameCount;
-    QElapsedTimer refinementTimer;
-    refinementTimer.start();
+    const auto before = view->nativeMetalRendererDiagnostics();
+    QVERIFY(before.usesMaterializedSDRTiles);
+    QVERIFY(before.sdrTileCount > 0);
+    QCOMPARE(before.sdrAuthoritativePresentedFrameCount,
+             before.presentedFrameCount);
+    QElapsedTimer responseTimer;
+    responseTimer.start();
     view->zoomAbsolute(16.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().sdrPreviewPresentedFrameCount
-                    > previewBefore,
-            5000);
-    const double previewResponseMilliseconds =
-            refinementTimer.nsecsElapsed() / 1000000.0;
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics()
-                    .sdrFullResolutionPresentedFrameCount > fullBefore,
-            30000);
-    const double fullRefinementMilliseconds =
-            refinementTimer.nsecsElapsed() / 1000000.0;
+    while (view->nativeMetalRendererDiagnostics()
+                   .sdrAuthoritativePresentedFrameCount
+                   <= before.sdrAuthoritativePresentedFrameCount
+           && responseTimer.elapsed() < 5000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        QTest::qWait(1);
+    }
+    QVERIFY(view->nativeMetalRendererDiagnostics()
+                    .sdrAuthoritativePresentedFrameCount
+            > before.sdrAuthoritativePresentedFrameCount);
+    const double responseMilliseconds =
+            responseTimer.nsecsElapsed() / 1000000.0;
+    const auto after = view->nativeMetalRendererDiagnostics();
+    QCOMPARE(after.sdrAuthoritativePresentedFrameCount,
+             after.presentedFrameCount);
+    QVERIFY(after.usesSDRFullSingleImage);
     qInfo().noquote() << QStringLiteral(
-            "SDR_REFINE {\"preview_response_ms\":%1,"
-            "\"full_resolution_ms\":%2}")
-            .arg(previewResponseMilliseconds, 0, 'f', 3)
-            .arg(fullRefinementMilliseconds, 0, 'f', 3);
-    QVERIFY(!view->nativeMetalRendererDiagnostics().usesSDRPreview);
+            "SDR_AUTHORITATIVE_INTERACTION {\"response_ms\":%1,"
+            "\"tiles_total\":%2,\"tiles_visible\":%3,"
+            "\"authoritative_frames\":%4,\"full_single_image\":%5}")
+            .arg(responseMilliseconds, 0, 'f', 3)
+            .arg(after.sdrTileCount)
+            .arg(after.sdrVisibleTileCount)
+            .arg(after.sdrAuthoritativePresentedFrameCount)
+            .arg(after.usesSDRFullSingleImage
+                         ? QStringLiteral("true") : QStringLiteral("false"));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4260,13 +4269,29 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
     qInfo().noquote() << QStringLiteral(
             "SDR_120HZ {\"interactive_submissions\":%1,"
             "\"presented_frames\":%2,\"last_interval_ms\":%3,"
-            "\"missed_deadlines\":%4}")
+            "\"missed_deadlines\":%4,\"callbacks\":%5,"
+            "\"deferred_callbacks\":%6,\"gpu_ms\":%7,"
+            "\"encode_ms\":%8,\"request_to_present_ms\":%9}")
             .arg(diagnostics.displayLinkInteractiveSubmissionCount)
             .arg(diagnostics.presentedFrameCount)
             .arg(diagnostics.lastPresentedIntervalMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.missedTargetDeadlineCount);
+            .arg(diagnostics.missedTargetDeadlineCount)
+            .arg(diagnostics.displayLinkCallbackCount)
+            .arg(diagnostics.deferredDisplayLinkCallbackCount)
+            .arg(diagnostics.lastGPUExecutionMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.lastRenderMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.lastRequestToPresentationMilliseconds, 0, 'f', 3);
     QVERIFY(diagnostics.usesCAMetalDisplayLink);
     QVERIFY(diagnostics.sdrImageActive);
+    QCOMPARE(diagnostics.deferredDisplayLinkCallbackCount, 0);
+    QCOMPARE(diagnostics.sdrAuthoritativePresentedFrameCount,
+             diagnostics.presentedFrameCount);
+    QVERIFY2(diagnostics.lastRenderMilliseconds < (1000.0 / 120.0),
+             qPrintable(QStringLiteral("encode=%1ms")
+                                .arg(diagnostics.lastRenderMilliseconds)));
+    QVERIFY2(diagnostics.lastGPUExecutionMilliseconds < (1000.0 / 120.0),
+             qPrintable(QStringLiteral("gpu=%1ms")
+                                .arg(diagnostics.lastGPUExecutionMilliseconds)));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4509,6 +4534,131 @@ void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
     QVERIFY2(shutdownMilliseconds < 1000.0,
              qPrintable(QString::number(shutdownMilliseconds)));
 
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-SYS-LARGE-BLACK-TILES
+// Test purpose: reproduce the user-visible solid-black block caused by
+// evaluating a source larger than one Metal texture as a monolithic CI graph.
+void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock()
+{
+#ifndef Q_OS_MACOS
+    QSKIP("The native WindowServer/Metal capture contract is macOS-specific.");
+#endif
+    const QString samplePath = QString::fromUtf8(
+            qgetenv("FOVELLE_SDR_BLACK_BLOCK_SAMPLE"));
+    QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1200, 800);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QElapsedTimer openTimer;
+    openTimer.start();
+    window.openFile(samplePath);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 120000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().firstFramePresented, 120000);
+    const double openMilliseconds = openTimer.nsecsElapsed() / 1000000.0;
+    const auto beforeZoom = view->nativeMetalRendererDiagnostics();
+    QVERIFY(beforeZoom.usesMaterializedSDRTiles);
+    QVERIFY(beforeZoom.sdrTileCount > 1);
+    const quint64 fullBeforeZoom = beforeZoom
+            .sdrAuthoritativePresentedFrameCount;
+    QElapsedTimer zoomTimer;
+    zoomTimer.start();
+    view->zoomAbsolute(4.0, Qv::CalculateViewportCenterPos);
+    while (view->nativeMetalRendererDiagnostics()
+                   .sdrAuthoritativePresentedFrameCount <= fullBeforeZoom
+           && zoomTimer.elapsed() < 120000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        QTest::qWait(1);
+    }
+    QVERIFY(view->nativeMetalRendererDiagnostics()
+                    .sdrAuthoritativePresentedFrameCount > fullBeforeZoom);
+    const double zoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
+    QTest::qWait(150);
+
+    const QPixmap capturedPixmap = window.screen()->grabWindow(window.winId());
+    const QImage capture = capturedPixmap.toImage().convertToFormat(
+            QImage::Format_RGBA8888);
+    QVERIFY(!capture.isNull());
+    const qreal dpr = capturedPixmap.devicePixelRatio();
+    const QSize sourceSize = window.getCurrentFileDetails().loadedPixmapSize;
+    QRect contentRect = view->mapFromScene(
+            QRectF(QPointF(), QSizeF(sourceSize))).boundingRect()
+            .intersected(view->viewport()->rect());
+    const QPoint inWindow = view->viewport()->mapTo(
+            &window, contentRect.topLeft());
+    QRect pixelRect(
+            qRound(inWindow.x() * dpr), qRound(inWindow.y() * dpr),
+            qRound(contentRect.width() * dpr),
+            qRound(contentRect.height() * dpr));
+    pixelRect = pixelRect.intersected(capture.rect());
+    QVERIFY(pixelRect.width() > 100 && pixelRect.height() > 100);
+
+    constexpr int CellSize = 32;
+    int blackCells = 0;
+    int sampledCells = 0;
+    for (int y = pixelRect.top(); y + CellSize <= pixelRect.bottom(); y += CellSize)
+    {
+        for (int x = pixelRect.left(); x + CellSize <= pixelRect.right(); x += CellSize)
+        {
+            int nearlyBlack = 0;
+            for (int py = y; py < y + CellSize; ++py)
+            {
+                const QRgb *row = reinterpret_cast<const QRgb *>(
+                        capture.constScanLine(py));
+                for (int px = x; px < x + CellSize; ++px)
+                {
+                    const QColor color = QColor::fromRgba(row[px]);
+                    if (color.red() <= 2 && color.green() <= 2
+                        && color.blue() <= 2)
+                        ++nearlyBlack;
+                }
+            }
+            ++sampledCells;
+            if (nearlyBlack >= CellSize * CellSize * 99 / 100)
+                ++blackCells;
+        }
+    }
+    const double blackCellRatio = sampledCells > 0
+            ? static_cast<double>(blackCells) / sampledCells : 1.0;
+    qInfo().noquote() << QStringLiteral(
+            "SDR_BLACK_TILE_CAPTURE {\"black_cell_ratio\":%1,"
+            "\"black_cells\":%2,\"sampled_cells\":%3,"
+            "\"capture_width\":%4,\"capture_height\":%5,"
+            "\"open_ms\":%6,\"first_zoom_ms\":%7,"
+            "\"tiles_total\":%8,\"tiles_visible\":%9,"
+            "\"materialized_bytes\":%10}")
+            .arg(blackCellRatio, 0, 'f', 6)
+            .arg(blackCells)
+            .arg(sampledCells)
+            .arg(capture.width())
+            .arg(capture.height())
+            .arg(openMilliseconds, 0, 'f', 3)
+            .arg(zoomMilliseconds, 0, 'f', 3)
+            .arg(view->nativeMetalRendererDiagnostics().sdrTileCount)
+            .arg(view->nativeMetalRendererDiagnostics().sdrVisibleTileCount)
+            .arg(view->nativeMetalRendererDiagnostics().sdrMaterializedBytes);
+    QVERIFY2(blackCellRatio < 0.01, qPrintable(QString::number(blackCellRatio)));
+
+    window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
