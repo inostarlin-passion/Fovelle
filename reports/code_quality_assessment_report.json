@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at": "2026-08-26T11:49:40.623923+00:00",
+  "generated_at": "2026-08-26T12:26:48.283972+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "quality_requirements": [
     "精益完整性",
@@ -9,57 +9,87 @@
     "可测试性"
   ],
   "root_cause_summary": [
-    "远端没有外部 EPS 样本，测试使用 8×4 fallback；6400% 下合法 vector tile 是 512×256，测试错误地要求 qMax(tile.width, tile.height)>512，断言失败后继续执行并触发 SIGSEGV。",
+    "最新远端 macOS 26 的 WindowBehaviorTests::testExitFullscreenActionUsesEscapePath 将 showEvent 之后已由 native full-size-content-view 归一化的窗口 client geometry 再次强行写成 QRect(220,180 720x500)，而 AppKit 退出全屏恢复 QRect(220,148 720x532)，导致跨版本的错误精确几何断言并放大清理期崩溃风险。",
+    "此前远端没有外部 EPS 样本，矢量测试使用 8×4 fallback；6400% 下合法 vector tile 是 512×256，旧测试错误地要求 qMax(tile.width, tile.height)>512，该问题已改为等待真实绘制次数和非空 tile。",
     "此前 clang-tidy 构建复用了应用 target 的 Ghostscript POST_BUILD 打包钩子；该问题已通过 tidy 分支关闭可选 Ghostscript bundle 修复。",
-    "补充的完整 CTest 暴露出平移 recorder 可能与异步 tile 完成重叠、120Hz maximum 可能包含系统调度抖动；两者都会产生假失败并放大清理期崩溃风险。"
+    "补充的完整 CTest 暴露出平移 recorder 可能与异步 tile 完成重叠、120Hz maximum 可能包含系统调度抖动；两者已通过稳定观察点和抗抖动统计约束。"
   ],
   "repair_summary": [
     "build.sh 的 --tidy/--tidy-fix 显式关闭 FOVELLE_BUNDLE_GHOSTSCRIPT，普通构建默认保持开启。",
     "hasPendingVectorRefinement() 同时反映 interaction、active async request 和 queued async request；矢量测试轮询 vectorRenderCount 与非空 tile，并删除脆弱的 >512 尺寸假设。",
-    "矢量平移测量在 recorder 前等待稳定 tile；120Hz probe 保留 maximum 诊断值，仅用平均值、P99 和 CPU 容量判定，避免单次系统调度抖动污染结果。"
+    "矢量平移测量在 recorder 前等待稳定 tile；120Hz probe 保留 maximum 诊断值，仅用平均值、P99 和 CPU 容量判定，避免单次系统调度抖动污染结果。",
+    "全屏回归测试在 deferred native decoration 稳定后采集实际正常 client geometry，不再覆盖平台归一化基线；View 动作和 Escape 均等待原生退出完成后检查稳定性。"
   ],
   "research_trace": [
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
-      "finding": "The Checks run for commit 0a3c3e6 failed in Run Unit Tests; clang-tidy and clang-format passed.",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
+      "finding": "The Checks run for commit 87ffbe4 failed in WindowBehaviorTests::testExitFullscreenActionUsesEscapePath; clang-tidy and clang-format passed.",
       "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
       "hop": 2,
+      "layer": "cross-job confirmation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
+      "finding": "The Build Fovelle job reported the same full-test failure, so the regression is shared by the registered test binary rather than isolated to one job wrapper.",
+      "premise": "The same failing QtTest method in both jobs is stronger evidence than a single job observation."
+    },
+    {
+      "hop": 3,
       "layer": "runner capability",
       "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
       "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
       "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure."
     },
     {
-      "hop": 3,
+      "hop": 4,
       "layer": "build-tool semantics",
       "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
       "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
       "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled."
     },
     {
-      "hop": 4,
+      "hop": 5,
       "layer": "async completion semantics",
       "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
       "finding": "QFutureWatcher emits finished() when the watched future finishes.",
       "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted."
     },
     {
-      "hop": 5,
+      "hop": 6,
       "layer": "test synchronization",
       "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
       "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
       "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size."
     },
     {
-      "hop": 6,
+      "hop": 7,
       "layer": "deduction",
       "source": "https://doc.qt.io/qt-6/qtest.html",
       "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
       "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
+    },
+    {
+      "hop": 8,
+      "layer": "window geometry semantics",
+      "source": "https://doc.qt.io/qt-6/application-windows.html",
+      "finding": "Qt documents top-level QWidget::geometry() as client geometry excluding the window frame, while frameGeometry() includes the frame.",
+      "premise": "A client rectangle is not a stable cross-platform proxy for the native normal frame when titlebar insets are changed by the platform."
+    },
+    {
+      "hop": 9,
+      "layer": "platform restoration semantics",
+      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+      "finding": "Qt documents that windowing-system decoration and restoration can adjust the geometry after a window becomes visible.",
+      "premise": "The test must capture the geometry after the deferred native decoration setup has settled instead of overwriting that observation with a pre-decoration request."
+    },
+    {
+      "hop": 10,
+      "layer": "repository deduction",
+      "source": "tests/tst_qviewtests.cpp and src/mainwindow.cpp",
+      "finding": "The remote failure compared requested QRect(220,180 720x500) with AppKit-restored QRect(220,148 720x532); the test's second setGeometry() occurred after showEvent's deferred full-size-content-view setup.",
+      "premise": "Removing that second write makes the baseline the platform's settled normal geometry, so the test measures the View action's native exit path rather than titlebar decoration conversion."
     }
   ],
   "checks": [
@@ -69,8 +99,8 @@
       "method": "验收标准与测试用例一对一覆盖审计",
       "passed": true,
       "observed": {
-        "specified_case_count": 12,
-        "evidence_case_count": 12,
+        "specified_case_count": 13,
+        "evidence_case_count": 13,
         "duplicate_case_ids": false
       }
     },
@@ -87,8 +117,8 @@
           "status": "passed"
         },
         "unit": {
-          "total": 3,
-          "passed": 3,
+          "total": 4,
+          "passed": 4,
           "failed": 0,
           "status": "passed"
         },

@@ -6375,9 +6375,11 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     // Let the deferred full-size-content-view setup establish the steady
-    // decorated/client geometry before capturing the pre-full-screen frame.
+    // platform-normalized client geometry before capturing the pre-full-screen
+    // frame. Do not reapply the requested client rect here: AppKit restores the
+    // native normal frame, whose client geometry can differ by titlebar inset
+    // between macOS versions.
     QTest::qWait(250);
-    window.setGeometry(QRect(220, 180, 720, 500));
     QCoreApplication::processEvents();
     const QRect normalGeometry = window.geometry();
     FullScreenExitGeometryRecorder geometryRecorder;

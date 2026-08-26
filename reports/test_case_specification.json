@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-26T11:49:40.623923+00:00",
+  "generated_at": "2026-08-26T12:26:48.283972+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "test_execution_order": [
     "static",
@@ -14,44 +14,72 @@
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
-      "finding": "The Checks run for commit 0a3c3e6 failed in Run Unit Tests; clang-tidy and clang-format passed.",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331494",
+      "finding": "The Checks run for commit 87ffbe4 failed in WindowBehaviorTests::testExitFullscreenActionUsesEscapePath; clang-tidy and clang-format passed.",
       "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
       "hop": 2,
+      "layer": "cross-job confirmation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32966331490",
+      "finding": "The Build Fovelle job reported the same full-test failure, so the regression is shared by the registered test binary rather than isolated to one job wrapper.",
+      "premise": "The same failing QtTest method in both jobs is stronger evidence than a single job observation."
+    },
+    {
+      "hop": 3,
       "layer": "runner capability",
       "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
       "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
       "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure."
     },
     {
-      "hop": 3,
+      "hop": 4,
       "layer": "build-tool semantics",
       "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
       "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
       "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled."
     },
     {
-      "hop": 4,
+      "hop": 5,
       "layer": "async completion semantics",
       "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
       "finding": "QFutureWatcher emits finished() when the watched future finishes.",
       "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted."
     },
     {
-      "hop": 5,
+      "hop": 6,
       "layer": "test synchronization",
       "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
       "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
       "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size."
     },
     {
-      "hop": 6,
+      "hop": 7,
       "layer": "deduction",
       "source": "https://doc.qt.io/qt-6/qtest.html",
       "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
       "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
+    },
+    {
+      "hop": 8,
+      "layer": "window geometry semantics",
+      "source": "https://doc.qt.io/qt-6/application-windows.html",
+      "finding": "Qt documents top-level QWidget::geometry() as client geometry excluding the window frame, while frameGeometry() includes the frame.",
+      "premise": "A client rectangle is not a stable cross-platform proxy for the native normal frame when titlebar insets are changed by the platform."
+    },
+    {
+      "hop": 9,
+      "layer": "platform restoration semantics",
+      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
+      "finding": "Qt documents that windowing-system decoration and restoration can adjust the geometry after a window becomes visible.",
+      "premise": "The test must capture the geometry after the deferred native decoration setup has settled instead of overwriting that observation with a pre-decoration request."
+    },
+    {
+      "hop": 10,
+      "layer": "repository deduction",
+      "source": "tests/tst_qviewtests.cpp and src/mainwindow.cpp",
+      "finding": "The remote failure compared requested QRect(220,180 720x500) with AppKit-restored QRect(220,148 720x532); the test's second setGeometry() occurred after showEvent's deferred full-size-content-view setup.",
+      "premise": "Removing that second write makes the baseline the platform's settled normal geometry, so the test measures the View action's native exit path rather than titlebar decoration conversion."
     }
   ],
   "test_cases": [
@@ -258,6 +286,35 @@
       "expected_result": "QtTest 返回 0 且 EPS 渲染测试输出 PASS。",
       "postconditions": [
         "测试生成的临时 PDF/fixture 被清理。"
+      ]
+    },
+    {
+      "id": "CI-UNIT-004",
+      "test_layer": "unit",
+      "atomic_acceptance_criterion": "View → Exit Full Screen 与物理 Escape 共用 AppKit 异步退出边界，并在 native transition 完成后保持正常窗口几何稳定。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
+      "test_purpose": "验证菜单退出动作与 Escape 走同一原生异步边界，且不因 macOS 标题栏 client inset 差异产生假失败。",
+      "preconditions": [
+        "可见的正常 MainWindow 已创建。",
+        "macOS Cocoa 原生窗口和全屏通知可用。"
+      ],
+      "input_data": {
+        "action_input": "View → Exit Full Screen QAction",
+        "comparison_input": "物理 Escape",
+        "normal_geometry_source": "showEvent 后已稳定的实际 QWidget::geometry()"
+      },
+      "operation_steps": [
+        "等待 deferred full-size-content-view 设置稳定。",
+        "捕获平台实际正常几何。",
+        "进入全屏并直接触发 View 退出动作。",
+        "等待原生退出通知完成并检查几何稳定。",
+        "再次进入全屏并发送 Escape，重复同样检查。"
+      ],
+      "expected_result": "两种输入都在 native transition 完成前保持 Qt 全屏状态，完成后退出全屏、恢复捕获的正常几何，且无退出后的二次 Move/Resize。",
+      "postconditions": [
+        "测试窗口关闭。",
+        "临时 titlebar 设置和 quit policy 恢复。"
       ]
     },
     {
