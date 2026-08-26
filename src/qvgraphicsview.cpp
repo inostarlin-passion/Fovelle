@@ -16,9 +16,80 @@
 #include <QGestureEvent>
 #include <QScrollBar>
 #include <QPainter>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <QShowEvent>
+#include <QHideEvent>
 
 #include <algorithm>
 #include <cmath>
+
+namespace
+{
+class ImageLoadingIndicator final : public QWidget
+{
+public:
+    explicit ImageLoadingIndicator(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setFixedSize(52, 52);
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setAttribute(Qt::WA_TranslucentBackground);
+        frameTimer.setInterval(50);
+        frameTimer.setTimerType(Qt::PreciseTimer);
+        connect(&frameTimer, &QTimer::timeout, this, [this]() {
+            phase = (phase + 1) % DotCount;
+            update();
+        });
+    }
+
+protected:
+    void showEvent(QShowEvent *event) override
+    {
+        QWidget::showEvent(event);
+        frameTimer.start();
+    }
+
+    void hideEvent(QHideEvent *event) override
+    {
+        frameTimer.stop();
+        QWidget::hideEvent(event);
+    }
+
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const QPointF center = rect().center();
+        QColor color = palette().color(QPalette::Text);
+        if (!color.isValid())
+            color = QColorConstants::White;
+
+        constexpr qreal orbitRadius = 17.0;
+        constexpr qreal dotRadius = 2.8;
+        for (int index = 0; index < DotCount; ++index)
+        {
+            const int age = (index - phase + DotCount) % DotCount;
+            color.setAlphaF(0.16 + 0.84 * (DotCount - age) / DotCount);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(color);
+            const qreal angle = (index * 2.0 * M_PI / DotCount) - M_PI_2;
+            const QPointF dotCenter(
+                    center.x() + std::cos(angle) * orbitRadius,
+                    center.y() + std::sin(angle) * orbitRadius);
+            painter.drawEllipse(dotCenter, dotRadius, dotRadius);
+        }
+    }
+
+private:
+    static constexpr int DotCount = 12;
+    QTimer frameTimer {this};
+    int phase {0};
+};
+}
 
 QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 {
@@ -45,6 +116,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 
     connect(&imageCore, &QVImageCore::animatedFrameChanged, this, &QVGraphicsView::animatedFrameChanged);
     connect(&imageCore, &QVImageCore::fileChanging, this, &QVGraphicsView::beforeLoad);
+    connect(&imageCore, &QVImageCore::fileLoadStarted, this, &QVGraphicsView::loadStarted);
     connect(&imageCore, &QVImageCore::fileChanged, this, &QVGraphicsView::postLoad);
     connect(&imageCore, &QVImageCore::sortParametersChanged, this, [this]{emit sortParametersChanged();});
 
@@ -68,6 +140,41 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     hideCursorTimer->setSingleShot(true);
     hideCursorTimer->setInterval(1000);
     connect(hideCursorTimer, &QTimer::timeout, this, [this]{setCursorVisible(false);});
+
+    loadingIndicator = new ImageLoadingIndicator(viewport());
+    loadingIndicator->setObjectName(QStringLiteral("imageLoadingIndicator"));
+    loadingIndicatorOpacityEffect = new QGraphicsOpacityEffect(loadingIndicator);
+    loadingIndicatorOpacityEffect->setObjectName(
+            QStringLiteral("imageLoadingOpacityEffect"));
+    loadingIndicatorOpacityEffect->setOpacity(0.0);
+    loadingIndicator->setGraphicsEffect(loadingIndicatorOpacityEffect);
+    loadingIndicator->hide();
+    centerLoadingIndicator();
+
+    loadingIndicatorOpacityAnimation = new QPropertyAnimation(
+            loadingIndicatorOpacityEffect, "opacity", this);
+    loadingIndicatorOpacityAnimation->setObjectName(
+            QStringLiteral("imageLoadingOpacityAnimation"));
+    loadingIndicatorOpacityAnimation->setDuration(LoadingIndicatorFadeDuration);
+    loadingIndicatorOpacityAnimation->setStartValue(0.0);
+    loadingIndicatorOpacityAnimation->setEndValue(1.0);
+    loadingIndicatorOpacityAnimation->setEasingCurve(QEasingCurve::OutCubic);
+
+    loadingDelayTimer = new QTimer(this);
+    loadingDelayTimer->setObjectName(QStringLiteral("imageLoadingDelayTimer"));
+    loadingDelayTimer->setSingleShot(true);
+    loadingDelayTimer->setTimerType(Qt::PreciseTimer);
+    loadingDelayTimer->setInterval(LoadingIndicatorDelay);
+    connect(loadingDelayTimer, &QTimer::timeout, this, [this]() {
+        if (!loadingPresentationActive)
+            return;
+        centerLoadingIndicator();
+        loadingIndicatorOpacityAnimation->stop();
+        loadingIndicatorOpacityEffect->setOpacity(0.0);
+        loadingIndicator->show();
+        loadingIndicator->raise();
+        loadingIndicatorOpacityAnimation->start();
+    });
 
     loadedPixmapItem = new QVGraphicsImageItem();
     scene->addItem(loadedPixmapItem);
@@ -233,6 +340,12 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
 
     QGraphicsView::paintEvent(event);
 
+    // postLoad() marks the first paint which contains the newly loaded pixels.
+    // Keep the delayed indicator alive through decode and scene attachment,
+    // and retire it only after that paint has actually completed.
+    if (loadingAwaitingFirstPaint)
+        finishLoadingPresentation();
+
     if (logSDRPerformance)
     {
         qint64 dirtyArea = 0;
@@ -268,7 +381,8 @@ void QVGraphicsView::drawBackground(QPainter *painter, const QRectF &rect)
     painter->save();
     painter->resetTransform();
     const bool showCheckerboard = checkerboardBackground
-            && getCurrentFileDetails().isPixmapLoaded;
+            && getCurrentFileDetails().isPixmapLoaded
+            && !loadingPresentationActive;
     painter->fillRect(viewport()->rect(),
                       showCheckerboard ? checkerboardBackgroundBrush
                                        : viewportBackgroundBrush);
@@ -288,12 +402,14 @@ void QVGraphicsView::updateViewportOpacityContract()
     // which is the stable presentation path used by qView. Vector documents
     // retain opaque scroll reuse because their bounded tile renderer makes a
     // full repaint materially more expensive.
-    const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
+    const bool paintsOpaqueViewportBackground = loadingPresentationActive
+            || (details.isPixmapLoaded
             && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded
-            && details.isVectorLoaded;
+            && details.isVectorLoaded);
 #else
-    const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
-            && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded;
+    const bool paintsOpaqueViewportBackground = loadingPresentationActive
+            || (details.isPixmapLoaded
+            && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded);
 #endif
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
                              paintsOpaqueViewportBackground);
@@ -483,7 +599,30 @@ bool QVGraphicsView::viewportEvent(QEvent *event)
     if (event->type() == QEvent::NativeGesture)
         return handleNativeGestureEvent(static_cast<QNativeGestureEvent *>(event));
 
-    return QGraphicsView::viewportEvent(event);
+    const bool handled = QGraphicsView::viewportEvent(event);
+    if (event->type() == QEvent::Resize)
+        centerLoadingIndicator();
+    return handled;
+}
+
+void QVGraphicsView::centerLoadingIndicator()
+{
+    if (!loadingIndicator || !viewport())
+        return;
+    loadingIndicator->move(
+            qMax(0, (viewport()->width() - loadingIndicator->width()) / 2),
+            qMax(0, (viewport()->height() - loadingIndicator->height()) / 2));
+}
+
+void QVGraphicsView::finishLoadingPresentation()
+{
+    loadingDelayTimer->stop();
+    loadingIndicatorOpacityAnimation->stop();
+    loadingIndicatorOpacityEffect->setOpacity(0.0);
+    loadingIndicator->hide();
+    loadingAwaitingFirstPaint = false;
+    loadingPresentationActive = false;
+    updateViewportOpacityContract();
 }
 
 bool QVGraphicsView::event(QEvent *event)
@@ -1093,10 +1232,37 @@ void QVGraphicsView::beforeLoad()
     // If a prior pixmap is still loaded, capture its content rect
     if (getCurrentFileDetails().isPixmapLoaded)
         lastImageContentRect = getContentRect();
+
+    loadingDelayTimer->stop();
+    loadingIndicatorOpacityAnimation->stop();
+    loadingIndicatorOpacityEffect->setOpacity(0.0);
+    loadingIndicator->hide();
+    loadingPresentationActive = true;
+    loadingAwaitingFirstPaint = false;
+
+    // Switching starts with a genuinely empty viewport.  Hiding only the Qt
+    // item is insufficient after a native SDR/HDR layer has become active, so
+    // clear both presentation paths synchronously before decoding the target.
+    loadedPixmapItem->setVisible(false);
+    loadedPixmapItem->setPixmap(QPixmap());
+    hdrPresentationTimer->stop();
+    hdrRendererActive = false;
+    if (hdrRenderer)
+        hdrRenderer->clear();
+    setSceneRect(QRectF(0.0, 0.0, 1.0, 1.0));
+    updateViewportOpacityContract();
+    viewport()->update();
+}
+
+void QVGraphicsView::loadStarted()
+{
+    loadingDelayTimer->start();
+    emit fileLoadStarted();
 }
 
 void QVGraphicsView::postLoad()
 {
+    loadingAwaitingFirstPaint = loadingPresentationActive;
     hdrLayoutReady = false;
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;

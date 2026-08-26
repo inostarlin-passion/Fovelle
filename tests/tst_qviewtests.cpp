@@ -12,6 +12,7 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 #include <QMouseEvent>
 #include <QElapsedTimer>
 #include <QNativeGestureEvent>
@@ -242,6 +243,7 @@ private slots:
     void testEnterDoesNotBypassClearedFullscreenShortcut();
     void testConfiguredFullscreenShortcutStillWorks();
     void testPracticalTitlebarTextUsesFilenameAndSequence();
+    void testSlowImagePublishesTitleAndDelayedLoadingPresentation();
     void testDefaultTitlebarTextIsPractical();
     void testVerboseTitlebarTextUsesAllRequestedFields();
     void testThemeSettingsReplaceRemovedColorControls();
@@ -5713,6 +5715,125 @@ void WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()
     window.buildWindowTitle();
     QCOMPARE(window.windowTitle(), QStringLiteral("01-practical.png - 1/2"));
     window.close();
+}
+
+// TC-LOAD-PRESENTATION-ORDER
+// Test purpose: keep title/empty-viewport publication independent from decode
+// completion, and expose a delayed animated busy affordance only after 1 s.
+// Preconditions: two uncached PNGs and an opt-in worker-only delay are present.
+// Input data: a 300 ms cold open followed by a second 1300 ms load.
+// Steps: verify the new-window title synchronously, then request the second
+// file; inspect title/current target and
+// hidden old pixels, inspect the indicator before and after 1000 ms, then wait
+// for the first new paint.
+// Expected result: title changes before openFile returns, old pixels are hidden,
+// the precise timer never shows early, the opacity animation starts after 1 s,
+// and the indicator is gone after the new content paint.
+// Postcondition: environment, options, files and window are restored.
+void WindowBehaviorTests::testSlowImagePublishesTitleAndDelayedLoadingPresentation()
+{
+    ScopedOptionValues options({
+        {"titlebarmode", static_cast<int>(Qv::TitleBarText::Practical)},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
+        {"sortdescending", false},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)}
+    });
+    ScopedEnvironmentValue delayGuard("FOVELLE_TEST_IMAGE_LOAD_DELAY_MS");
+    qunsetenv("FOVELLE_TEST_IMAGE_LOAD_DELAY_MS");
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(
+            dir, "01-loaded", Qt::darkRed, QSize(1200, 900));
+    const QString secondPath = createTestImage(
+            dir, "02-slow", Qt::darkBlue, QSize(1200, 900));
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!secondPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    qputenv("FOVELLE_TEST_IMAGE_LOAD_DELAY_MS", "300");
+    window.openFile(firstPath);
+    QCOMPARE(window.windowTitle(), QStringLiteral("01-loaded.png - 1/2"));
+    QVERIFY(!window.getIsPixmapLoaded());
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    auto *indicator = view
+            ? view->findChild<QWidget *>("imageLoadingIndicator") : nullptr;
+    auto *delayTimer = view
+            ? view->findChild<QTimer *>("imageLoadingDelayTimer") : nullptr;
+    auto *opacityEffect = view
+            ? view->findChild<QGraphicsOpacityEffect *>(
+                      "imageLoadingOpacityEffect") : nullptr;
+    auto *opacityAnimation = view
+            ? view->findChild<QPropertyAnimation *>(
+                      "imageLoadingOpacityAnimation") : nullptr;
+    QVERIFY(view);
+    QVERIFY(indicator);
+    QVERIFY(delayTimer);
+    QVERIFY(opacityEffect);
+    QVERIFY(opacityAnimation);
+    QCOMPARE(delayTimer->timerType(), Qt::PreciseTimer);
+    QCOMPARE(delayTimer->interval(), QVGraphicsView::LoadingIndicatorDelay);
+    QCOMPARE(opacityAnimation->duration(),
+             QVGraphicsView::LoadingIndicatorFadeDuration);
+
+    QVGraphicsImageItem *imageItem = nullptr;
+    for (QGraphicsItem *item : view->scene()->items())
+    {
+        if (auto *candidate = dynamic_cast<QVGraphicsImageItem *>(item))
+        {
+            imageItem = candidate;
+            break;
+        }
+    }
+    QVERIFY(imageItem);
+
+    QSignalSpy startSpy(view, &QVGraphicsView::fileLoadStarted);
+    qputenv("FOVELLE_TEST_IMAGE_LOAD_DELAY_MS", "1300");
+    QElapsedTimer requestTimer;
+    requestTimer.start();
+    window.openFile(secondPath);
+
+    QCOMPARE(startSpy.count(), 1);
+    QCOMPARE(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+             QFileInfo(secondPath).absoluteFilePath());
+    QVERIFY(!window.getIsPixmapLoaded());
+    QCOMPARE(window.windowTitle(), QStringLiteral("02-slow.png - 2/2"));
+    QVERIFY(!imageItem->isVisible());
+    QVERIFY(!view->nativeMetalRendererDiagnostics().imageActive);
+    QVERIFY(delayTimer->isActive());
+    QVERIFY(!indicator->isVisible());
+
+    while (requestTimer.elapsed() < 850)
+        QTest::qWait(10);
+    QVERIFY2(!indicator->isVisible(),
+             "The one-second loading affordance appeared early");
+
+    QTRY_VERIFY_WITH_TIMEOUT(indicator->isVisible(), 350);
+    QTRY_VERIFY_WITH_TIMEOUT(opacityEffect->opacity() > 0.0, 150);
+    QVERIFY(opacityAnimation->state() == QAbstractAnimation::Running
+            || qFuzzyCompare(opacityEffect->opacity(), 1.0));
+    const QPoint expectedCenter = view->viewport()->rect().center();
+    QVERIFY((indicator->geometry().center() - expectedCenter).manhattanLength()
+            <= 2);
+
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!indicator->isVisible(), 1000);
+    QVERIFY(!delayTimer->isActive());
+    QVERIFY(imageItem->isVisible()
+            || view->nativeMetalRendererDiagnostics().imageActive);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-TITLE-VERBOSE

@@ -13,6 +13,7 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QImageReader>
 #include <QLocale>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -1277,6 +1278,28 @@ public:
         }
     }
 
+    NativeSDRImage(QImage image, const bool alpha)
+        : backingImage(std::move(image)),
+          sourceSize(backingImage.size()),
+          sourceHasAlpha(alpha)
+    {
+        if (!supportsDirectQImageFormat(backingImage.format()))
+        {
+            backingImage = backingImage.convertToFormat(
+                    sourceHasAlpha
+                            ? QImage::Format_ARGB32_Premultiplied
+                            : QImage::Format_RGB32);
+            sourceSize = backingImage.size();
+        }
+        imageMetadata.sourceKind = QStringLiteral("sdr-bounded-provider");
+        imageMetadata.pixelSize = sourceSize;
+        imageMetadata.contentHeadroom = 1.0F;
+        imageMetadata.bitsPerComponent = backingImage.isNull() ? 0 : 8;
+        materializedByteCount = static_cast<quint64>(
+                qMax<qsizetype>(0, backingImage.sizeInBytes()));
+        buildQImageTiles();
+    }
+
     ~NativeSDRImage() override
     {
         for (const Tile &tile : std::as_const(tiles)) {
@@ -1303,6 +1326,156 @@ public:
         { return materializedByteCount; }
 
 private:
+    static bool supportsDirectQImageFormat(const QImage::Format format)
+    {
+        return format == QImage::Format_RGB32
+                || format == QImage::Format_ARGB32
+                || format == QImage::Format_ARGB32_Premultiplied
+                || format == QImage::Format_RGB888
+                || format == QImage::Format_RGBX8888
+                || format == QImage::Format_RGBA8888
+                || format == QImage::Format_RGBA8888_Premultiplied;
+    }
+
+    static CGBitmapInfo bitmapInfoForQImage(const QImage::Format format)
+    {
+        switch (format)
+        {
+        case QImage::Format_RGB32:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Host | kCGImageAlphaNoneSkipFirst);
+        case QImage::Format_ARGB32:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Host | kCGImageAlphaFirst);
+        case QImage::Format_ARGB32_Premultiplied:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Host | kCGImageAlphaPremultipliedFirst);
+        case QImage::Format_RGBX8888:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Big | kCGImageAlphaNoneSkipLast);
+        case QImage::Format_RGBA8888:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Big | kCGImageAlphaLast);
+        case QImage::Format_RGBA8888_Premultiplied:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast);
+        case QImage::Format_RGB888:
+        default:
+            return static_cast<CGBitmapInfo>(
+                    kCGBitmapByteOrderDefault | kCGImageAlphaNone);
+        }
+    }
+
+    static CGColorSpaceRef colorSpaceForQImage(const QImage &image)
+    {
+        const QByteArray profile = image.colorSpace().iccProfile();
+        if (!profile.isEmpty())
+        {
+            CFDataRef data = CFDataCreate(
+                    kCFAllocatorDefault,
+                    reinterpret_cast<const UInt8 *>(profile.constData()),
+                    static_cast<CFIndex>(profile.size()));
+            CGColorSpaceRef colorSpace = data
+                    ? CGColorSpaceCreateWithICCData(data) : nullptr;
+            if (data)
+                CFRelease(data);
+            if (colorSpace)
+                return colorSpace;
+        }
+        return colorSyncSrgbColorSpace();
+    }
+
+    static void releaseQImageProvider(void *info, const void *, size_t)
+    {
+        delete static_cast<QImage *>(info);
+    }
+
+    static CGImageRef createQImageBand(const QImage &image,
+                                       const int top, const int height)
+    {
+        if (image.isNull() || top < 0 || height <= 0
+            || top + height > image.height()
+            || !supportsDirectQImageFormat(image.format()))
+            return nullptr;
+
+        auto *retainedImage = new QImage(image);
+        const uchar *bytes = retainedImage->constScanLine(top);
+        const size_t bytesPerRow = static_cast<size_t>(
+                retainedImage->bytesPerLine());
+        const size_t providerSize = bytesPerRow
+                * static_cast<size_t>(height);
+        CGDataProviderRef provider = CGDataProviderCreateWithData(
+                retainedImage, bytes, providerSize, releaseQImageProvider);
+        if (!provider)
+        {
+            delete retainedImage;
+            return nullptr;
+        }
+
+        CGColorSpaceRef colorSpace = colorSpaceForQImage(*retainedImage);
+        const size_t bitsPerPixel = static_cast<size_t>(
+                retainedImage->depth());
+        CGImageRef band = colorSpace ? CGImageCreate(
+                static_cast<size_t>(retainedImage->width()),
+                static_cast<size_t>(height),
+                8,
+                bitsPerPixel,
+                bytesPerRow,
+                colorSpace,
+                bitmapInfoForQImage(retainedImage->format()),
+                provider,
+                nullptr,
+                false,
+                kCGRenderingIntentDefault) : nullptr;
+        if (colorSpace)
+            CGColorSpaceRelease(colorSpace);
+        CGDataProviderRelease(provider);
+        return band;
+    }
+
+    void appendTile(CGImageRef tileCGImage, const QRect &data,
+                    const QRect &core)
+    {
+        CIImage *tileImage = tileCGImage
+                ? [CIImage imageWithCGImage:tileCGImage] : nil;
+        CGImageRef layerImage = tileCGImage
+                ? CGImageRetain(tileCGImage) : nullptr;
+        if (!tileImage)
+        {
+            if (layerImage)
+                CGImageRelease(layerImage);
+            return;
+        }
+
+        Tile tile;
+        tile.image = [tileImage retain];
+        tile.layerImage = layerImage;
+        const QRect coreImageData = QVCocoaFunctions::coreImageTileRect(
+                data, sourceSize.height());
+        const QRect coreImageCore = QVCocoaFunctions::coreImageTileRect(
+                core, sourceSize.height());
+        tile.dataRect = CGRectMake(
+                coreImageData.x(), coreImageData.y(),
+                coreImageData.width(), coreImageData.height());
+        tile.coreRect = CGRectMake(
+                coreImageCore.x(), coreImageCore.y(),
+                coreImageCore.width(), coreImageCore.height());
+        const CGFloat dataWidth = data.width();
+        const CGFloat dataHeight = data.height();
+        const CGFloat coreOffsetX = core.x() - data.x();
+        const CGFloat coreOffsetFromTop = core.y() - data.y();
+        tile.layerFrame = CGRectMake(
+                coreImageCore.x(), coreImageCore.y(),
+                coreImageCore.width(), coreImageCore.height());
+        tile.layerContentsRect = CGRectMake(
+                coreOffsetX / dataWidth,
+                (dataHeight - coreOffsetFromTop - core.height())
+                        / dataHeight,
+                core.width() / dataWidth,
+                core.height() / dataHeight);
+        tiles.append(tile);
+    }
+
     void buildFullSingleImage()
     {
         if (!materializedImage || sourceSize.isEmpty())
@@ -1344,56 +1517,60 @@ private:
                         materializedImage,
                         CGRectMake(data.x(), data.y(),
                                    data.width(), data.height()));
-                CIImage *tileImage = tileCGImage
-                        ? [CIImage imageWithCGImage:tileCGImage] : nil;
-                CGImageRef layerImage = tileCGImage
-                        ? CGImageRetain(tileCGImage) : nullptr;
+                appendTile(tileCGImage, data, core);
                 if (tileCGImage)
                     CGImageRelease(tileCGImage);
-                if (!tileImage) {
-                    if (layerImage)
-                        CGImageRelease(layerImage);
-                    continue;
-                }
-                Tile tile;
-                tile.image = [tileImage retain];
-                tile.layerImage = layerImage;
-                const QRect coreImageData = QVCocoaFunctions::coreImageTileRect(
-                        data, height);
-                const QRect coreImageCore = QVCocoaFunctions::coreImageTileRect(
-                        core, height);
-                tile.dataRect = CGRectMake(
-                        coreImageData.x(), coreImageData.y(),
-                        coreImageData.width(), coreImageData.height());
-                tile.coreRect = CGRectMake(
-                        coreImageCore.x(), coreImageCore.y(),
-                        coreImageCore.width(), coreImageCore.height());
-                // Core Animation's macOS unit-coordinate Y axis starts at the
-                // bottom. Keep the two-pixel sampling apron in `contents`, but
-                // expose only the authoritative nonoverlapping core. The apron
-                // remains available to the layer sampler at fractional zooms.
-                const CGFloat dataWidth = data.width();
-                const CGFloat dataHeight = data.height();
-                const CGFloat coreOffsetX = core.x() - data.x();
-                const CGFloat coreOffsetFromTop = core.y() - data.y();
-                // Sublayer frames are interpreted in Core Animation's macOS
-                // bottom-left point space. Convert the source's first-row
-                // coordinate exactly once, independently of contentsRect.
-                tile.layerFrame = CGRectMake(
-                        coreImageCore.x(), coreImageCore.y(),
-                        coreImageCore.width(), coreImageCore.height());
-                tile.layerContentsRect = CGRectMake(
-                        coreOffsetX / dataWidth,
-                        (dataHeight - coreOffsetFromTop - core.height())
-                                / dataHeight,
-                        core.width() / dataWidth,
-                        core.height() / dataHeight);
-                tiles.append(tile);
             }
         }
     }
 
+    void buildQImageTiles()
+    {
+        if (backingImage.isNull() || sourceSize.isEmpty())
+            return;
+
+        constexpr int TileSize = 2048;
+        constexpr int SamplingBorder = 2;
+        const int width = sourceSize.width();
+        const int height = sourceSize.height();
+        for (int coreY = 0; coreY < height; coreY += TileSize)
+        {
+            const QRect rowCore(0, coreY, width,
+                                std::min(TileSize, height - coreY));
+            const QRect rowData = rowCore.adjusted(
+                    0, -SamplingBorder, 0, SamplingBorder)
+                    .intersected(QRect(0, 0, width, height));
+            // Every provider is a full-width horizontal band below 2 GiB.
+            // Tile crops retain that bounded provider, while the implicitly
+            // shared QImage keeps one authoritative full-resolution decode.
+            CGImageRef bandImage = createQImageBand(
+                    backingImage, rowData.y(), rowData.height());
+            if (!bandImage)
+                continue;
+
+            for (int coreX = 0; coreX < width; coreX += TileSize)
+            {
+                const QRect core(coreX, coreY,
+                                 std::min(TileSize, width - coreX),
+                                 rowCore.height());
+                const QRect data = core.adjusted(
+                        -SamplingBorder, -SamplingBorder,
+                        SamplingBorder, SamplingBorder)
+                        .intersected(QRect(0, 0, width, height));
+                CGImageRef tileCGImage = CGImageCreateWithImageInRect(
+                        bandImage,
+                        CGRectMake(data.x(), 0,
+                                   data.width(), data.height()));
+                appendTile(tileCGImage, data, core);
+                if (tileCGImage)
+                    CGImageRelease(tileCGImage);
+            }
+            CGImageRelease(bandImage);
+        }
+    }
+
     CGImageRef materializedImage{ nullptr };
+    QImage backingImage;
     quint64 materializedByteCount{ 0 };
     CIImage *fullSingleImage{ nil };
     QVector<Tile> tiles;
@@ -5149,38 +5326,88 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
             std::shared_ptr<NativeSDRImage> nativeSDRImage;
             if (!result.hdrImage && CGImageSourceGetCount(source) == 1) {
-                // Interaction is never allowed to fall back to an enlarged
-                // proxy. Decode the authoritative SDR pixels once on the
-                // loader worker, then expose them to Core Image as bounded
-                // authoritative tiles. This moves the unavoidable sequential PNG
-                // decode to open time and removes it from first zoom/pan.
-                CGImageRef decodedImage = nullptr;
-                if (CFMutableDictionaryRef options =
-                            thumbnailOptions(source, 0, false)) {
-                    CFDictionarySetValue(
-                            options,
-                            kCGImageSourceShouldCacheImmediately,
-                            kCFBooleanTrue);
-                    decodedImage = CGImageSourceCreateThumbnailAtIndex(
-                            source, 0, options);
-                    CFRelease(options);
-                }
-                if (decodedImage) {
-                    result.intrinsicSize = QSize(
-                            static_cast<int>(CGImageGetWidth(decodedImage)),
-                            static_cast<int>(CGImageGetHeight(decodedImage)));
-                    nativeSDRImage = std::make_shared<NativeSDRImage>(
-                            decodedImage, sourceHasAlpha(source));
-                    if (!nativeSDRImage->sourceTiles().isEmpty()) {
-                        result.sdrImage = nativeSDRImage;
-                        // Reuse the already decoded provider for the bounded
-                        // Qt placeholder. A second ImageIO thumbnail request
-                        // would parse and inflate a huge PNG again, doubling
-                        // cold-open latency without improving visible pixels.
-                        result.image = imageFromCGImage(
-                                decodedImage, fallbackLargestDimension);
+                const quint64 pixelCount = result.intrinsicSize.isValid()
+                        ? static_cast<quint64>(result.intrinsicSize.width())
+                                * static_cast<quint64>(result.intrinsicSize.height())
+                        : 0;
+                const bool exceedsSignedProviderRange = pixelCount > 0
+                        && pixelCount
+                                > static_cast<quint64>(
+                                          std::numeric_limits<qint32>::max()) / 4ULL;
+
+                if (exceedsSignedProviderRange) {
+                    // A monolithic 32-bit provider above 2 GiB is observably
+                    // accepted by Image I/O but imported as solid black by
+                    // Quartz/Core Animation on the supplied 23094x31390 PNG.
+                    // Decode once into QImage's qsizetype-addressed storage,
+                    // then publish CGImages backed by independent horizontal
+                    // providers whose byte ranges are each safely bounded.
+                    QImageReader oversizedReader(filePath);
+                    oversizedReader.setAutoTransform(true);
+                    QImage decodedImage = oversizedReader.read();
+                    if (!decodedImage.isNull()) {
+                        result.intrinsicSize = decodedImage.size();
+                        const int proxyLimit = fallbackLargestDimension > 0
+                                ? fallbackLargestDimension : 2048;
+                        result.image = decodedImage.scaled(
+                                proxyLimit, proxyLimit, Qt::KeepAspectRatio,
+                                Qt::SmoothTransformation);
+                        nativeSDRImage = std::make_shared<NativeSDRImage>(
+                                std::move(decodedImage), sourceHasAlpha(source));
+                        if (!nativeSDRImage->sourceTiles().isEmpty()) {
+                            result.sdrImage = nativeSDRImage;
+                        } else {
+                            result.image = {};
+                            result.errorString = QStringLiteral(
+                                    "The oversized image could not be split into bounded providers");
+                        }
+                        if (qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG"))
+                            qInfo().noquote()
+                                    << "FOVELLE_SDR_BOUNDED_PROVIDER"
+                                    << "pixels=" << result.intrinsicSize
+                                    << "tiles="
+                                    << nativeSDRImage->sourceTiles().size()
+                                    << "bytes="
+                                    << nativeSDRImage->materializedBytes();
+                    } else {
+                        result.errorString = QStringLiteral(
+                                "Qt image decoder could not create bounded providers for an image above 2 GiB: %1")
+                                .arg(oversizedReader.errorString());
                     }
-                    CGImageRelease(decodedImage);
+                } else {
+                    // Interaction is never allowed to fall back to an enlarged
+                    // proxy. Decode the authoritative SDR pixels once on the
+                    // loader worker, then expose them to Core Image as bounded
+                    // authoritative tiles. This moves the unavoidable sequential PNG
+                    // decode to open time and removes it from first zoom/pan.
+                    CGImageRef decodedImage = nullptr;
+                    if (CFMutableDictionaryRef options =
+                                thumbnailOptions(source, 0, false)) {
+                        CFDictionarySetValue(
+                                options,
+                                kCGImageSourceShouldCacheImmediately,
+                                kCFBooleanTrue);
+                        decodedImage = CGImageSourceCreateThumbnailAtIndex(
+                                source, 0, options);
+                        CFRelease(options);
+                    }
+                    if (decodedImage) {
+                        result.intrinsicSize = QSize(
+                                static_cast<int>(CGImageGetWidth(decodedImage)),
+                                static_cast<int>(CGImageGetHeight(decodedImage)));
+                        nativeSDRImage = std::make_shared<NativeSDRImage>(
+                                decodedImage, sourceHasAlpha(source));
+                        if (!nativeSDRImage->sourceTiles().isEmpty()) {
+                            result.sdrImage = nativeSDRImage;
+                            // Reuse the already decoded provider for the bounded
+                            // Qt placeholder. A second ImageIO thumbnail request
+                            // would parse and inflate a huge PNG again, doubling
+                            // cold-open latency without improving visible pixels.
+                            result.image = imageFromCGImage(
+                                    decodedImage, fallbackLargestDimension);
+                        }
+                        CGImageRelease(decodedImage);
+                    }
                 }
             }
 
@@ -5201,7 +5428,8 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 }
             }
 
-            if (result.image.isNull() && !result.sdrImage && !result.hdrImage)
+            if (result.image.isNull() && !result.sdrImage && !result.hdrImage
+                && result.errorString.isEmpty())
                 result.errorString = QStringLiteral("Image I/O could not decode the image");
         }
 

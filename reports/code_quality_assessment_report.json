@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment",
-  "generated_at": "2026-08-26T06:16:29.973189+00:00",
+  "generated_at": "2026-08-26T10:21:00.021317+00:00",
   "quality_requirements": [
     "精益完整性",
     "功能正确性",

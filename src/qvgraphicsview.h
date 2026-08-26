@@ -20,6 +20,8 @@
 
 class MainWindow;
 class QVGraphicsImageItem;
+class QGraphicsOpacityEffect;
+class QPropertyAnimation;
 
 class QVGraphicsView : public QGraphicsView
 {
@@ -118,6 +120,9 @@ public:
 
     static QPointF nativeGesturePanScrollDelta(const QPointF &delta, bool isRightToLeft);
 
+    static constexpr int LoadingIndicatorDelay = 1000;
+    static constexpr int LoadingIndicatorFadeDuration = 180;
+
     // Keep the Theme-to-scrollbar contract observable without rendering.
     static QString scrollBarStyleSheet(Qv::Theme theme);
 
@@ -159,6 +164,8 @@ public:
 
 signals:
     void cancelSlideshow();
+
+    void fileLoadStarted();
 
     void fileChanged(const bool isRestoringState);
 
@@ -280,9 +287,15 @@ private slots:
 
     void beforeLoad();
 
+    void loadStarted();
+
     void postLoad();
 
 private:
+    void centerLoadingIndicator();
+
+    void finishLoadingPresentation();
+
     QVGraphicsImageItem *loadedPixmapItem;
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 
@@ -341,6 +354,12 @@ private:
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;
+    QTimer *loadingDelayTimer;
+    QWidget *loadingIndicator;
+    QGraphicsOpacityEffect *loadingIndicatorOpacityEffect;
+    QPropertyAnimation *loadingIndicatorOpacityAnimation;
+    bool loadingPresentationActive {false};
+    bool loadingAwaitingFirstPaint {false};
     QTimer *hdrPresentationTimer;
     QTimer *hdrGeometryTimer;
     QTimer *hdrFrameRequestTimer;

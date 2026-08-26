@@ -102,17 +102,29 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     // Pause playing movie because it feels better that way
     setPaused(true);
 
+    // End the old presentation before changing FileDetails.  Consumers can
+    // still capture the previous content geometry in fileChanging(), while
+    // fileLoadStarted() below observes only the new pending target.
+    emit fileChanging();
+
+    FileDetails pendingDetails;
+    pendingDetails.folderFileInfoList = currentFileDetails.folderFileInfoList;
+    pendingDetails.fileInfo = fileInfo;
+    currentFileDetails = std::move(pendingDetails);
+    currentFileDetails.updateLoadedIndexInFolder();
+    if (currentFileDetails.loadedIndexInFolder == -1)
+        updateFolderInfo(currentFileDetails.fileInfo.path());
+
     fileOrLoadPending = true;
     preloadDebounceTimer.stop();
     loadInProgress = true;
     pendingLoadDebouncesPreloading = debouncePreloading;
+    emit fileLoadStarted();
     pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading);
 }
 
 void QVImageCore::loadPixmap(const ReadData &readData)
 {
-    emit fileChanging();
-
     if (readData.errorData.has_value())
     {
         FileDetails emptyDetails;

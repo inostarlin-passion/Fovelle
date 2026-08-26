@@ -189,6 +189,8 @@ public slots:
 
     void cancelSlideshow();
 
+    void fileLoadStarted();
+
     void fileChanged(const bool isRestoringState);
 
     void zoomLevelChanged();

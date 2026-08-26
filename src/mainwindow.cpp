@@ -241,6 +241,8 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     ui->fullscreenLabel->hide();
 
     // Connect graphicsview signals
+    connect(graphicsView, &QVGraphicsView::fileLoadStarted,
+            this, &MainWindow::fileLoadStarted);
     connect(graphicsView, &QVGraphicsView::fileChanged, this, &MainWindow::fileChanged);
     connect(graphicsView, &QVGraphicsView::fileChanged, this, [this]() {
         if (!qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_NAVIGATION"))
@@ -1149,6 +1151,19 @@ void MainWindow::openRecent(int i)
     }
     graphicsView->loadFile(filePath);
     cancelSlideshow();
+}
+
+void MainWindow::fileLoadStarted()
+{
+    // The target FileDetails are already installed, while its pixels are still
+    // decoding.  Publish all immediately knowable chrome state now instead of
+    // coupling the titlebar to the eventual imageReady completion.
+    disableActions();
+    buildWindowTitle();
+    clearTitlebarIcons();
+    update();
+    updateNavigationButtonGeometry();
+    hideNavigationButtonsImmediately();
 }
 
 void MainWindow::fileChanged(const bool isRestoringState)
