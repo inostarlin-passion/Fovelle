@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_evidence",
-  "generated_at": "2026-08-25T14:47:18.686148+00:00",
+  "generated_at": "2026-08-26T06:16:29.973167+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "test_execution_order": [
     "static",
@@ -120,7 +120,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_version_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.685603+00:00"
+      "recorded_at": "2026-08-26T06:16:29.972750+00:00"
     },
     {
       "evidence_id": "EV-NAV-001",
@@ -145,7 +145,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.685886+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973028+00:00"
     },
     {
       "evidence_id": "EV-NAV-002",
@@ -170,7 +170,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.685901+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973033+00:00"
     },
     {
       "evidence_id": "EV-NAV-003",
@@ -185,17 +185,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testNavigationArtworkStylesAreSingleCompositedButtons"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 290.936,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 106ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 278.473,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 108ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685912+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973039+00:00"
     },
     {
       "evidence_id": "EV-SET-001",
@@ -210,17 +210,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsGeneralLanguageAndRemovedOptions"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 277.784,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 259.796,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 91ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685919+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973044+00:00"
     },
     {
       "evidence_id": "EV-SET-002",
@@ -235,17 +235,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsGeneralLanguageAndRemovedOptions"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 282.581,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 268.254,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685924+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973050+00:00"
     },
     {
       "evidence_id": "EV-SET-003",
@@ -260,17 +260,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsGeneralLanguageAndRemovedOptions"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 283.081,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 264.66,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 91ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685928+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973051+00:00"
     },
     {
       "evidence_id": "EV-SET-004",
@@ -285,17 +285,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsGeneralLanguageAndRemovedOptions"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 277.354,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 267.527,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 91ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685933+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973053+00:00"
     },
     {
       "evidence_id": "EV-SET-005",
@@ -310,17 +310,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsDialogUsesFixedWidthAndTabHeights"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 876.085,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 679ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 868.546,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 692ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685937+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973055+00:00"
     },
     {
       "evidence_id": "EV-SET-006",
@@ -335,17 +335,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsDialogUsesFixedWidthAndTabHeights"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1109.835,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 893ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1103.723,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 914ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685941+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973056+00:00"
     },
     {
       "evidence_id": "EV-SET-007",
@@ -360,17 +360,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsDialogUsesFixedWidthAndTabHeights"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1095.949,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 889ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1103.714,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 911ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685947+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973060+00:00"
     },
     {
       "evidence_id": "EV-SET-008",
@@ -385,17 +385,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsTabTransitionAndMouseReopen"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 920.282,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 719ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 950.913,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 750ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685951+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973061+00:00"
     },
     {
       "evidence_id": "EV-SET-009",
@@ -410,17 +410,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsTabTransitionAndMouseReopen"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 927.648,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 729ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 937.427,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 746ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685955+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973063+00:00"
     },
     {
       "evidence_id": "EV-SET-010",
@@ -435,17 +435,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsTabSwitchDoesNotFocusAppearance"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1117.397,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 900ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 1103.468,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 915ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685960+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973065+00:00"
     },
     {
       "evidence_id": "EV-SET-011",
@@ -460,17 +460,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testLocalizedSettingsFormsUseSharedLabelColumns"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 299.516,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 286.39,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 95ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685967+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973068+00:00"
     },
     {
       "evidence_id": "EV-SET-012",
@@ -485,17 +485,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testAutoUpdateCheckLabelIsRenamed"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 285.261,
+        "duration_ms": 266.673,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685973+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973069+00:00"
     },
     {
       "evidence_id": "EV-SET-013",
@@ -510,17 +510,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsMouseCursorPanelIsRemoved"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 282.126,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 93ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 272.732,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 92ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685977+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973071+00:00"
     },
     {
       "evidence_id": "EV-LANG-001",
@@ -928,7 +928,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.685986+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973079+00:00"
     },
     {
       "evidence_id": "EV-LANG-002",
@@ -943,17 +943,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsLanguageCatalogIsFixed"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 284.99,
-        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 96ms\n********* Finished testing of FeatureTests *********\n"
+        "duration_ms": 269.268,
+        "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 94ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.685992+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973082+00:00"
     },
     {
       "evidence_id": "EV-LANG-003",
@@ -1361,7 +1361,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686025+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973101+00:00"
     },
     {
       "evidence_id": "EV-LANG-004",
@@ -1769,7 +1769,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686033+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973105+00:00"
     },
     {
       "evidence_id": "EV-LANG-005",
@@ -1787,12 +1787,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-awl7sysc/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-a2f_9hf8/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 32.452,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-awl7sysc/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 28.843,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-a2f_9hf8/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -2230,7 +2230,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686040+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973112+00:00"
     },
     {
       "evidence_id": "EV-LANG-006",
@@ -2248,12 +2248,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-fltrpprl/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-es01ppy0/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 20.792,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-fltrpprl/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 19.543,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-es01ppy0/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -2691,7 +2691,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686050+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973116+00:00"
     },
     {
       "evidence_id": "EV-LANG-007",
@@ -2709,12 +2709,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-nnejvqif/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-c_zfgecc/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 20.992,
-          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-nnejvqif/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
+          "duration_ms": 19.129,
+          "output_tail": "Updating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-c_zfgecc/current.ts'...\n    Found 150 source text(s) (150 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -3152,7 +3152,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686059+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973121+00:00"
     },
     {
       "evidence_id": "EV-LANG-008",
@@ -3168,12 +3168,12 @@
             "-locations",
             "none",
             "-ts",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r9b2d1r4/current.ts"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-s8tkowmd/current.ts"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 31.014,
-          "output_tail": "Scanning directory 'src'...\nUpdating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-r9b2d1r4/current.ts'...\n    Found 275 source text(s) (275 new and 0 already existing)\n"
+          "duration_ms": 24.514,
+          "output_tail": "Scanning directory 'src'...\nUpdating '../../../../var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-lupdate-s8tkowmd/current.ts'...\n    Found 275 source text(s) (275 new and 0 already existing)\n"
         },
         "inventory_counts": {
           "ActionManager": 74,
@@ -3455,7 +3455,7 @@
       "execution": {
         "test_code": "tests/task_acceptance_pipeline.py::static_full_translation_catalog_contract"
       },
-      "recorded_at": "2026-08-25T14:47:18.686067+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973125+00:00"
     },
     {
       "evidence_id": "EV-LANG-009",
@@ -3470,17 +3470,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsLanguageDefaultsToSystem"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 195.537,
+        "duration_ms": 181.39,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686075+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973130+00:00"
     },
     {
       "evidence_id": "EV-LANG-010",
@@ -3495,17 +3495,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSystemLanguageMappingFallsBackToEnglish"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 191.773,
+        "duration_ms": 173.968,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686080+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973131+00:00"
     },
     {
       "evidence_id": "EV-UNIT-001",
@@ -3520,17 +3520,17 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/tests/fovelle_tests",
           "-o",
           "-,txt",
           "testSettingsLanguageCatalogIsFixed"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 287.76,
+        "duration_ms": 270.249,
         "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 96ms\n********* Finished testing of FeatureTests *********\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686104+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973135+00:00"
     },
     {
       "evidence_id": "EV-INT-001",
@@ -3554,18 +3554,18 @@
           "command": [
             "ctest",
             "--test-dir",
-            "/Users/inostarlin/code/Fovelle/build",
+            "/Users/inostarlin/code/Fovelle/build-sdr-perf",
             "--output-on-failure",
             "-R",
             "^FovelleTests$"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 28439.764,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   28.43 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  28.43 sec\n"
+          "duration_ms": 28007.903,
+          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build-sdr-perf\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   27.99 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  28.00 sec\n"
         }
       },
-      "recorded_at": "2026-08-25T14:47:18.686109+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973136+00:00"
     },
     {
       "evidence_id": "EV-INT-002",
@@ -3579,15 +3579,15 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/Fovelle.app/Contents/MacOS/Fovelle",
           "--version"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 173.787,
+        "duration_ms": 163.874,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686111+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973138+00:00"
     },
     {
       "evidence_id": "EV-SYS-001",
@@ -3600,14 +3600,14 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle"
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/Fovelle.app/Contents/MacOS/Fovelle"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 658.627,
+        "duration_ms": 633.225,
         "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686113+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973139+00:00"
     },
     {
       "evidence_id": "EV-SYS-002",
@@ -3620,15 +3620,15 @@
       },
       "execution": {
         "command": [
-          "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
+          "/Users/inostarlin/code/Fovelle/build-sdr-perf/Fovelle.app/Contents/MacOS/Fovelle",
           "--version"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 194.946,
+        "duration_ms": 164.571,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-25T14:47:18.686115+00:00"
+      "recorded_at": "2026-08-26T06:16:29.973141+00:00"
     }
   ]
 }

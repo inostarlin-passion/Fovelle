@@ -174,6 +174,10 @@ class SDRSampleInteractionTests : public QObject
 
 private slots:
     void testProvidedSamplesUseMacOSPanPresentationPolicy();
+    void testProvidedRasterRefinesAfterIdle();
+    void testProvidedRaster120HzInteractionProbe();
+    void testProvidedSamplesPerformanceProbe();
+    void testLargeNeighborPreloadShutdownProbe();
 };
 
 class GraphicsViewTests : public QObject
@@ -1533,15 +1537,16 @@ void ImageLoaderTests::testImageIOUsesContentTypeInsteadOfFilenameExtension()
 
 // TC-IMG-FULL-RES
 // Test purpose: prove that a source larger than the screen-sized loader hint is
-// retained at full resolution so a later zoom can reveal original detail.
+// retained as a full-resolution native graph while its Qt placeholder stays
+// bounded.
 // Preconditions: Image I/O supports PNG; a temporary directory is writable;
 // the deterministic fixture is larger than the loader's 1920px default hint.
 // Input data: a 2400x1600 one-pixel checkerboard PNG.
 // Steps: decode through Image I/O with a small hint, then load through the
 // asynchronous QVImageLoader using its production default.
-// Expected result: intrinsic size and decoded image size remain 2400x1600, and
-// alternating source pixels remain distinguishable rather than being decoded
-// as a 1920px thumbnail.
+// Expected result: the direct unbounded bridge can still return 2400x1600;
+// production loading reports that intrinsic size through SDRImage while the
+// immediately paintable Qt proxy is no larger than 1920 pixels.
 // Postcondition: the temporary source and loader resources are released.
 void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
 {
@@ -1554,6 +1559,8 @@ void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
     const auto nativeResult = QVCocoaFunctions::readImageWithImageIO(path);
     QVERIFY(nativeResult.isImageIOType);
     QCOMPARE(nativeResult.intrinsicSize, sourceSize);
+    QVERIFY(nativeResult.sdrImage);
+    QCOMPARE(nativeResult.sdrImage->pixelSize(), sourceSize);
     QCOMPARE(nativeResult.image.size(), sourceSize);
     QVERIFY(nativeResult.image.pixelColor(0, 0) != nativeResult.image.pixelColor(1, 0));
 
@@ -1561,8 +1568,10 @@ void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
     QVERIFY(loaderResult.has_value());
     QVERIFY(!loaderResult->errorData.has_value());
     QCOMPARE(loaderResult->intrinsicSize, sourceSize);
-    QCOMPARE(loaderResult->image.size(), sourceSize);
-    QVERIFY(loaderResult->image.pixelColor(0, 0) != loaderResult->image.pixelColor(1, 0));
+    QVERIFY(loaderResult->sdrImage);
+    QCOMPARE(loaderResult->sdrImage->pixelSize(), sourceSize);
+    QVERIFY(!loaderResult->image.isNull());
+    QCOMPARE(qMax(loaderResult->image.width(), loaderResult->image.height()), 1920);
 }
 
 // TC-HDR-UNIT-TRANSITION
@@ -3995,16 +4004,16 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
 
 // TC-SDR-INT-SAMPLE-PAN
 // Test purpose: exercise real, externally supplied SDR files through the full
-// decoder -> scene item -> QGraphicsView path and verify the macOS presentation
-// policy selected for each supplied format.
+// decoder -> native Metal layer path and verify the macOS presentation policy
+// selected for each supplied format.
 // Preconditions: FOVELLE_SDR_SAMPLE_DIR names a readable directory containing
 // one or more supported SDR image documents.
 // Input data: every regular file in the supplied directory.
-// Steps: load each image, assert the SDR path, force an overflowing zoom,
-// settle the full-frame paint, pan by six pixels, and inspect the paint region.
-// Expected result: raster images use a non-opaque, complete repaint; vector
-// documents retain their opaque tile-rendering policy (covered independently
-// by TC-EPS-VECTOR-PAN-PARTIAL-REPAINT).
+// Steps: load each image, wait for raster Metal presentation, force an
+// overflowing zoom, pan by six pixels, and inspect Qt paint plus Metal frame
+// counters. Expected result: raster images present from the independent native
+// layer with Qt viewport painting parked; vector documents retain Qt's bounded
+// tile path (covered independently by TC-EPS-VECTOR-PAN-PARTIAL-REPAINT).
 // Postcondition: the recorder, window, samples, and settings are released.
 void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy()
 {
@@ -4035,6 +4044,8 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
     window.setWindowState(Qt::WindowNoState);
     window.resize(1200, 800);
     window.show();
+    window.raise();
+    window.activateWindow();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
@@ -4051,6 +4062,17 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
         QVERIFY2(!details.loadedPixmapSize.isEmpty(), qPrintable(sample.fileName()));
         QCOMPARE(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent),
                  details.isVectorLoaded);
+        if (!details.isVectorLoaded)
+        {
+            QVERIFY2(details.isNativeSDRLoaded, qPrintable(sample.fileName()));
+            QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                    view->nativeMetalRendererDiagnostics().firstFramePresented,
+                    30000);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                    view->viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+                    3000);
+        }
 
         // The supplied SVG logo and portrait EPS are much narrower than the
         // test viewport. 16:1 guarantees horizontal overflow for every sample
@@ -4064,7 +4086,8 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
         const int centerValue = (bar->minimum() + bar->maximum()) / 2;
         bar->setValue(centerValue);
         QCoreApplication::processEvents();
-        view->viewport()->repaint();
+        if (details.isVectorLoaded)
+            view->viewport()->repaint();
         QCoreApplication::processEvents();
         // Exclude one-time scrollbar/layout work from the measured pan.
         bar->setValue(centerValue + 6);
@@ -4074,37 +4097,418 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
 
         PaintRegionRecorder recorder;
         view->viewport()->installEventFilter(&recorder);
+        const quint64 requestedBefore =
+                view->nativeMetalRendererDiagnostics().requestedRenderGeneration;
         QElapsedTimer timer;
         timer.start();
         bar->setValue(bar->value() + 6);
         QCoreApplication::processEvents(QEventLoop::AllEvents);
+        if (details.isVectorLoaded)
+            QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+        else
+            QTRY_VERIFY_WITH_TIMEOUT(
+                    view->nativeMetalRendererDiagnostics().requestedRenderGeneration
+                            > requestedBefore
+                    && view->nativeMetalRendererDiagnostics().presentedRenderGeneration
+                            >= view->nativeMetalRendererDiagnostics()
+                                       .requestedRenderGeneration,
+                    3000);
         const double elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
-        QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
         view->viewport()->removeEventFilter(&recorder);
 
         const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
                 * view->viewport()->height();
-        const qint64 maximumPaintArea = *std::max_element(
-            recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
+        const qint64 maximumPaintArea = recorder.recordedAreas().isEmpty()
+                ? 0
+                : *std::max_element(recorder.recordedAreas().cbegin(),
+                                    recorder.recordedAreas().cend());
         const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
         qInfo().noquote() << QStringLiteral(
             "SDR_SAMPLE_PAN file=%1 size=%2x%3 decode_ms=%4 "
-            "pan_dispatch_and_paint_ms=%5 dirty_ratio=%6")
+            "pan_dispatch_and_present_ms=%5 dirty_ratio=%6 metal=%7")
             .arg(sample.fileName())
             .arg(details.loadedPixmapSize.width())
             .arg(details.loadedPixmapSize.height())
             .arg(details.decodeMilliseconds, 0, 'f', 3)
             .arg(elapsedMilliseconds, 0, 'f', 3)
-            .arg(dirtyRatio, 0, 'f', 6);
+            .arg(dirtyRatio, 0, 'f', 6)
+            .arg(details.isNativeSDRLoaded ? QStringLiteral("true")
+                                           : QStringLiteral("false"));
         if (!details.isVectorLoaded)
         {
-            QVERIFY2(dirtyRatio >= 0.95,
-                     qPrintable(QStringLiteral("%1 raster pan repaint ratio %2")
-                                .arg(sample.fileName()).arg(dirtyRatio, 0, 'f', 6)));
+            QCOMPARE(maximumPaintArea, 0);
+            QVERIFY(view->nativeMetalRendererDiagnostics().sdrImageActive);
         }
     }
 
     window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-INT-NATIVE-REFINEMENT
+// Test purpose: prove the responsive bounded Metal frame does not become a
+// permanent resolution cap. At high zoom, an unchanged geometry must replace
+// the preview with a frame evaluated from the full native SDR graph.
+void SDRSampleInteractionTests::testProvidedRasterRefinesAfterIdle()
+{
+#ifndef Q_OS_MACOS
+    QSKIP("The native Metal refinement contract is macOS-specific.");
+#endif
+    const QDir directory(QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR")));
+    const QString samplePath = directory.filePath(QStringLiteral("2.png"));
+    QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1200, 800);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    window.openFile(samplePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
+
+    const quint64 previewBefore = view->nativeMetalRendererDiagnostics()
+            .sdrPreviewPresentedFrameCount;
+    const quint64 fullBefore = view->nativeMetalRendererDiagnostics()
+            .sdrFullResolutionPresentedFrameCount;
+    QElapsedTimer refinementTimer;
+    refinementTimer.start();
+    view->zoomAbsolute(16.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().sdrPreviewPresentedFrameCount
+                    > previewBefore,
+            5000);
+    const double previewResponseMilliseconds =
+            refinementTimer.nsecsElapsed() / 1000000.0;
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics()
+                    .sdrFullResolutionPresentedFrameCount > fullBefore,
+            30000);
+    const double fullRefinementMilliseconds =
+            refinementTimer.nsecsElapsed() / 1000000.0;
+    qInfo().noquote() << QStringLiteral(
+            "SDR_REFINE {\"preview_response_ms\":%1,"
+            "\"full_resolution_ms\":%2}")
+            .arg(previewResponseMilliseconds, 0, 'f', 3)
+            .arg(fullRefinementMilliseconds, 0, 'f', 3);
+    QVERIFY(!view->nativeMetalRendererDiagnostics().usesSDRPreview);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-SYS-120HZ
+// Test purpose: drive 48 production scrollbar updates at 8 ms cadence and
+// verify that the independent SDR CAMetalLayer consumes them as interactive
+// display-link submissions rather than Qt backing-store repaints.
+void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
+{
+#ifndef Q_OS_MACOS
+    QSKIP("The CAMetalDisplayLink cadence probe is macOS-specific.");
+#endif
+    ScopedEnvironmentValue interactionEnvironment(
+            "FOVELLE_HDR_TEST_120HZ_INTERACTION");
+    qputenv("FOVELLE_HDR_TEST_120HZ_INTERACTION", "1");
+    const QDir directory(QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR")));
+    const QString samplePath = directory.filePath(QStringLiteral("2.png"));
+    QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1200, 800);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    window.openFile(samplePath);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics()
+                    .displayLinkInteractiveSubmissionCount >= 30,
+            7000);
+    const auto diagnostics = view->nativeMetalRendererDiagnostics();
+    qInfo().noquote() << QStringLiteral(
+            "SDR_120HZ {\"interactive_submissions\":%1,"
+            "\"presented_frames\":%2,\"last_interval_ms\":%3,"
+            "\"missed_deadlines\":%4}")
+            .arg(diagnostics.displayLinkInteractiveSubmissionCount)
+            .arg(diagnostics.presentedFrameCount)
+            .arg(diagnostics.lastPresentedIntervalMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.missedTargetDeadlineCount);
+    QVERIFY(diagnostics.usesCAMetalDisplayLink);
+    QVERIFY(diagnostics.sdrImageActive);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-SYS-PERFORMANCE
+// Test purpose: record one backend-independent workload for comparing the Qt
+// backing-store SDR path with the independent native Metal presentation path.
+// Preconditions: FOVELLE_SDR_SAMPLE_DIR names the supplied SDR corpus; the
+// optional FOVELLE_LARGE_SDR_SAMPLE names a readable large raster image.
+// Input data: every supplied raster sample, followed by the optional large
+// image, with preloading disabled so every open is a genuine cold decode.
+// Steps: open one file, wait for its first settled viewport paint, zoom to 4x,
+// then dispatch and settle 48 two-axis pan samples.
+// Expected result: every supported sample loads and emits a single structured
+// SDR_PERF record. Performance thresholds are evaluated by the comparison
+// report rather than hard-coded across unlike Macs.
+// Postcondition: the window, decoder cache, and temporary presentation state
+// are released and all user settings are restored.
+void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
+{
+#ifndef Q_OS_MACOS
+    QSKIP("The native Metal comparison is macOS-specific.");
+#endif
+    const QString sampleDirectory =
+            QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
+    const QDir directory(sampleDirectory);
+    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(),
+             qPrintable(sampleDirectory));
+
+    QFileInfoList samples = directory.entryInfoList(
+            QDir::Files | QDir::Readable, QDir::Name);
+    const QString largeSample =
+            QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
+    if (!largeSample.isEmpty())
+        samples.append(QFileInfo(largeSample));
+    QVERIFY(!samples.isEmpty());
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(1200, 800);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    const auto waitUntil = [](const auto &predicate, const int timeoutMilliseconds) {
+        QElapsedTimer waitTimer;
+        waitTimer.start();
+        while (!predicate() && waitTimer.elapsed() < timeoutMilliseconds)
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+            QTest::qWait(1);
+        }
+        return predicate();
+    };
+
+    for (const QFileInfo &sample : std::as_const(samples))
+    {
+        if (sample.fileName().startsWith("._"))
+            continue;
+
+        view->closeImage();
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        QElapsedTimer coldTimer;
+        coldTimer.start();
+        window.openFile(sample.absoluteFilePath());
+        QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            sample.absoluteFilePath(), 180000);
+        QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 180000);
+
+        if (window.getCurrentFileDetails().isVectorLoaded)
+            continue;
+        QVERIFY2(window.getCurrentFileDetails().isNativeSDRLoaded,
+                 qPrintable(sample.absoluteFilePath()));
+        QVERIFY2(waitUntil([&]() {
+                     return view->usesNativeSDRMetalRenderer()
+                             && view->nativeMetalRendererDiagnostics()
+                                        .firstFramePresented
+                             && view->viewportUpdateMode()
+                                        == QGraphicsView::NoViewportUpdate;
+                 }, 180000),
+                 qPrintable(sample.absoluteFilePath()));
+        const double coldMilliseconds = coldTimer.nsecsElapsed() / 1000000.0;
+
+        const quint64 zoomRequestedBefore =
+                view->nativeMetalRendererDiagnostics().requestedRenderGeneration;
+        QElapsedTimer zoomTimer;
+        zoomTimer.start();
+        view->zoomAbsolute(4.0, Qv::CalculateViewportCenterPos);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        const double zoomDispatchMilliseconds =
+                zoomTimer.nsecsElapsed() / 1000000.0;
+        QVERIFY2(waitUntil([&]() {
+                     const auto diagnostics =
+                             view->nativeMetalRendererDiagnostics();
+                     return diagnostics.requestedRenderGeneration
+                                    > zoomRequestedBefore
+                             && diagnostics.presentedRenderGeneration
+                                    >= diagnostics.requestedRenderGeneration;
+                 }, 30000),
+                 qPrintable(sample.absoluteFilePath()));
+        const double zoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
+
+        QScrollBar *horizontal = view->horizontalScrollBar();
+        QScrollBar *vertical = view->verticalScrollBar();
+        horizontal->setValue((horizontal->minimum() + horizontal->maximum()) / 2);
+        vertical->setValue((vertical->minimum() + vertical->maximum()) / 2);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        QTest::qWait(50);
+
+        const quint64 panRequestedBefore =
+                view->nativeMetalRendererDiagnostics().requestedRenderGeneration;
+        QElapsedTimer panTimer;
+        panTimer.start();
+        for (int step = 0; step < 48; ++step)
+        {
+            horizontal->setValue(horizontal->value() + (step % 2 == 0 ? 7 : -5));
+            vertical->setValue(vertical->value() + (step % 2 == 0 ? 5 : -3));
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+        }
+        const double panDispatchMilliseconds =
+                panTimer.nsecsElapsed() / 1000000.0;
+        QTest::qWait(40);
+        QVERIFY2(waitUntil([&]() {
+                     const auto diagnostics =
+                             view->nativeMetalRendererDiagnostics();
+                     return diagnostics.requestedRenderGeneration
+                                    > panRequestedBefore
+                             && diagnostics.presentedRenderGeneration
+                                    >= diagnostics.requestedRenderGeneration;
+                 }, 30000),
+                 qPrintable(sample.absoluteFilePath()));
+        const double panMilliseconds = panTimer.nsecsElapsed() / 1000000.0;
+
+        const auto &details = window.getCurrentFileDetails();
+        const auto renderer = view->nativeMetalRendererDiagnostics();
+        qInfo().noquote() << QStringLiteral(
+            "SDR_PERF {\"file\":\"%1\",\"width\":%2,\"height\":%3,"
+            "\"cold_ms\":%4,\"zoom_ms\":%5,\"zoom_dispatch_ms\":%6,"
+            "\"pan_48_ms\":%7,\"pan_dispatch_ms\":%8,\"decode_ms\":%9,"
+            "\"native_metal\":true,\"gpu_ms\":%10,\"encode_ms\":%11,"
+            "\"present_interval_ms\":%12,\"request_to_present_ms\":%13,"
+            "\"presented_frames\":%14}")
+            .arg(sample.fileName())
+            .arg(details.loadedPixmapSize.width())
+            .arg(details.loadedPixmapSize.height())
+            .arg(coldMilliseconds, 0, 'f', 3)
+            .arg(zoomMilliseconds, 0, 'f', 3)
+            .arg(zoomDispatchMilliseconds, 0, 'f', 3)
+            .arg(panMilliseconds, 0, 'f', 3)
+            .arg(panDispatchMilliseconds, 0, 'f', 3)
+            .arg(details.decodeMilliseconds, 0, 'f', 3)
+            .arg(renderer.lastGPUExecutionMilliseconds, 0, 'f', 3)
+            .arg(renderer.lastRenderMilliseconds, 0, 'f', 3)
+            .arg(renderer.lastPresentedIntervalMilliseconds, 0, 'f', 3)
+            .arg(renderer.lastRequestToPresentationMilliseconds, 0, 'f', 3)
+            .arg(renderer.presentedFrameCount);
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-PRELOAD-SYS-LARGE-NEIGHBOR-SHUTDOWN
+// Test purpose: measure the shutdown tail left by an adjacent large-image
+// preload without conflating it with the foreground image's decode.
+// Preconditions: FOVELLE_LARGE_SDR_SAMPLE names the supplied readable PNG.
+// Input data: a tiny current PNG followed by a link to the large PNG.
+// Steps: inspect admission metadata, open the tiny image with adjacent
+// preloading enabled, let the metadata-only worker finish, destroy the
+// window/loader, then wait for the global pool. Expected result: the supplied
+// neighbor is rejected before irreversible full-image decoding and shutdown
+// remains below one second.
+// Postcondition: all pool callbacks are drained and the temporary link is gone.
+void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
+{
+    const QString largeSample =
+            QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
+    QVERIFY2(QFileInfo::exists(largeSample), qPrintable(largeSample));
+    const auto admission = QVImageLoader::preloadAdmissionForFile(largeSample);
+    QVERIFY(!admission.allowed);
+    QCOMPARE(admission.reason, QStringLiteral("source-byte-limit"));
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString currentPath = createTestImage(
+            directory, "01-current", Qt::red, QSize(64, 64));
+    const QString neighborPath = directory.filePath("02-large.png");
+    QVERIFY(!currentPath.isEmpty());
+    QVERIFY2(QFile::link(largeSample, neighborPath), qPrintable(neighborPath));
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Adjacent)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    auto window = std::make_unique<MainWindow>();
+    window->setAttribute(Qt::WA_DeleteOnClose, false);
+    window->resize(800, 600);
+    window->show();
+    QTRY_VERIFY_WITH_TIMEOUT(window->isVisible(), 1000);
+    window->openFile(currentPath);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
+        currentPath, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window->getIsPixmapLoaded(), 5000);
+    QTest::qWait(750);
+    QTRY_COMPARE_WITH_TIMEOUT(
+            QThreadPool::globalInstance()->activeThreadCount(), 0, 3000);
+
+    QElapsedTimer shutdownTimer;
+    shutdownTimer.start();
+    window->close();
+    window.reset();
+    QThreadPool::globalInstance()->waitForDone();
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    const double shutdownMilliseconds =
+            shutdownTimer.nsecsElapsed() / 1000000.0;
+    qInfo().noquote() << QStringLiteral(
+        "PRELOAD_EXIT {\"file_bytes\":%1,\"shutdown_ms\":%2,"
+        "\"admission\":\"%3\"}")
+        .arg(QFileInfo(largeSample).size())
+        .arg(shutdownMilliseconds, 0, 'f', 3)
+        .arg(admission.reason);
+    QVERIFY2(shutdownMilliseconds < 1000.0,
+             qPrintable(QString::number(shutdownMilliseconds)));
+
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
@@ -6281,16 +6685,23 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     QVERIFY(view);
     QVERIFY(previousButton);
     QVERIFY(nextButton);
+    const bool nativeOverlay = view->usesNativeHDRNavigationOverlay();
 
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
+    if (nativeOverlay)
+        QTRY_VERIFY_WITH_TIMEOUT(
+                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0,
+                1000);
+    else
+        QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("sampledContentBrightness").isValid(), 1000);
     QCOMPARE(previousButton->property("contrastStyle").toString(), QStringLiteral("light"));
     QVERIFY(previousButton->property("sampledContentBrightness").toDouble() > 0.5);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+    if (!nativeOverlay)
+        QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
     QCOMPARE(nextButton->property("contrastStyle").toString(), QStringLiteral("dark"));
     QVERIFY(nextButton->property("sampledContentBrightness").toDouble() < 0.5);
@@ -6514,24 +6925,27 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     QVERIFY(nextAnimation);
     QCOMPARE(previousAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
     QCOMPARE(nextAnimation->duration(), MainWindow::NavigationButtonAnimationDuration);
+    const bool nativeOverlay = view->usesNativeHDRNavigationOverlay();
 
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QVERIFY(previousButton->isVisible());
+    QCOMPARE(previousButton->isVisible(), !nativeOverlay);
     QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
     QCOMPARE(previousAnimation->endValue().toReal(), 1.0);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() / 2, middleY));
-    QVERIFY(previousButton->isVisible());
+    QCOMPARE(previousButton->isVisible(), !nativeOverlay);
     QCOMPARE(previousAnimation->state(), QAbstractAnimation::Running);
     QCOMPARE(previousAnimation->endValue().toReal(), 0.0);
     // The immediate visibility assertion above is the deterministic
     // mid-transition contract. Do not assume that a wall-clock 100 ms wait
     // is shorter than the animation on every hosted macOS display backend.
-    QTRY_VERIFY_WITH_TIMEOUT(!previousButton->isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            previousButton->property("paintOpacity").toReal() <= 0.001,
+            1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QVERIFY(nextButton->isVisible());
+    QCOMPARE(nextButton->isVisible(), !nativeOverlay);
     QCOMPARE(nextAnimation->state(), QAbstractAnimation::Running);
     QCOMPARE(nextAnimation->endValue().toReal(), 1.0);
 
@@ -6585,8 +6999,22 @@ void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
     QVERIFY(nextButton);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, view->viewport()->height() / 2));
-    QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
-    QTest::mouseClick(nextButton, Qt::LeftButton);
+    if (view->usesNativeHDRNavigationOverlay())
+    {
+        QTRY_VERIFY_WITH_TIMEOUT(
+                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0,
+                1000);
+        const QPoint nativeButtonCenter = view->viewport()->mapFrom(
+                view, nextButton->geometry().center());
+        QTest::mouseClick(
+                view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                nativeButtonCenter);
+    }
+    else
+    {
+        QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+        QTest::mouseClick(nextButton, Qt::LeftButton);
+    }
     QTRY_COMPARE_WITH_TIMEOUT(
         window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
         QFileInfo(secondPath).absoluteFilePath(),

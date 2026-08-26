@@ -141,6 +141,12 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(hdrGeometryTimer, &QTimer::timeout, this,
             &QVGraphicsView::finishHDRGeometryStabilization);
     const auto viewportScrollChanged = [this]() {
+        // Scrollbar values also change while opening/fitting a file. Treat
+        // only changes after the native surface is fully active as an input
+        // burst; otherwise cold open needlessly keeps the display link and
+        // drawable pool busy for another 160 ms.
+        if (hdrActivationCompleted)
+            hdrScrollInteractionClock.restart();
         requestHDRRendererUpdate();
         if (getCurrentFileDetails().isVectorLoaded)
         {
@@ -283,10 +289,11 @@ void QVGraphicsView::updateViewportOpacityContract()
     // retain opaque scroll reuse because their bounded tile renderer makes a
     // full repaint materially more expensive.
     const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
-            && !details.isNativeHDRLoaded && details.isVectorLoaded;
+            && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded
+            && details.isVectorLoaded;
 #else
     const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
-            && !details.isNativeHDRLoaded;
+            && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded;
 #endif
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
                              paintsOpaqueViewportBackground);
@@ -902,6 +909,19 @@ bool QVGraphicsView::usesNativeHDRNavigationOverlay() const
     return hdrRendererActive && hdrRenderer && hdrRenderer->isAvailable();
 }
 
+bool QVGraphicsView::usesNativeSDRMetalRenderer() const
+{
+    return hdrRendererActive && getCurrentFileDetails().isNativeSDRLoaded
+            && hdrRenderer && hdrRenderer->diagnostics().sdrImageActive;
+}
+
+QVCocoaFunctions::HDRRendererDiagnostics
+QVGraphicsView::nativeMetalRendererDiagnostics() const
+{
+    return hdrRenderer ? hdrRenderer->diagnostics()
+                       : QVCocoaFunctions::HDRRendererDiagnostics{};
+}
+
 void QVGraphicsView::setHDRPresentationActive(const bool active)
 {
     if (hdrPresentationActive == active)
@@ -1060,6 +1080,7 @@ void QVGraphicsView::beforeLoad()
     hdrGeometryTimer->stop();
     hdrFrameRequestTimer->stop();
     hdrInteractionClock.invalidate();
+    hdrScrollInteractionClock.invalidate();
     hdrInteractionZoomMilliseconds = 0.0;
     hdrInteractionStep = -1;
     navigationSamplingImage = {};
@@ -1084,12 +1105,16 @@ void QVGraphicsView::postLoad()
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
-    hdrRendererActive = hdrRenderer
-            && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+    if (imageCore.getLoadedHDRImage())
+        hdrRendererActive = hdrRenderer
+                && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+    else
+        hdrRendererActive = hdrRenderer
+                && hdrRenderer->setSDRImage(imageCore.getLoadedSDRImage());
     updateViewportOpacityContract();
     // Keep the bounded SDR proxy visible until a correctly sized Metal frame
     // has actually reached the display. It is a seamless placeholder, not the
-    // HDR primary representation.
+    // authoritative native SDR/HDR representation.
     loadedPixmapItem->setVisible(true);
     loadedPixmapItem->setTransform(QTransform());
     const QSize fallbackSize = imageCore.getLoadedPixmap().size();
@@ -1101,7 +1126,9 @@ void QVGraphicsView::postLoad()
         navigationSamplingImage = navigationSamplingImage.scaled(
             384, 384, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     }
-    if (getCurrentFileDetails().isNativeHDRLoaded && !fallbackSize.isEmpty()
+    if ((getCurrentFileDetails().isNativeHDRLoaded
+         || getCurrentFileDetails().isNativeSDRLoaded)
+        && !fallbackSize.isEmpty()
         && !sourceSize.isEmpty()) {
         loadedPixmapItem->setTransform(QTransform::fromScale(
                 static_cast<qreal>(sourceSize.width()) / fallbackSize.width(),
@@ -1728,6 +1755,7 @@ bool QVGraphicsView::isSmoothScalingRequested() const
 bool QVGraphicsView::isExpensiveScalingRequested() const
 {
     if (getCurrentFileDetails().isNativeHDRLoaded
+        || getCurrentFileDetails().isNativeSDRLoaded
         || getCurrentFileDetails().isVectorLoaded || !isSmoothScalingRequested()
         || smoothScalingMode != Qv::SmoothScalingMode::Expensive
         || !getCurrentFileDetails().isPixmapLoaded)
@@ -1804,7 +1832,9 @@ void QVGraphicsView::setTransformScale(const qreal value)
 
 void QVGraphicsView::setTransformWithNormalization(const QTransform &matrix)
 {
-    const QSizeF normalizationSize = getCurrentFileDetails().isNativeHDRLoaded
+    const bool nativeMetalImage = getCurrentFileDetails().isNativeHDRLoaded
+            || getCurrentFileDetails().isNativeSDRLoaded;
+    const QSizeF normalizationSize = nativeMetalImage
             ? QSizeF(getCurrentFileDetails().loadedPixmapSize)
             : loadedPixmapItem->boundingRect().size();
     setTransform(normalizeTransformOrigin(matrix, normalizationSize));
@@ -1818,7 +1848,8 @@ void QVGraphicsView::logViewportState(const char *phase) const
     qInfo().noquote() << "FOVELLE_VIEW"
                       << "phase=" << phase << "zoom=" << zoomLevel << "sceneRect=" << sceneRect()
                       << "itemRect="
-                      << (getCurrentFileDetails().isNativeHDRLoaded
+                      << ((getCurrentFileDetails().isNativeHDRLoaded
+                           || getCurrentFileDetails().isNativeSDRLoaded)
                                   ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
                                   : loadedPixmapItem->sceneBoundingRect())
                       << "contentRect=" << getContentRect() << "viewportRect=" << viewport()->rect()
@@ -1848,10 +1879,18 @@ void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
 {
     const auto rendererState = hdrRenderer
             ? hdrRenderer->diagnostics() : QVCocoaFunctions::HDRRendererDiagnostics{};
-    const bool reuseVisibleHDR = canReuseHDRPresentation(
-            rendererState.firstFramePresented, rendererState.hdrPrepared);
-    const bool invalidateUnpresentedGeometry = hdrLayoutReady && !reuseVisibleHDR;
-    hdrLayoutReady = reuseVisibleHDR;
+    const bool nativeSDR = getCurrentFileDetails().isNativeSDRLoaded;
+    const bool reuseVisibleHDR = nativeSDR
+            ? rendererState.firstFramePresented
+            : canReuseHDRPresentation(
+                    rendererState.firstFramePresented, rendererState.hdrPrepared);
+    const bool invalidateUnpresentedGeometry = !nativeSDR
+            && hdrLayoutReady && !reuseVisibleHDR;
+    // SDR has no gain-map/EDR preparation phase. Publish its latest geometry
+    // immediately and let CAMetalDisplayLink coalesce it; waiting two display
+    // intervals (and resetting an already submitted drawable) only adds cold-
+    // open latency without protecting any SDR invariant.
+    hdrLayoutReady = nativeSDR || reuseVisibleHDR;
     hdrPendingGeometryValid = true;
     hdrPendingViewportSize = viewportSize;
     hdrPendingImageCorners = imageCorners;
@@ -1869,7 +1908,10 @@ void QVGraphicsView::stageHDRGeometry(const QSize &viewportSize,
     // be transformed directly for every zoom/pan geometry. Keep the last HDR
     // drawable visible until its replacement is presented: returning to the
     // SDR proxy would cause the reported brightness dip and restart.
-    hdrGeometryTimer->start();
+    if (nativeSDR)
+        hdrGeometryTimer->stop();
+    else
+        hdrGeometryTimer->start();
     if (!hdrActivationCompleted)
         hdrPresentationTimer->start();
     // The last prepared Metal frame deliberately remains visible while an
@@ -1940,6 +1982,8 @@ void QVGraphicsView::updateHDRRenderer()
     // frame is actually presented; the native presentation container then
     // crossfades that final endpoint without generating partial-HDR pixels.
     const bool interactive = pressedMouseButton != Qt::NoButton
+            || (hdrScrollInteractionClock.isValid()
+                && hdrScrollInteractionClock.elapsed() < 160)
             || (hdrInteractionClock.isValid() && hdrInteractionStep >= 0
                 && hdrInteractionStep < 48);
     hdrRenderer->render(viewportSize, viewportCorners, 1.0, interactive);
@@ -2276,7 +2320,8 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
 
 QRectF QVGraphicsView::getSceneRectForViewport() const
 {
-    QRectF sceneRect = getCurrentFileDetails().isNativeHDRLoaded
+    QRectF sceneRect = (getCurrentFileDetails().isNativeHDRLoaded
+                        || getCurrentFileDetails().isNativeSDRLoaded)
             ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
             : loadedPixmapItem->boundingRect();
     const MainWindow *mainWindow = getMainWindow();
@@ -2346,6 +2391,8 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
     const Qv::Theme resolvedTheme = QVCocoaFunctions::resolvedTheme(theme);
     viewportBackgroundBrush = QBrush(Qv::viewportBackgroundColor(resolvedTheme));
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
+    if (hdrRenderer)
+        hdrRenderer->setCheckerboardBackground(checkerboardBackground);
     if (checkerboardBackground)
     {
         constexpr int checkerSize = 16;

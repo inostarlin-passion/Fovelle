@@ -28,6 +28,7 @@ public:
         bool isPixmapLoaded = false;
         bool isMovieLoaded = false;
         bool isNativeHDRLoaded = false;
+        bool isNativeSDRLoaded = false;
         bool isVectorLoaded = false;
         QSize baseImageSize;
         QSize loadedPixmapSize;
@@ -67,6 +68,7 @@ public:
 
     const QPixmap& getLoadedPixmap() const { return loadedPixmap; }
     const Qv::VectorImageData &getLoadedVectorImage() const { return loadedVectorImage; }
+    const QVCocoaFunctions::SDRImagePtr &getLoadedSDRImage() const { return loadedSDRImage; }
     const QVCocoaFunctions::HDRImagePtr &getLoadedHDRImage() const { return loadedHDRImage; }
     const QVMovie& getLoadedMovie() const { return loadedMovie; }
     const FileDetails& getCurrentFileDetails() const { return currentFileDetails; }
@@ -98,6 +100,7 @@ private:
 
     QPixmap loadedPixmap;
     Qv::VectorImageData loadedVectorImage;
+    QVCocoaFunctions::SDRImagePtr loadedSDRImage;
     QVCocoaFunctions::HDRImagePtr loadedHDRImage;
     QVMovie loadedMovie;
 

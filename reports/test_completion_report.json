@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-25T14:47:18.690049+00:00",
+  "generated_at": "2026-08-26T06:16:29.976405+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "status": "passed",
   "execution_order": [
@@ -109,22 +109,22 @@
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 128677,
-      "sha256": "2539e898ae7b10ff6f69707ce10740c453d330f0a820d9d5a83d76c94aa213ae"
+      "bytes": 128883,
+      "sha256": "7d8d8c88e19b0f28ce0c72b6dcfba64fa673cfc8f759c2b759594a8db504cc0f"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
       "bytes": 42366,
-      "sha256": "3d66942fdcbfff159764611c8bc086a0cace0d421bfc39bb2a7465bf5a8c903a"
+      "sha256": "3c9590259597326661805d26fe07a10811039a6aab0ab5c3e18f5514997a3d01"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
       "bytes": 5952,
-      "sha256": "34ca7840b8bd9eefd5eabf273dc2df4b37b9e2f4c539ab5f098178835e6d4ba3"
+      "sha256": "134457ed1d6a70c4f540dba4a80e47369f4be08d4fbdf4bd6fbbf1a5c4c038b8"
     }
   ],
   "self_artifact": {

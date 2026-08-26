@@ -11,10 +11,17 @@
 #include <QSvgRenderer>
 #include <QThreadPool>
 
+#include <limits>
+
 namespace
 {
 constexpr qint64 MaxVectorSourceBytes = 256LL * 1024LL * 1024LL;
 constexpr int VectorPreviewLargestDimension = 512;
+// Adjacent images are speculative. Bound both work visible in the file system
+// and the minimum 8-bit RGBA footprint before entering a synchronous decoder,
+// which exposes no cooperative cancellation point once it starts.
+constexpr qint64 MaxPreloadSourceBytes = 128LL * 1024LL * 1024LL;
+constexpr quint64 MaxPreloadDecodedBytes = 128ULL * 1024ULL * 1024ULL;
 }
 
 QVImageLoader::QVImageLoader(QObject *parent) : QObject(parent)
@@ -119,6 +126,52 @@ QString QVImageLoader::normalizePath(const QString &path)
     return QFileInfo(path).absoluteFilePath();
 }
 
+QVImageLoader::PreloadAdmission
+QVImageLoader::preloadAdmissionForFile(const QString &absoluteFilePath)
+{
+    PreloadAdmission admission;
+    const QFileInfo fileInfo(absoluteFilePath);
+    admission.fileSize = fileInfo.size();
+    if (admission.fileSize < 0 || admission.fileSize > MaxPreloadSourceBytes)
+    {
+        admission.allowed = false;
+        admission.reason = QStringLiteral("source-byte-limit");
+        return admission;
+    }
+
+    QImageReader reader(absoluteFilePath);
+    admission.pixelSize = reader.size();
+    if (!admission.pixelSize.isValid())
+        admission.pixelSize = QVCocoaFunctions::imagePixelSize(absoluteFilePath);
+
+    if (!admission.pixelSize.isValid())
+        return admission;
+
+    const quint64 width = static_cast<quint64>(admission.pixelSize.width());
+    const quint64 height = static_cast<quint64>(admission.pixelSize.height());
+    if (width == 0 || height == 0
+        || width > std::numeric_limits<quint64>::max() / height
+        || width * height > std::numeric_limits<quint64>::max() / 4ULL)
+    {
+        admission.allowed = false;
+        admission.estimatedDecodedBytes = std::numeric_limits<quint64>::max();
+        admission.reason = QStringLiteral("decoded-byte-overflow");
+        return admission;
+    }
+
+    // Qt documents a minimum 32-bit GUI allocation. Use that exact lower
+    // bound here; HDR/vector-specific work may cost more and is therefore never
+    // underestimated in a way that could admit the supplied multi-gigapixel
+    // neighbor.
+    admission.estimatedDecodedBytes = width * height * 4ULL;
+    if (admission.estimatedDecodedBytes > MaxPreloadDecodedBytes)
+    {
+        admission.allowed = false;
+        admission.reason = QStringLiteral("decoded-byte-limit");
+    }
+    return admission;
+}
+
 QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const QString &absoluteFilePath)
 {
     const QFileInfo fileInfo(absoluteFilePath);
@@ -130,10 +183,32 @@ QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
     return {result.fileSize, result.lastModified};
 }
 
-QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, const int largestDimension)
+QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
+                                              const int largestDimension,
+                                              const bool isPreload)
 {
     QElapsedTimer decodeTimer;
     decodeTimer.start();
+
+    if (isPreload)
+    {
+        const PreloadAdmission admission = preloadAdmissionForFile(absoluteFilePath);
+        if (!admission.allowed)
+        {
+            const QFileInfo fileInfo(absoluteFilePath);
+            Result rejected;
+            rejected.absoluteFilePath = fileInfo.absoluteFilePath();
+            rejected.fileSize = fileInfo.size();
+            rejected.lastModified = fileInfo.lastModified();
+            rejected.intrinsicSize = admission.pixelSize;
+            rejected.preloadRejected = true;
+            rejected.estimatedDecodedBytes = admission.estimatedDecodedBytes;
+            rejected.preloadRejectionReason = admission.reason;
+            rejected.decodeMilliseconds = decodeTimer.nsecsElapsed() / 1000000.0;
+            return rejected;
+        }
+    }
+
     QImageReader imageReader(absoluteFilePath);
     imageReader.setAutoTransform(true);
 
@@ -144,7 +219,8 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
     const bool useQtFallback =
             nativeResult.allowsQtFallback && nativeResult.image.isNull()
             && !nativeResult.vectorImage.isValid()
-            && !nativeResult.isRaw && !nativeResult.hdrImage;
+            && !nativeResult.isRaw && !nativeResult.sdrImage
+            && !nativeResult.hdrImage;
     QSize intrinsicSize = nativeResult.intrinsicSize;
     QImage image = nativeResult.image;
     Qv::VectorImageData vectorImage = nativeResult.vectorImage;
@@ -227,6 +303,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
     Result result;
     result.image = std::move(image);
     result.vectorImage = std::move(vectorImage);
+    result.sdrImage = nativeResult.sdrImage;
     result.hdrImage = nativeResult.hdrImage;
     result.hdrMetadata = nativeResult.hdrMetadata;
     result.absoluteFilePath = fileInfo.absoluteFilePath();
@@ -236,7 +313,8 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath, c
     result.intrinsicSize = intrinsicSize;
     result.decodeMilliseconds = decodeTimer.nsecsElapsed() / 1000000.0;
 
-    if (result.image.isNull() && !result.vectorImage.isValid() && !result.hdrImage)
+    if (result.image.isNull() && !result.vectorImage.isValid()
+        && !result.sdrImage && !result.hdrImage)
         result.errorData = ErrorData {imageReader.error(), errorString};
 
     return result;
@@ -411,6 +489,7 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     entryIt->reloadAfterFinish = false;
     const quint64 generation = ++entryIt->generation;
     const int priority = entryIt->priority;
+    const bool isPreload = priority > 0;
     const int targetLargestDimension = largestDimension;
     emit loadStarted(absoluteFilePath, priority);
 
@@ -424,9 +503,11 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
             dispatchContext,
             absoluteFilePath,
             generation,
-            targetLargestDimension
+            targetLargestDimension,
+            isPreload
         ]() {
-            Result result = readFile(absoluteFilePath, targetLargestDimension);
+            Result result = readFile(
+                absoluteFilePath, targetLargestDimension, isPreload);
             QMetaObject::invokeMethod(
                 dispatchContext,
                 [
@@ -456,6 +537,29 @@ void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 g
     if (!isWanted(absoluteFilePath, entryIt.value()))
     {
         entries.erase(entryIt);
+        startReadyJobs();
+        return;
+    }
+
+
+    if (result.preloadRejected)
+    {
+        emit preloadSkipped(absoluteFilePath, result.fileSize,
+                            result.estimatedDecodedBytes,
+                            result.preloadRejectionReason);
+        const bool foregroundRequested = pendingRequest.has_value()
+                && pendingRequest->absoluteFilePath == absoluteFilePath;
+        if (foregroundRequested)
+        {
+            entryIt->state = State::Queued;
+            entryIt->priority = 0;
+            entryIt->reloadAfterFinish = false;
+            entryIt->result.reset();
+        }
+        else
+        {
+            entries.erase(entryIt);
+        }
         startReadyJobs();
         return;
     }

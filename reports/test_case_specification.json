@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-25T14:47:18.686142+00:00",
+  "generated_at": "2026-08-26T06:16:29.973163+00:00",
   "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
   "test_execution_order": [
     "static",

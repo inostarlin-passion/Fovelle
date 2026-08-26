@@ -560,6 +560,29 @@ QSize sourcePixelSize(CGImageSourceRef source)
     return QSize(width, height);
 }
 
+bool sourceHasAlpha(CGImageSourceRef source)
+{
+    bool hasAlpha = false;
+    CFDictionaryRef properties =
+            CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    if (!properties)
+        return false;
+
+    const CFTypeRef value =
+            CFDictionaryGetValue(properties, kCGImagePropertyHasAlpha);
+    if (value && CFGetTypeID(value) == CFBooleanGetTypeID())
+        hasAlpha = CFBooleanGetValue(static_cast<CFBooleanRef>(value));
+    else if (value && CFGetTypeID(value) == CFNumberGetTypeID())
+    {
+        int numericValue = 0;
+        if (CFNumberGetValue(static_cast<CFNumberRef>(value),
+                             kCFNumberIntType, &numericValue))
+            hasAlpha = numericValue != 0;
+    }
+    CFRelease(properties);
+    return hasAlpha;
+}
+
 QSize orientedPixelSize(const QSize &size, const CGImagePropertyOrientation orientation)
 {
     if (orientation >= kCGImagePropertyOrientationLeftMirrored
@@ -720,15 +743,6 @@ CFDictionaryRef thumbnailOptions(CGImageSourceRef source, const int largestDimen
     return options;
 }
 
-CFDictionaryRef fullResolutionThumbnailOptions(CGImageSourceRef source,
-                                               const bool decodeToHDR = false)
-{
-    // Non-HDR images keep source resolution for later zooming. HDR images keep
-    // their full-resolution CIImage graph and only bound the separate SDR
-    // fallback proxy.
-    return thumbnailOptions(source, 0, decodeToHDR);
-}
-
 bool hasAuxiliaryImage(CGImageSourceRef source, CFStringRef auxiliaryType)
 {
     CFDictionaryRef auxiliary = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType);
@@ -736,13 +750,6 @@ bool hasAuxiliaryImage(CGImageSourceRef source, CFStringRef auxiliaryType)
         return false;
     CFRelease(auxiliary);
     return true;
-}
-
-float cgImageContentHeadroom(CGImageRef image)
-{
-    if (@available(macOS 15.0, *))
-        return CGImageGetContentHeadroom(image);
-    return 0.0F;
 }
 
 float ciImageContentHeadroom(CIImage *image)
@@ -1168,7 +1175,20 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     return result;
 }
 
-class NativeHDRImage final : public QVCocoaFunctions::HDRImage
+class NativeMetalImageGraph
+{
+public:
+    virtual ~NativeMetalImageGraph() = default;
+    virtual CIImage *hdrCIImage() const = 0;
+    virtual CIImage *sdrCIImage() const = 0;
+    virtual CIImage *gainMapCIImage() const = 0;
+    virtual CIImage *previewCIImage() const = 0;
+    virtual const QVCocoaFunctions::HDRMetadata &rendererMetadata() const = 0;
+    virtual bool isHDR() const = 0;
+};
+
+class NativeHDRImage final : public QVCocoaFunctions::HDRImage,
+                             public NativeMetalImageGraph
 {
 public:
     NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage,
@@ -1187,14 +1207,61 @@ public:
     }
 
     const QVCocoaFunctions::HDRMetadata &metadata() const override { return imageMetadata; }
-    CIImage *hdrCIImage() const { return hdr; }
-    CIImage *sdrCIImage() const { return sdr; }
-    CIImage *gainMapCIImage() const { return gainMap; }
+    CIImage *hdrCIImage() const override { return hdr; }
+    CIImage *sdrCIImage() const override { return sdr; }
+    CIImage *gainMapCIImage() const override { return gainMap; }
+    CIImage *previewCIImage() const override { return nil; }
+    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override
+        { return imageMetadata; }
+    bool isHDR() const override { return true; }
 
 private:
     CIImage *hdr{ nil };
     CIImage *sdr{ nil };
     CIImage *gainMap{ nil };
+    QVCocoaFunctions::HDRMetadata imageMetadata;
+};
+
+class NativeSDRImage final : public QVCocoaFunctions::SDRImage,
+                             public NativeMetalImageGraph
+{
+public:
+    NativeSDRImage(CIImage *image, const QSize &size, const bool alpha)
+        : source([image retain]), sourceSize(size), sourceHasAlpha(alpha)
+    {
+        imageMetadata.sourceKind = QStringLiteral("sdr");
+        imageMetadata.pixelSize = sourceSize;
+        imageMetadata.contentHeadroom = 1.0F;
+        imageMetadata.bitsPerComponent = 8;
+    }
+
+    ~NativeSDRImage() override
+    {
+        [source release];
+        [preview release];
+    }
+
+    void setPreviewImage(CIImage *image)
+    {
+        [preview release];
+        preview = [image retain];
+    }
+
+    QSize pixelSize() const override { return sourceSize; }
+    bool hasAlpha() const override { return sourceHasAlpha; }
+    CIImage *hdrCIImage() const override { return source; }
+    CIImage *sdrCIImage() const override { return source; }
+    CIImage *gainMapCIImage() const override { return nil; }
+    CIImage *previewCIImage() const override { return preview; }
+    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override
+        { return imageMetadata; }
+    bool isHDR() const override { return false; }
+
+private:
+    CIImage *source{ nil };
+    CIImage *preview{ nil };
+    QSize sourceSize;
+    bool sourceHasAlpha{ false };
     QVCocoaFunctions::HDRMetadata imageMetadata;
 };
 
@@ -1291,12 +1358,15 @@ struct HDRFrameFlowState
 {
     std::atomic<int> framesInFlight{ 0 };
     std::atomic<quint64> presentedFrameCount{ 0 };
+    std::atomic<quint64> presentedRenderGeneration{ 0 };
     std::atomic<quint64> missedTargetDeadlineCount{ 0 };
     std::atomic<double> lastPresentedTime{ 0.0 };
     std::atomic<double> lastGPUExecutionMilliseconds{ 0.0 };
     std::atomic<double> lastPresentedIntervalMilliseconds{ 0.0 };
     std::atomic<double> lastRequestToPresentationMilliseconds{ 0.0 };
     std::atomic<bool> firstVisibleFrameUsesFinalHeadroom{ false };
+    std::atomic<quint64> sdrPreviewPresentedFrameCount{ 0 };
+    std::atomic<quint64> sdrFullResolutionPresentedFrameCount{ 0 };
 };
 
 // A background full-resolution render can outlive the C++ renderer turn that
@@ -1569,6 +1639,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             CGColorRelease(layerColor);
     }
 
+    void setCheckerboardBackground(const bool enabled)
+    {
+        if (checkerboardBackground == enabled)
+            return;
+        checkerboardBackground = enabled;
+        if (image && !imageIsHDR)
+            renderPending = true;
+    }
+
     CGRect viewportFrameInNativeView() const
     {
         if (!viewport || !nativeView)
@@ -1643,7 +1722,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         presentationContainerLayer.opacity = presentationActiveRequested ? 1.0F : 0.0F;
         presentationContainerLayer.hidden = !presentationActiveRequested;
         [CATransaction commit];
-        if (!presentationActiveRequested)
+        if (!presentationActiveRequested || !imageIsHDR)
             setExtendedDynamicRangeEnabled(false);
         presentationAnimationInFlight = false;
         state.presentationAnimationInFlight = false;
@@ -1657,7 +1736,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // keep EDR enabled until the surface is fully transparent; disabling
         // it here would clamp the still-visible HDR pixels in a single frame.
         if (presentationActiveRequested)
-            setExtendedDynamicRangeEnabled(true);
+            setExtendedDynamicRangeEnabled(imageIsHDR);
         if (!image || !presentationState->firstFramePresented) {
             if (!presentationActiveRequested) {
                 [CATransaction begin];
@@ -1684,7 +1763,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         presentationContainerLayer.opacity = targetOpacity;
         [CATransaction commit];
 
-        if (!animated || distance <= 0.001F) {
+        if (!animated || !imageIsHDR || distance <= 0.001F) {
             finishPresentationTransition(transitionGeneration, imageGeneration);
             return;
         }
@@ -1972,7 +2051,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     void schedulePersistentSurfacePreparation()
     {
-        if (persistentSurfaceReady || persistentSurfacePreparationInFlight
+        if (!imageIsHDR || persistentSurfaceReady || persistentSurfacePreparationInFlight
             || !preparedHDRImage || !persistentContext || !persistentSurfaceQueue)
             return;
 
@@ -2057,6 +2136,19 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
+        return setImageGraph(
+                std::dynamic_pointer_cast<const NativeHDRImage>(newImage));
+    }
+
+    bool setSDRImage(const SDRImagePtr &newImage)
+    {
+        return setImageGraph(
+                std::dynamic_pointer_cast<const NativeSDRImage>(newImage));
+    }
+
+    bool setImageGraph(
+            const std::shared_ptr<const NativeMetalImageGraph> &nativeImage)
+    {
         const bool presentationFullyVisible = currentPresentationOpacity() >= 0.999F;
         const bool previousMetalPresentationVisible = image
                 && presentationState->firstFramePresented
@@ -2088,8 +2180,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // Release them only on image replacement, never on zoom or pan.
         if (context)
             [context clearCaches];
-        const auto nativeImage = std::dynamic_pointer_cast<const NativeHDRImage>(newImage);
         image = nativeImage;
+        imageIsHDR = nativeImage && nativeImage->isHDR();
         [presentationState resetForImage];
         ++presentationTransitionGeneration;
         presentationAnimationInFlight = false;
@@ -2098,6 +2190,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         latestViewportSize = {};
         latestCorners.clear();
         state.imageActive = nativeImage != nullptr;
+        state.sdrImageActive = nativeImage != nullptr && !imageIsHDR;
         state.firstFrameSubmitted = false;
         state.firstFramePresented = false;
         state.hdrPreparationInFlight = false;
@@ -2119,6 +2212,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.deferredDisplayLinkCallbackCount = 0;
         state.requestedRenderGeneration = 0;
         state.submittedRenderGeneration = 0;
+        state.presentedRenderGeneration = 0;
         state.presentedFrameCount = 0;
         state.missedTargetDeadlineCount = 0;
         state.framesInFlight = 0;
@@ -2134,8 +2228,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.lastGPUExecutionMilliseconds = 0.0;
         state.lastPresentedIntervalMilliseconds = 0.0;
         state.lastRequestToPresentationMilliseconds = 0.0;
+        state.usesSDRPreview = false;
+        state.sdrFullResolutionRefinementPending = false;
+        state.sdrPreviewPresentedFrameCount = 0;
+        state.sdrFullResolutionPresentedFrameCount = 0;
+        sdrFullResolutionRenderGeneration = 0;
+        sdrRefinementScheduledGeneration = 0;
+        pendingRenderGeneration = 0;
         if (nativeImage) {
-            const HDRMetadata &metadata = nativeImage->metadata();
+            const HDRMetadata &metadata = nativeImage->rendererMetadata();
             state.isRaw = metadata.isRaw;
             state.hasGainMap = metadata.hasAppleGainMap || metadata.hasISOGainMap;
             state.contentHeadroom = metadata.contentHeadroom;
@@ -2161,7 +2262,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [CATransaction commit];
         state.layerOpacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
-        setExtendedDynamicRangeEnabled(nativeImage && presentationActiveRequested);
+        setExtendedDynamicRangeEnabled(
+                nativeImage && imageIsHDR && presentationActiveRequested);
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
@@ -2227,12 +2329,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         preparationTexture = nil;
     }
 
-    CIImage *displayImage(const NativeHDRImage &nativeImage, const float targetHeadroom,
+    CIImage *displayImage(const NativeMetalImageGraph &nativeImage,
+                          const float targetHeadroom,
                           const float progress)
     {
         CIImage *hdr = nativeImage.hdrCIImage();
         CIImage *sdr = nativeImage.sdrCIImage();
-        const HDRMetadata &metadata = nativeImage.metadata();
+        const HDRMetadata &metadata = nativeImage.rendererMetadata();
 
         if (!sdr)
             return hdr;
@@ -2286,13 +2389,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // for every pan at the same endpoint rebuilds an expensive full-frame
         // graph without changing a pixel.
         if (progress >= 0.999F
-            && targetHeadroom + 0.001F >= image->metadata().contentHeadroom)
+            && targetHeadroom + 0.001F >= image->rendererMetadata().contentHeadroom)
             return preparedHDRImage;
 
-        if (image->metadata().isRaw && !image->metadata().usesProcessedRawPreview)
+        if (image->rendererMetadata().isRaw
+            && !image->rendererMetadata().usesProcessedRawPreview)
             return mixImages(preparedSDRImage, preparedHDRImage, progress);
 
-        if (image->metadata().usesProcessedRawPreview && image->gainMapCIImage()) {
+        if (image->rendererMetadata().usesProcessedRawPreview
+            && image->gainMapCIImage()) {
             if (@available(macOS 15.0, *)) {
                 CIImage *adapted = [preparedSDRImage
                         imageByApplyingGainMap:image->gainMapCIImage()
@@ -2303,10 +2408,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
 
         if (@available(macOS 15.0, *)) {
-            if (image->metadata().contentHeadroom > 1.0F) {
+            if (image->rendererMetadata().contentHeadroom > 1.0F) {
                 CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
                 [toneMap setValue:preparedHDRImage forKey:kCIInputImageKey];
-                [toneMap setValue:@(image->metadata().contentHeadroom)
+                [toneMap setValue:@(image->rendererMetadata().contentHeadroom)
                            forKey:@"inputSourceHeadroom"];
                 [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
                 if (toneMap.outputImage)
@@ -2326,6 +2431,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.frameInFlight = state.framesInFlight > 0;
         state.presentedFrameCount = frameFlow
                 ? frameFlow->presentedFrameCount.load() : 0;
+        state.presentedRenderGeneration = frameFlow
+                ? frameFlow->presentedRenderGeneration.load() : 0;
         state.missedTargetDeadlineCount = frameFlow
                 ? frameFlow->missedTargetDeadlineCount.load() : 0;
         state.lastPresentedIntervalMilliseconds = frameFlow
@@ -2336,6 +2443,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
         state.firstVisibleFrameUsesFinalHeadroom = frameFlow
                 && frameFlow->firstVisibleFrameUsesFinalHeadroom.load();
+        state.sdrPreviewPresentedFrameCount = frameFlow
+                ? frameFlow->sdrPreviewPresentedFrameCount.load() : 0;
+        state.sdrFullResolutionPresentedFrameCount = frameFlow
+                ? frameFlow->sdrFullResolutionPresentedFrameCount.load() : 0;
         state.displayLinkPaused = displayLink ? displayLink.paused : true;
         NSWindow *window = nativeView.window;
         state.nativeWindowNumber = window
@@ -2362,6 +2473,69 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 || [presentationContainerLayer
                            animationForKey:@"fovelle.hdr.presentation"] != nil;
         state.persistentHDRSurfaceReady = persistentSurfaceReady;
+    }
+
+    bool sdrPreviewNeedsRefinement(const QSize &viewportSize,
+                                   const QPolygonF &corners,
+                                   const CGSize textureSize) const
+    {
+        if (imageIsHDR || !image || !image->previewCIImage()
+            || viewportSize.isEmpty() || corners.size() < 4)
+            return false;
+
+        const CGRect previewExtent = image->previewCIImage().extent;
+        const QSize sourceSize = image->rendererMetadata().pixelSize;
+        if (CGRectIsEmpty(previewExtent) || sourceSize.isEmpty())
+            return false;
+        if (previewExtent.size.width + 0.5 >= sourceSize.width()
+            && previewExtent.size.height + 0.5 >= sourceSize.height())
+            return false;
+
+        const CGFloat scaleX = textureSize.width / viewportSize.width();
+        const CGFloat scaleY = textureSize.height / viewportSize.height();
+        const QPointF topEdge = corners.at(1) - corners.at(0);
+        const QPointF leftEdge = corners.at(3) - corners.at(0);
+        const CGFloat projectedWidth = std::hypot(
+                topEdge.x() * scaleX, topEdge.y() * scaleY);
+        const CGFloat projectedHeight = std::hypot(
+                leftEdge.x() * scaleX, leftEdge.y() * scaleY);
+        return projectedWidth > previewExtent.size.width + 0.5
+                || projectedHeight > previewExtent.size.height + 0.5;
+    }
+
+    void scheduleSDRFullResolutionRefinement(const quint64 renderGeneration)
+    {
+        if (imageIsHDR || !image || !image->previewCIImage()
+            || sdrRefinementScheduledGeneration == renderGeneration)
+            return;
+
+        sdrRefinementScheduledGeneration = renderGeneration;
+        state.sdrFullResolutionRefinementPending = true;
+        const NSUInteger imageGeneration = presentationState->generation;
+        const auto gate = persistentSurfaceGate;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     static_cast<int64_t>(0.25 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            auto *owner = static_cast<Impl *>(gate->owner.load());
+            if (!owner)
+                return;
+            if (owner->presentationState->generation != imageGeneration
+                || owner->pendingRenderGeneration != renderGeneration
+                || owner->imageIsHDR || !owner->image) {
+                if (owner->presentationState->generation == imageGeneration
+                    && owner->sdrRefinementScheduledGeneration == renderGeneration)
+                    owner->state.sdrFullResolutionRefinementPending = false;
+                return;
+            }
+            owner->sdrFullResolutionRenderGeneration = renderGeneration;
+            owner->state.sdrFullResolutionRefinementPending = false;
+            owner->renderPending = true;
+            owner->pendingInteractive = false;
+            owner->interactiveKeepAliveUntil = 0.0;
+            owner->pendingRequestTimestamp = CACurrentMediaTime();
+            if (owner->displayLink)
+                owner->displayLink.paused = NO;
+        });
     }
 
     CIImage *imageForTexture(CIImage *source, const QSize &viewportSize,
@@ -2406,13 +2580,31 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // QColor stores these constants in sRGB. Keep that source tag so
         // ColorSync converts the exact Qt theme color into extended-linear P3
         // instead of interpreting gamma-encoded components as linear values.
-        CIColor *clearColor = [CIColor colorWithRed:backgroundColor.redF()
-                                              green:backgroundColor.greenF()
-                                               blue:backgroundColor.blueF()
-                                              alpha:1
+        CIImage *clearImage = nil;
+        if (checkerboardBackground && !imageIsHDR) {
+            CIFilter *checkerboard = [CIFilter filterWithName:@"CICheckerboardGenerator"];
+            CIColor *white = [CIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:1.0
                                          colorSpace:backgroundColorSpace];
-        CIImage *clearImage =
-                [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
+            CIColor *gray = [CIColor colorWithRed:0.8 green:0.8 blue:0.8 alpha:1.0
+                                        colorSpace:backgroundColorSpace];
+            [checkerboard setValue:[CIVector vectorWithX:0.0 Y:0.0]
+                            forKey:kCIInputCenterKey];
+            [checkerboard setValue:white forKey:@"inputColor0"];
+            [checkerboard setValue:gray forKey:@"inputColor1"];
+            [checkerboard setValue:@(16.0 * std::max(scaleX, scaleY))
+                            forKey:kCIInputWidthKey];
+            [checkerboard setValue:@1.0 forKey:kCIInputSharpnessKey];
+            clearImage = [checkerboard.outputImage imageByCroppingToRect:destinationBounds];
+        }
+        if (!clearImage) {
+            CIColor *clearColor = [CIColor colorWithRed:backgroundColor.redF()
+                                                  green:backgroundColor.greenF()
+                                                   blue:backgroundColor.blueF()
+                                                  alpha:1
+                                             colorSpace:backgroundColorSpace];
+            clearImage = [[CIImage imageWithColor:clearColor]
+                    imageByCroppingToRect:destinationBounds];
+        }
         return [[source imageByCroppingToRect:destinationBounds]
                 imageByCompositingOverImage:clearImage];
     }
@@ -2443,8 +2635,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (visibleFlow)
                 visibleFlow->firstVisibleFrameUsesFinalHeadroom.store(finalHeadroom);
             auto *owner = static_cast<Impl *>(ownerGate->owner.load());
-            if (owner)
+            if (owner) {
+                // A retained prior persistent HDR surface is now completely
+                // covered by the newly presented opaque Metal drawable.
+                if (!owner->persistentSurfaceReady && owner->persistentImage)
+                    owner->discardPersistentSurface(false);
                 owner->applyPresentationTarget(true);
+            }
         };
 
         if ([drawable respondsToSelector:@selector(addPresentedHandler:)]) {
@@ -2472,6 +2669,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         if (presentationState->hdrPrepared || presentationState->hdrPreparationInFlight)
             return;
+
+        if (!imageIsHDR) {
+            presentationState->hdrPrepared = YES;
+            return;
+        }
 
         // An SDR display never needs to evaluate the >1 branch merely to show
         // a compatible result.
@@ -2508,7 +2710,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // crop (visible as black bands or stale pixels). The source-space
         // intermediate remains valid while every visible frame is freshly
         // transformed and composited across the entire drawable.
-        if (image->metadata().usesProcessedRawPreview) {
+        if (image->rendererMetadata().usesProcessedRawPreview) {
             // The DNG HDR graph already contains a half-resolution auxiliary
             // gain map.  Inserting an intermediate *after* applying that map
             // can freeze Core Image's first reduced ROI (4032x3024) into an
@@ -2690,6 +2892,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 ? pendingRequestTimestamp + 0.16
                 : 0.0;
         pendingRenderGeneration = ++state.requestedRenderGeneration;
+        if (!imageIsHDR) {
+            sdrFullResolutionRenderGeneration = 0;
+            sdrRefinementScheduledGeneration = 0;
+            state.sdrFullResolutionRefinementPending = false;
+        }
         if (displayLink && displayLink.paused)
             displayLink.paused = NO;
     }
@@ -2799,6 +3006,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     static_cast<float>(QVCocoaFunctions::easedHDRTransition(linearProgress));
             state.targetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
                     state.contentHeadroom, state.displayRenderingHeadroom, linearProgress));
+            if (!imageIsHDR) {
+                // SDR uses the same color-managed float drawable, but never
+                // opts the layer into EDR or evaluates HDR transition graphs.
+                state.displayCurrentHeadroom = 1.0F;
+                state.displayPotentialHeadroom = 1.0F;
+                state.displayRenderingHeadroom = 1.0F;
+                state.displayHeadroomOverridden = false;
+                state.displayCurrentHeadroomOverridden = false;
+                state.bootstrappingEDR = false;
+                state.transitionProgress = 1.0F;
+                state.targetHeadroom = 1.0F;
+            }
 
             const CGSize requestedSize = CGSizeMake(
                     state.requestedDrawableWidth,
@@ -2876,6 +3095,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             CIImage *source = preparedEndpointsActive
                     ? preparedDisplayImage(state.targetHeadroom, state.transitionProgress)
                     : displayImage(*image, state.targetHeadroom, state.transitionProgress);
+            const bool sdrNeedsRefinement = !imageIsHDR
+                    && sdrPreviewNeedsRefinement(
+                            viewportSize, corners, actualSize);
+            const bool usesSDRPreviewFrame = !imageIsHDR
+                    && image->previewCIImage()
+                    && (!sdrNeedsRefinement
+                        || sdrFullResolutionRenderGeneration != renderGeneration);
+            const bool usesSDRFullResolutionFrame = !imageIsHDR
+                    && !usesSDRPreviewFrame;
+            if (usesSDRPreviewFrame)
+                source = image->previewCIImage();
+            state.usesSDRPreview = usesSDRPreviewFrame;
             source = imageForTexture(source, viewportSize, corners, actualSize);
             if (!source)
                 return false;
@@ -2927,6 +3158,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                             requestToPresentationMilliseconds);
                     const quint64 presentedCount =
                             submittedFlow->presentedFrameCount.fetch_add(1) + 1;
+                    submittedFlow->presentedRenderGeneration.store(renderGeneration);
+                    if (usesSDRPreviewFrame)
+                        submittedFlow->sdrPreviewPresentedFrameCount.fetch_add(1);
+                    else if (usesSDRFullResolutionFrame)
+                        submittedFlow->sdrFullResolutionPresentedFrameCount.fetch_add(1);
                     const double presentationCallTime =
                             presentationCallTimestamp->load();
                     const bool missedDeadline = targetTimestamp > 0.0
@@ -2986,7 +3222,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 CGColorSpaceRelease(renderColorSpace);
             });
             syncPresentationDiagnostics();
-            if (finalHeadroom && presentationState->hdrPrepared)
+            if (sdrNeedsRefinement && usesSDRPreviewFrame)
+                scheduleSDRFullResolutionRefinement(renderGeneration);
+            if (imageIsHDR && finalHeadroom && presentationState->hdrPrepared)
                 schedulePersistentSurfacePreparation();
             return true;
         }
@@ -3021,6 +3259,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CGColorSpaceRef outputColorSpace{ nullptr };
     CGColorSpaceRef backgroundColorSpace{ nullptr };
     QColor backgroundColor{ Qv::viewportBackgroundColor(Qv::Theme::Light) };
+    bool checkerboardBackground{ false };
     QVHDRPresentationState *presentationState{ nil };
     std::shared_ptr<HDRFrameFlowState> frameFlow{ std::make_shared<HDRFrameFlowState>() };
     std::shared_ptr<HDRPersistentSurfaceGate> persistentSurfaceGate{
@@ -3038,7 +3277,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     id<MTLTexture> preparationTexture{ nil };
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
-    std::shared_ptr<const NativeHDRImage> image;
+    std::shared_ptr<const NativeMetalImageGraph> image;
+    bool imageIsHDR{ false };
     bool renderPending{ false };
     QSize pendingViewportSize;
     QPolygonF pendingCorners;
@@ -3047,6 +3287,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CFTimeInterval pendingRequestTimestamp{ 0.0 };
     CFTimeInterval interactiveKeepAliveUntil{ 0.0 };
     quint64 pendingRenderGeneration{ 0 };
+    quint64 sdrFullResolutionRenderGeneration{ 0 };
+    quint64 sdrRefinementScheduledGeneration{ 0 };
     std::mutex telemetryMutex;
     HDRRendererDiagnostics state;
 };
@@ -3068,10 +3310,21 @@ bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image)
     return impl && impl->setImage(image);
 }
 
+bool QVCocoaFunctions::HDRRenderer::setSDRImage(const SDRImagePtr &image)
+{
+    return impl && impl->setSDRImage(image);
+}
+
 void QVCocoaFunctions::HDRRenderer::setBackgroundColor(const QColor &color)
 {
     if (impl)
         impl->setBackgroundColor(color);
+}
+
+void QVCocoaFunctions::HDRRenderer::setCheckerboardBackground(const bool enabled)
+{
+    if (impl)
+        impl->setCheckerboardBackground(enabled);
 }
 
 void QVCocoaFunctions::HDRRenderer::setPresentationActive(const bool active,
@@ -4020,6 +4273,22 @@ QImage QVCocoaFunctions::renderPDFVectorTile(const QByteArray &pdfData,
                     : QImage();
 }
 
+QSize QVCocoaFunctions::imagePixelSize(const QString &filePath)
+{
+    @autoreleasepool
+    {
+        const QUrl fileUrl = QUrl::fromLocalFile(filePath);
+        CGImageSourceRef source = CGImageSourceCreateWithURL(
+                reinterpret_cast<CFURLRef>(fileUrl.toNSURL()), nullptr);
+        if (!source)
+            return {};
+        const QSize size = orientedPixelSize(
+                sourcePixelSize(source), sourceOrientation(source));
+        CFRelease(source);
+        return size;
+    }
+}
+
 QVCocoaFunctions::NativeImageReadResult
 QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallbackLargestDimension)
 {
@@ -4272,17 +4541,23 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         }
         else if (result.isImageIOType)
         {
-            CGImageRef decodedImage = nullptr;
-            if (CFDictionaryRef options = fullResolutionThumbnailOptions(source, true)) {
-                decodedImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
-                CFRelease(options);
-            }
-
             const bool hasGainMap =
                     result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap;
-            const float decodedHeadroom = cgImageContentHeadroom(decodedImage);
-            CGColorSpaceRef decodedColorSpace =
-                    decodedImage ? CGImageGetColorSpace(decodedImage) : nullptr;
+            CIImage *probeImage = nil;
+            if (@available(macOS 14.0, *)) {
+                NSDictionary *probeOptions = @{
+                    (id)kCIImageExpandToHDR : @YES,
+                    (id)kCIImageApplyOrientationProperty : @YES,
+                    (id)kCIImageCacheImmediately : @NO
+                };
+                // CIImage is an immutable recipe. Inspecting its range and
+                // extent does not require a full RGBA allocation, unlike the
+                // old full-resolution Image I/O thumbnail used as a probe.
+                probeImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                    options:probeOptions];
+            }
+            const float decodedHeadroom = ciImageContentHeadroom(probeImage);
+            CGColorSpaceRef decodedColorSpace = probeImage.colorSpace;
             const bool hdrColorSpace = decodedColorSpace
                     && (CGColorSpaceIsHDR(decodedColorSpace)
                         || CGColorSpaceUsesExtendedRange(decodedColorSpace));
@@ -4317,9 +4592,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                         result.hdrMetadata.pixelSize = result.intrinsicSize;
                         result.hdrMetadata.contentHeadroom =
                                 ciHeadroom > 0.0F ? ciHeadroom : decodedHeadroom;
-                        result.hdrMetadata.bitsPerComponent = decodedImage
-                                ? static_cast<int>(CGImageGetBitsPerComponent(decodedImage))
-                                : 16;
+                        result.hdrMetadata.bitsPerComponent = 16;
                         result.hdrMetadata.decodedToHDR = true;
                         result.hdrMetadata.colorSpaceName = colorSpaceName(hdrImage.colorSpace);
                         result.hdrMetadata.transferFunction =
@@ -4342,12 +4615,37 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 }
             }
 
-            if (!result.hdrImage && decodedImage)
-                result.image = imageFromCGImage(decodedImage);
-            if (decodedImage)
-                CGImageRelease(decodedImage);
+            std::shared_ptr<NativeSDRImage> nativeSDRImage;
+            if (!result.hdrImage) {
+                NSDictionary *sdrOptions = @{
+                    (id)kCIImageApplyOrientationProperty : @YES,
+                    // Keep the source as an Image I/O/Core Image recipe. The
+                    // Metal renderer evaluates only the drawable ROI and its
+                    // long-lived CIContext owns reusable decoded tiles.
+                    (id)kCIImageCacheImmediately : @NO
+                };
+                CIImage *sdrImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
+                                                          options:sdrOptions];
+                if (sdrImage) {
+                    const CGRect extent = sdrImage.extent;
+                    if (!CGRectIsEmpty(extent)
+                        && std::isfinite(extent.size.width)
+                        && std::isfinite(extent.size.height)) {
+                        result.intrinsicSize = QSize(
+                            static_cast<int>(std::lround(extent.size.width)),
+                            static_cast<int>(std::lround(extent.size.height)));
+                        nativeSDRImage = std::make_shared<NativeSDRImage>(
+                                sdrImage, result.intrinsicSize,
+                                sourceHasAlpha(source));
+                        result.sdrImage = nativeSDRImage;
+                    }
+                }
+            }
 
-            if (result.hdrImage && result.image.isNull()) {
+            // Qt remains a bounded, immediately paintable proxy while the
+            // independent Metal layer presents its first frame. The native
+            // SDR/HDR graph above remains authoritative at every zoom level.
+            if ((result.sdrImage || result.hdrImage) && result.image.isNull()) {
                 if (CFDictionaryRef options =
                             thumbnailOptions(source, fallbackLargestDimension, false)) {
                     CGImageRef fallbackImage =
@@ -4355,12 +4653,41 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CFRelease(options);
                     if (fallbackImage) {
                         result.image = imageFromCGImage(fallbackImage);
+                        if (nativeSDRImage && !result.image.isNull()) {
+                            // Image I/O thumbnail CGImages can retain a lazy
+                            // decoder provider. Feeding that object directly
+                            // to Core Image repeats AVIF/WebP/PSD decode on the
+                            // first drawable. Materialize the already-decoded,
+                            // bounded QImage bytes once so Metal's opening
+                            // frame is only an upload and color conversion.
+                            NSData *previewBytes = [NSData
+                                    dataWithBytes:result.image.constBits()
+                                           length:result.image.sizeInBytes()];
+                            CGColorSpaceRef previewColorSpace =
+                                    CGImageGetColorSpace(fallbackImage);
+                            bool ownsPreviewColorSpace = false;
+                            if (!previewColorSpace) {
+                                previewColorSpace = colorSyncSrgbColorSpace();
+                                ownsPreviewColorSpace = true;
+                            }
+                            CIImage *preview = [CIImage
+                                    imageWithBitmapData:previewBytes
+                                           bytesPerRow:result.image.bytesPerLine()
+                                                  size:CGSizeMake(
+                                                          result.image.width(),
+                                                          result.image.height())
+                                                format:kCIFormatRGBA8
+                                            colorSpace:previewColorSpace];
+                            nativeSDRImage->setPreviewImage(preview);
+                            if (ownsPreviewColorSpace)
+                                CGColorSpaceRelease(previewColorSpace);
+                        }
                         CGImageRelease(fallbackImage);
                     }
                 }
             }
 
-            if (result.image.isNull() && !result.hdrImage)
+            if (result.image.isNull() && !result.sdrImage && !result.hdrImage)
                 result.errorString = QStringLiteral("Image I/O could not decode the image");
         }
 

@@ -150,12 +150,15 @@ void QVImageCore::loadPixmap(const ReadData &readData)
         loadedPixmap = QPixmap();
     }
     loadedVectorImage = readData.vectorImage;
+    loadedSDRImage = readData.sdrImage;
     loadedHDRImage = readData.hdrImage;
 
     // Set file details
     currentFileDetails.isPixmapLoaded = !loadedPixmap.isNull()
-            || loadedVectorImage.isValid() || loadedHDRImage != nullptr;
+            || loadedVectorImage.isValid() || loadedSDRImage != nullptr
+            || loadedHDRImage != nullptr;
     currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
+    currentFileDetails.isNativeSDRLoaded = loadedSDRImage != nullptr;
     currentFileDetails.isVectorLoaded = loadedVectorImage.isValid();
     if (loadedVectorImage.isValid())
         currentFileDetails.baseImageSize = loadedVectorImage.logicalSize.toSize();
@@ -166,7 +169,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     else
         currentFileDetails.baseImageSize = loadedPixmap.size();
     currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
-            || currentFileDetails.isVectorLoaded
+            || currentFileDetails.isNativeSDRLoaded || currentFileDetails.isVectorLoaded
             ? currentFileDetails.baseImageSize
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
@@ -190,6 +193,14 @@ void QVImageCore::loadPixmap(const ReadData &readData)
         loadedMovie.start();
 
     currentFileDetails.isMovieLoaded = loadedMovie.state() == QVMovie::Running;
+
+    // A static native SDR graph cannot follow an animated source's frame
+    // lifecycle. Keep those formats on QMovie/QGraphicsView.
+    if (currentFileDetails.isMovieLoaded)
+    {
+        loadedSDRImage.reset();
+        currentFileDetails.isNativeSDRLoaded = false;
+    }
 
     if (!currentFileDetails.isMovieLoaded)
         if (auto device = loadedMovie.device())
@@ -222,6 +233,7 @@ void QVImageCore::loadEmptyPixmap()
 {
     loadedPixmap = QPixmap();
     loadedVectorImage = {};
+    loadedSDRImage.reset();
     loadedHDRImage.reset();
     loadedMovie.stop();
     loadedMovie.setFileName("");

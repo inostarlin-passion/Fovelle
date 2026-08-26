@@ -73,10 +73,21 @@ public:
 
     using HDRImagePtr = std::shared_ptr<const HDRImage>;
 
+    class SDRImage
+    {
+    public:
+        virtual ~SDRImage() = default;
+        virtual QSize pixelSize() const = 0;
+        virtual bool hasAlpha() const = 0;
+    };
+
+    using SDRImagePtr = std::shared_ptr<const SDRImage>;
+
     struct NativeImageReadResult
     {
         QImage image;
         Qv::VectorImageData vectorImage;
+        SDRImagePtr sdrImage;
         HDRImagePtr hdrImage;
         HDRMetadata hdrMetadata;
         QSize intrinsicSize;
@@ -92,6 +103,7 @@ public:
     {
         bool rendererAvailable{ false };
         bool imageActive{ false };
+        bool sdrImageActive{ false };
         bool isRaw{ false };
         bool hasGainMap{ false };
         bool usesRGBA16Float{ false };
@@ -119,6 +131,8 @@ public:
         bool usesDisplayLinkInteractionPacing{ false };
         bool usesPersistentHDRSurface{ false };
         bool persistentHDRSurfaceReady{ false };
+        bool usesSDRPreview{ false };
+        bool sdrFullResolutionRefinementPending{ false };
         bool presentationActiveRequested{ true };
         bool presentationAnimationInFlight{ false };
         float contentHeadroom{ 1.0F };
@@ -147,6 +161,7 @@ public:
         quint64 deferredDisplayLinkCallbackCount{ 0 };
         quint64 requestedRenderGeneration{ 0 };
         quint64 submittedRenderGeneration{ 0 };
+        quint64 presentedRenderGeneration{ 0 };
         quint64 presentedFrameCount{ 0 };
         quint64 missedTargetDeadlineCount{ 0 };
         quint64 navigationOverlayUpdateCount{ 0 };
@@ -154,6 +169,8 @@ public:
         quint64 compositorGeometryUpdateCount{ 0 };
         quint64 presentationTransitionCount{ 0 };
         quint64 persistentHDRSurfaceBytes{ 0 };
+        quint64 sdrPreviewPresentedFrameCount{ 0 };
+        quint64 sdrFullResolutionPresentedFrameCount{ 0 };
         int framesInFlight{ 0 };
         int nativeWindowNumber{ 0 };
         int nativeWindowGlobalX{ 0 };
@@ -185,7 +202,9 @@ public:
 
         bool isAvailable() const;
         bool setImage(const HDRImagePtr &image);
+        bool setSDRImage(const SDRImagePtr &image);
         void setBackgroundColor(const QColor &color);
+        void setCheckerboardBackground(bool enabled);
         void setPresentationActive(bool active, bool animated = true);
         void invalidateGeometry();
         void clear();
@@ -295,10 +314,13 @@ public:
 
     static bool supportsAdditionalImageFormat(const QByteArray &format);
 
+    // Reads only Image I/O properties; it never materializes the image pixels.
+    static QSize imagePixelSize(const QString &filePath);
+
     // Image I/O identifies the file from its contents. The caller must not use
-    // a filename extension to decide whether this is a RAW image. Native
-    // decoding intentionally preserves the source pixel dimensions so a later
-    // zoom can reveal source detail instead of enlarging a screen thumbnail.
+    // a filename extension to decide whether this is a RAW image. Native SDR
+    // and HDR graphs preserve source detail while `image` is only the bounded
+    // Qt compatibility proxy used until the native layer presents.
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
 

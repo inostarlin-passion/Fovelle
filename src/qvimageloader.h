@@ -25,6 +25,7 @@ public:
     {
         QImage image;
         Qv::VectorImageData vectorImage;
+        QVCocoaFunctions::SDRImagePtr sdrImage;
         QVCocoaFunctions::HDRImagePtr hdrImage;
         QVCocoaFunctions::HDRMetadata hdrMetadata;
         QString absoluteFilePath;
@@ -33,7 +34,19 @@ public:
         bool isMultiFrameImage = false;
         QSize intrinsicSize;
         double decodeMilliseconds = 0.0;
+        bool preloadRejected = false;
+        quint64 estimatedDecodedBytes = 0;
+        QString preloadRejectionReason;
         std::optional<ErrorData> errorData;
+    };
+
+    struct PreloadAdmission
+    {
+        bool allowed = true;
+        qint64 fileSize = 0;
+        QSize pixelSize;
+        quint64 estimatedDecodedBytes = 0;
+        QString reason;
     };
 
     struct DesiredImage
@@ -47,6 +60,9 @@ public:
 
     void setLargestDimension(int value);
 
+    static PreloadAdmission preloadAdmissionForFile(
+        const QString &absoluteFilePath);
+
     quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false);
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
     void clear();
@@ -54,6 +70,8 @@ public:
 signals:
     void imageReady(quint64 requestId, const QVImageLoader::Result &result);
     void loadStarted(const QString &absoluteFilePath, int priority);
+    void preloadSkipped(const QString &absoluteFilePath, qint64 fileSize,
+                        quint64 estimatedDecodedBytes, const QString &reason);
 
 private:
     struct FileIdentity
@@ -93,7 +111,8 @@ private:
     static QString normalizePath(const QString &path);
     static FileIdentity getFileIdentity(const QString &absoluteFilePath);
     static FileIdentity getFileIdentity(const Result &result);
-    static Result readFile(const QString &absoluteFilePath, int largestDimension);
+    static Result readFile(const QString &absoluteFilePath, int largestDimension,
+                           bool isPreload);
 
     bool isWanted(const QString &absoluteFilePath, const Entry &entry) const;
     void queueCachedDelivery(quint64 requestId, const QString &absoluteFilePath);

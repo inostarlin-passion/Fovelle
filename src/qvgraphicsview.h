@@ -145,6 +145,8 @@ public:
 
     std::optional<qreal> sampleDisplayedImageBrightness(const QPoint &viewportPoint) const;
 
+    bool usesNativeSDRMetalRenderer() const;
+    QVCocoaFunctions::HDRRendererDiagnostics nativeMetalRendererDiagnostics() const;
     bool usesNativeHDRNavigationOverlay() const;
     void setHDRPresentationActive(bool active);
     void setHDRNavigationOverlay(int index, const QRectF &viewportRect,
@@ -343,6 +345,7 @@ private:
     QTimer *hdrGeometryTimer;
     QTimer *hdrFrameRequestTimer;
     QElapsedTimer hdrInteractionClock;
+    QElapsedTimer hdrScrollInteractionClock;
     qreal hdrInteractionZoomMilliseconds{ 0.0 };
     int hdrInteractionStep{ -1 };
     bool hdrActivationCompleted{ false };
