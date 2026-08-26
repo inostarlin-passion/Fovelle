@@ -13,21 +13,33 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 
 ## Key Features
 
-- Added support for most common RAW image formats.
-- Supports HDR rendering and display for both RAW and non-RAW image formats, with smooth brightness adjustment.
-- Vector rendering for EPS and SVG, with zoom levels of up to 6400%.
-- Improved zooming and panning performance for SDR images.
-- Improved cold-start performance for image loading.
-- Optimized the preloading mechanism.
-- Supports both light and dark appearances, with automatic switching based on the system appearance.
+- Supports most common RAW image formats.
+- Supports HDR rendering and display for both RAW and non-RAW images, with smooth brightness adjustment.
+- Supports vector rendering for EPS and SVG images, with zoom levels up to 6400%.
+- Provides smooth zooming and panning for all images.
+- Provides fast cold-start image loading.
+- Preloads images for faster navigation.
+- Supports both light and dark appearances, automatically following the system appearance.
+- Provides rich, customizable keyboard and mouse shortcuts.
 
 ## Additional Features
 
 - Displays small images at their actual size (1:1).
-- Press Esc to close the window or quit the app.
-- Floating navigation buttons are displayed on the left and right sides of the window and automatically shown or hidden.
-- Conditionally displays vertical and horizontal scrollbars.
-- EPS decoding uses the AGPL Ghostscript runtime bundled in release app bundles.
+- Supports pressing Esc to close the window or quit the app.
+- Provides floating navigation buttons on the left and right sides of the window that automatically appear and disappear as needed.
+- Displays vertical and horizontal scrollbars only when needed.
+- Uses the AGPL Ghostscript runtime bundled with release builds for EPS decoding.
+- Supports opening images directly from URLs.
+- Supports frame-by-frame playback of animated images (e.g. GIFs), playback speed adjustment, and saving the current frame.
+- Supports slideshow mode.
+
+## Light Appearance
+
+![](docs/snapshot1.jpg)
+
+## Dark Appearance
+
+![](docs/snapshot2.jpg)
 
 ## Supported Formats
 
@@ -94,14 +106,6 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Windows Icon
 - X11 Bitmap
 - X11 Pixmap
-
-## Light Appearance
-
-![](docs/snapshot1.jpg)
-
-## Dark Appearance
-
-![](docs/snapshot2.jpg)
 
 ## Supported Languages
 

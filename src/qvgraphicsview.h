@@ -101,6 +101,7 @@ public:
     bool usesVectorRendering() const;
     Qv::VectorImageFormat vectorImageFormat() const;
     QSize lastVectorRasterSize() const;
+    quint64 vectorRenderCount() const;
     bool hasPendingVectorRefinement() const;
 
     static qreal boundedZoomLevel(qreal requestedLevel);

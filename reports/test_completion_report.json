@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-26T11:19:05.001520+00:00",
+  "generated_at": "2026-08-26T11:49:40.623923+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "status": "passed",
   "execution_order": [
@@ -14,8 +14,8 @@
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32959801767",
-      "finding": "The Checks run for commit 711515b failed in Run Unit Tests and Run clang-tidy; clang-format passed.",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
+      "finding": "The Checks run for commit 0a3c3e6 failed in Run Unit Tests; clang-tidy and clang-format passed.",
       "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
@@ -50,19 +50,21 @@
       "hop": 6,
       "layer": "deduction",
       "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition.",
-      "premise": "Combining the remote log with the CMake and Qt semantics yields two independent repairs: isolate third-party packaging from tidy and wait for actual vector output."
+      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
+      "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
     }
   ],
   "diagnosis": {
-    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32959801767",
-    "commit": "711515b",
+    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
+    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892521",
+    "commit": "0a3c3e6",
     "observations": [
-      "Run Unit Tests: FovelleTests 在 GraphicsViewTests::testVectorFormatsUseDocumentSceneItem 处 SIGSEGV，先出现 lastVectorRasterSize 大小断言失败。",
-      "Run clang-tidy: Ghostscript POST_BUILD 构建在 base/gp_unix.c 找不到 fontconfig/fontconfig.h 后退出 2。",
+      "Run Unit Tests: 远端 fallback EPS 为 8×4，6400% 下 VECTOR_TILE_READY 为 QSize(512,256)；旧的 qMax>512 断言失败，随后出现 SIGSEGV。",
+      "Build Fovelle: 同一 GraphicsViewTests 失败，说明不是仅限独立测试 job 的环境差异。",
+      "Run clang-tidy: passed。",
       "Run clang-format: passed。"
     ],
-    "deduction": "macos-26 runner 标签有官方支持；失败分别由异步测试同步缺陷和分析路径误执行可选第三方打包造成。"
+    "deduction": "macos-26 runner 标签有官方支持；当前剩余失败是测试对 fallback tile 尺寸的错误硬编码假设，真实绘制次数是稳定且与资源尺寸无关的完成观察点。"
   },
   "repairs": [
     {
@@ -83,7 +85,7 @@
     },
     {
       "path": "tests/tst_qviewtests.cpp",
-      "change": "等待实际 painted vector tile 并延长条件超时"
+      "change": "等待稳定 painted vector tile，以 vectorRenderCount 替代脆弱尺寸阈值，并隔离单次计时抖动"
     },
     {
       "path": "tests/CMakeLists.txt",
@@ -124,22 +126,22 @@
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 14921,
-      "sha256": "b68d4a5b12c9e04aebad9b3bca2125748af4c7e07c8a5cbcba66d7383bfb6598"
+      "bytes": 15192,
+      "sha256": "8d97bc671264bfc980ea9e08cf53f54380eec561de76e518fb98195173b251d8"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 14489,
-      "sha256": "8c826d4e09951750da3cd6c617ca64ffd8907cb1c4a49f37f6e4dfdbd58012fc"
+      "bytes": 14672,
+      "sha256": "bb2b338a1c8de521d75e01f13dd2189bdb88c7d299e191e030a21ea7907d0344"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
-      "bytes": 4851,
-      "sha256": "17ab41d9d3f4884e051ba8a545dc33f3642a4a4a1f2ed476193bb45ba75a4783"
+      "bytes": 5443,
+      "sha256": "c7aa6f438491623bafcc1b052bfd1ba1808e29b6c7bb9b7e9e991a262978ebd2"
     }
   ],
   "self_artifact": {

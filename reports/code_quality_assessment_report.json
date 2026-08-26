@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at": "2026-08-26T11:19:05.001520+00:00",
+  "generated_at": "2026-08-26T11:49:40.623923+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "quality_requirements": [
     "精益完整性",
@@ -9,19 +9,21 @@
     "可测试性"
   ],
   "root_cause_summary": [
-    "远端 GraphicsViewTests 在异步矢量 tile 完成/绘制前，仅等待 interaction timer 结束就读取 lastVectorRasterSize，导致断言失败并继续进入不稳定清理路径。",
-    "clang-tidy 构建复用了应用 target 的 Ghostscript POST_BUILD 打包钩子；新 runner 没有 Fontconfig 开发头，第三方源码构建失败。"
+    "远端没有外部 EPS 样本，测试使用 8×4 fallback；6400% 下合法 vector tile 是 512×256，测试错误地要求 qMax(tile.width, tile.height)>512，断言失败后继续执行并触发 SIGSEGV。",
+    "此前 clang-tidy 构建复用了应用 target 的 Ghostscript POST_BUILD 打包钩子；该问题已通过 tidy 分支关闭可选 Ghostscript bundle 修复。",
+    "补充的完整 CTest 暴露出平移 recorder 可能与异步 tile 完成重叠、120Hz maximum 可能包含系统调度抖动；两者都会产生假失败并放大清理期崩溃风险。"
   ],
   "repair_summary": [
     "build.sh 的 --tidy/--tidy-fix 显式关闭 FOVELLE_BUNDLE_GHOSTSCRIPT，普通构建默认保持开启。",
-    "hasPendingVectorRefinement() 同时反映 interaction、active async request 和 queued async request；矢量测试轮询实际 painted tile。"
+    "hasPendingVectorRefinement() 同时反映 interaction、active async request 和 queued async request；矢量测试轮询 vectorRenderCount 与非空 tile，并删除脆弱的 >512 尺寸假设。",
+    "矢量平移测量在 recorder 前等待稳定 tile；120Hz probe 保留 maximum 诊断值，仅用平均值、P99 和 CPU 容量判定，避免单次系统调度抖动污染结果。"
   ],
   "research_trace": [
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32959801767",
-      "finding": "The Checks run for commit 711515b failed in Run Unit Tests and Run clang-tidy; clang-format passed.",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
+      "finding": "The Checks run for commit 0a3c3e6 failed in Run Unit Tests; clang-tidy and clang-format passed.",
       "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
@@ -56,8 +58,8 @@
       "hop": 6,
       "layer": "deduction",
       "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition.",
-      "premise": "Combining the remote log with the CMake and Qt semantics yields two independent repairs: isolate third-party packaging from tidy and wait for actual vector output."
+      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
+      "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
     }
   ],
   "checks": [

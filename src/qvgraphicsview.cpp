@@ -789,6 +789,11 @@ QSize QVGraphicsView::lastVectorRasterSize() const
     return loadedPixmapItem ? loadedPixmapItem->lastVectorRasterSize() : QSize();
 }
 
+quint64 QVGraphicsView::vectorRenderCount() const
+{
+    return loadedPixmapItem ? loadedPixmapItem->vectorRenderCount() : 0;
+}
+
 bool QVGraphicsView::hasPendingVectorRefinement() const
 {
     return loadedPixmapItem

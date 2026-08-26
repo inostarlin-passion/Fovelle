@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-26T11:19:05.001520+00:00",
+  "generated_at": "2026-08-26T11:49:40.623923+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "test_execution_order": [
     "static",
@@ -14,8 +14,8 @@
     {
       "hop": 1,
       "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32959801767",
-      "finding": "The Checks run for commit 711515b failed in Run Unit Tests and Run clang-tidy; clang-format passed.",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32962892319",
+      "finding": "The Checks run for commit 0a3c3e6 failed in Run Unit Tests; clang-tidy and clang-format passed.",
       "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
@@ -50,8 +50,8 @@
       "hop": 6,
       "layer": "deduction",
       "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition.",
-      "premise": "Combining the remote log with the CMake and Qt semantics yields two independent repairs: isolate third-party packaging from tidy and wait for actual vector output."
+      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition; the remote 512×256 result also matches the 8×4 fallback geometry at the capped 64× zoom.",
+      "premise": "The strict >512 size assertion is therefore incidental and invalid; the test must assert actual vector painting plus a non-empty tile, while the existing viewport bound remains the safety invariant."
     }
   ],
   "test_cases": [
@@ -189,7 +189,7 @@
     {
       "id": "CI-UNIT-001",
       "test_layer": "unit",
-      "atomic_acceptance_criterion": "PDF 与 SVG 矢量文档均能在 6400% 路径完成 refinement 并产生非空且大于 512 像素的 bounded tile。",
+      "atomic_acceptance_criterion": "PDF 与 SVG 矢量文档均能在 6400% 路径完成 refinement，并产生真实绘制的非空 bounded tile。",
       "quality_requirement": "功能正确性",
       "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorFormatsUseDocumentSceneItem",
       "test_purpose": "直接回归远端失败的跨格式矢量场景。",
@@ -228,6 +228,7 @@
       },
       "operation_steps": [
         "执行指定 QtTest 方法。",
+        "等待 refinement 清零且已有真实 tile 绘制。",
         "读取 dirty repaint ratio 与 pending 状态断言。"
       ],
       "expected_result": "QtTest 返回 0 且平移 dirty ratio 不超过测试阈值。",
