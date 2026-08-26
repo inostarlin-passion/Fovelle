@@ -3286,12 +3286,15 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 }
 
 // TC-ZOOM-FULLSCREEN
-// Test purpose: verify that returning to the fit ratio restores fit intent and that a fullscreen resize recalculates it.
+// Test purpose: verify that returning to the fit ratio restores fit intent and
+// that the macOS transition snapshot has the same image geometry before and
+// after a fullscreen resize.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
 // Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit transition.
 // Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen twice.
-// Expected result: ZoomToFit remains active; a changed fullscreen viewport receives a recalculated zoom level;
-// after exit, ZoomToFit remains active and the transition completes within the bounded timeout.
+// Expected result: ZoomToFit remains active; a changed fullscreen viewport
+// receives a recalculated zoom level; the snapshot keeps the source aspect
+// ratio; after exit, both the fit mode and original image rectangle return.
 // Postcondition: the window closes and the application quit policy is restored.
 void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
 {
@@ -3319,6 +3322,18 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     QCoreApplication::processEvents();
     QVERIFY(view->getCalculatedZoomMode().has_value());
     QCOMPARE(view->getCalculatedZoomMode().value(), Qv::CalculatedZoomMode::ZoomToFit);
+
+    const QRect normalTransitionRect = window.fullScreenTransitionImageRect();
+    const QImage transitionImage = window.fullScreenTransitionImage();
+    QVERIFY(!normalTransitionRect.isEmpty());
+    QCOMPARE(normalTransitionRect.width() * 9,
+             normalTransitionRect.height() * 16);
+    QCOMPARE(transitionImage.size(), QSize(1600, 900));
+    const QColor transitionCenter =
+        transitionImage.pixelColor(transitionImage.rect().center());
+    QCOMPARE(transitionCenter.alpha(), 255);
+    QVERIFY(transitionCenter.blue() > transitionCenter.red());
+    QVERIFY(transitionCenter.blue() > transitionCenter.green());
 
     const qreal fitZoomBeforeWheel = view->getZoomLevel();
     const QPoint wheelPos = view->viewport()->rect().center();
@@ -3352,6 +3367,11 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
+    const QRect fullscreenTransitionRect =
+        window.fullScreenTransitionImageRect();
+    QVERIFY(!fullscreenTransitionRect.isEmpty());
+    QCOMPARE(fullscreenTransitionRect.width() * 9,
+             fullscreenTransitionRect.height() * 16);
 
     const QSize fullscreenViewport = view->viewport()->size();
     if (fullscreenViewport != normalViewport)
@@ -3365,6 +3385,8 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

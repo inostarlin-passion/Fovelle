@@ -183,6 +183,21 @@ public:
 public slots:
     void openFile(const QString &fileName, const QString &baseDir = "");
 
+    // Called by the macOS full-screen bridge while AppKit animates the window
+    // back to its normal frame. Keeping the titlebar inset on the same timing
+    // curve prevents a final image recenter when the titlebar becomes active.
+    void beginFullScreenExitLayoutTransition(int normalTitlebarOverlap);
+
+    void updateFullScreenExitLayoutTransition(int titlebarOverlap);
+
+    void cancelFullScreenExitLayoutTransition();
+
+    QRect fullScreenTransitionImageRect() const;
+
+    QImage fullScreenTransitionImage() const;
+
+    QColor fullScreenTransitionBackgroundColor() const;
+
     void toggleSlideshow();
 
     void slideshowAction();
@@ -258,6 +273,8 @@ private:
     QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;
     QTimer *titlebarBubbleHideTimer;
     QPropertyAnimation *titlebarBubbleHideAnimation;
+    int fullScreenExitTitlebarOverlap {-1};
+    int fullScreenExitTargetTitlebarOverlap {0};
 
     QPushButton *previousImageButton {nullptr};
     QPushButton *nextImageButton {nullptr};

@@ -1777,6 +1777,23 @@ QSizeF QVGraphicsView::getEffectiveOriginalSize() const
     return getUnspecializedTransform().mapRect(QRectF(QPoint(), getCurrentFileDetails().loadedPixmapSize)).size() * getDpiAdjustment();
 }
 
+QRect QVGraphicsView::fullScreenTransitionImageRect() const
+{
+    if (!getCurrentFileDetails().isPixmapLoaded)
+        return {};
+
+    const QRect mappedBounds = mapFromScene(
+        scene()->itemsBoundingRect()).boundingRect();
+    return QRect(mappedBounds.topLeft(), getContentRect().size());
+}
+
+QImage QVGraphicsView::fullScreenTransitionImage() const
+{
+    const QImage image = imageCore.getLoadedPixmap().toImage();
+    return image.isNull()
+        ? QImage() : image.transformed(getUnspecializedTransform());
+}
+
 LogicalPixelFitter QVGraphicsView::getPixelFitter() const
 {
     const MainWindow::ViewportPosition viewportPos = getMainWindow()->getViewportPosition();

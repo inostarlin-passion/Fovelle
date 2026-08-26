@@ -92,6 +92,10 @@ public:
 
     QSizeF getEffectiveOriginalSize() const;
 
+    QRect fullScreenTransitionImageRect() const;
+
+    QImage fullScreenTransitionImage() const;
+
     LogicalPixelFitter getPixelFitter() const;
 
     const QVImageCore::FileDetails& getCurrentFileDetails() const { return imageCore.getCurrentFileDetails(); }

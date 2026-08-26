@@ -47,6 +47,459 @@
 static constexpr char SettingsToolbarAssociationKey = 0;
 static constexpr char FullScreenTransitionCompleteAssociationKey = 0;
 static constexpr char FullScreenExitPendingAssociationKey = 0;
+static constexpr char FullScreenNormalFrameAssociationKey = 0;
+static constexpr char FullScreenNormalTitlebarOverlapAssociationKey = 0;
+static constexpr char FullScreenCustomAnimationAssociationKey = 0;
+static constexpr char FullScreenAnimationHandlerAssociationKey = 0;
+static constexpr char FullScreenAnimationAssociationKey = 0;
+static constexpr char FullScreenNormalImageRectAssociationKey = 0;
+static constexpr char FullScreenImageRectProviderAssociationKey = 0;
+static constexpr char FullScreenImageProviderAssociationKey = 0;
+static constexpr char FullScreenBackgroundProviderAssociationKey = 0;
+static constexpr char FullScreenProxyWindowAssociationKey = 0;
+static constexpr char FullScreenProxyWindowLayerAssociationKey = 0;
+static constexpr char FullScreenProxyImageLayerAssociationKey = 0;
+static constexpr char FullScreenOriginalAlphaAssociationKey = 0;
+
+enum class FovelleFullScreenAnimationPhase : NSInteger
+{
+    Begin,
+    Update,
+    Cancel
+};
+
+typedef void (^FovelleFullScreenAnimationHandler)(
+    FovelleFullScreenAnimationPhase phase, int titlebarOverlap);
+typedef QRect (^FovelleFullScreenImageRectProvider)(void);
+typedef QImage (^FovelleFullScreenImageProvider)(void);
+typedef QColor (^FovelleFullScreenBackgroundProvider)(void);
+
+static void releaseFullScreenSnapshotProvider(
+    void *info, __unused const void *data, __unused size_t size)
+{
+    delete static_cast<QImage *>(info);
+}
+
+static CGImageRef createFullScreenSnapshotCGImage(const QImage &source)
+{
+    if (source.isNull())
+        return nullptr;
+
+    auto *image = new QImage(
+        source.convertToFormat(QImage::Format_RGBA8888_Premultiplied));
+    if (image->isNull())
+    {
+        delete image;
+        return nullptr;
+    }
+
+    const size_t dataSize = static_cast<size_t>(image->bytesPerLine())
+        * static_cast<size_t>(image->height());
+    CGDataProviderRef provider = CGDataProviderCreateWithData(
+        image, image->constBits(), dataSize,
+        releaseFullScreenSnapshotProvider);
+    if (!provider)
+    {
+        delete image;
+        return nullptr;
+    }
+
+    CGColorSpaceRef colorSpace = nullptr;
+    const QByteArray iccProfile = image->colorSpace().iccProfile();
+    if (!iccProfile.isEmpty())
+    {
+        CFDataRef profileData = CFDataCreate(
+            kCFAllocatorDefault,
+            reinterpret_cast<const UInt8 *>(iccProfile.constData()),
+            iccProfile.size());
+        if (profileData)
+        {
+            colorSpace = CGColorSpaceCreateWithICCData(profileData);
+            CFRelease(profileData);
+        }
+    }
+    if (!colorSpace)
+        colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGImageRef result = CGImageCreate(
+        static_cast<size_t>(image->width()),
+        static_cast<size_t>(image->height()),
+        8, 32, static_cast<size_t>(image->bytesPerLine()),
+        colorSpace,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big,
+        provider, nullptr, true, kCGRenderingIntentDefault);
+    CGColorSpaceRelease(colorSpace);
+    CGDataProviderRelease(provider);
+    return result;
+}
+
+static NSRect nativeWindowRectForLocalQtRect(
+    const NSRect windowFrame, const QRect &localRect)
+{
+    return NSMakeRect(
+        localRect.x(),
+        NSHeight(windowFrame) - localRect.y() - localRect.height(),
+        localRect.width(), localRect.height());
+}
+
+static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
+{
+    return NSOffsetRect(
+        screenRect,
+        -NSMinX(proxyWindow.frame),
+        -NSMinY(proxyWindow.frame));
+}
+
+@interface FovelleFullScreenExitAnimation : NSAnimation
+{
+@private
+    NSWindow *_realWindow;
+    NSWindow *_proxyWindow;
+    CALayer *_windowLayer;
+    CALayer *_imageLayer;
+    NSRect _startWindowFrame;
+    NSRect _endWindowFrame;
+    NSRect _startImageFrame;
+    NSRect _endImageFrame;
+    int _normalTitlebarOverlap;
+    BOOL _realWindowPrepared;
+    FovelleFullScreenAnimationHandler _handler;
+}
+
+- (instancetype)initWithRealWindow:(NSWindow *)realWindow
+                       proxyWindow:(NSWindow *)proxyWindow
+                        windowLayer:(CALayer *)windowLayer
+                         imageLayer:(CALayer *)imageLayer
+                   startWindowFrame:(NSRect)startWindowFrame
+                     endWindowFrame:(NSRect)endWindowFrame
+                    startImageFrame:(NSRect)startImageFrame
+                      endImageFrame:(NSRect)endImageFrame
+          normalTitlebarOverlap:(int)normalTitlebarOverlap
+                       duration:(NSTimeInterval)duration
+                        handler:(FovelleFullScreenAnimationHandler)handler;
+@end
+
+@implementation FovelleFullScreenExitAnimation
+
+- (instancetype)initWithRealWindow:(NSWindow *)realWindow
+                       proxyWindow:(NSWindow *)proxyWindow
+                        windowLayer:(CALayer *)windowLayer
+                         imageLayer:(CALayer *)imageLayer
+                   startWindowFrame:(NSRect)startWindowFrame
+                     endWindowFrame:(NSRect)endWindowFrame
+                    startImageFrame:(NSRect)startImageFrame
+                      endImageFrame:(NSRect)endImageFrame
+          normalTitlebarOverlap:(int)normalTitlebarOverlap
+                       duration:(NSTimeInterval)duration
+                        handler:(FovelleFullScreenAnimationHandler)handler
+{
+    self = [super initWithDuration:duration animationCurve:NSAnimationEaseInOut];
+    if (!self)
+        return nil;
+
+    _realWindow = realWindow;
+    _proxyWindow = proxyWindow;
+    _windowLayer = windowLayer;
+    _imageLayer = imageLayer;
+    _startWindowFrame = startWindowFrame;
+    _endWindowFrame = endWindowFrame;
+    _startImageFrame = startImageFrame;
+    _endImageFrame = endImageFrame;
+    _normalTitlebarOverlap = normalTitlebarOverlap;
+    _realWindowPrepared = NO;
+    _handler = [handler copy];
+    self.animationBlockingMode = NSAnimationNonblocking;
+    self.frameRate = 60.0f;
+    return self;
+}
+
+- (void)dealloc
+{
+    [_handler release];
+    [super dealloc];
+}
+
+- (void)setCurrentProgress:(NSAnimationProgress)progress
+{
+    [super setCurrentProgress:progress];
+    if (!_realWindow || !_proxyWindow || !_windowLayer || !_imageLayer
+        || !_handler)
+        return;
+
+    const CGFloat value = std::clamp<CGFloat>(self.currentValue, 0.0, 1.0);
+    const auto interpolate = [value](const CGFloat from, const CGFloat to) {
+        return from + ((to - from) * value);
+    };
+    const auto interpolateRect = [&interpolate](
+        const NSRect from, const NSRect to) {
+        return NSMakeRect(
+            interpolate(from.origin.x, to.origin.x),
+            interpolate(from.origin.y, to.origin.y),
+            interpolate(from.size.width, to.size.width),
+            interpolate(from.size.height, to.size.height));
+    };
+
+    // The proxy NSWindow never changes size. Only its independent layers move,
+    // so WindowServer cannot stretch an old window backing store between a
+    // geometry commit and Qt's next paint.
+    [CATransaction begin];
+    [CATransaction setAnimationDuration:0.0];
+    [CATransaction setDisableActions:YES];
+    _windowLayer.frame = interpolateRect(
+        _startWindowFrame, _endWindowFrame);
+    _imageLayer.frame = interpolateRect(
+        _startImageFrame, _endImageFrame);
+    [CATransaction commit];
+    [CATransaction flush];
+
+    if (!_realWindowPrepared && progress >= 1.0f)
+    {
+        _realWindowPrepared = YES;
+        const NSRect nativeEndFrame = NSOffsetRect(
+            _endWindowFrame,
+            NSMinX(_proxyWindow.frame),
+            NSMinY(_proxyWindow.frame));
+        [_realWindow setFrame:nativeEndFrame display:NO];
+        _handler(
+            FovelleFullScreenAnimationPhase::Update,
+            _normalTitlebarOverlap);
+        [_realWindow displayIfNeeded];
+    }
+}
+
+@end
+
+static void cleanupFovelleFullScreenProxy(NSWindow *window)
+{
+    NSWindow *proxy = objc_getAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey);
+    [proxy orderOut:nil];
+
+    NSNumber *originalAlpha = objc_getAssociatedObject(
+        window, &FullScreenOriginalAlphaAssociationKey);
+    if (originalAlpha)
+        window.alphaValue = originalAlpha.doubleValue;
+
+    objc_setAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenProxyWindowLayerAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenProxyImageLayerAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenOriginalAlphaAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
+    __unused id delegate, __unused SEL selector, NSWindow *window)
+{
+    NSNumber *enabled = objc_getAssociatedObject(
+        window, &FullScreenCustomAnimationAssociationKey);
+    NSValue *normalFrame = objc_getAssociatedObject(
+        window, &FullScreenNormalFrameAssociationKey);
+    NSValue *normalImageRect = objc_getAssociatedObject(
+        window, &FullScreenNormalImageRectAssociationKey);
+    FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
+        window, &FullScreenAnimationHandlerAssociationKey);
+    FovelleFullScreenImageRectProvider rectProvider = objc_getAssociatedObject(
+        window, &FullScreenImageRectProviderAssociationKey);
+    FovelleFullScreenImageProvider imageProvider = objc_getAssociatedObject(
+        window, &FullScreenImageProviderAssociationKey);
+    FovelleFullScreenBackgroundProvider backgroundProvider =
+        objc_getAssociatedObject(
+            window, &FullScreenBackgroundProviderAssociationKey);
+    if (!enabled.boolValue || !normalFrame || !normalImageRect || !handler
+        || !rectProvider || !imageProvider || !backgroundProvider)
+        return nil;
+
+    const QRect imageRect = rectProvider();
+    const QImage snapshot = imageProvider();
+    if (imageRect.isEmpty() || snapshot.isNull() || !window.screen)
+        return nil;
+
+    CGImageRef snapshotImage = createFullScreenSnapshotCGImage(snapshot);
+    if (!snapshotImage)
+        return nil;
+
+    NSWindow *oldProxy = objc_getAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey);
+    [oldProxy orderOut:nil];
+
+    auto *proxy = [[NSWindow alloc]
+        initWithContentRect:window.screen.frame
+        styleMask:NSWindowStyleMaskBorderless
+        backing:NSBackingStoreBuffered
+        defer:NO
+        screen:window.screen];
+    proxy.releasedWhenClosed = NO;
+    proxy.opaque = NO;
+    proxy.backgroundColor = NSColor.clearColor;
+    proxy.hasShadow = NO;
+    proxy.ignoresMouseEvents = YES;
+    proxy.level = window.level + 1;
+    proxy.collectionBehavior = NSWindowCollectionBehaviorFullScreenAuxiliary;
+    proxy.contentView.wantsLayer = YES;
+    proxy.contentView.layer.backgroundColor = NSColor.clearColor.CGColor;
+
+    CALayer *windowLayer = [CALayer layer];
+    const QColor background = backgroundProvider().toRgb();
+    CGColorRef backgroundColor = CGColorCreateGenericRGB(
+        background.redF(), background.greenF(), background.blueF(), 1.0);
+    windowLayer.backgroundColor = backgroundColor;
+    CGColorRelease(backgroundColor);
+    windowLayer.frame = proxyLocalRect(window.frame, proxy);
+    windowLayer.masksToBounds = YES;
+
+    CALayer *imageLayer = [CALayer layer];
+    imageLayer.contents = reinterpret_cast<id>(snapshotImage);
+    imageLayer.contentsGravity = kCAGravityResize;
+    imageLayer.minificationFilter = kCAFilterLinear;
+    imageLayer.magnificationFilter = kCAFilterLinear;
+    imageLayer.contentsScale = qMax(snapshot.devicePixelRatio(), 1.0);
+    imageLayer.frame = nativeWindowRectForLocalQtRect(
+        window.frame, imageRect);
+    CGImageRelease(snapshotImage);
+
+    [proxy.contentView.layer addSublayer:windowLayer];
+    [windowLayer addSublayer:imageLayer];
+    objc_setAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey,
+        proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenProxyWindowLayerAssociationKey,
+        windowLayer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenProxyImageLayerAssociationKey,
+        imageLayer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [proxy release];
+
+    return @[window, proxy];
+}
+
+static void fovelleStartCustomAnimationToExitFullScreen(
+    __unused id delegate, __unused SEL selector, NSWindow *window,
+    const NSTimeInterval duration)
+{
+    NSValue *storedFrame = objc_getAssociatedObject(
+        window, &FullScreenNormalFrameAssociationKey);
+    NSNumber *storedTitlebarOverlap = objc_getAssociatedObject(
+        window, &FullScreenNormalTitlebarOverlapAssociationKey);
+    NSValue *storedImageRect = objc_getAssociatedObject(
+        window, &FullScreenNormalImageRectAssociationKey);
+    NSWindow *proxy = objc_getAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey);
+    CALayer *windowLayer = objc_getAssociatedObject(
+        window, &FullScreenProxyWindowLayerAssociationKey);
+    CALayer *imageLayer = objc_getAssociatedObject(
+        window, &FullScreenProxyImageLayerAssociationKey);
+    FovelleFullScreenImageRectProvider rectProvider = objc_getAssociatedObject(
+        window, &FullScreenImageRectProviderAssociationKey);
+    FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
+        window, &FullScreenAnimationHandlerAssociationKey);
+    if (!storedFrame || !storedImageRect || !proxy || !windowLayer
+        || !imageLayer || !rectProvider || !handler)
+    {
+        cleanupFovelleFullScreenProxy(window);
+        return;
+    }
+
+    const NSRect normalFrame = storedFrame.rectValue;
+    const int normalTitlebarOverlap = storedTitlebarOverlap.intValue;
+    const QRect currentImageRect = rectProvider();
+    const QRect normalImageRect(
+        qRound(storedImageRect.rectValue.origin.x),
+        qRound(storedImageRect.rectValue.origin.y),
+        qRound(storedImageRect.rectValue.size.width),
+        qRound(storedImageRect.rectValue.size.height));
+    if (currentImageRect.isEmpty() || normalImageRect.isEmpty())
+    {
+        cleanupFovelleFullScreenProxy(window);
+        return;
+    }
+
+    objc_setAssociatedObject(
+        window, &FullScreenOriginalAlphaAssociationKey,
+        @(window.alphaValue), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [proxy orderWindow:NSWindowAbove relativeTo:window.windowNumber];
+    window.alphaValue = 0.0;
+    handler(FovelleFullScreenAnimationPhase::Begin, normalTitlebarOverlap);
+    auto *animation = [[FovelleFullScreenExitAnimation alloc]
+        initWithRealWindow:window
+        proxyWindow:proxy
+        windowLayer:windowLayer
+        imageLayer:imageLayer
+        startWindowFrame:proxyLocalRect(window.frame, proxy)
+        endWindowFrame:proxyLocalRect(normalFrame, proxy)
+        startImageFrame:nativeWindowRectForLocalQtRect(
+            window.frame, currentImageRect)
+        endImageFrame:nativeWindowRectForLocalQtRect(
+            normalFrame, normalImageRect)
+        normalTitlebarOverlap:normalTitlebarOverlap
+        duration:duration
+        handler:handler];
+    if (!animation)
+    {
+        handler(FovelleFullScreenAnimationPhase::Cancel, 0);
+        cleanupFovelleFullScreenProxy(window);
+        return;
+    }
+    objc_setAssociatedObject(
+        window, &FullScreenAnimationAssociationKey,
+        animation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [animation startAnimation];
+    [animation release];
+}
+
+static void fovelleDidFailToExitFullScreen(
+    __unused id delegate, __unused SEL selector, NSWindow *window)
+{
+    auto *animation = static_cast<FovelleFullScreenExitAnimation *>(
+        objc_getAssociatedObject(window, &FullScreenAnimationAssociationKey));
+    [animation stopAnimation];
+    objc_setAssociatedObject(
+        window, &FullScreenAnimationAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
+        window, &FullScreenAnimationHandlerAssociationKey);
+    if (handler)
+        handler(FovelleFullScreenAnimationPhase::Cancel, 0);
+    cleanupFovelleFullScreenProxy(window);
+}
+
+static bool installFovelleFullScreenAnimationMethods(NSWindow *window)
+{
+    if (!window.delegate)
+        return false;
+
+    Class delegateClass = object_getClass(window.delegate);
+    const auto installMethod = [delegateClass](
+        SEL selector, IMP implementation, const char *types) {
+        Method method = class_getInstanceMethod(delegateClass, selector);
+        if (!method)
+        {
+            if (!class_addMethod(delegateClass, selector, implementation, types))
+                return false;
+            method = class_getInstanceMethod(delegateClass, selector);
+        }
+        return method && method_getImplementation(method) == implementation;
+    };
+
+    return installMethod(
+               @selector(customWindowsToExitFullScreenForWindow:),
+               reinterpret_cast<IMP>(fovelleCustomWindowsToExitFullScreen),
+               "@@:@")
+        && installMethod(
+               @selector(window:startCustomAnimationToExitFullScreenWithDuration:),
+               reinterpret_cast<IMP>(fovelleStartCustomAnimationToExitFullScreen),
+               "v@:@d")
+        && installMethod(
+               @selector(windowDidFailToExitFullScreen:),
+               reinterpret_cast<IMP>(fovelleDidFailToExitFullScreen),
+               "v@:@");
+}
 
 // Qt's Cocoa platform plugin looks these strings up in this exact context
 // when it refreshes the native Fovelle application menu. Keeping the markers
@@ -4239,6 +4692,32 @@ void QVCocoaFunctions::setUserDefaults()
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
             NSWindow *window = notification.object;
+            NSNumber *customAnimation = objc_getAssociatedObject(
+                window, &FullScreenCustomAnimationAssociationKey);
+            if (customAnimation.boolValue)
+            {
+                objc_setAssociatedObject(
+                    window, &FullScreenNormalFrameAssociationKey,
+                    [NSValue valueWithRect:window.frame],
+                    OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                const int titlebarOverlap = window.titlebarAppearsTransparent
+                    ? 0
+                    : qMax(qRound(window.contentView.frame.size.height
+                                  - window.contentLayoutRect.size.height), 0);
+                objc_setAssociatedObject(
+                    window, &FullScreenNormalTitlebarOverlapAssociationKey,
+                    @(titlebarOverlap), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                FovelleFullScreenImageRectProvider rectProvider =
+                    objc_getAssociatedObject(
+                        window, &FullScreenImageRectProviderAssociationKey);
+                const QRect imageRect = rectProvider ? rectProvider() : QRect();
+                objc_setAssociatedObject(
+                    window, &FullScreenNormalImageRectAssociationKey,
+                    imageRect.isEmpty() ? nil : [NSValue valueWithRect:NSMakeRect(
+                        imageRect.x(), imageRect.y(),
+                        imageRect.width(), imageRect.height())],
+                    OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
             objc_setAssociatedObject(
                 window, &FullScreenTransitionCompleteAssociationKey,
                 @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -4284,6 +4763,18 @@ void QVCocoaFunctions::setUserDefaults()
             objc_setAssociatedObject(
                 window, &FullScreenExitPendingAssociationKey,
                 @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            auto *animation = static_cast<FovelleFullScreenExitAnimation *>(
+                objc_getAssociatedObject(
+                    window, &FullScreenAnimationAssociationKey));
+            if (animation.animating)
+                animation.currentProgress = 1.0f;
+            [animation stopAnimation];
+            objc_setAssociatedObject(
+                window, &FullScreenAnimationAssociationKey,
+                nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                cleanupFovelleFullScreenProxy(window);
+            });
         }];
     });
 }
@@ -4343,9 +4834,126 @@ bool QVCocoaFunctions::requestFullScreenExit(QWindow *window)
 void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable)
 {
     auto *view = reinterpret_cast<NSView*>(window->winId());
+    NSWindow *nativeWindow = view.window;
+    const bool customAnimationEnabled = enable && view.wantsLayer
+        && installFovelleFullScreenAnimationMethods(nativeWindow);
+    objc_setAssociatedObject(
+        nativeWindow, &FullScreenCustomAnimationAssociationKey,
+        customAnimationEnabled ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    if (customAnimationEnabled)
+    {
+        const QPointer<QWidget> guardedWindow(window);
+        FovelleFullScreenAnimationHandler handler = ^(
+            const FovelleFullScreenAnimationPhase phase,
+            const int titlebarOverlap) {
+            if (!guardedWindow)
+                return;
+            if (phase == FovelleFullScreenAnimationPhase::Cancel)
+            {
+                QMetaObject::invokeMethod(
+                    guardedWindow.data(),
+                    "cancelFullScreenExitLayoutTransition",
+                    Qt::DirectConnection);
+                return;
+            }
+            if (phase == FovelleFullScreenAnimationPhase::Update)
+            {
+                QMetaObject::invokeMethod(
+                    guardedWindow.data(),
+                    "updateFullScreenExitLayoutTransition",
+                    Qt::DirectConnection,
+                    Q_ARG(int, titlebarOverlap));
+                return;
+            }
+            QMetaObject::invokeMethod(
+                guardedWindow.data(),
+                "beginFullScreenExitLayoutTransition",
+                Qt::DirectConnection,
+                Q_ARG(int, titlebarOverlap));
+        };
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenAnimationHandlerAssociationKey,
+            handler, OBJC_ASSOCIATION_COPY_NONATOMIC);
+
+        FovelleFullScreenImageRectProvider rectProvider = ^QRect {
+            if (!guardedWindow)
+                return {};
+            QRect result;
+            QMetaObject::invokeMethod(
+                guardedWindow.data(),
+                "fullScreenTransitionImageRect",
+                Qt::DirectConnection,
+                Q_RETURN_ARG(QRect, result));
+            return result;
+        };
+        FovelleFullScreenImageProvider imageProvider = ^QImage {
+            if (!guardedWindow)
+                return {};
+            QImage result;
+            QMetaObject::invokeMethod(
+                guardedWindow.data(),
+                "fullScreenTransitionImage",
+                Qt::DirectConnection,
+                Q_RETURN_ARG(QImage, result));
+            return result;
+        };
+        FovelleFullScreenBackgroundProvider backgroundProvider = ^QColor {
+            if (!guardedWindow)
+                return {};
+            QColor result;
+            QMetaObject::invokeMethod(
+                guardedWindow.data(),
+                "fullScreenTransitionBackgroundColor",
+                Qt::DirectConnection,
+                Q_RETURN_ARG(QColor, result));
+            return result;
+        };
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenImageRectProviderAssociationKey,
+            rectProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenImageProviderAssociationKey,
+            imageProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenBackgroundProviderAssociationKey,
+            backgroundProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    }
+    else
+    {
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenAnimationHandlerAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenNormalFrameAssociationKey,
+            nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenNormalTitlebarOverlapAssociationKey,
+            nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenNormalImageRectAssociationKey,
+            nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenImageRectProviderAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenImageProviderAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenBackgroundProviderAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        auto *animation = static_cast<FovelleFullScreenExitAnimation *>(
+            objc_getAssociatedObject(
+                nativeWindow, &FullScreenAnimationAssociationKey));
+        [animation stopAnimation];
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenAnimationAssociationKey,
+            nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        cleanupFovelleFullScreenProxy(nativeWindow);
+    }
 
     // Make sure the requested state isn't already in effect
-    if (enable == (view.window.styleMask & NSWindowStyleMaskFullSizeContentView))
+    if (enable == (nativeWindow.styleMask & NSWindowStyleMaskFullSizeContentView))
         return;
 
     // Enable only if this Qt and macOS version combination is already using layer-backed view
@@ -4353,19 +4961,19 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
         return;
 
     // Changing the style mask causes the window to resize, so snapshot the original size
-    NSRect originalFrame = view.window.frame;
+    NSRect originalFrame = nativeWindow.frame;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     Qv::alterWindowFlags(window, [&](Qt::WindowFlags f) { return f.setFlag(Qt::ExpandedClientAreaHint, enable); });
 #else
     if (enable)
-        view.window.styleMask |= NSWindowStyleMaskFullSizeContentView;
+        nativeWindow.styleMask |= NSWindowStyleMaskFullSizeContentView;
     else
-        view.window.styleMask &= ~NSWindowStyleMaskFullSizeContentView;
+        nativeWindow.styleMask &= ~NSWindowStyleMaskFullSizeContentView;
 #endif
 
     // Restore original size after style mask change
-    [view.window setFrame:originalFrame display:YES];
+    [nativeWindow setFrame:originalFrame display:YES];
 }
 
 bool QVCocoaFunctions::getTitlebarHidden(const QWidget *window)
