@@ -1242,7 +1242,7 @@ void QVGraphicsView::postLoad()
                                           finalDiagnostics.compositorGeometryUpdateCount
                                           - probeStartDiagnostics
                                                     .compositorGeometryUpdateCount) },
-                                { QStringLiteral("metal_presents"),
+                                { QStringLiteral("presentation_updates"),
                                   static_cast<qint64>(
                                           finalDiagnostics.presentedFrameCount
                                           - probeStartDiagnostics

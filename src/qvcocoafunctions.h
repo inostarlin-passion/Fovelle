@@ -10,6 +10,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QPolygonF>
+#include <QRect>
 #include <QRectF>
 #include <QSize>
 #include <QStringList>
@@ -133,6 +134,8 @@ public:
         bool persistentHDRSurfaceReady{ false };
         bool usesMaterializedSDRTiles{ false };
         bool usesSDRFullSingleImage{ false };
+        bool usesPersistentSDRTileSurface{ false };
+        bool displayCanPresent180FPS{ false };
         bool presentationActiveRequested{ true };
         bool presentationAnimationInFlight{ false };
         float contentHeadroom{ 1.0F };
@@ -141,6 +144,10 @@ public:
         float displayRenderingHeadroom{ 1.0F };
         float targetHeadroom{ 1.0F };
         float layerContentsHeadroom{ 0.0F };
+        float requestedFrameRateMinimum{ 0.0F };
+        float requestedFrameRateMaximum{ 0.0F };
+        float requestedFrameRatePreferred{ 0.0F };
+        int displayMaximumFramesPerSecond{ 0 };
         int backgroundRed{ 0 };
         int backgroundGreen{ 0 };
         int backgroundBlue{ 0 };
@@ -167,6 +174,7 @@ public:
         quint64 navigationOverlayUpdateCount{ 0 };
         quint64 displayLinkInteractiveSubmissionCount{ 0 };
         quint64 compositorGeometryUpdateCount{ 0 };
+        quint64 compositorInteractiveSubmissionCount{ 0 };
         quint64 presentationTransitionCount{ 0 };
         quint64 persistentHDRSurfaceBytes{ 0 };
         quint64 sdrAuthoritativePresentedFrameCount{ 0 };
@@ -184,6 +192,16 @@ public:
         double persistentHDRSurfacePreparationMilliseconds{ 0.0 };
         double lastPresentedIntervalMilliseconds{ 0.0 };
         double lastRequestToPresentationMilliseconds{ 0.0 };
+        double maximumInteractiveRenderMilliseconds{ 0.0 };
+        double maximumInteractiveGPUExecutionMilliseconds{ 0.0 };
+    };
+
+    struct SDRFrameRatePolicy
+    {
+        qreal minimum{ 0.0 };
+        qreal maximum{ 0.0 };
+        qreal preferred{ 0.0 };
+        bool displayCanPresent180FPS{ false };
     };
 
     struct HDRPixelStatistics
@@ -318,6 +336,19 @@ public:
 
     // Reads only Image I/O properties; it never materializes the image pixels.
     static QSize imagePixelSize(const QString &filePath);
+
+    // CGImage cropping addresses rows from the first (top) row of image data,
+    // while Core Image and standalone Core Animation tile placement use a
+    // bottom-left working space. Convert only placement; cropping stays
+    // top-first.
+    static QRect coreImageTileRect(const QRect &topLeftPixelRect,
+                                   int sourceHeight);
+
+    // A display below 180 Hz is a physical presentation limit, not a renderer
+    // tuning problem. Cap it at its actual maximum; capable displays request a
+    // sustainable 180...240 Hz interactive range.
+    static SDRFrameRatePolicy sdrFrameRatePolicy(
+        qreal displayMaximumFramesPerSecond);
 
     // Image I/O identifies the file from its contents. The caller must not use
     // a filename extension to decide whether this is a RAW image. Native SDR

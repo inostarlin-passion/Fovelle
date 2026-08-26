@@ -1241,8 +1241,11 @@ public:
     struct Tile
     {
         CIImage *image{ nil };
+        CGImageRef layerImage{ nullptr };
         CGRect dataRect{ CGRectZero };
         CGRect coreRect{ CGRectZero };
+        CGRect layerFrame{ CGRectZero };
+        CGRect layerContentsRect{ CGRectZero };
     };
 
     NativeSDRImage(CGImageRef image, const bool alpha)
@@ -1258,14 +1261,29 @@ public:
         imageMetadata.contentHeadroom = 1.0F;
         imageMetadata.bitsPerComponent = image
                 ? static_cast<int>(CGImageGetBitsPerComponent(image)) : 0;
+        materializedByteCount = image
+                ? static_cast<quint64>(CGImageGetBytesPerRow(image))
+                        * static_cast<quint64>(CGImageGetHeight(image))
+                : 0;
         buildFullSingleImage();
         buildTiles();
+        // `fullSingleImage` and every tile retain exactly the providers they
+        // need. Drop this extra whole-image ownership before interaction; the
+        // loader still owns its decode long enough to build the bounded Qt
+        // cold-open proxy immediately after this constructor returns.
+        if (materializedImage) {
+            CGImageRelease(materializedImage);
+            materializedImage = nullptr;
+        }
     }
 
     ~NativeSDRImage() override
     {
-        for (const Tile &tile : std::as_const(tiles))
+        for (const Tile &tile : std::as_const(tiles)) {
             [tile.image release];
+            if (tile.layerImage)
+                CGImageRelease(tile.layerImage);
+        }
         [fullSingleImage release];
         if (materializedImage)
             CGImageRelease(materializedImage);
@@ -1282,10 +1300,7 @@ public:
     const QVector<Tile> &sourceTiles() const { return tiles; }
     CIImage *fullSingleCIImage() const { return fullSingleImage; }
     quint64 materializedBytes() const
-        { return materializedImage
-                ? static_cast<quint64>(CGImageGetBytesPerRow(materializedImage))
-                        * static_cast<quint64>(CGImageGetHeight(materializedImage))
-                : 0; }
+        { return materializedByteCount; }
 
 private:
     void buildFullSingleImage()
@@ -1331,22 +1346,55 @@ private:
                                    data.width(), data.height()));
                 CIImage *tileImage = tileCGImage
                         ? [CIImage imageWithCGImage:tileCGImage] : nil;
+                CGImageRef layerImage = tileCGImage
+                        ? CGImageRetain(tileCGImage) : nullptr;
                 if (tileCGImage)
                     CGImageRelease(tileCGImage);
-                if (!tileImage)
+                if (!tileImage) {
+                    if (layerImage)
+                        CGImageRelease(layerImage);
                     continue;
+                }
                 Tile tile;
                 tile.image = [tileImage retain];
+                tile.layerImage = layerImage;
+                const QRect coreImageData = QVCocoaFunctions::coreImageTileRect(
+                        data, height);
+                const QRect coreImageCore = QVCocoaFunctions::coreImageTileRect(
+                        core, height);
                 tile.dataRect = CGRectMake(
-                        data.x(), data.y(), data.width(), data.height());
+                        coreImageData.x(), coreImageData.y(),
+                        coreImageData.width(), coreImageData.height());
                 tile.coreRect = CGRectMake(
-                        core.x(), core.y(), core.width(), core.height());
+                        coreImageCore.x(), coreImageCore.y(),
+                        coreImageCore.width(), coreImageCore.height());
+                // Core Animation's macOS unit-coordinate Y axis starts at the
+                // bottom. Keep the two-pixel sampling apron in `contents`, but
+                // expose only the authoritative nonoverlapping core. The apron
+                // remains available to the layer sampler at fractional zooms.
+                const CGFloat dataWidth = data.width();
+                const CGFloat dataHeight = data.height();
+                const CGFloat coreOffsetX = core.x() - data.x();
+                const CGFloat coreOffsetFromTop = core.y() - data.y();
+                // Sublayer frames are interpreted in Core Animation's macOS
+                // bottom-left point space. Convert the source's first-row
+                // coordinate exactly once, independently of contentsRect.
+                tile.layerFrame = CGRectMake(
+                        coreImageCore.x(), coreImageCore.y(),
+                        coreImageCore.width(), coreImageCore.height());
+                tile.layerContentsRect = CGRectMake(
+                        coreOffsetX / dataWidth,
+                        (dataHeight - coreOffsetFromTop - core.height())
+                                / dataHeight,
+                        core.width() / dataWidth,
+                        core.height() / dataHeight);
                 tiles.append(tile);
             }
         }
     }
 
     CGImageRef materializedImage{ nullptr };
+    quint64 materializedByteCount{ 0 };
     CIImage *fullSingleImage{ nil };
     QVector<Tile> tiles;
     QSize sourceSize;
@@ -1453,9 +1501,19 @@ struct HDRFrameFlowState
     std::atomic<double> lastGPUExecutionMilliseconds{ 0.0 };
     std::atomic<double> lastPresentedIntervalMilliseconds{ 0.0 };
     std::atomic<double> lastRequestToPresentationMilliseconds{ 0.0 };
+    std::atomic<double> maximumInteractiveRenderMilliseconds{ 0.0 };
+    std::atomic<double> maximumInteractiveGPUExecutionMilliseconds{ 0.0 };
     std::atomic<bool> firstVisibleFrameUsesFinalHeadroom{ false };
     std::atomic<quint64> sdrAuthoritativePresentedFrameCount{ 0 };
 };
+
+void updateAtomicMaximum(std::atomic<double> &destination, const double value)
+{
+    double previous = destination.load();
+    while (value > previous
+           && !destination.compare_exchange_weak(previous, value)) {
+    }
+}
 
 // A background full-resolution render can outlive the C++ renderer turn that
 // scheduled it.  Main-queue installation therefore resolves the owner through
@@ -1533,6 +1591,16 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 kCALayerWidthSizable | kCALayerHeightSizable;
         viewportBackgroundLayer.hidden = YES;
 
+        // SDR pixels are decoded once into bounded CGImage tiles, then owned
+        // by a persistent Core Animation subtree. Pan and zoom subsequently
+        // mutate one affine transform instead of re-importing every visible
+        // tile into a new Core Image command buffer on every display tick.
+        persistentSDRTileLayer = [[CALayer layer] retain];
+        persistentSDRTileLayer.geometryFlipped = YES;
+        persistentSDRTileLayer.masksToBounds = NO;
+        persistentSDRTileLayer.hidden = YES;
+        persistentSDRTileLayer.opacity = 0.0F;
+
         // The high-frequency path is a materialized half-float CGImage in a
         // regular Core Animation layer.  Once ready, pan/zoom changes only
         // this layer's affine geometry; they don't consume a new drawable.
@@ -1607,6 +1675,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         metalLayer.opacity = 0.0F;
         [nativeView.layer addSublayer:presentationContainerLayer];
         [presentationContainerLayer addSublayer:viewportBackgroundLayer];
+        [presentationContainerLayer addSublayer:persistentSDRTileLayer];
         [presentationContainerLayer addSublayer:persistentImageLayer];
         [presentationContainerLayer addSublayer:metalLayer];
         // Keep controls fixed in viewport coordinates while the persistent
@@ -1626,8 +1695,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             displayLink = [[CAMetalDisplayLink alloc] initWithMetalLayer:metalLayer];
             displayLink.delegate = displayLinkDelegate;
             displayLink.preferredFrameLatency = 1.0F;
-            displayLink.preferredFrameRateRange =
-                    CAFrameRateRangeMake(80.0, 120.0, 120.0);
+            configureDisplayLinkFrameRate(displayLink);
             displayLink.paused = YES;
             [displayLink addToRunLoop:NSRunLoop.mainRunLoop
                               forMode:NSRunLoopCommonModes];
@@ -1669,9 +1737,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [presentationState setMetalDisplayLink:nil];
         [presentationState invalidate];
         clearPreparedImages();
+        clearPersistentSDRTileSurface();
         persistentImageLayer.contents = nil;
         if (persistentImage)
             CGImageRelease(persistentImage);
+        if (persistentCheckerboardImage)
+            CGImageRelease(persistentCheckerboardImage);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         [navigationOverlayLayer removeFromSuperlayer];
@@ -1684,6 +1755,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [presentationContainerLayer release];
         [metalLayer release];
         [persistentImageLayer release];
+        [persistentSDRTileLayer release];
         [viewportBackgroundLayer release];
         [context release];
         [persistentContext release];
@@ -1731,8 +1803,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (checkerboardBackground == enabled)
             return;
         checkerboardBackground = enabled;
-        if (image && !imageIsHDR)
+        if (image && !imageIsHDR) {
+            updatePersistentSDRBackground(latestViewportSize);
             renderPending = true;
+        }
     }
 
     CGRect viewportFrameInNativeView() const
@@ -2012,6 +2086,205 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         ++state.navigationOverlayUpdateCount;
     }
 
+    void clearPersistentSDRTileSurface()
+    {
+        persistentSDRTileSurfaceReady = false;
+        if (!persistentSDRTileLayer)
+            return;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        persistentSDRTileLayer.hidden = YES;
+        persistentSDRTileLayer.opacity = 0.0F;
+        NSArray<CALayer *> *oldTileLayers = [persistentSDRTileLayer.sublayers copy];
+        for (CALayer *tileLayer in oldTileLayers) {
+            tileLayer.contents = nil;
+            [tileLayer removeFromSuperlayer];
+        }
+        [oldTileLayers release];
+        [CATransaction commit];
+    }
+
+    void updatePersistentSDRBackground(const QSize &viewportSize)
+    {
+        if (!viewportBackgroundLayer)
+            return;
+        if (!checkerboardBackground || viewportSize.isEmpty()) {
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            viewportBackgroundLayer.contents = nil;
+            [CATransaction commit];
+            if (persistentCheckerboardImage) {
+                CGImageRelease(persistentCheckerboardImage);
+                persistentCheckerboardImage = nullptr;
+            }
+            persistentCheckerboardPixelSize = {};
+            return;
+        }
+
+        NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
+        const CGFloat scale = nativeView.window
+                ? nativeView.window.backingScaleFactor
+                : (screen ? screen.backingScaleFactor : 1.0);
+        const QSize pixelSize(
+                std::max(1, qRound(viewportSize.width() * scale)),
+                std::max(1, qRound(viewportSize.height() * scale)));
+        if (!persistentCheckerboardImage
+            || persistentCheckerboardPixelSize != pixelSize) {
+            const size_t width = static_cast<size_t>(pixelSize.width());
+            const size_t height = static_cast<size_t>(pixelSize.height());
+            CGContextRef bitmap = CGBitmapContextCreate(
+                    nullptr, width, height, 8, width * 4,
+                    backgroundColorSpace,
+                    static_cast<CGBitmapInfo>(
+                            kCGImageAlphaNoneSkipLast | kCGBitmapByteOrder32Big));
+            if (!bitmap)
+                return;
+            CGContextSetRGBFillColor(bitmap, 1.0, 1.0, 1.0, 1.0);
+            CGContextFillRect(bitmap, CGRectMake(0.0, 0.0, width, height));
+            CGContextSetRGBFillColor(bitmap, 0.8, 0.8, 0.8, 1.0);
+            const int tile = std::max(1, qRound(16.0 * scale));
+            for (int y = 0; y < pixelSize.height(); y += tile) {
+                for (int x = 0; x < pixelSize.width(); x += tile) {
+                    if (((x / tile) + (y / tile)) % 2 == 0)
+                        continue;
+                    CGContextFillRect(bitmap, CGRectMake(
+                            x, y,
+                            std::min(tile, pixelSize.width() - x),
+                            std::min(tile, pixelSize.height() - y)));
+                }
+            }
+            CGImageRef checkerboard = CGBitmapContextCreateImage(bitmap);
+            CGContextRelease(bitmap);
+            if (!checkerboard)
+                return;
+            if (persistentCheckerboardImage)
+                CGImageRelease(persistentCheckerboardImage);
+            persistentCheckerboardImage = checkerboard;
+            persistentCheckerboardPixelSize = pixelSize;
+        }
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        viewportBackgroundLayer.contents =
+                reinterpret_cast<id>(persistentCheckerboardImage);
+        viewportBackgroundLayer.contentsScale = scale;
+        viewportBackgroundLayer.contentsGravity = kCAGravityResize;
+        [CATransaction commit];
+    }
+
+    bool installPersistentSDRTileSurface(const NativeSDRImage &nativeImage)
+    {
+        clearPersistentSDRTileSurface();
+        if (!persistentSDRTileLayer || nativeImage.pixelSize().isEmpty()
+            || nativeImage.sourceTiles().isEmpty())
+            return false;
+
+        const QSize sourceSize = nativeImage.pixelSize();
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        persistentSDRTileLayer.bounds = CGRectMake(
+                0.0, 0.0, sourceSize.width(), sourceSize.height());
+        persistentSDRTileLayer.anchorPoint = CGPointZero;
+        persistentSDRTileLayer.position = CGPointZero;
+        persistentSDRTileLayer.affineTransform = CGAffineTransformIdentity;
+        for (const NativeSDRImage::Tile &tile : nativeImage.sourceTiles()) {
+            if (!tile.layerImage || CGRectIsEmpty(tile.layerFrame)
+                || CGRectIsEmpty(tile.layerContentsRect))
+                continue;
+            CALayer *tileLayer = [CALayer layer];
+            tileLayer.frame = tile.layerFrame;
+            tileLayer.contents = reinterpret_cast<id>(tile.layerImage);
+            tileLayer.contentsRect = tile.layerContentsRect;
+            tileLayer.contentsGravity = kCAGravityResize;
+            tileLayer.contentsScale = 1.0;
+            tileLayer.opaque = !nativeImage.hasAlpha();
+            tileLayer.minificationFilter = kCAFilterTrilinear;
+            tileLayer.magnificationFilter = kCAFilterLinear;
+            tileLayer.allowsEdgeAntialiasing = NO;
+            tileLayer.drawsAsynchronously = YES;
+            [persistentSDRTileLayer addSublayer:tileLayer];
+        }
+        [CATransaction commit];
+
+        persistentSDRTileSurfaceReady =
+                persistentSDRTileLayer.sublayers.count
+                == static_cast<NSUInteger>(nativeImage.sourceTiles().size());
+        if (!persistentSDRTileSurfaceReady)
+            clearPersistentSDRTileSurface();
+        return persistentSDRTileSurfaceReady;
+    }
+
+    void updatePersistentSDRTileGeometry(const NativeSDRImage &nativeImage,
+                                         const QSize &viewportSize,
+                                         const QPolygonF &corners)
+    {
+        if (!persistentSDRTileSurfaceReady || viewportSize.isEmpty()
+            || corners.size() < 4)
+            return;
+
+        updatePersistentSDRBackground(viewportSize);
+        const QSize sourceSize = nativeImage.pixelSize();
+        const QTransform qtTransform = QVCocoaFunctions::persistentHDRLayerTransform(
+                sourceSize, corners);
+        const CGAffineTransform transform = CGAffineTransformMake(
+                qtTransform.m11(), qtTransform.m12(),
+                qtTransform.m21(), qtTransform.m22(),
+                qtTransform.dx(), qtTransform.dy());
+        const CGRect viewportBounds = CGRectMake(
+                0.0, 0.0, viewportSize.width(), viewportSize.height());
+        int visibleTileCount = 0;
+        for (const NativeSDRImage::Tile &tile : nativeImage.sourceTiles()) {
+            const CGRect output = CGRectIntersection(
+                    CGRectApplyAffineTransform(tile.layerFrame, transform),
+                    viewportBounds);
+            if (!CGRectIsNull(output) && !CGRectIsEmpty(output))
+                ++visibleTileCount;
+        }
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        viewportBackgroundLayer.frame = presentationContainerLayer.bounds;
+        persistentSDRTileLayer.bounds = CGRectMake(
+                0.0, 0.0, sourceSize.width(), sourceSize.height());
+        persistentSDRTileLayer.anchorPoint = CGPointZero;
+        persistentSDRTileLayer.position = CGPointZero;
+        persistentSDRTileLayer.affineTransform = transform;
+        [CATransaction commit];
+        state.sdrVisibleTileCount = visibleTileCount;
+        ++state.compositorGeometryUpdateCount;
+    }
+
+    void revealPersistentSDRTileSurface()
+    {
+        if (!persistentSDRTileSurfaceReady)
+            return;
+        const bool firstReveal = !presentationState->firstFramePresented;
+
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        persistentSDRTileLayer.hidden = NO;
+        persistentSDRTileLayer.opacity = 1.0F;
+        persistentImageLayer.hidden = YES;
+        persistentImageLayer.opacity = 0.0F;
+        viewportBackgroundLayer.hidden = NO;
+        metalLayer.opacity = 0.0F;
+        metalLayer.hidden = YES;
+        [CATransaction commit];
+        if (firstReveal) {
+            presentationState->firstFrameSubmitted = YES;
+            presentationState->firstFramePresented = YES;
+            presentationState->hdrPrepared = YES;
+            if (frameFlow)
+                frameFlow->firstVisibleFrameUsesFinalHeadroom.store(true);
+        }
+        state.drawableGeometryMatches = true;
+        if (firstReveal)
+            applyPresentationTarget(false);
+        if (displayLink)
+            displayLink.paused = YES;
+    }
+
     void discardPersistentSurface(const bool keepVisible)
     {
         persistentSurfacePreparationInFlight = false;
@@ -2192,6 +2465,44 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         });
     }
 
+    int maximumFramesPerSecondForCurrentDisplay() const
+    {
+        NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
+        if (!screen)
+            return 60;
+        return std::max<NSInteger>(1, screen.maximumFramesPerSecond);
+    }
+
+    void configureDisplayLinkFrameRate(CAMetalDisplayLink *link)
+    {
+        if (!link)
+            return;
+
+        const int displayMaximum = maximumFramesPerSecondForCurrentDisplay();
+        state.displayMaximumFramesPerSecond = displayMaximum;
+        if (imageIsHDR) {
+            const float maximum = std::min<float>(120.0F, displayMaximum);
+            const float minimum = std::min<float>(80.0F, maximum);
+            link.preferredFrameRateRange =
+                    CAFrameRateRangeMake(minimum, maximum, maximum);
+            state.requestedFrameRateMinimum = minimum;
+            state.requestedFrameRateMaximum = maximum;
+            state.requestedFrameRatePreferred = maximum;
+            state.displayCanPresent180FPS = false;
+            return;
+        }
+
+        const auto policy = QVCocoaFunctions::sdrFrameRatePolicy(displayMaximum);
+        link.preferredFrameRateRange = CAFrameRateRangeMake(
+                static_cast<float>(policy.minimum),
+                static_cast<float>(policy.maximum),
+                static_cast<float>(policy.preferred));
+        state.requestedFrameRateMinimum = static_cast<float>(policy.minimum);
+        state.requestedFrameRateMaximum = static_cast<float>(policy.maximum);
+        state.requestedFrameRatePreferred = static_cast<float>(policy.preferred);
+        state.displayCanPresent180FPS = policy.displayCanPresent180FPS;
+    }
+
     void rebuildDisplayLinkForDrawableResize()
     {
         if (!displayLink || !displayLinkDelegate)
@@ -2209,10 +2520,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
             replacement.delegate = displayLinkDelegate;
             replacement.preferredFrameLatency = 1.0F;
-            replacement.preferredFrameRateRange =
-                    imageIsHDR
-                    ? CAFrameRateRangeMake(80.0, 120.0, 120.0)
-                    : CAFrameRateRangeMake(120.0, 120.0, 120.0);
+            configureDisplayLinkFrameRate(replacement);
             replacement.paused = YES;
             [replacement addToRunLoop:NSRunLoop.mainRunLoop
                               forMode:NSRunLoopCommonModes];
@@ -2264,6 +2572,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         interactiveKeepAliveUntil = 0.0;
         frameFlow = std::make_shared<HDRFrameFlowState>();
         clearPreparedImages();
+        clearPersistentSDRTileSurface();
         // The context is intentionally long-lived for one interactive view,
         // but intermediates from the previous source are no longer reusable.
         // Release them only on image replacement, never on zoom or pan.
@@ -2271,15 +2580,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [context clearCaches];
         image = nativeImage;
         imageIsHDR = nativeImage && nativeImage->isHDR();
-        if (displayLink) {
-            // SDR encoding is consistently far below one display interval,
-            // so request the top ProMotion cadence only during its already
-            // bounded interaction bursts. Keep HDR's sustainable range: its
-            // RAW/gain-map graph can be substantially more expensive.
-            displayLink.preferredFrameRateRange = imageIsHDR
-                    ? CAFrameRateRangeMake(80.0, 120.0, 120.0)
-                    : CAFrameRateRangeMake(120.0, 120.0, 120.0);
-        }
+        // SDR requests 180...240 Hz only when the window's display can
+        // physically present it. Lower-refresh displays use their exact maximum
+        // instead of advertising an impossible cadence. HDR keeps its separate
+        // sustainable 80...120 Hz graph budget.
+        configureDisplayLinkFrameRate(displayLink);
         [presentationState resetForImage];
         ++presentationTransitionGeneration;
         presentationAnimationInFlight = false;
@@ -2316,6 +2621,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.framesInFlight = 0;
         state.displayLinkInteractiveSubmissionCount = 0;
         state.compositorGeometryUpdateCount = 0;
+        state.compositorInteractiveSubmissionCount = 0;
         state.firstVisibleFrameUsesFinalHeadroom = false;
         state.presentationActiveRequested = presentationActiveRequested;
         state.presentationAnimationInFlight = false;
@@ -2326,8 +2632,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.lastGPUExecutionMilliseconds = 0.0;
         state.lastPresentedIntervalMilliseconds = 0.0;
         state.lastRequestToPresentationMilliseconds = 0.0;
+        state.maximumInteractiveRenderMilliseconds = 0.0;
+        state.maximumInteractiveGPUExecutionMilliseconds = 0.0;
         state.usesMaterializedSDRTiles = false;
         state.usesSDRFullSingleImage = false;
+        state.usesPersistentSDRTileSurface = false;
         state.sdrAuthoritativePresentedFrameCount = 0;
         state.sdrMaterializedBytes = 0;
         state.sdrTileCount = 0;
@@ -2343,6 +2652,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 state.usesMaterializedSDRTiles = true;
                 state.sdrMaterializedBytes = nativeSDR->materializedBytes();
                 state.sdrTileCount = nativeSDR->sourceTiles().size();
+                state.usesSDRFullSingleImage =
+                        nativeSDR->fullSingleCIImage() != nil;
+                state.usesPersistentSDRTileSurface =
+                        installPersistentSDRTileSurface(*nativeSDR);
             }
         } else {
             state.isRaw = false;
@@ -2361,6 +2674,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 ? 1.0F : 0.0F;
         if (!nativeImage) {
             viewportBackgroundLayer.hidden = YES;
+            persistentSDRTileLayer.hidden = YES;
+            persistentSDRTileLayer.opacity = 0.0F;
             persistentImageLayer.hidden = YES;
             persistentImageLayer.opacity = 0.0F;
         }
@@ -2543,6 +2858,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 ? frameFlow->lastPresentedIntervalMilliseconds.load() : 0.0;
         state.lastGPUExecutionMilliseconds = frameFlow
                 ? frameFlow->lastGPUExecutionMilliseconds.load() : 0.0;
+        state.maximumInteractiveRenderMilliseconds = frameFlow
+                ? frameFlow->maximumInteractiveRenderMilliseconds.load() : 0.0;
+        state.maximumInteractiveGPUExecutionMilliseconds = frameFlow
+                ? frameFlow->maximumInteractiveGPUExecutionMilliseconds.load() : 0.0;
         state.lastRequestToPresentationMilliseconds = frameFlow
                 ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
         state.firstVisibleFrameUsesFinalHeadroom = frameFlow
@@ -2938,9 +3257,58 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
+        if (maximumFramesPerSecondForCurrentDisplay()
+            != state.displayMaximumFramesPerSecond)
+            configureDisplayLinkFrameRate(displayLink);
+
         syncViewportLayerGeometry();
         latestViewportSize = viewportSize;
         latestCorners = corners;
+        if (persistentSDRTileSurfaceReady && !imageIsHDR) {
+            const auto nativeSDR =
+                    std::dynamic_pointer_cast<const NativeSDRImage>(image);
+            if (!nativeSDR)
+                return;
+
+            QElapsedTimer geometryTimer;
+            geometryTimer.start();
+            ++state.renderRequestCount;
+            const quint64 geometryGeneration = ++state.requestedRenderGeneration;
+            updatePersistentSDRTileGeometry(*nativeSDR, viewportSize, corners);
+            revealPersistentSDRTileSurface();
+            const double elapsedMilliseconds =
+                    geometryTimer.nsecsElapsed() / 1000000.0;
+            const double now = CACurrentMediaTime();
+            state.submittedRenderGeneration = geometryGeneration;
+            state.lastRenderMilliseconds = elapsedMilliseconds;
+            state.lastGPUExecutionMilliseconds = 0.0;
+            state.lastRequestToPresentationMilliseconds = elapsedMilliseconds;
+            ++state.renderCount;
+            if (interactive)
+                ++state.compositorInteractiveSubmissionCount;
+            if (frameFlow) {
+                const double previous = frameFlow->lastPresentedTime.exchange(now);
+                frameFlow->lastPresentedIntervalMilliseconds.store(
+                        previous > 0.0 ? (now - previous) * 1000.0 : 0.0);
+                frameFlow->lastRequestToPresentationMilliseconds.store(
+                        elapsedMilliseconds);
+                frameFlow->lastGPUExecutionMilliseconds.store(0.0);
+                frameFlow->presentedRenderGeneration.store(geometryGeneration);
+                frameFlow->presentedFrameCount.fetch_add(1);
+                frameFlow->sdrAuthoritativePresentedFrameCount.fetch_add(1);
+                if (interactive)
+                    updateAtomicMaximum(
+                            frameFlow->maximumInteractiveRenderMilliseconds,
+                            elapsedMilliseconds);
+            }
+            renderPending = false;
+            pendingInteractive = interactive;
+            interactiveKeepAliveUntil = 0.0;
+            if (displayLink)
+                displayLink.paused = YES;
+            syncPresentationDiagnostics();
+            return;
+        }
         if (persistentSurfaceReady) {
             QElapsedTimer geometryTimer;
             geometryTimer.start();
@@ -3239,8 +3607,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     const double gpuStart = completedBuffer.GPUStartTime;
                     const double gpuEnd = completedBuffer.GPUEndTime;
                     if (gpuEnd >= gpuStart && gpuStart > 0.0) {
+                        const double gpuMilliseconds =
+                                (gpuEnd - gpuStart) * 1000.0;
                         submittedFlow->lastGPUExecutionMilliseconds.store(
-                                (gpuEnd - gpuStart) * 1000.0);
+                                gpuMilliseconds);
+                        if (interactive)
+                            updateAtomicMaximum(
+                                    submittedFlow
+                                            ->maximumInteractiveGPUExecutionMilliseconds,
+                                    gpuMilliseconds);
                     }
                     submittedFlow->framesInFlight.fetch_sub(1);
                 }
@@ -3330,6 +3705,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     state.lastRenderMilliseconds = elapsedMilliseconds;
                     ++state.renderCount;
                 }
+                if (interactive && submittedFlow)
+                    updateAtomicMaximum(
+                            submittedFlow->maximumInteractiveRenderMilliseconds,
+                            elapsedMilliseconds);
                 CGColorSpaceRelease(renderColorSpace);
             });
             syncPresentationDiagnostics();
@@ -3351,6 +3730,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     NSView *nativeView{ nil };
     CALayer *presentationContainerLayer{ nil };
     CALayer *viewportBackgroundLayer{ nil };
+    CALayer *persistentSDRTileLayer{ nil };
     CALayer *persistentImageLayer{ nil };
     CAMetalLayer *metalLayer{ nil };
     CALayer *navigationOverlayLayer{ nil };
@@ -3375,6 +3755,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         std::make_shared<HDRPersistentSurfaceGate>()
     };
     CGImageRef persistentImage{ nullptr };
+    CGImageRef persistentCheckerboardImage{ nullptr };
+    QSize persistentCheckerboardPixelSize;
+    bool persistentSDRTileSurfaceReady{ false };
     bool persistentSurfaceReady{ false };
     bool persistentSurfacePreparationInFlight{ false };
     bool presentationActiveRequested{ true };
@@ -3480,6 +3863,48 @@ void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
 {
     return impl ? impl->diagnostics() : HDRRendererDiagnostics{};
+}
+
+QRect QVCocoaFunctions::coreImageTileRect(const QRect &topLeftPixelRect,
+                                          const int sourceHeight)
+{
+    if (!topLeftPixelRect.isValid() || sourceHeight <= 0
+        || topLeftPixelRect.top() < 0
+        || topLeftPixelRect.bottom() >= sourceHeight)
+        return {};
+
+    return QRect(topLeftPixelRect.x(),
+                 sourceHeight - topLeftPixelRect.y()
+                         - topLeftPixelRect.height(),
+                 topLeftPixelRect.width(), topLeftPixelRect.height());
+}
+
+QVCocoaFunctions::SDRFrameRatePolicy
+QVCocoaFunctions::sdrFrameRatePolicy(const qreal displayMaximumFramesPerSecond)
+{
+    constexpr qreal FallbackDisplayFramesPerSecond = 60.0;
+    constexpr qreal RequiredFramesPerSecond = 180.0;
+    constexpr qreal MaximumRequestedFramesPerSecond = 240.0;
+    const qreal displayMaximum =
+            std::isfinite(displayMaximumFramesPerSecond)
+                    && displayMaximumFramesPerSecond > 0.0
+            ? displayMaximumFramesPerSecond
+            : FallbackDisplayFramesPerSecond;
+
+    SDRFrameRatePolicy policy;
+    policy.displayCanPresent180FPS = displayMaximum >= RequiredFramesPerSecond;
+    if (!policy.displayCanPresent180FPS) {
+        policy.minimum = displayMaximum;
+        policy.maximum = displayMaximum;
+        policy.preferred = displayMaximum;
+        return policy;
+    }
+
+    policy.minimum = RequiredFramesPerSecond;
+    policy.maximum = std::min(displayMaximum,
+                              MaximumRequestedFramesPerSecond);
+    policy.preferred = policy.maximum;
+    return policy;
 }
 
 qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)

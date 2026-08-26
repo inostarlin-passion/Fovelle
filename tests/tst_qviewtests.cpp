@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <QFileInfo>
 #include <QDir>
@@ -144,6 +145,8 @@ private slots:
     void testFinalFrameRevealRequiresMatchedGeometry();
     void testHDRViewportGeometryEquivalenceUsesCompleteContract();
     void testPersistentHDRLayerUsesStableQtViewportCoordinates();
+    void testSDRTilePlacementConvertsTopRowsToCoreImageCoordinates();
+    void testSDR180FPSPolicyRequiresCapableDisplay();
     void testRawContentHeadroomUsesMeasuredPeakWhenUnknown();
     void testPreparedHDRPresentationCanBeReusedAcrossGeometry();
     void testViewportBackgroundColorsMatchTheme();
@@ -1777,6 +1780,55 @@ void HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()
         QPointF(760.0, 1000.0), QPointF(-40.0, 800.0)
     };
     verifyCornerMapping(rotated);
+}
+
+// TC-SDR-TILE-COORDINATES
+// Test purpose: keep the CGImage top-row crop contract separate from Core
+// Image's bottom-left composition contract for sources larger than one texture.
+void HDRPolicyTests::testSDRTilePlacementConvertsTopRowsToCoreImageCoordinates()
+{
+    constexpr int sourceHeight = 17646;
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
+                     QRect(0, 0, 2048, 2048), sourceHeight),
+             QRect(0, 15598, 2048, 2048));
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
+                     QRect(2048, 16384, 2048, 1262), sourceHeight),
+             QRect(2048, 0, 2048, 1262));
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
+                     QRect(2046, 2046, 2052, 2052), sourceHeight),
+             QRect(2046, 13548, 2052, 2052));
+    QVERIFY(QVCocoaFunctions::coreImageTileRect(
+                    QRect(0, sourceHeight, 1, 1), sourceHeight).isEmpty());
+}
+
+// TC-SDR-180FPS-POLICY
+// Test purpose: distinguish renderer frame budget from the physical display
+// ceiling while unlocking 180...240 Hz presentation on capable screens.
+void HDRPolicyTests::testSDR180FPSPolicyRequiresCapableDisplay()
+{
+    const auto builtIn120 = QVCocoaFunctions::sdrFrameRatePolicy(120.0);
+    QCOMPARE(builtIn120.minimum, 120.0);
+    QCOMPARE(builtIn120.maximum, 120.0);
+    QCOMPARE(builtIn120.preferred, 120.0);
+    QVERIFY(!builtIn120.displayCanPresent180FPS);
+
+    const auto minimumCapable = QVCocoaFunctions::sdrFrameRatePolicy(180.0);
+    QCOMPARE(minimumCapable.minimum, 180.0);
+    QCOMPARE(minimumCapable.maximum, 180.0);
+    QCOMPARE(minimumCapable.preferred, 180.0);
+    QVERIFY(minimumCapable.displayCanPresent180FPS);
+
+    const auto highRefresh = QVCocoaFunctions::sdrFrameRatePolicy(240.0);
+    QCOMPARE(highRefresh.minimum, 180.0);
+    QCOMPARE(highRefresh.maximum, 240.0);
+    QCOMPARE(highRefresh.preferred, 240.0);
+    QVERIFY(highRefresh.displayCanPresent180FPS);
+
+    const auto boundedHighRefresh = QVCocoaFunctions::sdrFrameRatePolicy(360.0);
+    QCOMPARE(boundedHighRefresh.minimum, 180.0);
+    QCOMPARE(boundedHighRefresh.maximum, 240.0);
+    QCOMPARE(boundedHighRefresh.preferred, 240.0);
+    QVERIFY(boundedHighRefresh.displayCanPresent180FPS);
 }
 
 // TC-HDR-UNIT-CONTENT-HEADROOM
@@ -3897,16 +3949,15 @@ void GraphicsViewTests::testNativeGestureResponsePerformance()
 }
 
 // TC-SDR-PAN-MACOS-PRESENTATION
-// Test purpose: verify raster-image panning avoids Qt's Cocoa backing-store
-// scroll acceleration and repaints a complete, presentation-ready IOSurface.
+// Test purpose: verify raster-image panning bypasses Qt's Cocoa backing store
+// once the persistent native SDR tile surface is visible.
 // Preconditions: a visible 640x480 Cocoa window contains a 1600x900 raster
 // image at 2:1 and both scroll axes have room to move.
 // Input data: one six-pixel horizontal scrollbar change after all opening
 // paints have settled.
-// Steps: measure the non-opaque production path, then enable the former opaque
-// optimization and repeat the same pan as a control.
-// Expected result: production repaints at least 95 percent of the viewport;
-// the former opaque path repaints at most five percent (the edge strip).
+// Steps: wait for the authoritative native surface, record Qt paint events,
+// pan once, and inspect native compositor submissions.
+// Expected result: the tile transform advances without any Qt viewport paint.
 // Postcondition: the recorder, window, fixture, and settings are released.
 void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
 {
@@ -3955,49 +4006,31 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
     QCoreApplication::processEvents();
 
     QScrollBar *bar = view->horizontalScrollBar();
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().firstFramePresented, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(
+            view->viewportUpdateMode(), QGraphicsView::NoViewportUpdate, 5000);
+    const auto beforePan = view->nativeMetalRendererDiagnostics();
+    QVERIFY(beforePan.usesPersistentSDRTileSurface);
     QVERIFY(!view->viewport()->testAttribute(Qt::WA_NativeWindow));
     QVERIFY(!view->viewport()->windowHandle());
     QVERIFY(!view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     PaintRegionRecorder productionRecorder;
     view->viewport()->installEventFilter(&productionRecorder);
     bar->setValue(bar->value() + 6);
-    QTRY_VERIFY_WITH_TIMEOUT(!productionRecorder.recordedAreas().isEmpty(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
+                    > beforePan.compositorGeometryUpdateCount,
+            1000);
+    QTest::qWait(50);
     view->viewport()->removeEventFilter(&productionRecorder);
-    const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
-            * view->viewport()->height();
-    const qint64 productionPaintArea = *std::max_element(
-        productionRecorder.recordedAreas().cbegin(),
-        productionRecorder.recordedAreas().cend());
-    const qreal productionDirtyRatio =
-            static_cast<qreal>(productionPaintArea) / viewportArea;
-
-    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, true);
-    view->viewport()->repaint();
-    QCoreApplication::processEvents();
-    PaintRegionRecorder opaqueControlRecorder;
-    view->viewport()->installEventFilter(&opaqueControlRecorder);
-    bar->setValue(bar->value() + 6);
-    QTRY_VERIFY_WITH_TIMEOUT(!opaqueControlRecorder.recordedAreas().isEmpty(), 1000);
-    view->viewport()->removeEventFilter(&opaqueControlRecorder);
-
-    const qint64 opaqueControlPaintArea = *std::max_element(
-        opaqueControlRecorder.recordedAreas().cbegin(),
-        opaqueControlRecorder.recordedAreas().cend());
-    const qreal opaqueControlDirtyRatio =
-            static_cast<qreal>(opaqueControlPaintArea) / viewportArea;
     qInfo().noquote() << QStringLiteral(
-        "SDR_PAN_PRESENTATION production_dirty_ratio=%1 "
-        "opaque_control_dirty_ratio=%2 viewport_area=%3")
-        .arg(productionDirtyRatio, 0, 'f', 6)
-        .arg(opaqueControlDirtyRatio, 0, 'f', 6)
-        .arg(viewportArea);
-    QVERIFY2(productionDirtyRatio >= 0.95,
-             qPrintable(QStringLiteral("unexpected production pan ratio %1")
-                        .arg(productionDirtyRatio, 0, 'f', 6)));
-    QVERIFY2(opaqueControlDirtyRatio <= 0.05,
-             qPrintable(QStringLiteral("unexpected opaque control ratio %1")
-                        .arg(opaqueControlDirtyRatio, 0, 'f', 6)));
-    view->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, false);
+        "SDR_PAN_PRESENTATION qt_paints=%1 compositor_updates=%2")
+        .arg(productionRecorder.recordedAreas().size())
+        .arg(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
+             - beforePan.compositorGeometryUpdateCount);
+    QVERIFY(productionRecorder.recordedAreas().isEmpty());
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4223,8 +4256,10 @@ void SDRSampleInteractionTests::testProvidedRasterStaysAuthoritativeDuringIntera
 
 // TC-SDR-SYS-120HZ
 // Test purpose: drive 48 production scrollbar updates at 8 ms cadence and
-// verify that the independent SDR CAMetalLayer consumes them as interactive
-// display-link submissions rather than Qt backing-store repaints.
+// verify that persistent full-resolution SDR tiles consume them as bounded
+// Core Animation transform submissions rather than Qt/CI rerasterizations.
+// FOVELLE_SDR_BUDGET_SAMPLE can replace the default supplied 2.png so the same
+// frame-budget contract covers an externally supplied oversized raster.
 void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
 {
 #ifndef Q_OS_MACOS
@@ -4234,7 +4269,11 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
             "FOVELLE_HDR_TEST_120HZ_INTERACTION");
     qputenv("FOVELLE_HDR_TEST_120HZ_INTERACTION", "1");
     const QDir directory(QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR")));
-    const QString samplePath = directory.filePath(QStringLiteral("2.png"));
+    const QString requestedBudgetSample = QString::fromUtf8(
+            qgetenv("FOVELLE_SDR_BUDGET_SAMPLE"));
+    const QString samplePath = requestedBudgetSample.isEmpty()
+            ? directory.filePath(QStringLiteral("2.png"))
+            : requestedBudgetSample;
     QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
 
     ScopedOptionValues options({
@@ -4263,16 +4302,21 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
             view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
     QTRY_VERIFY_WITH_TIMEOUT(
             view->nativeMetalRendererDiagnostics()
-                    .displayLinkInteractiveSubmissionCount >= 30,
+                    .compositorInteractiveSubmissionCount >= 30,
             7000);
     const auto diagnostics = view->nativeMetalRendererDiagnostics();
     qInfo().noquote() << QStringLiteral(
-            "SDR_120HZ {\"interactive_submissions\":%1,"
+            "SDR_180FPS_BUDGET {\"interactive_submissions\":%1,"
             "\"presented_frames\":%2,\"last_interval_ms\":%3,"
             "\"missed_deadlines\":%4,\"callbacks\":%5,"
             "\"deferred_callbacks\":%6,\"gpu_ms\":%7,"
-            "\"encode_ms\":%8,\"request_to_present_ms\":%9}")
-            .arg(diagnostics.displayLinkInteractiveSubmissionCount)
+            "\"encode_ms\":%8,\"request_to_present_ms\":%9,"
+            "\"max_interactive_gpu_ms\":%10,"
+            "\"max_interactive_encode_ms\":%11,"
+            "\"display_max_fps\":%12,\"requested_min_fps\":%13,"
+            "\"requested_max_fps\":%14,\"display_can_present_180\":%15,"
+            "\"persistent_tiles\":%16,\"file\":\"%17\"}")
+            .arg(diagnostics.compositorInteractiveSubmissionCount)
             .arg(diagnostics.presentedFrameCount)
             .arg(diagnostics.lastPresentedIntervalMilliseconds, 0, 'f', 3)
             .arg(diagnostics.missedTargetDeadlineCount)
@@ -4280,18 +4324,43 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
             .arg(diagnostics.deferredDisplayLinkCallbackCount)
             .arg(diagnostics.lastGPUExecutionMilliseconds, 0, 'f', 3)
             .arg(diagnostics.lastRenderMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.lastRequestToPresentationMilliseconds, 0, 'f', 3);
+            .arg(diagnostics.lastRequestToPresentationMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.maximumInteractiveGPUExecutionMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.maximumInteractiveRenderMilliseconds, 0, 'f', 3)
+            .arg(diagnostics.displayMaximumFramesPerSecond)
+            .arg(diagnostics.requestedFrameRateMinimum, 0, 'f', 0)
+            .arg(diagnostics.requestedFrameRateMaximum, 0, 'f', 0)
+            .arg(diagnostics.displayCanPresent180FPS
+                         ? QStringLiteral("true") : QStringLiteral("false"))
+            .arg(diagnostics.usesPersistentSDRTileSurface
+                         ? QStringLiteral("true") : QStringLiteral("false"))
+            .arg(QFileInfo(samplePath).fileName());
     QVERIFY(diagnostics.usesCAMetalDisplayLink);
     QVERIFY(diagnostics.sdrImageActive);
+    QVERIFY(diagnostics.usesPersistentSDRTileSurface);
     QCOMPARE(diagnostics.deferredDisplayLinkCallbackCount, 0);
     QCOMPARE(diagnostics.sdrAuthoritativePresentedFrameCount,
              diagnostics.presentedFrameCount);
     QVERIFY2(diagnostics.lastRenderMilliseconds < (1000.0 / 120.0),
              qPrintable(QStringLiteral("encode=%1ms")
                                 .arg(diagnostics.lastRenderMilliseconds)));
-    QVERIFY2(diagnostics.lastGPUExecutionMilliseconds < (1000.0 / 120.0),
-             qPrintable(QStringLiteral("gpu=%1ms")
-                                .arg(diagnostics.lastGPUExecutionMilliseconds)));
+    // The application submits no per-interaction Metal/CI work after the tile
+    // surface is installed; WindowServer composites the retained layer tree.
+    QCOMPARE(diagnostics.lastGPUExecutionMilliseconds, 0.0);
+    constexpr double frameBudget180FPS = 1000.0 / 180.0;
+    QVERIFY(diagnostics.maximumInteractiveRenderMilliseconds > 0.0);
+    QVERIFY2(diagnostics.maximumInteractiveRenderMilliseconds < frameBudget180FPS,
+             qPrintable(QStringLiteral("maximum interactive encode=%1ms")
+                                .arg(diagnostics.maximumInteractiveRenderMilliseconds)));
+    QCOMPARE(diagnostics.maximumInteractiveGPUExecutionMilliseconds, 0.0);
+    const auto frameRatePolicy = QVCocoaFunctions::sdrFrameRatePolicy(
+            diagnostics.displayMaximumFramesPerSecond);
+    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMinimum),
+             frameRatePolicy.minimum);
+    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMaximum),
+             frameRatePolicy.maximum);
+    QCOMPARE(diagnostics.displayCanPresent180FPS,
+             frameRatePolicy.displayCanPresent180FPS);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4578,6 +4647,85 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
     const auto beforeZoom = view->nativeMetalRendererDiagnostics();
     QVERIFY(beforeZoom.usesMaterializedSDRTiles);
     QVERIFY(beforeZoom.sdrTileCount > 1);
+
+    // Compare the real WindowServer presentation at fit zoom with the complete
+    // bounded Qt proxy created from the same decoded CGImage. Grayscale Pearson
+    // correlation tolerates ColorSync/display conversion but fails decisively
+    // when 2048-row source bands are placed in reverse vertical order.
+    QTest::qWait(150);
+    const QPixmap fittedWindowPixmap = window.screen()->grabWindow(window.winId());
+    const QImage fittedWindow = fittedWindowPixmap.toImage();
+    QVERIFY(!fittedWindow.isNull());
+    QRect fittedContentRect = view->mapFromScene(
+            QRectF(QPointF(), QSizeF(window.getCurrentFileDetails().loadedPixmapSize)))
+            .boundingRect().intersected(view->viewport()->rect());
+    const QPoint fittedInWindow = view->viewport()->mapTo(
+            &window, fittedContentRect.topLeft());
+    const qreal fittedDpr = fittedWindowPixmap.devicePixelRatio();
+    QRect fittedPixelRect(
+            qRound(fittedInWindow.x() * fittedDpr),
+            qRound(fittedInWindow.y() * fittedDpr),
+            qRound(fittedContentRect.width() * fittedDpr),
+            qRound(fittedContentRect.height() * fittedDpr));
+    fittedPixelRect = fittedPixelRect.intersected(fittedWindow.rect()).adjusted(
+            4, 4, -4, -4);
+    QVERIFY(fittedPixelRect.width() > 400 && fittedPixelRect.height() > 300);
+    const QImage fittedPresentation = fittedWindow.copy(fittedPixelRect);
+    QVGraphicsImageItem *proxyItem = nullptr;
+    for (QGraphicsItem *item : view->scene()->items()) {
+        if (auto *candidate = dynamic_cast<QVGraphicsImageItem *>(item)) {
+            proxyItem = candidate;
+            break;
+        }
+    }
+    QVERIFY(proxyItem);
+    QVERIFY(!proxyItem->pixmap().isNull());
+    const QSize correlationSize(256, 192);
+    const QImage actualGray = fittedPresentation
+            .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+            .convertToFormat(QImage::Format_Grayscale8);
+    const QImage expectedGray = proxyItem->pixmap().toImage()
+            .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+            .convertToFormat(QImage::Format_Grayscale8);
+    double actualMean = 0.0;
+    double expectedMean = 0.0;
+    const int correlationPixels = correlationSize.width() * correlationSize.height();
+    for (int y = 0; y < correlationSize.height(); ++y) {
+        const uchar *actualRow = actualGray.constScanLine(y);
+        const uchar *expectedRow = expectedGray.constScanLine(y);
+        for (int x = 0; x < correlationSize.width(); ++x) {
+            actualMean += actualRow[x];
+            expectedMean += expectedRow[x];
+        }
+    }
+    actualMean /= correlationPixels;
+    expectedMean /= correlationPixels;
+    double covariance = 0.0;
+    double actualVariance = 0.0;
+    double expectedVariance = 0.0;
+    for (int y = 0; y < correlationSize.height(); ++y) {
+        const uchar *actualRow = actualGray.constScanLine(y);
+        const uchar *expectedRow = expectedGray.constScanLine(y);
+        for (int x = 0; x < correlationSize.width(); ++x) {
+            const double actualDelta = actualRow[x] - actualMean;
+            const double expectedDelta = expectedRow[x] - expectedMean;
+            covariance += actualDelta * expectedDelta;
+            actualVariance += actualDelta * actualDelta;
+            expectedVariance += expectedDelta * expectedDelta;
+        }
+    }
+    const double fittedCorrelation = covariance
+            / std::sqrt(actualVariance * expectedVariance);
+    qInfo().noquote() << QStringLiteral(
+            "SDR_LARGE_FIT_FIDELITY {\"correlation\":%1,"
+            "\"tiles_total\":%2,\"display_width\":%3,\"display_height\":%4}")
+            .arg(fittedCorrelation, 0, 'f', 6)
+            .arg(beforeZoom.sdrTileCount)
+            .arg(fittedPresentation.width())
+            .arg(fittedPresentation.height());
+    QVERIFY2(fittedCorrelation > 0.90,
+             qPrintable(QString::number(fittedCorrelation)));
+
     const quint64 fullBeforeZoom = beforeZoom
             .sdrAuthoritativePresentedFrameCount;
     QElapsedTimer zoomTimer;
