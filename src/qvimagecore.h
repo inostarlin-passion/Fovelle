@@ -79,12 +79,6 @@ signals:
 
     void fileChanging();
 
-    // Emitted synchronously after the pending FileDetails have been installed
-    // and before the asynchronous decoder is requested.  This is a distinct
-    // UI boundary from fileChanged(): title/empty-viewport presentation must
-    // not wait for pixels to finish decoding.
-    void fileLoadStarted();
-
     void fileChanged();
 
     void sortParametersChanged();

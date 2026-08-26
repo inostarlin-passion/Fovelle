@@ -28,7 +28,6 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Floating navigation buttons are displayed on the left and right sides of the window and automatically shown or hidden.
 - Conditionally displays vertical and horizontal scrollbars.
 - EPS decoding uses the AGPL Ghostscript runtime bundled in release app bundles.
-- When opening a large image, a loading indicator appears if rendering has not completed after 1 second, indicating that the image is still being loaded.
 
 ## Supported Formats
 

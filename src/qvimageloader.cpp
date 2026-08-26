@@ -10,7 +10,6 @@
 #include <QPainter>
 #include <QSvgRenderer>
 #include <QThreadPool>
-#include <QThread>
 
 #include <limits>
 
@@ -190,17 +189,6 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
 {
     QElapsedTimer decodeTimer;
     decodeTimer.start();
-
-    // Deterministic opt-in latency used by the presentation-state regression
-    // test.  It runs only on the loader worker and is inert in normal builds.
-    if (!isPreload)
-    {
-        bool validDelay = false;
-        const int testDelay = qEnvironmentVariableIntValue(
-                "FOVELLE_TEST_IMAGE_LOAD_DELAY_MS", &validDelay);
-        if (validDelay && testDelay > 0)
-            QThread::msleep(static_cast<unsigned long>(testDelay));
-    }
 
     if (isPreload)
     {
