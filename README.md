@@ -8,8 +8,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 
 ## System Requirements
 
-- macOS 15.0 or later.
-- macOS 15.7.5 or later is required to open EPS files.
+macOS 15.0 or later.
 
 ## Key Features
 
