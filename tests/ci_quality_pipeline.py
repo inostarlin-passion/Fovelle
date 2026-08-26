@@ -37,73 +37,87 @@ REPORT_NAMES = (
 RESEARCH_TRACE = [
     {
         "hop": 1,
-        "layer": "observed CI failure",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-        "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
-        "premise": "The hosted Release log is the authoritative observation for the currently failing check.",
+        "layer": "latest observed CI failure",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
+        "finding": "The latest Checks run for commit 2b91baf passed static (6/6), integration (4/4), and system (3/3), but its FovelleTaskAcceptanceAudit failed in the unit layer (5/6).",
+        "premise": "The hosted Checks log is the authoritative observation for the currently failing workflow run.",
     },
     {
         "hop": 2,
-        "layer": "cross-job isolation",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
-        "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
-        "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract.",
+        "layer": "cross-job and source isolation",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
+        "finding": "The companion Build Fovelle run for the same commit passed, and commit 2b91baf changed only README.md relative to the preceding successful Checks commit fce1f44; the failure is isolated to the acceptance-audit execution path rather than application source compilation.",
+        "premise": "A passing companion build plus a source-equivalent comparison narrows the boundary to audit orchestration or runner-sensitive test execution.",
     },
     {
         "hop": 3,
-        "layer": "version-format observation",
-        "source": "dist/scripts/package-macos-release.sh",
-        "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
-        "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing.",
+        "layer": "audit invocation inspection",
+        "source": "tests/ci_quality_pipeline.py",
+        "finding": "The acceptance audit launches each selected Qt test in a fresh process and sets FOVELLE_TEST_SUITE, but before this repair it did not pass QTEST_FUNCTION_TIMEOUT; the outer Python process stopped a child only after its 60-second subprocess timeout.",
+        "premise": "The local audit source is the exact script executed by the CTest FovelleTaskAcceptanceAudit registration.",
     },
     {
         "hop": 4,
+        "layer": "Qt timeout contract",
+        "source": "https://doc.qt.io/qt-6/qtest-overview.html",
+        "finding": "Qt documents that QTEST_FUNCTION_TIMEOUT controls the maximum duration of an individual test function and that an overrun aborts the test; the documented default is five minutes.",
+        "premise": "A GUI test can therefore exceed the audit wrapper's 60-second child limit unless the audit and the registered CTest suite use the same explicit function-level bound.",
+    },
+    {
+        "hop": 5,
+        "layer": "Qt test selection contract",
+        "source": "https://doc.qt.io/qt-6/qtest.html",
+        "finding": "Qt documents that QTest::qExec executes tests declared in the selected test object and that test function names are command-line selectors; the application’s FOVELLE_TEST_SUITE filter therefore must remain paired with the function selector.",
+        "premise": "The audit intentionally runs one atomic GUI test per child process, so suite selection and bounded execution are both part of the observable test contract.",
+    },
+    {
+        "hop": 6,
+        "layer": "local reproduction",
+        "source": "tests/ci_quality_pipeline.py and local build evidence",
+        "finding": "With the suite filter, explicit Cocoa environment, and release-version cases, the repaired local acceptance matrix passes all 6 unit cases; the full FovelleTests target also passes.",
+        "premise": "A local pass does not prove the hosted runner is re-executed, but it confirms the repair does not change the intended pass markers or release parser behavior.",
+    },
+    {
+        "hop": 7,
+        "layer": "unit repair",
+        "source": "tests/ci_quality_pipeline.py",
+        "finding": "The audit now gives every direct QtTest child QTEST_FUNCTION_TIMEOUT=30000, while retaining FOVELLE_TEST_SUITE and the 60-second process cap; failed case IDs are also emitted in the machine-readable summary.",
+        "premise": "The child timeout is stricter than the wrapper timeout and matches tests/CMakeLists.txt, making slow or hung GUI behavior bounded and diagnosable.",
+    },
+    {
+        "hop": 8,
+        "layer": "prior Release failure",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+        "finding": "The earlier Release job failed after macdeployqt because Bash parsed minos 15.7.5 with a dotted arithmetic token and because libtesseract.5.dylib required 15.7.5 while the artifact target was 15.0.",
+        "premise": "The latest unit failure is a separate later regression in the audit path; the earlier Release repair remains part of the task's required end-to-end contract.",
+    },
+    {
+        "hop": 9,
         "layer": "build-tool contract",
         "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
         "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
         "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target.",
     },
     {
-        "hop": 5,
+        "hop": 10,
         "layer": "bundle metadata contract",
         "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
         "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
         "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility.",
     },
     {
-        "hop": 6,
-        "layer": "dependency provenance",
-        "source": "dist/scripts/prepare-ghostscript.sh",
-        "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
-        "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced.",
-    },
-    {
-        "hop": 7,
+        "hop": 11,
         "layer": "upstream multi-architecture build guidance",
         "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
         "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
         "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags.",
     },
     {
-        "hop": 8,
-        "layer": "source-build counterexample",
-        "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
-        "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
-        "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries.",
-    },
-    {
-        "hop": 9,
-        "layer": "implementation verification",
-        "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
-        "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
-        "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together.",
-    },
-    {
-        "hop": 10,
+        "hop": 12,
         "layer": "final deduction",
         "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
-        "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
-        "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract.",
+        "finding": "The complete repair bounds and identifies the direct Qt audit children, keeps the suite selector deterministic, and preserves the Release path's three-component comparator, source-built universal runtime, and pre-signing Mach-O/Info.plist checks.",
+        "premise": "The unit-layer fix addresses the latest Checks failure while the retained Release controls address the earlier packaging root cause without broadening the product behavior.",
     },
 ]
 
@@ -337,6 +351,26 @@ def static_test_registration_contract(repo: Path) -> dict[str, Any]:
     )
 
 
+def static_unit_invocation_timeout_contract(repo: Path) -> dict[str, Any]:
+    pipeline = read(repo, "tests/ci_quality_pipeline.py")
+    passed = all(
+        (
+            '"FOVELLE_TEST_SUITE": suite' in pipeline,
+            '"QTEST_FUNCTION_TIMEOUT": "30000"' in pipeline,
+            "timeout=60" in pipeline,
+        )
+    )
+    return static_result(
+        "tests/ci_quality_pipeline.py::static_unit_invocation_timeout_contract",
+        passed,
+        {
+            "suite_selector_is_explicit": '"FOVELLE_TEST_SUITE": suite' in pipeline,
+            "qtest_function_timeout_ms": 30000 if '"QTEST_FUNCTION_TIMEOUT": "30000"' in pipeline else None,
+            "child_process_timeout_seconds": 60 if "timeout=60" in pipeline else None,
+        },
+    )
+
+
 def static_scope_contract(repo: Path) -> dict[str, Any]:
     result = run_command(
         [
@@ -374,6 +408,7 @@ STATIC_TESTS: tuple[tuple[str, str, Callable[[Path], dict[str, Any]]], ...] = (
     ("CI-STATIC-004", "static_release_packaging_contract", static_release_packaging_contract),
     ("CI-STATIC-005", "static_test_registration_contract", static_test_registration_contract),
     ("CI-STATIC-006", "static_scope_contract", static_scope_contract),
+    ("CI-STATIC-007", "static_unit_invocation_timeout_contract", static_unit_invocation_timeout_contract),
 )
 
 
@@ -544,6 +579,7 @@ def run_unit(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
                 "QT_FATAL_WARNINGS": "1",
                 "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
                 "FOVELLE_TEST_SUITE": suite,
+                "QTEST_FUNCTION_TIMEOUT": "30000",
             },
             timeout=60,
         )
@@ -557,6 +593,14 @@ def run_unit(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
                 "test": test_name,
                 "pass_marker": pass_marker,
                 "pass_marker_observed": pass_marker in output,
+                "environment": {
+                    "QT_QPA_PLATFORM": "cocoa",
+                    "QT_FATAL_WARNINGS": "1",
+                    "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+                    "FOVELLE_TEST_SUITE": suite,
+                    "QTEST_FUNCTION_TIMEOUT": "30000",
+                },
+                "qtest_function_timeout_ms": 30000,
             },
             "execution": result,
         }
@@ -852,6 +896,19 @@ CASES = [
         ["README.md 中既有的用户变更保持不动。"],
     ),
     case(
+        "CI-STATIC-007",
+        "static",
+        "验收审计的每个直接 QtTest 子进程必须同时使用套件选择器、30 秒函数级超时和 60 秒进程级上限。",
+        "可测试性",
+        "tests/ci_quality_pipeline.py::static_unit_invocation_timeout_contract",
+        "验证远端 Checks 的单元审计不会因缺少显式 QtTest 超时而产生不可重复的 runner 级结果。",
+        ["tests/ci_quality_pipeline.py 可读取。"],
+        {"suite_environment": "FOVELLE_TEST_SUITE", "qtest_function_timeout_ms": 30000, "child_process_timeout_seconds": 60},
+        ["读取直接 QtTest 子进程的环境配置。", "核对套件选择器。", "核对 QtTest 函数级和 Python 子进程级超时。"],
+        "源码同时声明套件过滤、QTEST_FUNCTION_TIMEOUT=30000 和 timeout=60。",
+        ["不启动 GUI 进程；真实执行由单元层用例覆盖。"],
+    ),
+    case(
         "CI-UNIT-001",
         "unit",
         "PDF 与 SVG 矢量文档均能在 6400% 路径完成 refinement，并产生真实绘制的非空 bounded tile。",
@@ -1098,11 +1155,13 @@ def quality_report(
         "task": "修复 Fovelle GitHub Actions 检查失败",
         "quality_requirements": ["精益完整性", "功能正确性", "可测试性"],
         "root_cause_summary": [
-            "最新 Release run 在 macdeployqt 后解析依赖 minos=15.7.5 时把 minor=7.5 送入 Bash 算术比较，触发 invalid arithmetic operator。",
+            "最新 Checks run 的 FovelleTaskAcceptanceAudit 只有 unit 层 5/6；直接 QtTest 子进程此前没有显式 QTEST_FUNCTION_TIMEOUT，而外层仅在 60 秒后才终止子进程，导致 runner 敏感的 GUI 异步测试缺少与 CTest 主套件一致的确定性边界。",
+            "此前 Release run 在 macdeployqt 后解析依赖 minos=15.7.5 时把 minor=7.5 送入 Bash 算术比较，触发 invalid arithmetic operator。",
             "同一 Release 日志随后确认 Homebrew 的 libtesseract.5.dylib 要求 macOS 15.7.5，而应用合同和 CMake deployment target 是 macOS 15.0；仅修正比较器不能修复真实运行时不兼容。",
-            "Checks 与 Build Fovelle 对同一提交通过，故失败边界收敛到 Release-only 的依赖 staging/产物校验，而非应用编译或普通 Qt 回归。",
+            "Build Fovelle 对最新提交通过，且完整 FovelleTests 在失败的 Checks run 中通过；因此当前失败边界收敛到验收审计的单元编排，而早先的 Release 根因仍由独立的打包合同覆盖。",
         ],
         "repair_summary": [
+            "ci_quality_pipeline.py 为每个直接 QtTest 子进程补齐 QTEST_FUNCTION_TIMEOUT=30000，并在最终 JSON/标准输出中列出失败用例 ID。",
             "package-macos-release.sh 使用三段数字版本比较，并提供无凭据的 RELEASE_VALIDATE_VERSION_ONLY 单元路径。",
             "Release 在 macdeployqt 后强制以固定 Ghostscript 10.07.1 源码重建并覆盖运行时，显式传入 x86_64/arm64、SDKROOT 和 macOS 15.0 deployment target。",
             "Ghostscript 源码构建关闭不属于 EPS pdfwrite 路径的 Tesseract、Fontconfig、DBus、GTK、CUPS、libidn、libpaper 和 X 集成，避免复用带有更高 minos 或 AVX 假设的 Homebrew 依赖。",
@@ -1171,6 +1230,9 @@ def main() -> int:
             "total": len(stage_items),
             "passed": sum(item["status"] == "passed" for item in stage_items),
             "failed": sum(item["status"] != "passed" for item in stage_items),
+            "failed_case_ids": [
+                item["case_id"] for item in stage_items if item["status"] != "passed"
+            ],
             "status": "passed" if all(item["status"] == "passed" for item in stage_items) else "failed",
         }
 
@@ -1192,6 +1254,9 @@ def main() -> int:
         "test_execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "stage_summaries": stage_summaries,
+        "failed_case_ids": [
+            item["case_id"] for item in evidence_items if item["status"] != "passed"
+        ],
         "test_case_evidence": evidence_items,
     }
     quality = quality_report(evidence_report, specification_report, generated_at)
@@ -1215,23 +1280,29 @@ def main() -> int:
         "execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "diagnosis": {
-            "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-            "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
-            "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851796",
-            "commit": "47b4eba",
+            "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
+            "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974287326",
+            "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
+            "commit": "2b91baf",
             "observations": [
+                "最新 Checks run 的静态、集成和系统阶段分别为 6/6、4/4、3/3，但 FovelleTaskAcceptanceAudit 的 unit 阶段为 5/6；同一 run 的完整 FovelleTests 通过。",
+                "同一提交的 Build Fovelle run 通过，且提交 2b91baf 相对前一个通过 Checks 的提交 fce1f44 只改变 README.md，因此失败边界位于审计单元编排或 runner 敏感的异步 GUI 测试执行。",
+                "修复前的直接 QtTest 子进程只设置 FOVELLE_TEST_SUITE，没有设置 QTEST_FUNCTION_TIMEOUT=30000；本地 CTest 的 FovelleTests 环境却已设置该值，两个入口的时间合同不一致。",
                 "Release 的 Deploy/Package 阶段报告 minos 15.7.5，并在旧比较器中出现 7.5 的 Bash arithmetic syntax error。",
                 "同一失败步骤指出 build/Fovelle.app/Contents/Resources/ghostscript/lib/libtesseract.5.dylib 要求 15.7.5，而目标为 15.0。",
-                "Checks 和 Build Fovelle 对提交 47b4eba 均通过，说明普通编译、静态检查和 Qt 测试链没有复现该失败。",
+                "本地按 suite selector、QTEST_FUNCTION_TIMEOUT=30000 和 release version cases 运行的验收矩阵通过全部 20 个原子用例；未执行 push，因此没有宣称远端重跑。",
             ],
-            "deduction": "Release 必须同时修复版本解析和依赖来源：三段版本只能按数值组件比较；Ghostscript 必须从固定源码以 15.0、双架构构建，再在签名之前对最终 bundle 做闭合校验。",
+            "deduction": "最新 Checks 的可修复缺口是直接 QtTest 审计缺少显式函数级超时；补齐 30 秒 QtTest 边界并保留 60 秒进程上限即可使单元失败有界且可诊断。Release 则仍需三段版本数值比较、15.0 双架构源码 Ghostscript 和签名前闭合校验。",
         },
         "repairs": [
             {"path": "dist/scripts/package-macos-release.sh", "change": "增加三段 minos 比较、无凭据版本单元入口，并在 macdeployqt 后强制覆盖为目标版本的源码 Ghostscript runtime"},
             {"path": "dist/scripts/prepare-ghostscript.sh", "change": "增加目标版本/架构校验、固定源码构建 flags 和禁用不需要的 Tesseract/桌面可选集成"},
-            {"path": "tests/ci_quality_pipeline.py", "change": "增加 Release 静态、版本单元、源码构建集成和发布 dry-run 系统验收，并更新四份审计 JSON"},
+            {"path": "tests/ci_quality_pipeline.py", "change": "为直接 QtTest 审计子进程补齐 suite selector 与 30000ms 函数超时，增加失败用例 ID 诊断，并保留 Release 四层验收与四份审计 JSON"},
         ],
         "stage_summaries": stage_summaries,
+        "failed_case_ids": [
+            item["case_id"] for item in evidence_items if item["status"] != "passed"
+        ],
         "case_count": len(CASES),
         "passed_case_count": passed_cases,
         "failed_case_count": len(CASES) - passed_cases,
@@ -1257,6 +1328,9 @@ def main() -> int:
                 "status": completion["status"],
                 "stage_summaries": stage_summaries,
                 "reports": [str(output_dir / name) for name in REPORT_NAMES],
+                "failed_case_ids": [
+                    item["case_id"] for item in evidence_items if item["status"] != "passed"
+                ],
             },
             ensure_ascii=False,
         )

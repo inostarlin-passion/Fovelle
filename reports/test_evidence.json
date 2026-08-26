@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_evidence",
-  "generated_at": "2026-08-26T13:18:54.610948+00:00",
+  "generated_at": "2026-08-26T13:59:15.007959+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "test_execution_order": [
     "static",
@@ -12,101 +12,120 @@
   "research_trace": [
     {
       "hop": 1,
-      "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-      "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
-      "premise": "The hosted Release log is the authoritative observation for the currently failing check."
+      "layer": "latest observed CI failure",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
+      "finding": "The latest Checks run for commit 2b91baf passed static (6/6), integration (4/4), and system (3/3), but its FovelleTaskAcceptanceAudit failed in the unit layer (5/6).",
+      "premise": "The hosted Checks log is the authoritative observation for the currently failing workflow run."
     },
     {
       "hop": 2,
-      "layer": "cross-job isolation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
-      "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
-      "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract."
+      "layer": "cross-job and source isolation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
+      "finding": "The companion Build Fovelle run for the same commit passed, and commit 2b91baf changed only README.md relative to the preceding successful Checks commit fce1f44; the failure is isolated to the acceptance-audit execution path rather than application source compilation.",
+      "premise": "A passing companion build plus a source-equivalent comparison narrows the boundary to audit orchestration or runner-sensitive test execution."
     },
     {
       "hop": 3,
-      "layer": "version-format observation",
-      "source": "dist/scripts/package-macos-release.sh",
-      "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
-      "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing."
+      "layer": "audit invocation inspection",
+      "source": "tests/ci_quality_pipeline.py",
+      "finding": "The acceptance audit launches each selected Qt test in a fresh process and sets FOVELLE_TEST_SUITE, but before this repair it did not pass QTEST_FUNCTION_TIMEOUT; the outer Python process stopped a child only after its 60-second subprocess timeout.",
+      "premise": "The local audit source is the exact script executed by the CTest FovelleTaskAcceptanceAudit registration."
     },
     {
       "hop": 4,
+      "layer": "Qt timeout contract",
+      "source": "https://doc.qt.io/qt-6/qtest-overview.html",
+      "finding": "Qt documents that QTEST_FUNCTION_TIMEOUT controls the maximum duration of an individual test function and that an overrun aborts the test; the documented default is five minutes.",
+      "premise": "A GUI test can therefore exceed the audit wrapper's 60-second child limit unless the audit and the registered CTest suite use the same explicit function-level bound."
+    },
+    {
+      "hop": 5,
+      "layer": "Qt test selection contract",
+      "source": "https://doc.qt.io/qt-6/qtest.html",
+      "finding": "Qt documents that QTest::qExec executes tests declared in the selected test object and that test function names are command-line selectors; the application’s FOVELLE_TEST_SUITE filter therefore must remain paired with the function selector.",
+      "premise": "The audit intentionally runs one atomic GUI test per child process, so suite selection and bounded execution are both part of the observable test contract."
+    },
+    {
+      "hop": 6,
+      "layer": "local reproduction",
+      "source": "tests/ci_quality_pipeline.py and local build evidence",
+      "finding": "With the suite filter, explicit Cocoa environment, and release-version cases, the repaired local acceptance matrix passes all 6 unit cases; the full FovelleTests target also passes.",
+      "premise": "A local pass does not prove the hosted runner is re-executed, but it confirms the repair does not change the intended pass markers or release parser behavior."
+    },
+    {
+      "hop": 7,
+      "layer": "unit repair",
+      "source": "tests/ci_quality_pipeline.py",
+      "finding": "The audit now gives every direct QtTest child QTEST_FUNCTION_TIMEOUT=30000, while retaining FOVELLE_TEST_SUITE and the 60-second process cap; failed case IDs are also emitted in the machine-readable summary.",
+      "premise": "The child timeout is stricter than the wrapper timeout and matches tests/CMakeLists.txt, making slow or hung GUI behavior bounded and diagnosable."
+    },
+    {
+      "hop": 8,
+      "layer": "prior Release failure",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+      "finding": "The earlier Release job failed after macdeployqt because Bash parsed minos 15.7.5 with a dotted arithmetic token and because libtesseract.5.dylib required 15.7.5 while the artifact target was 15.0.",
+      "premise": "The latest unit failure is a separate later regression in the audit path; the earlier Release repair remains part of the task's required end-to-end contract."
+    },
+    {
+      "hop": 9,
       "layer": "build-tool contract",
       "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
       "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
       "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target."
     },
     {
-      "hop": 5,
+      "hop": 10,
       "layer": "bundle metadata contract",
       "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
       "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
       "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility."
     },
     {
-      "hop": 6,
-      "layer": "dependency provenance",
-      "source": "dist/scripts/prepare-ghostscript.sh",
-      "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
-      "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced."
-    },
-    {
-      "hop": 7,
+      "hop": 11,
       "layer": "upstream multi-architecture build guidance",
       "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
       "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
       "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags."
     },
     {
-      "hop": 8,
-      "layer": "source-build counterexample",
-      "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
-      "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
-      "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries."
-    },
-    {
-      "hop": 9,
-      "layer": "implementation verification",
-      "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
-      "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
-      "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together."
-    },
-    {
-      "hop": 10,
+      "hop": 12,
       "layer": "final deduction",
       "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
-      "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
-      "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract."
+      "finding": "The complete repair bounds and identifies the direct Qt audit children, keeps the suite selector deterministic, and preserves the Release path's three-component comparator, source-built universal runtime, and pre-signing Mach-O/Info.plist checks.",
+      "premise": "The unit-layer fix addresses the latest Checks failure while the retained Release controls address the earlier packaging root cause without broadening the product behavior."
     }
   ],
   "stage_summaries": {
     "static": {
-      "total": 6,
-      "passed": 6,
+      "total": 7,
+      "passed": 7,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "unit": {
       "total": 6,
       "passed": 6,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "integration": {
       "total": 4,
       "passed": 4,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "system": {
       "total": 3,
       "passed": 3,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     }
   },
+  "failed_case_ids": [],
   "test_case_evidence": [
     {
       "evidence_id": "EV-CI-STATIC-001",
@@ -124,7 +143,7 @@
         "test_code": "tests/ci_quality_pipeline.py::static_tidy_path_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622133+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407584+00:00"
     },
     {
       "evidence_id": "EV-CI-STATIC-002",
@@ -142,7 +161,7 @@
         "test_code": "tests/ci_quality_pipeline.py::static_async_observation_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622152+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407599+00:00"
     },
     {
       "evidence_id": "EV-CI-STATIC-003",
@@ -168,7 +187,7 @@
         "test_code": "tests/ci_quality_pipeline.py::static_runner_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622154+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407602+00:00"
     },
     {
       "evidence_id": "EV-CI-STATIC-004",
@@ -189,7 +208,7 @@
         "test_code": "tests/ci_quality_pipeline.py::static_release_packaging_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622159+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407607+00:00"
     },
     {
       "evidence_id": "EV-CI-STATIC-005",
@@ -215,7 +234,7 @@
         "test_code": "tests/ci_quality_pipeline.py::static_test_registration_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622163+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407611+00:00"
     },
     {
       "evidence_id": "EV-CI-STATIC-006",
@@ -242,7 +261,24 @@
         "test_code": "tests/ci_quality_pipeline.py::static_scope_contract",
         "kind": "source_contract"
       },
-      "recorded_at": "2026-08-26T13:20:21.622167+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407614+00:00"
+    },
+    {
+      "evidence_id": "EV-CI-STATIC-007",
+      "case_id": "CI-STATIC-007",
+      "stage": "static",
+      "status": "passed",
+      "assertion": "验收审计的每个直接 QtTest 子进程必须同时使用套件选择器、30 秒函数级超时和 60 秒进程级上限。",
+      "observed": {
+        "suite_selector_is_explicit": true,
+        "qtest_function_timeout_ms": 30000,
+        "child_process_timeout_seconds": 60
+      },
+      "execution": {
+        "test_code": "tests/ci_quality_pipeline.py::static_unit_invocation_timeout_contract",
+        "kind": "source_contract"
+      },
+      "recorded_at": "2026-08-26T14:00:46.407616+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-001",
@@ -254,7 +290,15 @@
         "suite": "GraphicsViewTests",
         "test": "testVectorFormatsUseDocumentSceneItem",
         "pass_marker": "PASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()",
-        "pass_marker_observed": true
+        "pass_marker_observed": true,
+        "environment": {
+          "QT_QPA_PLATFORM": "cocoa",
+          "QT_FATAL_WARNINGS": "1",
+          "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+          "FOVELLE_TEST_SUITE": "GraphicsViewTests",
+          "QTEST_FUNCTION_TIMEOUT": "30000"
+        },
+        "qtest_function_timeout_ms": 30000
       },
       "execution": {
         "command": [
@@ -265,10 +309,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 1114.83,
-        "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem() VECTOR_TILE_READY format=pdf renders= 5 pixels= QSize(3690, 2204)\nQINFO  : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem() VECTOR_TILE_READY format=svg renders= 5 pixels= QSize(3690, 2204)\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 890ms\n********* Finished testing of GraphicsViewTests *********\n"
+        "duration_ms": 1173.476,
+        "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem() VECTOR_TILE_READY format=pdf renders= 5 pixels= QSize(1834, 1490)\nQINFO  : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem() VECTOR_TILE_READY format=svg renders= 5 pixels= QSize(1834, 1490)\nPASS   : GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 886ms\n********* Finished testing of GraphicsViewTests *********\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622171+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407620+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-002",
@@ -280,7 +324,15 @@
         "suite": "GraphicsViewTests",
         "test": "testVectorPanRepaintsOnlyExposedStrip",
         "pass_marker": "PASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()",
-        "pass_marker_observed": true
+        "pass_marker_observed": true,
+        "environment": {
+          "QT_QPA_PLATFORM": "cocoa",
+          "QT_FATAL_WARNINGS": "1",
+          "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+          "FOVELLE_TEST_SUITE": "GraphicsViewTests",
+          "QTEST_FUNCTION_TIMEOUT": "30000"
+        },
+        "qtest_function_timeout_ms": 30000
       },
       "execution": {
         "command": [
@@ -291,10 +343,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 614.696,
-        "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 404ms\n********* Finished testing of GraphicsViewTests *********\n"
+        "duration_ms": 606.833,
+        "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 387ms\n********* Finished testing of GraphicsViewTests *********\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622182+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407623+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-003",
@@ -306,7 +358,15 @@
         "suite": "ImageLoaderTests",
         "test": "testEPSPostScriptRender",
         "pass_marker": "PASS   : ImageLoaderTests::testEPSPostScriptRender()",
-        "pass_marker_observed": true
+        "pass_marker_observed": true,
+        "environment": {
+          "QT_QPA_PLATFORM": "cocoa",
+          "QT_FATAL_WARNINGS": "1",
+          "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+          "FOVELLE_TEST_SUITE": "ImageLoaderTests",
+          "QTEST_FUNCTION_TIMEOUT": "30000"
+        },
+        "qtest_function_timeout_ms": 30000
       },
       "execution": {
         "command": [
@@ -317,10 +377,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 565.929,
-        "output_tail": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testEPSPostScriptRender()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 370ms\n********* Finished testing of ImageLoaderTests *********\n"
+        "duration_ms": 565.65,
+        "output_tail": "********* Start testing of ImageLoaderTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ImageLoaderTests::initTestCase()\nPASS   : ImageLoaderTests::testEPSPostScriptRender()\nPASS   : ImageLoaderTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 369ms\n********* Finished testing of ImageLoaderTests *********\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622185+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407626+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-004",
@@ -332,7 +392,15 @@
         "suite": "WindowBehaviorTests",
         "test": "testExitFullscreenActionUsesEscapePath",
         "pass_marker": "PASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()",
-        "pass_marker_observed": true
+        "pass_marker_observed": true,
+        "environment": {
+          "QT_QPA_PLATFORM": "cocoa",
+          "QT_FATAL_WARNINGS": "1",
+          "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+          "FOVELLE_TEST_SUITE": "WindowBehaviorTests",
+          "QTEST_FUNCTION_TIMEOUT": "30000"
+        },
+        "qtest_function_timeout_ms": 30000
       },
       "execution": {
         "command": [
@@ -343,10 +411,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 3475.761,
-        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 3272ms\n********* Finished testing of WindowBehaviorTests *********\n"
+        "duration_ms": 3446.44,
+        "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 3241ms\n********* Finished testing of WindowBehaviorTests *********\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622187+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407628+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-005",
@@ -369,10 +437,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 9.245,
+        "duration_ms": 10.302,
         "output_tail": "VERSION_COMPATIBLE: 15.0 <= 15.0\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622189+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407630+00:00"
     },
     {
       "evidence_id": "EV-CI-UNIT-006",
@@ -395,10 +463,10 @@
         ],
         "return_code": 1,
         "passed": false,
-        "duration_ms": 8.321,
+        "duration_ms": 7.574,
         "output_tail": "ERROR: VERSION_INCOMPATIBLE: 15.7.5 > 15.0\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622190+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407631+00:00"
     },
     {
       "evidence_id": "EV-CI-INTEGRATION-001",
@@ -421,7 +489,7 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 61.505,
+          "duration_ms": 77.052,
           "output_tail": "ninja: no work to do.\n"
         },
         "ctest": {
@@ -437,11 +505,11 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 27964.481,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   27.96 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  27.96 sec\n"
+          "duration_ms": 28474.407,
+          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   28.44 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  28.45 sec\n"
         }
       },
-      "recorded_at": "2026-08-26T13:20:21.622192+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407633+00:00"
     },
     {
       "evidence_id": "EV-CI-INTEGRATION-002",
@@ -466,11 +534,11 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 10.536,
+          "duration_ms": 10.348,
           "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n  Test #1: FovelleTests\n  Test #2: FovelleTaskAcceptanceAudit\n\nTotal Tests: 2\n"
         }
       },
-      "recorded_at": "2026-08-26T13:20:21.622193+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407635+00:00"
     },
     {
       "evidence_id": "EV-CI-INTEGRATION-003",
@@ -493,10 +561,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 73.021,
+        "duration_ms": 75.397,
         "output_tail": "with a pinned, target-versioned, Universal source build and validates three-component minos values\"\n    },\n    {\n      \"id\": \"R-02\",\n      \"pass\": true,\n      \"actual\": {\n        \"macdeployqt\": true,\n        \"always_overwrite\": true,\n        \"workflow_step\": true\n      },\n      \"expected\": \"the Release app is self-contained with Qt frameworks and plugins before signing\"\n    },\n    {\n      \"id\": \"R-03\",\n      \"pass\": true,\n      \"actual\": {\n        \"APPLE_APP_SPECIFIC_PASSWORD\": true,\n        \"APPLE_CERTIFICATE_BASE64\": true,\n        \"APPLE_CERTIFICATE_PASSWORD\": true,\n        \"APPLE_ID\": true,\n        \"APPLE_TEAM_ID\": true\n      },\n      \"expected\": \"all five configured GitHub Secrets are explicitly wired to the release step without embedding values\"\n    },\n    {\n      \"id\": \"R-04\",\n      \"pass\": true,\n      \"actual\": {\n        \"certificate_import\": true,\n        \"pkcs12_certificate_type\": true,\n        \"developer_id_identity_check\": true,\n        \"secure_timestamp\": true,\n        \"hardened_runtime\": true,\n        \"ephemeral_keychain_access\": true,\n        \"codesign_private_key_acl\": true,\n        \"keychain_search_list\": true,\n        \"private_signing_key_preflight\": true,\n        \"identity_scoped_partition_update\": true,\n        \"partition_update_is_best_effort\": true,\n        \"explicit_keychain_for_codesign\": true,\n        \"ad_hoc_signing_absent\": true\n      },\n      \"expected\": \"the app is signed with an imported Developer ID Application identity, verified private key access, explicit temporary keychain access, secure timestamp, and Hardened Runtime\"\n    },\n    {\n      \"id\": \"R-05\",\n      \"pass\": true,\n      \"actual\": {\n        \"notarytool_wait\": true,\n        \"apple_credentials\": true,\n        \"staple_and_validate\": true\n      },\n      \"expected\": \"the signed app is submitted to Apple, waits for approval, staples the ticket, and validates it\"\n    },\n    {\n      \"id\": \"R-06\",\n      \"pass\": true,\n      \"actual\": {\n        \"gatekeeper\": true,\n        \"codesign_verify\": true,\n        \"final_zip_extracted\": true,\n        \"zip_path\": true\n      },\n      \"expected\": \"the exact final zip is extracted and checked for architecture, signature, stapled ticket, and Gatekeeper acceptance\"\n    },\n    {\n      \"id\": \"R-07\",\n      \"pass\": true,\n      \"actual\": {\n        \"shell_trace_disabled\": true,\n        \"secret_echo_absent\": true\n      },\n      \"expected\": \"the release script does not intentionally print certificate or Apple credential values\"\n    },\n    {\n      \"id\": \"R-08\",\n      \"pass\": true,\n      \"actual\": {\n        \"return_code\": 0,\n        \"output\": \"DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip\\nDRY_RUN_APP_PATH: fixture/Fovelle.app\\nDRY_RUN_RELEASE_ZIP_PATH: fixture/Fovelle-universal.zip\\nDRY_RUN_NOTARIZATION_TIMEOUT: 30m\\nDRY_RUN_EXPECTED_MACOS_DEPLOYMENT_TARGET: 15.0\\n\"\n      },\n      \"expected\": \"the release orchestration is deterministically executable in dry-run mode without requiring secrets or network access\"\n    },\n    {\n      \"id\": \"R-09\",\n      \"pass\": true,\n      \"actual\": {\n        \"default_timeout\": true,\n        \"duration_validation\": true,\n        \"notary_timeout_argument\": true,\n        \"notary_verbose_output\": true,\n        \"workflow_notarization_timeout\": true,\n        \"failure_is_fail_closed\": true,\n        \"workflow_job_timeout\": true,\n        \"workflow_step_timeout\": true,\n        \"custom_timeout_dry_run\": true,\n        \"invalid_timeout_rejected\": true\n      },\n      \"expected\": \"Apple notarization has a validated finite wait, observable progress, workflow-level safety bounds, and fail-closed timeout behavior\"\n    }\n  ],\n  \"passed\": true,\n  \"limitations\": [\n    \"Dry-run validates orchestration without consuming Apple credentials; actual notarization requires the configured GitHub Secrets and Apple service.\",\n    \"Artifact-level Gatekeeper acceptance is verified by the Release workflow after the signed zip is produced.\"\n  ]\n}\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622194+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407637+00:00"
     },
     {
       "evidence_id": "EV-CI-INTEGRATION-004",
@@ -506,7 +574,7 @@
       "assertion": "固定 Ghostscript 源码必须在目标 15.0 下生成同时包含 x86_64 与 arm64 的可安装 runtime。",
       "observed": {
         "executable_exists": true,
-        "file_output": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit executable x86_64] [arm64]\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs (for architecture x86_64):\tMach-O 64-bit executable x86_64\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs (for architecture arm64):\tMach-O 64-bit executable arm64\n",
+        "file_output": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit executable x86_64] [arm64]\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs (for architecture x86_64):\tMach-O 64-bit executable x86_64\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs (for architecture arm64):\tMach-O 64-bit executable arm64\n",
         "architectures": [
           "arm64",
           "x86_64"
@@ -526,64 +594,64 @@
             "bash",
             "/Users/inostarlin/code/Fovelle/dist/scripts/prepare-ghostscript.sh",
             "--output",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 52059.686,
-          "output_tail": "ong long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                      ~~~                     ^~~~~~~~~~~~~\n      |                                                      %llx\n2 warnings generated.\n2 warnings generated.\n4 warnings generated.\n./pdf/pdf_file.c:1087:63: warning: format specifies type 'long' but the argument has type 'gs_offset_t' (aka 'long long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                ~~~            ^~~~~~~~~~~~~\n      |                                                %lld\n./pdf/pdf_file.c:1087:78: warning: format specifies type 'unsigned long' but the argument has type 'gs_offset_t' (aka 'long long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                      ~~~                     ^~~~~~~~~~~~~\n      |                                                      %llx\n./pdf/pdf_int.c:363:90: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  363 |         if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed number %s as 0\", Buffer)) < 0) {\n      |                     ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:375:94: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  375 |             if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                         ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:383:98: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  383 |                 if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                             ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:391:102: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  391 |                     if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                                 ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n2 warnings generated.\n4 warnings generated.\n./pdf/pdf_fontTT.c:144:9: warning: variable 'i' set but not used [-Wunused-but-set-variable]\n  144 |     int i, code = 0;\n      |         ^\n1 warning generated.\n./pdf/pdf_fontTT.c:144:9: warning: variable 'i' set but not used [-Wunused-but-set-variable]\n  144 |     int i, code = 0;\n      |         ^\n1 warning generated.\n./pdf/pdf_obj.c:570:23: warning: unused variable 'size' [-Wunused-variable]\n  570 |     int esc_size = 1, size = name->length + 1;\n      |                       ^~~~\n1 warning generated.\n./pdf/pdf_obj.c:570:23: warning: unused variable 'size' [-Wunused-variable]\n  570 |     int esc_size = 1, size = name->length + 1;\n      |                       ^~~~\n1 warning generated.\nld: warning: ignoring duplicate libraries: '-lm'\nld: warning: ignoring duplicate libraries: '-lm'\n"
+          "duration_ms": 55905.111,
+          "output_tail": "ong long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                      ~~~                     ^~~~~~~~~~~~~\n      |                                                      %llx\n2 warnings generated.\n4 warnings generated.\n2 warnings generated.\n./pdf/pdf_file.c:1087:63: warning: format specifies type 'long' but the argument has type 'gs_offset_t' (aka 'long long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                ~~~            ^~~~~~~~~~~~~\n      |                                                %lld\n./pdf/pdf_file.c:1087:78: warning: format specifies type 'unsigned long' but the argument has type 'gs_offset_t' (aka 'long long') [-Wformat]\n 1087 |         outprintf(ctx->memory, \"Filter: offset %ld(0x%lx)\\n\", stream_offset, stream_offset);\n      |                                                      ~~~                     ^~~~~~~~~~~~~\n      |                                                      %llx\n./pdf/pdf_int.c:363:90: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  363 |         if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed number %s as 0\", Buffer)) < 0) {\n      |                     ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:375:94: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  375 |             if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                         ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:383:98: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  383 |                 if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                             ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n./pdf/pdf_int.c:391:102: warning: implicit conversion from enumeration type 'enum pdf_error_e' to different enumeration type 'pdf_warning' (aka 'enum pdf_warning_e') [-Wenum-conversion]\n  391 |                     if ((code = pdfi_set_warning_var(ctx, gs_note_error(gs_error_syntaxerror), NULL, E_PDF_MALFORMEDNUMBER, \"pdfi_read_num\", \"Treating malformed float %s as 0\", Buffer)) < 0) {\n      |                                 ~~~~~~~~~~~~~~~~~~~~                                                 ^~~~~~~~~~~~~~~~~~~~~\n2 warnings generated.\n4 warnings generated.\n./pdf/pdf_fontTT.c:144:9: warning: variable 'i' set but not used [-Wunused-but-set-variable]\n  144 |     int i, code = 0;\n      |         ^\n1 warning generated.\n./pdf/pdf_fontTT.c:144:9: warning: variable 'i' set but not used [-Wunused-but-set-variable]\n  144 |     int i, code = 0;\n      |         ^\n1 warning generated.\n./pdf/pdf_obj.c:570:23: warning: unused variable 'size' [-Wunused-variable]\n  570 |     int esc_size = 1, size = name->length + 1;\n      |                       ^~~~\n1 warning generated.\n./pdf/pdf_obj.c:570:23: warning: unused variable 'size' [-Wunused-variable]\n  570 |     int esc_size = 1, size = name->length + 1;\n      |                       ^~~~\n1 warning generated.\nld: warning: ignoring duplicate libraries: '-lm'\nld: warning: ignoring duplicate libraries: '-lm'\n"
         },
         "file": {
           "command": [
             "file",
             "-b",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 5.657,
-          "output_tail": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit executable x86_64] [arm64]\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs (for architecture x86_64):\tMach-O 64-bit executable x86_64\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs (for architecture arm64):\tMach-O 64-bit executable arm64\n"
+          "duration_ms": 5.311,
+          "output_tail": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit executable x86_64] [arm64]\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs (for architecture x86_64):\tMach-O 64-bit executable x86_64\n/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs (for architecture arm64):\tMach-O 64-bit executable arm64\n"
         },
         "lipo": {
           "command": [
             "lipo",
             "-archs",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 9.236,
+          "duration_ms": 8.924,
           "output_tail": "x86_64 arm64\n"
         },
         "otool": {
           "command": [
             "otool",
             "-l",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs"
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 9.932,
-          "output_tail": "lags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __unwind_info\n   segname __TEXT\n      addr 0x0000000100fb68c0\n      size 0x0000000000009818\n    offset 16476352\n     align 2^2 (4)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __eh_frame\n   segname __TEXT\n      addr 0x0000000100fc00d8\n      size 0x0000000000001210\n    offset 16515288\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x6800000b\n reserved1 0\n reserved2 0\nLoad command 2\n      cmd LC_SEGMENT_64\n  cmdsize 232\n  segname __DATA_CONST\n   vmaddr 0x0000000100fc4000\n   vmsize 0x0000000000644000\n  fileoff 16531456\n filesize 6569984\n  maxprot 0x00000003\n initprot 0x00000003\n   nsects 2\n    flags 0x10\nSection\n  sectname __got\n   segname __DATA_CONST\n      addr 0x0000000100fc4000\n      size 0x0000000000000500\n    offset 16531456\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000006\n reserved1 154 (index into indirect symbol table)\n reserved2 0\nSection\n  sectname __const\n   segname __DATA_CONST\n      addr 0x0000000100fc4500\n      size 0x00000000006403a0\n    offset 16532736\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nLoad command 3\n      cmd LC_SEGMENT_64\n  cmdsize 312\n  segname __DATA\n   vmaddr 0x0000000101608000\n   vmsize 0x0000000000320000\n  fileoff 23101440\n filesize 3260416\n  maxprot 0x00000003\n initprot 0x00000003\n   nsects 3\n    flags 0x0\nSection\n  sectname __data\n   segname __DATA\n      addr 0x0000000101608000\n      size 0x000000000031b778\n    offset 23101440\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __bss\n   segname __DATA\n      addr 0x0000000101923778\n      size 0x0000000000002111\n    offset 0\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000001\n reserved1 0\n reserved2 0\nSection\n  sectname __common\n   segname __DATA\n      addr 0x0000000101925890\n      size 0x00000000000000ec\n    offset 0\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000001\n reserved1 0\n reserved2 0\nLoad command 4\n      cmd LC_SEGMENT_64\n  cmdsize 72\n  segname __LINKEDIT\n   vmaddr 0x0000000101928000\n   vmsize 0x0000000000110000\n  fileoff 26361856\n filesize 1103536\n  maxprot 0x00000001\n initprot 0x00000001\n   nsects 0\n    flags 0x0\nLoad command 5\n      cmd LC_DYLD_CHAINED_FIXUPS\n  cmdsize 16\n  dataoff 26361856\n datasize 3512\nLoad command 6\n      cmd LC_DYLD_EXPORTS_TRIE\n  cmdsize 16\n  dataoff 26365368\n datasize 173344\nLoad command 7\n     cmd LC_SYMTAB\n cmdsize 24\n  symoff 26562168\n   nsyms 18849\n  stroff 26865008\n strsize 387344\nLoad command 8\n            cmd LC_DYSYMTAB\n        cmdsize 80\n      ilocalsym 0\n      nlocalsym 11111\n     iextdefsym 11111\n     nextdefsym 7578\n      iundefsym 18689\n      nundefsym 160\n         tocoff 0\n           ntoc 0\n      modtaboff 0\n        nmodtab 0\n   extrefsymoff 0\n    nextrefsyms 0\n indirectsymoff 26863752\n  nindirectsyms 314\n      extreloff 0\n        nextrel 0\n      locreloff 0\n        nlocrel 0\nLoad command 9\n          cmd LC_LOAD_DYLINKER\n      cmdsize 32\n         name /usr/lib/dyld (offset 12)\nLoad command 10\n     cmd LC_UUID\n cmdsize 24\n    uuid FAF31327-1131-398D-96DB-1C32398016DE\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform 1\n    minos 15.0\n      sdk 26.2\n   ntools 1\n     tool 3\n  version 1230.1\nLoad command 12\n      cmd LC_SOURCE_VERSION\n  cmdsize 16\n  version 0.0\nLoad command 13\n       cmd LC_MAIN\n   cmdsize 24\n  entryoff 1752\n stacksize 0\nLoad command 14\n          cmd LC_LOAD_DYLIB\n      cmdsize 56\n         name /usr/lib/libSystem.B.dylib (offset 24)\n   time stamp 2 Thu Jan  1 08:00:02 1970\n      current version 1356.0.0\ncompatibility version 1.0.0\nLoad command 15\n      cmd LC_FUNCTION_STARTS\n  cmdsize 16\n  dataoff 26538712\n datasize 23456\nLoad command 16\n      cmd LC_DATA_IN_CODE\n  cmdsize 16\n  dataoff 26562168\n datasize 0\nLoad command 17\n      cmd LC_CODE_SIGNATURE\n  cmdsize 16\n  dataoff 27252352\n datasize 213040\n"
+          "duration_ms": 11.105,
+          "output_tail": "lags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __unwind_info\n   segname __TEXT\n      addr 0x0000000100fb68c0\n      size 0x0000000000009818\n    offset 16476352\n     align 2^2 (4)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __eh_frame\n   segname __TEXT\n      addr 0x0000000100fc00d8\n      size 0x0000000000001210\n    offset 16515288\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x6800000b\n reserved1 0\n reserved2 0\nLoad command 2\n      cmd LC_SEGMENT_64\n  cmdsize 232\n  segname __DATA_CONST\n   vmaddr 0x0000000100fc4000\n   vmsize 0x0000000000644000\n  fileoff 16531456\n filesize 6569984\n  maxprot 0x00000003\n initprot 0x00000003\n   nsects 2\n    flags 0x10\nSection\n  sectname __got\n   segname __DATA_CONST\n      addr 0x0000000100fc4000\n      size 0x0000000000000500\n    offset 16531456\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000006\n reserved1 154 (index into indirect symbol table)\n reserved2 0\nSection\n  sectname __const\n   segname __DATA_CONST\n      addr 0x0000000100fc4500\n      size 0x00000000006403a0\n    offset 16532736\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nLoad command 3\n      cmd LC_SEGMENT_64\n  cmdsize 312\n  segname __DATA\n   vmaddr 0x0000000101608000\n   vmsize 0x0000000000320000\n  fileoff 23101440\n filesize 3260416\n  maxprot 0x00000003\n initprot 0x00000003\n   nsects 3\n    flags 0x0\nSection\n  sectname __data\n   segname __DATA\n      addr 0x0000000101608000\n      size 0x000000000031b778\n    offset 23101440\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000000\n reserved1 0\n reserved2 0\nSection\n  sectname __bss\n   segname __DATA\n      addr 0x0000000101923778\n      size 0x0000000000002111\n    offset 0\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000001\n reserved1 0\n reserved2 0\nSection\n  sectname __common\n   segname __DATA\n      addr 0x0000000101925890\n      size 0x00000000000000ec\n    offset 0\n     align 2^3 (8)\n    reloff 0\n    nreloc 0\n     flags 0x00000001\n reserved1 0\n reserved2 0\nLoad command 4\n      cmd LC_SEGMENT_64\n  cmdsize 72\n  segname __LINKEDIT\n   vmaddr 0x0000000101928000\n   vmsize 0x0000000000110000\n  fileoff 26361856\n filesize 1103536\n  maxprot 0x00000001\n initprot 0x00000001\n   nsects 0\n    flags 0x0\nLoad command 5\n      cmd LC_DYLD_CHAINED_FIXUPS\n  cmdsize 16\n  dataoff 26361856\n datasize 3512\nLoad command 6\n      cmd LC_DYLD_EXPORTS_TRIE\n  cmdsize 16\n  dataoff 26365368\n datasize 173344\nLoad command 7\n     cmd LC_SYMTAB\n cmdsize 24\n  symoff 26562168\n   nsyms 18849\n  stroff 26865008\n strsize 387344\nLoad command 8\n            cmd LC_DYSYMTAB\n        cmdsize 80\n      ilocalsym 0\n      nlocalsym 11111\n     iextdefsym 11111\n     nextdefsym 7578\n      iundefsym 18689\n      nundefsym 160\n         tocoff 0\n           ntoc 0\n      modtaboff 0\n        nmodtab 0\n   extrefsymoff 0\n    nextrefsyms 0\n indirectsymoff 26863752\n  nindirectsyms 314\n      extreloff 0\n        nextrel 0\n      locreloff 0\n        nlocrel 0\nLoad command 9\n          cmd LC_LOAD_DYLINKER\n      cmdsize 32\n         name /usr/lib/dyld (offset 12)\nLoad command 10\n     cmd LC_UUID\n cmdsize 24\n    uuid 89ECA75A-3B97-391F-8862-AEDC688913B9\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform 1\n    minos 15.0\n      sdk 26.2\n   ntools 1\n     tool 3\n  version 1230.1\nLoad command 12\n      cmd LC_SOURCE_VERSION\n  cmdsize 16\n  version 0.0\nLoad command 13\n       cmd LC_MAIN\n   cmdsize 24\n  entryoff 1752\n stacksize 0\nLoad command 14\n          cmd LC_LOAD_DYLIB\n      cmdsize 56\n         name /usr/lib/libSystem.B.dylib (offset 24)\n   time stamp 2 Thu Jan  1 08:00:02 1970\n      current version 1356.0.0\ncompatibility version 1.0.0\nLoad command 15\n      cmd LC_FUNCTION_STARTS\n  cmdsize 16\n  dataoff 26538712\n datasize 23456\nLoad command 16\n      cmd LC_DATA_IN_CODE\n  cmdsize 16\n  dataoff 26562168\n datasize 0\nLoad command 17\n      cmd LC_CODE_SIGNATURE\n  cmdsize 16\n  dataoff 27252352\n datasize 213040\n"
         },
         "eps_render": {
           "command": [
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/runtime/bin/gs",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/runtime/bin/gs",
             "-dSAFER",
             "-dBATCH",
             "-dNOPAUSE",
             "-dEPSCrop",
             "-sDEVICE=pdfwrite",
-            "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/fixture.pdf",
-            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-zjzav71j/fixture.eps"
+            "-sOutputFile=/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/fixture.pdf",
+            "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-ghostscript-audit-0rymhkgo/fixture.eps"
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 72.093,
+          "duration_ms": 66.139,
           "output_tail": "GPL Ghostscript 10.07.1 (2026-05-19)\nCopyright (C) 2026 Artifex Software, Inc.  All rights reserved.\nThis software is supplied under the GNU AGPLv3 and comes with NO WARRANTY:\nsee the file COPYING for details.\n"
         }
       },
-      "recorded_at": "2026-08-26T13:20:21.622197+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407640+00:00"
     },
     {
       "evidence_id": "EV-CI-SYSTEM-001",
@@ -600,10 +668,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 672.877,
+        "duration_ms": 674.748,
         "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622198+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407641+00:00"
     },
     {
       "evidence_id": "EV-CI-SYSTEM-002",
@@ -622,10 +690,10 @@
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 186.939,
+        "duration_ms": 194.226,
         "output_tail": "Fovelle 1.0.0\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622200+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407644+00:00"
     },
     {
       "evidence_id": "EV-CI-SYSTEM-003",
@@ -645,14 +713,14 @@
           "--repo",
           "/Users/inostarlin/code/Fovelle",
           "--output",
-          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-release-system-audit-ibkrcpcy/release-system.json"
+          "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-release-system-audit-eor56kzr/release-system.json"
         ],
         "return_code": 0,
         "passed": true,
-        "duration_ms": 68.047,
-        "output_tail": "{\n  \"kind\": \"system-release\",\n  \"repo\": \"/Users/inostarlin/code/Fovelle\",\n  \"cases\": [\n    {\n      \"id\": \"TC-REL-SYSTEM-DRYRUN\",\n      \"test\": \"package-macos-release.sh dry-run\",\n      \"status\": \"passed\"\n    },\n    {\n      \"id\": \"TC-REL-SYSTEM-TIMEOUT-CONFIG\",\n      \"test\": \"notarization timeout validation\",\n      \"status\": \"passed\"\n    }\n  ],\n  \"performance\": {\n    \"dry_run_elapsed_seconds\": 0.005980333000479732,\n    \"dry_run_max_seconds\": 5.0,\n    \"passed\": true\n  },\n  \"timeout_observations\": {\n    \"custom_timeout\": \"45s\",\n    \"invalid_timeout_return_code\": 1,\n    \"invalid_timeout_output\": \"ERROR: NOTARIZATION_TIMEOUT must be a positive integer with optional s/m/h suffix: forever\\n\",\n    \"passed\": true\n  },\n  \"artifact_validation\": \"deferred\",\n  \"artifact_observations\": {},\n  \"passed\": true,\n  \"limitations\": [\n    \"Without --app and --zip, this local gate intentionally runs only the deterministic orchestration dry run; it does not consume Apple credentials.\",\n    \"The actual signed artifact gate runs inside the GitHub Release job after Apple notarization and extracts the exact uploaded zip.\"\n  ]\n}\n"
+        "duration_ms": 55.424,
+        "output_tail": "{\n  \"kind\": \"system-release\",\n  \"repo\": \"/Users/inostarlin/code/Fovelle\",\n  \"cases\": [\n    {\n      \"id\": \"TC-REL-SYSTEM-DRYRUN\",\n      \"test\": \"package-macos-release.sh dry-run\",\n      \"status\": \"passed\"\n    },\n    {\n      \"id\": \"TC-REL-SYSTEM-TIMEOUT-CONFIG\",\n      \"test\": \"notarization timeout validation\",\n      \"status\": \"passed\"\n    }\n  ],\n  \"performance\": {\n    \"dry_run_elapsed_seconds\": 0.005826499997056089,\n    \"dry_run_max_seconds\": 5.0,\n    \"passed\": true\n  },\n  \"timeout_observations\": {\n    \"custom_timeout\": \"45s\",\n    \"invalid_timeout_return_code\": 1,\n    \"invalid_timeout_output\": \"ERROR: NOTARIZATION_TIMEOUT must be a positive integer with optional s/m/h suffix: forever\\n\",\n    \"passed\": true\n  },\n  \"artifact_validation\": \"deferred\",\n  \"artifact_observations\": {},\n  \"passed\": true,\n  \"limitations\": [\n    \"Without --app and --zip, this local gate intentionally runs only the deterministic orchestration dry run; it does not consume Apple credentials.\",\n    \"The actual signed artifact gate runs inside the GitHub Release job after Apple notarization and extracts the exact uploaded zip.\"\n  ]\n}\n"
       },
-      "recorded_at": "2026-08-26T13:20:21.622201+00:00"
+      "recorded_at": "2026-08-26T14:00:46.407647+00:00"
     }
   ]
 }

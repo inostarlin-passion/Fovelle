@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-26T13:18:54.610948+00:00",
+  "generated_at": "2026-08-26T13:59:15.007959+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "status": "passed",
   "verification_scope": {
@@ -18,86 +18,103 @@
   "research_trace": [
     {
       "hop": 1,
-      "layer": "observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-      "finding": "The Release Fovelle job failed after macdeployqt: Bash reported an arithmetic syntax error while parsing minos 15.7.5, and then identified libtesseract.5.dylib as requiring 15.7.5 while the artifact target was 15.0.",
-      "premise": "The hosted Release log is the authoritative observation for the currently failing check."
+      "layer": "latest observed CI failure",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
+      "finding": "The latest Checks run for commit 2b91baf passed static (6/6), integration (4/4), and system (3/3), but its FovelleTaskAcceptanceAudit failed in the unit layer (5/6).",
+      "premise": "The hosted Checks log is the authoritative observation for the currently failing workflow run."
     },
     {
       "hop": 2,
-      "layer": "cross-job isolation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
-      "finding": "The Checks job for the same tagged commit 47b4eba passed, and the companion Build Fovelle run also passed; the remaining failure is isolated to Release packaging and validation.",
-      "premise": "A passing general build/test job narrows the failing boundary to the Release-only signing, dependency staging, or artifact contract."
+      "layer": "cross-job and source isolation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
+      "finding": "The companion Build Fovelle run for the same commit passed, and commit 2b91baf changed only README.md relative to the preceding successful Checks commit fce1f44; the failure is isolated to the acceptance-audit execution path rather than application source compilation.",
+      "premise": "A passing companion build plus a source-equivalent comparison narrows the boundary to audit orchestration or runner-sensitive test execution."
     },
     {
       "hop": 3,
-      "layer": "version-format observation",
-      "source": "dist/scripts/package-macos-release.sh",
-      "finding": "The old validator split 15.7.5 into major=15 and minor=7.5, then used Bash arithmetic on the dotted minor token; this explains the exact invalid arithmetic operator error.",
-      "premise": "The local script and the remote line-numbered error are consistent, so this is a deterministic parser defect rather than runner timing."
+      "layer": "audit invocation inspection",
+      "source": "tests/ci_quality_pipeline.py",
+      "finding": "The acceptance audit launches each selected Qt test in a fresh process and sets FOVELLE_TEST_SUITE, but before this repair it did not pass QTEST_FUNCTION_TIMEOUT; the outer Python process stopped a child only after its 60-second subprocess timeout.",
+      "premise": "The local audit source is the exact script executed by the CTest FovelleTaskAcceptanceAudit registration."
     },
     {
       "hop": 4,
+      "layer": "Qt timeout contract",
+      "source": "https://doc.qt.io/qt-6/qtest-overview.html",
+      "finding": "Qt documents that QTEST_FUNCTION_TIMEOUT controls the maximum duration of an individual test function and that an overrun aborts the test; the documented default is five minutes.",
+      "premise": "A GUI test can therefore exceed the audit wrapper's 60-second child limit unless the audit and the registered CTest suite use the same explicit function-level bound."
+    },
+    {
+      "hop": 5,
+      "layer": "Qt test selection contract",
+      "source": "https://doc.qt.io/qt-6/qtest.html",
+      "finding": "Qt documents that QTest::qExec executes tests declared in the selected test object and that test function names are command-line selectors; the application’s FOVELLE_TEST_SUITE filter therefore must remain paired with the function selector.",
+      "premise": "The audit intentionally runs one atomic GUI test per child process, so suite selection and bounded execution are both part of the observable test contract."
+    },
+    {
+      "hop": 6,
+      "layer": "local reproduction",
+      "source": "tests/ci_quality_pipeline.py and local build evidence",
+      "finding": "With the suite filter, explicit Cocoa environment, and release-version cases, the repaired local acceptance matrix passes all 6 unit cases; the full FovelleTests target also passes.",
+      "premise": "A local pass does not prove the hosted runner is re-executed, but it confirms the repair does not change the intended pass markers or release parser behavior."
+    },
+    {
+      "hop": 7,
+      "layer": "unit repair",
+      "source": "tests/ci_quality_pipeline.py",
+      "finding": "The audit now gives every direct QtTest child QTEST_FUNCTION_TIMEOUT=30000, while retaining FOVELLE_TEST_SUITE and the 60-second process cap; failed case IDs are also emitted in the machine-readable summary.",
+      "premise": "The child timeout is stricter than the wrapper timeout and matches tests/CMakeLists.txt, making slow or hung GUI behavior bounded and diagnosable."
+    },
+    {
+      "hop": 8,
+      "layer": "prior Release failure",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+      "finding": "The earlier Release job failed after macdeployqt because Bash parsed minos 15.7.5 with a dotted arithmetic token and because libtesseract.5.dylib required 15.7.5 while the artifact target was 15.0.",
+      "premise": "The latest unit failure is a separate later regression in the audit path; the earlier Release repair remains part of the task's required end-to-end contract."
+    },
+    {
+      "hop": 9,
       "layer": "build-tool contract",
       "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
       "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
       "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target."
     },
     {
-      "hop": 5,
+      "hop": 10,
       "layer": "bundle metadata contract",
       "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
       "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
       "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility."
     },
     {
-      "hop": 6,
-      "layer": "dependency provenance",
-      "source": "dist/scripts/prepare-ghostscript.sh",
-      "finding": "The Release build installed Homebrew Ghostscript for tests, and the CMake POST_BUILD hook copied that prebuilt runtime into the app before packaging; its libtesseract dependency carried minos 15.7.5.",
-      "premise": "A dependency copied from Homebrew cannot be made compatible merely by changing the app's declared target; the dependency must be rebuilt or replaced."
-    },
-    {
-      "hop": 7,
+      "hop": 11,
       "layer": "upstream multi-architecture build guidance",
       "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
       "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
       "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags."
     },
     {
-      "hop": 8,
-      "layer": "source-build counterexample",
-      "source": "dist/scripts/prepare-ghostscript.sh plus local build evidence",
-      "finding": "A first universal source build still compiled Tesseract's AVX source on arm64 and failed; Ghostscript's configure supports --without-tesseract, while EPS conversion only needs the Ghostscript interpreter/pdfwrite path.",
-      "premise": "Disabling the unused OCR and desktop integration options is the smallest dependency-surface reduction that removes the architecture-specific failure and avoids Homebrew libraries."
-    },
-    {
-      "hop": 9,
-      "layer": "implementation verification",
-      "source": "dist/scripts/prepare-ghostscript.sh and local source-build evidence",
-      "finding": "The repaired source path builds Ghostscript 10.07.1 with the verified SHA-256, x86_64;arm64, and minos 15.0; lipo reports both architectures and otool reports minos 15.0 for the resulting executable.",
-      "premise": "A real staged binary is stronger evidence than a static marker because it exercises download verification, configure, compilation, installation, and architecture inspection together."
-    },
-    {
-      "hop": 10,
+      "hop": 12,
       "layer": "final deduction",
       "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
-      "finding": "The repaired Release path now uses a three-component numeric comparator, stages the source-built universal runtime after macdeployqt, and rechecks every Mach-O plus LSMinimumSystemVersion before signing.",
-      "premise": "These controls jointly address both observed causes: parser failure and a genuinely too-new embedded dependency, while preserving the explicit 15.0 application contract."
+      "finding": "The complete repair bounds and identifies the direct Qt audit children, keeps the suite selector deterministic, and preserves the Release path's three-component comparator, source-built universal runtime, and pre-signing Mach-O/Info.plist checks.",
+      "premise": "The unit-layer fix addresses the latest Checks failure while the retained Release controls address the earlier packaging root cause without broadening the product behavior."
     }
   ],
   "diagnosis": {
-    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-    "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851926",
-    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32968851796",
-    "commit": "47b4eba",
+    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
+    "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974287326",
+    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
+    "commit": "2b91baf",
     "observations": [
+      "最新 Checks run 的静态、集成和系统阶段分别为 6/6、4/4、3/3，但 FovelleTaskAcceptanceAudit 的 unit 阶段为 5/6；同一 run 的完整 FovelleTests 通过。",
+      "同一提交的 Build Fovelle run 通过，且提交 2b91baf 相对前一个通过 Checks 的提交 fce1f44 只改变 README.md，因此失败边界位于审计单元编排或 runner 敏感的异步 GUI 测试执行。",
+      "修复前的直接 QtTest 子进程只设置 FOVELLE_TEST_SUITE，没有设置 QTEST_FUNCTION_TIMEOUT=30000；本地 CTest 的 FovelleTests 环境却已设置该值，两个入口的时间合同不一致。",
       "Release 的 Deploy/Package 阶段报告 minos 15.7.5，并在旧比较器中出现 7.5 的 Bash arithmetic syntax error。",
       "同一失败步骤指出 build/Fovelle.app/Contents/Resources/ghostscript/lib/libtesseract.5.dylib 要求 15.7.5，而目标为 15.0。",
-      "Checks 和 Build Fovelle 对提交 47b4eba 均通过，说明普通编译、静态检查和 Qt 测试链没有复现该失败。"
+      "本地按 suite selector、QTEST_FUNCTION_TIMEOUT=30000 和 release version cases 运行的验收矩阵通过全部 20 个原子用例；未执行 push，因此没有宣称远端重跑。"
     ],
-    "deduction": "Release 必须同时修复版本解析和依赖来源：三段版本只能按数值组件比较；Ghostscript 必须从固定源码以 15.0、双架构构建，再在签名之前对最终 bundle 做闭合校验。"
+    "deduction": "最新 Checks 的可修复缺口是直接 QtTest 审计缺少显式函数级超时；补齐 30 秒 QtTest 边界并保留 60 秒进程上限即可使单元失败有界且可诊断。Release 则仍需三段版本数值比较、15.0 双架构源码 Ghostscript 和签名前闭合校验。"
   },
   "repairs": [
     {
@@ -110,59 +127,64 @@
     },
     {
       "path": "tests/ci_quality_pipeline.py",
-      "change": "增加 Release 静态、版本单元、源码构建集成和发布 dry-run 系统验收，并更新四份审计 JSON"
+      "change": "为直接 QtTest 审计子进程补齐 suite selector 与 30000ms 函数超时，增加失败用例 ID 诊断，并保留 Release 四层验收与四份审计 JSON"
     }
   ],
   "stage_summaries": {
     "static": {
-      "total": 6,
-      "passed": 6,
+      "total": 7,
+      "passed": 7,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "unit": {
       "total": 6,
       "passed": 6,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "integration": {
       "total": 4,
       "passed": 4,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     },
     "system": {
       "total": 3,
       "passed": 3,
       "failed": 0,
+      "failed_case_ids": [],
       "status": "passed"
     }
   },
-  "case_count": 19,
-  "passed_case_count": 19,
+  "failed_case_ids": [],
+  "case_count": 20,
+  "passed_case_count": 20,
   "failed_case_count": 0,
   "artifacts": [
     {
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 41794,
-      "sha256": "39fa700f41e78683b5c3caf46c42ead1498451985608a6b58ffe1b749ce7a99d"
+      "bytes": 44937,
+      "sha256": "199a7da05ae1b912e0f1002bea6b8256440349791fbc7840ed43fc2980a980a4"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 26050,
-      "sha256": "f0f7f037ae32726cac24271d874df84b00b2fb94ed81707edf2416cd57b78977"
+      "bytes": 28359,
+      "sha256": "a73662da75291a602151db0b7c80fbcba6d75f06e4de95ed1f70b225859cf830"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
-      "bytes": 8459,
-      "sha256": "2a2ef1d9e2d7e7797079edee8d8a593c3f9218b630722d33d602a437340f59e0"
+      "bytes": 10218,
+      "sha256": "23e12a95ff027dbee3b81e5b4eace999f9604edd2f1d85b9e22f5b9f52b8876b"
     }
   ],
   "self_artifact": {
