@@ -120,7 +120,7 @@ if(Python3_Interpreter_FOUND)
     add_test(
         NAME FovelleTaskAcceptanceAudit
         COMMAND ${Python3_EXECUTABLE}
-            "${CMAKE_CURRENT_SOURCE_DIR}/task_acceptance_pipeline.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/ci_quality_pipeline.py"
             --repo "${PROJECT_SOURCE_DIR}"
             --build-dir "${CMAKE_BINARY_DIR}"
             --skip-build

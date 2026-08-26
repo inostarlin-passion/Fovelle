@@ -19,7 +19,7 @@ Fovelle incorporates portions of commits from [jdpurcell/qView](https://github.c
 - Improved zooming and panning performance for SDR images.
 - Improved cold-start performance for image loading.
 - Optimized the preloading mechanism.
-- Supports both light and dark appearances.
+- Supports both light and dark appearances, with automatic switching based on the system appearance.
 
 ## Additional Features
 

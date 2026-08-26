@@ -1,1025 +1,359 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-26T10:21:00.021296+00:00",
-  "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
+  "generated_at": "2026-08-26T11:19:05.001520+00:00",
+  "task": "修复 Fovelle GitHub Actions 检查失败",
   "test_execution_order": [
     "static",
     "unit",
     "integration",
     "system"
   ],
+  "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准；每项均记录测试目的、前置条件、输入数据、操作步骤、预期结果和后置条件。",
   "research_trace": [
     {
       "hop": 1,
-      "dimension": "native settings geometry",
-      "source": "https://doc.qt.io/qt-6/qdialog.html",
-      "finding": "Qt documents SetFixedSize as the layout constraint that prevents manual dialog resizing.",
-      "explicit_premise": "For each active translation, W is the maximum natural width of General, Shortcuts, and Mouse, including the scrollbar chrome required by the 16-row table."
+      "layer": "observed CI failure",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32959801767",
+      "finding": "The Checks run for commit 711515b failed in Run Unit Tests and Run clang-tidy; clang-format passed.",
+      "premise": "The hosted runner log is the authoritative observation for this repair."
     },
     {
       "hop": 2,
-      "dimension": "scroll-free per-tab height",
-      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
-      "finding": "QScrollArea exposes independent vertical scrollbar policies and a resizable content widget.",
-      "explicit_premise": "General and Mouse use natural layout size plus frame; Shortcuts uses the table header plus exactly 16 row heights."
+      "layer": "runner capability",
+      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+      "finding": "GitHub documents macos-26 as a supported hosted-runner label.",
+      "premise": "Because macos-26 is a documented label, changing the runner is not required by the observed failure."
     },
     {
       "hop": 3,
-      "dimension": "Photos navigation reference",
-      "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
-      "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
-      "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button."
+      "layer": "build-tool semantics",
+      "source": "https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html",
+      "finding": "CMake invokes the configured clang-tidy command alongside the compiler for target sources.",
+      "premise": "A POST_BUILD hook attached to the same target remains in the tidy build unless the optional hook is disabled."
     },
     {
       "hop": 4,
-      "dimension": "tab-size transition",
-      "source": "https://doc.qt.io/qt-6/qpropertyanimation.html",
-      "finding": "QPropertyAnimation interpolates a QObject property with an easing curve, which is suitable for the dialog's fixed animated size.",
-      "explicit_premise": "The Settings width remains fixed at the current language's content-derived W; only the natural per-tab height is animated."
+      "layer": "async completion semantics",
+      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
+      "finding": "QFutureWatcher emits finished() when the watched future finishes.",
+      "premise": "The interaction timer becoming idle is not equivalent to the worker future finishing or its tile being painted."
     },
     {
       "hop": 5,
-      "dimension": "reopen geometry determinism",
-      "source": "https://doc.qt.io/qt-6/restoring-geometry.html",
-      "finding": "Qt restores saved window geometry and recommends restoring geometry before showing the window; saving an in-flight animation frame would therefore make reopen size nondeterministic.",
-      "explicit_premise": "The selected category and current translation are authoritative; only the category is persisted, while any legacy saved geometry is removed."
+      "layer": "test synchronization",
+      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
+      "finding": "Qt recommends QTRY-style condition polling for asynchronous behavior instead of a fixed short delay.",
+      "premise": "The vector test must poll a non-invasive rendered-tile observation while processing events before asserting its size."
     },
     {
       "hop": 6,
-      "dimension": "translation extraction and runtime catalogs",
-      "source": "https://doc.qt.io/qt-6/localization.html",
-      "finding": "Qt uses lupdate/lrelease with TS/QM catalogs, so current source coverage and completed translations can be audited from the same source contexts.",
-      "explicit_premise": "The menu and Settings source contexts are the scoped English inventory; all four non-English catalogs must contain non-empty completed entries for that inventory."
-    },
-    {
-      "hop": 7,
-      "dimension": "localized form layout",
-      "source": "https://doc.qt.io/qt-6/qformlayout.html",
-      "finding": "QFormLayout separates label and field roles and supports form alignment and row-wrap policy; independent centered forms can therefore choose different field origins when translated label widths differ.",
-      "explicit_premise": "All General and Mouse forms use one shared label-column width and left-aligned, non-wrapping rows."
-    },
-    {
-      "hop": 8,
-      "dimension": "system-language resolution",
-      "source": "https://doc.qt.io/qt-6/qlocale.html",
-      "finding": "QLocale exposes uiLanguages(), allowing the application to inspect the ordered user-interface language preferences instead of relying on a single display-language string.",
-      "explicit_premise": "The supported application codes are en, zh_Hans, zh_Hant, es, and ja; an ordered list with no supported match resolves to en."
-    },
-    {
-      "hop": 9,
-      "dimension": "default-setting semantics",
-      "source": "https://doc.qt.io/qt-6/qsettings.html",
-      "finding": "QSettings distinguishes an absent key from an explicitly stored value and supports a caller-provided default, so a new installation can use system while preserving an explicit user language choice.",
-      "explicit_premise": "The language default is system; invalid persisted language codes are migrated to system, and only system-language resolution falls back to en for unsupported locales."
+      "layer": "deduction",
+      "source": "https://doc.qt.io/qt-6/qtest.html",
+      "finding": "QTRY and qWaitFor keep the test event loop active while waiting for a condition.",
+      "premise": "Combining the remote log with the CMake and Qt semantics yields two independent repairs: isolate third-party packaging from tidy and wait for actual vector output."
     }
   ],
-  "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准。",
   "test_cases": [
     {
-      "id": "VER-001",
-      "atomic_acceptance_criterion": "应用版本号为 1.0.0。",
+      "id": "CI-STATIC-001",
       "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_version_contract",
-      "test_purpose": "验证源码、打包元数据和测试运行时使用同一版本号。",
+      "atomic_acceptance_criterion": "clang-tidy 与应用自有 C++ 目标绑定，但不触发 Ghostscript 第三方运行时打包。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/ci_quality_pipeline.py::static_tidy_path_contract",
+      "test_purpose": "验证静态分析路径只包含必要的应用检查。",
       "preconditions": [
-        "仓库源码可读。"
+        "仓库包含 build.sh 和 CMakeLists.txt。"
       ],
       "input_data": {
-        "expected_version": "1.0.0",
-        "files": [
-          "CMakeLists.txt",
-          "qView.pro",
-          "dist/mac/Info.plist"
+        "tidy_command": "./build.sh --tidy",
+        "tidy_fix_command": "./build.sh --tidy-fix"
+      },
+      "operation_steps": [
+        "读取两个脚本分支。",
+        "读取 CMake Ghostscript 选项及 POST_BUILD 守卫。",
+        "逐项比对 clang-tidy 与 OFF 标志。"
+      ],
+      "expected_result": "两个分析分支都显式设置 FOVELLE_BUNDLE_GHOSTSCRIPT=OFF，普通构建默认仍为 ON。",
+      "postconditions": [
+        "不改变普通构建的 Ghostscript 打包能力。"
+      ]
+    },
+    {
+      "id": "CI-STATIC-002",
+      "test_layer": "static",
+      "atomic_acceptance_criterion": "矢量 refinement 的待处理状态包含 active 与 queued 异步请求，且测试等待实际渲染 tile。",
+      "quality_requirement": "可测试性",
+      "test_code": "tests/ci_quality_pipeline.py::static_async_observation_contract",
+      "test_purpose": "验证运行时观察点与测试同步条件含义一致。",
+      "preconditions": [
+        "矢量渲染由 QFutureWatcher 异步完成。"
+      ],
+      "input_data": {
+        "source_files": [
+          "src/qvgraphicsimageitem.*",
+          "src/qvgraphicsview.cpp",
+          "tests/tst_qviewtests.cpp"
         ]
       },
       "operation_steps": [
-        "读取构建配置和 macOS bundle 元数据。",
-        "比较所有版本字段与 1.0.0。"
+        "检查观察方法的声明和实现。",
+        "检查 view 委托及 worker/queue 状态。",
+        "检查测试的条件轮询和最终 tile 断言。"
       ],
-      "expected_result": "所有发布入口均声明 1.0.0。",
+      "expected_result": "测试不会仅以 500ms interaction timer 作为完成信号，而是等待 painted tile。",
       "postconditions": [
-        "不修改源码或用户设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "异步工作完成前调用方仍可观察到 pending 状态。"
+      ]
     },
     {
-      "id": "NAV-001",
-      "atomic_acceptance_criterion": "浅色背景下的悬浮按钮为透明底板加符号。",
+      "id": "CI-STATIC-003",
       "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract",
-      "test_purpose": "验证浅色导航样式没有有色悬浮底板。",
+      "atomic_acceptance_criterion": "CI 使用已验证的 macos-26 runner，并在 job 内校验 Xcode 与 SDK 主版本。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::static_runner_contract",
+      "test_purpose": "排除错误 runner 标签作为当前失败根因。",
       "preconditions": [
-        "按钮绘制源码可读。"
+        "GitHub Actions workflow 文件存在。"
       ],
       "input_data": {
-        "style": "light-transparent",
-        "reference": "/Users/inostarlin/Downloads/浅色背景下的右侧导航按钮.jpg"
-      },
-      "operation_steps": [
-        "检查 QWidget 和 Cocoa 两条绘制路径。",
-        "确认浅色分支只保留 chevron。"
-      ],
-      "expected_result": "浅色样式使用透明底板和灰色 chevron。",
-      "postconditions": [
-        "不生成额外 UI 资源。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "NAV-002",
-      "atomic_acceptance_criterion": "深色背景下的悬浮按钮为有色底板加符号。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_navigation_contract",
-      "test_purpose": "验证深色导航样式保留灰色圆角底板和深色符号。",
-      "preconditions": [
-        "按钮绘制源码可读。"
-      ],
-      "input_data": {
-        "style": "dark-tinted",
-        "reference": "/Users/inostarlin/Downloads/深色背景下的右侧导航按钮.jpg"
-      },
-      "operation_steps": [
-        "检查深色背景分支及底板颜色。",
-        "确认符号仍属于同一绘制面。"
-      ],
-      "expected_result": "深色样式使用灰色底板和深色 chevron。",
-      "postconditions": [
-        "不拆分为可独立交互的底板控件和符号控件。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "NAV-003",
-      "atomic_acceptance_criterion": "悬浮按钮的符号和底板属于一个不可分割的合成按钮。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons",
-      "test_purpose": "验证两种导航视觉都通过一个按钮对象和一个合成绘制面提供。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testNavigationArtworkStylesAreSingleCompositedButtons"
-      },
-      "operation_steps": [
-        "启动 QtTest 用例。",
-        "读取两个导航按钮的合成属性和图形效果。"
-      ],
-      "expected_result": "两个按钮均声明 single-composited-button，且没有独立 graphicsEffect。",
-      "postconditions": [
-        "测试窗口关闭，临时设置释放。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-001",
-      "atomic_acceptance_criterion": "设置页不再显示 Sort files by、Ascending、Descending。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralLanguageAndRemovedOptions",
-      "test_purpose": "验证排序相关控件已从实际 General 页面对象树移除。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsGeneralLanguageAndRemovedOptions"
-      },
-      "operation_steps": [
-        "创建设置对话框。",
-        "检查 General 页面文本和控件对象。"
-      ],
-      "expected_result": "排序标签、单选项和排序控件均不存在。",
-      "postconditions": [
-        "设置对话框销毁，排序设置值不被测试修改。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-002",
-      "atomic_acceptance_criterion": "Preloading 选项被移除，兼容默认值为 Adjacent。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralLanguageAndRemovedOptions",
-      "test_purpose": "同时验证 UI 移除和 SettingsManager 默认值迁移策略。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsGeneralLanguageAndRemovedOptions",
-        "default": "Adjacent"
-      },
-      "operation_steps": [
-        "检查设置页面没有 Preloading 控件。",
-        "读取默认 preload mode。"
-      ],
-      "expected_result": "Preloading 控件不存在，默认枚举值为 Adjacent。",
-      "postconditions": [
-        "不删除兼容设置键。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-003",
-      "atomic_acceptance_criterion": "Display 和 Miscellaneous 合并为首个 General Tab。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralLanguageAndRemovedOptions",
-      "test_purpose": "验证 Tab 数量、顺序和首个标题。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsGeneralLanguageAndRemovedOptions",
-        "tabs": [
-          "General",
-          "Shortcuts",
-          "Mouse"
+        "workflow_files": [
+          ".github/workflows/test.yml",
+          ".github/workflows/build.yml"
         ]
       },
       "operation_steps": [
-        "读取设置页 Tab 模型。",
-        "比较完整 Tab 列表。"
+        "读取两个 workflow。",
+        "检查 runs-on 标签。",
+        "检查 Xcode/SDK 版本守卫。"
       ],
-      "expected_result": "Tab 依次为 General、Shortcuts、Mouse，且不存在 Display/Miscellaneous Tab。",
+      "expected_result": "两个核心 workflow 均使用 macos-26 且包含版本前置检查。",
       "postconditions": [
-        "不改变用户当前文件浏览状态。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "保留当前 runner 选择和显式环境约束。"
+      ]
     },
     {
-      "id": "SET-004",
-      "atomic_acceptance_criterion": "General Tab 中 Language 位于首位。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralLanguageAndRemovedOptions",
-      "test_purpose": "验证语言控件在 General 内容的第一行。",
+      "id": "CI-STATIC-004",
+      "test_layer": "static",
+      "atomic_acceptance_criterion": "CTest 注册完整 Qt 回归测试和四层审计流水线，并保留 skip-build 调用契约。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/ci_quality_pipeline.py::static_test_registration_contract",
+      "test_purpose": "验证验收入口和四个报告文件的边界清楚。",
       "preconditions": [
-        "Debug 测试二进制已构建。"
+        "tests/CMakeLists.txt 可读取。"
       ],
       "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsGeneralLanguageAndRemovedOptions",
-        "first_label": "Language"
-      },
-      "operation_steps": [
-        "读取 General 内容布局。",
-        "检查首个可见标签。"
-      ],
-      "expected_result": "General 的首个设置标签为 Language。",
-      "postconditions": [
-        "不复制或创建第二个语言控件。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-005",
-      "atomic_acceptance_criterion": "设置页使用当前语言下三个 Tab 无水平滚动所需的共同最小宽度，并禁用手动调整尺寸。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights",
-      "test_purpose": "验证共同内容宽度、size grip 和最小/最大宽度。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsDialogUsesFixedWidthAndTabHeights",
-        "width_rule": "max(natural tab widths)"
-      },
-      "operation_steps": [
-        "创建设置对话框。",
-        "读取三个页面的自然宽度、共同宽度、宽度边界和 size grip。"
-      ],
-      "expected_result": "共同宽度等于三个页面所需宽度的最大值；minimumWidth、maximumWidth 和实际宽度一致，且 size grip 不可用。",
-      "postconditions": [
-        "对话框关闭。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-006",
-      "atomic_acceptance_criterion": "General 和 Mouse Tab 的高度为当前内容无垂直滚动条所需的最小高度。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights",
-      "test_purpose": "验证切换 General/Mouse 后无垂直滚动条且高度按内容重算。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsDialogUsesFixedWidthAndTabHeights",
-        "tabs": [
-          "General",
-          "Mouse"
+        "registered_tests": [
+          "FovelleTests",
+          "FovelleTaskAcceptanceAudit"
         ]
       },
       "operation_steps": [
-        "显示设置页。",
-        "依次切换 General 和 Mouse。",
-        "检查垂直滚动条可见性和内容高度属性。"
+        "读取 CTest 注册。",
+        "检查审计脚本和 skip-build 参数。",
+        "检查静态、单元、集成、系统阶段与报告名。"
       ],
-      "expected_result": "General/Mouse 垂直滚动条均不可见，窗口高度随当前页切换。",
+      "expected_result": "审计测试调用当前 CI 质量流水线，且报告输出集合完整。",
       "postconditions": [
-        "设置页关闭。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "CTest 可在构建完成后重复运行审计。"
+      ]
     },
     {
-      "id": "SET-007",
-      "atomic_acceptance_criterion": "Shortcuts Tab 恰好显示 16 行表格内容并包含 Random File 行。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights",
-      "test_purpose": "验证快捷键表格高度由表头加 16 个数据行计算。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsDialogUsesFixedWidthAndTabHeights",
-        "visible_rows": 16,
-        "last_visible_row": "Random File"
-      },
-      "operation_steps": [
-        "切换到 Shortcuts。",
-        "读取表格行数、Random File 行和表格高度公式。"
-      ],
-      "expected_result": "可视行数为 16，表格第 16 行为 Random File，窗口高度正好匹配该表格。",
-      "postconditions": [
-        "快捷键设置值不被修改。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-008",
-      "atomic_acceptance_criterion": "切换不同 Settings Tab 时，窗口高度通过确定性的过渡动画变化。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen",
-      "test_purpose": "验证不同 Tab 的自然高度切换不是突变，并且动画参数可被测试观测。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsTabTransitionAndMouseReopen",
-        "duration_ms": 180
-      },
-      "operation_steps": [
-        "显示 General。",
-        "切换到 Mouse。",
-        "读取动画对象状态和最终窗口高度。"
-      ],
-      "expected_result": "设置页进入活动过渡状态，动画时长为 180ms，结束后落在 Mouse 的目标高度。",
-      "postconditions": [
-        "设置页关闭，测试设置恢复。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-009",
-      "atomic_acceptance_criterion": "Settings 在 Mouse Tab 关闭并重新打开后保持 Mouse Tab 和相同尺寸。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen",
-      "test_purpose": "验证新实例只恢复 Tab，并按当前翻译重新推导同一稳定尺寸。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsTabTransitionAndMouseReopen",
-        "tab": "Mouse"
-      },
-      "operation_steps": [
-        "切到 Mouse。",
-        "关闭并销毁 QDialog 实例。",
-        "创建新实例并比较 Tab、宽度和高度。"
-      ],
-      "expected_result": "新实例仍为 Mouse，且宽度和高度与关闭前的稳定 Mouse 尺寸完全相同。",
-      "postconditions": [
-        "原始 optionstab 和 optionstabversion 恢复；遗留 optionsgeometry 不参与尺寸决定。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-010",
-      "atomic_acceptance_criterion": "从其他 Tab 返回 General 时 Appearance 下拉列表不获得焦点。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance",
-      "test_purpose": "验证原生 toolbar 切换页后的默认 first-responder 不会落到 Appearance combo。",
-      "preconditions": [
-        "Debug 测试二进制已构建。",
-        "Qt Cocoa 平台插件可用。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testSettingsTabSwitchDoesNotFocusAppearance",
-        "focus_target": "themeComboBox"
-      },
-      "operation_steps": [
-        "主动聚焦 Appearance。",
-        "切到 Mouse 再返回 General。",
-        "处理原生/Qt 延迟事件。"
-      ],
-      "expected_result": "返回 General 后 themeComboBox 没有键盘焦点。",
-      "postconditions": [
-        "主题值不被修改，Tab 设置恢复。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-011",
-      "atomic_acceptance_criterion": "翻译标签变长时，General 和 Mouse 的选项列仍保持水平对齐。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns",
-      "test_purpose": "验证独立居中的 QFormLayout 不会因语言变化产生不同的字段起点。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "WindowBehaviorTests",
-        "test": "testLocalizedSettingsFormsUseSharedLabelColumns",
-        "locales": [
-          "zh_Hans",
-          "zh_Hant",
-          "es",
-          "ja"
-        ]
-      },
-      "operation_steps": [
-        "创建设置页。",
-        "枚举 General/Mouse 下的所有 QFormLayout。",
-        "比较标签宽度、对齐和换行策略。"
-      ],
-      "expected_result": "每个页面的表单共享动态标签宽度，使用左对齐且不换行，字段列不会随翻译漂移。",
-      "postconditions": [
-        "设置对话框销毁，不修改用户设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-012",
-      "atomic_acceptance_criterion": "General 中更新频率标签重命名为 Auto update check，并有四种语言翻译。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testAutoUpdateCheckLabelIsRenamed",
-      "test_purpose": "验证英文源文案切换到新名称，翻译覆盖由静态目录审计同时确认。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testAutoUpdateCheckLabelIsRenamed",
-        "source": "Auto update check:"
-      },
-      "operation_steps": [
-        "创建英文设置页。",
-        "读取 updateFrequencyLabel。"
-      ],
-      "expected_result": "标签准确为 Auto update check:，旧 Automatically check for updates 文案不存在。",
-      "postconditions": [
-        "更新频率值不被修改。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "SET-013",
-      "atomic_acceptance_criterion": "Mouse Tab 不再显示 Cursor 面板及其自动隐藏控件。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsMouseCursorPanelIsRemoved",
-      "test_purpose": "验证移除 Cursor 面板后，旧控件不会残留在设置页对象树中。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsMouseCursorPanelIsRemoved",
-        "removed_panel": "Cursor"
-      },
-      "operation_steps": [
-        "创建设置对话框。",
-        "查找 Cursor group、form 和两个自动隐藏控件。"
-      ],
-      "expected_result": "Cursor 面板及其控件均不存在，鼠标行为设置键仍由图形视图保留使用。",
-      "postconditions": [
-        "设置对话框销毁，不修改鼠标行为设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-001",
-      "atomic_acceptance_criterion": "仅保留英语、简体中文、繁体中文、西班牙语和日语五种应用语言。",
+      "id": "CI-STATIC-005",
       "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract",
-      "test_purpose": "验证构建输入目录和语言枚举没有多余应用语言。",
+      "atomic_acceptance_criterion": "任务范围内的工作树差异不包含空白错误。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/ci_quality_pipeline.py::static_scope_contract",
+      "test_purpose": "避免修复引入不可见格式噪声。",
       "preconditions": [
-        "i18n 目录可读。"
+        "Git 工作树可执行 git diff --check。"
       ],
       "input_data": {
-        "allowed_languages": [
-          "en",
-          "zh_Hans",
-          "zh_Hant",
-          "es",
-          "ja"
-        ],
-        "allowed_catalogs": [
-          "qview_es.ts",
-          "qview_ja.ts",
-          "qview_zh_Hans.ts",
-          "qview_zh_Hant.ts"
-        ]
-      },
-      "operation_steps": [
-        "枚举 qview_*.ts 文件。",
-        "检查 CMake/qmake 仅引用四个非英语目录。",
-        "检查运行时枚举。"
-      ],
-      "expected_result": "应用语言集合恰为五种，英语由源码提供。",
-      "postconditions": [
-        "保留 template.ts 作为提取模板，不将其作为运行时语言。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-002",
-      "atomic_acceptance_criterion": "Language 下拉列表首项为 System Language，随后按要求显示五种语言，默认 System Language。",
-      "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageCatalogIsFixed",
-      "test_purpose": "验证下拉列表的顺序、显示名、数据码和默认值。",
-      "preconditions": [
-        "Debug 测试二进制已构建。"
-      ],
-      "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsLanguageCatalogIsFixed",
-        "entries": [
-          [
-            "System Language",
-            "system"
-          ],
-          [
-            "English",
-            "en"
-          ],
-          [
-            "简体中文",
-            "zh_Hans"
-          ],
-          [
-            "繁體中文",
-            "zh_Hant"
-          ],
-          [
-            "Español",
-            "es"
-          ],
-          [
-            "日本語",
-            "ja"
-          ]
-        ]
-      },
-      "operation_steps": [
-        "创建设置对话框。",
-        "读取每个 combo item 的文本和 userData。",
-        "读取默认 currentData。"
-      ],
-      "expected_result": "列表为 System Language、English、简体中文、繁體中文、Español、日本語，默认数据码为 system。",
-      "postconditions": [
-        "语言设置恢复到测试前状态。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-003",
-      "atomic_acceptance_criterion": "四种非英语语言的 General/Language/System Language 文案准确且非空。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract",
-      "test_purpose": "以英语源文案为基准核验四个翻译目录的关键设置文案。",
-      "preconditions": [
-        "四个 TS 文件可解析。"
-      ],
-      "input_data": {
-        "translations": {
-          "qview_es.ts": {
-            "Fovelle": "Fovelle",
-            "Window": "Ventana",
-            "&Help": "Ayuda",
-            "General": "General",
-            "Language:": "Idioma:",
-            "System Language": "Idioma del sistema",
-            "Appearance:": "Apariencia:",
-            "Light": "Claro",
-            "Dark": "Oscuro",
-            "System": "Sistema",
-            "Show small images at 1:1": "Mostrar imágenes pequeñas a 1:1",
-            "Associate all supported formats": "Asociar todos los formatos compatibles",
-            "Checkerboard when image loaded": "Patrón de tablero de ajedrez al cargar la imagen",
-            "Reuse window when launching with image": "Reutilizar ventana al abrir imágenes",
-            "Smooth scaling:": "Escalado suave:",
-            "Shortcuts": "Accesos rápidos",
-            "Mouse": "Ratón",
-            "Auto update check:": "Comprobar actualizaciones automáticamente:"
-          },
-          "qview_ja.ts": {
-            "Fovelle": "Fovelle",
-            "Window": "ウィンドウ",
-            "&Help": "ヘルプ",
-            "General": "一般",
-            "Language:": "言語:",
-            "System Language": "システム言語",
-            "Appearance:": "外観:",
-            "Light": "ライト",
-            "Dark": "ダーク",
-            "System": "システム",
-            "Show small images at 1:1": "小さい画像を 1:1 で表示",
-            "Associate all supported formats": "対応するすべての形式を関連付け",
-            "Checkerboard when image loaded": "画像読み込み時にチェック柄を表示",
-            "Reuse window when launching with image": "画像を開く際にウィンドウを再利用",
-            "Smooth scaling:": "スムーズなスケーリング:",
-            "Shortcuts": "ショートカット",
-            "Mouse": "マウス",
-            "Auto update check:": "アップデートの自動確認:"
-          },
-          "qview_zh_Hans.ts": {
-            "Fovelle": "Fovelle",
-            "Window": "窗口",
-            "&Help": "帮助",
-            "General": "通用",
-            "Language:": "语言:",
-            "System Language": "系统语言",
-            "Appearance:": "外观：",
-            "Light": "浅色",
-            "Dark": "深色",
-            "System": "系统",
-            "Show small images at 1:1": "以 1:1 显示小图像",
-            "Associate all supported formats": "关联所有支持的格式",
-            "Checkerboard when image loaded": "加载图片时显示棋盘格",
-            "Reuse window when launching with image": "使用图片启动时重用窗口",
-            "Smooth scaling:": "平滑缩放：",
-            "Shortcuts": "快捷键",
-            "Mouse": "鼠标",
-            "Auto update check:": "自动检查更新："
-          },
-          "qview_zh_Hant.ts": {
-            "Fovelle": "Fovelle",
-            "Window": "視窗",
-            "&Help": "說明(&H)",
-            "General": "一般",
-            "Language:": "語言:",
-            "System Language": "系統語言",
-            "Appearance:": "外觀：",
-            "Light": "淺色",
-            "Dark": "深色",
-            "System": "系統",
-            "Show small images at 1:1": "以 1:1 顯示小型影像",
-            "Associate all supported formats": "關聯所有支援的格式",
-            "Checkerboard when image loaded": "載入影像時顯示棋盤格",
-            "Reuse window when launching with image": "使用影像啟動時重複使用視窗",
-            "Smooth scaling:": "平滑縮放：",
-            "Shortcuts": "捷徑",
-            "Mouse": "滑鼠",
-            "Auto update check:": "自動檢查更新："
-          }
-        }
-      },
-      "operation_steps": [
-        "解析 TS XML。",
-        "按 source 查找 QVOptionsDialog 文案。",
-        "比较预期翻译并排除 unfinished。"
-      ],
-      "expected_result": "四个目录均提供准确、非空、已完成的关键翻译。",
-      "postconditions": [
-        "不载入第五种或多余翻译目录。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-004",
-      "atomic_acceptance_criterion": "System Language 仅映射到允许语言，且未知系统语言回退英语。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_language_catalog_contract",
-      "test_purpose": "验证系统语言归一化和迁移校验覆盖允许集合。",
-      "preconditions": [
-        "SettingsManager 源码可读。"
-      ],
-      "input_data": {
-        "allowed_codes": [
-          "en",
-          "zh_Hans",
-          "zh_Hant",
-          "es",
-          "ja"
-        ],
-        "default_code": "system",
-        "unsupported_fallback": "en"
-      },
-      "operation_steps": [
-        "检查 QLocale.uiLanguages 的归一化分支。",
-        "检查 migrateOldSettings 的白名单。",
-        "检查默认 language 值和未知语言回退。"
-      ],
-      "expected_result": "System Language 默认码为 system；中文、西班牙语、日语和英语被归一化，其他语言回退 en。",
-      "postconditions": [
-        "不改变用户已选择的合法语言码。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-005",
-      "atomic_acceptance_criterion": "菜单上下文中的每一项当前英文内容（含 Fovelle、Window、Help）在四种语言中均有完成翻译。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
-      "test_purpose": "用 lupdate 生成当前 ActionManager 英文清单，并逐个审计四个 TS 目录。",
-      "preconditions": [
-        "Qt Linguist lupdate 可执行。",
-        "四个 TS 文件可读。"
-      ],
-      "input_data": {
-        "contexts": [
-          "ActionManager"
-        ],
-        "explicit_menu_entries": [
-          "Fovelle",
-          "Window",
-          "&Help"
-        ]
-      },
-      "operation_steps": [
-        "提取当前 ActionManager source 集合。",
-        "逐个查找四个语言目录。",
-        "检查翻译非空、非 unfinished，并核对菜单关键项。"
-      ],
-      "expected_result": "菜单当前英文清单全部有四种语言的完成翻译，Fovelle 保持品牌原文。",
-      "postconditions": [
-        "不修改 TS 以外的运行时状态。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-006",
-      "atomic_acceptance_criterion": "General 当前英文选项（含 Appearance、Smooth scaling、下拉项和 Auto update check）在四种语言中均有准确翻译。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
-      "test_purpose": "审计 QVOptionsDialog 的 General/通用源文案和四个目标目录。",
-      "preconditions": [
-        "Qt Linguist lupdate 可执行。",
-        "四个 TS 文件可读。"
-      ],
-      "input_data": {
-        "contexts": [
-          "QVOptionsDialog"
-        ],
-        "scope": "General",
-        "explicit_entries": [
-          "Appearance:",
-          "Show small images at 1:1",
-          "Associate all supported formats",
-          "Checkerboard when image loaded",
-          "Reuse window when launching with image",
-          "Smooth scaling:",
-          "Auto update check:"
-        ]
-      },
-      "operation_steps": [
-        "提取 QVOptionsDialog 当前源集合。",
-        "检查 General 关键 source 的四种翻译。",
-        "检查每一项非空且非 unfinished。"
-      ],
-      "expected_result": "General 当前英文选项及其枚举值全部有准确、符合习惯的四种翻译。",
-      "postconditions": [
-        "不载入额外应用语言。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-007",
-      "atomic_acceptance_criterion": "Shortcuts 和 Mouse Tab 的每一项当前英文内容在四种语言中均有完成翻译。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_translation_scope_contract",
-      "test_purpose": "审计 QVOptionsDialog 中快捷键表格、鼠标分组和动作下拉项的完整覆盖。",
-      "preconditions": [
-        "Qt Linguist lupdate 可执行。",
-        "四个 TS 文件可读。"
-      ],
-      "input_data": {
-        "contexts": [
-          "QVOptionsDialog"
-        ],
         "scope": [
-          "Shortcuts",
-          "Mouse"
+          "build.sh",
+          "src",
+          "tests",
+          ".github",
+          "CMakeLists.txt"
         ]
       },
       "operation_steps": [
-        "提取 Shortcuts/Mouse 当前源集合。",
-        "逐个核对四种语言目录。",
-        "拒绝缺失、空翻译和 unfinished。"
+        "运行 git diff --check HEAD。",
+        "仅审计任务范围路径。"
       ],
-      "expected_result": "快捷键和鼠标页所有当前英文内容均有非空完成翻译。",
+      "expected_result": "命令返回 0 且没有 whitespace error。",
       "postconditions": [
-        "不修改快捷键设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "README.md 中既有的用户变更保持不动。"
+      ]
     },
     {
-      "id": "LANG-008",
-      "atomic_acceptance_criterion": "当前 src 目录中的每一项英文源文案在四种语言中均有完成翻译。",
-      "test_layer": "static",
-      "test_code": "tests/task_acceptance_pipeline.py::static_full_translation_catalog_contract",
-      "test_purpose": "从完整应用源代码提取当前英文清单，防止菜单和设置页之外的运行时文案遗漏翻译。",
-      "preconditions": [
-        "Qt Linguist lupdate 可执行。",
-        "四个 TS 文件可读。"
-      ],
-      "input_data": {
-        "source_root": "src",
-        "catalogs": [
-          "qview_es.ts",
-          "qview_ja.ts",
-          "qview_zh_Hans.ts",
-          "qview_zh_Hant.ts"
-        ]
-      },
-      "operation_steps": [
-        "用 lupdate 提取 src 下的全部当前 source。",
-        "逐个检查四个 TS 目录。",
-        "拒绝缺失、空翻译和 unfinished。"
-      ],
-      "expected_result": "当前应用英文源文案清单中的每个上下文和 source 均有四种非空完成翻译。",
-      "postconditions": [
-        "不修改源码和翻译目录。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
-    },
-    {
-      "id": "LANG-009",
-      "atomic_acceptance_criterion": "Language 设置的默认值为 System Language。",
+      "id": "CI-UNIT-001",
       "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsLanguageDefaultsToSystem",
-      "test_purpose": "直接读取 SettingsManager 的默认值，避免把持久化用户选择误判为新安装默认值。",
+      "atomic_acceptance_criterion": "PDF 与 SVG 矢量文档均能在 6400% 路径完成 refinement 并产生非空且大于 512 像素的 bounded tile。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorFormatsUseDocumentSceneItem",
+      "test_purpose": "直接回归远端失败的跨格式矢量场景。",
       "preconditions": [
-        "Debug 测试二进制已构建。"
+        "build/tests/fovelle_tests 已构建。",
+        "Qt 可在 cocoa 平台运行。"
       ],
       "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSettingsLanguageDefaultsToSystem",
-        "default_code": "system"
+        "suite": "GraphicsViewTests",
+        "test": "testVectorFormatsUseDocumentSceneItem"
       },
       "operation_steps": [
-        "以 defaults=true 读取 language。",
-        "不读取或修改 QSettings 中的已保存值。"
+        "设置 FOVELLE_TEST_SUITE。",
+        "执行指定 QtTest 方法。",
+        "检查 PDF 与 SVG pass marker。"
       ],
-      "expected_result": "默认 language 数据码为 system。",
+      "expected_result": "QtTest 返回 0，且指定测试输出 PASS。",
       "postconditions": [
-        "不写入持久化语言设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "测试进程退出，临时矢量文档被清理。"
+      ]
     },
     {
-      "id": "LANG-010",
-      "atomic_acceptance_criterion": "系统语言不属于允许列表时，System Language 解析为英语。",
+      "id": "CI-UNIT-002",
       "test_layer": "unit",
-      "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testSystemLanguageMappingFallsBackToEnglish",
-      "test_purpose": "通过可控 QLocale 输入验证系统语言归一化和英语兜底，而不依赖运行机器的真实区域设置。",
+      "atomic_acceptance_criterion": "矢量平移只使暴露条带重绘，并在 worker refinement 状态下保持可观测。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip",
+      "test_purpose": "验证 pending 状态语义修复没有破坏 backing-store 平移优化。",
       "preconditions": [
-        "Debug 测试二进制已构建。"
+        "build/tests/fovelle_tests 已构建。",
+        "矢量 SVG fixture 可用。"
       ],
       "input_data": {
-        "suite": "FeatureTests",
-        "test": "testSystemLanguageMappingFallsBackToEnglish",
-        "unsupported_locale": "de-DE",
-        "fallback": "en"
+        "suite": "GraphicsViewTests",
+        "test": "testVectorPanRepaintsOnlyExposedStrip"
       },
       "operation_steps": [
-        "依次传入英语、简体中文、繁体中文、西班牙语、日语和德语 QLocale。",
-        "比较返回的应用语言码。"
+        "执行指定 QtTest 方法。",
+        "读取 dirty repaint ratio 与 pending 状态断言。"
       ],
-      "expected_result": "允许语言映射到对应代码，德语等未支持语言返回 en。",
+      "expected_result": "QtTest 返回 0 且平移 dirty ratio 不超过测试阈值。",
       "postconditions": [
-        "不改变进程系统区域设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "测试窗口关闭，事件过滤器移除。"
+      ]
     },
     {
-      "id": "UNIT-001",
-      "atomic_acceptance_criterion": "任务相关原子 Qt 测试代码可编译并可被套件选择器重复执行。",
+      "id": "CI-UNIT-003",
       "test_layer": "unit",
-      "test_code": "tests/task_acceptance_pipeline.py::run_unit_tests",
-      "test_purpose": "验证新增测试不是只存在于报告中的文字，而是可执行测试代码。",
+      "atomic_acceptance_criterion": "EPS 的 PostScript 内容可通过 Ghostscript 转为应用使用的 PDF 矢量文档。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::ImageLoaderTests::testEPSPostScriptRender",
+      "test_purpose": "隔离验证当前正常测试仍可使用 Ghostscript runtime。",
       "preconditions": [
-        "CMake 已生成 Debug 测试目标。"
+        "正常测试构建启用 Ghostscript bundle。",
+        "Ghostscript 可执行文件可用。"
       ],
       "input_data": {
-        "test_binary": "build/tests/fovelle_tests",
-        "selector": "FOVELLE_TEST_SUITE"
+        "suite": "ImageLoaderTests",
+        "test": "testEPSPostScriptRender"
       },
       "operation_steps": [
-        "按 suite 启动目标测试。",
-        "检查 QtTest 返回码和 PASS 行。"
+        "执行指定 QtTest 方法。",
+        "检查 EPS render pass marker。"
       ],
-      "expected_result": "所有绑定的 FeatureTests/WindowBehaviorTests 用例返回 0 且报告 PASS。",
+      "expected_result": "QtTest 返回 0 且 EPS 渲染测试输出 PASS。",
       "postconditions": [
-        "测试进程退出，不保留窗口。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "测试生成的临时 PDF/fixture 被清理。"
+      ]
     },
     {
-      "id": "INT-001",
-      "atomic_acceptance_criterion": "集成构建和 CTest 注册的 FovelleTests 全量回归通过。",
+      "id": "CI-INTEGRATION-001",
       "test_layer": "integration",
-      "test_code": "tests/task_acceptance_pipeline.py::run_integration",
-      "test_purpose": "验证源码、UI、翻译资源和 Qt 测试目标可以作为整体构建运行。",
+      "atomic_acceptance_criterion": "完整 FovelleTests CTest 目标通过。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_integration::ctest_FovelleTests",
+      "test_purpose": "验证修复在 CMake 注册的完整 Qt 回归集合中成立。",
       "preconditions": [
-        "CMake 配置存在。",
-        "Qt 和 Xcode 命令行工具可用。"
+        "CMake build 已成功或由本阶段构建。",
+        "CTest 已配置。"
       ],
       "input_data": {
-        "build_dir": "build",
-        "ctest_regex": "^FovelleTests$"
+        "ctest_regex": "^FovelleTests$",
+        "timeout_seconds": 90
       },
       "operation_steps": [
-        "执行 cmake --build。",
-        "执行 ctest --output-on-failure -R ^FovelleTests$。"
+        "必要时执行 cmake --build。",
+        "运行 ctest --output-on-failure -R ^FovelleTests$。"
       ],
-      "expected_result": "构建返回 0，FovelleTests 返回 0。",
+      "expected_result": "CTest 返回 0，FovelleTests 不含失败或崩溃。",
       "postconditions": [
-        "构建产物保留供系统测试使用。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "保留 CTest 输出作为 evidence。"
+      ]
     },
     {
-      "id": "INT-002",
-      "atomic_acceptance_criterion": "构建出的 App bundle 报告版本 1.0.0。",
+      "id": "CI-INTEGRATION-002",
       "test_layer": "integration",
-      "test_code": "tests/task_acceptance_pipeline.py::run_integration",
-      "test_purpose": "验证发布产物而非源码字符串的版本输出。",
+      "atomic_acceptance_criterion": "构建目录同时注册 FovelleTests 和 FovelleTaskAcceptanceAudit。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/ci_quality_pipeline.py::run_integration::ctest_list",
+      "test_purpose": "验证四层审计作为 CI 构建的一部分可被 CTest 发现。",
       "preconditions": [
-        "Fovelle.app 已构建。"
+        "CMake configure 已完成。"
       ],
       "input_data": {
-        "command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"
+        "command": "ctest --test-dir build -N"
       },
       "operation_steps": [
-        "执行 App bundle 内可执行文件的 --version。",
-        "解析标准输出。"
+        "列出 CTest 测试。",
+        "检查两个注册名称。"
       ],
-      "expected_result": "输出包含 1.0.0 且进程返回 0。",
+      "expected_result": "列表输出包含两个目标。",
       "postconditions": [
-        "版本命令不启动长期运行的 UI 进程。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "不执行递归审计，仅验证注册契约。"
+      ]
     },
     {
-      "id": "SYS-001",
-      "atomic_acceptance_criterion": "真实 Fovelle.app 启动后系统探针观测到一个最大化窗口。",
+      "id": "CI-SYSTEM-001",
       "test_layer": "system",
-      "test_code": "src/main.cpp::FOVELLE_SYSTEM_PROBE",
-      "test_purpose": "从进程级别验证默认窗口状态和可观测退出路径。",
+      "atomic_acceptance_criterion": "实际 Fovelle.app 可启动并通过系统探针报告一个最大化窗口。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_system::FOVELLE_SYSTEM_PROBE",
+      "test_purpose": "用真实 app bundle 验证最终启动副作用。",
       "preconditions": [
-        "App bundle 已构建。",
-        "当前 macOS 会话允许 Cocoa 窗口启动。"
+        "build/Fovelle.app/Contents/MacOS/Fovelle 存在。",
+        "macOS Cocoa 图形环境可用。"
       ],
       "input_data": {
         "environment": {
-          "FOVELLE_SYSTEM_PROBE": "1",
-          "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1"
+          "QT_QPA_PLATFORM": "cocoa",
+          "FOVELLE_SYSTEM_PROBE": "1"
         }
       },
       "operation_steps": [
-        "启动真实 bundle 可执行文件。",
-        "等待 FOVELLE_SYSTEM_PROBE 标记。",
-        "检查退出码。"
+        "启动 app bundle。",
+        "等待 system probe 输出。",
+        "匹配 windows=1 maximized=true。"
       ],
-      "expected_result": "输出 windows=1 maximized=true，进程在超时前返回 0。",
+      "expected_result": "进程返回 0 且输出精确探针标记。",
       "postconditions": [
-        "系统探针退出并释放窗口。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "探针触发 app.quit，进程结束。"
+      ]
     },
     {
-      "id": "SYS-002",
-      "atomic_acceptance_criterion": "真实 App 的系统级版本命令可重复执行并干净退出。",
+      "id": "CI-SYSTEM-002",
       "test_layer": "system",
-      "test_code": "tests/task_acceptance_pipeline.py::run_system",
-      "test_purpose": "验证最终 bundle 的最小系统入口没有依赖设置或网络。",
+      "atomic_acceptance_criterion": "实际 app bundle 的版本输出为 1.0.0。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/ci_quality_pipeline.py::run_system::version",
+      "test_purpose": "验证最终 bundle 的版本元数据没有被构建路径修复破坏。",
       "preconditions": [
-        "App bundle 已构建。"
+        "app bundle 已构建。"
       ],
       "input_data": {
-        "command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"
+        "command": "build/Fovelle.app/Contents/MacOS/Fovelle --version",
+        "expected_version": "1.0.0"
       },
       "operation_steps": [
-        "直接执行 bundle 内可执行文件。",
-        "记录 stdout、stderr、返回码和耗时。"
+        "执行 --version。",
+        "匹配版本号。"
       ],
-      "expected_result": "输出 1.0.0，返回码为 0，且在 10 秒内结束。",
+      "expected_result": "进程返回 0 且输出包含 1.0.0。",
       "postconditions": [
-        "不修改用户设置。"
-      ],
-      "evidence_file": "reports/test_evidence.json"
+        "版本进程退出。"
+      ]
     }
   ]
 }

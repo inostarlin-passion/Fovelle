@@ -792,7 +792,7 @@ QSize QVGraphicsView::lastVectorRasterSize() const
 bool QVGraphicsView::hasPendingVectorRefinement() const
 {
     return loadedPixmapItem
-            && loadedPixmapItem->isVectorInteractionActive();
+            && loadedPixmapItem->hasPendingVectorRefinement();
 }
 
 QPointF QVGraphicsView::nativeGesturePanScrollDelta(const QPointF &delta, const bool isRightToLeft)

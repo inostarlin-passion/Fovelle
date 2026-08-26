@@ -144,6 +144,12 @@ void QVGraphicsImageItem::setVectorInteractionActive(const bool active)
     }
 }
 
+bool QVGraphicsImageItem::hasPendingVectorRefinement() const
+{
+    return vectorInteractionActive || activeAsyncRequest.has_value()
+            || pendingAsyncRequest.has_value();
+}
+
 QRectF QVGraphicsImageItem::boundingRect() const
 {
     if (vectorImage.isValid())

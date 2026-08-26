@@ -38,6 +38,10 @@ public:
     Qv::VectorImageFormat vectorImageFormat() const { return vectorImage.format; }
     void setVectorInteractionActive(bool active);
     bool isVectorInteractionActive() const { return vectorInteractionActive; }
+    // Includes work already running on the worker and the newest work queued
+    // behind it, so callers never mistake an idle interaction timer for a
+    // completed vector refinement.
+    bool hasPendingVectorRefinement() const;
 
     // Non-invasive diagnostics used by deterministic tests.  The reported
     // image is a bounded device-space tile around the exposed region, never a

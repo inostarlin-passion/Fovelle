@@ -32,11 +32,15 @@ do
         exit 0
         ;;
         --tidy)
-        CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_CLANG_TIDY=clang-tidy"
+        # Static analysis must not run the release-only Ghostscript staging
+        # hook.  The hook can build third-party C sources and requires
+        # platform-specific Fontconfig headers that are not part of the
+        # analysis job.  CI only needs clang-tidy on Fovelle's own targets.
+        CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_CLANG_TIDY=clang-tidy -DFOVELLE_BUNDLE_GHOSTSCRIPT=OFF"
         shift # Remove --tidy from processing
         ;;
         --tidy-fix)
-        CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_CLANG_TIDY='clang-tidy;-fix-errors'"
+        CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_CLANG_TIDY='clang-tidy;-fix-errors' -DFOVELLE_BUNDLE_GHOSTSCRIPT=OFF"
         shift # Remove --tidy-fix from processing
         ;;
         --clean)

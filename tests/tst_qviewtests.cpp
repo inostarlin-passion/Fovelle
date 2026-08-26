@@ -4918,6 +4918,26 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
 
+    // The interaction timer only describes the gesture state.  A vector tile
+    // is produced by QFutureWatcher on a worker and becomes observable only
+    // after the scene paints the completed result.  Poll that observable
+    // output while processing events so slower GitHub runners do not inspect
+    // an empty/stale diagnostic tile.
+    const auto waitForRenderedVectorTile = [view]() {
+        QElapsedTimer timer;
+        timer.start();
+        while (timer.elapsed() < 5000) {
+            view->viewport()->repaint();
+            if (!view->lastVectorRasterSize().isEmpty())
+                return true;
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            QTest::qWait(5);
+        }
+        view->viewport()->repaint();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        return !view->lastVectorRasterSize().isEmpty();
+    };
+
     window.openFile(epsPath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
@@ -4929,9 +4949,12 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     QCOMPARE(view->getZoomLevel(), Qv::MaximumZoomLevel);
     QVERIFY(view->hasPendingVectorRefinement());
     view->viewport()->repaint();
-    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 500);
-    view->viewport()->repaint();
-    QVERIFY(!view->lastVectorRasterSize().isEmpty());
+    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
+    if (!waitForRenderedVectorTile()) {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        QFAIL("PDF vector refinement did not produce a painted tile within 5 seconds");
+    }
+    qInfo() << "VECTOR_TILE_READY format=pdf pixels=" << view->lastVectorRasterSize();
     QVERIFY(qMax(view->lastVectorRasterSize().width(),
                  view->lastVectorRasterSize().height()) > 512);
     const QSize maximumVisibleTile = view->viewport()->size()
@@ -4952,9 +4975,12 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     QCOMPARE(view->getZoomLevel(), Qv::MaximumZoomLevel);
     QVERIFY(view->hasPendingVectorRefinement());
     view->viewport()->repaint();
-    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 500);
-    view->viewport()->repaint();
-    QVERIFY(!view->lastVectorRasterSize().isEmpty());
+    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
+    if (!waitForRenderedVectorTile()) {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        QFAIL("SVG vector refinement did not produce a painted tile within 5 seconds");
+    }
+    qInfo() << "VECTOR_TILE_READY format=svg pixels=" << view->lastVectorRasterSize();
     QVERIFY(qMax(view->lastVectorRasterSize().width(),
                  view->lastVectorRasterSize().height()) > 512);
 
