@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-26T13:59:15.007959+00:00",
+  "generated_at": "2026-08-26T14:33:39.021018+00:00",
   "task": "修复 Fovelle GitHub Actions 检查失败",
   "status": "passed",
   "verification_scope": {
@@ -19,102 +19,104 @@
     {
       "hop": 1,
       "layer": "latest observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
-      "finding": "The latest Checks run for commit 2b91baf passed static (6/6), integration (4/4), and system (3/3), but its FovelleTaskAcceptanceAudit failed in the unit layer (5/6).",
-      "premise": "The hosted Checks log is the authoritative observation for the currently failing workflow run."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828442",
+      "finding": "The latest Build Fovelle run for commit 7dc0c64 passed its first complete FovelleTests execution, then FovelleTaskAcceptanceAudit failed CI-UNIT-002 and CI-INTEGRATION-001.",
+      "premise": "The hosted run log and its emitted failed case IDs are the authoritative observation for the current failure."
     },
     {
       "hop": 2,
-      "layer": "cross-job and source isolation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
-      "finding": "The companion Build Fovelle run for the same commit passed, and commit 2b91baf changed only README.md relative to the preceding successful Checks commit fce1f44; the failure is isolated to the acceptance-audit execution path rather than application source compilation.",
-      "premise": "A passing companion build plus a source-equivalent comparison narrows the boundary to audit orchestration or runner-sensitive test execution."
+      "layer": "cross-run timing isolation",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828364",
+      "finding": "The companion Checks workflow passed the same source revision and environment contract; earlier same-day runs alternated between a unit-only audit failure and an integration-only audit failure while the first complete FovelleTests execution passed.",
+      "premise": "Source-identical pass/fail counterexamples exclude a deterministic compile or product-output regression and point to a timing-sensitive observation inside the duplicated audit executions."
     },
     {
       "hop": 3,
-      "layer": "audit invocation inspection",
-      "source": "tests/ci_quality_pipeline.py",
-      "finding": "The acceptance audit launches each selected Qt test in a fresh process and sets FOVELLE_TEST_SUITE, but before this repair it did not pass QTEST_FUNCTION_TIMEOUT; the outer Python process stopped a child only after its 60-second subprocess timeout.",
-      "premise": "The local audit source is the exact script executed by the CTest FovelleTaskAcceptanceAudit registration."
+      "layer": "hosted environment identity",
+      "source": "https://github.com/actions/runner-images/blob/macos-26-arm64/20260728.0273/images/macos/macos-26-arm64-Readme.md",
+      "finding": "The failed job records macos-26-arm64 image 20260728.0273.1, macOS 26.5.2, Xcode 26.6, SDK 26.5, and Qt 6.11.2; GitHub's runner inventory maps macos-26 to the arm64 image.",
+      "premise": "Reproduction must distinguish the hosted window-system schedule from the Qt version; local Qt 6.11.2 alone is not the complete environment."
     },
     {
       "hop": 4,
-      "layer": "Qt timeout contract",
-      "source": "https://doc.qt.io/qt-6/qtest-overview.html",
-      "finding": "Qt documents that QTEST_FUNCTION_TIMEOUT controls the maximum duration of an individual test function and that an overrun aborts the test; the documented default is five minutes.",
-      "premise": "A GUI test can therefore exceed the audit wrapper's 60-second child limit unless the audit and the registered CTest suite use the same explicit function-level bound."
+      "layer": "test observer inspection",
+      "source": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip",
+      "finding": "The test installed a viewport PaintRegionRecorder, waited for at least one paint, then used the maximum area across every paint observed during that wait as if every event had been caused by the scrollbar move.",
+      "premise": "The assertion is valid only if no independently scheduled refinement paint can arrive while the recorder remains installed."
     },
     {
       "hop": 5,
-      "layer": "Qt test selection contract",
-      "source": "https://doc.qt.io/qt-6/qtest.html",
-      "finding": "Qt documents that QTest::qExec executes tests declared in the selected test object and that test function names are command-line selectors; the application’s FOVELLE_TEST_SUITE filter therefore must remain paired with the function selector.",
-      "premise": "The audit intentionally runs one atomic GUI test per child process, so suite selection and bounded execution are both part of the observable test contract."
+      "layer": "Qt QTRY execution contract",
+      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/testlib/qtestcase.h",
+      "finding": "Qt 6.11.2 implements QTRY_VERIFY_WITH_TIMEOUT by repeatedly calling QTest::qWait while allowing event processing, normally in 50 ms steps.",
+      "premise": "The wait for the first paint can dispatch more than one queued paint before the condition is evaluated again, so recorder length and event ordering vary with runner scheduling."
     },
     {
       "hop": 6,
-      "layer": "local reproduction",
-      "source": "tests/ci_quality_pipeline.py and local build evidence",
-      "finding": "With the suite filter, explicit Cocoa environment, and release-version cases, the repaired local acceptance matrix passes all 6 unit cases; the full FovelleTests target also passes.",
-      "premise": "A local pass does not prove the hosted runner is re-executed, but it confirms the repair does not change the intended pass markers or release parser behavior."
+      "layer": "asynchronous completion contract",
+      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
+      "finding": "Qt documents that QFutureWatcher emits finished when its asynchronous computation completes; Fovelle connects that signal to asyncVectorTileFinished, which retains the tile and schedules an item update.",
+      "premise": "A vector refinement paint is independently eligible to enter the same event-processing window as the exposed-strip paint."
     },
     {
       "hop": 7,
-      "layer": "unit repair",
-      "source": "tests/ci_quality_pipeline.py",
-      "finding": "The audit now gives every direct QtTest child QTEST_FUNCTION_TIMEOUT=30000, while retaining FOVELLE_TEST_SUITE and the 60-second process cap; failed case IDs are also emitted in the machine-readable summary.",
-      "premise": "The child timeout is stricter than the wrapper timeout and matches tests/CMakeLists.txt, making slow or hung GUI behavior bounded and diagnosable."
+      "layer": "scroll rendering contract",
+      "source": "https://doc.qt.io/qt-6/qgraphicsview.html",
+      "finding": "Qt documents that scrolling requires only partial invalidation, while a distinct scene/item update follows the configured viewport update policy.",
+      "premise": "The exposed strip and the later refinement are two different causes and must be evaluated as separate observations."
     },
     {
       "hop": 8,
-      "layer": "prior Release failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-      "finding": "The earlier Release job failed after macdeployqt because Bash parsed minos 15.7.5 with a dotted arithmetic token and because libtesseract.5.dylib required 15.7.5 while the artifact target was 15.0.",
-      "premise": "The latest unit failure is a separate later regression in the audit path; the earlier Release repair remains part of the task's required end-to-end contract."
+      "layer": "controlled counterexample",
+      "source": "Qt 6.11.2 local diagnostic execution",
+      "finding": "After waiting for refinement to settle, one test execution observed two paints: the first scroll paint had dirty_ratio 0.009554 and the later maximum was 1.000000; the former implementation failed solely because it asserted the maximum.",
+      "premise": "One execution containing both a valid strip and a valid later full refinement disproves the assumption that maximum recorded area measures scroll reuse."
     },
     {
       "hop": 9,
-      "layer": "build-tool contract",
-      "source": "https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html",
-      "finding": "CMake documents CMAKE_OSX_DEPLOYMENT_TARGET as the macOS minimum version passed to the compiler with -mmacosx-version-min.",
-      "premise": "The application contract is intentionally 15.0, so every bundled Mach-O dependency must be built for no newer minimum rather than silently inheriting a Homebrew target."
+      "layer": "unique repair",
+      "source": "tests/tst_qviewtests.cpp",
+      "finding": "The test now attributes only the first paint to the scrollbar move, waits until vector refinement is no longer pending for safe teardown, and records the later maximum only as diagnostic output.",
+      "premise": "This preserves the 5% exposed-strip performance assertion without accepting a full scroll repaint or suppressing the asynchronous refinement path."
     },
     {
       "hop": 10,
-      "layer": "bundle metadata contract",
-      "source": "https://developer.apple.com/documentation/bundleresources/information-property-list/lsminimumsystemversion?changes=_3_6&language=objc",
-      "finding": "Apple defines LSMinimumSystemVersion as the minimum macOS version required by an app.",
-      "premise": "The executable load commands and Info.plist must agree; changing only the parser would leave a real runtime incompatibility."
+      "layer": "same-version verification",
+      "source": "Qt 6.11.2 local build evidence",
+      "finding": "The repaired atomic case passes with Qt 6.11.2 while deliberately observing dirty_ratio 0.009554, max_observed_dirty_ratio 1.000000, and paint_events 2.",
+      "premise": "The verification directly exercises the scheduling shape that made both CI-UNIT-002 and the nested CI-INTEGRATION-001 fail."
     },
     {
       "hop": 11,
-      "layer": "upstream multi-architecture build guidance",
-      "source": "https://ghostscript.readthedocs.io/en/latest/Make.html",
-      "finding": "Ghostscript documents macOS multi-architecture builds with architecture-aware compiler settings and a separate CPP setting because configure preprocessor probes do not support multiple -arch options.",
-      "premise": "The replacement runtime can be built from the pinned source archive with explicit CC/CXX/CPP/CXXCPP and SDK/deployment flags."
+      "layer": "retained release contract",
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
+      "finding": "The earlier Release-only minos and bundled Ghostscript repair remains independently covered by its version, source-build, and dry-run cases.",
+      "premise": "The current GUI observation repair neither weakens nor replaces the already established macOS 15 release controls."
     },
     {
       "hop": 12,
       "layer": "final deduction",
-      "source": "dist/scripts/package-macos-release.sh and tests/ci_quality_pipeline.py",
-      "finding": "The complete repair bounds and identifies the direct Qt audit children, keeps the suite selector deterministic, and preserves the Release path's three-component comparator, source-built universal runtime, and pre-signing Mach-O/Info.plist checks.",
-      "premise": "The unit-layer fix addresses the latest Checks failure while the retained Release controls address the earlier packaging root cause without broadening the product behavior."
+      "source": "tests/tst_qviewtests.cpp and tests/ci_quality_pipeline.py",
+      "finding": "Both failed case IDs execute the same vector-pan test, directly or through FovelleTests; correcting that test's causal event attribution removes their shared false-negative path.",
+      "premise": "One root cause and one observer-level repair explain both failures while keeping the production rendering implementation and its performance threshold unchanged."
     }
   ],
   "diagnosis": {
-    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361496",
-    "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974287326",
-    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32974361492",
-    "commit": "2b91baf",
+    "remote_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828442",
+    "checks_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828364",
+    "build_run": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828442",
+    "commit": "7dc0c64",
     "observations": [
-      "最新 Checks run 的静态、集成和系统阶段分别为 6/6、4/4、3/3，但 FovelleTaskAcceptanceAudit 的 unit 阶段为 5/6；同一 run 的完整 FovelleTests 通过。",
-      "同一提交的 Build Fovelle run 通过，且提交 2b91baf 相对前一个通过 Checks 的提交 fce1f44 只改变 README.md，因此失败边界位于审计单元编排或 runner 敏感的异步 GUI 测试执行。",
-      "修复前的直接 QtTest 子进程只设置 FOVELLE_TEST_SUITE，没有设置 QTEST_FUNCTION_TIMEOUT=30000；本地 CTest 的 FovelleTests 环境却已设置该值，两个入口的时间合同不一致。",
+      "最新 Build Fovelle run 的首轮 FovelleTests 通过；验收审计静态与系统阶段分别 7/7、3/3，unit 失败 CI-UNIT-002，integration 失败 CI-INTEGRATION-001。",
+      "同提交的 Checks workflow 全部通过；前一提交的两个并行 workflow 又分别出现 unit-only 与 integration-only 验收失败，构成源码相同、结果相反的时序反例。",
+      "CI-UNIT-002 直接执行 testVectorPanRepaintsOnlyExposedStrip，CI-INTEGRATION-001 通过完整 FovelleTests 再次执行同一方法，两项存在共同失败点。",
+      "Qt 6.11.2 的 QTRY_VERIFY_WITH_TIMEOUT 通过 QTest::qWait 反复泵送事件；旧测试在此期间记录全部 Paint 并取最大面积，无法区分滚动暴露条带与 QFutureWatcher 完成后安排的 refinement Paint。",
+      "控制复现等待 refinement 后观测到 dirty_ratio=0.009554、max_observed_dirty_ratio=1.000000、paint_events=2；旧最大值断言失败，新首事件断言在完全相同的渲染序列中通过。",
       "Release 的 Deploy/Package 阶段报告 minos 15.7.5，并在旧比较器中出现 7.5 的 Bash arithmetic syntax error。",
       "同一失败步骤指出 build/Fovelle.app/Contents/Resources/ghostscript/lib/libtesseract.5.dylib 要求 15.7.5，而目标为 15.0。",
-      "本地按 suite selector、QTEST_FUNCTION_TIMEOUT=30000 和 release version cases 运行的验收矩阵通过全部 20 个原子用例；未执行 push，因此没有宣称远端重跑。"
+      "本地同版本 Qt 6.11.2 定向用例已通过；完整四层验收结果记录在 stage_summaries，未执行 push，因此没有宣称远端重跑。"
     ],
-    "deduction": "最新 Checks 的可修复缺口是直接 QtTest 审计缺少显式函数级超时；补齐 30 秒 QtTest 边界并保留 60 秒进程上限即可使单元失败有界且可诊断。Release 则仍需三段版本数值比较、15.0 双架构源码 Ghostscript 和签名前闭合校验。"
+    "deduction": "两个最新失败共享同一测试方法和同一错误观测器。唯一修复是按因果顺序把首个 Paint 归于滚动、把后续异步 Paint 仅作诊断，并等待 refinement 完成后清理；无需修改生产渲染逻辑、放宽 5% 阈值或重试失败。Release 仍保留三段版本数值比较、15.0 双架构源码 Ghostscript 和签名前闭合校验。"
   },
   "repairs": [
     {
@@ -126,8 +128,12 @@
       "change": "增加目标版本/架构校验、固定源码构建 flags 和禁用不需要的 Tesseract/桌面可选集成"
     },
     {
+      "path": "tests/tst_qviewtests.cpp",
+      "change": "以滚动后的首个 Paint 验证暴露条带，等待异步 refinement 收敛，并把后续最大 Paint 仅输出为诊断"
+    },
+    {
       "path": "tests/ci_quality_pipeline.py",
-      "change": "为直接 QtTest 审计子进程补齐 suite selector 与 30000ms 函数超时，增加失败用例 ID 诊断，并保留 Release 四层验收与四份审计 JSON"
+      "change": "增加滚动 Paint 因果隔离静态合同，更新最新远端诊断与多跳证据，并保留 QtTest 超时、失败 ID 和 Release 四层验收"
     }
   ],
   "stage_summaries": {
@@ -169,22 +175,22 @@
       "path": "reports/test_evidence.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_evidence.json",
       "exists": true,
-      "bytes": 44937,
-      "sha256": "199a7da05ae1b912e0f1002bea6b8256440349791fbc7840ed43fc2980a980a4"
+      "bytes": 44813,
+      "sha256": "8c40d9f444c31cc81444719b8ec929fc6fce1702a178faf59317abe775d3d602"
     },
     {
       "path": "reports/test_case_specification.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
       "exists": true,
-      "bytes": 28359,
-      "sha256": "a73662da75291a602151db0b7c80fbcba6d75f06e4de95ed1f70b225859cf830"
+      "bytes": 28494,
+      "sha256": "7c23e3874400225c988b050470ed8b410e2da4e66d7ff437ad175029f6b89814"
     },
     {
       "path": "reports/code_quality_assessment_report.json",
       "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
       "exists": true,
-      "bytes": 10218,
-      "sha256": "23e12a95ff027dbee3b81e5b4eace999f9604edd2f1d85b9e22f5b9f52b8876b"
+      "bytes": 10340,
+      "sha256": "559b4857f25ff73430d29faa764d8279bc9bf42c5e19f46ec6757a7c51b80609"
     }
   ],
   "self_artifact": {

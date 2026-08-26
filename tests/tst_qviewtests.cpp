@@ -4877,16 +4877,28 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     bar->setValue(bar->value() + 6);
     QVERIFY(view->hasPendingVectorRefinement());
     QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
+    QCoreApplication::processEvents();
     view->viewport()->removeEventFilter(&recorder);
 
     const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
             * view->viewport()->height();
-    const qint64 maximumPaintArea = *std::max_element(
+    // The first paint is the exposed strip produced by QGraphicsView's scroll
+    // reuse. A fast worker can finish the vector tile while QTRY_VERIFY is
+    // pumping events and schedule a later full-viewport refinement paint;
+    // that distinct update must not be attributed to the scrollbar move.
+    const qint64 scrollPaintArea = recorder.recordedAreas().constFirst();
+    const qreal dirtyRatio = static_cast<qreal>(scrollPaintArea) / viewportArea;
+    const qint64 maximumObservedPaintArea = *std::max_element(
         recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
-    const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
+    const qreal maximumObservedDirtyRatio =
+            static_cast<qreal>(maximumObservedPaintArea) / viewportArea;
     qInfo().noquote() << QStringLiteral(
-        "VECTOR_PAN_REPAINT dirty_ratio=%1 viewport_area=%2")
+        "VECTOR_PAN_REPAINT dirty_ratio=%1 max_observed_dirty_ratio=%2 "
+        "paint_events=%3 viewport_area=%4")
         .arg(dirtyRatio, 0, 'f', 6)
+        .arg(maximumObservedDirtyRatio, 0, 'f', 6)
+        .arg(recorder.recordedAreas().size())
         .arg(viewportArea);
     QVERIFY2(dirtyRatio <= 0.05,
              qPrintable(QStringLiteral("unexpected full vector pan repaint ratio %1")
