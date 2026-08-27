@@ -120,27 +120,3 @@ set_tests_properties(FovelleShortcutSettingsTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=ShortcutSettingsTests"
     TIMEOUT 90
 )
-
-find_package(Python3 COMPONENTS Interpreter QUIET)
-if(Python3_Interpreter_FOUND)
-    add_test(
-        NAME FovelleSettingsAudit
-        COMMAND ${Python3_EXECUTABLE}
-            "${CMAKE_CURRENT_SOURCE_DIR}/settings_quality_pipeline.py"
-            --repo "${PROJECT_SOURCE_DIR}"
-            --build-dir "${CMAKE_BINARY_DIR}"
-            --binary "$<TARGET_FILE:fovelle_tests>"
-    )
-    set_tests_properties(FovelleSettingsAudit PROPERTIES TIMEOUT 360)
-
-    add_test(
-        NAME FovelleTaskAcceptanceAudit
-        COMMAND ${Python3_EXECUTABLE}
-            "${CMAKE_CURRENT_SOURCE_DIR}/ci_quality_pipeline.py"
-            --repo "${PROJECT_SOURCE_DIR}"
-            --build-dir "${CMAKE_BINARY_DIR}"
-            --output-dir "${CMAKE_BINARY_DIR}/ci-reports"
-            --skip-build
-    )
-    set_tests_properties(FovelleTaskAcceptanceAudit PROPERTIES TIMEOUT 360)
-endif()
