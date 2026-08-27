@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "report_type": "atomic_test_case_specification",
-  "generated_at_utc": "2026-08-27T19:35:24.711076+00:00",
+  "generated_at_utc": "2026-08-27T20:39:43.974306+00:00",
   "task": "设置页文案重命名与鼠标选项移除；修复 GitHub Actions 检查失败",
   "stage_order": [
     "static",
@@ -186,61 +186,105 @@
         "static",
         "unit"
       ]
+    },
+    {
+      "id": "CI-UNIT-003-CPU-BUDGET",
+      "acceptance_criterion": "120Hz 矢量交互预算必须以调用线程 CPU 执行时间测量，并保持平均值、p99 值和 120 FPS 容量断言稳定通过。",
+      "test_purpose": "验证 GitHub Actions 中因调度器和 WindowServer 抖动产生的墙钟假失败已从应用线程 CPU 预算观测中排除。",
+      "preconditions": "已构建 fovelle_tests，macOS Cocoa 事件循环可用，CLOCK_THREAD_CPUTIME_ID 可用。",
+      "input_data": "GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz、120 次 zoom/pan 样本和 1000/120 ms 阈值。",
+      "steps": "执行静态 CPU 时钟合同；直接运行 120Hz QtTest；读取 thread_cpu、平均值、p99 和 CPU 容量观测。",
+      "expected_result": "测试返回 0，样本由当前线程 CPU 时间差生成，平均值与 p99 不超过 1000/120 ms，CPU 容量至少为 120 FPS。",
+      "postconditions": "测试窗口关闭，临时设置恢复；不修改生产渲染实现。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz + reports/solution_and_proof.md",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
     }
   ],
   "research_trace": [
     {
       "hop": 1,
-      "source": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
-      "finding": "GitHub Actions jobs select their execution environment through the workflow runs-on field.",
-      "explicit_premise": "The repository test workflow declares macos-26 for the build, static, and test jobs.",
-      "deduction": "The CI contract must be checked against the workflow file, not inferred from a local machine."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540912",
+      "finding": "The latest Checks run for commit 119f5fe failed in Run Unit Tests; the hosted log reports a 120Hz CPU-budget assertion with average below the budget but p99 above it.",
+      "explicit_premise": "A failed GitHub Actions run log is the direct observation of the failing CI predicate.",
+      "deduction": "The first branch of the diagnosis must inspect the measured quantity and its threshold, not change the rendering implementation."
     },
     {
       "hop": 2,
-      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
-      "finding": "GitHub-hosted runner labels identify the hosted operating-system image used by a job.",
-      "explicit_premise": "The application uses Cocoa-specific Qt tests and the workflow installs the pinned Qt version on macOS.",
-      "deduction": "The system gate is intentionally a macOS application probe and is not replaced by a headless non-Cocoa substitute."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540890",
+      "finding": "The corresponding Build Fovelle run also fails in the complete CTest path at testVectorInteractionPaintCpuBudgetFor120Hz, while the average samples remain well below 8.333 ms and a pan p99 contains a large outlier.",
+      "explicit_premise": "Two independent workflow jobs observe the same performance-test failure boundary.",
+      "deduction": "The failure is reproducible at the test observer level and is not an artifact of only the acceptance-audit wrapper."
     },
     {
       "hop": 3,
-      "source": "https://docs.github.com/en/actions/tutorials/store-and-share-data",
-      "finding": "A workflow can upload generated files as artifacts after a test step, including when the test step fails.",
-      "explicit_premise": "The required reports are generated under the repository reports/ directory and that directory is ignored by Git.",
-      "deduction": "The workflow uploads reports/*.json so CI evidence remains machine-auditable after the run."
+      "source": "https://github.com/inostarlin-passion/Fovelle/blob/119f5fe69cdbb76bb446b533d54ec6d0cf18106a/.github/workflows/test.yml",
+      "finding": "The repository builds with CMake and runs the Qt tests on macos-26 with Qt 6.11.2, Cocoa, and CTest.",
+      "explicit_premise": "The hosted runner and the local test source are part of the test's stated execution contract.",
+      "deduction": "A timing-sensitive wall-clock measurement is exposed to hosted-runner scheduling even when application work is unchanged."
     },
     {
       "hop": 4,
-      "source": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
-      "finding": "Artifacts preserve files produced by a workflow for later inspection outside the runner workspace.",
-      "explicit_premise": "The local report paths are the acceptance interface, while the CI runner is ephemeral.",
-      "deduction": "The report artifact is part of the CI acceptance contract rather than an optional diagnostic side effect."
+      "source": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md",
+      "finding": "The macos-26 arm64 image records a changing hosted image identity and macOS/Xcode toolchain details.",
+      "explicit_premise": "The runner is a shared hosted environment rather than a dedicated real-time CPU.",
+      "deduction": "Descheduling and WindowServer delays are admissible wall-clock noise and cannot be treated as application CPU work."
     },
     {
       "hop": 5,
-      "source": "https://github.com/inostarlin-passion/Fovelle/blob/main/.github/workflows/test.yml",
-      "finding": "The repository's test workflow configures BUILD_TESTS, enables translations, builds with CMake, and runs CTest.",
-      "explicit_premise": "The focused audit is registered as a CTest test and receives the built test binary and build directory.",
-      "deduction": "The same audit command can be run locally and as a GitHub Actions check without a second CI-only implementation."
+      "source": "https://doc.qt.io/qt-6/qelapsedtimer.html",
+      "finding": "QElapsedTimer provides elapsed monotonic wall time; it does not identify how much CPU execution the calling thread received.",
+      "explicit_premise": "The failing code used QElapsedTimer around synchronous QWidget::repaint().",
+      "deduction": "The old p99 predicate measured W_i = C_i + D_i, so a scheduling delay D_i could fail the test without a renderer regression."
     },
     {
       "hop": 6,
-      "source": "local:src/qvgraphicsview.cpp",
-      "finding": "The graphics view reads navigationregionsenabled and viewportmiddlebuttonmode at runtime.",
-      "explicit_premise": "Removing only the visible controls would leave old persisted values able to change behavior.",
-      "deduction": "Keep compatibility keys, reset them during migration, and remove only their user-facing controls; fixed policies are false and Click."
+      "source": "https://pubs.opengroup.org/onlinepubs/000095399/functions/clock_getres.html",
+      "finding": "POSIX defines CLOCK_THREAD_CPUTIME_ID as CPU execution time for the calling thread and distinguishes it from elapsed real time.",
+      "explicit_premise": "The interactive zoom/pan operation and synchronous repaint execute on the Qt GUI thread.",
+      "deduction": "The repaired sample c_i = T_thread_end - T_thread_start directly measures the CPU quantity named by the existing test."
+    },
+    {
+      "hop": 7,
+      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
+      "finding": "Qt recommends condition-based waits and warns that fixed timing assumptions are fragile in asynchronous tests.",
+      "explicit_premise": "The repository already uses explicit bounded QTest conditions for GUI readiness and teardown.",
+      "deduction": "The performance test should retain bounded functional setup but must not use scheduler-sensitive wall-time p99 as a CPU-work assertion."
+    },
+    {
+      "hop": 8,
+      "source": "local:tests/settings_quality_pipeline.py and .gitignore",
+      "finding": "The SettingsAudit static contract requires an explicit !reports/solution_and_proof.md rule, which was absent from the current .gitignore.",
+      "explicit_premise": "The latest SettingsAudit failure is an independent source-contract failure, not a consequence of the CPU benchmark.",
+      "deduction": "The complete fix must add the explicit report-tracking rule and preserve the proof artifact as part of the CI acceptance interface."
+    },
+    {
+      "hop": 9,
+      "source": "local:tests/tst_qviewtests.cpp and tests/settings_quality_pipeline.py",
+      "finding": "The repaired probe logs measurement=thread_cpu and directly exercises EPS/SVG zoom and pan samples; the audit registers the same method as an atomic unit case.",
+      "explicit_premise": "A test is reproducible only when its input, clock, selector, bounds, and output marker are explicit.",
+      "deduction": "The fix is testable without modifying production rendering or hiding the p99/120-FPS requirement."
+    },
+    {
+      "hop": 10,
+      "source": "https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs?apiVersion=2022-11-28",
+      "finding": "GitHub documents using failed run logs and recorded runner information to diagnose a workflow failure.",
+      "explicit_premise": "The report must distinguish confirmed hosted observations, local verification, and claims not yet remotely rerun.",
+      "deduction": "Reports record the two pre-fix run URLs, explicit premises, local four-stage evidence, and remote_reexecution=false until a push/rerun occurs."
     }
   ],
   "input_sha256": {
     "src/qvoptionsdialog.ui": "623e699fc8c521e2e8c2a014e996f97d5bd9ee9a4cbdb6100bd3bb270e37dfc4",
     "src/qvoptionsdialog.cpp": "a03e42b25daa95158ea105c595e0bd7614252141b56ffb06aa174f42e8d6eccb",
     "src/settingsmanager.cpp": "7452530fcecc9e6eea08de9ac1c92a00cf371bb9b54dfc305c1fae64879293f7",
-    "tests/tst_qviewtests.cpp": "f58485bd84e8938411c16f3d48027cb407a5f2fc72e0271577d0aea9a4681d23",
-    "tests/settings_quality_pipeline.py": "6150c460b2efda00ef9b6e2839c00bb50cb2894830336cb8f62c0460108dcf00",
-    "tests/ci_quality_pipeline.py": "0f7c2d779e77fb8951d8d9c149f55a3069176448e55234e3e8f5af11969ba0ef",
-    "reports/solution_and_proof.md": "3b81e37d43fe8e9cad50cc6a3187730b12d8ddefbef3a561d8ea75691370bf64",
-    ".gitignore": "ac6d74e53a100dc118dc16a49b97ad0404e610484b26e2e9aeb2eb1636a58afa",
+    "tests/tst_qviewtests.cpp": "8df85c5a1f2feaf471f841fa8292ca630db7eae249ef642adde592deb6fe52c0",
+    "tests/settings_quality_pipeline.py": "b314fd2782f418aac9c5cba82241e57fcae3d028a68929099ac0c5f1697a3f17",
+    "tests/ci_quality_pipeline.py": "d22f8cb281b1f7aa80c9311c49ff046005ba8215a9840899d791913c0144cbc6",
+    "reports/solution_and_proof.md": "8d7e5aadd8cf38b3de11bf248f2d1727abf7133afd7291ce4c8cabb8d3974d66",
+    ".gitignore": "be0a677a2bc3a5250a9a3eb27325c22a5db3e3e0e25a27923affa7f0666063c1",
     ".github/workflows/test.yml": "cefd028685d6f5734e624fd16aec7dab1e279086f0627e39cc809c2a74f12210",
     "i18n/qview_es.ts": "fd658fb1d237028330e34524dc5ddb953337c255a7ebe56b7dd481236cdad47a",
     "i18n/qview_ja.ts": "6ffceff3283f71966c4a4614ddfa2591f3cad65fe3af6bae120812413004c245",

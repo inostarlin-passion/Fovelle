@@ -1,5 +1,6 @@
 .DS_Store
 .directory
+!reports/solution_and_proof.md
 
 # C++ objects and libs
 

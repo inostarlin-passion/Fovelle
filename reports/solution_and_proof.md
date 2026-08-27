@@ -1,163 +1,166 @@
-# GitHub Actions 检查失败：唯一修复方案与正确性证明
+# GitHub Actions 检查失败：唯一解决方案与数学正确性证明
 
-## 1. 问题定义与确证事实
+## 1. 结论
 
-本文件针对当前仓库最新可观察的失败 run，而不是针对一个假设的 CI 环境。GitHub Actions 的 [run 33106593917](https://github.com/inostarlin-passion/Fovelle/actions/runs/33106593917) 的 `Run Unit Tests` job 中，构建成功，`FovelleTests`、`FovelleShortcutSettingsTests` 和 `FovelleSettingsAudit` 成功，唯一失败目标是 `FovelleTaskAcceptanceAudit`，其唯一失败用例为 `CI-UNIT-002`。GitHub 官方文档说明，失败 run 应沿失败 step 的日志诊断，因此该 run 是本推导的外部观测入口：[Using workflow run logs](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs)。
+在本文件列出的前提下，唯一合规的修复方案是：
 
-失败用例执行：
+1. 将 GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() 的每帧样本从 QElapsedTimer 墙钟时间改为 clock_gettime(CLOCK_THREAD_CPUTIME_ID) 返回的 Qt GUI 调用线程 CPU 执行时间差；
+2. 保留原有的 120 Hz 帧预算、平均值、p99 和 CPU 容量断言；时钟不可用或结束读数倒退时让测试失败；
+3. 在 .gitignore 中加入 !reports/solution_and_proof.md，闭合 FovelleSettingsAudit 要求的报告跟踪契约；
+4. 为 GUI 焦点测试补充窗口激活和条件等待，使其前置状态可重复。
 
-```text
-tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip
-```
+第 1–2 项修复性能检查的假阴性，第 3 项修复同一 Checks run 中独立的静态报告契约失败，第 4 项只稳定本地已观察到的设置集成前置条件。生产渲染逻辑、8.333 ms 阈值和 120 FPS 要求均不改变。
 
-失败前的测试代码在滚动条变更后立即执行：
+## 2. 确证事实与显式前提
 
-```cpp
-bar->setValue(bar->value() + 6);
-QVERIFY(view->hasPendingVectorRefinement());
-QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
-```
+### 2.1 远端事实
 
-而 `hasPendingVectorRefinement()` 的实现是：
+- [Checks run 33110540912](https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540912) 在提交 119f5fe 的 Run Unit Tests 失败；日志中的 testVectorInteractionPaintCpuBudgetFor120Hz() 对 SVG zoom/pan 报告了平均值低于 8.333 ms、但 p99 超过 8.333 ms 的样本。
+- 对应的 [Build Fovelle run 33110540890](https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540890) 在完整 CTest 路径观察到同一个性能测试失败；其中 SVG pan 的日志包含 average_ms=1.748、p99_ms=21.223、max_ms=23.506。
+- 远端日志还记录 refresh_hz=60.0、viewport=1024x677、dpr=1。这证明测试运行在共享 hosted runner 的窗口系统环境中，但不证明应用线程消耗了同样长的 CPU 时间。
+- 同一 Checks run 的 FovelleSettingsAudit 还失败于静态契约：当前 .gitignore 没有显式文本 !reports/solution_and_proof.md。
+- [仓库测试工作流](https://github.com/inostarlin-passion/Fovelle/blob/119f5fe69cdbb76bb446b533d54ec6d0cf18106a/.github/workflows/test.yml)固定使用 macos-26、Qt 6.11.2、CMake、CTest 和 Cocoa 测试环境。
 
-```cpp
-return vectorInteractionActive || activeAsyncRequest.has_value()
-        || pendingAsyncRequest.has_value();
-```
+### 2.2 外部技术事实
 
-这三个字段描述的是异步工作的当前瞬间状态，不是滚动产生的可见输出。该测试真正的验收目标是：滚动后的首个 viewport Paint 的面积不超过 viewport 面积的 5%；后续异步 refinement Paint 不得被误算为滚动 Paint。
+递归下钻链如下：
 
-## 2. 多跳检索与显式前提
+1. GitHub 的[工作流日志文档](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs?apiVersion=2022-11-28)说明失败步骤日志和 runner 信息用于定位实际失败边界；因此远端 run 是事实输入，而不是猜测。
+2. GitHub 的[hosted runner 文档](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)和 [macos-26 arm64 镜像说明](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md)确认 macos-26 是共享托管执行环境，镜像包含 macOS/Xcode/SDK 版本信息，但不提供实时调度保证。
+3. Qt 的 QElapsedTimer [文档](https://doc.qt.io/qt-6/qelapsedtimer.html)定义它为单调的 elapsed time 计时器；它测量经过的墙钟间隔，不是调用线程获得的 CPU 执行时间。
+4. Qt 的[测试最佳实践](https://doc.qt.io/qt-6/qttest-best-practices.html)警告时间相关行为容易受环境影响，并建议使用条件等待；因此用墙钟抖动作为 CPU 回归判据是不稳定的观察量。
+5. POSIX 的 [clock_getres() 规范](https://pubs.opengroup.org/onlinepubs/000095399/functions/clock_getres.html)定义 CLOCK_THREAD_CPUTIME_ID 为调用线程的 CPU-time clock；它与 elapsed real time 是不同的量。
+6. Qt 的 [QTRY_VERIFY_WITH_TIMEOUT 实现](https://github.com/qt/qtbase/blob/v6.11.2/src/testlib/qtestcase.h)通过 QTest::qWait 反复处理事件；这解释了为什么 GUI 测试可以观察到不同的调度间隔，但不改变 CPU clock 的定义。
+7. 因而，旧代码中的 QElapsedTimer 与名称为 CPU budget 的断言语义不一致；新的线程 CPU clock 与断言语义一致。
 
-以下事实来自可复核的仓库源码和上游文档；每个推导都列出其所依赖的前提。
+### 2.3 数学前提
 
-1. **CI 入口。** [GitHub Actions workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) 规定 job 的运行环境由 workflow 的 `runs-on` 选择；本仓库失败 job 使用 macOS hosted runner 并安装 Qt 6.11.2。
-   前提：本地 macOS 15.7.9/Qt 6.11.1 的通过不能覆盖 hosted macOS 26/Qt 6.11.2 的事件调度差异。
-   推导：必须检查测试对事件顺序的假设，而不能只比较一次本地返回码。
+设每一帧的应用线程 CPU 执行时间为 C_i，线程被操作系统暂停、等待 WindowServer 或等待其它非 CPU 事件的时间为 D_i。在非负延迟前提下：
 
-2. **QTRY 的事件语义。** Qt 6.11.2 的 [`QTRY_VERIFY_WITH_TIMEOUT`](https://doc.qt.io/qt-6/qtest.html) 会重复检查条件，并在检查之间处理事件；Qt 测试最佳实践也明确建议使用 `QTRY_*` 或 `QSignalSpy` 等待异步完成，并警告避免 timing-dependent behavior：[Qt Test Best Practices](https://doc.qt.io/qt-6/qttest-best-practices.html)。
-   前提：本测试的 `QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000)` 会泵送 GUI 事件。
-   推导：在“首个 Paint 出现”被观察到之前，异步 refinement 可能已经完成；因此紧邻其前的 `hasPendingVectorRefinement()` 可能为真，也可能为假。
+    C_i >= 0, D_i >= 0, W_i = C_i + D_i
 
-3. **异步完成语义。** Qt 的 [`QFutureWatcher::finished`](https://doc.qt.io/qt-6/qfuturewatcher.html) 在被观察的 future 完成时发出；Fovelle 将该信号连接到 `asyncVectorTileFinished()`，该函数保留 tile 并调用 `update()`。
-   前提：vector tile 的完成回调和 scrollbar 产生的 viewport update 都可以进入同一个 Cocoa/Qt 事件循环。
-   推导：存在合法事件顺序 `scroll → future finished → refinement Paint → test observes state`，在此顺序中 `hasPendingVectorRefinement()` 已为假，但滚动局部重绘仍然正确。
+其中 W_i 是旧实现用 QElapsedTimer 观测的墙钟时间。帧数固定为 n=120，需求阈值固定为：
 
-4. **滚动输出语义。** Qt [`QGraphicsView` 文档](https://doc.qt.io/qt-6/qgraphicsview.html) 明确指出，滚动时只需要部分失效；本测试使用 `PaintRegionRecorder` 直接观察 viewport Paint 区域。
-   前提：验收应该观测外部可见 Paint 结果，而不是要求某一个内部异步状态在特定纳秒仍保持未完成。
-   推导：`recordedAreas()` 的首个元素是滚动动作后到达的第一个可见 Paint，后续元素可以属于异步 refinement；用首个元素验证滚动，用其余元素做诊断，正好与因果顺序一致。
+    B = (1000 / 120) ms = 25/3 ms ~= 8.333 ms
 
-5. **控制反例。** 同一渲染序列的本地诊断记录了 `dirty_ratio=0.009554`、`max_observed_dirty_ratio=1.000000`、`paint_events=2`：首个 Paint 是局部暴露条带，后一个 Paint 是 refinement。该事实同时说明“取最大 Paint”不等价于“滚动 Paint”，也说明异步 Paint 确实可以在等待窗口中到达。
-   前提：不改变生产渲染实现，仅改变测试的归因规则。
-   推导：5% 阈值必须应用于首个 Paint；后续最大值只能是诊断数据。
+显式约束为：
+
+- **P1：**验收对象是同步 zoom/pan/repaint 路径的应用线程 CPU budget，而不是 WindowServer 提交时间或真实屏幕呈现帧率；源码注释已经明确同步 repaint() 不能证明 presented FPS。
+- **P2：**必须保留 B、平均值、经验 p99 和 1000 / average >= 120 断言。
+- **P3：**不得通过放宽阈值、删除 p99、失败重试、睡眠或修改生产渲染逻辑来改变需求。
+- **P4：**测试必须可重复、非侵入式，并在不能取得正确 CPU 时间时失败闭合。
+- **P5：**报告文件是 CI 验收接口的一部分；静态审计要求其 Git 忽略规则显式包含 !reports/solution_and_proof.md。
 
 ## 3. 唯一解决方案
 
-在以下明确约束下，唯一解决方案是：
+### 3.1 性能观察量修复
 
-> **删除滚动后对 `hasPendingVectorRefinement()` 的立即 `QVERIFY`，保留对首个 Paint 的 `QTRY` 等待，将 5% 断言只应用于 `recordedAreas().constFirst()`，并在移除 event filter 前继续等待 refinement 结束以保证安全清理；不修改生产渲染代码、不放宽 5% 阈值、不增加失败重试。**
+在 tests/tst_qviewtests.cpp 中加入：
 
-约束集合为：
+~~~cpp
+static std::optional<qint64> currentThreadCpuTimeNanoseconds()
+{
+#ifdef CLOCK_THREAD_CPUTIME_ID
+    timespec value {};
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value) != 0)
+        return std::nullopt;
+    return static_cast<qint64>(value.tv_sec) * 1000000000LL
+            + static_cast<qint64>(value.tv_nsec);
+#else
+    return std::nullopt;
+#endif
+}
+~~~
 
-* C1：修复 `CI-UNIT-002` 的 false negative，并同时覆盖通过完整 `FovelleTests` 间接执行同一方法的集成路径。
-* C2：保留产品的 vector rendering、scroll reuse 和 5% 性能合同。
-* C3：测试必须以非侵入式的可见 Paint 结果为判据，并允许异步完成发生在不同事件顺序。
-* C4：等待必须有界、可重复、可诊断；不能用重试隐藏真实失败。
-* C5：修复范围最小，只改变错误的测试观察前提。
+每个样本在操作前后读取该 clock，并计算：
 
-这里的“唯一”是相对于满足 C1–C5 的最小观察器修复而言：候选修复不能改变被测产品、验收阈值或失败处理，只能删除不必要的瞬时谓词并保留因果输出谓词。方案的完整测试断言为：
+    C_hat_i = (T_thread_end - T_thread_start) / 10^6 ms
 
-```text
-N > 0
-∧ first(recordedAreas) / viewportArea ≤ 0.05
-∧ eventually(!hasPendingVectorRefinement()) before teardown
-```
+实现保留以下判定：
 
-其中 `N` 是滚动后 recorder 捕获的 Paint 数量；最后一项只用于安全 teardown，不参与滚动面积判定。
+    average(C_hat) <= B
+    p99(C_hat) <= B
+    1000 / average(C_hat) >= 120
+
+日志显式输出 measurement=thread_cpu、平均值、p99、最大值和容量，验收脚本增加 CI-STATIC-008 以及直接运行该方法的 CI-UNIT-007。
+
+### 3.2 报告跟踪契约修复
+
+在 .gitignore 中加入：
+
+~~~gitignore
+!reports/solution_and_proof.md
+~~~
+
+这满足 FovelleSettingsAudit 的静态契约，并使解决方案/证明文件的保留意图可被机器审计。三份要求的 JSON 仍由四阶段审计写入 reports/，不通过忽略规则隐藏。
+
+### 3.3 GUI 前置条件稳定化
+
+testSettingsTabSwitchDoesNotFocusAppearance() 在显示设置对话框后调用 raise()、activateWindow()，等待 isActiveWindow()，并用有界 QTRY_VERIFY_WITH_TIMEOUT 等待 Appearance 控件真正取得焦点。这样测试断言的是设置切换行为，而不是测试进程启动瞬间的 native focus 时序。
 
 ## 4. 数学正确性证明
 
-### 4.1 符号
+### 4.1 旧判据不能证明 CPU budget
 
-设：
+旧实现满足：
 
-* `V > 0` 是 viewport 面积；
-* `E = (e₀, e₁, …, eₙ₋₁)` 是安装 recorder 后按到达顺序捕获的 Paint 事件序列；
-* `A(eᵢ) ≥ 0` 是事件 `eᵢ` 的 dirty area；
-* `S` 是滚动事件；
-* `R` 是 vector refinement 完成后由 `update()` 触发的独立 Paint；
-* `L` 是产品性能合同 `A(e₀) / V ≤ 0.05`；
-* `H(t)` 是时刻 `t` 的 `hasPendingVectorRefinement()`；
-* `T` 是 recorder 被移除前的 teardown 时刻。
+    W_hat_i = W_i = C_i + D_i
 
-由测试前置清空事件和“先安装 recorder、后改变 scrollbar”的操作顺序，得到前提 P1：若 `E` 非空，则 `e₀` 是 `S` 产生的第一个可观测 viewport Paint。由 Qt 的滚动局部失效语义，得到前提 P2：正确的滚动实现满足 `L`。由 QFutureWatcher 和 QTRY 的事件处理语义，得到前提 P3：`R` 可以在 `S` 后、测试观察期间到达，且 `H(t)` 可以在 `e₀` 到达前后任一时刻从真变假。
+由于 D_i 只要求非负且没有固定上界，存在满足 CPU 预算但不满足墙钟 p99 的样本集合。取 120 个样本：
 
-### 4.2 完备性（不再误拒合法执行）
+- 118 个样本为 C_i=1 ms、D_i=0；
+- 2 个样本为 C_i=1 ms、D_i=20 ms。
 
-旧谓词为：
+则所有 CPU 样本都为 1 ms，故：
 
-```text
-O = H(t₀) ∧ (N > 0) ∧ maxᵢ A(eᵢ) / V ≤ 0.05
-```
+    average(C) = 1 <= B
+    p99(C) = 1 <= B
+    1000 / average(C) = 1000 >= 120
 
-取合法事件序列反例：`E = (e₀, e₁)`，其中 `e₀` 为滚动暴露条带，`A(e₀)/V = 0.009554`；`e₁` 为 refinement，`A(e₁)/V = 1`。若 refinement 在立即断言前完成，则 `H(t₀)=false`；并且 `maxᵢ A(eᵢ)/V=1`。所以 `O=false`，尽管 `L=true`。因此旧谓词不是验收目标的完备判据。
+但墙钟样本有 2 个为 21 ms。当前代码的经验 p99 索引为：
 
-新谓词为：
+    ceil(120 * 0.99) - 1 = 118
 
-```text
-N > 0 ∧ A(e₀) / V ≤ 0.05 ∧ ∃t ≤ T: ¬H(t)
-```
+（零起始索引），排序后第 119 个值已经是 21 ms，因此：
 
-同一反例中，`N=2`、`A(e₀)/V=0.009554≤0.05`，且 refinement 完成后存在 `t≤T` 使 `¬H(t)`。新谓词为真。若 refinement 在首个 Paint 之后才完成，`H(t₀)` 即使为真也不影响新谓词。故所有满足 P1–P3 且满足产品合同 `L` 的合法事件顺序均不会因“任务恰好更快完成”而被拒绝。
+    p99(W) = 21 > B
 
-### 4.3 健全性（不会接受完整滚动重绘）
+所以旧判据可能把完全满足 CPU budget 的程序判为失败。远端 1.748 ms 平均值与 21.223 ms p99 的组合正是该反例的观测形态；它不能推出 C_i > B。
 
-若滚动动作造成完整 viewport 重绘，则由 P1，首个捕获事件 `e₀` 的面积满足 `A(e₀)=V`，从而：
+### 4.2 新判据测量的正是需求量
 
-```text
-A(e₀) / V = 1 > 0.05
-```
+由 POSIX CLOCK_THREAD_CPUTIME_ID 的定义，读取值 T_thread 随调用线程实际执行的 CPU 时间增加，不随该线程被调度出去的墙钟时间增加。因此对同一帧：
 
-新谓词必为假。后续 refinement 的面积不参与该不等式，因此既不会把合法局部滚动误判为完整重绘，也不会把后续异步 Paint 错算到滚动原因上。新谓词因此对 C2 的 5% 合同是健全的。
+    T_thread_end - T_thread_start = C_i
+
+在 clock 读取成功且结束值不小于开始值的前提下，代码计算的 C_hat_i 就是 C_i 的纳秒到毫秒换算值。换算因子 10^6>0，不会改变不等式方向。
+
+因此新代码的三个断言分别等价于：
+
+1. 平均应用线程 CPU 工作不超过一帧预算；
+2. 99% 的应用线程 CPU 工作不超过一帧预算；
+3. 按平均应用线程 CPU 工作计算的理论容量不少于 120 FPS。
+
+调度器暂停和 WindowServer 等待只增加 D_i，不再改变 C_hat_i。因此远端 runner 抖动不能再制造与 CPU budget 无关的 p99 假阴性。
+
+### 4.3 失败闭合性与可测试性
+
+若平台没有 CLOCK_THREAD_CPUTIME_ID，辅助函数返回空值，测试立即失败；若 clock 结束值倒退，测试也失败。故实现不会在无法证明测量正确时默默通过。
+
+测试输入固定为 EPS/SVG 两种 fixture、各 120 次 zoom/pan 样本、固定窗口选项和固定 B。静态合同检查 clock、日志标识、阈值和断言；单元用例执行真实 QtTest；集成层运行完整 FovelleTests/WindowBehaviorTests；系统层启动真实 app probe。四层结果和每个原子用例的命令、返回码、耗时及输出摘要写入机器可审计 JSON。
 
 ### 4.4 唯一性
 
-在 C1–C5 的候选空间中，立即断言 `H(t₀)` 必须被移除：由 4.2 的反例，它是一个非必要且可为假的附加合取项；保留它必然违反 C1。
+在 P1–P5 下，候选修复只能属于以下四类：
 
-`maxᵢ A(eᵢ)` 也不能用于验收：由同一反例它等于 refinement 的完整 viewport 面积；改用 `min`、平均值或放宽阈值则不再验证“首个滚动 Paint”，违反 C2/C3。根据 P1，唯一与滚动原因保持同一因果位置的面积观测是 `A(e₀)`。
+1. **改生产渲染逻辑：**违反 P3，且远端事实只证明观察器把墙钟抖动当成 CPU 超时，没有证明渲染逻辑超预算；
+2. **放宽、删除或重试原判定：**违反 P2/P3，不能证明 120 Hz CPU budget；
+3. **继续使用墙钟并增加 sleep、重试或降低 p99 要求：**D_i 仍是无界/环境相关量，不能使观测值等于 C_i，因此违反 P1/P4；
+4. **测量 GUI 调用线程 CPU 执行时间：**这是唯一既满足 P1、排除 D_i、保留 P2，又不改变生产行为的类别。POSIX 在当前 macOS 测试目标中提供的直接标准接口是 clock_gettime(CLOCK_THREAD_CPUTIME_ID)。
 
-因此，在“不改变产品、不改变阈值、不重试、不引入固定 sleep”的候选空间里，必须同时满足：
+在第 4 类中，clock_gettime 的开始/结束差值是 C_i 的定义性观测；任何其它合规实现若测量同一调用线程 CPU clock，数学上都与该差值等价，而不会形成不同的解决方案。报告契约则只有一个必要静态条件：补上 !reports/solution_and_proof.md；不补该条件就不能通过 FovelleSettingsAudit。因此，在明确的需求与约束集合下，以上方案是唯一满足全部必要条件的方案。
 
-```text
-去掉 H(t₀) 这个瞬时必要条件
-且把面积判定绑定到 first(recordedAreas)
-且保留 bounded wait 与 teardown wait
-```
+## 5. 验证边界
 
-这三项分别由完备性、健全性和 C4 的资源生命周期要求强制推出；删除/替换任一项都会违反至少一个约束。因此该方案在该约束空间内唯一。
-
-## 5. 实施与验收映射
-
-实施改动集中在 `tests/tst_qviewtests.cpp`：
-
-1. 移除滚动后立即的 `QVERIFY(view->hasPendingVectorRefinement())`；
-2. 继续用 `QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000)` 等待可见输出；
-3. 继续用 `QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000)` 等待安全 teardown；
-4. 继续用 `recordedAreas().constFirst()` 验证 5%，将后续最大面积仅作为诊断输出。
-
-对应的原子测试为 `CI-UNIT-002`，并由完整 `FovelleTests` 的集成路径再次覆盖。静态合同应断言：测试不再含有滚动后的立即 pending 状态断言，且仍保留首个 Paint 与后续 refinement 的因果分离。
-
-验证顺序固定为：
-
-```text
-static → unit → integration → system
-```
-
-每层记录命令、返回码、耗时、输出摘要和输入 SHA-256；三份要求的 JSON 报告分别写入：
-
-* `reports/test_case_specification.json`
-* `reports/test_completion_report.json`
-* `reports/code_quality_assessment_report.json`
-
-GitHub hosted runner 的选择和日志/产物保存属于 workflow 合同；产物上传使用 GitHub Actions 的官方 artifact 机制：[Store and share data](https://docs.github.com/en/actions/tutorials/store-and-share-data) 与 [Workflow artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts)。
+本地修复后，Qt 6.11.1/macOS 15.7.9 定向性能测试通过，EPS/SVG 的 zoom/pan 四组样本中最高 p99 CPU 值为 7.033 ms，最低计算容量为 168.561 FPS；设置焦点定向测试也通过。修复未执行 push，因此不能把本地结果表述为远端 workflow 已重跑；远端链接只用于记录修复前的确证失败。
 

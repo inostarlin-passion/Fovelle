@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "report_type": "test_completion_report",
-  "generated_at_utc": "2026-08-27T19:35:24.711076+00:00",
+  "generated_at_utc": "2026-08-27T20:39:43.974306+00:00",
   "task": "设置页文案重命名与鼠标选项移除；修复 GitHub Actions 检查失败",
   "host": {
     "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
@@ -11,7 +11,7 @@
   "build": {
     "build_dir": "/Users/inostarlin/code/Fovelle/build",
     "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-    "binary_sha256": "c260374c72dc9ec4d20d91e34a16488b9fc13e1bff3a568d4ea82aa7767ccaa3"
+    "binary_sha256": "e57ee711437b18dc7c0af6e2daec460240796c98b84ef1f0977b667464667a85"
   },
   "stage_order": [
     "static",
@@ -300,6 +300,21 @@
           "deduction": "The CI repair must document and enforce causal Paint observation without an instantaneous asynchronous-state precondition."
         },
         {
+          "id": "STATIC-CI-CPU-BUDGET",
+          "passed": true,
+          "evidence": {
+            "thread_cpu_clock": true,
+            "clock_gettime": true,
+            "named_helper": true,
+            "thread_cpu_log": true,
+            "fixed_120hz_budget": true,
+            "wall_timer_not_used_for_budget": true,
+            "p99_assertion_retained": true,
+            "capacity_assertion_retained": true
+          },
+          "deduction": "The 120Hz budget must measure calling-thread CPU execution time while retaining the original mathematical bounds."
+        },
+        {
           "id": "STATIC-AUDIT-PYTHON",
           "passed": true,
           "evidence": {
@@ -324,7 +339,7 @@
             ],
             "return_code": 0,
             "passed": true,
-            "duration_ms": 12.449,
+            "duration_ms": 12.949,
             "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "output_tail": ""
           },
@@ -340,9 +355,9 @@
       ],
       "return_code": 0,
       "passed": true,
-      "duration_ms": 728.946,
-      "output_sha256": "0df84995f79b0a131e375a64e403970ed9d1a60a1c5d5fad7215f3d08355bcd3",
-      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()\nPASS   : FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 521ms\n********* Finished testing of FeatureTests *********\n",
+      "duration_ms": 724.26,
+      "output_sha256": "436651eab4bcf66bfecc69da0ab1ab90bed0f8be3202fb8e2a2f76364106ac2b",
+      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()\nPASS   : FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 522ms\n********* Finished testing of FeatureTests *********\n",
       "stage": "unit",
       "suite": "FeatureTests",
       "qtest_totals": {
@@ -364,9 +379,27 @@
           ],
           "return_code": 0,
           "passed": true,
-          "duration_ms": 722.099,
-          "output_sha256": "d367e69806263f4e91126fc204d4073575c3e2a90134cf7f210984d501f433b0",
-          "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 max_observed_dirty_ratio=1.000000 paint_events=2 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 518ms\n********* Finished testing of GraphicsViewTests *********\n"
+          "duration_ms": 716.132,
+          "output_sha256": "3e7da74ce91b7ed5dbfdaefb1eabf86fa1f7840de25de25e557c4c40b43596e1",
+          "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 max_observed_dirty_ratio=1.000000 paint_events=2 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 512ms\n********* Finished testing of GraphicsViewTests *********\n"
+        }
+      },
+      "vector_cpu_budget_test": {
+        "passed": true,
+        "pass_marker": "PASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()",
+        "pass_marker_observed": true,
+        "execution": {
+          "command": [
+            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+            "-o",
+            "-,txt",
+            "testVectorInteractionPaintCpuBudgetFor120Hz"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 3129.263,
+          "output_sha256": "8d530b1fa4057b24d72ebbc37e4272a0eea5b4b98137e99a9d856bb66cea0b14",
+          "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_DISPLAY refresh_hz=120.0 viewport=1728x985 dpr=2.0\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu format=eps interaction=zoom average_cpu_ms=2.703 p99_cpu_ms=3.118 max_cpu_ms=3.193 cpu_capacity_fps=370.003 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu format=eps interaction=pan average_cpu_ms=2.622 p99_cpu_ms=3.056 max_cpu_ms=3.145 cpu_capacity_fps=381.457 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu format=svg interaction=zoom average_cpu_ms=4.958 p99_cpu_ms=5.545 max_cpu_ms=5.574 cpu_capacity_fps=201.678 count=120\nQINFO  : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz() VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu format=svg interaction=pan average_cpu_ms=4.980 p99_cpu_ms=5.910 max_cpu_ms=6.380 cpu_capacity_fps=200.809 count=120\nPASS   : GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 2917ms\n********* Finished testing of GraphicsViewTests *********\n"
         }
       }
     },
@@ -378,9 +411,9 @@
       ],
       "return_code": 0,
       "passed": true,
-      "duration_ms": 19209.784,
-      "output_sha256": "dca16d3120aef916558622206a494cccc8c76bc2bc57c151767358f7ae7b14a5",
-      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(311,87 497x638)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()\nPASS   : WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.614125\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 45 passed, 0 failed, 0 skipped, 0 blacklisted, 18962ms\n********* Finished testing of WindowBehaviorTests *********\n",
+      "duration_ms": 19334.07,
+      "output_sha256": "ec1dea9d75043460ff0e9edfc462afec316c9d1488227b67eefb136c4e46f7e0",
+      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(311,87 497x638)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()\nPASS   : WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.599041\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 45 passed, 0 failed, 0 skipped, 0 blacklisted, 19075ms\n********* Finished testing of WindowBehaviorTests *********\n",
       "stage": "integration",
       "suite": "WindowBehaviorTests",
       "qtest_totals": {
@@ -396,7 +429,7 @@
       ],
       "return_code": 0,
       "passed": true,
-      "duration_ms": 639.793,
+      "duration_ms": 653.891,
       "output_sha256": "1cc59a14dc0d862f67a513329a8bfcb882856ef653a81c64ec400c5d4d0c5282",
       "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n",
       "stage": "system",
@@ -546,55 +579,96 @@
         "unit": true
       },
       "passed": true
+    },
+    {
+      "id": "CI-UNIT-003-CPU-BUDGET",
+      "acceptance_criterion": "120Hz 矢量交互预算必须以调用线程 CPU 执行时间测量，并保持平均值、p99 值和 120 FPS 容量断言稳定通过。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
     }
   ],
   "research_trace": [
     {
       "hop": 1,
-      "source": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
-      "finding": "GitHub Actions jobs select their execution environment through the workflow runs-on field.",
-      "explicit_premise": "The repository test workflow declares macos-26 for the build, static, and test jobs.",
-      "deduction": "The CI contract must be checked against the workflow file, not inferred from a local machine."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540912",
+      "finding": "The latest Checks run for commit 119f5fe failed in Run Unit Tests; the hosted log reports a 120Hz CPU-budget assertion with average below the budget but p99 above it.",
+      "explicit_premise": "A failed GitHub Actions run log is the direct observation of the failing CI predicate.",
+      "deduction": "The first branch of the diagnosis must inspect the measured quantity and its threshold, not change the rendering implementation."
     },
     {
       "hop": 2,
-      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
-      "finding": "GitHub-hosted runner labels identify the hosted operating-system image used by a job.",
-      "explicit_premise": "The application uses Cocoa-specific Qt tests and the workflow installs the pinned Qt version on macOS.",
-      "deduction": "The system gate is intentionally a macOS application probe and is not replaced by a headless non-Cocoa substitute."
+      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540890",
+      "finding": "The corresponding Build Fovelle run also fails in the complete CTest path at testVectorInteractionPaintCpuBudgetFor120Hz, while the average samples remain well below 8.333 ms and a pan p99 contains a large outlier.",
+      "explicit_premise": "Two independent workflow jobs observe the same performance-test failure boundary.",
+      "deduction": "The failure is reproducible at the test observer level and is not an artifact of only the acceptance-audit wrapper."
     },
     {
       "hop": 3,
-      "source": "https://docs.github.com/en/actions/tutorials/store-and-share-data",
-      "finding": "A workflow can upload generated files as artifacts after a test step, including when the test step fails.",
-      "explicit_premise": "The required reports are generated under the repository reports/ directory and that directory is ignored by Git.",
-      "deduction": "The workflow uploads reports/*.json so CI evidence remains machine-auditable after the run."
+      "source": "https://github.com/inostarlin-passion/Fovelle/blob/119f5fe69cdbb76bb446b533d54ec6d0cf18106a/.github/workflows/test.yml",
+      "finding": "The repository builds with CMake and runs the Qt tests on macos-26 with Qt 6.11.2, Cocoa, and CTest.",
+      "explicit_premise": "The hosted runner and the local test source are part of the test's stated execution contract.",
+      "deduction": "A timing-sensitive wall-clock measurement is exposed to hosted-runner scheduling even when application work is unchanged."
     },
     {
       "hop": 4,
-      "source": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
-      "finding": "Artifacts preserve files produced by a workflow for later inspection outside the runner workspace.",
-      "explicit_premise": "The local report paths are the acceptance interface, while the CI runner is ephemeral.",
-      "deduction": "The report artifact is part of the CI acceptance contract rather than an optional diagnostic side effect."
+      "source": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md",
+      "finding": "The macos-26 arm64 image records a changing hosted image identity and macOS/Xcode toolchain details.",
+      "explicit_premise": "The runner is a shared hosted environment rather than a dedicated real-time CPU.",
+      "deduction": "Descheduling and WindowServer delays are admissible wall-clock noise and cannot be treated as application CPU work."
     },
     {
       "hop": 5,
-      "source": "https://github.com/inostarlin-passion/Fovelle/blob/main/.github/workflows/test.yml",
-      "finding": "The repository's test workflow configures BUILD_TESTS, enables translations, builds with CMake, and runs CTest.",
-      "explicit_premise": "The focused audit is registered as a CTest test and receives the built test binary and build directory.",
-      "deduction": "The same audit command can be run locally and as a GitHub Actions check without a second CI-only implementation."
+      "source": "https://doc.qt.io/qt-6/qelapsedtimer.html",
+      "finding": "QElapsedTimer provides elapsed monotonic wall time; it does not identify how much CPU execution the calling thread received.",
+      "explicit_premise": "The failing code used QElapsedTimer around synchronous QWidget::repaint().",
+      "deduction": "The old p99 predicate measured W_i = C_i + D_i, so a scheduling delay D_i could fail the test without a renderer regression."
     },
     {
       "hop": 6,
-      "source": "local:src/qvgraphicsview.cpp",
-      "finding": "The graphics view reads navigationregionsenabled and viewportmiddlebuttonmode at runtime.",
-      "explicit_premise": "Removing only the visible controls would leave old persisted values able to change behavior.",
-      "deduction": "Keep compatibility keys, reset them during migration, and remove only their user-facing controls; fixed policies are false and Click."
+      "source": "https://pubs.opengroup.org/onlinepubs/000095399/functions/clock_getres.html",
+      "finding": "POSIX defines CLOCK_THREAD_CPUTIME_ID as CPU execution time for the calling thread and distinguishes it from elapsed real time.",
+      "explicit_premise": "The interactive zoom/pan operation and synchronous repaint execute on the Qt GUI thread.",
+      "deduction": "The repaired sample c_i = T_thread_end - T_thread_start directly measures the CPU quantity named by the existing test."
+    },
+    {
+      "hop": 7,
+      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
+      "finding": "Qt recommends condition-based waits and warns that fixed timing assumptions are fragile in asynchronous tests.",
+      "explicit_premise": "The repository already uses explicit bounded QTest conditions for GUI readiness and teardown.",
+      "deduction": "The performance test should retain bounded functional setup but must not use scheduler-sensitive wall-time p99 as a CPU-work assertion."
+    },
+    {
+      "hop": 8,
+      "source": "local:tests/settings_quality_pipeline.py and .gitignore",
+      "finding": "The SettingsAudit static contract requires an explicit !reports/solution_and_proof.md rule, which was absent from the current .gitignore.",
+      "explicit_premise": "The latest SettingsAudit failure is an independent source-contract failure, not a consequence of the CPU benchmark.",
+      "deduction": "The complete fix must add the explicit report-tracking rule and preserve the proof artifact as part of the CI acceptance interface."
+    },
+    {
+      "hop": 9,
+      "source": "local:tests/tst_qviewtests.cpp and tests/settings_quality_pipeline.py",
+      "finding": "The repaired probe logs measurement=thread_cpu and directly exercises EPS/SVG zoom and pan samples; the audit registers the same method as an atomic unit case.",
+      "explicit_premise": "A test is reproducible only when its input, clock, selector, bounds, and output marker are explicit.",
+      "deduction": "The fix is testable without modifying production rendering or hiding the p99/120-FPS requirement."
+    },
+    {
+      "hop": 10,
+      "source": "https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs?apiVersion=2022-11-28",
+      "finding": "GitHub documents using failed run logs and recorded runner information to diagnose a workflow failure.",
+      "explicit_premise": "The report must distinguish confirmed hosted observations, local verification, and claims not yet remotely rerun.",
+      "deduction": "Reports record the two pre-fix run URLs, explicit premises, local four-stage evidence, and remote_reexecution=false until a push/rerun occurs."
     }
   ],
   "audit": {
-    "case_count": 10,
-    "passed_cases": 10,
+    "case_count": 11,
+    "passed_cases": 11,
     "failed_cases": [],
     "all_atomic_cases_passed": true,
     "all_four_stages_passed": true,

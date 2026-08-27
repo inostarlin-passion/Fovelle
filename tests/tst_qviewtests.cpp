@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <optional>
+#include <time.h>
 #include <QFileInfo>
 #include <QDir>
 #include <QFileOpenEvent>
@@ -877,6 +879,18 @@ static const QByteArray orientedAvifBase64 =
 static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
 {
     qInfo().noquote() << QStringLiteral("FS_METRIC %1_ms=%2").arg(phase).arg(elapsedMs);
+}
+
+static std::optional<qint64> currentThreadCpuTimeNanoseconds()
+{
+#ifdef CLOCK_THREAD_CPUTIME_ID
+    timespec value{};
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value) != 0)
+        return std::nullopt;
+    return static_cast<qint64>(value.tv_sec) * 1000000000LL + static_cast<qint64>(value.tv_nsec);
+#else
+    return std::nullopt;
+#endif
 }
 
 void ImageLoaderTests::testImageLoaderPriorities()
@@ -5375,6 +5389,7 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
 
     constexpr int FrameCount = 120;
     constexpr double FrameBudgetMilliseconds = 1000.0 / 120.0;
+    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
     const auto verifySamples = [&](QVector<double> samples,
                                    const QString &format,
                                    const QString &interaction) {
@@ -5387,7 +5402,9 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
         const double maximum = samples.constLast();
         const double cpuCapacity = 1000.0 / average;
         qInfo().noquote() << QStringLiteral(
-            "VECTOR_120HZ_CPU_BUDGET format=%1 interaction=%2 average_ms=%3 p99_ms=%4 max_ms=%5 cpu_capacity_fps=%6 count=%7")
+            "VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu "
+            "format=%1 interaction=%2 average_cpu_ms=%3 "
+            "p99_cpu_ms=%4 max_cpu_ms=%5 cpu_capacity_fps=%6 count=%7")
             .arg(format, interaction)
             .arg(average, 0, 'f', 3)
             .arg(p99, 0, 'f', 3)
@@ -5423,8 +5440,8 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
         zoomSamples.reserve(FrameCount);
         for (int i = 0; i < FrameCount; ++i)
         {
-            QElapsedTimer frameTimer;
-            frameTimer.start();
+            const auto cpuStart = currentThreadCpuTimeNanoseconds();
+            QVERIFY(cpuStart.has_value());
             const int triangularStep = i < FrameCount / 2
                     ? i : FrameCount - 1 - i;
             const qreal continuousZoom = 48.0
@@ -5432,7 +5449,10 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
             view->zoomAbsolute(continuousZoom,
                                Qv::CalculateViewportCenterPos);
             view->viewport()->repaint();
-            zoomSamples.append(frameTimer.nsecsElapsed() / 1000000.0);
+            const auto cpuEnd = currentThreadCpuTimeNanoseconds();
+            QVERIFY(cpuEnd.has_value());
+            QVERIFY(*cpuEnd >= *cpuStart);
+            zoomSamples.append(static_cast<double>(*cpuEnd - *cpuStart) / 1000000.0);
         }
         verifySamples(zoomSamples, document.first, QStringLiteral("zoom"));
 
@@ -5448,14 +5468,17 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
         panSamples.reserve(FrameCount);
         for (int i = 0; i < FrameCount; ++i)
         {
-            QElapsedTimer frameTimer;
-            frameTimer.start();
+            const auto cpuStart = currentThreadCpuTimeNanoseconds();
+            QVERIFY(cpuStart.has_value());
             view->horizontalScrollBar()->setValue(
                 view->horizontalScrollBar()->value() + (i % 2 == 0 ? 2 : -2));
             view->verticalScrollBar()->setValue(
                 view->verticalScrollBar()->value() + (i % 3 == 0 ? 1 : -1));
             view->viewport()->repaint();
-            panSamples.append(frameTimer.nsecsElapsed() / 1000000.0);
+            const auto cpuEnd = currentThreadCpuTimeNanoseconds();
+            QVERIFY(cpuEnd.has_value());
+            QVERIFY(*cpuEnd >= *cpuStart);
+            panSamples.append(static_cast<double>(*cpuEnd - *cpuStart) / 1000000.0);
         }
         verifySamples(panSamples, document.first, QStringLiteral("pan"));
     }
@@ -6713,11 +6736,14 @@ void WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()
     QVERIFY(appearance);
 
     dialog.show();
+    dialog.raise();
+    dialog.activateWindow();
     QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isActiveWindow(), 1000);
     tabs->setCurrentIndex(0);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
     appearance->setFocus(Qt::OtherFocusReason);
-    QVERIFY(appearance->hasFocus());
+    QTRY_VERIFY_WITH_TIMEOUT(appearance->hasFocus(), 1000);
 
     tabs->setCurrentIndex(2);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
