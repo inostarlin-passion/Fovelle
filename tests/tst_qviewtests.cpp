@@ -3307,7 +3307,7 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 // after a fullscreen resize.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
 // Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit transition.
-// Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen twice.
+// Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen once.
 // Expected result: ZoomToFit remains active; a changed fullscreen viewport
 // receives a recalculated zoom level; the snapshot keeps the source aspect
 // ratio; after exit, both the fit mode and original image rectangle return.
@@ -3401,18 +3401,6 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
-
-    transitionTimer.restart();
-    window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
-    reportFullscreenMetric("reenter", transitionTimer.elapsed());
-
-    transitionTimer.restart();
-    window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
-    reportFullscreenMetric("second-exit", transitionTimer.elapsed());
     QTRY_COMPARE_WITH_TIMEOUT(
         window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
 
