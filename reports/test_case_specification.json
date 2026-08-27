@@ -1,0 +1,257 @@
+{
+  "schema_version": "2.0",
+  "report_type": "atomic_test_case_specification",
+  "generated_at_utc": "2026-08-27T19:35:24.711076+00:00",
+  "task": "设置页文案重命名与鼠标选项移除；修复 GitHub Actions 检查失败",
+  "stage_order": [
+    "static",
+    "unit",
+    "integration",
+    "system"
+  ],
+  "required_test_fields": [
+    "id",
+    "acceptance_criterion",
+    "test_purpose",
+    "preconditions",
+    "input_data",
+    "steps",
+    "expected_result",
+    "postconditions",
+    "test_layer",
+    "implementation",
+    "evidence_stages"
+  ],
+  "cases": [
+    {
+      "id": "SET-LABEL-CHECKERBOARD",
+      "acceptance_criterion": "通用 Tab 将加载图片时显示棋盘格重命名为打开图片后使用棋盘格背景。",
+      "test_purpose": "验证棋盘格复选框在实际设置对话框中使用新的英文源文案。",
+      "preconditions": "QVApplication 已初始化，设置对话框可构造。",
+      "input_data": "英文语言和 checkerboardBackgroundCheckbox。",
+      "steps": "构造 QVOptionsDialog，读取复选框文本并与新文案比较。",
+      "expected_result": "文本精确等于 Use checkerboard background after opening image。",
+      "postconditions": "销毁对话框并恢复临时语言设置。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-LABEL-SAME-WINDOW",
+      "acceptance_criterion": "通用 Tab 将使用图片启动时重用窗口重命名为使用同一窗口打开图片。",
+      "test_purpose": "验证复用窗口复选框的运行时文案和源码文案一致。",
+      "preconditions": "QVOptionsDialog 可构造且英文源翻译已安装。",
+      "input_data": "英文 reuseWindowCheckbox。",
+      "steps": "构造对话框，读取控件文本并比较目标字符串。",
+      "expected_result": "文本精确等于 Open images in the same window。",
+      "postconditions": "关闭对话框，不改变 reusewindow 的持久化值。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-LABEL-AFTER-DELETE",
+      "acceptance_criterion": "删除后标签重命名为删除文件后。",
+      "test_purpose": "验证删除策略标签的源文案与可见文本均已更新。",
+      "preconditions": "QVOptionsDialog 可构造，afterDeletionComboBox 所在 General 页面已组装。",
+      "input_data": "label_10 的可见文本。",
+      "steps": "构造对话框并读取 label_10 文本。",
+      "expected_result": "英文文本精确等于 After deleting files:。",
+      "postconditions": "销毁对话框且不执行删除操作。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-OPTION-NO-ACTION",
+      "acceptance_criterion": "删除文件后的下拉项不执行重命名为无动作。",
+      "test_purpose": "验证 DoNothing 枚举仍保留行为值，但显示文本已改为 No Action。",
+      "preconditions": "afterDeletionComboBox 已填充枚举项。",
+      "input_data": "Qv::AfterDelete::DoNothing 的 itemData 和 itemText。",
+      "steps": "按枚举值查找下拉项，读取显示文本。",
+      "expected_result": "对应数据值仍是 DoNothing，英文显示文本精确等于 No Action。",
+      "postconditions": "销毁对话框，不触发删除策略。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-MOUSE-NAVIGATION-REMOVED",
+      "acceptance_criterion": "鼠标 Tab 移除侧边导航区域选项，并固定默认值为不勾选。",
+      "test_purpose": "验证 UI 不再暴露该选项，同时新安装和迁移后的设置值都是 false。",
+      "preconditions": "SettingsManager 默认库已初始化，QVOptionsDialog 可构造。",
+      "input_data": "navigationRegionsCheckbox 对象查找、navigationregionsenabled 默认值。",
+      "steps": "读取默认设置并搜索生产对话框对象树。",
+      "expected_result": "checkbox 不存在，navigationregionsenabled 的默认值为 false。",
+      "postconditions": "关闭对话框，不改变其它导航按钮行为。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration"
+      ]
+    },
+    {
+      "id": "SET-MOUSE-MODE-REMOVED",
+      "acceptance_criterion": "鼠标 Tab 移除中键模式选项，并固定默认值为点击。",
+      "test_purpose": "验证模式标签、单选按钮和不可达的中键拖动设置行均不再出现在界面，内部默认保持 Click。",
+      "preconditions": "SettingsManager 默认库已初始化，Mouse 页面可构造。",
+      "input_data": "middleButtonModeLabel/Host/radio 控件、中键拖动控件和 viewportmiddlebuttonmode 默认值。",
+      "steps": "读取默认枚举并在生产对话框对象树中查找所有已移除控件。",
+      "expected_result": "模式及其依赖控件不存在，viewportmiddlebuttonmode 默认值为 Click。",
+      "postconditions": "销毁对话框，不产生鼠标输入。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration"
+      ]
+    },
+    {
+      "id": "SET-MOUSE-LEGACY-MIGRATION",
+      "acceptance_criterion": "旧配置中的侧边导航和中键模式值不能在移除选项后复活。",
+      "test_purpose": "验证迁移逻辑将旧的 true/Drag 配置写回 false/Click。",
+      "preconditions": "QSettings 可写，firstlaunch 已标记，SettingsManager 迁移函数可调用。",
+      "input_data": "navigationregionsenabled=true、viewportmiddlebuttonmode=Drag。",
+      "steps": "保存旧值，调用 migrateOldSettings()，同步并分别读取持久化值与内存值。",
+      "expected_result": "持久化和内存结果分别为 false 与 Click。",
+      "postconditions": "恢复迁移前的 QSettings 值。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-ALL-TRANSLATIONS",
+      "acceptance_criterion": "四个非英语目录同步更新所有重命名文案，并删除已移除选项的旧翻译。",
+      "test_purpose": "验证 TS XML 可解析、目标 source 有完成翻译且精确匹配需求语言。",
+      "preconditions": "四个 TS 文件和 XML 解析器可用。",
+      "input_data": "五个新 source：两个 General 标签、删除文件后标签、No Action，以及四套期望译文。",
+      "steps": "逐目录解析 XML，按 source 查找 translation，检查非空、非 unfinished 和精确文本；检查旧 source 不存在。",
+      "expected_result": "西班牙语、日语、简体中文、繁体中文均通过，中文目标文案与需求逐字一致。",
+      "postconditions": "不加载第五种语言，不改动运行时设置。",
+      "test_layer": "static/integration",
+      "implementation": "tests/settings_quality_pipeline.py::static_stage + tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "static",
+        "integration"
+      ]
+    },
+    {
+      "id": "SET-CI-FOUR-STAGES",
+      "acceptance_criterion": "静态、单元、集成、系统四级检查按顺序执行并可在 GitHub Actions 重放。",
+      "test_purpose": "验证工作流使用仓库声明的 macOS runner、Qt 构建参数、CTest 和报告 artifact。",
+      "preconditions": "GitHub Actions workflow、CMake 测试注册和已构建测试/应用目标可读。",
+      "input_data": "test.yml runner/build/test/artifact 步骤与四级审计命令。",
+      "steps": "静态检查 workflow 契约，依次运行 FeatureTests、WindowBehaviorTests 和真实 Fovelle system probe。",
+      "expected_result": "四级结果可观测、顺序明确，三份 JSON 报告写入 reports/ 并可作为 Actions artifact 上传。",
+      "postconditions": "保留完整命令、返回码、耗时和输出摘要，失败时返回非零。",
+      "test_layer": "system",
+      "implementation": "tests/settings_quality_pipeline.py::build_reports + .github/workflows/test.yml",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
+      ]
+    },
+    {
+      "id": "CI-UNIT-002-ASYNC-OBSERVATION",
+      "acceptance_criterion": "修复 CI-UNIT-002：滚动测试不得要求异步 refinement 在某一瞬间仍处于 pending，且 5% 判定只使用滚动后的首个 Paint。",
+      "test_purpose": "验证 GitHub Actions 失败的唯一观察器修复既接受异步任务已提前完成的合法时序，又保留局部滚动重绘断言。",
+      "preconditions": "已构建 fovelle_tests，macOS Cocoa 事件循环可用，解决方案与证明文件存在。",
+      "input_data": "GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip、首个 Paint dirty ratio 和 hasPendingVectorRefinement teardown 状态。",
+      "steps": "执行静态异步观察合同；直接运行 CI-UNIT-002；检查首个 Paint 的 5% 断言和无瞬时 pending 必须为真的源码合同。",
+      "expected_result": "静态合同通过，QtTest 返回 0，首个 Paint dirty ratio 不超过 5%，并在移除 event filter 前等待 refinement 收敛。",
+      "postconditions": "测试窗口关闭，event filter 已移除；不修改生产渲染实现。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip + reports/solution_and_proof.md",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    }
+  ],
+  "research_trace": [
+    {
+      "hop": 1,
+      "source": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "finding": "GitHub Actions jobs select their execution environment through the workflow runs-on field.",
+      "explicit_premise": "The repository test workflow declares macos-26 for the build, static, and test jobs.",
+      "deduction": "The CI contract must be checked against the workflow file, not inferred from a local machine."
+    },
+    {
+      "hop": 2,
+      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+      "finding": "GitHub-hosted runner labels identify the hosted operating-system image used by a job.",
+      "explicit_premise": "The application uses Cocoa-specific Qt tests and the workflow installs the pinned Qt version on macOS.",
+      "deduction": "The system gate is intentionally a macOS application probe and is not replaced by a headless non-Cocoa substitute."
+    },
+    {
+      "hop": 3,
+      "source": "https://docs.github.com/en/actions/tutorials/store-and-share-data",
+      "finding": "A workflow can upload generated files as artifacts after a test step, including when the test step fails.",
+      "explicit_premise": "The required reports are generated under the repository reports/ directory and that directory is ignored by Git.",
+      "deduction": "The workflow uploads reports/*.json so CI evidence remains machine-auditable after the run."
+    },
+    {
+      "hop": 4,
+      "source": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
+      "finding": "Artifacts preserve files produced by a workflow for later inspection outside the runner workspace.",
+      "explicit_premise": "The local report paths are the acceptance interface, while the CI runner is ephemeral.",
+      "deduction": "The report artifact is part of the CI acceptance contract rather than an optional diagnostic side effect."
+    },
+    {
+      "hop": 5,
+      "source": "https://github.com/inostarlin-passion/Fovelle/blob/main/.github/workflows/test.yml",
+      "finding": "The repository's test workflow configures BUILD_TESTS, enables translations, builds with CMake, and runs CTest.",
+      "explicit_premise": "The focused audit is registered as a CTest test and receives the built test binary and build directory.",
+      "deduction": "The same audit command can be run locally and as a GitHub Actions check without a second CI-only implementation."
+    },
+    {
+      "hop": 6,
+      "source": "local:src/qvgraphicsview.cpp",
+      "finding": "The graphics view reads navigationregionsenabled and viewportmiddlebuttonmode at runtime.",
+      "explicit_premise": "Removing only the visible controls would leave old persisted values able to change behavior.",
+      "deduction": "Keep compatibility keys, reset them during migration, and remove only their user-facing controls; fixed policies are false and Click."
+    }
+  ],
+  "input_sha256": {
+    "src/qvoptionsdialog.ui": "623e699fc8c521e2e8c2a014e996f97d5bd9ee9a4cbdb6100bd3bb270e37dfc4",
+    "src/qvoptionsdialog.cpp": "a03e42b25daa95158ea105c595e0bd7614252141b56ffb06aa174f42e8d6eccb",
+    "src/settingsmanager.cpp": "7452530fcecc9e6eea08de9ac1c92a00cf371bb9b54dfc305c1fae64879293f7",
+    "tests/tst_qviewtests.cpp": "f58485bd84e8938411c16f3d48027cb407a5f2fc72e0271577d0aea9a4681d23",
+    "tests/settings_quality_pipeline.py": "6150c460b2efda00ef9b6e2839c00bb50cb2894830336cb8f62c0460108dcf00",
+    "tests/ci_quality_pipeline.py": "0f7c2d779e77fb8951d8d9c149f55a3069176448e55234e3e8f5af11969ba0ef",
+    "reports/solution_and_proof.md": "3b81e37d43fe8e9cad50cc6a3187730b12d8ddefbef3a561d8ea75691370bf64",
+    ".gitignore": "ac6d74e53a100dc118dc16a49b97ad0404e610484b26e2e9aeb2eb1636a58afa",
+    ".github/workflows/test.yml": "cefd028685d6f5734e624fd16aec7dab1e279086f0627e39cc809c2a74f12210",
+    "i18n/qview_es.ts": "fd658fb1d237028330e34524dc5ddb953337c255a7ebe56b7dd481236cdad47a",
+    "i18n/qview_ja.ts": "6ffceff3283f71966c4a4614ddfa2591f3cad65fe3af6bae120812413004c245",
+    "i18n/qview_zh_Hans.ts": "d95c835eb73540750f1d39732b3668407f9a6f4f14ec7e864ea57aee8315cfc2",
+    "i18n/qview_zh_Hant.ts": "ccbefa201323f8877240d9af610b508b55104fa2701998cd38a32414d195b59f"
+  },
+  "validation": {
+    "unique_ids": true,
+    "all_required_fields_present": true,
+    "missing_fields": {},
+    "all_evidence_stages_known": true
+  },
+  "passed": true
+}

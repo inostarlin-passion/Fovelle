@@ -1,0 +1,605 @@
+{
+  "schema_version": "2.0",
+  "report_type": "test_completion_report",
+  "generated_at_utc": "2026-08-27T19:35:24.711076+00:00",
+  "task": "设置页文案重命名与鼠标选项移除；修复 GitHub Actions 检查失败",
+  "host": {
+    "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7",
+    "repository": "/Users/inostarlin/code/Fovelle"
+  },
+  "build": {
+    "build_dir": "/Users/inostarlin/code/Fovelle/build",
+    "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+    "binary_sha256": "c260374c72dc9ec4d20d91e34a16488b9fc13e1bff3a568d4ea82aa7767ccaa3"
+  },
+  "stage_order": [
+    "static",
+    "unit",
+    "integration",
+    "system"
+  ],
+  "stages": {
+    "static": {
+      "stage": "static",
+      "passed": true,
+      "checks": [
+        {
+          "id": "STATIC-UI-XML",
+          "passed": true,
+          "evidence": {
+            "path": "src/qvoptionsdialog.ui",
+            "error": null
+          },
+          "deduction": "The Qt Designer form must be well-formed before it can be compiled."
+        },
+        {
+          "id": "STATIC-RENAMED-SOURCES",
+          "passed": true,
+          "evidence": {
+            "checkerboard": true,
+            "same_window": true,
+            "after_delete": true,
+            "no_action": true
+          },
+          "deduction": "The production UI and combo-box mapping must contain the four new source labels."
+        },
+        {
+          "id": "STATIC-REMOVED-MOUSE-SURFACE",
+          "passed": true,
+          "evidence": {
+            "navigationRegionsCheckbox": true,
+            "middleButtonModeLabel": true,
+            "middleButtonModeHost": true,
+            "middleButtonModeClickRadioButton": true,
+            "middleButtonModeDragRadioButton": true,
+            "middleDragLabel": true,
+            "middleDragComboBox": true,
+            "altMiddleDragLabel": true,
+            "altMiddleDragComboBox": true
+          },
+          "deduction": "Removed Mouse controls must not remain in the production dialog object tree or its synchronization code."
+        },
+        {
+          "id": "STATIC-OBSOLETE-SOURCES",
+          "passed": true,
+          "evidence": {
+            "Checkerboard when image loaded": true,
+            "Reuse window when launching with image": true,
+            "After deletion:": true,
+            "Do Nothing": true,
+            "Side navigation regions": true,
+            "Navigate when clicking on the left/right edges of the viewport": true,
+            "Mode:": true,
+            "Middle Drag:": true,
+            "%1 + Middle Drag:": true
+          },
+          "deduction": "Old visible labels and removed-option tooltip sources must not be shipped in the production catalogs."
+        },
+        {
+          "id": "STATIC-FIXED-MOUSE-POLICIES",
+          "passed": true,
+          "evidence": {
+            "navigation_default_false": true,
+            "middle_mode_default_click": true,
+            "migration_navigation_false": true,
+            "migration_middle_click": true
+          },
+          "deduction": "New defaults and legacy migration must converge on the same fixed policies."
+        },
+        {
+          "id": "STATIC-TRANSLATIONS",
+          "passed": true,
+          "evidence": {
+            "qview_es.ts": {
+              "path": "/Users/inostarlin/code/Fovelle/i18n/qview_es.ts",
+              "entries": {
+                "Use checkerboard background after opening image": {
+                  "expected": "Usar fondo de tablero de ajedrez después de abrir la imagen",
+                  "actual": {
+                    "translation": "Usar fondo de tablero de ajedrez después de abrir la imagen",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "Open images in the same window": {
+                  "expected": "Abrir imágenes en la misma ventana",
+                  "actual": {
+                    "translation": "Abrir imágenes en la misma ventana",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "After deleting files:": {
+                  "expected": "Después de borrar archivos:",
+                  "actual": {
+                    "translation": "Después de borrar archivos:",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "No Action": {
+                  "expected": "Sin acción",
+                  "actual": {
+                    "translation": "Sin acción",
+                    "unfinished": false
+                  },
+                  "passed": true
+                }
+              },
+              "passed": true
+            },
+            "qview_ja.ts": {
+              "path": "/Users/inostarlin/code/Fovelle/i18n/qview_ja.ts",
+              "entries": {
+                "Use checkerboard background after opening image": {
+                  "expected": "画像を開いた後にチェック柄の背景を使用",
+                  "actual": {
+                    "translation": "画像を開いた後にチェック柄の背景を使用",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "Open images in the same window": {
+                  "expected": "画像を同じウィンドウで開く",
+                  "actual": {
+                    "translation": "画像を同じウィンドウで開く",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "After deleting files:": {
+                  "expected": "ファイル削除後の動作:",
+                  "actual": {
+                    "translation": "ファイル削除後の動作:",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "No Action": {
+                  "expected": "アクションなし",
+                  "actual": {
+                    "translation": "アクションなし",
+                    "unfinished": false
+                  },
+                  "passed": true
+                }
+              },
+              "passed": true
+            },
+            "qview_zh_Hans.ts": {
+              "path": "/Users/inostarlin/code/Fovelle/i18n/qview_zh_Hans.ts",
+              "entries": {
+                "Use checkerboard background after opening image": {
+                  "expected": "打开图片后使用棋盘格背景",
+                  "actual": {
+                    "translation": "打开图片后使用棋盘格背景",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "Open images in the same window": {
+                  "expected": "使用同一窗口打开图片",
+                  "actual": {
+                    "translation": "使用同一窗口打开图片",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "After deleting files:": {
+                  "expected": "删除文件后:",
+                  "actual": {
+                    "translation": "删除文件后:",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "No Action": {
+                  "expected": "无动作",
+                  "actual": {
+                    "translation": "无动作",
+                    "unfinished": false
+                  },
+                  "passed": true
+                }
+              },
+              "passed": true
+            },
+            "qview_zh_Hant.ts": {
+              "path": "/Users/inostarlin/code/Fovelle/i18n/qview_zh_Hant.ts",
+              "entries": {
+                "Use checkerboard background after opening image": {
+                  "expected": "開啟影像後使用棋盤格背景",
+                  "actual": {
+                    "translation": "開啟影像後使用棋盤格背景",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "Open images in the same window": {
+                  "expected": "使用同一視窗開啟影像",
+                  "actual": {
+                    "translation": "使用同一視窗開啟影像",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "After deleting files:": {
+                  "expected": "刪除檔案後:",
+                  "actual": {
+                    "translation": "刪除檔案後:",
+                    "unfinished": false
+                  },
+                  "passed": true
+                },
+                "No Action": {
+                  "expected": "無動作",
+                  "actual": {
+                    "translation": "無動作",
+                    "unfinished": false
+                  },
+                  "passed": true
+                }
+              },
+              "passed": true
+            }
+          },
+          "deduction": "Every renamed source must have an exact, completed translation in all four supported catalogs."
+        },
+        {
+          "id": "STATIC-TRANSLATION-TEMPLATE",
+          "passed": true,
+          "evidence": {
+            "Use checkerboard background after opening image": true,
+            "Open images in the same window": true,
+            "After deleting files:": true,
+            "No Action": true,
+            "removed_sources_absent": true
+          },
+          "deduction": "The translation template must describe the current source inventory without removed option messages."
+        },
+        {
+          "id": "STATIC-TEST-COVERAGE",
+          "passed": true,
+          "evidence": {
+            "renamed_labels_test": true,
+            "migration_test": true,
+            "all_language_layout_test": true,
+            "fixed_default_assertion": true,
+            "fixed_mode_assertion": true
+          },
+          "deduction": "Each UI/default/migration contract must have executable QtTest coverage."
+        },
+        {
+          "id": "STATIC-GITHUB-ACTIONS",
+          "passed": true,
+          "evidence": {
+            "macos_runner": true,
+            "tests_enabled": true,
+            "translations_enabled": true,
+            "ctest": true,
+            "report_artifact": true,
+            "report_path": true,
+            "four_stage_runner": true,
+            "audit_registered": true,
+            "other_audit_isolated": true
+          },
+          "deduction": "The repository workflow must build translations, run CTest, and preserve the required reports without overwriting them."
+        },
+        {
+          "id": "STATIC-CI-ASYNC-OBSERVATION",
+          "passed": true,
+          "evidence": {
+            "solution_file": true,
+            "solution_file_not_ignored": true,
+            "first_paint_assertion": true,
+            "teardown_wait": true,
+            "no_instant_pending_assertion": true,
+            "ci_static_guard": true
+          },
+          "deduction": "The CI repair must document and enforce causal Paint observation without an instantaneous asynchronous-state precondition."
+        },
+        {
+          "id": "STATIC-AUDIT-PYTHON",
+          "passed": true,
+          "evidence": {
+            "error": null
+          },
+          "deduction": "The audit itself must be syntactically valid before it can be trusted."
+        },
+        {
+          "id": "STATIC-DIFF",
+          "passed": true,
+          "evidence": {
+            "command": [
+              "git",
+              "diff",
+              "--check",
+              "HEAD",
+              "--",
+              "src",
+              "i18n",
+              "tests",
+              ".github"
+            ],
+            "return_code": 0,
+            "passed": true,
+            "duration_ms": 12.449,
+            "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "output_tail": ""
+          },
+          "deduction": "Task-scoped source, test, translation, and workflow changes must have no whitespace errors."
+        }
+      ]
+    },
+    "unit": {
+      "command": [
+        "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+        "-o",
+        "-,txt"
+      ],
+      "return_code": 0,
+      "passed": true,
+      "duration_ms": 728.946,
+      "output_sha256": "0df84995f79b0a131e375a64e403970ed9d1a60a1c5d5fad7215f3d08355bcd3",
+      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()\nPASS   : FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 24 passed, 0 failed, 0 skipped, 0 blacklisted, 521ms\n********* Finished testing of FeatureTests *********\n",
+      "stage": "unit",
+      "suite": "FeatureTests",
+      "qtest_totals": {
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "blacklisted": 0
+      },
+      "vector_pan_test": {
+        "passed": true,
+        "pass_marker": "PASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()",
+        "pass_marker_observed": true,
+        "execution": {
+          "command": [
+            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+            "-o",
+            "-,txt",
+            "testVectorPanRepaintsOnlyExposedStrip"
+          ],
+          "return_code": 0,
+          "passed": true,
+          "duration_ms": 722.099,
+          "output_sha256": "d367e69806263f4e91126fc204d4073575c3e2a90134cf7f210984d501f433b0",
+          "output_tail": "********* Start testing of GraphicsViewTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : GraphicsViewTests::initTestCase()\nQINFO  : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip() VECTOR_PAN_REPAINT dirty_ratio=0.009554 max_observed_dirty_ratio=1.000000 paint_events=2 viewport_area=311488\nPASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()\nPASS   : GraphicsViewTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 518ms\n********* Finished testing of GraphicsViewTests *********\n"
+        }
+      }
+    },
+    "integration": {
+      "command": [
+        "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+        "-o",
+        "-,txt"
+      ],
+      "return_code": 0,
+      "passed": true,
+      "duration_ms": 19209.784,
+      "output_sha256": "dca16d3120aef916558622206a494cccc8c76bc2bc57c151767358f7ae7b14a5",
+      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(311,87 497x638)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()\nPASS   : WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.614125\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 45 passed, 0 failed, 0 skipped, 0 blacklisted, 18962ms\n********* Finished testing of WindowBehaviorTests *********\n",
+      "stage": "integration",
+      "suite": "WindowBehaviorTests",
+      "qtest_totals": {
+        "passed": 45,
+        "failed": 0,
+        "skipped": 0,
+        "blacklisted": 0
+      }
+    },
+    "system": {
+      "command": [
+        "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle"
+      ],
+      "return_code": 0,
+      "passed": true,
+      "duration_ms": 639.793,
+      "output_sha256": "1cc59a14dc0d862f67a513329a8bfcb882856ef653a81c64ec400c5d4d0c5282",
+      "output_tail": "FOVELLE_SYSTEM_PROBE windows=1 maximized=true\n",
+      "stage": "system",
+      "system_probe": {
+        "application": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle",
+        "probe_found": true,
+        "windows": 1,
+        "maximized": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "SET-LABEL-CHECKERBOARD",
+      "acceptance_criterion": "通用 Tab 将加载图片时显示棋盘格重命名为打开图片后使用棋盘格背景。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-LABEL-SAME-WINDOW",
+      "acceptance_criterion": "通用 Tab 将使用图片启动时重用窗口重命名为使用同一窗口打开图片。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-LABEL-AFTER-DELETE",
+      "acceptance_criterion": "删除后标签重命名为删除文件后。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-OPTION-NO-ACTION",
+      "acceptance_criterion": "删除文件后的下拉项不执行重命名为无动作。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-MOUSE-NAVIGATION-REMOVED",
+      "acceptance_criterion": "鼠标 Tab 移除侧边导航区域选项，并固定默认值为不勾选。",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true,
+        "integration": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-MOUSE-MODE-REMOVED",
+      "acceptance_criterion": "鼠标 Tab 移除中键模式选项，并固定默认值为点击。",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true,
+        "integration": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-MOUSE-LEGACY-MIGRATION",
+      "acceptance_criterion": "旧配置中的侧边导航和中键模式值不能在移除选项后复活。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-ALL-TRANSLATIONS",
+      "acceptance_criterion": "四个非英语目录同步更新所有重命名文案，并删除已移除选项的旧翻译。",
+      "evidence_stages": [
+        "static",
+        "integration"
+      ],
+      "stage_status": {
+        "static": true,
+        "integration": true
+      },
+      "passed": true
+    },
+    {
+      "id": "SET-CI-FOUR-STAGES",
+      "acceptance_criterion": "静态、单元、集成、系统四级检查按顺序执行并可在 GitHub Actions 重放。",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true,
+        "integration": true,
+        "system": true
+      },
+      "passed": true
+    },
+    {
+      "id": "CI-UNIT-002-ASYNC-OBSERVATION",
+      "acceptance_criterion": "修复 CI-UNIT-002：滚动测试不得要求异步 refinement 在某一瞬间仍处于 pending，且 5% 判定只使用滚动后的首个 Paint。",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "stage_status": {
+        "static": true,
+        "unit": true
+      },
+      "passed": true
+    }
+  ],
+  "research_trace": [
+    {
+      "hop": 1,
+      "source": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "finding": "GitHub Actions jobs select their execution environment through the workflow runs-on field.",
+      "explicit_premise": "The repository test workflow declares macos-26 for the build, static, and test jobs.",
+      "deduction": "The CI contract must be checked against the workflow file, not inferred from a local machine."
+    },
+    {
+      "hop": 2,
+      "source": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+      "finding": "GitHub-hosted runner labels identify the hosted operating-system image used by a job.",
+      "explicit_premise": "The application uses Cocoa-specific Qt tests and the workflow installs the pinned Qt version on macOS.",
+      "deduction": "The system gate is intentionally a macOS application probe and is not replaced by a headless non-Cocoa substitute."
+    },
+    {
+      "hop": 3,
+      "source": "https://docs.github.com/en/actions/tutorials/store-and-share-data",
+      "finding": "A workflow can upload generated files as artifacts after a test step, including when the test step fails.",
+      "explicit_premise": "The required reports are generated under the repository reports/ directory and that directory is ignored by Git.",
+      "deduction": "The workflow uploads reports/*.json so CI evidence remains machine-auditable after the run."
+    },
+    {
+      "hop": 4,
+      "source": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
+      "finding": "Artifacts preserve files produced by a workflow for later inspection outside the runner workspace.",
+      "explicit_premise": "The local report paths are the acceptance interface, while the CI runner is ephemeral.",
+      "deduction": "The report artifact is part of the CI acceptance contract rather than an optional diagnostic side effect."
+    },
+    {
+      "hop": 5,
+      "source": "https://github.com/inostarlin-passion/Fovelle/blob/main/.github/workflows/test.yml",
+      "finding": "The repository's test workflow configures BUILD_TESTS, enables translations, builds with CMake, and runs CTest.",
+      "explicit_premise": "The focused audit is registered as a CTest test and receives the built test binary and build directory.",
+      "deduction": "The same audit command can be run locally and as a GitHub Actions check without a second CI-only implementation."
+    },
+    {
+      "hop": 6,
+      "source": "local:src/qvgraphicsview.cpp",
+      "finding": "The graphics view reads navigationregionsenabled and viewportmiddlebuttonmode at runtime.",
+      "explicit_premise": "Removing only the visible controls would leave old persisted values able to change behavior.",
+      "deduction": "Keep compatibility keys, reset them during migration, and remove only their user-facing controls; fixed policies are false and Click."
+    }
+  ],
+  "audit": {
+    "case_count": 10,
+    "passed_cases": 10,
+    "failed_cases": [],
+    "all_atomic_cases_passed": true,
+    "all_four_stages_passed": true,
+    "stage_order_is_explicit": true
+  },
+  "passed": true,
+  "status": "passed"
+}
