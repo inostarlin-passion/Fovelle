@@ -1052,7 +1052,7 @@ void MainWindow::fullscreenChanged()
     const bool isFullscreen = windowState().testFlag(Qt::WindowFullScreen);
 
     if (isFullscreen)
-        cancelFullScreenExitLayoutTransition();
+        cancelFullScreenLayoutTransition();
 
     const auto fullscreenActions = qvApp->getActionManager().getAllClonesOfAction("fullscreen", this);
     for (const auto &fullscreenAction : fullscreenActions)
@@ -1079,15 +1079,16 @@ void MainWindow::fullscreenChanged()
         storedTitlebarHidden = false;
     }
 
-    if (!isFullscreen && fullScreenExitTitlebarOverlap >= 0)
+    if (!isFullscreen && activeFullScreenTitlebarOverlap >= 0)
     {
-        fullScreenExitTitlebarOverlap = fullScreenExitTargetTitlebarOverlap;
+        activeFullScreenTitlebarOverlap =
+            targetFullScreenTitlebarOverlap;
         graphicsView->fitOrConstrainImage();
 
         // AppKit has restored contentLayoutRect before Qt publishes the
         // WindowStateChange. Removing the override therefore keeps the same
         // effective inset and cannot expose a differently centered frame.
-        fullScreenExitTitlebarOverlap = -1;
+        activeFullScreenTitlebarOverlap = -1;
         graphicsView->fitOrConstrainImage();
     }
 
@@ -1096,27 +1097,26 @@ void MainWindow::fullscreenChanged()
     graphicsView->setCursorVisible(true);
 }
 
-void MainWindow::beginFullScreenExitLayoutTransition(
-    const int normalTitlebarOverlap)
+void MainWindow::beginFullScreenLayoutTransition(
+    const int titlebarOverlap, const int targetTitlebarOverlap)
 {
     if (isClosing)
         return;
 
-    fullScreenExitTitlebarOverlap = 0;
-    fullScreenExitTargetTitlebarOverlap = storedTitlebarHidden
-        ? 0 : qMax(normalTitlebarOverlap, 0);
+    activeFullScreenTitlebarOverlap = qMax(titlebarOverlap, 0);
+    targetFullScreenTitlebarOverlap =
+        qMax(targetTitlebarOverlap, 0);
 }
 
-void MainWindow::updateFullScreenExitLayoutTransition(const int titlebarOverlap)
+void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
 {
-    if (isClosing || fullScreenExitTitlebarOverlap < 0)
+    if (isClosing || activeFullScreenTitlebarOverlap < 0)
         return;
 
-    const int boundedOverlap = qBound(
-        0, titlebarOverlap, fullScreenExitTargetTitlebarOverlap);
-    if (boundedOverlap != fullScreenExitTitlebarOverlap)
+    const int boundedOverlap = qMax(titlebarOverlap, 0);
+    if (boundedOverlap != activeFullScreenTitlebarOverlap)
     {
-        fullScreenExitTitlebarOverlap = boundedOverlap;
+        activeFullScreenTitlebarOverlap = boundedOverlap;
         graphicsView->fitOrConstrainImage();
     }
 
@@ -1126,12 +1126,12 @@ void MainWindow::updateFullScreenExitLayoutTransition(const int titlebarOverlap)
     repaint();
 }
 
-void MainWindow::cancelFullScreenExitLayoutTransition()
+void MainWindow::cancelFullScreenLayoutTransition()
 {
-    if (fullScreenExitTitlebarOverlap < 0)
+    if (activeFullScreenTitlebarOverlap < 0)
         return;
 
-    fullScreenExitTitlebarOverlap = -1;
+    activeFullScreenTitlebarOverlap = -1;
     graphicsView->fitOrConstrainImage();
     update();
 }
@@ -2317,8 +2317,8 @@ void MainWindow::toggleTitlebarHidden()
 
 int MainWindow::getTitlebarOverlap() const
 {
-    if (fullScreenExitTitlebarOverlap >= 0)
-        return fullScreenExitTitlebarOverlap;
+    if (activeFullScreenTitlebarOverlap >= 0)
+        return activeFullScreenTitlebarOverlap;
 
     // To account for fullsizecontentview on mac
     return QVCocoaFunctions::getObscuredHeight(window()->windowHandle());

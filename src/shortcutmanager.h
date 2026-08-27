@@ -36,6 +36,31 @@ public:
         return keySequences;
     }
 
+    // Bare Escape is a window-lifecycle command: it exits full screen or
+    // closes the current window. Configurable actions must not enter Qt's
+    // shortcut map with the same prefix, where dispatch would be ambiguous.
+    static bool beginsWithReservedEscape(const QKeySequence &sequence)
+    {
+        if (sequence.isEmpty())
+            return false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        return sequence[0].toCombined() == Qt::Key_Escape;
+#else
+        return sequence[0] == Qt::Key_Escape;
+#endif
+    }
+
+    static QStringList withoutReservedEscape(const QStringList &shortcuts)
+    {
+        QStringList result;
+        for (const QString &shortcut : shortcuts)
+        {
+            if (!beginsWithReservedEscape(QKeySequence::fromString(shortcut)))
+                result.append(shortcut);
+        }
+        return result;
+    }
+
     static QString stringListToReadableString(QStringList stringList)
     {
         return QKeySequence::fromString(stringList.join(", ")).toString(QKeySequence::NativeText);

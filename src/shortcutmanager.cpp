@@ -19,7 +19,12 @@ void ShortcutManager::updateShortcuts()
     // Set all shortcuts to the user-set shortcut or the default
     for (auto &shortcut : shortcutsList)
     {
-        shortcut.shortcuts = settings.value(shortcut.name, shortcut.defaultShortcuts).toStringList();
+        const QStringList configuredShortcuts =
+            settings.value(shortcut.name, shortcut.defaultShortcuts).toStringList();
+        shortcut.shortcuts = withoutReservedEscape(configuredShortcuts);
+        if (shortcut.shortcuts != configuredShortcuts
+            && settings.contains(shortcut.name))
+            settings.setValue(shortcut.name, shortcut.shortcuts);
     }
 
     // Set all action shortcuts now that the shortcuts have changed

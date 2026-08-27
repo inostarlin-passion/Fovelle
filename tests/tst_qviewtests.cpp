@@ -241,6 +241,7 @@ private slots:
     void testFullscreenDefaultShortcutIsEnterAndConfigurable();
     void testEnterDoesNotBypassClearedFullscreenShortcut();
     void testConfiguredFullscreenShortcutStillWorks();
+    void testEscapeIsReservedForWindowLifecycle();
     void testPracticalTitlebarTextUsesFilenameAndSequence();
     void testDefaultTitlebarTextIsPractical();
     void testVerboseTitlebarTextUsesAllRequestedFields();
@@ -5755,6 +5756,74 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
 
     window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-ESC-RESERVED
+// Test purpose: prove a persisted image-action binding cannot compete with the
+// window's bare Escape command.
+// Preconditions: Zoom to Fit was previously saved as Escape; a zoomed image is
+// visible in a normal window.
+// Input data: the persisted Escape binding and one physical Escape key event.
+// Steps: reload shortcuts, inspect the effective QAction map, zoom the image,
+// then send Escape to the viewport.
+// Expected result: the invalid binding is migrated away, no configurable action
+// owns an Escape prefix, and Escape closes the window without changing zoom.
+// Postcondition: the window and the user's original shortcut value are restored.
+void WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const QString escape = QKeySequence(Qt::Key_Escape).toString();
+    ScopedShortcutValues shortcuts({{"zoomtofit", QStringList {escape}}});
+
+    QVERIFY(ShortcutManager::beginsWithReservedEscape(
+        QKeySequence(Qt::Key_Escape)));
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
+    {
+        for (const QKeySequence &sequence :
+             ShortcutManager::stringListToKeySequenceList(shortcut.shortcuts))
+            QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
+    }
+    const QAction *zoomToFitAction =
+        qvApp->getActionManager().getAction("zoomtofit");
+    QVERIFY(zoomToFitAction);
+    for (const QKeySequence &sequence : zoomToFitAction->shortcuts())
+        QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
+    QSettings settings;
+    QCOMPARE(
+        settings.value(QStringLiteral("shortcuts/zoomtofit")).toStringList(),
+        QStringList {});
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, "reserved-escape", Qt::darkMagenta, QSize(1600, 1000));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(720, 500);
+    window.show();
+    QT_WARNING_PUSH
+    QT_WARNING_DISABLE_DEPRECATED
+    QApplication::setActiveWindow(&window);
+    QT_WARNING_POP
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    view->zoomIn();
+    const qreal zoomedLevel = view->getZoomLevel();
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+
+    view->viewport()->setFocus();
+    QTest::keyClick(view->viewport(), Qt::Key_Escape);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isVisible(), 1000);
+    QVERIFY(qFuzzyCompare(view->getZoomLevel(), zoomedLevel));
+
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 

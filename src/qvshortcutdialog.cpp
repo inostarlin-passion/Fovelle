@@ -76,6 +76,9 @@ QString QVShortcutDialog::shortcutAlreadyBound(const QKeySequence &chosenSequenc
     if (chosenSequence.isEmpty())
         return "";
 
+    if (ShortcutManager::beginsWithReservedEscape(chosenSequence))
+        return QCoreApplication::translate("ShortcutManager", "Close Window");
+
     const auto &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
     for (int i = 0; i < shortcutsList.length(); i++)
     {

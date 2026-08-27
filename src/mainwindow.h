@@ -183,14 +183,15 @@ public:
 public slots:
     void openFile(const QString &fileName, const QString &baseDir = "");
 
-    // Called by the macOS full-screen bridge while AppKit animates the window
-    // back to its normal frame. Keeping the titlebar inset on the same timing
-    // curve prevents a final image recenter when the titlebar becomes active.
-    void beginFullScreenExitLayoutTransition(int normalTitlebarOverlap);
+    // Called by the macOS full-screen bridge while AppKit animates in either
+    // direction. Both endpoint layouts use an explicit titlebar inset so the
+    // proxy and the hidden real window agree at the handoff frame.
+    void beginFullScreenLayoutTransition(
+        int titlebarOverlap, int targetTitlebarOverlap);
 
-    void updateFullScreenExitLayoutTransition(int titlebarOverlap);
+    void updateFullScreenLayoutTransition(int titlebarOverlap);
 
-    void cancelFullScreenExitLayoutTransition();
+    void cancelFullScreenLayoutTransition();
 
     QRect fullScreenTransitionImageRect() const;
 
@@ -275,8 +276,8 @@ private:
     QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;
     QTimer *titlebarBubbleHideTimer;
     QPropertyAnimation *titlebarBubbleHideAnimation;
-    int fullScreenExitTitlebarOverlap {-1};
-    int fullScreenExitTargetTitlebarOverlap {0};
+    int activeFullScreenTitlebarOverlap {-1};
+    int targetFullScreenTitlebarOverlap {0};
 
     QPushButton *previousImageButton {nullptr};
     QPushButton *nextImageButton {nullptr};
