@@ -22,6 +22,7 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QVBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -264,8 +265,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
+    void testSettingsSpacingUsesNativeStyle();
     void testSettingsAssociateButtonUsesNativeStyle();
-    void testSettingsAssociateButtonFollowsThemeAccent();
     void testSettingsEveryTabFitsEveryLanguage();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
@@ -2698,11 +2699,12 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
 // Preconditions: SettingsManager and the production QVOptionsDialog can be
 // constructed.
 // Input data: the General page object tree and the default setting library.
-// Steps: read the defaults, enumerate group metadata, inspect each group's
-// form spacing, and verify every named option belongs to its expected group.
+// Steps: read the defaults, enumerate the direct group hierarchy, inspect
+// each group's form contract, and verify every named option belongs to its
+// expected group.
 // Expected result: groups 1 through 8 match the specification in order;
-// group spacing is 18 px, row spacing is 6 px, Appearance defaults to Dark,
-// and Smooth scaling defaults to Bilinear.
+// every General form uses style-resolved vertical spacing (-1), has no extra
+// bottom padding, and Appearance/Smooth scaling default to Dark/Bilinear.
 // Postcondition: the dialog is destroyed and no persistent setting changes.
 void FeatureTests::testSettingsGeneralGroupsAndDefaults()
 {
@@ -2718,18 +2720,17 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
 
     QVOptionsDialog dialog;
     auto *generalContent = dialog.findChild<QWidget *>(QStringLiteral("generalContent"));
-    auto *general = dialog.findChild<QWidget *>(QStringLiteral("general"));
-    auto *misc = dialog.findChild<QWidget *>(QStringLiteral("misc"));
     QVERIFY(generalContent);
-    QVERIFY(general);
-    QVERIFY(misc);
-    QCOMPARE(generalContent->property("settingsGroupSpacing").toInt(), 18);
-    QCOMPARE(generalContent->property("settingsRowSpacing").toInt(), 6);
-    QCOMPARE(generalContent->property("settingsGroupBottomPadding").toInt(), 4);
-    QCOMPARE(general->property("settingsGroupBottomPadding").toInt(), 4);
-    QCOMPARE(misc->property("settingsGroupBottomPadding").toInt(), 4);
-    QCOMPARE(general->layout()->spacing(), 18);
-    QCOMPARE(misc->layout()->spacing(), 18);
+    QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("general")));
+    QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("misc")));
+    auto *generalLayout = qobject_cast<QVBoxLayout *>(generalContent->layout());
+    QVERIFY(generalLayout);
+    QVERIFY(generalContent->property("settingsGroupSpacing").toInt() > 0);
+    QCOMPARE(generalContent->property("settingsRowSpacing").toInt(), -1);
+    QVERIFY(!generalContent->property("settingsGroupBottomPadding").isValid());
+    QVERIFY(generalContent->property("settingsHasBottomStretch").toBool());
+    QCOMPARE(generalLayout->count(), 9);
+    QVERIFY(generalLayout->itemAt(8)->spacerItem());
 
     const QList<QStringList> expectedItems {
         {QStringLiteral("langComboBox")},
@@ -2753,17 +2754,28 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
         return left->property("settingsGroupIndex").toInt()
             < right->property("settingsGroupIndex").toInt();
     });
-    QCOMPARE(orderedGroups.size(), expectedItems.size());
+        QCOMPARE(orderedGroups.size(), expectedItems.size());
 
     for (int index = 0; index < expectedItems.size(); ++index)
     {
         QWidget *group = orderedGroups.at(index);
+        QCOMPARE(generalLayout->itemAt(index)->widget(), group);
         QCOMPARE(group->property("settingsGroupIndex").toInt(), index + 1);
         QCOMPARE(group->property("settingsItemObjectNames").toStringList(), expectedItems.at(index));
+        QCOMPARE(group->parentWidget(), generalContent);
+        QCOMPARE(group->sizePolicy().verticalPolicy(), QSizePolicy::Fixed);
         auto *layout = qobject_cast<QFormLayout *>(group->layout());
         QVERIFY(layout);
-        QCOMPARE(layout->verticalSpacing(), 6);
-        QCOMPARE(layout->contentsMargins().bottom(), 4);
+        QCOMPARE(layout->verticalSpacing(), -1);
+        const QMargins margins = layout->contentsMargins();
+        QCOMPARE(margins.top(), 0);
+        QCOMPARE(margins.right(), 0);
+        QCOMPARE(margins.bottom(), 0);
+        if (index == 3)
+            QCOMPARE(margins.left(), generalContent->property(
+                         "settingsAlignedLabelColumnWidth").toInt());
+        else
+            QCOMPARE(margins.left(), 0);
 
         for (const QString &objectName : expectedItems.at(index))
         {
@@ -6661,13 +6673,19 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
 
             QCOMPARE(categorySizes.at(0).width(), categorySizes.at(1).width());
             QCOMPARE(categorySizes.at(1).width(), categorySizes.at(2).width());
+            tabs->setCurrentIndex(0);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
             QCOMPARE(general->horizontalScrollBar()->maximum(), 0);
             QCOMPARE(general->verticalScrollBar()->maximum(), 0);
+            QCOMPARE(general->viewport()->height(), general->widget()->minimumHeight());
+            tabs->setCurrentIndex(2);
+            QTRY_VERIFY_WITH_TIMEOUT(
+                !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
             QCOMPARE(mouse->horizontalScrollBar()->maximum(), 0);
             QCOMPARE(mouse->verticalScrollBar()->maximum(), 0);
-            QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
-            QCOMPARE(general->viewport()->height(), general->widget()->minimumHeight());
             QCOMPARE(mouse->viewport()->height(), mouse->widget()->minimumHeight());
+            QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
             QCOMPARE(table->item(15, 0)->text(),
                      QCoreApplication::translate("ShortcutManager", "Random File"));
 
@@ -6717,7 +6735,9 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
         QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
     };
     const Qt::Alignment expectedLabelAlignment =
-        Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+        Qt::AlignRight | Qt::AlignTrailing;
+    const Qt::Alignment expectedLabelContentAlignment =
+        expectedLabelAlignment | Qt::AlignVCenter;
     const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignTop;
     const QStringList valueOnlyNames {
         QStringLiteral("checkerboardBackgroundCheckbox"),
@@ -6846,8 +6866,7 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                                                     + layout->objectName() + QStringLiteral("/")
                                                     + label->objectName()));
                             }
-                            QVERIFY(alignmentHas(label->alignment(),
-                                                 expectedLabelAlignment));
+                            QCOMPARE(label->alignment(), expectedLabelContentAlignment);
                         }
 
                         if (fieldItem)
@@ -6873,6 +6892,8 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                                          qPrintable(language + QStringLiteral(": value alignment ")
                                                     + fieldName));
                             }
+                            auto *fieldWidget = fieldItem->widget();
+                            QVERIFY(fieldWidget);
                             const QRect fieldGeometry = fieldItem->geometry();
                             QVERIFY(fieldGeometry.isValid());
                             if (!isAssociationButton)
@@ -6886,36 +6907,23 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                                 {
                                     auto *label = qobject_cast<QLabel *>(labelItem->widget());
                                     QVERIFY(label);
-                                    const int expectedFieldX = label->geometry().x()
-                                        + label->width() + layout->horizontalSpacing();
+                                    const QRect labelGeometry = labelItem->geometry();
+                                    const int expectedFieldX = labelGeometry.x()
+                                        + labelGeometry.width() + layout->horizontalSpacing();
                                     QVERIFY2(fieldGeometry.x() >= expectedFieldX,
                                              qPrintable(language + QStringLiteral(": label/value horizontal gap ")
                                                         + layout->objectName() + QStringLiteral("/")
                                                         + label->objectName() + QStringLiteral("/")
                                                         + fieldName + QStringLiteral(" label=")
-                                                        + QString::number(label->geometry().x()) + QStringLiteral(",")
-                                                        + QString::number(label->geometry().width())
+                                                        + QString::number(labelGeometry.x()) + QStringLiteral(",")
+                                                        + QString::number(labelGeometry.width())
                                                         + QStringLiteral(" field=")
                                                         + QString::number(fieldGeometry.x()) + QStringLiteral(",")
                                                         + QString::number(fieldGeometry.width())
                                                         + QStringLiteral(" expectedX=")
                                                         + QString::number(expectedFieldX)));
-                                    const int verticalDelta = qAbs(
-                                        label->geometry().center().y()
-                                        - fieldGeometry.center().y());
-                                    QVERIFY2(verticalDelta <= 1,
-                                             qPrintable(language + QStringLiteral(": label/value vertical alignment ")
-                                                        + label->objectName() + QStringLiteral("/")
-                                                        + fieldName + QStringLiteral(" delta=")
-                                                        + QString::number(verticalDelta)
-                                                        + QStringLiteral(" label=")
-                                                        + QString::number(label->geometry().y())
-                                                        + QStringLiteral("/")
-                                                        + QString::number(label->geometry().height())
-                                                        + QStringLiteral(" field=")
-                                                        + QString::number(fieldGeometry.y())
-                                                        + QStringLiteral("/")
-                                                        + QString::number(fieldGeometry.height())));
+                                    QCOMPARE(labelGeometry.top(), fieldGeometry.top());
+                                    QCOMPARE(label->height(), fieldWidget->height());
                                 }
                             }
                         }
@@ -6968,18 +6976,117 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
 #endif
 }
 
+// TC-SETTINGS-SPACING
+// Test purpose: verify that General and Mouse use the same native form
+// spacing and that every group gap is strictly larger than every row gap.
+// Preconditions: the production Settings dialog and Cocoa widget style are
+// available; the dialog can be shown without invoking any action.
+// Input data: every General/Mouse QFormLayout, direct group geometry, style
+// spacing properties, and both Mouse group-layout modes.
+// Steps: show Settings, inspect both pages and all forms, compare direct
+// group gaps, then switch the middle-button mode and repeat the form scan.
+// Expected result: all forms report verticalSpacing=-1, both pages expose the
+// same computed group spacing, every measured intra-group gap is smaller, and
+// extra height is represented only by the final stretch item.
+// Postcondition: the dialog is closed and settings are unchanged.
+void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
+{
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+    auto *generalScroll = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+    auto *mouseScroll = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+    QVERIFY(generalScroll);
+    QVERIFY(mouseScroll);
+    auto *generalContent = generalScroll->widget();
+    auto *mouseContent = mouseScroll->widget();
+    QVERIFY(generalContent);
+    QVERIFY(mouseContent);
+
+    const int groupSpacing = generalContent->property("settingsGroupSpacing").toInt();
+    const int intraSpacing = generalContent->property("settingsIntraGroupMaxSpacing").toInt();
+    QVERIFY(groupSpacing > 0);
+    QVERIFY(intraSpacing >= 0);
+    QVERIFY(groupSpacing > intraSpacing);
+    QCOMPARE(mouseContent->property("settingsGroupSpacing").toInt(), groupSpacing);
+    QCOMPARE(mouseContent->property("settingsIntraGroupMaxSpacing").toInt(), intraSpacing);
+
+    const auto verifyForms = [&](QWidget *page) {
+        const auto forms = page->findChildren<QFormLayout *>();
+        QVERIFY(!forms.isEmpty());
+        for (auto *form : forms)
+        {
+            QCOMPARE(form->verticalSpacing(), -1);
+            for (int row = 1; row < form->rowCount(); ++row)
+            {
+                auto *previous = form->itemAt(row - 1, QFormLayout::FieldRole);
+                auto *current = form->itemAt(row, QFormLayout::FieldRole);
+                if (!previous || !current || !previous->widget() || !current->widget()
+                    || previous->widget()->isHidden() || current->widget()->isHidden())
+                    continue;
+                const int gap = current->widget()->geometry().top()
+                    - (previous->widget()->geometry().top()
+                       + previous->widget()->geometry().height());
+                QVERIFY2(gap < groupSpacing,
+                         qPrintable(form->objectName() + QStringLiteral(" gap=")
+                                    + QString::number(gap)));
+            }
+        }
+    };
+
+    const auto verifyGroups = [&](QWidget *page, const int expectedCount) {
+        auto *layout = qobject_cast<QVBoxLayout *>(page->layout());
+        QVERIFY(layout);
+        QVERIFY(layout->count() >= expectedCount + 1);
+        QVERIFY(layout->itemAt(layout->count() - 1)->spacerItem());
+        QList<QLayoutItem *> groups;
+        for (int index = 0; index < layout->count(); ++index)
+        {
+            if (layout->itemAt(index)->widget())
+                groups.append(layout->itemAt(index));
+        }
+        QCOMPARE(groups.size(), expectedCount);
+        for (int index = 1; index < groups.size(); ++index)
+        {
+            const QRect previous = groups.at(index - 1)->geometry();
+            const QRect current = groups.at(index)->geometry();
+            const int gap = current.top() - (previous.top() + previous.height());
+            QCOMPARE(gap, groupSpacing);
+        }
+    };
+
+    auto *clickMode = dialog.findChild<QRadioButton *>(
+        QStringLiteral("middleButtonModeClickRadioButton"));
+    auto *dragMode = dialog.findChild<QRadioButton *>(
+        QStringLiteral("middleButtonModeDragRadioButton"));
+    QVERIFY(clickMode);
+    QVERIFY(dragMode);
+    verifyForms(generalContent);
+    verifyForms(mouseContent);
+    verifyGroups(generalContent, 8);
+    verifyGroups(mouseContent, 3);
+    dragMode->click();
+    QCoreApplication::processEvents();
+    verifyForms(mouseContent);
+    clickMode->click();
+    QCoreApplication::processEvents();
+    verifyForms(mouseContent);
+    dialog.close();
+}
+
 // TC-SETTINGS-ASSOCIATE-NATIVE-STYLE
-// Test purpose: verify the association action remains a direct QPushButton
-// with the stable structural contract used by the General-page rebuild.
-// Preconditions: the production options dialog and Cocoa widget style are
+// Test purpose: verify the association action restores the direct native
+// QPushButton state used by the pre-regression macOS Settings page.
+// Preconditions: the production Settings dialog and Cocoa widget style are
 // available; no real file-association action is invoked.
-// Input data: associateFormatsButton properties, natural size, and its
-// settingsGroup8 QFormLayout item role/alignment.
-// Steps: show Settings, inspect the action row, local stylesheet and native
-// button properties, then compare the rendered size with the button hint.
-// Expected result: the button is a direct SpanningRole widget, centered in
-// its action row, non-flat, non-auto-default, and large enough for the
-// accent-filled macOS action treatment.
+// Input data: associateFormatsButton role/alignment, stylesheet, size policy,
+// native default properties, QStyleOptionButton features, and final geometry.
+// Steps: show Settings, inspect the action row and native style option, then
+// compare the final geometry with the native size hint.
+// Expected result: the button is a direct SpanningRole widget, centered,
+// non-flat, auto-default, default, stylesheet-free, and sized by sizeHint.
 // Postcondition: the dialog is closed without clicking the button.
 void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
 {
@@ -7001,100 +7108,35 @@ void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
     QVERIFY((item->alignment() & (Qt::AlignHCenter | Qt::AlignVCenter))
             == (Qt::AlignHCenter | Qt::AlignVCenter));
     QVERIFY(button->style());
-    const QString style = button->styleSheet();
-    QVERIFY(style.contains(QStringLiteral("background-color:")));
-    QVERIFY(style.contains(QStringLiteral("color:")));
-    QVERIFY(style.contains(QStringLiteral("border: none")));
-    QVERIFY(style.contains(QStringLiteral("border-radius: 6px")));
-    QCOMPARE(button->property("settingsAssociationStyle").toString(),
-             QStringLiteral("accent-filled"));
-    QVERIFY(QColor(button->property("settingsAssociationAccentColor").toString()).isValid());
+    QVERIFY(button->styleSheet().isEmpty());
     QVERIFY(!button->isFlat());
-    QVERIFY(!button->autoDefault());
-    QVERIFY(!button->isDefault());
-    QVERIFY(button->width() >= button->sizeHint().width());
-    QVERIFY(button->height() >= button->sizeHint().height());
-    QVERIFY(button->width() >= 50);
-    QVERIFY(button->height() >= 20);
+    QVERIFY(button->autoDefault());
+    QVERIFY(button->isDefault());
+    QCOMPARE(button->minimumWidth(), 0);
+    QVERIFY(button->minimumHeight() <= button->sizeHint().height());
+
+    QVERIFY(item->geometry().size().expandedTo(item->sizeHint())
+            == item->geometry().size());
+
+    const QImage rendered = button->grab().toImage();
+    QVERIFY(!rendered.isNull());
+    if (button->style()->objectName().contains(QStringLiteral("mac"), Qt::CaseInsensitive)
+        && rendered.height() > 2)
+    {
+        int maximumVerticalDelta = 0;
+        for (int y = 1; y < rendered.height(); ++y)
+        {
+            const QColor above = rendered.pixelColor(rendered.width() / 2, y - 1);
+            const QColor current = rendered.pixelColor(rendered.width() / 2, y);
+            maximumVerticalDelta = qMax(maximumVerticalDelta,
+                                        qAbs(above.red() - current.red())
+                                        + qAbs(above.green() - current.green())
+                                        + qAbs(above.blue() - current.blue()));
+        }
+        QVERIFY(maximumVerticalDelta > 0);
+    }
 
     dialog.close();
-}
-
-// TC-SETTINGS-ASSOCIATE-THEME
-// Test purpose: verify the association action keeps the supplied blue-filled,
-// white-text, rounded appearance in both Light and Dark Settings themes.
-// Preconditions: the Cocoa Qt test application and both controlled theme
-// values are available; no real file-association action is invoked.
-// Input data: Qv::Theme::Light and Qv::Theme::Dark, the effective QPalette
-// Accent/Highlight color, the button stylesheet, and a rendered button image.
-// Steps: set one theme, show Settings, wait for the effective palette, inspect
-// the semantic style properties, and scan the button rendering for its accent
-// background; repeat for the other theme.
-// Expected result: both themes use the accent-derived background, white or
-// highlighted text, rounded borderless styling, and a rendered accent fill;
-// changing theme does not regress to the ordinary gray native button.
-// Postcondition: each dialog is closed and all temporary settings are restored.
-void WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent()
-{
-    const auto effectiveAccent = [](const QPalette &palette) {
-        QColor accent = palette.color(QPalette::Accent);
-        if (!accent.isValid() || accent.saturation() < 80 || accent.blue() <= accent.red())
-            accent = palette.color(QPalette::Highlight);
-        return accent;
-    };
-
-    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
-    {
-        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
-        QVOptionsDialog dialog;
-        dialog.setAttribute(Qt::WA_DeleteOnClose, false);
-        dialog.prepareForDisplay();
-        dialog.show();
-        QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-        auto *button = dialog.findChild<QPushButton *>(QStringLiteral("associateFormatsButton"));
-        QVERIFY(button);
-        QTRY_VERIFY_WITH_TIMEOUT(button->isVisible(), 1000);
-
-        const QColor accent = effectiveAccent(button->palette());
-        QVERIFY(accent.isValid());
-        QTRY_COMPARE_WITH_TIMEOUT(
-            button->property("settingsAssociationAccentColor").toString(),
-            accent.name(), 1000);
-        QCOMPARE(button->property("settingsAssociationStyle").toString(),
-                 QStringLiteral("accent-filled"));
-
-        const QString style = button->styleSheet();
-        QVERIFY(style.contains(QStringLiteral("background-color: %1").arg(accent.name())));
-        QVERIFY(style.contains(QStringLiteral("color:")));
-        QVERIFY(style.contains(QStringLiteral("border: none")));
-        QVERIFY(style.contains(QStringLiteral("border-radius: 6px")));
-
-        const QImage rendered = button->grab().toImage();
-        QVERIFY(!rendered.isNull());
-        int accentPixelCount = 0;
-        int lightTextPixelCount = 0;
-        for (int y = 0; y < rendered.height(); ++y)
-        {
-            for (int x = 0; x < rendered.width(); ++x)
-            {
-                const QColor pixel = rendered.pixelColor(x, y);
-                if (qAbs(pixel.red() - accent.red()) <= 8
-                    && qAbs(pixel.green() - accent.green()) <= 8
-                    && qAbs(pixel.blue() - accent.blue()) <= 8)
-                    ++accentPixelCount;
-                if (pixel.red() >= 240 && pixel.green() >= 240 && pixel.blue() >= 240)
-                    ++lightTextPixelCount;
-            }
-        }
-        QVERIFY2(accentPixelCount > 10,
-                 qPrintable(QStringLiteral("theme %1 did not render an accent fill: %2 pixels")
-                                .arg(static_cast<int>(theme)).arg(accentPixelCount)));
-        QVERIFY2(lightTextPixelCount > 2,
-                 qPrintable(QStringLiteral("theme %1 did not render light button text: %2 pixels")
-                                .arg(static_cast<int>(theme)).arg(lightTextPixelCount)));
-        dialog.close();
-    }
 }
 
 // TC-SETTINGS-ALL-LANGUAGES-TABS
@@ -7129,10 +7171,40 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             || qobject_cast<QComboBox *>(widget)
             || qobject_cast<QAbstractSpinBox *>(widget);
     };
+    const auto findLayoutItemForWidget = [](QLayout *layout,
+                                            QWidget *target,
+                                            const auto &self) -> QLayoutItem * {
+        if (!layout)
+            return nullptr;
+        for (int index = 0; index < layout->count(); ++index)
+        {
+            auto *item = layout->itemAt(index);
+            if (!item)
+                continue;
+            if (item->widget() == target)
+                return item;
+            if (auto *nestedLayout = item->layout())
+            {
+                if (auto *nestedItem = self(nestedLayout, target, self))
+                    return nestedItem;
+            }
+            if (auto *nestedWidget = item->widget())
+            {
+                if (auto *nestedLayout = nestedWidget->layout())
+                {
+                    if (auto *nestedItem = self(nestedLayout, target, self))
+                        return nestedItem;
+                }
+            }
+        }
+        return nullptr;
+    };
     const auto verifyScrollPage = [&](QScrollArea *scrollArea, const QString &language) {
         QVERIFY2(scrollArea, qPrintable(language));
         QCOMPARE(scrollArea->horizontalScrollBar()->maximum(), 0);
         auto *viewport = scrollArea->viewport();
+        auto *pageLayout = scrollArea->widget()->layout();
+        QVERIFY2(pageLayout, qPrintable(language + QStringLiteral(": page layout")));
         for (auto *widget : scrollArea->widget()->findChildren<QWidget *>())
         {
             if (widget->objectName().isEmpty() || widget->isHidden() || !isInspectable(widget))
@@ -7141,12 +7213,15 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             const QRect mapped(widget->mapTo(viewport, QPoint(0, 0)), widget->size());
             QVERIFY2(viewport->rect().contains(mapped),
                      qPrintable(language + QStringLiteral(": ") + widget->objectName()));
-            QVERIFY2(widget->width() >= widget->sizeHint().width(),
+            auto *item = findLayoutItemForWidget(pageLayout, widget, findLayoutItemForWidget);
+            QVERIFY2(item, qPrintable(language + QStringLiteral(": layout item ")
+                                      + widget->objectName()));
+            QVERIFY2(item->geometry().width() >= item->sizeHint().width(),
                      qPrintable(language + QStringLiteral(": natural width ") + widget->objectName()));
-            QVERIFY2(widget->height() >= widget->sizeHint().height(),
-                     qPrintable(language + QStringLiteral(": natural height ") + widget->objectName()
+            QVERIFY2(widget->size().expandedTo(widget->minimumSizeHint()) == widget->size(),
+                     qPrintable(language + QStringLiteral(": minimum height ") + widget->objectName()
                                 + QStringLiteral(" actual=") + QString::number(widget->height())
-                                + QStringLiteral(" hint=") + QString::number(widget->sizeHint().height())));
+                                + QStringLiteral(" hint=") + QString::number(widget->minimumSizeHint().height())));
         }
     };
 
@@ -7200,7 +7275,11 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             auto *reuse = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
             QVERIFY(reuse);
             QVERIFY(reuse->text().contains(QStringLiteral("Reuse")) || language != QStringLiteral("en"));
-            QVERIFY(reuse->width() >= reuse->sizeHint().width());
+            auto *reuseItem = findLayoutItemForWidget(general->widget()->layout(),
+                                                      reuse,
+                                                      findLayoutItemForWidget);
+            QVERIFY(reuseItem);
+            QVERIFY(reuse->size().expandedTo(reuse->minimumSizeHint()) == reuse->size());
 
             tabs->setCurrentIndex(1);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
@@ -7514,7 +7593,7 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
 
 // TC-SETTINGS-ASSOCIATE-CENTER
 // Test purpose: verify the file-association button is centered across the
-// General page rather than aligned to the form's field column.
+// General content area rather than aligned to the form's field column.
 // Preconditions: the production options dialog can be constructed and shown.
 // Input data: the button and General page geometries after layout.
 // Steps: show the dialog, map both centers to global coordinates, and compare
@@ -7532,12 +7611,12 @@ void WindowBehaviorTests::testAssociateFormatsButtonIsCentered()
     categoryTabs->setCurrentIndex(0);
 
     auto *button = dialog.findChild<QPushButton *>("associateFormatsButton");
-    auto *miscPage = dialog.findChild<QWidget *>("misc");
+    auto *generalContent = dialog.findChild<QWidget *>("generalContent");
     auto *generalScrollArea = dialog.findChild<QScrollArea *>("generalScrollArea");
     QVERIFY(button);
-    QVERIFY(miscPage);
+    QVERIFY(generalContent);
     QVERIFY(generalScrollArea);
-    QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && miscPage->width() > 0, 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && generalContent->width() > 0, 1000);
 
     const int buttonCenterX = button->mapToGlobal(button->rect().center()).x();
     const int pageCenterX = generalScrollArea->viewport()->mapToGlobal(

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the Settings-page change through static, unit, integration and system stages."""
+"""Run the Settings-page audit and emit atomic, machine-auditable JSON."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import os
 import platform
 import re
 import subprocess
-import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -19,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "1.0.1"
 LANGUAGES = ("en", "es", "ja", "zh_Hans", "zh_Hant")
 GROUPS = (
     (1, ("langComboBox",)),
@@ -46,6 +44,8 @@ def test_case(
     implementation: str,
     evidence_stages: tuple[str, ...],
 ) -> dict[str, Any]:
+    """Create one atomic case with all required audit fields."""
+
     return {
         "id": identifier,
         "acceptance_criterion": criterion,
@@ -63,300 +63,131 @@ def test_case(
 
 CASES = (
     test_case(
-        "SET-001",
-        "版本号为 1.0.1",
-        "验证 CMake、qmake、macOS bundle 和运行时版本契约一致。",
-        "构建配置、bundle plist 和 QtTest 源码可读；测试二进制可构建。",
-        "VERSION=1.0.1、CFBundleShortVersionString/CFBundleVersion=1.0.1、运行时 applicationVersion。",
-        "静态读取版本源，再执行 FeatureTests::testApplicationVersionIsCurrent。",
-        "所有发布入口与运行时版本均严格等于 1.0.1，旧的 1.0.0 不再作为当前版本。",
-        "不修改应用设置或 bundle 外部状态。",
-        "static+unit",
-        "tests/settings_quality_pipeline.py::static_version_contract; tests/tst_qviewtests.cpp::FeatureTests::testApplicationVersionIsCurrent",
-        ("static", "unit"),
-    ),
-    test_case(
-        "SET-002",
-        "General 第 1 组只包含 Language",
-        "验证语言选项位于第 1 个语义组且没有混入其他选项。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup1 的 item metadata 和控件父级。",
-        "构造对话框，读取 group index、成员列表和父级链。",
-        "第 1 组成员严格为 langComboBox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-003",
-        "General 第 2 组包含 Appearance 和 Checkerboard when image loaded",
-        "验证外观相关两个选项保持同组且按指定顺序排列。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup2 的 item metadata。",
-        "读取第 2 组成员和两个控件的父级链。",
-        "成员严格为 themeComboBox、checkerboardBackgroundCheckbox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-004",
-        "General 第 3 组只包含 Smooth scaling",
-        "验证缩放选项独立成组。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup3 的 item metadata。",
-        "读取第 3 组成员和控件父级链。",
-        "成员严格为 smoothScalingComboBox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-005",
-        "General 第 4 组包含 Reuse window 和 Show small images at 1:1",
-        "验证窗口复用和小图显示两个选项保持同组且按指定顺序排列。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup4 的 item metadata。",
-        "读取第 4 组成员和两个控件的父级链。",
-        "成员严格为 reuseWindowCheckbox、smallImagesOneToOneCheckbox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-006",
-        "General 第 5 组包含 Slideshow direction 和 Slideshow timer",
-        "验证幻灯片方向和计时器保持同组且按指定顺序排列。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup5 的 item metadata。",
-        "读取第 5 组成员和两个控件的父级链。",
-        "成员严格为 slideshowDirectionComboBox、slideshowTimerSpinBox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-007",
-        "General 第 6 组包含 After deletion 和 Ask before deleting files",
-        "验证删除行为和确认选项保持同组且按指定顺序排列。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup6 的 item metadata。",
-        "读取第 6 组成员和两个控件的父级链。",
-        "成员严格为 afterDeletionComboBox、askDeleteCheckbox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-008",
-        "General 第 7 组只包含 Auto update check",
-        "验证更新检查频率独立成组。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup7 的 item metadata。",
-        "读取第 7 组成员和控件父级链。",
-        "成员严格为 updateFrequencyComboBox。",
-        "对话框销毁且设置恢复。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-009",
-        "General 第 8 组只包含 Associate all supported formats",
-        "验证文件关联操作独立成组。",
-        "QVOptionsDialog 可构造。",
-        "settingsGroup8 的 item metadata。",
-        "读取第 8 组成员和按钮父级链。",
-        "成员严格为 associateFormatsButton。",
-        "对话框销毁且不调用真实文件关联操作。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-010",
-        "组间间距大于组内选项间距",
-        "验证布局采用显式、可审计的 macOS 设置页分组间距。",
-        "QVOptionsDialog 可构造；Qt layout 已建立。",
-        "settingsGroupSpacing=18、settingsRowSpacing=6、每个组的 QFormLayout spacing。",
-        "读取 General content、section layout 和每个组 form layout 的 spacing。",
-        "组间距为 18 px，组内行距为 6 px，且 18>6。",
-        "对话框销毁且设置恢复。",
+        "SET-GENERAL-GROUPS",
+        "General 的选项按八个有序逻辑组直接组织",
+        "验证 General 不再由多个平级内容区拼接，且每组只包含需求指定的选项。",
+        "QVOptionsDialog 可构造；Qt UI 控件和 Settings 信号已初始化。",
+        "settingsGroup1..settingsGroup8 的成员元数据、父级和顺序。",
+        "构造 Settings，读取 General content 的直接布局项、每个组的成员列表和 size policy。",
+        "General content 直接包含八个组，成员顺序严格等于需求清单；组间没有重复页面或旧的 general/misc 内容容器。",
+        "销毁对话框；不写入用户设置。",
         "unit",
         "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
         ("unit", "static"),
     ),
     test_case(
-        "SET-011",
-        "Smooth scaling 默认值为 Bilinear",
-        "验证设置库和 General 控件使用 Bilinear 默认值。",
-        "SettingsManager 和 QVOptionsDialog 已初始化。",
-        "smoothscalingmode 的默认值及 combo 当前 data。",
-        "以 defaults=true 读取设置并检查控件当前项。",
-        "默认枚举值和 General 控件均为 Bilinear。",
-        "不改变持久化设置。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults; tests/tst_qviewtests.cpp::WindowBehaviorTests::testSmoothScalingDefaultIsBilinear",
-        ("unit",),
-    ),
-    test_case(
-        "SET-012",
-        "Appearance 默认值为 Dark",
-        "验证设置库和 General 控件使用 Dark 默认值。",
-        "SettingsManager 和 QVOptionsDialog 已初始化。",
-        "theme 的默认值及 combo 当前 data。",
-        "以 defaults=true 读取设置并检查控件当前项。",
-        "默认枚举值和 General 控件均为 Dark。",
-        "不改变持久化设置。",
-        "unit",
-        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
-        ("unit",),
-    ),
-    test_case(
-        "SET-013",
-        "每种支持语言下 General 的长选项完整显示",
-        "验证长复选框文本不会因翻译或跨布局自然尺寸计算而被裁切。",
-        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
-        "en、es、ja、zh_Hans、zh_Hant；General 所有可见控件。",
-        "逐语言安装 catalog，显示 General，检查每个可见控件的 natural width、映射矩形和水平滚动范围。",
-        "Reuse window when launching with image 及其他 General 选项的宽度不小于 sizeHint，且完全位于 viewport 内，无水平滚动。",
-        "对话框、翻译器和设置值恢复。",
+        "SET-GROUP-SPACING",
+        "组间距严格大于组内选项间距，General 与 Mouse 使用同一组间距",
+        "验证间距由当前 QStyle 的布局规则推导，而不是由旧的固定回归常量决定。",
+        "Cocoa QPA、QMacStyle 和 Settings 对话框可用。",
+        "两页的 settingsGroupSpacing、settingsIntraGroupMaxSpacing、QFormLayout verticalSpacing，以及直接 QVBoxLayout item geometry。",
+        "显示 Settings，读取两个页面的间距属性；扫描每个表单相邻可见行；比较直接组 item 的同坐标系几何间隙；切换 Mouse click/drag 模式后重复扫描。",
+        "General 与 Mouse 的组间距相同且大于组内最大间距；表单保留 verticalSpacing=-1 以使用原生样式；页面末尾只有一个 stretch 承接剩余空间。",
+        "关闭对话框；Mouse 模式和设置值恢复。",
         "integration",
-        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
-        ("integration", "system"),
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsSpacingUsesNativeStyle",
+        ("integration", "static"),
     ),
     test_case(
-        "SET-014",
-        "每种支持语言下每个 Settings Tab 的可见选项完整显示",
-        "验证 General、Shortcuts、Mouse 三个 Tab 及 Mouse 两种模式均不发生水平裁切。",
-        "Cocoa Qt Test 应用和五个支持语言 catalog 可用。",
-        "五种语言；General、Shortcuts、Mouse；Mouse click/drag 模式。",
-        "逐语言切换全部 Tab，检查 scroll bar、表格可见单元格和每个可见控件几何；切换两种 Mouse 模式后重复检查。",
-        "所有 Tab 的水平滚动范围为 0；可见控件自然宽度满足且矩形在 viewport 内。",
-        "对话框、翻译器和设置值恢复。",
-        "system",
-        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
-        ("system",),
+        "SET-MOUSE-GROUPS",
+        "Mouse 的 Left Button、Middle Button 和 Scroll Wheel/Touchpad 组内间距与 General 一致",
+        "验证 Mouse 的多个逻辑组复用 General 的表单配置，并正确承载复合的 middle-button mode 控件。",
+        "Mouse 页面可构造；两个 middle-button radio 状态可切换。",
+        "Mouse 三个 QGroupBox、QFormLayout、middleButtonModeHost 和两种模式下的可见行。",
+        "显示 Mouse，检查三组固定垂直 size policy、共享 form 配置和 host 的零边距；分别选择 Click、Drag 并重新读取布局。",
+        "三组使用相同的共享组间距；组内相邻选项没有异常的大间距；middleButtonModeHost 不再依赖空白行或额外内边距。",
+        "关闭对话框；恢复 middle-button mode。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsSpacingUsesNativeStyle",
+        ("integration", "static"),
     ),
     test_case(
-        "SET-018",
-        "General 和 Mouse 的每个选项均为标签右对齐、值左对齐",
-        "验证所有表单在每种支持语言下都使用统一的标签列和左起值列，包括 Mouse 的两种模式及复合值布局。",
-        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
-        "en、es、ja、zh_Hans、zh_Hant；General/Mouse 的所有 QFormLayout 行；Mouse click/drag 模式。",
-        "逐语言显示 Settings，读取每个 QFormLayout 的 label/value alignment 和运行时矩形；切换 Mouse 两种模式后重复检查。",
-        "每个可见标签的文字右对齐并落在共享标签列末端；每个可见值控件从对应字段列左侧开始；Associate action 保持独立的居中动作行。",
-        "对话框、翻译器和设置值恢复。",
+        "SET-FORM-HORIZONTAL-ALIGNMENT",
+        "General 与 Mouse 的每个选项名称和值共享右标签列、左字段列",
+        "验证 Language 等名称和值不会因独立表单宽度或翻译长度而漂移。",
+        "五种支持语言的 catalog 可用；Settings 对话框已显示。",
+        "所有 General/Mouse QFormLayout 的 labelAlignment、formAlignment、FieldRole/SpanningRole alignment 和运行时列坐标。",
+        "逐语言显示 Settings，读取每个表单和可见行；比较共享标签列、字段列和 value-only 行；切换 Mouse 两种模式后重复。",
+        "标签为 Right|Trailing，值为 Left|Top，表单原点为 Left|Top；所有有名称行的字段起点一致；value-only 控件位于字段列；Associate action 单独居中。",
+        "关闭对话框；翻译器和测试设置恢复。",
         "integration",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
-        ("integration", "system"),
+        ("integration", "static"),
     ),
     test_case(
-        "SET-019",
-        "General 和 Mouse 的每个可见选项均无底部遮挡",
-        "验证每种语言、每个 Settings Tab 和 Mouse 模式下，所有可见标签与值控件都有完整高度、位于 viewport 内且不依赖滚动补救。",
-        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
-        "en、es、ja、zh_Hans、zh_Hant；General/Mouse 全部可见选项；QWidget sizeHint、geometry 和 viewport。",
-        "逐语言切换 General、Shortcuts、Mouse，检查每个可见控件的宽高不小于 sizeHint、映射矩形完全位于 viewport；切换 Mouse click/drag 后再次检查。",
-        "Checkerboard when image loaded 及其他每个选项均完整呈现；控件高度不小于最终 sizeHint，底部不被父布局或 viewport 裁切，水平和垂直滚动范围均为 0。",
-        "对话框、翻译器和设置值恢复。",
-        "integration",
-        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
-        ("integration", "system"),
-    ),
-    test_case(
-        "SET-020",
-        "General 中所有无名称值项均与有名称选项的值左边界对齐",
-        "验证 Checkerboard、Reuse window、Show small images 和 Ask before deleting files 不会因 QFormLayout 的 spanning 默认角色而偏到表单左端。",
-        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
-        "en、es、ja、zh_Hans、zh_Hant；General 的四个无名称值项及所有有名称值项的运行时 QFormLayout 几何。",
-        "逐语言显示 General，读取每个可见 FieldRole/SpanningRole item 的 alignment 和 x 坐标，比较无名称项与同页字段列；重复完成 Mouse 表单扫描。",
-        "四个无名称值项均使用 FieldRole 或等效的共享字段列起点，不使用左端 spanning 几何；所有值项从统一字段列左侧开始。",
-        "对话框、翻译器和设置值恢复。",
+        "SET-FORM-VERTICAL-ALIGNMENT",
+        "每个有名称选项的名称和值在最终布局中垂直对齐",
+        "验证 QMacStyle 的原生控件边距不会造成 Slideshow direction 等值控件相对名称下移。",
+        "Cocoa QPA、五种语言 catalog 和 Settings 对话框可用。",
+        "每个可见 label/FieldRole item 的同坐标系 top、最终控件高度、内容对齐属性和两种 Mouse 模式。",
+        "逐语言显示 Settings，先完成 polish 和布局激活，再读取 label/value item geometry 与控件高度；切换 Mouse click/drag 后重复。",
+        "每个名称和值使用同一逻辑行顶边；名称内容 Right|Trailing|VCenter，值项 Left|Top；不会出现由原生高度差导致的可见下移。",
+        "关闭对话框；翻译器和测试设置恢复。",
         "integration",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
-        ("integration", "system"),
+        ("integration", "static"),
     ),
     test_case(
-        "SET-021",
-        "General 每个有名称选项的值控件与名称行垂直对齐",
-        "验证 QMacStyle 不会因 label 与值控件自然高度差把 Slideshow direction 下拉框及其他值项下移。",
-        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
-        "en、es、ja、zh_Hans、zh_Hant；General 全部有名称 label/value 行，重点为 slideshowDirectionLabel/slideshowDirectionComboBox。",
-        "逐语言显示 General，读取每个可见 label 与 FieldRole item 的最终 geometry，比较垂直中心并检查值项左对齐；重复 Mouse 两种模式。",
-        "每个有名称行的 label 与值项垂直中心误差不超过 1 px；Slideshow direction 下拉框不再出现可见下移。",
-        "对话框、翻译器和设置值恢复。",
-        "integration",
-        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
-        ("integration", "system"),
-    ),
-    test_case(
-        "SET-022",
-        "Associate all supported formats 保持直接、稳定的主操作按钮结构",
-        "验证关联操作按钮不被 stretch 子布局或 QDialog auto-default 框改变结构和尺寸。",
-        "Cocoa Qt Test 应用和生产 QVOptionsDialog 可显示；不执行真实文件关联操作。",
-        "associateFormatsButton 的 QFormLayout 角色、alignment、QStyle 相关属性、stylesheet 和最终 sizeHint/geometry。",
-        "显示 Settings，检查按钮直接位于 settingsGroup8 的 SpanningRole，保持水平/垂直居中、非 flat、非 auto-default，且尺寸满足 macOS 原生按钮最小圆角条件。",
-        "按钮保留直接 QPushButton 控件和可访问的主题样式契约，不存在 stretch 包装或默认按钮外框，最终尺寸不小于自然尺寸且宽度至少 50、高度至少 20。",
-        "关闭对话框且不触发关联操作。",
+        "SET-ASSOCIATE-NATIVE-BUTTON",
+        "Associate all supported formats 恢复为直接的原生默认按钮",
+        "验证按钮未被额外 stretch 包装或主题 QSS 改写，且保留参考截图对应的原生按钮绘制路径。",
+        "Cocoa QPA、QMacStyle 和 Settings 对话框可用；不调用真实文件关联动作。",
+        "associateFormatsButton 的 SpanningRole、alignment、stylesheet、flat、autoDefault、default、minimum width、同坐标系 sizeHint 和抓取图像。",
+        "显示 Settings，读取 settingsGroup8 的直接布局项；检查原生属性和 item geometry；抓取按钮图像并确认 macOS 样式有可见垂直绘制变化。",
+        "按钮直接位于 settingsGroup8 的 SpanningRole，水平/垂直居中、stylesheet 为空、非 flat、autoDefault=true、default=true，且不含人工最小宽度。",
+        "关闭对话框；真实文件关联动作未触发。",
         "integration",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
-        ("integration", "system"),
+        ("integration", "static"),
     ),
     test_case(
-        "SET-023",
-        "Associate all supported formats 在浅色和深色模式下均为蓝色填充、白字圆角样式",
-        "验证此前的蓝色主操作语义不会因布局重构或主题切换退化为普通黑/灰色按钮。",
-        "Cocoa Qt Test 应用、Light/Dark 主题、有效 QPalette Accent 和可抓取的按钮渲染均可用；不执行真实文件关联操作。",
-        "Qv::Theme::Light、Qv::Theme::Dark；QPalette::Accent/Highlight；按钮 stylesheet、动态属性和 QImage 渲染像素。",
-        "分别设置 Light 与 Dark，显示 Settings，等待有效 palette，检查 accent-filled、背景色、白/高亮文字、无边框、圆角属性，并扫描按钮截图中的 Accent 像素。",
-        "两种主题都保持 Accent 派生的蓝色填充、白色或高亮文字、6 px 圆角和无边框；按钮渲染中存在足量 Accent 背景像素，不再显示普通灰色按钮。",
-        "关闭每个对话框并恢复临时主题设置；不触发真实文件关联操作。",
-        "integration",
-        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent",
-        ("integration", "system"),
+        "SET-ALL-LANGUAGES-NO-CLIP",
+        "五种支持语言下 General、Shortcuts、Mouse 的可见选项均完整显示",
+        "验证自然宽度、页面尺寸和两种 Mouse 模式不会让名称、值或长复选框被裁切。",
+        "Cocoa Qt Test 应用、en/es/ja/zh_Hans/zh_Hant catalog、可写的隔离 Settings 存储和构建好的测试二进制可用。",
+        "五种语言；三个 Tab；Mouse Click/Drag；可见控件的 mapped geometry、minimumSizeHint 和水平滚动条。",
+        "逐语言安装 catalog，显示 Settings，依次切换三个 Tab；检查 viewport 包含关系、水平滚动范围和可见控件最小尺寸；在 Mouse 中切换两种模式后重复。",
+        "所有 Tab 的水平滚动范围为 0；每个可见控件完全位于 viewport，且不小于最终 minimumSizeHint；长文本和复合控件无裁切。",
+        "关闭对话框；翻译器、临时目录和设置值恢复。",
+        "system",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+        ("system", "static"),
     ),
     test_case(
-        "SET-015",
-        "精益完整性：实现只引入满足本任务所需的最小变更",
-        "验证分组、宽度补偿和默认值变更复用现有控件、设置键与信号连接，没有复制持久化模型或无关 UI。",
-        "仓库差异、设置对话框源码、现有 UI objectName 和 SettingsManager 源码可读。",
-        "任务范围 git diff、现有控件 objectName、settingsLibrary 与布局实现。",
-        "执行静态审计，检查任务范围差异无空白错误、布局使用现有控件且设置键集合没有新增任务外键。",
-        "静态证据显示实现范围与需求一致，未引入非必要持久化键、重复控件或无关构建变更。",
-        "不修改源码、构建产物或用户设置。",
+        "CQ-LEAN-COMPLETENESS",
+        "精益完整性：实现覆盖全部需求且没有非必要布局/样式分支",
+        "用静态契约检查确认实现复用现有控件、信号和设置键，只增加语义分组、共享布局策略、自然尺寸测量和可观测测试。",
+        "源代码、.ui、测试源、设置键基线和本审计脚本可读。",
+        "静态 marker、XML 解析结果、git diff --check、当前/基线设置键集合。",
+        "运行静态 stage，检查共享 helper、直接组层级、FieldRole、native button、row normalization、无旧常量和无新设置键。",
+        "静态检查全部通过；无旧的固定间距/按钮 QSS 回归契约；没有新增持久化设置键或重复页面。",
+        "不修改业务运行时状态；静态检查只读源文件。",
         "static",
         "tests/settings_quality_pipeline.py::static_stage",
         ("static",),
     ),
     test_case(
-        "SET-016",
-        "功能正确性：每个规定输入均产生规定的输出与副作用",
-        "验证版本、分组、默认值、多语言和多 Tab 几何的完整验收矩阵均通过。",
-        "四层测试环境已配置；QtTest 二进制、翻译 catalog 和 CTest 注册均可用。",
-        "20 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
-        "按静态、单元、集成、系统顺序执行审计流水线，读取每个原子用例的 stage_status。",
-        "所有功能原子用例在其证据层级通过，且没有失败、跳过或未覆盖的验收项。",
-        "测试进程、对话框、翻译器和测试设置均完成清理。",
+        "CQ-FUNCTIONAL-CORRECTNESS",
+        "功能正确性：规定输入产生规定输出并保持副作用边界",
+        "汇总 General/Mouse 布局、按钮和多语言 Tab 的实际 QtTest 结果。",
+        "静态、单元、集成和系统执行环境均已准备；测试二进制可运行。",
+        "原子功能 case 的固定语言、模式、控件属性、布局几何和输出状态。",
+        "按 static → unit → integration → system 顺序执行流水线，读取每个原子 case 的 stage_status 和原始输出哈希。",
+        "所有功能原子 case 通过；没有 failed、skipped、blacklisted 或超时；真实文件关联动作不被测试触发。",
+        "测试进程、对话框、翻译器和隔离设置完成清理。",
         "static+unit+integration+system",
-        "tests/settings_quality_pipeline.py::stage_case_passed; reports/test_completion_report.json",
+        "tests/settings_quality_pipeline.py::build_reports; reports/test_completion_report.json",
         ("static", "unit", "integration", "system"),
     ),
     test_case(
-        "SET-017",
-        "可测试性：测试条件可确定控制、运行时状态可非侵入式观测且结果可重复",
-        "验证审计流水线固定运行环境并保存可复核的命令、输入环境、输出摘要和哈希。",
-        "Python 标准库、QtTest、Cocoa QPA 和本地构建目录可用；不依赖联网更新检查。",
-        "固定 QT_QPA_PLATFORM、QT_FATAL_WARNINGS、QV_DISABLE_ONLINE_VERSION_CHECK、FOVELLE_TEST_SUITE 及五种语言输入。",
-        "检查审计脚本的确定性环境覆盖和 JSON schema，再执行四层测试并读取输出哈希、返回码、耗时和 case 状态。",
-        "测试可重复执行、无侵入式观测设置/几何/滚动条/版本输出，并为每个阶段和原子用例留下机器可审计结果。",
-        "报告写入完成；用户设置、源代码和外部服务状态不被测试改变。",
+        "CQ-TESTABILITY",
+        "可测试性：条件可确定控制、运行时状态可非侵入式观测、输出可重复审计",
+        "验证四级流水线保存命令、环境、耗时、返回码、输出哈希、Qt Test totals 和每条 case 状态。",
+        "本地构建目录、QtTest、CTest、Python 标准库和 Cocoa QPA 可用；在线版本检查被关闭。",
+        "QT_QPA_PLATFORM=cocoa、QT_FATAL_WARNINGS=1、QV_DISABLE_ONLINE_VERSION_CHECK=1、FOVELLE_TEST_SUITE、固定超时和 SHA-256。",
+        "执行静态、单元、集成、系统 stage；校验 JSON schema、stage 顺序、case 字段和每个 stage 的原始输出摘要。",
+        "所有 stage 可重复运行并返回 0；每个 case 有明确实现引用和证据 stage；报告可以只凭 JSON 审计通过/失败原因。",
+        "报告写入 reports；用户设置、源码和外部文件关联状态不被改变。",
         "static+unit+integration+system",
         "tests/settings_quality_pipeline.py::run_command; tests/settings_quality_pipeline.py::build_reports",
         ("static", "unit", "integration", "system"),
@@ -368,74 +199,89 @@ RESEARCH_TRACE = [
     {
         "hop": 1,
         "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
-        "finding": "Apple describes macOS settings windows as toolbar panes, with each pane containing a group of related settings.",
-        "premise": "The requested General options are one pane and have explicit semantic relationships supplied by the user.",
-        "deduction": "Implement eight ordered groups without adding unrelated controls or decorative titles that would require new translations.",
+        "finding": "Apple describes macOS settings windows as toolbar panes and recommends grouping related settings within each pane.",
+        "explicit_premise": "The requested General pane contains eight named semantic groups, and Mouse contains three named semantic groups.",
+        "deduction": "Represent those relationships as direct ordered group widgets instead of unrelated flat rows or duplicate legacy pages.",
     },
     {
         "hop": 2,
         "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
-        "finding": "Apple's layout guidance says to group related items and provide enough space around controls.",
-        "premise": "The user requires group-to-group spacing to exceed within-group spacing.",
-        "deduction": "Use explicit 18 px group spacing and 6 px row spacing, then assert the inequality in QtTest.",
+        "finding": "Apple's layout guidance treats alignment and consistent spacing as signals of organization and hierarchy.",
+        "explicit_premise": "The user explicitly requires within-group spacing to be smaller than between-group spacing.",
+        "deduction": "Use one shared group-spacing value for General and Mouse and make it strictly greater than the largest native intra-form spacing.",
     },
     {
         "hop": 3,
         "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-        "finding": "QFormLayout separates LabelRole, FieldRole and SpanningRole; FieldRole is a field column item while SpanningRole spans label and field columns, and the form exposes explicit alignment/spacing APIs.",
-        "premise": "The overload that accepts one widget is semantically a spanning row, but the requested value-only controls still belong to the shared field column.",
-        "deduction": "Use setWidget(row, FieldRole, value) for every value-only option, reserve the label-column inset for the label-less fourth group, and use direct SpanningRole only for the action button.",
+        "finding": "QFormLayout provides LabelRole, FieldRole and SpanningRole and exposes form alignment, row wrapping and vertical spacing controls.",
+        "explicit_premise": "A value-only option belongs to the shared field column, while the association command is a standalone action.",
+        "deduction": "Put value-only checkboxes in FieldRole and keep only Associate all supported formats as a direct centered SpanningRole item.",
     },
     {
         "hop": 4,
-        "source": "https://doc.qt.io/qt-6/qscrollarea.html",
-        "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
-        "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
-        "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs.",
+        "source": "https://doc.qt.io/qt-6/qsizepolicy.html",
+        "finding": "Qt uses QSizePolicy control types when styles calculate layout spacing; the documentation gives distinct spacing examples for stacked radio buttons and buttons.",
+        "explicit_premise": "The desired hierarchy must follow the active macOS style rather than a hard-coded pixel value that can drift with style metrics.",
+        "deduction": "Resolve native style spacing by control type, mark the middle-button host as RadioButton, and add only the strict-one-pixel hierarchy constraint.",
     },
     {
         "hop": 5,
-        "source": "https://doc.qt.io/qt-6/qlayout.html",
-        "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
-        "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
-        "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content.",
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
+        "finding": "Qt's QWidgetItem converts between layout-item coordinates and widget coordinates using widget layout-item margins before calling QWidget::setGeometry.",
+        "explicit_premise": "On QMacStyle, a layout item rectangle and the widget rectangle can differ while describing the same control.",
+        "deduction": "Production code normalizes the rows and tests compare geometry in the same coordinate system; raw widget and layout-item rectangles are never mixed for spacing assertions.",
     },
     {
         "hop": 6,
-        "source": "https://doc.qt.io/qt-6/qlabel.html",
-        "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
-        "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style; QMacStyle's label and combo row metrics were observed to differ by 2 px.",
-        "deduction": "Set and test the label's right/trailing/vertical-center alignment, make each label row at least as tall as its value item plus the observed style delta, and align value rectangles to the row's top edge while their native text remains internally centered.",
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
+        "finding": "When form vertical spacing is unset, QFormLayout asks the style for combined layout spacing across adjacent label/field control types.",
+        "explicit_premise": "General and Mouse must keep native row spacing while ensuring group spacing remains visibly larger.",
+        "deduction": "Set QFormLayout verticalSpacing to -1, compute the maximum adjacent-row native spacing, then derive the shared group spacing from it.",
     },
     {
         "hop": 7,
-        "source": "https://doc.qt.io/qt-6/qpushbutton.html",
-        "finding": "QPushButton documents flat/default/autoDefault as appearance-affecting properties; auto-default buttons reserve extra space, and on macOS buttons below 50x30 change from rounded to square corners.",
-        "premise": "Associate all supported formats is a command action, not an OK/Cancel response; the baseline A/B probe observed autoDefault=true/default=true, while the regressed refactor observed both false.",
-        "deduction": "Keep the button as a direct native QPushButton, explicitly disable autoDefault to avoid a transient default frame, center it as a single SpanningRole action, and replace the lost implicit prominence with a stable theme-aware style contract.",
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/widgets/qpushbutton.cpp",
+        "finding": "QPushButton passes autoDefault/default state to the style option and delegates size hint and painting to the active style.",
+        "explicit_premise": "The supplied reference is the prior native blue default-button appearance, and the regression came from changing button state/style rather than from the action itself.",
+        "deduction": "Restore a direct native QPushButton with stylesheet cleared, flat disabled, autoDefault/default enabled, and no artificial minimum width.",
     },
     {
         "hop": 8,
-        "source": "https://doc.qt.io/qt-6/qpalette.html",
-        "finding": "Qt defines Accent for interactive components and notes that platform styles, including macOS styles, may not honor every palette role when painting controls.",
-        "premise": "The effective Qt palette exposes a theme-specific accent, but QMacStyle did not reliably paint a normal QPushButton as the supplied blue filled reference in both appearances.",
-        "deduction": "Read Accent (with Highlight fallback) from the effective button palette and apply only the required filled background, highlighted text, radius, and state colors through the named QPushButton stylesheet; test both palette and pixels.",
+        "source": "https://doc.qt.io/qt-6.11/qscrollarea.html",
+        "finding": "QScrollArea displays a child widget whose layout and size constraints determine whether content fits or scrolls.",
+        "explicit_premise": "Translations and long checkbox labels change natural widths, so a single legacy page size cannot be trusted.",
+        "deduction": "Measure natural control widths after polish, activate the final layouts, derive page minima, and verify every supported language and tab.",
     },
     {
         "hop": 9,
-        "source": "https://developer.apple.com/design/human-interface-guidelines/color",
-        "finding": "Apple's color guidance treats system/dynamic colors and accent colors as theme-adaptive, and recommends avoiding hard-coded colors that fail in light or dark appearances.",
-        "premise": "The reference requires the same primary-action meaning in Light and Dark, while the actual system accent can vary by user or OS configuration.",
-        "deduction": "Derive the button fill from the runtime semantic accent rather than freezing one RGB value; keep white/highlighted text and explicit hover/pressed/disabled variants readable in both appearances.",
+        "source": "reports/solution_and_proof.md",
+        "finding": "The repository proof requires one shared form contract, one dynamic group-spacing metric, fixed post-polish row heights, a direct native action row, and no legacy manual padding constants.",
+        "explicit_premise": "This local proof is the task-specific acceptance baseline supplied by the user.",
+        "deduction": "Align the implementation and tests to those observable invariants, while preserving native style metrics instead of copying a screenshot into QSS.",
     },
     {
         "hop": 10,
-        "source": "https://developer.apple.com/documentation/AppKit/NSColor/controlAccentColor",
-        "finding": "AppKit exposes the current control accent color as a system color that follows the current appearance and user setting.",
-        "premise": "Fovelle's Qt Cocoa palette is the cross-layer representation available to the QPushButton, and the application must not add an AppKit-only bridge for this small visual contract.",
-        "deduction": "Use QPalette::Accent as the Qt-side semantic equivalent, refresh the style after PaletteChange/theme application, and avoid a second platform-specific color source.",
+        "source": "user-provided screenshots: /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-21-17.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-55-20.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_18-10-49.jpg",
+        "finding": "The reference shows a native blue primary action, stronger separation between semantic groups, and labels aligned with their controls.",
+        "explicit_premise": "The screenshots are visual targets, while exact pixels can vary with macOS appearance, font and display scale.",
+        "deduction": "Test stable structural, style-state and geometry invariants, and use the active QMacStyle for the final rendering.",
     },
 ]
+
+
+REQUIRED_CASE_FIELDS = (
+    "id",
+    "acceptance_criterion",
+    "test_purpose",
+    "preconditions",
+    "input_data",
+    "steps",
+    "expected_result",
+    "postconditions",
+    "test_layer",
+    "implementation",
+    "evidence_stages",
+)
 
 
 def now_utc() -> str:
@@ -453,9 +299,18 @@ def file_sha256(path: Path) -> str | None:
         return None
 
 
-def run_command(command: list[str], repo: Path, environment: dict[str, str], timeout: int) -> dict[str, Any]:
+def run_command(
+    command: list[str],
+    repo: Path,
+    environment: dict[str, str],
+    timeout: int,
+) -> dict[str, Any]:
     started = time.perf_counter()
     merged_environment = {**os.environ, **environment}
+    timed_out = False
+    return_code: int | None
+    stdout: str
+    stderr: str
     try:
         result = subprocess.run(
             command,
@@ -466,7 +321,6 @@ def run_command(command: list[str], repo: Path, environment: dict[str, str], tim
             timeout=timeout,
             check=False,
         )
-        timed_out = False
         return_code = result.returncode
         stdout = result.stdout
         stderr = result.stderr
@@ -491,7 +345,7 @@ def run_command(command: list[str], repo: Path, environment: dict[str, str], tim
         "return_code": return_code,
         "passed": return_code == 0 and not timed_out,
         "output_sha256": hashlib.sha256(output.encode("utf-8", errors="replace")).hexdigest(),
-        "output_tail": output[-12000:],
+        "output_tail": output[-20000:],
     }
 
 
@@ -503,105 +357,177 @@ def static_stage(repo: Path) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     def check(identifier: str, passed: bool, observed: Any, expected: str) -> None:
-        checks.append({"id": identifier, "passed": bool(passed), "observed": observed, "expected": expected})
+        checks.append(
+            {
+                "id": identifier,
+                "passed": bool(passed),
+                "observed": observed,
+                "expected": expected,
+            }
+        )
 
-    cmake = read(repo, "CMakeLists.txt")
-    qmake = read(repo, "qView.pro")
-    plist = read(repo, "dist/mac/Info.plist")
-    test_source = read(repo, "tests/tst_qviewtests.cpp")
     options_cpp = read(repo, "src/qvoptionsdialog.cpp")
-    settings_cpp = read(repo, "src/settingsmanager.cpp")
-    unit_runner = read(repo, "tests/quality_unit_runner.py")
-    ui_path = repo / "src/qvoptionsdialog.ui"
+    options_header = read(repo, "src/qvoptionsdialog.h")
+    options_ui = read(repo, "src/qvoptionsdialog.ui")
+    test_source = read(repo, "tests/tst_qviewtests.cpp")
+    pipeline_source = read(repo, "tests/settings_quality_pipeline.py")
+    settings_source = read(repo, "src/settingsmanager.cpp")
 
-    version_values = {
-        "cmake": f"project(Fovelle VERSION {VERSION}" in cmake,
-        "qmake": f"VERSION = {VERSION}" in qmake,
-        "plist_short_and_bundle": plist.count(f"<string>{VERSION}</string>") >= 2,
-        "runtime_assertion": f'QCoreApplication::applicationVersion(), QString("{VERSION}")' in test_source,
-        "no_old_version_in_active_sources": "1.0.0" not in cmake + qmake + plist + test_source,
+    hierarchy_markers = {
+        "direct_general_content": all(
+            f"contentLayout->addWidget(group{index});" in options_cpp
+            for index in range(1, 9)
+        ),
+        "single_bottom_stretch": "contentLayout->addStretch(1);" in options_cpp,
+        "no_legacy_general_content_widget": "contentLayout->addWidget(generalWidget)" not in options_cpp,
+        "factory_and_group_index": "createSettingsGroup" in options_cpp and "settingsGroupIndex" in options_cpp,
+        "mouse_groups_fixed": "setSettingsGroupFixedHeight(group)" in options_cpp,
     }
-    check("SET-STATIC-001", all(version_values.values()), version_values, "all active version sources equal 1.0.1")
+    check(
+        "STATIC-HIERARCHY",
+        all(hierarchy_markers.values()),
+        hierarchy_markers,
+        "General has one direct ordered hierarchy and Mouse groups have fixed vertical policy",
+    )
 
-    group_markers = {
-        "group_spacing": "constexpr int SettingsGroupSpacing = 18;" in options_cpp,
-        "row_spacing": "constexpr int SettingsRowSpacing = 6;" in options_cpp,
-        "group_bottom_padding": "constexpr int SettingsGroupBottomPadding = 4;" in options_cpp
-        and "setContentsMargins(0, 0, 0, SettingsGroupBottomPadding)" in options_cpp,
-        "control_height_safety": "constexpr int SettingsControlHeightPadding = 2;" in options_cpp
-        and "setMinimumHeight" in options_cpp
-        and "sizeHint().height()" in options_cpp,
-        "semantic_group_factory": "createSettingsGroup" in options_cpp and "settingsGroupIndex" in options_cpp,
-        "natural_width_compensation": "naturalControlWidth" in options_cpp and "setNaturalControlWidths" in options_cpp,
-        "combo_contents_policy": "QComboBox::AdjustToContents" in options_cpp,
-        "explicit_column_alignment": "SettingsLabelAlignment" in options_cpp
-        and "SettingsValueAlignment" in options_cpp
-        and "setAlignment(item->widget(), SettingsValueAlignment)" in options_cpp
-        and "testSettingsFormsAlignLabelsAndValues" in test_source,
-        "value_only_rows_use_field_role": "void addValueOnlyRow(QFormLayout *layout, QWidget *value)" in options_cpp
-        and "layout->setWidget(layout->rowCount(), QFormLayout::FieldRole, value)" in options_cpp
-        and "addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox)" in options_cpp
-        and "addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox)" in options_cpp
-        and "addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox)" in options_cpp
-        and "addValueOnlyRow(groupLayout, ui->askDeleteCheckbox)" in options_cpp,
-        "label_height_and_value_edge_contract": "rowValueHeight" in options_cpp
-        and "SettingsControlHeightPadding" in options_cpp
-        and "margins.setLeft(labelColumnWidth)" in options_cpp
-        and "Qt::AlignTop" in options_cpp,
-        "native_association_button_contract": "setAutoDefault(false)" in options_cpp
-        and "setWidget(0, QFormLayout::SpanningRole," in options_cpp
-        and "associateFormatsButton" in options_cpp
-        and "AssociationButtonMinimumHeight = 20" in options_cpp
-        and "testSettingsAssociateButtonUsesNativeStyle" in test_source,
-        "association_theme_contract": all(
+    spacing_markers = {
+        "native_metric_helper": "settingsLayoutMetrics" in options_cpp,
+        "native_form_spacing": "layout->setVerticalSpacing(-1);" in options_cpp,
+        "strict_hierarchy": "metrics.maximumIntraGroupSpacing + 1" in options_cpp,
+        "same_metrics_applied": options_cpp.count("configureSettingsGroupsLayout(") >= 4,
+        "no_old_manual_constants": all(
+            token not in options_cpp
+            for token in (
+                "SettingsGroupSpacing",
+                "SettingsRowSpacing",
+                "SettingsGroupBottomPadding",
+                "SettingsControlHeightPadding",
+            )
+        ),
+    }
+    check(
+        "STATIC-SPACING",
+        all(spacing_markers.values()),
+        spacing_markers,
+        "group spacing is derived from QStyle and remains greater than native intra-form spacing",
+    )
+
+    form_markers = {
+        "shared_form_helper": "void configureSettingsForm(QFormLayout *layout)" in options_cpp,
+        "mouse_uses_helper": "configureSettingsForm(form);" in options_cpp,
+        "left_top_form": "layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);" in options_cpp,
+        "right_trailing_label": "SettingsLabelAlignment =" in options_cpp and "Qt::AlignRight | Qt::AlignTrailing;" in options_cpp,
+        "left_top_values": "SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;" in options_cpp,
+        "row_normalization": all(
             marker in options_cpp
             for marker in (
-                "updateAssociationButtonAppearance",
-                "QPalette::Accent",
-                "background-color",
-                "border-radius: 6px",
-                "settingsAssociationStyle",
-            )
-        ) and "testSettingsAssociateButtonFollowsThemeAccent" in test_source,
-        "all_new_test_methods_registered": all(
-            marker in test_source
-            for marker in (
-                "testSettingsGeneralGroupsAndDefaults",
-                "testSettingsFormsAlignLabelsAndValues",
-                "testSettingsAssociateButtonUsesNativeStyle",
-                "testSettingsAssociateButtonFollowsThemeAccent",
-                "testSettingsEveryTabFitsEveryLanguage",
+                "normalizeNamedRows",
+                "setFixedHeight(rowHeight)",
+                "SettingsLabelContentAlignment",
+                "Qt::WA_LayoutUsesWidgetRect",
             )
         ),
-        "runner_tracks_new_methods": all(
-            marker in unit_runner
-            for marker in (
-                "testSettingsGeneralGroupsAndDefaults",
-                "testSettingsFormsAlignLabelsAndValues",
-                "testSettingsAssociateButtonUsesNativeStyle",
-                "testSettingsAssociateButtonFollowsThemeAccent",
-                "testSettingsEveryTabFitsEveryLanguage",
-            )
-        ),
+        "form_geometry_test": "testSettingsFormsAlignLabelsAndValues" in test_source,
     }
-    check("SET-STATIC-002", all(group_markers.values()), group_markers, "grouping and width contracts are explicit in production/test code")
+    check(
+        "STATIC-FORM-ALIGNMENT",
+        all(form_markers.values()),
+        form_markers,
+        "General and Mouse share one deterministic form and row-alignment contract",
+    )
+
+    button_markers = {
+        "direct_spanning_role": "setWidget(0, QFormLayout::SpanningRole," in options_cpp,
+        "native_state": all(
+            marker in options_cpp
+            for marker in (
+                "setStyleSheet(QString())",
+                "setFlat(false)",
+                "setAutoDefault(true)",
+                "setDefault(true)",
+                "setMinimumSize(0, 0)",
+            )
+        ),
+        "no_theme_qss_helper": "updateAssociationButtonAppearance" not in options_cpp
+        and "QPalette::Accent" not in options_cpp
+        and "settingsAssociationStyle" not in options_cpp,
+        "native_button_test": "testSettingsAssociateButtonUsesNativeStyle" in test_source,
+        "no_removed_header_api": "updateAssociationButtonAppearance" not in options_header,
+    }
+    check(
+        "STATIC-NATIVE-BUTTON",
+        all(button_markers.values()),
+        button_markers,
+        "the action row restores the native QPushButton contract without hand-authored theme QSS",
+    )
+
+    value_role_markers = {
+        "field_role_helper": "layout->setWidget(layout->rowCount(), QFormLayout::FieldRole, value)" in options_cpp,
+        "all_value_only_rows": all(
+            f"addValueOnlyRow(groupLayout, ui->{name})" in options_cpp
+            for name in (
+                "checkerboardBackgroundCheckbox",
+                "reuseWindowCheckbox",
+                "smallImagesOneToOneCheckbox",
+                "askDeleteCheckbox",
+            )
+        ),
+        "middle_host": all(
+            marker in options_cpp + options_ui
+            for marker in (
+                "middleButtonModeHost",
+                "setControlType(QSizePolicy::RadioButton)",
+            )
+        ),
+        "no_empty_middle_row": "<item row=\"1\" column=\"1\">\n              <spacer" not in options_ui,
+    }
+    check(
+        "STATIC-FIELD-ROLE",
+        all(value_role_markers.values()),
+        value_role_markers,
+        "value-only rows use the field column and Mouse mode uses an explicit zero-margin host",
+    )
+
+    test_markers = {
+        name: marker in test_source
+        for name, marker in {
+            "groups": "testSettingsGeneralGroupsAndDefaults",
+            "spacing": "testSettingsSpacingUsesNativeStyle",
+            "forms": "testSettingsFormsAlignLabelsAndValues",
+            "button": "testSettingsAssociateButtonUsesNativeStyle",
+            "all_languages": "testSettingsEveryTabFitsEveryLanguage",
+        }.items()
+    }
+    test_markers["no_removed_theme_test"] = (
+        "testSettingsAssociateButtonFollowsThemeAccent" not in test_source
+    )
+    check(
+        "STATIC-TEST-COVERAGE",
+        all(test_markers.values()),
+        test_markers,
+        "every task-specific observable contract has executable test code",
+    )
 
     try:
-        ET.parse(ui_path)
-        ui_is_valid = True
+        ET.parse(repo / "src/qvoptionsdialog.ui")
+        ui_valid = True
         ui_error = None
     except (ET.ParseError, OSError) as error:
-        ui_is_valid = False
+        ui_valid = False
         ui_error = str(error)
-    check("SET-STATIC-003", ui_is_valid, {"path": str(ui_path), "error": ui_error}, "qvoptionsdialog.ui is well-formed XML")
+    check(
+        "STATIC-UI-XML",
+        ui_valid,
+        {"path": str(repo / "src/qvoptionsdialog.ui"), "error": ui_error},
+        "qvoptionsdialog.ui is well-formed XML",
+    )
 
-    translations: dict[str, dict[str, bool]] = {}
     required_sources = (
+        "Language:",
         "Appearance:",
         "Checkerboard when image loaded",
-        "Reuse window when launching with image",
         "Smooth scaling:",
-        "Language:",
+        "Reuse window when launching with image",
         "Show small images at 1:1",
         "Slideshow direction:",
         "Slideshow timer:",
@@ -610,51 +536,68 @@ def static_stage(repo: Path) -> dict[str, Any]:
         "Auto update check:",
         "Associate all supported formats",
     )
+    translation_observations: dict[str, dict[str, bool]] = {}
     for language in LANGUAGES[1:]:
         path = repo / "i18n" / f"qview_{language}.ts"
         try:
             root = ET.parse(path).getroot()
             source_texts = {node.text for node in root.iter("source") if node.text}
-            translations[language] = {source: source in source_texts for source in required_sources}
+            translation_observations[language] = {
+                source: source in source_texts for source in required_sources
+            }
         except (ET.ParseError, OSError):
-            translations[language] = {source: False for source in required_sources}
-    translation_passed = all(all(items.values()) for items in translations.values())
-    check("SET-STATIC-004", translation_passed, translations, "all required settings strings exist in every supported non-English catalog")
+            translation_observations[language] = {
+                source: False for source in required_sources
+            }
+    check(
+        "STATIC-TRANSLATIONS",
+        all(all(values.values()) for values in translation_observations.values()),
+        translation_observations,
+        "all required settings source strings exist in every supported non-English catalog",
+    )
 
     try:
-        ast.parse(read(repo, "tests/settings_quality_pipeline.py"), filename="settings_quality_pipeline.py")
-        pipeline_parses = True
-    except (SyntaxError, OSError):
-        pipeline_parses = False
-    check("SET-STATIC-005", pipeline_parses, {"pipeline_parses": pipeline_parses}, "the audit runner parses as Python")
+        ast.parse(pipeline_source, filename="settings_quality_pipeline.py")
+        pipeline_valid = True
+    except SyntaxError as error:
+        pipeline_valid = False
+        pipeline_error = str(error)
+    else:
+        pipeline_error = None
+    check(
+        "STATIC-PIPELINE-PYTHON",
+        pipeline_valid,
+        {"error": pipeline_error},
+        "the audit runner parses as Python",
+    )
 
     diff_check = run_command(
-        ["git", "diff", "--check", "HEAD", "--", "src", "tests", "CMakeLists.txt", "qView.pro", "dist"],
+        ["git", "diff", "--check", "HEAD", "--", "src", "tests"],
         repo,
         {},
         30,
     )
-    check("SET-STATIC-006", diff_check["passed"], diff_check, "task-scoped diff has no whitespace errors")
+    check("STATIC-DIFF", diff_check["passed"], diff_check, "task-scoped source/test diff has no whitespace errors")
 
-    baseline_settings = run_command(
+    baseline_result = run_command(
         ["git", "show", "HEAD:src/settingsmanager.cpp"],
         repo,
         {},
         30,
     )
-    setting_key_pattern = re.compile(r'settingsLibrary\.insert\("([^"]+)"')
-    current_setting_keys = sorted(setting_key_pattern.findall(settings_cpp))
-    baseline_setting_keys = sorted(setting_key_pattern.findall(baseline_settings["output_tail"]))
+    key_pattern = re.compile(r'settingsLibrary\.insert\("([^"]+)"')
+    current_keys = sorted(key_pattern.findall(settings_source))
+    baseline_keys = sorted(key_pattern.findall(baseline_result["output_tail"]))
+    key_observation = {
+        "baseline_read": baseline_result["passed"],
+        "baseline_keys": baseline_keys,
+        "current_keys": current_keys,
+    }
     check(
-        "SET-STATIC-007",
-        baseline_settings["passed"] and current_setting_keys == baseline_setting_keys,
-        {
-            "baseline_command": baseline_settings["command"],
-            "baseline_read": baseline_settings["passed"],
-            "baseline_keys": baseline_setting_keys,
-            "current_keys": current_setting_keys,
-        },
-        "the settings key set is unchanged; this task changes defaults/layout only",
+        "STATIC-SETTINGS-KEYS",
+        baseline_result["passed"] and current_keys == baseline_keys,
+        key_observation,
+        "the task does not add or remove persistence keys",
     )
 
     return {
@@ -664,8 +607,24 @@ def static_stage(repo: Path) -> dict[str, Any]:
     }
 
 
+def parse_qtest_totals(output: str) -> dict[str, int] | None:
+    matches = re.findall(
+        r"Totals: (\d+) passed, (\d+) failed, (\d+) skipped, (\d+) blacklisted",
+        output,
+    )
+    if not matches:
+        return None
+    passed, failed, skipped, blacklisted = matches[-1]
+    return {
+        "passed": int(passed),
+        "failed": int(failed),
+        "skipped": int(skipped),
+        "blacklisted": int(blacklisted),
+    }
+
+
 def qtest_stage(binary: Path, repo: Path, suite: str, timeout: int) -> dict[str, Any]:
-    return run_command(
+    result = run_command(
         [str(binary), "-o", "-,txt"],
         repo,
         {
@@ -676,19 +635,29 @@ def qtest_stage(binary: Path, repo: Path, suite: str, timeout: int) -> dict[str,
         },
         timeout,
     )
+    totals = parse_qtest_totals(result["output_tail"])
+    result["stage"] = suite
+    result["suite"] = suite
+    result["qtest_totals"] = totals
+    result["passed"] = bool(
+        result["passed"]
+        and totals
+        and totals["failed"] == 0
+        and totals["skipped"] == 0
+        and totals["blacklisted"] == 0
+    )
+    return result
 
 
 def unit_stage(binary: Path, repo: Path) -> dict[str, Any]:
-    result = qtest_stage(binary, repo, "FeatureTests", 90)
+    result = qtest_stage(binary, repo, "FeatureTests", 120)
     result["stage"] = "unit"
-    result["suite"] = "FeatureTests"
     return result
 
 
 def integration_stage(binary: Path, repo: Path) -> dict[str, Any]:
-    result = qtest_stage(binary, repo, "WindowBehaviorTests", 90)
+    result = qtest_stage(binary, repo, "WindowBehaviorTests", 120)
     result["stage"] = "integration"
-    result["suite"] = "WindowBehaviorTests"
     return result
 
 
@@ -702,16 +671,17 @@ def system_stage(binary: Path, build_dir: Path, repo: Path) -> dict[str, Any]:
             "QT_FATAL_WARNINGS": "1",
             "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
         },
-        180,
+        240,
     )
     result["stage"] = "system"
     result["test_target"] = "FovelleTests"
+    result["ctest_summary"] = re.findall(r"\d+% tests passed, \d+ tests failed out of \d+", result["output_tail"])
     return result
 
 
 def stage_case_passed(case: dict[str, Any], stages: dict[str, dict[str, Any]]) -> bool:
     relevant = [stages[name] for name in case["evidence_stages"] if name in stages]
-    return bool(relevant) and all(result["passed"] for result in relevant)
+    return bool(relevant) and all(stage["passed"] for stage in relevant)
 
 
 def write_json(path: Path, record: dict[str, Any]) -> None:
@@ -719,75 +689,100 @@ def write_json(path: Path, record: dict[str, Any]) -> None:
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def validate_cases() -> dict[str, Any]:
+    ids = [case["id"] for case in CASES]
+    missing = {
+        case["id"]: [field for field in REQUIRED_CASE_FIELDS if not case.get(field)]
+        for case in CASES
+        if any(not case.get(field) for field in REQUIRED_CASE_FIELDS)
+    }
+    return {
+        "unique_ids": len(ids) == len(set(ids)),
+        "all_required_fields_present": not missing,
+        "missing_fields": missing,
+        "all_evidence_stages_known": all(
+            stage in {"static", "unit", "integration", "system"}
+            for case in CASES
+            for stage in case["evidence_stages"]
+        ),
+    }
+
+
 def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    generated_at = now_utc()
     static = static_stage(repo)
     unit = unit_stage(binary, repo)
     integration = integration_stage(binary, repo)
     system = system_stage(binary, build_dir, repo)
     stages = {item["stage"]: item for item in (static, unit, integration, system)}
+    validation = validate_cases()
 
     case_results = []
     for case in CASES:
+        stage_status = {
+            name: stages[name]["passed"]
+            for name in case["evidence_stages"]
+            if name in stages
+        }
         case_results.append(
             {
                 "id": case["id"],
+                "acceptance_criterion": case["acceptance_criterion"],
                 "test_layer": case["test_layer"],
                 "implementation": case["implementation"],
                 "evidence_stages": case["evidence_stages"],
-                "passed": stage_case_passed(case, stages),
-                "stage_status": {name: stages[name]["passed"] for name in case["evidence_stages"]},
+                "stage_status": stage_status,
+                "passed": bool(stage_status) and all(stage_status.values()),
             }
         )
 
-    spec_path = repo / "reports" / "test_case_specification.json"
-    completion_path = repo / "reports" / "test_completion_report.json"
-    quality_path = repo / "reports" / "code_quality_assessment_report.json"
+    report_files = {
+        "production_cpp": repo / "src/qvoptionsdialog.cpp",
+        "production_ui": repo / "src/qvoptionsdialog.ui",
+        "production_header": repo / "src/qvoptionsdialog.h",
+        "test_source": repo / "tests/tst_qviewtests.cpp",
+        "audit_runner": repo / "tests/settings_quality_pipeline.py",
+        "solution_proof": repo / "reports/solution_and_proof.md",
+    }
+    input_hashes = {name: file_sha256(path) for name, path in report_files.items()}
+
+    task = "Fovelle 设置页 General/Mouse 的原生样式、逻辑分组、层级间距与名称和值对齐修复"
     spec = {
         "schema_version": "1.0",
         "report_type": "atomic_test_case_specification",
-        "generated_at_utc": now_utc(),
-        "task": "Fovelle 设置页分组、宽度、对齐、控件样式、默认值和 1.0.1 版本",
+        "generated_at_utc": generated_at,
+        "task": task,
         "atomic_case_count": len(CASES),
         "languages": list(LANGUAGES),
         "groups": [{"index": index, "items": list(items)} for index, items in GROUPS],
+        "required_test_fields": list(REQUIRED_CASE_FIELDS),
         "cases": list(CASES),
-        "required_test_fields": [
-            "test_purpose",
-            "preconditions",
-            "input_data",
-            "steps",
-            "expected_result",
-            "postconditions",
-        ],
         "research_trace": RESEARCH_TRACE,
-        "validation": {
-            "unique_ids": len({case["id"] for case in CASES}) == len(CASES),
-            "all_required_fields_present": all(
-                all(case.get(field) for field in (
-                    "id",
-                    "acceptance_criterion",
-                    "test_purpose",
-                    "preconditions",
-                    "input_data",
-                    "steps",
-                    "expected_result",
-                    "postconditions",
-                    "test_layer",
-                    "implementation",
-                ))
-                for case in CASES
-            ),
-        },
+        "input_sha256": input_hashes,
+        "validation": validation,
+        "passed": (
+            validation["unique_ids"]
+            and validation["all_required_fields_present"]
+            and validation["all_evidence_stages_known"]
+        ),
     }
-    spec["passed"] = all(spec["validation"].values())
 
     completion = {
         "schema_version": "1.0",
         "report_type": "test_completion_report",
-        "generated_at_utc": now_utc(),
-        "task": spec["task"],
-        "host": {"platform": platform.platform(), "python": platform.python_version()},
-        "build": {"build_dir": str(build_dir), "binary": str(binary), "binary_sha256": file_sha256(binary)},
+        "generated_at_utc": generated_at,
+        "task": task,
+        "host": {
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+            "cwd": str(repo),
+        },
+        "build": {
+            "build_dir": str(build_dir),
+            "binary": str(binary),
+            "binary_sha256": file_sha256(binary),
+        },
+        "stage_order": ["static", "unit", "integration", "system"],
         "stages": stages,
         "cases": case_results,
         "research_trace": RESEARCH_TRACE,
@@ -796,97 +791,103 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
             "passed_cases": sum(1 for case in case_results if case["passed"]),
             "failed_cases": [case["id"] for case in case_results if not case["passed"]],
             "all_atomic_cases_passed": all(case["passed"] for case in case_results),
-            "all_four_stages_passed": all(result["passed"] for result in stages.values()),
+            "all_four_stages_passed": all(stage["passed"] for stage in stages.values()),
+            "stage_order_is_explicit": list(stages) == ["static", "unit", "integration", "system"],
         },
-        "passed": all(case["passed"] for case in case_results)
-        and all(result["passed"] for result in stages.values()),
-        "status": "passed" if all(case["passed"] for case in case_results)
-        and all(result["passed"] for result in stages.values()) else "failed",
     }
+    completion["passed"] = bool(
+        completion["audit"]["all_atomic_cases_passed"]
+        and completion["audit"]["all_four_stages_passed"]
+        and completion["audit"]["stage_order_is_explicit"]
+    )
+    completion["status"] = "passed" if completion["passed"] else "failed"
 
+    behavior_ids = {
+        case["id"]
+        for case in CASES
+        if not case["id"].startswith("CQ-")
+    }
+    behavior_passed = all(
+        case["passed"] for case in case_results if case["id"] in behavior_ids
+    )
     quality_checks = [
         {
             "id": "CQ-LEAN-001",
             "criterion": "精益完整性",
-            "passed": static["passed"] and all(case["passed"] for case in case_results),
-            "evidence_case_ids": ["SET-015"],
-            "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距、版本默认值和一个按系统 Accent 派生的命名按钮样式；没有复制设置控件或引入新的持久化键。",
+            "passed": static["passed"] and next(
+                case["passed"] for case in case_results if case["id"] == "CQ-LEAN-COMPLETENESS"
+            ),
+            "evidence_case_ids": ["CQ-LEAN-COMPLETENESS"],
+            "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享表单 helper、动态样式间距、直接原生按钮和最小必要的 row normalization；设置键集合与基线一致。",
         },
         {
             "id": "CQ-CORRECT-001",
             "criterion": "功能正确性",
-            "passed": all(case["passed"] for case in case_results),
-            "evidence_case_ids": ["SET-016"] + [
-                case["id"] for case in case_results
-                if case["id"].startswith("SET-") and case["id"] not in {"SET-015", "SET-016", "SET-017"}
-            ],
-            "evidence": "原子结构、默认值、版本、多语言/多 Tab 几何以及 Light/Dark 按钮渲染用例均由实际 QtTest/Cocoa 执行结果覆盖。",
+            "passed": behavior_passed,
+            "evidence_case_ids": sorted(behavior_ids),
+            "evidence": "QtTest/Cocoa 实际执行覆盖八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。",
         },
         {
             "id": "CQ-TESTABLE-001",
             "criterion": "可测试性",
-            "passed": all(result["passed"] for result in stages.values()) and spec["passed"],
-            "evidence_case_ids": ["SET-017", "SET-001", "SET-010", "SET-013", "SET-014"],
-            "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、QPalette、QImage 像素、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。",
+            "passed": spec["passed"] and completion["passed"],
+            "evidence_case_ids": ["CQ-TESTABILITY"],
+            "evidence": "报告保存四级命令、环境覆盖、超时、返回码、耗时、stdout/stderr SHA-256、Qt Test totals 和原子 case 状态；运行时只读观察 QObject 属性、布局几何、滚动条和按钮渲染。",
         },
     ]
     quality = {
         "schema_version": "1.0",
         "report_type": "code_quality_assessment_report",
-        "generated_at_utc": now_utc(),
-        "task": spec["task"],
+        "generated_at_utc": generated_at,
+        "task": task,
         "quality_requirements": quality_checks,
         "root_cause_summary": [
             {
-                "observation": "设置页由旧的固定 `.ui` 几何和多个独立 QFormLayout 组成，页面宽度由聚合 sizeHint 决定；长文本控件可能不参与最终父布局的有效宽度下界。",
-                "premise": "QScrollArea 的子内容是否完整显示取决于子布局的 sizeHint、minimumSize 和 sizePolicy；macOS QFormLayout 还可能默认居中。",
-                "deduction": "将 General 改成八个显式语义组，统一左上对齐和不换行，并显式以每个控件的自然宽度修正内容 minimum size。",
+                "observation": "General 原来由多个 legacy form/content 区构成，独立布局和旧的固定 spacing 使组间距与组内行距的层级不可审计。",
+                "explicit_premise": "用户要求逻辑组之间明显更疏，且 General/Mouse 采用相同规则；Qt QFormLayout 在 verticalSpacing 未指定时可向 style 请求原生 spacing。",
+                "deduction": "改为一个 General content 下的八个直接组，统一使用共享的动态 groupSpacing，并保留 form verticalSpacing=-1。",
             },
             {
-                "observation": "QFormLayout 的 spanning checkbox 行不会稳定地把控件的自然宽度传播到父级聚合 sizeHint。",
-                "premise": "初始修复测试中可观察到 checkbox geometry 大于 scroll viewport，而 layout sizeHint 仍取较小值。",
-                "deduction": "增加 naturalControlWidth/setNaturalControlWidths，并将 combo 设置为 AdjustToContents、交互控件固定为自然宽度；多语言/多 Tab 测试锁定回归。",
+                "observation": "Mouse 的中键模式控件曾依赖旧表单空白行/内边距，导致组内间距不稳定。",
+                "explicit_premise": "RadioButton 是一个复合字段值，应作为一个零边距 host 参与同一 QFormLayout 行。",
+                "deduction": "使用 middleButtonModeHost，显式设置 RadioButton control type、垂直 Fixed 和零边距，并移除空白行。",
             },
             {
-                "observation": "显示后 QMacStyle 会把部分控件的最终 sizeHint 增大约 2 px；原实现按显示前尺寸把行压到精确高度，造成 Checkerboard 等选项底部像素被裁切。",
-                "premise": "运行时几何观测得到 langComboBox 实际高度 30、显示后 sizeHint 高度 32；仅检查宽度无法发现该缺陷。",
-                "deduction": "在自然尺寸测量前为所有 General/Mouse 值控件保留 2 px 高度余量，并为每个语义组保留 4 px 底部 padding；测试每个可见控件的最终高度和 viewport 包含关系。",
+                "observation": "value-only 选项若使用 QFormLayout::addRow(widget) 会成为 SpanningRole，不能稳定落在有名称选项的字段列。",
+                "explicit_premise": "用户要求 General/Mouse 的名称和值垂直、水平形成共同网格；value-only 控件仍需从字段列开始。",
+                "deduction": "所有 value-only rows 使用 FieldRole；没有标签的第四组以共享 labelColumnWidth 作为 form 左 inset。",
             },
             {
-                "observation": "Mouse 的 .ui 表单沿用了 QMacStyle 的居中 formAlignment，且值项没有逐项 alignment contract。",
-                "premise": "QFormLayout 文档明确指出 QMacStyle 默认水平居中；参考布局要求标签右对齐、值左对齐。",
-                "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左起值项，并用运行时几何覆盖每种语言和 Mouse 模式。",
+                "observation": "QMacStyle 的控件 layout-item rectangle 与 QWidget rectangle 可能因 QWidgetItem layout margins 不同，直接混用坐标会制造假回归或掩盖真实对齐问题。",
+                "explicit_premise": "Qt 6.11.1 QWidgetItem 明确在 layout-item 和 widget 坐标之间做转换；控件自然 sizeHint 在 polish 前后也可能变化。",
+                "deduction": "post-polish 固定每个有名称行的 label/value host 高度，设置相同的逻辑行顶边，并让测试在同一坐标系中比较布局 geometry，同时单独检查控件最终最小尺寸。",
             },
             {
-                "observation": "Checkerboard、Reuse window、Show small images 和 Ask before deleting files 原来通过 addRow(widget) 进入了 SpanningRole，导致值从表单左端开始；第 4 组甚至没有带标签行可供 QFormLayout 推导字段列。",
-                "premise": "Qt 将无标签 addRow(widget) 视为跨两列项，而用户要求无名称选项的值仍与有名称选项的值列左边界一致。",
-                "deduction": "新增一个最小的 addValueOnlyRow 辅助函数显式使用 FieldRole；第 4 组用共享 labelColumnWidth 作为 form 左 inset，保证所有无名称值项同列且不引入伪标签控件。",
+                "observation": "Associate all supported formats 的回归来自按钮结构/状态被改写，而不是需要新增主题 QSS。",
+                "explicit_premise": "参考图是 macOS 原生默认按钮；Qt QPushButton 将 default/autoDefault 状态交给当前 style 的 sizeHint 和 paint 路径。",
+                "deduction": "清空 stylesheet、恢复 flat=false/autoDefault=true/default=true、保留直接 SpanningRole 居中 action，并消除人工最小宽度。",
             },
             {
-                "observation": "Slideshow direction 等值控件的原生行高度比 QLabel 大，QMacStyle 的 form 行定位使控件矩形在 label 下方约 2 px，形成视觉下移。",
-                "premise": "运行时 geometry 观察到 label 与 combo 都为 28 px 高但 y 分别为 0 和 2；仅检查水平 alignment 无法发现该问题。",
-                "deduction": "按每行值项自然高度加样式余量扩展 label 行高，并将值矩形与行顶边对齐；测试每个有名称行的垂直中心误差不超过 1 px。",
-            },
-            {
-                "observation": "旧版 A/B 基线中按钮为 autoDefault=true、default=true、stylesheet 为空；本次布局重构为消除默认按钮框而新增 setAutoDefault(false)，随后按钮变成 autoDefault=false、default=false 且仍无显式样式，因而从蓝色主操作外观退化为普通灰色按钮。",
-                "premise": "QPushButton 的 autoDefault/default 会影响 macOS 绘制和默认按钮语义；直接 SpanningRole 解决了布局包装问题，但关闭隐式默认状态也移除了旧版依赖的突出显示来源。QPalette::Accent 提供主题语义颜色，而 QMacStyle 不保证普通按钮按所有 palette role 绘制为目标填充色。",
-                "deduction": "保留直接 SpanningRole、非 flat 和关闭 autoDefault 的稳定结构，新增 updateAssociationButtonAppearance，从有效 Accent（必要时 Highlight fallback）派生蓝色填充、白字、无边框、圆角和 hover/pressed/disabled 状态，并在初始同步、PaletteChange、主题设置完成后刷新；用 Light/Dark 的 stylesheet 与渲染像素验证回归不再发生。",
+                "observation": "长翻译或复合复选框可能超出旧 page sizeHint，造成 horizontalScrollBar=0 但实际控件越过 viewport。",
+                "explicit_premise": "QScrollArea 的完整显示由 child layout 的自然尺寸、minimum size 和最终父级 geometry 共同决定，且用户要求所有支持语言可重复验证。",
+                "deduction": "在 polish 后测量控件自然宽度、重新激活布局并校验 mapped viewport geometry；系统用例覆盖五种语言、三个 Tab 和两种 Mouse 模式。",
             },
         ],
         "research_trace": RESEARCH_TRACE,
+        "input_sha256": input_hashes,
         "checks": quality_checks,
         "audit": {
             "all_quality_requirements_passed": all(item["passed"] for item in quality_checks),
             "specification_valid": spec["passed"],
-            "test_completion_valid": completion["audit"]["all_atomic_cases_passed"] and completion["audit"]["all_four_stages_passed"],
+            "test_completion_valid": completion["passed"],
         },
-        "passed": all(item["passed"] for item in quality_checks),
-        "status": "passed" if all(item["passed"] for item in quality_checks) else "failed",
     }
+    quality["passed"] = all(item["passed"] for item in quality_checks)
+    quality["status"] = "passed" if quality["passed"] else "failed"
 
-    write_json(spec_path, spec)
-    write_json(completion_path, completion)
-    write_json(quality_path, quality)
+    write_json(repo / "reports/test_case_specification.json", spec)
+    write_json(repo / "reports/test_completion_report.json", completion)
+    write_json(repo / "reports/code_quality_assessment_report.json", quality)
     return spec, completion, quality
 
 
@@ -901,19 +902,16 @@ def main() -> int:
     binary = (args.binary or build_dir / "tests" / "fovelle_tests").resolve()
 
     spec, completion, quality = build_reports(repo, build_dir, binary)
-    print(json.dumps({
+    summary = {
         "specification_passed": spec["passed"],
-        "completion_passed": completion["audit"]["all_atomic_cases_passed"] and completion["audit"]["all_four_stages_passed"],
-        "quality_passed": quality["audit"]["all_quality_requirements_passed"],
+        "completion_passed": completion["passed"],
+        "quality_passed": quality["passed"],
         "case_count": len(spec["cases"]),
-    }, ensure_ascii=False, indent=2))
-    return 0 if (
-        spec["passed"]
-        and completion["audit"]["all_atomic_cases_passed"]
-        and completion["audit"]["all_four_stages_passed"]
-        and quality["audit"]["all_quality_requirements_passed"]
-    ) else 1
+        "stage_order": completion["stage_order"],
+    }
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0 if all(summary[key] for key in ("specification_passed", "completion_passed", "quality_passed")) else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

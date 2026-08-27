@@ -53,7 +53,6 @@ protected:
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
     void configureGeneralPage();
-    void updateAssociationButtonAppearance();
     void updateNaturalPageSizes();
     void resizeForCategory(int categoryIndex);
     void finishCategoryTransition();

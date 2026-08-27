@@ -1,221 +1,188 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at_utc": "2026-08-27T11:43:57.627495+00:00",
-  "task": "Fovelle 设置页分组、宽度、对齐、控件样式、默认值和 1.0.1 版本",
+  "generated_at_utc": "2026-08-27T13:31:51.015680+00:00",
+  "task": "Fovelle 设置页 General/Mouse 的原生样式、逻辑分组、层级间距与名称和值对齐修复",
   "quality_requirements": [
     {
       "id": "CQ-LEAN-001",
       "criterion": "精益完整性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-015"
+        "CQ-LEAN-COMPLETENESS"
       ],
-      "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距、版本默认值和一个按系统 Accent 派生的命名按钮样式；没有复制设置控件或引入新的持久化键。"
+      "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享表单 helper、动态样式间距、直接原生按钮和最小必要的 row normalization；设置键集合与基线一致。"
     },
     {
       "id": "CQ-CORRECT-001",
       "criterion": "功能正确性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-016",
-        "SET-001",
-        "SET-002",
-        "SET-003",
-        "SET-004",
-        "SET-005",
-        "SET-006",
-        "SET-007",
-        "SET-008",
-        "SET-009",
-        "SET-010",
-        "SET-011",
-        "SET-012",
-        "SET-013",
-        "SET-014",
-        "SET-018",
-        "SET-019",
-        "SET-020",
-        "SET-021",
-        "SET-022",
-        "SET-023"
+        "SET-ALL-LANGUAGES-NO-CLIP",
+        "SET-ASSOCIATE-NATIVE-BUTTON",
+        "SET-FORM-HORIZONTAL-ALIGNMENT",
+        "SET-FORM-VERTICAL-ALIGNMENT",
+        "SET-GENERAL-GROUPS",
+        "SET-GROUP-SPACING",
+        "SET-MOUSE-GROUPS"
       ],
-      "evidence": "原子结构、默认值、版本、多语言/多 Tab 几何以及 Light/Dark 按钮渲染用例均由实际 QtTest/Cocoa 执行结果覆盖。"
+      "evidence": "QtTest/Cocoa 实际执行覆盖八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。"
     },
     {
       "id": "CQ-TESTABLE-001",
       "criterion": "可测试性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-017",
-        "SET-001",
-        "SET-010",
-        "SET-013",
-        "SET-014"
+        "CQ-TESTABILITY"
       ],
-      "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、QPalette、QImage 像素、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。"
+      "evidence": "报告保存四级命令、环境覆盖、超时、返回码、耗时、stdout/stderr SHA-256、Qt Test totals 和原子 case 状态；运行时只读观察 QObject 属性、布局几何、滚动条和按钮渲染。"
     }
   ],
   "root_cause_summary": [
     {
-      "observation": "设置页由旧的固定 `.ui` 几何和多个独立 QFormLayout 组成，页面宽度由聚合 sizeHint 决定；长文本控件可能不参与最终父布局的有效宽度下界。",
-      "premise": "QScrollArea 的子内容是否完整显示取决于子布局的 sizeHint、minimumSize 和 sizePolicy；macOS QFormLayout 还可能默认居中。",
-      "deduction": "将 General 改成八个显式语义组，统一左上对齐和不换行，并显式以每个控件的自然宽度修正内容 minimum size。"
+      "observation": "General 原来由多个 legacy form/content 区构成，独立布局和旧的固定 spacing 使组间距与组内行距的层级不可审计。",
+      "explicit_premise": "用户要求逻辑组之间明显更疏，且 General/Mouse 采用相同规则；Qt QFormLayout 在 verticalSpacing 未指定时可向 style 请求原生 spacing。",
+      "deduction": "改为一个 General content 下的八个直接组，统一使用共享的动态 groupSpacing，并保留 form verticalSpacing=-1。"
     },
     {
-      "observation": "QFormLayout 的 spanning checkbox 行不会稳定地把控件的自然宽度传播到父级聚合 sizeHint。",
-      "premise": "初始修复测试中可观察到 checkbox geometry 大于 scroll viewport，而 layout sizeHint 仍取较小值。",
-      "deduction": "增加 naturalControlWidth/setNaturalControlWidths，并将 combo 设置为 AdjustToContents、交互控件固定为自然宽度；多语言/多 Tab 测试锁定回归。"
+      "observation": "Mouse 的中键模式控件曾依赖旧表单空白行/内边距，导致组内间距不稳定。",
+      "explicit_premise": "RadioButton 是一个复合字段值，应作为一个零边距 host 参与同一 QFormLayout 行。",
+      "deduction": "使用 middleButtonModeHost，显式设置 RadioButton control type、垂直 Fixed 和零边距，并移除空白行。"
     },
     {
-      "observation": "显示后 QMacStyle 会把部分控件的最终 sizeHint 增大约 2 px；原实现按显示前尺寸把行压到精确高度，造成 Checkerboard 等选项底部像素被裁切。",
-      "premise": "运行时几何观测得到 langComboBox 实际高度 30、显示后 sizeHint 高度 32；仅检查宽度无法发现该缺陷。",
-      "deduction": "在自然尺寸测量前为所有 General/Mouse 值控件保留 2 px 高度余量，并为每个语义组保留 4 px 底部 padding；测试每个可见控件的最终高度和 viewport 包含关系。"
+      "observation": "value-only 选项若使用 QFormLayout::addRow(widget) 会成为 SpanningRole，不能稳定落在有名称选项的字段列。",
+      "explicit_premise": "用户要求 General/Mouse 的名称和值垂直、水平形成共同网格；value-only 控件仍需从字段列开始。",
+      "deduction": "所有 value-only rows 使用 FieldRole；没有标签的第四组以共享 labelColumnWidth 作为 form 左 inset。"
     },
     {
-      "observation": "Mouse 的 .ui 表单沿用了 QMacStyle 的居中 formAlignment，且值项没有逐项 alignment contract。",
-      "premise": "QFormLayout 文档明确指出 QMacStyle 默认水平居中；参考布局要求标签右对齐、值左对齐。",
-      "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左起值项，并用运行时几何覆盖每种语言和 Mouse 模式。"
+      "observation": "QMacStyle 的控件 layout-item rectangle 与 QWidget rectangle 可能因 QWidgetItem layout margins 不同，直接混用坐标会制造假回归或掩盖真实对齐问题。",
+      "explicit_premise": "Qt 6.11.1 QWidgetItem 明确在 layout-item 和 widget 坐标之间做转换；控件自然 sizeHint 在 polish 前后也可能变化。",
+      "deduction": "post-polish 固定每个有名称行的 label/value host 高度，设置相同的逻辑行顶边，并让测试在同一坐标系中比较布局 geometry，同时单独检查控件最终最小尺寸。"
     },
     {
-      "observation": "Checkerboard、Reuse window、Show small images 和 Ask before deleting files 原来通过 addRow(widget) 进入了 SpanningRole，导致值从表单左端开始；第 4 组甚至没有带标签行可供 QFormLayout 推导字段列。",
-      "premise": "Qt 将无标签 addRow(widget) 视为跨两列项，而用户要求无名称选项的值仍与有名称选项的值列左边界一致。",
-      "deduction": "新增一个最小的 addValueOnlyRow 辅助函数显式使用 FieldRole；第 4 组用共享 labelColumnWidth 作为 form 左 inset，保证所有无名称值项同列且不引入伪标签控件。"
+      "observation": "Associate all supported formats 的回归来自按钮结构/状态被改写，而不是需要新增主题 QSS。",
+      "explicit_premise": "参考图是 macOS 原生默认按钮；Qt QPushButton 将 default/autoDefault 状态交给当前 style 的 sizeHint 和 paint 路径。",
+      "deduction": "清空 stylesheet、恢复 flat=false/autoDefault=true/default=true、保留直接 SpanningRole 居中 action，并消除人工最小宽度。"
     },
     {
-      "observation": "Slideshow direction 等值控件的原生行高度比 QLabel 大，QMacStyle 的 form 行定位使控件矩形在 label 下方约 2 px，形成视觉下移。",
-      "premise": "运行时 geometry 观察到 label 与 combo 都为 28 px 高但 y 分别为 0 和 2；仅检查水平 alignment 无法发现该问题。",
-      "deduction": "按每行值项自然高度加样式余量扩展 label 行高，并将值矩形与行顶边对齐；测试每个有名称行的垂直中心误差不超过 1 px。"
-    },
-    {
-      "observation": "旧版 A/B 基线中按钮为 autoDefault=true、default=true、stylesheet 为空；本次布局重构为消除默认按钮框而新增 setAutoDefault(false)，随后按钮变成 autoDefault=false、default=false 且仍无显式样式，因而从蓝色主操作外观退化为普通灰色按钮。",
-      "premise": "QPushButton 的 autoDefault/default 会影响 macOS 绘制和默认按钮语义；直接 SpanningRole 解决了布局包装问题，但关闭隐式默认状态也移除了旧版依赖的突出显示来源。QPalette::Accent 提供主题语义颜色，而 QMacStyle 不保证普通按钮按所有 palette role 绘制为目标填充色。",
-      "deduction": "保留直接 SpanningRole、非 flat 和关闭 autoDefault 的稳定结构，新增 updateAssociationButtonAppearance，从有效 Accent（必要时 Highlight fallback）派生蓝色填充、白字、无边框、圆角和 hover/pressed/disabled 状态，并在初始同步、PaletteChange、主题设置完成后刷新；用 Light/Dark 的 stylesheet 与渲染像素验证回归不再发生。"
+      "observation": "长翻译或复合复选框可能超出旧 page sizeHint，造成 horizontalScrollBar=0 但实际控件越过 viewport。",
+      "explicit_premise": "QScrollArea 的完整显示由 child layout 的自然尺寸、minimum size 和最终父级 geometry 共同决定，且用户要求所有支持语言可重复验证。",
+      "deduction": "在 polish 后测量控件自然宽度、重新激活布局并校验 mapped viewport geometry；系统用例覆盖五种语言、三个 Tab 和两种 Mouse 模式。"
     }
   ],
   "research_trace": [
     {
       "hop": 1,
       "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
-      "finding": "Apple describes macOS settings windows as toolbar panes, with each pane containing a group of related settings.",
-      "premise": "The requested General options are one pane and have explicit semantic relationships supplied by the user.",
-      "deduction": "Implement eight ordered groups without adding unrelated controls or decorative titles that would require new translations."
+      "finding": "Apple describes macOS settings windows as toolbar panes and recommends grouping related settings within each pane.",
+      "explicit_premise": "The requested General pane contains eight named semantic groups, and Mouse contains three named semantic groups.",
+      "deduction": "Represent those relationships as direct ordered group widgets instead of unrelated flat rows or duplicate legacy pages."
     },
     {
       "hop": 2,
       "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
-      "finding": "Apple's layout guidance says to group related items and provide enough space around controls.",
-      "premise": "The user requires group-to-group spacing to exceed within-group spacing.",
-      "deduction": "Use explicit 18 px group spacing and 6 px row spacing, then assert the inequality in QtTest."
+      "finding": "Apple's layout guidance treats alignment and consistent spacing as signals of organization and hierarchy.",
+      "explicit_premise": "The user explicitly requires within-group spacing to be smaller than between-group spacing.",
+      "deduction": "Use one shared group-spacing value for General and Mouse and make it strictly greater than the largest native intra-form spacing."
     },
     {
       "hop": 3,
       "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-      "finding": "QFormLayout separates LabelRole, FieldRole and SpanningRole; FieldRole is a field column item while SpanningRole spans label and field columns, and the form exposes explicit alignment/spacing APIs.",
-      "premise": "The overload that accepts one widget is semantically a spanning row, but the requested value-only controls still belong to the shared field column.",
-      "deduction": "Use setWidget(row, FieldRole, value) for every value-only option, reserve the label-column inset for the label-less fourth group, and use direct SpanningRole only for the action button."
+      "finding": "QFormLayout provides LabelRole, FieldRole and SpanningRole and exposes form alignment, row wrapping and vertical spacing controls.",
+      "explicit_premise": "A value-only option belongs to the shared field column, while the association command is a standalone action.",
+      "deduction": "Put value-only checkboxes in FieldRole and keep only Associate all supported formats as a direct centered SpanningRole item."
     },
     {
       "hop": 4,
-      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
-      "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
-      "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
-      "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+      "source": "https://doc.qt.io/qt-6/qsizepolicy.html",
+      "finding": "Qt uses QSizePolicy control types when styles calculate layout spacing; the documentation gives distinct spacing examples for stacked radio buttons and buttons.",
+      "explicit_premise": "The desired hierarchy must follow the active macOS style rather than a hard-coded pixel value that can drift with style metrics.",
+      "deduction": "Resolve native style spacing by control type, mark the middle-button host as RadioButton, and add only the strict-one-pixel hierarchy constraint."
     },
     {
       "hop": 5,
-      "source": "https://doc.qt.io/qt-6/qlayout.html",
-      "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
-      "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
-      "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content."
+      "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
+      "finding": "Qt's QWidgetItem converts between layout-item coordinates and widget coordinates using widget layout-item margins before calling QWidget::setGeometry.",
+      "explicit_premise": "On QMacStyle, a layout item rectangle and the widget rectangle can differ while describing the same control.",
+      "deduction": "Production code normalizes the rows and tests compare geometry in the same coordinate system; raw widget and layout-item rectangles are never mixed for spacing assertions."
     },
     {
       "hop": 6,
-      "source": "https://doc.qt.io/qt-6/qlabel.html",
-      "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
-      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style; QMacStyle's label and combo row metrics were observed to differ by 2 px.",
-      "deduction": "Set and test the label's right/trailing/vertical-center alignment, make each label row at least as tall as its value item plus the observed style delta, and align value rectangles to the row's top edge while their native text remains internally centered."
+      "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
+      "finding": "When form vertical spacing is unset, QFormLayout asks the style for combined layout spacing across adjacent label/field control types.",
+      "explicit_premise": "General and Mouse must keep native row spacing while ensuring group spacing remains visibly larger.",
+      "deduction": "Set QFormLayout verticalSpacing to -1, compute the maximum adjacent-row native spacing, then derive the shared group spacing from it."
     },
     {
       "hop": 7,
-      "source": "https://doc.qt.io/qt-6/qpushbutton.html",
-      "finding": "QPushButton documents flat/default/autoDefault as appearance-affecting properties; auto-default buttons reserve extra space, and on macOS buttons below 50x30 change from rounded to square corners.",
-      "premise": "Associate all supported formats is a command action, not an OK/Cancel response; the baseline A/B probe observed autoDefault=true/default=true, while the regressed refactor observed both false.",
-      "deduction": "Keep the button as a direct native QPushButton, explicitly disable autoDefault to avoid a transient default frame, center it as a single SpanningRole action, and replace the lost implicit prominence with a stable theme-aware style contract."
+      "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/widgets/qpushbutton.cpp",
+      "finding": "QPushButton passes autoDefault/default state to the style option and delegates size hint and painting to the active style.",
+      "explicit_premise": "The supplied reference is the prior native blue default-button appearance, and the regression came from changing button state/style rather than from the action itself.",
+      "deduction": "Restore a direct native QPushButton with stylesheet cleared, flat disabled, autoDefault/default enabled, and no artificial minimum width."
     },
     {
       "hop": 8,
-      "source": "https://doc.qt.io/qt-6/qpalette.html",
-      "finding": "Qt defines Accent for interactive components and notes that platform styles, including macOS styles, may not honor every palette role when painting controls.",
-      "premise": "The effective Qt palette exposes a theme-specific accent, but QMacStyle did not reliably paint a normal QPushButton as the supplied blue filled reference in both appearances.",
-      "deduction": "Read Accent (with Highlight fallback) from the effective button palette and apply only the required filled background, highlighted text, radius, and state colors through the named QPushButton stylesheet; test both palette and pixels."
+      "source": "https://doc.qt.io/qt-6.11/qscrollarea.html",
+      "finding": "QScrollArea displays a child widget whose layout and size constraints determine whether content fits or scrolls.",
+      "explicit_premise": "Translations and long checkbox labels change natural widths, so a single legacy page size cannot be trusted.",
+      "deduction": "Measure natural control widths after polish, activate the final layouts, derive page minima, and verify every supported language and tab."
     },
     {
       "hop": 9,
-      "source": "https://developer.apple.com/design/human-interface-guidelines/color",
-      "finding": "Apple's color guidance treats system/dynamic colors and accent colors as theme-adaptive, and recommends avoiding hard-coded colors that fail in light or dark appearances.",
-      "premise": "The reference requires the same primary-action meaning in Light and Dark, while the actual system accent can vary by user or OS configuration.",
-      "deduction": "Derive the button fill from the runtime semantic accent rather than freezing one RGB value; keep white/highlighted text and explicit hover/pressed/disabled variants readable in both appearances."
+      "source": "reports/solution_and_proof.md",
+      "finding": "The repository proof requires one shared form contract, one dynamic group-spacing metric, fixed post-polish row heights, a direct native action row, and no legacy manual padding constants.",
+      "explicit_premise": "This local proof is the task-specific acceptance baseline supplied by the user.",
+      "deduction": "Align the implementation and tests to those observable invariants, while preserving native style metrics instead of copying a screenshot into QSS."
     },
     {
       "hop": 10,
-      "source": "https://developer.apple.com/documentation/AppKit/NSColor/controlAccentColor",
-      "finding": "AppKit exposes the current control accent color as a system color that follows the current appearance and user setting.",
-      "premise": "Fovelle's Qt Cocoa palette is the cross-layer representation available to the QPushButton, and the application must not add an AppKit-only bridge for this small visual contract.",
-      "deduction": "Use QPalette::Accent as the Qt-side semantic equivalent, refresh the style after PaletteChange/theme application, and avoid a second platform-specific color source."
+      "source": "user-provided screenshots: /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-21-17.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-55-20.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_18-10-49.jpg",
+      "finding": "The reference shows a native blue primary action, stronger separation between semantic groups, and labels aligned with their controls.",
+      "explicit_premise": "The screenshots are visual targets, while exact pixels can vary with macOS appearance, font and display scale.",
+      "deduction": "Test stable structural, style-state and geometry invariants, and use the active QMacStyle for the final rendering."
     }
   ],
+  "input_sha256": {
+    "production_cpp": "eafcc6952d8c111b18f9f3cff3721f155d67226474ea6c658864f3483a818a73",
+    "production_ui": "7922229fc9eae370768581b04530d1daffab0123e38e6eac7073ead1531a466f",
+    "production_header": "a91585ede3ff5bf6d4fcdc4b45ad70aa97f3b4e32ad00f5411ab69f1759eff16",
+    "test_source": "8e9231156b57140ff557b94f49428eab4b22e86e2ed0ad389a5e3297716fb730",
+    "audit_runner": "841c8366fdc8137b3e001a9894a441d69bc78afa34461fa8ba56441f18c30d22",
+    "solution_proof": "85e9fbbb6caa68f8ca3956d01075948f86fbd3e17f1c7785a2788a76a087be9c"
+  },
   "checks": [
     {
       "id": "CQ-LEAN-001",
       "criterion": "精益完整性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-015"
+        "CQ-LEAN-COMPLETENESS"
       ],
-      "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距、版本默认值和一个按系统 Accent 派生的命名按钮样式；没有复制设置控件或引入新的持久化键。"
+      "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享表单 helper、动态样式间距、直接原生按钮和最小必要的 row normalization；设置键集合与基线一致。"
     },
     {
       "id": "CQ-CORRECT-001",
       "criterion": "功能正确性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-016",
-        "SET-001",
-        "SET-002",
-        "SET-003",
-        "SET-004",
-        "SET-005",
-        "SET-006",
-        "SET-007",
-        "SET-008",
-        "SET-009",
-        "SET-010",
-        "SET-011",
-        "SET-012",
-        "SET-013",
-        "SET-014",
-        "SET-018",
-        "SET-019",
-        "SET-020",
-        "SET-021",
-        "SET-022",
-        "SET-023"
+        "SET-ALL-LANGUAGES-NO-CLIP",
+        "SET-ASSOCIATE-NATIVE-BUTTON",
+        "SET-FORM-HORIZONTAL-ALIGNMENT",
+        "SET-FORM-VERTICAL-ALIGNMENT",
+        "SET-GENERAL-GROUPS",
+        "SET-GROUP-SPACING",
+        "SET-MOUSE-GROUPS"
       ],
-      "evidence": "原子结构、默认值、版本、多语言/多 Tab 几何以及 Light/Dark 按钮渲染用例均由实际 QtTest/Cocoa 执行结果覆盖。"
+      "evidence": "QtTest/Cocoa 实际执行覆盖八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。"
     },
     {
       "id": "CQ-TESTABLE-001",
       "criterion": "可测试性",
       "passed": true,
       "evidence_case_ids": [
-        "SET-017",
-        "SET-001",
-        "SET-010",
-        "SET-013",
-        "SET-014"
+        "CQ-TESTABILITY"
       ],
-      "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、QPalette、QImage 像素、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。"
+      "evidence": "报告保存四级命令、环境覆盖、超时、返回码、耗时、stdout/stderr SHA-256、Qt Test totals 和原子 case 状态；运行时只读观察 QObject 属性、布局几何、滚动条和按钮渲染。"
     }
   ],
   "audit": {

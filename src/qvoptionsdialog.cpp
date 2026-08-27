@@ -21,27 +21,170 @@
 #include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QStyleOptionViewItem>
+#include <QStyle>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QAbstractButton>
-#include <QColor>
 #include <QLabel>
-#include <QPalette>
+#include <QGroupBox>
 
 namespace
 {
-constexpr int SettingsGroupSpacing = 18;
-constexpr int SettingsRowSpacing = 6;
-constexpr int SettingsGroupBottomPadding = 4;
-constexpr int SettingsControlHeightPadding = 2;
-constexpr int AssociationButtonMinimumHeight = 20;
-
 constexpr Qt::Alignment SettingsLabelAlignment =
-    Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
-// Keep the control's native internal text centering, but align the control
-// rectangle itself to the label's top edge. QMacStyle gives labels and value
-// widgets slightly different row metrics; AlignVCenter therefore leaves a
-// combo box a few pixels low even when their minimum heights match.
+    Qt::AlignRight | Qt::AlignTrailing;
 constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;
+constexpr Qt::Alignment SettingsLabelContentAlignment =
+    Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+
+struct SettingsLayoutMetrics
+{
+    int maximumIntraGroupSpacing {0};
+    int groupSpacing {0};
+};
+
+bool layoutItemIsVisible(QLayoutItem *item)
+{
+    if (!item)
+        return false;
+    if (auto *widget = item->widget())
+        return !widget->isHidden();
+    if (auto *layout = item->layout())
+    {
+        for (int index = 0; index < layout->count(); ++index)
+        {
+            if (layoutItemIsVisible(layout->itemAt(index)))
+                return true;
+        }
+    }
+    return false;
+}
+
+QSizePolicy::ControlTypes layoutItemControlTypes(QLayoutItem *item)
+{
+    if (!item)
+        return QSizePolicy::DefaultType;
+    if (auto *widget = item->widget())
+        return widget->sizePolicy().controlType();
+    return item->controlTypes();
+}
+
+QList<QLayoutItem *> visibleRowItems(QFormLayout *layout, const int row)
+{
+    QList<QLayoutItem *> items;
+    for (const auto role : {QFormLayout::LabelRole,
+                            QFormLayout::FieldRole,
+                            QFormLayout::SpanningRole})
+    {
+        auto *item = layout->itemAt(row, role);
+        if (layoutItemIsVisible(item))
+            items.append(item);
+    }
+    return items;
+}
+
+int resolvedStyleSpacing(QWidget *context,
+                         const QSizePolicy::ControlTypes first,
+                         const QSizePolicy::ControlTypes second)
+{
+    if (!context || !context->style())
+        return 0;
+
+    int spacing = context->style()->combinedLayoutSpacing(
+        first, second, Qt::Vertical, nullptr, context);
+    if (spacing < 0)
+        spacing = context->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing,
+                                                nullptr, context);
+    return qMax(0, spacing);
+}
+
+int maximumIntraGroupSpacing(QWidget *page)
+{
+    if (!page)
+        return 0;
+
+    int maximumSpacing = 0;
+    for (auto *layout : page->findChildren<QFormLayout *>())
+    {
+        QList<QLayoutItem *> previousItems;
+        for (int row = 0; row < layout->rowCount(); ++row)
+        {
+            const QList<QLayoutItem *> currentItems = visibleRowItems(layout, row);
+            if (currentItems.isEmpty())
+                continue;
+
+            for (auto *previous : previousItems)
+            {
+                for (auto *current : currentItems)
+                {
+                    maximumSpacing = qMax(
+                        maximumSpacing,
+                        resolvedStyleSpacing(
+                            page, layoutItemControlTypes(previous),
+                            layoutItemControlTypes(current)));
+                }
+            }
+            previousItems = currentItems;
+        }
+    }
+    return maximumSpacing;
+}
+
+SettingsLayoutMetrics settingsLayoutMetrics(QWidget *generalPage,
+                                             QWidget *mousePage)
+{
+    SettingsLayoutMetrics metrics;
+    metrics.maximumIntraGroupSpacing = qMax(
+        maximumIntraGroupSpacing(generalPage),
+        maximumIntraGroupSpacing(mousePage));
+
+    QWidget *styleContext = generalPage ? generalPage : mousePage;
+    const int nativeGroupSpacing = resolvedStyleSpacing(
+        styleContext, QSizePolicy::GroupBox, QSizePolicy::GroupBox);
+    metrics.groupSpacing = qMax(nativeGroupSpacing,
+                                metrics.maximumIntraGroupSpacing + 1);
+    return metrics;
+}
+
+void configureSettingsForm(QFormLayout *layout)
+{
+    if (!layout)
+        return;
+
+    layout->setVerticalSpacing(-1);
+    layout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
+    layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
+    layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
+    layout->setLabelAlignment(SettingsLabelAlignment);
+}
+
+void configureSettingsGroupsLayout(QWidget *page, const int groupSpacing,
+                                   const int maximumIntraGroupSpacing)
+{
+    if (!page)
+        return;
+
+    auto *layout = qobject_cast<QVBoxLayout *>(page->layout());
+    if (!layout)
+        return;
+
+    layout->setSpacing(groupSpacing);
+    layout->invalidate();
+    layout->activate();
+    page->setProperty("settingsGroupSpacing", groupSpacing);
+    page->setProperty("settingsIntraGroupMaxSpacing", maximumIntraGroupSpacing);
+    page->setProperty("settingsRowSpacing", -1);
+    page->setProperty("settingsHasBottomStretch", true);
+}
+
+void setSettingsGroupFixedHeight(QWidget *group)
+{
+    if (!group)
+        return;
+
+    auto policy = group->sizePolicy();
+    policy.setVerticalPolicy(QSizePolicy::Fixed);
+    group->setSizePolicy(policy);
+}
 
 int formLabelColumnWidth(QWidget *page)
 {
@@ -167,17 +310,8 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
                 labelItem->widget()->setMinimumWidth(labelColumnWidth);
                 if (auto *label = qobject_cast<QLabel *>(labelItem->widget()))
                 {
-                    label->setAlignment(SettingsLabelAlignment);
-                    const int fieldHeight = fieldItem
-                        ? fieldItem->sizeHint().height() : 0;
-                    const int spanningHeight = spanningItem
-                        ? spanningItem->sizeHint().height() : 0;
-                    const int rowValueHeight = qMax(fieldHeight, spanningHeight);
-                    label->setMinimumHeight(qMax(label->minimumHeight(),
-                                                 rowValueHeight > 0
-                                                     ? rowValueHeight
-                                                         + SettingsControlHeightPadding
-                                                     : 0));
+                    label->setAlignment(SettingsLabelContentAlignment);
+                    layout->setAlignment(label, Qt::AlignTop);
                 }
             }
 
@@ -223,22 +357,8 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
             if (auto *group = layout->parentWidget())
                 group->setMinimumWidth(naturalFieldOnlyFormWidth(layout));
         }
-
-        if (layout->objectName() == QStringLiteral("settingsGroup8Layout"))
-        {
-            auto *item = layout->itemAt(0, QFormLayout::SpanningRole);
-            auto *button = item ? qobject_cast<QPushButton *>(item->widget()) : nullptr;
-            if (button)
-            {
-                const QMargins margins = layout->contentsMargins();
-                const int buttonHeight = qMax(button->minimumHeight(),
-                                              button->sizeHint().height());
-                if (auto *group = layout->parentWidget())
-                    group->setMinimumHeight(margins.top() + buttonHeight
-                                            + SettingsControlHeightPadding
-                                            + margins.bottom());
-            }
-        }
+        layout->invalidate();
+        layout->activate();
     }
 
     page->setProperty("settingsAlignedLabelColumnWidth", labelColumnWidth);
@@ -246,23 +366,66 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
     page->setProperty("settingsValueAlignment", int(SettingsValueAlignment));
 }
 
+void normalizeNamedRows(QWidget *page)
+{
+    if (!page)
+        return;
+
+    for (auto *layout : page->findChildren<QFormLayout *>())
+    {
+        for (int row = 0; row < layout->rowCount(); ++row)
+        {
+            auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
+            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
+            auto *label = labelItem ? qobject_cast<QLabel *>(labelItem->widget()) : nullptr;
+            QWidget *valueHost = fieldItem ? fieldItem->widget() : nullptr;
+            if (!valueHost)
+                continue;
+
+            if (!label)
+            {
+                valueHost->setMinimumHeight(0);
+                valueHost->setMaximumHeight(QWIDGETSIZE_MAX);
+                valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
+                valueHost->setFixedHeight(valueHost->sizeHint().height());
+                layout->setAlignment(valueHost, SettingsValueAlignment);
+                continue;
+            }
+
+            // Remove a previous normalization before measuring the natural
+            // post-polish heights. This makes the operation safe after a
+            // font, style, palette, or translation change.
+            label->setMinimumHeight(0);
+            label->setMaximumHeight(QWIDGETSIZE_MAX);
+            valueHost->setMinimumHeight(0);
+            valueHost->setMaximumHeight(QWIDGETSIZE_MAX);
+            label->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
+            valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
+            label->setAlignment(SettingsLabelContentAlignment);
+
+            const int rowHeight = qMax(label->sizeHint().height(),
+                                       valueHost->sizeHint().height());
+            label->setFixedHeight(rowHeight);
+            valueHost->setFixedHeight(rowHeight);
+            layout->setAlignment(label, Qt::AlignTop);
+            layout->setAlignment(valueHost, SettingsValueAlignment);
+        }
+    }
+}
+
 QWidget *createSettingsGroup(QWidget *parent, const int groupIndex,
                              QFormLayout **formLayout)
 {
     auto *group = new QWidget(parent);
     group->setObjectName(QStringLiteral("settingsGroup%1").arg(groupIndex));
-    group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     group->setProperty("settingsGroupIndex", groupIndex);
 
     auto *layout = new QFormLayout(group);
     layout->setObjectName(QStringLiteral("settingsGroup%1Layout").arg(groupIndex));
-    layout->setContentsMargins(0, 0, 0, SettingsGroupBottomPadding);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setHorizontalSpacing(12);
-    layout->setVerticalSpacing(SettingsRowSpacing);
-    layout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
-    layout->setLabelAlignment(SettingsLabelAlignment);
-    layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
-    layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
+    configureSettingsForm(layout);
     *formLayout = layout;
     return group;
 }
@@ -295,6 +458,15 @@ void setNaturalControlWidths(QWidget *page)
         if (control->objectName() == QStringLiteral("menubarCheckbox"))
             continue;
 
+        if (control->objectName() == QStringLiteral("associateFormatsButton"))
+        {
+            // The association action intentionally keeps the exact native
+            // QPushButton size hint; do not turn its width into a second
+            // sizing source while measuring the page.
+            control->setMinimumSize(0, 0);
+            continue;
+        }
+
         if (!qobject_cast<QAbstractButton *>(control)
             && !qobject_cast<QComboBox *>(control)
             && !qobject_cast<QAbstractSpinBox *>(control))
@@ -304,13 +476,6 @@ void setNaturalControlWidths(QWidget *page)
             comboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
         control->setMinimumWidth(qMax(control->minimumWidth(),
                                       control->sizeHint().width()));
-        // QMacStyle can increase a control's size hint by a couple of pixels
-        // when the native Settings window is first shown. Reserve that small
-        // post-polish delta up front so the row never clips a bottom border or
-        // glyph after the scroll area's exact height has been measured.
-        control->setMinimumHeight(qMax(control->minimumHeight(),
-                                       control->sizeHint().height()
-                                           + SettingsControlHeightPadding));
         auto sizePolicy = control->sizePolicy();
         sizePolicy.setHorizontalPolicy(QSizePolicy::Fixed);
         control->setSizePolicy(sizePolicy);
@@ -436,7 +601,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     ui->altHorizontalScrollLabel->setText(tr("%1 + Horizontal Scroll:").arg(ctrlKeyName));
 
     syncSettings(false, true);
-    updateAssociationButtonAppearance();
     syncShortcuts();
     updateNaturalPageSizes();
     resizeForCategory(ui->categoryTabs->currentIndex());
@@ -457,110 +621,125 @@ QVOptionsDialog::~QVOptionsDialog()
 
 void QVOptionsDialog::configureGeneralPage()
 {
-    auto *generalWidget = ui->generalScrollArea->takeWidget();
-    auto *miscWidget = ui->miscScrollArea->takeWidget();
-    if (!generalWidget || !miscWidget)
+    auto *legacyGeneralWidget = ui->generalScrollArea->takeWidget();
+    auto *legacyMiscWidget = ui->miscScrollArea->takeWidget();
+    if (!legacyGeneralWidget || !legacyMiscWidget)
         return;
 
-    // The .ui pages retain stable object names and signal wiring, but their
-    // legacy forms are replaced by explicit semantic groups here. This keeps
-    // the requested order in one place and makes spacing a testable contract.
+    // The .ui pages retain stable control names and signal wiring. Their
+    // legacy forms are replaced by one ordered General hierarchy so there is
+    // exactly one source of group spacing.
     discardLayoutItems(ui->displayLayout);
     discardLayoutItems(ui->miscLayout);
-    generalWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    miscWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
-    auto *generalLayout = new QVBoxLayout(generalWidget);
-    generalLayout->setContentsMargins(0, 0, 0, 0);
-    generalLayout->setSpacing(SettingsGroupSpacing);
-    generalWidget->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
-    generalWidget->setProperty("settingsRowSpacing", SettingsRowSpacing);
-    generalWidget->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
-
-    auto *miscLayout = new QVBoxLayout(miscWidget);
-    miscLayout->setContentsMargins(0, 0, 0, 0);
-    miscLayout->setSpacing(SettingsGroupSpacing);
-    miscWidget->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
-    miscWidget->setProperty("settingsRowSpacing", SettingsRowSpacing);
-    miscWidget->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
-
-    QFormLayout *groupLayout = nullptr;
-    auto *group1 = createSettingsGroup(generalWidget, 1, &groupLayout);
-    group1->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("langComboBox")});
-    groupLayout->addRow(ui->langComboLabel, ui->langComboBox);
-    generalLayout->addWidget(group1);
-
-    auto *group2 = createSettingsGroup(generalWidget, 2, &groupLayout);
-    group2->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("themeComboBox"),
-                                     QStringLiteral("checkerboardBackgroundCheckbox")});
-    groupLayout->addRow(ui->appearanceLabel, ui->themeComboBox);
-    addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox);
-    generalLayout->addWidget(group2);
-
-    auto *group3 = createSettingsGroup(generalWidget, 3, &groupLayout);
-    group3->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("smoothScalingComboBox")});
-    groupLayout->addRow(ui->label_2, ui->smoothScalingComboBox);
-    generalLayout->addWidget(group3);
-
-    auto *group4 = createSettingsGroup(generalWidget, 4, &groupLayout);
-    group4->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("reuseWindowCheckbox"),
-                                     QStringLiteral("smallImagesOneToOneCheckbox")});
-    // This group contains only value-only controls. addValueOnlyRow places
-    // both controls in FieldRole; alignFormLayouts reserves the shared label
-    // column as the form's left inset for this label-less group.
-    addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox);
-    addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox);
-    generalLayout->addWidget(group4);
-
-    auto *group5 = createSettingsGroup(miscWidget, 5, &groupLayout);
-    group5->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("slideshowDirectionComboBox"),
-                                     QStringLiteral("slideshowTimerSpinBox")});
-    groupLayout->addRow(ui->label_4, ui->slideshowDirectionComboBox);
-    groupLayout->addRow(ui->label_5, ui->slideshowTimerSpinBox);
-    miscLayout->addWidget(group5);
-
-    auto *group6 = createSettingsGroup(miscWidget, 6, &groupLayout);
-    group6->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("afterDeletionComboBox"),
-                                     QStringLiteral("askDeleteCheckbox")});
-    groupLayout->addRow(ui->label_10, ui->afterDeletionComboBox);
-    addValueOnlyRow(groupLayout, ui->askDeleteCheckbox);
-    miscLayout->addWidget(group6);
-
-    auto *group7 = createSettingsGroup(miscWidget, 7, &groupLayout);
-    group7->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("updateFrequencyComboBox")});
-    groupLayout->addRow(ui->updateFrequencyLabel, ui->updateFrequencyComboBox);
-    miscLayout->addWidget(group7);
-
-    auto *group8 = createSettingsGroup(miscWidget, 8, &groupLayout);
-    group8->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("associateFormatsButton")});
-    // Keep the command as a direct QPushButton item. A stretch-wrapped child
-    // layout changes the item/style geometry and is unnecessary for a
-    // centered spanning action row. Its stable accent-filled appearance is
-    // applied after the effective Light/Dark palette is available.
-    ui->associateFormatsButton->setAutoDefault(false);
-    groupLayout->setWidget(0, QFormLayout::SpanningRole,
-                           ui->associateFormatsButton);
-    miscLayout->addWidget(group8);
 
     auto *generalContent = new QWidget(ui->generalScrollArea);
     generalContent->setObjectName(QStringLiteral("generalContent"));
     generalContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     auto *contentLayout = new QVBoxLayout(generalContent);
     contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(SettingsGroupSpacing);
-    generalContent->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
-    generalContent->setProperty("settingsRowSpacing", SettingsRowSpacing);
-    generalContent->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
-    contentLayout->addWidget(generalWidget);
-    contentLayout->addWidget(miscWidget);
+
+    auto *mouseContent = ui->mouseScrollArea->widget();
+    auto *mouseLayout = mouseContent
+        ? qobject_cast<QVBoxLayout *>(mouseContent->layout()) : nullptr;
+    if (mouseLayout)
+    {
+        mouseLayout->setSpacing(0);
+        for (auto *form : mouseContent->findChildren<QFormLayout *>())
+            configureSettingsForm(form);
+
+        if (auto *modeHost = ui->middleButtonModeHost)
+        {
+            auto modePolicy = modeHost->sizePolicy();
+            modePolicy.setControlType(QSizePolicy::RadioButton);
+            modePolicy.setVerticalPolicy(QSizePolicy::Fixed);
+            modeHost->setSizePolicy(modePolicy);
+            if (auto *modeLayout = qobject_cast<QHBoxLayout *>(modeHost->layout()))
+                modeLayout->setContentsMargins(0, 0, 0, 0);
+        }
+        for (auto *group : mouseContent->findChildren<QGroupBox *>())
+            setSettingsGroupFixedHeight(group);
+        mouseLayout->addStretch(1);
+    }
+
+    QFormLayout *groupLayout = nullptr;
+    auto *group1 = createSettingsGroup(generalContent, 1, &groupLayout);
+    group1->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("langComboBox")});
+    groupLayout->addRow(ui->langComboLabel, ui->langComboBox);
+    contentLayout->addWidget(group1);
+
+    auto *group2 = createSettingsGroup(generalContent, 2, &groupLayout);
+    group2->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("themeComboBox"),
+                                     QStringLiteral("checkerboardBackgroundCheckbox")});
+    groupLayout->addRow(ui->appearanceLabel, ui->themeComboBox);
+    addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox);
+    contentLayout->addWidget(group2);
+
+    auto *group3 = createSettingsGroup(generalContent, 3, &groupLayout);
+    group3->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("smoothScalingComboBox")});
+    groupLayout->addRow(ui->label_2, ui->smoothScalingComboBox);
+    contentLayout->addWidget(group3);
+
+    auto *group4 = createSettingsGroup(generalContent, 4, &groupLayout);
+    group4->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("reuseWindowCheckbox"),
+                                     QStringLiteral("smallImagesOneToOneCheckbox")});
+    addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox);
+    addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox);
+    contentLayout->addWidget(group4);
+
+    auto *group5 = createSettingsGroup(generalContent, 5, &groupLayout);
+    group5->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("slideshowDirectionComboBox"),
+                                     QStringLiteral("slideshowTimerSpinBox")});
+    groupLayout->addRow(ui->label_4, ui->slideshowDirectionComboBox);
+    groupLayout->addRow(ui->label_5, ui->slideshowTimerSpinBox);
+    contentLayout->addWidget(group5);
+
+    auto *group6 = createSettingsGroup(generalContent, 6, &groupLayout);
+    group6->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("afterDeletionComboBox"),
+                                     QStringLiteral("askDeleteCheckbox")});
+    groupLayout->addRow(ui->label_10, ui->afterDeletionComboBox);
+    addValueOnlyRow(groupLayout, ui->askDeleteCheckbox);
+    contentLayout->addWidget(group6);
+
+    auto *group7 = createSettingsGroup(generalContent, 7, &groupLayout);
+    group7->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("updateFrequencyComboBox")});
+    groupLayout->addRow(ui->updateFrequencyLabel, ui->updateFrequencyComboBox);
+    contentLayout->addWidget(group7);
+
+    auto *group8 = createSettingsGroup(generalContent, 8, &groupLayout);
+    group8->setProperty("settingsItemObjectNames",
+                        QStringList {QStringLiteral("associateFormatsButton")});
+    // Keep the command as a direct native action row. Restoring the dialog's
+    // native default state also restores the pre-regression QMacStyle paint
+    // path and Return-key behavior.
+    ui->associateFormatsButton->setStyleSheet(QString());
+    ui->associateFormatsButton->setFlat(false);
+    ui->associateFormatsButton->setAutoDefault(true);
+    ui->associateFormatsButton->setDefault(true);
+    ui->associateFormatsButton->setMinimumSize(0, 0);
+    ui->associateFormatsButton->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
+    groupLayout->setWidget(0, QFormLayout::SpanningRole,
+                           ui->associateFormatsButton);
+    contentLayout->addWidget(group8);
+    contentLayout->addStretch(1);
+
+    // The hidden control is not a General option, but it must survive the
+    // removal of the legacy .ui page because syncSettings still owns it.
+    ui->menubarCheckbox->setParent(generalContent);
+    ui->menubarCheckbox->hide();
+
+    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent,
+                                                                 mouseContent);
+    configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
+                                  metrics.maximumIntraGroupSpacing);
+    configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
+                                  metrics.maximumIntraGroupSpacing);
 
     ui->generalScrollArea->setWidget(generalContent);
     ui->generalScrollArea->setWidgetResizable(true);
@@ -568,14 +747,13 @@ void QVOptionsDialog::configureGeneralPage()
     ui->generalScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     ui->mouseScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     ui->mouseScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    ui->menubarCheckbox->hide();
-    generalWidget->adjustSize();
-    miscWidget->adjustSize();
     generalContent->adjustSize();
 
     // The old page is no longer a category. Its content has been absorbed
     // into General, so remove the page rather than leaving an inaccessible
     // duplicate in the stacked widget.
+    delete legacyGeneralWidget;
+    delete legacyMiscWidget;
     ui->stackedWidget->removeWidget(ui->miscScrollArea);
     ui->miscScrollArea->deleteLater();
 }
@@ -603,6 +781,18 @@ void QVOptionsDialog::updateNaturalPageSizes()
     setNaturalControlWidths(mouseContent);
     clearFormLabelColumnWidths(generalContent);
     clearFormLabelColumnWidths(mouseContent);
+    generalContent->ensurePolished();
+    mouseContent->ensurePolished();
+    normalizeNamedRows(generalContent);
+    normalizeNamedRows(mouseContent);
+
+    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent,
+                                                                 mouseContent);
+    configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
+                                  metrics.maximumIntraGroupSpacing);
+    configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
+                                  metrics.maximumIntraGroupSpacing);
+
     const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
                                       formLabelColumnWidth(mouseContent));
     alignFormLayouts(generalContent, labelColumnWidth);
@@ -613,12 +803,10 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // on Mouse produces the same hints as reaching Mouse from General.
     const int selectedPage = ui->stackedWidget->currentIndex();
     ui->stackedWidget->setCurrentIndex(0);
-    generalContent->ensurePolished();
     QSize generalNaturalSize = naturalLayoutSize(generalContent);
     generalNaturalSize.setWidth(qMax(generalNaturalSize.width(),
                                      naturalControlWidth(generalContent)));
     ui->stackedWidget->setCurrentIndex(2);
-    mouseContent->ensurePolished();
     QSize mouseNaturalSize = naturalLayoutSize(mouseContent);
     mouseNaturalSize.setWidth(qMax(mouseNaturalSize.width(),
                                    naturalControlWidth(mouseContent)));
@@ -836,50 +1024,35 @@ void QVOptionsDialog::showEvent(QShowEvent *event)
     // that event so a dialog that starts on Mouse has the same client size as
     // one switched to Mouse after presentation.
     finishCategoryTransition();
+    QTimer::singleShot(0, this, [this]() {
+        if (!ui || !pageMetricsReady || !isVisible())
+            return;
+        // Cocoa can finalize native control metrics only after the first
+        // show event. Re-run the same post-polish normalization once those
+        // metrics are observable, so no row is fixed below its final hint.
+        pageMetricsReady = false;
+        updateNaturalPageSizes();
+        resizeForCategory(ui->categoryTabs->currentIndex());
+        finishCategoryTransition();
+    });
 }
 
 void QVOptionsDialog::changeEvent(QEvent *event)
 {
-    // Native toolbar symbols and labels resolve against effectiveAppearance
-    // automatically.  Rebuilding the page model on PaletteChange used to
-    // cause a transient pane/title jump while switching themes.
     QDialog::changeEvent(event);
-    if (event->type() == QEvent::PaletteChange)
+    if (event->type() == QEvent::PaletteChange
+        || event->type() == QEvent::StyleChange
+        || event->type() == QEvent::FontChange)
     {
         QTimer::singleShot(0, this, [this]() {
-            updateAssociationButtonAppearance();
+            if (!ui || !pageMetricsReady)
+                return;
+            pageMetricsReady = false;
+            updateNaturalPageSizes();
+            resizeForCategory(ui->categoryTabs->currentIndex());
+            finishCategoryTransition();
         });
     }
-}
-
-void QVOptionsDialog::updateAssociationButtonAppearance()
-{
-    if (!ui || !ui->associateFormatsButton)
-        return;
-
-    auto *button = ui->associateFormatsButton;
-    QColor accent = button->palette().color(QPalette::Accent);
-    if (!accent.isValid() || accent.saturation() < 80 || accent.blue() <= accent.red())
-        accent = button->palette().color(QPalette::Highlight);
-    if (!accent.isValid())
-        accent = QColor(QStringLiteral("#007aff"));
-
-    const QColor text = Qt::white;
-
-    const QString style = QStringLiteral(
-        "QPushButton#associateFormatsButton {"
-        "color: %1; background-color: %2; border: none; border-radius: 6px;"
-        "padding: 0 12px; }"
-        "QPushButton#associateFormatsButton:hover { background-color: %3; }"
-        "QPushButton#associateFormatsButton:pressed { background-color: %4; }"
-        "QPushButton#associateFormatsButton:disabled { background-color: %5; color: %6; }")
-        .arg(text.name(), accent.name(), accent.lighter(110).name(),
-             accent.darker(110).name(), accent.lighter(140).name(), text.name());
-    button->setStyleSheet(style);
-    button->setMinimumHeight(qMax(button->minimumHeight(), AssociationButtonMinimumHeight));
-    button->setProperty("settingsAssociationStyle", QStringLiteral("accent-filled"));
-    button->setProperty("settingsAssociationAccentColor", accent.name());
-    button->update();
 }
 
 void QVOptionsDialog::modifySetting(QString key, QVariant value)
@@ -893,9 +1066,6 @@ void QVOptionsDialog::modifySetting(QString key, QVariant value)
     if (key == QStringLiteral("theme"))
     {
         NativeDialogs::applyTheme(this);
-        QTimer::singleShot(0, this, [this]() {
-            updateAssociationButtonAppearance();
-        });
     }
 }
 
