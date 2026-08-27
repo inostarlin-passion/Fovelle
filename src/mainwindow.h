@@ -198,6 +198,8 @@ public slots:
 
     QColor fullScreenTransitionBackgroundColor() const;
 
+    int fullScreenTransitionTitlebarOverlap() const;
+
     void toggleSlideshow();
 
     void slideshowAction();

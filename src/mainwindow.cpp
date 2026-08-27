@@ -1162,6 +1162,12 @@ QColor MainWindow::fullScreenTransitionBackgroundColor() const
         ? customBackgroundColor : palette().color(QPalette::Window);
 }
 
+int MainWindow::fullScreenTransitionTitlebarOverlap() const
+{
+    return storedTitlebarHidden
+        ? 0 : qMax(QVCocoaFunctions::getObscuredHeight(windowHandle()), 0);
+}
+
 void MainWindow::pauseChanged()
 {
     const bool isPaused = getIsMovieLoaded() && graphicsView->getLoadedMovie().state() != QVMovie::Running;
@@ -2271,17 +2277,12 @@ void MainWindow::toggleFullScreen()
     }
     else
     {
-        // Disable updates during window state change to resolve visual glitches
-        // on macOS if the titlebar is hidden.
-        setUpdatesEnabled(false);
-
         // Restore the titlebar before entering fullscreen because macOS may apply special titlebar handling.
         storedTitlebarHidden = getTitlebarHidden();
         if (storedTitlebarHidden)
             setTitlebarHidden(false, false);
 
         showFullScreen();
-        setUpdatesEnabled(true);
     }
 }
 

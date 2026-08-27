@@ -52,14 +52,17 @@ static constexpr char FullScreenNormalTitlebarOverlapAssociationKey = 0;
 static constexpr char FullScreenCustomAnimationAssociationKey = 0;
 static constexpr char FullScreenAnimationHandlerAssociationKey = 0;
 static constexpr char FullScreenAnimationAssociationKey = 0;
-static constexpr char FullScreenNormalImageRectAssociationKey = 0;
 static constexpr char FullScreenImageRectProviderAssociationKey = 0;
 static constexpr char FullScreenImageProviderAssociationKey = 0;
 static constexpr char FullScreenBackgroundProviderAssociationKey = 0;
+static constexpr char FullScreenTitlebarOverlapProviderAssociationKey = 0;
+static constexpr char FullScreenNormalTitlebarSnapshotAssociationKey = 0;
 static constexpr char FullScreenProxyWindowAssociationKey = 0;
 static constexpr char FullScreenProxyWindowLayerAssociationKey = 0;
 static constexpr char FullScreenProxyImageLayerAssociationKey = 0;
+static constexpr char FullScreenProxyTitlebarLayerAssociationKey = 0;
 static constexpr char FullScreenOriginalAlphaAssociationKey = 0;
+static constexpr char FullScreenExitStartFrameAssociationKey = 0;
 
 enum class FovelleFullScreenAnimationPhase : NSInteger
 {
@@ -73,6 +76,7 @@ typedef void (^FovelleFullScreenAnimationHandler)(
 typedef QRect (^FovelleFullScreenImageRectProvider)(void);
 typedef QImage (^FovelleFullScreenImageProvider)(void);
 typedef QColor (^FovelleFullScreenBackgroundProvider)(void);
+typedef int (^FovelleFullScreenTitlebarOverlapProvider)(void);
 
 static void releaseFullScreenSnapshotProvider(
     void *info, __unused const void *data, __unused size_t size)
@@ -149,6 +153,31 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
         -NSMinY(proxyWindow.frame));
 }
 
+static NSBitmapImageRep *captureFullScreenTitlebar(
+    NSWindow *window, const int titlebarOverlap)
+{
+    if (!window || titlebarOverlap <= 0)
+        return nil;
+
+    NSView *frameView = window.contentView.superview;
+    if (!frameView)
+        return nil;
+
+    const NSRect bounds = frameView.bounds;
+    const CGFloat height = qMin<CGFloat>(titlebarOverlap, NSHeight(bounds));
+    const NSRect titlebarRect = NSMakeRect(
+        NSMinX(bounds), frameView.isFlipped
+            ? NSMinY(bounds) : NSMaxY(bounds) - height,
+        NSWidth(bounds), height);
+    NSBitmapImageRep *snapshot =
+        [frameView bitmapImageRepForCachingDisplayInRect:titlebarRect];
+    if (!snapshot)
+        return nil;
+
+    [frameView cacheDisplayInRect:titlebarRect toBitmapImageRep:snapshot];
+    return snapshot;
+}
+
 @interface FovelleFullScreenExitAnimation : NSAnimation
 {
 @private
@@ -156,10 +185,13 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
     NSWindow *_proxyWindow;
     CALayer *_windowLayer;
     CALayer *_imageLayer;
+    CALayer *_titlebarLayer;
     NSRect _startWindowFrame;
     NSRect _endWindowFrame;
     NSRect _startImageFrame;
     NSRect _endImageFrame;
+    NSRect _startTitlebarFrame;
+    NSRect _endTitlebarFrame;
     int _normalTitlebarOverlap;
     BOOL _realWindowPrepared;
     FovelleFullScreenAnimationHandler _handler;
@@ -169,10 +201,13 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
                        proxyWindow:(NSWindow *)proxyWindow
                         windowLayer:(CALayer *)windowLayer
                          imageLayer:(CALayer *)imageLayer
+                      titlebarLayer:(CALayer *)titlebarLayer
                    startWindowFrame:(NSRect)startWindowFrame
                      endWindowFrame:(NSRect)endWindowFrame
                     startImageFrame:(NSRect)startImageFrame
                       endImageFrame:(NSRect)endImageFrame
+                 startTitlebarFrame:(NSRect)startTitlebarFrame
+                   endTitlebarFrame:(NSRect)endTitlebarFrame
           normalTitlebarOverlap:(int)normalTitlebarOverlap
                        duration:(NSTimeInterval)duration
                         handler:(FovelleFullScreenAnimationHandler)handler;
@@ -184,10 +219,13 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
                        proxyWindow:(NSWindow *)proxyWindow
                         windowLayer:(CALayer *)windowLayer
                          imageLayer:(CALayer *)imageLayer
+                      titlebarLayer:(CALayer *)titlebarLayer
                    startWindowFrame:(NSRect)startWindowFrame
                      endWindowFrame:(NSRect)endWindowFrame
                     startImageFrame:(NSRect)startImageFrame
                       endImageFrame:(NSRect)endImageFrame
+                 startTitlebarFrame:(NSRect)startTitlebarFrame
+                   endTitlebarFrame:(NSRect)endTitlebarFrame
           normalTitlebarOverlap:(int)normalTitlebarOverlap
                        duration:(NSTimeInterval)duration
                         handler:(FovelleFullScreenAnimationHandler)handler
@@ -200,10 +238,13 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
     _proxyWindow = proxyWindow;
     _windowLayer = windowLayer;
     _imageLayer = imageLayer;
+    _titlebarLayer = titlebarLayer;
     _startWindowFrame = startWindowFrame;
     _endWindowFrame = endWindowFrame;
     _startImageFrame = startImageFrame;
     _endImageFrame = endImageFrame;
+    _startTitlebarFrame = startTitlebarFrame;
+    _endTitlebarFrame = endTitlebarFrame;
     _normalTitlebarOverlap = normalTitlebarOverlap;
     _realWindowPrepared = NO;
     _handler = [handler copy];
@@ -248,6 +289,12 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
         _startWindowFrame, _endWindowFrame);
     _imageLayer.frame = interpolateRect(
         _startImageFrame, _endImageFrame);
+    if (_titlebarLayer)
+    {
+        _titlebarLayer.frame = interpolateRect(
+            _startTitlebarFrame, _endTitlebarFrame);
+        _titlebarLayer.opacity = static_cast<float>(value);
+    }
     [CATransaction commit];
     [CATransaction flush];
 
@@ -268,16 +315,31 @@ static NSRect proxyLocalRect(const NSRect screenRect, NSWindow *proxyWindow)
 
 @end
 
+static void revealFovelleFullScreenRealWindow(NSWindow *window)
+{
+    NSNumber *originalAlpha = objc_getAssociatedObject(
+        window, &FullScreenOriginalAlphaAssociationKey);
+
+    // AppKit still owns the custom windows until the DidExit notification
+    // returns. Reveal the already-painted real endpoint synchronously behind
+    // the pixel-identical proxy; removing the proxy is deferred until AppKit
+    // has completed that ownership handoff.
+    [CATransaction begin];
+    [CATransaction setAnimationDuration:0.0];
+    [CATransaction setDisableActions:YES];
+    [window displayIfNeeded];
+    if (originalAlpha)
+        window.alphaValue = originalAlpha.doubleValue;
+    [CATransaction commit];
+    [CATransaction flush];
+}
+
 static void cleanupFovelleFullScreenProxy(NSWindow *window)
 {
+    revealFovelleFullScreenRealWindow(window);
     NSWindow *proxy = objc_getAssociatedObject(
         window, &FullScreenProxyWindowAssociationKey);
     [proxy orderOut:nil];
-
-    NSNumber *originalAlpha = objc_getAssociatedObject(
-        window, &FullScreenOriginalAlphaAssociationKey);
-    if (originalAlpha)
-        window.alphaValue = originalAlpha.doubleValue;
 
     objc_setAssociatedObject(
         window, &FullScreenProxyWindowAssociationKey,
@@ -289,8 +351,31 @@ static void cleanupFovelleFullScreenProxy(NSWindow *window)
         window, &FullScreenProxyImageLayerAssociationKey,
         nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(
+        window, &FullScreenProxyTitlebarLayerAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
         window, &FullScreenOriginalAlphaAssociationKey,
         nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenExitStartFrameAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenNormalTitlebarSnapshotAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static void restoreFovelleFullScreenExitStartFrame(NSWindow *window)
+{
+    NSValue *startFrame = objc_getAssociatedObject(
+        window, &FullScreenExitStartFrameAssociationKey);
+    if (startFrame)
+        [window setFrame:startFrame.rectValue display:NO];
+
+    FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
+        window, &FullScreenAnimationHandlerAssociationKey);
+    if (handler)
+        handler(FovelleFullScreenAnimationPhase::Cancel, 0);
+    [window displayIfNeeded];
 }
 
 static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
@@ -300,8 +385,10 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
         window, &FullScreenCustomAnimationAssociationKey);
     NSValue *normalFrame = objc_getAssociatedObject(
         window, &FullScreenNormalFrameAssociationKey);
-    NSValue *normalImageRect = objc_getAssociatedObject(
-        window, &FullScreenNormalImageRectAssociationKey);
+    NSNumber *normalTitlebarOverlap = objc_getAssociatedObject(
+        window, &FullScreenNormalTitlebarOverlapAssociationKey);
+    NSBitmapImageRep *titlebarSnapshot = objc_getAssociatedObject(
+        window, &FullScreenNormalTitlebarSnapshotAssociationKey);
     FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
         window, &FullScreenAnimationHandlerAssociationKey);
     FovelleFullScreenImageRectProvider rectProvider = objc_getAssociatedObject(
@@ -311,7 +398,7 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
     FovelleFullScreenBackgroundProvider backgroundProvider =
         objc_getAssociatedObject(
             window, &FullScreenBackgroundProviderAssociationKey);
-    if (!enabled.boolValue || !normalFrame || !normalImageRect || !handler
+    if (!enabled.boolValue || !normalFrame || !handler
         || !rectProvider || !imageProvider || !backgroundProvider)
         return nil;
 
@@ -363,8 +450,24 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
         window.frame, imageRect);
     CGImageRelease(snapshotImage);
 
+    CALayer *titlebarLayer = nil;
+    if (normalTitlebarOverlap.intValue > 0 && titlebarSnapshot.CGImage)
+    {
+        titlebarLayer = [CALayer layer];
+        titlebarLayer.contents = reinterpret_cast<id>(titlebarSnapshot.CGImage);
+        titlebarLayer.contentsGravity = kCAGravityResize;
+        titlebarLayer.minificationFilter = kCAFilterLinear;
+        titlebarLayer.magnificationFilter = kCAFilterLinear;
+        titlebarLayer.contentsScale = qMax(window.backingScaleFactor, 1.0);
+        titlebarLayer.frame = NSMakeRect(
+            0, NSHeight(window.frame), NSWidth(window.frame), 0);
+        titlebarLayer.opacity = 0.0f;
+    }
+
     [proxy.contentView.layer addSublayer:windowLayer];
     [windowLayer addSublayer:imageLayer];
+    if (titlebarLayer)
+        [windowLayer addSublayer:titlebarLayer];
     objc_setAssociatedObject(
         window, &FullScreenProxyWindowAssociationKey,
         proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -374,6 +477,9 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
     objc_setAssociatedObject(
         window, &FullScreenProxyImageLayerAssociationKey,
         imageLayer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenProxyTitlebarLayerAssociationKey,
+        titlebarLayer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [proxy release];
 
     return @[window, proxy];
@@ -387,19 +493,19 @@ static void fovelleStartCustomAnimationToExitFullScreen(
         window, &FullScreenNormalFrameAssociationKey);
     NSNumber *storedTitlebarOverlap = objc_getAssociatedObject(
         window, &FullScreenNormalTitlebarOverlapAssociationKey);
-    NSValue *storedImageRect = objc_getAssociatedObject(
-        window, &FullScreenNormalImageRectAssociationKey);
     NSWindow *proxy = objc_getAssociatedObject(
         window, &FullScreenProxyWindowAssociationKey);
     CALayer *windowLayer = objc_getAssociatedObject(
         window, &FullScreenProxyWindowLayerAssociationKey);
     CALayer *imageLayer = objc_getAssociatedObject(
         window, &FullScreenProxyImageLayerAssociationKey);
+    CALayer *titlebarLayer = objc_getAssociatedObject(
+        window, &FullScreenProxyTitlebarLayerAssociationKey);
     FovelleFullScreenImageRectProvider rectProvider = objc_getAssociatedObject(
         window, &FullScreenImageRectProviderAssociationKey);
     FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
         window, &FullScreenAnimationHandlerAssociationKey);
-    if (!storedFrame || !storedImageRect || !proxy || !windowLayer
+    if (!storedFrame || !proxy || !windowLayer
         || !imageLayer || !rectProvider || !handler)
     {
         cleanupFovelleFullScreenProxy(window);
@@ -408,13 +514,9 @@ static void fovelleStartCustomAnimationToExitFullScreen(
 
     const NSRect normalFrame = storedFrame.rectValue;
     const int normalTitlebarOverlap = storedTitlebarOverlap.intValue;
+    const NSRect fullScreenFrame = window.frame;
     const QRect currentImageRect = rectProvider();
-    const QRect normalImageRect(
-        qRound(storedImageRect.rectValue.origin.x),
-        qRound(storedImageRect.rectValue.origin.y),
-        qRound(storedImageRect.rectValue.size.width),
-        qRound(storedImageRect.rectValue.size.height));
-    if (currentImageRect.isEmpty() || normalImageRect.isEmpty())
+    if (currentImageRect.isEmpty())
     {
         cleanupFovelleFullScreenProxy(window);
         return;
@@ -423,26 +525,64 @@ static void fovelleStartCustomAnimationToExitFullScreen(
     objc_setAssociatedObject(
         window, &FullScreenOriginalAlphaAssociationKey,
         @(window.alphaValue), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(
+        window, &FullScreenExitStartFrameAssociationKey,
+        [NSValue valueWithRect:fullScreenFrame],
+        OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [proxy orderWindow:NSWindowAbove relativeTo:window.windowNumber];
     window.alphaValue = 0.0;
+
+    // Lay out and paint the hidden real window at its normal endpoint before
+    // starting the proxy animation. The resulting image rectangle reflects
+    // the current zoom/pan state; the rectangle cached before entry may be
+    // stale after any interaction or deferred image layout in full screen.
     handler(FovelleFullScreenAnimationPhase::Begin, normalTitlebarOverlap);
+    [window setFrame:normalFrame display:NO];
+    handler(
+        FovelleFullScreenAnimationPhase::Update,
+        normalTitlebarOverlap);
+    [window displayIfNeeded];
+    const QRect normalImageRect = rectProvider();
+    if (normalImageRect.isEmpty())
+    {
+        restoreFovelleFullScreenExitStartFrame(window);
+        cleanupFovelleFullScreenProxy(window);
+        return;
+    }
+
+    // AppKit still expects the real full-screen window to keep its source
+    // geometry while it owns the Space transition. The normal layout above
+    // is only a measurement pass; restore the source geometry now, then the
+    // animation's final progress callback commits and repaints the endpoint.
+    [window setFrame:fullScreenFrame display:NO];
+    handler(FovelleFullScreenAnimationPhase::Update, 0);
+    [window displayIfNeeded];
+
+    const NSRect startTitlebarFrame = NSMakeRect(
+        0, NSHeight(fullScreenFrame), NSWidth(fullScreenFrame), 0);
+    const NSRect endTitlebarFrame = NSMakeRect(
+        0, NSHeight(normalFrame) - normalTitlebarOverlap,
+        NSWidth(normalFrame), normalTitlebarOverlap);
     auto *animation = [[FovelleFullScreenExitAnimation alloc]
         initWithRealWindow:window
         proxyWindow:proxy
         windowLayer:windowLayer
         imageLayer:imageLayer
-        startWindowFrame:proxyLocalRect(window.frame, proxy)
+        titlebarLayer:titlebarLayer
+        startWindowFrame:proxyLocalRect(fullScreenFrame, proxy)
         endWindowFrame:proxyLocalRect(normalFrame, proxy)
         startImageFrame:nativeWindowRectForLocalQtRect(
-            window.frame, currentImageRect)
+            fullScreenFrame, currentImageRect)
         endImageFrame:nativeWindowRectForLocalQtRect(
             normalFrame, normalImageRect)
+        startTitlebarFrame:startTitlebarFrame
+        endTitlebarFrame:endTitlebarFrame
         normalTitlebarOverlap:normalTitlebarOverlap
         duration:duration
         handler:handler];
     if (!animation)
     {
-        handler(FovelleFullScreenAnimationPhase::Cancel, 0);
+        restoreFovelleFullScreenExitStartFrame(window);
         cleanupFovelleFullScreenProxy(window);
         return;
     }
@@ -462,10 +602,7 @@ static void fovelleDidFailToExitFullScreen(
     objc_setAssociatedObject(
         window, &FullScreenAnimationAssociationKey,
         nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
-        window, &FullScreenAnimationHandlerAssociationKey);
-    if (handler)
-        handler(FovelleFullScreenAnimationPhase::Cancel, 0);
+    restoreFovelleFullScreenExitStartFrame(window);
     cleanupFovelleFullScreenProxy(window);
 }
 
@@ -4700,22 +4837,23 @@ void QVCocoaFunctions::setUserDefaults()
                     window, &FullScreenNormalFrameAssociationKey,
                     [NSValue valueWithRect:window.frame],
                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                const int titlebarOverlap = window.titlebarAppearsTransparent
-                    ? 0
-                    : qMax(qRound(window.contentView.frame.size.height
-                                  - window.contentLayoutRect.size.height), 0);
+                const int nativeTitlebarOverlap = qMax(
+                    qRound(window.contentView.frame.size.height
+                           - window.contentLayoutRect.size.height), 0);
+                FovelleFullScreenTitlebarOverlapProvider overlapProvider =
+                    objc_getAssociatedObject(
+                        window,
+                        &FullScreenTitlebarOverlapProviderAssociationKey);
+                const int titlebarOverlap = qMax(
+                    overlapProvider
+                        ? overlapProvider() : nativeTitlebarOverlap,
+                    0);
                 objc_setAssociatedObject(
                     window, &FullScreenNormalTitlebarOverlapAssociationKey,
                     @(titlebarOverlap), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                FovelleFullScreenImageRectProvider rectProvider =
-                    objc_getAssociatedObject(
-                        window, &FullScreenImageRectProviderAssociationKey);
-                const QRect imageRect = rectProvider ? rectProvider() : QRect();
                 objc_setAssociatedObject(
-                    window, &FullScreenNormalImageRectAssociationKey,
-                    imageRect.isEmpty() ? nil : [NSValue valueWithRect:NSMakeRect(
-                        imageRect.x(), imageRect.y(),
-                        imageRect.width(), imageRect.height())],
+                    window, &FullScreenNormalTitlebarSnapshotAssociationKey,
+                    captureFullScreenTitlebar(window, titlebarOverlap),
                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             }
             objc_setAssociatedObject(
@@ -4772,6 +4910,7 @@ void QVCocoaFunctions::setUserDefaults()
             objc_setAssociatedObject(
                 window, &FullScreenAnimationAssociationKey,
                 nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            revealFovelleFullScreenRealWindow(window);
             dispatch_async(dispatch_get_main_queue(), ^{
                 cleanupFovelleFullScreenProxy(window);
             });
@@ -4909,6 +5048,17 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
                 Q_RETURN_ARG(QColor, result));
             return result;
         };
+        FovelleFullScreenTitlebarOverlapProvider overlapProvider = ^int {
+            if (!guardedWindow)
+                return 0;
+            int result = 0;
+            QMetaObject::invokeMethod(
+                guardedWindow.data(),
+                "fullScreenTransitionTitlebarOverlap",
+                Qt::DirectConnection,
+                Q_RETURN_ARG(int, result));
+            return result;
+        };
         objc_setAssociatedObject(
             nativeWindow, &FullScreenImageRectProviderAssociationKey,
             rectProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
@@ -4918,6 +5068,9 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
         objc_setAssociatedObject(
             nativeWindow, &FullScreenBackgroundProviderAssociationKey,
             backgroundProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenTitlebarOverlapProviderAssociationKey,
+            overlapProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
     }
     else
     {
@@ -4931,7 +5084,7 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
             nativeWindow, &FullScreenNormalTitlebarOverlapAssociationKey,
             nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(
-            nativeWindow, &FullScreenNormalImageRectAssociationKey,
+            nativeWindow, &FullScreenNormalTitlebarSnapshotAssociationKey,
             nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(
             nativeWindow, &FullScreenImageRectProviderAssociationKey,
@@ -4941,6 +5094,9 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
             nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
         objc_setAssociatedObject(
             nativeWindow, &FullScreenBackgroundProviderAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenTitlebarOverlapProviderAssociationKey,
             nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
         auto *animation = static_cast<FovelleFullScreenExitAnimation *>(
             objc_getAssociatedObject(

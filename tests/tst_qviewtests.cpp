@@ -3388,6 +3388,18 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     QTRY_COMPARE_WITH_TIMEOUT(
         window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
 
+    transitionTimer.restart();
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
+    reportFullscreenMetric("reenter", transitionTimer.elapsed());
+
+    transitionTimer.restart();
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    reportFullscreenMetric("second-exit", transitionTimer.elapsed());
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
+
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
