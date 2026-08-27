@@ -599,7 +599,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Zoom Level (%):</source>
-        <translation>縮放等級（%）：</translation>
+        <translation>縮放等級（%）:</translation>
     </message>
 </context>
 <context>
@@ -725,7 +725,7 @@ No write permission or file is read-only.</source>
     <message>
         <source>Error checking for updates:
 %1</source>
-        <translation>檢查更新時發生錯誤：
+        <translation>檢查更新時發生錯誤:
 %1</translation>
     </message>
     <message>
@@ -1268,7 +1268,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Appearance:</source>
-        <translation>外觀：</translation>
+        <translation>外觀:</translation>
     </message>
     <message>
         <source>Checkerboard when image loaded</source>
@@ -1280,7 +1280,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Smooth scaling:</source>
-        <translation>平滑縮放：</translation>
+        <translation>平滑縮放:</translation>
     </message>
     <message>
         <source>Show images smaller than the display area at their original 1:1 size</source>
@@ -1292,7 +1292,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Auto update check:</source>
-        <translation>自動檢查更新：</translation>
+        <translation>自動檢查更新:</translation>
     </message>
     <message>
         <source>Associate all supported formats</source>
@@ -1304,11 +1304,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Double Click:</source>
-        <translation>雙擊：</translation>
+        <translation>雙擊:</translation>
     </message>
     <message>
         <source>Drag:</source>
-        <translation>拖曳：</translation>
+        <translation>拖曳:</translation>
     </message>
     <message>
         <source>Navigate when clicking on the left/right edges of the viewport</source>
@@ -1324,7 +1324,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Mode:</source>
-        <translation>模式：</translation>
+        <translation>模式:</translation>
     </message>
     <message>
         <source>Click</source>
@@ -1336,11 +1336,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Middle Click:</source>
-        <translation>中鍵點按：</translation>
+        <translation>中鍵點按:</translation>
     </message>
     <message>
         <source>Middle Drag:</source>
-        <translation>中鍵拖曳：</translation>
+        <translation>中鍵拖曳:</translation>
     </message>
     <message>
         <source>Scroll Wheel / Touchpad</source>
@@ -1348,11 +1348,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Vertical Scroll:</source>
-        <translation>垂直捲動：</translation>
+        <translation>垂直捲動:</translation>
     </message>
     <message>
         <source>Horizontal Scroll:</source>
-        <translation>水平捲動：</translation>
+        <translation>水平捲動:</translation>
     </message>
     <message>
         <source>Cursor</source>
@@ -1360,7 +1360,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Auto-hide in fullscreen:</source>
-        <translation>全螢幕時自動隱藏：</translation>
+        <translation>全螢幕時自動隱藏:</translation>
     </message>
     <message>
         <source> sec delay</source>
@@ -1372,27 +1372,27 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>%1 + Double Click:</source>
-        <translation>%1 + 雙擊：</translation>
+        <translation>%1 + 雙擊:</translation>
     </message>
     <message>
         <source>%1 + Drag:</source>
-        <translation>%1 + 拖曳：</translation>
+        <translation>%1 + 拖曳:</translation>
     </message>
     <message>
         <source>%1 + Middle Click:</source>
-        <translation>%1 + 中鍵點按：</translation>
+        <translation>%1 + 中鍵點按:</translation>
     </message>
     <message>
         <source>%1 + Middle Drag:</source>
-        <translation>%1 + 中鍵拖曳：</translation>
+        <translation>%1 + 中鍵拖曳:</translation>
     </message>
     <message>
         <source>%1 + Vertical Scroll:</source>
-        <translation>%1 + 垂直捲動：</translation>
+        <translation>%1 + 垂直捲動:</translation>
     </message>
     <message>
         <source>%1 + Horizontal Scroll:</source>
-        <translation>%1 + 水平捲動：</translation>
+        <translation>%1 + 水平捲動:</translation>
     </message>
     <message>
         <source>Mouse</source>
@@ -1410,7 +1410,7 @@ No write permission or file is read-only.</source>
         <source>
 Unable to associate: %1.</source>
         <translation>
-無法建立關聯：%1。</translation>
+無法建立關聯:%1。</translation>
     </message>
     <message>
         <source>File Associations</source>

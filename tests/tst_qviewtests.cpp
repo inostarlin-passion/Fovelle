@@ -263,6 +263,7 @@ private slots:
     void testFullscreenMenuIconsRespectMainMenuPolicy();
     void testExitFullscreenActionUsesEscapePath();
     void testOptionsDialogCentersOnMainWindow();
+    void testSettingsDialogIsNativeChildAboveMainWindow();
     void testAssociateFormatsButtonIsCentered();
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
@@ -711,6 +712,7 @@ static QString settingsLabelColumnFailure(QWidget *page)
         return QStringLiteral("settings page is missing");
 
     int expectedRight = -1;
+    QChar expectedPunctuation;
     int visibleLabelCount = 0;
     for (auto *label : page->findChildren<QLabel *>())
     {
@@ -726,6 +728,17 @@ static QString settingsLabelColumnFailure(QWidget *page)
             continue;
 
         ++visibleLabelCount;
+        const QChar punctuation = text.back();
+        if (punctuation != QLatin1Char(':'))
+            return QStringLiteral("label %1 does not use the English ASCII U+003A colon")
+                .arg(label->objectName());
+        if (expectedPunctuation.isNull())
+            expectedPunctuation = punctuation;
+        else if (punctuation != expectedPunctuation)
+            return QStringLiteral("labels use mixed terminal punctuation: %1 and %2")
+                .arg(QString::number(expectedPunctuation.unicode(), 16))
+                .arg(QString::number(punctuation.unicode(), 16));
+
         const int right = label->mapTo(page, QPoint(label->width(), 0)).x();
         if (expectedRight < 0)
             expectedRight = right;
@@ -7055,8 +7068,10 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
 // settings pages after final polish and category activation.
 // Steps: install one language, construct and show Settings, activate General
 // and Mouse, and compare each visible label's mapped right edge and alignment.
-// Expected result: every label ending in ':' or '：' is right/trailing aligned
-// and all such labels on the same page share exactly one right edge.
+// Expected result: every label ending in ':' or '：' uses one terminal colon
+// glyph per language, is right/trailing aligned, and all such labels on the
+// same page share exactly one right edge. A mixed ASCII/full-width set would
+// make the visible punctuation edges differ even when widget rectangles match.
 // Postcondition: the dialog, translator, and temporary settings are restored.
 void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
 {
@@ -7736,6 +7751,76 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
     QCOMPARE(dialog->frameGeometry().center().x(), mainWindow.frameGeometry().center().x());
 
     qvApp->removeEventFilter(&presentationRecorder);
+    dialog->close();
+    mainWindow.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SETTINGS-NATIVE-CHILD-ORDER
+// Test purpose: verify that the modeless Preferences window is an AppKit
+// child ordered above the invoking Fovelle main window.
+// Preconditions: a visible main window and a QVApplication with no required
+// user interaction for opening Preferences.
+// Input data: an invoking MainWindow, the production Preferences action, and
+// an independent tool panel representing an external preview panel entering
+// the window-ordering sequence.
+// Steps: open Preferences from the main window, inspect its native relation
+// and modality, order the independent panel, then reopen Preferences.
+// Expected result: Preferences remains modeless and its native NSWindow stays
+// a child of, and ordered above, the invoking main NSWindow; no global
+// always-on-top flag is required.
+// Postcondition: all test windows are closed and application settings restore.
+void WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()
+{
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DeleteOnClose, false);
+    mainWindow.setWindowState(Qt::WindowNoState);
+    mainWindow.setGeometry(QRect(220, 180, 760, 520));
+    mainWindow.show();
+    QTRY_VERIFY_WITH_TIMEOUT(mainWindow.isVisible(), 1000);
+
+    qvApp->openOptionsDialog(&mainWindow);
+    QVOptionsDialog *dialog = nullptr;
+    const auto findVisibleOptionsDialog = []() -> QVOptionsDialog * {
+        for (QWidget *widget : QApplication::topLevelWidgets())
+        {
+            if (auto *candidate = qobject_cast<QVOptionsDialog *>(widget);
+                candidate && candidate->isVisible())
+                return candidate;
+        }
+        return nullptr;
+    };
+    QTRY_VERIFY_WITH_TIMEOUT((dialog = findVisibleOptionsDialog()) != nullptr, 3000);
+    QVERIFY(dialog->windowHandle());
+    QVERIFY(mainWindow.windowHandle());
+    QVERIFY(!dialog->isModal());
+    QCOMPARE(dialog->windowModality(), Qt::NonModal);
+    QVERIFY(!dialog->windowHandle()->flags().testFlag(Qt::WindowStaysOnTopHint));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(),
+                                           mainWindow.windowHandle()),
+        2000);
+    QVERIFY(dialog->property("settingsAttachedToMainWindow").toBool());
+
+    QDialog externalPreviewPanel;
+    externalPreviewPanel.setWindowFlag(Qt::Tool, true);
+    externalPreviewPanel.setAttribute(Qt::WA_DeleteOnClose, false);
+    externalPreviewPanel.show();
+    QTRY_VERIFY_WITH_TIMEOUT(externalPreviewPanel.isVisible(), 1000);
+    externalPreviewPanel.raise();
+    QCoreApplication::processEvents();
+
+    qvApp->openOptionsDialog(&mainWindow);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(),
+                                           mainWindow.windowHandle()),
+        2000);
+    QVERIFY(dialog->property("settingsAttachedToMainWindow").toBool());
+
+    externalPreviewPanel.close();
     dialog->close();
     mainWindow.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

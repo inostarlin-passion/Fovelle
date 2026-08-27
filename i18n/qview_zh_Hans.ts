@@ -378,7 +378,7 @@
     </message>
     <message>
         <source>Error: URL is invalid</source>
-        <translation>错误：URL无效</translation>
+        <translation>错误:URL无效</translation>
     </message>
     <message>
         <source>Downloading image...</source>
@@ -398,7 +398,7 @@
     </message>
     <message>
         <source>Error: Invalid image</source>
-        <translation>错误：无效的文件</translation>
+        <translation>错误:无效的文件</translation>
     </message>
     <message>
         <source>URL of a supported image file:</source>
@@ -407,7 +407,7 @@
     <message>
         <source>Can&apos;t delete %1:
 No write permission or file is read-only.</source>
-        <translation>无法删除：
+        <translation>无法删除:
 没有权限更改或文件只读。</translation>
     </message>
     <message>
@@ -437,7 +437,7 @@ No write permission or file is read-only.</source>
     <message>
         <source>Can&apos;t undo deletion of %1:
 No write permission or file is read-only.</source>
-        <translation>无法撤销删除：
+        <translation>无法撤销删除:
 没有写入权限或文件只读。</translation>
     </message>
     <message>
@@ -450,7 +450,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Zoom Level (%):</source>
-        <translation>缩放级别（%）：</translation>
+        <translation>缩放级别（%）:</translation>
     </message>
     <message>
         <source>Save Frame As...</source>
@@ -551,7 +551,7 @@ No write permission or file is read-only.</source>
     <message>
         <source>Error checking for updates:
 %1</source>
-        <translation>检查更新时出错：
+        <translation>检查更新时出错:
 %1</translation>
     </message>
     <message>
@@ -745,7 +745,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>After matching image size:</source>
-        <translation>匹配图片大小后：</translation>
+        <translation>匹配图片大小后:</translation>
     </message>
     <message>
         <source>Minimum size:</source>
@@ -821,7 +821,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Smooth scaling:</source>
-        <translation>平滑缩放：</translation>
+        <translation>平滑缩放:</translation>
     </message>
     <message>
         <source>Use expensive scaling when zooming above the window size (can be laggier with large images)</source>
@@ -833,7 +833,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Disable above:</source>
-        <translation>禁用高于：</translation>
+        <translation>禁用高于:</translation>
     </message>
     <message>
         <source>%</source>
@@ -857,11 +857,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Zoom default:</source>
-        <translation>默认缩放：</translation>
+        <translation>默认缩放:</translation>
     </message>
     <message>
         <source>Limit fit/fill zoom:</source>
-        <translation>限制适应/填充缩放：</translation>
+        <translation>限制适应/填充缩放:</translation>
     </message>
     <message>
         <source> pixel overscan</source>
@@ -885,7 +885,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Color space conversion:</source>
-        <translation>颜色空间转换：</translation>
+        <translation>颜色空间转换:</translation>
     </message>
     <message>
         <source>Language:</source>
@@ -893,7 +893,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Navigation speed:</source>
-        <translation>导航速度：</translation>
+        <translation>导航速度:</translation>
     </message>
     <message>
         <source> ms</source>
@@ -921,7 +921,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>After deletion:</source>
-        <translation>删除后：</translation>
+        <translation>删除后:</translation>
     </message>
     <message>
         <source>&amp;Ask before deleting files</source>
@@ -966,11 +966,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Double Click:</source>
-        <translation>双击：</translation>
+        <translation>双击:</translation>
     </message>
     <message>
         <source>Drag:</source>
-        <translation>拖动：</translation>
+        <translation>拖动:</translation>
     </message>
     <message>
         <source>Navigate when clicking on the left/right edges of the viewport</source>
@@ -986,7 +986,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Mode:</source>
-        <translation>模式：</translation>
+        <translation>模式:</translation>
     </message>
     <message>
         <source>Click</source>
@@ -998,11 +998,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Middle Click:</source>
-        <translation>中键点击：</translation>
+        <translation>中键点击:</translation>
     </message>
     <message>
         <source>Middle Drag:</source>
-        <translation>中键拖动：</translation>
+        <translation>中键拖动:</translation>
     </message>
     <message>
         <source>Scroll Wheel / Touchpad</source>
@@ -1010,11 +1010,11 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Vertical Scroll:</source>
-        <translation>垂直滚动：</translation>
+        <translation>垂直滚动:</translation>
     </message>
     <message>
         <source>Horizontal Scroll:</source>
-        <translation>水平滚动：</translation>
+        <translation>水平滚动:</translation>
     </message>
     <message>
         <source>Cursor</source>
@@ -1022,7 +1022,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Auto-hide in fullscreen:</source>
-        <translation>全屏时自动隐藏：</translation>
+        <translation>全屏时自动隐藏:</translation>
     </message>
     <message>
         <source> sec delay</source>
@@ -1266,7 +1266,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Appearance:</source>
-        <translation>外观：</translation>
+        <translation>外观:</translation>
     </message>
     <message>
         <source>Show images smaller than the display area at their original 1:1 size</source>
@@ -1278,7 +1278,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Auto update check:</source>
-        <translation>自动检查更新：</translation>
+        <translation>自动检查更新:</translation>
     </message>
     <message>
         <source>Associate all supported formats</source>
@@ -1292,7 +1292,7 @@ No write permission or file is read-only.</source>
         <source>
 Unable to associate: %1.</source>
         <translation>
-无法关联：%1。</translation>
+无法关联:%1。</translation>
     </message>
     <message>
         <source>File Associations</source>
@@ -1340,13 +1340,13 @@ Unable to associate: %1.</source>
     <message>
         <source>Could not rename %1:
 No write permission or file is read-only.</source>
-        <translation>无法重命名%1：
+        <translation>无法重命名%1:
 没有写入权限或文件只读。</translation>
     </message>
     <message>
         <source>Could not rename %1:
 (Check that all characters are valid)</source>
-        <translation>无法重命名%1：
+        <translation>无法重命名%1:
 （无效字符）</translation>
     </message>
 </context>

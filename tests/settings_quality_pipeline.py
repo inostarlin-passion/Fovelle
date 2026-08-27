@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -62,6 +63,32 @@ def test_case(
 
 
 CASES = (
+    test_case(
+        "SET-SETTINGS-NATIVE-CHILD-ORDER",
+        "Quick Look 等外部预览面板不能插入 Fovelle 主窗口与 Settings 之间",
+        "验证 Preferences 的原生 NSWindow 使用 AppKit 的 child-window 关系并位于调用它的主窗口之上，外部面板重新参与排序后关系仍保持。",
+        "Cocoa QPA 可用；一个可见 MainWindow 能调用 QVApplication::openOptionsDialog；测试可创建独立 Tool panel。",
+        "MainWindow、生产 Preferences 对话框、独立 Tool panel，以及 attachWindowAbove/isWindowChildOf 的原生状态。",
+        "从 MainWindow 打开 Preferences，读取原生父子关系；显示并提升独立 Tool panel；再次打开 Preferences 并重复读取关系。",
+        "Preferences 的 NSWindow 是调用它的主 NSWindow 的 child，且 ordered=NSWindowAbove；外部面板排序不会在两者之间产生 Fovelle 内部的独立窗口；关系由可观测 native helper 确认。",
+        "关闭 Tool panel、Preferences 和 MainWindow；不触发文件关联或改变持久化设置。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow",
+        ("static", "integration", "system"),
+    ),
+    test_case(
+        "SET-SETTINGS-MODELESS-NATIVE",
+        "Settings 保持无模态并保留原生 Preferences toolbar",
+        "验证修复没有通过 modal 或全局 always-on-top 改变 Settings 的交互语义，并且原生 toolbar 仍由 QVOptionsDialog 正常提供。",
+        "生产 QVOptionsDialog 可构造并显示；Cocoa 原生 toolbar 配置可用。",
+        "dialog->isModal、windowModality、hasNativeSettingsToolbar，以及 settingsAttachedToMainWindow 属性。",
+        "由主窗口打开 Settings，读取 modality、toolbar 和 attach 状态；在外部 Tool panel 排序后再次读取。",
+        "dialog 为 NonModal；原生 Settings toolbar 存在；父子窗口关系成立；修复不依赖 Qt::WindowStaysOnTopHint 抢占所有应用。",
+        "关闭对话框和测试窗口；恢复应用窗口生命周期策略。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow",
+        ("static", "integration"),
+    ),
     test_case(
         "SET-GENERAL-GROUPS",
         "General 的选项按八个有序逻辑组直接组织",
@@ -181,12 +208,12 @@ CASES = (
     ),
     test_case(
         "SET-GENERAL-COLON-ALIGNMENT",
-        "所有支持语言下 General 的冒号结尾选项名称右对齐到同一列",
-        "验证英文及非英文翻译不会因自然文本宽度不同而改变 General 标签列的右边界。",
+        "所有支持语言下 General 的冒号结尾选项名称使用英语 ASCII 冒号并右对齐到同一列",
+        "验证英文及非英文翻译不会因自然文本宽度或冒号字形不同而改变 General 标签列的可见右边界。",
         "五种翻译目录可加载；QVOptionsDialog 已 polish、显示并激活 General 页。",
-        "en、es、ja、zh_Hans、zh_Hant 和 General 中所有可见 ASCII/全角冒号结尾 QLabel 的映射几何。",
-        "逐语言安装翻译，显示 Settings，激活 General，读取每个可见冒号结尾标签的右边界和 alignment。",
-        "每个可见标签同时具有 AlignRight 和 AlignTrailing，且同一 General 页所有标签右边界完全相等。",
+        "en、es、ja、zh_Hans、zh_Hant 和 General 中所有可见 ASCII 冒号结尾 QLabel 的映射几何。",
+        "逐语言安装翻译，显示 Settings，激活 General，读取每个可见冒号结尾标签的右边界、alignment 和终止字符。",
+        "每个可见标签同时具有 AlignRight 和 AlignTrailing，终止字符为 U+003A，且同一 General 页所有标签右边界完全相等。",
         "关闭对话框；翻译器和临时设置恢复。",
         "integration",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations",
@@ -194,16 +221,42 @@ CASES = (
     ),
     test_case(
         "SET-MOUSE-COLON-ALIGNMENT",
-        "所有支持语言下 Mouse 的冒号结尾选项名称右对齐到同一列",
-        "验证 Mouse 的三个逻辑组使用与 General 相同的共享标签宽度，不因语言或组而漂移。",
+        "所有支持语言下 Mouse 的冒号结尾选项名称使用英语 ASCII 冒号并右对齐到同一列",
+        "验证 Mouse 的三个逻辑组使用与 General 相同的共享标签宽度，不因语言、组或冒号字形而漂移。",
         "五种翻译目录可加载；QVOptionsDialog 已 polish、显示并激活 Mouse 页。",
-        "en、es、ja、zh_Hans、zh_Hant 和 Mouse 中所有可见 ASCII/全角冒号结尾 QLabel 的映射几何。",
-        "逐语言安装翻译，显示 Settings，激活 Mouse，读取每个可见冒号结尾标签的右边界和 alignment。",
-        "每个可见标签同时具有 AlignRight 和 AlignTrailing，且同一 Mouse 页所有标签右边界完全相等。",
+        "en、es、ja、zh_Hans、zh_Hant 和 Mouse 中所有可见 ASCII 冒号结尾 QLabel 的映射几何。",
+        "逐语言安装翻译，显示 Settings，激活 Mouse，读取每个可见冒号结尾标签的右边界、alignment 和终止字符。",
+        "每个可见标签同时具有 AlignRight 和 AlignTrailing，终止字符为 U+003A，且同一 Mouse 页所有标签右边界完全相等。",
         "关闭对话框；翻译器和临时设置恢复。",
         "integration",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations",
         ("static", "integration"),
+    ),
+    test_case(
+        "SET-GENERAL-COLON-PIXEL-ALIGNMENT",
+        "简体中文 General 截图中所有选项冒号的实际绘制右边界完全相等",
+        "验证截图证据测量的是最终绘制的深色字形像素，而不是仅凭 QLabel 控件矩形推断视觉结果。",
+        "修复后的应用已用简体中文显示 General；截图文件和 Pillow 图像解码器可用；截图尺寸与固定采集流程一致。",
+        "reports/evidence_issue2_general_zh_Hans.jpeg、阈值 180、标签行带和标签区域 x 上限。",
+        "运行 screenshot_alignment_audit.py，逐行取标签区域内阈值以下像素的最右 x 坐标，并比较七个标签行。",
+        "七个 General 标签行均含有效文本像素，所有可见冒号像素右边界完全相等，审计记录终止字符为 U+003A。",
+        "只读截图；不改变应用、翻译或用户设置。",
+        "system",
+        "tests/screenshot_alignment_audit.py::audit_screenshot",
+        ("static", "system"),
+    ),
+    test_case(
+        "SET-MOUSE-COLON-PIXEL-ALIGNMENT",
+        "简体中文 Mouse 截图中所有选项冒号的实际绘制右边界完全相等",
+        "验证三个 Mouse 逻辑组和 Ctrl 组合项的最终绘制字形均使用同一 ASCII 冒号列。",
+        "修复后的应用已用简体中文显示 Mouse；截图文件和 Pillow 图像解码器可用；截图尺寸与固定采集流程一致。",
+        "reports/evidence_issue2_mouse_zh_Hans.jpeg、阈值 180、十一个可见标签行带和标签区域 x 上限。",
+        "运行 screenshot_alignment_audit.py，逐行取标签区域内阈值以下像素的最右 x 坐标，并比较十一个标签行。",
+        "十一个 Mouse 标签行均含有效文本像素，所有可见冒号像素右边界完全相等，审计记录终止字符为 U+003A。",
+        "只读截图；不改变应用、翻译或用户设置。",
+        "system",
+        "tests/screenshot_alignment_audit.py::audit_screenshot",
+        ("static", "system"),
     ),
     test_case(
         "CQ-LEAN-COMPLETENESS",
@@ -251,51 +304,93 @@ RESEARCH_TRACE = [
     {
         "hop": 1,
         "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
-        "finding": "Apple describes macOS settings windows as panes and recommends grouping related settings within each pane.",
-        "explicit_premise": "General and Mouse are the two settings pages in scope, and each page has one semantic collection of named options.",
-        "deduction": "A page-level layout invariant is the appropriate unit for label alignment; the solution must not depend on one language's rendered text.",
+        "finding": "Apple models macOS Settings as a modeless window with toolbar-selected panes and a clear active pane.",
+        "explicit_premise": "Fovelle Preferences already uses a native preference-style toolbar and must remain usable alongside the main image window.",
+        "deduction": "The fix must preserve an independent modeless Preferences window and its native toolbar instead of replacing it with a blocking modal dialog.",
     },
     {
         "hop": 2,
-        "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
-        "finding": "Apple's layout guidance treats alignment and consistent spacing as signals of organization and hierarchy.",
-        "explicit_premise": "The requested observable is the common right edge of option names, including non-English translations.",
-        "deduction": "The stable invariant is a common label-column boundary, not padded source strings or hand-tuned language-specific offsets.",
+        "source": "https://developer.apple.com/documentation/appkit/nswindow/addchildwindow(_:ordered:)",
+        "finding": "AppKit adds a child window relative to a parent with an explicit ordering mode; the relationship is maintained when either window is subsequently ordered.",
+        "explicit_premise": "The observed failure is an external Quick Look panel occupying the ordering interval between Fovelle's main and Preferences windows.",
+        "deduction": "The native invariant must be a child-window relation with Preferences ordered above its invoking main window, not a best-effort call to raise or activate.",
     },
     {
         "hop": 3,
-        "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-        "finding": "QFormLayout provides LabelRole and FieldRole columns and exposes label/form alignment controls.",
-        "explicit_premise": "Each option name is a label widget whose natural width changes with translation.",
-        "deduction": "Measure LabelRole natural widths, give every label the same shared width, and keep form origins left-aligned.",
+        "source": "https://developer.apple.com/documentation/appkit/nswindow/level-swift.struct",
+        "finding": "AppKit window levels define global ordering tiers; a higher-level window can cover normal-level windows.",
+        "explicit_premise": "Finder/Quick Look belongs to another application and Fovelle must not globally float above other applications merely to repair an app-local interval.",
+        "deduction": "Changing Settings to a global floating level is excluded; the required relation is app-local child ordering at the existing level.",
     },
     {
         "hop": 4,
-        "source": "https://doc.qt.io/qt-6/qlayout.html",
-        "finding": "Qt layouts can apply alignment to widgets and nested layouts and calculate their final geometry from those constraints.",
-        "explicit_premise": "Correctness must be observable from final widget geometry rather than only from source markers.",
-        "deduction": "The integration test maps each label's right edge into its page coordinate system and checks the alignment flags.",
+        "source": "https://developer.apple.com/documentation/quicklookui/qlpreviewpanel",
+        "finding": "Quick Look's preview panel is an AppKit NSPanel, so it participates in AppKit's native panel/window ordering rather than Qt widget layout.",
+        "explicit_premise": "The reported external preview is produced by Finder's Space action and remains open while Fovelle is revisited.",
+        "deduction": "The repair must be made at the native NSWindow ordering boundary; changing Qt layout, centering, or widget parentage cannot constrain that panel.",
     },
     {
         "hop": 5,
-        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
-        "finding": "Qt's QFormLayout implementation computes label/field column geometry and honors label/form alignment when placing rows.",
-        "explicit_premise": "Independent forms may have different natural size hints when translated labels have different widths.",
-        "deduction": "A shared post-polish maximum width removes the independent-size-hint degree of freedom while retaining Qt's normal form layout.",
+        "source": "https://doc.qt.io/qt-6/qdialog.html",
+        "finding": "Qt documents that a dialog parent controls ownership/centering context but does not by itself guarantee stacking; modeless dialogs are shown with show().",
+        "explicit_premise": "QVOptionsDialog is intentionally modeless and its native toolbar needs a top-level NSWindow.",
+        "deduction": "Passing MainWindow as a Qt parent alone is insufficient and modal execution is semantically wrong; the ordering fix must be native.",
     },
     {
         "hop": 6,
-        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
-        "finding": "Qt converts layout-item geometry to QWidget geometry through a defined coordinate conversion.",
-        "explicit_premise": "Labels live under different group/form parents, so local x coordinates are not sufficient evidence of page-level alignment.",
-        "deduction": "The test compares all label right edges after mapping them to the common page widget, avoiding mixed coordinate systems.",
+        "source": "https://doc.qt.io/qt-6/qwindow.html#transientParent-prop",
+        "finding": "Qt describes transientParent as a window-manager hint, while setParent embeds a QWindow into another window and is not a top-level sibling ordering contract.",
+        "explicit_premise": "Fovelle needs a separate Settings window with a native preference toolbar, not an embedded child widget or a hint-only relationship.",
+        "deduction": "Use AppKit addChildWindow as the authoritative relation and expose a read-only native observer for deterministic tests.",
     },
     {
         "hop": 7,
+        "source": "https://doc.qt.io/qt-6/qformlayout.html",
+        "finding": "QFormLayout has distinct LabelRole and FieldRole columns and supports label/form alignment policies.",
+        "explicit_premise": "General and Mouse option names are labels and their controls are fields in multiple independent forms.",
+        "deduction": "The label fix must operate on LabelRole/FieldRole geometry, not on source-string padding or a page-wide text hack.",
+    },
+    {
+        "hop": 8,
+        "source": "https://doc.qt.io/qt-6/qlayout.html",
+        "finding": "Qt layouts calculate final child geometry from layout constraints and alignment, so the final widget geometry is the observable contract.",
+        "explicit_premise": "The defect occurs only after translated text changes natural widths and the layouts are polished.",
+        "deduction": "Measure after translation and polish, then verify mapped right edges and alignment flags in a common page coordinate system.",
+    },
+    {
+        "hop": 9,
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
+        "finding": "Qt's QFormLayout implementation computes label and field column geometry from row items and alignment settings.",
+        "explicit_premise": "Independent forms can have different natural widths when translated labels have different widths.",
+        "deduction": "A single post-polish maximum label width across General and Mouse removes the independent right-edge degree of freedom while preserving QFormLayout.",
+    },
+    {
+        "hop": 10,
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
+        "finding": "Qt converts layout-item geometry to QWidget geometry through a defined coordinate conversion.",
+        "explicit_premise": "Labels are nested in different group/form parents, so local x coordinates cannot be compared directly.",
+        "deduction": "Map each label's right edge to its page before comparing; this makes the test independent of local parent coordinates.",
+    },
+    {
+        "hop": 11,
         "source": "https://doc.qt.io/qt-6/i18n-source-translation.html",
-        "finding": "Qt translation changes are delivered through the application translation/event path, so translated UI text can be different before the next layout pass.",
-        "explicit_premise": "The reported defect appears after changing from English to Simplified Chinese and must also cover the other supported catalogs.",
-        "deduction": "Recompute natural widths after translated text and polish; run the executable geometry test once for each supported language.",
+        "finding": "Qt's translation/event path permits UI strings to change by installed translator and language.",
+        "explicit_premise": "The requested language set is en, es, ja, zh_Hans, and zh_Hant; every translated colon must use the same U+003A glyph as the English source.",
+        "deduction": "Audit every source-colon translation statically, then load all five catalogs and run the executable geometry test after the final translated text is installed.",
+    },
+    {
+        "hop": 12,
+        "source": "https://doc.qt.io/qt-6/qlabel.html",
+        "finding": "QLabel alignment positions the label's contents within the widget area; AlignRight/AlignTrailing is not documented as an equality assertion about the final ink pixels of different glyphs.",
+        "explicit_premise": "The earlier test compared only each QLabel rectangle's mapped right edge, while the user acceptance criterion is the visible colon edge in a screenshot.",
+        "deduction": "The acceptance test must include the terminal character contract and a rendered-pixel audit; a widget-geometry pass alone is insufficient evidence.",
+    },
+    {
+        "hop": 13,
+        "source": "https://doc.qt.io/qt-6/qfontmetrics.html",
+        "finding": "Qt distinguishes horizontal advance from the actual rendered ink and defines right bearing as the distance between them; boundingRect covers the pixels that text draws.",
+        "explicit_premise": "U+003A and U+FF1A can have different glyph advances/bearings in the active font, so equal label rectangles do not imply equal visible punctuation edges.",
+        "deduction": "Use the English source's U+003A in every translation. Then the terminal glyph's bearing is constant under the same style, making shared right-aligned label rectangles imply shared visible colon edges.",
     },
 ]
 
@@ -401,8 +496,29 @@ def static_stage(repo: Path) -> dict[str, Any]:
     options_header = read(repo, "src/qvoptionsdialog.h")
     options_ui = read(repo, "src/qvoptionsdialog.ui")
     test_source = read(repo, "tests/tst_qviewtests.cpp")
+    screenshot_audit_source = read(repo, "tests/screenshot_alignment_audit.py")
     pipeline_source = read(repo, "tests/settings_quality_pipeline.py")
     settings_source = read(repo, "src/settingsmanager.cpp")
+    application_source = read(repo, "src/qvapplication.cpp")
+    cocoa_header = read(repo, "src/qvcocoafunctions.h")
+    cocoa_source = read(repo, "src/qvcocoafunctions.mm")
+
+    native_child_markers = {
+        "public_attach_helper": "static bool attachWindowAbove(QWindow *child, QWindow *parent);" in cocoa_header,
+        "public_observer": "static bool isWindowChildOf(const QWindow *child, const QWindow *parent);" in cocoa_header,
+        "appkit_child_order": "addChildWindow:childWindow ordered:NSWindowAbove" in cocoa_source,
+        "previous_parent_removed": "removeChildWindow:childWindow" in cocoa_source,
+        "relationship_observable": "childWindow.parentWindow == parentWindow" in cocoa_source,
+        "production_call_before_show": "optionsDialog->prepareForDisplay();\n    attachDialog();\n    centerDialog();\n    optionsDialog->show();" in application_source,
+        "reopen_rechecks_relation": "Re-resolve the native relationship" in application_source,
+        "native_order_test": "testSettingsDialogIsNativeChildAboveMainWindow" in test_source,
+    }
+    check(
+        "STATIC-NATIVE-CHILD-ORDER",
+        all(native_child_markers.values()),
+        native_child_markers,
+        "Preferences uses one native AppKit child-window relation ordered above its invoking main window",
+    )
 
     hierarchy_markers = {
         "direct_general_content": all(
@@ -495,12 +611,14 @@ def static_stage(repo: Path) -> dict[str, Any]:
         "post_polish_measurement": "ensurePolished();" in options_cpp and "formLabelColumnWidth" in options_cpp,
         "cross_language_geometry_test": "testSettingsColonAlignmentSurvivesTranslations" in test_source,
         "ascii_and_fullwidth_colon_test": "QChar(0xFF1A)" in test_source,
+        "same_terminal_colon_test": "mixed terminal punctuation" in test_source,
+        "rendered_pixel_test": "def audit_screenshot" in screenshot_audit_source,
     }
     check(
         "STATIC-COLON-ALIGNMENT",
         all(colon_alignment_markers.values()),
         colon_alignment_markers,
-        "translated colon-terminated labels are measured post-polish and fixed to one shared column",
+        "translated colon-terminated labels use the English ASCII colon and are verified at both widget and rendered-pixel levels",
     )
 
     button_markers = {
@@ -558,6 +676,7 @@ def static_stage(repo: Path) -> dict[str, Any]:
     test_markers = {
         name: marker in test_source
         for name, marker in {
+            "native_child_order": "testSettingsDialogIsNativeChildAboveMainWindow",
             "groups": "testSettingsGeneralGroupsAndDefaults",
             "spacing": "testSettingsSpacingUsesNativeStyle",
             "forms": "testSettingsFormsAlignLabelsAndValues",
@@ -623,6 +742,38 @@ def static_stage(repo: Path) -> dict[str, Any]:
         all(all(values.values()) for values in translation_observations.values()),
         translation_observations,
         "all required settings source strings exist in every supported non-English catalog",
+    )
+
+    translation_colon_observations: dict[str, dict[str, Any]] = {}
+    for language in LANGUAGES[1:]:
+        path = repo / "i18n" / f"qview_{language}.ts"
+        source_colon_count = 0
+        missing_ascii_colon: list[str] = []
+        fullwidth_colon_sources: list[str] = []
+        try:
+            root = ET.parse(path).getroot()
+            for message in root.iter("message"):
+                source = (message.findtext("source") or "").rstrip()
+                translation = (message.findtext("translation") or "").rstrip()
+                if "：" in translation:
+                    fullwidth_colon_sources.append(source)
+                if source.endswith(":"):
+                    source_colon_count += 1
+                    if not translation.endswith(":"):
+                        missing_ascii_colon.append(source)
+        except (ET.ParseError, OSError):
+            missing_ascii_colon.append(str(path))
+        translation_colon_observations[language] = {
+            "source_colon_count": source_colon_count,
+            "missing_ascii_colon": missing_ascii_colon,
+            "fullwidth_colon_sources": fullwidth_colon_sources,
+            "passed": not missing_ascii_colon and not fullwidth_colon_sources,
+        }
+    check(
+        "STATIC-TRANSLATION-COLONS",
+        all(item["passed"] for item in translation_colon_observations.values()),
+        translation_colon_observations,
+        "every supported translation uses the English ASCII U+003A colon wherever the source uses a colon",
     )
 
     try:
@@ -748,6 +899,27 @@ def system_stage(binary: Path, build_dir: Path, repo: Path) -> dict[str, Any]:
         r"\d+% tests passed(?:, \d+ tests failed)? out of \d+",
         result["output_tail"],
     )
+    visual_audit = run_command(
+        [
+            sys.executable,
+            str(repo / "tests/screenshot_alignment_audit.py"),
+            "--general",
+            str(repo / "reports/evidence_issue2_general_zh_Hans.jpeg"),
+            "--mouse",
+            str(repo / "reports/evidence_issue2_mouse_zh_Hans.jpeg"),
+        ],
+        repo,
+        {},
+        30,
+    )
+    result["visual_alignment_audit"] = visual_audit
+    try:
+        result["visual_alignment_observation"] = json.loads(
+            visual_audit["output_tail"].strip().splitlines()[-1]
+        )
+    except (IndexError, json.JSONDecodeError):
+        result["visual_alignment_observation"] = None
+    result["passed"] = bool(result["passed"] and visual_audit["passed"])
     return result
 
 
@@ -812,13 +984,40 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "production_cpp": repo / "src/qvoptionsdialog.cpp",
         "production_ui": repo / "src/qvoptionsdialog.ui",
         "production_header": repo / "src/qvoptionsdialog.h",
+        "application_cpp": repo / "src/qvapplication.cpp",
+        "cocoa_header": repo / "src/qvcocoafunctions.h",
+        "cocoa_mm": repo / "src/qvcocoafunctions.mm",
         "test_source": repo / "tests/tst_qviewtests.cpp",
+        "screenshot_alignment_audit": repo / "tests/screenshot_alignment_audit.py",
         "audit_runner": repo / "tests/settings_quality_pipeline.py",
-        "solution_proof": repo / "reports/solution_and_proof.md",
+        "translation_es": repo / "i18n/qview_es.ts",
+        "translation_ja": repo / "i18n/qview_ja.ts",
+        "translation_zh_Hans": repo / "i18n/qview_zh_Hans.ts",
+        "translation_zh_Hant": repo / "i18n/qview_zh_Hant.ts",
+        "solution_and_proof_1": repo / "reports/solution_and_proof_1.md",
+        "solution_and_proof_2": repo / "reports/solution_and_proof_2.md",
+        "evidence_issue1_finder_quicklook_open": repo / "reports/evidence_issue1_finder_quicklook_open.jpeg",
+        "evidence_issue1_fovelle_settings_after_quicklook": repo / "reports/evidence_issue1_fovelle_settings_after_quicklook.jpeg",
+        "evidence_issue2_general_zh_Hans": repo / "reports/evidence_issue2_general_zh_Hans.jpeg",
+        "evidence_issue2_mouse_zh_Hans": repo / "reports/evidence_issue2_mouse_zh_Hans.jpeg",
     }
     input_hashes = {name: file_sha256(path) for name, path in report_files.items()}
+    screenshot_paths = (
+        repo / "reports/evidence_issue1_finder_quicklook_open.jpeg",
+        repo / "reports/evidence_issue1_fovelle_settings_after_quicklook.jpeg",
+        repo / "reports/evidence_issue2_general_zh_Hans.jpeg",
+        repo / "reports/evidence_issue2_mouse_zh_Hans.jpeg",
+    )
+    screenshot_evidence = [
+        {
+            "path": str(path),
+            "exists": path.is_file(),
+            "sha256": file_sha256(path),
+        }
+        for path in screenshot_paths
+    ]
 
-    task = "Fovelle 设置页 Mouse cooldown 选项移除与 General/Mouse 多语言冒号标签右对齐修复"
+    task = "Fovelle Settings 原生窗口排序与 General/Mouse 多语言冒号标签对齐修复"
     spec = {
         "schema_version": "1.0",
         "report_type": "atomic_test_case_specification",
@@ -831,6 +1030,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "cases": list(CASES),
         "research_trace": RESEARCH_TRACE,
         "input_sha256": input_hashes,
+        "screenshot_evidence": screenshot_evidence,
         "validation": validation,
         "passed": (
             validation["unique_ids"]
@@ -858,6 +1058,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "stages": stages,
         "cases": case_results,
         "research_trace": RESEARCH_TRACE,
+        "screenshot_evidence": screenshot_evidence,
         "audit": {
             "case_count": len(case_results),
             "passed_cases": sum(1 for case in case_results if case["passed"]),
@@ -890,21 +1091,21 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 case["passed"] for case in case_results if case["id"] == "CQ-LEAN-COMPLETENESS"
             ),
             "evidence_case_ids": ["CQ-LEAN-COMPLETENESS"],
-            "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享固定标签列、动态样式间距、直接原生按钮和最小必要的 row normalization；cooldown 保留兼容键但移除 UI，设置键集合与基线一致。",
+            "evidence": "静态契约确认 Settings 只增加一个 AppKit child-window helper 与一次打开路径绑定，并复用现有控件和信号；General/Mouse 使用共享固定标签列、动态样式间距、直接原生按钮和最小必要的 row normalization，持久化键集合与基线一致。",
         },
         {
             "id": "CQ-CORRECT-001",
             "criterion": "功能正确性",
             "passed": behavior_passed,
             "evidence_case_ids": sorted(behavior_ids),
-            "evidence": "QtTest/Cocoa 实际执行覆盖 cooldown 默认与控件移除、八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。",
+            "evidence": "QtTest/Cocoa 实际执行覆盖 Preferences child-window ordering 与无模态/native-toolbar contract、八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab；翻译冒号静态契约和保存截图的实际绘制像素边界也通过。",
         },
         {
             "id": "CQ-TESTABLE-001",
             "criterion": "可测试性",
             "passed": spec["passed"] and completion["passed"],
             "evidence_case_ids": ["CQ-TESTABILITY"],
-            "evidence": "报告保存四级命令、环境覆盖、超时、返回码、耗时、stdout/stderr SHA-256、Qt Test totals 和原子 case 状态；运行时只读观察 QObject 属性、布局几何、滚动条和按钮渲染。",
+            "evidence": "报告保存四级命令、环境覆盖、超时、返回码、耗时、stdout/stderr SHA-256、Qt Test totals、截图路径/存在性/SHA-256、翻译冒号审计、截图像素审计和原子 case 状态；运行时只读观察 native parentWindow、QObject 属性、布局几何、滚动条和按钮渲染。",
         },
     ]
     quality = {
@@ -914,6 +1115,11 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "task": task,
         "quality_requirements": quality_checks,
         "root_cause_summary": [
+            {
+                "observation": "Preferences 作为独立的 modeless Qt top-level window 创建；Finder Quick Look/Preview 重新进入窗口排序后，AppKit 没有任何 app-local 关系把 Settings 绑定在 Fovelle 主窗口上方。",
+                "explicit_premise": "Settings 必须继续允许主窗口交互，不能用 modal；也不能以全局 floating/always-on-top 等级遮挡其它应用；AppKit 的 child-window API 提供 ordered=above 的父子关系并维护后续相对排序。",
+                "deduction": "在 Preferences 显示前把其 native NSWindow 作为调用它的主 NSWindow 的 child ordered above；重开时重新绑定到当前调用窗口。该单一关系同时满足 modeless、native toolbar 和 app-local ordering 三个约束。",
+            },
             {
                 "observation": "General 原来由多个 legacy form/content 区构成，独立布局和旧的固定 spacing 使组间距与组内行距的层级不可审计。",
                 "explicit_premise": "用户要求逻辑组之间明显更疏，且 General/Mouse 采用相同规则；Qt QFormLayout 在 verticalSpacing 未指定时可向 style 请求原生 spacing。",
@@ -945,9 +1151,9 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 "deduction": "在 polish 后测量控件自然宽度、重新激活布局并校验 mapped viewport geometry；系统用例覆盖五种语言、三个 Tab 和两种 Mouse 模式。",
             },
             {
-                "observation": "不同语言的标签自然宽度不同；仅设置 AlignRight 而不固定共享标签列时，各独立 QFormLayout 仍可产生不同的右边界。",
-                "explicit_premise": "用户要求 General 和 Mouse 在英文及非英文语言中冒号右边界都一致；翻译文本宽度只能在运行时由 sizeHint 确定。",
-                "deduction": "在翻译和 polish 完成后取 General/Mouse 全体标签自然宽度最大值 L，并将每个标签固定为 L；清除旧固定宽度后在下一次语言/样式测量中重算。",
+                "observation": "现行中文翻译混用了 ASCII U+003A 与全角 U+FF1A；即使 QLabel 矩形右边界相同，两种终端字形的实际墨迹右边界仍可不同。",
+                "explicit_premise": "Qt QLabel 的 AlignRight/AlignTrailing 约束内容在 widget 区域内的位置，而 QFontMetrics 明确区分文字 advance 与实际绘制墨迹/right bearing；用户验收对象是截图中可见的冒号。",
+                "deduction": "所有支持语言中与英文冒号源文本对应的译文统一使用 U+003A，并在翻译和 polish 完成后取 General/Mouse 全体标签自然宽度最大值 L、固定共享标签列；再以像素审计确认截图中的实际右边界相等。",
             },
             {
                 "observation": "Cooldown 选项的持久化键和图形视图读取逻辑早已存在，但用户不再需要可见开关。",

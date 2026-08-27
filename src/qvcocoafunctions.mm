@@ -5482,6 +5482,46 @@ void QVCocoaFunctions::setWindowCollectionBehaviorManaged(QWidget *window)
         ~(NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorStationary);
 }
 
+bool QVCocoaFunctions::attachWindowAbove(QWindow *child, QWindow *parent)
+{
+    if (!child || !parent || child == parent)
+        return false;
+
+    auto *childView = reinterpret_cast<NSView *>(child->winId());
+    auto *parentView = reinterpret_cast<NSView *>(parent->winId());
+    NSWindow *childWindow = childView.window;
+    NSWindow *parentWindow = parentView.window;
+    if (!childWindow || !parentWindow || childWindow == parentWindow)
+        return false;
+
+    // Removing a previous relationship is important when the user opens
+    // Preferences from a different Fovelle window while it is already open.
+    // AppKit then maintains the new child-above-parent ordering on subsequent
+    // ordering operations involving either window.
+    NSWindow *existingParent = childWindow.parentWindow;
+    if (existingParent != parentWindow)
+    {
+        if (existingParent)
+            [existingParent removeChildWindow:childWindow];
+        [parentWindow addChildWindow:childWindow ordered:NSWindowAbove];
+    }
+
+    return childWindow.parentWindow == parentWindow;
+}
+
+bool QVCocoaFunctions::isWindowChildOf(const QWindow *child, const QWindow *parent)
+{
+    if (!child || !parent || child == parent)
+        return false;
+
+    auto *childView = reinterpret_cast<NSView *>(child->winId());
+    auto *parentView = reinterpret_cast<NSView *>(parent->winId());
+    NSWindow *childWindow = childView.window;
+    NSWindow *parentWindow = parentView.window;
+    return childWindow && parentWindow && childWindow != parentWindow
+        && childWindow.parentWindow == parentWindow;
+}
+
 Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
 {
     if (theme != Qv::Theme::System)

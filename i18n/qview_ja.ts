@@ -451,7 +451,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Zoom Level (%):</source>
-        <translation>ズーム倍率（%）：</translation>
+        <translation>ズーム倍率（%）:</translation>
     </message>
     <message>
         <source>Save Frame As...</source>

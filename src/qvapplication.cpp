@@ -306,24 +306,42 @@ void QVApplication::openOptionsDialog(QWidget *parent)
         optionsDialog->move(centeredGeometry.topLeft());
     };
 
+    const auto attachDialog = [this, guardedAnchor]() {
+        if (!optionsDialog || !guardedAnchor)
+            return false;
+        const bool attached = QVCocoaFunctions::attachWindowAbove(
+            optionsDialog->windowHandle(), guardedAnchor->windowHandle());
+        optionsDialog->setProperty("settingsAttachedToMainWindow", attached);
+        return attached;
+    };
+
     if (optionsDialog)
     {
         if (!optionsDialog->isVisible())
         {
             optionsDialog->prepareForDisplay();
+            attachDialog();
             centerDialog();
             optionsDialog->show();
+        }
+        else
+        {
+            // Re-resolve the native relationship if Preferences is reopened
+            // from another main window while the modeless dialog is visible.
+            attachDialog();
         }
         optionsDialog->raise();
         optionsDialog->activateWindow();
         return;
     }
 
-    // Keep the Preferences window independent so Cocoa can provide its native
-    // toolbar. Create the hidden native peer and attach that toolbar before
-    // positioning, then order the already-centered frame front exactly once.
+    // Keep Preferences modeless so the main window remains usable, while
+    // making its native peer an AppKit child of the invoking main window. This
+    // preserves the native toolbar and prevents another app's panel from
+    // being inserted between the two Fovelle windows.
     optionsDialog = new QVOptionsDialog(nullptr);
     optionsDialog->prepareForDisplay();
+    attachDialog();
     centerDialog();
     optionsDialog->show();
     optionsDialog->raise();

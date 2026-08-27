@@ -274,6 +274,14 @@ public:
 
     static void setWindowCollectionBehaviorManaged(QWidget *window);
 
+    // Keep a modeless auxiliary window in the app-local ordering directly
+    // above its invoking main window. This uses AppKit's native child-window
+    // relationship rather than a global floating level.
+    static bool attachWindowAbove(QWindow *child, QWindow *parent);
+
+    // Read-only counterpart used by the runtime contract tests.
+    static bool isWindowChildOf(const QWindow *child, const QWindow *parent);
+
     // Resolve the user-facing System option to a deterministic color theme.
     // FOVELLE_SYSTEM_THEME is intentionally supported for repeatable tests;
     // production builds use the current AppKit effective appearance.
