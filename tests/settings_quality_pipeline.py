@@ -271,6 +271,58 @@ CASES = (
         ("integration", "system"),
     ),
     test_case(
+        "SET-020",
+        "General 中所有无名称值项均与有名称选项的值左边界对齐",
+        "验证 Checkerboard、Reuse window、Show small images 和 Ask before deleting files 不会因 QFormLayout 的 spanning 默认角色而偏到表单左端。",
+        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+        "en、es、ja、zh_Hans、zh_Hant；General 的四个无名称值项及所有有名称值项的运行时 QFormLayout 几何。",
+        "逐语言显示 General，读取每个可见 FieldRole/SpanningRole item 的 alignment 和 x 坐标，比较无名称项与同页字段列；重复完成 Mouse 表单扫描。",
+        "四个无名称值项均使用 FieldRole 或等效的共享字段列起点，不使用左端 spanning 几何；所有值项从统一字段列左侧开始。",
+        "对话框、翻译器和设置值恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+        ("integration", "system"),
+    ),
+    test_case(
+        "SET-021",
+        "General 每个有名称选项的值控件与名称行垂直对齐",
+        "验证 QMacStyle 不会因 label 与值控件自然高度差把 Slideshow direction 下拉框及其他值项下移。",
+        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+        "en、es、ja、zh_Hans、zh_Hant；General 全部有名称 label/value 行，重点为 slideshowDirectionLabel/slideshowDirectionComboBox。",
+        "逐语言显示 General，读取每个可见 label 与 FieldRole item 的最终 geometry，比较垂直中心并检查值项左对齐；重复 Mouse 两种模式。",
+        "每个有名称行的 label 与值项垂直中心误差不超过 1 px；Slideshow direction 下拉框不再出现可见下移。",
+        "对话框、翻译器和设置值恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+        ("integration", "system"),
+    ),
+    test_case(
+        "SET-022",
+        "Associate all supported formats 保持直接、稳定的主操作按钮结构",
+        "验证关联操作按钮不被 stretch 子布局或 QDialog auto-default 框改变结构和尺寸。",
+        "Cocoa Qt Test 应用和生产 QVOptionsDialog 可显示；不执行真实文件关联操作。",
+        "associateFormatsButton 的 QFormLayout 角色、alignment、QStyle 相关属性、stylesheet 和最终 sizeHint/geometry。",
+        "显示 Settings，检查按钮直接位于 settingsGroup8 的 SpanningRole，保持水平/垂直居中、非 flat、非 auto-default，且尺寸满足 macOS 原生按钮最小圆角条件。",
+        "按钮保留直接 QPushButton 控件和可访问的主题样式契约，不存在 stretch 包装或默认按钮外框，最终尺寸不小于自然尺寸且宽度至少 50、高度至少 20。",
+        "关闭对话框且不触发关联操作。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
+        ("integration", "system"),
+    ),
+    test_case(
+        "SET-023",
+        "Associate all supported formats 在浅色和深色模式下均为蓝色填充、白字圆角样式",
+        "验证此前的蓝色主操作语义不会因布局重构或主题切换退化为普通黑/灰色按钮。",
+        "Cocoa Qt Test 应用、Light/Dark 主题、有效 QPalette Accent 和可抓取的按钮渲染均可用；不执行真实文件关联操作。",
+        "Qv::Theme::Light、Qv::Theme::Dark；QPalette::Accent/Highlight；按钮 stylesheet、动态属性和 QImage 渲染像素。",
+        "分别设置 Light 与 Dark，显示 Settings，等待有效 palette，检查 accent-filled、背景色、白/高亮文字、无边框、圆角属性，并扫描按钮截图中的 Accent 像素。",
+        "两种主题都保持 Accent 派生的蓝色填充、白色或高亮文字、6 px 圆角和无边框；按钮渲染中存在足量 Accent 背景像素，不再显示普通灰色按钮。",
+        "关闭每个对话框并恢复临时主题设置；不触发真实文件关联操作。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent",
+        ("integration", "system"),
+    ),
+    test_case(
         "SET-015",
         "精益完整性：实现只引入满足本任务所需的最小变更",
         "验证分组、宽度补偿和默认值变更复用现有控件、设置键与信号连接，没有复制持久化模型或无关 UI。",
@@ -288,7 +340,7 @@ CASES = (
         "功能正确性：每个规定输入均产生规定的输出与副作用",
         "验证版本、分组、默认值、多语言和多 Tab 几何的完整验收矩阵均通过。",
         "四层测试环境已配置；QtTest 二进制、翻译 catalog 和 CTest 注册均可用。",
-        "16 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
+        "20 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
         "按静态、单元、集成、系统顺序执行审计流水线，读取每个原子用例的 stage_status。",
         "所有功能原子用例在其证据层级通过，且没有失败、跳过或未覆盖的验收项。",
         "测试进程、对话框、翻译器和测试设置均完成清理。",
@@ -330,9 +382,9 @@ RESEARCH_TRACE = [
     {
         "hop": 3,
         "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-        "finding": "QFormLayout supports explicit vertical spacing, and a widget added as a row can span both columns; macOS style defaults can center a form.",
-        "premise": "Centered independent forms and spanning rows are sensitive to localized natural widths.",
-        "deduction": "Set left/top form alignment, no wrapping, fixed row spacing, and keep controls in explicit per-group forms.",
+        "finding": "QFormLayout separates LabelRole, FieldRole and SpanningRole; FieldRole is a field column item while SpanningRole spans label and field columns, and the form exposes explicit alignment/spacing APIs.",
+        "premise": "The overload that accepts one widget is semantically a spanning row, but the requested value-only controls still belong to the shared field column.",
+        "deduction": "Use setWidget(row, FieldRole, value) for every value-only option, reserve the label-column inset for the label-less fourth group, and use direct SpanningRole only for the action button.",
     },
     {
         "hop": 4,
@@ -352,8 +404,36 @@ RESEARCH_TRACE = [
         "hop": 6,
         "source": "https://doc.qt.io/qt-6/qlabel.html",
         "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
-        "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
-        "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly.",
+        "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style; QMacStyle's label and combo row metrics were observed to differ by 2 px.",
+        "deduction": "Set and test the label's right/trailing/vertical-center alignment, make each label row at least as tall as its value item plus the observed style delta, and align value rectangles to the row's top edge while their native text remains internally centered.",
+    },
+    {
+        "hop": 7,
+        "source": "https://doc.qt.io/qt-6/qpushbutton.html",
+        "finding": "QPushButton documents flat/default/autoDefault as appearance-affecting properties; auto-default buttons reserve extra space, and on macOS buttons below 50x30 change from rounded to square corners.",
+        "premise": "Associate all supported formats is a command action, not an OK/Cancel response; the baseline A/B probe observed autoDefault=true/default=true, while the regressed refactor observed both false.",
+        "deduction": "Keep the button as a direct native QPushButton, explicitly disable autoDefault to avoid a transient default frame, center it as a single SpanningRole action, and replace the lost implicit prominence with a stable theme-aware style contract.",
+    },
+    {
+        "hop": 8,
+        "source": "https://doc.qt.io/qt-6/qpalette.html",
+        "finding": "Qt defines Accent for interactive components and notes that platform styles, including macOS styles, may not honor every palette role when painting controls.",
+        "premise": "The effective Qt palette exposes a theme-specific accent, but QMacStyle did not reliably paint a normal QPushButton as the supplied blue filled reference in both appearances.",
+        "deduction": "Read Accent (with Highlight fallback) from the effective button palette and apply only the required filled background, highlighted text, radius, and state colors through the named QPushButton stylesheet; test both palette and pixels.",
+    },
+    {
+        "hop": 9,
+        "source": "https://developer.apple.com/design/human-interface-guidelines/color",
+        "finding": "Apple's color guidance treats system/dynamic colors and accent colors as theme-adaptive, and recommends avoiding hard-coded colors that fail in light or dark appearances.",
+        "premise": "The reference requires the same primary-action meaning in Light and Dark, while the actual system accent can vary by user or OS configuration.",
+        "deduction": "Derive the button fill from the runtime semantic accent rather than freezing one RGB value; keep white/highlighted text and explicit hover/pressed/disabled variants readable in both appearances.",
+    },
+    {
+        "hop": 10,
+        "source": "https://developer.apple.com/documentation/AppKit/NSColor/controlAccentColor",
+        "finding": "AppKit exposes the current control accent color as a system color that follows the current appearance and user setting.",
+        "premise": "Fovelle's Qt Cocoa palette is the cross-layer representation available to the QPushButton, and the application must not add an AppKit-only bridge for this small visual contract.",
+        "deduction": "Use QPalette::Accent as the Qt-side semantic equivalent, refresh the style after PaletteChange/theme application, and avoid a second platform-specific color source.",
     },
 ]
 
@@ -458,11 +538,38 @@ def static_stage(repo: Path) -> dict[str, Any]:
         and "SettingsValueAlignment" in options_cpp
         and "setAlignment(item->widget(), SettingsValueAlignment)" in options_cpp
         and "testSettingsFormsAlignLabelsAndValues" in test_source,
+        "value_only_rows_use_field_role": "void addValueOnlyRow(QFormLayout *layout, QWidget *value)" in options_cpp
+        and "layout->setWidget(layout->rowCount(), QFormLayout::FieldRole, value)" in options_cpp
+        and "addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox)" in options_cpp
+        and "addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox)" in options_cpp
+        and "addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox)" in options_cpp
+        and "addValueOnlyRow(groupLayout, ui->askDeleteCheckbox)" in options_cpp,
+        "label_height_and_value_edge_contract": "rowValueHeight" in options_cpp
+        and "SettingsControlHeightPadding" in options_cpp
+        and "margins.setLeft(labelColumnWidth)" in options_cpp
+        and "Qt::AlignTop" in options_cpp,
+        "native_association_button_contract": "setAutoDefault(false)" in options_cpp
+        and "setWidget(0, QFormLayout::SpanningRole," in options_cpp
+        and "associateFormatsButton" in options_cpp
+        and "AssociationButtonMinimumHeight = 20" in options_cpp
+        and "testSettingsAssociateButtonUsesNativeStyle" in test_source,
+        "association_theme_contract": all(
+            marker in options_cpp
+            for marker in (
+                "updateAssociationButtonAppearance",
+                "QPalette::Accent",
+                "background-color",
+                "border-radius: 6px",
+                "settingsAssociationStyle",
+            )
+        ) and "testSettingsAssociateButtonFollowsThemeAccent" in test_source,
         "all_new_test_methods_registered": all(
             marker in test_source
             for marker in (
                 "testSettingsGeneralGroupsAndDefaults",
                 "testSettingsFormsAlignLabelsAndValues",
+                "testSettingsAssociateButtonUsesNativeStyle",
+                "testSettingsAssociateButtonFollowsThemeAccent",
                 "testSettingsEveryTabFitsEveryLanguage",
             )
         ),
@@ -471,6 +578,8 @@ def static_stage(repo: Path) -> dict[str, Any]:
             for marker in (
                 "testSettingsGeneralGroupsAndDefaults",
                 "testSettingsFormsAlignLabelsAndValues",
+                "testSettingsAssociateButtonUsesNativeStyle",
+                "testSettingsAssociateButtonFollowsThemeAccent",
                 "testSettingsEveryTabFitsEveryLanguage",
             )
         ),
@@ -637,7 +746,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "schema_version": "1.0",
         "report_type": "atomic_test_case_specification",
         "generated_at_utc": now_utc(),
-        "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
+        "task": "Fovelle 设置页分组、宽度、对齐、控件样式、默认值和 1.0.1 版本",
         "atomic_case_count": len(CASES),
         "languages": list(LANGUAGES),
         "groups": [{"index": index, "items": list(items)} for index, items in GROUPS],
@@ -701,7 +810,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
             "criterion": "精益完整性",
             "passed": static["passed"] and all(case["passed"] for case in case_results),
             "evidence_case_ids": ["SET-015"],
-            "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距和版本默认值；没有复制设置控件或引入新的持久化键。",
+            "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距、版本默认值和一个按系统 Accent 派生的命名按钮样式；没有复制设置控件或引入新的持久化键。",
         },
         {
             "id": "CQ-CORRECT-001",
@@ -711,14 +820,14 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 case["id"] for case in case_results
                 if case["id"].startswith("SET-") and case["id"] not in {"SET-015", "SET-016", "SET-017"}
             ],
-            "evidence": "原子结构、默认值、版本和多语言/多 Tab 几何用例均由实际 QtTest/Cocoa 执行结果覆盖。",
+            "evidence": "原子结构、默认值、版本、多语言/多 Tab 几何以及 Light/Dark 按钮渲染用例均由实际 QtTest/Cocoa 执行结果覆盖。",
         },
         {
             "id": "CQ-TESTABLE-001",
             "criterion": "可测试性",
             "passed": all(result["passed"] for result in stages.values()) and spec["passed"],
             "evidence_case_ids": ["SET-017", "SET-001", "SET-010", "SET-013", "SET-014"],
-            "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。",
+            "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、QPalette、QImage 像素、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。",
         },
     ]
     quality = {
@@ -746,7 +855,22 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
             {
                 "observation": "Mouse 的 .ui 表单沿用了 QMacStyle 的居中 formAlignment，且值项没有逐项 alignment contract。",
                 "premise": "QFormLayout 文档明确指出 QMacStyle 默认水平居中；参考布局要求标签右对齐、值左对齐。",
-                "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左值项，并用运行时几何覆盖每种语言和 Mouse 模式。",
+                "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左起值项，并用运行时几何覆盖每种语言和 Mouse 模式。",
+            },
+            {
+                "observation": "Checkerboard、Reuse window、Show small images 和 Ask before deleting files 原来通过 addRow(widget) 进入了 SpanningRole，导致值从表单左端开始；第 4 组甚至没有带标签行可供 QFormLayout 推导字段列。",
+                "premise": "Qt 将无标签 addRow(widget) 视为跨两列项，而用户要求无名称选项的值仍与有名称选项的值列左边界一致。",
+                "deduction": "新增一个最小的 addValueOnlyRow 辅助函数显式使用 FieldRole；第 4 组用共享 labelColumnWidth 作为 form 左 inset，保证所有无名称值项同列且不引入伪标签控件。",
+            },
+            {
+                "observation": "Slideshow direction 等值控件的原生行高度比 QLabel 大，QMacStyle 的 form 行定位使控件矩形在 label 下方约 2 px，形成视觉下移。",
+                "premise": "运行时 geometry 观察到 label 与 combo 都为 28 px 高但 y 分别为 0 和 2；仅检查水平 alignment 无法发现该问题。",
+                "deduction": "按每行值项自然高度加样式余量扩展 label 行高，并将值矩形与行顶边对齐；测试每个有名称行的垂直中心误差不超过 1 px。",
+            },
+            {
+                "observation": "旧版 A/B 基线中按钮为 autoDefault=true、default=true、stylesheet 为空；本次布局重构为消除默认按钮框而新增 setAutoDefault(false)，随后按钮变成 autoDefault=false、default=false 且仍无显式样式，因而从蓝色主操作外观退化为普通灰色按钮。",
+                "premise": "QPushButton 的 autoDefault/default 会影响 macOS 绘制和默认按钮语义；直接 SpanningRole 解决了布局包装问题，但关闭隐式默认状态也移除了旧版依赖的突出显示来源。QPalette::Accent 提供主题语义颜色，而 QMacStyle 不保证普通按钮按所有 palette role 绘制为目标填充色。",
+                "deduction": "保留直接 SpanningRole、非 flat 和关闭 autoDefault 的稳定结构，新增 updateAssociationButtonAppearance，从有效 Accent（必要时 Highlight fallback）派生蓝色填充、白字、无边框、圆角和 hover/pressed/disabled 状态，并在初始同步、PaletteChange、主题设置完成后刷新；用 Light/Dark 的 stylesheet 与渲染像素验证回归不再发生。",
             },
         ],
         "research_trace": RESEARCH_TRACE,

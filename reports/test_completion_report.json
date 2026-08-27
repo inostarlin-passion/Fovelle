@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at_utc": "2026-08-27T10:37:46.085251+00:00",
-  "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
+  "generated_at_utc": "2026-08-27T11:43:57.613666+00:00",
+  "task": "Fovelle 设置页分组、宽度、对齐、控件样式、默认值和 1.0.1 版本",
   "host": {
     "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
     "python": "3.14.7"
@@ -10,7 +10,7 @@
   "build": {
     "build_dir": "/Users/inostarlin/code/Fovelle/build",
     "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-    "binary_sha256": "9d2676c4bc061bd3a4e5f9e21f6100b8b13093fd63fcf0f344810b21635cc9a4"
+    "binary_sha256": "92150d7df8b7cf35c13092565c5a5528200e51419f16c966fabca9eac61897f7"
   },
   "stages": {
     "static": {
@@ -41,6 +41,10 @@
             "natural_width_compensation": true,
             "combo_contents_policy": true,
             "explicit_column_alignment": true,
+            "value_only_rows_use_field_role": true,
+            "label_height_and_value_edge_contract": true,
+            "native_association_button_contract": true,
+            "association_theme_contract": true,
             "all_new_test_methods_registered": true,
             "runner_tracks_new_methods": true
           },
@@ -145,7 +149,7 @@
             "cwd": "/Users/inostarlin/code/Fovelle",
             "environment_overrides": {},
             "timeout_seconds": 30,
-            "elapsed_seconds": 0.010956,
+            "elapsed_seconds": 0.009092,
             "timed_out": false,
             "return_code": 0,
             "passed": true,
@@ -317,12 +321,12 @@
         "FOVELLE_TEST_SUITE": "FeatureTests"
       },
       "timeout_seconds": 90,
-      "elapsed_seconds": 0.743845,
+      "elapsed_seconds": 0.727317,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "30b95083f335646db78f100f39ce20b6070a23913df749ff55952499479d715c",
-      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 21 passed, 0 failed, 0 skipped, 0 blacklisted, 522ms\n********* Finished testing of FeatureTests *********\n",
+      "output_sha256": "dfb4ded1bbf0bf96513635600c5d0779b6e53baa40daed0da11695354f3e1776",
+      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 21 passed, 0 failed, 0 skipped, 0 blacklisted, 523ms\n********* Finished testing of FeatureTests *********\n",
       "stage": "unit",
       "suite": "FeatureTests"
     },
@@ -340,12 +344,12 @@
         "FOVELLE_TEST_SUITE": "WindowBehaviorTests"
       },
       "timeout_seconds": 90,
-      "elapsed_seconds": 18.770834,
+      "elapsed_seconds": 19.035,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "24a15c54fe89fe557ccc681d1b752a379714d9df51a68aaf5acb767ec39ea53f",
-      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(360,68 400x676)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.702542\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 41 passed, 0 failed, 0 skipped, 0 blacklisted, 18529ms\n********* Finished testing of WindowBehaviorTests *********\n",
+      "output_sha256": "6cc617acc1728638ad7c0452293fd6ffbad424050c079fa38e7b17f625ff1a0d",
+      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(339,57 442x698)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()\nPASS   : WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.707625\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 43 passed, 0 failed, 0 skipped, 0 blacklisted, 18805ms\n********* Finished testing of WindowBehaviorTests *********\n",
       "stage": "integration",
       "suite": "WindowBehaviorTests"
     },
@@ -365,12 +369,12 @@
         "QV_DISABLE_ONLINE_VERSION_CHECK": "1"
       },
       "timeout_seconds": 180,
-      "elapsed_seconds": 32.742619,
+      "elapsed_seconds": 32.763341,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "a81f5d5d92a3672482514a82c7003ffbd4c1b3aa71e1d6b93703aa66398bdf63",
-      "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   32.73 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  32.73 sec\n",
+      "output_sha256": "9640ff1b6d5c90326978f0513cf76b1284352e0b85bd6fc78e09728ce6ac951b",
+      "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   32.75 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  32.75 sec\n",
       "stage": "system",
       "test_target": "FovelleTests"
     }
@@ -579,6 +583,62 @@
       }
     },
     {
+      "id": "SET-020",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-021",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-022",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-023",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
       "id": "SET-015",
       "test_layer": "static",
       "implementation": "tests/settings_quality_pipeline.py::static_stage",
@@ -645,9 +705,9 @@
     {
       "hop": 3,
       "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-      "finding": "QFormLayout supports explicit vertical spacing, and a widget added as a row can span both columns; macOS style defaults can center a form.",
-      "premise": "Centered independent forms and spanning rows are sensitive to localized natural widths.",
-      "deduction": "Set left/top form alignment, no wrapping, fixed row spacing, and keep controls in explicit per-group forms."
+      "finding": "QFormLayout separates LabelRole, FieldRole and SpanningRole; FieldRole is a field column item while SpanningRole spans label and field columns, and the form exposes explicit alignment/spacing APIs.",
+      "premise": "The overload that accepts one widget is semantically a spanning row, but the requested value-only controls still belong to the shared field column.",
+      "deduction": "Use setWidget(row, FieldRole, value) for every value-only option, reserve the label-column inset for the label-less fourth group, and use direct SpanningRole only for the action button."
     },
     {
       "hop": 4,
@@ -667,13 +727,41 @@
       "hop": 6,
       "source": "https://doc.qt.io/qt-6/qlabel.html",
       "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
-      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
-      "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly."
+      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style; QMacStyle's label and combo row metrics were observed to differ by 2 px.",
+      "deduction": "Set and test the label's right/trailing/vertical-center alignment, make each label row at least as tall as its value item plus the observed style delta, and align value rectangles to the row's top edge while their native text remains internally centered."
+    },
+    {
+      "hop": 7,
+      "source": "https://doc.qt.io/qt-6/qpushbutton.html",
+      "finding": "QPushButton documents flat/default/autoDefault as appearance-affecting properties; auto-default buttons reserve extra space, and on macOS buttons below 50x30 change from rounded to square corners.",
+      "premise": "Associate all supported formats is a command action, not an OK/Cancel response; the baseline A/B probe observed autoDefault=true/default=true, while the regressed refactor observed both false.",
+      "deduction": "Keep the button as a direct native QPushButton, explicitly disable autoDefault to avoid a transient default frame, center it as a single SpanningRole action, and replace the lost implicit prominence with a stable theme-aware style contract."
+    },
+    {
+      "hop": 8,
+      "source": "https://doc.qt.io/qt-6/qpalette.html",
+      "finding": "Qt defines Accent for interactive components and notes that platform styles, including macOS styles, may not honor every palette role when painting controls.",
+      "premise": "The effective Qt palette exposes a theme-specific accent, but QMacStyle did not reliably paint a normal QPushButton as the supplied blue filled reference in both appearances.",
+      "deduction": "Read Accent (with Highlight fallback) from the effective button palette and apply only the required filled background, highlighted text, radius, and state colors through the named QPushButton stylesheet; test both palette and pixels."
+    },
+    {
+      "hop": 9,
+      "source": "https://developer.apple.com/design/human-interface-guidelines/color",
+      "finding": "Apple's color guidance treats system/dynamic colors and accent colors as theme-adaptive, and recommends avoiding hard-coded colors that fail in light or dark appearances.",
+      "premise": "The reference requires the same primary-action meaning in Light and Dark, while the actual system accent can vary by user or OS configuration.",
+      "deduction": "Derive the button fill from the runtime semantic accent rather than freezing one RGB value; keep white/highlighted text and explicit hover/pressed/disabled variants readable in both appearances."
+    },
+    {
+      "hop": 10,
+      "source": "https://developer.apple.com/documentation/AppKit/NSColor/controlAccentColor",
+      "finding": "AppKit exposes the current control accent color as a system color that follows the current appearance and user setting.",
+      "premise": "Fovelle's Qt Cocoa palette is the cross-layer representation available to the QPushButton, and the application must not add an AppKit-only bridge for this small visual contract.",
+      "deduction": "Use QPalette::Accent as the Qt-side semantic equivalent, refresh the style after PaletteChange/theme application, and avoid a second platform-specific color source."
     }
   ],
   "audit": {
-    "case_count": 19,
-    "passed_cases": 19,
+    "case_count": 23,
+    "passed_cases": 23,
     "failed_cases": [],
     "all_atomic_cases_passed": true,
     "all_four_stages_passed": true

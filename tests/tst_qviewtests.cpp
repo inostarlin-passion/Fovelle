@@ -264,6 +264,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
+    void testSettingsAssociateButtonUsesNativeStyle();
+    void testSettingsAssociateButtonFollowsThemeAccent();
     void testSettingsEveryTabFitsEveryLanguage();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
@@ -6262,12 +6264,14 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
 
 // TC-THEME-SETTINGS
 // Test purpose: verify Theme replaces both removed color controls and persists.
-// Preconditions: Settings dialog can be constructed with Light Theme selected.
+// Preconditions: Settings dialog can be constructed with a controlled Light
+// Theme value.
 // Input data: Light Theme and Dark Theme combo-box entries.
 // Steps: inspect the combo, confirm removed controls are absent, and select
 // Dark without using a dialog action button.
-// Expected result: Light, Dark, and System entries exist in that order, Light
-// is the default, and Dark is saved immediately under the theme setting.
+// Expected result: Light, Dark, and System entries exist in that order, the
+// controlled Light value is shown, and Dark is saved immediately under the
+// theme setting.
 // Postcondition: the original theme setting is restored.
 void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 {
@@ -6714,7 +6718,13 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
     };
     const Qt::Alignment expectedLabelAlignment =
         Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
-    const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+    const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignTop;
+    const QStringList valueOnlyNames {
+        QStringLiteral("checkerboardBackgroundCheckbox"),
+        QStringLiteral("reuseWindowCheckbox"),
+        QStringLiteral("smallImagesOneToOneCheckbox"),
+        QStringLiteral("askDeleteCheckbox")
+    };
 
     const auto alignmentHas = [](const Qt::Alignment actual,
                                  const Qt::Alignment expected) {
@@ -6802,6 +6812,19 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                         auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
                         auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
                         auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
+                        if (spanningItem && spanningItem->widget())
+                        {
+                            QVERIFY2(!valueOnlyNames.contains(spanningItem->widget()->objectName()),
+                                     qPrintable(language + QStringLiteral(": value-only option must not span ")
+                                                + spanningItem->widget()->objectName()));
+                        }
+                        if (fieldItem && fieldItem->widget()
+                            && valueOnlyNames.contains(fieldItem->widget()->objectName()))
+                        {
+                            QVERIFY2(!spanningItem,
+                                     qPrintable(language + QStringLiteral(": value-only option has both roles ")
+                                                + fieldItem->widget()->objectName()));
+                        }
                         if (!itemIsVisible(labelItem) && !itemIsVisible(fieldItem)
                             && !itemIsVisible(spanningItem))
                             continue;
@@ -6835,7 +6858,9 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                                 ? fieldItem->widget()->objectName()
                                 : fieldItem->layout() ? fieldItem->layout()->objectName()
                                                        : QStringLiteral("anonymous");
-                            if (fieldName == QStringLiteral("associationRow"))
+                            const bool isAssociationButton =
+                                fieldName == QStringLiteral("associateFormatsButton");
+                            if (isAssociationButton)
                             {
                                 QVERIFY2(alignmentHas(fieldItem->alignment(),
                                                       Qt::AlignHCenter | Qt::AlignVCenter),
@@ -6850,23 +6875,54 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                             }
                             const QRect fieldGeometry = fieldItem->geometry();
                             QVERIFY(fieldGeometry.isValid());
-                            if (labelItem && labelItem->widget())
+                            if (!isAssociationButton)
                             {
-                                auto *label = qobject_cast<QLabel *>(labelItem->widget());
-                                QVERIFY(label);
-                                QVERIFY(fieldGeometry.x()
-                                        >= label->geometry().x() + label->width()
-                                            + layout->horizontalSpacing());
                                 if (fieldColumnLeft < 0)
                                     fieldColumnLeft = fieldGeometry.x();
                                 else
                                     QCOMPARE(fieldGeometry.x(), fieldColumnLeft);
+
+                                if (labelItem && labelItem->widget())
+                                {
+                                    auto *label = qobject_cast<QLabel *>(labelItem->widget());
+                                    QVERIFY(label);
+                                    const int expectedFieldX = label->geometry().x()
+                                        + label->width() + layout->horizontalSpacing();
+                                    QVERIFY2(fieldGeometry.x() >= expectedFieldX,
+                                             qPrintable(language + QStringLiteral(": label/value horizontal gap ")
+                                                        + layout->objectName() + QStringLiteral("/")
+                                                        + label->objectName() + QStringLiteral("/")
+                                                        + fieldName + QStringLiteral(" label=")
+                                                        + QString::number(label->geometry().x()) + QStringLiteral(",")
+                                                        + QString::number(label->geometry().width())
+                                                        + QStringLiteral(" field=")
+                                                        + QString::number(fieldGeometry.x()) + QStringLiteral(",")
+                                                        + QString::number(fieldGeometry.width())
+                                                        + QStringLiteral(" expectedX=")
+                                                        + QString::number(expectedFieldX)));
+                                    const int verticalDelta = qAbs(
+                                        label->geometry().center().y()
+                                        - fieldGeometry.center().y());
+                                    QVERIFY2(verticalDelta <= 1,
+                                             qPrintable(language + QStringLiteral(": label/value vertical alignment ")
+                                                        + label->objectName() + QStringLiteral("/")
+                                                        + fieldName + QStringLiteral(" delta=")
+                                                        + QString::number(verticalDelta)
+                                                        + QStringLiteral(" label=")
+                                                        + QString::number(label->geometry().y())
+                                                        + QStringLiteral("/")
+                                                        + QString::number(label->geometry().height())
+                                                        + QStringLiteral(" field=")
+                                                        + QString::number(fieldGeometry.y())
+                                                        + QStringLiteral("/")
+                                                        + QString::number(fieldGeometry.height())));
+                                }
                             }
                         }
 
-                        if (spanningItem && spanningItem->layout()
-                            && spanningItem->layout()->objectName()
-                                == QStringLiteral("associationRow"))
+                        if (spanningItem && spanningItem->widget()
+                            && spanningItem->widget()->objectName()
+                                == QStringLiteral("associateFormatsButton"))
                         {
                             QVERIFY(alignmentHas(spanningItem->alignment(),
                                                  Qt::AlignHCenter | Qt::AlignVCenter));
@@ -6875,6 +6931,12 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                         {
                             QVERIFY(alignmentHas(spanningItem->alignment(),
                                                  expectedValueAlignment));
+                            const QRect spanningGeometry = spanningItem->geometry();
+                            QVERIFY(spanningGeometry.isValid());
+                            if (fieldColumnLeft < 0)
+                                fieldColumnLeft = spanningGeometry.x();
+                            else
+                                QCOMPARE(spanningGeometry.x(), fieldColumnLeft);
                         }
                     }
                 }
@@ -6904,6 +6966,135 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
         QVERIFY(QCoreApplication::removeTranslator(translator));
     }
 #endif
+}
+
+// TC-SETTINGS-ASSOCIATE-NATIVE-STYLE
+// Test purpose: verify the association action remains a direct QPushButton
+// with the stable structural contract used by the General-page rebuild.
+// Preconditions: the production options dialog and Cocoa widget style are
+// available; no real file-association action is invoked.
+// Input data: associateFormatsButton properties, natural size, and its
+// settingsGroup8 QFormLayout item role/alignment.
+// Steps: show Settings, inspect the action row, local stylesheet and native
+// button properties, then compare the rendered size with the button hint.
+// Expected result: the button is a direct SpanningRole widget, centered in
+// its action row, non-flat, non-auto-default, and large enough for the
+// accent-filled macOS action treatment.
+// Postcondition: the dialog is closed without clicking the button.
+void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
+{
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+    auto *button = dialog.findChild<QPushButton *>(QStringLiteral("associateFormatsButton"));
+    auto *group8 = dialog.findChild<QWidget *>(QStringLiteral("settingsGroup8"));
+    QVERIFY(button);
+    QVERIFY(group8);
+    auto *layout = qobject_cast<QFormLayout *>(group8->layout());
+    QVERIFY(layout);
+
+    auto *item = layout->itemAt(0, QFormLayout::SpanningRole);
+    QVERIFY(item);
+    QCOMPARE(item->widget(), static_cast<QWidget *>(button));
+    QVERIFY((item->alignment() & (Qt::AlignHCenter | Qt::AlignVCenter))
+            == (Qt::AlignHCenter | Qt::AlignVCenter));
+    QVERIFY(button->style());
+    const QString style = button->styleSheet();
+    QVERIFY(style.contains(QStringLiteral("background-color:")));
+    QVERIFY(style.contains(QStringLiteral("color:")));
+    QVERIFY(style.contains(QStringLiteral("border: none")));
+    QVERIFY(style.contains(QStringLiteral("border-radius: 6px")));
+    QCOMPARE(button->property("settingsAssociationStyle").toString(),
+             QStringLiteral("accent-filled"));
+    QVERIFY(QColor(button->property("settingsAssociationAccentColor").toString()).isValid());
+    QVERIFY(!button->isFlat());
+    QVERIFY(!button->autoDefault());
+    QVERIFY(!button->isDefault());
+    QVERIFY(button->width() >= button->sizeHint().width());
+    QVERIFY(button->height() >= button->sizeHint().height());
+    QVERIFY(button->width() >= 50);
+    QVERIFY(button->height() >= 20);
+
+    dialog.close();
+}
+
+// TC-SETTINGS-ASSOCIATE-THEME
+// Test purpose: verify the association action keeps the supplied blue-filled,
+// white-text, rounded appearance in both Light and Dark Settings themes.
+// Preconditions: the Cocoa Qt test application and both controlled theme
+// values are available; no real file-association action is invoked.
+// Input data: Qv::Theme::Light and Qv::Theme::Dark, the effective QPalette
+// Accent/Highlight color, the button stylesheet, and a rendered button image.
+// Steps: set one theme, show Settings, wait for the effective palette, inspect
+// the semantic style properties, and scan the button rendering for its accent
+// background; repeat for the other theme.
+// Expected result: both themes use the accent-derived background, white or
+// highlighted text, rounded borderless styling, and a rendered accent fill;
+// changing theme does not regress to the ordinary gray native button.
+// Postcondition: each dialog is closed and all temporary settings are restored.
+void WindowBehaviorTests::testSettingsAssociateButtonFollowsThemeAccent()
+{
+    const auto effectiveAccent = [](const QPalette &palette) {
+        QColor accent = palette.color(QPalette::Accent);
+        if (!accent.isValid() || accent.saturation() < 80 || accent.blue() <= accent.red())
+            accent = palette.color(QPalette::Highlight);
+        return accent;
+    };
+
+    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
+    {
+        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
+        QVOptionsDialog dialog;
+        dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+        dialog.prepareForDisplay();
+        dialog.show();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+        auto *button = dialog.findChild<QPushButton *>(QStringLiteral("associateFormatsButton"));
+        QVERIFY(button);
+        QTRY_VERIFY_WITH_TIMEOUT(button->isVisible(), 1000);
+
+        const QColor accent = effectiveAccent(button->palette());
+        QVERIFY(accent.isValid());
+        QTRY_COMPARE_WITH_TIMEOUT(
+            button->property("settingsAssociationAccentColor").toString(),
+            accent.name(), 1000);
+        QCOMPARE(button->property("settingsAssociationStyle").toString(),
+                 QStringLiteral("accent-filled"));
+
+        const QString style = button->styleSheet();
+        QVERIFY(style.contains(QStringLiteral("background-color: %1").arg(accent.name())));
+        QVERIFY(style.contains(QStringLiteral("color:")));
+        QVERIFY(style.contains(QStringLiteral("border: none")));
+        QVERIFY(style.contains(QStringLiteral("border-radius: 6px")));
+
+        const QImage rendered = button->grab().toImage();
+        QVERIFY(!rendered.isNull());
+        int accentPixelCount = 0;
+        int lightTextPixelCount = 0;
+        for (int y = 0; y < rendered.height(); ++y)
+        {
+            for (int x = 0; x < rendered.width(); ++x)
+            {
+                const QColor pixel = rendered.pixelColor(x, y);
+                if (qAbs(pixel.red() - accent.red()) <= 8
+                    && qAbs(pixel.green() - accent.green()) <= 8
+                    && qAbs(pixel.blue() - accent.blue()) <= 8)
+                    ++accentPixelCount;
+                if (pixel.red() >= 240 && pixel.green() >= 240 && pixel.blue() >= 240)
+                    ++lightTextPixelCount;
+            }
+        }
+        QVERIFY2(accentPixelCount > 10,
+                 qPrintable(QStringLiteral("theme %1 did not render an accent fill: %2 pixels")
+                                .arg(static_cast<int>(theme)).arg(accentPixelCount)));
+        QVERIFY2(lightTextPixelCount > 2,
+                 qPrintable(QStringLiteral("theme %1 did not render light button text: %2 pixels")
+                                .arg(static_cast<int>(theme)).arg(lightTextPixelCount)));
+        dialog.close();
+    }
 }
 
 // TC-SETTINGS-ALL-LANGUAGES-TABS

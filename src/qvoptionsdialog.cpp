@@ -13,7 +13,6 @@
 #include <QTimer>
 #include <QFormLayout>
 #include <QTabBar>
-#include <QHBoxLayout>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTableWidget>
@@ -24,7 +23,9 @@
 #include <QStyleOptionViewItem>
 #include <QVBoxLayout>
 #include <QAbstractButton>
+#include <QColor>
 #include <QLabel>
+#include <QPalette>
 
 namespace
 {
@@ -32,10 +33,15 @@ constexpr int SettingsGroupSpacing = 18;
 constexpr int SettingsRowSpacing = 6;
 constexpr int SettingsGroupBottomPadding = 4;
 constexpr int SettingsControlHeightPadding = 2;
+constexpr int AssociationButtonMinimumHeight = 20;
 
 constexpr Qt::Alignment SettingsLabelAlignment =
     Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
-constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+// Keep the control's native internal text centering, but align the control
+// rectangle itself to the label's top edge. QMacStyle gives labels and value
+// widgets slightly different row metrics; AlignVCenter therefore leaves a
+// combo box a few pixels low even when their minimum heights match.
+constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;
 
 int formLabelColumnWidth(QWidget *page)
 {
@@ -68,9 +74,33 @@ void clearFormLabelColumnWidths(QWidget *page)
         {
             auto *item = layout->itemAt(row, QFormLayout::LabelRole);
             if (item && item->widget())
+            {
                 item->widget()->setMinimumWidth(0);
+                item->widget()->setMinimumHeight(0);
+            }
         }
     }
+}
+
+int naturalFieldOnlyFormWidth(QFormLayout *layout)
+{
+    if (!layout)
+        return 0;
+
+    int widestValue = 0;
+    for (int row = 0; row < layout->rowCount(); ++row)
+    {
+        auto *item = layout->itemAt(row, QFormLayout::FieldRole);
+        if (!item)
+            continue;
+        if (item->widget())
+            widestValue = qMax(widestValue, item->widget()->sizeHint().width());
+        else
+            widestValue = qMax(widestValue, item->sizeHint().width());
+    }
+    const QMargins margins = layout->contentsMargins();
+    return margins.left() + layout->horizontalSpacing()
+        + widestValue + margins.right();
 }
 
 QSize naturalLayoutSize(QWidget *widget)
@@ -118,16 +148,44 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
         layout->setLabelAlignment(SettingsLabelAlignment);
         layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
         layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
+        if (layout->objectName() == QStringLiteral("settingsGroup4Layout"))
+        {
+            // Group 4 contains only value-only rows, so QFormLayout has no
+            // label item from which to derive the shared field-column origin.
+            // Reserve that column explicitly as the form's left inset.
+            QMargins margins = layout->contentsMargins();
+            margins.setLeft(labelColumnWidth);
+            layout->setContentsMargins(margins);
+        }
         for (int row = 0; row < layout->rowCount(); ++row)
         {
             auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
+            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
+            auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
             if (labelItem && labelItem->widget())
             {
                 labelItem->widget()->setMinimumWidth(labelColumnWidth);
                 if (auto *label = qobject_cast<QLabel *>(labelItem->widget()))
+                {
                     label->setAlignment(SettingsLabelAlignment);
+                    const int fieldHeight = fieldItem
+                        ? fieldItem->sizeHint().height() : 0;
+                    const int spanningHeight = spanningItem
+                        ? spanningItem->sizeHint().height() : 0;
+                    const int rowValueHeight = qMax(fieldHeight, spanningHeight);
+                    label->setMinimumHeight(qMax(label->minimumHeight(),
+                                                 rowValueHeight > 0
+                                                     ? rowValueHeight
+                                                         + SettingsControlHeightPadding
+                                                     : 0));
+                }
             }
 
+            const auto isAssociationButton = [](QLayoutItem *item) {
+                return item && item->widget()
+                    && item->widget()->objectName()
+                        == QStringLiteral("associateFormatsButton");
+            };
             auto alignValueItem = [layout](QLayoutItem *item) {
                 if (!item)
                     return;
@@ -136,11 +194,9 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
                 else if (item->layout())
                     layout->setAlignment(item->layout(), SettingsValueAlignment);
             };
-            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
-            if (fieldItem && fieldItem->layout()
-                && fieldItem->layout()->objectName() == QStringLiteral("associationRow"))
+            if (isAssociationButton(fieldItem))
             {
-                layout->setAlignment(fieldItem->layout(),
+                layout->setAlignment(fieldItem->widget(),
                                      Qt::AlignHCenter | Qt::AlignVCenter);
             }
             else
@@ -149,18 +205,38 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
             }
 
             // A spanning row without a label is itself the value/control. The
-            // association row is deliberately centered as an action, so leave
-            // its stretch-based layout untouched.
-            auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
-            if (spanningItem && spanningItem->layout()
-                && spanningItem->layout()->objectName() == QStringLiteral("associationRow"))
+            // association button is deliberately centered as an action, while
+            // ordinary value-only rows belong to the field column.
+            if (isAssociationButton(spanningItem))
             {
-                layout->setAlignment(spanningItem->layout(),
+                layout->setAlignment(spanningItem->widget(),
                                      Qt::AlignHCenter | Qt::AlignVCenter);
             }
             else
             {
                 alignValueItem(spanningItem);
+            }
+        }
+
+        if (layout->objectName() == QStringLiteral("settingsGroup4Layout"))
+        {
+            if (auto *group = layout->parentWidget())
+                group->setMinimumWidth(naturalFieldOnlyFormWidth(layout));
+        }
+
+        if (layout->objectName() == QStringLiteral("settingsGroup8Layout"))
+        {
+            auto *item = layout->itemAt(0, QFormLayout::SpanningRole);
+            auto *button = item ? qobject_cast<QPushButton *>(item->widget()) : nullptr;
+            if (button)
+            {
+                const QMargins margins = layout->contentsMargins();
+                const int buttonHeight = qMax(button->minimumHeight(),
+                                              button->sizeHint().height());
+                if (auto *group = layout->parentWidget())
+                    group->setMinimumHeight(margins.top() + buttonHeight
+                                            + SettingsControlHeightPadding
+                                            + margins.bottom());
             }
         }
     }
@@ -241,6 +317,17 @@ void setNaturalControlWidths(QWidget *page)
     }
 }
 
+void addValueOnlyRow(QFormLayout *layout, QWidget *value)
+{
+    if (!layout || !value)
+        return;
+
+    // QFormLayout::addRow(widget) creates a SpanningRole item. These controls
+    // have no separate label, but their values still belong in the shared
+    // field column, so place them explicitly in FieldRole.
+    layout->setWidget(layout->rowCount(), QFormLayout::FieldRole, value);
+}
+
 int naturalControlWidth(QWidget *page)
 {
     if (!page)
@@ -256,6 +343,14 @@ int naturalControlWidth(QWidget *page)
             || qobject_cast<QComboBox *>(control)
             || qobject_cast<QAbstractSpinBox *>(control))
             width = qMax(width, control->sizeHint().width());
+    }
+
+    for (auto *layout : page->findChildren<QFormLayout *>())
+    {
+        if (layout->objectName() != QStringLiteral("settingsGroup4Layout"))
+            continue;
+
+        width = qMax(width, naturalFieldOnlyFormWidth(layout));
     }
     return width;
 }
@@ -341,6 +436,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     ui->altHorizontalScrollLabel->setText(tr("%1 + Horizontal Scroll:").arg(ctrlKeyName));
 
     syncSettings(false, true);
+    updateAssociationButtonAppearance();
     syncShortcuts();
     updateNaturalPageSizes();
     resizeForCategory(ui->categoryTabs->currentIndex());
@@ -400,7 +496,7 @@ void QVOptionsDialog::configureGeneralPage()
                         QStringList {QStringLiteral("themeComboBox"),
                                      QStringLiteral("checkerboardBackgroundCheckbox")});
     groupLayout->addRow(ui->appearanceLabel, ui->themeComboBox);
-    groupLayout->addRow(ui->checkerboardBackgroundCheckbox);
+    addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox);
     generalLayout->addWidget(group2);
 
     auto *group3 = createSettingsGroup(generalWidget, 3, &groupLayout);
@@ -413,8 +509,11 @@ void QVOptionsDialog::configureGeneralPage()
     group4->setProperty("settingsItemObjectNames",
                         QStringList {QStringLiteral("reuseWindowCheckbox"),
                                      QStringLiteral("smallImagesOneToOneCheckbox")});
-    groupLayout->addRow(ui->reuseWindowCheckbox);
-    groupLayout->addRow(ui->smallImagesOneToOneCheckbox);
+    // This group contains only value-only controls. addValueOnlyRow places
+    // both controls in FieldRole; alignFormLayouts reserves the shared label
+    // column as the form's left inset for this label-less group.
+    addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox);
+    addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox);
     generalLayout->addWidget(group4);
 
     auto *group5 = createSettingsGroup(miscWidget, 5, &groupLayout);
@@ -430,7 +529,7 @@ void QVOptionsDialog::configureGeneralPage()
                         QStringList {QStringLiteral("afterDeletionComboBox"),
                                      QStringLiteral("askDeleteCheckbox")});
     groupLayout->addRow(ui->label_10, ui->afterDeletionComboBox);
-    groupLayout->addRow(ui->askDeleteCheckbox);
+    addValueOnlyRow(groupLayout, ui->askDeleteCheckbox);
     miscLayout->addWidget(group6);
 
     auto *group7 = createSettingsGroup(miscWidget, 7, &groupLayout);
@@ -442,13 +541,13 @@ void QVOptionsDialog::configureGeneralPage()
     auto *group8 = createSettingsGroup(miscWidget, 8, &groupLayout);
     group8->setProperty("settingsItemObjectNames",
                         QStringList {QStringLiteral("associateFormatsButton")});
-    auto *associationRow = new QHBoxLayout;
-    associationRow->setObjectName(QStringLiteral("associationRow"));
-    associationRow->setContentsMargins(0, 0, 0, 0);
-    associationRow->addStretch();
-    associationRow->addWidget(ui->associateFormatsButton);
-    associationRow->addStretch();
-    groupLayout->setLayout(0, QFormLayout::SpanningRole, associationRow);
+    // Keep the command as a direct QPushButton item. A stretch-wrapped child
+    // layout changes the item/style geometry and is unnecessary for a
+    // centered spanning action row. Its stable accent-filled appearance is
+    // applied after the effective Light/Dark palette is available.
+    ui->associateFormatsButton->setAutoDefault(false);
+    groupLayout->setWidget(0, QFormLayout::SpanningRole,
+                           ui->associateFormatsButton);
     miscLayout->addWidget(group8);
 
     auto *generalContent = new QWidget(ui->generalScrollArea);
@@ -496,18 +595,18 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // Translation and the native modifier-key labels are final by this point.
     // Rebuild one shared form column before measuring so the window width is a
     // function of the current language rather than of the legacy .ui geometry.
-    clearFormLabelColumnWidths(generalContent);
-    clearFormLabelColumnWidths(mouseContent);
-    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
-                                      formLabelColumnWidth(mouseContent));
-    alignFormLayouts(generalContent, labelColumnWidth);
-    alignFormLayouts(mouseContent, labelColumnWidth);
     // A spanning row (for example a long checkbox or the association button)
     // can be wider than QFormLayout's aggregate size hint on macOS. Measure
     // those controls explicitly so QScrollArea receives a truthful minimum
     // width instead of clipping the localized text at the viewport edge.
     setNaturalControlWidths(generalContent);
     setNaturalControlWidths(mouseContent);
+    clearFormLabelColumnWidths(generalContent);
+    clearFormLabelColumnWidths(mouseContent);
+    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
+                                      formLabelColumnWidth(mouseContent));
+    alignFormLayouts(generalContent, labelColumnWidth);
+    alignFormLayouts(mouseContent, labelColumnWidth);
 
     // QStackedWidget does not lay out never-selected pages. Activate each page
     // while measuring, then restore the user's category, so starting directly
@@ -745,6 +844,42 @@ void QVOptionsDialog::changeEvent(QEvent *event)
     // automatically.  Rebuilding the page model on PaletteChange used to
     // cause a transient pane/title jump while switching themes.
     QDialog::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange)
+    {
+        QTimer::singleShot(0, this, [this]() {
+            updateAssociationButtonAppearance();
+        });
+    }
+}
+
+void QVOptionsDialog::updateAssociationButtonAppearance()
+{
+    if (!ui || !ui->associateFormatsButton)
+        return;
+
+    auto *button = ui->associateFormatsButton;
+    QColor accent = button->palette().color(QPalette::Accent);
+    if (!accent.isValid() || accent.saturation() < 80 || accent.blue() <= accent.red())
+        accent = button->palette().color(QPalette::Highlight);
+    if (!accent.isValid())
+        accent = QColor(QStringLiteral("#007aff"));
+
+    const QColor text = Qt::white;
+
+    const QString style = QStringLiteral(
+        "QPushButton#associateFormatsButton {"
+        "color: %1; background-color: %2; border: none; border-radius: 6px;"
+        "padding: 0 12px; }"
+        "QPushButton#associateFormatsButton:hover { background-color: %3; }"
+        "QPushButton#associateFormatsButton:pressed { background-color: %4; }"
+        "QPushButton#associateFormatsButton:disabled { background-color: %5; color: %6; }")
+        .arg(text.name(), accent.name(), accent.lighter(110).name(),
+             accent.darker(110).name(), accent.lighter(140).name(), text.name());
+    button->setStyleSheet(style);
+    button->setMinimumHeight(qMax(button->minimumHeight(), AssociationButtonMinimumHeight));
+    button->setProperty("settingsAssociationStyle", QStringLiteral("accent-filled"));
+    button->setProperty("settingsAssociationAccentColor", accent.name());
+    button->update();
 }
 
 void QVOptionsDialog::modifySetting(QString key, QVariant value)
@@ -756,7 +891,12 @@ void QVOptionsDialog::modifySetting(QString key, QVariant value)
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
     if (key == QStringLiteral("theme"))
+    {
         NativeDialogs::applyTheme(this);
+        QTimer::singleShot(0, this, [this]() {
+            updateAssociationButtonAppearance();
+        });
+    }
 }
 
 void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
