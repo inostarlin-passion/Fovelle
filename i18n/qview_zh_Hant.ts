@@ -1222,7 +1222,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="746"/>
-        <source>Do Nothing</source>
+        <source>No Action</source>
         <translation>無動作</translation>
     </message>
     <message>
@@ -1232,8 +1232,8 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="759"/>
-        <source>After deletion:</source>
-        <translation>刪除後:</translation>
+        <source>After deleting files:</source>
+        <translation>刪除檔案後:</translation>
     </message>
     <message>
         <location filename="../src/qvoptionsdialog.ui" line="766"/>
@@ -1271,12 +1271,12 @@ No write permission or file is read-only.</source>
         <translation>外觀:</translation>
     </message>
     <message>
-        <source>Checkerboard when image loaded</source>
-        <translation>載入影像時顯示棋盤格</translation>
+        <source>Use checkerboard background after opening image</source>
+        <translation>開啟影像後使用棋盤格背景</translation>
     </message>
     <message>
-        <source>Reuse window when launching with image</source>
-        <translation>使用影像啟動時重複使用視窗</translation>
+        <source>Open images in the same window</source>
+        <translation>使用同一視窗開啟影像</translation>
     </message>
     <message>
         <source>Smooth scaling:</source>
@@ -1311,36 +1311,12 @@ No write permission or file is read-only.</source>
         <translation>拖曳:</translation>
     </message>
     <message>
-        <source>Navigate when clicking on the left/right edges of the viewport</source>
-        <translation>點按檢視區左／右邊緣時導覽</translation>
-    </message>
-    <message>
-        <source>Side navigation regions</source>
-        <translation>側邊導覽區域</translation>
-    </message>
-    <message>
         <source>Middle Button</source>
         <translation>中鍵</translation>
     </message>
     <message>
-        <source>Mode:</source>
-        <translation>模式:</translation>
-    </message>
-    <message>
-        <source>Click</source>
-        <translation>點按</translation>
-    </message>
-    <message>
-        <source>Drag</source>
-        <translation>拖曳</translation>
-    </message>
-    <message>
         <source>Middle Click:</source>
         <translation>中鍵點按:</translation>
-    </message>
-    <message>
-        <source>Middle Drag:</source>
-        <translation>中鍵拖曳:</translation>
     </message>
     <message>
         <source>Scroll Wheel / Touchpad</source>
@@ -1381,10 +1357,6 @@ No write permission or file is read-only.</source>
     <message>
         <source>%1 + Middle Click:</source>
         <translation>%1 + 中鍵點按:</translation>
-    </message>
-    <message>
-        <source>%1 + Middle Drag:</source>
-        <translation>%1 + 中鍵拖曳:</translation>
     </message>
     <message>
         <source>%1 + Vertical Scroll:</source>

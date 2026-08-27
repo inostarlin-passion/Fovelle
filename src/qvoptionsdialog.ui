@@ -119,7 +119,7 @@
           <item row="1" column="1">
            <widget class="QCheckBox" name="checkerboardBackgroundCheckbox">
             <property name="text">
-             <string>Checkerboard when image loaded</string>
+             <string>Use checkerboard background after opening image</string>
             </property>
            </widget>
           </item>
@@ -146,7 +146,7 @@
           <item row="4" column="1">
            <widget class="QCheckBox" name="reuseWindowCheckbox">
             <property name="text">
-             <string>Reuse window when launching with image</string>
+             <string>Open images in the same window</string>
             </property>
            </widget>
           </item>
@@ -292,7 +292,7 @@
           <item row="12" column="0">
            <widget class="QLabel" name="label_10">
             <property name="text">
-             <string>After deletion:</string>
+             <string>After deleting files:</string>
             </property>
            </widget>
           </item>
@@ -507,16 +507,6 @@
              <item row="3" column="1">
               <widget class="QComboBox" name="altDragComboBox"/>
              </item>
-             <item row="4" column="1">
-              <widget class="QCheckBox" name="navigationRegionsCheckbox">
-               <property name="toolTip">
-                <string>Navigate when clicking on the left/right edges of the viewport</string>
-               </property>
-               <property name="text">
-                <string>Side navigation regions</string>
-               </property>
-              </widget>
-             </item>
             </layout>
            </widget>
           </item>
@@ -548,83 +538,24 @@
               <number>10</number>
              </property>
              <item row="0" column="0">
-              <widget class="QLabel" name="middleButtonModeLabel">
-               <property name="text">
-                <string>Mode:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
-              <widget class="QWidget" name="middleButtonModeHost">
-               <layout class="QHBoxLayout" name="middleButtonModeLayout">
-                <property name="leftMargin">
-                 <number>0</number>
-                </property>
-                <property name="topMargin">
-                 <number>0</number>
-                </property>
-                <property name="rightMargin">
-                 <number>0</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>0</number>
-                </property>
-                <item>
-                 <widget class="QRadioButton" name="middleButtonModeClickRadioButton">
-                  <property name="text">
-                   <string>Click</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QRadioButton" name="middleButtonModeDragRadioButton">
-                  <property name="text">
-                   <string>Drag</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item row="1" column="0">
               <widget class="QLabel" name="middleClickLabel">
                <property name="text">
                 <string>Middle Click:</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
+             <item row="0" column="1">
               <widget class="QComboBox" name="middleClickComboBox"/>
              </item>
-             <item row="2" column="0">
+             <item row="1" column="0">
               <widget class="QLabel" name="altMiddleClickLabel">
                <property name="text">
                 <string notr="true">Ctrl + Middle Click:</string>
                </property>
               </widget>
              </item>
-             <item row="2" column="1">
+             <item row="1" column="1">
               <widget class="QComboBox" name="altMiddleClickComboBox"/>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="middleDragLabel">
-               <property name="text">
-                <string>Middle Drag:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QComboBox" name="middleDragComboBox"/>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="altMiddleDragLabel">
-               <property name="text">
-                <string notr="true">Ctrl + Middle Drag:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="1">
-              <widget class="QComboBox" name="altMiddleDragComboBox"/>
              </item>
             </layout>
            </widget>

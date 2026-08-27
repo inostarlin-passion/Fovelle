@@ -5,7 +5,6 @@
 
 #include <QDialog>
 #include <QCheckBox>
-#include <QRadioButton>
 #include <QComboBox>
 #include <QSize>
 #include <QSpinBox>
@@ -46,7 +45,6 @@ protected:
     void modifySetting(QString key, QVariant value);
     void syncSettings(bool defaults = false, bool makeConnections = false);
     void syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults = false, bool makeConnection = false);
-    void syncRadioButtons(QList<QRadioButton*> buttons, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncComboBox(QComboBox *comboBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults = false, bool makeConnection = false);
     void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false, bool makeConnection = false);
@@ -75,8 +73,6 @@ private slots:
     void languageComboBoxCurrentIndexChanged(int index);
 
     void associateSupportedFormats();
-
-    void middleButtonModeChanged();
 
 private:
     static constexpr int ShortcutsVisibleRows = 16;

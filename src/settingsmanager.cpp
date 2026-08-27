@@ -222,6 +222,11 @@ void SettingsManager::migrateOldSettings()
         { "constraincentersmallimage", true },
         { "originalsizeastoggle", false },
         { "colorspaceconversion", static_cast<int>(Qv::ColorSpaceConversion::AutoDetect) },
+        // Keep these compatibility keys while the corresponding Mouse
+        // controls are removed from Preferences; old profiles converge on
+        // the fixed, non-configurable behavior during migration.
+        { "navigationregionsenabled", false },
+        { "viewportmiddlebuttonmode", static_cast<int>(Qv::ClickOrDrag::Click) },
         { "navspeed", 50 },
         { "loopfoldersenabled", false },
     };

@@ -570,8 +570,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
         });
     });
     connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
-    connect(ui->middleButtonModeClickRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
-    connect(ui->middleButtonModeDragRadioButton, &QRadioButton::clicked, this, &QVOptionsDialog::middleButtonModeChanged);
     connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
     connect(ui->associateFormatsButton, &QPushButton::clicked, this, &QVOptionsDialog::associateSupportedFormats);
 
@@ -600,7 +598,6 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     ui->altDoubleClickLabel->setText(tr("%1 + Double Click:").arg(ctrlKeyName));
     ui->altDragLabel->setText(tr("%1 + Drag:").arg(ctrlKeyName));
     ui->altMiddleClickLabel->setText(tr("%1 + Middle Click:").arg(ctrlKeyName));
-    ui->altMiddleDragLabel->setText(tr("%1 + Middle Drag:").arg(ctrlKeyName));
     ui->altVerticalScrollLabel->setText(tr("%1 + Vertical Scroll:").arg(ctrlKeyName));
     ui->altHorizontalScrollLabel->setText(tr("%1 + Horizontal Scroll:").arg(ctrlKeyName));
 
@@ -650,16 +647,6 @@ void QVOptionsDialog::configureGeneralPage()
         mouseLayout->setSpacing(0);
         for (auto *form : mouseContent->findChildren<QFormLayout *>())
             configureSettingsForm(form);
-
-        if (auto *modeHost = ui->middleButtonModeHost)
-        {
-            auto modePolicy = modeHost->sizePolicy();
-            modePolicy.setControlType(QSizePolicy::RadioButton);
-            modePolicy.setVerticalPolicy(QSizePolicy::Fixed);
-            modeHost->setSizePolicy(modePolicy);
-            if (auto *modeLayout = qobject_cast<QHBoxLayout *>(modeHost->layout()))
-                modeLayout->setContentsMargins(0, 0, 0, 0);
-        }
         for (auto *group : mouseContent->findChildren<QGroupBox *>())
             setSettingsGroupFixedHeight(group);
         mouseLayout->addStretch(1);
@@ -1104,17 +1091,12 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncComboBox(ui->updateFrequencyComboBox, "updatecheckfrequency", defaults, makeConnections);
 
     // mouse actions
-    syncCheckbox(ui->navigationRegionsCheckbox, "navigationregionsenabled", defaults, makeConnections);
     syncComboBox(ui->doubleClickComboBox, "viewportdoubleclickaction", defaults, makeConnections);
     syncComboBox(ui->altDoubleClickComboBox, "viewportaltdoubleclickaction", defaults, makeConnections);
     syncComboBox(ui->dragComboBox, "viewportdragaction", defaults, makeConnections);
     syncComboBox(ui->altDragComboBox, "viewportaltdragaction", defaults, makeConnections);
-    syncRadioButtons({ui->middleButtonModeClickRadioButton, ui->middleButtonModeDragRadioButton}, "viewportmiddlebuttonmode", defaults, makeConnections);
-    middleButtonModeChanged();
     syncComboBox(ui->middleClickComboBox, "viewportmiddleclickaction", defaults, makeConnections);
     syncComboBox(ui->altMiddleClickComboBox, "viewportaltmiddleclickaction", defaults, makeConnections);
-    syncComboBox(ui->middleDragComboBox, "viewportmiddledragaction", defaults, makeConnections);
-    syncComboBox(ui->altMiddleDragComboBox, "viewportaltmiddledragaction", defaults, makeConnections);
     syncComboBox(ui->verticalScrollComboBox, "viewportverticalscrollaction", defaults, makeConnections);
     syncComboBox(ui->horizontalScrollComboBox, "viewporthorizontalscrollaction", defaults, makeConnections);
     syncComboBox(ui->altVerticalScrollComboBox, "viewportaltverticalscrollaction", defaults, makeConnections);
@@ -1132,24 +1114,6 @@ void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool
         connect(checkbox, &QCheckBox::checkStateChanged, this, [this, key](Qt::CheckState state) {
             modifySetting(key, static_cast<bool>(state));
         });
-    }
-}
-
-void QVOptionsDialog::syncRadioButtons(QList<QRadioButton *> buttons, const QString &key, bool defaults, bool makeConnection)
-{
-    auto val = qvApp->getSettingsManager().getInteger(key, defaults);
-    const QSignalBlocker blocker(buttons.value(0));
-    if (auto widget = buttons.value(val))
-        widget->setChecked(true);
-
-    if (makeConnection)
-    {
-        for (int i = 0; i < buttons.length(); i++)
-        {
-            connect(buttons.value(i), &QRadioButton::clicked, this, [this, key, i] {
-                modifySetting(key, i);
-            });
-        }
     }
 }
 
@@ -1321,24 +1285,10 @@ void QVOptionsDialog::associateSupportedFormats()
                                QMessageBox::Ok, this);
 }
 
-void QVOptionsDialog::middleButtonModeChanged()
-{
-    const bool isClick = ui->middleButtonModeClickRadioButton->isChecked();
-    const bool isDrag = ui->middleButtonModeDragRadioButton->isChecked();
-    ui->middleClickLabel->setVisible(isClick);
-    ui->middleClickComboBox->setVisible(isClick);
-    ui->altMiddleClickLabel->setVisible(isClick);
-    ui->altMiddleClickComboBox->setVisible(isClick);
-    ui->middleDragLabel->setVisible(isDrag);
-    ui->middleDragComboBox->setVisible(isDrag);
-    ui->altMiddleDragLabel->setVisible(isDrag);
-    ui->altMiddleDragComboBox->setVisible(isDrag);
-}
-
 const Ui::ComboBoxItems<Qv::AfterDelete> QVOptionsDialog::mapAfterDelete() {
     return {
         { Qv::AfterDelete::MoveBack, tr("Move Back") },
-        { Qv::AfterDelete::DoNothing, tr("Do Nothing") },
+        { Qv::AfterDelete::DoNothing, tr("No Action") },
         { Qv::AfterDelete::MoveForward, tr("Move Forward") }
     };
 }
@@ -1434,8 +1384,6 @@ void QVOptionsDialog::populateComboBoxes()
 
     populateComboBox(ui->dragComboBox, mapViewportDragAction());
     populateComboBox(ui->altDragComboBox, mapViewportDragAction());
-    populateComboBox(ui->middleDragComboBox, mapViewportDragAction());
-    populateComboBox(ui->altMiddleDragComboBox, mapViewportDragAction());
 
     populateComboBox(ui->verticalScrollComboBox, mapViewportScrollAction());
     populateComboBox(ui->horizontalScrollComboBox, mapViewportScrollAction());

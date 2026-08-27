@@ -49,6 +49,14 @@ jobs:
       - name: Run tests
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
 
+      - name: Upload Settings audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: settings-audit-reports
+          path: reports/*.json
+          if-no-files-found: warn
+
   clang-tidy:
     name: Run clang-tidy
     runs-on: macos-26

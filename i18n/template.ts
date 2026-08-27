@@ -676,7 +676,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Checkerboard when image loaded</source>
+        <source>Use checkerboard background after opening image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -762,7 +762,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Reuse window when launching with image</source>
+        <source>Open images in the same window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -902,7 +902,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>After deletion:</source>
+        <source>After deleting files:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -955,35 +955,11 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Navigate when clicking on the left/right edges of the viewport</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Side navigation regions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Middle Button</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Mode:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Click</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Drag</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Middle Click:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Middle Drag:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1035,10 +1011,6 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 + Middle Drag:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>%1 + Vertical Scroll:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1087,7 +1059,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Do Nothing</source>
+        <source>No Action</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

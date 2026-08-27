@@ -709,8 +709,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Color del fondo:</translation>
     </message>
     <message>
-        <source>Checkerboard when image loaded</source>
-        <translation>Patrón de tablero de ajedrez al cargar la imagen</translation>
+        <source>Use checkerboard background after opening image</source>
+        <translation>Usar fondo de tablero de ajedrez después de abrir la imagen</translation>
     </message>
     <message>
         <source>Changes the amount of information displayed in the titlebar</source>
@@ -801,8 +801,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Mantener la ventana en primer plano durante la presentación de diapositivas</translation>
     </message>
     <message>
-        <source>Reuse window when launching with image</source>
-        <translation>Reutilizar ventana al abrir imágenes</translation>
+        <source>Open images in the same window</source>
+        <translation>Abrir imágenes en la misma ventana</translation>
     </message>
     <message>
         <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
@@ -921,8 +921,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation> s</translation>
     </message>
     <message>
-        <source>After deletion:</source>
-        <translation>Después de borrar:</translation>
+        <source>After deleting files:</source>
+        <translation>Después de borrar archivos:</translation>
     </message>
     <message>
         <source>&amp;Ask before deleting files</source>
@@ -974,36 +974,12 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Arrastrar:</translation>
     </message>
     <message>
-        <source>Navigate when clicking on the left/right edges of the viewport</source>
-        <translation>Navegar al hacer clic en los bordes izquierdo/derecho de la vista</translation>
-    </message>
-    <message>
-        <source>Side navigation regions</source>
-        <translation>Regiones de navegación lateral</translation>
-    </message>
-    <message>
         <source>Middle Button</source>
         <translation>Botón central</translation>
     </message>
     <message>
-        <source>Mode:</source>
-        <translation>Modo:</translation>
-    </message>
-    <message>
-        <source>Click</source>
-        <translation>Clic</translation>
-    </message>
-    <message>
-        <source>Drag</source>
-        <translation>Arrastrar</translation>
-    </message>
-    <message>
         <source>Middle Click:</source>
         <translation>Clic central:</translation>
-    </message>
-    <message>
-        <source>Middle Drag:</source>
-        <translation>Arrastre central:</translation>
     </message>
     <message>
         <source>Scroll Wheel / Touchpad</source>
@@ -1054,10 +1030,6 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>%1 + Clic central:</translation>
     </message>
     <message>
-        <source>%1 + Middle Drag:</source>
-        <translation>%1 + Arrastre con botón central:</translation>
-    </message>
-    <message>
         <source>%1 + Vertical Scroll:</source>
         <translation>%1 + Desplazamiento vertical:</translation>
     </message>
@@ -1106,8 +1078,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Retroceder</translation>
     </message>
     <message>
-        <source>Do Nothing</source>
-        <translation>No hacer nada</translation>
+        <source>No Action</source>
+        <translation>Sin acción</translation>
     </message>
     <message>
         <source>Move Forward</source>

@@ -26,6 +26,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QPalette>
 #include <QSignalSpy>
 #include <QSettings>
@@ -130,6 +131,8 @@ private slots:
     void testSettingsLanguageDefaultsToSystem();
     void testSystemLanguageMappingFallsBackToEnglish();
     void testAutoUpdateCheckLabelIsRenamed();
+    void testSettingsRenamedLabelsAndRemovedMouseOptions();
+    void testRemovedMouseSettingsMigrateToFixedDefaults();
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
     void testSettingsGeneralGroupsAndDefaults();
@@ -2648,6 +2651,89 @@ void FeatureTests::testAutoUpdateCheckLabelIsRenamed()
     QVERIFY(!label->text().contains(QStringLiteral("Automatically check for updates")));
 }
 
+// TC-SETTINGS-LABELS-AND-MOUSE-OPTIONS
+// Test purpose: verify the four requested General labels and the fixed Mouse
+// page surface in the live Settings dialog.
+// Preconditions: the production QVApplication and options dialog are ready.
+// Input data: an English dialog, its General labels, the after-delete model,
+// and the named Mouse controls.
+// Steps: construct the dialog, inspect the exact renamed text and option data,
+// then search for every removed Mouse control.
+// Expected result: all four labels use the new wording; the DoNothing value is
+// displayed as No Action; navigation and middle-button mode controls are gone;
+// the fixed defaults are disabled navigation and Click mode.
+// Postcondition: the dialog and temporary language setting are restored.
+void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
+{
+    ScopedOptionValues options({{QStringLiteral("language"), QStringLiteral("en")}});
+    SourceLanguageTranslator sourceTranslator;
+    QVERIFY(QCoreApplication::installTranslator(&sourceTranslator));
+
+    QVOptionsDialog dialog;
+    auto *checkerboard = dialog.findChild<QCheckBox *>(QStringLiteral("checkerboardBackgroundCheckbox"));
+    auto *reuseWindow = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
+    auto *afterDeleteLabel = dialog.findChild<QLabel *>(QStringLiteral("label_10"));
+    auto *afterDelete = dialog.findChild<QComboBox *>(QStringLiteral("afterDeletionComboBox"));
+    QVERIFY(checkerboard);
+    QVERIFY(reuseWindow);
+    QVERIFY(afterDeleteLabel);
+    QVERIFY(afterDelete);
+    QCOMPARE(checkerboard->text(), QStringLiteral("Use checkerboard background after opening image"));
+    QCOMPARE(reuseWindow->text(), QStringLiteral("Open images in the same window"));
+    QCOMPARE(afterDeleteLabel->text(), QStringLiteral("After deleting files:"));
+    const int noActionIndex = afterDelete->findData(static_cast<int>(Qv::AfterDelete::DoNothing));
+    QVERIFY(noActionIndex >= 0);
+    QCOMPARE(afterDelete->itemText(noActionIndex), QStringLiteral("No Action"));
+
+    QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("navigationRegionsCheckbox")));
+    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
+    QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("middleButtonModeHost")));
+    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
+    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
+    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleDragLabel")));
+    QVERIFY(!dialog.findChild<QComboBox *>(QStringLiteral("middleDragComboBox")));
+    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("altMiddleDragLabel")));
+    QVERIFY(!dialog.findChild<QComboBox *>(QStringLiteral("altMiddleDragComboBox")));
+
+    const auto &settings = qvApp->getSettingsManager();
+    QCOMPARE(settings.getBoolean(QStringLiteral("navigationregionsenabled"), true), false);
+    QCOMPARE(settings.getEnum<Qv::ClickOrDrag>(QStringLiteral("viewportmiddlebuttonmode"), true),
+             Qv::ClickOrDrag::Click);
+    QVERIFY(QCoreApplication::removeTranslator(&sourceTranslator));
+}
+
+// TC-SETTINGS-MOUSE-MIGRATION
+// Test purpose: verify an existing profile cannot revive either removed Mouse
+// option after migration.
+// Preconditions: the application settings store is writable and firstlaunch
+// is marked as an initialized profile so only the normal migration runs.
+// Input data: legacy navigation=true and middle-button mode=Drag values.
+// Steps: save the legacy values, run migrateOldSettings(), reload the manager,
+// and inspect both persisted and in-memory values.
+// Expected result: both values are deterministically rewritten to false and
+// Click, respectively.
+// Postcondition: the original profile values are restored.
+void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
+{
+    ScopedSettingPreserver firstLaunch(QStringLiteral("firstlaunch"));
+    QSettings settings;
+    settings.setValue(QStringLiteral("firstlaunch"), true);
+    ScopedOptionValues options({
+        {QStringLiteral("navigationregionsenabled"), true},
+        {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Drag)}
+    });
+
+    SettingsManager::migrateOldSettings();
+    settings.sync();
+    QCOMPARE(settings.value(QStringLiteral("options/navigationregionsenabled")).toBool(), false);
+    QCOMPARE(settings.value(QStringLiteral("options/viewportmiddlebuttonmode")).toInt(),
+             static_cast<int>(Qv::ClickOrDrag::Click));
+    qvApp->getSettingsManager().loadSettings();
+    QCOMPARE(qvApp->getSettingsManager().getBoolean(QStringLiteral("navigationregionsenabled")), false);
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::ClickOrDrag>(
+                 QStringLiteral("viewportmiddlebuttonmode")), Qv::ClickOrDrag::Click);
+}
+
 // TC-PREFERENCES-FORMATS-ASSOCIATE
 // Test purpose: verify the file-association operation is deterministic and
 // non-invasive in its unit-test dry-run mode.
@@ -2703,6 +2789,8 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QCOMPARE(settings.getBoolean("constraincentersmallimage", true), true);
     QCOMPARE(settings.getBoolean("originalsizeastoggle", true), false);
     QCOMPARE(settings.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion", true), Qv::ColorSpaceConversion::AutoDetect);
+    QCOMPARE(settings.getBoolean("navigationregionsenabled", true), false);
+    QCOMPARE(settings.getEnum<Qv::ClickOrDrag>("viewportmiddlebuttonmode", true), Qv::ClickOrDrag::Click);
     QCOMPARE(settings.getInteger("navspeed", true), 50);
     QCOMPARE(settings.getBoolean("loopfoldersenabled", true), false);
     QCOMPARE(settings.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency", true), Qv::UpdateCheckFrequency::Weekly);
@@ -2725,7 +2813,12 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
         QStringLiteral("originalSizeAsToggleCheckbox"),
         QStringLiteral("colorSpaceConversionComboBox"), QStringLiteral("navSpeedSpinBox"),
         QStringLiteral("loopFoldersCheckbox"), QStringLiteral("updateCheckbox"),
-        QStringLiteral("formatsTable")
+        QStringLiteral("formatsTable"), QStringLiteral("navigationRegionsCheckbox"),
+        QStringLiteral("middleButtonModeLabel"), QStringLiteral("middleButtonModeHost"),
+        QStringLiteral("middleButtonModeClickRadioButton"),
+        QStringLiteral("middleButtonModeDragRadioButton"),
+        QStringLiteral("middleDragLabel"), QStringLiteral("middleDragComboBox"),
+        QStringLiteral("altMiddleDragLabel"), QStringLiteral("altMiddleDragComboBox")
     };
     for (const auto &objectName : removedObjects)
         QVERIFY2(!dialog.findChild<QWidget *>(objectName), qPrintable(objectName));
@@ -7039,18 +7132,9 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
             tabs->setCurrentIndex(2);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
             verifyPage(mouse);
-            auto *clickMode = dialog.findChild<QRadioButton *>(
-                QStringLiteral("middleButtonModeClickRadioButton"));
-            auto *dragMode = dialog.findChild<QRadioButton *>(
-                QStringLiteral("middleButtonModeDragRadioButton"));
-            QVERIFY(clickMode);
-            QVERIFY(dragMode);
-            clickMode->click();
-            QCoreApplication::processEvents();
-            verifyPage(mouse);
-            dragMode->click();
-            QCoreApplication::processEvents();
-            verifyPage(mouse);
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
             dialog.close();
         }
 
@@ -7147,9 +7231,9 @@ void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
 // Preconditions: the production Settings dialog and Cocoa widget style are
 // available; the dialog can be shown without invoking any action.
 // Input data: every General/Mouse QFormLayout, direct group geometry, style
-// spacing properties, and both Mouse group-layout modes.
-// Steps: show Settings, inspect both pages and all forms, compare direct
-// group gaps, then switch the middle-button mode and repeat the form scan.
+// spacing properties.
+// Steps: show Settings, inspect both pages and all forms, and compare direct
+// group gaps.
 // Expected result: all forms report verticalSpacing=-1, both pages expose the
 // same computed group spacing, every measured intra-group gap is smaller, and
 // extra height is represented only by the final stretch item.
@@ -7222,22 +7306,13 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
         }
     };
 
-    auto *clickMode = dialog.findChild<QRadioButton *>(
-        QStringLiteral("middleButtonModeClickRadioButton"));
-    auto *dragMode = dialog.findChild<QRadioButton *>(
-        QStringLiteral("middleButtonModeDragRadioButton"));
-    QVERIFY(clickMode);
-    QVERIFY(dragMode);
+    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
+    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
+    QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
     verifyForms(generalContent);
     verifyForms(mouseContent);
     verifyGroups(generalContent, 8);
     verifyGroups(mouseContent, 3);
-    dragMode->click();
-    QCoreApplication::processEvents();
-    verifyForms(mouseContent);
-    clickMode->click();
-    QCoreApplication::processEvents();
-    verifyForms(mouseContent);
     dialog.close();
 }
 
@@ -7310,11 +7385,11 @@ void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
 // Preconditions: the Cocoa Qt test application, all five supported catalogs,
 // and a writable isolated settings store are available.
 // Input data: en, es, ja, zh_Hans, zh_Hant; General, Shortcuts, and Mouse;
-// both Mouse middle-button modes.
+// the fixed Click middle-button behavior.
 // Steps: install one language catalog, construct and show Settings, switch to
 // every tab, and inspect each visible control's natural width and mapped
-// geometry; repeat the Mouse check for both radio-button modes.
-// Expected result: the long Reuse-window option and every other visible
+// geometry.
+// Expected result: the renamed same-window option and every other visible
 // control fit without horizontal scrolling, insufficient height, or clipped
 // geometry in every language and tab.
 // Postcondition: every dialog, translator, and temporary setting is restored.
@@ -7422,14 +7497,14 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
             auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
             auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
-            auto *clickMode = dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton"));
-            auto *dragMode = dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton"));
             QVERIFY(tabs);
             QVERIFY(general);
             QVERIFY(mouse);
             QVERIFY(table);
-            QVERIFY(clickMode);
-            QVERIFY(dragMode);
+            QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("navigationRegionsCheckbox")));
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
 
             dialog.prepareForDisplay();
             dialog.show();
@@ -7439,7 +7514,7 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             verifyScrollPage(general, language);
             auto *reuse = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
             QVERIFY(reuse);
-            QVERIFY(reuse->text().contains(QStringLiteral("Reuse")) || language != QStringLiteral("en"));
+            QVERIFY(reuse->text().contains(QStringLiteral("Open images")) || language != QStringLiteral("en"));
             auto *reuseItem = findLayoutItemForWidget(general->widget()->layout(),
                                                       reuse,
                                                       findLayoutItemForWidget);
@@ -7464,12 +7539,6 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
 
             tabs->setCurrentIndex(2);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-            verifyScrollPage(mouse, language);
-            clickMode->click();
-            QCoreApplication::processEvents();
-            verifyScrollPage(mouse, language);
-            dragMode->click();
-            QCoreApplication::processEvents();
             verifyScrollPage(mouse, language);
 
             dialog.close();

@@ -139,6 +139,7 @@ if(Python3_Interpreter_FOUND)
             "${CMAKE_CURRENT_SOURCE_DIR}/ci_quality_pipeline.py"
             --repo "${PROJECT_SOURCE_DIR}"
             --build-dir "${CMAKE_BINARY_DIR}"
+            --output-dir "${CMAKE_BINARY_DIR}/ci-reports"
             --skip-build
     )
     set_tests_properties(FovelleTaskAcceptanceAudit PROPERTIES TIMEOUT 360)

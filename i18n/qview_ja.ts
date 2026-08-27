@@ -709,8 +709,8 @@ No write permission or file is read-only.</source>
         <translation>背景色:</translation>
     </message>
     <message>
-        <source>Checkerboard when image loaded</source>
-        <translation>画像読み込み時にチェック柄を表示</translation>
+        <source>Use checkerboard background after opening image</source>
+        <translation>画像を開いた後にチェック柄の背景を使用</translation>
     </message>
     <message>
         <source>Changes the amount of information displayed in the titlebar</source>
@@ -801,8 +801,8 @@ No write permission or file is read-only.</source>
         <translation>スライドショー中はウィンドウを最前面に表示</translation>
     </message>
     <message>
-        <source>Reuse window when launching with image</source>
-        <translation>画像を開く際にウィンドウを再利用</translation>
+        <source>Open images in the same window</source>
+        <translation>画像を同じウィンドウで開く</translation>
     </message>
     <message>
         <source>Choose whether or not the titlebar should always be dark regardless of your chosen macOS appearance</source>
@@ -921,8 +921,8 @@ No write permission or file is read-only.</source>
         <translation> 秒</translation>
     </message>
     <message>
-        <source>After deletion:</source>
-        <translation>削除後の挙動:</translation>
+        <source>After deleting files:</source>
+        <translation>ファイル削除後の動作:</translation>
     </message>
     <message>
         <source>&amp;Ask before deleting files</source>
@@ -974,36 +974,12 @@ No write permission or file is read-only.</source>
         <translation>ドラッグ:</translation>
     </message>
     <message>
-        <source>Navigate when clicking on the left/right edges of the viewport</source>
-        <translation>ビューポートの左/右端をクリックしてナビゲート</translation>
-    </message>
-    <message>
-        <source>Side navigation regions</source>
-        <translation>サイドナビゲーション領域</translation>
-    </message>
-    <message>
         <source>Middle Button</source>
         <translation>中ボタン</translation>
     </message>
     <message>
-        <source>Mode:</source>
-        <translation>モード:</translation>
-    </message>
-    <message>
-        <source>Click</source>
-        <translation>クリック</translation>
-    </message>
-    <message>
-        <source>Drag</source>
-        <translation>ドラッグ</translation>
-    </message>
-    <message>
         <source>Middle Click:</source>
         <translation>中クリック:</translation>
-    </message>
-    <message>
-        <source>Middle Drag:</source>
-        <translation>中ドラッグ:</translation>
     </message>
     <message>
         <source>Scroll Wheel / Touchpad</source>
@@ -1054,10 +1030,6 @@ No write permission or file is read-only.</source>
         <translation>%1 + 中クリック:</translation>
     </message>
     <message>
-        <source>%1 + Middle Drag:</source>
-        <translation>%1 + 中ドラッグ:</translation>
-    </message>
-    <message>
         <source>%1 + Vertical Scroll:</source>
         <translation>%1 + 縦スクロール:</translation>
     </message>
@@ -1106,8 +1078,8 @@ No write permission or file is read-only.</source>
         <translation>前に戻る</translation>
     </message>
     <message>
-        <source>Do Nothing</source>
-        <translation>何もしない</translation>
+        <source>No Action</source>
+        <translation>アクションなし</translation>
     </message>
     <message>
         <source>Move Forward</source>
