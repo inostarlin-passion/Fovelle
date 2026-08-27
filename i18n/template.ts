@@ -999,14 +999,6 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Cooldown for discrete actions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Cursor</source>
         <translation type="unfinished"></translation>
     </message>

@@ -220,6 +220,7 @@ void clearFormLabelColumnWidths(QWidget *page)
             {
                 item->widget()->setMinimumWidth(0);
                 item->widget()->setMinimumHeight(0);
+                item->widget()->setMaximumWidth(QWIDGETSIZE_MAX);
             }
         }
     }
@@ -307,7 +308,10 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
             auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
             if (labelItem && labelItem->widget())
             {
-                labelItem->widget()->setMinimumWidth(labelColumnWidth);
+                // A fixed shared label width makes the right edge of the
+                // translated label column an invariant of the page rather
+                // than an emergent result of each form's size hint.
+                labelItem->widget()->setFixedWidth(labelColumnWidth);
                 if (auto *label = qobject_cast<QLabel *>(labelItem->widget()))
                 {
                     label->setAlignment(SettingsLabelContentAlignment);
@@ -1115,7 +1119,6 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncComboBox(ui->horizontalScrollComboBox, "viewporthorizontalscrollaction", defaults, makeConnections);
     syncComboBox(ui->altVerticalScrollComboBox, "viewportaltverticalscrollaction", defaults, makeConnections);
     syncComboBox(ui->altHorizontalScrollComboBox, "viewportalthorizontalscrollaction", defaults, makeConnections);
-    syncCheckbox(ui->scrollActionCooldownCheckbox, "scrollactioncooldown", defaults, makeConnections);
 }
 
 void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults, bool makeConnection)

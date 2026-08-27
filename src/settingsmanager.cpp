@@ -318,7 +318,8 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("viewporthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Navigate), {}});
     settingsLibrary.insert("viewportaltverticalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
     settingsLibrary.insert("viewportalthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
-    // Works best with touchpads that accurately report ScrollPhase (macOS only currently)
+    // Keep this compatibility setting enabled by default after removing its
+    // user-facing checkbox; existing profiles may still contain the key.
     settingsLibrary.insert("scrollactioncooldown", {true, {}});
     settingsLibrary.insert("cursorautohidefullscreenenabled", {true, {}});
     settingsLibrary.insert("cursorautohidefullscreendelay", {2, {}});

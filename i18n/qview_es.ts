@@ -1018,14 +1018,6 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Desplazamiento horizontal:</translation>
     </message>
     <message>
-        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
-        <translation>Útil para touchpads, para evitar que un solo deslizamiento active múltiples navegaciones, por ejemplo</translation>
-    </message>
-    <message>
-        <source>Cooldown for discrete actions</source>
-        <translation>Tiempo de enfriamiento para acciones discretas</translation>
-    </message>
-    <message>
         <source>Cursor</source>
         <translation>Cursor</translation>
     </message>

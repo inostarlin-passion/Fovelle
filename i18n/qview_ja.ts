@@ -1018,14 +1018,6 @@ No write permission or file is read-only.</source>
         <translation>水平スクロール:</translation>
     </message>
     <message>
-        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
-        <translation>タッチパッドで、1回のスワイプで複数のナビゲーションが発生するのを防ぐのに便利</translation>
-    </message>
-    <message>
-        <source>Cooldown for discrete actions</source>
-        <translation>個別アクションのクールダウン</translation>
-    </message>
-    <message>
         <source>Cursor</source>
         <translation>カーソル</translation>
     </message>

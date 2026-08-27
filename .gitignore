@@ -7,6 +7,7 @@ reports/*
 !reports/test_case_specification.json
 !reports/test_completion_report.json
 !reports/code_quality_assessment_report.json
+!reports/solution_and_proof.md
 
 # C++ objects and libs
 

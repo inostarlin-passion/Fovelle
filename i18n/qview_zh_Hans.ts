@@ -1017,14 +1017,6 @@ No write permission or file is read-only.</source>
         <translation>水平滚动：</translation>
     </message>
     <message>
-        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
-        <translation>对于触摸板有用，例如防止单次滑动触发多次导航</translation>
-    </message>
-    <message>
-        <source>Cooldown for discrete actions</source>
-        <translation>离散操作的冷却时间</translation>
-    </message>
-    <message>
         <source>Cursor</source>
         <translation>光标</translation>
     </message>

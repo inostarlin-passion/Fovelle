@@ -1355,14 +1355,6 @@ No write permission or file is read-only.</source>
         <translation>水平捲動：</translation>
     </message>
     <message>
-        <source>Useful for touchpads, to prevent a single swipe from triggering multiple navigations, for example</source>
-        <translation>適用於觸控式軌跡板，例如可避免單次滑動觸發多次導覽</translation>
-    </message>
-    <message>
-        <source>Cooldown for discrete actions</source>
-        <translation>離散動作冷卻時間</translation>
-    </message>
-    <message>
         <source>Cursor</source>
         <translation>游標</translation>
     </message>

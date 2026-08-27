@@ -38,6 +38,7 @@
 #include <QUrl>
 #include <QWheelEvent>
 #include <QScrollBar>
+#include <QScrollArea>
 #include <QSet>
 #include <QTabBar>
 #include <QTableWidget>
@@ -132,6 +133,7 @@ private slots:
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
     void testSettingsGeneralGroupsAndDefaults();
+    void testSettingsCooldownOptionIsRemovedAndDefaultEnabled();
     void testUpdateCheckFrequencyPolicy();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
@@ -265,6 +267,7 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
+    void testSettingsColonAlignmentSurvivesTranslations();
     void testSettingsSpacingUsesNativeStyle();
     void testSettingsAssociateButtonUsesNativeStyle();
     void testSettingsEveryTabFitsEveryLanguage();
@@ -701,6 +704,47 @@ public:
         return QString::fromUtf8(sourceText);
     }
 };
+
+static QString settingsLabelColumnFailure(QWidget *page)
+{
+    if (!page)
+        return QStringLiteral("settings page is missing");
+
+    int expectedRight = -1;
+    int visibleLabelCount = 0;
+    for (auto *label : page->findChildren<QLabel *>())
+    {
+        if (!label->isVisible())
+            continue;
+
+        const QString text = label->text().trimmed();
+        if (text.isEmpty())
+            continue;
+
+        if (!text.endsWith(QLatin1Char(':'))
+            && !text.endsWith(QChar(0xFF1A)))
+            continue;
+
+        ++visibleLabelCount;
+        const int right = label->mapTo(page, QPoint(label->width(), 0)).x();
+        if (expectedRight < 0)
+            expectedRight = right;
+        else if (right != expectedRight)
+            return QStringLiteral("label %1 ends at x=%2, expected x=%3")
+                .arg(label->objectName())
+                .arg(right)
+                .arg(expectedRight);
+
+        const Qt::Alignment alignment = label->alignment();
+        if (!(alignment & Qt::AlignRight) || !(alignment & Qt::AlignTrailing))
+            return QStringLiteral("label %1 is not right/trailing aligned")
+                .arg(label->objectName());
+    }
+
+    return visibleLabelCount > 0
+        ? QString()
+        : QStringLiteral("no visible colon-terminated settings labels found");
+}
 
 class ScopedEnvironmentValue
 {
@@ -2800,6 +2844,32 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QVERIFY(smoothScaling);
     QCOMPARE(theme->currentData().toInt(), static_cast<int>(Qv::Theme::Dark));
     QCOMPARE(smoothScaling->currentData().toInt(), static_cast<int>(Qv::SmoothScalingMode::Bilinear));
+}
+
+// TC-SETTINGS-COOLDOWN-REMOVED
+// Test purpose: verify the discrete-action cooldown is enabled by default
+// while its obsolete user-facing checkbox is absent from Mouse.
+// Preconditions: the application SettingsManager and QVOptionsDialog can be
+// constructed.
+// Input data: the scrollactioncooldown default value and the Mouse object tree.
+// Steps: inspect the setting library, construct Settings, and search for the
+// former checkbox and its visible text.
+// Expected result: the default is true and no cooldown checkbox or label is
+// exposed by the dialog.
+// Postcondition: the dialog is destroyed without changing persistent settings.
+void FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()
+{
+    const auto setting = qvApp->getSettingsManager().getSettings().value(
+        QStringLiteral("scrollactioncooldown"));
+    QVERIFY(setting.defaultValue.isValid());
+    QVERIFY(setting.defaultValue.toBool());
+
+    QVOptionsDialog dialog;
+    QVERIFY(!dialog.findChild<QCheckBox *>(
+        QStringLiteral("scrollActionCooldownCheckbox")));
+    for (auto *checkBox : dialog.findChildren<QCheckBox *>())
+        QVERIFY(!checkBox->text().contains(QStringLiteral("Cooldown"),
+                                           Qt::CaseInsensitive));
 }
 
 // TC-UPDATE-FREQUENCY-POLICY
@@ -6968,6 +7038,86 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
             dragMode->click();
             QCoreApplication::processEvents();
             verifyPage(mouse);
+            dialog.close();
+        }
+
+        QVERIFY(QCoreApplication::removeTranslator(translator));
+    }
+#endif
+}
+
+// TC-SETTINGS-COLON-ALIGNMENT
+// Test purpose: verify that every visible colon-terminated option name in the
+// General and Mouse pages ends at one shared right edge in every language.
+// Preconditions: all five translation catalogs, the Cocoa Qt test application,
+// and an isolated writable settings store are available.
+// Input data: en, es, ja, zh_Hans, zh_Hant; the visible General and Mouse
+// settings pages after final polish and category activation.
+// Steps: install one language, construct and show Settings, activate General
+// and Mouse, and compare each visible label's mapped right edge and alignment.
+// Expected result: every label ending in ':' or '：' is right/trailing aligned
+// and all such labels on the same page share exactly one right edge.
+// Postcondition: the dialog, translator, and temporary settings are restored.
+void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    const QList<QString> languages {
+        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
+        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
+    };
+
+    for (const QString &language : languages)
+    {
+        SourceLanguageTranslator sourceTranslator;
+        QTranslator catalogTranslator;
+        QTranslator *translator = &sourceTranslator;
+        if (language != QStringLiteral("en"))
+        {
+            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                    .arg(language);
+            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
+            translator = &catalogTranslator;
+        }
+        QVERIFY(QCoreApplication::installTranslator(translator));
+
+        {
+            ScopedOptionValues options({{QStringLiteral("language"), language}});
+            QSettings settings;
+            settings.setValue(QStringLiteral("optionstab"), 0);
+            settings.setValue(QStringLiteral("optionstabversion"), 2);
+            settings.sync();
+
+            QVOptionsDialog dialog;
+            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+            QVERIFY(tabs);
+            QVERIFY(general);
+            QVERIFY(mouse);
+
+            dialog.prepareForDisplay();
+            dialog.show();
+            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+            const auto verifyPage = [&](QScrollArea *scrollArea, const int tabIndex) {
+                tabs->setCurrentIndex(tabIndex);
+                QTRY_VERIFY_WITH_TIMEOUT(
+                    !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+                QCoreApplication::processEvents();
+                const QString failure = settingsLabelColumnFailure(scrollArea->widget());
+                QVERIFY2(failure.isEmpty(),
+                         qPrintable(language + QStringLiteral(" tab=")
+                                    + QString::number(tabIndex) + QStringLiteral(": ")
+                                    + failure));
+            };
+
+            verifyPage(general, 0);
+            verifyPage(mouse, 2);
             dialog.close();
         }
 

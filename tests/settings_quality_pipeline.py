@@ -154,6 +154,58 @@ CASES = (
         ("system", "static"),
     ),
     test_case(
+        "SET-COOLDOWN-DEFAULT",
+        "离散动作 cooldown 的内部默认值为勾选（true）",
+        "验证移除用户选项后，旧设置键仍以勾选状态作为默认行为，避免改变触控板离散动作保护策略。",
+        "SettingsManager 已初始化默认值库；测试进程不依赖持久化的 scrollactioncooldown 值。",
+        "SettingsManager 中 scrollactioncooldown 的 defaultValue。",
+        "读取设置项并直接检查 defaultValue 是否有效且转换为 true。",
+        "scrollactioncooldown 的默认值为 true。",
+        "只读 SettingsManager；不写入用户设置。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled",
+        ("static", "unit"),
+    ),
+    test_case(
+        "SET-COOLDOWN-UI-REMOVED",
+        "Mouse 不再暴露 Cooldown for discrete actions 选项",
+        "验证废弃选项从 Qt UI、同步逻辑和可见控件树中完整移除，同时保留内部兼容设置键。",
+        "QVOptionsDialog 可构造；Mouse 页的 .ui、同步函数和翻译源可读。",
+        "scrollActionCooldownCheckbox object name、英文选项文本、syncSettings 引用和五个翻译源文本。",
+        "运行静态源契约，再构造 Settings 并搜索旧 checkbox 和所有可见 checkbox 文本。",
+        "源码不再创建或同步旧 checkbox，翻译不再包含旧选项文本，运行时控件树不包含该 checkbox。",
+        "对话框销毁；内部设置键和其它 Mouse 选项保持不变。",
+        "unit",
+        "tests/tst_qviewtests.cpp::FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled",
+        ("static", "unit"),
+    ),
+    test_case(
+        "SET-GENERAL-COLON-ALIGNMENT",
+        "所有支持语言下 General 的冒号结尾选项名称右对齐到同一列",
+        "验证英文及非英文翻译不会因自然文本宽度不同而改变 General 标签列的右边界。",
+        "五种翻译目录可加载；QVOptionsDialog 已 polish、显示并激活 General 页。",
+        "en、es、ja、zh_Hans、zh_Hant 和 General 中所有可见 ASCII/全角冒号结尾 QLabel 的映射几何。",
+        "逐语言安装翻译，显示 Settings，激活 General，读取每个可见冒号结尾标签的右边界和 alignment。",
+        "每个可见标签同时具有 AlignRight 和 AlignTrailing，且同一 General 页所有标签右边界完全相等。",
+        "关闭对话框；翻译器和临时设置恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations",
+        ("static", "integration"),
+    ),
+    test_case(
+        "SET-MOUSE-COLON-ALIGNMENT",
+        "所有支持语言下 Mouse 的冒号结尾选项名称右对齐到同一列",
+        "验证 Mouse 的三个逻辑组使用与 General 相同的共享标签宽度，不因语言或组而漂移。",
+        "五种翻译目录可加载；QVOptionsDialog 已 polish、显示并激活 Mouse 页。",
+        "en、es、ja、zh_Hans、zh_Hant 和 Mouse 中所有可见 ASCII/全角冒号结尾 QLabel 的映射几何。",
+        "逐语言安装翻译，显示 Settings，激活 Mouse，读取每个可见冒号结尾标签的右边界和 alignment。",
+        "每个可见标签同时具有 AlignRight 和 AlignTrailing，且同一 Mouse 页所有标签右边界完全相等。",
+        "关闭对话框；翻译器和临时设置恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations",
+        ("static", "integration"),
+    ),
+    test_case(
         "CQ-LEAN-COMPLETENESS",
         "精益完整性：实现覆盖全部需求且没有非必要布局/样式分支",
         "用静态契约检查确认实现复用现有控件、信号和设置键，只增加语义分组、共享布局策略、自然尺寸测量和可观测测试。",
@@ -199,72 +251,51 @@ RESEARCH_TRACE = [
     {
         "hop": 1,
         "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
-        "finding": "Apple describes macOS settings windows as toolbar panes and recommends grouping related settings within each pane.",
-        "explicit_premise": "The requested General pane contains eight named semantic groups, and Mouse contains three named semantic groups.",
-        "deduction": "Represent those relationships as direct ordered group widgets instead of unrelated flat rows or duplicate legacy pages.",
+        "finding": "Apple describes macOS settings windows as panes and recommends grouping related settings within each pane.",
+        "explicit_premise": "General and Mouse are the two settings pages in scope, and each page has one semantic collection of named options.",
+        "deduction": "A page-level layout invariant is the appropriate unit for label alignment; the solution must not depend on one language's rendered text.",
     },
     {
         "hop": 2,
         "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
         "finding": "Apple's layout guidance treats alignment and consistent spacing as signals of organization and hierarchy.",
-        "explicit_premise": "The user explicitly requires within-group spacing to be smaller than between-group spacing.",
-        "deduction": "Use one shared group-spacing value for General and Mouse and make it strictly greater than the largest native intra-form spacing.",
+        "explicit_premise": "The requested observable is the common right edge of option names, including non-English translations.",
+        "deduction": "The stable invariant is a common label-column boundary, not padded source strings or hand-tuned language-specific offsets.",
     },
     {
         "hop": 3,
         "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
-        "finding": "QFormLayout provides LabelRole, FieldRole and SpanningRole and exposes form alignment, row wrapping and vertical spacing controls.",
-        "explicit_premise": "A value-only option belongs to the shared field column, while the association command is a standalone action.",
-        "deduction": "Put value-only checkboxes in FieldRole and keep only Associate all supported formats as a direct centered SpanningRole item.",
+        "finding": "QFormLayout provides LabelRole and FieldRole columns and exposes label/form alignment controls.",
+        "explicit_premise": "Each option name is a label widget whose natural width changes with translation.",
+        "deduction": "Measure LabelRole natural widths, give every label the same shared width, and keep form origins left-aligned.",
     },
     {
         "hop": 4,
-        "source": "https://doc.qt.io/qt-6/qsizepolicy.html",
-        "finding": "Qt uses QSizePolicy control types when styles calculate layout spacing; the documentation gives distinct spacing examples for stacked radio buttons and buttons.",
-        "explicit_premise": "The desired hierarchy must follow the active macOS style rather than a hard-coded pixel value that can drift with style metrics.",
-        "deduction": "Resolve native style spacing by control type, mark the middle-button host as RadioButton, and add only the strict-one-pixel hierarchy constraint.",
+        "source": "https://doc.qt.io/qt-6/qlayout.html",
+        "finding": "Qt layouts can apply alignment to widgets and nested layouts and calculate their final geometry from those constraints.",
+        "explicit_premise": "Correctness must be observable from final widget geometry rather than only from source markers.",
+        "deduction": "The integration test maps each label's right edge into its page coordinate system and checks the alignment flags.",
     },
     {
         "hop": 5,
-        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
-        "finding": "Qt's QWidgetItem converts between layout-item coordinates and widget coordinates using widget layout-item margins before calling QWidget::setGeometry.",
-        "explicit_premise": "On QMacStyle, a layout item rectangle and the widget rectangle can differ while describing the same control.",
-        "deduction": "Production code normalizes the rows and tests compare geometry in the same coordinate system; raw widget and layout-item rectangles are never mixed for spacing assertions.",
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
+        "finding": "Qt's QFormLayout implementation computes label/field column geometry and honors label/form alignment when placing rows.",
+        "explicit_premise": "Independent forms may have different natural size hints when translated labels have different widths.",
+        "deduction": "A shared post-polish maximum width removes the independent-size-hint degree of freedom while retaining Qt's normal form layout.",
     },
     {
         "hop": 6,
-        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qformlayout.cpp",
-        "finding": "When form vertical spacing is unset, QFormLayout asks the style for combined layout spacing across adjacent label/field control types.",
-        "explicit_premise": "General and Mouse must keep native row spacing while ensuring group spacing remains visibly larger.",
-        "deduction": "Set QFormLayout verticalSpacing to -1, compute the maximum adjacent-row native spacing, then derive the shared group spacing from it.",
+        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/kernel/qlayoutitem.cpp",
+        "finding": "Qt converts layout-item geometry to QWidget geometry through a defined coordinate conversion.",
+        "explicit_premise": "Labels live under different group/form parents, so local x coordinates are not sufficient evidence of page-level alignment.",
+        "deduction": "The test compares all label right edges after mapping them to the common page widget, avoiding mixed coordinate systems.",
     },
     {
         "hop": 7,
-        "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/widgets/widgets/qpushbutton.cpp",
-        "finding": "QPushButton passes autoDefault/default state to the style option and delegates size hint and painting to the active style.",
-        "explicit_premise": "The supplied reference is the prior native blue default-button appearance, and the regression came from changing button state/style rather than from the action itself.",
-        "deduction": "Restore a direct native QPushButton with stylesheet cleared, flat disabled, autoDefault/default enabled, and no artificial minimum width.",
-    },
-    {
-        "hop": 8,
-        "source": "https://doc.qt.io/qt-6.11/qscrollarea.html",
-        "finding": "QScrollArea displays a child widget whose layout and size constraints determine whether content fits or scrolls.",
-        "explicit_premise": "Translations and long checkbox labels change natural widths, so a single legacy page size cannot be trusted.",
-        "deduction": "Measure natural control widths after polish, activate the final layouts, derive page minima, and verify every supported language and tab.",
-    },
-    {
-        "hop": 9,
-        "source": "reports/solution_and_proof.md",
-        "finding": "The repository proof requires one shared form contract, one dynamic group-spacing metric, fixed post-polish row heights, a direct native action row, and no legacy manual padding constants.",
-        "explicit_premise": "This local proof is the task-specific acceptance baseline supplied by the user.",
-        "deduction": "Align the implementation and tests to those observable invariants, while preserving native style metrics instead of copying a screenshot into QSS.",
-    },
-    {
-        "hop": 10,
-        "source": "user-provided screenshots: /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-21-17.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_19-55-20.jpg, /Users/inostarlin/Downloads/Snipaste_2026-08-27_18-10-49.jpg",
-        "finding": "The reference shows a native blue primary action, stronger separation between semantic groups, and labels aligned with their controls.",
-        "explicit_premise": "The screenshots are visual targets, while exact pixels can vary with macOS appearance, font and display scale.",
-        "deduction": "Test stable structural, style-state and geometry invariants, and use the active QMacStyle for the final rendering.",
+        "source": "https://doc.qt.io/qt-6/i18n-source-translation.html",
+        "finding": "Qt translation changes are delivered through the application translation/event path, so translated UI text can be different before the next layout pass.",
+        "explicit_premise": "The reported defect appears after changing from English to Simplified Chinese and must also cover the other supported catalogs.",
+        "deduction": "Recompute natural widths after translated text and polish; run the executable geometry test once for each supported language.",
     },
 ]
 
@@ -418,6 +449,9 @@ def static_stage(repo: Path) -> dict[str, Any]:
         "left_top_form": "layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);" in options_cpp,
         "right_trailing_label": "SettingsLabelAlignment =" in options_cpp and "Qt::AlignRight | Qt::AlignTrailing;" in options_cpp,
         "left_top_values": "SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;" in options_cpp,
+        "fixed_shared_label_width": "labelItem->widget()->setFixedWidth(labelColumnWidth);" in options_cpp,
+        "fixed_width_is_reset_before_measurement": "setMaximumWidth(QWIDGETSIZE_MAX);" in options_cpp,
+        "shared_width_is_language_derived": "qMax(formLabelColumnWidth(generalContent)," in options_cpp,
         "row_normalization": all(
             marker in options_cpp
             for marker in (
@@ -434,6 +468,39 @@ def static_stage(repo: Path) -> dict[str, Any]:
         all(form_markers.values()),
         form_markers,
         "General and Mouse share one deterministic form and row-alignment contract",
+    )
+
+    cooldown_markers = {
+        "default_enabled": 'settingsLibrary.insert("scrollactioncooldown", {true, {}});' in settings_source,
+        "runtime_reader_retained": 'getBoolean("scrollactioncooldown")' in read(repo, "src/qvgraphicsview.cpp"),
+        "checkbox_removed_from_ui": "scrollActionCooldownCheckbox" not in options_ui,
+        "sync_entry_removed": "scrollActionCooldownCheckbox" not in options_cpp,
+        "english_text_removed_from_ui": "Cooldown for discrete actions" not in options_ui,
+        "catalog_text_removed": all(
+            "Cooldown for discrete actions" not in read(repo, f"i18n/qview_{language}.ts")
+            for language in LANGUAGES[1:]
+        ) and "Cooldown for discrete actions" not in read(repo, "i18n/template.ts"),
+        "executable_test": "testSettingsCooldownOptionIsRemovedAndDefaultEnabled" in test_source,
+    }
+    check(
+        "STATIC-COOLDOWN",
+        all(cooldown_markers.values()),
+        cooldown_markers,
+        "the cooldown default remains enabled while the obsolete user-facing option is absent",
+    )
+
+    colon_alignment_markers = {
+        "shared_fixed_column": "setFixedWidth(labelColumnWidth)" in options_cpp,
+        "right_trailing_contract": "SettingsLabelContentAlignment" in options_cpp,
+        "post_polish_measurement": "ensurePolished();" in options_cpp and "formLabelColumnWidth" in options_cpp,
+        "cross_language_geometry_test": "testSettingsColonAlignmentSurvivesTranslations" in test_source,
+        "ascii_and_fullwidth_colon_test": "QChar(0xFF1A)" in test_source,
+    }
+    check(
+        "STATIC-COLON-ALIGNMENT",
+        all(colon_alignment_markers.values()),
+        colon_alignment_markers,
+        "translated colon-terminated labels are measured post-polish and fixed to one shared column",
     )
 
     button_markers = {
@@ -494,6 +561,8 @@ def static_stage(repo: Path) -> dict[str, Any]:
             "groups": "testSettingsGeneralGroupsAndDefaults",
             "spacing": "testSettingsSpacingUsesNativeStyle",
             "forms": "testSettingsFormsAlignLabelsAndValues",
+            "cooldown": "testSettingsCooldownOptionIsRemovedAndDefaultEnabled",
+            "colon_alignment": "testSettingsColonAlignmentSurvivesTranslations",
             "button": "testSettingsAssociateButtonUsesNativeStyle",
             "all_languages": "testSettingsEveryTabFitsEveryLanguage",
         }.items()
@@ -572,7 +641,7 @@ def static_stage(repo: Path) -> dict[str, Any]:
     )
 
     diff_check = run_command(
-        ["git", "diff", "--check", "HEAD", "--", "src", "tests"],
+        ["git", "diff", "--check", "HEAD", "--", "src", "tests", "i18n"],
         repo,
         {},
         30,
@@ -675,7 +744,10 @@ def system_stage(binary: Path, build_dir: Path, repo: Path) -> dict[str, Any]:
     )
     result["stage"] = "system"
     result["test_target"] = "FovelleTests"
-    result["ctest_summary"] = re.findall(r"\d+% tests passed, \d+ tests failed out of \d+", result["output_tail"])
+    result["ctest_summary"] = re.findall(
+        r"\d+% tests passed(?:, \d+ tests failed)? out of \d+",
+        result["output_tail"],
+    )
     return result
 
 
@@ -746,7 +818,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
     }
     input_hashes = {name: file_sha256(path) for name, path in report_files.items()}
 
-    task = "Fovelle 设置页 General/Mouse 的原生样式、逻辑分组、层级间距与名称和值对齐修复"
+    task = "Fovelle 设置页 Mouse cooldown 选项移除与 General/Mouse 多语言冒号标签右对齐修复"
     spec = {
         "schema_version": "1.0",
         "report_type": "atomic_test_case_specification",
@@ -818,14 +890,14 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 case["passed"] for case in case_results if case["id"] == "CQ-LEAN-COMPLETENESS"
             ),
             "evidence_case_ids": ["CQ-LEAN-COMPLETENESS"],
-            "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享表单 helper、动态样式间距、直接原生按钮和最小必要的 row normalization；设置键集合与基线一致。",
+            "evidence": "静态契约确认 General/Mouse 复用现有控件和信号，使用共享固定标签列、动态样式间距、直接原生按钮和最小必要的 row normalization；cooldown 保留兼容键但移除 UI，设置键集合与基线一致。",
         },
         {
             "id": "CQ-CORRECT-001",
             "criterion": "功能正确性",
             "passed": behavior_passed,
             "evidence_case_ids": sorted(behavior_ids),
-            "evidence": "QtTest/Cocoa 实际执行覆盖八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。",
+            "evidence": "QtTest/Cocoa 实际执行覆盖 cooldown 默认与控件移除、八组 General、三组 Mouse、动态间距、两列/垂直对齐、原生按钮及五种语言三个 Tab。",
         },
         {
             "id": "CQ-TESTABLE-001",
@@ -871,6 +943,16 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 "observation": "长翻译或复合复选框可能超出旧 page sizeHint，造成 horizontalScrollBar=0 但实际控件越过 viewport。",
                 "explicit_premise": "QScrollArea 的完整显示由 child layout 的自然尺寸、minimum size 和最终父级 geometry 共同决定，且用户要求所有支持语言可重复验证。",
                 "deduction": "在 polish 后测量控件自然宽度、重新激活布局并校验 mapped viewport geometry；系统用例覆盖五种语言、三个 Tab 和两种 Mouse 模式。",
+            },
+            {
+                "observation": "不同语言的标签自然宽度不同；仅设置 AlignRight 而不固定共享标签列时，各独立 QFormLayout 仍可产生不同的右边界。",
+                "explicit_premise": "用户要求 General 和 Mouse 在英文及非英文语言中冒号右边界都一致；翻译文本宽度只能在运行时由 sizeHint 确定。",
+                "deduction": "在翻译和 polish 完成后取 General/Mouse 全体标签自然宽度最大值 L，并将每个标签固定为 L；清除旧固定宽度后在下一次语言/样式测量中重算。",
+            },
+            {
+                "observation": "Cooldown 选项的持久化键和图形视图读取逻辑早已存在，但用户不再需要可见开关。",
+                "explicit_premise": "需求同时要求默认勾选和移除选项；删除内部键会使旧版本配置失去兼容读取路径，且改变非 UI 行为边界。",
+                "deduction": "保留 scrollactioncooldown 键并固定默认 true，移除 .ui 控件、同步连接和翻译文本；已有显式配置仍可兼容读取，新安装默认启用。",
             },
         ],
         "research_trace": RESEARCH_TRACE,
