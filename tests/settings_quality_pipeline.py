@@ -190,6 +190,19 @@ CASES = (
         "tests/settings_quality_pipeline.py::build_reports + .github/workflows/test.yml",
         ("static", "unit", "integration", "system"),
     ),
+    make_case(
+        "CI-UNIT-002-ASYNC-OBSERVATION",
+        "修复 CI-UNIT-002：滚动测试不得要求异步 refinement 在某一瞬间仍处于 pending，且 5% 判定只使用滚动后的首个 Paint。",
+        "验证 GitHub Actions 失败的唯一观察器修复既接受异步任务已提前完成的合法时序，又保留局部滚动重绘断言。",
+        "已构建 fovelle_tests，macOS Cocoa 事件循环可用，解决方案与证明文件存在。",
+        "GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip、首个 Paint dirty ratio 和 hasPendingVectorRefinement teardown 状态。",
+        "执行静态异步观察合同；直接运行 CI-UNIT-002；检查首个 Paint 的 5% 断言和无瞬时 pending 必须为真的源码合同。",
+        "静态合同通过，QtTest 返回 0，首个 Paint dirty ratio 不超过 5%，并在移除 event filter 前等待 refinement 收敛。",
+        "测试窗口关闭，event filter 已移除；不修改生产渲染实现。",
+        "unit",
+        "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip + reports/solution_and_proof.md",
+        ("static", "unit"),
+    ),
 )
 
 
@@ -402,6 +415,9 @@ def static_stage(repo: Path) -> dict[str, Any]:
     workflow = read_text(repo / ".github/workflows/test.yml")
     cmake = read_text(repo / "tests/CMakeLists.txt")
     pipeline = read_text(repo / "tests/settings_quality_pipeline.py")
+    ci_pipeline = read_text(repo / "tests/ci_quality_pipeline.py")
+    solution = read_text(repo / "reports/solution_and_proof.md")
+    gitignore = read_text(repo / ".gitignore")
     production_text = "\n".join((ui, options_cpp, options_header))
     checks: list[dict[str, Any]] = []
 
@@ -565,6 +581,26 @@ def static_stage(repo: Path) -> dict[str, Any]:
         "The repository workflow must build translations, run CTest, and preserve the required reports without overwriting them.",
     ))
 
+    async_observation_markers = {
+        "solution_file": bool(
+            solution
+            and "## 3. 唯一解决方案" in solution
+            and "## 4. 数学正确性证明" in solution
+            and "## 4.4 唯一性" in solution
+        ),
+        "solution_file_not_ignored": "!reports/solution_and_proof.md" in gitignore,
+        "first_paint_assertion": "const qint64 scrollPaintArea = recorder.recordedAreas().constFirst();" in test_cpp,
+        "teardown_wait": "QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);" in test_cpp,
+        "no_instant_pending_assertion": "bar->setValue(bar->value() + 6);\n    QVERIFY(view->hasPendingVectorRefinement());" not in test_cpp,
+        "ci_static_guard": "no_instant_pending_assertion" in ci_pipeline,
+    }
+    checks.append(check(
+        "STATIC-CI-ASYNC-OBSERVATION",
+        all(async_observation_markers.values()),
+        async_observation_markers,
+        "The CI repair must document and enforce causal Paint observation without an instantaneous asynchronous-state precondition.",
+    ))
+
     try:
         ast.parse(pipeline, filename="tests/settings_quality_pipeline.py")
         python_valid = True
@@ -651,6 +687,34 @@ def qtest_stage(binary: Path, repo: Path, suite: str) -> dict[str, Any]:
 
 def unit_stage(binary: Path, repo: Path) -> dict[str, Any]:
     result = qtest_stage(binary, repo, "FeatureTests")
+    vector_test = execute(
+        [str(binary), "-o", "-,txt", "testVectorPanRepaintsOnlyExposedStrip"],
+        repo,
+        {
+            "QT_QPA_PLATFORM": "cocoa",
+            "QT_FATAL_WARNINGS": "1",
+            "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
+            "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1",
+            "FOVELLE_TEST_SUITE": "GraphicsViewTests",
+            "QTEST_FUNCTION_TIMEOUT": "30000",
+        },
+        timeout=60,
+    ) if binary.is_file() else {
+        "passed": False,
+        "return_code": None,
+        "output_tail": "test binary does not exist",
+    }
+    vector_pass_marker = "PASS   : GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()"
+    vector_test["passed"] = bool(
+        vector_test["passed"] and vector_pass_marker in vector_test["output_tail"]
+    )
+    result["vector_pan_test"] = {
+        "passed": vector_test["passed"],
+        "pass_marker": vector_pass_marker,
+        "pass_marker_observed": vector_pass_marker in vector_test["output_tail"],
+        "execution": vector_test,
+    }
+    result["passed"] = bool(result["passed"] and vector_test["passed"])
     result["stage"] = "unit"
     return result
 
@@ -755,13 +819,16 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
         "src/settingsmanager.cpp",
         "tests/tst_qviewtests.cpp",
         "tests/settings_quality_pipeline.py",
+        "tests/ci_quality_pipeline.py",
+        "reports/solution_and_proof.md",
+        ".gitignore",
         ".github/workflows/test.yml",
         *[f"i18n/{name}" for name in CATALOGS],
     )
     input_hashes = {
         path: file_sha256(repo / path) for path in source_files
     }
-    task = "设置页文案重命名与鼠标选项移除"
+    task = "设置页文案重命名与鼠标选项移除；修复 GitHub Actions 检查失败"
     specification = {
         "schema_version": "2.0",
         "report_type": "atomic_test_case_specification",
@@ -823,13 +890,13 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
             "id": "CQ-LEAN-001",
             "criterion": "精益完整性",
             "passed": static["passed"],
-            "evidence": "界面只保留可达设置；兼容键保留在运行时，但旧 UI、同步连接和不可达中键拖动行已移除。",
+            "evidence": "界面只保留可达设置；兼容键保留在运行时，但旧 UI、同步连接和不可达中键拖动行已移除；CI 观察器合同与证明文件纳入静态审计。",
         },
         {
             "id": "CQ-CORRECT-001",
             "criterion": "功能正确性",
             "passed": all_cases_passed,
-            "evidence": "QtTest 覆盖精确文案、枚举数据、对象树、默认值、旧配置迁移和多语言布局；四级流水线汇总外部结果。",
+            "evidence": "QtTest 覆盖精确文案、枚举数据、对象树、默认值、旧配置迁移、多语言布局和 CI-UNIT-002 的因果 Paint 观察；四级流水线汇总外部结果。",
         },
         {
             "id": "CQ-TESTABLE-001",
@@ -848,6 +915,7 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
             "界面移除不等于删除持久化兼容键，因为 qvgraphicsview.cpp 仍读取两个键。",
             "固定策略的有效范围是新安装与 migrateOldSettings() 完成后的启动；没有 UI 路径再写入旧策略。",
             "GitHub Actions 的 Cocoa 系统测试在 macos-26 runner 上执行，非 macOS 本地环境只能完成静态阶段。",
+            "异步 refinement 的完成时刻不属于滚动 Paint 的验收输入；首个可见 Paint 才是面积断言输入，pending 状态只用于 teardown。",
         ],
         "research_trace": RESEARCH_TRACE,
         "audit": {

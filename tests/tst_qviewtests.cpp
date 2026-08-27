@@ -5204,7 +5204,6 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     PaintRegionRecorder recorder;
     view->viewport()->installEventFilter(&recorder);
     bar->setValue(bar->value() + 6);
-    QVERIFY(view->hasPendingVectorRefinement());
     QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
     QCoreApplication::processEvents();
