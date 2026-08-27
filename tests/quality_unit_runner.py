@@ -68,6 +68,7 @@ EXPECTED_CASES = (
     ("TC-THEME-COLORS", "WindowBehaviorTests", "testThemeAppliesNativeAppearanceAndViewportBackground"),
     ("TC-THEME-CHECKERBOARD", "WindowBehaviorTests", "testCheckerboardOverridesThemeAndRestoresBackground"),
     ("TC-SETTINGS-ALL-LANGUAGES-TABS", "WindowBehaviorTests", "testSettingsEveryTabFitsEveryLanguage"),
+    ("TC-SETTINGS-FORM-ALIGNMENT", "WindowBehaviorTests", "testSettingsFormsAlignLabelsAndValues"),
     ("TC-NAV-EDGE", "WindowBehaviorTests", "testNavigationEdgeActivationExcludesTitlebar"),
     ("TC-NAV-SIZE", "WindowBehaviorTests", "testNavigationButtonSizingAndNoDelay"),
     ("TC-NAV-CONTRAST", "WindowBehaviorTests", "testNavigationButtonsUseActualContentContrast"),

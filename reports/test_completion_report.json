@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at_utc": "2026-08-27T09:59:09.940186+00:00",
+  "generated_at_utc": "2026-08-27T10:37:46.085251+00:00",
   "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
   "host": {
     "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
@@ -10,7 +10,7 @@
   "build": {
     "build_dir": "/Users/inostarlin/code/Fovelle/build",
     "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-    "binary_sha256": "a35b522bc4f9b9f8e9481f55b13e6760f85e14fbfe785fce55d95c826d584c46"
+    "binary_sha256": "9d2676c4bc061bd3a4e5f9e21f6100b8b13093fd63fcf0f344810b21635cc9a4"
   },
   "stages": {
     "static": {
@@ -35,9 +35,12 @@
           "observed": {
             "group_spacing": true,
             "row_spacing": true,
+            "group_bottom_padding": true,
+            "control_height_safety": true,
             "semantic_group_factory": true,
             "natural_width_compensation": true,
             "combo_contents_policy": true,
+            "explicit_column_alignment": true,
             "all_new_test_methods_registered": true,
             "runner_tracks_new_methods": true
           },
@@ -142,7 +145,7 @@
             "cwd": "/Users/inostarlin/code/Fovelle",
             "environment_overrides": {},
             "timeout_seconds": 30,
-            "elapsed_seconds": 0.029019,
+            "elapsed_seconds": 0.010956,
             "timed_out": false,
             "return_code": 0,
             "passed": true,
@@ -314,12 +317,12 @@
         "FOVELLE_TEST_SUITE": "FeatureTests"
       },
       "timeout_seconds": 90,
-      "elapsed_seconds": 0.76169,
+      "elapsed_seconds": 0.743845,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "0c90b1bace8a2b9da3e8e078ae8666ca6b329bf4b779ee417a580e609419230f",
-      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 21 passed, 0 failed, 0 skipped, 0 blacklisted, 535ms\n********* Finished testing of FeatureTests *********\n",
+      "output_sha256": "30b95083f335646db78f100f39ce20b6070a23913df749ff55952499479d715c",
+      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 21 passed, 0 failed, 0 skipped, 0 blacklisted, 522ms\n********* Finished testing of FeatureTests *********\n",
       "stage": "unit",
       "suite": "FeatureTests"
     },
@@ -337,12 +340,12 @@
         "FOVELLE_TEST_SUITE": "WindowBehaviorTests"
       },
       "timeout_seconds": 90,
-      "elapsed_seconds": 17.056147,
+      "elapsed_seconds": 18.770834,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "92e58f7db01f69e5ccb09910d5f28589f62eba707ebebf72be6940cd122fe495",
-      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(360,80 400x652)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.855583\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 40 passed, 0 failed, 0 skipped, 0 blacklisted, 16828ms\n********* Finished testing of WindowBehaviorTests *********\n",
+      "output_sha256": "24a15c54fe89fe557ccc681d1b752a379714d9df51a68aaf5acb767ec39ea53f",
+      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(360,68 400x676)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.702542\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 41 passed, 0 failed, 0 skipped, 0 blacklisted, 18529ms\n********* Finished testing of WindowBehaviorTests *********\n",
       "stage": "integration",
       "suite": "WindowBehaviorTests"
     },
@@ -362,12 +365,12 @@
         "QV_DISABLE_ONLINE_VERSION_CHECK": "1"
       },
       "timeout_seconds": 180,
-      "elapsed_seconds": 31.360914,
+      "elapsed_seconds": 32.742619,
       "timed_out": false,
       "return_code": 0,
       "passed": true,
-      "output_sha256": "7dd26509d30ae917b20a184d0b79d125faf4e596737cb092e26ec47598ca98c3",
-      "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   31.32 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  31.33 sec\n",
+      "output_sha256": "a81f5d5d92a3672482514a82c7003ffbd4c1b3aa71e1d6b93703aa66398bdf63",
+      "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   32.73 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  32.73 sec\n",
       "stage": "system",
       "test_target": "FovelleTests"
     }
@@ -548,6 +551,34 @@
       }
     },
     {
+      "id": "SET-018",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-019",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
       "id": "SET-015",
       "test_layer": "static",
       "implementation": "tests/settings_quality_pipeline.py::static_stage",
@@ -624,11 +655,25 @@
       "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
       "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
       "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+    },
+    {
+      "hop": 5,
+      "source": "https://doc.qt.io/qt-6/qlayout.html",
+      "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
+      "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
+      "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content."
+    },
+    {
+      "hop": 6,
+      "source": "https://doc.qt.io/qt-6/qlabel.html",
+      "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
+      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
+      "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly."
     }
   ],
   "audit": {
-    "case_count": 17,
-    "passed_cases": 17,
+    "case_count": 19,
+    "passed_cases": 19,
     "failed_cases": [],
     "all_atomic_cases_passed": true,
     "all_four_stages_passed": true

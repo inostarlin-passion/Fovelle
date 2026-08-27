@@ -23,11 +23,19 @@
 #include <QScrollBar>
 #include <QStyleOptionViewItem>
 #include <QVBoxLayout>
+#include <QAbstractButton>
+#include <QLabel>
 
 namespace
 {
 constexpr int SettingsGroupSpacing = 18;
 constexpr int SettingsRowSpacing = 6;
+constexpr int SettingsGroupBottomPadding = 4;
+constexpr int SettingsControlHeightPadding = 2;
+
+constexpr Qt::Alignment SettingsLabelAlignment =
+    Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignVCenter;
 
 int formLabelColumnWidth(QWidget *page)
 {
@@ -107,17 +115,59 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
         // every group choose a different field-column origin as label widths
         // changed between languages. A shared label column and left-aligned
         // form origin keep General and Mouse controls on one vertical grid.
+        layout->setLabelAlignment(SettingsLabelAlignment);
         layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
         layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
         for (int row = 0; row < layout->rowCount(); ++row)
         {
-            auto *item = layout->itemAt(row, QFormLayout::LabelRole);
-            if (item && item->widget())
-                item->widget()->setMinimumWidth(labelColumnWidth);
+            auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
+            if (labelItem && labelItem->widget())
+            {
+                labelItem->widget()->setMinimumWidth(labelColumnWidth);
+                if (auto *label = qobject_cast<QLabel *>(labelItem->widget()))
+                    label->setAlignment(SettingsLabelAlignment);
+            }
+
+            auto alignValueItem = [layout](QLayoutItem *item) {
+                if (!item)
+                    return;
+                if (item->widget())
+                    layout->setAlignment(item->widget(), SettingsValueAlignment);
+                else if (item->layout())
+                    layout->setAlignment(item->layout(), SettingsValueAlignment);
+            };
+            auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
+            if (fieldItem && fieldItem->layout()
+                && fieldItem->layout()->objectName() == QStringLiteral("associationRow"))
+            {
+                layout->setAlignment(fieldItem->layout(),
+                                     Qt::AlignHCenter | Qt::AlignVCenter);
+            }
+            else
+            {
+                alignValueItem(fieldItem);
+            }
+
+            // A spanning row without a label is itself the value/control. The
+            // association row is deliberately centered as an action, so leave
+            // its stretch-based layout untouched.
+            auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
+            if (spanningItem && spanningItem->layout()
+                && spanningItem->layout()->objectName() == QStringLiteral("associationRow"))
+            {
+                layout->setAlignment(spanningItem->layout(),
+                                     Qt::AlignHCenter | Qt::AlignVCenter);
+            }
+            else
+            {
+                alignValueItem(spanningItem);
+            }
         }
     }
 
     page->setProperty("settingsAlignedLabelColumnWidth", labelColumnWidth);
+    page->setProperty("settingsLabelAlignment", int(SettingsLabelAlignment));
+    page->setProperty("settingsValueAlignment", int(SettingsValueAlignment));
 }
 
 QWidget *createSettingsGroup(QWidget *parent, const int groupIndex,
@@ -130,11 +180,11 @@ QWidget *createSettingsGroup(QWidget *parent, const int groupIndex,
 
     auto *layout = new QFormLayout(group);
     layout->setObjectName(QStringLiteral("settingsGroup%1Layout").arg(groupIndex));
-    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setContentsMargins(0, 0, 0, SettingsGroupBottomPadding);
     layout->setHorizontalSpacing(12);
     layout->setVerticalSpacing(SettingsRowSpacing);
     layout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
-    layout->setLabelAlignment(Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter);
+    layout->setLabelAlignment(SettingsLabelAlignment);
     layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
     layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
     *formLayout = layout;
@@ -169,16 +219,22 @@ void setNaturalControlWidths(QWidget *page)
         if (control->objectName() == QStringLiteral("menubarCheckbox"))
             continue;
 
-        if (!qobject_cast<QCheckBox *>(control)
+        if (!qobject_cast<QAbstractButton *>(control)
             && !qobject_cast<QComboBox *>(control)
-            && !qobject_cast<QAbstractSpinBox *>(control)
-            && !qobject_cast<QPushButton *>(control))
+            && !qobject_cast<QAbstractSpinBox *>(control))
             continue;
 
         if (auto *comboBox = qobject_cast<QComboBox *>(control))
             comboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
         control->setMinimumWidth(qMax(control->minimumWidth(),
                                       control->sizeHint().width()));
+        // QMacStyle can increase a control's size hint by a couple of pixels
+        // when the native Settings window is first shown. Reserve that small
+        // post-polish delta up front so the row never clips a bottom border or
+        // glyph after the scroll area's exact height has been measured.
+        control->setMinimumHeight(qMax(control->minimumHeight(),
+                                       control->sizeHint().height()
+                                           + SettingsControlHeightPadding));
         auto sizePolicy = control->sizePolicy();
         sizePolicy.setHorizontalPolicy(QSizePolicy::Fixed);
         control->setSizePolicy(sizePolicy);
@@ -196,10 +252,9 @@ int naturalControlWidth(QWidget *page)
         if (control->objectName() == QStringLiteral("menubarCheckbox"))
             continue;
 
-        if (qobject_cast<QCheckBox *>(control)
+        if (qobject_cast<QAbstractButton *>(control)
             || qobject_cast<QComboBox *>(control)
-            || qobject_cast<QAbstractSpinBox *>(control)
-            || qobject_cast<QPushButton *>(control))
+            || qobject_cast<QAbstractSpinBox *>(control))
             width = qMax(width, control->sizeHint().width());
     }
     return width;
@@ -324,12 +379,14 @@ void QVOptionsDialog::configureGeneralPage()
     generalLayout->setSpacing(SettingsGroupSpacing);
     generalWidget->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
     generalWidget->setProperty("settingsRowSpacing", SettingsRowSpacing);
+    generalWidget->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
 
     auto *miscLayout = new QVBoxLayout(miscWidget);
     miscLayout->setContentsMargins(0, 0, 0, 0);
     miscLayout->setSpacing(SettingsGroupSpacing);
     miscWidget->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
     miscWidget->setProperty("settingsRowSpacing", SettingsRowSpacing);
+    miscWidget->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
 
     QFormLayout *groupLayout = nullptr;
     auto *group1 = createSettingsGroup(generalWidget, 1, &groupLayout);
@@ -386,6 +443,7 @@ void QVOptionsDialog::configureGeneralPage()
     group8->setProperty("settingsItemObjectNames",
                         QStringList {QStringLiteral("associateFormatsButton")});
     auto *associationRow = new QHBoxLayout;
+    associationRow->setObjectName(QStringLiteral("associationRow"));
     associationRow->setContentsMargins(0, 0, 0, 0);
     associationRow->addStretch();
     associationRow->addWidget(ui->associateFormatsButton);
@@ -401,6 +459,7 @@ void QVOptionsDialog::configureGeneralPage()
     contentLayout->setSpacing(SettingsGroupSpacing);
     generalContent->setProperty("settingsGroupSpacing", SettingsGroupSpacing);
     generalContent->setProperty("settingsRowSpacing", SettingsRowSpacing);
+    generalContent->setProperty("settingsGroupBottomPadding", SettingsGroupBottomPadding);
     contentLayout->addWidget(generalWidget);
     contentLayout->addWidget(miscWidget);
 

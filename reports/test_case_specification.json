@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "report_type": "atomic_test_case_specification",
-  "generated_at_utc": "2026-08-27T09:59:09.939969+00:00",
+  "generated_at_utc": "2026-08-27T10:37:46.084841+00:00",
   "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
-  "atomic_case_count": 17,
+  "atomic_case_count": 19,
   "languages": [
     "en",
     "es",
@@ -280,6 +280,38 @@
       ]
     },
     {
+      "id": "SET-018",
+      "acceptance_criterion": "General 和 Mouse 的每个选项均为标签右对齐、值左对齐",
+      "test_purpose": "验证所有表单在每种支持语言下都使用统一的标签列和左起值列，包括 Mouse 的两种模式及复合值布局。",
+      "preconditions": "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+      "input_data": "en、es、ja、zh_Hans、zh_Hant；General/Mouse 的所有 QFormLayout 行；Mouse click/drag 模式。",
+      "steps": "逐语言显示 Settings，读取每个 QFormLayout 的 label/value alignment 和运行时矩形；切换 Mouse 两种模式后重复检查。",
+      "expected_result": "每个可见标签的文字右对齐并落在共享标签列末端；每个可见值控件从对应字段列左侧开始；Associate action 保持独立的居中动作行。",
+      "postconditions": "对话框、翻译器和设置值恢复。",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ]
+    },
+    {
+      "id": "SET-019",
+      "acceptance_criterion": "General 和 Mouse 的每个可见选项均无底部遮挡",
+      "test_purpose": "验证每种语言、每个 Settings Tab 和 Mouse 模式下，所有可见标签与值控件都有完整高度、位于 viewport 内且不依赖滚动补救。",
+      "preconditions": "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+      "input_data": "en、es、ja、zh_Hans、zh_Hant；General/Mouse 全部可见选项；QWidget sizeHint、geometry 和 viewport。",
+      "steps": "逐语言切换 General、Shortcuts、Mouse，检查每个可见控件的宽高不小于 sizeHint、映射矩形完全位于 viewport；切换 Mouse click/drag 后再次检查。",
+      "expected_result": "Checkerboard when image loaded 及其他每个选项均完整呈现；控件高度不小于最终 sizeHint，底部不被父布局或 viewport 裁切，水平和垂直滚动范围均为 0。",
+      "postconditions": "对话框、翻译器和设置值恢复。",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ]
+    },
+    {
       "id": "SET-015",
       "acceptance_criterion": "精益完整性：实现只引入满足本任务所需的最小变更",
       "test_purpose": "验证分组、宽度补偿和默认值变更复用现有控件、设置键与信号连接，没有复制持久化模型或无关 UI。",
@@ -299,7 +331,7 @@
       "acceptance_criterion": "功能正确性：每个规定输入均产生规定的输出与副作用",
       "test_purpose": "验证版本、分组、默认值、多语言和多 Tab 几何的完整验收矩阵均通过。",
       "preconditions": "四层测试环境已配置；QtTest 二进制、翻译 catalog 和 CTest 注册均可用。",
-      "input_data": "14 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
+      "input_data": "16 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
       "steps": "按静态、单元、集成、系统顺序执行审计流水线，读取每个原子用例的 stage_status。",
       "expected_result": "所有功能原子用例在其证据层级通过，且没有失败、跳过或未覆盖的验收项。",
       "postconditions": "测试进程、对话框、翻译器和测试设置均完成清理。",
@@ -367,6 +399,20 @@
       "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
       "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
       "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+    },
+    {
+      "hop": 5,
+      "source": "https://doc.qt.io/qt-6/qlayout.html",
+      "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
+      "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
+      "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content."
+    },
+    {
+      "hop": 6,
+      "source": "https://doc.qt.io/qt-6/qlabel.html",
+      "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
+      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
+      "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly."
     }
   ],
   "validation": {

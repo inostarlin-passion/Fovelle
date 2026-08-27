@@ -263,6 +263,7 @@ private slots:
     void testAssociateFormatsButtonIsCentered();
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
+    void testSettingsFormsAlignLabelsAndValues();
     void testSettingsEveryTabFitsEveryLanguage();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
@@ -2722,6 +2723,9 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QVERIFY(misc);
     QCOMPARE(generalContent->property("settingsGroupSpacing").toInt(), 18);
     QCOMPARE(generalContent->property("settingsRowSpacing").toInt(), 6);
+    QCOMPARE(generalContent->property("settingsGroupBottomPadding").toInt(), 4);
+    QCOMPARE(general->property("settingsGroupBottomPadding").toInt(), 4);
+    QCOMPARE(misc->property("settingsGroupBottomPadding").toInt(), 4);
     QCOMPARE(general->layout()->spacing(), 18);
     QCOMPARE(misc->layout()->spacing(), 18);
 
@@ -2757,6 +2761,7 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
         auto *layout = qobject_cast<QFormLayout *>(group->layout());
         QVERIFY(layout);
         QCOMPARE(layout->verticalSpacing(), 6);
+        QCOMPARE(layout->contentsMargins().bottom(), 4);
 
         for (const QString &objectName : expectedItems.at(index))
         {
@@ -6681,6 +6686,226 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
 #endif
 }
 
+// TC-SETTINGS-FORM-ALIGNMENT
+// Test purpose: verify every General and Mouse form uses a shared right-aligned
+// label column and a left-aligned value column for every supported language.
+// Preconditions: the Cocoa Qt test application, all five supported catalogs,
+// and a writable isolated settings store are available.
+// Input data: en, es, ja, zh_Hans, zh_Hant; every QFormLayout under General and
+// Mouse, including combo boxes, spin boxes, checkboxes, radio-button layouts,
+// and the centered association action.
+// Steps: install one language catalog, show Settings, activate every form,
+// inspect form and item alignments, then compare the runtime label/value
+// column origins; repeat for all supported languages.
+// Expected result: labels end at one shared right-aligned column, values begin
+// at the following shared left-aligned column, no form is horizontally centered,
+// and the action row remains intentionally centered.
+// Postcondition: every dialog, translator, and temporary setting is restored.
+void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    const QList<QString> languages {
+        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
+        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
+    };
+    const Qt::Alignment expectedLabelAlignment =
+        Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+    const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+
+    const auto alignmentHas = [](const Qt::Alignment actual,
+                                 const Qt::Alignment expected) {
+        return (actual & expected) == expected;
+    };
+
+    for (const QString &language : languages)
+    {
+        SourceLanguageTranslator sourceTranslator;
+        QTranslator catalogTranslator;
+        QTranslator *translator = &sourceTranslator;
+        if (language != QStringLiteral("en"))
+        {
+            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                    .arg(language);
+            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
+            translator = &catalogTranslator;
+        }
+        QVERIFY(QCoreApplication::installTranslator(translator));
+
+        {
+            ScopedOptionValues options({
+                {QStringLiteral("language"), language},
+                {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
+                {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Click)}
+            });
+            QSettings settings;
+            settings.setValue(QStringLiteral("optionstab"), 0);
+            settings.setValue(QStringLiteral("optionstabversion"), 2);
+            settings.sync();
+
+            QVOptionsDialog dialog;
+            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+            QVERIFY(tabs);
+            QVERIFY(general);
+            QVERIFY(mouse);
+            dialog.prepareForDisplay();
+            dialog.show();
+            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+
+            const auto verifyPage = [&](QScrollArea *scrollArea) {
+                QWidget *page = scrollArea->widget();
+                QVERIFY(page);
+                const int expectedLabelWidth =
+                    page->property("settingsAlignedLabelColumnWidth").toInt();
+                QVERIFY(expectedLabelWidth > 0);
+                QCOMPARE(page->property("settingsLabelAlignment").toInt(),
+                         int(expectedLabelAlignment));
+                QCOMPARE(page->property("settingsValueAlignment").toInt(),
+                         int(expectedValueAlignment));
+
+                const auto layouts = page->findChildren<QFormLayout *>();
+                QVERIFY(!layouts.isEmpty());
+                const auto itemIsVisible = [](QLayoutItem *item) {
+                    if (!item)
+                        return false;
+                    if (item->widget())
+                        return item->widget()->isVisible();
+                    if (item->layout())
+                    {
+                        for (int index = 0; index < item->layout()->count(); ++index)
+                        {
+                            auto *child = item->layout()->itemAt(index);
+                            if (child && child->widget() && child->widget()->isVisible())
+                                return true;
+                        }
+                    }
+                    return false;
+                };
+                for (auto *layout : layouts)
+                {
+                    QCOMPARE(layout->labelAlignment(), expectedLabelAlignment);
+                    QVERIFY(alignmentHas(layout->formAlignment(),
+                                         Qt::AlignLeft | Qt::AlignTop));
+                    QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
+                    QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
+
+                    int labelColumnRight = -1;
+                    int fieldColumnLeft = -1;
+                    for (int row = 0; row < layout->rowCount(); ++row)
+                    {
+                        auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
+                        auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
+                        auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
+                        if (!itemIsVisible(labelItem) && !itemIsVisible(fieldItem)
+                            && !itemIsVisible(spanningItem))
+                            continue;
+
+                        if (labelItem && labelItem->widget())
+                        {
+                            auto *label = qobject_cast<QLabel *>(labelItem->widget());
+                            QVERIFY(label);
+                            if (!label->isVisible())
+                                continue;
+                            QCOMPARE(label->minimumWidth(), expectedLabelWidth);
+                            const int thisLabelRight = label->geometry().x() + label->width();
+                            if (labelColumnRight < 0)
+                                labelColumnRight = thisLabelRight;
+                            else
+                            {
+                                QVERIFY2(thisLabelRight == labelColumnRight,
+                                         qPrintable(language + QStringLiteral(": label column ")
+                                                    + layout->objectName() + QStringLiteral("/")
+                                                    + label->objectName()));
+                            }
+                            QVERIFY(alignmentHas(label->alignment(),
+                                                 expectedLabelAlignment));
+                        }
+
+                        if (fieldItem)
+                        {
+                            if (!itemIsVisible(fieldItem))
+                                continue;
+                            const QString fieldName = fieldItem->widget()
+                                ? fieldItem->widget()->objectName()
+                                : fieldItem->layout() ? fieldItem->layout()->objectName()
+                                                       : QStringLiteral("anonymous");
+                            if (fieldName == QStringLiteral("associationRow"))
+                            {
+                                QVERIFY2(alignmentHas(fieldItem->alignment(),
+                                                      Qt::AlignHCenter | Qt::AlignVCenter),
+                                         qPrintable(language + QStringLiteral(": association alignment")));
+                            }
+                            else
+                            {
+                                QVERIFY2(alignmentHas(fieldItem->alignment(),
+                                                      expectedValueAlignment),
+                                         qPrintable(language + QStringLiteral(": value alignment ")
+                                                    + fieldName));
+                            }
+                            const QRect fieldGeometry = fieldItem->geometry();
+                            QVERIFY(fieldGeometry.isValid());
+                            if (labelItem && labelItem->widget())
+                            {
+                                auto *label = qobject_cast<QLabel *>(labelItem->widget());
+                                QVERIFY(label);
+                                QVERIFY(fieldGeometry.x()
+                                        >= label->geometry().x() + label->width()
+                                            + layout->horizontalSpacing());
+                                if (fieldColumnLeft < 0)
+                                    fieldColumnLeft = fieldGeometry.x();
+                                else
+                                    QCOMPARE(fieldGeometry.x(), fieldColumnLeft);
+                            }
+                        }
+
+                        if (spanningItem && spanningItem->layout()
+                            && spanningItem->layout()->objectName()
+                                == QStringLiteral("associationRow"))
+                        {
+                            QVERIFY(alignmentHas(spanningItem->alignment(),
+                                                 Qt::AlignHCenter | Qt::AlignVCenter));
+                        }
+                        else if (spanningItem)
+                        {
+                            QVERIFY(alignmentHas(spanningItem->alignment(),
+                                                 expectedValueAlignment));
+                        }
+                    }
+                }
+            };
+
+            tabs->setCurrentIndex(0);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            verifyPage(general);
+            tabs->setCurrentIndex(2);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            verifyPage(mouse);
+            auto *clickMode = dialog.findChild<QRadioButton *>(
+                QStringLiteral("middleButtonModeClickRadioButton"));
+            auto *dragMode = dialog.findChild<QRadioButton *>(
+                QStringLiteral("middleButtonModeDragRadioButton"));
+            QVERIFY(clickMode);
+            QVERIFY(dragMode);
+            clickMode->click();
+            QCoreApplication::processEvents();
+            verifyPage(mouse);
+            dragMode->click();
+            QCoreApplication::processEvents();
+            verifyPage(mouse);
+            dialog.close();
+        }
+
+        QVERIFY(QCoreApplication::removeTranslator(translator));
+    }
+#endif
+}
+
 // TC-SETTINGS-ALL-LANGUAGES-TABS
 // Test purpose: verify every visible option on every Settings tab remains
 // inside its viewport for every supported application language.
@@ -6692,8 +6917,8 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
 // every tab, and inspect each visible control's natural width and mapped
 // geometry; repeat the Mouse check for both radio-button modes.
 // Expected result: the long Reuse-window option and every other visible
-// control fit without horizontal scrolling or clipped geometry in every
-// language and tab.
+// control fit without horizontal scrolling, insufficient height, or clipped
+// geometry in every language and tab.
 // Postcondition: every dialog, translator, and temporary setting is restored.
 void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
 {
@@ -6727,6 +6952,10 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
                      qPrintable(language + QStringLiteral(": ") + widget->objectName()));
             QVERIFY2(widget->width() >= widget->sizeHint().width(),
                      qPrintable(language + QStringLiteral(": natural width ") + widget->objectName()));
+            QVERIFY2(widget->height() >= widget->sizeHint().height(),
+                     qPrintable(language + QStringLiteral(": natural height ") + widget->objectName()
+                                + QStringLiteral(" actual=") + QString::number(widget->height())
+                                + QStringLiteral(" hint=") + QString::number(widget->sizeHint().height())));
         }
     };
 

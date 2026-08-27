@@ -245,6 +245,32 @@ CASES = (
         ("system",),
     ),
     test_case(
+        "SET-018",
+        "General 和 Mouse 的每个选项均为标签右对齐、值左对齐",
+        "验证所有表单在每种支持语言下都使用统一的标签列和左起值列，包括 Mouse 的两种模式及复合值布局。",
+        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+        "en、es、ja、zh_Hans、zh_Hant；General/Mouse 的所有 QFormLayout 行；Mouse click/drag 模式。",
+        "逐语言显示 Settings，读取每个 QFormLayout 的 label/value alignment 和运行时矩形；切换 Mouse 两种模式后重复检查。",
+        "每个可见标签的文字右对齐并落在共享标签列末端；每个可见值控件从对应字段列左侧开始；Associate action 保持独立的居中动作行。",
+        "对话框、翻译器和设置值恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues",
+        ("integration", "system"),
+    ),
+    test_case(
+        "SET-019",
+        "General 和 Mouse 的每个可见选项均无底部遮挡",
+        "验证每种语言、每个 Settings Tab 和 Mouse 模式下，所有可见标签与值控件都有完整高度、位于 viewport 内且不依赖滚动补救。",
+        "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+        "en、es、ja、zh_Hans、zh_Hant；General/Mouse 全部可见选项；QWidget sizeHint、geometry 和 viewport。",
+        "逐语言切换 General、Shortcuts、Mouse，检查每个可见控件的宽高不小于 sizeHint、映射矩形完全位于 viewport；切换 Mouse click/drag 后再次检查。",
+        "Checkerboard when image loaded 及其他每个选项均完整呈现；控件高度不小于最终 sizeHint，底部不被父布局或 viewport 裁切，水平和垂直滚动范围均为 0。",
+        "对话框、翻译器和设置值恢复。",
+        "integration",
+        "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+        ("integration", "system"),
+    ),
+    test_case(
         "SET-015",
         "精益完整性：实现只引入满足本任务所需的最小变更",
         "验证分组、宽度补偿和默认值变更复用现有控件、设置键与信号连接，没有复制持久化模型或无关 UI。",
@@ -262,7 +288,7 @@ CASES = (
         "功能正确性：每个规定输入均产生规定的输出与副作用",
         "验证版本、分组、默认值、多语言和多 Tab 几何的完整验收矩阵均通过。",
         "四层测试环境已配置；QtTest 二进制、翻译 catalog 和 CTest 注册均可用。",
-        "14 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
+        "16 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
         "按静态、单元、集成、系统顺序执行审计流水线，读取每个原子用例的 stage_status。",
         "所有功能原子用例在其证据层级通过，且没有失败、跳过或未覆盖的验收项。",
         "测试进程、对话框、翻译器和测试设置均完成清理。",
@@ -314,6 +340,20 @@ RESEARCH_TRACE = [
         "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
         "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
         "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs.",
+    },
+    {
+        "hop": 5,
+        "source": "https://doc.qt.io/qt-6/qlayout.html",
+        "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
+        "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
+        "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content.",
+    },
+    {
+        "hop": 6,
+        "source": "https://doc.qt.io/qt-6/qlabel.html",
+        "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
+        "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
+        "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly.",
     },
 ]
 
@@ -406,13 +446,23 @@ def static_stage(repo: Path) -> dict[str, Any]:
     group_markers = {
         "group_spacing": "constexpr int SettingsGroupSpacing = 18;" in options_cpp,
         "row_spacing": "constexpr int SettingsRowSpacing = 6;" in options_cpp,
+        "group_bottom_padding": "constexpr int SettingsGroupBottomPadding = 4;" in options_cpp
+        and "setContentsMargins(0, 0, 0, SettingsGroupBottomPadding)" in options_cpp,
+        "control_height_safety": "constexpr int SettingsControlHeightPadding = 2;" in options_cpp
+        and "setMinimumHeight" in options_cpp
+        and "sizeHint().height()" in options_cpp,
         "semantic_group_factory": "createSettingsGroup" in options_cpp and "settingsGroupIndex" in options_cpp,
         "natural_width_compensation": "naturalControlWidth" in options_cpp and "setNaturalControlWidths" in options_cpp,
         "combo_contents_policy": "QComboBox::AdjustToContents" in options_cpp,
+        "explicit_column_alignment": "SettingsLabelAlignment" in options_cpp
+        and "SettingsValueAlignment" in options_cpp
+        and "setAlignment(item->widget(), SettingsValueAlignment)" in options_cpp
+        and "testSettingsFormsAlignLabelsAndValues" in test_source,
         "all_new_test_methods_registered": all(
             marker in test_source
             for marker in (
                 "testSettingsGeneralGroupsAndDefaults",
+                "testSettingsFormsAlignLabelsAndValues",
                 "testSettingsEveryTabFitsEveryLanguage",
             )
         ),
@@ -420,6 +470,7 @@ def static_stage(repo: Path) -> dict[str, Any]:
             marker in unit_runner
             for marker in (
                 "testSettingsGeneralGroupsAndDefaults",
+                "testSettingsFormsAlignLabelsAndValues",
                 "testSettingsEveryTabFitsEveryLanguage",
             )
         ),
@@ -686,6 +737,16 @@ def build_reports(repo: Path, build_dir: Path, binary: Path) -> tuple[dict[str, 
                 "observation": "QFormLayout 的 spanning checkbox 行不会稳定地把控件的自然宽度传播到父级聚合 sizeHint。",
                 "premise": "初始修复测试中可观察到 checkbox geometry 大于 scroll viewport，而 layout sizeHint 仍取较小值。",
                 "deduction": "增加 naturalControlWidth/setNaturalControlWidths，并将 combo 设置为 AdjustToContents、交互控件固定为自然宽度；多语言/多 Tab 测试锁定回归。",
+            },
+            {
+                "observation": "显示后 QMacStyle 会把部分控件的最终 sizeHint 增大约 2 px；原实现按显示前尺寸把行压到精确高度，造成 Checkerboard 等选项底部像素被裁切。",
+                "premise": "运行时几何观测得到 langComboBox 实际高度 30、显示后 sizeHint 高度 32；仅检查宽度无法发现该缺陷。",
+                "deduction": "在自然尺寸测量前为所有 General/Mouse 值控件保留 2 px 高度余量，并为每个语义组保留 4 px 底部 padding；测试每个可见控件的最终高度和 viewport 包含关系。",
+            },
+            {
+                "observation": "Mouse 的 .ui 表单沿用了 QMacStyle 的居中 formAlignment，且值项没有逐项 alignment contract。",
+                "premise": "QFormLayout 文档明确指出 QMacStyle 默认水平居中；参考布局要求标签右对齐、值左对齐。",
+                "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左值项，并用运行时几何覆盖每种语言和 Mouse 模式。",
             },
         ],
         "research_trace": RESEARCH_TRACE,

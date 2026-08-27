@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at_utc": "2026-08-27T09:59:09.958336+00:00",
+  "generated_at_utc": "2026-08-27T10:37:46.102339+00:00",
   "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
   "quality_requirements": [
     {
@@ -32,7 +32,9 @@
         "SET-011",
         "SET-012",
         "SET-013",
-        "SET-014"
+        "SET-014",
+        "SET-018",
+        "SET-019"
       ],
       "evidence": "原子结构、默认值、版本和多语言/多 Tab 几何用例均由实际 QtTest/Cocoa 执行结果覆盖。"
     },
@@ -60,6 +62,16 @@
       "observation": "QFormLayout 的 spanning checkbox 行不会稳定地把控件的自然宽度传播到父级聚合 sizeHint。",
       "premise": "初始修复测试中可观察到 checkbox geometry 大于 scroll viewport，而 layout sizeHint 仍取较小值。",
       "deduction": "增加 naturalControlWidth/setNaturalControlWidths，并将 combo 设置为 AdjustToContents、交互控件固定为自然宽度；多语言/多 Tab 测试锁定回归。"
+    },
+    {
+      "observation": "显示后 QMacStyle 会把部分控件的最终 sizeHint 增大约 2 px；原实现按显示前尺寸把行压到精确高度，造成 Checkerboard 等选项底部像素被裁切。",
+      "premise": "运行时几何观测得到 langComboBox 实际高度 30、显示后 sizeHint 高度 32；仅检查宽度无法发现该缺陷。",
+      "deduction": "在自然尺寸测量前为所有 General/Mouse 值控件保留 2 px 高度余量，并为每个语义组保留 4 px 底部 padding；测试每个可见控件的最终高度和 viewport 包含关系。"
+    },
+    {
+      "observation": "Mouse 的 .ui 表单沿用了 QMacStyle 的居中 formAlignment，且值项没有逐项 alignment contract。",
+      "premise": "QFormLayout 文档明确指出 QMacStyle 默认水平居中；参考布局要求标签右对齐、值左对齐。",
+      "deduction": "统一设置所有 General/Mouse 表单为左上 form origin、右/Trailing 标签、左值项，并用运行时几何覆盖每种语言和 Mouse 模式。"
     }
   ],
   "research_trace": [
@@ -90,6 +102,20 @@
       "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
       "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
       "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+    },
+    {
+      "hop": 5,
+      "source": "https://doc.qt.io/qt-6/qlayout.html",
+      "finding": "QLayout contents margins are separate from inter-widget spacing, and minimumSize/sizeHint must include the space required by the layout contract.",
+      "premise": "A row can have a correct width but still be painted against the exact bottom edge when the measured content has no safety margin and a native style changes its final hint.",
+      "deduction": "Give every semantic group an explicit bottom padding and reserve a small post-polish control-height margin before measuring the scroll content."
+    },
+    {
+      "hop": 6,
+      "source": "https://doc.qt.io/qt-6/qlabel.html",
+      "finding": "QLabel exposes an alignment property controlling the horizontal and vertical placement of its text.",
+      "premise": "The requirement is visual alignment of the label text, not merely a form-level default that can vary by style.",
+      "deduction": "Set and test the label's right/trailing/vertical-center alignment, and set each value item to left/vertical-center alignment explicitly."
     }
   ],
   "checks": [
@@ -121,7 +147,9 @@
         "SET-011",
         "SET-012",
         "SET-013",
-        "SET-014"
+        "SET-014",
+        "SET-018",
+        "SET-019"
       ],
       "evidence": "原子结构、默认值、版本和多语言/多 Tab 几何用例均由实际 QtTest/Cocoa 执行结果覆盖。"
     },
