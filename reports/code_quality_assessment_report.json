@@ -1,181 +1,185 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at": "2026-08-26T14:33:39.021018+00:00",
-  "task": "修复 Fovelle GitHub Actions 检查失败",
+  "generated_at": "2026-08-27T03:59:11.469096+00:00",
+  "task": "修复设置页 Shortcuts Tab 的列宽、快捷键展示、编辑后宽度稳定性和 Esc 取消行为",
   "quality_requirements": [
     "精益完整性",
     "功能正确性",
     "可测试性"
   ],
   "root_cause_summary": [
-    "最新 Build Fovelle run 的首轮完整 FovelleTests 通过，但验收审计随后同时失败 CI-UNIT-002 与 CI-INTEGRATION-001；两项都执行 testVectorPanRepaintsOnlyExposedStrip。",
-    "该测试在 QTRY_VERIFY 泵送事件期间记录所有 Paint，却用最大面积代表滚动 Paint；异步 vector tile 完成后触发的独立全视口 refinement Paint 因 runner 时序不同被错误归因给滚动。",
-    "Qt 6.11.2 控制复现同一次执行得到首个 dirty ratio 0.009554、后续最大值 1.000000 和两个 Paint，确证产品的滚动局部重绘成立而旧观测器产生假失败。",
-    "此前 Release run 在 macdeployqt 后解析依赖 minos=15.7.5 时把 minor=7.5 送入 Bash 算术比较，触发 invalid arithmetic operator。",
-    "同一 Release 日志随后确认 Homebrew 的 libtesseract.5.dylib 要求 macOS 15.7.5，而应用合同和 CMake deployment target 是 macOS 15.0；仅修正比较器不能修复真实运行时不兼容。"
-  ],
-  "repair_summary": [
-    "testVectorPanRepaintsOnlyExposedStrip 只用滚动后的首个 Paint 计算 5% 阈值，等待 refinement 清零后再清理，并把后续最大 dirty ratio 保留为诊断而不混入滚动断言。",
-    "ci_quality_pipeline.py 继续为直接 QtTest 子进程设置 QTEST_FUNCTION_TIMEOUT=30000、输出失败用例 ID，并把本次确证的因果链写入审计报告。",
-    "package-macos-release.sh 使用三段数字版本比较，并提供无凭据的 RELEASE_VALIDATE_VERSION_ONLY 单元路径。",
-    "Release 在 macdeployqt 后强制以固定 Ghostscript 10.07.1 源码重建并覆盖运行时，显式传入 x86_64/arm64、SDKROOT 和 macOS 15.0 deployment target。",
-    "Ghostscript 源码构建关闭不属于 EPS pdfwrite 路径的 Tesseract、Fontconfig、DBus、GTK、CUPS、libidn、libpaper 和 X 集成，避免复用带有更高 minos 或 AVX 假设的 Homebrew 依赖。",
-    "打包前仍逐个检查 Mach-O 的 minos、主程序 SDK 家族、Universal 架构和 Info.plist LSMinimumSystemVersion；原有 tidy、异步矢量和全屏回归保护保持有效。"
+    {
+      "observation": "旧代码在快捷键接受后调用 updateNaturalPageSizes()，自然宽度会重新受到新快捷键文本影响。",
+      "premise": "设置页已展示后，快捷键编辑只应改变表格单元格和快捷键数据，不应改变窗口尺寸契约。",
+      "deduction": "删除编辑路径的自然尺寸重算，并将 Shortcuts 列设为 Stretch。"
+    },
+    {
+      "observation": "QKeySequence::keyBindings(QKeySequence::Open) 在 macOS 返回主绑定和符号回退项，旧代码把两者拼成一个多笔画序列。",
+      "premise": "符号回退项不是用户可见的第二个快捷键。",
+      "deduction": "只保留第一项并逐项转换 PortableText 到 NativeText。"
+    },
+    {
+      "observation": "QKeySequenceEdit 在子控件层处理 Esc，QDialog 默认 reject 路径因此不可达。",
+      "premise": "Cancel 的语义是 QDialog::reject()，并且不发射 accepted shortcut signal。",
+      "deduction": "在对话框范围内的应用事件过滤器中优先截获裸 Esc 并调用 reject()。"
+    }
   ],
   "research_trace": [
     {
       "hop": 1,
-      "layer": "latest observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828442",
-      "finding": "The latest Build Fovelle run for commit 7dc0c64 passed its first complete FovelleTests execution, then FovelleTaskAcceptanceAudit failed CI-UNIT-002 and CI-INTEGRATION-001.",
-      "premise": "The hosted run log and its emitted failed case IDs are the authoritative observation for the current failure."
+      "source": "https://github.com/jurplel/qView/blob/main/src/shortcutmanager.h",
+      "finding": "The product stores QKeySequence standard-key bindings as a string list and renders that list in the Settings table.",
+      "premise": "The repository implementation is the first-hop product contract; the observed Open value must be traced through its storage and display conversions.",
+      "deduction": "The display defect can be isolated to standard-key expansion or list-to-display conversion without changing unrelated action wiring."
     },
     {
       "hop": 2,
-      "layer": "cross-run timing isolation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828364",
-      "finding": "The companion Checks workflow passed the same source revision and environment contract; earlier same-day runs alternated between a unit-only audit failure and an integration-only audit failure while the first complete FovelleTests execution passed.",
-      "premise": "Source-identical pass/fail counterexamples exclude a deterministic compile or product-output regression and point to a timing-sensitive observation inside the duplicated audit executions."
+      "source": "https://doc.qt.io/qt-6/qkeysequence.html",
+      "finding": "Qt documents keyBindings() as the platform-specific list of bindings for a standard key and documents NativeText as the platform-native presentation format.",
+      "premise": "The first platform binding is the primary shortcut for the Settings representation; a symbolic fallback is not a user-entered shortcut chord.",
+      "deduction": "Persist only the primary binding in the standard-key default and render each stored list entry independently as NativeText."
     },
     {
       "hop": 3,
-      "layer": "hosted environment identity",
-      "source": "https://github.com/actions/runner-images/blob/macos-26-arm64/20260728.0273/images/macos/macos-26-arm64-Readme.md",
-      "finding": "The failed job records macos-26-arm64 image 20260728.0273.1, macOS 26.5.2, Xcode 26.6, SDK 26.5, and Qt 6.11.2; GitHub's runner inventory maps macos-26 to the arm64 image.",
-      "premise": "Reproduction must distinguish the hosted window-system schedule from the Qt version; local Qt 6.11.2 alone is not the complete environment."
+      "source": "local Qt 6.11.1 diagnostic probe",
+      "finding": "On the local macOS Qt runtime, QKeySequence::keyBindings(QKeySequence::Open) returned portable Ctrl+O and a second symbolic Open entry; NativeText rendered them as ⌘O and Open.",
+      "premise": "The probe is an environment observation, not a general Qt guarantee; it reproduces the reported value on the target platform.",
+      "deduction": "Keeping only constFirst() removes the exact Open alias while preserving the platform's primary shortcut."
     },
     {
       "hop": 4,
-      "layer": "test observer inspection",
-      "source": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip",
-      "finding": "The test installed a viewport PaintRegionRecorder, waited for at least one paint, then used the maximum area across every paint observed during that wait as if every event had been caused by the scrollbar move.",
-      "premise": "The assertion is valid only if no independently scheduled refinement paint can arrive while the recorder remains installed."
+      "source": "https://doc.qt.io/qt-6/qheaderview.html",
+      "finding": "Qt documents QHeaderView::Stretch as resizing a section to fill available space and notes that stretchLastSection controls the last section.",
+      "premise": "The Action column can be measured once, while the Shortcuts column is the last section and is allowed to consume the remaining viewport width.",
+      "deduction": "Use Fixed for Action and Stretch plus stretchLastSection for Shortcuts after the initial page measurement."
     },
     {
       "hop": 5,
-      "layer": "Qt QTRY execution contract",
-      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/testlib/qtestcase.h",
-      "finding": "Qt 6.11.2 implements QTRY_VERIFY_WITH_TIMEOUT by repeatedly calling QTest::qWait while allowing event processing, normally in 50 ms steps.",
-      "premise": "The wait for the first paint can dispatch more than one queued paint before the condition is evaluated again, so recorder length and event ordering vary with runner scheduling."
+      "source": "src/qvoptionsdialog.cpp",
+      "finding": "The old updateShortcutsTable() re-ran updateNaturalPageSizes() and resizeForCategory() after every accepted shortcut edit; natural sizing depended on cell text widths.",
+      "premise": "A content remeasurement after the table has been presented can turn a shortcut text change into a parent dialog width change.",
+      "deduction": "The table update must update the cell only; the initial settings width and column contract must remain stable for the lifetime of the presented dialog."
     },
     {
       "hop": 6,
-      "layer": "asynchronous completion contract",
-      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
-      "finding": "Qt documents that QFutureWatcher emits finished when its asynchronous computation completes; Fovelle connects that signal to asyncVectorTileFinished, which retains the tile and schedules an item update.",
-      "premise": "A vector refinement paint is independently eligible to enter the same event-processing window as the exposed-strip paint."
+      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qkeysequenceedit.cpp",
+      "finding": "Qt's QKeySequenceEdit handles key events in the editor and records Escape as a key sequence instead of allowing the dialog to see it as a cancel command.",
+      "premise": "QDialog's normal Escape handling is reached only when the child editor does not accept the key event first.",
+      "deduction": "Intercept a bare Escape before QKeySequenceEdit processes it, then call reject(), which is the same dialog path used by Cancel."
     },
     {
       "hop": 7,
-      "layer": "scroll rendering contract",
-      "source": "https://doc.qt.io/qt-6/qgraphicsview.html",
-      "finding": "Qt documents that scrolling requires only partial invalidation, while a distinct scene/item update follows the configured viewport update policy.",
-      "premise": "The exposed strip and the later refinement are two different causes and must be evaluated as separate observations."
+      "source": "https://doc.qt.io/qt-6/qdialog.html",
+      "finding": "Qt documents that pressing Escape closes a dialog by calling reject() and gives the result Rejected.",
+      "premise": "The requested equivalence is behavioral: no accepted shortcut signal, rejected result, and no persisted change.",
+      "deduction": "The Esc test must observe rejected(), shortcutsListChanged, the table cell, and QSettings rather than only observing that the window disappeared."
     },
     {
       "hop": 8,
-      "layer": "controlled counterexample",
-      "source": "Qt 6.11.2 local diagnostic execution",
-      "finding": "After waiting for refinement to settle, one test execution observed two paints: the first scroll paint had dirty_ratio 0.009554 and the later maximum was 1.000000; the former implementation failed solely because it asserted the maximum.",
-      "premise": "One execution containing both a valid strip and a valid later full refinement disproves the assumption that maximum recorded area measures scroll reuse."
+      "source": "local Cocoa QtTest execution",
+      "finding": "The initial focused run showed that QTest::mouseDClick did not emit QTableWidget::cellDoubleClicked under the local Cocoa test backend even with a visible, active table; invoking that signal deterministically exercised the production connection.",
+      "premise": "A system-level UI event is not reproducible in this headless Cocoa test host, while the production contract is the signal-to-dialog connection.",
+      "deduction": "The integration tests use a deterministic synthetic cellDoubleClicked signal and record this limitation explicitly instead of making the acceptance result depend on window-server scheduling."
     },
     {
       "hop": 9,
-      "layer": "unique repair",
-      "source": "tests/tst_qviewtests.cpp",
-      "finding": "The test now attributes only the first paint to the scrollbar move, waits until vector refinement is no longer pending for safe teardown, and records the later maximum only as diagnostic output.",
-      "premise": "This preserves the 5% exposed-strip performance assertion without accepting a full scroll repaint or suppressing the asynchronous refinement path."
-    },
-    {
-      "hop": 10,
-      "layer": "same-version verification",
-      "source": "Qt 6.11.2 local build evidence",
-      "finding": "The repaired atomic case passes with Qt 6.11.2 while deliberately observing dirty_ratio 0.009554, max_observed_dirty_ratio 1.000000, and paint_events 2.",
-      "premise": "The verification directly exercises the scheduling shape that made both CI-UNIT-002 and the nested CI-INTEGRATION-001 fail."
-    },
-    {
-      "hop": 11,
-      "layer": "retained release contract",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-      "finding": "The earlier Release-only minos and bundled Ghostscript repair remains independently covered by its version, source-build, and dry-run cases.",
-      "premise": "The current GUI observation repair neither weakens nor replaces the already established macOS 15 release controls."
-    },
-    {
-      "hop": 12,
-      "layer": "final deduction",
-      "source": "tests/tst_qviewtests.cpp and tests/ci_quality_pipeline.py",
-      "finding": "Both failed case IDs execute the same vector-pan test, directly or through FovelleTests; correcting that test's causal event attribution removes their shared false-negative path.",
-      "premise": "One root cause and one observer-level repair explain both failures while keeping the production rendering implementation and its performance threshold unchanged."
+      "source": "src/qvoptionsdialog.cpp, src/qvshortcutdialog.cpp, tests/tst_qviewtests.cpp",
+      "finding": "The implementation now separates initial natural sizing from later cell updates, scopes Escape interception to the shortcut dialog, and observes every externally visible effect in focused QtTest cases.",
+      "premise": "The four requested behaviors share only the relevant Settings table/editor boundary; no broader layout or shortcut subsystem rewrite is needed.",
+      "deduction": "The minimal repair satisfies the functional contract while retaining deterministic, non-invasive observability for all atomic criteria."
     }
   ],
   "checks": [
     {
-      "id": "CQ-001",
+      "id": "CQ-LEAN-001",
       "criterion": "精益完整性",
-      "method": "验收标准与测试用例一对一覆盖审计",
       "passed": true,
-      "observed": {
-        "specified_case_count": 20,
-        "evidence_case_count": 20,
-        "duplicate_case_ids": false
-      }
+      "evidence_case_ids": [
+        "CQ-LEAN-001",
+        "AC-SHORTCUT-004"
+      ],
+      "evidence": "生产修复集中于标准快捷键转换、Shortcuts 表头策略、编辑后更新路径和 Esc 事件边界；自然尺寸只在初始展示阶段计算。"
     },
     {
-      "id": "CQ-002",
+      "id": "CQ-CORRECT-001",
       "criterion": "功能正确性",
-      "method": "四层测试结果交叉审计",
       "passed": true,
-      "observed": {
-        "static": {
-          "total": 7,
-          "passed": 7,
-          "failed": 0,
-          "failed_case_ids": [],
-          "status": "passed"
-        },
-        "unit": {
-          "total": 6,
-          "passed": 6,
-          "failed": 0,
-          "failed_case_ids": [],
-          "status": "passed"
-        },
-        "integration": {
-          "total": 4,
-          "passed": 4,
-          "failed": 0,
-          "failed_case_ids": [],
-          "status": "passed"
-        },
-        "system": {
-          "total": 3,
-          "passed": 3,
-          "failed": 0,
-          "failed_case_ids": [],
-          "status": "passed"
-        }
-      }
+      "evidence_case_ids": [
+        "AC-SHORTCUT-001",
+        "AC-SHORTCUT-002",
+        "AC-SHORTCUT-003",
+        "AC-SHORTCUT-004",
+        "AC-SHORTCUT-005",
+        "CQ-CORRECT-001"
+      ],
+      "evidence": "每个用户功能要求均有独立 QtTest 用例，并通过 unit/integration/system 的实际结果交叉审计。"
     },
     {
-      "id": "CQ-003",
+      "id": "CQ-TESTABLE-001",
       "criterion": "可测试性",
-      "method": "非侵入式状态观察、QtTest 选择器、CTest 和系统探针审计",
       "passed": true,
-      "observed": {
-        "async_observation": true,
-        "deterministic_unit_selector": true,
-        "repeatable_integration_command": true,
-        "non_invasive_system_probe": true
-      }
+      "evidence_case_ids": [
+        "CQ-TESTABLE-001"
+      ],
+      "evidence": "测试使用可恢复设置夹具、公开属性、信号、QSettings 和 QPointer 观测，并把命令、退出码和输出写入本报告链。"
     }
   ],
-  "summary": {
-    "total": 3,
-    "passed": 3,
-    "failed": 0,
-    "status": "passed"
+  "stage_summaries": {
+    "static": {
+      "stage": "static",
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "failed_case_ids": [],
+      "status": "passed"
+    },
+    "unit": {
+      "stage": "unit",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "failed_case_ids": [],
+      "status": "passed"
+    },
+    "integration": {
+      "stage": "integration",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "failed_case_ids": [],
+      "status": "passed"
+    },
+    "system": {
+      "stage": "system",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "failed_case_ids": [],
+      "status": "passed"
+    }
   },
-  "evidence_file": "reports/test_evidence.json",
-  "specification_file": "reports/test_case_specification.json"
+  "audit": {
+    "all_cases_atomic": true,
+    "required_test_fields_present": true,
+    "all_stages_passed": true,
+    "all_quality_requirements_passed": true
+  },
+  "artifacts": [
+    {
+      "path": "reports/test_case_specification.json",
+      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
+      "exists": true,
+      "bytes": 17162,
+      "sha256": "e4edeea69f158971f8b44e91803f788d2959d93a5d9a7732e761ec6087af2696"
+    },
+    {
+      "path": "reports/code_quality_assessment_report.json",
+      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
+      "exists": true,
+      "bytes": 9431,
+      "sha256": null,
+      "sha256_note": "本报告包含自身内容，避免循环哈希；读取本文件可审计其实际内容。"
+    }
+  ]
 }

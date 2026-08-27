@@ -3,6 +3,9 @@
 #include "qvapplication.h"
 #include "nativedialogs.h"
 
+#include <QApplication>
+#include <QEvent>
+#include <QKeyEvent>
 #include <QMessageBox>
 
 #include <QDebug>
@@ -17,6 +20,13 @@ QVShortcutDialog::QVShortcutDialog(int index, GetTransientShortcutCallback getTr
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     NativeDialogs::applyTheme(this);
 
+    // QKeySequenceEdit treats Escape as a recordable key and accepts the
+    // event before QDialog can apply its usual reject-on-Escape behavior.
+    // Observe the application event stream so this also covers the editor's
+    // internal line edit, then use the exact same reject path as Cancel.
+    if (auto *application = QApplication::instance())
+        application->installEventFilter(this);
+
     connect(ui->buttonBox, &QDialogButtonBox::clicked, this, &QVShortcutDialog::buttonBoxClicked);
 
     shortcutObject = qvApp->getShortcutManager().getShortcutsList().value(index);
@@ -28,7 +38,26 @@ QVShortcutDialog::QVShortcutDialog(int index, GetTransientShortcutCallback getTr
 
 QVShortcutDialog::~QVShortcutDialog()
 {
+    if (auto *application = QApplication::instance())
+        application->removeEventFilter(this);
     delete ui;
+}
+
+bool QVShortcutDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::KeyPress && isVisible())
+    {
+        auto *widget = qobject_cast<QWidget *>(watched);
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (widget && widget->window() == this
+            && keyEvent->key() == Qt::Key_Escape
+            && keyEvent->modifiers() == Qt::NoModifier)
+        {
+            reject();
+            return true;
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void QVShortcutDialog::done(int r)

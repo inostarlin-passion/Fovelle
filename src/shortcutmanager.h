@@ -19,10 +19,12 @@ public:
     {
         const auto seqList = QKeySequence::keyBindings(sequence);
         QStringList strings;
-        for (const auto &seq : seqList)
-        {
-            strings << seq.toString();
-        }
+        // QKeySequence::keyBindings() also returns a symbolic fallback such
+        // as Qt::Key_Open. It is useful to Qt's standard-key machinery, but
+        // it makes the settings table display the action name as if it were a
+        // second shortcut. Keep the platform's primary binding only.
+        if (!seqList.isEmpty())
+            strings << seqList.constFirst().toString(QKeySequence::PortableText);
         return strings;
     }
 
@@ -61,9 +63,17 @@ public:
         return result;
     }
 
-    static QString stringListToReadableString(QStringList stringList)
+    static QString stringListToReadableString(const QStringList &stringList)
     {
-        return QKeySequence::fromString(stringList.join(", ")).toString(QKeySequence::NativeText);
+        QStringList readableStrings;
+        for (const QString &shortcut : stringList)
+        {
+            const QKeySequence sequence =
+                QKeySequence::fromString(shortcut, QKeySequence::PortableText);
+            if (!sequence.isEmpty())
+                readableStrings << sequence.toString(QKeySequence::NativeText);
+        }
+        return readableStrings.join(QStringLiteral(", "));
     }
 
     static QStringList readableStringToStringList(QString shortcutString)

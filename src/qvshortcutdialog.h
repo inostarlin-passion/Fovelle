@@ -29,6 +29,7 @@ private slots:
     void buttonBoxClicked(QAbstractButton *button);
 
 private:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void done(int r) override;
 
     Ui::QVShortcutDialog *ui;

@@ -115,6 +115,12 @@ set_tests_properties(FovelleTests PROPERTIES
     TIMEOUT 90
 )
 
+add_test(NAME FovelleShortcutSettingsTests COMMAND fovelle_tests)
+set_tests_properties(FovelleShortcutSettingsTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=ShortcutSettingsTests"
+    TIMEOUT 90
+)
+
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
     add_test(

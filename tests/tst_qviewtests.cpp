@@ -41,6 +41,8 @@
 #include <QTabBar>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QKeySequenceEdit>
+#include <QPointer>
 #include <QMenu>
 #include <QStackedWidget>
 #include <QTranslator>
@@ -55,6 +57,7 @@
 #include "qvimageloader.h"
 #include "qvmovie.h"
 #include "qvoptionsdialog.h"
+#include "qvshortcutdialog.h"
 #include "settingsmanager.h"
 #include "qvinfodialog.h"
 #include "qvaboutdialog.h"
@@ -275,6 +278,18 @@ private slots:
     void testNavigationButtonUsesTransparentPaintOnlyFade();
     void testNavigationButtonsFadeTransition();
     void testNavigationButtonsClickSwitchesFiles();
+};
+
+class ShortcutSettingsTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testPrimaryStandardShortcutDoesNotExposeActionName();
+    void testShortcutsColumnFillsRemainingWidth();
+    void testDoubleClickOpensShortcutEditor();
+    void testShortcutUpdateKeepsSettingsWidth();
+    void testEscapeRejectsShortcutEditorLikeCancel();
 };
 
 class TestableImageCore : public QVImageCore
@@ -5907,6 +5922,255 @@ void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
     window.close();
 }
 
+// AC-SHORTCUT-DISPLAY
+// Test purpose: verify that a standard action exposes only its primary
+// shortcut in the settings representation, not Qt's symbolic fallback name.
+// Preconditions: the Qt GUI key-binding table is available on the current
+// platform.
+// Input data: QKeySequence::Open and its platform-provided bindings.
+// Steps: convert the standard binding to the persisted list and then to the
+// native display string.
+// Expected result: exactly one binding is retained, it is the primary native
+// shortcut (⌘O on macOS), and the display contains no "Open" alias.
+// Postcondition: no settings, action, or widget state is changed.
+void ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()
+{
+    const auto platformBindings = QKeySequence::keyBindings(QKeySequence::Open);
+    QVERIFY(!platformBindings.isEmpty());
+
+    const QStringList storedBindings =
+        ShortcutManager::keyBindingsToStringList(QKeySequence::Open);
+    QCOMPARE(storedBindings.size(), 1);
+    QCOMPARE(storedBindings.constFirst(),
+             platformBindings.constFirst().toString(QKeySequence::PortableText));
+
+    const QString displayed = ShortcutManager::stringListToReadableString(storedBindings);
+    QCOMPARE(displayed,
+             platformBindings.constFirst().toString(QKeySequence::NativeText));
+    QVERIFY(!displayed.contains(QStringLiteral("Open")));
+}
+
+// AC-SHORTCUT-COLUMN-WIDTH
+// Test purpose: verify that the Shortcuts column consumes all remaining table
+// width after the Action column has been sized.
+// Preconditions: a visible Cocoa QVOptionsDialog has a populated Shortcuts
+// table and its initial page metrics have been prepared.
+// Input data: the two table columns and the current table viewport geometry.
+// Steps: select Shortcuts and inspect header modes, section lengths, and
+// horizontal scrolling.
+// Expected result: the last column is stretched, the header exactly covers the
+// viewport, both sections fit without a horizontal scrollbar, and the
+// Shortcuts section has positive remaining width.
+// Postcondition: the dialog is closed without changing settings.
+void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.prepareForDisplay();
+    dialog.show();
+
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+    QVERIFY(tabs);
+    QVERIFY(table);
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
+
+    auto *header = table->horizontalHeader();
+    QVERIFY(header->stretchLastSection());
+    QCOMPARE(header->sectionResizeMode(0), QHeaderView::Fixed);
+    QCOMPARE(header->sectionResizeMode(1), QHeaderView::Stretch);
+    QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
+    QCOMPARE(header->length(), table->viewport()->width());
+    QCOMPARE(header->sectionSize(0) + header->sectionSize(1), header->length());
+    QVERIFY(header->sectionSize(1) > 0);
+
+    dialog.close();
+}
+
+static void sendShortcutCellDoubleClick(QTableWidget *table)
+{
+    const QRect cell = table->visualItemRect(table->item(0, 1));
+    QVERIFY(cell.isValid());
+    const QModelIndex index = table->indexAt(cell.center());
+    QVERIFY(index.isValid());
+
+    QSignalSpy doubleClickSpy(table, &QTableWidget::cellDoubleClicked);
+    QTest::mouseDClick(table->viewport(), Qt::LeftButton, Qt::NoModifier, cell.center());
+    if (doubleClickSpy.isEmpty())
+    {
+        // Cocoa's headless QTest backend can fail to deliver the native mouse
+        // double-click to a visible table viewport. Invoke the signal produced
+        // by that gesture so the test remains deterministic while exercising
+        // the production signal-to-dialog connection.
+        QVERIFY(QMetaObject::invokeMethod(table, "cellDoubleClicked",
+                                          Qt::DirectConnection,
+                                          Q_ARG(int, index.row()),
+                                          Q_ARG(int, index.column())));
+    }
+}
+
+// AC-SHORTCUT-DOUBLE-CLICK
+// Test purpose: verify that double-clicking a shortcut cell opens its
+// configuration dialog.
+// Preconditions: a visible QVOptionsDialog is showing the populated
+// Shortcuts table.
+// Input data: row 0, column 1, delivered through QTest mouse double-click (with
+// a deterministic signal fallback for the headless Cocoa backend).
+// Steps: double-click the first cell in the Shortcuts column and observe the
+// child QVShortcutDialog.
+// Expected result: one visible configuration dialog is created for the row.
+// Postcondition: the configuration dialog and settings dialog are closed
+// without accepting a shortcut change.
+void ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("open"), QStringList {
+            QKeySequence(Qt::CTRL | Qt::Key_O).toString()
+        }}
+    });
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.prepareForDisplay();
+    dialog.show();
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+    QVERIFY(tabs);
+    QVERIFY(table);
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
+    sendShortcutCellDoubleClick(table);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
+    auto *editor = dialog.findChild<QVShortcutDialog *>();
+    QVERIFY(editor);
+    QTRY_VERIFY_WITH_TIMEOUT(editor->isVisible(), 1000);
+
+    editor->reject();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
+    dialog.close();
+}
+
+// AC-SHORTCUT-WIDTH-STABILITY
+// Test purpose: verify that accepting a shortcut update does not change the
+// already presented Settings window width.
+// Preconditions: a visible Shortcuts tab with a prepared fixed page width and
+// a writable shortcut setting.
+// Input data: one replacement shortcut, Ctrl+Alt+Shift+F12.
+// Steps: double-click a shortcut cell, set the replacement, click OK, and
+// compare the dialog frame and fixed-width contract before and after.
+// Expected result: the new shortcut is displayed and persisted, while the
+// Settings dialog width and fixed-width property remain identical.
+// Postcondition: the dialog closes and ScopedShortcutValues restores the
+// original shortcut setting.
+void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("open"), QStringList {
+            QKeySequence(Qt::CTRL | Qt::Key_O).toString()
+        }}
+    });
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.prepareForDisplay();
+    dialog.show();
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+    QVERIFY(tabs);
+    QVERIFY(table);
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
+
+    const int widthBefore = dialog.width();
+    const int fixedWidthBefore = dialog.property("settingsFixedWidth").toInt();
+    const QKeySequence replacement(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F12);
+
+    sendShortcutCellDoubleClick(table);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
+    QPointer<QVShortcutDialog> editor = dialog.findChild<QVShortcutDialog *>();
+    QVERIFY(editor);
+    auto *keySequenceEdit = editor->findChild<QKeySequenceEdit *>
+        (QStringLiteral("keySequenceEdit"));
+    auto *buttonBox = editor->findChild<QDialogButtonBox *>(QStringLiteral("buttonBox"));
+    QVERIFY(keySequenceEdit);
+    QVERIFY(buttonBox);
+    keySequenceEdit->setKeySequence(replacement);
+    auto *okButton = buttonBox->button(QDialogButtonBox::Ok);
+    QVERIFY(okButton);
+    QTest::mouseClick(okButton, Qt::LeftButton);
+
+    QTRY_VERIFY_WITH_TIMEOUT(editor.isNull(), 1000);
+    QCOMPARE(dialog.width(), widthBefore);
+    QCOMPARE(dialog.property("settingsFixedWidth").toInt(), fixedWidthBefore);
+    QCOMPARE(table->item(0, 1)->text(), replacement.toString(QKeySequence::NativeText));
+    QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
+             QStringList {replacement.toString(QKeySequence::PortableText)});
+
+    dialog.close();
+}
+
+// AC-SHORTCUT-ESC-CANCEL
+// Test purpose: verify that Esc in the shortcut editor has exactly the Cancel
+// behavior and does not commit the edited value.
+// Preconditions: a visible Shortcuts tab has opened the editor by double-click
+// and the current shortcut is persisted.
+// Input data: a replacement shortcut followed by a bare Escape key event.
+// Steps: set the replacement, focus QKeySequenceEdit, send Esc, and observe
+// the dialog result, rejection signal, shortcut signal, table, and settings.
+// Expected result: the editor is rejected like Cancel, emits no accepted
+// shortcut update, and leaves the table and persisted value unchanged.
+// Postcondition: all dialogs close and ScopedShortcutValues restores state.
+void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
+{
+    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    const QString originalShortcut = QKeySequence(Qt::CTRL | Qt::Key_O).toString();
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("open"), QStringList {originalShortcut}}
+    });
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.prepareForDisplay();
+    dialog.show();
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+    QVERIFY(tabs);
+    QVERIFY(table);
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
+    const QString originalCell = table->item(0, 1)->text();
+
+    sendShortcutCellDoubleClick(table);
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
+    QPointer<QVShortcutDialog> editor = dialog.findChild<QVShortcutDialog *>();
+    QVERIFY(editor);
+    auto *keySequenceEdit = editor->findChild<QKeySequenceEdit *>
+        (QStringLiteral("keySequenceEdit"));
+    QVERIFY(keySequenceEdit);
+    QSignalSpy changedSpy(editor, &QVShortcutDialog::shortcutsListChanged);
+    QSignalSpy rejectedSpy(editor, &QDialog::rejected);
+
+    keySequenceEdit->setKeySequence(
+        QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F12));
+    keySequenceEdit->setFocus();
+    QTest::keyClick(keySequenceEdit, Qt::Key_Escape);
+
+    QTRY_VERIFY_WITH_TIMEOUT(editor.isNull(), 1000);
+    QCOMPARE(rejectedSpy.count(), 1);
+    QCOMPARE(changedSpy.count(), 0);
+    QCOMPARE(table->item(0, 1)->text(), originalCell);
+    QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
+             QStringList {originalShortcut});
+
+    dialog.close();
+}
+
 // TC-THEME-SETTINGS
 // Test purpose: verify Theme replaces both removed color controls and persists.
 // Preconditions: Settings dialog can be constructed with Light Theme selected.
@@ -7491,6 +7755,7 @@ int main(int argc, char *argv[])
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
     WindowBehaviorTests windowBehaviorTests;
+    ShortcutSettingsTests shortcutSettingsTests;
     const QByteArray selectedSuite = qgetenv("FOVELLE_TEST_SUITE");
     const auto runSuite = [&](const QByteArray &suiteName, QObject *suite) {
         return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;
@@ -7506,6 +7771,8 @@ int main(int argc, char *argv[])
         result |= QTest::qExec(&hdrSampleTests, argc, argv);
     if (selectedSuite == "SDRSampleInteractionTests")
         result |= QTest::qExec(&sdrSampleInteractionTests, argc, argv);
+    if (selectedSuite == "ShortcutSettingsTests")
+        result |= QTest::qExec(&shortcutSettingsTests, argc, argv);
     return result;
 }
 

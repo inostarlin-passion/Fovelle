@@ -314,14 +314,15 @@ void QVOptionsDialog::updateNaturalPageSizes()
     ui->stackedWidget->setCurrentIndex(1);
     table->ensurePolished();
     table->setWordWrap(false);
-    table->horizontalHeader()->setStretchLastSection(false);
+    auto *header = table->horizontalHeader();
+    header->setStretchLastSection(false);
     // QHeaderView::ResizeToContents can defer its first resize until a hidden
     // table is shown, which would make the pre-show window measurement use the
     // legacy .ui section geometry. Query the header and delegate size hints
-    // synchronously and freeze them; shortcut edits call this method again.
-    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    // synchronously and freeze them for the initial page measurement.
+    header->setSectionResizeMode(QHeaderView::Fixed);
     for (int column = 0; column < table->columnCount(); ++column)
-        table->horizontalHeader()->resizeSection(
+        header->resizeSection(
                     column, naturalTableColumnWidth(table, column));
     table->resizeRowsToContents();
     table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -355,6 +356,13 @@ void QVOptionsDialog::updateNaturalPageSizes()
                          qMax(mouseNaturalWidth, shortcutsNaturalWidth));
 
     ui->stackedWidget->setFixedWidth(pageWidth);
+    // The Action column is content-sized once, while Shortcuts owns all
+    // remaining table width. Keeping the latter in Stretch mode also means
+    // changing a shortcut's text cannot resize the table or its parent page.
+    header->setSectionResizeMode(0, QHeaderView::Fixed);
+    header->resizeSection(0, naturalTableColumnWidth(table, 0));
+    header->setSectionResizeMode(1, QHeaderView::Stretch);
+    header->setStretchLastSection(true);
     setMinimumSize(0, 0);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
@@ -699,11 +707,10 @@ void QVOptionsDialog::updateShortcutsTable()
         ui->shortcutsTable->item(i, 1)->setText(ShortcutManager::stringListToReadableString(shortcuts));
     }
 
-    if (pageMetricsReady)
-    {
-        updateNaturalPageSizes();
-        resizeForCategory(ui->categoryTabs->currentIndex());
-    }
+    // Page metrics are content-derived only during initial presentation. A
+    // shortcut edit changes a cell, not the settings window contract; doing a
+    // second natural-size pass here used to make the dialog width depend on
+    // the newly entered key sequence.
 }
 
 void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)

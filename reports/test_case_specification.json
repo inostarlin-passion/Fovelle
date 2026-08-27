@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "report_type": "test_case_specification",
-  "generated_at": "2026-08-26T14:33:39.021018+00:00",
-  "task": "修复 Fovelle GitHub Actions 检查失败",
+  "generated_at": "2026-08-27T03:59:11.469096+00:00",
+  "task": "修复设置页 Shortcuts Tab 的列宽、快捷键展示、编辑后宽度稳定性和 Esc 取消行为",
   "test_execution_order": [
     "static",
     "unit",
@@ -10,604 +10,341 @@
     "system"
   ],
   "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准；每项均记录测试目的、前置条件、输入数据、操作步骤、预期结果和后置条件。",
+  "root_cause_analysis": [
+    {
+      "observation": "旧代码在快捷键接受后调用 updateNaturalPageSizes()，自然宽度会重新受到新快捷键文本影响。",
+      "premise": "设置页已展示后，快捷键编辑只应改变表格单元格和快捷键数据，不应改变窗口尺寸契约。",
+      "deduction": "删除编辑路径的自然尺寸重算，并将 Shortcuts 列设为 Stretch。"
+    },
+    {
+      "observation": "QKeySequence::keyBindings(QKeySequence::Open) 在 macOS 返回主绑定和符号回退项，旧代码把两者拼成一个多笔画序列。",
+      "premise": "符号回退项不是用户可见的第二个快捷键。",
+      "deduction": "只保留第一项并逐项转换 PortableText 到 NativeText。"
+    },
+    {
+      "observation": "QKeySequenceEdit 在子控件层处理 Esc，QDialog 默认 reject 路径因此不可达。",
+      "premise": "Cancel 的语义是 QDialog::reject()，并且不发射 accepted shortcut signal。",
+      "deduction": "在对话框范围内的应用事件过滤器中优先截获裸 Esc 并调用 reject()。"
+    }
+  ],
   "research_trace": [
     {
       "hop": 1,
-      "layer": "latest observed CI failure",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828442",
-      "finding": "The latest Build Fovelle run for commit 7dc0c64 passed its first complete FovelleTests execution, then FovelleTaskAcceptanceAudit failed CI-UNIT-002 and CI-INTEGRATION-001.",
-      "premise": "The hosted run log and its emitted failed case IDs are the authoritative observation for the current failure."
+      "source": "https://github.com/jurplel/qView/blob/main/src/shortcutmanager.h",
+      "finding": "The product stores QKeySequence standard-key bindings as a string list and renders that list in the Settings table.",
+      "premise": "The repository implementation is the first-hop product contract; the observed Open value must be traced through its storage and display conversions.",
+      "deduction": "The display defect can be isolated to standard-key expansion or list-to-display conversion without changing unrelated action wiring."
     },
     {
       "hop": 2,
-      "layer": "cross-run timing isolation",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32977828364",
-      "finding": "The companion Checks workflow passed the same source revision and environment contract; earlier same-day runs alternated between a unit-only audit failure and an integration-only audit failure while the first complete FovelleTests execution passed.",
-      "premise": "Source-identical pass/fail counterexamples exclude a deterministic compile or product-output regression and point to a timing-sensitive observation inside the duplicated audit executions."
+      "source": "https://doc.qt.io/qt-6/qkeysequence.html",
+      "finding": "Qt documents keyBindings() as the platform-specific list of bindings for a standard key and documents NativeText as the platform-native presentation format.",
+      "premise": "The first platform binding is the primary shortcut for the Settings representation; a symbolic fallback is not a user-entered shortcut chord.",
+      "deduction": "Persist only the primary binding in the standard-key default and render each stored list entry independently as NativeText."
     },
     {
       "hop": 3,
-      "layer": "hosted environment identity",
-      "source": "https://github.com/actions/runner-images/blob/macos-26-arm64/20260728.0273/images/macos/macos-26-arm64-Readme.md",
-      "finding": "The failed job records macos-26-arm64 image 20260728.0273.1, macOS 26.5.2, Xcode 26.6, SDK 26.5, and Qt 6.11.2; GitHub's runner inventory maps macos-26 to the arm64 image.",
-      "premise": "Reproduction must distinguish the hosted window-system schedule from the Qt version; local Qt 6.11.2 alone is not the complete environment."
+      "source": "local Qt 6.11.1 diagnostic probe",
+      "finding": "On the local macOS Qt runtime, QKeySequence::keyBindings(QKeySequence::Open) returned portable Ctrl+O and a second symbolic Open entry; NativeText rendered them as ⌘O and Open.",
+      "premise": "The probe is an environment observation, not a general Qt guarantee; it reproduces the reported value on the target platform.",
+      "deduction": "Keeping only constFirst() removes the exact Open alias while preserving the platform's primary shortcut."
     },
     {
       "hop": 4,
-      "layer": "test observer inspection",
-      "source": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip",
-      "finding": "The test installed a viewport PaintRegionRecorder, waited for at least one paint, then used the maximum area across every paint observed during that wait as if every event had been caused by the scrollbar move.",
-      "premise": "The assertion is valid only if no independently scheduled refinement paint can arrive while the recorder remains installed."
+      "source": "https://doc.qt.io/qt-6/qheaderview.html",
+      "finding": "Qt documents QHeaderView::Stretch as resizing a section to fill available space and notes that stretchLastSection controls the last section.",
+      "premise": "The Action column can be measured once, while the Shortcuts column is the last section and is allowed to consume the remaining viewport width.",
+      "deduction": "Use Fixed for Action and Stretch plus stretchLastSection for Shortcuts after the initial page measurement."
     },
     {
       "hop": 5,
-      "layer": "Qt QTRY execution contract",
-      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/testlib/qtestcase.h",
-      "finding": "Qt 6.11.2 implements QTRY_VERIFY_WITH_TIMEOUT by repeatedly calling QTest::qWait while allowing event processing, normally in 50 ms steps.",
-      "premise": "The wait for the first paint can dispatch more than one queued paint before the condition is evaluated again, so recorder length and event ordering vary with runner scheduling."
+      "source": "src/qvoptionsdialog.cpp",
+      "finding": "The old updateShortcutsTable() re-ran updateNaturalPageSizes() and resizeForCategory() after every accepted shortcut edit; natural sizing depended on cell text widths.",
+      "premise": "A content remeasurement after the table has been presented can turn a shortcut text change into a parent dialog width change.",
+      "deduction": "The table update must update the cell only; the initial settings width and column contract must remain stable for the lifetime of the presented dialog."
     },
     {
       "hop": 6,
-      "layer": "asynchronous completion contract",
-      "source": "https://doc.qt.io/qt-6/qfuturewatcher.html",
-      "finding": "Qt documents that QFutureWatcher emits finished when its asynchronous computation completes; Fovelle connects that signal to asyncVectorTileFinished, which retains the tile and schedules an item update.",
-      "premise": "A vector refinement paint is independently eligible to enter the same event-processing window as the exposed-strip paint."
+      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qkeysequenceedit.cpp",
+      "finding": "Qt's QKeySequenceEdit handles key events in the editor and records Escape as a key sequence instead of allowing the dialog to see it as a cancel command.",
+      "premise": "QDialog's normal Escape handling is reached only when the child editor does not accept the key event first.",
+      "deduction": "Intercept a bare Escape before QKeySequenceEdit processes it, then call reject(), which is the same dialog path used by Cancel."
     },
     {
       "hop": 7,
-      "layer": "scroll rendering contract",
-      "source": "https://doc.qt.io/qt-6/qgraphicsview.html",
-      "finding": "Qt documents that scrolling requires only partial invalidation, while a distinct scene/item update follows the configured viewport update policy.",
-      "premise": "The exposed strip and the later refinement are two different causes and must be evaluated as separate observations."
+      "source": "https://doc.qt.io/qt-6/qdialog.html",
+      "finding": "Qt documents that pressing Escape closes a dialog by calling reject() and gives the result Rejected.",
+      "premise": "The requested equivalence is behavioral: no accepted shortcut signal, rejected result, and no persisted change.",
+      "deduction": "The Esc test must observe rejected(), shortcutsListChanged, the table cell, and QSettings rather than only observing that the window disappeared."
     },
     {
       "hop": 8,
-      "layer": "controlled counterexample",
-      "source": "Qt 6.11.2 local diagnostic execution",
-      "finding": "After waiting for refinement to settle, one test execution observed two paints: the first scroll paint had dirty_ratio 0.009554 and the later maximum was 1.000000; the former implementation failed solely because it asserted the maximum.",
-      "premise": "One execution containing both a valid strip and a valid later full refinement disproves the assumption that maximum recorded area measures scroll reuse."
+      "source": "local Cocoa QtTest execution",
+      "finding": "The initial focused run showed that QTest::mouseDClick did not emit QTableWidget::cellDoubleClicked under the local Cocoa test backend even with a visible, active table; invoking that signal deterministically exercised the production connection.",
+      "premise": "A system-level UI event is not reproducible in this headless Cocoa test host, while the production contract is the signal-to-dialog connection.",
+      "deduction": "The integration tests use a deterministic synthetic cellDoubleClicked signal and record this limitation explicitly instead of making the acceptance result depend on window-server scheduling."
     },
     {
       "hop": 9,
-      "layer": "unique repair",
-      "source": "tests/tst_qviewtests.cpp",
-      "finding": "The test now attributes only the first paint to the scrollbar move, waits until vector refinement is no longer pending for safe teardown, and records the later maximum only as diagnostic output.",
-      "premise": "This preserves the 5% exposed-strip performance assertion without accepting a full scroll repaint or suppressing the asynchronous refinement path."
-    },
-    {
-      "hop": 10,
-      "layer": "same-version verification",
-      "source": "Qt 6.11.2 local build evidence",
-      "finding": "The repaired atomic case passes with Qt 6.11.2 while deliberately observing dirty_ratio 0.009554, max_observed_dirty_ratio 1.000000, and paint_events 2.",
-      "premise": "The verification directly exercises the scheduling shape that made both CI-UNIT-002 and the nested CI-INTEGRATION-001 fail."
-    },
-    {
-      "hop": 11,
-      "layer": "retained release contract",
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/32969875393",
-      "finding": "The earlier Release-only minos and bundled Ghostscript repair remains independently covered by its version, source-build, and dry-run cases.",
-      "premise": "The current GUI observation repair neither weakens nor replaces the already established macOS 15 release controls."
-    },
-    {
-      "hop": 12,
-      "layer": "final deduction",
-      "source": "tests/tst_qviewtests.cpp and tests/ci_quality_pipeline.py",
-      "finding": "Both failed case IDs execute the same vector-pan test, directly or through FovelleTests; correcting that test's causal event attribution removes their shared false-negative path.",
-      "premise": "One root cause and one observer-level repair explain both failures while keeping the production rendering implementation and its performance threshold unchanged."
+      "source": "src/qvoptionsdialog.cpp, src/qvshortcutdialog.cpp, tests/tst_qviewtests.cpp",
+      "finding": "The implementation now separates initial natural sizing from later cell updates, scopes Escape interception to the shortcut dialog, and observes every externally visible effect in focused QtTest cases.",
+      "premise": "The four requested behaviors share only the relevant Settings table/editor boundary; no broader layout or shortcut subsystem rewrite is needed.",
+      "deduction": "The minimal repair satisfies the functional contract while retaining deterministic, non-invasive observability for all atomic criteria."
     }
   ],
   "test_cases": [
     {
-      "id": "CI-STATIC-001",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "clang-tidy 与应用自有 C++ 目标绑定，但不触发 Ghostscript 第三方运行时打包。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/ci_quality_pipeline.py::static_tidy_path_contract",
-      "test_purpose": "验证静态分析路径只包含必要的应用检查。",
-      "preconditions": [
-        "仓库包含 build.sh 和 CMakeLists.txt。"
-      ],
-      "input_data": {
-        "tidy_command": "./build.sh --tidy",
-        "tidy_fix_command": "./build.sh --tidy-fix"
-      },
-      "operation_steps": [
-        "读取两个脚本分支。",
-        "读取 CMake Ghostscript 选项及 POST_BUILD 守卫。",
-        "逐项比对 clang-tidy 与 OFF 标志。"
-      ],
-      "expected_result": "两个分析分支都显式设置 FOVELLE_BUNDLE_GHOSTSCRIPT=OFF，普通构建默认仍为 ON。",
-      "postconditions": [
-        "不改变普通构建的 Ghostscript 打包能力。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-002",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "矢量 refinement 的待处理状态包含 active 与 queued 请求；测试等待真实 tile，并隔离滚动 Paint 与异步完成 Paint。",
-      "quality_requirement": "可测试性",
-      "test_code": "tests/ci_quality_pipeline.py::static_async_observation_contract",
-      "test_purpose": "验证运行时观察点、测试同步条件与 Paint 因果归属一致。",
-      "preconditions": [
-        "矢量渲染由 QFutureWatcher 异步完成。"
-      ],
-      "input_data": {
-        "source_files": [
-          "src/qvgraphicsimageitem.*",
-          "src/qvgraphicsview.cpp",
-          "tests/tst_qviewtests.cpp"
-        ]
-      },
-      "operation_steps": [
-        "检查观察方法的声明和实现。",
-        "检查 view 委托及 worker/queue 状态。",
-        "检查测试的条件轮询和最终 tile 断言。",
-        "检查首个滚动 Paint 与后续 refinement 诊断分离。"
-      ],
-      "expected_result": "测试等待 painted tile，以首个 Paint 断言滚动条带，并仅诊断后续最大 Paint。",
-      "postconditions": [
-        "异步工作完成前调用方仍可观察到 pending 状态。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-003",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "CI 使用已验证的 macos-26 runner，并在 job 内校验 Xcode 与 SDK 主版本。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::static_runner_contract",
-      "test_purpose": "排除错误 runner 标签作为当前失败根因。",
-      "preconditions": [
-        "GitHub Actions workflow 文件存在。"
-      ],
-      "input_data": {
-        "workflow_files": [
-          ".github/workflows/test.yml",
-          ".github/workflows/build.yml"
-        ]
-      },
-      "operation_steps": [
-        "读取两个 workflow。",
-        "检查 runs-on 标签。",
-        "检查 Xcode/SDK 版本守卫。"
-      ],
-      "expected_result": "两个核心 workflow 均使用 macos-26 且包含版本前置检查。",
-      "postconditions": [
-        "保留当前 runner 选择和显式环境约束。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-004",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "Release 必须在 macOS 15.0 应用合同下，用修复过的三段版本比较器和固定源码构建出 x86_64/arm64 Ghostscript 运行时。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::static_release_packaging_contract",
-      "test_purpose": "验证 Release 的依赖来源、版本解析和目标架构/最低系统版本合同在源码层面完整闭合。",
-      "preconditions": [
-        "Release workflow、打包脚本和 Ghostscript 准备脚本可读。"
-      ],
-      "input_data": {
-        "release_target": "15.0",
-        "ghostscript_version": "10.07.1",
-        "architectures": [
-          "x86_64",
-          "arm64"
-        ]
-      },
-      "operation_steps": [
-        "读取 Release workflow 的 SDK/deployment target。",
-        "读取版本比较和依赖 staging 路径。",
-        "读取 Ghostscript configure 的架构、SDK 和可选依赖参数。"
-      ],
-      "expected_result": "源码层面同时存在三段版本比较、15.0 deployment target、双架构 source staging、固定校验和以及禁用 Tesseract/可选 Homebrew 集成的配置。",
-      "postconditions": [
-        "不执行源码编译；真实二进制结果由 CI-INTEGRATION-004 验证。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-005",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "CTest 注册完整 Qt 回归测试和四层审计流水线，并保留 skip-build 调用契约。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/ci_quality_pipeline.py::static_test_registration_contract",
-      "test_purpose": "验证验收入口和四个报告文件的边界清楚。",
-      "preconditions": [
-        "tests/CMakeLists.txt 可读取。"
-      ],
-      "input_data": {
-        "registered_tests": [
-          "FovelleTests",
-          "FovelleTaskAcceptanceAudit"
-        ]
-      },
-      "operation_steps": [
-        "读取 CTest 注册。",
-        "检查审计脚本和 skip-build 参数。",
-        "检查静态、单元、集成、系统阶段与报告名。"
-      ],
-      "expected_result": "审计测试调用当前 CI 质量流水线，且报告输出集合完整。",
-      "postconditions": [
-        "CTest 可在构建完成后重复运行审计。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-006",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "任务范围内的工作树差异不包含空白错误。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/ci_quality_pipeline.py::static_scope_contract",
-      "test_purpose": "避免修复引入不可见格式噪声。",
-      "preconditions": [
-        "Git 工作树可执行 git diff --check。"
-      ],
-      "input_data": {
-        "scope": [
-          "build.sh",
-          "src",
-          "tests",
-          ".github",
-          "CMakeLists.txt",
-          "dist"
-        ]
-      },
-      "operation_steps": [
-        "运行 git diff --check HEAD。",
-        "仅审计任务范围路径。"
-      ],
-      "expected_result": "命令返回 0 且没有 whitespace error。",
-      "postconditions": [
-        "README.md 中既有的用户变更保持不动。"
-      ]
-    },
-    {
-      "id": "CI-STATIC-007",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "验收审计的每个直接 QtTest 子进程必须同时使用套件选择器、30 秒函数级超时和 60 秒进程级上限。",
-      "quality_requirement": "可测试性",
-      "test_code": "tests/ci_quality_pipeline.py::static_unit_invocation_timeout_contract",
-      "test_purpose": "验证远端 Checks 的单元审计不会因缺少显式 QtTest 超时而产生不可重复的 runner 级结果。",
-      "preconditions": [
-        "tests/ci_quality_pipeline.py 可读取。"
-      ],
-      "input_data": {
-        "suite_environment": "FOVELLE_TEST_SUITE",
-        "qtest_function_timeout_ms": 30000,
-        "child_process_timeout_seconds": 60
-      },
-      "operation_steps": [
-        "读取直接 QtTest 子进程的环境配置。",
-        "核对套件选择器。",
-        "核对 QtTest 函数级和 Python 子进程级超时。"
-      ],
-      "expected_result": "源码同时声明套件过滤、QTEST_FUNCTION_TIMEOUT=30000 和 timeout=60。",
-      "postconditions": [
-        "不启动 GUI 进程；真实执行由单元层用例覆盖。"
-      ]
-    },
-    {
-      "id": "CI-UNIT-001",
+      "id": "AC-SHORTCUT-001",
       "test_layer": "unit",
-      "atomic_acceptance_criterion": "PDF 与 SVG 矢量文档均能在 6400% 路径完成 refinement，并产生真实绘制的非空 bounded tile。",
+      "atomic_acceptance_criterion": "Shortcuts 列只显示快捷键；Open 的默认值只保留平台主快捷键，不显示 Open 动作名。",
       "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorFormatsUseDocumentSceneItem",
-      "test_purpose": "直接回归远端失败的跨格式矢量场景。",
+      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName",
+      "test_purpose": "验证标准快捷键的存储与 NativeText 展示不会把 Qt 的符号回退项当作第二个快捷键。",
       "preconditions": [
-        "build/tests/fovelle_tests 已构建。",
-        "Qt 可在 cocoa 平台运行。"
+        "Qt GUI 已提供 QKeySequence::Open 的平台绑定。"
       ],
       "input_data": {
-        "suite": "GraphicsViewTests",
-        "test": "testVectorFormatsUseDocumentSceneItem"
+        "standard_key": "QKeySequence::Open"
       },
-      "operation_steps": [
-        "设置 FOVELLE_TEST_SUITE。",
-        "执行指定 QtTest 方法。",
-        "检查 PDF 与 SVG pass marker。"
+      "steps": [
+        "读取平台绑定列表。",
+        "转换为 ShortcutManager 的持久化字符串列表。",
+        "转换为设置页使用的 NativeText 展示字符串。"
       ],
-      "expected_result": "QtTest 返回 0，且指定测试输出 PASS。",
+      "expected_result": [
+        "持久化列表恰有一个元素，且等于第一项 PortableText。",
+        "展示字符串等于第一项 NativeText。",
+        "展示字符串不包含 Open 动作名。"
+      ],
       "postconditions": [
-        "测试进程退出，临时矢量文档被清理。"
+        "不修改 QSettings、ActionManager 或窗口状态。"
       ]
     },
     {
-      "id": "CI-UNIT-002",
-      "test_layer": "unit",
-      "atomic_acceptance_criterion": "矢量平移的首个 Paint 只覆盖暴露条带；随后异步 refinement 的独立 Paint 不得被误归因给滚动。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip",
-      "test_purpose": "直接回归远端 CI-UNIT-002 与 CI-INTEGRATION-001 共用的时序误判。",
-      "preconditions": [
-        "build/tests/fovelle_tests 已构建。",
-        "矢量 SVG fixture 可用。"
-      ],
-      "input_data": {
-        "suite": "GraphicsViewTests",
-        "test": "testVectorPanRepaintsOnlyExposedStrip",
-        "scroll_dirty_ratio_limit": 0.05
-      },
-      "operation_steps": [
-        "执行指定 QtTest 方法。",
-        "等待初始 refinement 清零且已有真实 tile 绘制。",
-        "记录滚动后的首个 Paint。",
-        "等待后续 refinement 清零。",
-        "分别输出首个与最大观测 dirty ratio。"
-      ],
-      "expected_result": "QtTest 返回 0，且首个滚动 Paint 的 dirty ratio 不超过 5%；后续 refinement Paint 仅作为诊断记录。",
-      "postconditions": [
-        "测试窗口关闭，事件过滤器移除。"
-      ]
-    },
-    {
-      "id": "CI-UNIT-003",
-      "test_layer": "unit",
-      "atomic_acceptance_criterion": "EPS 的 PostScript 内容可通过 Ghostscript 转为应用使用的 PDF 矢量文档。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ImageLoaderTests::testEPSPostScriptRender",
-      "test_purpose": "隔离验证当前正常测试仍可使用 Ghostscript runtime。",
-      "preconditions": [
-        "正常测试构建启用 Ghostscript bundle。",
-        "Ghostscript 可执行文件可用。"
-      ],
-      "input_data": {
-        "suite": "ImageLoaderTests",
-        "test": "testEPSPostScriptRender"
-      },
-      "operation_steps": [
-        "执行指定 QtTest 方法。",
-        "检查 EPS render pass marker。"
-      ],
-      "expected_result": "QtTest 返回 0 且 EPS 渲染测试输出 PASS。",
-      "postconditions": [
-        "测试生成的临时 PDF/fixture 被清理。"
-      ]
-    },
-    {
-      "id": "CI-UNIT-004",
-      "test_layer": "unit",
-      "atomic_acceptance_criterion": "View → Exit Full Screen 与物理 Escape 共用 AppKit 异步退出边界，并在 native transition 完成后保持正常窗口几何稳定。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testExitFullscreenActionUsesEscapePath",
-      "test_purpose": "验证菜单退出动作与 Escape 走同一原生异步边界，且不因 macOS 标题栏 client inset 差异产生假失败。",
-      "preconditions": [
-        "可见的正常 MainWindow 已创建。",
-        "macOS Cocoa 原生窗口和全屏通知可用。"
-      ],
-      "input_data": {
-        "action_input": "View → Exit Full Screen QAction",
-        "comparison_input": "物理 Escape",
-        "normal_geometry_source": "showEvent 后已稳定的实际 QWidget::geometry()"
-      },
-      "operation_steps": [
-        "等待 deferred full-size-content-view 设置稳定。",
-        "捕获平台实际正常几何。",
-        "进入全屏并直接触发 View 退出动作。",
-        "等待原生退出通知完成并检查几何稳定。",
-        "再次进入全屏并发送 Escape，重复同样检查。"
-      ],
-      "expected_result": "两种输入都在 native transition 完成前保持 Qt 全屏状态，完成后退出全屏、恢复捕获的正常几何，且无退出后的二次 Move/Resize。",
-      "postconditions": [
-        "测试窗口关闭。",
-        "临时 titlebar 设置和 quit policy 恢复。"
-      ]
-    },
-    {
-      "id": "CI-UNIT-005",
-      "test_layer": "unit",
-      "atomic_acceptance_criterion": "Release 版本比较器必须接受与目标相等的两段 macOS 版本。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_release_version_unit::compatible",
-      "test_purpose": "隔离验证修复后的版本比较器基本成功路径，不触发任何签名或系统工具。",
-      "preconditions": [
-        "package-macos-release.sh 可执行。"
-      ],
-      "input_data": {
-        "candidate_version": "15.0",
-        "expected_version": "15.0",
-        "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"
-      },
-      "operation_steps": [
-        "以测试模式调用打包脚本。",
-        "读取 VERSION_COMPATIBLE 标记和退出码。"
-      ],
-      "expected_result": "脚本返回 0，并输出 15.0 <= 15.0 的兼容标记。",
-      "postconditions": [
-        "测试模式进程退出，不访问 Apple 凭据或应用 bundle。"
-      ]
-    },
-    {
-      "id": "CI-UNIT-006",
-      "test_layer": "unit",
-      "atomic_acceptance_criterion": "Release 版本比较器必须正确拒绝带 patch 的高版本，并且不能把 7.5 当作 Bash 算术表达式。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_release_version_unit::incompatible",
-      "test_purpose": "直接回归远端 15.7.5 依赖版本触发的解析路径。",
-      "preconditions": [
-        "package-macos-release.sh 可执行。"
-      ],
-      "input_data": {
-        "candidate_version": "15.7.5",
-        "expected_version": "15.0",
-        "mode": "RELEASE_VALIDATE_VERSION_ONLY=true"
-      },
-      "operation_steps": [
-        "以测试模式调用打包脚本。",
-        "检查非零退出、VERSION_INCOMPATIBLE 标记和错误输出。"
-      ],
-      "expected_result": "脚本非零退出，明确报告 15.7.5 > 15.0，且没有 invalid arithmetic operator。",
-      "postconditions": [
-        "测试模式进程退出，不创建 release artifact。"
-      ]
-    },
-    {
-      "id": "CI-INTEGRATION-001",
+      "id": "AC-SHORTCUT-002",
       "test_layer": "integration",
-      "atomic_acceptance_criterion": "完整 FovelleTests CTest 目标通过。",
+      "atomic_acceptance_criterion": "Shortcuts 表的 Shortcuts 列使用剩余宽度，且不产生水平溢出。",
       "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_integration::ctest_FovelleTests",
-      "test_purpose": "验证修复在 CMake 注册的完整 Qt 回归集合中成立。",
+      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth",
+      "test_purpose": "验证 Action 列固定、Shortcuts 列拉伸并完整覆盖表格可视区域。",
       "preconditions": [
-        "CMake build 已成功或由本阶段构建。",
-        "CTest 已配置。"
+        "QVOptionsDialog 已构造并完成 prepareForDisplay()。",
+        "Shortcuts 页可见且表格已有数据。"
       ],
       "input_data": {
-        "ctest_regex": "^FovelleTests$",
-        "timeout_seconds": 90
-      },
-      "operation_steps": [
-        "必要时执行 cmake --build。",
-        "运行 ctest --output-on-failure -R ^FovelleTests$。"
-      ],
-      "expected_result": "CTest 返回 0，FovelleTests 不含失败或崩溃。",
-      "postconditions": [
-        "保留 CTest 输出作为 evidence。"
-      ]
-    },
-    {
-      "id": "CI-INTEGRATION-002",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "构建目录同时注册 FovelleTests 和 FovelleTaskAcceptanceAudit。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/ci_quality_pipeline.py::run_integration::ctest_list",
-      "test_purpose": "验证四层审计作为 CI 构建的一部分可被 CTest 发现。",
-      "preconditions": [
-        "CMake configure 已完成。"
-      ],
-      "input_data": {
-        "command": "ctest --test-dir build -N"
-      },
-      "operation_steps": [
-        "列出 CTest 测试。",
-        "检查两个注册名称。"
-      ],
-      "expected_result": "列表输出包含两个目标。",
-      "postconditions": [
-        "不执行递归审计，仅验证注册契约。"
-      ]
-    },
-    {
-      "id": "CI-INTEGRATION-003",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "Release 合同检查必须通过并覆盖源码 Ghostscript staging 与三段版本验证路径。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/quality_release.py",
-      "test_purpose": "在不消耗 Apple 凭据的情况下验证 Release workflow、签名/公证编排和兼容性修复的静态合同。",
-      "preconditions": [
-        "Python 解释器和 macOS Release 脚本存在。"
-      ],
-      "input_data": {
-        "command": "python3 tests/quality_release.py --repo . --output reports/evidence/release_contract.json"
-      },
-      "operation_steps": [
-        "运行 release contract 测试。",
-        "检查所有 R-* 原子检查均为 pass。"
-      ],
-      "expected_result": "命令返回 0，Release 合同 JSON 的 passed 为 true。",
-      "postconditions": [
-        "合同证据写入 reports/evidence/release_contract.json。"
-      ]
-    },
-    {
-      "id": "CI-INTEGRATION-004",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "固定 Ghostscript 源码必须在目标 15.0 下生成同时包含 x86_64 与 arm64 的可安装 runtime。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_release_source_build",
-      "test_purpose": "执行真实源码下载校验、configure、编译、安装和 Mach-O 检查，闭合远端 Release 失败的依赖根因。",
-      "preconditions": [
-        "macOS SDK、clang、make、curl、tar、file、lipo 和 otool 可用。",
-        "网络可访问固定 Ghostscript archive。"
-      ],
-      "input_data": {
-        "ghostscript_version": "10.07.1",
-        "deployment_target": "15.0",
-        "architectures": [
-          "x86_64",
-          "arm64"
+        "table_columns": [
+          "Action",
+          "Shortcuts"
         ]
       },
-      "operation_steps": [
-        "调用 prepare-ghostscript.sh 的 force-source 路径。",
-        "检查生成 bin/gs。",
-        "读取 file/lipo/otool 输出及 runtime.json。"
+      "steps": [
+        "切换到 Shortcuts 页。",
+        "读取表头的拉伸策略、两列宽度、viewport 宽度和水平滚动范围。"
       ],
-      "expected_result": "源码构建返回 0，bin/gs 为双架构 Mach-O，所有读取到的 minos 为 15.0，且 runtime.json 存在。",
+      "expected_result": [
+        "最后一列启用 stretchLastSection。",
+        "Action 为 Fixed，Shortcuts 为 Stretch。",
+        "两列宽度之和等于 header length，且等于 viewport 宽度。",
+        "水平滚动最大值为 0，Shortcuts 列宽度大于 0。"
+      ],
       "postconditions": [
-        "临时源码和 runtime 在测试结束后清理。"
+        "关闭设置页且不改变快捷键设置。"
       ]
     },
     {
-      "id": "CI-SYSTEM-001",
+      "id": "AC-SHORTCUT-003",
+      "test_layer": "integration",
+      "atomic_acceptance_criterion": "双击任一 Shortcuts 单元格会创建并显示快捷键配置框。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testDoubleClickOpensShortcutEditor",
+      "test_purpose": "验证 QTableWidget 的双击信号仍连接到 QVShortcutDialog 创建路径。",
+      "preconditions": [
+        "QVOptionsDialog 可见，Shortcuts 表第 0 行第 1 列有效。"
+      ],
+      "input_data": {
+        "row": 0,
+        "column": 1,
+        "event": "QTest mouse double-click"
+      },
+      "steps": [
+        "对 Shortcuts 单元格执行 QTest 鼠标双击；若无头 Cocoa 后端未产生信号，则发送等价的 cellDoubleClicked 信号。",
+        "查找并读取子 QVShortcutDialog 的可见状态。"
+      ],
+      "expected_result": [
+        "创建一个 QVShortcutDialog。",
+        "配置框处于可见状态。"
+      ],
+      "postconditions": [
+        "拒绝配置框并关闭设置页，不提交快捷键变化。"
+      ]
+    },
+    {
+      "id": "AC-SHORTCUT-004",
+      "test_layer": "integration",
+      "atomic_acceptance_criterion": "双击编辑并接受一个不同长度的快捷键后，设置页宽度及固定宽度契约保持不变。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth",
+      "test_purpose": "验证快捷键文本变化只更新单元格，不触发已展示设置页的自然尺寸重算。",
+      "preconditions": [
+        "Shortcuts 页可见，设置页已完成初始尺寸测量，open 快捷键可写入 QSettings。"
+      ],
+      "input_data": {
+        "replacement": "Ctrl+Alt+Shift+F12",
+        "row": 0,
+        "column": 1
+      },
+      "steps": [
+        "记录编辑前的 dialog.width() 与 settingsFixedWidth。",
+        "双击单元格，设置替代快捷键并点击 OK。",
+        "读取编辑后的窗口宽度、固定宽度属性、表格文本和 QSettings。"
+      ],
+      "expected_result": [
+        "dialog.width() 与编辑前相同。",
+        "settingsFixedWidth 与编辑前相同。",
+        "表格显示替代快捷键的 NativeText。",
+        "QSettings 保存替代快捷键的 PortableText。"
+      ],
+      "postconditions": [
+        "编辑框关闭，ScopedShortcutValues 恢复原始设置。"
+      ]
+    },
+    {
+      "id": "AC-SHORTCUT-005",
+      "test_layer": "integration",
+      "atomic_acceptance_criterion": "配置框内按裸 Esc 等同于点击 Cancel：拒绝、无提交、数据不变。",
+      "quality_requirement": "功能正确性",
+      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel",
+      "test_purpose": "验证 QKeySequenceEdit 不会吞掉 Esc，且 Esc 与 Cancel 共享 reject 行为。",
+      "preconditions": [
+        "QVShortcutDialog 已由 Shortcuts 单元格双击打开，原快捷键已持久化。"
+      ],
+      "input_data": {
+        "replacement": "Ctrl+Alt+Shift+F12",
+        "key": "Escape",
+        "modifiers": []
+      },
+      "steps": [
+        "在 QKeySequenceEdit 中设置替代快捷键并聚焦编辑器。",
+        "发送裸 Esc。",
+        "观察 rejected()、shortcutsListChanged、表格单元格和 QSettings。"
+      ],
+      "expected_result": [
+        "配置框被 reject，rejected() 恰好发射一次。",
+        "shortcutsListChanged 不发射。",
+        "表格和 QSettings 仍为原快捷键。"
+      ],
+      "postconditions": [
+        "所有测试窗口关闭，ScopedShortcutValues 恢复原始设置。"
+      ]
+    },
+    {
+      "id": "CQ-LEAN-001",
+      "test_layer": "static",
+      "atomic_acceptance_criterion": "修复只改变快捷键设置所需的生产代码、测试代码和 CTest 注册，并移除编辑后的重复自然尺寸重算。",
+      "quality_requirement": "精益完整性",
+      "test_code": "tests/shortcut_quality_pipeline.py::static_source_contract",
+      "test_purpose": "审计修复范围和根因对应关系，防止通过额外 UI 重构掩盖问题。",
+      "preconditions": [
+        "仓库源文件和测试文件可读。"
+      ],
+      "input_data": {
+        "required_contracts": [
+          "column stretch",
+          "primary binding",
+          "no post-edit remeasure",
+          "Esc reject"
+        ]
+      },
+      "steps": [
+        "检查源代码中的最小契约。",
+        "检查 updateShortcutsTable() 不再调用自然尺寸重算。",
+        "检查 git diff --check。"
+      ],
+      "expected_result": [
+        "全部必要契约存在。",
+        "编辑路径没有重复页面测量。",
+        "补丁无空白错误。"
+      ],
+      "postconditions": [
+        "静态审计只读，不修改产品或用户设置。"
+      ]
+    },
+    {
+      "id": "CQ-CORRECT-001",
       "test_layer": "system",
-      "atomic_acceptance_criterion": "实际 Fovelle.app 可启动并通过系统探针报告一个最大化窗口。",
+      "atomic_acceptance_criterion": "四层执行结果共同证明所有功能性原子验收标准通过，且无失败或跳过。",
       "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_system::FOVELLE_SYSTEM_PROBE",
-      "test_purpose": "用真实 app bundle 验证最终启动副作用。",
+      "test_code": "tests/shortcut_quality_pipeline.py::cross_stage_functional_audit",
+      "test_purpose": "交叉审计静态、单元、集成和系统实际结果，而不是只依据单个测试进程退出码。",
       "preconditions": [
-        "build/Fovelle.app/Contents/MacOS/Fovelle 存在。",
-        "macOS Cocoa 图形环境可用。"
+        "AC-SHORTCUT-001 至 AC-SHORTCUT-005 已有实际阶段结果。"
       ],
       "input_data": {
-        "environment": {
-          "QT_QPA_PLATFORM": "cocoa",
-          "FOVELLE_SYSTEM_PROBE": "1"
-        }
+        "stage_order": [
+          "static",
+          "unit",
+          "integration",
+          "system"
+        ]
       },
-      "operation_steps": [
-        "启动 app bundle。",
-        "等待 system probe 输出。",
-        "匹配 windows=1 maximized=true。"
+      "steps": [
+        "读取四阶段结果。",
+        "核对五个功能用例均通过。",
+        "核对无失败、跳过或黑名单项。"
       ],
-      "expected_result": "进程返回 0 且输出精确探针标记。",
+      "expected_result": [
+        "四阶段均为 passed。",
+        "五个功能性用例均为 passed。"
+      ],
       "postconditions": [
-        "探针触发 app.quit，进程结束。"
+        "只生成审计报告，不改变运行时状态。"
       ]
     },
     {
-      "id": "CI-SYSTEM-002",
-      "test_layer": "system",
-      "atomic_acceptance_criterion": "实际 app bundle 的版本输出为 1.0.0。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/ci_quality_pipeline.py::run_system::version",
-      "test_purpose": "验证最终 bundle 的版本元数据没有被构建路径修复破坏。",
-      "preconditions": [
-        "app bundle 已构建。"
-      ],
-      "input_data": {
-        "command": "build/Fovelle.app/Contents/MacOS/Fovelle --version",
-        "expected_version": "1.0.0"
-      },
-      "operation_steps": [
-        "执行 --version。",
-        "匹配版本号。"
-      ],
-      "expected_result": "进程返回 0 且输出包含 1.0.0。",
-      "postconditions": [
-        "版本进程退出。"
-      ]
-    },
-    {
-      "id": "CI-SYSTEM-003",
-      "test_layer": "system",
-      "atomic_acceptance_criterion": "Release 编排必须在无凭据模式下可快速、确定性地完成 dry-run 和超时参数校验。",
+      "id": "CQ-TESTABLE-001",
+      "test_layer": "static",
+      "atomic_acceptance_criterion": "测试具备确定性输入、非侵入式观测和可重复的外部输出记录。",
       "quality_requirement": "可测试性",
-      "test_code": "tests/quality_release_system.py",
-      "test_purpose": "验证最终发布流程具备不侵入外部 Apple 服务的系统级可观测入口。",
+      "test_code": "tests/shortcut_quality_pipeline.py::static_testability_contract",
+      "test_purpose": "审计测试夹具、运行时观测点、隔离恢复和 JSON 结果生成是否齐全。",
       "preconditions": [
-        "真实 Fovelle.app 已通过前两个系统探针。",
-        "Python 解释器可运行 Release system harness。"
+        "ShortcutSettingsTests 和本质量流水线脚本可读。"
       ],
       "input_data": {
-        "dry_run": true,
-        "notarization_timeout": "45s",
-        "invalid_timeout": "forever"
+        "observables": [
+          "dialog.width",
+          "settingsFixedWidth",
+          "QSettings",
+          "QSignalSpy",
+          "QPointer"
+        ]
       },
-      "operation_steps": [
-        "运行 Release system harness。",
-        "检查 dry-run performance、超时配置和输出 JSON。"
+      "steps": [
+        "检查测试使用 ScopedOptionValues 与 ScopedShortcutValues。",
+        "检查宽度、信号、持久化状态和对象生命周期均被观测。",
+        "检查四阶段命令、退出码和输出尾部写入 JSON。"
       ],
-      "expected_result": "system-release JSON 的 passed 为 true，dry-run 在 5 秒内完成，且无效超时被拒绝。",
+      "expected_result": [
+        "夹具会恢复设置。",
+        "运行时状态可由公开属性、信号和 QSettings 确定性读取。",
+        "报告包含命令、退出码、阶段顺序和用例结果。"
+      ],
       "postconditions": [
-        "测试使用临时报告路径，不访问 Apple 凭据。"
+        "静态审计不启动应用、不写入设置。"
       ]
     }
+  ],
+  "audit_fields": [
+    "id",
+    "test_layer",
+    "atomic_acceptance_criterion",
+    "quality_requirement",
+    "test_code",
+    "test_purpose",
+    "preconditions",
+    "input_data",
+    "steps",
+    "expected_result",
+    "postconditions"
   ]
 }
