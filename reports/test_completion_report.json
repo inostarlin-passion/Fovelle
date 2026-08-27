@@ -1,670 +1,638 @@
 {
   "schema_version": "1.0",
   "report_type": "test_completion_report",
-  "generated_at": "2026-08-27T04:43:39.779193+00:00",
-  "task": "修复设置页 Shortcuts Tab 的快捷键内容展示与 GitHub Actions 全屏回归失败",
-  "status": "passed",
-  "test_execution_order": [
-    "static",
-    "unit",
-    "integration",
-    "system"
-  ],
-  "environment": {
-    "QT_QPA_PLATFORM": "cocoa",
-    "QT_FATAL_WARNINGS": "1",
-    "QTEST_FUNCTION_TIMEOUT": "30000",
-    "FOVELLE_TEST_SUITE": "ShortcutSettingsTests"
+  "generated_at_utc": "2026-08-27T09:59:09.940186+00:00",
+  "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
+  "host": {
+    "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
   },
-  "build_preparation": {
-    "command": [
-      "cmake",
-      "--build",
-      "/Users/inostarlin/code/Fovelle/build",
-      "--target",
-      "fovelle_tests",
-      "--parallel",
-      "2"
-    ],
-    "return_code": 0,
-    "passed": true,
-    "duration_ms": 109.62,
-    "output_tail": "ninja: no work to do.\n"
+  "build": {
+    "build_dir": "/Users/inostarlin/code/Fovelle/build",
+    "binary": "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+    "binary_sha256": "a35b522bc4f9b9f8e9481f55b13e6760f85e14fbfe785fce55d95c826d584c46"
   },
-  "stage_summaries": {
+  "stages": {
     "static": {
       "stage": "static",
-      "total": 3,
-      "passed": 3,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    },
-    "unit": {
-      "stage": "unit",
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    },
-    "integration": {
-      "stage": "integration",
-      "total": 4,
-      "passed": 4,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    },
-    "system": {
-      "stage": "system",
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    }
-  },
-  "case_results": {
-    "CQ-LEAN-001": {
-      "stage": "static",
       "passed": true,
-      "observed": {
-        "checks": {
-          "shortcuts_column_is_stretch": true,
-          "last_section_is_stretched": true,
-          "primary_binding_only": true,
-          "display_converts_each_item": true,
-          "edit_does_not_remeasure_page": true,
-          "escape_filter_declared": true,
-          "escape_filter_installed_and_removed": true,
-          "escape_calls_reject": true,
-          "double_click_connection_retained": true,
-          "focused_cases_declared": true,
-          "ctest_target_registered": true,
-          "diff_is_clean": true
-        },
-        "diff_check": {
-          "command": [
-            "git",
-            "diff",
-            "--check"
-          ],
-          "return_code": 0,
+      "checks": [
+        {
+          "id": "SET-STATIC-001",
           "passed": true,
-          "duration_ms": 10.758,
-          "output_tail": ""
-        }
-      },
-      "execution": {
-        "test_code": "tests/shortcut_quality_pipeline.py::static_source_contract",
-        "kind": "source_contract"
-      }
-    },
-    "CQ-TESTABLE-001": {
-      "stage": "static",
-      "passed": true,
-      "observed": {
-        "checks": {
-          "settings_fixture": true,
-          "geometry_observable": true,
-          "signal_observable": true,
-          "lifetime_observable": true,
-          "persistence_observable": true,
-          "all_required_case_fields_declared": true,
-          "ordered_stage_runner": true,
-          "machine_auditable_execution": true
-        }
-      },
-      "execution": {
-        "test_code": "tests/shortcut_quality_pipeline.py::static_testability_contract",
-        "kind": "source_contract"
-      }
-    },
-    "CI-STATIC-001": {
-      "stage": "static",
-      "passed": true,
-      "observed": {
-        "checks": {
-          "one_fullscreen_round_trip": true,
-          "fit_mode_assertion_retained": true,
-          "image_geometry_assertion_retained": true,
-          "bounded_async_assertions_retained": true,
-          "second_exit_observer_removed": true,
-          "full_suite_ctest_registered": true,
-          "build_workflow_runs_ctest": true,
-          "checks_workflow_runs_ctest": true,
-          "diff_is_clean": true
+          "observed": {
+            "cmake": true,
+            "qmake": true,
+            "plist_short_and_bundle": true,
+            "runtime_assertion": true,
+            "no_old_version_in_active_sources": true
+          },
+          "expected": "all active version sources equal 1.0.1"
         },
-        "diff_check": {
-          "command": [
-            "git",
-            "diff",
-            "--check"
-          ],
-          "return_code": 0,
+        {
+          "id": "SET-STATIC-002",
           "passed": true,
-          "duration_ms": 9.974,
-          "output_tail": ""
+          "observed": {
+            "group_spacing": true,
+            "row_spacing": true,
+            "semantic_group_factory": true,
+            "natural_width_compensation": true,
+            "combo_contents_policy": true,
+            "all_new_test_methods_registered": true,
+            "runner_tracks_new_methods": true
+          },
+          "expected": "grouping and width contracts are explicit in production/test code"
         },
-        "remote_evidence": {
-          "latest_checks_run": {
-            "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-            "head_sha": "2a75307d16df2471ad85c93481f906a28cc79df4",
-            "runner": "macos-26",
-            "qt": "6.11.2",
-            "status_before_repair": "failure",
-            "failed_job": "Run Unit Tests",
-            "failed_test": "FovelleTests",
-            "failure": {
-              "case": "GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-              "source_line": 3417,
-              "actual": "QRect(0,92 640x360)",
-              "expected": "QRect(0,76 640x360)",
-              "secondary_effect": "SIGSEGV after the failed QtTest assertion"
+        {
+          "id": "SET-STATIC-003",
+          "passed": true,
+          "observed": {
+            "path": "/Users/inostarlin/code/Fovelle/src/qvoptionsdialog.ui",
+            "error": null
+          },
+          "expected": "qvoptionsdialog.ui is well-formed XML"
+        },
+        {
+          "id": "SET-STATIC-004",
+          "passed": true,
+          "observed": {
+            "es": {
+              "Appearance:": true,
+              "Checkerboard when image loaded": true,
+              "Reuse window when launching with image": true,
+              "Smooth scaling:": true,
+              "Language:": true,
+              "Show small images at 1:1": true,
+              "Slideshow direction:": true,
+              "Slideshow timer:": true,
+              "After deletion:": true,
+              "&Ask before deleting files": true,
+              "Auto update check:": true,
+              "Associate all supported formats": true
             },
-            "passing_checks": [
-              "Build",
-              "clang-format",
-              "clang-tidy",
-              "FovelleShortcutSettingsTests"
-            ]
+            "ja": {
+              "Appearance:": true,
+              "Checkerboard when image loaded": true,
+              "Reuse window when launching with image": true,
+              "Smooth scaling:": true,
+              "Language:": true,
+              "Show small images at 1:1": true,
+              "Slideshow direction:": true,
+              "Slideshow timer:": true,
+              "After deletion:": true,
+              "&Ask before deleting files": true,
+              "Auto update check:": true,
+              "Associate all supported formats": true
+            },
+            "zh_Hans": {
+              "Appearance:": true,
+              "Checkerboard when image loaded": true,
+              "Reuse window when launching with image": true,
+              "Smooth scaling:": true,
+              "Language:": true,
+              "Show small images at 1:1": true,
+              "Slideshow direction:": true,
+              "Slideshow timer:": true,
+              "After deletion:": true,
+              "&Ask before deleting files": true,
+              "Auto update check:": true,
+              "Associate all supported formats": true
+            },
+            "zh_Hant": {
+              "Appearance:": true,
+              "Checkerboard when image loaded": true,
+              "Reuse window when launching with image": true,
+              "Smooth scaling:": true,
+              "Language:": true,
+              "Show small images at 1:1": true,
+              "Slideshow direction:": true,
+              "Slideshow timer:": true,
+              "After deletion:": true,
+              "&Ask before deleting files": true,
+              "Auto update check:": true,
+              "Associate all supported formats": true
+            }
           },
-          "latest_build_run": {
-            "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-            "status_before_repair": "failure",
-            "failed_step": "Test",
-            "shared_failure": "The same FovelleTests fullscreen geometry assertion on macOS 26.5.2."
+          "expected": "all required settings strings exist in every supported non-English catalog"
+        },
+        {
+          "id": "SET-STATIC-005",
+          "passed": true,
+          "observed": {
+            "pipeline_parses": true
           },
-          "repair_scope": {
-            "root_cause": "The test performed a second native AppKit fullscreen round trip immediately after the first; the second exit observed a platform-specific, not-yet-stable titlebar/layout geometry and compared it with the first baseline.",
-            "repair": "Remove the redundant second round trip and keep the required single entry/exit assertion.",
-            "remote_reexecution": false
-          }
-        }
-      },
-      "execution": {
-        "test_code": "tests/shortcut_quality_pipeline.py::static_ci_regression_contract",
-        "kind": "source_contract"
-      }
-    },
-    "AC-SHORTCUT-001": {
-      "stage": "unit",
-      "passed": true,
-      "command_result": {
-        "command": [
-          "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "-o",
-          "-,txt"
-        ],
-        "return_code": 0,
-        "passed": true,
-        "duration_ms": 206.327,
-        "output_tail": "********* Start testing of ShortcutSettingsTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ShortcutSettingsTests::initTestCase()\nPASS   : ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()\nPASS   : ShortcutSettingsTests::cleanupTestCase()\nTotals: 3 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n********* Finished testing of ShortcutSettingsTests *********\n"
-      },
-      "expected_methods": [
-        "testPrimaryStandardShortcutDoesNotExposeActionName"
-      ],
-      "observed_pass_methods": [
-        "initTestCase",
-        "testPrimaryStandardShortcutDoesNotExposeActionName",
-        "cleanupTestCase"
-      ],
-      "observed_fail_methods": [],
-      "missing_methods": [],
-      "qtest_totals": {
-        "passed": 3,
-        "failed": 0,
-        "skipped": 0
-      }
-    },
-    "AC-SHORTCUT-002": {
-      "stage": "integration",
-      "passed": true,
-      "observed": {
-        "passed": true,
-        "command_result": {
-          "command": [
-            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-            "-o",
-            "-,txt"
-          ],
-          "return_code": 0,
+          "expected": "the audit runner parses as Python"
+        },
+        {
+          "id": "SET-STATIC-006",
           "passed": true,
-          "duration_ms": 2278.038,
-          "output_tail": "********* Start testing of ShortcutSettingsTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ShortcutSettingsTests::initTestCase()\nPASS   : ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()\nPASS   : ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()\nPASS   : ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()\nPASS   : ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()\nPASS   : ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()\nPASS   : ShortcutSettingsTests::cleanupTestCase()\nTotals: 7 passed, 0 failed, 0 skipped, 0 blacklisted, 2081ms\n********* Finished testing of ShortcutSettingsTests *********\n"
-        },
-        "expected_methods": [
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel"
-        ],
-        "observed_pass_methods": [
-          "initTestCase",
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel",
-          "cleanupTestCase"
-        ],
-        "observed_fail_methods": [],
-        "missing_methods": [],
-        "qtest_totals": {
-          "passed": 7,
-          "failed": 0,
-          "skipped": 0
-        },
-        "assigned_method": "testShortcutsColumnFillsRemainingWidth",
-        "assigned_case_id": "AC-SHORTCUT-002"
-      }
-    },
-    "AC-SHORTCUT-003": {
-      "stage": "integration",
-      "passed": true,
-      "observed": {
-        "passed": true,
-        "command_result": {
-          "command": [
-            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-            "-o",
-            "-,txt"
-          ],
-          "return_code": 0,
-          "passed": true,
-          "duration_ms": 2278.038,
-          "output_tail": "********* Start testing of ShortcutSettingsTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ShortcutSettingsTests::initTestCase()\nPASS   : ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()\nPASS   : ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()\nPASS   : ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()\nPASS   : ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()\nPASS   : ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()\nPASS   : ShortcutSettingsTests::cleanupTestCase()\nTotals: 7 passed, 0 failed, 0 skipped, 0 blacklisted, 2081ms\n********* Finished testing of ShortcutSettingsTests *********\n"
-        },
-        "expected_methods": [
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel"
-        ],
-        "observed_pass_methods": [
-          "initTestCase",
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel",
-          "cleanupTestCase"
-        ],
-        "observed_fail_methods": [],
-        "missing_methods": [],
-        "qtest_totals": {
-          "passed": 7,
-          "failed": 0,
-          "skipped": 0
-        },
-        "assigned_method": "testDoubleClickOpensShortcutEditor",
-        "assigned_case_id": "AC-SHORTCUT-003"
-      }
-    },
-    "AC-SHORTCUT-004": {
-      "stage": "integration",
-      "passed": true,
-      "observed": {
-        "passed": true,
-        "command_result": {
-          "command": [
-            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-            "-o",
-            "-,txt"
-          ],
-          "return_code": 0,
-          "passed": true,
-          "duration_ms": 2278.038,
-          "output_tail": "********* Start testing of ShortcutSettingsTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ShortcutSettingsTests::initTestCase()\nPASS   : ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()\nPASS   : ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()\nPASS   : ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()\nPASS   : ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()\nPASS   : ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()\nPASS   : ShortcutSettingsTests::cleanupTestCase()\nTotals: 7 passed, 0 failed, 0 skipped, 0 blacklisted, 2081ms\n********* Finished testing of ShortcutSettingsTests *********\n"
-        },
-        "expected_methods": [
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel"
-        ],
-        "observed_pass_methods": [
-          "initTestCase",
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel",
-          "cleanupTestCase"
-        ],
-        "observed_fail_methods": [],
-        "missing_methods": [],
-        "qtest_totals": {
-          "passed": 7,
-          "failed": 0,
-          "skipped": 0
-        },
-        "assigned_method": "testShortcutUpdateKeepsSettingsWidth",
-        "assigned_case_id": "AC-SHORTCUT-004"
-      }
-    },
-    "AC-SHORTCUT-005": {
-      "stage": "integration",
-      "passed": true,
-      "observed": {
-        "passed": true,
-        "command_result": {
-          "command": [
-            "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
-            "-o",
-            "-,txt"
-          ],
-          "return_code": 0,
-          "passed": true,
-          "duration_ms": 2278.038,
-          "output_tail": "********* Start testing of ShortcutSettingsTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : ShortcutSettingsTests::initTestCase()\nPASS   : ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()\nPASS   : ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()\nPASS   : ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()\nPASS   : ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()\nPASS   : ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()\nPASS   : ShortcutSettingsTests::cleanupTestCase()\nTotals: 7 passed, 0 failed, 0 skipped, 0 blacklisted, 2081ms\n********* Finished testing of ShortcutSettingsTests *********\n"
-        },
-        "expected_methods": [
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel"
-        ],
-        "observed_pass_methods": [
-          "initTestCase",
-          "testPrimaryStandardShortcutDoesNotExposeActionName",
-          "testShortcutsColumnFillsRemainingWidth",
-          "testDoubleClickOpensShortcutEditor",
-          "testShortcutUpdateKeepsSettingsWidth",
-          "testEscapeRejectsShortcutEditorLikeCancel",
-          "cleanupTestCase"
-        ],
-        "observed_fail_methods": [],
-        "missing_methods": [],
-        "qtest_totals": {
-          "passed": 7,
-          "failed": 0,
-          "skipped": 0
-        },
-        "assigned_method": "testEscapeRejectsShortcutEditorLikeCancel",
-        "assigned_case_id": "AC-SHORTCUT-005"
-      }
-    },
-    "CI-SYSTEM-001": {
-      "stage": "system",
-      "passed": true,
-      "observed": {
-        "passed": true,
-        "command_result": {
-          "command": [
-            "ctest",
-            "--test-dir",
-            "/Users/inostarlin/code/Fovelle/build",
-            "--output-on-failure",
-            "--timeout",
-            "90",
-            "-R",
-            "^(FovelleTests|FovelleShortcutSettingsTests)$"
-          ],
-          "return_code": 0,
-          "passed": true,
-          "duration_ms": 28213.29,
-          "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/2 Test #1: FovelleTests .....................   Passed   25.87 sec\n    Start 2: FovelleShortcutSettingsTests\n2/2 Test #2: FovelleShortcutSettingsTests .....   Passed    2.33 sec\n\n100% tests passed out of 2\n\nTotal Test time (real) =  28.20 sec\n"
-        },
-        "expected_tests": [
-          "FovelleTests",
-          "FovelleShortcutSettingsTests"
-        ],
-        "observed_pass_tests": [
-          "FovelleTests",
-          "FovelleShortcutSettingsTests"
-        ],
-        "observed_fail_tests": [],
-        "missing_tests": [],
-        "summary_found": true,
-        "suite_filter_inherited_by_ctest": false
-      },
-      "execution": {
-        "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-        "kind": "CTest_system_entry_point"
-      }
-    },
-    "CQ-CORRECT-001": {
-      "stage": "system",
-      "passed": true,
-      "observed": {
-        "system_process": {
-          "passed": true,
-          "command_result": {
+          "observed": {
             "command": [
-              "ctest",
-              "--test-dir",
-              "/Users/inostarlin/code/Fovelle/build",
-              "--output-on-failure",
-              "--timeout",
-              "90",
-              "-R",
-              "^(FovelleTests|FovelleShortcutSettingsTests)$"
+              "git",
+              "diff",
+              "--check",
+              "HEAD",
+              "--",
+              "src",
+              "tests",
+              "CMakeLists.txt",
+              "qView.pro",
+              "dist"
             ],
+            "cwd": "/Users/inostarlin/code/Fovelle",
+            "environment_overrides": {},
+            "timeout_seconds": 30,
+            "elapsed_seconds": 0.029019,
+            "timed_out": false,
             "return_code": 0,
             "passed": true,
-            "duration_ms": 28213.29,
-            "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/2 Test #1: FovelleTests .....................   Passed   25.87 sec\n    Start 2: FovelleShortcutSettingsTests\n2/2 Test #2: FovelleShortcutSettingsTests .....   Passed    2.33 sec\n\n100% tests passed out of 2\n\nTotal Test time (real) =  28.20 sec\n"
+            "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "output_tail": ""
           },
-          "expected_tests": [
-            "FovelleTests",
-            "FovelleShortcutSettingsTests"
-          ],
-          "observed_pass_tests": [
-            "FovelleTests",
-            "FovelleShortcutSettingsTests"
-          ],
-          "observed_fail_tests": [],
-          "missing_tests": [],
-          "summary_found": true
+          "expected": "task-scoped diff has no whitespace errors"
         },
-        "functional_case_ids": [
-          "AC-SHORTCUT-001",
-          "AC-SHORTCUT-002",
-          "AC-SHORTCUT-003",
-          "AC-SHORTCUT-004",
-          "AC-SHORTCUT-005",
-          "CI-SYSTEM-001"
-        ]
+        {
+          "id": "SET-STATIC-007",
+          "passed": true,
+          "observed": {
+            "baseline_command": [
+              "git",
+              "show",
+              "HEAD:src/settingsmanager.cpp"
+            ],
+            "baseline_read": true,
+            "baseline_keys": [
+              "afterdelete",
+              "aftermatchingsizemode",
+              "allowmimecontentdetection",
+              "askdelete",
+              "calculatedzoommode",
+              "checkerboardbackground",
+              "colorspaceconversion",
+              "constraincentersmallimage",
+              "constrainimageposition",
+              "contextmenuicons",
+              "cursorautohidefullscreendelay",
+              "cursorautohidefullscreenenabled",
+              "cursorzoom",
+              "customtitlebartext",
+              "disabledelayedconstraint",
+              "fitoverscan",
+              "fitzoomlimitenabled",
+              "fitzoomlimitpercent",
+              "fullscreendetails",
+              "language",
+              "loopfoldersenabled",
+              "mainmenuicons",
+              "maxwindowresizedpercentage",
+              "menubarenabled",
+              "minwindowresizedpercentage",
+              "navigationregionsenabled",
+              "navresetszoom",
+              "navspeed",
+              "onetoonepixelsizing",
+              "originalsizeastoggle",
+              "persistsession",
+              "preloadingmode",
+              "reusewindow",
+              "saverecents",
+              "scalefactor",
+              "scalingtwoenabled",
+              "scrollactioncooldown",
+              "skiphidden",
+              "slideshowdirection",
+              "slideshowkeepswindowontop",
+              "slideshowtimer",
+              "smallimageoneone",
+              "smoothscalinglimitenabled",
+              "smoothscalinglimitpercent",
+              "smoothscalingmode",
+              "sortdescending",
+              "sortmode",
+              "submenuicons",
+              "theme",
+              "titlebarmode",
+              "updatecheckfrequency",
+              "viewportaltdoubleclickaction",
+              "viewportaltdragaction",
+              "viewportalthorizontalscrollaction",
+              "viewportaltmiddleclickaction",
+              "viewportaltmiddledragaction",
+              "viewportaltverticalscrollaction",
+              "viewportdoubleclickaction",
+              "viewportdragaction",
+              "viewporthorizontalscrollaction",
+              "viewportmiddlebuttonmode",
+              "viewportmiddleclickaction",
+              "viewportmiddledragaction",
+              "viewportverticalscrollaction",
+              "windowresizemode"
+            ],
+            "current_keys": [
+              "afterdelete",
+              "aftermatchingsizemode",
+              "allowmimecontentdetection",
+              "askdelete",
+              "calculatedzoommode",
+              "checkerboardbackground",
+              "colorspaceconversion",
+              "constraincentersmallimage",
+              "constrainimageposition",
+              "contextmenuicons",
+              "cursorautohidefullscreendelay",
+              "cursorautohidefullscreenenabled",
+              "cursorzoom",
+              "customtitlebartext",
+              "disabledelayedconstraint",
+              "fitoverscan",
+              "fitzoomlimitenabled",
+              "fitzoomlimitpercent",
+              "fullscreendetails",
+              "language",
+              "loopfoldersenabled",
+              "mainmenuicons",
+              "maxwindowresizedpercentage",
+              "menubarenabled",
+              "minwindowresizedpercentage",
+              "navigationregionsenabled",
+              "navresetszoom",
+              "navspeed",
+              "onetoonepixelsizing",
+              "originalsizeastoggle",
+              "persistsession",
+              "preloadingmode",
+              "reusewindow",
+              "saverecents",
+              "scalefactor",
+              "scalingtwoenabled",
+              "scrollactioncooldown",
+              "skiphidden",
+              "slideshowdirection",
+              "slideshowkeepswindowontop",
+              "slideshowtimer",
+              "smallimageoneone",
+              "smoothscalinglimitenabled",
+              "smoothscalinglimitpercent",
+              "smoothscalingmode",
+              "sortdescending",
+              "sortmode",
+              "submenuicons",
+              "theme",
+              "titlebarmode",
+              "updatecheckfrequency",
+              "viewportaltdoubleclickaction",
+              "viewportaltdragaction",
+              "viewportalthorizontalscrollaction",
+              "viewportaltmiddleclickaction",
+              "viewportaltmiddledragaction",
+              "viewportaltverticalscrollaction",
+              "viewportdoubleclickaction",
+              "viewportdragaction",
+              "viewporthorizontalscrollaction",
+              "viewportmiddlebuttonmode",
+              "viewportmiddleclickaction",
+              "viewportmiddledragaction",
+              "viewportverticalscrollaction",
+              "windowresizemode"
+            ]
+          },
+          "expected": "the settings key set is unchanged; this task changes defaults/layout only"
+        }
+      ]
+    },
+    "unit": {
+      "command": [
+        "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+        "-o",
+        "-,txt"
+      ],
+      "cwd": "/Users/inostarlin/code/Fovelle",
+      "environment_overrides": {
+        "QT_QPA_PLATFORM": "cocoa",
+        "QT_FATAL_WARNINGS": "1",
+        "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
+        "FOVELLE_TEST_SUITE": "FeatureTests"
       },
-      "execution": {
-        "test_code": "tests/shortcut_quality_pipeline.py::cross_stage_functional_audit",
-        "kind": "cross_stage_audit"
-      }
+      "timeout_seconds": 90,
+      "elapsed_seconds": 0.76169,
+      "timed_out": false,
+      "return_code": 0,
+      "passed": true,
+      "output_sha256": "0c90b1bace8a2b9da3e8e078ae8666ca6b329bf4b779ee417a580e609419230f",
+      "output_tail": "********* Start testing of FeatureTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : FeatureTests::initTestCase()\nPASS   : FeatureTests::testApplicationVersionIsCurrent()\nPASS   : FeatureTests::testWindowIconIsCleared()\nPASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()\nPASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()\nPASS   : FeatureTests::testViewMenuRemovesLegacyActions()\nPASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()\nPASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()\nPASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()\nPASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()\nPASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()\nPASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()\nPASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()\nPASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()\nPASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()\nPASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()\nPASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()\nPASS   : FeatureTests::testUpdateCheckFrequencyPolicy()\nPASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()\nPASS   : FeatureTests::testOpenWithWorkerTeardownContract()\nPASS   : FeatureTests::cleanupTestCase()\nTotals: 21 passed, 0 failed, 0 skipped, 0 blacklisted, 535ms\n********* Finished testing of FeatureTests *********\n",
+      "stage": "unit",
+      "suite": "FeatureTests"
+    },
+    "integration": {
+      "command": [
+        "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests",
+        "-o",
+        "-,txt"
+      ],
+      "cwd": "/Users/inostarlin/code/Fovelle",
+      "environment_overrides": {
+        "QT_QPA_PLATFORM": "cocoa",
+        "QT_FATAL_WARNINGS": "1",
+        "QV_DISABLE_ONLINE_VERSION_CHECK": "1",
+        "FOVELLE_TEST_SUITE": "WindowBehaviorTests"
+      },
+      "timeout_seconds": 90,
+      "elapsed_seconds": 17.056147,
+      "timed_out": false,
+      "return_code": 0,
+      "passed": true,
+      "output_sha256": "92e58f7db01f69e5ccb09910d5f28589f62eba707ebebf72be6940cd122fe495",
+      "output_tail": "********* Start testing of WindowBehaviorTests *********\nConfig: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 15.7.9\nPASS   : WindowBehaviorTests::initTestCase()\nPASS   : WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()\nPASS   : WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()\nPASS   : WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()\nPASS   : WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()\nPASS   : WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()\nPASS   : WindowBehaviorTests::testDefaultTitlebarTextIsPractical()\nPASS   : WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()\nPASS   : WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()\nPASS   : WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()\nPASS   : WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()\nPASS   : WindowBehaviorTests::testSettingsTabSwitchDoesNotFocusAppearance()\nPASS   : WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()\nPASS   : WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()\nPASS   : WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()\nPASS   : WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()\nPASS   : WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()\nQINFO  : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow() OPTIONS_FIRST_SHOW_FRAME QRect(360,80 400x652)\nPASS   : WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()\nPASS   : WindowBehaviorTests::testAssociateFormatsButtonIsCentered()\nPASS   : WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()\nPASS   : WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()\nPASS   : WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()\nPASS   : WindowBehaviorTests::testNewWindowStartsMaximized()\nPASS   : WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()\nPASS   : WindowBehaviorTests::testHelpMenuContract()\nPASS   : WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()\nPASS   : WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()\nPASS   : WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()\nPASS   : WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()\nPASS   : WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()\nPASS   : WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()\nPASS   : WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()\nPASS   : WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()\nPASS   : WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()\nQINFO  : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded() FOVELLE_NAV_SAMPLE iterations=10000 elapsed_ms=3.855583\nPASS   : WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()\nPASS   : WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()\nPASS   : WindowBehaviorTests::testNavigationButtonsFadeTransition()\nPASS   : WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()\nPASS   : WindowBehaviorTests::cleanupTestCase()\nTotals: 40 passed, 0 failed, 0 skipped, 0 blacklisted, 16828ms\n********* Finished testing of WindowBehaviorTests *********\n",
+      "stage": "integration",
+      "suite": "WindowBehaviorTests"
+    },
+    "system": {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "/Users/inostarlin/code/Fovelle/build",
+        "--output-on-failure",
+        "-R",
+        "^FovelleTests$"
+      ],
+      "cwd": "/Users/inostarlin/code/Fovelle",
+      "environment_overrides": {
+        "QT_QPA_PLATFORM": "cocoa",
+        "QT_FATAL_WARNINGS": "1",
+        "QV_DISABLE_ONLINE_VERSION_CHECK": "1"
+      },
+      "timeout_seconds": 180,
+      "elapsed_seconds": 31.360914,
+      "timed_out": false,
+      "return_code": 0,
+      "passed": true,
+      "output_sha256": "7dd26509d30ae917b20a184d0b79d125faf4e596737cb092e26ec47598ca98c3",
+      "output_tail": "Test project /Users/inostarlin/code/Fovelle/build\n    Start 1: FovelleTests\n1/1 Test #1: FovelleTests .....................   Passed   31.32 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  31.33 sec\n",
+      "stage": "system",
+      "test_target": "FovelleTests"
     }
   },
+  "cases": [
+    {
+      "id": "SET-001",
+      "test_layer": "static+unit",
+      "implementation": "tests/settings_quality_pipeline.py::static_version_contract; tests/tst_qviewtests.cpp::FeatureTests::testApplicationVersionIsCurrent",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "static": true,
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-002",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-003",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-004",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-005",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-006",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-007",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-008",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-009",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-010",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit",
+        "static"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true,
+        "static": true
+      }
+    },
+    {
+      "id": "SET-011",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults; tests/tst_qviewtests.cpp::WindowBehaviorTests::testSmoothScalingDefaultIsBilinear",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-012",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ],
+      "passed": true,
+      "stage_status": {
+        "unit": true
+      }
+    },
+    {
+      "id": "SET-013",
+      "test_layer": "integration",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-014",
+      "test_layer": "system",
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "system": true
+      }
+    },
+    {
+      "id": "SET-015",
+      "test_layer": "static",
+      "implementation": "tests/settings_quality_pipeline.py::static_stage",
+      "evidence_stages": [
+        "static"
+      ],
+      "passed": true,
+      "stage_status": {
+        "static": true
+      }
+    },
+    {
+      "id": "SET-016",
+      "test_layer": "static+unit+integration+system",
+      "implementation": "tests/settings_quality_pipeline.py::stage_case_passed; reports/test_completion_report.json",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "static": true,
+        "unit": true,
+        "integration": true,
+        "system": true
+      }
+    },
+    {
+      "id": "SET-017",
+      "test_layer": "static+unit+integration+system",
+      "implementation": "tests/settings_quality_pipeline.py::run_command; tests/settings_quality_pipeline.py::build_reports",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
+      ],
+      "passed": true,
+      "stage_status": {
+        "static": true,
+        "unit": true,
+        "integration": true,
+        "system": true
+      }
+    }
+  ],
   "research_trace": [
     {
       "hop": 1,
-      "source": "https://github.com/jurplel/qView/blob/main/src/shortcutmanager.h",
-      "finding": "The product stores QKeySequence standard-key bindings as a string list and renders that list in the Settings table.",
-      "premise": "The repository implementation is the first-hop product contract; the observed Open value must be traced through its storage and display conversions.",
-      "deduction": "The display defect can be isolated to standard-key expansion or list-to-display conversion without changing unrelated action wiring."
+      "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
+      "finding": "Apple describes macOS settings windows as toolbar panes, with each pane containing a group of related settings.",
+      "premise": "The requested General options are one pane and have explicit semantic relationships supplied by the user.",
+      "deduction": "Implement eight ordered groups without adding unrelated controls or decorative titles that would require new translations."
     },
     {
       "hop": 2,
-      "source": "https://doc.qt.io/qt-6/qkeysequence.html",
-      "finding": "Qt documents keyBindings() as the platform-specific list of bindings for a standard key and documents NativeText as the platform-native presentation format.",
-      "premise": "The first platform binding is the primary shortcut for the Settings representation; a symbolic fallback is not a user-entered shortcut chord.",
-      "deduction": "Persist only the primary binding in the standard-key default and render each stored list entry independently as NativeText."
+      "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
+      "finding": "Apple's layout guidance says to group related items and provide enough space around controls.",
+      "premise": "The user requires group-to-group spacing to exceed within-group spacing.",
+      "deduction": "Use explicit 18 px group spacing and 6 px row spacing, then assert the inequality in QtTest."
     },
     {
       "hop": 3,
-      "source": "local Qt 6.11.1 diagnostic probe",
-      "finding": "On the local macOS Qt runtime, QKeySequence::keyBindings(QKeySequence::Open) returned portable Ctrl+O and a second symbolic Open entry; NativeText rendered them as ⌘O and Open.",
-      "premise": "The probe is an environment observation, not a general Qt guarantee; it reproduces the reported value on the target platform.",
-      "deduction": "Keeping only constFirst() removes the exact Open alias while preserving the platform's primary shortcut."
+      "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
+      "finding": "QFormLayout supports explicit vertical spacing, and a widget added as a row can span both columns; macOS style defaults can center a form.",
+      "premise": "Centered independent forms and spanning rows are sensitive to localized natural widths.",
+      "deduction": "Set left/top form alignment, no wrapping, fixed row spacing, and keep controls in explicit per-group forms."
     },
     {
       "hop": 4,
-      "source": "https://doc.qt.io/qt-6/qheaderview.html",
-      "finding": "Qt documents QHeaderView::Stretch as resizing a section to fill available space and notes that stretchLastSection controls the last section.",
-      "premise": "The Action column can be measured once, while the Shortcuts column is the last section and is allowed to consume the remaining viewport width.",
-      "deduction": "Use Fixed for Action and Stretch plus stretchLastSection for Shortcuts after the initial page measurement."
-    },
-    {
-      "hop": 5,
-      "source": "src/qvoptionsdialog.cpp",
-      "finding": "The old updateShortcutsTable() re-ran updateNaturalPageSizes() and resizeForCategory() after every accepted shortcut edit; natural sizing depended on cell text widths.",
-      "premise": "A content remeasurement after the table has been presented can turn a shortcut text change into a parent dialog width change.",
-      "deduction": "The table update must update the cell only; the initial settings width and column contract must remain stable for the lifetime of the presented dialog."
-    },
-    {
-      "hop": 6,
-      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qkeysequenceedit.cpp",
-      "finding": "Qt's QKeySequenceEdit handles key events in the editor and records Escape as a key sequence instead of allowing the dialog to see it as a cancel command.",
-      "premise": "QDialog's normal Escape handling is reached only when the child editor does not accept the key event first.",
-      "deduction": "Intercept a bare Escape before QKeySequenceEdit processes it, then call reject(), which is the same dialog path used by Cancel."
-    },
-    {
-      "hop": 7,
-      "source": "https://doc.qt.io/qt-6/qdialog.html",
-      "finding": "Qt documents that pressing Escape closes a dialog by calling reject() and gives the result Rejected.",
-      "premise": "The requested equivalence is behavioral: no accepted shortcut signal, rejected result, and no persisted change.",
-      "deduction": "The Esc test must observe rejected(), shortcutsListChanged, the table cell, and QSettings rather than only observing that the window disappeared."
-    },
-    {
-      "hop": 8,
-      "source": "local Cocoa QtTest execution",
-      "finding": "The initial focused run showed that QTest::mouseDClick did not emit QTableWidget::cellDoubleClicked under the local Cocoa test backend even with a visible, active table; invoking that signal deterministically exercised the production connection.",
-      "premise": "A system-level UI event is not reproducible in this headless Cocoa test host, while the production contract is the signal-to-dialog connection.",
-      "deduction": "The integration tests use a deterministic synthetic cellDoubleClicked signal and record this limitation explicitly instead of making the acceptance result depend on window-server scheduling."
-    },
-    {
-      "hop": 9,
-      "source": "src/qvoptionsdialog.cpp, src/qvshortcutdialog.cpp, tests/tst_qviewtests.cpp",
-      "finding": "The implementation now separates initial natural sizing from later cell updates, scopes Escape interception to the shortcut dialog, and observes every externally visible effect in focused QtTest cases.",
-      "premise": "The four requested behaviors share only the relevant Settings table/editor boundary; no broader layout or shortcut subsystem rewrite is needed.",
-      "deduction": "The minimal repair satisfies the functional contract while retaining deterministic, non-invasive observability for all atomic criteria."
-    },
-    {
-      "hop": 10,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "finding": "The latest Checks workflow for commit 2a75307 passed compilation, clang-format, and clang-tidy; its Run Unit Tests job failed in FovelleTests at the second fullscreen exit comparison: actual QRect(0,92 640x360) versus the initial normal QRect(0,76 640x360), followed by SIGSEGV.",
-      "premise": "A source-identical remote failure with the focused ShortcutSettingsTests passing separates the CI failure from the Shortcuts-column content repair.",
-      "deduction": "The failing path is the redundant second native AppKit fullscreen round trip, not shortcut conversion or static analysis."
-    },
-    {
-      "hop": 11,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "finding": "The companion Build Fovelle workflow failed only at the same FovelleTests case on macOS 26.5.2 with Qt 6.11.2; build configuration and compilation completed successfully.",
-      "premise": "Two independent workflows failing at the same test and geometry identify a shared test/transition boundary rather than a workflow-specific install or compiler defect.",
-      "deduction": "The smallest corrective change is to remove the non-required duplicate transition while preserving one complete fullscreen entry/exit assertion."
-    },
-    {
-      "hop": 12,
-      "source": "https://doc.qt.io/qt-6/qwindow.html#showFullScreen; https://doc.qt.io/qt-6/qwidget.html#showFullScreen; https://doc.qt.io/qt-6/qtest.html#QTRY_COMPARE_WITH_TIMEOUT",
-      "finding": "Qt documents showFullScreen as a window-state request, documents subsequent resize/expose behavior, and documents QTRY_COMPARE_WITH_TIMEOUT as event-loop polling rather than a native window-manager completion signal.",
-      "premise": "The test can observe Qt's published state while AppKit still has asynchronous layout/proxy cleanup in progress.",
-      "deduction": "Starting a second AppKit transition immediately after the first state comparison makes a platform-timing assumption outside the acceptance requirement."
-    },
-    {
-      "hop": 13,
-      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-      "finding": "Qt's testing guidance warns about timing-dependent GUI tests and recommends property-based assertions with QTRY/QSignalSpy rather than arbitrary waits.",
-      "premise": "The retained first transition already uses bounded QTRY assertions for visibility, zoom mode, and image geometry.",
-      "deduction": "Keeping those causal assertions and deleting only the redundant second transition improves determinism without weakening the tested behavior."
-    },
-    {
-      "hop": 14,
-      "source": "local macOS 15.7.9 / Qt 6.11.1 execution after repair",
-      "finding": "The targeted fullscreen test passed once after the repair and passed five consecutive repetitions; complete FovelleTests and FovelleShortcutSettingsTests also passed.",
-      "premise": "Local macOS cannot reproduce the remote macOS 26.5.2 window-server timing exactly, so local repetition is confirmation of no local regression, not proof of remote rerun.",
-      "deduction": "The report must mark remote re-execution as pending until a repaired commit is pushed; it must not claim the hosted workflow was rerun."
-    },
-    {
-      "hop": 15,
-      "source": "tests/tst_qviewtests.cpp and tests/shortcut_quality_pipeline.py",
-      "finding": "The repaired regression test retains one full-screen round trip, and a static contract prevents reintroducing the second non-required round trip; the system stage runs the complete FovelleTests target without FOVELLE_TEST_SUITE filtering.",
-      "premise": "One atomic acceptance test must remain executable, bounded, and auditable at each requested stage.",
-      "deduction": "The CI repair is test-observer scope correction with a static guard, while the Shortcuts behavior remains covered by independent unit and integration tests."
+      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
+      "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
+      "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
+      "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
     }
   ],
-  "diagnosis": [
-    {
-      "observation": "旧代码在快捷键接受后调用 updateNaturalPageSizes()，自然宽度会重新受到新快捷键文本影响。",
-      "premise": "设置页已展示后，快捷键编辑只应改变表格单元格和快捷键数据，不应改变窗口尺寸契约。",
-      "deduction": "删除编辑路径的自然尺寸重算，并将 Shortcuts 列设为 Stretch。"
-    },
-    {
-      "observation": "QKeySequence::keyBindings(QKeySequence::Open) 在 macOS 返回主绑定和符号回退项，旧代码把两者拼成一个多笔画序列。",
-      "premise": "符号回退项不是用户可见的第二个快捷键。",
-      "deduction": "只保留第一项并逐项转换 PortableText 到 NativeText。"
-    },
-    {
-      "observation": "QKeySequenceEdit 在子控件层处理 Esc，QDialog 默认 reject 路径因此不可达。",
-      "premise": "Cancel 的语义是 QDialog::reject()，并且不发射 accepted shortcut signal。",
-      "deduction": "在对话框范围内的应用事件过滤器中优先截获裸 Esc 并调用 reject()。"
-    },
-    {
-      "observation": "远端 macOS 26.5.2/Qt 6.11.2 的两个 Actions workflow 均在同一全屏回归测试的第二次退出处失败：实际图像矩形为 QRect(0,92 640x360)，首次正常基线为 QRect(0,76 640x360)，随后测试进程 SIGSEGV；编译、格式、clang-tidy 和快捷键专用测试均通过。",
-      "premise": "需求只要求验证一次完整全屏进入/退出；Qt 的 showFullScreen 与 QTRY 观察均不承诺第二次 AppKit 原生 transition 的代理清理已完成。",
-      "deduction": "移除非需求的第二次原生往返，保留首轮完整 fit/快照/几何断言，并以静态合同防止该时序路径回归。"
-    }
-  ],
-  "remote_ci_evidence": {
-    "latest_checks_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "head_sha": "2a75307d16df2471ad85c93481f906a28cc79df4",
-      "runner": "macos-26",
-      "qt": "6.11.2",
-      "status_before_repair": "failure",
-      "failed_job": "Run Unit Tests",
-      "failed_test": "FovelleTests",
-      "failure": {
-        "case": "GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-        "source_line": 3417,
-        "actual": "QRect(0,92 640x360)",
-        "expected": "QRect(0,76 640x360)",
-        "secondary_effect": "SIGSEGV after the failed QtTest assertion"
-      },
-      "passing_checks": [
-        "Build",
-        "clang-format",
-        "clang-tidy",
-        "FovelleShortcutSettingsTests"
-      ]
-    },
-    "latest_build_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "status_before_repair": "failure",
-      "failed_step": "Test",
-      "shared_failure": "The same FovelleTests fullscreen geometry assertion on macOS 26.5.2."
-    },
-    "repair_scope": {
-      "root_cause": "The test performed a second native AppKit fullscreen round trip immediately after the first; the second exit observed a platform-specific, not-yet-stable titlebar/layout geometry and compared it with the first baseline.",
-      "repair": "Remove the redundant second round trip and keep the required single entry/exit assertion.",
-      "remote_reexecution": false
-    }
+  "audit": {
+    "case_count": 17,
+    "passed_cases": 17,
+    "failed_cases": [],
+    "all_atomic_cases_passed": true,
+    "all_four_stages_passed": true
   },
-  "artifacts": [
-    {
-      "path": "reports/test_case_specification.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
-      "exists": true,
-      "bytes": 26159,
-      "sha256": "dd4b1268fa04dcb6c225913097f4358c0deb2aeab5054537934a8de3db0ee58e"
-    },
-    {
-      "path": "reports/code_quality_assessment_report.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
-      "exists": true,
-      "bytes": 15907,
-      "sha256": "8871a65b2f72f32e07c4c41a875775db4b3c90de35c55fa0414848ea117512ee"
-    },
-    {
-      "path": "reports/test_completion_report.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_completion_report.json",
-      "exists": true,
-      "bytes": null,
-      "sha256": null,
-      "sha256_note": "本报告包含自身内容，避免循环哈希；bytes 也不在写入前预估，读取本文件可审计其实际内容。"
-    }
-  ]
+  "passed": true,
+  "status": "passed"
 }

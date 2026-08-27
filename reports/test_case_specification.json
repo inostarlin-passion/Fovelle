@@ -1,490 +1,377 @@
 {
   "schema_version": "1.0",
-  "report_type": "test_case_specification",
-  "generated_at": "2026-08-27T04:43:39.779193+00:00",
-  "task": "修复设置页 Shortcuts Tab 的快捷键内容展示与 GitHub Actions 全屏回归失败",
-  "test_execution_order": [
-    "static",
-    "unit",
-    "integration",
-    "system"
+  "report_type": "atomic_test_case_specification",
+  "generated_at_utc": "2026-08-27T09:59:09.939969+00:00",
+  "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
+  "atomic_case_count": 17,
+  "languages": [
+    "en",
+    "es",
+    "ja",
+    "zh_Hans",
+    "zh_Hant"
   ],
-  "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准；每项均记录测试目的、前置条件、输入数据、操作步骤、预期结果和后置条件。",
-  "root_cause_analysis": [
+  "groups": [
     {
-      "observation": "旧代码在快捷键接受后调用 updateNaturalPageSizes()，自然宽度会重新受到新快捷键文本影响。",
-      "premise": "设置页已展示后，快捷键编辑只应改变表格单元格和快捷键数据，不应改变窗口尺寸契约。",
-      "deduction": "删除编辑路径的自然尺寸重算，并将 Shortcuts 列设为 Stretch。"
-    },
-    {
-      "observation": "QKeySequence::keyBindings(QKeySequence::Open) 在 macOS 返回主绑定和符号回退项，旧代码把两者拼成一个多笔画序列。",
-      "premise": "符号回退项不是用户可见的第二个快捷键。",
-      "deduction": "只保留第一项并逐项转换 PortableText 到 NativeText。"
-    },
-    {
-      "observation": "QKeySequenceEdit 在子控件层处理 Esc，QDialog 默认 reject 路径因此不可达。",
-      "premise": "Cancel 的语义是 QDialog::reject()，并且不发射 accepted shortcut signal。",
-      "deduction": "在对话框范围内的应用事件过滤器中优先截获裸 Esc 并调用 reject()。"
-    },
-    {
-      "observation": "远端 macOS 26.5.2/Qt 6.11.2 的两个 Actions workflow 均在同一全屏回归测试的第二次退出处失败：实际图像矩形为 QRect(0,92 640x360)，首次正常基线为 QRect(0,76 640x360)，随后测试进程 SIGSEGV；编译、格式、clang-tidy 和快捷键专用测试均通过。",
-      "premise": "需求只要求验证一次完整全屏进入/退出；Qt 的 showFullScreen 与 QTRY 观察均不承诺第二次 AppKit 原生 transition 的代理清理已完成。",
-      "deduction": "移除非需求的第二次原生往返，保留首轮完整 fit/快照/几何断言，并以静态合同防止该时序路径回归。"
-    }
-  ],
-  "research_trace": [
-    {
-      "hop": 1,
-      "source": "https://github.com/jurplel/qView/blob/main/src/shortcutmanager.h",
-      "finding": "The product stores QKeySequence standard-key bindings as a string list and renders that list in the Settings table.",
-      "premise": "The repository implementation is the first-hop product contract; the observed Open value must be traced through its storage and display conversions.",
-      "deduction": "The display defect can be isolated to standard-key expansion or list-to-display conversion without changing unrelated action wiring."
-    },
-    {
-      "hop": 2,
-      "source": "https://doc.qt.io/qt-6/qkeysequence.html",
-      "finding": "Qt documents keyBindings() as the platform-specific list of bindings for a standard key and documents NativeText as the platform-native presentation format.",
-      "premise": "The first platform binding is the primary shortcut for the Settings representation; a symbolic fallback is not a user-entered shortcut chord.",
-      "deduction": "Persist only the primary binding in the standard-key default and render each stored list entry independently as NativeText."
-    },
-    {
-      "hop": 3,
-      "source": "local Qt 6.11.1 diagnostic probe",
-      "finding": "On the local macOS Qt runtime, QKeySequence::keyBindings(QKeySequence::Open) returned portable Ctrl+O and a second symbolic Open entry; NativeText rendered them as ⌘O and Open.",
-      "premise": "The probe is an environment observation, not a general Qt guarantee; it reproduces the reported value on the target platform.",
-      "deduction": "Keeping only constFirst() removes the exact Open alias while preserving the platform's primary shortcut."
-    },
-    {
-      "hop": 4,
-      "source": "https://doc.qt.io/qt-6/qheaderview.html",
-      "finding": "Qt documents QHeaderView::Stretch as resizing a section to fill available space and notes that stretchLastSection controls the last section.",
-      "premise": "The Action column can be measured once, while the Shortcuts column is the last section and is allowed to consume the remaining viewport width.",
-      "deduction": "Use Fixed for Action and Stretch plus stretchLastSection for Shortcuts after the initial page measurement."
-    },
-    {
-      "hop": 5,
-      "source": "src/qvoptionsdialog.cpp",
-      "finding": "The old updateShortcutsTable() re-ran updateNaturalPageSizes() and resizeForCategory() after every accepted shortcut edit; natural sizing depended on cell text widths.",
-      "premise": "A content remeasurement after the table has been presented can turn a shortcut text change into a parent dialog width change.",
-      "deduction": "The table update must update the cell only; the initial settings width and column contract must remain stable for the lifetime of the presented dialog."
-    },
-    {
-      "hop": 6,
-      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qkeysequenceedit.cpp",
-      "finding": "Qt's QKeySequenceEdit handles key events in the editor and records Escape as a key sequence instead of allowing the dialog to see it as a cancel command.",
-      "premise": "QDialog's normal Escape handling is reached only when the child editor does not accept the key event first.",
-      "deduction": "Intercept a bare Escape before QKeySequenceEdit processes it, then call reject(), which is the same dialog path used by Cancel."
-    },
-    {
-      "hop": 7,
-      "source": "https://doc.qt.io/qt-6/qdialog.html",
-      "finding": "Qt documents that pressing Escape closes a dialog by calling reject() and gives the result Rejected.",
-      "premise": "The requested equivalence is behavioral: no accepted shortcut signal, rejected result, and no persisted change.",
-      "deduction": "The Esc test must observe rejected(), shortcutsListChanged, the table cell, and QSettings rather than only observing that the window disappeared."
-    },
-    {
-      "hop": 8,
-      "source": "local Cocoa QtTest execution",
-      "finding": "The initial focused run showed that QTest::mouseDClick did not emit QTableWidget::cellDoubleClicked under the local Cocoa test backend even with a visible, active table; invoking that signal deterministically exercised the production connection.",
-      "premise": "A system-level UI event is not reproducible in this headless Cocoa test host, while the production contract is the signal-to-dialog connection.",
-      "deduction": "The integration tests use a deterministic synthetic cellDoubleClicked signal and record this limitation explicitly instead of making the acceptance result depend on window-server scheduling."
-    },
-    {
-      "hop": 9,
-      "source": "src/qvoptionsdialog.cpp, src/qvshortcutdialog.cpp, tests/tst_qviewtests.cpp",
-      "finding": "The implementation now separates initial natural sizing from later cell updates, scopes Escape interception to the shortcut dialog, and observes every externally visible effect in focused QtTest cases.",
-      "premise": "The four requested behaviors share only the relevant Settings table/editor boundary; no broader layout or shortcut subsystem rewrite is needed.",
-      "deduction": "The minimal repair satisfies the functional contract while retaining deterministic, non-invasive observability for all atomic criteria."
-    },
-    {
-      "hop": 10,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "finding": "The latest Checks workflow for commit 2a75307 passed compilation, clang-format, and clang-tidy; its Run Unit Tests job failed in FovelleTests at the second fullscreen exit comparison: actual QRect(0,92 640x360) versus the initial normal QRect(0,76 640x360), followed by SIGSEGV.",
-      "premise": "A source-identical remote failure with the focused ShortcutSettingsTests passing separates the CI failure from the Shortcuts-column content repair.",
-      "deduction": "The failing path is the redundant second native AppKit fullscreen round trip, not shortcut conversion or static analysis."
-    },
-    {
-      "hop": 11,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "finding": "The companion Build Fovelle workflow failed only at the same FovelleTests case on macOS 26.5.2 with Qt 6.11.2; build configuration and compilation completed successfully.",
-      "premise": "Two independent workflows failing at the same test and geometry identify a shared test/transition boundary rather than a workflow-specific install or compiler defect.",
-      "deduction": "The smallest corrective change is to remove the non-required duplicate transition while preserving one complete fullscreen entry/exit assertion."
-    },
-    {
-      "hop": 12,
-      "source": "https://doc.qt.io/qt-6/qwindow.html#showFullScreen; https://doc.qt.io/qt-6/qwidget.html#showFullScreen; https://doc.qt.io/qt-6/qtest.html#QTRY_COMPARE_WITH_TIMEOUT",
-      "finding": "Qt documents showFullScreen as a window-state request, documents subsequent resize/expose behavior, and documents QTRY_COMPARE_WITH_TIMEOUT as event-loop polling rather than a native window-manager completion signal.",
-      "premise": "The test can observe Qt's published state while AppKit still has asynchronous layout/proxy cleanup in progress.",
-      "deduction": "Starting a second AppKit transition immediately after the first state comparison makes a platform-timing assumption outside the acceptance requirement."
-    },
-    {
-      "hop": 13,
-      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-      "finding": "Qt's testing guidance warns about timing-dependent GUI tests and recommends property-based assertions with QTRY/QSignalSpy rather than arbitrary waits.",
-      "premise": "The retained first transition already uses bounded QTRY assertions for visibility, zoom mode, and image geometry.",
-      "deduction": "Keeping those causal assertions and deleting only the redundant second transition improves determinism without weakening the tested behavior."
-    },
-    {
-      "hop": 14,
-      "source": "local macOS 15.7.9 / Qt 6.11.1 execution after repair",
-      "finding": "The targeted fullscreen test passed once after the repair and passed five consecutive repetitions; complete FovelleTests and FovelleShortcutSettingsTests also passed.",
-      "premise": "Local macOS cannot reproduce the remote macOS 26.5.2 window-server timing exactly, so local repetition is confirmation of no local regression, not proof of remote rerun.",
-      "deduction": "The report must mark remote re-execution as pending until a repaired commit is pushed; it must not claim the hosted workflow was rerun."
-    },
-    {
-      "hop": 15,
-      "source": "tests/tst_qviewtests.cpp and tests/shortcut_quality_pipeline.py",
-      "finding": "The repaired regression test retains one full-screen round trip, and a static contract prevents reintroducing the second non-required round trip; the system stage runs the complete FovelleTests target without FOVELLE_TEST_SUITE filtering.",
-      "premise": "One atomic acceptance test must remain executable, bounded, and auditable at each requested stage.",
-      "deduction": "The CI repair is test-observer scope correction with a static guard, while the Shortcuts behavior remains covered by independent unit and integration tests."
-    }
-  ],
-  "remote_ci_evidence": {
-    "latest_checks_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "head_sha": "2a75307d16df2471ad85c93481f906a28cc79df4",
-      "runner": "macos-26",
-      "qt": "6.11.2",
-      "status_before_repair": "failure",
-      "failed_job": "Run Unit Tests",
-      "failed_test": "FovelleTests",
-      "failure": {
-        "case": "GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-        "source_line": 3417,
-        "actual": "QRect(0,92 640x360)",
-        "expected": "QRect(0,76 640x360)",
-        "secondary_effect": "SIGSEGV after the failed QtTest assertion"
-      },
-      "passing_checks": [
-        "Build",
-        "clang-format",
-        "clang-tidy",
-        "FovelleShortcutSettingsTests"
+      "index": 1,
+      "items": [
+        "langComboBox"
       ]
     },
-    "latest_build_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "status_before_repair": "failure",
-      "failed_step": "Test",
-      "shared_failure": "The same FovelleTests fullscreen geometry assertion on macOS 26.5.2."
-    },
-    "repair_scope": {
-      "root_cause": "The test performed a second native AppKit fullscreen round trip immediately after the first; the second exit observed a platform-specific, not-yet-stable titlebar/layout geometry and compared it with the first baseline.",
-      "repair": "Remove the redundant second round trip and keep the required single entry/exit assertion.",
-      "remote_reexecution": false
-    }
-  },
-  "test_cases": [
     {
-      "id": "AC-SHORTCUT-001",
+      "index": 2,
+      "items": [
+        "themeComboBox",
+        "checkerboardBackgroundCheckbox"
+      ]
+    },
+    {
+      "index": 3,
+      "items": [
+        "smoothScalingComboBox"
+      ]
+    },
+    {
+      "index": 4,
+      "items": [
+        "reuseWindowCheckbox",
+        "smallImagesOneToOneCheckbox"
+      ]
+    },
+    {
+      "index": 5,
+      "items": [
+        "slideshowDirectionComboBox",
+        "slideshowTimerSpinBox"
+      ]
+    },
+    {
+      "index": 6,
+      "items": [
+        "afterDeletionComboBox",
+        "askDeleteCheckbox"
+      ]
+    },
+    {
+      "index": 7,
+      "items": [
+        "updateFrequencyComboBox"
+      ]
+    },
+    {
+      "index": 8,
+      "items": [
+        "associateFormatsButton"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "SET-001",
+      "acceptance_criterion": "版本号为 1.0.1",
+      "test_purpose": "验证 CMake、qmake、macOS bundle 和运行时版本契约一致。",
+      "preconditions": "构建配置、bundle plist 和 QtTest 源码可读；测试二进制可构建。",
+      "input_data": "VERSION=1.0.1、CFBundleShortVersionString/CFBundleVersion=1.0.1、运行时 applicationVersion。",
+      "steps": "静态读取版本源，再执行 FeatureTests::testApplicationVersionIsCurrent。",
+      "expected_result": "所有发布入口与运行时版本均严格等于 1.0.1，旧的 1.0.0 不再作为当前版本。",
+      "postconditions": "不修改应用设置或 bundle 外部状态。",
+      "test_layer": "static+unit",
+      "implementation": "tests/settings_quality_pipeline.py::static_version_contract; tests/tst_qviewtests.cpp::FeatureTests::testApplicationVersionIsCurrent",
+      "evidence_stages": [
+        "static",
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-002",
+      "acceptance_criterion": "General 第 1 组只包含 Language",
+      "test_purpose": "验证语言选项位于第 1 个语义组且没有混入其他选项。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup1 的 item metadata 和控件父级。",
+      "steps": "构造对话框，读取 group index、成员列表和父级链。",
+      "expected_result": "第 1 组成员严格为 langComboBox。",
+      "postconditions": "对话框销毁且设置恢复。",
       "test_layer": "unit",
-      "atomic_acceptance_criterion": "Shortcuts 列只显示快捷键；Open 的默认值只保留平台主快捷键，不显示 Open 动作名。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName",
-      "test_purpose": "验证标准快捷键的存储与 NativeText 展示不会把 Qt 的符号回退项当作第二个快捷键。",
-      "preconditions": [
-        "Qt GUI 已提供 QKeySequence::Open 的平台绑定。"
-      ],
-      "input_data": {
-        "standard_key": "QKeySequence::Open"
-      },
-      "steps": [
-        "读取平台绑定列表。",
-        "转换为 ShortcutManager 的持久化字符串列表。",
-        "转换为设置页使用的 NativeText 展示字符串。"
-      ],
-      "expected_result": [
-        "持久化列表恰有一个元素，且等于第一项 PortableText。",
-        "展示字符串等于第一项 NativeText。",
-        "展示字符串不包含 Open 动作名。"
-      ],
-      "postconditions": [
-        "不修改 QSettings、ActionManager 或窗口状态。"
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
       ]
     },
     {
-      "id": "AC-SHORTCUT-002",
+      "id": "SET-003",
+      "acceptance_criterion": "General 第 2 组包含 Appearance 和 Checkerboard when image loaded",
+      "test_purpose": "验证外观相关两个选项保持同组且按指定顺序排列。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup2 的 item metadata。",
+      "steps": "读取第 2 组成员和两个控件的父级链。",
+      "expected_result": "成员严格为 themeComboBox、checkerboardBackgroundCheckbox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-004",
+      "acceptance_criterion": "General 第 3 组只包含 Smooth scaling",
+      "test_purpose": "验证缩放选项独立成组。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup3 的 item metadata。",
+      "steps": "读取第 3 组成员和控件父级链。",
+      "expected_result": "成员严格为 smoothScalingComboBox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-005",
+      "acceptance_criterion": "General 第 4 组包含 Reuse window 和 Show small images at 1:1",
+      "test_purpose": "验证窗口复用和小图显示两个选项保持同组且按指定顺序排列。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup4 的 item metadata。",
+      "steps": "读取第 4 组成员和两个控件的父级链。",
+      "expected_result": "成员严格为 reuseWindowCheckbox、smallImagesOneToOneCheckbox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-006",
+      "acceptance_criterion": "General 第 5 组包含 Slideshow direction 和 Slideshow timer",
+      "test_purpose": "验证幻灯片方向和计时器保持同组且按指定顺序排列。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup5 的 item metadata。",
+      "steps": "读取第 5 组成员和两个控件的父级链。",
+      "expected_result": "成员严格为 slideshowDirectionComboBox、slideshowTimerSpinBox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-007",
+      "acceptance_criterion": "General 第 6 组包含 After deletion 和 Ask before deleting files",
+      "test_purpose": "验证删除行为和确认选项保持同组且按指定顺序排列。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup6 的 item metadata。",
+      "steps": "读取第 6 组成员和两个控件的父级链。",
+      "expected_result": "成员严格为 afterDeletionComboBox、askDeleteCheckbox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-008",
+      "acceptance_criterion": "General 第 7 组只包含 Auto update check",
+      "test_purpose": "验证更新检查频率独立成组。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup7 的 item metadata。",
+      "steps": "读取第 7 组成员和控件父级链。",
+      "expected_result": "成员严格为 updateFrequencyComboBox。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-009",
+      "acceptance_criterion": "General 第 8 组只包含 Associate all supported formats",
+      "test_purpose": "验证文件关联操作独立成组。",
+      "preconditions": "QVOptionsDialog 可构造。",
+      "input_data": "settingsGroup8 的 item metadata。",
+      "steps": "读取第 8 组成员和按钮父级链。",
+      "expected_result": "成员严格为 associateFormatsButton。",
+      "postconditions": "对话框销毁且不调用真实文件关联操作。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-010",
+      "acceptance_criterion": "组间间距大于组内选项间距",
+      "test_purpose": "验证布局采用显式、可审计的 macOS 设置页分组间距。",
+      "preconditions": "QVOptionsDialog 可构造；Qt layout 已建立。",
+      "input_data": "settingsGroupSpacing=18、settingsRowSpacing=6、每个组的 QFormLayout spacing。",
+      "steps": "读取 General content、section layout 和每个组 form layout 的 spacing。",
+      "expected_result": "组间距为 18 px，组内行距为 6 px，且 18>6。",
+      "postconditions": "对话框销毁且设置恢复。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit",
+        "static"
+      ]
+    },
+    {
+      "id": "SET-011",
+      "acceptance_criterion": "Smooth scaling 默认值为 Bilinear",
+      "test_purpose": "验证设置库和 General 控件使用 Bilinear 默认值。",
+      "preconditions": "SettingsManager 和 QVOptionsDialog 已初始化。",
+      "input_data": "smoothscalingmode 的默认值及 combo 当前 data。",
+      "steps": "以 defaults=true 读取设置并检查控件当前项。",
+      "expected_result": "默认枚举值和 General 控件均为 Bilinear。",
+      "postconditions": "不改变持久化设置。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults; tests/tst_qviewtests.cpp::WindowBehaviorTests::testSmoothScalingDefaultIsBilinear",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-012",
+      "acceptance_criterion": "Appearance 默认值为 Dark",
+      "test_purpose": "验证设置库和 General 控件使用 Dark 默认值。",
+      "preconditions": "SettingsManager 和 QVOptionsDialog 已初始化。",
+      "input_data": "theme 的默认值及 combo 当前 data。",
+      "steps": "以 defaults=true 读取设置并检查控件当前项。",
+      "expected_result": "默认枚举值和 General 控件均为 Dark。",
+      "postconditions": "不改变持久化设置。",
+      "test_layer": "unit",
+      "implementation": "tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralGroupsAndDefaults",
+      "evidence_stages": [
+        "unit"
+      ]
+    },
+    {
+      "id": "SET-013",
+      "acceptance_criterion": "每种支持语言下 General 的长选项完整显示",
+      "test_purpose": "验证长复选框文本不会因翻译或跨布局自然尺寸计算而被裁切。",
+      "preconditions": "Cocoa Qt Test 应用、五个支持语言 catalog 和设置对话框可用。",
+      "input_data": "en、es、ja、zh_Hans、zh_Hant；General 所有可见控件。",
+      "steps": "逐语言安装 catalog，显示 General，检查每个可见控件的 natural width、映射矩形和水平滚动范围。",
+      "expected_result": "Reuse window when launching with image 及其他 General 选项的宽度不小于 sizeHint，且完全位于 viewport 内，无水平滚动。",
+      "postconditions": "对话框、翻译器和设置值恢复。",
       "test_layer": "integration",
-      "atomic_acceptance_criterion": "Shortcuts 表的 Shortcuts 列使用剩余宽度，且不产生水平溢出。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth",
-      "test_purpose": "验证 Action 列固定、Shortcuts 列拉伸并完整覆盖表格可视区域。",
-      "preconditions": [
-        "QVOptionsDialog 已构造并完成 prepareForDisplay()。",
-        "Shortcuts 页可见且表格已有数据。"
-      ],
-      "input_data": {
-        "table_columns": [
-          "Action",
-          "Shortcuts"
-        ]
-      },
-      "steps": [
-        "切换到 Shortcuts 页。",
-        "读取表头的拉伸策略、两列宽度、viewport 宽度和水平滚动范围。"
-      ],
-      "expected_result": [
-        "最后一列启用 stretchLastSection。",
-        "Action 为 Fixed，Shortcuts 为 Stretch。",
-        "两列宽度之和等于 header length，且等于 viewport 宽度。",
-        "水平滚动最大值为 0，Shortcuts 列宽度大于 0。"
-      ],
-      "postconditions": [
-        "关闭设置页且不改变快捷键设置。"
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "integration",
+        "system"
       ]
     },
     {
-      "id": "AC-SHORTCUT-003",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "双击任一 Shortcuts 单元格会创建并显示快捷键配置框。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testDoubleClickOpensShortcutEditor",
-      "test_purpose": "验证 QTableWidget 的双击信号仍连接到 QVShortcutDialog 创建路径。",
-      "preconditions": [
-        "QVOptionsDialog 可见，Shortcuts 表第 0 行第 1 列有效。"
-      ],
-      "input_data": {
-        "row": 0,
-        "column": 1,
-        "event": "QTest mouse double-click"
-      },
-      "steps": [
-        "对 Shortcuts 单元格执行 QTest 鼠标双击；若无头 Cocoa 后端未产生信号，则发送等价的 cellDoubleClicked 信号。",
-        "查找并读取子 QVShortcutDialog 的可见状态。"
-      ],
-      "expected_result": [
-        "创建一个 QVShortcutDialog。",
-        "配置框处于可见状态。"
-      ],
-      "postconditions": [
-        "拒绝配置框并关闭设置页，不提交快捷键变化。"
-      ]
-    },
-    {
-      "id": "AC-SHORTCUT-004",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "双击编辑并接受一个不同长度的快捷键后，设置页宽度及固定宽度契约保持不变。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth",
-      "test_purpose": "验证快捷键文本变化只更新单元格，不触发已展示设置页的自然尺寸重算。",
-      "preconditions": [
-        "Shortcuts 页可见，设置页已完成初始尺寸测量，open 快捷键可写入 QSettings。"
-      ],
-      "input_data": {
-        "replacement": "Ctrl+Alt+Shift+F12",
-        "row": 0,
-        "column": 1
-      },
-      "steps": [
-        "记录编辑前的 dialog.width() 与 settingsFixedWidth。",
-        "双击单元格，设置替代快捷键并点击 OK。",
-        "读取编辑后的窗口宽度、固定宽度属性、表格文本和 QSettings。"
-      ],
-      "expected_result": [
-        "dialog.width() 与编辑前相同。",
-        "settingsFixedWidth 与编辑前相同。",
-        "表格显示替代快捷键的 NativeText。",
-        "QSettings 保存替代快捷键的 PortableText。"
-      ],
-      "postconditions": [
-        "编辑框关闭，ScopedShortcutValues 恢复原始设置。"
-      ]
-    },
-    {
-      "id": "AC-SHORTCUT-005",
-      "test_layer": "integration",
-      "atomic_acceptance_criterion": "配置框内按裸 Esc 等同于点击 Cancel：拒绝、无提交、数据不变。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel",
-      "test_purpose": "验证 QKeySequenceEdit 不会吞掉 Esc，且 Esc 与 Cancel 共享 reject 行为。",
-      "preconditions": [
-        "QVShortcutDialog 已由 Shortcuts 单元格双击打开，原快捷键已持久化。"
-      ],
-      "input_data": {
-        "replacement": "Ctrl+Alt+Shift+F12",
-        "key": "Escape",
-        "modifiers": []
-      },
-      "steps": [
-        "在 QKeySequenceEdit 中设置替代快捷键并聚焦编辑器。",
-        "发送裸 Esc。",
-        "观察 rejected()、shortcutsListChanged、表格单元格和 QSettings。"
-      ],
-      "expected_result": [
-        "配置框被 reject，rejected() 恰好发射一次。",
-        "shortcutsListChanged 不发射。",
-        "表格和 QSettings 仍为原快捷键。"
-      ],
-      "postconditions": [
-        "所有测试窗口关闭，ScopedShortcutValues 恢复原始设置。"
-      ]
-    },
-    {
-      "id": "CQ-LEAN-001",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "修复只改变快捷键设置所需的生产代码、测试代码和 CTest 注册，并移除编辑后的重复自然尺寸重算。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/shortcut_quality_pipeline.py::static_source_contract",
-      "test_purpose": "审计修复范围和根因对应关系，防止通过额外 UI 重构掩盖问题。",
-      "preconditions": [
-        "仓库源文件和测试文件可读。"
-      ],
-      "input_data": {
-        "required_contracts": [
-          "column stretch",
-          "primary binding",
-          "no post-edit remeasure",
-          "Esc reject"
-        ]
-      },
-      "steps": [
-        "检查源代码中的最小契约。",
-        "检查 updateShortcutsTable() 不再调用自然尺寸重算。",
-        "检查 git diff --check。"
-      ],
-      "expected_result": [
-        "全部必要契约存在。",
-        "编辑路径没有重复页面测量。",
-        "补丁无空白错误。"
-      ],
-      "postconditions": [
-        "静态审计只读，不修改产品或用户设置。"
-      ]
-    },
-    {
-      "id": "CQ-CORRECT-001",
+      "id": "SET-014",
+      "acceptance_criterion": "每种支持语言下每个 Settings Tab 的可见选项完整显示",
+      "test_purpose": "验证 General、Shortcuts、Mouse 三个 Tab 及 Mouse 两种模式均不发生水平裁切。",
+      "preconditions": "Cocoa Qt Test 应用和五个支持语言 catalog 可用。",
+      "input_data": "五种语言；General、Shortcuts、Mouse；Mouse click/drag 模式。",
+      "steps": "逐语言切换全部 Tab，检查 scroll bar、表格可见单元格和每个可见控件几何；切换两种 Mouse 模式后重复检查。",
+      "expected_result": "所有 Tab 的水平滚动范围为 0；可见控件自然宽度满足且矩形在 viewport 内。",
+      "postconditions": "对话框、翻译器和设置值恢复。",
       "test_layer": "system",
-      "atomic_acceptance_criterion": "四层执行结果共同证明所有功能性原子验收标准通过，且无失败或跳过。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/shortcut_quality_pipeline.py::cross_stage_functional_audit",
-      "test_purpose": "交叉审计静态、单元、集成和系统实际结果，而不是只依据单个测试进程退出码。",
-      "preconditions": [
-        "AC-SHORTCUT-001 至 AC-SHORTCUT-005 已有实际阶段结果。"
-      ],
-      "input_data": {
-        "stage_order": [
-          "static",
-          "unit",
-          "integration",
-          "system"
-        ]
-      },
-      "steps": [
-        "读取四阶段结果。",
-        "核对五个功能用例均通过。",
-        "核对无失败、跳过或黑名单项。"
-      ],
-      "expected_result": [
-        "四阶段均为 passed。",
-        "五个功能性用例均为 passed。"
-      ],
-      "postconditions": [
-        "只生成审计报告，不改变运行时状态。"
+      "implementation": "tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
+      "evidence_stages": [
+        "system"
       ]
     },
     {
-      "id": "CQ-TESTABLE-001",
+      "id": "SET-015",
+      "acceptance_criterion": "精益完整性：实现只引入满足本任务所需的最小变更",
+      "test_purpose": "验证分组、宽度补偿和默认值变更复用现有控件、设置键与信号连接，没有复制持久化模型或无关 UI。",
+      "preconditions": "仓库差异、设置对话框源码、现有 UI objectName 和 SettingsManager 源码可读。",
+      "input_data": "任务范围 git diff、现有控件 objectName、settingsLibrary 与布局实现。",
+      "steps": "执行静态审计，检查任务范围差异无空白错误、布局使用现有控件且设置键集合没有新增任务外键。",
+      "expected_result": "静态证据显示实现范围与需求一致，未引入非必要持久化键、重复控件或无关构建变更。",
+      "postconditions": "不修改源码、构建产物或用户设置。",
       "test_layer": "static",
-      "atomic_acceptance_criterion": "测试具备确定性输入、非侵入式观测和可重复的外部输出记录。",
-      "quality_requirement": "可测试性",
-      "test_code": "tests/shortcut_quality_pipeline.py::static_testability_contract",
-      "test_purpose": "审计测试夹具、运行时观测点、隔离恢复和 JSON 结果生成是否齐全。",
-      "preconditions": [
-        "ShortcutSettingsTests 和本质量流水线脚本可读。"
-      ],
-      "input_data": {
-        "observables": [
-          "dialog.width",
-          "settingsFixedWidth",
-          "QSettings",
-          "QSignalSpy",
-          "QPointer"
-        ]
-      },
-      "steps": [
-        "检查测试使用 ScopedOptionValues 与 ScopedShortcutValues。",
-        "检查宽度、信号、持久化状态和对象生命周期均被观测。",
-        "检查四阶段命令、退出码和输出尾部写入 JSON。"
-      ],
-      "expected_result": [
-        "夹具会恢复设置。",
-        "运行时状态可由公开属性、信号和 QSettings 确定性读取。",
-        "报告包含命令、退出码、阶段顺序和用例结果。"
-      ],
-      "postconditions": [
-        "静态审计不启动应用、不写入设置。"
+      "implementation": "tests/settings_quality_pipeline.py::static_stage",
+      "evidence_stages": [
+        "static"
       ]
     },
     {
-      "id": "CI-STATIC-001",
-      "test_layer": "static",
-      "atomic_acceptance_criterion": "GitHub Actions 失败修复保留一次完整全屏进入/退出回归，并禁止未被需求要求的第二次原生往返重新引入时序失败。",
-      "quality_requirement": "精益完整性",
-      "test_code": "tests/shortcut_quality_pipeline.py::static_ci_regression_contract",
-      "test_purpose": "验证 CI 修复精确对应远端失败位置，同时保留一次真实的全屏几何回归覆盖。",
-      "preconditions": [
-        "全屏回归测试源代码、CTest 注册和 GitHub Actions 配置可读。"
-      ],
-      "input_data": {
-        "regression_test": "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-        "remote_failure_line": 3417
-      },
-      "steps": [
-        "截取全屏回归测试函数体。",
-        "统计 window.toggleFullScreen() 调用并检查首轮 geometry/fit 断言。",
-        "检查 CTest 仍注册 FovelleTests，检查 workflow 仍执行 CTest。",
-        "执行 git diff --check。"
-      ],
-      "expected_result": [
-        "函数恰有一次全屏进入/退出往返。",
-        "保留 fullScreenTransitionImageRect、ZoomToFit 和有界 QTRY 断言。",
-        "CTest/Actions 的完整测试入口未被删除。",
-        "补丁无空白错误。"
-      ],
-      "postconditions": [
-        "静态审计不运行原生窗口、不改变设置。"
+      "id": "SET-016",
+      "acceptance_criterion": "功能正确性：每个规定输入均产生规定的输出与副作用",
+      "test_purpose": "验证版本、分组、默认值、多语言和多 Tab 几何的完整验收矩阵均通过。",
+      "preconditions": "四层测试环境已配置；QtTest 二进制、翻译 catalog 和 CTest 注册均可用。",
+      "input_data": "14 个功能原子用例及其固定输入、输出、不变量和恢复动作。",
+      "steps": "按静态、单元、集成、系统顺序执行审计流水线，读取每个原子用例的 stage_status。",
+      "expected_result": "所有功能原子用例在其证据层级通过，且没有失败、跳过或未覆盖的验收项。",
+      "postconditions": "测试进程、对话框、翻译器和测试设置均完成清理。",
+      "test_layer": "static+unit+integration+system",
+      "implementation": "tests/settings_quality_pipeline.py::stage_case_passed; reports/test_completion_report.json",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
       ]
     },
     {
-      "id": "CI-SYSTEM-001",
-      "test_layer": "system",
-      "atomic_acceptance_criterion": "完整 FovelleTests 在 Cocoa/CTest 系统入口中通过，且运行时不被快捷键 suite 过滤。",
-      "quality_requirement": "功能正确性",
-      "test_code": "tests/tst_qviewtests.cpp::GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-      "test_purpose": "验证 GitHub Actions 失败的真实系统回归在修复后通过，而不是只运行快捷键聚焦子集。",
-      "preconditions": [
-        "fovelle_tests 已构建。",
-        "macOS Cocoa 图形测试环境可用。"
-      ],
-      "input_data": {
-        "ctest_regex": "^(FovelleTests|FovelleShortcutSettingsTests)$",
-        "suite_filter": "absent"
-      },
-      "steps": [
-        "以 QT_QPA_PLATFORM=cocoa 执行 FovelleTests 和 FovelleShortcutSettingsTests。",
-        "读取 CTest 的每项状态和 100% tests passed 汇总。",
-        "确认 FovelleTests 的完整测试入口没有继承 FOVELLE_TEST_SUITE。"
-      ],
-      "expected_result": [
-        "两个 CTest 目标均通过。",
-        "完整 FovelleTests 不再在第二次全屏退出处失败或崩溃。"
-      ],
-      "postconditions": [
-        "CTest 进程退出，临时窗口和测试资源释放。"
+      "id": "SET-017",
+      "acceptance_criterion": "可测试性：测试条件可确定控制、运行时状态可非侵入式观测且结果可重复",
+      "test_purpose": "验证审计流水线固定运行环境并保存可复核的命令、输入环境、输出摘要和哈希。",
+      "preconditions": "Python 标准库、QtTest、Cocoa QPA 和本地构建目录可用；不依赖联网更新检查。",
+      "input_data": "固定 QT_QPA_PLATFORM、QT_FATAL_WARNINGS、QV_DISABLE_ONLINE_VERSION_CHECK、FOVELLE_TEST_SUITE 及五种语言输入。",
+      "steps": "检查审计脚本的确定性环境覆盖和 JSON schema，再执行四层测试并读取输出哈希、返回码、耗时和 case 状态。",
+      "expected_result": "测试可重复执行、无侵入式观测设置/几何/滚动条/版本输出，并为每个阶段和原子用例留下机器可审计结果。",
+      "postconditions": "报告写入完成；用户设置、源代码和外部服务状态不被测试改变。",
+      "test_layer": "static+unit+integration+system",
+      "implementation": "tests/settings_quality_pipeline.py::run_command; tests/settings_quality_pipeline.py::build_reports",
+      "evidence_stages": [
+        "static",
+        "unit",
+        "integration",
+        "system"
       ]
     }
   ],
-  "audit_fields": [
-    "id",
-    "test_layer",
-    "atomic_acceptance_criterion",
-    "quality_requirement",
-    "test_code",
+  "required_test_fields": [
     "test_purpose",
     "preconditions",
     "input_data",
     "steps",
     "expected_result",
     "postconditions"
-  ]
+  ],
+  "research_trace": [
+    {
+      "hop": 1,
+      "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
+      "finding": "Apple describes macOS settings windows as toolbar panes, with each pane containing a group of related settings.",
+      "premise": "The requested General options are one pane and have explicit semantic relationships supplied by the user.",
+      "deduction": "Implement eight ordered groups without adding unrelated controls or decorative titles that would require new translations."
+    },
+    {
+      "hop": 2,
+      "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
+      "finding": "Apple's layout guidance says to group related items and provide enough space around controls.",
+      "premise": "The user requires group-to-group spacing to exceed within-group spacing.",
+      "deduction": "Use explicit 18 px group spacing and 6 px row spacing, then assert the inequality in QtTest."
+    },
+    {
+      "hop": 3,
+      "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
+      "finding": "QFormLayout supports explicit vertical spacing, and a widget added as a row can span both columns; macOS style defaults can center a form.",
+      "premise": "Centered independent forms and spanning rows are sensitive to localized natural widths.",
+      "deduction": "Set left/top form alignment, no wrapping, fixed row spacing, and keep controls in explicit per-group forms."
+    },
+    {
+      "hop": 4,
+      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
+      "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
+      "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
+      "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+    }
+  ],
+  "validation": {
+    "unique_ids": true,
+    "all_required_fields_present": true
+  },
+  "passed": true
 }

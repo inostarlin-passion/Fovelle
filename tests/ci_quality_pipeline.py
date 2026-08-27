@@ -739,7 +739,7 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
         r"FOVELLE_SYSTEM_PROBE windows=1 maximized=true", probe["output_tail"]
     )
     version = run_command([str(binary), "--version"], repo, timeout=15)
-    version_match = re.search(r"\b1\.0\.0\b", version["output_tail"])
+    version_match = re.search(r"\b1\.0\.1\b", version["output_tail"])
     with tempfile.TemporaryDirectory(prefix="fovelle-release-system-audit-") as directory:
         release_output_path = Path(directory) / "release-system.json"
         release_system = run_command(
@@ -771,7 +771,7 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
         "CI-SYSTEM-002": {
             "passed": bool(version["passed"] and version_match),
             "observed": {
-                "expected_version": "1.0.0",
+                "expected_version": "1.0.1",
                 "version_observed": version_match.group(0) if version_match else None,
             },
             "execution": version,
@@ -1058,14 +1058,14 @@ CASES = [
     case(
         "CI-SYSTEM-002",
         "system",
-        "实际 app bundle 的版本输出为 1.0.0。",
+        "实际 app bundle 的版本输出为 1.0.1。",
         "功能正确性",
         "tests/ci_quality_pipeline.py::run_system::version",
         "验证最终 bundle 的版本元数据没有被构建路径修复破坏。",
         ["app bundle 已构建。"],
-        {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version", "expected_version": "1.0.0"},
+        {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version", "expected_version": "1.0.1"},
         ["执行 --version。", "匹配版本号。"],
-        "进程返回 0 且输出包含 1.0.0。",
+        "进程返回 0 且输出包含 1.0.1。",
         ["版本进程退出。"],
     ),
     case(

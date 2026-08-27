@@ -8,7 +8,7 @@ if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
         "Minimum macOS version supported by Fovelle" FORCE)
 endif()
 
-project(Fovelle VERSION 1.0.0 LANGUAGES CXX)
+project(Fovelle VERSION 1.0.1 LANGUAGES CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")

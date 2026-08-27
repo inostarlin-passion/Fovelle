@@ -583,7 +583,7 @@ def main() -> int:
 
     version_contract = contains_all(
         source["CMakeLists.txt"] + source["qView.pro"] + test_source,
-        ("VERSION 0.1.4", "VERSION = 0.1.4", 'QString("0.1.4")'),
+        ("VERSION 1.0.1", "VERSION = 1.0.1", 'QString("1.0.1")'),
     ) and "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source
     apng_fixture_contract = contains_all(
         test_source,
@@ -598,7 +598,7 @@ def main() -> int:
             "apng_fixture_contract": apng_fixture_contract,
             "old_version_absent": "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source,
         },
-        "the released version is 0.1.4 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
+        "the released version is 1.0.1 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
     )
 
     zoom_continuity = contains_all(

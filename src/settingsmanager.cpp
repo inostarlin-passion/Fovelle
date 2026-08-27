@@ -164,7 +164,7 @@ void SettingsManager::migrateOldSettings()
     // Replace the removed independent background/titlebar switches with one
     // deterministic theme. Existing users who explicitly chose the old dark
     // titlebar or the former default dark background keep the dark appearance;
-    // new installations use the light theme by default.
+    // new installations use the dark theme by default.
     if (!settings.contains("theme") &&
         (settings.contains("titlebaralwaysdark") || settings.contains("bgcolorenabled") || settings.contains("bgcolor")))
     {
@@ -250,7 +250,7 @@ void SettingsManager::copyFromOfficial()
 void SettingsManager::initializeSettingsLibrary()
 {
     // Window
-    settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Light), {}});
+    settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Dark), {}});
     settingsLibrary.insert("checkerboardbackground", {false, {}});
     settingsLibrary.insert("titlebarmode", {static_cast<int>(Qv::TitleBarText::Practical), {}});
     settingsLibrary.insert("customtitlebartext", {"%z - %n", {}});

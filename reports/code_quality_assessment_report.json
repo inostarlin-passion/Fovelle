@@ -1,269 +1,149 @@
 {
   "schema_version": "1.0",
   "report_type": "code_quality_assessment_report",
-  "generated_at": "2026-08-27T04:43:39.779193+00:00",
-  "task": "修复设置页 Shortcuts Tab 的快捷键内容展示与 GitHub Actions 全屏回归失败",
+  "generated_at_utc": "2026-08-27T09:59:09.958336+00:00",
+  "task": "Fovelle 设置页分组、宽度、默认值和 1.0.1 版本",
   "quality_requirements": [
-    "精益完整性",
-    "功能正确性",
-    "可测试性"
-  ],
-  "root_cause_summary": [
-    {
-      "observation": "旧代码在快捷键接受后调用 updateNaturalPageSizes()，自然宽度会重新受到新快捷键文本影响。",
-      "premise": "设置页已展示后，快捷键编辑只应改变表格单元格和快捷键数据，不应改变窗口尺寸契约。",
-      "deduction": "删除编辑路径的自然尺寸重算，并将 Shortcuts 列设为 Stretch。"
-    },
-    {
-      "observation": "QKeySequence::keyBindings(QKeySequence::Open) 在 macOS 返回主绑定和符号回退项，旧代码把两者拼成一个多笔画序列。",
-      "premise": "符号回退项不是用户可见的第二个快捷键。",
-      "deduction": "只保留第一项并逐项转换 PortableText 到 NativeText。"
-    },
-    {
-      "observation": "QKeySequenceEdit 在子控件层处理 Esc，QDialog 默认 reject 路径因此不可达。",
-      "premise": "Cancel 的语义是 QDialog::reject()，并且不发射 accepted shortcut signal。",
-      "deduction": "在对话框范围内的应用事件过滤器中优先截获裸 Esc 并调用 reject()。"
-    },
-    {
-      "observation": "远端 macOS 26.5.2/Qt 6.11.2 的两个 Actions workflow 均在同一全屏回归测试的第二次退出处失败：实际图像矩形为 QRect(0,92 640x360)，首次正常基线为 QRect(0,76 640x360)，随后测试进程 SIGSEGV；编译、格式、clang-tidy 和快捷键专用测试均通过。",
-      "premise": "需求只要求验证一次完整全屏进入/退出；Qt 的 showFullScreen 与 QTRY 观察均不承诺第二次 AppKit 原生 transition 的代理清理已完成。",
-      "deduction": "移除非需求的第二次原生往返，保留首轮完整 fit/快照/几何断言，并以静态合同防止该时序路径回归。"
-    }
-  ],
-  "research_trace": [
-    {
-      "hop": 1,
-      "source": "https://github.com/jurplel/qView/blob/main/src/shortcutmanager.h",
-      "finding": "The product stores QKeySequence standard-key bindings as a string list and renders that list in the Settings table.",
-      "premise": "The repository implementation is the first-hop product contract; the observed Open value must be traced through its storage and display conversions.",
-      "deduction": "The display defect can be isolated to standard-key expansion or list-to-display conversion without changing unrelated action wiring."
-    },
-    {
-      "hop": 2,
-      "source": "https://doc.qt.io/qt-6/qkeysequence.html",
-      "finding": "Qt documents keyBindings() as the platform-specific list of bindings for a standard key and documents NativeText as the platform-native presentation format.",
-      "premise": "The first platform binding is the primary shortcut for the Settings representation; a symbolic fallback is not a user-entered shortcut chord.",
-      "deduction": "Persist only the primary binding in the standard-key default and render each stored list entry independently as NativeText."
-    },
-    {
-      "hop": 3,
-      "source": "local Qt 6.11.1 diagnostic probe",
-      "finding": "On the local macOS Qt runtime, QKeySequence::keyBindings(QKeySequence::Open) returned portable Ctrl+O and a second symbolic Open entry; NativeText rendered them as ⌘O and Open.",
-      "premise": "The probe is an environment observation, not a general Qt guarantee; it reproduces the reported value on the target platform.",
-      "deduction": "Keeping only constFirst() removes the exact Open alias while preserving the platform's primary shortcut."
-    },
-    {
-      "hop": 4,
-      "source": "https://doc.qt.io/qt-6/qheaderview.html",
-      "finding": "Qt documents QHeaderView::Stretch as resizing a section to fill available space and notes that stretchLastSection controls the last section.",
-      "premise": "The Action column can be measured once, while the Shortcuts column is the last section and is allowed to consume the remaining viewport width.",
-      "deduction": "Use Fixed for Action and Stretch plus stretchLastSection for Shortcuts after the initial page measurement."
-    },
-    {
-      "hop": 5,
-      "source": "src/qvoptionsdialog.cpp",
-      "finding": "The old updateShortcutsTable() re-ran updateNaturalPageSizes() and resizeForCategory() after every accepted shortcut edit; natural sizing depended on cell text widths.",
-      "premise": "A content remeasurement after the table has been presented can turn a shortcut text change into a parent dialog width change.",
-      "deduction": "The table update must update the cell only; the initial settings width and column contract must remain stable for the lifetime of the presented dialog."
-    },
-    {
-      "hop": 6,
-      "source": "https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qkeysequenceedit.cpp",
-      "finding": "Qt's QKeySequenceEdit handles key events in the editor and records Escape as a key sequence instead of allowing the dialog to see it as a cancel command.",
-      "premise": "QDialog's normal Escape handling is reached only when the child editor does not accept the key event first.",
-      "deduction": "Intercept a bare Escape before QKeySequenceEdit processes it, then call reject(), which is the same dialog path used by Cancel."
-    },
-    {
-      "hop": 7,
-      "source": "https://doc.qt.io/qt-6/qdialog.html",
-      "finding": "Qt documents that pressing Escape closes a dialog by calling reject() and gives the result Rejected.",
-      "premise": "The requested equivalence is behavioral: no accepted shortcut signal, rejected result, and no persisted change.",
-      "deduction": "The Esc test must observe rejected(), shortcutsListChanged, the table cell, and QSettings rather than only observing that the window disappeared."
-    },
-    {
-      "hop": 8,
-      "source": "local Cocoa QtTest execution",
-      "finding": "The initial focused run showed that QTest::mouseDClick did not emit QTableWidget::cellDoubleClicked under the local Cocoa test backend even with a visible, active table; invoking that signal deterministically exercised the production connection.",
-      "premise": "A system-level UI event is not reproducible in this headless Cocoa test host, while the production contract is the signal-to-dialog connection.",
-      "deduction": "The integration tests use a deterministic synthetic cellDoubleClicked signal and record this limitation explicitly instead of making the acceptance result depend on window-server scheduling."
-    },
-    {
-      "hop": 9,
-      "source": "src/qvoptionsdialog.cpp, src/qvshortcutdialog.cpp, tests/tst_qviewtests.cpp",
-      "finding": "The implementation now separates initial natural sizing from later cell updates, scopes Escape interception to the shortcut dialog, and observes every externally visible effect in focused QtTest cases.",
-      "premise": "The four requested behaviors share only the relevant Settings table/editor boundary; no broader layout or shortcut subsystem rewrite is needed.",
-      "deduction": "The minimal repair satisfies the functional contract while retaining deterministic, non-invasive observability for all atomic criteria."
-    },
-    {
-      "hop": 10,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "finding": "The latest Checks workflow for commit 2a75307 passed compilation, clang-format, and clang-tidy; its Run Unit Tests job failed in FovelleTests at the second fullscreen exit comparison: actual QRect(0,92 640x360) versus the initial normal QRect(0,76 640x360), followed by SIGSEGV.",
-      "premise": "A source-identical remote failure with the focused ShortcutSettingsTests passing separates the CI failure from the Shortcuts-column content repair.",
-      "deduction": "The failing path is the redundant second native AppKit fullscreen round trip, not shortcut conversion or static analysis."
-    },
-    {
-      "hop": 11,
-      "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "finding": "The companion Build Fovelle workflow failed only at the same FovelleTests case on macOS 26.5.2 with Qt 6.11.2; build configuration and compilation completed successfully.",
-      "premise": "Two independent workflows failing at the same test and geometry identify a shared test/transition boundary rather than a workflow-specific install or compiler defect.",
-      "deduction": "The smallest corrective change is to remove the non-required duplicate transition while preserving one complete fullscreen entry/exit assertion."
-    },
-    {
-      "hop": 12,
-      "source": "https://doc.qt.io/qt-6/qwindow.html#showFullScreen; https://doc.qt.io/qt-6/qwidget.html#showFullScreen; https://doc.qt.io/qt-6/qtest.html#QTRY_COMPARE_WITH_TIMEOUT",
-      "finding": "Qt documents showFullScreen as a window-state request, documents subsequent resize/expose behavior, and documents QTRY_COMPARE_WITH_TIMEOUT as event-loop polling rather than a native window-manager completion signal.",
-      "premise": "The test can observe Qt's published state while AppKit still has asynchronous layout/proxy cleanup in progress.",
-      "deduction": "Starting a second AppKit transition immediately after the first state comparison makes a platform-timing assumption outside the acceptance requirement."
-    },
-    {
-      "hop": 13,
-      "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-      "finding": "Qt's testing guidance warns about timing-dependent GUI tests and recommends property-based assertions with QTRY/QSignalSpy rather than arbitrary waits.",
-      "premise": "The retained first transition already uses bounded QTRY assertions for visibility, zoom mode, and image geometry.",
-      "deduction": "Keeping those causal assertions and deleting only the redundant second transition improves determinism without weakening the tested behavior."
-    },
-    {
-      "hop": 14,
-      "source": "local macOS 15.7.9 / Qt 6.11.1 execution after repair",
-      "finding": "The targeted fullscreen test passed once after the repair and passed five consecutive repetitions; complete FovelleTests and FovelleShortcutSettingsTests also passed.",
-      "premise": "Local macOS cannot reproduce the remote macOS 26.5.2 window-server timing exactly, so local repetition is confirmation of no local regression, not proof of remote rerun.",
-      "deduction": "The report must mark remote re-execution as pending until a repaired commit is pushed; it must not claim the hosted workflow was rerun."
-    },
-    {
-      "hop": 15,
-      "source": "tests/tst_qviewtests.cpp and tests/shortcut_quality_pipeline.py",
-      "finding": "The repaired regression test retains one full-screen round trip, and a static contract prevents reintroducing the second non-required round trip; the system stage runs the complete FovelleTests target without FOVELLE_TEST_SUITE filtering.",
-      "premise": "One atomic acceptance test must remain executable, bounded, and auditable at each requested stage.",
-      "deduction": "The CI repair is test-observer scope correction with a static guard, while the Shortcuts behavior remains covered by independent unit and integration tests."
-    }
-  ],
-  "remote_ci_evidence": {
-    "latest_checks_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401298",
-      "head_sha": "2a75307d16df2471ad85c93481f906a28cc79df4",
-      "runner": "macos-26",
-      "qt": "6.11.2",
-      "status_before_repair": "failure",
-      "failed_job": "Run Unit Tests",
-      "failed_test": "FovelleTests",
-      "failure": {
-        "case": "GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize",
-        "source_line": 3417,
-        "actual": "QRect(0,92 640x360)",
-        "expected": "QRect(0,76 640x360)",
-        "secondary_effect": "SIGSEGV after the failed QtTest assertion"
-      },
-      "passing_checks": [
-        "Build",
-        "clang-format",
-        "clang-tidy",
-        "FovelleShortcutSettingsTests"
-      ]
-    },
-    "latest_build_run": {
-      "url": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33038401279",
-      "status_before_repair": "failure",
-      "failed_step": "Test",
-      "shared_failure": "The same FovelleTests fullscreen geometry assertion on macOS 26.5.2."
-    },
-    "repair_scope": {
-      "root_cause": "The test performed a second native AppKit fullscreen round trip immediately after the first; the second exit observed a platform-specific, not-yet-stable titlebar/layout geometry and compared it with the first baseline.",
-      "repair": "Remove the redundant second round trip and keep the required single entry/exit assertion.",
-      "remote_reexecution": false
-    }
-  },
-  "checks": [
     {
       "id": "CQ-LEAN-001",
       "criterion": "精益完整性",
       "passed": true,
       "evidence_case_ids": [
-        "CQ-LEAN-001",
-        "CI-STATIC-001",
-        "AC-SHORTCUT-004"
+        "SET-015"
       ],
-      "evidence": "生产修复集中于标准快捷键转换、Shortcuts 表头策略、编辑后更新路径和 Esc 事件边界；CI 修复只移除非需求的第二次原生全屏往返，保留一次完整回归，不改变 workflow 的完整测试入口。"
+      "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距和版本默认值；没有复制设置控件或引入新的持久化键。"
     },
     {
       "id": "CQ-CORRECT-001",
       "criterion": "功能正确性",
       "passed": true,
       "evidence_case_ids": [
-        "AC-SHORTCUT-001",
-        "AC-SHORTCUT-002",
-        "AC-SHORTCUT-003",
-        "AC-SHORTCUT-004",
-        "AC-SHORTCUT-005",
-        "CI-SYSTEM-001",
-        "CQ-CORRECT-001"
+        "SET-016",
+        "SET-001",
+        "SET-002",
+        "SET-003",
+        "SET-004",
+        "SET-005",
+        "SET-006",
+        "SET-007",
+        "SET-008",
+        "SET-009",
+        "SET-010",
+        "SET-011",
+        "SET-012",
+        "SET-013",
+        "SET-014"
       ],
-      "evidence": "每个用户功能要求均有独立 QtTest 用例；完整 FovelleTests 与快捷键聚焦测试通过 Cocoa/CTest 系统入口，并由 unit/integration/system 的实际结果交叉审计。"
+      "evidence": "原子结构、默认值、版本和多语言/多 Tab 几何用例均由实际 QtTest/Cocoa 执行结果覆盖。"
     },
     {
       "id": "CQ-TESTABLE-001",
       "criterion": "可测试性",
       "passed": true,
       "evidence_case_ids": [
-        "CQ-TESTABLE-001"
+        "SET-017",
+        "SET-001",
+        "SET-010",
+        "SET-013",
+        "SET-014"
       ],
-      "evidence": "测试使用可恢复设置夹具、公开属性、信号、QSettings、QPointer 和完整 CTest 状态观测，并把命令、退出码和输出写入本报告链。"
+      "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。"
     }
   ],
-  "stage_summaries": {
-    "static": {
-      "stage": "static",
-      "total": 3,
-      "passed": 3,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
+  "root_cause_summary": [
+    {
+      "observation": "设置页由旧的固定 `.ui` 几何和多个独立 QFormLayout 组成，页面宽度由聚合 sizeHint 决定；长文本控件可能不参与最终父布局的有效宽度下界。",
+      "premise": "QScrollArea 的子内容是否完整显示取决于子布局的 sizeHint、minimumSize 和 sizePolicy；macOS QFormLayout 还可能默认居中。",
+      "deduction": "将 General 改成八个显式语义组，统一左上对齐和不换行，并显式以每个控件的自然宽度修正内容 minimum size。"
     },
-    "unit": {
-      "stage": "unit",
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    },
-    "integration": {
-      "stage": "integration",
-      "total": 4,
-      "passed": 4,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
-    },
-    "system": {
-      "stage": "system",
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "failed_case_ids": [],
-      "status": "passed"
+    {
+      "observation": "QFormLayout 的 spanning checkbox 行不会稳定地把控件的自然宽度传播到父级聚合 sizeHint。",
+      "premise": "初始修复测试中可观察到 checkbox geometry 大于 scroll viewport，而 layout sizeHint 仍取较小值。",
+      "deduction": "增加 naturalControlWidth/setNaturalControlWidths，并将 combo 设置为 AdjustToContents、交互控件固定为自然宽度；多语言/多 Tab 测试锁定回归。"
     }
-  },
+  ],
+  "research_trace": [
+    {
+      "hop": 1,
+      "source": "https://developer.apple.com/design/human-interface-guidelines/settings",
+      "finding": "Apple describes macOS settings windows as toolbar panes, with each pane containing a group of related settings.",
+      "premise": "The requested General options are one pane and have explicit semantic relationships supplied by the user.",
+      "deduction": "Implement eight ordered groups without adding unrelated controls or decorative titles that would require new translations."
+    },
+    {
+      "hop": 2,
+      "source": "https://developer.apple.com/design/human-interface-guidelines/layout",
+      "finding": "Apple's layout guidance says to group related items and provide enough space around controls.",
+      "premise": "The user requires group-to-group spacing to exceed within-group spacing.",
+      "deduction": "Use explicit 18 px group spacing and 6 px row spacing, then assert the inequality in QtTest."
+    },
+    {
+      "hop": 3,
+      "source": "https://doc.qt.io/qt-6.11/qformlayout.html",
+      "finding": "QFormLayout supports explicit vertical spacing, and a widget added as a row can span both columns; macOS style defaults can center a form.",
+      "premise": "Centered independent forms and spanning rows are sensitive to localized natural widths.",
+      "deduction": "Set left/top form alignment, no wrapping, fixed row spacing, and keep controls in explicit per-group forms."
+    },
+    {
+      "hop": 4,
+      "source": "https://doc.qt.io/qt-6/qscrollarea.html",
+      "finding": "A QScrollArea's child size hint, minimum size, and layout size policy determine whether content is shown or requires scrolling.",
+      "premise": "The original width defect is a layout-measurement defect, not a translation-string defect.",
+      "deduction": "Measure every control's natural width explicitly, set the content minimum size from that width, and test all supported languages and Tabs."
+    }
+  ],
+  "checks": [
+    {
+      "id": "CQ-LEAN-001",
+      "criterion": "精益完整性",
+      "passed": true,
+      "evidence_case_ids": [
+        "SET-015"
+      ],
+      "evidence": "复用现有控件和信号，新增的生产逻辑只包含语义分组、自然宽度补偿、显式间距和版本默认值；没有复制设置控件或引入新的持久化键。"
+    },
+    {
+      "id": "CQ-CORRECT-001",
+      "criterion": "功能正确性",
+      "passed": true,
+      "evidence_case_ids": [
+        "SET-016",
+        "SET-001",
+        "SET-002",
+        "SET-003",
+        "SET-004",
+        "SET-005",
+        "SET-006",
+        "SET-007",
+        "SET-008",
+        "SET-009",
+        "SET-010",
+        "SET-011",
+        "SET-012",
+        "SET-013",
+        "SET-014"
+      ],
+      "evidence": "原子结构、默认值、版本和多语言/多 Tab 几何用例均由实际 QtTest/Cocoa 执行结果覆盖。"
+    },
+    {
+      "id": "CQ-TESTABLE-001",
+      "criterion": "可测试性",
+      "passed": true,
+      "evidence_case_ids": [
+        "SET-017",
+        "SET-001",
+        "SET-010",
+        "SET-013",
+        "SET-014"
+      ],
+      "evidence": "测试固定 QPA、警告策略、在线检查开关和 suite 入口；通过 QObject 属性、QSettings、sizeHint、viewport 几何、scrollbar 状态、CTest 输出和 SHA-256 进行非侵入式观测。"
+    }
+  ],
   "audit": {
-    "all_cases_atomic": true,
-    "required_test_fields_present": true,
-    "all_stages_passed": true,
-    "all_quality_requirements_passed": true
+    "all_quality_requirements_passed": true,
+    "specification_valid": true,
+    "test_completion_valid": true
   },
-  "artifacts": [
-    {
-      "path": "reports/test_case_specification.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/test_case_specification.json",
-      "exists": true,
-      "bytes": 26159,
-      "sha256": "dd4b1268fa04dcb6c225913097f4358c0deb2aeab5054537934a8de3db0ee58e"
-    },
-    {
-      "path": "reports/code_quality_assessment_report.json",
-      "absolute_path": "/Users/inostarlin/code/Fovelle/reports/code_quality_assessment_report.json",
-      "exists": true,
-      "bytes": null,
-      "sha256": null,
-      "sha256_note": "本报告包含自身内容，避免循环哈希；bytes 也不在写入前预估，读取本文件可审计其实际内容。"
-    }
-  ]
+  "passed": true,
+  "status": "passed"
 }

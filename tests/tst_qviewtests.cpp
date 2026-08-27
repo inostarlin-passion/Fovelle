@@ -130,6 +130,7 @@ private slots:
     void testAutoUpdateCheckLabelIsRenamed();
     void testAssociateAllSupportedFormatsDryRun();
     void testPreferencesDefaultsAndRemovedControls();
+    void testSettingsGeneralGroupsAndDefaults();
     void testUpdateCheckFrequencyPolicy();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
@@ -262,6 +263,7 @@ private slots:
     void testAssociateFormatsButtonIsCentered();
     void testTitlebarHiddenPersistsToNewWindow();
     void testSmoothScalingDefaultIsBilinear();
+    void testSettingsEveryTabFitsEveryLanguage();
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
     void testHelpMenuContract();
@@ -2258,7 +2260,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.0"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.1"));
 }
 
 // TC-APP-VERSION
@@ -2267,11 +2269,11 @@ void ActionManagerTests::testApplicationIdentity()
 // definitions.
 // Input data: QCoreApplication::applicationVersion().
 // Steps: read the runtime application version.
-// Expected result: the value is exactly 1.0.0.
+// Expected result: the value is exactly 1.0.1.
 // Postcondition: no application or settings state changes.
 void FeatureTests::testApplicationVersionIsCurrent()
 {
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.0"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.1"));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -2685,6 +2687,100 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     auto *associateButton = dialog.findChild<QPushButton *>("associateFormatsButton");
     QVERIFY(associateButton);
     QCOMPARE(associateButton->text(), QStringLiteral("Associate all supported formats"));
+}
+
+// TC-SETTINGS-GROUPS-DEFAULTS
+// Test purpose: verify the General page's eight semantic groups, their exact
+// option membership/order, and the two requested default values.
+// Preconditions: SettingsManager and the production QVOptionsDialog can be
+// constructed.
+// Input data: the General page object tree and the default setting library.
+// Steps: read the defaults, enumerate group metadata, inspect each group's
+// form spacing, and verify every named option belongs to its expected group.
+// Expected result: groups 1 through 8 match the specification in order;
+// group spacing is 18 px, row spacing is 6 px, Appearance defaults to Dark,
+// and Smooth scaling defaults to Bilinear.
+// Postcondition: the dialog is destroyed and no persistent setting changes.
+void FeatureTests::testSettingsGeneralGroupsAndDefaults()
+{
+    const auto &settings = qvApp->getSettingsManager();
+    QCOMPARE(settings.getEnum<Qv::Theme>(QStringLiteral("theme"), true), Qv::Theme::Dark);
+    QCOMPARE(settings.getEnum<Qv::SmoothScalingMode>(QStringLiteral("smoothscalingmode"), true),
+             Qv::SmoothScalingMode::Bilinear);
+
+    ScopedOptionValues options({
+        {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Bilinear)}
+    });
+
+    QVOptionsDialog dialog;
+    auto *generalContent = dialog.findChild<QWidget *>(QStringLiteral("generalContent"));
+    auto *general = dialog.findChild<QWidget *>(QStringLiteral("general"));
+    auto *misc = dialog.findChild<QWidget *>(QStringLiteral("misc"));
+    QVERIFY(generalContent);
+    QVERIFY(general);
+    QVERIFY(misc);
+    QCOMPARE(generalContent->property("settingsGroupSpacing").toInt(), 18);
+    QCOMPARE(generalContent->property("settingsRowSpacing").toInt(), 6);
+    QCOMPARE(general->layout()->spacing(), 18);
+    QCOMPARE(misc->layout()->spacing(), 18);
+
+    const QList<QStringList> expectedItems {
+        {QStringLiteral("langComboBox")},
+        {QStringLiteral("themeComboBox"), QStringLiteral("checkerboardBackgroundCheckbox")},
+        {QStringLiteral("smoothScalingComboBox")},
+        {QStringLiteral("reuseWindowCheckbox"), QStringLiteral("smallImagesOneToOneCheckbox")},
+        {QStringLiteral("slideshowDirectionComboBox"), QStringLiteral("slideshowTimerSpinBox")},
+        {QStringLiteral("afterDeletionComboBox"), QStringLiteral("askDeleteCheckbox")},
+        {QStringLiteral("updateFrequencyComboBox")},
+        {QStringLiteral("associateFormatsButton")}
+    };
+
+    const auto groups = generalContent->findChildren<QWidget *>();
+    QList<QWidget *> orderedGroups;
+    for (auto *widget : groups)
+    {
+        if (widget->property("settingsGroupIndex").isValid())
+            orderedGroups.append(widget);
+    }
+    std::sort(orderedGroups.begin(), orderedGroups.end(), [](QWidget *left, QWidget *right) {
+        return left->property("settingsGroupIndex").toInt()
+            < right->property("settingsGroupIndex").toInt();
+    });
+    QCOMPARE(orderedGroups.size(), expectedItems.size());
+
+    for (int index = 0; index < expectedItems.size(); ++index)
+    {
+        QWidget *group = orderedGroups.at(index);
+        QCOMPARE(group->property("settingsGroupIndex").toInt(), index + 1);
+        QCOMPARE(group->property("settingsItemObjectNames").toStringList(), expectedItems.at(index));
+        auto *layout = qobject_cast<QFormLayout *>(group->layout());
+        QVERIFY(layout);
+        QCOMPARE(layout->verticalSpacing(), 6);
+
+        for (const QString &objectName : expectedItems.at(index))
+        {
+            auto *option = dialog.findChild<QWidget *>(objectName);
+            QVERIFY(option);
+            bool belongsToGroup = false;
+            for (QWidget *ancestor = option->parentWidget(); ancestor; ancestor = ancestor->parentWidget())
+            {
+                if (ancestor == group)
+                {
+                    belongsToGroup = true;
+                    break;
+                }
+            }
+            QVERIFY2(belongsToGroup, qPrintable(objectName));
+        }
+    }
+
+    auto *theme = dialog.findChild<QComboBox *>(QStringLiteral("themeComboBox"));
+    auto *smoothScaling = dialog.findChild<QComboBox *>(QStringLiteral("smoothScalingComboBox"));
+    QVERIFY(theme);
+    QVERIFY(smoothScaling);
+    QCOMPARE(theme->currentData().toInt(), static_cast<int>(Qv::Theme::Dark));
+    QCOMPARE(smoothScaling->currentData().toInt(), static_cast<int>(Qv::SmoothScalingMode::Bilinear));
 }
 
 // TC-UPDATE-FREQUENCY-POLICY
@@ -5186,7 +5282,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 1.0.0"));
+    QCOMPARE(subtitleLabel->text(), QString("version 1.0.1"));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -6280,10 +6376,9 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QCOMPARE(table->rowCount() >= 16, true);
     QCOMPARE(table->item(15, 0)->text(), QStringLiteral("Random File"));
 
-    dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-
-    tabs->setCurrentIndex(0);
+            dialog.show();
+            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+            tabs->setCurrentIndex(0);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
     QCOMPARE(dialog.width(), fixedWidth);
     QCOMPARE(generalScrollArea->horizontalScrollBar()->maximum(), 0);
@@ -6583,6 +6678,140 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
         languageWidths.insert(sizesByLanguage.value(language).constFirst().width());
     QVERIFY2(languageWidths.size() > 1,
              "Translated content must produce content-derived, not globally fixed, geometry");
+#endif
+}
+
+// TC-SETTINGS-ALL-LANGUAGES-TABS
+// Test purpose: verify every visible option on every Settings tab remains
+// inside its viewport for every supported application language.
+// Preconditions: the Cocoa Qt test application, all five supported catalogs,
+// and a writable isolated settings store are available.
+// Input data: en, es, ja, zh_Hans, zh_Hant; General, Shortcuts, and Mouse;
+// both Mouse middle-button modes.
+// Steps: install one language catalog, construct and show Settings, switch to
+// every tab, and inspect each visible control's natural width and mapped
+// geometry; repeat the Mouse check for both radio-button modes.
+// Expected result: the long Reuse-window option and every other visible
+// control fit without horizontal scrolling or clipped geometry in every
+// language and tab.
+// Postcondition: every dialog, translator, and temporary setting is restored.
+void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
+    ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
+    const QList<QString> languages {
+        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
+        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
+    };
+
+    const auto isInspectable = [](QWidget *widget) {
+        return qobject_cast<QLabel *>(widget)
+            || qobject_cast<QAbstractButton *>(widget)
+            || qobject_cast<QComboBox *>(widget)
+            || qobject_cast<QAbstractSpinBox *>(widget);
+    };
+    const auto verifyScrollPage = [&](QScrollArea *scrollArea, const QString &language) {
+        QVERIFY2(scrollArea, qPrintable(language));
+        QCOMPARE(scrollArea->horizontalScrollBar()->maximum(), 0);
+        auto *viewport = scrollArea->viewport();
+        for (auto *widget : scrollArea->widget()->findChildren<QWidget *>())
+        {
+            if (widget->objectName().isEmpty() || widget->isHidden() || !isInspectable(widget))
+                continue;
+
+            const QRect mapped(widget->mapTo(viewport, QPoint(0, 0)), widget->size());
+            QVERIFY2(viewport->rect().contains(mapped),
+                     qPrintable(language + QStringLiteral(": ") + widget->objectName()));
+            QVERIFY2(widget->width() >= widget->sizeHint().width(),
+                     qPrintable(language + QStringLiteral(": natural width ") + widget->objectName()));
+        }
+    };
+
+    for (const QString &language : languages)
+    {
+        SourceLanguageTranslator sourceTranslator;
+        QTranslator catalogTranslator;
+        QTranslator *translator = &sourceTranslator;
+        if (language != QStringLiteral("en"))
+        {
+            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                    .arg(language);
+            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
+            translator = &catalogTranslator;
+        }
+        QVERIFY(QCoreApplication::installTranslator(translator));
+
+        {
+            ScopedOptionValues options({
+                {QStringLiteral("language"), language},
+                {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
+                {QStringLiteral("checkerboardbackground"), false},
+                {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Click)}
+            });
+            QSettings settings;
+            settings.setValue(QStringLiteral("optionstab"), 0);
+            settings.setValue(QStringLiteral("optionstabversion"), 2);
+            settings.sync();
+
+            QVOptionsDialog dialog;
+            dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+            auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+            auto *general = dialog.findChild<QScrollArea *>(QStringLiteral("generalScrollArea"));
+            auto *mouse = dialog.findChild<QScrollArea *>(QStringLiteral("mouseScrollArea"));
+            auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+            auto *clickMode = dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton"));
+            auto *dragMode = dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton"));
+            QVERIFY(tabs);
+            QVERIFY(general);
+            QVERIFY(mouse);
+            QVERIFY(table);
+            QVERIFY(clickMode);
+            QVERIFY(dragMode);
+
+            dialog.prepareForDisplay();
+            dialog.show();
+            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+            tabs->setCurrentIndex(0);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            verifyScrollPage(general, language);
+            auto *reuse = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
+            QVERIFY(reuse);
+            QVERIFY(reuse->text().contains(QStringLiteral("Reuse")) || language != QStringLiteral("en"));
+            QVERIFY(reuse->width() >= reuse->sizeHint().width());
+
+            tabs->setCurrentIndex(1);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
+            for (int row = 0; row < table->rowCount(); ++row)
+            {
+                for (int column = 0; column < table->columnCount(); ++column)
+                {
+                    auto *item = table->item(row, column);
+                    QVERIFY(item);
+                    const QRect itemRect = table->visualItemRect(item);
+                    if (itemRect.isValid() && itemRect.top() < table->viewport()->height())
+                        QVERIFY2(table->viewport()->rect().contains(itemRect),
+                                 qPrintable(language + QStringLiteral(": shortcut cell")));
+                }
+            }
+
+            tabs->setCurrentIndex(2);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            verifyScrollPage(mouse, language);
+            clickMode->click();
+            QCoreApplication::processEvents();
+            verifyScrollPage(mouse, language);
+            dragMode->click();
+            QCoreApplication::processEvents();
+            verifyScrollPage(mouse, language);
+
+            dialog.close();
+        }
+        QVERIFY(QCoreApplication::removeTranslator(translator));
+    }
 #endif
 }
 
@@ -7730,7 +7959,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("1.0.0");
+    QCoreApplication::setApplicationVersion("1.0.1");
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 

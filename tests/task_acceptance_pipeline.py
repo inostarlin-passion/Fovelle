@@ -258,14 +258,14 @@ def make_case(
 CASES = [
     make_case(
         "VER-001",
-        "应用版本号为 1.0.0。",
+        "应用版本号为 1.0.1。",
         "static",
         "tests/task_acceptance_pipeline.py::static_version_contract",
         "验证源码、打包元数据和测试运行时使用同一版本号。",
         ["仓库源码可读。"],
-        {"expected_version": "1.0.0", "files": ["CMakeLists.txt", "qView.pro", "dist/mac/Info.plist"]},
-        ["读取构建配置和 macOS bundle 元数据。", "比较所有版本字段与 1.0.0。"],
-        "所有发布入口均声明 1.0.0。",
+        {"expected_version": "1.0.1", "files": ["CMakeLists.txt", "qView.pro", "dist/mac/Info.plist"]},
+        ["读取构建配置和 macOS bundle 元数据。", "比较所有版本字段与 1.0.1。"],
+        "所有发布入口均声明 1.0.1。",
         ["不修改源码或用户设置。"],
     ),
     make_case(
@@ -606,14 +606,14 @@ CASES = [
     ),
     make_case(
         "INT-002",
-        "构建出的 App bundle 报告版本 1.0.0。",
+        "构建出的 App bundle 报告版本 1.0.1。",
         "integration",
         "tests/task_acceptance_pipeline.py::run_integration",
         "验证发布产物而非源码字符串的版本输出。",
         ["Fovelle.app 已构建。"],
         {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"},
         ["执行 App bundle 内可执行文件的 --version。", "解析标准输出。"],
-        "输出包含 1.0.0 且进程返回 0。",
+        "输出包含 1.0.1 且进程返回 0。",
         ["版本命令不启动长期运行的 UI 进程。"],
     ),
     make_case(
@@ -637,7 +637,7 @@ CASES = [
         ["App bundle 已构建。"],
         {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"},
         ["直接执行 bundle 内可执行文件。", "记录 stdout、stderr、返回码和耗时。"],
-        "输出 1.0.0，返回码为 0，且在 10 秒内结束。",
+        "输出 1.0.1，返回码为 0，且在 10 秒内结束。",
         ["不修改用户设置。"],
     ),
 ]
@@ -682,13 +682,13 @@ def source_files(repo: Path) -> dict[str, str]:
 
 
 def static_version_contract(repo: Path, sources: dict[str, str]) -> tuple[bool, dict[str, Any]]:
-    expected = "1.0.0"
+    expected = "1.0.1"
     checks = {
-        "cmake_project": "project(Fovelle VERSION 1.0.0" in sources["cmake"],
-        "qmake_version": "VERSION = 1.0.0" in sources["qmake"],
-        "plist_short": "<string>1.0.0</string>" in sources["plist"],
-        "plist_bundle": sources["plist"].count("<string>1.0.0</string>") >= 2,
-        "test_runtime": 'QCoreApplication::setApplicationVersion("1.0.0")' in sources["tests"],
+        "cmake_project": "project(Fovelle VERSION 1.0.1" in sources["cmake"],
+        "qmake_version": "VERSION = 1.0.1" in sources["qmake"],
+        "plist_short": "<string>1.0.1</string>" in sources["plist"],
+        "plist_bundle": sources["plist"].count("<string>1.0.1</string>") >= 2,
+        "test_runtime": 'QCoreApplication::setApplicationVersion("1.0.1")' in sources["tests"],
     }
     return all(checks.values()), {"expected": expected, "checks": checks}
 
@@ -1102,8 +1102,8 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
     version_result = run_command([str(version_command), "--version"], repo, timeout=15)
     version_output = version_result.get("stdout", "") + version_result.get("stderr", "")
     results["INT-002"] = {
-        "passed": bool(version_result["passed"] and re.search(r"\b1\.0\.0\b", version_output)),
-        "observed": {"expected_version": "1.0.0", "output": version_output.strip()},
+        "passed": bool(version_result["passed"] and re.search(r"\b1\.0\.1\b", version_output)),
+        "observed": {"expected_version": "1.0.1", "output": version_output.strip()},
         "execution": compact_execution(version_result),
     }
     return results
@@ -1137,7 +1137,7 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
     version = run_command([str(app_binary), "--version"], repo, timeout=10)
     version_output = version.get("stdout", "") + version.get("stderr", "")
     results["SYS-002"] = {
-        "passed": bool(version["passed"] and re.search(r"\b1\.0\.0\b", version_output)),
+        "passed": bool(version["passed"] and re.search(r"\b1\.0\.1\b", version_output)),
         "observed": {"version_output": version_output.strip()},
         "execution": compact_execution(version),
     }
@@ -1249,7 +1249,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_case_specification",
         "generated_at": now(),
-        "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
+        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
         "test_execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准。",
@@ -1259,7 +1259,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_evidence",
         "generated_at": now(),
-        "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
+        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
         "test_execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "stage_summaries": stage_summaries,
@@ -1275,7 +1275,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_completion_report",
         "generated_at": now(),
-        "task": "Fovelle 1.0.0 设置、语言和悬浮导航按钮变更",
+        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
         "status": "passed" if all(summary["failed"] == 0 for summary in stage_summaries.values()) else "failed",
         "execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
