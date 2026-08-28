@@ -1842,6 +1842,14 @@ void QVGraphicsView::beginFullScreenPanPreservation()
     // its new range.
     constrainBoundsTimer->stop();
     scrollHelper->cancelAnimation();
+
+    // MainWindow starts preservation before asking Qt/AppKit to change the
+    // window state. The native animation callback also calls this method when
+    // it starts; that second call must not recapture an already-changing bar
+    // value and erase the edge captured at the request boundary.
+    if (fullScreenPanPreservationActive)
+        return;
+
     fullScreenPanPreservationActive = true;
     fullScreenHorizontalPanEdge = ScrollEdge::None;
     fullScreenVerticalPanEdge = ScrollEdge::None;

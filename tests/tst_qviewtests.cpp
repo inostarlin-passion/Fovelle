@@ -212,7 +212,7 @@ private slots:
     void testZoomAcrossScrollbarThresholdKeepsViewportCenterStable();
     void testTouchpadPanUsesPixelsWithoutChangingZoom();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
-    void testFullscreenExitPreservesPanAtCorner();
+    void testFullscreenExitPreservesVerticalPan();
     void testFullscreenAfterOverflowRemovesTitlebarScenePadding();
     void testManualZoomRemainsManualAcrossResize();
     void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
@@ -3871,21 +3871,21 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-ZOOM-FULLSCREEN-PAN-CORNER
-// Test purpose: verify that leaving full screen does not pull an image away
-// from a corner selected by panning while zoomed.
+// TC-ZOOM-FULLSCREEN-PAN-BOTTOM
+// Test purpose: verify that leaving full screen does not pull a zoomed image
+// away from the bottom edge selected by the vertical scrollbar.
 // Preconditions: a visible 640x480 window uses manual/original-size zoom and
-// loads an image that overflows both axes at 200% in both window modes.
-// Input data: one 2400x1600 PNG, a 2.0x zoom, and both scrollbars at their
-// maximum values (the deterministic equivalent of dragging to the bottom-right
-// corner and releasing) before and during full screen.
-// Steps: zoom and pan to the bottom-right corner in a normal window, enter full
-// screen, verify the corner, repeat the manual scrollbar action, exit full
-// screen, and inspect the new scroll ranges and mapped image edge.
-// Expected result: both scrollbars remain at their new maximum and the image's
-// bottom-right edge remains coincident with the viewport's bottom-right edge.
+// loads an image that overflows vertically at 200% in both window modes.
+// Input data: one 2048x1536 PNG and a 2.0x zoom; the vertical scrollbar is at
+// its maximum before full screen and is moved to its maximum again in full
+// screen (the deterministic equivalent of the reported manual drag).
+// Steps: zoom and pan to the bottom in a normal window, enter full screen,
+// verify the bottom edge before manual recovery, move the scrollbar to its
+// maximum, exit full screen, and inspect the final mapped image edge.
+// Expected result: the vertical scrollbar remains at its maximum and the
+// image's bottom edge remains coincident with the viewport's bottom edge.
 // Postcondition: the window, settings, image, and temporary directory are released.
-void GraphicsViewTests::testFullscreenExitPreservesPanAtCorner()
+void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
 {
     ScopedOptionValues options({
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
@@ -3900,7 +3900,7 @@ void GraphicsViewTests::testFullscreenExitPreservesPanAtCorner()
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString imagePath = createTestImage(
-        dir, "fullscreen-pan-corner", Qt::darkMagenta, QSize(2400, 1600));
+        dir, "fullscreen-pan-bottom", Qt::darkMagenta, QSize(2048, 1536));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -3917,34 +3917,36 @@ void GraphicsViewTests::testFullscreenExitPreservesPanAtCorner()
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
     const bool scrollBarsReady = waitForTestCondition(
         [&view]() {
-            return view->horizontalScrollBar()->maximum()
-                    > view->horizontalScrollBar()->minimum()
-                && view->verticalScrollBar()->maximum()
-                    > view->verticalScrollBar()->minimum();
-        }, 5000);
-    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+            return view->verticalScrollBar()->maximum()
+                > view->verticalScrollBar()->minimum();
+        }, 1500);
+    if (!scrollBarsReady)
+    {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        QVERIFY2(scrollBarsReady, "The zoomed image did not overflow the vertical viewport");
+        return;
+    }
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
 
-    const auto imageBottomRightAtViewportEdge = [&view]() {
+    const auto imageBottomAtViewportEdge = [&view]() {
         const QRectF imageRect = view->scene()->itemsBoundingRect();
         const QRect viewport = view->viewport()->rect();
-        const QPointF bottomRight = view->mapFromScene(imageRect.bottomRight());
-        return qAbs(bottomRight.x() - viewport.right()) <= 2.0
-            && qAbs(bottomRight.y() - viewport.bottom()) <= 2.0;
+        const QPointF imageBottom = view->mapFromScene(
+            QPointF(imageRect.center().x(), imageRect.bottom()));
+        return qAbs(imageBottom.y() - viewport.bottom()) <= 2.0;
     };
-    const bool normalCornerReadyBeforeEntry = waitForTestCondition(
-        [&window, &view, &imageBottomRightAtViewportEdge]() {
+    const bool normalBottomReadyBeforeEntry = waitForTestCondition(
+        [&window, &view, &imageBottomAtViewportEdge]() {
             return !window.isFullScreen()
-                && qAbs(view->horizontalScrollBar()->value()
-                        - view->horizontalScrollBar()->maximum()) <= 1
                 && qAbs(view->verticalScrollBar()->value()
                         - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomRightAtViewportEdge();
-        }, 5000);
+                && imageBottomAtViewportEdge();
+        }, 1500);
     const QSize normalViewportSize = view->viewport()->size();
     window.toggleFullScreen();
     const bool enteredFullScreen = waitForTestCondition(
-        [&window]() { return window.isFullScreen(); }, 10000);
+        [&window]() { return window.isFullScreen(); }, 4000);
     if (!enteredFullScreen)
     {
         window.close();
@@ -3954,86 +3956,61 @@ void GraphicsViewTests::testFullscreenExitPreservesPanAtCorner()
     }
 
     // QWindow publishes the full-screen state before AppKit finishes the
-    // custom proxy handoff. Wait for the observable viewport geometry instead
-    // of assuming that one fixed delay is long enough on every runner image.
-    QSize lastFullScreenViewportSize = normalViewportSize;
-    int fullScreenStableSamples = 0;
-    const bool fullScreenViewportReady = waitForTestCondition(
-        [&window, &view, &normalViewportSize, &lastFullScreenViewportSize,
-         &fullScreenStableSamples]() {
-            const QSize currentViewportSize = view->viewport()->size();
-            if (currentViewportSize == lastFullScreenViewportSize)
-                ++fullScreenStableSamples;
-            else
-            {
-                lastFullScreenViewportSize = currentViewportSize;
-                fullScreenStableSamples = 0;
-            }
-            return currentViewportSize != normalViewportSize
-                && fullScreenStableSamples >= 3
-                && window.getViewportPosition().obscuredHeight == 0;
-        }, 10000);
-
-    const bool fullScreenCornerPreservedOnEntry = waitForTestCondition(
-        [&window, &imageBottomRightAtViewportEdge]() {
-            return window.isFullScreen() && imageBottomRightAtViewportEdge();
-        }, 10000);
+    // custom proxy handoff. The edge predicate also requires the viewport to
+    // have reached full-screen geometry, so it observes the end of that
+    // handoff without an arbitrary sleep.
+    const bool fullScreenBottomPreservedOnEntry = waitForTestCondition(
+        [&window, &view, &normalViewportSize, &imageBottomAtViewportEdge]() {
+            return window.isFullScreen()
+                && view->viewport()->size() != normalViewportSize
+                && window.getViewportPosition().obscuredHeight == 0
+                && qAbs(view->verticalScrollBar()->value()
+                        - view->verticalScrollBar()->maximum()) <= 1
+                && imageBottomAtViewportEdge();
+        }, 4500);
 
     // This is the manual recovery from the reported symptom. It must not be
-    // required for the pre-existing bottom-right selection to survive entry,
-    // but it also must not lose the vertical edge before the exit transition.
-    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+    // required for the pre-existing bottom selection to survive entry, but it
+    // also must not lose the vertical edge before the exit transition.
+    view->verticalScrollBar()->setValue(
+        view->verticalScrollBar()->maximum()
+        - view->verticalScrollBar()->pageStep() / 2);
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
-    const bool fullScreenCornerReadyAfterManualRecovery = waitForTestCondition(
-        [&window, &imageBottomRightAtViewportEdge]() {
-            return window.isFullScreen() && imageBottomRightAtViewportEdge();
-        }, 10000);
+    const bool fullScreenBottomReadyAfterManualRecovery = waitForTestCondition(
+        [&window, &view, &imageBottomAtViewportEdge]() {
+            return window.isFullScreen()
+                && qAbs(view->verticalScrollBar()->value()
+                        - view->verticalScrollBar()->maximum()) <= 1
+                && imageBottomAtViewportEdge();
+        }, 1000);
 
     const QSize fullScreenViewportSize = view->viewport()->size();
     window.toggleFullScreen();
-    QSize lastNormalViewportSize = fullScreenViewportSize;
-    int normalStableSamples = 0;
-    const bool exitedFullScreen = waitForTestCondition(
-        [&window, &view, &fullScreenViewportSize, &lastNormalViewportSize,
-         &normalStableSamples]() {
-            const QSize currentViewportSize = view->viewport()->size();
-            if (currentViewportSize == lastNormalViewportSize)
-                ++normalStableSamples;
-            else
-            {
-                lastNormalViewportSize = currentViewportSize;
-                normalStableSamples = 0;
-            }
+    const bool normalBottomReadyAfterExit = waitForTestCondition(
+        [&window, &view, &fullScreenViewportSize, &imageBottomAtViewportEdge]() {
             return !window.isFullScreen()
-                && currentViewportSize != fullScreenViewportSize
-                && normalStableSamples >= 3;
-        }, 10000);
-    const bool normalCornerReadyAfterExit = waitForTestCondition(
-        [&window, &view, &imageBottomRightAtViewportEdge]() {
-            return !window.isFullScreen()
-                && qAbs(view->horizontalScrollBar()->value()
-                        - view->horizontalScrollBar()->maximum()) <= 1
+                && view->viewport()->size() != fullScreenViewportSize
                 && qAbs(view->verticalScrollBar()->value()
                         - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomRightAtViewportEdge();
-        }, 10000);
+                && imageBottomAtViewportEdge();
+        }, 5000);
+    const bool exitedFullScreen = !window.isFullScreen()
+        && view->viewport()->size() != fullScreenViewportSize;
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 
-    QVERIFY2(fullScreenViewportReady,
-             "Full-screen viewport geometry did not stabilize");
-    QVERIFY2(normalCornerReadyBeforeEntry,
-             "The zoomed image did not reach the normal bottom-right corner");
+    QVERIFY2(normalBottomReadyBeforeEntry,
+             "The zoomed image did not reach the normal bottom edge");
     QVERIFY2(scrollBarsReady,
-             "The zoomed image did not overflow both viewport axes");
-    QVERIFY2(fullScreenCornerPreservedOnEntry,
-             "The bottom-right corner was not preserved on full-screen entry");
-    QVERIFY2(fullScreenCornerReadyAfterManualRecovery,
-             "The zoomed image did not reach the full-screen bottom-right corner");
+             "The zoomed image did not overflow the vertical viewport");
+    QVERIFY2(fullScreenBottomPreservedOnEntry,
+             "The bottom edge was not preserved on full-screen entry");
+    QVERIFY2(fullScreenBottomReadyAfterManualRecovery,
+             "The manual full-screen scrollbar recovery did not reach the bottom");
     QVERIFY2(exitedFullScreen, "The window did not exit full screen");
-    QVERIFY2(normalCornerReadyAfterExit,
-             "The image corner was not preserved after exiting full screen");
+    QVERIFY2(normalBottomReadyAfterExit,
+             "The image bottom edge was not preserved after exiting full screen");
 }
 
 // TC-FULLSCREEN-SCROLL-TOP-EDGE

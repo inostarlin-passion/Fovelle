@@ -1091,9 +1091,6 @@ void MainWindow::fullscreenChanged()
 {
     const bool isFullscreen = windowState().testFlag(Qt::WindowFullScreen);
 
-    if (isFullscreen)
-        cancelFullScreenLayoutTransition();
-
     const auto fullscreenActions = qvApp->getActionManager().getAllClonesOfAction("fullscreen", this);
     for (const auto &fullscreenAction : fullscreenActions)
     {
@@ -1130,7 +1127,6 @@ void MainWindow::fullscreenChanged()
         // effective inset and cannot expose a differently centered frame.
         activeFullScreenTitlebarOverlap = -1;
         graphicsView->fitOrConstrainImage();
-        graphicsView->endFullScreenPanPreservation();
     }
 
     updateMenuBarVisible();
@@ -1170,13 +1166,19 @@ void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
 
 void MainWindow::cancelFullScreenLayoutTransition()
 {
-    if (activeFullScreenTitlebarOverlap < 0)
-        return;
+    const bool hadTitlebarTransition = activeFullScreenTitlebarOverlap >= 0;
+    if (hadTitlebarTransition)
+    {
+        activeFullScreenTitlebarOverlap = -1;
+        graphicsView->fitOrConstrainImage();
+    }
 
-    activeFullScreenTitlebarOverlap = -1;
-    graphicsView->fitOrConstrainImage();
+    // Native completion/failure can arrive after the Qt window-state event
+    // has already cleared the titlebar override. Pan preservation has a
+    // separate lifetime and must still be closed in that case.
     graphicsView->endFullScreenPanPreservation();
-    update();
+    if (hadTitlebarTransition)
+        update();
 }
 
 QRect MainWindow::fullScreenTransitionImageRect() const
@@ -2319,7 +2321,9 @@ void MainWindow::exitFullScreen()
     // Escape is handled by AppKit's native full-screen action. Route the View
     // command through the same asynchronous action and let Qt publish the
     // resulting state only after NSWindowDidExitFullScreenNotification.
-    QVCocoaFunctions::requestFullScreenExit(windowHandle());
+    graphicsView->beginFullScreenPanPreservation();
+    if (!QVCocoaFunctions::requestFullScreenExit(windowHandle()))
+        graphicsView->endFullScreenPanPreservation();
 }
 
 void MainWindow::toggleFullScreen()
@@ -2330,6 +2334,11 @@ void MainWindow::toggleFullScreen()
     }
     else
     {
+        // QWindow can publish WindowFullScreen before AppKit starts its native
+        // transition. Capture the user's edge before titlebar restoration or
+        // any other geometry change can fire the delayed constraint.
+        graphicsView->beginFullScreenPanPreservation();
+
         // Restore the titlebar before entering fullscreen because macOS may apply special titlebar handling.
         storedTitlebarHidden = getTitlebarHidden();
         if (storedTitlebarHidden)

@@ -5255,6 +5255,11 @@ void QVCocoaFunctions::setUserDefaults()
             objc_setAssociatedObject(
                 window, &FullScreenAnimationAssociationKey,
                 nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            FovelleFullScreenAnimationHandler handler =
+                objc_getAssociatedObject(
+                    window, &FullScreenAnimationHandlerAssociationKey);
+            if (handler)
+                handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
             revealFovelleFullScreenRealWindow(window);
             dispatch_async(dispatch_get_main_queue(), ^{
                 cleanupFovelleFullScreenProxy(window);
