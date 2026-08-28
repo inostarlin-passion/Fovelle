@@ -519,6 +519,8 @@ void QVGraphicsView::mouseMoveEvent(QMouseEvent *event)
         bool isMovingWindow = false;
         executeDragAction(action, delta, isMovingWindow);
         if (!isMovingWindow)
+            logViewportState("mouse-drag");
+        if (!isMovingWindow)
             lastMousePos = event->pos();
         return;
     }
@@ -2453,14 +2455,18 @@ MainWindow* QVGraphicsView::getMainWindow() const
     return qobject_cast<MainWindow*>(window());
 }
 
-QVGraphicsView::ScrollEdge QVGraphicsView::getScrollEdge(
-    const QScrollBar *scrollBar) const
+QVGraphicsView::ScrollEdge QVGraphicsView::getScrollEdge(const QScrollBar *scrollBar) const
 {
+    // ScrollHelper calculates the image-space range from QRect dimensions while
+    // QGraphicsView exposes an inclusive integer scrollbar range.  Releasing a
+    // drag at the visual edge can therefore leave a short (observed: two-unit)
+    // animated constraint tail before the next fullscreen request captures it.
+    constexpr int ScrollEdgeTolerance = 3;
     if (scrollBar->minimum() >= scrollBar->maximum())
         return ScrollEdge::None;
-    if (scrollBar->value() <= scrollBar->minimum() + 1)
+    if (scrollBar->value() <= scrollBar->minimum() + ScrollEdgeTolerance)
         return ScrollEdge::Minimum;
-    if (scrollBar->value() >= scrollBar->maximum() - 1)
+    if (scrollBar->value() >= scrollBar->maximum() - ScrollEdgeTolerance)
         return ScrollEdge::Maximum;
     return ScrollEdge::None;
 }

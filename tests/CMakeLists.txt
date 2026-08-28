@@ -109,6 +109,39 @@ if(QV_DISABLE_ONLINE_VERSION_CHECK)
     target_compile_definitions(fovelle_tests PRIVATE QV_DISABLE_ONLINE_VERSION_CHECK)
 endif()
 
+# This is an opt-in system-level reproduction driver.  Unlike the QtTest
+# target above, it launches the real app and posts a fixed CoreGraphics HID
+# drag trajectory through kCGHIDEventTap.  The external fixture is deliberately
+# configurable because it lives on the developer's mounted test volume and is
+# not available on hosted CI runners.
+add_executable(fovelle_native_drag_helper
+    native_drag_helper.mm
+)
+set_target_properties(fovelle_native_drag_helper PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_link_libraries(fovelle_native_drag_helper PRIVATE
+    "-framework AppKit"
+    "-framework ApplicationServices"
+    "-framework CoreGraphics"
+)
+
+set(FOVELLE_NATIVE_DRAG_IMAGE
+    "/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/3.jpeg"
+    CACHE FILEPATH "Image used by the native CoreGraphics drag reproduction")
+add_test(NAME FovelleNativeDragReproduction
+    COMMAND fovelle_native_drag_helper
+        --app "$<TARGET_FILE:Fovelle>"
+        --image "${FOVELLE_NATIVE_DRAG_IMAGE}"
+)
+set_tests_properties(FovelleNativeDragReproduction PROPERTIES
+    SKIP_RETURN_CODE 77
+    TIMEOUT 90
+    LABELS "native-ui;fullscreen;requires-accessibility"
+)
+
 add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
