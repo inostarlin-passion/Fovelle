@@ -72,7 +72,6 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     loadedPixmapItem = new QVGraphicsImageItem();
     scene->addItem(loadedPixmapItem);
 
-    hdrRenderer = std::make_unique<QVCocoaFunctions::HDRRenderer>(viewport());
     hdrFrameRequestTimer = new QTimer(this);
     hdrFrameRequestTimer->setSingleShot(true);
     hdrFrameRequestTimer->setInterval(0);
@@ -1100,6 +1099,19 @@ void QVGraphicsView::beforeLoad()
         lastImageContentRect = getContentRect();
 }
 
+void QVGraphicsView::ensureHDRRenderer()
+{
+    if (hdrRenderer)
+        return;
+
+    // The native layer tree and CAMetalDisplayLink are only useful for a
+    // loaded image. Constructing them while an empty window is being created
+    // promotes the Cocoa view hierarchy and adds needless launch latency.
+    hdrRenderer = std::make_unique<QVCocoaFunctions::HDRRenderer>(viewport());
+    hdrRenderer->setBackgroundColor(viewportBackgroundBrush.color());
+    hdrRenderer->setCheckerboardBackground(checkerboardBackground);
+}
+
 void QVGraphicsView::postLoad()
 {
     hdrLayoutReady = false;
@@ -1110,6 +1122,9 @@ void QVGraphicsView::postLoad()
 
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
+    if (imageCore.getLoadedHDRImage() || imageCore.getLoadedSDRImage())
+        ensureHDRRenderer();
+
     if (imageCore.getLoadedHDRImage())
         hdrRendererActive = hdrRenderer
                 && hdrRenderer->setImage(imageCore.getLoadedHDRImage());

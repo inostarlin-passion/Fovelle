@@ -247,6 +247,10 @@ protected slots:
 private:
     void clearTitlebarIcons();
 
+    void ensureContextMenu();
+
+    void ensureInfoDialog();
+
     void exitFullScreen();
 
     void initializeNavigationButtons();
@@ -289,15 +293,15 @@ private:
     bool nextImageButtonHovered {false};
     int pressedNavigationButton {-1};
 
-    QMenu *contextMenu;
-    QMenu *virtualMenu;
+    QMenu *contextMenu {nullptr};
+    QMenu *virtualMenu {nullptr};
 
     QTimer *slideshowTimer;
     QTimer *zoomTitlebarUpdateTimer;
 
     QShortcut *escShortcut;
 
-    QVInfoDialog *info;
+    QVInfoDialog *info {nullptr};
 
     QColor customBackgroundColor;
     bool checkerboardBackground {false};
@@ -314,10 +318,11 @@ private:
 
     QStack<DeletedPaths> lastDeletedFiles;
 
-    QTimer *populateOpenWithTimer;
     QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
     QString openWithFutureFilePath;
+    QString openWithPopulatedFilePath;
     bool openWithPopulationPending {false};
+    bool contextMenuInitialized {false};
 };
 
 #endif // MAINWINDOW_H

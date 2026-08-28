@@ -39,6 +39,7 @@ def main() -> int:
     relative_sources = (
         "src/mainwindow.cpp",
         "src/qvapplication.cpp",
+        "src/actionmanager.cpp",
         "src/qvcocoafunctions.h",
         "src/qvcocoafunctions.mm",
         "src/qvgraphicsview.h",
@@ -665,10 +666,10 @@ def main() -> int:
     )
 
     mainwindow_header = source["src/mainwindow.h"]
+    actionmanager_cpp = source["src/actionmanager.cpp"]
     issue_864_contract = contains_all(
-        window_cpp + mainwindow_header + test_source,
+        window_cpp + mainwindow_header + actionmanager_cpp + test_source,
         (
-            "populateOpenWithTimer->stop();",
             "openWithFutureWatcher.isRunning()",
             "openWithFutureWatcher.waitForFinished();",
             "openWithFutureFilePath",
@@ -676,13 +677,13 @@ def main() -> int:
             "openWithPopulationPending",
             "testOpenWithWorkerTeardownContract",
         ),
-    )
+    ) and "aboutToShow" in actionmanager_cpp and "requestPopulateOpenWithMenu" in actionmanager_cpp
     add_check(
         checks,
         "ST-12",
         issue_864_contract,
         {
-            "timer_stopped_on_teardown": "populateOpenWithTimer->stop();" in window_cpp,
+            "lazy_menu_trigger": "aboutToShow" in actionmanager_cpp and "requestPopulateOpenWithMenu" in actionmanager_cpp,
             "future_waited_on_teardown": "openWithFutureWatcher.waitForFinished();" in window_cpp,
             "path_captured_by_value": "[filePath]()" in window_cpp,
             "serial_refresh_guard": "openWithPopulationPending" in window_cpp,

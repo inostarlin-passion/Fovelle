@@ -288,6 +288,8 @@ private slots:
     void postLoad();
 
 private:
+    void ensureHDRRenderer();
+
     QVGraphicsImageItem *loadedPixmapItem;
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 

@@ -84,13 +84,29 @@ public:
 
     QMenuBar *getMenuBar() const {  return menuBar; }
 
-    const QSet<QString> &getAllFileExtensionList() const { return allFileExtensionSet; }
+    const QSet<QString> &getAllFileExtensionList() const
+    {
+        ensureFilterLists();
+        return allFileExtensionSet;
+    }
 
-    const QSet<QString> &getFileExtensionSet() const { return fileExtensionSet; }
+    const QSet<QString> &getFileExtensionSet() const
+    {
+        ensureFilterLists();
+        return fileExtensionSet;
+    }
 
-    const QSet<QString> &getMimeTypeNameSet() const { return mimeTypeNameSet; }
+    const QSet<QString> &getMimeTypeNameSet() const
+    {
+        ensureFilterLists();
+        return mimeTypeNameSet;
+    }
 
-    const QStringList &getNameFilterList() const { return nameFilterList; }
+    const QStringList &getNameFilterList() const
+    {
+        ensureFilterLists();
+        return nameFilterList;
+    }
 
     const SettingsManager &getSettingsManager() const { return settingsManager; }
     SettingsManager &getSettingsManager() { return settingsManager; }
@@ -140,6 +156,8 @@ protected slots:
     void onAboutToQuit();
 
 private:
+    void ensureFilterLists() const;
+
     void queueFileOpen(const QString &file);
     void processPendingFileOpenEvents();
 
@@ -156,6 +174,7 @@ private:
     QSet<QString> fileExtensionSet;
     QSet<QString> mimeTypeNameSet;
     QStringList nameFilterList;
+    mutable bool filterListsInitialized {false};
 
     // This order is very important
     SettingsManager settingsManager;

@@ -15,9 +15,23 @@
 #include <QIcon>
 #include <QStyleHints>
 #include <QUrl>
+#include <QElapsedTimer>
+#include <QDebug>
 
 QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
+    QElapsedTimer constructionTimer;
+    const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceConstruction)
+        constructionTimer.start();
+    const auto markConstruction = [&](const char *phase) {
+        if (traceConstruction)
+            qInfo().noquote() << QStringLiteral("FOVELLE_APPLICATION phase=%1 elapsed_ms=%2")
+                                     .arg(QString::fromLatin1(phase))
+                                     .arg(constructionTimer.elapsed());
+    };
+    markConstruction("constructor-start");
+
     setQuitOnLastWindowClosed(true);
 #if defined(Q_OS_MACOS) && QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     // Native context-menu tracking consumes the initiating mouse-up. Ask Qt
@@ -34,6 +48,7 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
     connect(&updateChecker, &UpdateChecker::checkedUpdates, this, &QVApplication::checkedUpdates);
 
     settingsUpdated();
+    markConstruction("settings-ready");
 
 #ifndef QV_DISABLE_ONLINE_VERSION_CHECK
     // Check for updates after the application identity and settings are ready.
@@ -58,23 +73,24 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
         ActionManager::actionTriggered(triggeredAction);
     });
 
-    actionManager.loadRecentsList();
-
     actionManager.addCloneOfAction(dockMenu, "newwindow");
     actionManager.addCloneOfAction(dockMenu, "open");
     dockMenu->setAsDockMenu();
+    markConstruction("dock-menu-ready");
 
     // Build menu bar
     menuBar = actionManager.buildMenuBar();
     connect(menuBar, &QMenuBar::triggered, this, [](QAction *triggeredAction){
         ActionManager::actionTriggered(triggeredAction);
     });
+    markConstruction("menu-bar-ready");
 
     // Set mac-specific application settings
     QVCocoaFunctions::setUserDefaults();
     QVCocoaFunctions::registerWillPowerOffObserver();
 
     hideIncompatibleActions();
+    markConstruction("constructor-complete");
 }
 
 QVApplication::~QVApplication()
@@ -377,7 +393,18 @@ void QVApplication::settingsUpdated()
 
     setQuitOnLastWindowClosed(true);
 
-    defineFilterLists();
+    // Image-format and MIME discovery walks the Qt/Image I/O registries. It
+    // is only needed by a file dialog or folder enumeration, so invalidate the
+    // cache here and defer the scan until one of those consumers asks for it.
+    filterListsInitialized = false;
+}
+
+void QVApplication::ensureFilterLists() const
+{
+    if (filterListsInitialized)
+        return;
+
+    const_cast<QVApplication *>(this)->defineFilterLists();
 }
 
 void QVApplication::defineFilterLists()
@@ -474,6 +501,7 @@ void QVApplication::defineFilterLists()
     filterString += ")";
     nameFilterList << filterString;
     nameFilterList << tr("All Files") + " (*)";
+    filterListsInitialized = true;
 }
 
 void QVApplication::ensureFontLoaded(const QString &path)
@@ -492,7 +520,6 @@ QIcon QVApplication::iconFromFont(const Qv::MaterialIcon iconName)
     static std::optional<QFont> materialIconFont;
     if (!materialIconFont.has_value())
     {
-        ensureFontLoaded(":/fonts/MaterialIconsOutlined-Regular.otf");
         materialIconFont = QFont("Material Icons Outlined");
         materialIconFont->setStyleStrategy(QFont::NoFontMerging);
     }
@@ -585,6 +612,10 @@ void QVApplication::onCommitDataRequest(QSessionManager &manager)
 void QVApplication::onAboutToQuit()
 {
     isApplicationQuitting = true;
+    QElapsedTimer quitTimer;
+    const bool traceQuit = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceQuit)
+        quitTimer.start();
 
     if (isSessionStateSaveRequested)
     {
@@ -613,6 +644,16 @@ void QVApplication::onAboutToQuit()
         }
     }
 
-    // Delay destroying application until thread pool threads have finished
-    QThreadPool::globalInstance()->waitForDone();
+    // Keep the existing safety boundary: QtConcurrent futures in this pool
+    // must be allowed to report completion before their watchers are torn
+    // down. A raw QThreadPool::clear() would delete queued future runnables
+    // without giving them a chance to publish that terminal state.
+    QThreadPool *threadPool = QThreadPool::globalInstance();
+    const int activeThreadsBeforeDrain = threadPool->activeThreadCount();
+    threadPool->waitForDone();
+
+    if (traceQuit)
+        qInfo().noquote() << QStringLiteral("FOVELLE_EXIT phase=about-to-quit-complete active_threads=%1 elapsed_ms=%2")
+                                 .arg(activeThreadsBeforeDrain)
+                                 .arg(quitTimer.elapsed());
 }

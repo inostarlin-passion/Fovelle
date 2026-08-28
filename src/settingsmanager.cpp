@@ -9,12 +9,28 @@
 #include <QColor>
 
 #include <QDebug>
+#include <QElapsedTimer>
 
 SettingsManager::SettingsManager(QObject *parent) : QObject(parent)
 {
+    QElapsedTimer constructionTimer;
+    const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceConstruction)
+        constructionTimer.start();
+    const auto markConstruction = [&](const char *phase) {
+        if (traceConstruction)
+            qInfo().noquote() << QStringLiteral("FOVELLE_SETTINGS_MANAGER phase=%1 elapsed_ms=%2")
+                                     .arg(QString::fromLatin1(phase))
+                                     .arg(constructionTimer.elapsed());
+    };
+    markConstruction("constructor-start");
+
     initializeSettingsLibrary();
+    markConstruction("library-ready");
     loadSettings();
+    markConstruction("settings-ready");
     loadTranslations();
+    markConstruction("constructor-complete");
 }
 
 QString SettingsManager::getSystemLanguage() const
@@ -146,8 +162,15 @@ bool SettingsManager::isDefault(const QString &key) const
 
 void SettingsManager::migrateOldSettings()
 {
-    if (!QSettings().contains("firstlaunch"))
+    QSettings migrationMarker;
+    if (!migrationMarker.contains("firstlaunch"))
+    {
         copyFromOfficial();
+        // The legacy import is a one-time operation. Without this marker a
+        // clean Fovelle profile re-scans and copies the old qView store on
+        // every launch.
+        migrationMarker.setValue("firstlaunch", true);
+    }
 
     QSettings settings;
     settings.beginGroup("options");
@@ -187,9 +210,13 @@ void SettingsManager::migrateOldSettings()
         && language != QStringLiteral("es")
         && language != QStringLiteral("ja"))
         settings.setValue("language", QStringLiteral("system"));
-    settings.remove("updatenotifications");
-    settings.remove("disabledfileextensions");
-    settings.remove("slideshowkeepswindowontop");
+    for (const QString &key : {QStringLiteral("updatenotifications"),
+                               QStringLiteral("disabledfileextensions"),
+                               QStringLiteral("slideshowkeepswindowontop")})
+    {
+        if (settings.contains(key))
+            settings.remove(key);
+    }
 
     // Removed Preferences controls are now fixed policies. Reset values from
     // older installations so an obsolete, previously customized checkbox
@@ -231,7 +258,10 @@ void SettingsManager::migrateOldSettings()
         { "loopfoldersenabled", false },
     };
     for (auto it = removedPreferenceDefaults.cbegin(); it != removedPreferenceDefaults.cend(); ++it)
-        settings.setValue(it.key(), it.value());
+    {
+        if (settings.value(it.key()) != it.value())
+            settings.setValue(it.key(), it.value());
+    }
 }
 
 void SettingsManager::copyFromOfficial()

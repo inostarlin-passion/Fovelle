@@ -24,13 +24,20 @@ constexpr qint64 MaxPreloadSourceBytes = 128LL * 1024LL * 1024LL;
 constexpr quint64 MaxPreloadDecodedBytes = 128ULL * 1024ULL * 1024ULL;
 }
 
-QVImageLoader::QVImageLoader(QObject *parent) : QObject(parent)
+QVImageLoader::QVImageLoader(QObject *parent)
+    : QObject(parent), imageThreadPool(this)
 {
 }
 
 QVImageLoader::~QVImageLoader()
 {
     lifetimeToken.reset();
+
+    // Image-loader jobs are raw QRunnables, not QFuture-backed work. Isolate
+    // them from QtConcurrent's global pool so queued speculative preloads can
+    // be discarded here without leaving another component's future pending.
+    imageThreadPool.clear();
+    imageThreadPool.waitForDone();
 }
 
 void QVImageLoader::setLargestDimension(const int value)
@@ -496,7 +503,7 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     QVImageLoader *loader = this;
     const std::weak_ptr<int> weakLifetime = lifetimeToken;
     QObject *dispatchContext = QCoreApplication::instance();
-    QThreadPool::globalInstance()->start(
+    imageThreadPool.start(
         [
             loader,
             weakLifetime,

@@ -43,6 +43,7 @@
 #include <QPainterPath>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDebug>
 #include <QtMath>
 
 namespace
@@ -192,7 +193,20 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
+    QElapsedTimer constructionTimer;
+    const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceConstruction)
+        constructionTimer.start();
+    const auto markConstruction = [&](const char *phase) {
+        if (traceConstruction)
+            qInfo().noquote() << QStringLiteral("FOVELLE_MAINWINDOW phase=%1 elapsed_ms=%2")
+                                     .arg(QString::fromLatin1(phase))
+                                     .arg(constructionTimer.elapsed());
+    };
+    markConstruction("constructor-start");
+
     ui->setupUi(this);
+    markConstruction("ui-ready");
     // Keep the bundle icon for Finder and the Dock, but do not assign an icon to
     // the image window itself. On macOS a window icon is part of the document
     // proxy shown in the titlebar when a file path is associated with the window.
@@ -211,6 +225,7 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     graphicsView = new QVGraphicsView(this);
     graphicsView->setObjectName(QStringLiteral("graphicsView"));
     centralWidget()->layout()->addWidget(graphicsView);
+    markConstruction("graphics-view-ready");
 
     initializeNavigationButtons();
 
@@ -351,9 +366,6 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     // Enable drag&dropping
     setAcceptDrops(true);
 
-    // Make info dialog object
-    info = new QVInfoDialog(this);
-
     // Timer for slideshow
     slideshowTimer = new QTimer(this);
     connect(slideshowTimer, &QTimer::timeout, this, &MainWindow::slideshowAction);
@@ -364,38 +376,14 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     zoomTitlebarUpdateTimer->setInterval(50);
     connect(zoomTitlebarUpdateTimer, &QTimer::timeout, this, &MainWindow::buildWindowTitle);
 
-    // Context menu
+    // The context menu and file-info dialog are demand-loaded. Their action
+    // trees and native metadata lookups are not required to paint the first
+    // window and are now constructed at the point of first use.
     auto &actionManager = qvApp->getActionManager();
-
-    contextMenu = new QVMenu(this);
-    contextMenu->setProperty("isContextMenu", true);
-
-    actionManager.addCloneOfAction(contextMenu, "open");
-    actionManager.addCloneOfAction(contextMenu, "openurl");
-    contextMenu->addMenu(actionManager.buildRecentsMenu(contextMenu));
-    contextMenu->addMenu(actionManager.buildOpenWithMenu(contextMenu));
-    actionManager.addCloneOfAction(contextMenu, "openwithplaceholder");
-    actionManager.addCloneOfAction(contextMenu, "opencontainingfolder");
-    actionManager.addCloneOfAction(contextMenu, "showfileinfo");
-    contextMenu->addSeparator();
-    actionManager.addCloneOfAction(contextMenu, "rename");
-    actionManager.addCloneOfAction(contextMenu, "delete");
-    contextMenu->addSeparator();
-    actionManager.addCloneOfAction(contextMenu, "nextfile");
-    actionManager.addCloneOfAction(contextMenu, "previousfile");
-    contextMenu->addSeparator();
-    contextMenu->addMenu(actionManager.buildSortMenu(contextMenu));
-    contextMenu->addSeparator();
-    contextMenu->addMenu(actionManager.buildViewMenu(contextMenu));
-    contextMenu->addMenu(actionManager.buildToolsMenu(contextMenu));
-    contextMenu->addMenu(actionManager.buildHelpMenu(contextMenu));
-
-    connect(contextMenu, &QMenu::triggered, this, [this](QAction *triggeredAction){
-        ActionManager::actionTriggered(triggeredAction, this);
-    });
 
     // Initialize menubar
     setMenuBar(actionManager.buildMenuBar(this));
+    markConstruction("menu-bar-ready");
     // Stop actions conflicting with the window's actions
     const auto menubarActions = ActionManager::getAllNestedActions(menuBar()->actions());
     for (auto action : menubarActions)
@@ -418,6 +406,7 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     connect(virtualMenu, &QMenu::triggered, this, [this](QAction *triggeredAction){
         ActionManager::actionTriggered(triggeredAction, this);
     });
+    markConstruction("virtual-menu-ready");
 
     // Enable actions related to having a window
     disableActions();
@@ -427,12 +416,7 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &MainWindow::settingsUpdated);
     settingsUpdated();
     shortcutsUpdated();
-
-    // Timer for delayed-load Open With menu
-    populateOpenWithTimer = new QTimer(this);
-    populateOpenWithTimer->setSingleShot(true);
-    populateOpenWithTimer->setInterval(250);
-    connect(populateOpenWithTimer, &QTimer::timeout, this, &MainWindow::requestPopulateOpenWithMenu);
+    markConstruction("settings-ready");
 
     // Connection for open with menu population futurewatcher
     connect(&openWithFutureWatcher, &QFutureWatcher<QList<OpenWith::OpenWithItem>>::finished, this, [this](){
@@ -440,7 +424,10 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
         openWithFutureFilePath.clear();
 
         if (!isClosing && completedFilePath == getCurrentFileDetails().fileInfo.absoluteFilePath())
+        {
             populateOpenWithMenu(openWithFutureWatcher.result());
+            openWithPopulatedFilePath = completedFilePath;
+        }
 
         if (openWithPopulationPending && !isClosing)
         {
@@ -461,11 +448,12 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
         restoreGeometry(settings.value("geometry").toByteArray());
     }
 
+    markConstruction("constructor-complete");
+
 }
 
 MainWindow::~MainWindow()
 {
-    populateOpenWithTimer->stop();
     openWithPopulationPending = false;
 
     // QtConcurrent::run() cannot be canceled. Wait for the Open With worker
@@ -877,8 +865,59 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
     // Qt is configured to send this after the real right-button release. The
     // Cocoa bridge can therefore start menu tracking without manufacturing a
     // second down/up pair or leaving Qt's pointer state pressed.
+    ensureContextMenu();
     event->accept();
     QVCocoaFunctions::showMenu(contextMenu);
+}
+
+void MainWindow::ensureContextMenu()
+{
+    if (contextMenuInitialized)
+        return;
+
+    auto &actionManager = qvApp->getActionManager();
+
+    contextMenu = new QVMenu(this);
+    contextMenu->setProperty("isContextMenu", true);
+
+    actionManager.addCloneOfAction(contextMenu, "open");
+    actionManager.addCloneOfAction(contextMenu, "openurl");
+    contextMenu->addMenu(actionManager.buildRecentsMenu(contextMenu));
+    contextMenu->addMenu(actionManager.buildOpenWithMenu(contextMenu));
+    actionManager.addCloneOfAction(contextMenu, "openwithplaceholder");
+    actionManager.addCloneOfAction(contextMenu, "opencontainingfolder");
+    actionManager.addCloneOfAction(contextMenu, "showfileinfo");
+    contextMenu->addSeparator();
+    actionManager.addCloneOfAction(contextMenu, "rename");
+    actionManager.addCloneOfAction(contextMenu, "delete");
+    contextMenu->addSeparator();
+    actionManager.addCloneOfAction(contextMenu, "nextfile");
+    actionManager.addCloneOfAction(contextMenu, "previousfile");
+    contextMenu->addSeparator();
+    contextMenu->addMenu(actionManager.buildSortMenu(contextMenu));
+    contextMenu->addSeparator();
+    contextMenu->addMenu(actionManager.buildViewMenu(contextMenu));
+    contextMenu->addMenu(actionManager.buildToolsMenu(contextMenu));
+    contextMenu->addMenu(actionManager.buildHelpMenu(contextMenu));
+
+    connect(contextMenu, &QMenu::triggered, this, [this](QAction *triggeredAction){
+        ActionManager::actionTriggered(triggeredAction, this);
+    });
+
+    contextMenuInitialized = true;
+    // The menu may be created after a file has already loaded. Bring its
+    // freshly cloned actions to the same state as the always-present window
+    // actions before the first Cocoa menu tracking pass.
+    disableActions();
+    syncCalculatedZoomMode();
+    syncNavigationResetsZoom();
+    syncSortParameters();
+}
+
+void MainWindow::ensureInfoDialog()
+{
+    if (!info)
+        info = new QVInfoDialog(this);
 }
 
 void MainWindow::showEvent(QShowEvent *event)
@@ -931,7 +970,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     settings.setValue("geometry", saveGeometry());
 
     qvApp->deleteFromActiveWindows(this);
-    qvApp->getActionManager().untrackClonedActions(contextMenu);
+    if (contextMenu)
+        qvApp->getActionManager().untrackClonedActions(contextMenu);
     qvApp->getActionManager().untrackClonedActions(menuBar());
     qvApp->getActionManager().untrackClonedActions(virtualMenu);
 
@@ -1202,8 +1242,13 @@ void MainWindow::settingsUpdated()
     // menubarenabled
     menuBarEnabled = settingsManager.getBoolean("menubarenabled");
 
-    // Apply the selected standard AppKit appearance to the native titlebar.
-    QVCocoaFunctions::setWindowTheme(theme, windowHandle());
+    // The application theme is installed by QVApplication before this
+    // window exists. Avoid promoting the hidden window to a native Cocoa peer
+    // during construction; showEvent applies the titlebar state once the peer
+    // is needed, and visible windows still update immediately on preference
+    // changes.
+    if (isVisible())
+        QVCocoaFunctions::setWindowTheme(theme, windowHandle());
 
     //slideshow timer
     slideshowTimer->setInterval(static_cast<int>(settingsManager.getDouble("slideshowtimer")*1000));
@@ -1240,10 +1285,10 @@ void MainWindow::openRecent(int i)
 
 void MainWindow::fileChanged(const bool isRestoringState)
 {
-    populateOpenWithTimer->start();
+    openWithPopulatedFilePath.clear();
     disableActions();
 
-    if (info->isVisible())
+    if (info && info->isVisible())
         refreshProperties();
     buildWindowTitle();
     clearTitlebarIcons();
@@ -1358,6 +1403,9 @@ void MainWindow::requestPopulateOpenWithMenu()
     }
 
     const QString filePath = getCurrentFileDetails().fileInfo.absoluteFilePath();
+    if (filePath.isEmpty() || filePath == openWithPopulatedFilePath)
+        return;
+
     openWithFutureFilePath = filePath;
     openWithFutureWatcher.setFuture(QtConcurrent::run(
         [filePath]() -> QList<OpenWith::OpenWithItem> {
@@ -1405,6 +1453,7 @@ void MainWindow::populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openW
 
 void MainWindow::refreshProperties()
 {
+    ensureInfoDialog();
     const QVImageCore::FileDetails &fileDetails = getCurrentFileDetails();
     info->setInfo(
         fileDetails.fileInfo,
@@ -1858,6 +1907,7 @@ void MainWindow::openContainingFolder()
 
 void MainWindow::showFileInfo()
 {
+    ensureInfoDialog();
     refreshProperties();
     info->show();
     info->raise();
@@ -2295,7 +2345,7 @@ void MainWindow::toggleWindowOnTop()
 
     Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) { return f.setFlag(Qt::WindowStaysOnTopHint, targetValue); });
 
-    if (info->windowHandle())
+    if (info && info->windowHandle())
         Qv::alterWindowFlags(info, [&](Qt::WindowFlags f) { return f.setFlag(Qt::WindowStaysOnTopHint, targetValue); });
 
     for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("windowontop", this))

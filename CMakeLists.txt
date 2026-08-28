@@ -27,6 +27,14 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
 endif()
 
+# Ninja and Makefiles are single-configuration generators. A build without an
+# explicit configuration must still produce a shippable, optimized app; an
+# explicit -DCMAKE_BUILD_TYPE=Debug/RelWithDebInfo remains authoritative.
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING
+        "Build type for single-configuration generators" FORCE)
+endif()
+
 option(BUILD_TESTS "Build the deterministic Qt test suite" OFF)
 option(FOVELLE_BUILD_TRANSLATIONS "Build and embed Qt translation catalogs" ON)
 option(QV_DISABLE_ONLINE_VERSION_CHECK "Disable automatic version checks" OFF)

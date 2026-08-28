@@ -43,6 +43,7 @@ def main() -> int:
         return (repo / relative).read_text(encoding="utf-8")
 
     mainwindow = text("src/mainwindow.cpp")
+    actionmanager = text("src/actionmanager.cpp")
     application = text("src/qvapplication.cpp")
     add_check(
         checks,
@@ -290,21 +291,20 @@ def main() -> int:
     checks[-1]["pass"] = checks[-1]["pass"] and small_image_tests_present
 
     issue_864 = all_present(
-        mainwindow + text("src/mainwindow.h"),
+        mainwindow + text("src/mainwindow.h") + actionmanager,
         (
-            "populateOpenWithTimer->stop();",
             "openWithFutureWatcher.waitForFinished();",
             "openWithFutureFilePath",
             "[filePath]()",
             "openWithPopulationPending",
         ),
-    )
+    ) and "aboutToShow" in actionmanager and "requestPopulateOpenWithMenu" in actionmanager
     add_check(
         checks,
         "I-11",
         issue_864,
         {
-            "timer_stopped": "populateOpenWithTimer->stop();" in mainwindow,
+            "lazy_menu_trigger": "aboutToShow" in actionmanager and "requestPopulateOpenWithMenu" in actionmanager,
             "future_waited": "openWithFutureWatcher.waitForFinished();" in mainwindow,
             "path_value_capture": "[filePath]()" in mainwindow,
             "refresh_serialization": "openWithPopulationPending" in mainwindow,

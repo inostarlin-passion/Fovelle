@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QImage>
 #include <QObject>
+#include <QThreadPool>
 
 class QVImageLoader : public QObject
 {
@@ -124,6 +125,7 @@ private:
     QHash<QString, Entry> entries;
     std::optional<PendingRequest> pendingRequest;
     std::shared_ptr<int> lifetimeToken = std::make_shared<int>(0);
+    QThreadPool imageThreadPool;
 
     quint64 nextRequestId = 0;
     int largestDimension = 1920;

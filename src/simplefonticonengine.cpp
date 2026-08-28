@@ -1,7 +1,21 @@
 #include "simplefonticonengine.h"
 #include <QPainter>
 #include <QPalette>
+#include <QFontDatabase>
 #include <QDebug>
+
+#include <mutex>
+
+namespace
+{
+void ensureMaterialIconFontLoaded()
+{
+    static std::once_flag loadOnce;
+    std::call_once(loadOnce, []() {
+        QFontDatabase::addApplicationFont(":/fonts/MaterialIconsOutlined-Regular.otf");
+    });
+}
+}
 
 SimpleFontIconEngine::SimpleFontIconEngine(const QChar iconChar, const QFont &iconFont)
     : m_iconChar(iconChar), m_iconFont(iconFont)
@@ -71,6 +85,11 @@ QPixmap SimpleFontIconEngine::scaledPixmapInternal(const QSize &size, QIcon::Mod
 
 void SimpleFontIconEngine::paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State)
 {
+    // Register the font at the first real paint, not while ActionManager is
+    // constructing its complete action library. Every drawing path passes
+    // here, and call_once keeps the deferred initialization idempotent.
+    ensureMaterialIconFontLoaded();
+
     const QPalette palette;
     const QColor color =
         mode == QIcon::Disabled ? palette.color(QPalette::Disabled, QPalette::Text) :

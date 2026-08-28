@@ -9,16 +9,32 @@
 #include <QFileIconProvider>
 #include <QKeyEvent>
 #include <QDesktopServices>
+#include <QDebug>
+#include <QElapsedTimer>
 
 #include <algorithm>
 
 ActionManager::ActionManager(QObject *parent) : QObject(parent)
 {
+    QElapsedTimer constructionTimer;
+    const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceConstruction)
+        constructionTimer.start();
+    const auto markConstruction = [&](const char *phase) {
+        if (traceConstruction)
+            qInfo().noquote() << QStringLiteral("FOVELLE_ACTION_MANAGER phase=%1 elapsed_ms=%2")
+                                     .arg(QString::fromLatin1(phase))
+                                     .arg(constructionTimer.elapsed());
+    };
+    markConstruction("constructor-start");
+
     // Connect to settings signal
     connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &ActionManager::settingsUpdated);
     settingsUpdated();
+    markConstruction("settings-ready");
 
     initializeActionLibrary();
+    markConstruction("actions-ready");
 
     recentsSaveTimer = new QTimer(this);
     recentsSaveTimer->setSingleShot(true);
@@ -26,9 +42,11 @@ ActionManager::ActionManager(QObject *parent) : QObject(parent)
     connect(recentsSaveTimer, &QTimer::timeout, this, &ActionManager::saveRecentsList);
 
     loadRecentsList();
+    markConstruction("recents-ready");
 
     windowMenu = new QMenu(tr("Window"));
     QVCocoaFunctions::setWindowMenu(windowMenu);
+    markConstruction("constructor-complete");
 }
 
 ActionManager::~ActionManager()
@@ -527,6 +545,22 @@ QMenu *ActionManager::buildOpenWithMenu(QWidget *parent)
     if (isContextMenu ? qvApp->getShowContextMenuIcons() : qvApp->getShowMainMenuIcons())
         openWithMenu->setIcon(qvApp->iconFromFont(Qv::MaterialIcon::Launch));
     openWithMenu->setDisabled(true);
+
+    // Enumerating Launch Services can be slow and is not needed until the
+    // user opens this submenu. Resolve the owning window lazily so both the
+    // per-window menu and the global macOS menu use the same request path.
+    connect(openWithMenu, &QMenu::aboutToShow, openWithMenu, [openWithMenu]() {
+        MainWindow *window = nullptr;
+        for (QObject *owner = openWithMenu; owner; owner = owner->parent())
+        {
+            if ((window = qobject_cast<MainWindow *>(owner)))
+                break;
+        }
+        if (!window)
+            window = qobject_cast<MainWindow *>(QApplication::activeWindow());
+        if (window)
+            window->requestPopulateOpenWithMenu();
+    });
 
     for (int i = 0; i < openWithMaxLength; i++)
     {

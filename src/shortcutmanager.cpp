@@ -3,12 +3,29 @@
 #include "actionmanager.h"
 
 #include <QSettings>
+#include <QDebug>
+#include <QElapsedTimer>
 
 ShortcutManager::ShortcutManager(QObject *parent) : QObject(parent)
 {
+    QElapsedTimer constructionTimer;
+    const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
+    if (traceConstruction)
+        constructionTimer.start();
+    const auto markConstruction = [&](const char *phase) {
+        if (traceConstruction)
+            qInfo().noquote() << QStringLiteral("FOVELLE_SHORTCUT_MANAGER phase=%1 elapsed_ms=%2")
+                                     .arg(QString::fromLatin1(phase))
+                                     .arg(constructionTimer.elapsed());
+    };
+    markConstruction("constructor-start");
+
     initializeShortcutsList();
+    markConstruction("library-ready");
     updateShortcuts();
+    markConstruction("shortcuts-ready");
     hideShortcuts();
+    markConstruction("constructor-complete");
 }
 
 void ShortcutManager::updateShortcuts()
