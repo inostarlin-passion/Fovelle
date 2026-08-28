@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from project_version import PROJECT_VERSION, read_project_version
+
 
 STAGES = ("static", "unit", "integration", "system")
 REPORT_NAMES = (
@@ -744,6 +746,7 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
 
 
 def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
+    project_version = read_project_version(repo)
     binary = build_dir / "Fovelle.app" / "Contents" / "MacOS" / "Fovelle"
     if not binary.is_file():
         missing = {
@@ -771,7 +774,9 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
         r"FOVELLE_SYSTEM_PROBE windows=1 maximized=true", probe["output_tail"]
     )
     version = run_command([str(binary), "--version"], repo, timeout=15)
-    version_match = re.search(r"\b1\.0\.1\b", version["output_tail"])
+    version_match = re.search(
+        rf"\b{re.escape(project_version)}\b", version["output_tail"]
+    )
     with tempfile.TemporaryDirectory(prefix="fovelle-release-system-audit-") as directory:
         release_output_path = Path(directory) / "release-system.json"
         release_system = run_command(
@@ -803,7 +808,7 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
         "CI-SYSTEM-002": {
             "passed": bool(version["passed"] and version_match),
             "observed": {
-                "expected_version": "1.0.1",
+                "expected_version": project_version,
                 "version_observed": version_match.group(0) if version_match else None,
             },
             "execution": version,
@@ -1116,14 +1121,14 @@ CASES = [
     case(
         "CI-SYSTEM-002",
         "system",
-        "实际 app bundle 的版本输出为 1.0.1。",
+        f"实际 app bundle 的版本输出为 {PROJECT_VERSION}。",
         "功能正确性",
         "tests/ci_quality_pipeline.py::run_system::version",
         "验证最终 bundle 的版本元数据没有被构建路径修复破坏。",
         ["app bundle 已构建。"],
-        {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version", "expected_version": "1.0.1"},
+        {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version", "expected_version": PROJECT_VERSION},
         ["执行 --version。", "匹配版本号。"],
-        "进程返回 0 且输出包含 1.0.1。",
+        f"进程返回 0 且输出包含 {PROJECT_VERSION}。",
         ["版本进程退出。"],
     ),
     case(

@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from project_version import read_project_version
+
 
 EXECUTION_ORDER = ("static", "unit", "integration", "system")
 REPORT_NAMES = (
@@ -632,6 +634,7 @@ def run_unit(repo: Path, binary: Path) -> tuple[dict[str, Any], dict[str, dict[s
 
 
 def run_integration(repo: Path, build_dir: Path, app: Path, binary: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    project_version = read_project_version(repo)
     generated_candidates = (
         build_dir / "Fovelle_autogen/include/ui_qvoptionsdialog.h",
         build_dir / "tests/fovelle_tests_autogen/include/ui_qvoptionsdialog.h",
@@ -653,7 +656,8 @@ def run_integration(repo: Path, build_dir: Path, app: Path, binary: Path) -> tup
     version_environment.update({"QT_QPA_PLATFORM": "cocoa", "FOVELLE_DISABLE_AUTO_UPDATE_CHECK": "1"})
     version = run_command([str(app / "Contents/MacOS/Fovelle"), "--version"], repo, version_environment, timeout=30.0)
     version_output = version.get("stdout", "") + version.get("stderr", "")
-    cases["IT-APP-VERSION"] = check(version["passed"] and bool(re.search(r"0\.1\.4", version_output)), {"version_marker": bool(re.search(r"0\.1\.4", version_output)), "execution": command_record(version)})
+    version_match = re.search(rf"\b{re.escape(project_version)}\b", version_output)
+    cases["IT-APP-VERSION"] = check(version["passed"] and bool(version_match), {"version_marker": bool(version_match), "execution": command_record(version)})
     stage = {"test_level": "integration", "passed": all(item["passed"] for item in cases.values()), "cases": cases}
     return stage, cases
 

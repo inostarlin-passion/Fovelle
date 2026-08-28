@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from project_version import PROJECT_VERSION, read_project_version
+
 
 STAGE_ORDER = ("static", "unit", "integration", "system")
 REPORT_NAMES = (
@@ -293,7 +295,7 @@ def integration_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
 
 def system_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
     app = build_dir / "Fovelle.app" / "Contents" / "MacOS" / "Fovelle"
-    expected_version = "1.0.1"
+    expected_version = read_project_version(repo)
     version_result = command_result(
         [str(app), "--version"],
         repo,
@@ -317,7 +319,7 @@ def system_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
             "SYSTEM-APP-VERSION",
             version_result["passed"] and version_output == f"Fovelle {expected_version}",
             {"version_output": version_output, "command_result": result_snapshot(version_result)},
-            "The built macOS application starts its CLI path and reports version 1.0.1.",
+            f"The built macOS application starts its CLI path and reports version {expected_version}.",
         ),
         check(
             "SYSTEM-COCOA-PROBE",
@@ -430,7 +432,7 @@ CASES = (
         "验证最终应用产物的最小系统启动契约。",
         ["Fovelle.app 已成功构建。", "macOS Cocoa 桌面会话可用。"],
         {"version_command": "Fovelle --version", "probe_environment": {"FOVELLE_SYSTEM_PROBE": "1"}},
-        ["执行 --version 并匹配 Fovelle 1.0.1。", "启动系统探针并匹配 windows/maximized 标记。"],
+        [f"执行 --version 并匹配 Fovelle {PROJECT_VERSION}。", "启动系统探针并匹配 windows/maximized 标记。"],
         "版本输出正确，Cocoa 探针返回 0 且输出结构化状态标记。",
         ["探针退出；不保留应用进程。"],
     ),

@@ -8,7 +8,20 @@ if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
         "Minimum macOS version supported by Fovelle" FORCE)
 endif()
 
-project(Fovelle VERSION 1.0.1 LANGUAGES CXX)
+set(FOVELLE_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+if(NOT EXISTS "${FOVELLE_VERSION_FILE}")
+    message(FATAL_ERROR "Missing project version file: ${FOVELLE_VERSION_FILE}")
+endif()
+file(READ "${FOVELLE_VERSION_FILE}" FOVELLE_VERSION)
+string(STRIP "${FOVELLE_VERSION}" FOVELLE_VERSION)
+if(NOT FOVELLE_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR
+        "VERSION must contain exactly MAJOR.MINOR.PATCH without a v prefix: ${FOVELLE_VERSION}")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${FOVELLE_VERSION_FILE}")
+
+project(Fovelle VERSION ${FOVELLE_VERSION} LANGUAGES CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
@@ -128,7 +141,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     "-framework UniformTypeIdentifiers"
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
+    "VERSION=${PROJECT_VERSION}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
     QT_DEPRECATED_WARNINGS
     QT_NO_FOREACH

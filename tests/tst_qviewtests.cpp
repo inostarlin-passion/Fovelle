@@ -2479,7 +2479,7 @@ void ActionManagerTests::testApplicationIdentity()
     QCOMPARE(QCoreApplication::organizationDomain(), QString("io.github.inostarlin-passion"));
     QCOMPARE(QCoreApplication::applicationName(), QString("Fovelle"));
     QCOMPARE(QGuiApplication::applicationDisplayName(), QString("Fovelle"));
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.1"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QStringLiteral(VERSION_STRING));
 }
 
 // TC-APP-VERSION
@@ -2488,11 +2488,12 @@ void ActionManagerTests::testApplicationIdentity()
 // definitions.
 // Input data: QCoreApplication::applicationVersion().
 // Steps: read the runtime application version.
-// Expected result: the value is exactly 1.0.1.
+// Expected result: the value is exactly the version read by the build system
+// from the repository VERSION file.
 // Postcondition: no application or settings state changes.
 void FeatureTests::testApplicationVersionIsCurrent()
 {
-    QCOMPARE(QCoreApplication::applicationVersion(), QString("1.0.1"));
+    QCOMPARE(QCoreApplication::applicationVersion(), QStringLiteral(VERSION_STRING));
 }
 
 // TC-TITLEBAR-APP-ICON
@@ -5643,7 +5644,8 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(), QString("version 1.0.1"));
+    QCOMPARE(subtitleLabel->text(),
+             QStringLiteral("version ") + QStringLiteral(VERSION_STRING));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
@@ -8931,7 +8933,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain("io.github.inostarlin-passion");
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
-    QCoreApplication::setApplicationVersion("1.0.1");
+    QCoreApplication::setApplicationVersion(QStringLiteral(VERSION_STRING));
     QVApplication app(argc, argv);
     qRegisterMetaType<QVImageLoader::Result>();
 

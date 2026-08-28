@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from project_version import read_project_version
+
 
 def command(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(list(args), cwd=cwd, text=True, capture_output=True, check=False)
@@ -32,6 +34,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo = args.repo.resolve()
+    project_version = read_project_version(repo)
     checks: list[dict] = []
     relative_sources = (
         "src/mainwindow.cpp",
@@ -581,10 +584,14 @@ def main() -> int:
         "geometry regression tests assert the rendering invariant without requiring a Retina backing scale",
     )
 
-    version_contract = contains_all(
-        source["CMakeLists.txt"] + source["qView.pro"] + test_source,
-        ("VERSION 1.0.1", "VERSION = 1.0.1", 'QString("1.0.1")'),
-    ) and "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source
+    version_contract = (
+        (repo / "VERSION").read_text(encoding="utf-8").strip() == project_version
+        and 'set(FOVELLE_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")'
+        in source["CMakeLists.txt"]
+        and "project(Fovelle VERSION ${FOVELLE_VERSION}" in source["CMakeLists.txt"]
+        and "VERSION = $$cat($$VERSION_FILE, lines)" in source["qView.pro"]
+        and "QStringLiteral(VERSION_STRING)" in test_source
+    )
     apng_fixture_contract = contains_all(
         test_source,
         ("FOVELLE_APNG_FIXTURE", "tinyAnimatedPngBase64", "createBase64Image(fallbackDirectory"),
@@ -598,7 +605,7 @@ def main() -> int:
             "apng_fixture_contract": apng_fixture_contract,
             "old_version_absent": "0.1.0" not in source["CMakeLists.txt"] + source["qView.pro"] + test_source,
         },
-        "the released version is 1.0.1 and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
+        f"the released version is read from VERSION ({project_version}) and APNG tests have a hermetic fallback instead of requiring a developer-machine path",
     )
 
     zoom_continuity = contains_all(

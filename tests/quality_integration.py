@@ -12,6 +12,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from project_version import read_project_version
+
 
 def run(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(list(args), cwd=repo, text=True, capture_output=True, check=False)
@@ -33,6 +35,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo = args.repo.resolve()
+    project_version = read_project_version(repo)
     build_dir = args.build_dir.resolve()
     checks: list[dict] = []
 
@@ -452,10 +455,11 @@ def main() -> int:
     version_sources = text("CMakeLists.txt") + text("qView.pro") + text("tests/tst_qviewtests.cpp")
     apng_test_source = text("tests/tst_qviewtests.cpp")
     version_ci_contract = (
-        "VERSION 1.0.1" in version_sources
-        and "VERSION = 1.0.1" in version_sources
-        and 'QString("1.0.1")' in version_sources
-        and "0.1.0" not in version_sources
+        text("VERSION").strip() == project_version
+        and 'set(FOVELLE_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")'
+        in version_sources
+        and "VERSION = $$cat($$VERSION_FILE, lines)" in version_sources
+        and "QStringLiteral(VERSION_STRING)" in version_sources
         and "FOVELLE_APNG_FIXTURE" in apng_test_source
         and "tinyAnimatedPngBase64" in apng_test_source
         and "fallbackDirectory" in apng_test_source
@@ -465,13 +469,14 @@ def main() -> int:
         "I-18-VERSION-CI",
         version_ci_contract,
         {
-            "version_1_0_1": "VERSION 1.0.1" in version_sources and "VERSION = 1.0.1" in version_sources,
-            "runtime_version_asserted": 'QString("1.0.1")' in version_sources,
-            "old_version_absent": "0.1.0" not in version_sources,
+            "version_file": text("VERSION").strip() == project_version,
+            "cmake_reads_version_file": 'set(FOVELLE_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")' in version_sources,
+            "qmake_reads_version_file": "VERSION = $$cat($$VERSION_FILE, lines)" in version_sources,
+            "runtime_uses_build_version": "QStringLiteral(VERSION_STRING)" in version_sources,
             "apng_env_override": "FOVELLE_APNG_FIXTURE" in apng_test_source,
             "embedded_apng_fallback": "tinyAnimatedPngBase64" in apng_test_source and "fallbackDirectory" in apng_test_source,
         },
-        "the version 1.0.1 and CI APNG fixture contract are integrated without a developer-machine-only path",
+        f"the version {project_version} comes from VERSION and the CI APNG fixture contract is integrated without a developer-machine-only path",
     )
 
     workflow = text(".github/workflows/release.yml")

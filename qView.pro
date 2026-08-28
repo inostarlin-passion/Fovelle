@@ -1,5 +1,13 @@
 TARGET = Fovelle
-VERSION = 1.0.1
+VERSION_FILE = $$clean_path($$PWD/VERSION)
+!exists($$VERSION_FILE) {
+    error("Missing project version file: $$VERSION_FILE")
+}
+VERSION = $$cat($$VERSION_FILE, lines)
+!contains(VERSION, ^[0-9]+\.[0-9]+\.[0-9]+$) {
+    error("VERSION must contain exactly MAJOR.MINOR.PATCH without a v prefix")
+}
+DISTFILES += $$VERSION_FILE
 
 QT += core gui network widgets svg
 

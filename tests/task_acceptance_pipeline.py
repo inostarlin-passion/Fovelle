@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from project_version import PROJECT_VERSION, read_project_version
+
 
 STAGES = ("static", "unit", "integration", "system")
 ALLOWED_CATALOGS = {
@@ -258,14 +260,14 @@ def make_case(
 CASES = [
     make_case(
         "VER-001",
-        "应用版本号为 1.0.1。",
+        f"应用版本号为 {PROJECT_VERSION}。",
         "static",
         "tests/task_acceptance_pipeline.py::static_version_contract",
         "验证源码、打包元数据和测试运行时使用同一版本号。",
         ["仓库源码可读。"],
-        {"expected_version": "1.0.1", "files": ["CMakeLists.txt", "qView.pro", "dist/mac/Info.plist"]},
-        ["读取构建配置和 macOS bundle 元数据。", "比较所有版本字段与 1.0.1。"],
-        "所有发布入口均声明 1.0.1。",
+        {"expected_version": PROJECT_VERSION, "files": ["VERSION", "CMakeLists.txt", "qView.pro", "dist/mac/Info.plist"]},
+        ["读取 VERSION、构建配置和 macOS bundle 元数据。", f"比较所有版本字段与 {PROJECT_VERSION}。"],
+        f"所有发布入口均从 VERSION 派生并声明 {PROJECT_VERSION}。",
         ["不修改源码或用户设置。"],
     ),
     make_case(
@@ -606,14 +608,14 @@ CASES = [
     ),
     make_case(
         "INT-002",
-        "构建出的 App bundle 报告版本 1.0.1。",
+        f"构建出的 App bundle 报告版本 {PROJECT_VERSION}。",
         "integration",
         "tests/task_acceptance_pipeline.py::run_integration",
         "验证发布产物而非源码字符串的版本输出。",
         ["Fovelle.app 已构建。"],
         {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"},
         ["执行 App bundle 内可执行文件的 --version。", "解析标准输出。"],
-        "输出包含 1.0.1 且进程返回 0。",
+        f"输出包含 {PROJECT_VERSION} 且进程返回 0。",
         ["版本命令不启动长期运行的 UI 进程。"],
     ),
     make_case(
@@ -637,7 +639,7 @@ CASES = [
         ["App bundle 已构建。"],
         {"command": "build/Fovelle.app/Contents/MacOS/Fovelle --version"},
         ["直接执行 bundle 内可执行文件。", "记录 stdout、stderr、返回码和耗时。"],
-        "输出 1.0.1，返回码为 0，且在 10 秒内结束。",
+        f"输出 {PROJECT_VERSION}，返回码为 0，且在 10 秒内结束。",
         ["不修改用户设置。"],
     ),
 ]
@@ -682,13 +684,13 @@ def source_files(repo: Path) -> dict[str, str]:
 
 
 def static_version_contract(repo: Path, sources: dict[str, str]) -> tuple[bool, dict[str, Any]]:
-    expected = "1.0.1"
+    expected = read_project_version(repo)
     checks = {
-        "cmake_project": "project(Fovelle VERSION 1.0.1" in sources["cmake"],
-        "qmake_version": "VERSION = 1.0.1" in sources["qmake"],
-        "plist_short": "<string>1.0.1</string>" in sources["plist"],
-        "plist_bundle": sources["plist"].count("<string>1.0.1</string>") >= 2,
-        "test_runtime": 'QCoreApplication::setApplicationVersion("1.0.1")' in sources["tests"],
+        "version_file": read(repo, "VERSION").strip() == expected,
+        "cmake_reads_version_file": 'set(FOVELLE_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")' in sources["cmake"],
+        "qmake_reads_version_file": "VERSION = $$cat($$VERSION_FILE, lines)" in sources["qmake"],
+        "plist_uses_qmake_version": "${QMAKE_FULL_VERSION}" in sources["plist"],
+        "test_uses_build_version": "QStringLiteral(VERSION_STRING)" in sources["tests"],
     }
     return all(checks.values()), {"expected": expected, "checks": checks}
 
@@ -1067,6 +1069,7 @@ def run_unit(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
 
 
 def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, dict[str, Any]]:
+    project_version = read_project_version(repo)
     results: dict[str, dict[str, Any]] = {}
     build_result: dict[str, Any] = {"passed": True, "skipped": True, "command": []}
     if not skip_build:
@@ -1102,14 +1105,18 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
     version_result = run_command([str(version_command), "--version"], repo, timeout=15)
     version_output = version_result.get("stdout", "") + version_result.get("stderr", "")
     results["INT-002"] = {
-        "passed": bool(version_result["passed"] and re.search(r"\b1\.0\.1\b", version_output)),
-        "observed": {"expected_version": "1.0.1", "output": version_output.strip()},
+        "passed": bool(
+            version_result["passed"]
+            and re.search(rf"\b{re.escape(project_version)}\b", version_output)
+        ),
+        "observed": {"expected_version": project_version, "output": version_output.strip()},
         "execution": compact_execution(version_result),
     }
     return results
 
 
 def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
+    project_version = read_project_version(repo)
     app_binary = build_dir / "Fovelle.app" / "Contents" / "MacOS" / "Fovelle"
     results: dict[str, dict[str, Any]] = {}
     if not app_binary.is_file():
@@ -1137,7 +1144,10 @@ def run_system(repo: Path, build_dir: Path) -> dict[str, dict[str, Any]]:
     version = run_command([str(app_binary), "--version"], repo, timeout=10)
     version_output = version.get("stdout", "") + version.get("stderr", "")
     results["SYS-002"] = {
-        "passed": bool(version["passed"] and re.search(r"\b1\.0\.1\b", version_output)),
+        "passed": bool(
+            version["passed"]
+            and re.search(rf"\b{re.escape(project_version)}\b", version_output)
+        ),
         "observed": {"version_output": version_output.strip()},
         "execution": compact_execution(version),
     }
@@ -1249,7 +1259,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_case_specification",
         "generated_at": now(),
-        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
+        "task": f"Fovelle {PROJECT_VERSION} 设置、语言和悬浮导航按钮变更",
         "test_execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "atomicity_rule": "每个 test case 只验证一个可判定的原子验收标准。",
@@ -1259,7 +1269,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_evidence",
         "generated_at": now(),
-        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
+        "task": f"Fovelle {PROJECT_VERSION} 设置、语言和悬浮导航按钮变更",
         "test_execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,
         "stage_summaries": stage_summaries,
@@ -1275,7 +1285,7 @@ def main() -> int:
         "schema_version": "1.0",
         "report_type": "test_completion_report",
         "generated_at": now(),
-        "task": "Fovelle 1.0.1 设置、语言和悬浮导航按钮变更",
+        "task": f"Fovelle {PROJECT_VERSION} 设置、语言和悬浮导航按钮变更",
         "status": "passed" if all(summary["failed"] == 0 for summary in stage_summaries.values()) else "failed",
         "execution_order": list(STAGES),
         "research_trace": RESEARCH_TRACE,

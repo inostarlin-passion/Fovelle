@@ -92,7 +92,7 @@ target_link_libraries(fovelle_tests PRIVATE
     "-framework UniformTypeIdentifiers"
 )
 target_compile_definitions(fovelle_tests PRIVATE
-    "VERSION=${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
+    "VERSION=${PROJECT_VERSION}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
     QT_DEPRECATED_WARNINGS
     QT_NO_FOREACH
