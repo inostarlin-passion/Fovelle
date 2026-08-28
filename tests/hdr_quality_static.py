@@ -150,6 +150,49 @@ def main() -> int:
         "preview_usage_is_observable": "result.usedRawPreview" in raw_decode,
         "unsupported_camera_is_explicit": "does not support this camera model" in raw_decode,
     })
+    case("ST-HDR-RAW-COLD-OPEN", {
+        "embedded_preview_is_preferred_for_proxy": (
+            "embeddedThumbnailOptions" in cocoa
+            and "kCGImageSourceCreateThumbnailFromImageIfAbsent" in cocoa
+        ),
+        "proxy_remains_bounded": (
+            "embeddedThumbnailOptions(" in raw_decode
+            and "fallbackLargestDimension" in raw_decode
+        ),
+        "headroom_probe_uses_draft_mode": (
+            "headroomRawFilter.draftModeEnabled = YES" in raw_decode
+        ),
+        "headroom_probe_uses_scale_factor": (
+            "headroomRawFilter.scaleFactor" in raw_decode
+            and "RawHeadroomProbeLargestDimension" in cocoa
+        ),
+        "full_resolution_graph_is_retained": (
+            "sdrRawFilter.scaleFactor = 1.0F" in raw_decode
+            and "hdrRawFilter.scaleFactor = 1.0F" in raw_decode
+            and "make_shared<NativeHDRImage>" in raw_decode
+        ),
+    })
+    case("ST-HDR-RAW-ORIENTATION", {
+        "proxy_selects_physical_pixels": (
+            "kCGImageSourceCreateThumbnailWithTransform" in cocoa
+            and "kCFBooleanFalse" in cocoa
+        ),
+        "proxy_applies_exif_orientation_explicitly": (
+            "imageByApplyingCGOrientation:orientation" in raw_decode
+        ),
+        "transposed_preview_correction_is_conditional": (
+            "previewAxesAreTransposed" in raw_decode
+            and "kCGImagePropertyOrientationRight" in raw_decode
+        ),
+        "proxy_is_captured_before_stateful_raw_setup": (
+            0 <= raw_decode.find("embeddedThumbnailOptions(")
+            < raw_decode.find("CGImageSourceCopyProperties(source")
+            < raw_decode.find("CIRAWFilter *sdrRawFilter")
+        ),
+        "orientation_regression_test_exists": (
+            "testNEFProxyOrientationMatchesNativeGraph" in tests
+        ),
+    })
     case("ST-HDR-NONRAW-METADATA", {
         "apple_gain_map": "kCGImageAuxiliaryDataTypeHDRGainMap" in cocoa,
         "iso_gain_map": "kCGImageAuxiliaryDataTypeISOGainMap" in cocoa,
@@ -679,7 +722,14 @@ def main() -> int:
         ),
     })
     case("ST-HDR-RAW-CONTENT-HEADROOM", {
-        "raw_float_peak_is_measured": "maximumCIImageRGBComponent(hdrImage" in raw_decode,
+        "raw_float_peak_is_measured": (
+            "maximumCIImageRGBComponent(" in raw_decode
+            and "headroomProbeImage" in raw_decode
+        ),
+        "full_scan_is_failure_fallback_only": (
+            "if (!probeMeasured)" in raw_decode
+            and "maximumCIImageRGBComponent(hdrImage" in raw_decode
+        ),
         "unknown_headroom_is_resolved_from_pixels": "resolvedHDRContentHeadroom" in raw_decode,
         "raw_ciimage_is_tagged_when_supported": "imageBySettingContentHeadroom" in raw_decode,
         "metal_layer_uses_content_target_not_potential_directly": (

@@ -135,6 +135,7 @@ def main() -> int:
         ("IT-HDR-RAW-PLAIN-DNG", "testPlainDNGCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-NEF", "testNEFCreatesNativeRawEDRGraph"),
         ("IT-HDR-RAW-NEF-REPEATABILITY", "testNEFRawRepeatedFloatProbeIsStable"),
+        ("IT-HDR-RAW-NEF-ORIENTATION", "testNEFProxyOrientationMatchesNativeGraph"),
     )
     cases = []
     for identifier, function in expected:

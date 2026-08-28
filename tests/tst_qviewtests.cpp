@@ -181,6 +181,7 @@ private slots:
     void testPlainDNGCreatesNativeRawEDRGraph();
     void testNEFCreatesNativeRawEDRGraph();
     void testNEFRawRepeatedFloatProbeIsStable();
+    void testNEFProxyOrientationMatchesNativeGraph();
 };
 
 class SDRSampleInteractionTests : public QObject
@@ -2304,6 +2305,43 @@ void HDRSampleTests::testNEFRawRepeatedFloatProbeIsStable()
     QVERIFY(second.valid);
     QVERIFY(qAbs(first.sdrMaximumComponent - second.sdrMaximumComponent) <= 0.001F);
     QVERIFY(qAbs(first.hdrMaximumComponent - second.hdrMaximumComponent) <= 0.001F);
+}
+
+// TC-HDR-INT-RAW-NEF-ORIENTATION
+// Test purpose: ensure the bounded cold-open proxy and the native RAW graph
+// use the same EXIF-oriented coordinate space.
+// Preconditions: FOVELLE_HDR_NEF_SAMPLE points to a readable NEF.
+// Input data: one NEF and a 2048-pixel fallback limit.
+// Steps: decode through the production path and compare proxy/native shape.
+// Expected result: both representations are portrait or landscape together,
+// with no 90-degree transposition.
+// Postcondition: native graphs and proxy pixels are released.
+void HDRSampleTests::testNEFProxyOrientationMatchesNativeGraph()
+{
+    const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_NEF_SAMPLE"));
+    QVERIFY2(!path.isEmpty() && QFileInfo::exists(path), qPrintable(path));
+    const auto result = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+    QVERIFY(result.isRaw);
+    QVERIFY(result.hdrImage);
+    QVERIFY(!result.image.isNull());
+    QVERIFY(result.intrinsicSize.isValid());
+    QVERIFY(result.intrinsicSize.width() > 0);
+    QVERIFY(result.intrinsicSize.height() > 0);
+
+    const bool proxyPortrait = result.image.height() > result.image.width();
+    const bool nativePortrait = result.intrinsicSize.height()
+            > result.intrinsicSize.width();
+    QCOMPARE(proxyPortrait, nativePortrait);
+
+    const double proxyAspect = static_cast<double>(result.image.width())
+            / result.image.height();
+    const double nativeAspect = static_cast<double>(result.intrinsicSize.width())
+            / result.intrinsicSize.height();
+    QVERIFY2(qAbs(proxyAspect - nativeAspect) < 0.02,
+             qPrintable(QStringLiteral("proxy=%1 native=%2")
+                                .arg(proxyAspect, 0, 'f', 6)
+                                .arg(nativeAspect, 0, 'f', 6)));
 }
 
 void ActionManagerTests::testClonedActionsUntracked()

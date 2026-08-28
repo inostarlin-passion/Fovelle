@@ -65,6 +65,11 @@ static constexpr char FullScreenProxyTitlebarLayerAssociationKey = 0;
 static constexpr char FullScreenOriginalAlphaAssociationKey = 0;
 static constexpr char FullScreenAnimationStartFrameAssociationKey = 0;
 
+// Headroom is a scalar used to configure presentation; it does not need a
+// source-resolution bitmap. Keep this reduction bounded so a large RAW does
+// not pay for a second full-frame decode before its SDR proxy can be shown.
+static constexpr int RawHeadroomProbeLargestDimension = 1024;
+
 enum class FovelleFullScreenAnimationPhase : NSInteger
 {
     Begin,
@@ -1643,6 +1648,29 @@ CFMutableDictionaryRef thumbnailOptions(CGImageSourceRef source,
         }
     }
     CFRelease(maxPixelSizeNumber);
+    return options;
+}
+
+CFMutableDictionaryRef embeddedThumbnailOptions(CGImageSourceRef source,
+                                                 const int largestDimension)
+{
+    CFMutableDictionaryRef options = thumbnailOptions(source, largestDimension, false);
+    if (!options)
+        return nullptr;
+
+    // A RAW file commonly carries a camera-rendered JPEG preview. Prefer that
+    // representation for the cold-open compatibility proxy; forcing a new
+    // thumbnail from the sensor data defeats the purpose of showing a proxy
+    // while the source-sized native graph is prepared.
+    CFDictionaryRemoveValue(options, kCGImageSourceCreateThumbnailFromImageAlways);
+    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailFromImageIfAbsent,
+                         kCFBooleanTrue);
+    // Do not ask Image I/O to apply the orientation to an embedded preview.
+    // Some RAW containers carry a preview in a different physical orientation
+    // from the sensor image. Apply the source EXIF transform explicitly after
+    // the preview has been selected so its coordinate space is deterministic.
+    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailWithTransform,
+                         kCFBooleanFalse);
     return options;
 }
 
@@ -6161,7 +6189,8 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         result.isImageIOType = sourceType != nullptr;
         result.isRaw = isRawImageType(sourceType);
         const CGImagePropertyOrientation orientation = sourceOrientation(source);
-        result.intrinsicSize = orientedPixelSize(sourcePixelSize(source), orientation);
+        const QSize sourceSize = sourcePixelSize(source);
+        result.intrinsicSize = orientedPixelSize(sourceSize, orientation);
         result.hdrMetadata.typeIdentifier = result.typeIdentifier;
         result.hdrMetadata.isRaw = result.isRaw;
         result.hdrMetadata.hasAppleGainMap =
@@ -6170,19 +6199,64 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             result.hdrMetadata.hasISOGainMap =
                     hasAuxiliaryImage(source, kCGImageAuxiliaryDataTypeISOGainMap);
 
-        // Read the source properties through Image I/O before decoding. This
-        // keeps orientation, color profile and camera metadata on the native
-        // path instead of guessing from the filename.
-        if (const CFDictionaryRef sourceProperties = CGImageSourceCopyProperties(source, nullptr))
-            CFRelease(sourceProperties);
-
         if (result.isRaw)
         {
+            const bool hasGainMap = result.hdrMetadata.hasAppleGainMap
+                    || result.hdrMetadata.hasISOGainMap;
+            CIImage *embeddedRawProxy = nil;
+            if (!hasGainMap) {
+                // Image I/O can select a different orientation for a RAW
+                // thumbnail after Core Image has initialized the same file's
+                // CIRAWFilter.  Read the bounded compatibility proxy first,
+                // while the CGImageSource still owns the primary image's
+                // orientation contract.  The native graphs below remain the
+                // authoritative source for the final frame and zoom.
+                if (CFDictionaryRef options = embeddedThumbnailOptions(
+                            source, fallbackLargestDimension)) {
+                    CGImageRef embeddedPreview =
+                            CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+                    CFRelease(options);
+                    if (embeddedPreview) {
+                        embeddedRawProxy = [[CIImage imageWithCGImage:embeddedPreview]
+                                imageByApplyingCGOrientation:orientation];
+                        // Affected Nikon NEFs store the camera-rendered JPEG
+                        // preview with its axes transposed relative to the
+                        // sensor image. Correct that fixed container defect
+                        // only when the bounded preview and source pixels
+                        // disagree about their physical aspect; ordinary RAW
+                        // previews continue to receive only the EXIF transform.
+                        const bool previewAxesAreTransposed =
+                                sourceSize.isValid()
+                                && ((CGImageGetWidth(embeddedPreview)
+                                     > CGImageGetHeight(embeddedPreview))
+                                    != (sourceSize.width() > sourceSize.height()));
+                        if (previewAxesAreTransposed) {
+                            embeddedRawProxy = [embeddedRawProxy
+                                    imageByApplyingCGOrientation:
+                                            kCGImagePropertyOrientationRight];
+                        }
+                        CGImageRelease(embeddedPreview);
+                    }
+                }
+            }
+
+            // Read source-level metadata only after the proxy has been
+            // materialized.  On some Nikon RAWs this Image I/O call changes
+            // which embedded directory is selected by the next thumbnail
+            // request, even when kCGImageSourceCreateThumbnailWithTransform
+            // is true.  Keeping it after the proxy establishes a single
+            // orientation for the instant and final presentations.
+            if (const CFDictionaryRef sourceProperties =
+                        CGImageSourceCopyProperties(source, nullptr))
+                CFRelease(sourceProperties);
+
             CIRAWFilter *sdrRawFilter = nil;
             CIRAWFilter *hdrRawFilter = nil;
+            CIRAWFilter *headroomRawFilter = nil;
             if (@available(macOS 12.0, *)) {
                 sdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
                 hdrRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
+                headroomRawFilter = [CIRAWFilter filterWithImageURL:fileUrl.toNSURL()];
             }
             if (sdrRawFilter && hdrRawFilter) {
                 sdrRawFilter.orientation = orientation;
@@ -6192,6 +6266,24 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 sdrRawFilter.scaleFactor = 1.0F;
                 hdrRawFilter.scaleFactor = 1.0F;
             }
+            if (headroomRawFilter) {
+                headroomRawFilter.orientation = orientation;
+                headroomRawFilter.draftModeEnabled = YES;
+                headroomRawFilter.extendedDynamicRangeAmount = 1.0F;
+                const CGSize nativeSize = headroomRawFilter.nativeSize;
+                const int sourceLargestDimension = std::max({
+                    result.intrinsicSize.width(), result.intrinsicSize.height(),
+                    static_cast<int>(std::lround(nativeSize.width)),
+                    static_cast<int>(std::lround(nativeSize.height))
+                });
+                const int probeLargestDimension = std::max(
+                        1, std::min(sourceLargestDimension,
+                                    RawHeadroomProbeLargestDimension));
+                headroomRawFilter.scaleFactor = sourceLargestDimension > 0
+                        ? static_cast<CGFloat>(probeLargestDimension)
+                                / sourceLargestDimension
+                        : 1.0F;
+            }
 
             // ProRAW can carry Apple's fully rendered, full-resolution
             // thumbnail together with the Adaptive HDR gain map. macOS 15
@@ -6199,8 +6291,6 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             // preserves the camera's Smart HDR/Deep Fusion/local tone recipe,
             // which cannot be reproduced by changing one CIRAWFilter knob.
             if (@available(macOS 15.0, *)) {
-                const bool hasGainMap = result.hdrMetadata.hasAppleGainMap
-                        || result.hdrMetadata.hasISOGainMap;
                 if (hasGainMap) {
                     NSDictionary *previewOptions = @{
                         (id)kCIImageApplyOrientationProperty : @YES,
@@ -6299,16 +6389,45 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                    result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace,
-                                                    fallbackLargestDimension);
+                    // The embedded preview is the intended cold-open proxy:
+                    // it is already camera-rendered, while evaluating the
+                    // source-sized sdrImage here would decode the complete RAW
+                    // before the proxy can cover the viewport. If the file has
+                    // no embedded preview, retain the existing Core Image
+                    // fallback. The immutable full-resolution SDR/HDR graphs
+                    // above remain available to the native renderer for the
+                    // final frame and zoom.
+                    if (result.image.isNull()) {
+                        CIImage *coldOpenImage = embeddedRawProxy
+                                ?: sdrImage ?: sdrRawFilter.previewImage;
+                        result.image = imageFromCIImage(coldOpenImage, context,
+                                                        fallbackColorSpace,
+                                                        fallbackLargestDimension);
+                    }
 
                     // CIRAWFilter currently reports contentHeadroom == 0 for
                     // this class of camera RAW, meaning unknown. Measure the
-                    // float endpoint once and attach the truthful content tag
-                    // needed by CAMetalLayer/WindowServer tone mapping.
+                    // float endpoint from a deliberately cheap draft/scale
+                    // probe and attach the resulting content tag needed by
+                    // CAMetalLayer/WindowServer tone mapping. Do not run
+                    // CIAreaMaximum over the full HDR graph here: the full
+                    // graph remains source-sized for the native renderer and
+                    // later zoom operations, while this scalar does not need
+                    // source-resolution pixels.
                     float measuredHeadroom = 0.0F;
-                    maximumCIImageRGBComponent(hdrImage, context, workingColorSpace,
-                                               measuredHeadroom);
+                    CIImage *headroomProbeImage = headroomRawFilter
+                            ? headroomRawFilter.outputImage : nil;
+                    const bool probeMeasured = maximumCIImageRGBComponent(
+                            headroomProbeImage, context, workingColorSpace,
+                            measuredHeadroom);
+                    if (!probeMeasured) {
+                        // Keep the old exact path as a rare decoder-failure
+                        // fallback. Supported RAW files take the bounded probe
+                        // above and never scan the source-sized graph here.
+                        maximumCIImageRGBComponent(hdrImage, context,
+                                                   workingColorSpace,
+                                                   measuredHeadroom);
+                    }
                     result.hdrMetadata.contentHeadroom = static_cast<float>(
                             resolvedHDRContentHeadroom(
                                     ciImageContentHeadroom(hdrImage), measuredHeadroom));
@@ -6331,6 +6450,21 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     if (fallbackColorSpace)
                         CGColorSpaceRelease(fallbackColorSpace);
                 }
+            }
+
+            if (result.image.isNull() && embeddedRawProxy) {
+                CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
+                CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
+                CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
+                result.image = imageFromCIImage(embeddedRawProxy, context,
+                                                fallbackColorSpace,
+                                                fallbackLargestDimension);
+                if (context)
+                    [context clearCaches];
+                if (workingColorSpace)
+                    CGColorSpaceRelease(workingColorSpace);
+                if (fallbackColorSpace)
+                    CGColorSpaceRelease(fallbackColorSpace);
             }
 
             if (result.image.isNull())
@@ -6375,6 +6509,14 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         }
         else if (result.isImageIOType)
         {
+            // Keep the conventional Image I/O metadata read on the non-RAW
+            // path.  RAW performs the same read after its bounded proxy is
+            // captured because Image I/O's RAW thumbnail selection is stateful
+            // on affected files.
+            if (const CFDictionaryRef sourceProperties =
+                        CGImageSourceCopyProperties(source, nullptr))
+                CFRelease(sourceProperties);
+
             const bool hasGainMap =
                     result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap;
             CIImage *probeImage = nil;
