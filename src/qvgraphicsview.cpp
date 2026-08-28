@@ -63,6 +63,8 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     constrainBoundsTimer = new QTimer(this);
     constrainBoundsTimer->setSingleShot(true);
     connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{
+        QScopedValueRollback<bool> internalUpdateGuard(
+                fullScreenPanInternalUpdate, true);
         scrollHelper->constrain(disableDelayedConstraint);
         restoreFullScreenPanPreservation();
     });
@@ -143,6 +145,15 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(hdrGeometryTimer, &QTimer::timeout, this,
             &QVGraphicsView::finishHDRGeometryStabilization);
     const auto viewportScrollChanged = [this]() {
+        // During a fullscreen transition, a scrollbar change outside an
+        // explicitly guarded geometry update is the newest user-visible pan
+        // state. Capture it before a later resize or scene-rect rebuild can
+        // replay the anchor from the transition's request boundary. This also
+        // covers direct QScrollBar::setValue() calls used by the regression
+        // test; QAbstractSlider emits valueChanged for every changed value.
+        if (fullScreenPanPreservationActive && !fullScreenPanInternalUpdate
+            && !isUpdatingSceneRect)
+            captureFullScreenPanState();
         // Scrollbar values also change while opening/fitting a file. Treat
         // only changes after the native surface is fully active as an input
         // burst; otherwise cold open needlessly keeps the display link and
@@ -221,7 +232,11 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         const bool wasAtVerticalMaximum =
                 preserveManualPanEdges && verticalPanEdge == ScrollEdge::Maximum;
 
-        QGraphicsView::resizeEvent(event);
+        {
+            QScopedValueRollback<bool> internalUpdateGuard(
+                    fullScreenPanInternalUpdate, true);
+            QGraphicsView::resizeEvent(event);
+        }
 
         // setSceneRect() can synchronously resize the viewport when an
         // AsNeeded scrollbar changes state.  Do not start another fit pass
@@ -242,7 +257,11 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
                 ? 0.0 : -sizeDelta.width() / 2.0,
             (wasAtVerticalMinimum || wasAtVerticalMaximum)
                 ? 0.0 : -sizeDelta.height() / 2.0);
-        scrollHelper->move(resizeDelta);
+        {
+            QScopedValueRollback<bool> internalUpdateGuard(
+                    fullScreenPanInternalUpdate, true);
+            scrollHelper->move(resizeDelta);
+        }
         fitOrConstrainImage();
 
         // fitOrConstrainImage() may rebuild the explicit scene rect while the
@@ -251,6 +270,8 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         // old range, is used for the preserved image edge.
         if (preserveManualPanEdges)
         {
+            QScopedValueRollback<bool> internalUpdateGuard(
+                    fullScreenPanInternalUpdate, true);
             if (wasAtHorizontalMinimum)
                 horizontalScrollBar()->setValue(horizontalScrollBar()->minimum());
             else if (wasAtHorizontalMaximum)
@@ -1808,6 +1829,8 @@ void QVGraphicsView::goToFile(const Qv::GoToFileMode mode, const int index)
 
 void QVGraphicsView::fitOrConstrainImage()
 {
+    QScopedValueRollback<bool> internalUpdateGuard(
+            fullScreenPanInternalUpdate, true);
     // The explicit scene rect is also the scrollable range. Its titlebar
     // compensation depends on the current native contentLayoutRect, which
     // changes at the full-screen boundary even when the zoom transform does
@@ -1884,6 +1907,9 @@ void QVGraphicsView::restoreFullScreenPanPreservation()
 {
     if (!fullScreenPanPreservationActive || calculatedZoomMode.has_value())
         return;
+
+    QScopedValueRollback<bool> internalUpdateGuard(
+            fullScreenPanInternalUpdate, true);
 
     const bool restoreHorizontalAnchor = fullScreenHorizontalPanEdge == ScrollEdge::None;
     const bool restoreVerticalAnchor = fullScreenVerticalPanEdge == ScrollEdge::None;
@@ -2495,6 +2521,15 @@ void QVGraphicsView::captureFullScreenPanAnchor()
         return;
 
     fullScreenPanAnchorScene = mapToScene(usableViewport.center());
+}
+
+void QVGraphicsView::captureFullScreenPanState()
+{
+    fullScreenHorizontalPanEdge = ScrollEdge::None;
+    fullScreenVerticalPanEdge = ScrollEdge::None;
+    fullScreenPanAnchorScene.reset();
+    captureFullScreenPanEdges();
+    captureFullScreenPanAnchor();
 }
 
 void QVGraphicsView::updateSceneRect(

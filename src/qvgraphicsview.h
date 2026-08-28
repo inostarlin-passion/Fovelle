@@ -303,6 +303,7 @@ private:
     ScrollEdge getScrollEdge(const QScrollBar *scrollBar) const;
     void captureFullScreenPanEdges();
     void captureFullScreenPanAnchor();
+    void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
 
     QVGraphicsImageItem *loadedPixmapItem;
@@ -351,6 +352,7 @@ private:
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
     bool isUpdatingSceneRect {false};
+    bool fullScreenPanInternalUpdate {false};
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
     ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};

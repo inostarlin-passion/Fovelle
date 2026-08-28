@@ -1,146 +1,140 @@
-# 全屏退出时连续平移位置保持：数学模型
+# GitHub Actions 全屏测试失败：数学模型
 
-## 1. 范围与显式前提
+## 1. 问题边界与确证事实
 
-本模型描述 macOS 上 Fovelle 打开同一份位图、进入原生全屏、缩放、把图像
-拖到“接近但尚未到达底部”、再退出全屏时的视口状态。复现输入为
-`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/3.jpeg`，且应用使用当前的
-滚轮缩放、左键平移和左键双击全屏设置。
-
-原生复现器不使用 CUA、QtTest、Accessibility action、键盘操作或业务函数。
-它使用 CoreGraphics 创建真实鼠标/滚轮事件，并用
-`CGEventPost(kCGHIDEventTap, ...)` 投递到 Quartz HID 事件流；因此执行前提是
-macOS Post Event 与 Accessibility 权限已经授权。相关 API 的定义见
-[CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent)、
-[CGEventPost](https://developer.apple.com/documentation/coregraphics/cgeventpost)
-和
-[kCGHIDEventTap](https://developer.apple.com/documentation/coregraphics/cgeventtaplocation/cghideventtap?language=objc)。
-
-窗口屏幕边界由当前会话的 CoreGraphics 窗口信息和 `kCGWindowBounds` 取得：
-[CGWindowListCopyWindowInfo](https://developer.apple.com/documentation/coregraphics/cgwindowlistcopywindowinfo%28_%3A_%3A%29?changes=_9&language=objc)、
-[kCGWindowBounds](https://developer.apple.com/documentation/coregraphics/kcgwindowbounds?changes=_6)。
-Qt 的 `QGraphicsView::sceneRect` 决定可导航区域和滚动条范围，且窗口尺寸变化
-会受到 `resizeAnchor` 规则影响：[QGraphicsView](https://doc.qt.io/qt-6/qgraphicsview.html)。
-AppKit 的全屏进入/退出由 will/did 生命周期通知异步发布：[NSWindow](https://developer.apple.com/documentation/appkit/nswindow?changes=___1)。
-
-## 2. 几何对象与滚动状态
-
-设原始图像为
+本文件对应远端构建 `33207073862`（提交 `8edbce0`）。该构建的编译、配置和
+其它检查成功，失败发生在 `FovelleTests` 的
+`GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding`：
 
 \[
-I=[0,W]\times[0,H],\qquad W,H>0,
+  zoomFirstImageTop=-818,\qquad zoomFirstViewportTop=0.
 \]
 
-设当前场景到视口的可逆变换为 `T`，场景矩形为 `S`，可用视口矩形为 `V`。
-对每个轴定义：
+所以问题不是 GitHub Actions runner 或编译器错误，而是全屏几何稳定后，测试
+将垂直滚动条设置为新范围最小值，随后仍被旧的全屏连续锚点恢复。对应的运行记录
+是 [Build Fovelle 33207073862](https://github.com/inostarlin-passion/Fovelle/actions/runs/33207073862)。
+同一提交的 [Checks 33207073827](https://github.com/inostarlin-passion/Fovelle/actions/runs/33207073827)
+已经通过，说明修复应聚焦于 `QVGraphicsView` 的行为而不是放宽 CI 条件。
 
-- `R=[r_min,r_max]`：Qt 当前滚动条的离散整数范围；
-- `v∈R`：当前滚动条值；
-- `c(V)`：可用视口中心；
-- `a=mapToScene(c(V))`：视口中心对应的 scene 坐标锚点；
-- `b(T,S,v)`：图像底边在视口中的位置。
+显式前提：
 
-`a` 是连续平移位置的语义表示；它不依赖旧窗口的滚动条整数值。若重建后
-范围变为 `R'`，则目标是不变地满足
+1. Qt GUI 事件在单线程事件循环中处理；全屏原生动画可能在多个事件循环回合内
+   产生 resize、scene-rect 和滚动条更新。
+2. `QAbstractSlider::valueChanged` 在值发生变化时发出；`QScrollBar` 继承该
+   机制，故程序设置滚动条和用户拖动最终都可以被同一状态入口观察。参见
+   [Qt QAbstractSlider 文档](https://doc.qt.io/qt-6/qabstractslider.html)。
+3. `QGraphicsView::setSceneRect` 会影响视图的可滚动范围；跨窗口几何不能直接
+   复用旧的整数滚动条值，必须使用新范围重新表示。参见
+   [Qt QGraphicsView 文档](https://doc.qt.io/qt-6/qgraphicsview.html)。
+4. 修复不得删除或降低现有全屏、端点、原生输入和 CI 测试契约。
+
+## 2. 几何与离散状态
+
+设图像场景为 \(I\)，当前变换为 \(T\)，场景矩形为 \(S\)，可用视口矩形为
+\(V\)。两个滚动轴分别有整数范围
 
 \[
-mapToScene_{new}(c(V'))=a,
+  R_i=[m_i,M_i]\cap\mathbb Z,\qquad v_i\in R_i,
+  \quad i\in\{x,y\}.
 \]
 
-若该锚点因范围裁剪不可表示，则按新的合法范围夹紧。水平轴同理。
-
-端点意图仍需要优先处理，因为端点有比中心锚点更强的用户语义。设端点容差
-`τ=3`：
+以可用视口中心 \(c(V)\) 表示连续平移状态：
 
 \[
-E(v,R)=
-\begin{cases}
-\text{Minimum},&r_{min}<r_{max}\land v\le r_{min}+\tau,\\
-\text{Maximum},&r_{min}<r_{max}\land v\ge r_{max}-\tau,\\
-\text{None},&\text{otherwise}.
-\end{cases}
+  a_i=\bigl(mapToScene_T(c(V))\bigr)_i.
 \]
 
-“接近底部但不在底部”的测试状态定义为
+端点是比连续锚点更强的用户意图。沿每个轴定义端点容差 \(\tau=3\)：
 
 \[
-NearBottom(v,R)\iff
-r_{max}-v>\tau\land 0<r_{max}-v\le G,
-\qquad G=160.
+ E(v_i,R_i)=
+ \begin{cases}
+   \mathsf{min},&m_i<M_i\land v_i\le m_i+\tau,\\
+   \mathsf{max},&m_i<M_i\land v_i\ge M_i-\tau,\\
+   \mathsf{none},&\text{otherwise}.
+ \end{cases}
 \]
 
-其中 `G` 是测试轨迹的近底窗口，不把真正的 `Maximum` 伪装成内部位置。
+因此，“接近底部但仍有间隔”的值不是 `max`，不能在全屏后被吸附到新范围
+的 `maximum()`。
 
-## 3. 全屏保持器状态机
-
-保持器状态为
+保持状态定义为
 
 \[
-P=(active,e_x,e_y,a_x,a_y,q),
+ P=(active,e_x,e_y,a),
 \]
 
-其中 `active` 表示保持窗口几何的生命周期，`e_x,e_y` 是端点意图，`a_x,a_y`
-是可选的 scene 锚点，`q` 属于 `Normal`、`Entering`、`FullScreen`、`Exiting`。
+其中 `active` 表示全屏过渡保持器生命周期，\(e_i=E(v_i,R_i)\)，\(a\) 为
+可选场景中心锚点。实现另有内部更新标志 \(q\)：
 
-| 事件 | 前置 | 状态转移与动作 |
+\[
+ q=1\iff\text{当前滚动条变化由布局/场景重建/保持器恢复产生},
+ \quad q=0\iff\text{当前变化是外部平移输入}.
+\]
+
+## 3. 状态转移
+
+令 `capture(X)` 读取当前滚动条范围和值，并计算
+\(e_x,e_y,a\)。令 `restore(P,X')` 在新几何 \(X'=(T',S',V',R')\) 中执行：
+
+1. 若 \(e_i=\mathsf{min}\)，设置 \(v'_i=m'_i\)；若
+   \(e_i=\mathsf{max}\)，设置 \(v'_i=M'_i\)；
+2. 对 \(e_i=\mathsf{none}\) 的轴，使
+   \(mapToScene_{T'}(c(V'))\) 回到保存的 \(a\)，并由 Qt 将结果夹紧到
+   \(R'_i\)；
+3. 所有这些写入都在 \(q=1\) 下执行。
+
+事件转移如下：
+
+| 事件 | 前置条件 | 转移 |
 | --- | --- | --- |
-| `begin` | 进入请求边界 | 停止延迟约束和滚动动画；捕获当前端点，并捕获可用视口中心的 scene 锚点；令 `active=true,q=Entering`。重复调用不覆盖已有进入快照。 |
-| `rebuild(S',V')` | `active=true` | `setSceneRect()` 后先恢复端点到 `r'_min/r'_max`；没有端点时，按 `a_x/a_y` 将锚点重新置于新视口中心。 |
-| `refresh` | 退出请求边界 | 停止延迟约束和滚动动画；丢弃旧快照，重新捕获全屏中最后一次拖动后的端点和 scene 锚点；令 `q=Exiting`。 |
-| `end` | 全屏完成或失败 | 在最终范围再次恢复端点或锚点，然后清除 `active,e_x,e_y,a_x,a_y`，令 `q=Normal`。 |
+| `begin` | 进入全屏请求边界 | 停止延迟约束/动画，`active=true`，执行 `capture`。重复 begin 不覆盖请求边界快照。 |
+| `rebuild` | `active=true` | 在 `q=1` 下重建 scene rect、视口和滚动范围，再执行 `restore`。 |
+| `external-scroll` | `active=true` 且 `q=0` | 滚动条发出 `valueChanged` 后立即执行 `capture`，使新用户状态替换旧锚点。 |
+| `refresh` | 退出全屏请求边界 | 停止延迟约束/动画，丢弃旧端点和锚点，按当前全屏值执行 `capture`。 |
+| `end` | 全屏回调完成或请求失败 | 在最终几何中 `restore`，然后清除 `active`、端点和锚点。 |
 
-端点恢复优先于锚点恢复；因此“真正到底部”仍严格落在新范围的
-`maximum()`，而“差一点到底部”不会被强制吸附到 `maximum()`。
-
-## 4. 固定原生拖动轨迹
-
-对当前全屏窗口的屏幕边界 `B`，定义归一化轨迹
+核心优先级是
 
 \[
-p_i(B)=B_{min}+(0.50,\;0.94-0.34i/32)\odot B_{size},
-\qquad i=0,1,\ldots,32.
+  \text{external-scroll} \succ \text{previous-anchor-restore}.
 \]
 
-helper 发出的平移序列严格为
+也就是说，测试中的 `setValue(minimum)` 与真实用户滚动具有相同的状态语义：
+一旦它不是内部写入，就必须成为后续恢复的依据。
+
+## 4. 可执行输入、输出与验收谓词
+
+测试输入包括：普通窗口状态、全屏状态、同一图像、缩放变换、全屏过渡事件，
+以及在全屏几何稳定后写入的目标滚动条值。输出包括：最终普通窗口的 scene
+矩形、视口映射、两个滚动条值和全屏保持器状态。
+
+对失败用例，成功谓词为：
 
 \[
-\mathcal D(B)=
-[LeftMouseDown(p_0),
- LeftMouseDragged(p_1),\ldots,
- LeftMouseDragged(p_{32}),
- LeftMouseUp(p_{32})].
+\begin{aligned}
+P_1&:\quad active\text{ 期间新外部滚动被捕获};\\
+P_2&:\quad restore\text{ 不覆盖最近一次外部滚动};\\
+P_3&:\quad \text{scene rect 重建后只使用 }R'\text{ 的合法值};\\
+P_4&:\quad \text{在全屏溢出用例中，设置 }v_y=m_y\text{ 后图像顶边位于视口顶边};\\
+P_5&:\quad \text{其它单元、clang-tidy、格式检查和构建步骤不回归}.
+\end{aligned}
 \]
 
-该序列使用 32 个 `LeftMouseDragged`，终点归一化 y 坐标为 `0.60`，故保留
-一个可观测的非端点近底间隔。每次修改 Qt/Cocoa viewer 后，必须用同一
-`\mathcal D(B)` 重新执行；普通窗口和全屏若都需要拖动，只改变 `B`，不改变
-轨迹参数。缩放和全屏切换也使用真实 CoreGraphics 滚轮及双击事件。
+其中 \(P_4\) 正是远端失败的反例：旧实现把 \(v_y=m_y\) 后的状态重新映射到
+旧锚点，产生 `zoomFirstImageTop=-818`；修复后必须保持 `0`。
 
-## 5. 输入、输出与验收谓词
+## 5. 约束与回退点
 
-helper 输入为应用 bundle/可执行文件、图像路径和权限选项；运行状态包含
-`(pid,B_normal,B_fullscreen,P,samples)`。每条诊断样本至少包含
-`(phase,zoom,viewportHeight,v,r_min,r_max,anchorSceneY)`。
-
-成功必须同时满足：
-
-1. Post Event 与 Accessibility 权限均为真，且原生滚轮使图像可滚动；
-2. 原生双击后全屏窗口几何稳定；
-3. 全屏原生拖动后的样本满足 `NearBottom(v,R)`；
-4. 退出请求后的每条包含锚点的诊断样本都满足
-   `|a_y^{sample}-a_y^{before}|≤4` 个 scene 像素，且最终普通窗口几何稳定；
-5. 退出阶段没有出现 `v≤r_min+1` 的起点复位；
-6. `CGEventPost` 失败、权限缺失或外部图像不存在时，helper 返回 CTest
-   跳过码 77，不输出伪造的成功结果。
-
-## 6. 约束、性质与回退点
-
-- 图像内容、缩放变换和原生轨迹不变；修复只同步连续平移锚点、端点语义和
-  全屏几何生命周期。
-- `setSceneRect()` 后只能使用新范围恢复，不能写回旧 `maximum()` 或旧窗口
-  像素坐标。
-- 退出请求必须在任何退出几何变化前读取全屏中最新的锚点。
-- 端点状态使用 `τ=3`，内部近底状态必须保留为内部位置，不得扩大到端点。
-- helper 必须等待窗口和诊断样本稳定，不能用固定睡眠或替代输入路径判定成功。
-- 若模型、证明、静态检查或原生 helper 任一谓词失败，回退到对应的锚点
-  捕获、场景重建、退出刷新或测试同步步骤；不能通过放宽验收条件掩盖失败。
+- 只修改状态同步和内部更新边界，不修改图像内容、缩放比例、全屏事件来源或
+  测试的验收阈值。
+- `setSceneRect`、resize 和保持器恢复属于内部更新；用户拖动、滚轮、键盘、
+  scrollbar 值写入属于外部更新。若两者重叠，必须由显式内部保护标志决定，
+  不能靠时序猜测。
+- 若静态检查发现存在未保护的内部滚动条写入，回退到“内部更新保护”步骤；若
+  动态测试仍出现旧锚点覆盖，回退到“external-scroll 捕获”步骤；若场景范围
+  越界，回退到新范围恢复步骤。
+- GitHub Actions 的 runner/Qt 版本可变，测试必须验证状态不变量而非依赖固定
+  睡眠时间。GitHub 的 macOS runner 标签和版本由
+  [GitHub-hosted runners 文档](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+  定义；本次远端失败已证明该环境会暴露本地未复现的事件时序。
