@@ -1130,6 +1130,7 @@ void MainWindow::fullscreenChanged()
         // effective inset and cannot expose a differently centered frame.
         activeFullScreenTitlebarOverlap = -1;
         graphicsView->fitOrConstrainImage();
+        graphicsView->endFullScreenPanPreservation();
     }
 
     updateMenuBarVisible();
@@ -1146,6 +1147,7 @@ void MainWindow::beginFullScreenLayoutTransition(
     activeFullScreenTitlebarOverlap = qMax(titlebarOverlap, 0);
     targetFullScreenTitlebarOverlap =
         qMax(targetTitlebarOverlap, 0);
+    graphicsView->beginFullScreenPanPreservation();
 }
 
 void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
@@ -1173,6 +1175,7 @@ void MainWindow::cancelFullScreenLayoutTransition()
 
     activeFullScreenTitlebarOverlap = -1;
     graphicsView->fitOrConstrainImage();
+    graphicsView->endFullScreenPanPreservation();
     update();
 }
 

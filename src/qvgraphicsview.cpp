@@ -62,7 +62,10 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 
     constrainBoundsTimer = new QTimer(this);
     constrainBoundsTimer->setSingleShot(true);
-    connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{scrollHelper->constrain(disableDelayedConstraint);});
+    connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{
+        scrollHelper->constrain(disableDelayedConstraint);
+        restoreFullScreenPanPreservation();
+    });
 
     hideCursorTimer = new QTimer(this);
     hideCursorTimer->setSingleShot(true);
@@ -190,6 +193,48 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
             lastCalculatedZoomLevel.has_value() &&
             zoomLevelsEquivalent(zoomLevel, lastCalculatedZoomLevel.value());
 
+        // A resize normally keeps the scene focal point fixed by moving the
+        // scroll position by half of the viewport delta.  That is correct for
+        // an interior position, but it is wrong once the user has panned an
+        // image to an edge: shrinking the viewport then pulls the selected
+        // edge back into the middle of the image.  Remember the old scroll
+        // endpoints so a full-screen round trip can preserve a deliberately
+        // selected corner as well as an ordinary resize preserves its focus.
+        const bool preserveManualPanEdges =
+            !calculatedZoomMode.has_value() && !shouldRestoreCalculatedZoom;
+        const QScrollBar *horizontalBar = horizontalScrollBar();
+        const QScrollBar *verticalBar = verticalScrollBar();
+        const int oldHorizontalValue = horizontalBar->value();
+        const int oldVerticalValue = verticalBar->value();
+        const bool horizontalWasScrollable =
+            horizontalBar->minimum() < horizontalBar->maximum();
+        const bool verticalWasScrollable =
+            verticalBar->minimum() < verticalBar->maximum();
+        const ScrollEdge horizontalPanEdge =
+            fullScreenHorizontalPanEdge != ScrollEdge::None
+                ? fullScreenHorizontalPanEdge
+                : (horizontalWasScrollable && oldHorizontalValue <= horizontalBar->minimum() + 1
+                    ? ScrollEdge::Minimum
+                    : horizontalWasScrollable && oldHorizontalValue >= horizontalBar->maximum() - 1
+                        ? ScrollEdge::Maximum
+                        : ScrollEdge::None);
+        const ScrollEdge verticalPanEdge =
+            fullScreenVerticalPanEdge != ScrollEdge::None
+                ? fullScreenVerticalPanEdge
+                : (verticalWasScrollable && oldVerticalValue <= verticalBar->minimum() + 1
+                    ? ScrollEdge::Minimum
+                    : verticalWasScrollable && oldVerticalValue >= verticalBar->maximum() - 1
+                        ? ScrollEdge::Maximum
+                        : ScrollEdge::None);
+        const bool wasAtHorizontalMinimum = preserveManualPanEdges
+            && horizontalPanEdge == ScrollEdge::Minimum;
+        const bool wasAtHorizontalMaximum = preserveManualPanEdges
+            && horizontalPanEdge == ScrollEdge::Maximum;
+        const bool wasAtVerticalMinimum = preserveManualPanEdges
+            && verticalPanEdge == ScrollEdge::Minimum;
+        const bool wasAtVerticalMaximum = preserveManualPanEdges
+            && verticalPanEdge == ScrollEdge::Maximum;
+
         QGraphicsView::resizeEvent(event);
 
         // setSceneRect() can synchronously resize the viewport when an
@@ -206,8 +251,30 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         }
 
         const QSize sizeDelta = event->size() - event->oldSize();
-        scrollHelper->move(QPointF(sizeDelta.width(), sizeDelta.height()) / -2.0);
+        const QPointF resizeDelta(
+            (wasAtHorizontalMinimum || wasAtHorizontalMaximum)
+                ? 0.0 : -sizeDelta.width() / 2.0,
+            (wasAtVerticalMinimum || wasAtVerticalMaximum)
+                ? 0.0 : -sizeDelta.height() / 2.0);
+        scrollHelper->move(resizeDelta);
         fitOrConstrainImage();
+
+        // fitOrConstrainImage() may rebuild the explicit scene rect while the
+        // titlebar inset changes during a native full-screen transition. Set
+        // the endpoint after that rebuild so the new range, rather than the
+        // old range, is used for the preserved image edge.
+        if (preserveManualPanEdges)
+        {
+            if (wasAtHorizontalMinimum)
+                horizontalScrollBar()->setValue(horizontalScrollBar()->minimum());
+            else if (wasAtHorizontalMaximum)
+                horizontalScrollBar()->setValue(horizontalScrollBar()->maximum());
+
+            if (wasAtVerticalMinimum)
+                verticalScrollBar()->setValue(verticalScrollBar()->minimum());
+            else if (wasAtVerticalMaximum)
+                verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+        }
         logViewportState("resize");
     }
     else
@@ -1764,6 +1831,62 @@ void QVGraphicsView::fitOrConstrainImage()
         recalculateZoom();
     else
         scrollHelper->constrain(true);
+
+    restoreFullScreenPanPreservation();
+}
+
+void QVGraphicsView::beginFullScreenPanPreservation()
+{
+    // A delayed constraint or an in-flight overscroll animation can otherwise
+    // write an old scroll value after the transition has already established
+    // its new range.
+    constrainBoundsTimer->stop();
+    scrollHelper->cancelAnimation();
+    fullScreenPanPreservationActive = true;
+    fullScreenHorizontalPanEdge = ScrollEdge::None;
+    fullScreenVerticalPanEdge = ScrollEdge::None;
+
+    if (calculatedZoomMode.has_value())
+        return;
+
+    const auto getScrollEdge = [](const QScrollBar *scrollBar) {
+        if (scrollBar->minimum() >= scrollBar->maximum())
+            return ScrollEdge::None;
+        if (scrollBar->value() <= scrollBar->minimum() + 1)
+            return ScrollEdge::Minimum;
+        if (scrollBar->value() >= scrollBar->maximum() - 1)
+            return ScrollEdge::Maximum;
+        return ScrollEdge::None;
+    };
+
+    fullScreenHorizontalPanEdge = getScrollEdge(horizontalScrollBar());
+    fullScreenVerticalPanEdge = getScrollEdge(verticalScrollBar());
+}
+
+void QVGraphicsView::endFullScreenPanPreservation()
+{
+    constrainBoundsTimer->stop();
+    scrollHelper->cancelAnimation();
+    restoreFullScreenPanPreservation();
+    fullScreenPanPreservationActive = false;
+    fullScreenHorizontalPanEdge = ScrollEdge::None;
+    fullScreenVerticalPanEdge = ScrollEdge::None;
+}
+
+void QVGraphicsView::restoreFullScreenPanPreservation()
+{
+    if (!fullScreenPanPreservationActive || calculatedZoomMode.has_value())
+        return;
+
+    if (fullScreenHorizontalPanEdge == ScrollEdge::Minimum)
+        horizontalScrollBar()->setValue(horizontalScrollBar()->minimum());
+    else if (fullScreenHorizontalPanEdge == ScrollEdge::Maximum)
+        horizontalScrollBar()->setValue(horizontalScrollBar()->maximum());
+
+    if (fullScreenVerticalPanEdge == ScrollEdge::Minimum)
+        verticalScrollBar()->setValue(verticalScrollBar()->minimum());
+    else if (fullScreenVerticalPanEdge == ScrollEdge::Maximum)
+        verticalScrollBar()->setValue(verticalScrollBar()->maximum());
 }
 
 bool QVGraphicsView::isSmoothScalingRequested() const

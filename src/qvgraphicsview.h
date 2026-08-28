@@ -90,6 +90,12 @@ public:
 
     void fitOrConstrainImage();
 
+    // Full-screen transitions can resize the viewport several times after
+    // AppKit publishes the new window state. Preserve a manually selected
+    // image edge for the whole transition, not just for one resize event.
+    void beginFullScreenPanPreservation();
+    void endFullScreenPanPreservation();
+
     QSizeF getEffectiveOriginalSize() const;
 
     QRect fullScreenTransitionImageRect() const;
@@ -288,7 +294,11 @@ private slots:
     void postLoad();
 
 private:
+    enum class ScrollEdge { None, Minimum, Maximum };
+
     void ensureHDRRenderer();
+
+    void restoreFullScreenPanPreservation();
 
     QVGraphicsImageItem *loadedPixmapItem;
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
@@ -336,6 +346,9 @@ private:
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
     bool isUpdatingSceneRect {false};
+    bool fullScreenPanPreservationActive {false};
+    ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
+    ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
     std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};

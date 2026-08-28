@@ -212,6 +212,7 @@ private slots:
     void testZoomAcrossScrollbarThresholdKeepsViewportCenterStable();
     void testTouchpadPanUsesPixelsWithoutChangingZoom();
     void testFitZoomSurvivesInverseWheelStepsAndFullscreenResize();
+    void testFullscreenExitPreservesPanAtCorner();
     void testFullscreenAfterOverflowRemovesTitlebarScenePadding();
     void testManualZoomRemainsManualAcrossResize();
     void testSmallImageOneToOnePolicyUsesViewportAndWindowMode();
@@ -3850,6 +3851,104 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         5000);
     QTRY_COMPARE_WITH_TIMEOUT(
         window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-ZOOM-FULLSCREEN-PAN-CORNER
+// Test purpose: verify that leaving full screen does not pull an image away
+// from a corner selected by panning while zoomed.
+// Preconditions: a visible 640x480 window uses manual/original-size zoom and
+// loads an image that overflows both axes at 200% in full screen.
+// Input data: one 2400x1600 PNG, a 2.0x zoom, and both scrollbars at their
+// maximum values (the deterministic equivalent of dragging to the bottom-right
+// corner and releasing).
+// Steps: enter full screen, zoom, pan to the bottom-right corner, exit full
+// screen, and inspect the new scroll ranges and mapped image edge.
+// Expected result: both scrollbars remain at their new maximum and the image's
+// bottom-right edge remains coincident with the viewport's bottom-right edge.
+// Postcondition: the window, settings, image, and temporary directory are released.
+void GraphicsViewTests::testFullscreenExitPreservesPanAtCorner()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, "fullscreen-pan-corner", Qt::darkMagenta, QSize(2400, 1600));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
+    // QWindow publishes the full-screen state before AppKit finishes the
+    // custom proxy handoff. User input is available only after that handoff,
+    // so wait for the transition before zooming and panning.
+    QTest::qWait(1500);
+
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum()
+            && view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(),
+        2000);
+    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
+    QCoreApplication::processEvents();
+
+    const QRectF imageRect = view->scene()->itemsBoundingRect();
+    const QRect fullScreenViewport = view->viewport()->rect();
+    const QPointF fullScreenBottomRight = view->mapFromScene(imageRect.bottomRight());
+    QVERIFY(qAbs(fullScreenBottomRight.x() - fullScreenViewport.right()) <= 2.0
+            || qAbs(fullScreenBottomRight.x() - fullScreenViewport.right() - 1.0) <= 2.0);
+    QVERIFY(qAbs(fullScreenBottomRight.y() - fullScreenViewport.bottom()) <= 2.0
+            || qAbs(fullScreenBottomRight.y() - fullScreenViewport.bottom() - 1.0) <= 2.0);
+
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+    QTest::qWait(1500);
+    QCoreApplication::processEvents();
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        qAbs(view->horizontalScrollBar()->value()
+             - view->horizontalScrollBar()->maximum()) <= 1,
+        5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        qAbs(view->verticalScrollBar()->value()
+             - view->verticalScrollBar()->maximum()) <= 1,
+        5000);
+
+    // Native/AppKit geometry is integer-rounded independently from Qt's
+    // scrollbar range. A one-pixel residual is therefore equivalent to the
+    // same image edge and is covered by the mapped-edge assertions below.
+    QVERIFY(qAbs(view->horizontalScrollBar()->value()
+                 - view->horizontalScrollBar()->maximum()) <= 1);
+    QVERIFY(qAbs(view->verticalScrollBar()->value()
+                 - view->verticalScrollBar()->maximum()) <= 1);
+    const QRect normalViewport = view->viewport()->rect();
+    const QPointF normalBottomRight = view->mapFromScene(imageRect.bottomRight());
+    QVERIFY(qAbs(normalBottomRight.x() - normalViewport.right()) <= 2.0
+            || qAbs(normalBottomRight.x() - normalViewport.right() - 1.0) <= 2.0);
+    QVERIFY(qAbs(normalBottomRight.y() - normalViewport.bottom()) <= 2.0
+            || qAbs(normalBottomRight.y() - normalViewport.bottom() - 1.0) <= 2.0);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
