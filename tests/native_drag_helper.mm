@@ -27,6 +27,11 @@ constexpr int NativeDragSkip = 77;
 constexpr int DragSteps = 32;
 constexpr int EventDelayMilliseconds = 12;
 constexpr int TransitionTimeoutMilliseconds = 8000;
+constexpr int ScrollEdgeTolerance = 3;
+constexpr int NearBottomMaximumGap = 160;
+constexpr double DragStartNormalizedY = 0.94;
+constexpr double DragEndNormalizedY = 0.60;
+constexpr double AnchorTolerance = 4.0;
 
 struct Options
 {
@@ -58,15 +63,14 @@ struct ViewportSample
     int value{ 0 };
     int minimum{ 0 };
     int maximum{ 0 };
+    std::optional<double> anchorSceneY;
 };
 
 struct Result
 {
     bool passed{ false };
-    bool normalBottom{ false };
-    bool fullScreenEntryBottom{ false };
-    bool fullScreenDragBottom{ false };
-    bool exitBottom{ false };
+    bool fullScreenNearBottom{ false };
+    bool exitAnchorStable{ false };
     bool noOriginReset{ false };
     int dragEvents{ 0 };
     std::string logPath;
@@ -241,6 +245,8 @@ std::vector<ViewportSample> parseViewportSamples(const std::string &contents)
     static const std::regex pattern(
             R"(FOVELLE_VIEW\s+phase=\s*([^\s]+).*?zoom=\s*([-+0-9.eE]+).*?vbar=\s*(-?\d+)\s+(-?\d+)\s+(-?\d+))");
     static const std::regex viewportPattern(R"(viewportRect=\s*QRect\([^)]*\s+\d+x(\d+)\))");
+    static const std::regex anchorPattern(
+            R"(panAnchorScene=\s*QPointF\([-+0-9.eE]+,\s*([-+0-9.eE]+)\))");
     std::vector<ViewportSample> samples;
     std::istringstream lines(contents);
     std::string line;
@@ -253,6 +259,11 @@ std::vector<ViewportSample> parseViewportSamples(const std::string &contents)
         const int viewportHeight = std::regex_search(line, viewportMatch, viewportPattern)
                 ? std::stoi(viewportMatch[1].str())
                 : 0;
+        std::smatch anchorMatch;
+        const std::optional<double> anchorSceneY =
+                std::regex_search(line, anchorMatch, anchorPattern)
+                ? std::optional(std::stod(anchorMatch[1].str()))
+                : std::nullopt;
         samples.push_back(ViewportSample{
                 match[1].str(),
                 std::stod(match[2].str()),
@@ -260,6 +271,7 @@ std::vector<ViewportSample> parseViewportSamples(const std::string &contents)
                 std::stoi(match[3].str()),
                 std::stoi(match[4].str()),
                 std::stoi(match[5].str()),
+                anchorSceneY,
         });
     }
     return samples;
@@ -287,21 +299,31 @@ bool waitForLog(const std::string &path, Predicate predicate, const int timeoutM
     return false;
 }
 
-bool isBottom(const ViewportSample &sample)
+const ViewportSample *latestSampleAfter(const std::vector<ViewportSample> &samples,
+                                        const size_t start)
 {
-    return sample.maximum > sample.minimum && sample.value >= sample.maximum - 1;
+    return samples.size() <= start ? nullptr : &samples.back();
 }
 
-bool latestBottomSampleAfter(const std::vector<ViewportSample> &samples, const size_t start,
-                             const int minimumViewportHeight, const int maximumViewportHeight = 0)
+bool isNearBottom(const ViewportSample &sample)
 {
-    if (samples.size() <= start)
+    if (sample.maximum <= sample.minimum)
         return false;
-    const int viewportHeight = samples.back().viewportHeight;
-    if (viewportHeight < minimumViewportHeight
-        || (maximumViewportHeight > 0 && viewportHeight > maximumViewportHeight))
+    const int gap = sample.maximum - sample.value;
+    return gap > ScrollEdgeTolerance && gap <= NearBottomMaximumGap;
+}
+
+bool latestNearBottomSampleAfter(const std::vector<ViewportSample> &samples, const size_t start,
+                                 const int minimumViewportHeight,
+                                 const int maximumViewportHeight = 0)
+{
+    const ViewportSample *sample = latestSampleAfter(samples, start);
+    if (!sample)
         return false;
-    return isBottom(samples.back());
+    if (sample->viewportHeight < minimumViewportHeight
+        || (maximumViewportHeight > 0 && sample->viewportHeight > maximumViewportHeight))
+        return false;
+    return isNearBottom(*sample);
 }
 
 int latestViewportHeight(const std::vector<ViewportSample> &samples)
@@ -353,6 +375,21 @@ bool hasOriginResetAfter(const std::vector<ViewportSample> &samples, const size_
                            return sample.maximum > sample.minimum
                                    && sample.value <= sample.minimum + 1;
                        });
+}
+
+bool anchorsStayStableAfter(const std::vector<ViewportSample> &samples, const size_t start,
+                            const double expectedAnchorSceneY)
+{
+    bool foundAnchor = false;
+    for (auto iterator = samples.cbegin() + std::min(start, samples.size());
+         iterator != samples.cend(); ++iterator) {
+        if (!iterator->anchorSceneY.has_value())
+            continue;
+        foundAnchor = true;
+        if (std::abs(iterator->anchorSceneY.value() - expectedAnchorSceneY) > AnchorTolerance)
+            return false;
+    }
+    return foundAnchor;
 }
 
 bool postMouseEvent(CGEventType type, const CGPoint point, const int clickState = 1)
@@ -418,8 +455,8 @@ bool postFixedDrag(const CGRect bounds, int &dragEvents)
 {
     // One normalized path is used in both normal and full-screen window
     // geometries.  Only its screen-space origin/scale changes with the window.
-    const CGPoint start = pointInWindow(bounds, 0.50, 0.94);
-    const CGPoint end = pointInWindow(bounds, 0.50, 0.04);
+    const CGPoint start = pointInWindow(bounds, 0.50, DragStartNormalizedY);
+    const CGPoint end = pointInWindow(bounds, 0.50, DragEndNormalizedY);
     if (!postMouseEvent(kCGEventLeftMouseDown, start))
         return false;
 
@@ -552,6 +589,17 @@ std::unique_ptr<LaunchedApplication> launchApplication(const Options &options)
     return application;
 }
 
+void activateApplication(const pid_t pid)
+{
+    NSRunningApplication *running =
+            [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+    if (!running)
+        return;
+
+    [running activateWithOptions:NSApplicationActivateAllWindows];
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+}
+
 bool fileExists(const std::string &path)
 {
     struct stat fileStatus{ };
@@ -575,57 +623,28 @@ int runReproduction(const Options &options)
         std::cerr << "The launched Fovelle process did not expose an on-screen window.\n";
         return 1;
     }
-
-    const CGPoint normalInteractionPoint = pointInWindow(normalWindow->bounds, 0.50, 0.50);
-    constexpr int NativeZoomScrollEvents = 3;
-    for (int step = 0; step < NativeZoomScrollEvents; ++step) {
-        if (!postScrollEvent(normalInteractionPoint, 1)) {
-            std::cerr << "Failed to post the native zoom scroll event.\n";
-            return 1;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(80));
-    }
+    activateApplication(pid);
 
     std::vector<ViewportSample> samples;
-    const bool zoomed = waitForLog(
+    const bool initialStateLogged = waitForLog(
             application->logPath,
             [](const std::vector<ViewportSample> &current) {
-                return std::any_of(current.cbegin(), current.cend(),
-                                   [](const ViewportSample &sample) {
-                                       return sample.maximum > sample.minimum;
-                                   });
+                return latestViewportHeight(current) > 0;
             },
             5000, &samples);
-    if (!zoomed) {
-        std::cerr << "The native scroll sequence did not produce a zoomed, scrollable image.\n";
-        return 1;
-    }
-
-    Result result;
-    result.logPath = application->logPath;
-    const size_t normalDragStart = samples.size();
-    if (!postFixedDrag(normalWindow->bounds, result.dragEvents)) {
-        std::cerr << "Failed to post the normal-window native drag sequence.\n";
-        return 1;
-    }
-    result.normalBottom = waitForStableLog(
-            application->logPath,
-            [normalDragStart](const std::vector<ViewportSample> &current) {
-                return latestBottomSampleAfter(current, normalDragStart, 0);
-            },
-            4000, &samples);
-    if (!result.normalBottom) {
-        std::cerr << "The normal-window native drag did not reach the vertical maximum.\n";
+    if (!initialStateLogged) {
+        std::cerr << "The native diagnostic log did not contain an initial viewport.\n";
         return 1;
     }
 
     const int normalViewportHeight = latestViewportHeight(samples);
     if (normalViewportHeight <= 0) {
-        std::cerr << "The native diagnostic log did not contain a viewport height.\n";
+        std::cerr << "The native diagnostic log did not contain a normal viewport height.\n";
         return 1;
     }
 
-    const size_t entryStart = samples.size();
+    const CGPoint normalInteractionPoint = pointInWindow(normalWindow->bounds, 0.50, 0.50);
+    Result result;
     if (!postDoubleClick(normalInteractionPoint)) {
         std::cerr << "Failed to post the native full-screen entry click sequence.\n";
         return 1;
@@ -642,70 +661,96 @@ int runReproduction(const Options &options)
         std::cerr << "The native full-screen window geometry did not settle.\n";
         return 1;
     }
+    const CGRect fullScreenBounds = stableFullScreenWindow->bounds;
     const int fullScreenViewportHeightFloor =
-            CGRectGetHeight(fullScreenWindow->bounds) > CGRectGetHeight(normalWindow->bounds) + 20.0
+            CGRectGetHeight(fullScreenBounds) > CGRectGetHeight(normalWindow->bounds) + 20.0
             ? normalViewportHeight + 20
             : 0;
 
-    result.fullScreenEntryBottom = waitForStableLog(
+    constexpr int NativeZoomScrollEvents = 3;
+    const CGPoint fullScreenInteractionPoint = pointInWindow(fullScreenBounds, 0.50, 0.50);
+    const size_t zoomStart = samples.size();
+    for (int step = 0; step < NativeZoomScrollEvents; ++step) {
+        if (!postScrollEvent(fullScreenInteractionPoint, 1)) {
+            std::cerr << "Failed to post the native full-screen zoom scroll event.\n";
+            return 1;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    }
+
+    const bool zoomed = waitForLog(
             application->logPath,
-            [entryStart,
-             fullScreenViewportHeightFloor](const std::vector<ViewportSample> &current) {
-                return latestBottomSampleAfter(current, entryStart, fullScreenViewportHeightFloor);
+            [zoomStart, fullScreenViewportHeightFloor](const std::vector<ViewportSample> &current) {
+                const ViewportSample *sample = latestSampleAfter(current, zoomStart);
+                return sample && sample->viewportHeight >= fullScreenViewportHeightFloor
+                        && sample->maximum > sample->minimum;
             },
-            TransitionTimeoutMilliseconds, &samples);
-    if (!result.fullScreenEntryBottom) {
-        std::cerr << "The vertical maximum was not preserved on native full-screen entry.\n";
+            5000, &samples);
+    if (!zoomed) {
+        std::cerr << "The native full-screen scroll sequence did not produce a scrollable image.\n";
         return 1;
     }
 
     const size_t fullScreenDragStart = samples.size();
-    if (!postFixedDrag(fullScreenWindow->bounds, result.dragEvents)) {
+    result.logPath = application->logPath;
+    if (!postFixedDrag(fullScreenBounds, result.dragEvents)) {
         std::cerr << "Failed to post the full-screen native drag sequence.\n";
         return 1;
     }
-    result.fullScreenDragBottom = waitForStableLog(
+    result.fullScreenNearBottom = waitForStableLog(
             application->logPath,
             [fullScreenDragStart,
              fullScreenViewportHeightFloor](const std::vector<ViewportSample> &current) {
-                return latestBottomSampleAfter(current, fullScreenDragStart,
-                                               fullScreenViewportHeightFloor);
+                return latestNearBottomSampleAfter(current, fullScreenDragStart,
+                                                   fullScreenViewportHeightFloor);
             },
             4000, &samples);
-    if (!result.fullScreenDragBottom) {
-        std::cerr << "The full-screen native drag did not reach the vertical maximum.\n";
+    if (!result.fullScreenNearBottom) {
+        std::cerr << "The full-screen native drag did not reach the requested near-bottom "
+                     "interior.\n";
         return 1;
     }
 
+    const ViewportSample *beforeExit = latestSampleAfter(samples, fullScreenDragStart);
+    if (!beforeExit || !beforeExit->anchorSceneY.has_value()) {
+        std::cerr << "The native diagnostic log did not contain the pre-exit scene anchor.\n";
+        return 1;
+    }
+    const double anchorBeforeExit = beforeExit->anchorSceneY.value();
+
     const size_t exitStart = samples.size();
-    const CGPoint fullScreenInteractionPoint = pointInWindow(fullScreenWindow->bounds, 0.50, 0.50);
     if (!postDoubleClick(fullScreenInteractionPoint)) {
         std::cerr << "Failed to post the native full-screen exit click sequence.\n";
         return 1;
     }
 
-    result.exitBottom = waitForStableLog(
+    result.exitAnchorStable = waitForStableLog(
             application->logPath,
-            [exitStart, normalViewportHeight](const std::vector<ViewportSample> &current) {
-                return latestBottomSampleAfter(current, exitStart, 0, normalViewportHeight + 20);
+            [exitStart, normalViewportHeight,
+             anchorBeforeExit](const std::vector<ViewportSample> &current) {
+                const ViewportSample *sample = latestSampleAfter(current, exitStart);
+                if (!sample || !sample->anchorSceneY.has_value() || sample->viewportHeight <= 0
+                    || sample->viewportHeight > normalViewportHeight + 20
+                    || sample->maximum <= sample->minimum
+                    || sample->value >= sample->maximum - ScrollEdgeTolerance
+                    || !anchorsStayStableAfter(current, exitStart, anchorBeforeExit))
+                    return false;
+                return std::abs(sample->anchorSceneY.value() - anchorBeforeExit) <= AnchorTolerance;
             },
             TransitionTimeoutMilliseconds, &samples);
     const auto finalWindow =
             waitForStableWindowGeometry(pid, normalWindow->bounds, TransitionTimeoutMilliseconds);
     const bool returnedToNormalGeometry = finalWindow.has_value();
-    result.noOriginReset = result.exitBottom && !hasOriginResetAfter(samples, exitStart);
-    result.passed = result.normalBottom && result.fullScreenEntryBottom
-            && result.fullScreenDragBottom && result.exitBottom && result.noOriginReset
+    result.noOriginReset = result.exitAnchorStable && !hasOriginResetAfter(samples, exitStart);
+    result.passed = result.fullScreenNearBottom && result.exitAnchorStable && result.noOriginReset
             && returnedToNormalGeometry;
 
     std::cout << "NATIVE_DRAG_RESULT passed=" << (result.passed ? "true" : "false")
-              << " normal_bottom=" << (result.normalBottom ? "true" : "false")
-              << " fullscreen_entry_bottom=" << (result.fullScreenEntryBottom ? "true" : "false")
-              << " fullscreen_drag_bottom=" << (result.fullScreenDragBottom ? "true" : "false")
-              << " exit_bottom=" << (result.exitBottom ? "true" : "false")
+              << " fullscreen_near_bottom=" << (result.fullScreenNearBottom ? "true" : "false")
+              << " exit_anchor_stable=" << (result.exitAnchorStable ? "true" : "false")
               << " no_origin_reset=" << (result.noOriginReset ? "true" : "false")
               << " returned_to_normal_geometry=" << (returnedToNormalGeometry ? "true" : "false")
-              << " trajectory=vertical-94-to-04-steps-32"
+              << " trajectory=vertical-94-to-60-steps-32"
               << " drag_events=" << result.dragEvents << '\n';
 
     return result.passed ? 0 : 1;

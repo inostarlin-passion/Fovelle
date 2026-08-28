@@ -1,27 +1,29 @@
-# 全屏缩放与垂直平移保持：数学模型
+# 全屏退出时连续平移位置保持：数学模型
 
-## 1. 范围、对象与显式前提
+## 1. 范围与显式前提
 
-本模型描述 macOS 上 Fovelle 的同一份位图在普通窗口、原生全屏进入、全屏
-平移和原生全屏退出四个阶段中的视口状态。复现输入是
-`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/3.jpeg`；该文件必须存在，且
-Fovelle 必须使用“滚轮缩放、左键平移、左键双击切换全屏”的当前设置。
+本模型描述 macOS 上 Fovelle 打开同一份位图、进入原生全屏、缩放、把图像
+拖到“接近但尚未到达底部”、再退出全屏时的视口状态。复现输入为
+`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/3.jpeg`，且应用使用当前的
+滚轮缩放、左键平移和左键双击全屏设置。
 
-原生复现器不是 QtTest、Accessibility action、键盘操作或业务函数调用。它
-使用 CoreGraphics 生成并通过 `CGEventPost(kCGHIDEventTap, ...)` 投递真实的
-鼠标/滚轮事件；因此测试前提包含 macOS 的 Post Event 与 Accessibility 权限。
-CoreGraphics 将 `CGEvent` 定义为低层硬件事件，`CGEventPost` 将事件放入 Quartz
-事件流，`kCGHIDEventTap` 是 HID 系统事件进入 WindowServer 的位置：
+原生复现器不使用 CUA、QtTest、Accessibility action、键盘操作或业务函数。
+它使用 CoreGraphics 创建真实鼠标/滚轮事件，并用
+`CGEventPost(kCGHIDEventTap, ...)` 投递到 Quartz HID 事件流；因此执行前提是
+macOS Post Event 与 Accessibility 权限已经授权。相关 API 的定义见
 [CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent)、
-[CGEventPost](https://developer.apple.com/documentation/coregraphics/cgeventpost)、
-[kCGHIDEventTap](https://developer.apple.com/documentation/coregraphics/cgeventtaplocation/cghideventtap?changes=__3&language=objc)。
+[CGEventPost](https://developer.apple.com/documentation/coregraphics/cgeventpost)
+和
+[kCGHIDEventTap](https://developer.apple.com/documentation/coregraphics/cgeventtaplocation/cghideventtap?language=objc)。
 
-窗口坐标由 `CGWindowListCopyWindowInfo` 的当前会话窗口信息和
-`kCGWindowBounds` 解码得到；该坐标系的屏幕原点位于主显示器左上角：
+窗口屏幕边界由当前会话的 CoreGraphics 窗口信息和 `kCGWindowBounds` 取得：
 [CGWindowListCopyWindowInfo](https://developer.apple.com/documentation/coregraphics/cgwindowlistcopywindowinfo%28_%3A_%3A%29?changes=_9&language=objc)、
 [kCGWindowBounds](https://developer.apple.com/documentation/coregraphics/kcgwindowbounds?changes=_6)。
+Qt 的 `QGraphicsView::sceneRect` 决定可导航区域和滚动条范围，且窗口尺寸变化
+会受到 `resizeAnchor` 规则影响：[QGraphicsView](https://doc.qt.io/qt-6/qgraphicsview.html)。
+AppKit 的全屏进入/退出由 will/did 生命周期通知异步发布：[NSWindow](https://developer.apple.com/documentation/appkit/nswindow?changes=___1)。
 
-## 2. 几何状态
+## 2. 几何对象与滚动状态
 
 设原始图像为
 
@@ -29,27 +31,26 @@ CoreGraphics 将 `CGEvent` 定义为低层硬件事件，`CGEventPost` 将事件
 I=[0,W]\times[0,H],\qquad W,H>0,
 \]
 
-设当前视图变换为可逆仿射变换 `T`，场景矩形为 `S`，视口矩形为 `V`。对
-垂直方向定义：
+设当前场景到视口的可逆变换为 `T`，场景矩形为 `S`，可用视口矩形为 `V`。
+对每个轴定义：
 
-- `R=[r_min,r_max]`：Qt 根据场景矩形、变换和视口计算的滚动范围；
-- `v∈R`：`verticalScrollBar()->value()`；
-- `b(T,S,v)`：图像底边 `T(0,H)` 映射到视口后的 y 坐标；
-- `V_b`：视口底边。
+- `R=[r_min,r_max]`：Qt 当前滚动条的离散整数范围；
+- `v∈R`：当前滚动条值；
+- `c(V)`：可用视口中心；
+- `a=mapToScene(c(V))`：视口中心对应的 scene 坐标锚点；
+- `b(T,S,v)`：图像底边在视口中的位置。
 
-水平量 `R_x,v_x` 同理。Qt 的 `sceneRect` 是导航与滚动范围的几何输入，
-所以 `setSceneRect()` 是本缺陷的状态重建边界。
-
-`QGraphicsView` 的滚动条范围是离散整数，而 `ScrollHelper` 依据
-`QRect::width/height` 和可用视口计算约束范围；两者在边界处可能相差少量整数。
-令本实现使用的端点容差为
+`a` 是连续平移位置的语义表示；它不依赖旧窗口的滚动条整数值。若重建后
+范围变为 `R'`，则目标是不变地满足
 
 \[
-\tau=3.
+mapToScene_{new}(c(V'))=a,
 \]
 
-该值覆盖原生轨迹观测到的最大 2 个单位约束尾差，并保留严格的“新范围
-`maximum()`”恢复操作。端点意图函数为
+若该锚点因范围裁剪不可表示，则按新的合法范围夹紧。水平轴同理。
+
+端点意图仍需要优先处理，因为端点有比中心锚点更强的用户语义。设端点容差
+`τ=3`：
 
 \[
 E(v,R)=
@@ -60,101 +61,86 @@ E(v,R)=
 \end{cases}
 \]
 
-验收时还要求映射后的图像底边满足
+“接近底部但不在底部”的测试状态定义为
 
 \[
-E_y(v,R)=\text{Maximum}\Longrightarrow
-|b(T,S,v)-V_b|\le \varepsilon,
-\qquad \varepsilon=4\text{ 个设备像素}.
+NearBottom(v,R)\iff
+r_{max}-v>\tau\land 0<r_{max}-v\le G,
+\qquad G=160.
 \]
 
-`ε` 只处理浮点变换、设备像素比和 `QRect` 包含式边界取整；它不替代滚动条
-端点恢复。
+其中 `G` 是测试轨迹的近底窗口，不把真正的 `Maximum` 伪装成内部位置。
 
-## 3. 全屏保持状态机
+## 3. 全屏保持器状态机
 
-保持器状态定义为
+保持器状态为
 
 \[
-P=(a,e_x,e_y,q),
+P=(active,e_x,e_y,a_x,a_y,q),
 \]
 
-其中 `a∈{false,true}` 是保持器是否活动，`e_x,e_y∈{None,Minimum,Maximum}`
-是当前用户端点意图，`q` 是窗口阶段：
-`Normal`、`Entering`、`FullScreen`、`Exiting`。
+其中 `active` 表示保持窗口几何的生命周期，`e_x,e_y` 是端点意图，`a_x,a_y`
+是可选的 scene 锚点，`q` 属于 `Normal`、`Entering`、`FullScreen`、`Exiting`。
 
 | 事件 | 前置 | 状态转移与动作 |
 | --- | --- | --- |
-| `begin` | 任意 | 停止延迟约束、取消滚动动画；若已活动则保持原快照，否则以 `E(v_x,R_x),E(v_y,R_y)` 捕获端点并令 `a=true,q=Entering`。 |
-| `rebuild(S',V')` | `a=true` 或手动模式 | 调用 `setSceneRect(S')` 后，把 `Minimum` 映射到 `r'_min`、`Maximum` 映射到 `r'_max`，而不是写回旧整数值。 |
-| `refresh` | 退出请求边界 | 停止延迟约束、取消滚动动画，重新从当前滚动条计算 `e_x,e_y`，令 `q=Exiting`；这一步覆盖用户在全屏中最后一次原生拖动。 |
-| `end` | 全屏完成/失败 | 在当前范围重新应用 `e_x,e_y`，再清除 `a,e_x,e_y` 并令 `q=Normal`。 |
+| `begin` | 进入请求边界 | 停止延迟约束和滚动动画；捕获当前端点，并捕获可用视口中心的 scene 锚点；令 `active=true,q=Entering`。重复调用不覆盖已有进入快照。 |
+| `rebuild(S',V')` | `active=true` | `setSceneRect()` 后先恢复端点到 `r'_min/r'_max`；没有端点时，按 `a_x/a_y` 将锚点重新置于新视口中心。 |
+| `refresh` | 退出请求边界 | 停止延迟约束和滚动动画；丢弃旧快照，重新捕获全屏中最后一次拖动后的端点和 scene 锚点；令 `q=Exiting`。 |
+| `end` | 全屏完成或失败 | 在最终范围再次恢复端点或锚点，然后清除 `active,e_x,e_y,a_x,a_y`，令 `q=Normal`。 |
 
-AppKit 的 will/did 全屏通知、Qt 的窗口状态事件、窗口尺寸变化和自定义
-动画回调并非同一个同步事件。因此保持器的生命周期绑定到请求边界与完成
-边界，而不是绑定到单个 `resizeEvent`。
+端点恢复优先于锚点恢复；因此“真正到底部”仍严格落在新范围的
+`maximum()`，而“差一点到底部”不会被强制吸附到 `maximum()`。
 
-## 4. 固定原生输入轨迹
+## 4. 固定原生拖动轨迹
 
-对窗口屏幕边界 `B` 定义归一化点
+对当前全屏窗口的屏幕边界 `B`，定义归一化轨迹
 
 \[
-p_i(B)=B_{min}+(0.50,\;0.94-0.90i/32)\odot(B_{size}),
+p_i(B)=B_{min}+(0.50,\;0.94-0.34i/32)\odot B_{size},
 \qquad i=0,1,\ldots,32.
 \]
 
-一次平移轨迹是
+helper 发出的平移序列严格为
 
 \[
-\mathcal{D}(B)=
-[\operatorname{LeftMouseDown}(p_0),
- \operatorname{LeftMouseDragged}(p_1),\ldots,
- \operatorname{LeftMouseDragged}(p_{32}),
- \operatorname{LeftMouseUp}(p_{32})].
+\mathcal D(B)=
+[LeftMouseDown(p_0),
+ LeftMouseDragged(p_1),\ldots,
+ LeftMouseDragged(p_{32}),
+ LeftMouseUp(p_{32})].
 \]
 
-普通窗口和全屏窗口只改变 `B`，使用完全相同的 32 段轨迹。缩放使用 3 个
-原生滚轮事件；全屏进入和退出各使用两次真实 down/up 组成的双击。每一个
-鼠标事件都由 `CGEventCreateMouseEvent` 创建并以
-`CGEventPost(kCGHIDEventTap, event)` 投递。窗口发现仅使用当前会话的窗口
-边界，不使用 AX action；权限检查使用
-`CGPreflightPostEventAccess` 和 `AXIsProcessTrustedWithOptions`，后者只用于
-报告/请求权限。
+该序列使用 32 个 `LeftMouseDragged`，终点归一化 y 坐标为 `0.60`，故保留
+一个可观测的非端点近底间隔。每次修改 Qt/Cocoa viewer 后，必须用同一
+`\mathcal D(B)` 重新执行；普通窗口和全屏若都需要拖动，只改变 `B`，不改变
+轨迹参数。缩放和全屏切换也使用真实 CoreGraphics 滚轮及双击事件。
 
 ## 5. 输入、输出与验收谓词
 
-原生 helper 的输入是应用 bundle/可执行文件路径、图像路径和权限选项；内部
-状态为 `(pid,B_normal,B_fullscreen, P, samples)`。`samples` 来自应用的诊断
-状态，每条样本至少包含 `(phase,zoom,viewportHeight,v,r_min,r_max)`。
+helper 输入为应用 bundle/可执行文件、图像路径和权限选项；运行状态包含
+`(pid,B_normal,B_fullscreen,P,samples)`。每条诊断样本至少包含
+`(phase,zoom,viewportHeight,v,r_min,r_max,anchorSceneY)`。
 
-定义
+成功必须同时满足：
 
-\[
-Bottom(s)\iff s.r_{max}>s.r_{min}\land s.v\ge s.r_{max}-1.
-\]
-
-helper 的成功谓词为：
-
-1. 原生滚轮后存在可滚动范围；
-2. `\mathcal{D}(B_normal)` 后普通窗口 `Bottom` 稳定成立；
-3. 原生双击进入全屏后，窗口几何稳定且全屏最终视口的 `Bottom` 稳定成立；
-4. `\mathcal{D}(B_fullscreen)` 后全屏 `Bottom` 稳定成立；
-5. 原生双击退出后，窗口回到 `B_normal`，普通视口 `Bottom` 稳定成立；
-6. 退出阶段新增样本不存在 `v\le r_{min}+1` 的起点复位；
-7. `A = PostEventAccess ∧ AccessibilityTrusted`，否则 helper 返回 77，CTest
-   将其标为跳过而不是伪造通过。外部图像缺失同样返回 77。开发机上必须先
-   用 `--request-access` 完成授权，再执行真实复现。
-
-在 CTest 中，`FovelleNativeDragReproduction` 直接运行这个 helper；QtTest
-只负责已有的单元/回归交叉检查，不是原生拖动验收的替代物。
+1. Post Event 与 Accessibility 权限均为真，且原生滚轮使图像可滚动；
+2. 原生双击后全屏窗口几何稳定；
+3. 全屏原生拖动后的样本满足 `NearBottom(v,R)`；
+4. 退出请求后的每条包含锚点的诊断样本都满足
+   `|a_y^{sample}-a_y^{before}|≤4` 个 scene 像素，且最终普通窗口几何稳定；
+5. 退出阶段没有出现 `v≤r_min+1` 的起点复位；
+6. `CGEventPost` 失败、权限缺失或外部图像不存在时，helper 返回 CTest
+   跳过码 77，不输出伪造的成功结果。
 
 ## 6. 约束、性质与回退点
 
-- 同一图像内容、缩放变换和拖动轨迹必须保持不变；修复只同步滚动端点与
+- 图像内容、缩放变换和原生轨迹不变；修复只同步连续平移锚点、端点语义和
   全屏几何生命周期。
-- 任何 `sceneRect`/视口重建都必须使用新范围的端点，不得复用旧的
-  `maximum()` 或旧像素坐标。
-- 任何退出请求都必须在布局变化前读取全屏中的最新端点。
-- helper 必须等待窗口/诊断状态稳定，不能以固定延迟或中间动画帧判定成功。
-- 若静态检查或原生 helper 任一最终谓词失败，回退到本模型对应的端点捕获、
-  场景重建或退出刷新步骤，不能放宽验收条件来掩盖失败。
+- `setSceneRect()` 后只能使用新范围恢复，不能写回旧 `maximum()` 或旧窗口
+  像素坐标。
+- 退出请求必须在任何退出几何变化前读取全屏中最新的锚点。
+- 端点状态使用 `τ=3`，内部近底状态必须保留为内部位置，不得扩大到端点。
+- helper 必须等待窗口和诊断样本稳定，不能用固定睡眠或替代输入路径判定成功。
+- 若模型、证明、静态检查或原生 helper 任一谓词失败，回退到对应的锚点
+  捕获、场景重建、退出刷新或测试同步步骤；不能通过放宽验收条件掩盖失败。

@@ -1,110 +1,107 @@
-# 全屏缩放与垂直平移保持：数学证明
+# 全屏退出时连续平移位置保持：数学证明
 
 ## 1. 方案与待证命题
 
-实现包含三层：
+方案由四部分组成：
 
-1. `QVGraphicsView::getScrollEdge()` 用 `\tau=3` 识别释放后的视觉端点；
-2. `updateSceneRect()` 在场景/视口重建后把端点意图映射到新范围，
-   `beginFullScreenPanPreservation()`、`refreshFullScreenPanPreservation()` 和
-   `endFullScreenPanPreservation()` 管理原生全屏生命周期；
-3. `fovelle_native_drag_helper` 以固定 CoreGraphics HID 轨迹运行真实应用，
-   检查普通窗口、全屏进入、全屏拖动、全屏退出四个可观察阶段。
+1. `QVGraphicsView` 在全屏进入和退出请求边界停止延迟约束；端点仍映射到
+   新范围端点，同时为非端点位置保存视口中心的 scene 锚点；
+2. `updateSceneRect()` 完成 `setSceneRect()` 后恢复新范围中的滚动状态；
+3. `refreshFullScreenPanPreservation()` 在退出前重新读取全屏中的最后一次
+   原生拖动，避免使用进入全屏时的旧快照；
+4. `fovelle_native_drag_helper` 通过 CoreGraphics HID 事件链，以固定的真实
+   拖动轨迹验收“近底但非端点”和退出后的锚点不变。
 
-待证命题是：若用户在任一阶段选择了图像底边，经过一次全屏往返后仍选择
-底边，且布局变化不会把图像显示复位到起点；原生复现器对该命题的验收不能
-被合成事件或未授权状态伪造。
+待证命题：若退出请求前的全屏样本是近底内部位置，则退出完成后仍为同一
+图像内容的连续平移位置，不会被重建复位到起点，也不会被错误吸附到端点。
 
-## 2. 引理一：端点快照不会丢失释放后的底部意图
+## 2. 引理一：场景矩形重建可以保持端点或连续锚点
 
-设滚动条范围为 `R=[r_min,r_max]`。原生轨迹的最后一次拖动事件可能先把
-`v` 写到 `r_max`，鼠标释放随后启动 `ScrollHelper` 的约束动画。由于
-`ScrollHelper` 使用内容/视口 `QRect` 的整数尺寸，观测到释放后可能有
+设重建前范围为 `R`，重建后范围为 `R'`。`setSceneRect()` 会按新场景矩形
+重新调整滚动条，故旧整数值 `v` 不是稳定的跨布局坐标。
 
-\[
-r_{max}-v\le2.
-\]
-
-实现使用 `\tau=3`，故
+若 `E(v,R)=Minimum/Maximum`，实现分别设置
 
 \[
-v\ge r_{max}-2\Longrightarrow v\ge r_{max}-\tau
-\Longrightarrow E(v,R)=\text{Maximum}.
+v'=r'_{min}\quad\text{或}\quad v'=r'_{max}.
 \]
 
-同理，距最小端点不超过 2 个单位时识别为 `Minimum`。因此约束动画不会在
-全屏请求边界前把用户已经选定的视觉端点错误降级为 `None`。显式前提是
-端点附近的 3 个滚动单位属于同一个视觉边界；该前提由滚动条整数化和本地
-原生轨迹日志确证。
-
-## 3. 引理二：场景矩形重建保持端点语义
-
-设旧范围为 `R`，新场景/视口产生 `R'=[r'_min,r'_max]`。`setSceneRect()`
-可能先重置或裁剪滚动条，故旧值 `v` 不是合法的恢复坐标。实现先保存
-`e=E(v,R)`，完成 `setSceneRect()` 后执行
+因此端点语义在 `R'` 中仍成立。若 `E(v,R)=None`，实现保存
 
 \[
-v'=
-\begin{cases}
-r'_{min},&e=\text{Minimum},\\
-r'_{max},&e=\text{Maximum},\\
-v,&e=\text{None}.
-\end{cases}
+a=mapToScene(c(V)),
 \]
 
-因为 `r'_{min},r'_{max}\in R'`，所以端点情况下 `E(v',R')` 保持为同一端点。
-`None` 情况不制造新的端点意图。水平轴同理。因此每一次场景矩形重建都
-保持了用户的端点选择。
-
-## 4. 引理三：进入全屏保持底边
-
-在进入请求时，`begin` 先停止延迟约束和滚动动画，再捕获当前 `e_y`。由引理
-一，普通窗口已经拖到底部时 `e_y=Maximum`。保持器是幂等的：自定义 AppKit
-动画再次调用 `begin` 时不会用过渡中的中间值覆盖已捕获端点。
-
-进入动画可能产生任意多个 `resizeEvent`、标题栏 inset 变化和
-`setSceneRect()`。由引理二，每次重建之后都有
+并在新布局中令
 
 \[
-v_y^{(k)}=r_{max}^{(k)}.
+d=mapFromScene_{new}(a)-c(V'),
 \]
 
-因此，在 AppKit/Qt 发布最终全屏视口后，`Bottom` 成立，且图像底边满足
-\(|b(T,S,v_y)-V_b|\le\varepsilon\)。若没有该保持器，旧整数值会被新范围
-裁剪为中间位置，正是原缺陷。
+再把滚动条值按 `d` 的两个分量反向移动。若 `a` 可表示，则
+`mapToScene_{new}(c(V'))=a`；若不可表示，Qt 的滚动条夹紧到 `R'`，仍不会写回
+旧窗口坐标。故 `rebuild` 不会丢失端点或非端点的平移语义。
 
-## 5. 引理四：全屏中的最后一次拖动会覆盖旧快照
+## 3. 引理二：退出请求保存的是最后一次全屏拖动
 
-用户在全屏中再次执行 `\mathcal{D}(B_{fullscreen})` 后，退出请求首先调用
-`refresh`。该函数即使保持器已经活动，也会清空旧端点并读取当前滚动条，故
+设全屏进入时保存的状态为 `P_enter`，用户随后执行固定原生轨迹并得到状态
+`P_drag`。退出请求先停止约束动画，再执行 `refresh`，所以它读取的正是
+当前全屏滚动条和当前可用视口中心：
 
 \[
-e_y^{exit}=E(v_y^{fullscreen},R_y^{fullscreen}).
+P_{exit}=(E(v_x^{drag},R_x^{drag}),
+         E(v_y^{drag},R_y^{drag}),
+         a_x^{drag},a_y^{drag}).
 \]
 
-由引理一，这里捕获的是全屏中最后一次拖动的底部意图，而不是进入全屏时的
-普通窗口快照。若不执行 `refresh`，旧快照可能覆盖用户新选择；因此这是退出
-跳变缺陷所需的必要边界操作。
+`P_exit` 不依赖 `P_enter`。因此，即便进入全屏时没有滚动条、或者进入时的
+位置与退出前不同，退出重建使用的仍是用户最后一次原生拖动的位置。
 
-## 6. 引理五：退出全屏不会跳回起点
+## 4. 引理三：近底内部位置不会被吸附到端点
 
-退出动画和 Qt 状态事件可能交错触发多次几何重建。由引理四，所有重建都携带
-`e_y^{exit}=Maximum`；由引理二，每次重建都设置当前范围的 `r_max`。完成
-通知中 `end` 在清理状态前再次恢复端点，因此最终状态满足
+测试样本满足
 
 \[
-v_y^{final}=r_{max}^{final},
-\qquad
-|b(T,S,v_y^{final})-V_b^{final}|\le\varepsilon.
+r_{max}-v>\tau=3.
 \]
 
-端点恢复只改变滚动范围中的位置，不改变图像内容或缩放变换 `T`。所以退出
-阶段不存在从 `r_min` 开始的起点复位，也不存在把旧窗口坐标直接带入新窗口
-的跳变。
+由端点定义，`E(v,R)\ne Maximum`；只要它也满足 `r_max-v≤G`，它就是模型中
+定义的 `NearBottom`。因此退出 `refresh` 保存的是连续锚点 `a_y` 而不是
+`Maximum` 标记。根据引理一，之后的 `rebuild` 使用锚点映射，不会把“差一点
+到底部”的位置改写为 `r'_{max}`。
 
-## 7. 引理六：原生 helper 的测试证据是有效的
+## 5. 引理四：退出前后不会发生可见位置跳变
 
-对任一窗口边界 `B`，helper 发出的序列严格为
+退出前锚点为
+
+\[
+a_y^{before}=mapToScene_{full}(c(V_{full})).
+\]
+
+由引理二，`refresh` 保存 `a_y^{before}`。退出过程中每次场景/视口重建由
+引理一恢复该锚点，因此每个稳定布局状态都满足
+
+\[
+mapToScene_k(c(V_k))=a_y^{before}
+\]
+
+（在整数滚动条和浮点变换的有限取整误差内）。退出完成后仍满足该式，故
+
+\[
+|a_y^{after}-a_y^{before}|\le\varepsilon,
+\qquad\varepsilon=4.
+\]
+
+helper 的 `anchorsStayStableAfter` 对退出请求后的每一条包含锚点的诊断样本
+应用同一不等式，而不是只检查最终样本；所以“先跳变再回到原位”的轨迹也不
+满足成功谓词。
+
+同时，锚点恢复只改变滚动条位置，不改变图像内容或缩放变换 `T`；因此不会
+出现从 `r_min` 起点复位或把旧窗口像素坐标直接带入新窗口的跳变。
+
+## 6. 引理五：原生 helper 的输入不能伪造该命题
+
+对每个全屏窗口边界 `B`，helper 严格发送
 
 \[
 LeftMouseDown(p_0)\to
@@ -113,28 +110,26 @@ LeftMouseDragged(p_{32})\to
 LeftMouseUp(p_{32}).
 \]
 
-每个事件都由 `CGEventCreateMouseEvent` 创建并通过
-`CGEventPost(kCGHIDEventTap,...)` 投递，且普通窗口与全屏使用同一归一化轨迹。
-因此测试输入经过 macOS HID/WindowServer/Qt Cocoa 事件链，而不是直接调用
-`executeDragAction`、AX action、键盘或 QTest。helper 只在
-`CGPreflightPostEventAccess` 与 `AXIsProcessTrustedWithOptions` 均为真时执行；
-权限或外部 fixture 不满足时返回 CTest 的 `SKIP_RETURN_CODE=77`，不会输出
-通过结果。该测试输入模型由 Apple 的 CoreGraphics 事件和窗口信息 API 定义
-直接支持：[CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent)、
-[CGEventType](https://developer.apple.com/documentation/coregraphics/cgeventtype/mousemoved?language=objc)、
-[CGEventSource](https://developer.apple.com/documentation/coregraphics/cgeventsourcestateid)。
+每个事件由 `CGEventCreateMouseEvent` 创建，并通过
+`CGEventPost(kCGHIDEventTap,...)` 进入 macOS HID/WindowServer/Qt Cocoa 链路；
+相关定义见 [CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent)、
+[CGEventPost](https://developer.apple.com/documentation/coregraphics/cgeventpost)
+和 [kCGHIDEventTap](https://developer.apple.com/documentation/coregraphics/cgeventtaplocation/cghideventtap?language=objc)。
+helper 仅使用 Accessibility API 检查/请求权限，不使用 AX action；也不调用
+`executeDragAction`、QtTest、键盘或任何业务函数替代拖动。
 
-helper 还要求窗口几何和诊断样本在连续轮询中稳定，且退出后的新样本没有
-起点复位。故一个过渡中间帧、日志旧样本或窗口尚未完成的状态都不能单独使
-测试成功。
+它只在 `CGPreflightPostEventAccess` 和
+`AXIsProcessTrustedWithOptions` 均为真时执行；图像缺失或权限不足返回 77。
+窗口几何和诊断样本必须连续稳定，且退出后的新样本没有起点复位，所以任一
+中间动画帧或旧日志样本都不能单独构成成功。
 
-## 8. 结论与回退规则
+## 7. 结论与回退规则
 
-由引理一至五，在以下前提下生产实现满足需求：事件循环最终交付所有布局
-事件；滚动条 `maximum()` 表示当前范围下端点；用户释放拖动后端点状态已
-提交；全屏完成事件最终到达；图像内容和缩放变换不被其他业务事件改变。
+由引理一至四，在以下前提下，连续锚点保持方案满足需求：事件循环最终交付
+所有全屏布局事件；滚动条值表示当前场景范围；用户释放拖动后的状态已提交；
+全屏完成事件最终到达；图像内容和缩放变换没有被其他业务事件改变。
 
-引理六说明同一结论由真实 macOS 原生拖动轨迹动态检验，而不是由替代输入
-路径推断。若静态分析、编译、CTest 或 native helper 任一阶段失败，必须回退
-到相应的端点捕获、场景重建、退出刷新或测试阶段同步步骤修正；不得通过降低
-`maximum()` 断言、放宽窗口阶段、改用 QTest/AX/键盘或直接业务调用来掩盖失败。
+引理五说明同一命题由真实 macOS 原生拖动轨迹动态检验。若模型对应的近底
+谓词、锚点误差、起点复位检查、编译、静态分析或 CTest 任一失败，必须回退到
+锚点捕获、场景重建、退出刷新或测试同步步骤修正；不得改用 QTest、AX、键盘、
+直接业务调用或降低验收阈值来掩盖失败。

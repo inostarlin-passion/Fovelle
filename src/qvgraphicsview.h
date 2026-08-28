@@ -302,6 +302,7 @@ private:
 
     ScrollEdge getScrollEdge(const QScrollBar *scrollBar) const;
     void captureFullScreenPanEdges();
+    void captureFullScreenPanAnchor();
     void restoreFullScreenPanPreservation();
 
     QVGraphicsImageItem *loadedPixmapItem;
@@ -353,6 +354,7 @@ private:
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
     ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
+    std::optional<QPointF> fullScreenPanAnchorScene;
     std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};

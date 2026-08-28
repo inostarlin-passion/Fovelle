@@ -201,39 +201,25 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         // endpoints so a full-screen round trip can preserve a deliberately
         // selected corner as well as an ordinary resize preserves its focus.
         const bool preserveManualPanEdges =
-            !calculatedZoomMode.has_value() && !shouldRestoreCalculatedZoom;
+                !calculatedZoomMode.has_value() && !shouldRestoreCalculatedZoom;
         const QScrollBar *horizontalBar = horizontalScrollBar();
         const QScrollBar *verticalBar = verticalScrollBar();
-        const int oldHorizontalValue = horizontalBar->value();
-        const int oldVerticalValue = verticalBar->value();
-        const bool horizontalWasScrollable =
-            horizontalBar->minimum() < horizontalBar->maximum();
-        const bool verticalWasScrollable =
-            verticalBar->minimum() < verticalBar->maximum();
-        const ScrollEdge horizontalPanEdge =
-            fullScreenHorizontalPanEdge != ScrollEdge::None
+        const ScrollEdge horizontalPanEdge = fullScreenHorizontalPanEdge != ScrollEdge::None
                 ? fullScreenHorizontalPanEdge
-                : (horizontalWasScrollable && oldHorizontalValue <= horizontalBar->minimum() + 1
-                    ? ScrollEdge::Minimum
-                    : horizontalWasScrollable && oldHorizontalValue >= horizontalBar->maximum() - 1
-                        ? ScrollEdge::Maximum
-                        : ScrollEdge::None);
-        const ScrollEdge verticalPanEdge =
-            fullScreenVerticalPanEdge != ScrollEdge::None
+                : preserveManualPanEdges ? getScrollEdge(horizontalBar)
+                                         : ScrollEdge::None;
+        const ScrollEdge verticalPanEdge = fullScreenVerticalPanEdge != ScrollEdge::None
                 ? fullScreenVerticalPanEdge
-                : (verticalWasScrollable && oldVerticalValue <= verticalBar->minimum() + 1
-                    ? ScrollEdge::Minimum
-                    : verticalWasScrollable && oldVerticalValue >= verticalBar->maximum() - 1
-                        ? ScrollEdge::Maximum
-                        : ScrollEdge::None);
-        const bool wasAtHorizontalMinimum = preserveManualPanEdges
-            && horizontalPanEdge == ScrollEdge::Minimum;
-        const bool wasAtHorizontalMaximum = preserveManualPanEdges
-            && horizontalPanEdge == ScrollEdge::Maximum;
-        const bool wasAtVerticalMinimum = preserveManualPanEdges
-            && verticalPanEdge == ScrollEdge::Minimum;
-        const bool wasAtVerticalMaximum = preserveManualPanEdges
-            && verticalPanEdge == ScrollEdge::Maximum;
+                : preserveManualPanEdges ? getScrollEdge(verticalBar)
+                                         : ScrollEdge::None;
+        const bool wasAtHorizontalMinimum =
+                preserveManualPanEdges && horizontalPanEdge == ScrollEdge::Minimum;
+        const bool wasAtHorizontalMaximum =
+                preserveManualPanEdges && horizontalPanEdge == ScrollEdge::Maximum;
+        const bool wasAtVerticalMinimum =
+                preserveManualPanEdges && verticalPanEdge == ScrollEdge::Minimum;
+        const bool wasAtVerticalMaximum =
+                preserveManualPanEdges && verticalPanEdge == ScrollEdge::Maximum;
 
         QGraphicsView::resizeEvent(event);
 
@@ -1855,11 +1841,13 @@ void QVGraphicsView::beginFullScreenPanPreservation()
     fullScreenPanPreservationActive = true;
     fullScreenHorizontalPanEdge = ScrollEdge::None;
     fullScreenVerticalPanEdge = ScrollEdge::None;
+    fullScreenPanAnchorScene.reset();
 
     if (calculatedZoomMode.has_value())
         return;
 
     captureFullScreenPanEdges();
+    captureFullScreenPanAnchor();
 }
 
 void QVGraphicsView::refreshFullScreenPanPreservation()
@@ -1874,8 +1862,11 @@ void QVGraphicsView::refreshFullScreenPanPreservation()
     fullScreenPanPreservationActive = true;
     fullScreenHorizontalPanEdge = ScrollEdge::None;
     fullScreenVerticalPanEdge = ScrollEdge::None;
-    if (!calculatedZoomMode.has_value())
+    fullScreenPanAnchorScene.reset();
+    if (!calculatedZoomMode.has_value()) {
         captureFullScreenPanEdges();
+        captureFullScreenPanAnchor();
+    }
 }
 
 void QVGraphicsView::endFullScreenPanPreservation()
@@ -1886,12 +1877,16 @@ void QVGraphicsView::endFullScreenPanPreservation()
     fullScreenPanPreservationActive = false;
     fullScreenHorizontalPanEdge = ScrollEdge::None;
     fullScreenVerticalPanEdge = ScrollEdge::None;
+    fullScreenPanAnchorScene.reset();
 }
 
 void QVGraphicsView::restoreFullScreenPanPreservation()
 {
     if (!fullScreenPanPreservationActive || calculatedZoomMode.has_value())
         return;
+
+    const bool restoreHorizontalAnchor = fullScreenHorizontalPanEdge == ScrollEdge::None;
+    const bool restoreVerticalAnchor = fullScreenVerticalPanEdge == ScrollEdge::None;
 
     if (fullScreenHorizontalPanEdge == ScrollEdge::Minimum)
         horizontalScrollBar()->setValue(horizontalScrollBar()->minimum());
@@ -1902,6 +1897,21 @@ void QVGraphicsView::restoreFullScreenPanPreservation()
         verticalScrollBar()->setValue(verticalScrollBar()->minimum());
     else if (fullScreenVerticalPanEdge == ScrollEdge::Maximum)
         verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+
+    if (!fullScreenPanAnchorScene.has_value()
+        || (!restoreHorizontalAnchor && !restoreVerticalAnchor))
+        return;
+
+    const QPoint anchorViewportPosition = getUsableViewportRect().center();
+    const QPoint mappedAnchorPosition = mapFromScene(fullScreenPanAnchorScene.value());
+    if (restoreHorizontalAnchor) {
+        const int delta = (mappedAnchorPosition.x() - anchorViewportPosition.x()) * getRtlFlip();
+        horizontalScrollBar()->setValue(horizontalScrollBar()->value() + delta);
+    }
+    if (restoreVerticalAnchor) {
+        const int delta = mappedAnchorPosition.y() - anchorViewportPosition.y();
+        verticalScrollBar()->setValue(verticalScrollBar()->value() + delta);
+    }
 }
 
 bool QVGraphicsView::isSmoothScalingRequested() const
@@ -2029,6 +2039,7 @@ void QVGraphicsView::logViewportState(const char *phase) const
                                   : loadedPixmapItem->sceneBoundingRect())
                       << "contentRect=" << getContentRect() << "viewportRect=" << viewport()->rect()
                       << "usableViewportRect=" << getUsableViewportRect()
+                      << "panAnchorScene=" << mapToScene(getUsableViewportRect().center())
                       << "sceneOriginInViewport=" << mapFromScene(QPointF(0, 0))
                       << "viewportOriginInScene=" << mapToScene(QPoint(0, 0))
                       << "transform=" << transform() << "hbar=" << horizontalScrollBar()->value()
@@ -2477,6 +2488,15 @@ void QVGraphicsView::captureFullScreenPanEdges()
     fullScreenVerticalPanEdge = getScrollEdge(verticalScrollBar());
 }
 
+void QVGraphicsView::captureFullScreenPanAnchor()
+{
+    const QRect usableViewport = getUsableViewportRect();
+    if (!getCurrentFileDetails().isPixmapLoaded || usableViewport.isEmpty())
+        return;
+
+    fullScreenPanAnchorScene = mapToScene(usableViewport.center());
+}
+
 void QVGraphicsView::updateSceneRect(
     const std::optional<QPoint> &restoreScrollPosition,
     const bool preserveScrollEdges)
@@ -2520,9 +2540,17 @@ void QVGraphicsView::updateSceneRect(
         setSceneRect(desiredSceneRect);
     // setSceneRect() resets the bars while it recalculates their ranges.
     // Restore the visual viewport before the next paint; Qt clamps values if
-    // the new range is genuinely smaller. Deferring this to a queued callback
-    // would expose an observable frame at the origin during zooming.
-    if (preserveViewport)
+    // the new range is genuinely smaller. During a native fullscreen transition,
+    // restore the scene anchor here instead of replaying the old integer value;
+    // deferring this to a queued callback would expose an observable frame at the
+    // origin during zooming or fullscreen exit.
+    const bool restoreFullScreenPanAnchor = preserveViewport
+            && fullScreenPanPreservationActive && fullScreenPanAnchorScene.has_value()
+            && !calculatedZoomMode.has_value();
+    if (restoreFullScreenPanAnchor)
+        restoreFullScreenPanPreservation();
+
+    if (preserveViewport && !restoreFullScreenPanAnchor)
     {
         if (preserveManualPanEdges && horizontalPanEdge != ScrollEdge::None)
         {
