@@ -19,7 +19,10 @@ namespace
 constexpr quint64 MaxVectorTilePixels = 64ULL * 1024ULL * 1024ULL;
 constexpr int MaxVectorTileDimension = 16384;
 constexpr int VectorTilePanOverscanPixels = 128;
-constexpr qreal InteractiveVectorRenderScale = 0.75;
+// A vector tile must never be rendered below the density at which it is
+// displayed. Downsampling during a gesture throws away vector detail, and no
+// later filtering can reconstruct it when that tile is magnified again.
+constexpr qreal VectorTileRenderScale = 1.0;
 constexpr qsizetype MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL;
 constexpr int MaxRetainedVectorTiles = 2;
 
@@ -164,8 +167,14 @@ void QVGraphicsImageItem::paintRasterFallback(QPainter *painter) const
 {
     if (!painter || rasterPixmap.isNull())
         return;
-    painter->setRenderHint(QPainter::SmoothPixmapTransform,
-                           rasterTransformationMode == Qt::SmoothTransformation);
+    // The vector preview is only a temporary fallback while its terminal-
+    // density tile is being prepared.  It still needs filtered sampling when
+    // it is enlarged during a drag; the vector tile path below supplies the
+    // missing detail as soon as the worker completes.
+    painter->setRenderHint(
+        QPainter::SmoothPixmapTransform,
+        vectorImage.isValid()
+            || rasterTransformationMode == Qt::SmoothTransformation);
     if (vectorImage.isValid())
     {
         painter->drawPixmap(boundingRect(), rasterPixmap,
@@ -204,7 +213,7 @@ int QVGraphicsImageItem::matchingVectorTile(
     return -1;
 }
 
-int QVGraphicsImageItem::bestInteractiveVectorTile(
+int QVGraphicsImageItem::bestReusableVectorTile(
         const QRectF &sourceRect, const qreal deviceScaleX,
         const qreal deviceScaleY) const
 {
@@ -495,15 +504,14 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     const qreal paddingY = 1.0 / deviceScaleY;
     const QRectF sourceRect = exposedRect.adjusted(
         -paddingX, -paddingY, paddingX, paddingY).intersected(boundingRect());
-    const auto tileRequest = [this, sourceRect, deviceScaleX, deviceScaleY](
-                                 const qreal renderScale) {
+    const auto tileRequest = [this, sourceRect, deviceScaleX, deviceScaleY]() {
         const qreal overscanX = VectorTilePanOverscanPixels / deviceScaleX;
         const qreal overscanY = VectorTilePanOverscanPixels / deviceScaleY;
         const QRectF renderedSourceRect = sourceRect.adjusted(
             -overscanX, -overscanY, overscanX, overscanY)
             .intersected(boundingRect());
-        const qreal requestedScaleX = deviceScaleX * renderScale;
-        const qreal requestedScaleY = deviceScaleY * renderScale;
+        const qreal requestedScaleX = deviceScaleX * VectorTileRenderScale;
+        const qreal requestedScaleY = deviceScaleY * VectorTileRenderScale;
         const QSize tileSize = boundedTileSize(QSizeF(
             renderedSourceRect.width() * requestedScaleX,
             renderedSourceRect.height() * requestedScaleY));
@@ -516,15 +524,13 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     };
     int tileIndex = matchingVectorTile(sourceRect, deviceScaleX, deviceScaleY);
     const bool cacheHit = tileIndex >= 0;
-    bool scaledInteractionTile = false;
+    bool reusedVectorTile = false;
     if (tileIndex < 0)
     {
-        const AsyncTileRequest request = tileRequest(vectorInteractionActive
-                ? InteractiveVectorRenderScale : 1.0);
-        // A tile already generated for this requested density can cover the
-        // visible rect even when it intentionally cannot be an exact device-
-        // density match (the 75% interaction case).  Do not continuously
-        // regenerate that same tile on every repaint; its device-pixel
+        const AsyncTileRequest request = tileRequest();
+        // A tile already generated for the current device density can cover
+        // the visible rect while a newly exposed tile is being produced. Do
+        // not continuously regenerate that same request; its device-pixel
         // overscan determines when a pan really needs another request.
         if (matchingVectorTile(sourceRect,
                                request.deviceScaleX,
@@ -532,9 +538,9 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         {
             requestAsyncVectorTile(request);
         }
-        tileIndex = bestInteractiveVectorTile(
+        tileIndex = bestReusableVectorTile(
             sourceRect, deviceScaleX, deviceScaleY);
-        scaledInteractionTile = tileIndex >= 0;
+        reusedVectorTile = tileIndex >= 0;
         if (tileIndex < 0)
         {
             // There is no source coverage to transform yet.  The bounded
@@ -548,7 +554,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     VectorTile &tile = vectorTiles[tileIndex];
     tile.lastUse = ++vectorTileUseSerial;
     QRectF drawnSourceRect = sourceRect;
-    if (scaledInteractionTile
+    if (reusedVectorTile
         && !tile.sourceRect.adjusted(-1e-9, -1e-9, 1e-9, 1e-9)
                 .contains(sourceRect))
     {
@@ -566,11 +572,12 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         (drawnSourceRect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
         drawnSourceRect.width() * sourcePixelScaleX,
         drawnSourceRect.height() * sourcePixelScaleY);
-    // During a live transform, nearest-neighbor reuse of the most recent tile
-    // avoids spending most of an 8.33 ms 120 Hz frame on CPU bilinear scaling.
-    // The asynchronously generated exact idle tile restores final quality.
-    painter->setRenderHint(QPainter::SmoothPixmapTransform,
-                           !vectorInteractionActive);
+    // Tiles are rendered at terminal device density even during interaction.
+    // Keep filtering enabled for fractional scroll positions and for the
+    // short period in which an overlapping tile is reused at a new viewport
+    // origin; nearest-neighbor sampling turns antialiased vector edges into
+    // visible stair-steps.
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter->drawImage(drawnSourceRect, tile.image, tilePixelRect);
     lastVectorTilePixelSize = tile.image.size();
     lastVectorTileSourceRect = tile.sourceRect;
@@ -581,8 +588,10 @@ void QVGraphicsImageItem::paint(QPainter *painter,
             "FOVELLE_VECTOR_RENDER format=%1 source=vector cache=%2")
             .arg(isPdf ? QStringLiteral("pdf") : QStringLiteral("svg"),
                  cacheHit ? QStringLiteral("hit")
-                          : scaledInteractionTile ? QStringLiteral("scaled")
+                          : reusedVectorTile ? QStringLiteral("reused")
                                                   : QStringLiteral("miss"))
+                         << "deviceScale=" << deviceScaleX << deviceScaleY
+                         << "exposedRect=" << exposedRect
                          << "sourceRect=" << tile.sourceRect
                          << "tilePixels=" << tile.image.size();
     }

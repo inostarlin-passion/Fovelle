@@ -197,7 +197,7 @@ def build_specification(repo: Path, generated_at: str) -> dict:
             "验证高倍缩放没有退化为固定整图位图，并统一执行缩放上限。",
             ["graphics item、graphics view 与 zoom 对话框源码可读。"],
             ["NoCache、ItemUsesExtendedStyleOption、exposedRect、deviceTransform、QtConcurrent interaction refinement、2-entry/96 MiB tile limit、MaximumZoomLevel。"],
-            ["检查可见区加 128 device-pixel pan border 的 PDF tile 计算。", "检查 75% 后台交互 tile 与后台精确 idle refinement。", "检查矢量滚动的不透明局部重绘。", "检查中央 zoom clamp 和 6400% UI 上限。"],
+            ["检查可见区加 128 device-pixel pan border 的 PDF tile 计算。", "检查交互与 idle 阶段均按当前 device density 异步生成 tile，并在复用时保持平滑采样。", "检查矢量滚动的不透明局部重绘。", "检查中央 zoom clamp 和 6400% UI 上限。"],
             ["交互帧可变换最近 tile 并由后台追赶，50ms idle 后异步恢复精确矢量终端采样；平移仅重画暴露条带；wheel、pinch、键盘、会话和自定义缩放均不超过 64.0。"],
             ["静态检查不分配图像。"],
             "tests/eps_quality_static.py",

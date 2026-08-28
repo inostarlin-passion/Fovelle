@@ -18,9 +18,9 @@ template <typename T> class QFutureWatcher;
 // One scene item owns the application's raster and vector display contracts.
 // Raster images behave like the former QGraphicsPixmapItem.  SVG and the PDF
 // normalized from EPS keep their encoded source and are painted at the current
-// view/device transform.  A transient interaction tile can be transformed
-// while a worker catches up, but idle output is always regenerated at exact
-// device scale rather than using a fixed source bitmap.
+// view/device transform.  A bounded terminal-density tile can be reused while
+// a worker catches up, but idle output is always regenerated at exact device
+// scale rather than using a fixed source bitmap.
 class QVGraphicsImageItem final : public QGraphicsObject
 {
 public:
@@ -89,9 +89,9 @@ private:
     void clearVectorTiles();
     int matchingVectorTile(const QRectF &sourceRect, qreal deviceScaleX,
                            qreal deviceScaleY) const;
-    int bestInteractiveVectorTile(const QRectF &sourceRect,
-                                  qreal deviceScaleX,
-                                  qreal deviceScaleY) const;
+    int bestReusableVectorTile(const QRectF &sourceRect,
+                               qreal deviceScaleX,
+                               qreal deviceScaleY) const;
     void retainVectorTile(VectorTile tile) const;
     void requestAsyncVectorTile(const AsyncTileRequest &request);
     void startAsyncVectorTile(AsyncTileRequest request);

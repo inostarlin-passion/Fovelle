@@ -93,6 +93,7 @@ private slots:
     void testEPSRenderSurvivesStaticMovieProbe();
     void testMalformedEPSFailsSafely();
     void testEPSMissingRendererFailsActionably();
+    void testVectorInteractionPreservesTerminalDensity();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
     void testImageLoaderPreservesSourceResolutionForZoom();
 };
@@ -1541,6 +1542,108 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     QTest::qWait(50);
     QCoreApplication::processEvents();
     QCOMPARE(sceneItem.vectorTileGenerationCount(), svgTileGenerationCount);
+}
+
+// TC-EPS-UNIT-INTERACTION-QUALITY
+// Test purpose: ensure the temporary tile used while panning is not rendered
+// below the display density, which would make EPS and SVG edges visibly
+// pixelated until the gesture ends.
+// Preconditions: the deterministic EPS/SVG fixtures (or configured samples)
+// are readable and the asynchronous vector worker can run.
+// Input data: one EPS and one SVG rendered at a 2048-pixel terminal size.
+// Operation steps: enable vector interaction, paint until its worker tile is
+// available, then compare it with a direct full-resolution vector reference.
+// Expected result: the interaction tile is at least the target pixel size and
+// its displayed pixels remain within the existing vector-render tolerance.
+// Postconditions: all temporary vector documents and worker resources are released.
+void ImageLoaderTests::testVectorInteractionPreservesTerminalDensity()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QList<QPair<QString, QString>> documents {
+        {QStringLiteral("eps"), epsSamplePath(dir)},
+        {QStringLiteral("svg"), svgSamplePath(dir)}
+    };
+    for (const auto &document : documents)
+    {
+        QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
+        const auto result = loadImage(document.second);
+        QVERIFY2(result.has_value(), qPrintable(document.first));
+        QVERIFY2(result->vectorImage.isValid(), qPrintable(document.first));
+
+        const QSize renderedSize = result->intrinsicSize.scaled(
+            2048, 2048, Qt::KeepAspectRatio);
+        QVERIFY(!renderedSize.isEmpty());
+
+        QImage reference(renderedSize, QImage::Format_ARGB32_Premultiplied);
+        reference.fill(Qt::transparent);
+        if (result->vectorImage.format == Qv::VectorImageFormat::Pdf)
+        {
+            QString pdfError;
+            const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
+                result->vectorImage.encodedData, &pdfError);
+            QVERIFY2(pdfDocument, qPrintable(pdfError));
+            const QImage renderedReference = pdfDocument->renderTile(
+                result->vectorImage.logicalSize,
+                QRectF(QPointF(), result->vectorImage.logicalSize),
+                renderedSize, &pdfError);
+            QVERIFY2(!renderedReference.isNull(), qPrintable(pdfError));
+            reference = renderedReference;
+        }
+        else
+        {
+            QSvgRenderer referenceRenderer(document.second);
+            QVERIFY(referenceRenderer.isValid());
+            QPainter referencePainter(&reference);
+            referencePainter.setRenderHint(QPainter::Antialiasing, true);
+            referencePainter.setRenderHint(QPainter::TextAntialiasing, true);
+            referenceRenderer.render(
+                &referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
+        }
+
+        QVGraphicsImageItem sceneItem;
+        sceneItem.setPixmap(QPixmap::fromImage(result->image));
+        QVERIFY(sceneItem.setVectorImage(result->vectorImage));
+        sceneItem.setVectorInteractionActive(true);
+
+        QImage actual(renderedSize, QImage::Format_ARGB32_Premultiplied);
+        QStyleOptionGraphicsItem sceneOption;
+        sceneOption.exposedRect = sceneItem.boundingRect();
+        const auto paintSceneItem = [&]() {
+            actual.fill(Qt::transparent);
+            QPainter scenePainter(&actual);
+            scenePainter.scale(
+                static_cast<qreal>(renderedSize.width())
+                    / sceneItem.boundingRect().width(),
+                static_cast<qreal>(renderedSize.height())
+                    / sceneItem.boundingRect().height());
+            sceneItem.paint(&scenePainter, &sceneOption);
+        };
+
+        paintSceneItem();
+        QElapsedTimer renderTimer;
+        renderTimer.start();
+        while (sceneItem.vectorRenderCount() == 0
+               && renderTimer.elapsed() < 5000)
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            QTest::qWait(5);
+            paintSceneItem();
+        }
+        QVERIFY2(sceneItem.vectorRenderCount() > 0,
+                 qPrintable(document.first
+                            + QStringLiteral(" interaction tile did not render")));
+        QVERIFY2(sceneItem.lastVectorRasterSize().width() >= renderedSize.width()
+                     && sceneItem.lastVectorRasterSize().height() >= renderedSize.height(),
+                 qPrintable(document.first
+                            + QStringLiteral(" interaction tile is undersampled: ")
+                            + QStringLiteral("%1x%2")
+                                  .arg(sceneItem.lastVectorRasterSize().width())
+                                  .arg(sceneItem.lastVectorRasterSize().height())));
+        QVERIFY2(sampledChannelDifference(actual, reference) < 3.0,
+                 qPrintable(document.first
+                            + QStringLiteral(" interaction tile differs from reference")));
+    }
 }
 
 // TC-EPS-UNIT-MALFORMED
@@ -5355,8 +5458,11 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     qInfo() << "VECTOR_TILE_READY format=pdf renders=" << view->vectorRenderCount()
             << "pixels=" << view->lastVectorRasterSize();
     QVERIFY(view->vectorRenderCount() > 0);
+    // A scrollbar can appear after the first high-zoom request and shrink the
+    // viewport while that exact tile is already in flight. Allow the bounded
+    // pre-scroll tile plus a small exposure-rounding margin.
     const QSize maximumVisibleTile = view->viewport()->size()
-            * view->viewport()->devicePixelRatioF() + QSize(264, 264);
+            * view->viewport()->devicePixelRatioF() + QSize(296, 296);
     QVERIFY(view->lastVectorRasterSize().width() <= maximumVisibleTile.width());
     QVERIFY(view->lastVectorRasterSize().height() <= maximumVisibleTile.height());
 

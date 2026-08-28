@@ -180,13 +180,15 @@ def main() -> int:
             "document->renderTile",
             "renderedSourceRect.width() * requestedScaleX",
             "VectorTilePanOverscanPixels = 128",
-            "InteractiveVectorRenderScale = 0.75",
+            "VectorTileRenderScale = 1.0",
             "MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL",
             "MaxRetainedVectorTiles = 2",
             "QtConcurrent::run",
             "requestAsyncVectorTile(request)",
+            "bestReusableVectorTile(",
             "matchingVectorTile(sourceRect",
-            "!vectorInteractionActive",
+            "vectorInteractionActive || activeAsyncRequest.has_value()",
+            "QPainter::SmoothPixmapTransform, true",
         )
     )
     zoom_contract = (
@@ -281,6 +283,7 @@ def main() -> int:
             "testEPSRenderSurvivesStaticMovieProbe",
             "testMalformedEPSFailsSafely",
             "testEPSMissingRendererFailsActionably",
+            "testVectorInteractionPreservesTerminalDensity",
             "testSettingsFormatsIncludeEPS",
             "FOVELLE_EPS_SAMPLE",
             "createEPSVectorImage",
