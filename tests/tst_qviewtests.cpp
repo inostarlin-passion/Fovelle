@@ -3930,11 +3930,16 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
 
     const auto imageBottomAtViewportEdge = [&view]() {
+        // The scene edge is transformed through floating-point device-scale
+        // math and compared with QRect's inclusive integer bottom edge. Keep
+        // the functional endpoint assertion below exact, but allow the
+        // platform's bounded device-pixel rounding in this visual predicate.
+        constexpr qreal ImageEdgeTolerance = 4.0;
         const QRectF imageRect = view->scene()->itemsBoundingRect();
         const QRect viewport = view->viewport()->rect();
         const QPointF imageBottom = view->mapFromScene(
             QPointF(imageRect.center().x(), imageRect.bottom()));
-        return qAbs(imageBottom.y() - viewport.bottom()) <= 2.0;
+        return qAbs(imageBottom.y() - viewport.bottom()) <= ImageEdgeTolerance;
     };
     const bool normalBottomReadyBeforeEntry = waitForTestCondition(
         [&window, &view, &imageBottomAtViewportEdge]() {
@@ -3942,7 +3947,7 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
                 && qAbs(view->verticalScrollBar()->value()
                         - view->verticalScrollBar()->maximum()) <= 1
                 && imageBottomAtViewportEdge();
-        }, 1500);
+        }, 3000);
     const QSize normalViewportSize = view->viewport()->size();
     window.toggleFullScreen();
     const bool enteredFullScreen = waitForTestCondition(

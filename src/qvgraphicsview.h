@@ -94,6 +94,7 @@ public:
     // AppKit publishes the new window state. Preserve a manually selected
     // image edge for the whole transition, not just for one resize event.
     void beginFullScreenPanPreservation();
+    void refreshFullScreenPanPreservation();
     void endFullScreenPanPreservation();
 
     QSizeF getEffectiveOriginalSize() const;
@@ -278,7 +279,8 @@ protected:
 
     bool handleNativeGestureEvent(QNativeGestureEvent *event);
 
-    void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = {});
+    void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = {},
+                         bool preserveScrollEdges = false);
 
     QRectF getSceneRectForViewport() const;
 
@@ -298,6 +300,8 @@ private:
 
     void ensureHDRRenderer();
 
+    ScrollEdge getScrollEdge(const QScrollBar *scrollBar) const;
+    void captureFullScreenPanEdges();
     void restoreFullScreenPanPreservation();
 
     QVGraphicsImageItem *loadedPixmapItem;

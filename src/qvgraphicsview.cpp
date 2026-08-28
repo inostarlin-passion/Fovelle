@@ -1825,7 +1825,7 @@ void QVGraphicsView::fitOrConstrainImage()
     // changes at the full-screen boundary even when the zoom transform does
     // not. Rebase it before every viewport fit/constraint pass so a padding
     // row from the previous window mode can never remain scrollable.
-    updateSceneRect();
+    updateSceneRect({}, true);
 
     if (calculatedZoomMode.has_value())
         recalculateZoom();
@@ -1857,18 +1857,23 @@ void QVGraphicsView::beginFullScreenPanPreservation()
     if (calculatedZoomMode.has_value())
         return;
 
-    const auto getScrollEdge = [](const QScrollBar *scrollBar) {
-        if (scrollBar->minimum() >= scrollBar->maximum())
-            return ScrollEdge::None;
-        if (scrollBar->value() <= scrollBar->minimum() + 1)
-            return ScrollEdge::Minimum;
-        if (scrollBar->value() >= scrollBar->maximum() - 1)
-            return ScrollEdge::Maximum;
-        return ScrollEdge::None;
-    };
+    captureFullScreenPanEdges();
+}
 
-    fullScreenHorizontalPanEdge = getScrollEdge(horizontalScrollBar());
-    fullScreenVerticalPanEdge = getScrollEdge(verticalScrollBar());
+void QVGraphicsView::refreshFullScreenPanPreservation()
+{
+    constrainBoundsTimer->stop();
+    scrollHelper->cancelAnimation();
+
+    // Unlike begin(), this method is called at the exit request boundary. The
+    // user may have dragged to a new edge while already in full screen, so the
+    // current bars are the authoritative state even when preservation is
+    // already active for the entry/exit animation.
+    fullScreenPanPreservationActive = true;
+    fullScreenHorizontalPanEdge = ScrollEdge::None;
+    fullScreenVerticalPanEdge = ScrollEdge::None;
+    if (!calculatedZoomMode.has_value())
+        captureFullScreenPanEdges();
 }
 
 void QVGraphicsView::endFullScreenPanPreservation()
@@ -2448,7 +2453,27 @@ MainWindow* QVGraphicsView::getMainWindow() const
     return qobject_cast<MainWindow*>(window());
 }
 
-void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollPosition)
+QVGraphicsView::ScrollEdge QVGraphicsView::getScrollEdge(
+    const QScrollBar *scrollBar) const
+{
+    if (scrollBar->minimum() >= scrollBar->maximum())
+        return ScrollEdge::None;
+    if (scrollBar->value() <= scrollBar->minimum() + 1)
+        return ScrollEdge::Minimum;
+    if (scrollBar->value() >= scrollBar->maximum() - 1)
+        return ScrollEdge::Maximum;
+    return ScrollEdge::None;
+}
+
+void QVGraphicsView::captureFullScreenPanEdges()
+{
+    fullScreenHorizontalPanEdge = getScrollEdge(horizontalScrollBar());
+    fullScreenVerticalPanEdge = getScrollEdge(verticalScrollBar());
+}
+
+void QVGraphicsView::updateSceneRect(
+    const std::optional<QPoint> &restoreScrollPosition,
+    const bool preserveScrollEdges)
 {
     if (isUpdatingSceneRect)
         return;
@@ -2466,10 +2491,23 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
     // centers the smaller logical scene while painting the larger item.
     const bool preserveViewport = restoreScrollPosition.has_value() ||
         (sceneRect().isValid() && !sceneRect().isEmpty());
+    const bool preserveManualPanEdges = preserveScrollEdges
+        && !restoreScrollPosition.has_value()
+        && !calculatedZoomMode.has_value();
     const QPoint scrollPosition = restoreScrollPosition.value_or(
         QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value()));
     const int horizontalValue = scrollPosition.x();
     const int verticalValue = scrollPosition.y();
+    const ScrollEdge horizontalPanEdge =
+        fullScreenHorizontalPanEdge != ScrollEdge::None
+            ? fullScreenHorizontalPanEdge
+            : preserveManualPanEdges ? getScrollEdge(horizontalScrollBar())
+                                     : ScrollEdge::None;
+    const ScrollEdge verticalPanEdge =
+        fullScreenVerticalPanEdge != ScrollEdge::None
+            ? fullScreenVerticalPanEdge
+            : preserveManualPanEdges ? getScrollEdge(verticalScrollBar())
+                                     : ScrollEdge::None;
     const QRectF desiredSceneRect = getSceneRectForViewport();
     QScopedValueRollback<bool> sceneRectUpdateGuard(isUpdatingSceneRect, true);
     if (sceneRect() != desiredSceneRect)
@@ -2480,8 +2518,29 @@ void QVGraphicsView::updateSceneRect(const std::optional<QPoint> &restoreScrollP
     // would expose an observable frame at the origin during zooming.
     if (preserveViewport)
     {
-        horizontalScrollBar()->setValue(horizontalValue);
-        verticalScrollBar()->setValue(verticalValue);
+        if (preserveManualPanEdges && horizontalPanEdge != ScrollEdge::None)
+        {
+            horizontalScrollBar()->setValue(
+                horizontalPanEdge == ScrollEdge::Minimum
+                    ? horizontalScrollBar()->minimum()
+                    : horizontalScrollBar()->maximum());
+        }
+        else
+        {
+            horizontalScrollBar()->setValue(horizontalValue);
+        }
+
+        if (preserveManualPanEdges && verticalPanEdge != ScrollEdge::None)
+        {
+            verticalScrollBar()->setValue(
+                verticalPanEdge == ScrollEdge::Minimum
+                    ? verticalScrollBar()->minimum()
+                    : verticalScrollBar()->maximum());
+        }
+        else
+        {
+            verticalScrollBar()->setValue(verticalValue);
+        }
         logViewportState("scene-rect-viewport-restored");
     }
 }

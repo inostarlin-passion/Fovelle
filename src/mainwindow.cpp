@@ -2321,7 +2321,7 @@ void MainWindow::exitFullScreen()
     // Escape is handled by AppKit's native full-screen action. Route the View
     // command through the same asynchronous action and let Qt publish the
     // resulting state only after NSWindowDidExitFullScreenNotification.
-    graphicsView->beginFullScreenPanPreservation();
+    graphicsView->refreshFullScreenPanPreservation();
     if (!QVCocoaFunctions::requestFullScreenExit(windowHandle()))
         graphicsView->endFullScreenPanPreservation();
 }
