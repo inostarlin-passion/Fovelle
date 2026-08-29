@@ -89,7 +89,7 @@ private slots:
     void testEPSFormatIsAdvertised();
     void testEPSPostScriptRender();
     void testImageLoaderLoadsEPS();
-    void testEPSPlacementPreviewIsProvisional();
+    void testEPSInitialFrameMatchesStableRender();
     void testEPSRenderCacheCutsConversionLatency();
     void testImageLoaderLoadsSVGAsVectorDocument();
     void testEPSRenderSurvivesStaticMovieProbe();
@@ -906,9 +906,7 @@ static std::optional<QVImageLoader::Result> loadImage(const QString &path)
         {
             if (signal.at(0).toULongLong() != requestId)
                 continue;
-            const auto result = qvariant_cast<QVImageLoader::Result>(signal.at(1));
-            if (!result.isProvisionalVectorPreview)
-                return result;
+            return qvariant_cast<QVImageLoader::Result>(signal.at(1));
         }
         readySpy.wait(qMax(1, 5000 - static_cast<int>(timeout.elapsed())));
     }
@@ -1345,7 +1343,7 @@ void ImageLoaderTests::testEPSPostScriptRender()
     QCOMPARE(result.vectorImage.format, Qv::VectorImageFormat::Pdf);
     QCOMPARE(result.vectorImage.logicalSize, QSizeF(result.intrinsicSize));
     QVERIFY(result.vectorImage.encodedData.startsWith("%PDF-"));
-    QCOMPARE(qMax(result.image.width(), result.image.height()), 512);
+    QCOMPARE(qMax(result.image.width(), result.image.height()), 2048);
     QVERIFY(result.image.size() != result.intrinsicSize);
 
     QString pdfError;
@@ -1473,7 +1471,7 @@ void ImageLoaderTests::testEPSPostScriptRender()
 // Operation steps: request the image, wait for imageReady, and inspect the
 // result, source identity, and error state.
 // Expected result: one matching request completes with a retained PDF vector
-// document, a bounded preview, no error data, and its logical EPS page size.
+// document, a bounded PDF-derived fallback, no error data, and its logical EPS page size.
 // Postconditions: the loader and temporary fixture are destroyed.
 void ImageLoaderTests::testImageLoaderLoadsEPS()
 {
@@ -1489,24 +1487,24 @@ void ImageLoaderTests::testImageLoaderLoadsEPS()
     QVERIFY(!result->intrinsicSize.isEmpty());
     QVERIFY(result->vectorImage.isValid());
     QCOMPARE(result->vectorImage.format, Qv::VectorImageFormat::Pdf);
-    QCOMPARE(qMax(result->image.width(), result->image.height()), 512);
+    QVERIFY(qMax(result->image.width(), result->image.height()) <= 2048);
     QVERIFY(result->image.size() != result->intrinsicSize);
     QCOMPARE(result->absoluteFilePath, QFileInfo(path).absoluteFilePath());
 }
 
-// TC-EPS-PERF-PROVISIONAL
-// Test purpose: verify that a decoder-provided placement image can become
-// visible before the authoritative vector conversion completes, without being
-// reported as the final loader result.
-// Preconditions: the platform's EPS reader exposes a placement image for the
-// deterministic fixture; Ghostscript remains available for the final result.
-// Input data: the deterministic EPS fixture or configured sample.
-// Operation steps: request through QVImageLoader, inspect the first signal,
-// then wait for the same request's authoritative PDF result.
-// Expected result: the first signal is explicitly provisional and the final
-// signal retains a valid PDF vector source.
-// Postconditions: the loader and all worker resources are released.
-void ImageLoaderTests::testEPSPlacementPreviewIsProvisional()
+// TC-EPS-CONSISTENCY
+// Test purpose: verify that the first visible EPS result and the stable vector
+// result are rendered from the same authoritative PDF document.
+// Preconditions: Ghostscript and a readable EPS sample are available, or the
+// deterministic vector fallback can be created.
+// Input data: the supplied EPS sample or deterministic PostScript fixture.
+// Operation steps: request through QVImageLoader, inspect the first result,
+// then rasterize its PDF at exactly the first result's fallback size.
+// Expected result: the first result is already a PDF vector result, and its
+// fallback pixels match the same PDF render within the existing tolerance;
+// no embedded placement preview is published to the UI.
+// Postconditions: the loader, PDF document, and temporary source are released.
+void ImageLoaderTests::testEPSInitialFrameMatchesStableRender()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -1520,11 +1518,6 @@ void ImageLoaderTests::testEPSPlacementPreviewIsProvisional()
     }
     QVERIFY(!path.isEmpty());
 
-    const auto placementPreview = QVCocoaFunctions::readPlacementPreview(
-        path, 2048);
-    if (placementPreview.image.isNull())
-        QSKIP("this platform does not expose an EPS placement preview decoder");
-
     QVImageLoader loader;
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
     QElapsedTimer requestTimer;
@@ -1532,47 +1525,32 @@ void ImageLoaderTests::testEPSPlacementPreviewIsProvisional()
     const quint64 requestId = loader.requestImage(path);
     loader.setDesiredImages({{path, 0}});
     QTRY_VERIFY_WITH_TIMEOUT(readySpy.count() > 0, 1000);
-    const qint64 previewMilliseconds = requestTimer.elapsed();
-
-    const auto first = qvariant_cast<QVImageLoader::Result>(
-        readySpy.at(0).at(1));
+    const qint64 initialMilliseconds = requestTimer.elapsed();
+    const auto first = qvariant_cast<QVImageLoader::Result>(readySpy.at(0).at(1));
     QCOMPARE(readySpy.at(0).at(0).toULongLong(), requestId);
-    QVERIFY(first.isProvisionalVectorPreview);
     QVERIFY(!first.image.isNull());
-    QVERIFY(!first.vectorImage.isValid());
+    QVERIFY(first.vectorImage.isValid());
+    QCOMPARE(first.vectorImage.format, Qv::VectorImageFormat::Pdf);
+    QVERIFY(!first.errorData.has_value());
 
-    bool finalResultSeen = false;
-    qint64 finalMilliseconds = 0;
-    QVImageLoader::Result finalResult;
-    QTRY_VERIFY_WITH_TIMEOUT(([&]() {
-        for (const auto &signal : readySpy)
-        {
-            if (signal.at(0).toULongLong() != requestId)
-                continue;
-            const auto result = qvariant_cast<QVImageLoader::Result>(
-                signal.at(1));
-            if (!result.isProvisionalVectorPreview)
-            {
-                finalResultSeen = true;
-                finalMilliseconds = requestTimer.elapsed();
-                finalResult = result;
-                return result.vectorImage.isValid()
-                        && result.vectorImage.format == Qv::VectorImageFormat::Pdf;
-            }
-        }
-        return false;
-    })(), 5000);
-    QVERIFY(finalResultSeen);
+    QString pdfError;
+    const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
+        first.vectorImage.encodedData, &pdfError);
+    QVERIFY2(pdfDocument, qPrintable(pdfError));
+    const QImage stableRender = pdfDocument->renderTile(
+        first.vectorImage.logicalSize,
+        QRectF(QPointF(), first.vectorImage.logicalSize),
+        first.image.size(), &pdfError);
+    QVERIFY2(!stableRender.isNull(), qPrintable(pdfError));
+    QVERIFY2(sampledChannelDifference(first.image, stableRender) < 3.0,
+             "the first EPS fallback does not match the stable authoritative PDF render");
     qInfo().noquote() << QStringLiteral(
-        "EPS_DISPLAY_LATENCY preview_ms=%1 final_ms=%2 final_decode_ms=%3 ratio=%4")
-        .arg(previewMilliseconds)
-        .arg(finalMilliseconds)
-        .arg(finalResult.decodeMilliseconds, 0, 'f', 3)
-        .arg(finalMilliseconds > 0
-                 ? static_cast<double>(previewMilliseconds) / finalMilliseconds
-                 : 0.0, 0, 'f', 4);
-    QVERIFY2(previewMilliseconds * 2 < finalMilliseconds,
-             "the provisional placement preview did not arrive at least 50% earlier than the final conversion");
+        "EPS_INITIAL_STABLE initial_ms=%1 fallback=%2x%3 decode_ms=%4 diff=%5")
+        .arg(initialMilliseconds)
+        .arg(first.image.width())
+        .arg(first.image.height())
+        .arg(first.decodeMilliseconds, 0, 'f', 3)
+        .arg(sampledChannelDifference(first.image, stableRender), 0, 'f', 4);
 }
 
 // TC-EPS-PERF-CACHE
@@ -1626,7 +1604,7 @@ void ImageLoaderTests::testEPSRenderCacheCutsConversionLatency()
 
 // TC-EPS-UNIT-STATIC-DOCUMENT
 // Test purpose: ensure animation probing cannot replace the authoritative EPS
-// render with an embedded placement preview after the initial load.
+// render after the first authoritative result.
 // Preconditions: the production loader has returned a valid EPS result.
 // Input data: the same supplied or deterministic EPS fixture.
 // Operation steps: feed the result into QVImageCore, process delayed movie

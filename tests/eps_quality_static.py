@@ -153,7 +153,8 @@ def main() -> int:
         "convertEPSToPDF(filePath" in native
         and "result.vectorImage.format = Qv::VectorImageFormat::Pdf" in native
         and "result.vectorImage.encodedData = pdfData" in native
-        and "EPSPreviewLargestDimension = 512" in native
+        and "EPSFallbackLargestDimension = 2048" in native
+        and "readPlacementPreview" not in native
         and "imageFromEPSRasterPreview" not in native
         and "imageFromEPSIPreview" not in native
     )
@@ -289,7 +290,7 @@ def main() -> int:
             "testMalformedEPSFailsSafely",
             "testEPSMissingRendererFailsActionably",
             "testVectorInteractionPreservesTerminalDensity",
-            "testEPSPlacementPreviewIsProvisional",
+            "testEPSInitialFrameMatchesStableRender",
             "testEPSRenderCacheCutsConversionLatency",
             "FOVELLE_EPS_SAMPLE",
             "createEPSVectorImage",
@@ -323,7 +324,7 @@ def main() -> int:
         "facts": [
             "The implementation uses the existing macOS native bridge and the existing application extension registry.",
             "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped high-level PDF output, bounded diagnostics, and pixel/PDF limits.",
-            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction and idle refinement, and reuses opaque backing-store pixels while panning; the 512-pixel image is a non-authoritative fallback preview.",
+            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction and idle refinement, and reuses opaque backing-store pixels while panning; the initial fallback is rendered from the same authoritative PDF.",
             "Every zoom entry point is bounded by the central 64.0 (6400%) contract.",
         ],
         "inferences": [

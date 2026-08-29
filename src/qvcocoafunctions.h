@@ -365,13 +365,6 @@ public:
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
 
-    // Return a bounded, non-authoritative placement image when the source
-    // format exposes one without requiring its full vector conversion.  The
-    // loader may show it while the native vector result is still in flight;
-    // an empty image means that no such fast preview is available.
-    static NativeImageReadResult readPlacementPreview(
-        const QString &filePath, int largestDimension = 0);
-
     // Rasterize only the requested PDF page region at the final device-pixel
     // size.  EPS uses this after its PostScript program has been normalized to
     // a vector PDF; callers never need a zoom-sized whole-document bitmap.

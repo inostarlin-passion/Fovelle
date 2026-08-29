@@ -1,227 +1,155 @@
-# 矢量图片性能改造的证明
+# EPS 首帧—稳定帧一致性的证明
 
-## 1. 命题与证明范围
+## 1. 命题
 
-本证明针对 `reports/model.md` 的状态机和不变量。功能正确性可以由不变量推导；
-性能目标中的“50%/100%”是关于同机同轨迹测量的经验命题，因此证明给出其充分
-条件，并由后续动态测试实例化，而不把理论复杂度冒充成实际 benchmark 结果。
+设一次 EPS 请求成功，`D` 为输入 EPS，`A=G(D)` 为受限 Ghostscript `pdfwrite`
+产生的 PDF bytes，`V` 为 EPS BoundingBox 对应的逻辑页面。需要证明：
 
-设 `S0` 是改造前实现，`S1` 是改造后实现。需要验证：
+1. 第一份成功 `Result` 的图像 `F` 与稳定参考图像来自同一权威源 `A`；
+2. 第一份结果不是内嵌 placement preview 的暂态替代物；
+3. 矢量文档和后续高密度 tile 语义不被修复破坏。
 
-\[
- L_{EPS}^{1}\le \frac12L_{EPS}^{0},\qquad
- C_{EPS}^{1}\ge 2C_{EPS}^{0},\qquad
- C_{SVG}^{1}\ge 2C_{SVG}^{0},
-\]
+稳定参考定义为 `Render(A,T,E,S)`。当 `T/E/S` 与第一份 fallback 的整页比较条件
+相同，验收要求为 `δ(F)<3.0`。
 
-其中 `C=1000/p99_frame_ms` 是固定交互轨迹的应用线程渲染能力；实际呈现帧率是
-`min(display_refresh_hz, C)`。如果物理刷新率已经成为瓶颈，报告同时给出
-`C`，不声称显示器已经呈现了超过硬件上限的帧。
+## 2. 引理一：内嵌 preview 不是权威 EPS 内容
 
-## 2. 引理一：权威源和场景几何保持不变
-
-`QVGraphicsImageItem::setVectorImage` 只接受有效的 `VectorImageData`；EPS 被
-保存为完整 PDF bytes，SVG 被保存为 encoded data/source path，`logicalSize`
-仍来自文档页面或 SVG 尺寸。`boundingRect()` 返回 `logicalSize`，而不是预览
-`QImage` 的尺寸。
-
-因此对任意缩放 `T`，场景边界仍为 `V=(W,H)`，且 worker 生成的 tile 只是
-`V` 上有限矩形的采样。清空或淘汰 tile 不会清空 `vectorImage`。所以改造不会把
-矢量文档降级为固定的预览位图，命题 `I1` 成立。
-
-## 3.1 引理：EPS 的 placement preview 不会取代权威结果
-
-前提是 EPS 文件含有可独立解码的、有界 placement preview。loader 在同一个
-foreground generation 中先提交 `readPlacementPreview` 的 `Result`，并标记
-`isProvisionalVectorPreview=true`；`QVImageCore` 对该标记只更新临时可见 pixmap，
-不清除 `pendingLoadRequestId`、`loadInProgress`，且跳过 QMovie 探测。随后同一工作项
-完成 `readFile`，发布未标记的最终 `Result`，原有完成路径才清除 pending 状态并把
-EPS 转换出的完整 PDF 设置为 `loadedVectorImage`。
-
-因此事件顺序是
+由 EPS 格式的输入分解，`D=(PS,B,P_embedded)`，其中 `P_embedded` 只是可选的
+显示辅助内容，而 artwork 由 `PS` 定义。故一般不能推出
 
 \[
- preview\;visible \prec authoritative\;PDF\;visible,
+ P_{embedded}=Render(G(PS,B)).
 \]
 
-而最终状态与没有 preview 分支相同：`vectorImage.format=Pdf`、`logicalSize`
-来自 EPS BoundingBox，低分辨率 preview 不能覆盖权威文档。故首次可见延迟可以由
-`L_{EPS,0}=t_{final}-t_0` 降为 `L_{EPS,1}=t_{preview}-t_0`，同时不牺牲最终
-矢量性质。引理成立。
+尤其当 preview 的尺寸、裁剪、颜色解释或生成器与当前 PostScript renderer
+不同时，两者可以不同。于是“先显示 preview、后显示 PDF”必然允许用户观察到
+跳变。要消除该类跳变，必要条件是首帧不以 `P_embedded` 作为图像结果。
 
-## 3.2 引理二：tile 始终满足终端密度约束
+## 3. 引理二：loader 不再发布 provisional EPS 结果
 
-给定暴露矩形 `E` 和设备尺度 `(s_x,s_y)`，请求的 tile 源矩形是 `E` 加上状态
-相关的有界设备像素 overscan，且请求密度为 `(s_x,s_y)`；`VectorTileRenderScale`
-固定为 `1.0`。因此在没有触发安全上限时：
+修复后的 `QVImageLoader::startJob` 只调用：
+
+```text
+result = readFile(path, requestedLargestDimension, isPreload)
+jobFinished(path, generation, result)
+```
+
+源码中已移除 `readPlacementPreview` 和 `jobPreview`；因此对一个 generation，
+loader 不存在“先 preview Result、后 final Result”的 EPS 分支。`jobFinished`
+完成 identity、generation 和错误状态检查后，`deliverResult` 只交付该一次
+`Result`。故第一份成功 `imageReady` 必然是 `readFile` 产生的结果，而不是
+`P_embedded`。
+
+## 4. 引理三：EPS fallback 与稳定参考同源
+
+`readEPS` 的成功路径先执行
 
 \[
- o(G)=
- \begin{cases}
- 16,&G=dragging,\\
- 128,&G=idle,
- \end{cases}
- \qquad
- R_{req}=expand(E,o(G)/s_x,o(G)/s_y).
+ A=G(PS,B),
 \]
+
+然后用 `imageFromPDFPage(pdfPath, S_F, ...)` 生成 `F`，最后把同一 PDF 文件读入
+`result.vectorImage.encodedData=A`。所以存在同一个 `A` 使得
 
 \[
- width(I)\ge width(E)s_x,\qquad
- height(I)\ge height(E)s_y.
+ F=Render(A,I,S_F),\qquad vectorImage=A.
 \]
 
-拖动时 QGraphicsView 已保留未变化的 backing-store 像素，16 像素 seam guard
-只为新暴露条提供接缝余量；空闲时 128 像素 overscan 用于减少下一次细小平移的
-miss。若 tile 已覆盖 `E`，它可以直接用于拖动；若仅部分相交，绘制交集并以临时预览
-补足；若没有相交 tile，绘制预览并提交最新请求。安全上限只会把异常大请求
-限制在 `64 Mi` 像素和 `16384` 边长内，正常测试尺寸不会触发该分支。故拖动期间
-不使用低于设备密度的 `0.75` tile，命题 `I2` 成立。
-
-## 4.1 引理：拖动 seam guard 减少工作量而不降低密度
-
-如果暴露条的设备宽高为 `w,h`，从 idle 的 128 像素 overscan 改为 dragging 的
-16 像素 overscan 时，后台 tile 像素工作量比例为
+测试 `testEPSInitialFrameMatchesStableRender` 重新从第一份 Result 的 `A` 构造
+`PDFVectorDocument`，以完全相同的 `S_F` 重绘整页 `F'`，并断言
 
 \[
- \frac{(w+32)(h+32)}{(w+256)(h+256)}<1.
+ \delta(F,F')<3.0.
 \]
 
-它减少的是重复 vector 绘制面积，而不是以低密度位图换速度。动态测试
-`testVectorDragFrameBudgetForEPSAndSVG` 记录两种格式的首个 scroll paint 均为
-`\rho=0.009554`，相对全视口参考得到 `1/\rho=104.667` 的 frame-area capacity
-下界，显著高于所需的 2 倍。这里的下界依赖显式的“paint 成本随像素面积近似线性”
-前提；它不等同于物理显示器的 photon/presented FPS。引理成立。
+由于 `F` 和 `F'` 使用相同 bytes、页面区域和尺寸，若断言通过，首帧与同尺寸
+稳定 PDF 绘制不存在内容级差异；允许的误差仅是平台采样舍入。
 
-## 4.2 引理三：异步结果不会覆盖新源
+## 5. 引理四：UI 不会用动画探测再次替换 EPS
 
-每次设置 SVG/PDF 源都递增 `vectorSourceGeneration`。`AsyncTileRequest` 和
-`AsyncTileResult` 都携带该代数；完成回调只有在
+`QVImageCore::loadPixmap` 在收到第一份 Result 后保存 `loadedVectorImage=A`。
+当 `loadedVectorImage.isValid()` 时，`isVectorDocument=true`，`loadedMovie`
+的文件名被清空且不启动 QMovie。于是延迟的静态/动画探测不能把 EPS 当成普通
+图片再次读取，也没有第二个低分辨率内容源可以覆盖 `A`。测试
+`testEPSRenderSurvivesStaticMovieProbe` 在等待 1100 ms 后检查 movie 状态仍为
+`NotRunning` 且 PDF vector document 仍有效。
+
+## 6. 引理五：后续稳定 tile 仍来自同一个矢量文档
+
+`QVGraphicsImageItem::setVectorImage` 由第一份 Result 的 `A` 构造持久
+`PDFVectorDocument`。异步 tile request 携带该 shared document 与当前
+`vectorSourceGeneration`；结果只有在 generation 仍匹配时才会进入 tile 缓存。
+因此每个稳定 tile 都是
 
 \[
- result.generation=vectorSourceGeneration
- \land image\ne\varnothing
+ Tile_i=Render(A,T_i,E_i,S_i),
 \]
 
-时才把 tile 加入缓存。故旧文件、旧 SVG frame 或已失效的 tile 不能污染新文档，
-命题 `I3` 成立。
+而不是从 `P_embedded` 或第一份 fallback 继续放大。设备密度和已有的边界/采样
+守卫保证清晰度约束仍成立；本修复只是删除错误的首帧内容源。
 
-## 5. 引理四：PDF/SVG 的线程使用是安全且无重复解析的
+## 7. 引理六：错误路径不会以错误 preview 掩盖失败
 
-GUI 线程的 `QSvgRenderer` 只维护源状态；worker 使用同一源的独立、线程本地
-renderer。Qt 文档将 `QSvgRenderer` 标为 reentrant，这意味着不同实例可以并发
-使用，而不是允许把同一个 QObject 跨线程共享。线程本地缓存只复用 worker 所在线
-程自己的 renderer，并以源路径与 encoded data 变更时重载，因此满足该边界。
+Ghostscript 缺失、进程启动失败、超时、诊断输出超限、PDF 输出超限或 PDF 无效
+时，`readEPS` 返回错误；`readImageWithImageIO` 对已识别 EPS 保持
+`allowsQtFallback=false`。由于 preview 路径已删除，失败结果不能偷偷变成
+`P_embedded`，而是沿现有 `errorData` 合同闭合。故修复没有以“看起来先有图”为代价
+掩盖依赖错误。
 
-PDF tile 请求携带 `PDFVectorDocumentPtr`。它在 GUI 线程完成构造后才进入请求，
-worker 不再为每个 tile 重建 `CGPDFDocument`。`PDFVectorDocument::renderTile`
-在读取页面并调用 `CGContextDrawPDFPage` 的临界区上持有 document mutex；因此同一
-document 的 Core Graphics 访问被串行化，QImage 的 tile 仍是每次请求独立创建的。
-这保持 `I6`，同时移除了每个 tile 的重复 PDF 解析成本。
+## 8. 定理：打开瞬间与稳定后的 EPS 图像不再发生源级跳变
 
-## 6. 引理五：快速采样不改变已抗锯齿图像
-
-当且仅当 tile 与当前设备密度相等、tile 完整覆盖 `E`、目标和源矩形边界都落在
-整数设备像素上，并且 transform 没有旋转/shear/非一一映射时，绘制映射是
-1:1 像素复制。此时关闭 `SmoothPixmapTransform` 不会重新解释矢量边缘；它只跳过
-已经在 tile 生成时完成的二次滤波。若任何条件不满足，代码保留平滑采样。
-
-所以快速路径的输出等于同一抗锯齿 tile 的直接像素拷贝；清晰度损失只能来自被
-明确排除的非整数/非一一映射情况。结合引理二，拖动期间的终端密度和清晰度保持，
-命题 `I5` 成立。
-
-## 7. 引理六：EPS 缓存保持正确性并缩短可见延迟
-
-EPS cache entry 的键包含绝对路径、文件大小、修改时间和 renderer identity；
-命中时返回同一完整 PDF bytes、逻辑尺寸和 bounded preview，未命中时执行原有
-Ghostscript、超时、输出大小和 PDF 有效性检查。若文件内容发生变化，至少大小或
-修改时间变化，键不相等，旧 entry 不可复用。若 renderer 环境变化，identity 不同，
-也不会误把另一环境的结果作为当前结果。
-
-命中路径跳过 Ghostscript 进程启动、EPS 解析和临时 PDF 写入/读取；其余发布操作
-仍是同一 `Result` 合同。因此：
+由引理二，第一份成功结果是 `readFile` 的最终结果；由引理三，该结果的 fallback
+和 vector source 都由同一个 `A` 生成；由引理四，延迟 QMovie 探测不会再发布
+第二个普通图片结果；由引理五，后续 tile 仍从 `A` 生成。因此首帧到稳定帧的
+变化至多是同一权威 PDF 在不同 `T/E/S` 下的正常采样细化，而不再是
 
 \[
- L_{EPS,hit}^{1}
- = L_{lookup}+L_{copy}+L_{publish}
- < L_{ghostscript}+L_{pdfIO}+L_{publish}
- = L_{EPS,miss}^{0},
+ P_{embedded}\longrightarrow Render(A).
 \]
 
-只要基线的转换阶段占基线延迟超过一半，`L_{EPS,hit}^{1}\le L_{EPS}^{0}/2`
-成立。动态测试用同一构建先清除/制造 miss，再测 hit，并输出实际比例；不能用
-一次缓存命中代替冷路径结论。cache 的条目数、bytes 和身份失效规则又保证资源
-约束与 `I4` 不变。
+在同尺寸验收条件下，测试断言 `δ<3.0`，故任务“打开 EPS 图片后的瞬间与稳定
+后的图像不同”所指的内容跳变被修复。
 
-## 8. 性能引理：拖动帧成本的可加性下降
+## 9. 缓存与非回归证明
 
-把一帧成本分为：
+EPS cache 的键包含路径、文件大小、修改时间、fallback 尺寸和 Ghostscript
+身份。键相等时返回同一完整 `A` 及其同源 `F`；键不等时不复用旧结果。故缓存
+只能减少重复转换，不能引入另一内容源。持久 PDF document、设备密度 vector
+tile、SVG worker renderer、暴露区域更新和快速采样路径均未被首帧修复删除。
 
-\[
- F = F_{view}+F_{tileLookup}+F_{sample}+F_{fallback},
-\]
+因此可将一致性修复与已有的性能优化组合：首帧正确性由本证明和 EPS consistency
+测试负责，重复打开速度由 cache 测试负责，拖动清晰度和局部更新由 vector
+interaction 测试负责；三者的验收谓词彼此独立。
 
-其中 worker 解析/光栅化不在 GUI paint 临界路径内。改造后：
+## 10. 反例回退规则
 
-1. PDF tile 不再承担每帧/每次 tile 请求的 `CGPDFDocument` 构造；
-2. SVG worker renderer 在同一源的连续 tile 中只解析一次；
-3. 拖动使用 16 像素、空闲使用 128 像素的有界 overscan，有限 LRU 减少相邻拖动帧的 miss；
-4. 整数一一映射使用无平滑采样，降低 `F_sample`；
-5. 单 item 场景使用 `NoIndex`，vector viewport 显式保持 Qt 的最小暴露区域更新，未变化区域不重新 paint。
+若 `testEPSInitialFrameMatchesStableRender` 失败：
 
-因此对固定轨迹，若测得：
+* 若第一份 Result 不是 PDF，回退检查 loader/native Result 合同，不放宽测试；
+* 若 PDF 有效但 `δ≥3.0`，回退检查 `imageFromPDFPage` 与 `PDFVectorDocument`
+  的页面 transform、BoundingBox 和目标尺寸；
+* 若等待后 vector source 改变，回退检查 QVImageCore 的 movie probe 和 loader
+  generation，而不是重新引入 preview；
+* 若错误样例出现图片，回退检查 `allowsQtFallback=false` 和 failure-closed
+  条件。
 
-\[
- F_{view}^{1}+F_{tileLookup}^{1}+F_{sample}^{1}+F_{fallback}^{1}
- \le \frac12F^{0}_{p99},
-\]
+只有在这些谓词都通过后，才可接受实现。
 
-则
+## 11. 外部依据与本地映射
 
-\[
- C^{1}=1000/F^{1}_{p99}\ge 2(1000/F^{0}_{p99})=2C^{0}.
-\]
+证明的外部语义链为：
 
-该不等式是 EPS 与 SVG 分别测量的验收条件；代码结构消除了可避免的成本，但
-最终是否达到两倍必须由同机动态数据决定。
+1. [Adobe EPS artwork/preview](https://helpx.adobe.com/uk/illustrator/using/saving-artwork.html)：
+   preview 不是 artwork 权威源；
+2. [Ghostscript Vector Devices](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)：
+   `pdfwrite` 可作为保留矢量绘图命令的高层输出设备；
+3. [Apple CGContextDrawPDFPage](https://developer.apple.com/documentation/coregraphics/cgcontext/drawpdfpage%28_%3A%29?language=objc)：
+   PDF 页面可按目标上下文绘制；
+4. [Qt QGraphicsItem](https://doc.qt.io/qt-6/qgraphicsitem.html) 与
+   [QGraphicsView](https://doc.qt.io/qt-6/qgraphicsview.html)：item 绘制和
+   viewport 更新应使用当前文档/暴露区域；
+5. 本地实现把上述事实落实为：`readEPS -> PDF -> F` 单源路径、无
+   `readPlacementPreview`、PDF vector document 复用及首帧同源测试。
 
-## 9. 定理：满足功能目标的充分条件及验证闭环
-
-由引理一至五，EPS/SVG 仍以矢量源构造 bounded terminal-density tile，且快速
-路径只优化已抗锯齿像素的采样；所以“保持矢量化渲染、拖动时清晰”成立。由引理六，
-在 EPS 转换占基线延迟一半以上并且 cache 命中测量通过时，EPS 显示延迟减半成立。
-由性能引理，在 EPS、SVG 各自的 `p99` 帧成本不超过基线一半时，两种拖动能力均
-提高至少 100% 成立。
-
-验证顺序为：
-
-1. 静态检查确认 source/format、线程隔离、代数校验、密度常数、快速采样守卫和
-   所有资源上限；
-2. 动态单元测试确认 EPS/SVG reference 误差、tile 密度、缓存失效和失败闭合；
-3. `testEPSPlacementPreviewIsProvisional` 记录 preview 与 final 的墙钟次序，
-   `testEPSRenderCacheCutsConversionLatency` 记录 miss/hit 比例；
-4. `testVectorDragFrameBudgetForEPSAndSVG` 对两种格式测量真实暴露条，另由
-   `testVectorInteractionPaintCpuBudgetFor120Hz` 测量 EPS/SVG 的 zoom/pan
-   `avg/p99/max/capacity`；
-5. 同一 120 Hz 轨迹若 `p99` 帧成本不低于基线的一半，必须回退到热点分解，不能把
-   暴露面积代理误写成实际 present FPS；
-6. 任一断言失败时，按失败谓词回退：质量失败回到 tile/采样引理，缓存失败回到
-   identity/发布路径，性能失败回到热点分解和 tile 复用；不得放宽清晰度阈值或
-   删除矢量断言。
-
-## 10. 证据来源
-
-证明使用的框架语义来自 [QGraphicsView](https://doc.qt.io/qt-6/qgraphicsview.html)、
-[QGraphicsItem](https://doc.qt.io/qt-6/qgraphicsitem.html)、
-[QSvgRenderer](https://doc.qt.io/qt-6/qsvgrenderer.html)、
-[Qt reentrancy](https://doc.qt.io/qt-6/threads-reentrancy.html)、
-[QImage](https://doc.qt.io/qt-6/qimage.html)、
-[CGContextDrawPDFPage](https://developer.apple.com/documentation/coregraphics/cgcontext/drawpdfpage%28_%3A%29?language=objc)
-和 [Ghostscript vector devices](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)。
-
-本地动态实例（macOS 15.7.9、Qt 6.11.1、Release、Cocoa）记录了：EPS placement
-preview `51 ms`、权威结果 `306 ms`、比值 `0.1667`；EPS 转换 cache miss
-`264 ms`、hit `0 ms`、比值 `0.0000`；EPS 与 SVG 首个真实滚动 paint 的
-`ρ=0.009554`，相对全视口参考为 `104.667` 倍 frame-area capacity。修正为以 p99
-计算后，CPU 预算测试的 EPS/SVG zoom 与 pan 分别为 `301.057/330.124/203.366/268.899`
-FPS capacity，均通过 `120 FPS` 应用线程预算；它不等同于 WindowServer 已经呈现的
-photon/presented FPS。
+外部资料提供框架/格式语义；首帧差异的具体定位和 `δ<3.0` 结果必须由本地源码
+与动态测试确认，不能由网页资料替代。

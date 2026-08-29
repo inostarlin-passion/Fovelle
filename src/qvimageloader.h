@@ -35,7 +35,6 @@ public:
         bool isMultiFrameImage = false;
         QSize intrinsicSize;
         double decodeMilliseconds = 0.0;
-        bool isProvisionalVectorPreview = false;
         bool preloadRejected = false;
         quint64 estimatedDecodedBytes = 0;
         QString preloadRejectionReason;
@@ -125,8 +124,6 @@ private:
     void deliverResult(quint64 requestId, const QString &absoluteFilePath);
     void startReadyJobs();
     void startJob(const QString &absoluteFilePath);
-    void jobPreview(const QString &absoluteFilePath, quint64 generation,
-                    Result result);
     void jobFinished(const QString &absoluteFilePath, quint64 generation, Result result);
 
     QHash<QString, Entry> entries;
