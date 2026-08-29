@@ -31,6 +31,16 @@ QVImageLoader::QVImageLoader(QObject *parent)
 
 QVImageLoader::~QVImageLoader()
 {
+    shutdownAsyncWork();
+}
+
+void QVImageLoader::shutdownAsyncWork()
+{
+    if (asyncWorkShutDown)
+        return;
+
+    asyncWorkShutDown = true;
+    pendingRequest.reset();
     lifetimeToken.reset();
 
     // Image-loader jobs are raw QRunnables, not QFuture-backed work. Isolate
@@ -47,6 +57,9 @@ void QVImageLoader::setLargestDimension(const int value)
 
 quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool forceReload)
 {
+    if (asyncWorkShutDown)
+        return 0;
+
     const QString normalizedPath = normalizePath(absoluteFilePath);
     const FileIdentity identity = getFileIdentity(normalizedPath);
 
@@ -335,6 +348,9 @@ bool QVImageLoader::isWanted(const QString &absoluteFilePath, const Entry &entry
 
 void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
 {
+    if (asyncWorkShutDown)
+        return;
+
     struct DesiredEntry
     {
         int priority;
@@ -483,6 +499,9 @@ void QVImageLoader::startReadyJobs()
 
 void QVImageLoader::startJob(const QString &absoluteFilePath)
 {
+    if (asyncWorkShutDown)
+        return;
+
     auto entryIt = entries.find(absoluteFilePath);
     if (entryIt == entries.end() ||
         !isWanted(absoluteFilePath, entryIt.value()) ||

@@ -78,12 +78,10 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
     dockMenu->setAsDockMenu();
     markConstruction("dock-menu-ready");
 
-    // Build menu bar
-    menuBar = actionManager.buildMenuBar();
-    connect(menuBar, &QMenuBar::triggered, this, [](QAction *triggeredAction){
-        ActionManager::actionTriggered(triggeredAction);
-    });
-    markConstruction("menu-bar-ready");
+    // The application menu is needed by macOS once menu actions are used, but
+    // it is not needed to construct or show the first window. Keep its
+    // relatively expensive action tree off the launch critical path.
+    markConstruction("menu-bar-deferred");
 
     // Set mac-specific application settings
     QVCocoaFunctions::setUserDefaults();
@@ -95,8 +93,37 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
 QVApplication::~QVApplication()
 {
-    dockMenu->deleteLater();
-    menuBar->deleteLater();
+    if (dockMenu)
+    {
+        actionManager.untrackClonedActions(dockMenu);
+        delete dockMenu;
+        dockMenu = nullptr;
+    }
+    if (menuBar)
+    {
+        actionManager.untrackClonedActions(menuBar);
+        delete menuBar;
+        menuBar = nullptr;
+    }
+}
+
+void QVApplication::ensureMenuBar() const
+{
+    if (menuBar)
+        return;
+
+    auto *application = const_cast<QVApplication *>(this);
+    application->menuBar = application->actionManager.buildMenuBar();
+    QObject::connect(application->menuBar, &QMenuBar::triggered, application,
+                     [](QAction *triggeredAction){
+                         ActionManager::actionTriggered(triggeredAction);
+                     });
+}
+
+QMenuBar *QVApplication::getMenuBar() const
+{
+    ensureMenuBar();
+    return menuBar;
 }
 
 bool QVApplication::event(QEvent *event)
@@ -124,9 +151,11 @@ bool QVApplication::event(QEvent *event)
     }
     else if (event->type() == QEvent::Quit)
     {
+        isApplicationQuitting = true;
         SessionSaveDecision result = getSessionSaveDecision();
         if (result == SessionSaveDecision::Cancel)
         {
+            isApplicationQuitting = false;
             event->ignore();
             return true;
         }
@@ -205,8 +234,13 @@ void QVApplication::pickFile(MainWindow *parent)
 
 MainWindow *QVApplication::newWindow(const QJsonObject &windowSessionState)
 {
-    auto *w = new MainWindow(nullptr, windowSessionState);
-    w->showMaximized();
+    auto *w = new MainWindow(nullptr, windowSessionState, true);
+    // Set the final state before showing the native peer. This preserves the
+    // application-created-window invariant without a second showMaximized()
+    // round trip after the peer is visible.
+    // The equivalent historical call was: w->showMaximized();
+    w->setWindowState(Qt::WindowMaximized);
+    w->show();
     w->raise();
 
     return w;
@@ -570,6 +604,7 @@ bool QVApplication::tryRestoreLastSession()
 void QVApplication::onSystemInitiatedQuit()
 {
     isQuitSystemInitiated = true;
+    isApplicationQuitting = true;
 }
 
 QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
@@ -644,13 +679,24 @@ void QVApplication::onAboutToQuit()
         }
     }
 
-    // Keep the existing safety boundary: QtConcurrent futures in this pool
-    // must be allowed to report completion before their watchers are torn
-    // down. A raw QThreadPool::clear() would delete queued future runnables
-    // without giving them a chance to publish that terminal state.
+    // Window-owned pools must be stopped while their QObject and GUI
+    // dependencies still exist. Each owner clears queued work and waits only
+    // for work that has already started; unrelated legacy global work is
+    // handled by the conditional wait below.
+    for (QWidget *widget : QApplication::topLevelWidgets())
+    {
+        if (auto *window = qobject_cast<MainWindow *>(widget))
+            window->shutdownBackgroundWork();
+    }
+
+    // Keep the existing safety boundary for legacy/global futures, but avoid
+    // entering the blocking wait when no global worker is active. Window-owned
+    // work is drained by its owner, which keeps this application-level phase
+    // out of the critical shutdown path for unrelated tasks.
     QThreadPool *threadPool = QThreadPool::globalInstance();
     const int activeThreadsBeforeDrain = threadPool->activeThreadCount();
-    threadPool->waitForDone();
+    if (activeThreadsBeforeDrain > 0)
+        threadPool->waitForDone();
 
     if (traceQuit)
         qInfo().noquote() << QStringLiteral("FOVELLE_EXIT phase=about-to-quit-complete active_threads=%1 elapsed_ms=%2")

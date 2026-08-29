@@ -11,6 +11,7 @@
 #include <QShortcut>
 #include <QNetworkAccessManager>
 #include <QStack>
+#include <QThreadPool>
 
 namespace Ui {
 class MainWindow;
@@ -20,6 +21,7 @@ class QLabel;
 class QPushButton;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
+class QMenuBar;
 
 class MainWindow : public QMainWindow
 {
@@ -38,8 +40,12 @@ public:
         int obscuredHeight;
     };
 
-    explicit MainWindow(QWidget *parent = nullptr, const QJsonObject &windowSessionState = {});
+    explicit MainWindow(QWidget *parent = nullptr,
+                        const QJsonObject &windowSessionState = {},
+                        bool deferMenus = false);
     ~MainWindow() override;
+
+    void shutdownBackgroundWork();
 
     void requestPopulateOpenWithMenu();
 
@@ -245,6 +251,8 @@ protected slots:
     void shortcutsUpdated();
 
 private:
+    void ensureMenus();
+
     void clearTitlebarIcons();
 
     void ensureContextMenu();
@@ -316,13 +324,21 @@ private:
 
     QNetworkAccessManager networkAccessManager;
 
+    // Keep window-owned asynchronous work independent from the application's
+    // global pool so application shutdown never waits for unrelated jobs.
+    QThreadPool backgroundThreadPool;
+
     QStack<DeletedPaths> lastDeletedFiles;
 
+    QMenuBar *mainMenuBar {nullptr};
     QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
+    QList<QFutureWatcher<bool> *> saveFutureWatchers;
     QString openWithFutureFilePath;
     QString openWithPopulatedFilePath;
     bool openWithPopulationPending {false};
     bool contextMenuInitialized {false};
+    bool menusInitialized {false};
+    bool backgroundWorkShutDown {false};
 };
 
 #endif // MAINWINDOW_H

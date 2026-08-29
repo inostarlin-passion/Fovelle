@@ -7,6 +7,7 @@
 #include <QGraphicsObject>
 #include <QImage>
 #include <QPixmap>
+#include <QThreadPool>
 #include <QVector>
 
 #include <memory>
@@ -37,6 +38,7 @@ public:
     bool hasVectorImage() const { return vectorImage.isValid(); }
     Qv::VectorImageFormat vectorImageFormat() const { return vectorImage.format; }
     void setVectorInteractionActive(bool active);
+    void shutdownAsyncWork();
     bool isVectorInteractionActive() const { return vectorInteractionActive; }
     // Includes work already running on the worker and the newest work queued
     // behind it, so callers never mistake an idle interaction timer for a
@@ -108,8 +110,10 @@ private:
     bool vectorInteractionActive {false};
     quint64 vectorSourceGeneration {0};
     std::unique_ptr<QFutureWatcher<AsyncTileResult>> asyncTileWatcher;
+    QThreadPool vectorThreadPool;
     std::optional<AsyncTileRequest> activeAsyncRequest;
     std::optional<AsyncTileRequest> pendingAsyncRequest;
+    bool asyncWorkShutDown {false};
 
     mutable QVector<VectorTile> vectorTiles;
     mutable quint64 vectorTileUseSerial {0};

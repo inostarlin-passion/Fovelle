@@ -1148,6 +1148,13 @@ void QVGraphicsView::reloadFile()
         imageCore.loadFile(getCurrentFileDetails().fileInfo.absoluteFilePath(), true);
 }
 
+void QVGraphicsView::shutdownAsyncWork()
+{
+    imageCore.shutdownAsyncWork();
+    if (loadedPixmapItem)
+        loadedPixmapItem->shutdownAsyncWork();
+}
+
 void QVGraphicsView::beforeLoad()
 {
     // A native HDR presentation may have parked Qt viewport painting.  The

@@ -68,6 +68,10 @@ public:
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
     void clear();
 
+    // Stop speculative and foreground decode work while the application is
+    // still alive, so queued callbacks cannot outlive the GUI teardown.
+    void shutdownAsyncWork();
+
 signals:
     void imageReady(quint64 requestId, const QVImageLoader::Result &result);
     void loadStarted(const QString &absoluteFilePath, int priority);
@@ -126,6 +130,7 @@ private:
     std::optional<PendingRequest> pendingRequest;
     std::shared_ptr<int> lifetimeToken = std::make_shared<int>(0);
     QThreadPool imageThreadPool;
+    bool asyncWorkShutDown {false};
 
     quint64 nextRequestId = 0;
     int largestDimension = 1920;

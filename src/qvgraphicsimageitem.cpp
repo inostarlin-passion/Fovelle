@@ -47,12 +47,25 @@ QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent)
 
 QVGraphicsImageItem::~QVGraphicsImageItem()
 {
+    shutdownAsyncWork();
+}
+
+void QVGraphicsImageItem::shutdownAsyncWork()
+{
+    if (asyncWorkShutDown)
+        return;
+
+    asyncWorkShutDown = true;
+    pendingAsyncRequest.reset();
     if (asyncTileWatcher && asyncTileWatcher->isRunning())
     {
         asyncTileWatcher->disconnect(this);
         asyncTileWatcher->cancel();
         asyncTileWatcher->waitForFinished();
     }
+
+    vectorThreadPool.clear();
+    vectorThreadPool.waitForDone();
 }
 
 void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
@@ -281,6 +294,8 @@ bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs,
 void QVGraphicsImageItem::requestAsyncVectorTile(
         const AsyncTileRequest &request)
 {
+    if (asyncWorkShutDown)
+        return;
     if (request.generation != vectorSourceGeneration
         || request.pixelSize.isEmpty() || request.sourceRect.isEmpty())
     {
@@ -300,7 +315,7 @@ void QVGraphicsImageItem::requestAsyncVectorTile(
 void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
 {
     activeAsyncRequest = request;
-    asyncTileWatcher->setFuture(QtConcurrent::run(
+    asyncTileWatcher->setFuture(QtConcurrent::run(&vectorThreadPool,
         [request = std::move(request)]() mutable {
             AsyncTileResult result;
             result.generation = request.generation;

@@ -138,3 +138,156 @@ P_5&:\quad \text{其它单元、clang-tidy、格式检查和构建步骤不回�
   睡眠时间。GitHub 的 macOS runner 标签和版本由
   [GitHub-hosted runners 文档](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
   定义；本次远端失败已证明该环境会暴露本地未复现的事件时序。
+
+## 6. 当前任务：App 启动/退出性能模型
+
+本节只建模“启动耗时减少 50%”与“退出耗时减少 50%”，不改变前文已经完成的
+全屏滚动状态模型。实现必须同时满足两类性质：性能不变量和原有用户可见行为
+不变量。
+
+### 6.1 对象、时间轴与观测量
+
+令一次进程运行实例为
+
+\[
+ P=(A,E,W,M,B,S),
+\]
+
+其中：
+
+- \(A\) 是 `QVApplication` 与其 Qt 基类的对象状态；
+- \(E\) 是 Qt 事件循环；\(W\) 是窗口集合；
+- \(M\) 是菜单及其 action clone 图；
+- \(B\) 是后台任务集合（图像加载、Open With、矢量 tile 等）；
+- \(S\) 是 QSettings/会话状态。
+
+定义时间点：\(t_0\) 为进入 `main()` 的启动测量点，\(t_v\) 为首个窗口被
+提交到系统并进入可见状态的时间，\(t_f\) 为首个 Qt 事件循环转折点，\(t_q\)
+为收到退出请求的时间，\(t_x\) 为进程真正返回操作系统的时间。启动与退出指标
+分别定义为
+
+\[
+ L_s=t_f-t_0,\qquad L_e=t_x-t_q.
+\]
+
+`FOVELLE_STARTUP phase=first-event-loop-turn` 是 \(L_s\) 的可复现代理；
+`aboutToQuit` 只标记退出协议开始，不能冒充 \(L_e\)，因为 Qt 文档规定退出信号
+发生在事件循环结束前。动态验证必须另外使用进程墙钟时间和退出阶段日志。
+
+改造前的初始探索性基线（当前机器、禁用自动更新检查）为：
+
+| 观测点 | 代表值 |
+| --- | ---: |
+| `QVApplication` 构造完成 | 中位数约 169 ms |
+| 全局菜单栏准备完成 | 约 102 ms（一次观测） |
+| `MainWindow` 构造完成 | 中位数约 52 ms（窗口内部） |
+| 首个事件循环转折 | 中位数约 330 ms |
+
+这些数值是本机基线，不是跨机器承诺。退出的空闲探针为约 0 ms，故它不能作为
+“减半”的分母；退出验证必须选取确实拥有 \(B\neq\varnothing\) 的场景，并记录
+完整的 \(t_q\) 到 \(t_x\) 墙钟区间。
+
+### 6.2 状态、行为和约束
+
+每个菜单资源 \(m\in M\) 有状态
+
+\[
+ \operatorname{state}(m)\in\{\text{absent},\text{pending},\text{ready}\},
+\]
+
+且窗口菜单有一次性状态变量 \(d_w\in\{0,1\}\)。每个后台任务
+\(b\in B\) 有
+
+\[
+ \operatorname{state}(b)\in\{\text{queued},\text{running},\text{finished},\text{cleared}\}.
+\]
+
+允许的行为是：构造阶段创建 \(A\) 和首个窗口的最小显示状态；首个事件循环
+之后把非关键菜单从 `pending` 推进到 `ready`；退出时先令应用进入 quitting
+状态，再由每个窗口 owner 在 `aboutToQuit` 阶段清除尚未运行的非关键任务，最后仅
+等待仍在运行且必须保持 GUI 生命周期的任务完成。禁止的行为是：重复创建菜单、在
+GUI 对象销毁后访问其 future 结果、
+用固定 `sleep` 或删除断言伪造性能、在退出时丢失已明确要求保存的会话状态。
+
+方案必须满足以下约束：
+
+1. 菜单最终完备：\(d_w=1\Rightarrow M_w\) 包含原 action library 的全部
+   clone，且每个窗口只安装一次；
+2. 快捷键语义不变：菜单建立后，原来绑定到窗口的 `Qt::WidgetShortcut` 与
+   `virtualMenu` action 仍存在；菜单尚未建立时，首次相关输入必须能触发补建；
+3. 生命周期安全：若任务仍运行，拥有它的 QObject 或底层 GUI 依赖必须活到任务
+   终止；若任务尚未开始，则可清除而不产生 GUI 回调；
+4. 最终窗口状态不变：普通新窗口最终仍是最大化状态，文件打开、会话恢复、窗口
+   菜单和 Dock 菜单仍可用；
+5. 退出保存语义不变：会话保存请求仍写入 `sessionstate`，非会话退出不新增同步
+   磁盘写入。
+
+### 6.3 选定方案与性能谓词
+
+选定的实现分解为四个动作：
+
+\[
+ T=(T_1,T_2,T_3,T_4),
+\]
+
+其中：
+
+- \(T_1\)：全局菜单栏改为惰性构建；getter 是唯一建造入口；
+- \(T_2\)：窗口菜单和虚拟菜单在窗口首帧之后排队建立，并以 \(d_w\) 防重入；
+- \(T_3\)：把由窗口/图像项拥有的 QtConcurrent 任务隔离到拥有者线程池，退出
+  时清除 queued 任务，避免应用级全局池为别的对象承担等待；
+- \(T_4\)：保持活跃 future 的明确等待边界，同时把退出测量扩展到真实进程返回。
+
+给定同一硬件、同一构建、同一输入序列的改造前后中位数 \(L_s^0,L_s^1\) 与
+\(L_e^0,L_e^1\)，验收谓词为
+
+\[
+ P_s: L_s^1\le \frac12L_s^0,
+ \qquad
+ P_e: L_e^1\le \frac12L_e^0.
+\]
+
+若系统/Qt 基类耗时本身超过 \(L_s^0/2\)，则只能证明“App 自有关键路径”达到
+减半，不能把端到端进程指标谎报为达标；报告必须明确区分这两个量。若退出基线
+为 0 或低于计时器分辨率，则 \(P_e\) 未定义，必须补充有后台任务的基准后再判定。
+
+### 6.4 证据、测量与回退
+
+方案依据的框架语义是：Qt 建议尽早创建 `QApplication`，`QCoreApplication::aboutToQuit`
+发生在事件循环退出前；`QThreadPool::clear()` 只移除尚未开始的 runnable，
+`waitForDone()` 等待线程结束；`QtConcurrent::run()` 的运行计算不能被可靠取消；
+`QSettings` 通常由事件循环/析构阶段完成同步。对应的官方资料为
+[QCoreApplication](https://doc.qt.io/qt-6/qcoreapplication.html)、
+[QThreadPool](https://doc.qt.io/qt-6/qthreadpool.html)、
+[QFutureWatcher](https://doc.qt.io/QT-6/qfuturewatcher.html) 和
+[QSettings](https://doc.qt.io/qt-6/qsettings.html)。macOS 的关键路径原则由
+[Apple 的启动耗时指南](https://developer.apple.com/documentation/xcode/reducing-your-app-s-launch-time)
+给出：主线程启动阶段应尽量短，并延后非必要工作。
+
+验证顺序固定为：源码静态契约 → 可重复构建 → 现有单元/集成测试 → 冷启动中位数
+→ 有后台任务的退出中位数 → 行为回归。任一不变量失败时，回退到对应的
+\(T_i\)；不得以增大固定等待、删除测试或降低验收阈值作为修复。
+
+### 6.5 实测反馈（2026-08-29）
+
+验证环境为 macOS 15.7.9 arm64、Qt 6.11.1、Release 构建；旧二进制为改造前
+`build/Fovelle.app`，新二进制为 `build-fovelle-perf/Fovelle.app`。在相同环境变量
+下任务专用静态契约 16/16 通过，并交错运行 7 对，取中位数：
+
+| 指标 | 改造前 | 改造后 | 降幅 | 谓词 |
+| --- | ---: | ---: | ---: | --- |
+| \(L_s\)：首个事件循环转折 | 269 ms | 243 ms | 9.7% | \(P_s\)：失败 |
+| \(L_e^{idle}\)：空闲退出请求到进程返回 | 69 ms | 64 ms | 7.2% | 非 \(P_e\) 验收样本 |
+
+退出值由 `FOVELLE_SYSTEM_PROBE` 标记后的进程墙钟区间计算；探针前的固定 300 ms
+等待没有计入 \(L_e\)。另外以 2.8 MiB 图片启动并立即退出运行 5 次，均输出
+`windows=1 maximized=true`，返回时间为 252–267 ms，未出现悬空 future 或崩溃；
+这组是生命周期 smoke test，因旧二进制没有零延迟探针，不能单独作为 \(P_e\) 的
+对照分母。
+
+因此本次实现通过了功能与生命周期验证，但严格的端到端 50% 目标尚未达到：启动
+谓词明确失败，退出谓词因这组对照没有证明退出瞬间存在非空后台任务集合而不能
+成立；空闲退出的 7.2% 只能作为 smoke observation。剩余关键路径主要由
+Qt/macOS 基类初始化、原生窗口提交和进程退出协议构成；这些成本不能靠把首个标记
+提前或跳过真实清理来伪造。按反馈规则，性能谓词失败应回到模型的关键路径分解和
+系统级 profiling，而不是降低阈值；本报告不宣称两个 50% 目标已完成。

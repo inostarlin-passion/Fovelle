@@ -59,6 +59,8 @@ public:
 
     void settingsUpdated();
 
+    void shutdownAsyncWork();
+
     void jumpToNextFrame();
     void jumpToPreviousFrame();
     void setPaused(bool desiredState);
@@ -116,6 +118,7 @@ private:
     bool pendingLoadDebouncesPreloading {false};
     bool fileOrLoadPending {false};
     bool folderInfoDirty {false};
+    bool asyncWorkShutDown {false};
 };
 
 #endif // QVIMAGECORE_H

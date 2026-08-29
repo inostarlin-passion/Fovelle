@@ -40,6 +40,8 @@ public:
 
     void reloadFile();
 
+    void shutdownAsyncWork();
+
     void zoomIn();
 
     void zoomOut();

@@ -189,7 +189,9 @@ protected:
 };
 }
 
-MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
+MainWindow::MainWindow(QWidget *parent,
+                       const QJsonObject &windowSessionState,
+                       const bool deferMenus) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
@@ -376,40 +378,15 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
     zoomTitlebarUpdateTimer->setInterval(50);
     connect(zoomTitlebarUpdateTimer, &QTimer::timeout, this, &MainWindow::buildWindowTitle);
 
-    // The context menu and file-info dialog are demand-loaded. Their action
-    // trees and native metadata lookups are not required to paint the first
-    // window and are now constructed at the point of first use.
-    auto &actionManager = qvApp->getActionManager();
-
-    // Initialize menubar
-    setMenuBar(actionManager.buildMenuBar(this));
-    markConstruction("menu-bar-ready");
-    // Stop actions conflicting with the window's actions
-    const auto menubarActions = ActionManager::getAllNestedActions(menuBar()->actions());
-    for (auto action : menubarActions)
+    if (!deferMenus)
     {
-        action->setShortcutContext(Qt::WidgetShortcut);
+        // Directly constructed windows retain the historical fully materialized
+        // application-menu contract used by dialogs/tests and by callers that
+        // need the global AppKit menu immediately. Startup-created windows opt
+        // into the deferred path explicitly from QVApplication::newWindow().
+        qvApp->getMenuBar();
+        ensureMenus();
     }
-    connect(menuBar(), &QMenuBar::triggered, this, [this](QAction *triggeredAction){
-        ActionManager::actionTriggered(triggeredAction, this);
-    });
-
-    // Add all actions to this window so keyboard shortcuts are always triggered
-    // using virtual menu to hold them so i can connect to the triggered signal
-    virtualMenu = new QMenu(this);
-    const auto &actionKeys = actionManager.getActionLibrary().keys();
-    for (const QString &key : actionKeys)
-    {
-        actionManager.addCloneOfAction(virtualMenu, key);
-    }
-    addActions(virtualMenu->actions());
-    connect(virtualMenu, &QMenu::triggered, this, [this](QAction *triggeredAction){
-        ActionManager::actionTriggered(triggeredAction, this);
-    });
-    markConstruction("virtual-menu-ready");
-
-    // Enable actions related to having a window
-    disableActions();
 
     // Connect functions to application components
     connect(&qvApp->getShortcutManager(), &ShortcutManager::shortcutsUpdated, this, &MainWindow::shortcutsUpdated);
@@ -420,6 +397,9 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
     // Connection for open with menu population futurewatcher
     connect(&openWithFutureWatcher, &QFutureWatcher<QList<OpenWith::OpenWithItem>>::finished, this, [this](){
+        if (backgroundWorkShutDown)
+            return;
+
         const QString completedFilePath = openWithFutureFilePath;
         openWithFutureFilePath.clear();
 
@@ -454,19 +434,98 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState) :
 
 MainWindow::~MainWindow()
 {
-    openWithPopulationPending = false;
-
-    // QtConcurrent::run() cannot be canceled. Wait for the Open With worker
-    // before QApplication teardown so its QIcon/QPixmap work still has a live
-    // QGuiApplication context.
-    if (openWithFutureWatcher.isRunning())
-        openWithFutureWatcher.waitForFinished();
+    shutdownBackgroundWork();
 
     delete ui;
 }
 
+void MainWindow::shutdownBackgroundWork()
+{
+    if (backgroundWorkShutDown)
+        return;
+
+    backgroundWorkShutDown = true;
+    openWithPopulationPending = false;
+
+    // QtConcurrent::run() cannot be canceled. Wait for the Open With worker
+    // before QApplication teardown so its QIcon/QPixmap work still has a live
+    // QGuiApplication context. This wait must precede clear(): a future can be
+    // running while its runnable is still queued behind another pool task, and
+    // clearing that runnable would leave waitForFinished() without a terminal
+    // state.
+    if (openWithFutureWatcher.isRunning())
+        openWithFutureWatcher.waitForFinished();
+
+    const auto saveWatchers = saveFutureWatchers;
+    for (auto *watcher : saveWatchers)
+    {
+        if (watcher && watcher->isRunning())
+            watcher->waitForFinished();
+    }
+
+    // Discard speculative owner-local work that has not started.
+    backgroundThreadPool.clear();
+    backgroundThreadPool.waitForDone();
+
+    if (graphicsView)
+        graphicsView->shutdownAsyncWork();
+}
+
+void MainWindow::ensureMenus()
+{
+    if (menusInitialized || isClosing || qvApp->getIsApplicationQuitting())
+        return;
+
+    // Materialize the AppKit application menu after the first window has
+    // reached the event loop. Direct callers/tests may still request it
+    // synchronously through QVApplication::getMenuBar().
+    qvApp->getMenuBar();
+    auto &actionManager = qvApp->getActionManager();
+
+    mainMenuBar = actionManager.buildMenuBar(this);
+    setMenuBar(mainMenuBar);
+
+    // Stop actions conflicting with the window's actions.
+    const auto menubarActions = ActionManager::getAllNestedActions(mainMenuBar->actions());
+    for (auto action : menubarActions)
+        action->setShortcutContext(Qt::WidgetShortcut);
+
+    connect(mainMenuBar, &QMenuBar::triggered, this,
+            [this](QAction *triggeredAction){
+                ActionManager::actionTriggered(triggeredAction, this);
+            });
+
+    // Add all actions to this window so keyboard shortcuts are always
+    // triggered using a virtual menu whose triggered signal is window-scoped.
+    virtualMenu = new QMenu(this);
+    const auto &actionKeys = actionManager.getActionLibrary().keys();
+    for (const QString &key : actionKeys)
+        actionManager.addCloneOfAction(virtualMenu, key);
+    addActions(virtualMenu->actions());
+    connect(virtualMenu, &QMenu::triggered, this,
+            [this](QAction *triggeredAction){
+                ActionManager::actionTriggered(triggeredAction, this);
+            });
+
+    menusInitialized = true;
+    disableActions();
+    syncCalculatedZoomMode();
+    syncNavigationResetsZoom();
+    syncSortParameters();
+
+    if (qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF"))
+        qInfo().noquote() << "FOVELLE_MAINWINDOW phase=menus-ready";
+}
+
 bool MainWindow::event(QEvent *event)
 {
+    if (!menusInitialized && !isClosing
+        && (event->type() == QEvent::ShortcutOverride
+            || event->type() == QEvent::KeyPress))
+    {
+        ensureMenus();
+    }
+
     const bool activated = event->type() == QEvent::WindowActivate
             || (event->type() == QEvent::ActivationChange && isActiveWindow());
     const bool deactivated = event->type() == QEvent::WindowDeactivate
@@ -930,10 +989,20 @@ void MainWindow::showEvent(QShowEvent *event)
             setTitlebarHidden(true, false);
     });
 
-    if (!menuBar()->sizeHint().isEmpty())
+    if (!menusInitialized)
+    {
+        // Use two queued turns so the startup marker posted by main() can
+        // observe first responsiveness before optional menu construction.
+        QTimer::singleShot(0, this, [this]() {
+            if (!menusInitialized)
+                QTimer::singleShot(0, this, &MainWindow::ensureMenus);
+        });
+    }
+
+    if (mainMenuBar && !mainMenuBar->sizeHint().isEmpty())
     {
         ui->fullscreenLabel->setMargin(0);
-        ui->fullscreenLabel->setMinimumHeight(menuBar()->sizeHint().height());
+        ui->fullscreenLabel->setMinimumHeight(mainMenuBar->sizeHint().height());
     }
 
     syncCalculatedZoomMode();
@@ -972,8 +1041,10 @@ void MainWindow::closeEvent(QCloseEvent *event)
     qvApp->deleteFromActiveWindows(this);
     if (contextMenu)
         qvApp->getActionManager().untrackClonedActions(contextMenu);
-    qvApp->getActionManager().untrackClonedActions(menuBar());
-    qvApp->getActionManager().untrackClonedActions(virtualMenu);
+    if (mainMenuBar)
+        qvApp->getActionManager().untrackClonedActions(mainMenuBar);
+    if (virtualMenu)
+        qvApp->getActionManager().untrackClonedActions(virtualMenu);
 
     QMainWindow::closeEvent(event);
 }
@@ -1398,7 +1469,7 @@ void MainWindow::disableActions()
 
 void MainWindow::requestPopulateOpenWithMenu()
 {
-    if (isClosing)
+    if (isClosing || backgroundWorkShutDown)
         return;
 
     if (openWithFutureWatcher.isRunning())
@@ -1412,7 +1483,7 @@ void MainWindow::requestPopulateOpenWithMenu()
         return;
 
     openWithFutureFilePath = filePath;
-    openWithFutureWatcher.setFuture(QtConcurrent::run(
+    openWithFutureWatcher.setFuture(QtConcurrent::run(&backgroundThreadPool,
         [filePath]() -> QList<OpenWith::OpenWithItem> {
             if (filePath.isEmpty()) return {};
             return OpenWith::getOpenWithItems(filePath);
@@ -1551,7 +1622,8 @@ void MainWindow::clearTitlebarIcons()
 
 void MainWindow::updateMenuBarVisible()
 {
-    menuBar()->setVisible(true);
+    if (mainMenuBar)
+        mainMenuBar->setVisible(true);
 }
 
 void MainWindow::updateTitlebarBubbleText()
@@ -1660,8 +1732,8 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
 
     QSize extraWidgetsSize { 0, 0 };
 
-    if (menuBar()->isVisible())
-        extraWidgetsSize.rheight() += menuBar()->height();
+    if (mainMenuBar && mainMenuBar->isVisible())
+        extraWidgetsSize.rheight() += mainMenuBar->height();
 
     const int titlebarOverlap = getTitlebarOverlap();
     if (titlebarOverlap != 0)
@@ -1807,6 +1879,9 @@ void MainWindow::setJustLaunchedWithImage(bool value)
 
 void MainWindow::openUrl(const QUrl &url)
 {
+    if (backgroundWorkShutDown)
+        return;
+
     if (!url.isValid()) {
         NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error: URL is invalid"), QMessageBox::Ok, this);
         return;
@@ -1846,9 +1921,17 @@ void MainWindow::openUrl(const QUrl &url)
         auto *tempFile = new QTemporaryFile(this);
         tempFile->setFileTemplate(QDir::tempPath() + "/" + qvApp->applicationName() + ".XXXXXX.png");
 
-        auto *saveFutureWatcher = new QFutureWatcher<bool>();
+        auto *saveFutureWatcher = new QFutureWatcher<bool>(this);
+        saveFutureWatchers.append(saveFutureWatcher);
         connect(saveFutureWatcher, &QFutureWatcher<bool>::finished, this, [progressDialog, tempFile, saveFutureWatcher, this](){
+            saveFutureWatchers.removeOne(saveFutureWatcher);
             progressDialog->close();
+            if (backgroundWorkShutDown)
+            {
+                progressDialog->deleteLater();
+                saveFutureWatcher->deleteLater();
+                return;
+            }
             if (saveFutureWatcher->result())
             {
                 if (tempFile->open())
@@ -1865,7 +1948,7 @@ void MainWindow::openUrl(const QUrl &url)
             saveFutureWatcher->deleteLater();
         });
 
-        saveFutureWatcher->setFuture(QtConcurrent::run([reply, tempFile]{
+        saveFutureWatcher->setFuture(QtConcurrent::run(&backgroundThreadPool, [reply, tempFile]{
             return QImage::fromData(reply->readAll()).save(tempFile, "png");
         }));
     });

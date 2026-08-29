@@ -74,6 +74,9 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
 
 void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir, const bool debouncePreloading)
 {
+    if (asyncWorkShutDown)
+        return;
+
     QString adjustedFileName = fileName;
 
     //sanitize file name if necessary
@@ -107,6 +110,17 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     loadInProgress = true;
     pendingLoadDebouncesPreloading = debouncePreloading;
     pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading);
+}
+
+void QVImageCore::shutdownAsyncWork()
+{
+    if (asyncWorkShutDown)
+        return;
+
+    asyncWorkShutDown = true;
+    pendingLoadDebouncesPreloading = false;
+    preloadDebounceTimer.stop();
+    imageLoader.shutdownAsyncWork();
 }
 
 void QVImageCore::loadPixmap(const ReadData &readData)
@@ -397,6 +411,9 @@ QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool incl
 
 void QVImageCore::refreshDesiredImages(const bool includePreloads)
 {
+    if (asyncWorkShutDown)
+        return;
+
     if (loadInProgress)
     {
         // A disabled setting should purge the old cache without cancelling the

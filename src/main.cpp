@@ -73,7 +73,12 @@ int main(int argc, char *argv[])
 
     if (systemProbe)
     {
-        QTimer::singleShot(300, &app, [&app, &startupTrace]() {
+        bool probeDelayIsValid = false;
+        const int requestedProbeDelay = qEnvironmentVariableIntValue(
+            "FOVELLE_SYSTEM_PROBE_DELAY_MS", &probeDelayIsValid);
+        const int probeDelay = probeDelayIsValid
+            ? qMax(0, requestedProbeDelay) : 300;
+        QTimer::singleShot(probeDelay, &app, [&app, &startupTrace]() {
             startupTrace.mark("system-probe");
             int mainWindowCount = 0;
             bool allWindowsMaximized = true;
@@ -89,9 +94,13 @@ int main(int argc, char *argv[])
             qInfo().noquote() << QStringLiteral("FOVELLE_SYSTEM_PROBE windows=%1 maximized=%2")
                                      .arg(mainWindowCount)
                                      .arg(allWindowsMaximized ? QStringLiteral("true") : QStringLiteral("false"));
+            app.onSystemInitiatedQuit();
             app.quit();
+            startupTrace.mark("quit-requested");
         });
     }
 
-    return QApplication::exec();
+    const int exitCode = QApplication::exec();
+    startupTrace.mark("event-loop-return");
+    return exitCode;
 }

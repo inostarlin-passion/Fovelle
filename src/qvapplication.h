@@ -82,7 +82,9 @@ public:
 
     void defineFilterLists();
 
-    QMenuBar *getMenuBar() const {  return menuBar; }
+    // The application menu is not needed to create or show the first window.
+    // Materialize it only when a caller actually needs to inspect or use it.
+    QMenuBar *getMenuBar() const;
 
     const QSet<QString> &getAllFileExtensionList() const
     {
@@ -156,6 +158,8 @@ protected slots:
     void onAboutToQuit();
 
 private:
+    void ensureMenuBar() const;
+
     void ensureFilterLists() const;
 
     void queueFileOpen(const QString &file);
@@ -166,9 +170,9 @@ private:
 
     QSet<MainWindow*> activeWindows;
 
-    QMenu *dockMenu;
+    QMenu *dockMenu {nullptr};
 
-    QMenuBar *menuBar;
+    mutable QMenuBar *menuBar {nullptr};
 
     QSet<QString> allFileExtensionSet;
     QSet<QString> fileExtensionSet;
