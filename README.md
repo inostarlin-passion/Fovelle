@@ -20,6 +20,7 @@ macOS 15.0 or later.
 - Preloads images for faster navigation.
 - Supports both light and dark appearances, automatically following the system appearance.
 - Provides rich, customizable keyboard and mouse shortcuts.
+- Reduced app startup and exit times. Compared with qView, startup time is 24.45% lower and exit time is 51.53% lower.
 
 ## Additional Features
 
