@@ -32,6 +32,10 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 
     // Scene setup
     auto *scene = new QGraphicsScene(this);
+    // This view owns one image item.  Avoid maintaining/querying the BSP
+    // index on every scroll; the linear walk is constant-time for this scene
+    // and leaves the backing-store scroll path with less bookkeeping.
+    scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(scene);
 
     scrollHelper = new ScrollHelper(this,
@@ -370,6 +374,8 @@ void QVGraphicsView::updateViewportOpacityContract()
 #endif
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
                              paintsOpaqueViewportBackground);
+    if (details.isVectorLoaded)
+        setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)

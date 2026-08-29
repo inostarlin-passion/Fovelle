@@ -18,6 +18,8 @@ CASES = {
     "UT-EPS-FORMAT": "testEPSFormatIsAdvertised",
     "UT-EPS-RENDER": "testEPSPostScriptRender",
     "UT-EPS-LOADER": "testImageLoaderLoadsEPS",
+    "UT-EPS-PREVIEW": "testEPSPlacementPreviewIsProvisional",
+    "UT-EPS-CACHE": "testEPSRenderCacheCutsConversionLatency",
     "UT-EPS-STATIC": "testEPSRenderSurvivesStaticMovieProbe",
     "UT-EPS-MALFORMED": "testMalformedEPSFailsSafely",
     "UT-EPS-DEPENDENCY": "testEPSMissingRendererFailsActionably",
@@ -128,6 +130,8 @@ def main() -> int:
             "The renderer case verifies retained PDF bytes, a persistent Core Graphics document, a 512-pixel non-authoritative preview, and an independently requested 2048-pixel final-density render.",
             "A partial upper-page tile is compared with the matching region of a full-page render to verify top-left scene to bottom-left PDF coordinate conversion.",
             "The asynchronous loader and delayed movie-probe cases exercise QVImageLoader and QVImageCore, not only the native bridge.",
+            "The placement-preview case proves that an early bounded raster is provisional and is followed by the authoritative PDF result on the same request.",
+            "The conversion-cache case measures a same-identity miss/hit pair and verifies that the cached result retains identical authoritative PDF bytes.",
             "The dependency case forces an invalid Ghostscript path and verifies that Qt fallback cannot expose the placement preview.",
         ],
         "inferences": [

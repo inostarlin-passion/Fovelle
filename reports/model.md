@@ -1,293 +1,147 @@
-# GitHub Actions 全屏测试失败：数学模型
+# 矢量图片显示与交互性能模型
 
-## 1. 问题边界与确证事实
+## 1. 问题边界与可验证目标
 
-本文件对应远端构建 `33207073862`（提交 `8edbce0`）。该构建的编译、配置和
-其它检查成功，失败发生在 `FovelleTests` 的
-`GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding`：
+本文把任务解释为：在不把 EPS/SVG 的权威源替换为固定尺寸位图的前提下，缩短 EPS 从请求到首次可见内容的延迟，并把拖动期间的可持续渲染能力提高到基线的两倍。这里的“帧率”采用可重复的渲染能力定义：在同一显示器、同一视口、同一轨迹和同一刷新上限下，完成一帧所需的应用线程 CPU 时间越短，可持续帧率越高；最终仍受物理显示刷新率上限约束。对拖动还单独测量实际 `QGraphicsView` 暴露区域，因为滚动时未变化的 backing-store 像素不会再次进入场景绘制。
+
+设基线为当前版本、相同构建类型和相同测试轨迹下的测量值，下标 `0` 表示基线，下标 `1` 表示改动后：
 
 \[
-  zoomFirstImageTop=-818,\qquad zoomFirstViewportTop=0.
+ L_{EPS,1} \le 0.5 L_{EPS,0},
+\qquad
+ FPS_{EPS,1} \ge 2 FPS_{EPS,0},
+\qquad
+ FPS_{SVG,1} \ge 2 FPS_{SVG,0}.
 \]
 
-所以问题不是 GitHub Actions runner 或编译器错误，而是全屏几何稳定后，测试
-将垂直滚动条设置为新范围最小值，随后仍被旧的全屏连续锚点恢复。对应的运行记录
-是 [Build Fovelle 33207073862](https://github.com/inostarlin-passion/Fovelle/actions/runs/33207073862)。
-同一提交的 [Checks 33207073827](https://github.com/inostarlin-passion/Fovelle/actions/runs/33207073827)
-已经通过，说明修复应聚焦于 `QVGraphicsView` 的行为而不是放宽 CI 条件。
+其中 `L_EPS` 是从加载请求被接受到第一帧非空预览或权威矢量内容进入视口的墙钟时间。对于含 placement preview 的 EPS，改动前的可见延迟基线 `L_EPS,0` 是单结果链路等待权威转换完成，改动后的 `L_EPS,1` 是先发布 placement preview；没有内嵌 preview 的 EPS 不宣称该条路径达标，而继续使用有界权威转换。`FPS` 是固定交互轨迹中由应用线程完成的有效 viewport paint 次数与轨迹时长之比，另报告 CPU capacity `1000 / p99_frame_ms`，避免把 120 Hz 显示器的硬上限误认为渲染器速度。冷启动和同一进程内再次打开分别记录，不能把缓存命中伪装成冷启动改进。
 
-显式前提：
+## 2. 对象、输入、输出
 
-1. Qt GUI 事件在单线程事件循环中处理；全屏原生动画可能在多个事件循环回合内
-   产生 resize、scene-rect 和滚动条更新。
-2. `QAbstractSlider::valueChanged` 在值发生变化时发出；`QScrollBar` 继承该
-   机制，故程序设置滚动条和用户拖动最终都可以被同一状态入口观察。参见
-   [Qt QAbstractSlider 文档](https://doc.qt.io/qt-6/qabstractslider.html)。
-3. `QGraphicsView::setSceneRect` 会影响视图的可滚动范围；跨窗口几何不能直接
-   复用旧的整数滚动条值，必须使用新范围重新表示。参见
-   [Qt QGraphicsView 文档](https://doc.qt.io/qt-6/qgraphicsview.html)。
-4. 修复不得删除或降低现有全屏、端点、原生输入和 CI 测试契约。
+### 2.1 对象
 
-## 2. 几何与离散状态
+* `D`：文件文档。EPS 的权威内容是 PostScript 程序，SVG 的权威内容是 XML/SVG 绘制命令。
+* `K(D)`：文件身份 `(absolutePath, fileSize, lastModified)`；缓存只有在身份和源类型都匹配时才可复用。
+* `V=(W,H)`：文档的逻辑尺寸，单位为 SVG user space 或 PDF point。它是场景坐标的完整边界，而不是预览位图的尺寸。
+* `T`：从场景坐标到设备坐标的 `QTransform`。令 `s_x=|T(1,0)-T(0,0)|`、`s_y=|T(0,1)-T(0,0)|`。
+* `E`：当前 `QGraphicsItem` 的暴露矩形，且 `E ⊆ [0,W]×[0,H]`。
+* `C`：有界矢量 tile 集合。每项为 `(I,R,d_x,d_y,g)`，其中 `I` 为 QImage，`R` 是其覆盖的逻辑源矩形，`d_x,d_y` 是生成时的设备密度，`g` 是源代数。
+* `G`：交互状态，取 `idle` 或 `dragging`。
+* `P`：小尺寸 Qt 兼容预览，只能作为首次显示/异步 tile 到达前的临时 fallback，不能改变 `V`、源类型或权威渲染路径。
+* `A_v`：视口逻辑像素面积；`A_e`：一次滚动导致的首个暴露 paint 区域面积；`ρ=A_e/A_v` 是拖动局部更新比例。
 
-设图像场景为 \(I\)，当前变换为 \(T\)，场景矩形为 \(S\)，可用视口矩形为
-\(V\)。两个滚动轴分别有整数范围
+### 2.2 输入
+
+一次显示请求输入 `(K(D), D, V, T, E, G)`；一次拖动还输入按时间排序的滚动/变换序列 `Δ_1…Δ_n` 和显示刷新上限 `H`。EPS 还需要可用的、受超时和输出大小限制的 Ghostscript；Ghostscript 生成的 PDF 仅是保留矢量绘制命令的中间表示。SVG 在 GUI 线程保留一个 renderer 用于文档状态，在 worker 线程使用独立 renderer；renderer 不能跨线程共享。
+
+### 2.3 输出
+
+* `firstVisible`: 第一帧中非空的预览或矢量内容；
+* `authoritative`: EPS 的 PDF vector document 或 SVG 的 encoded SVG source；
+* `frame_i`: 在 `E_i` 上绘制的设备像素；
+* `quality(frame_i)`: 与同一 `T_i,E_i` 下直接以目标设备密度从权威源渲染的参考图的采样通道平均误差；
+* `L_EPS`、`FPS`、`p99_frame_ms` 和 tile/cache 统计。
+
+## 3. 行为与状态转移
+
+### 3.1 EPS 加载
+
+当前冷路径是：
 
 \[
-  R_i=[m_i,M_i]\cap\mathbb Z,\qquad v_i\in R_i,
-  \quad i\in\{x,y\}.
+ D_{EPS}
+ \xrightarrow{Ghostscript/pdfwrite}
+ PDF_{bytes}
+ \xrightarrow{CGPDFDocument}
+ P + V
+ \longrightarrow
+ QVGraphicsImageItem.
 \]
 
-以可用视口中心 \(c(V)\) 表示连续平移状态：
+改进后的路径分为两个可观察事件：若 EPS 带有可解码的内嵌 placement preview，先由 `readPlacementPreview` 解码并发布 `P`，随后同一 request id 再发布权威结果；若没有 preview，则只发布权威结果。另增加一个按 `K(D)` 校验的受限转换缓存，并把同一次转换的 PDF bytes、逻辑尺寸和预览作为一个不可变结果发布。缓存命中跳过 Ghostscript 和临时文件往返；缓存未命中仍必须执行原有安全检查、超时、失败闭合和权威 PDF 保存。无论命中与否，`authoritative` 都必须是完整 PDF vector document，`P` 不得成为唯一结果。
+
+### 3.2 SVG/EPS tile 绘制
+
+对 `E` 先扩展一个状态相关但有界的设备像素预算，得到 `R_req`：
 
 \[
-  a_i=\bigl(mapToScene_T(c(V))\bigr)_i.
-\]
-
-端点是比连续锚点更强的用户意图。沿每个轴定义端点容差 \(\tau=3\)：
-
-\[
- E(v_i,R_i)=
+ o(G)=
  \begin{cases}
-   \mathsf{min},&m_i<M_i\land v_i\le m_i+\tau,\\
-   \mathsf{max},&m_i<M_i\land v_i\ge M_i-\tau,\\
-   \mathsf{none},&\text{otherwise}.
+ 16,&G=dragging,\\
+ 128,&G=idle.
  \end{cases}
-\]
-
-因此，“接近底部但仍有间隔”的值不是 `max`，不能在全屏后被吸附到新范围
-的 `maximum()`。
-
-保持状态定义为
-
-\[
- P=(active,e_x,e_y,a),
-\]
-
-其中 `active` 表示全屏过渡保持器生命周期，\(e_i=E(v_i,R_i)\)，\(a\) 为
-可选场景中心锚点。实现另有内部更新标志 \(q\)：
-
-\[
- q=1\iff\text{当前滚动条变化由布局/场景重建/保持器恢复产生},
- \quad q=0\iff\text{当前变化是外部平移输入}.
-\]
-
-## 3. 状态转移
-
-令 `capture(X)` 读取当前滚动条范围和值，并计算
-\(e_x,e_y,a\)。令 `restore(P,X')` 在新几何 \(X'=(T',S',V',R')\) 中执行：
-
-1. 若 \(e_i=\mathsf{min}\)，设置 \(v'_i=m'_i\)；若
-   \(e_i=\mathsf{max}\)，设置 \(v'_i=M'_i\)；
-2. 对 \(e_i=\mathsf{none}\) 的轴，使
-   \(mapToScene_{T'}(c(V'))\) 回到保存的 \(a\)，并由 Qt 将结果夹紧到
-   \(R'_i\)；
-3. 所有这些写入都在 \(q=1\) 下执行。
-
-事件转移如下：
-
-| 事件 | 前置条件 | 转移 |
-| --- | --- | --- |
-| `begin` | 进入全屏请求边界 | 停止延迟约束/动画，`active=true`，执行 `capture`。重复 begin 不覆盖请求边界快照。 |
-| `rebuild` | `active=true` | 在 `q=1` 下重建 scene rect、视口和滚动范围，再执行 `restore`。 |
-| `external-scroll` | `active=true` 且 `q=0` | 滚动条发出 `valueChanged` 后立即执行 `capture`，使新用户状态替换旧锚点。 |
-| `refresh` | 退出全屏请求边界 | 停止延迟约束/动画，丢弃旧端点和锚点，按当前全屏值执行 `capture`。 |
-| `end` | 全屏回调完成或请求失败 | 在最终几何中 `restore`，然后清除 `active`、端点和锚点。 |
-
-核心优先级是
-
-\[
-  \text{external-scroll} \succ \text{previous-anchor-restore}.
-\]
-
-也就是说，测试中的 `setValue(minimum)` 与真实用户滚动具有相同的状态语义：
-一旦它不是内部写入，就必须成为后续恢复的依据。
-
-## 4. 可执行输入、输出与验收谓词
-
-测试输入包括：普通窗口状态、全屏状态、同一图像、缩放变换、全屏过渡事件，
-以及在全屏几何稳定后写入的目标滚动条值。输出包括：最终普通窗口的 scene
-矩形、视口映射、两个滚动条值和全屏保持器状态。
-
-对失败用例，成功谓词为：
-
-\[
-\begin{aligned}
-P_1&:\quad active\text{ 期间新外部滚动被捕获};\\
-P_2&:\quad restore\text{ 不覆盖最近一次外部滚动};\\
-P_3&:\quad \text{scene rect 重建后只使用 }R'\text{ 的合法值};\\
-P_4&:\quad \text{在全屏溢出用例中，设置 }v_y=m_y\text{ 后图像顶边位于视口顶边};\\
-P_5&:\quad \text{其它单元、clang-tidy、格式检查和构建步骤不回归}.
-\end{aligned}
-\]
-
-其中 \(P_4\) 正是远端失败的反例：旧实现把 \(v_y=m_y\) 后的状态重新映射到
-旧锚点，产生 `zoomFirstImageTop=-818`；修复后必须保持 `0`。
-
-## 5. 约束与回退点
-
-- 只修改状态同步和内部更新边界，不修改图像内容、缩放比例、全屏事件来源或
-  测试的验收阈值。
-- `setSceneRect`、resize 和保持器恢复属于内部更新；用户拖动、滚轮、键盘、
-  scrollbar 值写入属于外部更新。若两者重叠，必须由显式内部保护标志决定，
-  不能靠时序猜测。
-- 若静态检查发现存在未保护的内部滚动条写入，回退到“内部更新保护”步骤；若
-  动态测试仍出现旧锚点覆盖，回退到“external-scroll 捕获”步骤；若场景范围
-  越界，回退到新范围恢复步骤。
-- GitHub Actions 的 runner/Qt 版本可变，测试必须验证状态不变量而非依赖固定
-  睡眠时间。GitHub 的 macOS runner 标签和版本由
-  [GitHub-hosted runners 文档](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
-  定义；本次远端失败已证明该环境会暴露本地未复现的事件时序。
-
-## 6. 当前任务：App 启动/退出性能模型
-
-本节只建模“启动耗时减少 50%”与“退出耗时减少 50%”，不改变前文已经完成的
-全屏滚动状态模型。实现必须同时满足两类性质：性能不变量和原有用户可见行为
-不变量。
-
-### 6.1 对象、时间轴与观测量
-
-令一次进程运行实例为
-
-\[
- P=(A,E,W,M,B,S),
-\]
-
-其中：
-
-- \(A\) 是 `QVApplication` 与其 Qt 基类的对象状态；
-- \(E\) 是 Qt 事件循环；\(W\) 是窗口集合；
-- \(M\) 是菜单及其 action clone 图；
-- \(B\) 是后台任务集合（图像加载、Open With、矢量 tile 等）；
-- \(S\) 是 QSettings/会话状态。
-
-定义时间点：\(t_0\) 为进入 `main()` 的启动测量点，\(t_v\) 为首个窗口被
-提交到系统并进入可见状态的时间，\(t_f\) 为首个 Qt 事件循环转折点，\(t_q\)
-为收到退出请求的时间，\(t_x\) 为进程真正返回操作系统的时间。启动与退出指标
-分别定义为
-
-\[
- L_s=t_f-t_0,\qquad L_e=t_x-t_q.
-\]
-
-`FOVELLE_STARTUP phase=first-event-loop-turn` 是 \(L_s\) 的可复现代理；
-`aboutToQuit` 只标记退出协议开始，不能冒充 \(L_e\)，因为 Qt 文档规定退出信号
-发生在事件循环结束前。动态验证必须另外使用进程墙钟时间和退出阶段日志。
-
-改造前的初始探索性基线（当前机器、禁用自动更新检查）为：
-
-| 观测点 | 代表值 |
-| --- | ---: |
-| `QVApplication` 构造完成 | 中位数约 169 ms |
-| 全局菜单栏准备完成 | 约 102 ms（一次观测） |
-| `MainWindow` 构造完成 | 中位数约 52 ms（窗口内部） |
-| 首个事件循环转折 | 中位数约 330 ms |
-
-这些数值是本机基线，不是跨机器承诺。退出的空闲探针为约 0 ms，故它不能作为
-“减半”的分母；退出验证必须选取确实拥有 \(B\neq\varnothing\) 的场景，并记录
-完整的 \(t_q\) 到 \(t_x\) 墙钟区间。
-
-### 6.2 状态、行为和约束
-
-每个菜单资源 \(m\in M\) 有状态
-
-\[
- \operatorname{state}(m)\in\{\text{absent},\text{pending},\text{ready}\},
-\]
-
-且窗口菜单有一次性状态变量 \(d_w\in\{0,1\}\)。每个后台任务
-\(b\in B\) 有
-
-\[
- \operatorname{state}(b)\in\{\text{queued},\text{running},\text{finished},\text{cleared}\}.
-\]
-
-允许的行为是：构造阶段创建 \(A\) 和首个窗口的最小显示状态；首个事件循环
-之后把非关键菜单从 `pending` 推进到 `ready`；退出时先令应用进入 quitting
-状态，再由每个窗口 owner 在 `aboutToQuit` 阶段清除尚未运行的非关键任务，最后仅
-等待仍在运行且必须保持 GUI 生命周期的任务完成。禁止的行为是：重复创建菜单、在
-GUI 对象销毁后访问其 future 结果、
-用固定 `sleep` 或删除断言伪造性能、在退出时丢失已明确要求保存的会话状态。
-
-方案必须满足以下约束：
-
-1. 菜单最终完备：\(d_w=1\Rightarrow M_w\) 包含原 action library 的全部
-   clone，且每个窗口只安装一次；
-2. 快捷键语义不变：菜单建立后，原来绑定到窗口的 `Qt::WidgetShortcut` 与
-   `virtualMenu` action 仍存在；菜单尚未建立时，首次相关输入必须能触发补建；
-3. 生命周期安全：若任务仍运行，拥有它的 QObject 或底层 GUI 依赖必须活到任务
-   终止；若任务尚未开始，则可清除而不产生 GUI 回调；
-4. 最终窗口状态不变：普通新窗口最终仍是最大化状态，文件打开、会话恢复、窗口
-   菜单和 Dock 菜单仍可用；
-5. 退出保存语义不变：会话保存请求仍写入 `sessionstate`，非会话退出不新增同步
-   磁盘写入。
-
-### 6.3 选定方案与性能谓词
-
-选定的实现分解为四个动作：
-
-\[
- T=(T_1,T_2,T_3,T_4),
-\]
-
-其中：
-
-- \(T_1\)：全局菜单栏改为惰性构建；getter 是唯一建造入口；
-- \(T_2\)：窗口菜单和虚拟菜单在窗口首帧之后排队建立，并以 \(d_w\) 防重入；
-- \(T_3\)：把由窗口/图像项拥有的 QtConcurrent 任务隔离到拥有者线程池，退出
-  时清除 queued 任务，避免应用级全局池为别的对象承担等待；
-- \(T_4\)：保持活跃 future 的明确等待边界，同时把退出测量扩展到真实进程返回。
-
-给定同一硬件、同一构建、同一输入序列的改造前后中位数 \(L_s^0,L_s^1\) 与
-\(L_e^0,L_e^1\)，验收谓词为
-
-\[
- P_s: L_s^1\le \frac12L_s^0,
  \qquad
- P_e: L_e^1\le \frac12L_e^0.
+ R_{req}=expand(E,o(G)/s_x,o(G)/s_y).
 \]
 
-若系统/Qt 基类耗时本身超过 \(L_s^0/2\)，则只能证明“App 自有关键路径”达到
-减半，不能把端到端进程指标谎报为达标；报告必须明确区分这两个量。若退出基线
-为 0 或低于计时器分辨率，则 \(P_e\) 未定义，必须补充有后台任务的基准后再判定。
+拖动时 `QGraphicsView` 已经通过 backing store 保留未变化区域，因此 16 像素 seam guard 足以保护新暴露条；空闲时 128 像素 overscan 用于减少下一次细小平移的 miss。请求尺寸为：
 
-### 6.4 证据、测量与回退
+\[
+ size(I)=bound\big((width(R_{req})s_x,
+                         height(R_{req})s_y)\big),
+ \qquad d_x=s_x,\ d_y=s_y.
+\]
 
-方案依据的框架语义是：Qt 建议尽早创建 `QApplication`，`QCoreApplication::aboutToQuit`
-发生在事件循环退出前；`QThreadPool::clear()` 只移除尚未开始的 runnable，
-`waitForDone()` 等待线程结束；`QtConcurrent::run()` 的运行计算不能被可靠取消；
-`QSettings` 通常由事件循环/析构阶段完成同步。对应的官方资料为
-[QCoreApplication](https://doc.qt.io/qt-6/qcoreapplication.html)、
-[QThreadPool](https://doc.qt.io/qt-6/qthreadpool.html)、
-[QFutureWatcher](https://doc.qt.io/QT-6/qfuturewatcher.html) 和
-[QSettings](https://doc.qt.io/qt-6/qsettings.html)。macOS 的关键路径原则由
-[Apple 的启动耗时指南](https://developer.apple.com/documentation/xcode/reducing-your-app-s-launch-time)
-给出：主线程启动阶段应尽量短，并延后非必要工作。
+`bound` 保持当前最大像素数和最大边长限制，因此 tile 代价不随整幅文档尺寸无限增长。`G=dragging` 时只允许同样的终端设备密度 tile；不能以 `0.75s` 或其他低于显示密度的采样代替矢量清晰度。worker 结果按代数 `g` 校验，过时结果丢弃。场景只有一个图片 item，索引策略固定为 `NoIndex`，避免在每个 scroll frame 维护无收益的 BSP。
 
-验证顺序固定为：源码静态契约 → 可重复构建 → 现有单元/集成测试 → 冷启动中位数
-→ 有后台任务的退出中位数 → 行为回归。任一不变量失败时，回退到对应的
-\(T_i\)；不得以增大固定等待、删除测试或降低验收阈值作为修复。
+PDF tile 使用已构造的 `PDFVectorDocument`，不在每个 tile 上重新创建/解析 CGPDFDocument；Core Graphics 绘制由 document 内部的互斥保护。SVG tile 在 worker 线程缓存同一源的 renderer 解析结果，之后只改变 frame/viewBox 并绘制当前 tile；GUI renderer 和 worker renderer 始终是不同实例。
 
-### 6.5 实测反馈（2026-08-29）
+如果 `C` 中有覆盖 `E` 的同密度 tile，则直接绘制；如果只有部分重叠 tile，则只绘制交集并以 `P` 补足；没有覆盖时绘制 `P`，同时只提交最新 tile 请求。请求完成后加入 LRU 有界缓存。`QGraphicsView` 显式使用 `MinimalViewportUpdate`，矢量视口在 macOS 上满足不透明背景条件，故一次滚动的首个 paint 只覆盖暴露条。
 
-验证环境为 macOS 15.7.9 arm64、Qt 6.11.1、Release 构建；旧二进制为改造前
-`build/Fovelle.app`，新二进制为 `build-fovelle-perf/Fovelle.app`。在相同环境变量
-下任务专用静态契约 16/16 通过，并交错运行 7 对，取中位数：
+### 3.3 清晰的快速采样条件
 
-| 指标 | 改造前 | 改造后 | 降幅 | 谓词 |
-| --- | ---: | ---: | ---: | --- |
-| \(L_s\)：首个事件循环转折 | 269 ms | 243 ms | 9.7% | \(P_s\)：失败 |
-| \(L_e^{idle}\)：空闲退出请求到进程返回 | 69 ms | 64 ms | 7.2% | 非 \(P_e\) 验收样本 |
+终端密度 tile 本身已由矢量源进行抗锯齿光栅化。只有同时满足以下条件时，拖动帧才允许关闭 `SmoothPixmapTransform`：
 
-退出值由 `FOVELLE_SYSTEM_PROBE` 标记后的进程墙钟区间计算；探针前的固定 300 ms
-等待没有计入 \(L_e\)。另外以 2.8 MiB 图片启动并立即退出运行 5 次，均输出
-`windows=1 maximized=true`，返回时间为 252–267 ms，未出现悬空 future 或崩溃；
-这组是生命周期 smoke test，因旧二进制没有零延迟探针，不能单独作为 \(P_e\) 的
-对照分母。
+1. tile 密度与当前 `s_x,s_y` 相等（相对误差不超过 `10^{-9}`）；
+2. 目标矩形和 tile 源矩形在设备坐标中的左右/上下边界均接近整数像素；
+3. tile 源矩形完整覆盖暴露矩形，且没有 zoom/rotate/shear 导致的非一一像素映射。
 
-因此本次实现通过了功能与生命周期验证，但严格的端到端 50% 目标尚未达到：启动
-谓词明确失败，退出谓词因这组对照没有证明退出瞬间存在非空后台任务集合而不能
-成立；空闲退出的 7.2% 只能作为 smoke observation。剩余关键路径主要由
-Qt/macOS 基类初始化、原生窗口提交和进程退出协议构成；这些成本不能靠把首个标记
-提前或跳过真实清理来伪造。按反馈规则，性能谓词失败应回到模型的关键路径分解和
-系统级 profiling，而不是降低阈值；本报告不宣称两个 50% 目标已完成。
+此时是 1:1 的已抗锯齿像素复制，而不是把矢量边缘改为低分辨率位图；任一条件不满足时继续平滑采样。这样优化的是采样开销，不牺牲交互 tile 的设备密度。
+
+## 4. 约束与不变量
+
+### 4.1 正确性不变量
+
+* `I1`：对任意可见缩放，权威源保持可访问；`vectorImage.format` 仍为 PDF/SVG，场景 `boundingRect` 仍为 `V`。
+* `I2`：任何交互 tile 都满足 `tile.width >= width(R_visible)*s_x` 且 `tile.height >= height(R_visible)*s_y`，除非 tile 被安全上限裁剪；测试输入必须证明未触发裁剪。
+* `I3`：当前代数以外的 worker 结果不进入 `C`。
+* `I4`：EPS 缓存键失配、Ghostscript 缺失、超时、非法 PDF 或超限输出均失败闭合，不能回落为 EPS 内嵌的低分辨率 placement preview。
+* `I5`：固定矩形和固定密度下，快速采样的参考误差不高于平滑采样/直接矢量参考的既有容差；空白、透明度和边缘不能因 cache 或 tile 交界产生可见缝隙。
+* `I6`：所有跨线程对象满足 Qt 的 reentrant 使用边界：worker 不使用 GUI renderer；PDF document 的 Core Graphics 访问被显式串行化。
+
+### 4.2 资源约束
+
+单 tile 不超过当前 `64 MiB` 像素上限和 `16384` 边长；多 tile 保持当前有界 LRU 和内存上限；EPS Ghostscript 仍受 30 秒超时、256 MiB PDF 上限和有限错误诊断限制。EPS 转换缓存也必须有条目数/字节上限，并在 `K(D)` 变化时失效。
+
+## 5. 可观测验证量
+
+静态分析检查：vector source/format、`VectorTileRenderScale=1.0`、异步 worker、PDF document 复用、SVG worker renderer 隔离、快速采样的整数像素守卫和所有安全上限。
+
+动态测试检查：
+
+1. EPS/SVG 在 2048 目标密度下与直接 vector reference 的平均采样差异 `<3.0`；交互 tile 不低于目标设备密度；
+2. EPS 第一次加载成功、失败和缓存身份变化均得到正确结果；缓存命中延迟相对同一构建的未命中基线不超过 50%；
+3. 固定 120 Hz 轨迹分别测 EPS/SVG 的 zoom 和 pan，报告平均、p99、最大 CPU frame time，并要求改动后的有效 capacity 至少为基线两倍；
+4. EPS/SVG 真实滚动测试记录 `ρ=A_e/A_v`，以全视口重绘 `ρ₀=1` 为同轨迹参考；在“paint 成本随绘制像素面积单调近似线性”的显式前提下，`1/ρ≥2` 是两倍 frame-area capacity 的验收下界；
+5. 平台刷新率只作为 `min(H, capacity)` 的上限，不把物理上限伪造为软件提升。
+
+## 6. 依据
+
+* Qt `QGraphicsView` 的更新模式、滚动和缓存语义：[QGraphicsView 文档](https://doc.qt.io/qt-6/qgraphicsview.html)。
+* Qt item cache 的质量及变换限制：[QGraphicsItem 文档](https://doc.qt.io/qt-6/qgraphicsitem.html)。
+* SVG renderer 可向 QPainter/QImage 输出且接口为 reentrant：[QSvgRenderer 文档](https://doc.qt.io/qt-6/qsvgrenderer.html)；Qt 的 reentrant/thread-safe 区分见 [Threads and QObjects](https://doc.qt.io/qt-6/threads-reentrancy.html)。
+* QImage 的隐式共享和 reentrant 约束见 [QImage](https://doc.qt.io/qt-6/qimage.html) 与 [Implicit Sharing](https://doc.qt.io/qt-6/implicit-sharing.html)。
+* PDF 绘制保持分辨率无关并由当前 CGContext 输出：[CGContextDrawPDFPage](https://developer.apple.com/documentation/coregraphics/cgcontext/drawpdfpage%28_%3A%29?language=objc)。
+* Ghostscript 的 vector device 说明：[Vector Devices](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)。
+
+## 7. 多跳检索链
+
+检索从平台能力下钻到渲染实现：
+
+1. Apple 的 PDF 文档确认 PDF 是可由 `CGContextDrawPDFPage` 绘制的分辨率无关表示；
+2. Ghostscript 的 Vector Devices 文档确认 `pdfwrite` 属于高层输出设备，因此 EPS 可先规范化为可保留绘制命令的 PDF；
+3. Qt `QGraphicsView` 文档确认 viewport 更新模式与滚动优化影响未变化区域，`QGraphicsItem` 文档确认内建 item cache 在变换时有质量/重建代价；
+4. Qt `QSvgRenderer` 与线程 reentrancy 文档确认不同 renderer 实例可在线程间独立使用，但 QObject 实例不能跨线程搬运；
+5. 最后将这些框架事实映射到本地代码的 `readPlacementPreview`、EPS LRU、持久 PDF、worker-local SVG renderer、16/128 像素 seam guard 与动态测试日志。
+
+前四步是外部文档事实，最后一步是对本仓库源码的演绎映射；它不是把外部文档当作本地性能测量的替代。

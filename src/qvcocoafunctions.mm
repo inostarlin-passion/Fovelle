@@ -3,12 +3,14 @@
 #include "qvcocoafunctions.h"
 
 #include <QUrl>
+#include <QBuffer>
 #include <QDebug>
 #include <QFile>
 #include <QFileIconProvider>
 #include <QCollator>
 #include <QColorSpace>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -1749,6 +1751,9 @@ constexpr qsizetype MaxEPSRendererDiagnosticBytes = 64 * 1024;
 constexpr quint64 MaxEPSRenderedPixels = 64ULL * 1024ULL * 1024ULL;
 constexpr quint64 MaxEPSIntermediatePDFBytes = 256ULL * 1024ULL * 1024ULL;
 constexpr int EPSPreviewLargestDimension = 512;
+constexpr quint64 MaxEPSPreviewBytes = 32ULL * 1024ULL * 1024ULL;
+constexpr int MaxEPSRenderCacheEntries = 8;
+constexpr qsizetype MaxEPSRenderCacheBytes = 64LL * 1024LL * 1024LL;
 
 struct EPSReadResult
 {
@@ -1758,6 +1763,126 @@ struct EPSReadResult
     QSize intrinsicSize;
     QString errorString;
 };
+
+struct EPSRenderCacheKey
+{
+    QString absolutePath;
+    qint64 fileSize {0};
+    QDateTime lastModified;
+    int previewLargestDimension {0};
+    QString rendererPath;
+    qint64 rendererSize {0};
+    QDateTime rendererLastModified;
+
+    bool operator==(const EPSRenderCacheKey &other) const
+    {
+        return absolutePath == other.absolutePath
+                && fileSize == other.fileSize
+                && lastModified == other.lastModified
+                && previewLargestDimension == other.previewLargestDimension
+                && rendererPath == other.rendererPath
+                && rendererSize == other.rendererSize
+                && rendererLastModified == other.rendererLastModified;
+    }
+};
+
+struct EPSRenderCacheEntry
+{
+    EPSRenderCacheKey key;
+    QImage image;
+    Qv::VectorImageData vectorImage;
+    QSize intrinsicSize;
+    quint64 lastUse {0};
+};
+
+std::mutex epsRenderCacheMutex;
+QVector<EPSRenderCacheEntry> epsRenderCache;
+quint64 epsRenderCacheUseSerial {0};
+
+qsizetype epsRenderCacheEntryBytes(const EPSRenderCacheEntry &entry)
+{
+    return entry.vectorImage.encodedData.size()
+            + entry.image.sizeInBytes();
+}
+
+bool lookupEPSRenderCache(const EPSRenderCacheKey &key, EPSReadResult &result)
+{
+    const std::lock_guard<std::mutex> lock(epsRenderCacheMutex);
+    for (EPSRenderCacheEntry &entry : epsRenderCache)
+    {
+        if (!(entry.key == key))
+            continue;
+        entry.lastUse = ++epsRenderCacheUseSerial;
+        result.recognized = true;
+        result.image = entry.image;
+        result.vectorImage = entry.vectorImage;
+        result.intrinsicSize = entry.intrinsicSize;
+        if (qEnvironmentVariableIsSet("FOVELLE_EPS_RENDER_LOG"))
+            qInfo().noquote() << "FOVELLE_EPS_RENDER cache=hit"
+                              << key.absolutePath;
+        return true;
+    }
+    return false;
+}
+
+void storeEPSRenderCache(const EPSRenderCacheKey &key,
+                         const EPSReadResult &result)
+{
+    if (!result.vectorImage.isValid() || result.image.isNull())
+        return;
+
+    EPSRenderCacheEntry candidate;
+    candidate.key = key;
+    candidate.image = result.image;
+    candidate.vectorImage = result.vectorImage;
+    candidate.intrinsicSize = result.intrinsicSize;
+    candidate.lastUse = 0;
+    if (epsRenderCacheEntryBytes(candidate) > MaxEPSRenderCacheBytes)
+        return;
+
+    const std::lock_guard<std::mutex> lock(epsRenderCacheMutex);
+    candidate.lastUse = ++epsRenderCacheUseSerial;
+    for (EPSRenderCacheEntry &entry : epsRenderCache)
+    {
+        if (entry.key == key)
+        {
+            entry = std::move(candidate);
+            return;
+        }
+    }
+    epsRenderCache.append(std::move(candidate));
+    while (epsRenderCache.size() > MaxEPSRenderCacheEntries)
+    {
+        int oldestIndex = 0;
+        for (int index = 1; index < epsRenderCache.size(); ++index)
+        {
+            if (epsRenderCache.at(index).lastUse
+                < epsRenderCache.at(oldestIndex).lastUse)
+            {
+                oldestIndex = index;
+            }
+        }
+        epsRenderCache.removeAt(oldestIndex);
+    }
+
+    qsizetype totalBytes = 0;
+    for (const EPSRenderCacheEntry &entry : epsRenderCache)
+        totalBytes += epsRenderCacheEntryBytes(entry);
+    while (epsRenderCache.size() > 1 && totalBytes > MaxEPSRenderCacheBytes)
+    {
+        int oldestIndex = 0;
+        for (int index = 1; index < epsRenderCache.size(); ++index)
+        {
+            if (epsRenderCache.at(index).lastUse
+                < epsRenderCache.at(oldestIndex).lastUse)
+            {
+                oldestIndex = index;
+            }
+        }
+        totalBytes -= epsRenderCacheEntryBytes(epsRenderCache.at(oldestIndex));
+        epsRenderCache.removeAt(oldestIndex);
+    }
+}
 
 bool readLittleEndianUInt32(const QByteArray &data, const int offset, quint32 &value)
 {
@@ -2065,6 +2190,31 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     result.recognized = true;
     file.close();
 
+    // EPS conversion is deterministic for a stable source and Ghostscript
+    // executable. Keep the complete vector PDF and its bounded preview in a
+    // small process-local LRU so revisiting an EPS does not respawn the
+    // converter. A missing/invalid executable deliberately cannot hit this
+    // cache: the actionable dependency error must remain observable.
+    const QFileInfo sourceInfo(filePath);
+    const QString executable = ghostscriptExecutable();
+    const int previewLargestDimension = requestedLargestDimension > 0
+            ? qMin(requestedLargestDimension, EPSPreviewLargestDimension)
+            : EPSPreviewLargestDimension;
+    EPSRenderCacheKey cacheKey;
+    cacheKey.absolutePath = sourceInfo.absoluteFilePath();
+    cacheKey.fileSize = sourceInfo.size();
+    cacheKey.lastModified = sourceInfo.lastModified();
+    cacheKey.previewLargestDimension = previewLargestDimension;
+    if (!executable.isEmpty())
+    {
+        const QFileInfo executableInfo(executable);
+        cacheKey.rendererPath = executableInfo.absoluteFilePath();
+        cacheKey.rendererSize = executableInfo.size();
+        cacheKey.rendererLastModified = executableInfo.lastModified();
+        if (lookupEPSRenderCache(cacheKey, result))
+            return result;
+    }
+
     QTemporaryDir temporaryDirectory(
         QDir::tempPath() + QStringLiteral("/Fovelle-eps-render-XXXXXX"));
     if (!temporaryDirectory.isValid())
@@ -2077,9 +2227,6 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     if (!convertEPSToPDF(filePath, pdfPath, result.errorString))
         return result;
 
-    const int previewLargestDimension = requestedLargestDimension > 0
-            ? qMin(requestedLargestDimension, EPSPreviewLargestDimension)
-            : EPSPreviewLargestDimension;
     result.image = imageFromPDFPage(pdfPath, previewLargestDimension,
                                     result.intrinsicSize, result.errorString);
     if (result.image.isNull())
@@ -2103,6 +2250,11 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     result.vectorImage.format = Qv::VectorImageFormat::Pdf;
     result.vectorImage.encodedData = pdfData;
     result.vectorImage.logicalSize = QSizeF(result.intrinsicSize);
+    if (!executable.isEmpty())
+        storeEPSRenderCache(cacheKey, result);
+    if (qEnvironmentVariableIsSet("FOVELLE_EPS_RENDER_LOG"))
+        qInfo().noquote() << "FOVELLE_EPS_RENDER cache=miss"
+                          << sourceInfo.absoluteFilePath();
     return result;
 }
 
@@ -6019,6 +6171,7 @@ struct QVCocoaFunctions::PDFVectorDocument::Impl
     CGPDFDocumentRef document {nullptr};
     CGPDFBox drawingBox {kCGPDFCropBox};
     bool valid {false};
+    mutable std::mutex renderMutex;
 };
 
 QVCocoaFunctions::PDFVectorDocument::PDFVectorDocument(const QByteArray &pdfData)
@@ -6059,6 +6212,11 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
         return fail(QStringLiteral("The vector PDF tile exceeds the safety limit"));
     }
 
+    // Core Graphics PDF objects are immutable for this use, but their thread
+    // safety is not part of the public contract. Serialize access to the
+    // retained document so a future second tile worker cannot race page
+    // lookup or CGContextDrawPDFPage.
+    const std::lock_guard<std::mutex> lock(impl->renderMutex);
     CGPDFPageRef page = CGPDFDocumentGetPage(impl->document, 1);
 
     QImage tile(pixelSize, QImage::Format_RGBA8888_Premultiplied);
@@ -6708,6 +6866,128 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         CFRelease(source);
     }
 
+    return result;
+}
+
+QVCocoaFunctions::NativeImageReadResult
+QVCocoaFunctions::readPlacementPreview(const QString &filePath,
+                                        const int largestDimension)
+{
+    NativeImageReadResult result;
+    if (!isEPSFilename(filePath))
+        return result;
+
+    const int limit = largestDimension > 0
+            ? qMin(largestDimension, EPSPreviewLargestDimension)
+            : EPSPreviewLargestDimension;
+    QImage image;
+    QSize sourceSize;
+    QImageReader reader(filePath);
+    reader.setAutoTransform(true);
+    sourceSize = reader.size();
+    if (sourceSize.isValid() && !sourceSize.isEmpty())
+    {
+        reader.setScaledSize(sourceSize.scaled(
+            qMax(1, limit), qMax(1, limit), Qt::KeepAspectRatio));
+        image = reader.read();
+    }
+
+    // Qt's EPS image plugin is not present on every supported macOS/Qt
+    // installation.  A DOS EPS can nevertheless carry a TIFF placement
+    // preview in its 28-byte binary header.  Decode only that bounded preview
+    // as a provisional image; the PostScript program is still converted and
+    // retained by readImageWithImageIO below.
+    if (image.isNull())
+    {
+        QFile file(filePath);
+        if (file.open(QIODevice::ReadOnly))
+        {
+            const QByteArray header = file.read(28);
+            quint32 magic = 0;
+            quint32 tiffOffset = 0;
+            quint32 tiffLength = 0;
+            if (readLittleEndianUInt32(header, 0, magic)
+                && magic == DosEPSMagic
+                && readLittleEndianUInt32(header, 20, tiffOffset)
+                && readLittleEndianUInt32(header, 24, tiffLength)
+                && tiffLength > 0
+                && static_cast<quint64>(tiffLength) <= MaxEPSPreviewBytes
+                && static_cast<qint64>(tiffOffset)
+                        + static_cast<qint64>(tiffLength) <= file.size()
+                && file.seek(static_cast<qint64>(tiffOffset)))
+            {
+                QByteArray tiffData = file.read(static_cast<qint64>(tiffLength));
+                QBuffer tiffBuffer(&tiffData);
+                if (tiffBuffer.open(QIODevice::ReadOnly))
+                {
+                    QImageReader embeddedReader(&tiffBuffer);
+                    embeddedReader.setAutoTransform(true);
+                    sourceSize = embeddedReader.size();
+                    if (sourceSize.isValid() && !sourceSize.isEmpty())
+                    {
+                        embeddedReader.setScaledSize(sourceSize.scaled(
+                            qMax(1, limit), qMax(1, limit),
+                            Qt::KeepAspectRatio));
+                    }
+                    image = embeddedReader.read();
+                }
+
+                // The embedded TIFF used by common Illustrator EPS files is
+                // a valid Image I/O source even on systems without a Qt EPS
+                // plugin. Prefer this native path when QImageReader cannot
+                // decode the bounded byte range above.
+                if (image.isNull() && !tiffData.isEmpty())
+                {
+                    CFDataRef previewData = CFDataCreate(
+                        kCFAllocatorDefault,
+                        reinterpret_cast<const UInt8 *>(tiffData.constData()),
+                        static_cast<CFIndex>(tiffData.size()));
+                    CGImageSourceRef previewSource = previewData
+                            ? CGImageSourceCreateWithData(previewData, nullptr)
+                            : nullptr;
+                    if (previewData)
+                        CFRelease(previewData);
+                    if (previewSource)
+                    {
+                        CGImageRef previewImage = nullptr;
+                        if (CFDictionaryRef options = thumbnailOptions(
+                                    previewSource, limit, false))
+                        {
+                            previewImage = CGImageSourceCreateThumbnailAtIndex(
+                                previewSource, 0, options);
+                            CFRelease(options);
+                        }
+                        if (!previewImage)
+                            previewImage = CGImageSourceCreateImageAtIndex(
+                                previewSource, 0, nullptr);
+                        if (previewImage)
+                        {
+                            sourceSize = QSize(
+                                static_cast<int>(CGImageGetWidth(previewImage)),
+                                static_cast<int>(CGImageGetHeight(previewImage)));
+                        }
+                        image = imageFromCGImage(previewImage, limit);
+                        if (previewImage)
+                            CGImageRelease(previewImage);
+                        CFRelease(previewSource);
+                    }
+                }
+            }
+        }
+    }
+
+    if (image.isNull())
+        return result;
+
+    if (qMax(image.width(), image.height()) > EPSPreviewLargestDimension)
+    {
+        image = image.scaled(
+            EPSPreviewLargestDimension, EPSPreviewLargestDimension,
+            Qt::KeepAspectRatio, Qt::FastTransformation);
+    }
+    result.image = std::move(image);
+    result.intrinsicSize = sourceSize.isValid() && !sourceSize.isEmpty()
+            ? sourceSize : result.image.size();
     return result;
 }
 

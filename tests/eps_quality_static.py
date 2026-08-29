@@ -180,15 +180,20 @@ def main() -> int:
             "document->renderTile",
             "renderedSourceRect.width() * requestedScaleX",
             "VectorTilePanOverscanPixels = 128",
+            "VectorTileInteractionOverscanPixels = 16",
             "VectorTileRenderScale = 1.0",
             "MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL",
             "MaxRetainedVectorTiles = 2",
             "QtConcurrent::run",
+            "setMaxThreadCount(1)",
+            "setExpiryTimeout(-1)",
             "requestAsyncVectorTile(request)",
             "bestReusableVectorTile(",
             "matchingVectorTile(sourceRect",
             "vectorInteractionActive || activeAsyncRequest.has_value()",
-            "QPainter::SmoothPixmapTransform, true",
+            "cachedWorkerSvgRenderer(",
+            "canUseNearestVectorTileSampling(",
+            "SmoothPixmapTransform, !nearestSampling",
         )
     )
     zoom_contract = (
@@ -218,11 +223,11 @@ def main() -> int:
 
     settings_wiring = all(
         marker in options
-        for marker in ("getAllFileExtensionList", "formatsTable", "setRowCount(extensions.count())")
+        for marker in ("getAllFileExtensionList", "associateSupportedFormats", "Qv::setToSortedList")
     )
     docs_and_bundle = (
         "- EPS" in readme
-        and "brew install ghostscript" in readme
+        and "Ghostscript" in readme
         and all(f"<string>{alias}</string>" in plist for alias in aliases)
         and "com.adobe.encapsulated-postscript" in plist
         and workflows.count("brew install ghostscript") >= 4
@@ -284,9 +289,12 @@ def main() -> int:
             "testMalformedEPSFailsSafely",
             "testEPSMissingRendererFailsActionably",
             "testVectorInteractionPreservesTerminalDensity",
-            "testSettingsFormatsIncludeEPS",
+            "testEPSPlacementPreviewIsProvisional",
+            "testEPSRenderCacheCutsConversionLatency",
             "FOVELLE_EPS_SAMPLE",
             "createEPSVectorImage",
+            "testVectorPanRepaintsOnlyExposedStrip",
+            "testVectorDragFrameBudgetForEPSAndSVG",
             "testVectorFormatsUseDocumentSceneItem",
             "testVectorInteractionPaintCpuBudgetFor120Hz",
         )

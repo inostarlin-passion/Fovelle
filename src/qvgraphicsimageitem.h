@@ -72,6 +72,7 @@ private:
     struct AsyncTileRequest
     {
         Qv::VectorImageData vectorImage;
+        QVCocoaFunctions::PDFVectorDocumentPtr pdfDocument;
         QRectF sourceRect;
         QSize pixelSize;
         qreal deviceScaleX {0.0};

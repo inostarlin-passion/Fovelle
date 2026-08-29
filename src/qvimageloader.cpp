@@ -532,6 +532,41 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
             targetLargestDimension,
             isPreload
         ]() {
+            if (!isPreload)
+            {
+                const QVCocoaFunctions::NativeImageReadResult preview =
+                    QVCocoaFunctions::readPlacementPreview(
+                        absoluteFilePath, targetLargestDimension);
+                if (!preview.image.isNull())
+                {
+                    const QFileInfo fileInfo(absoluteFilePath);
+                    Result previewResult;
+                    previewResult.image = preview.image;
+                    previewResult.absoluteFilePath = fileInfo.absoluteFilePath();
+                    previewResult.fileSize = fileInfo.size();
+                    previewResult.lastModified = fileInfo.lastModified();
+                    previewResult.intrinsicSize = preview.intrinsicSize;
+                    previewResult.decodeMilliseconds = 0.0;
+                    previewResult.isProvisionalVectorPreview = true;
+                    QMetaObject::invokeMethod(
+                        dispatchContext,
+                        [
+                            loader,
+                            weakLifetime,
+                            absoluteFilePath,
+                            generation,
+                            previewResult = std::move(previewResult)
+                        ]() mutable {
+                            if (!weakLifetime.lock())
+                                return;
+                            loader->jobPreview(absoluteFilePath, generation,
+                                               std::move(previewResult));
+                        },
+                        Qt::QueuedConnection
+                    );
+                }
+            }
+
             Result result = readFile(
                 absoluteFilePath, targetLargestDimension, isPreload);
             QMetaObject::invokeMethod(
@@ -552,6 +587,20 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
         },
         -priority
     );
+}
+
+void QVImageLoader::jobPreview(const QString &absoluteFilePath,
+                               const quint64 generation, Result result)
+{
+    const auto entryIt = entries.constFind(absoluteFilePath);
+    if (entryIt == entries.constEnd() || entryIt->state != State::Loading
+        || entryIt->generation != generation || !pendingRequest.has_value()
+        || pendingRequest->absoluteFilePath != absoluteFilePath
+        || result.image.isNull())
+    {
+        return;
+    }
+    emit imageReady(pendingRequest->id, result);
 }
 
 void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 generation, Result result)

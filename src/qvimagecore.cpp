@@ -27,6 +27,15 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
             if (requestId != pendingLoadRequestId)
                 return;
 
+            // A placement preview is deliberately published before a slow
+            // authoritative vector conversion. Keep the request alive so the
+            // final PDF/SVG result replaces this temporary image below.
+            if (readData.isProvisionalVectorPreview)
+            {
+                loadPixmap(readData);
+                return;
+            }
+
             const bool debouncePreloading = pendingLoadDebouncesPreloading;
             pendingLoadRequestId = 0;
             loadInProgress = false;
@@ -197,7 +206,8 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     // Vector documents own their repaint lifecycle.  In particular, probing a
     // DOS EPS through QImageReader can expose its low-resolution placement
     // preview and asynchronously replace the authoritative PDF document.
-    const bool isVectorDocument = loadedVectorImage.isValid();
+    const bool isVectorDocument = loadedVectorImage.isValid()
+            || readData.isProvisionalVectorPreview;
     loadedMovie.setFileName(isVectorDocument
             ? QString()
             : currentFileDetails.fileInfo.absoluteFilePath());

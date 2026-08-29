@@ -19,16 +19,117 @@ namespace
 constexpr quint64 MaxVectorTilePixels = 64ULL * 1024ULL * 1024ULL;
 constexpr int MaxVectorTileDimension = 16384;
 constexpr int VectorTilePanOverscanPixels = 128;
+// During an active pan, QGraphicsView already scrolls the retained backing
+// store and exposes only the newly uncovered strip. Keep a small seam guard
+// for that strip instead of rerendering 128 device pixels of unused content
+// on both sides of every worker request.
+constexpr int VectorTileInteractionOverscanPixels = 16;
 // A vector tile must never be rendered below the density at which it is
 // displayed. Downsampling during a gesture throws away vector detail, and no
 // later filtering can reconstruct it when that tile is magnified again.
 constexpr qreal VectorTileRenderScale = 1.0;
 constexpr qsizetype MaxMultipleVectorTileBytes = 96LL * 1024LL * 1024LL;
 constexpr int MaxRetainedVectorTiles = 2;
+constexpr qreal DevicePixelAlignmentTolerance = 1e-4;
 
 bool scaleEquivalent(const qreal lhs, const qreal rhs)
 {
     return qAbs(lhs - rhs) <= qMax(1.0, qMax(qAbs(lhs), qAbs(rhs))) * 1e-9;
+}
+
+bool devicePixelAligned(const qreal value)
+{
+    return qAbs(value - qRound(value)) <= DevicePixelAlignmentTolerance;
+}
+
+bool canUseNearestVectorTileSampling(const QTransform &deviceTransform,
+                                     const QRectF &drawnSourceRect,
+                                     const QRectF &tilePixelRect,
+                                     const QSize &tileImageSize,
+                                     const QRectF &tileSourceRect,
+                                     const qreal tileDeviceScaleX,
+                                     const qreal tileDeviceScaleY,
+                                     const qreal deviceScaleX,
+                                     const qreal deviceScaleY)
+{
+    // A nearest-neighbor copy is exact only for an axis-aligned, one-to-one
+    // mapping.  The source tile has already been antialiased from vector
+    // commands, so this skips only a second interpolation pass; it never
+    // enables the undersampled interaction tile that caused blurry edges.
+    if (!scaleEquivalent(tileDeviceScaleX, deviceScaleX)
+        || !scaleEquivalent(tileDeviceScaleY, deviceScaleY)
+        || !scaleEquivalent(tileImageSize.width() / tileSourceRect.width(),
+                            deviceScaleX)
+        || !scaleEquivalent(tileImageSize.height() / tileSourceRect.height(),
+                            deviceScaleY))
+    {
+        return false;
+    }
+
+    const qreal transformTolerance = DevicePixelAlignmentTolerance;
+    if (qAbs(deviceTransform.m12()) > transformTolerance
+        || qAbs(deviceTransform.m21()) > transformTolerance
+        || deviceTransform.m11() <= 0.0 || deviceTransform.m22() <= 0.0
+        || !scaleEquivalent(deviceTransform.m11(), deviceScaleX)
+        || !scaleEquivalent(deviceTransform.m22(), deviceScaleY))
+    {
+        return false;
+    }
+
+    const QPointF destinationTopLeft = deviceTransform.map(
+        drawnSourceRect.topLeft());
+    const QPointF destinationBottomRight = deviceTransform.map(
+        drawnSourceRect.bottomRight());
+    return devicePixelAligned(destinationTopLeft.x())
+            && devicePixelAligned(destinationTopLeft.y())
+            && devicePixelAligned(destinationBottomRight.x())
+            && devicePixelAligned(destinationBottomRight.y())
+            && devicePixelAligned(tilePixelRect.left())
+            && devicePixelAligned(tilePixelRect.top())
+            && devicePixelAligned(tilePixelRect.right())
+            && devicePixelAligned(tilePixelRect.bottom());
+}
+
+struct SvgWorkerRenderCache
+{
+    QString sourcePath;
+    QByteArray encodedData;
+    QRectF originalViewBox;
+    std::unique_ptr<QSvgRenderer> renderer;
+};
+
+SvgWorkerRenderCache &svgWorkerRenderCache()
+{
+    // QSvgRenderer is reentrant, but a QObject instance must not be moved
+    // between the GUI and worker threads.  A QThreadPool thread-local cache
+    // keeps one parsed renderer per worker thread and source instead.
+    thread_local SvgWorkerRenderCache cache;
+    return cache;
+}
+
+QSvgRenderer *cachedWorkerSvgRenderer(const Qv::VectorImageData &image)
+{
+    SvgWorkerRenderCache &cache = svgWorkerRenderCache();
+    if (cache.renderer && cache.sourcePath == image.sourcePath
+        && cache.encodedData == image.encodedData)
+    {
+        return cache.renderer.get();
+    }
+
+    cache.renderer.reset();
+    cache.sourcePath = image.sourcePath;
+    cache.encodedData = image.encodedData;
+    cache.originalViewBox = {};
+    auto renderer = std::make_unique<QSvgRenderer>();
+    bool loaded = !image.sourcePath.isEmpty()
+            && renderer->load(image.sourcePath);
+    if (!loaded && !image.encodedData.isEmpty())
+        loaded = renderer->load(image.encodedData);
+    if (!loaded || !renderer->isValid())
+        return nullptr;
+    cache.originalViewBox = renderer->viewBoxF();
+    cache.renderer = std::move(renderer);
+    return cache.renderer.get();
 }
 }
 
@@ -36,6 +137,12 @@ QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent)
     : QGraphicsObject(parent),
       asyncTileWatcher(std::make_unique<QFutureWatcher<AsyncTileResult>>())
 {
+    // Only the newest tile request can run at once. Keep that single worker
+    // alive so successive SVG requests reuse its parsed renderer instead of
+    // paying thread startup/teardown and parser allocation costs during a
+    // drag.
+    vectorThreadPool.setMaxThreadCount(1);
+    vectorThreadPool.setExpiryTimeout(-1);
     // Qt's built-in item caches rasterize the whole item.  NoCache plus the
     // extended option lets this item keep its own strictly bounded,
     // terminal-density tiles around the actual exposed region.
@@ -325,8 +432,15 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
 
             if (request.vectorImage.format == Qv::VectorImageFormat::Pdf)
             {
-                const auto document = QVCocoaFunctions::createPDFVectorDocument(
-                    request.vectorImage.encodedData, &result.errorString);
+                // The GUI item constructs this immutable document once.  A
+                // tile request retains it so PDF parsing is not repeated for
+                // every pan exposure.  The fallback keeps this helper robust
+                // for any future request producer that omits the pointer.
+                const auto document = request.pdfDocument
+                    ? request.pdfDocument
+                    : QVCocoaFunctions::createPDFVectorDocument(
+                          request.vectorImage.encodedData,
+                          &result.errorString);
                 if (document)
                 {
                     result.tile.image = document->renderTile(
@@ -336,17 +450,14 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
             }
             else if (request.vectorImage.format == Qv::VectorImageFormat::Svg)
             {
-                QSvgRenderer renderer;
-                bool loaded = !request.vectorImage.sourcePath.isEmpty()
-                        && renderer.load(request.vectorImage.sourcePath);
-                if (!loaded && !request.vectorImage.encodedData.isEmpty())
-                    loaded = renderer.load(request.vectorImage.encodedData);
-                if (loaded && renderer.isValid())
+                QSvgRenderer *renderer = cachedWorkerSvgRenderer(
+                    request.vectorImage);
+                if (renderer)
                 {
                     // The GUI-thread renderer owns the animation clock.  A
                     // worker-local renderer is reentrant, and selecting the
                     // captured frame keeps animated SVG refinement coherent.
-                    renderer.setCurrentFrame(request.svgFrame);
+                    renderer->setCurrentFrame(request.svgFrame);
                     result.tile.image = QImage(
                         request.pixelSize, QImage::Format_ARGB32_Premultiplied);
                     if (!result.tile.image.isNull())
@@ -361,7 +472,14 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                         // coordinates within roughly +/- 2^15; a 6400% view
                         // of a large document can otherwise cross that range
                         // even though the requested tile itself is bounded.
-                        const QRectF declaredViewBox = renderer.viewBoxF();
+                        // setViewBox() is mutable. Restore the source viewBox
+                        // captured when this worker-local renderer was parsed
+                        // before calculating every independent tile, or a
+                        // cached renderer would crop the next tile relative
+                        // to the previous tile.
+                        const QRectF declaredViewBox =
+                                svgWorkerRenderCache().originalViewBox;
+                        renderer->setViewBox(declaredViewBox);
                         const QSizeF logicalSize = request.vectorImage.logicalSize;
                         // Width/height-only SVG documents are valid as well.
                         // Keep their historical full-document mapping instead
@@ -384,8 +502,8 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                                 * originalViewBox.height() / logicalSize.height());
                         if (tileViewBox.isValid() && !tileViewBox.isEmpty())
                         {
-                            renderer.setViewBox(tileViewBox);
-                            renderer.render(
+                            renderer->setViewBox(tileViewBox);
+                            renderer->render(
                                 &tilePainter,
                                 QRectF(QPointF(), QSizeF(request.pixelSize)));
                         }
@@ -520,8 +638,11 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     const QRectF sourceRect = exposedRect.adjusted(
         -paddingX, -paddingY, paddingX, paddingY).intersected(boundingRect());
     const auto tileRequest = [this, sourceRect, deviceScaleX, deviceScaleY]() {
-        const qreal overscanX = VectorTilePanOverscanPixels / deviceScaleX;
-        const qreal overscanY = VectorTilePanOverscanPixels / deviceScaleY;
+        const int overscanPixels = vectorInteractionActive
+                ? VectorTileInteractionOverscanPixels
+                : VectorTilePanOverscanPixels;
+        const qreal overscanX = overscanPixels / deviceScaleX;
+        const qreal overscanY = overscanPixels / deviceScaleY;
         const QRectF renderedSourceRect = sourceRect.adjusted(
             -overscanX, -overscanY, overscanX, overscanY)
             .intersected(boundingRect());
@@ -531,7 +652,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
             renderedSourceRect.width() * requestedScaleX,
             renderedSourceRect.height() * requestedScaleY));
         return AsyncTileRequest {
-            vectorImage, renderedSourceRect, tileSize,
+            vectorImage, pdfDocument, renderedSourceRect, tileSize,
             requestedScaleX, requestedScaleY,
             svgRenderer ? svgRenderer->currentFrame() : 0,
             vectorSourceGeneration
@@ -588,11 +709,18 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         drawnSourceRect.width() * sourcePixelScaleX,
         drawnSourceRect.height() * sourcePixelScaleY);
     // Tiles are rendered at terminal device density even during interaction.
-    // Keep filtering enabled for fractional scroll positions and for the
-    // short period in which an overlapping tile is reused at a new viewport
-    // origin; nearest-neighbor sampling turns antialiased vector edges into
-    // visible stair-steps.
-    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    // For an exact integer-pixel translation, the tile is already antialiased
+    // vector output and a nearest copy avoids a second interpolation pass.
+    // Fractional scrolls, reused tiles, and transformed mappings retain
+    // filtering so their edges stay clear.
+    const bool nearestSampling =
+            !qEnvironmentVariableIsSet("FOVELLE_VECTOR_FORCE_SMOOTH")
+            && !reusedVectorTile
+            && canUseNearestVectorTileSampling(
+                deviceTransform, drawnSourceRect, tilePixelRect, tile.image.size(),
+                tile.sourceRect, tile.deviceScaleX, tile.deviceScaleY,
+                deviceScaleX, deviceScaleY);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, !nearestSampling);
     painter->drawImage(drawnSourceRect, tile.image, tilePixelRect);
     lastVectorTilePixelSize = tile.image.size();
     lastVectorTileSourceRect = tile.sourceRect;
@@ -603,8 +731,11 @@ void QVGraphicsImageItem::paint(QPainter *painter,
             "FOVELLE_VECTOR_RENDER format=%1 source=vector cache=%2")
             .arg(isPdf ? QStringLiteral("pdf") : QStringLiteral("svg"),
                  cacheHit ? QStringLiteral("hit")
-                          : reusedVectorTile ? QStringLiteral("reused")
+                         : reusedVectorTile ? QStringLiteral("reused")
                                                   : QStringLiteral("miss"))
+                         << "sampling="
+                         << (nearestSampling ? QStringLiteral("nearest")
+                                              : QStringLiteral("smooth"))
                          << "deviceScale=" << deviceScaleX << deviceScaleY
                          << "exposedRect=" << exposedRect
                          << "sourceRect=" << tile.sourceRect

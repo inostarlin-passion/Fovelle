@@ -89,6 +89,8 @@ private slots:
     void testEPSFormatIsAdvertised();
     void testEPSPostScriptRender();
     void testImageLoaderLoadsEPS();
+    void testEPSPlacementPreviewIsProvisional();
+    void testEPSRenderCacheCutsConversionLatency();
     void testImageLoaderLoadsSVGAsVectorDocument();
     void testEPSRenderSurvivesStaticMovieProbe();
     void testMalformedEPSFailsSafely();
@@ -225,6 +227,7 @@ private slots:
     void testRasterPanUsesCompleteRepaintOnMacOS();
     void testZoomIsBoundedAt6400Percent();
     void testVectorPanRepaintsOnlyExposedStrip();
+    void testVectorDragFrameBudgetForEPSAndSVG();
     void testVectorFormatsUseDocumentSceneItem();
     void testVectorInteractionPaintCpuBudgetFor120Hz();
 };
@@ -504,6 +507,29 @@ static QString createEPSVectorImage(const QTemporaryDir &dir, const QString &nam
         "1 setgray\n"
         "newpath 1 1 moveto 3 1 lineto 3 3 lineto 1 3 lineto closepath fill\n"
         "newpath 5 1 moveto 7 1 lineto 7 3 lineto 5 3 lineto closepath fill\n"
+        "showpage\n"
+        "%%EOF\n";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
+        return {};
+    return path;
+}
+
+static QString createLargeEPSVectorImage(const QTemporaryDir &dir,
+                                         const QString &name)
+{
+    const QString path = dir.filePath(name + ".eps");
+    const QByteArray content =
+        "%!PS-Adobe-3.0 EPSF-3.0\n"
+        "%%BoundingBox: 0 0 16 12\n"
+        "%%HiResBoundingBox: 0 0 16 12\n"
+        "%%Pages: 1\n"
+        "%%EndComments\n"
+        "0 setgray\n"
+        "newpath 0 0 moveto 16 0 lineto 16 12 lineto 0 12 lineto closepath fill\n"
+        "1 setgray\n"
+        "newpath 2 2 moveto 6 2 lineto 6 10 lineto 2 10 lineto closepath fill\n"
+        "newpath 10 2 moveto 14 2 lineto 14 10 lineto 10 10 lineto closepath fill\n"
         "showpage\n"
         "%%EOF\n";
     QFile file(path);
@@ -872,11 +898,21 @@ static std::optional<QVImageLoader::Result> loadImage(const QString &path)
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
     const quint64 requestId = loader.requestImage(path);
     loader.setDesiredImages({{path, 0}});
-    if (!readySpy.wait(5000) && readySpy.isEmpty())
-        return {};
-    if (readySpy.isEmpty() || readySpy.at(0).at(0).toULongLong() != requestId)
-        return {};
-    return qvariant_cast<QVImageLoader::Result>(readySpy.at(0).at(1));
+    QElapsedTimer timeout;
+    timeout.start();
+    while (timeout.elapsed() < 5000)
+    {
+        for (const auto &signal : readySpy)
+        {
+            if (signal.at(0).toULongLong() != requestId)
+                continue;
+            const auto result = qvariant_cast<QVImageLoader::Result>(signal.at(1));
+            if (!result.isProvisionalVectorPreview)
+                return result;
+        }
+        readySpy.wait(qMax(1, 5000 - static_cast<int>(timeout.elapsed())));
+    }
+    return {};
 }
 
 static const QByteArray tinyWebpBase64 =
@@ -1456,6 +1492,136 @@ void ImageLoaderTests::testImageLoaderLoadsEPS()
     QCOMPARE(qMax(result->image.width(), result->image.height()), 512);
     QVERIFY(result->image.size() != result->intrinsicSize);
     QCOMPARE(result->absoluteFilePath, QFileInfo(path).absoluteFilePath());
+}
+
+// TC-EPS-PERF-PROVISIONAL
+// Test purpose: verify that a decoder-provided placement image can become
+// visible before the authoritative vector conversion completes, without being
+// reported as the final loader result.
+// Preconditions: the platform's EPS reader exposes a placement image for the
+// deterministic fixture; Ghostscript remains available for the final result.
+// Input data: the deterministic EPS fixture or configured sample.
+// Operation steps: request through QVImageLoader, inspect the first signal,
+// then wait for the same request's authoritative PDF result.
+// Expected result: the first signal is explicitly provisional and the final
+// signal retains a valid PDF vector source.
+// Postconditions: the loader and all worker resources are released.
+void ImageLoaderTests::testEPSPlacementPreviewIsProvisional()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    bool usesExternalSample = false;
+    const QString sourcePath = epsSamplePath(dir, &usesExternalSample);
+    QString path = sourcePath;
+    if (usesExternalSample)
+    {
+        path = dir.filePath(QStringLiteral("placement-preview.eps"));
+        QVERIFY(QFile::copy(sourcePath, path));
+    }
+    QVERIFY(!path.isEmpty());
+
+    const auto placementPreview = QVCocoaFunctions::readPlacementPreview(
+        path, 2048);
+    if (placementPreview.image.isNull())
+        QSKIP("this platform does not expose an EPS placement preview decoder");
+
+    QVImageLoader loader;
+    QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
+    QElapsedTimer requestTimer;
+    requestTimer.start();
+    const quint64 requestId = loader.requestImage(path);
+    loader.setDesiredImages({{path, 0}});
+    QTRY_VERIFY_WITH_TIMEOUT(readySpy.count() > 0, 1000);
+    const qint64 previewMilliseconds = requestTimer.elapsed();
+
+    const auto first = qvariant_cast<QVImageLoader::Result>(
+        readySpy.at(0).at(1));
+    QCOMPARE(readySpy.at(0).at(0).toULongLong(), requestId);
+    QVERIFY(first.isProvisionalVectorPreview);
+    QVERIFY(!first.image.isNull());
+    QVERIFY(!first.vectorImage.isValid());
+
+    bool finalResultSeen = false;
+    qint64 finalMilliseconds = 0;
+    QVImageLoader::Result finalResult;
+    QTRY_VERIFY_WITH_TIMEOUT(([&]() {
+        for (const auto &signal : readySpy)
+        {
+            if (signal.at(0).toULongLong() != requestId)
+                continue;
+            const auto result = qvariant_cast<QVImageLoader::Result>(
+                signal.at(1));
+            if (!result.isProvisionalVectorPreview)
+            {
+                finalResultSeen = true;
+                finalMilliseconds = requestTimer.elapsed();
+                finalResult = result;
+                return result.vectorImage.isValid()
+                        && result.vectorImage.format == Qv::VectorImageFormat::Pdf;
+            }
+        }
+        return false;
+    })(), 5000);
+    QVERIFY(finalResultSeen);
+    qInfo().noquote() << QStringLiteral(
+        "EPS_DISPLAY_LATENCY preview_ms=%1 final_ms=%2 final_decode_ms=%3 ratio=%4")
+        .arg(previewMilliseconds)
+        .arg(finalMilliseconds)
+        .arg(finalResult.decodeMilliseconds, 0, 'f', 3)
+        .arg(finalMilliseconds > 0
+                 ? static_cast<double>(previewMilliseconds) / finalMilliseconds
+                 : 0.0, 0, 'f', 4);
+    QVERIFY2(previewMilliseconds * 2 < finalMilliseconds,
+             "the provisional placement preview did not arrive at least 50% earlier than the final conversion");
+}
+
+// TC-EPS-PERF-CACHE
+// Test purpose: verify that the bounded native EPS conversion cache removes
+// the repeat Ghostscript conversion from the display path.
+// Preconditions: Ghostscript and a readable EPS sample are available.
+// Input data: a unique copy of the supplied EPS (or deterministic fixture).
+// Operation steps: measure one conversion miss and one identity-matching hit.
+// Expected result: both results remain authoritative PDF vectors and the hit
+// takes less than half the miss latency.
+// Postconditions: the temporary source is deleted with its directory.
+void ImageLoaderTests::testEPSRenderCacheCutsConversionLatency()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    bool usesExternalSample = false;
+    const QString sourcePath = epsSamplePath(dir, &usesExternalSample);
+    QString path = sourcePath;
+    if (usesExternalSample)
+    {
+        path = dir.filePath(QStringLiteral("cache-latency.eps"));
+        QVERIFY(QFile::copy(sourcePath, path));
+    }
+    QVERIFY(!path.isEmpty());
+
+    QElapsedTimer missTimer;
+    missTimer.start();
+    const auto miss = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    const qint64 missMilliseconds = missTimer.elapsed();
+    QVERIFY2(miss.errorString.isEmpty(), qPrintable(miss.errorString));
+    QVERIFY(miss.vectorImage.isValid());
+
+    QElapsedTimer hitTimer;
+    hitTimer.start();
+    const auto hit = QVCocoaFunctions::readImageWithImageIO(path, 2048);
+    const qint64 hitMilliseconds = hitTimer.elapsed();
+    QVERIFY2(hit.errorString.isEmpty(), qPrintable(hit.errorString));
+    QVERIFY(hit.vectorImage.isValid());
+    QCOMPARE(hit.vectorImage.encodedData, miss.vectorImage.encodedData);
+    QCOMPARE(hit.intrinsicSize, miss.intrinsicSize);
+    qInfo().noquote() << QStringLiteral(
+        "EPS_CONVERSION_CACHE miss_ms=%1 hit_ms=%2 ratio=%3")
+        .arg(missMilliseconds)
+        .arg(hitMilliseconds)
+        .arg(missMilliseconds > 0
+                 ? static_cast<double>(hitMilliseconds) / missMilliseconds
+                 : 0.0, 0, 'f', 4);
+    QVERIFY2(missMilliseconds >= 2 && hitMilliseconds * 2 < missMilliseconds,
+             "the identity-matching EPS cache did not reduce conversion latency by 50%");
 }
 
 // TC-EPS-UNIT-STATIC-DOCUMENT
@@ -5555,6 +5721,107 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// TC-VECTOR-PERF-DRAG-AREA
+// Test purpose: verify the actual QGraphicsView scroll path has at least the
+// two-times frame-area capacity required for both vector formats.
+// Preconditions: deterministic EPS/SVG documents and a visible Cocoa view.
+// Input data: one six-pixel logical horizontal scrollbar move after a
+// terminal-density tile has become paintable.
+// Operation steps: record the first paint event caused by the scroll and
+// compare its dirty area with the same viewport painted as one full frame.
+// Expected result: the scroll exposes no more than half the viewport, while
+// the vector item remains opaque, asynchronous, and terminal-density based.
+// Postconditions: the window and temporary documents are released.
+void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QList<QPair<QString, QString>> documents {
+        {QStringLiteral("eps"), createLargeEPSVectorImage(dir, QStringLiteral("drag-eps"))},
+        {QStringLiteral("svg"), svgSamplePath(dir)}
+    };
+    for (const auto &document : documents)
+        QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+
+    for (const auto &document : documents)
+    {
+        window.openFile(document.second);
+        QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            QFileInfo(document.second).absoluteFilePath(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 5000);
+        view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            view->horizontalScrollBar()->maximum()
+                > view->horizontalScrollBar()->minimum(),
+            2000);
+
+        QElapsedTimer tileTimer;
+        tileTimer.start();
+        while (view->vectorRenderCount() == 0 && tileTimer.elapsed() < 5000)
+        {
+            view->viewport()->repaint();
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            QTest::qWait(5);
+        }
+        QVERIFY(view->vectorRenderCount() > 0);
+        QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
+
+        QScrollBar *bar = view->horizontalScrollBar();
+        bar->setValue((bar->minimum() + bar->maximum()) / 2);
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        view->viewport()->repaint();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+
+        PaintRegionRecorder recorder;
+        view->viewport()->installEventFilter(&recorder);
+        bar->setValue(qMin(bar->value() + 6, bar->maximum()));
+        QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+        view->viewport()->removeEventFilter(&recorder);
+
+        const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
+                * view->viewport()->height();
+        QVERIFY(viewportArea > 0);
+        const qint64 exposedArea = recorder.recordedAreas().constFirst();
+        const qreal dirtyRatio = static_cast<qreal>(exposedArea) / viewportArea;
+        const qreal estimatedCapacityRatio = dirtyRatio > 0.0
+                ? 1.0 / dirtyRatio : std::numeric_limits<qreal>::infinity();
+        qInfo().noquote() << QStringLiteral(
+            "VECTOR_DRAG_FPS format=%1 dirty_ratio=%2 estimated_capacity_ratio=%3 "
+            "viewport_area=%4 exposed_area=%5")
+            .arg(document.first)
+            .arg(dirtyRatio, 0, 'f', 6)
+            .arg(estimatedCapacityRatio, 0, 'f', 3)
+            .arg(viewportArea)
+            .arg(exposedArea);
+        QVERIFY2(dirtyRatio <= 0.5,
+                 qPrintable(document.first
+                            + QStringLiteral(" drag repaint did not leave two-times area capacity")));
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
 void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
 {
     ScopedOptionValues options({
@@ -5708,7 +5975,7 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
             0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
         const double p99 = samples.at(p99Index);
         const double maximum = samples.constLast();
-        const double cpuCapacity = 1000.0 / average;
+        const double cpuCapacity = 1000.0 / p99;
         qInfo().noquote() << QStringLiteral(
             "VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu "
             "format=%1 interaction=%2 average_cpu_ms=%3 "

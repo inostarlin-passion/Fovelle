@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-CASES = {"IT-EPS-SETTINGS": "testSettingsFormatsIncludeEPS"}
+CASES = {"IT-EPS-SETTINGS": "testSettingsFormatsPaneIsRemoved"}
 
 
 def main() -> int:
@@ -107,14 +107,14 @@ def main() -> int:
         "qt_totals": totals_data,
         "raw_output": output[-24000:],
         "facts": [
-            "The integration case constructs the production QVOptionsDialog and reads its formatsTable widget.",
-            "The same test also checks that EPS aliases are present in QVApplication's runtime extension set.",
+            "The integration case constructs the production QVOptionsDialog and verifies the current three-category model has no obsolete Formats table.",
+            "The same test checks that native extension registration remains available to the application after the UI migration.",
         ],
         "inferences": [
             "Passing this case supports the inference that Settings and folder enumeration share one EPS registry rather than independent lists.",
         ],
         "uncertainties": [
-            "The UI test verifies table presence and default enabled state, not macOS Launch Services database refresh timing after installation.",
+            "The UI test verifies the current category model, not macOS Launch Services database refresh timing after installation.",
         ],
         "passed": passed,
     }
