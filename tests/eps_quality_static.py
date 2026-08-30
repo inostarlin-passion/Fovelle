@@ -195,6 +195,9 @@ def main() -> int:
             "cachedWorkerSvgRenderer(",
             "canUseNearestVectorTileSampling(",
             "SmoothPixmapTransform, !nearestSampling",
+            "setVectorBackgroundBrush",
+            "CompositionMode_Source",
+            "painter->fillRect(exposedRect, vectorBackgroundBrush)",
         )
     )
     zoom_contract = (
@@ -208,15 +211,21 @@ def main() -> int:
         and "Qt::WA_OpaquePaintEvent" in graphics_view
         and "viewportScrollChanged" in graphics_view
         and "setVectorInteractionActive(true)" in graphics_view
+        and "QVGraphicsView::scrollContentsBy" in graphics_view
+        and "QGraphicsView::FullViewportUpdate" in graphics_view
+        and "QGraphicsView::MinimalViewportUpdate" in graphics_view
+        and "setVectorInteractionPresentation" in graphics_view
     )
     check(
         checks,
         "ST-EPS-VECTOR-VIEWPORT",
-        "The scene must render bounded exposed-region EPS tiles asynchronously, use backing-store scroll reuse, and stop every zoom path at 6400%.",
+        "The scene must render bounded exposed-region EPS tiles asynchronously, disable backing-store scroll reuse during vector interaction, restore the idle update mode, and stop every zoom path at 6400%.",
         viewport_vector_contract and zoom_contract and interaction_scroll_contract,
         {
             "bounded_async_interaction_tile_contract": viewport_vector_contract,
             "opaque_scroll_interaction_contract": interaction_scroll_contract,
+            "full_viewport_during_vector_interaction": "QGraphicsView::FullViewportUpdate" in graphics_view,
+            "minimal_viewport_after_vector_interaction": "QGraphicsView::MinimalViewportUpdate" in graphics_view,
             "central_6400_percent_zoom_contract": zoom_contract,
         },
         ["src/qvgraphicsimageitem.cpp", "src/qvgraphicsview.cpp", "src/qvnamespace.h", "src/mainwindow.cpp"],
@@ -296,6 +305,7 @@ def main() -> int:
             "createEPSVectorImage",
             "testVectorPanRepaintsOnlyExposedStrip",
             "testVectorDragFrameBudgetForEPSAndSVG",
+            "testVectorPaintClearsStalePixelsBeforeTileReady",
             "testVectorFormatsUseDocumentSceneItem",
             "testVectorInteractionPaintCpuBudgetFor120Hz",
         )
@@ -324,7 +334,7 @@ def main() -> int:
         "facts": [
             "The implementation uses the existing macOS native bridge and the existing application extension registry.",
             "The EPS path invokes Ghostscript with SAFER, finite process waits, cropped high-level PDF output, bounded diagnostics, and pixel/PDF limits.",
-            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction and idle refinement, and reuses opaque backing-store pixels while panning; the initial fallback is rendered from the same authoritative PDF.",
+            "The scene retains the PDF document, uses bounded exposed-region tiles with pan overscan and asynchronous interaction and idle refinement, disables backing-store scroll reuse during vector interaction, and restores minimal updates while idle; the initial fallback is rendered from the same authoritative PDF.",
             "Every zoom entry point is bounded by the central 64.0 (6400%) contract.",
         ],
         "inferences": [

@@ -187,6 +187,8 @@ signals:
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
+    void scrollContentsBy(int dx, int dy) override;
+
     void paintEvent(QPaintEvent *event) override;
 
     void drawBackground(QPainter *painter, const QRectF &rect) override;
@@ -263,6 +265,8 @@ protected:
 
     void updateViewportOpacityContract();
 
+    void setVectorInteractionPresentation(bool active);
+
     QTransform getUnspecializedTransform() const;
 
     QTransform normalizeTransformOrigin(const QTransform &matrix, const QSizeF &pixmapSize) const;
@@ -308,7 +312,7 @@ private:
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
 
-    QVGraphicsImageItem *loadedPixmapItem;
+    QVGraphicsImageItem *loadedPixmapItem {nullptr};
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 
     Qv::SmoothScalingMode smoothScalingMode {Qv::SmoothScalingMode::Disabled};

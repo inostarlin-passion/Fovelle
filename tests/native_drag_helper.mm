@@ -566,6 +566,9 @@ std::unique_ptr<LaunchedApplication> launchApplication(const Options &options)
     task.arguments = @[ [NSString stringWithUTF8String:options.imagePath.c_str()] ];
     NSMutableDictionary *environment = [[[NSProcessInfo processInfo] environment] mutableCopy];
     [environment setObject:@"1" forKey:@"FOVELLE_DIAGNOSTIC_LOG"];
+    [environment setObject:@"1" forKey:@"FOVELLE_VECTOR_PRESENTATION_LOG"];
+    [environment setObject:@"1" forKey:@"FOVELLE_VECTOR_PAINT_LOG"];
+    [environment setObject:@"1" forKey:@"FOVELLE_VECTOR_RENDER_LOG"];
     [environment setObject:@"1" forKey:@"FOVELLE_DISABLE_AUTO_UPDATE_CHECK"];
     task.environment = environment;
     task.standardOutput = logFile;

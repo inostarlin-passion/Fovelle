@@ -61,7 +61,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     vectorRefineTimer->setSingleShot(true);
     vectorRefineTimer->setInterval(50);
     connect(vectorRefineTimer, &QTimer::timeout, this, [this]() {
-        loadedPixmapItem->setVectorInteractionActive(false);
+        setVectorInteractionPresentation(false);
     });
 
     constrainBoundsTimer = new QTimer(this);
@@ -171,8 +171,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             // wheel/trackpad, keyboard, scrollbar thumb, and constraint
             // animation.  Keep source rasterization off the GUI thread for
             // the whole burst, then request one exact terminal-density tile.
-            loadedPixmapItem->setVectorInteractionActive(true);
-            vectorRefineTimer->start();
+            setVectorInteractionPresentation(true);
         }
     };
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this,
@@ -193,6 +192,19 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 }
 
 // Events
+
+void QVGraphicsView::scrollContentsBy(const int dx, const int dy)
+{
+    // QGraphicsView implements MinimalViewportUpdate by scrolling the
+    // platform backing store and repainting only the newly exposed stripe.
+    // That reuse is unsafe for an asynchronously refined transparent vector
+    // tile on macOS: the old frame can remain visible until the worker result
+    // arrives. Switch before the base implementation performs the scroll so
+    // the first drag frame is a complete repaint.
+    if ((dx != 0 || dy != 0) && getCurrentFileDetails().isVectorLoaded)
+        setVectorInteractionPresentation(true);
+    QGraphicsView::scrollContentsBy(dx, dy);
+}
 
 void QVGraphicsView::resizeEvent(QResizeEvent *event)
 {
@@ -310,6 +322,28 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
 
     QGraphicsView::paintEvent(event);
 
+    if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_PAINT_LOG")
+        && getCurrentFileDetails().isVectorLoaded)
+    {
+        qint64 dirtyArea = 0;
+        for (const QRect &rect : event->region())
+            dirtyArea += static_cast<qint64>(rect.width()) * rect.height();
+        const qint64 viewportArea = static_cast<qint64>(viewport()->width())
+                * viewport()->height();
+        const QString updateMode = viewportUpdateMode() == QGraphicsView::FullViewportUpdate
+                ? QStringLiteral("full")
+                : viewportUpdateMode() == QGraphicsView::MinimalViewportUpdate
+                ? QStringLiteral("minimal") : QStringLiteral("other");
+        qInfo().noquote() << "FOVELLE_VECTOR_PAINT"
+                          << "update_mode=" << updateMode
+                          << "dirty_area=" << dirtyArea
+                          << "viewport_area=" << viewportArea
+                          << "dirty_ratio="
+                          << (viewportArea > 0
+                                  ? static_cast<qreal>(dirtyArea) / viewportArea
+                                  : 0.0);
+    }
+
     if (logSDRPerformance)
     {
         qint64 dirtyArea = 0;
@@ -363,8 +397,8 @@ void QVGraphicsView::updateViewportOpacityContract()
     // exhaust the normal triple-buffer chain during a 120 Hz drag. Leaving
     // the raster viewport non-opaque makes Qt repaint the complete viewport,
     // which is the stable presentation path used by qView. Vector documents
-    // retain opaque scroll reuse because their bounded tile renderer makes a
-    // full repaint materially more expensive.
+    // retain an opaque background for idle/minimal paints; the interaction
+    // presentation helper temporarily disables scroll reuse during gestures.
     const bool paintsOpaqueViewportBackground = details.isPixmapLoaded
             && !details.isNativeHDRLoaded && !details.isNativeSDRLoaded
             && details.isVectorLoaded;
@@ -376,6 +410,46 @@ void QVGraphicsView::updateViewportOpacityContract()
                              paintsOpaqueViewportBackground);
     if (details.isVectorLoaded)
         setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+}
+
+void QVGraphicsView::setVectorInteractionPresentation(const bool active)
+{
+    if (!loadedPixmapItem)
+        return;
+
+    if (active)
+    {
+        if (!getCurrentFileDetails().isVectorLoaded)
+            return;
+        // FullViewportUpdate disables QGraphicsView's backing-store scroll
+        // optimization. It is scoped to the vector interaction burst; the
+        // idle path below restores MinimalViewportUpdate for bounded tile
+        // refinement and ordinary static painting.
+        setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+        loadedPixmapItem->setVectorInteractionActive(true);
+        vectorRefineTimer->start();
+        if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_PRESENTATION_LOG"))
+            qInfo().noquote() << "FOVELLE_VECTOR_PRESENTATION active=true update_mode=full";
+        return;
+    }
+
+    loadedPixmapItem->setVectorInteractionActive(false);
+    if (getCurrentFileDetails().isVectorLoaded)
+    {
+        setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+        // Publish one clean frame after the mode transition. This also
+        // retires any pixels produced by a pre-fix partial update before the
+        // exact terminal-density tile is painted.
+        viewport()->update();
+        if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_PRESENTATION_LOG"))
+            qInfo().noquote() << "FOVELLE_VECTOR_PRESENTATION active=false update_mode=minimal";
+    }
+    else
+    {
+        setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+        if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_PRESENTATION_LOG"))
+            qInfo().noquote() << "FOVELLE_VECTOR_PRESENTATION active=false update_mode=minimal";
+    }
 }
 
 void QVGraphicsView::dropEvent(QDropEvent *event)
@@ -1179,7 +1253,7 @@ void QVGraphicsView::beforeLoad()
     navigationSamplingImage = {};
     navigationSamplingSourceSize = {};
     vectorRefineTimer->stop();
-    loadedPixmapItem->setVectorInteractionActive(false);
+    setVectorInteractionPresentation(false);
     lastCalculatedZoomMode.reset();
     lastCalculatedZoomLevel.reset();
 
@@ -1466,8 +1540,7 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     if (isChanging && !isApplyingCalculation
         && getCurrentFileDetails().isVectorLoaded)
     {
-        loadedPixmapItem->setVectorInteractionActive(true);
-        vectorRefineTimer->start();
+        setVectorInteractionPresentation(true);
     }
     const std::optional<QPoint> pos = targetPos == Qv::CalculateViewportCenterPos ? getUsableViewportRect().center() : targetPos;
     if (pos != lastZoomEventPos)
@@ -2451,11 +2524,11 @@ bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
     {
     case Qt::BeginNativeGesture:
         if (getCurrentFileDetails().isVectorLoaded)
-            loadedPixmapItem->setVectorInteractionActive(true);
+            setVectorInteractionPresentation(true);
         break;
     case Qt::EndNativeGesture:
         vectorRefineTimer->stop();
-        loadedPixmapItem->setVectorInteractionActive(false);
+        setVectorInteractionPresentation(false);
         constrainBoundsTimer->start();
         break;
     case Qt::ZoomNativeGesture:
@@ -2719,6 +2792,8 @@ void QVGraphicsView::settingsUpdated(const bool isInitialLoad)
                              QColor(204, 204, 204));
         checkerboardBackgroundBrush = QBrush(checkerboardTile);
     }
+    loadedPixmapItem->setVectorBackgroundBrush(
+        checkerboardBackground ? checkerboardBackgroundBrush : viewportBackgroundBrush);
     viewport()->update();
     applyScrollBarTheme(resolvedTheme);
     applyHDRViewportBackground(theme);

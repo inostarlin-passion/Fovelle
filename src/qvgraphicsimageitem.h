@@ -5,6 +5,7 @@
 #include "qvcocoafunctions.h"
 
 #include <QGraphicsObject>
+#include <QBrush>
 #include <QImage>
 #include <QPixmap>
 #include <QThreadPool>
@@ -37,6 +38,7 @@ public:
     bool setVectorImage(const Qv::VectorImageData &image);
     bool hasVectorImage() const { return vectorImage.isValid(); }
     Qv::VectorImageFormat vectorImageFormat() const { return vectorImage.format; }
+    void setVectorBackgroundBrush(const QBrush &brush);
     void setVectorInteractionActive(bool active);
     void shutdownAsyncWork();
     bool isVectorInteractionActive() const { return vectorInteractionActive; }
@@ -105,6 +107,7 @@ private:
 
     QPixmap rasterPixmap;
     Qt::TransformationMode rasterTransformationMode {Qt::FastTransformation};
+    QBrush vectorBackgroundBrush {Qt::black};
     Qv::VectorImageData vectorImage;
     std::unique_ptr<QSvgRenderer> svgRenderer;
     QVCocoaFunctions::PDFVectorDocumentPtr pdfDocument;

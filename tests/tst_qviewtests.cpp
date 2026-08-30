@@ -228,6 +228,7 @@ private slots:
     void testZoomIsBoundedAt6400Percent();
     void testVectorPanRepaintsOnlyExposedStrip();
     void testVectorDragFrameBudgetForEPSAndSVG();
+    void testVectorPaintClearsStalePixelsBeforeTileReady();
     void testVectorFormatsUseDocumentSceneItem();
     void testVectorInteractionPaintCpuBudgetFor120Hz();
 };
@@ -509,6 +510,40 @@ static QString createEPSVectorImage(const QTemporaryDir &dir, const QString &nam
         "newpath 5 1 moveto 7 1 lineto 7 3 lineto 5 3 lineto closepath fill\n"
         "showpage\n"
         "%%EOF\n";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
+        return {};
+    return path;
+}
+
+static QString createTransparentEPSVectorImage(const QTemporaryDir &dir,
+                                               const QString &name)
+{
+    const QString path = dir.filePath(name + ".eps");
+    const QByteArray content =
+        "%!PS-Adobe-3.0 EPSF-3.0\n"
+        "%%BoundingBox: 0 0 120 40\n"
+        "%%HiResBoundingBox: 0 0 120 40\n"
+        "%%Pages: 1\n"
+        "%%EndComments\n"
+        "1 setgray\n"
+        "newpath 48 12 moveto 72 12 lineto 72 28 lineto 48 28 lineto closepath fill\n"
+        "showpage\n"
+        "%%EOF\n";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
+        return {};
+    return path;
+}
+
+static QString createTransparentSVGVectorImage(const QTemporaryDir &dir,
+                                               const QString &name)
+{
+    const QString path = dir.filePath(name + ".svg");
+    const QByteArray content =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" "
+        "viewBox=\"0 0 120 40\"><rect x=\"48\" y=\"12\" width=\"24\" "
+        "height=\"16\" fill=\"#fff\"/></svg>";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
         return {};
@@ -5618,6 +5653,9 @@ void GraphicsViewTests::testZoomIsBoundedAt6400Percent()
 
 void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
 {
+    // Keep the historical test name because older CI parsers use it. The
+    // contract is now the opposite of the old assertion: vector interaction
+    // must disable backing-store scroll reuse before the first drag frame.
     ScopedOptionValues options({
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
@@ -5661,12 +5699,15 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     QCoreApplication::processEvents();
     QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->vectorRenderCount() > 0, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(),
+                              QGraphicsView::MinimalViewportUpdate, 1000);
     view->viewport()->repaint();
     QCoreApplication::processEvents();
 
     PaintRegionRecorder recorder;
     view->viewport()->installEventFilter(&recorder);
     bar->setValue(bar->value() + 6);
+    QCOMPARE(view->viewportUpdateMode(), QGraphicsView::FullViewportUpdate);
     QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
     QCoreApplication::processEvents();
@@ -5674,10 +5715,9 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
 
     const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
             * view->viewport()->height();
-    // The first paint is the exposed strip produced by QGraphicsView's scroll
-    // reuse. A fast worker can finish the vector tile while QTRY_VERIFY is
-    // pumping events and schedule a later full-viewport refinement paint;
-    // that distinct update must not be attributed to the scrollbar move.
+    // FullViewportUpdate must be selected before QGraphicsView can reuse the
+    // platform backing store for the scrollbar move. A later worker update is
+    // allowed, but the first frame itself must cover the complete viewport.
     const qint64 scrollPaintArea = recorder.recordedAreas().constFirst();
     const qreal dirtyRatio = static_cast<qreal>(scrollPaintArea) / viewportArea;
     const qint64 maximumObservedPaintArea = *std::max_element(
@@ -5685,29 +5725,29 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     const qreal maximumObservedDirtyRatio =
             static_cast<qreal>(maximumObservedPaintArea) / viewportArea;
     qInfo().noquote() << QStringLiteral(
-        "VECTOR_PAN_REPAINT dirty_ratio=%1 max_observed_dirty_ratio=%2 "
-        "paint_events=%3 viewport_area=%4")
+        "VECTOR_PAN_REPAINT update_mode=full dirty_ratio=%1 "
+        "max_observed_dirty_ratio=%2 paint_events=%3 viewport_area=%4")
         .arg(dirtyRatio, 0, 'f', 6)
         .arg(maximumObservedDirtyRatio, 0, 'f', 6)
         .arg(recorder.recordedAreas().size())
         .arg(viewportArea);
-    QVERIFY2(dirtyRatio <= 0.05,
-             qPrintable(QStringLiteral("unexpected full vector pan repaint ratio %1")
+    QVERIFY2(dirtyRatio >= 0.90,
+             qPrintable(QStringLiteral("vector pan did not request a full repaint ratio %1")
                         .arg(dirtyRatio, 0, 'f', 6)));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-VECTOR-PERF-DRAG-AREA
-// Test purpose: verify the actual QGraphicsView scroll path has at least the
-// two-times frame-area capacity required for both vector formats.
+// TC-VECTOR-GHOSTING-DRAG
+// Test purpose: verify the actual QGraphicsView scroll path disables backing
+// store reuse for both vector formats before the first drag frame.
 // Preconditions: deterministic EPS/SVG documents and a visible Cocoa view.
 // Input data: one six-pixel logical horizontal scrollbar move after a
 // terminal-density tile has become paintable.
 // Operation steps: record the first paint event caused by the scroll and
 // compare its dirty area with the same viewport painted as one full frame.
-// Expected result: the scroll exposes no more than half the viewport, while
+// Expected result: the first scroll paint covers the complete viewport, while
 // the vector item remains opaque, asynchronous, and terminal-density based.
 // Postconditions: the window and temporary documents are released.
 void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
@@ -5773,6 +5813,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         PaintRegionRecorder recorder;
         view->viewport()->installEventFilter(&recorder);
         bar->setValue(qMin(bar->value() + 6, bar->maximum()));
+        QCOMPARE(view->viewportUpdateMode(), QGraphicsView::FullViewportUpdate);
         QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
         view->viewport()->removeEventFilter(&recorder);
 
@@ -5784,20 +5825,71 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         const qreal estimatedCapacityRatio = dirtyRatio > 0.0
                 ? 1.0 / dirtyRatio : std::numeric_limits<qreal>::infinity();
         qInfo().noquote() << QStringLiteral(
-            "VECTOR_DRAG_FPS format=%1 dirty_ratio=%2 estimated_capacity_ratio=%3 "
-            "viewport_area=%4 exposed_area=%5")
+            "VECTOR_DRAG_FPS format=%1 update_mode=full dirty_ratio=%2 "
+            "estimated_capacity_ratio=%3 viewport_area=%4 exposed_area=%5")
             .arg(document.first)
             .arg(dirtyRatio, 0, 'f', 6)
             .arg(estimatedCapacityRatio, 0, 'f', 3)
             .arg(viewportArea)
             .arg(exposedArea);
-        QVERIFY2(dirtyRatio <= 0.5,
+        QVERIFY2(dirtyRatio >= 0.90,
                  qPrintable(document.first
-                            + QStringLiteral(" drag repaint did not leave two-times area capacity")));
+                            + QStringLiteral(" drag repaint did not cover the full viewport")));
     }
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+void GraphicsViewTests::testVectorPaintClearsStalePixelsBeforeTileReady()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QList<QPair<QString, QString>> documents {
+        {QStringLiteral("eps"), createTransparentEPSVectorImage(dir, QStringLiteral("ghost-eps"))},
+        {QStringLiteral("svg"), createTransparentSVGVectorImage(dir, QStringLiteral("ghost-svg"))}
+    };
+
+    constexpr QRgb sentinel = qRgb(255, 0, 255);
+    for (const auto &document : documents)
+    {
+        QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
+        const auto result = loadImage(document.second);
+        QVERIFY2(result.has_value(), qPrintable(document.first));
+        QVERIFY2(result->vectorImage.isValid(), qPrintable(document.first));
+
+        QVGraphicsImageItem item;
+        QImage transparentFallback(result->vectorImage.logicalSize.toSize(),
+                                    QImage::Format_ARGB32_Premultiplied);
+        QVERIFY(!transparentFallback.isNull());
+        transparentFallback.fill(Qt::transparent);
+        item.setPixmap(QPixmap::fromImage(transparentFallback));
+        QVERIFY(item.setVectorImage(result->vectorImage));
+        item.setVectorBackgroundBrush(QBrush(Qt::white));
+
+        QImage canvas(transparentFallback.size(), QImage::Format_ARGB32_Premultiplied);
+        canvas.fill(sentinel);
+        QPainter painter(&canvas);
+        QStyleOptionGraphicsItem option;
+        option.exposedRect = item.boundingRect();
+        item.paint(&painter, &option);
+        painter.end();
+
+        qint64 stalePixels = 0;
+        for (int y = 0; y < canvas.height(); ++y)
+        {
+            const QRgb *row = reinterpret_cast<const QRgb *>(canvas.constScanLine(y));
+            for (int x = 0; x < canvas.width(); ++x)
+                stalePixels += row[x] == sentinel;
+        }
+        const qint64 totalPixels = static_cast<qint64>(canvas.width()) * canvas.height();
+        qInfo().noquote() << QStringLiteral(
+            "VECTOR_GHOST_PIXELS format=%1 stale_pixels=%2 total_pixels=%3")
+            .arg(document.first)
+            .arg(stalePixels)
+            .arg(totalPixels);
+        QCOMPARE(stalePixels, qint64(0));
+    }
 }
 
 void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()

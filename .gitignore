@@ -3,6 +3,7 @@
 reports/*
 !reports/model.md
 !reports/proof.md
+!reports/test_case_specification.md
 
 # C++ objects and libs
 

@@ -201,6 +201,15 @@ void QVGraphicsImageItem::setTransformationMode(const Qt::TransformationMode mod
     update();
 }
 
+void QVGraphicsImageItem::setVectorBackgroundBrush(const QBrush &brush)
+{
+    if (vectorBackgroundBrush == brush)
+        return;
+    vectorBackgroundBrush = brush;
+    if (vectorImage.isValid())
+        update();
+}
+
 bool QVGraphicsImageItem::setVectorImage(const Qv::VectorImageData &image)
 {
     if (!image.isValid())
@@ -603,6 +612,23 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         return;
     }
 
+    QRectF exposedRect = option ? option->exposedRect : boundingRect();
+    exposedRect = exposedRect.intersected(boundingRect());
+    if (exposedRect.isEmpty())
+        return;
+
+    // A transparent fallback/tile is valid vector output: the artwork may
+    // intentionally contain transparent pixels.  During a partial viewport
+    // update, however, SourceOver cannot replace stale pixels left in the
+    // newly exposed backing-store stripe.  Clear the exact exposed item area
+    // first so an incomplete asynchronous tile can never reveal the previous
+    // frame.  The view supplies either the solid theme brush or its
+    // checkerboard brush.
+    painter->save();
+    painter->setCompositionMode(QPainter::CompositionMode_Source);
+    painter->fillRect(exposedRect, vectorBackgroundBrush);
+    painter->restore();
+
     const bool isSvg = vectorImage.format == Qv::VectorImageFormat::Svg
             && svgRenderer;
     const bool isPdf = vectorImage.format == Qv::VectorImageFormat::Pdf
@@ -612,11 +638,6 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         paintRasterFallback(painter);
         return;
     }
-
-    QRectF exposedRect = option ? option->exposedRect : boundingRect();
-    exposedRect = exposedRect.intersected(boundingRect());
-    if (exposedRect.isEmpty())
-        return;
 
     const QTransform deviceTransform = painter->deviceTransform();
     const QPointF deviceOrigin = deviceTransform.map(QPointF());
