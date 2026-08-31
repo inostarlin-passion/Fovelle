@@ -676,7 +676,7 @@ No write permission or file is read-only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Use checkerboard background after opening image</source>
+        <source>Use checkerboard background</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

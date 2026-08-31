@@ -1271,8 +1271,8 @@ No write permission or file is read-only.</source>
         <translation>外觀:</translation>
     </message>
     <message>
-        <source>Use checkerboard background after opening image</source>
-        <translation>開啟影像後使用棋盤格背景</translation>
+        <source>Use checkerboard background</source>
+        <translation>使用棋盤格背景</translation>
     </message>
     <message>
         <source>Open images in the same window</source>

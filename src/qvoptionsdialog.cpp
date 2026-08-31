@@ -539,13 +539,15 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     setProperty("settingsVisibleShortcutRows", ShortcutsVisibleRows);
     setProperty("settingsCategoryTransitionDuration", SettingsCategoryTransitionDuration);
     setProperty("settingsCategoryTransitionActive", false);
+    setProperty("settingsAdaptiveTabWidths", true);
 
     categorySizeAnimation = new QPropertyAnimation(this, "settingsAnimatedSize", this);
     categorySizeAnimation->setObjectName(QStringLiteral("settingsCategorySizeAnimation"));
     categorySizeAnimation->setDuration(SettingsCategoryTransitionDuration);
     categorySizeAnimation->setEasingCurve(QEasingCurve::InOutCubic);
     connect(categorySizeAnimation, &QPropertyAnimation::finished, this, [this]() {
-        setFixedSize(settingsDialogWidth, categoryTargetHeight);
+        if (categoryTargetWidth > 0 && categoryTargetHeight > 0)
+            setFixedSize(categoryTargetWidth, categoryTargetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     });
 
@@ -810,6 +812,8 @@ void QVOptionsDialog::updateNaturalPageSizes()
     ui->stackedWidget->setCurrentIndex(1);
     table->ensurePolished();
     table->setWordWrap(false);
+    table->setMinimumWidth(0);
+    table->setMaximumWidth(QWIDGETSIZE_MAX);
     auto *header = table->horizontalHeader();
     header->setStretchLastSection(false);
     // QHeaderView::ResizeToContents can defer its first resize until a hidden
@@ -817,9 +821,12 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // legacy .ui section geometry. Query the header and delegate size hints
     // synchronously and freeze them for the initial page measurement.
     header->setSectionResizeMode(QHeaderView::Fixed);
-    for (int column = 0; column < table->columnCount(); ++column)
-        header->resizeSection(
-                    column, naturalTableColumnWidth(table, column));
+    const int actionColumnWidth = naturalTableColumnWidth(table, 0);
+    const int shortcutsColumnWidth = naturalTableColumnWidth(table, 1);
+    const int equalShortcutColumnWidth = qMax(actionColumnWidth,
+                                               shortcutsColumnWidth);
+    header->resizeSection(0, equalShortcutColumnWidth);
+    header->resizeSection(1, equalShortcutColumnWidth);
     table->resizeRowsToContents();
     table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     table->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -836,7 +843,9 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // Account for its style-provided width and the frame directly. Resizing a
     // hidden table to infer this value is not reliable because its parent
     // layout still owns the table geometry until first presentation.
-    const int headerWidth = table->horizontalHeader()->length();
+    // Both columns share one natural width. The even total keeps the two
+    // Stretch sections exactly equal after Qt distributes the viewport.
+    const int headerWidth = 2 * equalShortcutColumnWidth;
     const int tableChromeWidth = 2 * table->frameWidth()
             + (table->rowCount() > visibleRows
                ? table->verticalScrollBar()->sizeHint().width() : 0);
@@ -848,28 +857,41 @@ void QVOptionsDialog::updateNaturalPageSizes()
             + 2 * ui->generalScrollArea->frameWidth();
     const int mouseNaturalWidth = mouseNaturalSize.width()
             + 2 * ui->mouseScrollArea->frameWidth();
-    int pageWidth = qMax(generalNaturalWidth,
-                         qMax(mouseNaturalWidth, shortcutsNaturalWidth));
+    settingsTabWidths = {generalNaturalWidth, shortcutsNaturalWidth,
+                         mouseNaturalWidth};
 
-    ui->stackedWidget->setFixedWidth(pageWidth);
-    // The Action column is content-sized once, while Shortcuts owns all
-    // remaining table width. Keeping the latter in Stretch mode also means
-    // changing a shortcut's text cannot resize the table or its parent page.
-    header->setSectionResizeMode(0, QHeaderView::Fixed);
-    header->resizeSection(0, naturalTableColumnWidth(table, 0));
+    QVariantList tabWidths;
+    for (const int width : settingsTabWidths)
+        tabWidths.append(width);
+
+    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
+    const int selectedCategory = qBound(0, selectedPage,
+                                        settingsTabWidths.size() - 1);
+    const int selectedPageWidth = settingsTabWidths.value(selectedCategory);
+    ui->stackedWidget->setFixedWidth(selectedPageWidth);
+
+    // Both columns fill the Shortcuts page equally. The page width is derived
+    // from two equal natural widths above, so translated action names and
+    // shortcut values remain visible without horizontal scrolling.
+    header->setSectionResizeMode(0, QHeaderView::Stretch);
     header->setSectionResizeMode(1, QHeaderView::Stretch);
-    header->setStretchLastSection(true);
+    header->setStretchLastSection(false);
     setMinimumSize(0, 0);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
-    settingsDialogWidth = qMax(1, pageWidth
+    settingsDialogWidth = qMax(1, selectedPageWidth
                                + dialogMargins.left() + dialogMargins.right());
     setProperty("settingsFixedWidth", settingsDialogWidth);
-    setProperty("settingsNaturalPageWidth", pageWidth);
+    setProperty("settingsNaturalPageWidth", selectedPageWidth);
+    setProperty("settingsTabWidths", tabWidths);
+    setProperty("settingsTabWidth", selectedPageWidth);
     setProperty("settingsGeneralNaturalWidth", generalNaturalWidth);
     setProperty("settingsMouseNaturalWidth", mouseNaturalWidth);
     setProperty("settingsShortcutsNaturalWidth", shortcutsNaturalWidth);
     setProperty("settingsShortcutHeaderWidth", headerWidth);
+    setProperty("settingsShortcutColumnWidth", equalShortcutColumnWidth);
+    setProperty("settingsMaximumNaturalPageWidth",
+                qMax(generalNaturalWidth,
+                     qMax(mouseNaturalWidth, shortcutsNaturalWidth)));
     ui->stackedWidget->setCurrentIndex(selectedPage);
     // Exact content dimensions above make scrolling unnecessary. Keeping the
     // bars off also avoids a transient overlay flash while Cocoa swaps panes.
@@ -885,9 +907,15 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     if (!ui || !ui->stackedWidget || !pageMetricsReady)
         return;
 
+    if (categoryIndex < 0 || categoryIndex >= settingsTabWidths.size())
+        return;
+
     QWidget *page = ui->stackedWidget->widget(categoryIndex);
     if (!page)
         return;
+
+    const int pageWidth = qMax(1, settingsTabWidths.at(categoryIndex));
+    ui->stackedWidget->setFixedWidth(pageWidth);
 
     int pageHeight = 0;
     if (categoryIndex == 0)
@@ -917,33 +945,41 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
         pageHeight = content->minimumHeight() + 2 * scrollArea->frameWidth();
     }
 
+    const int currentWidth = width();
     const int currentHeight = height();
     pageHeight = qMax(1, pageHeight);
     ui->stackedWidget->setFixedHeight(pageHeight);
     const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
+    const int targetWidth = qMax(1, pageWidth
+                                  + dialogMargins.left() + dialogMargins.right());
     const int targetHeight = qMax(1, pageHeight
                                   + dialogMargins.top() + dialogMargins.bottom());
+    categoryTargetWidth = targetWidth;
     categoryTargetHeight = targetHeight;
+    settingsDialogWidth = targetWidth;
 
     const bool shouldAnimate = isVisible()
-        && currentHeight != targetHeight
+        && (currentWidth != targetWidth || currentHeight != targetHeight)
         && categorySizeAnimation;
     if (shouldAnimate)
     {
         categorySizeAnimation->stop();
         setProperty("settingsCategoryTransitionActive", true);
-        categorySizeAnimation->setStartValue(QSize(settingsDialogWidth, currentHeight));
-        categorySizeAnimation->setEndValue(QSize(settingsDialogWidth, targetHeight));
+        categorySizeAnimation->setStartValue(QSize(currentWidth, currentHeight));
+        categorySizeAnimation->setEndValue(QSize(targetWidth, targetHeight));
         categorySizeAnimation->start();
     }
     else
     {
         if (categorySizeAnimation)
             categorySizeAnimation->stop();
-        setFixedSize(settingsDialogWidth, targetHeight);
+        setFixedSize(targetWidth, targetHeight);
         setProperty("settingsCategoryTransitionActive", false);
     }
     setProperty("settingsCategoryIndex", categoryIndex);
+    setProperty("settingsTabWidth", pageWidth);
+    setProperty("settingsFixedWidth", targetWidth);
+    setProperty("settingsCategoryTargetWidth", targetWidth);
     setProperty("settingsCategoryContentHeight", pageHeight);
 }
 
@@ -954,15 +990,15 @@ QSize QVOptionsDialog::settingsAnimatedSize() const
 
 void QVOptionsDialog::setSettingsAnimatedSize(const QSize &size)
 {
-    setFixedSize(settingsDialogWidth, qMax(1, size.height()));
+    setFixedSize(qMax(1, size.width()), qMax(1, size.height()));
 }
 
 void QVOptionsDialog::finishCategoryTransition()
 {
     if (categorySizeAnimation)
         categorySizeAnimation->stop();
-    if (categoryTargetHeight > 0)
-        setFixedSize(settingsDialogWidth, categoryTargetHeight);
+    if (categoryTargetWidth > 0 && categoryTargetHeight > 0)
+        setFixedSize(categoryTargetWidth, categoryTargetHeight);
     setProperty("settingsCategoryTransitionActive", false);
 }
 

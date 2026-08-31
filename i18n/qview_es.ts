@@ -709,8 +709,8 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>Color del fondo:</translation>
     </message>
     <message>
-        <source>Use checkerboard background after opening image</source>
-        <translation>Usar fondo de tablero de ajedrez después de abrir la imagen</translation>
+        <source>Use checkerboard background</source>
+        <translation>Usar fondo de tablero de ajedrez</translation>
     </message>
     <message>
         <source>Changes the amount of information displayed in the titlebar</source>

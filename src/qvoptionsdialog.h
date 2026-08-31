@@ -8,6 +8,7 @@
 #include <QComboBox>
 #include <QSize>
 #include <QSpinBox>
+#include <QVector>
 
 namespace Ui {
 class QVOptionsDialog;
@@ -91,7 +92,13 @@ private:
     bool pageMetricsReady {false};
 
     QPropertyAnimation *categorySizeAnimation {nullptr};
+
+    QVector<int> settingsTabWidths;
+
     int settingsDialogWidth {0};
+
+    int categoryTargetWidth {0};
+
     int categoryTargetHeight {0};
 };
 

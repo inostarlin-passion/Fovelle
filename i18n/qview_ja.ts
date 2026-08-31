@@ -709,8 +709,8 @@ No write permission or file is read-only.</source>
         <translation>背景色:</translation>
     </message>
     <message>
-        <source>Use checkerboard background after opening image</source>
-        <translation>画像を開いた後にチェック柄の背景を使用</translation>
+        <source>Use checkerboard background</source>
+        <translation>チェック柄の背景を使用</translation>
     </message>
     <message>
         <source>Changes the amount of information displayed in the titlebar</source>

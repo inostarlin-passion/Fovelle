@@ -2894,7 +2894,7 @@ void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
     QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton0"));
     QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton1"));
     QVERIFY(!dialog.findChild<QWidget *>("preloadingComboBox"));
-    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::PreloadMode>("preloadingmode"),
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::PreloadMode>("preloadingmode", true),
              Qv::PreloadMode::Adjacent);
 }
 
@@ -3029,7 +3029,7 @@ void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
     QVERIFY(reuseWindow);
     QVERIFY(afterDeleteLabel);
     QVERIFY(afterDelete);
-    QCOMPARE(checkerboard->text(), QStringLiteral("Use checkerboard background after opening image"));
+    QCOMPARE(checkerboard->text(), QStringLiteral("Use checkerboard background"));
     QCOMPARE(reuseWindow->text(), QStringLiteral("Open images in the same window"));
     QCOMPARE(afterDeleteLabel->text(), QStringLiteral("After deleting files:"));
     const int noActionIndex = afterDelete->findData(static_cast<int>(Qv::AfterDelete::DoNothing));
@@ -6897,17 +6897,17 @@ void ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()
     QVERIFY(!displayed.contains(QStringLiteral("Open")));
 }
 
-// AC-SHORTCUT-COLUMN-WIDTH
-// Test purpose: verify that the Shortcuts column consumes all remaining table
-// width after the Action column has been sized.
+// AC-SETTINGS-SHORTCUT-COLUMNS
+// Test purpose: verify that the Action and Shortcuts columns use the same
+// adaptive width and fill the Shortcuts page without horizontal overflow.
 // Preconditions: a visible Cocoa QVOptionsDialog has a populated Shortcuts
 // table and its initial page metrics have been prepared.
 // Input data: the two table columns and the current table viewport geometry.
 // Steps: select Shortcuts and inspect header modes, section lengths, and
 // horizontal scrolling.
-// Expected result: the last column is stretched, the header exactly covers the
-// viewport, both sections fit without a horizontal scrollbar, and the
-// Shortcuts section has positive remaining width.
+// Expected result: both sections are stretched equally, the header exactly
+// covers the viewport, both sections fit without a horizontal scrollbar, and
+// the two column widths are identical and positive.
 // Postcondition: the dialog is closed without changing settings.
 void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
 {
@@ -6926,12 +6926,13 @@ void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
     QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
 
     auto *header = table->horizontalHeader();
-    QVERIFY(header->stretchLastSection());
-    QCOMPARE(header->sectionResizeMode(0), QHeaderView::Fixed);
+    QVERIFY(!header->stretchLastSection());
+    QCOMPARE(header->sectionResizeMode(0), QHeaderView::Stretch);
     QCOMPARE(header->sectionResizeMode(1), QHeaderView::Stretch);
     QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(header->length(), table->viewport()->width());
     QCOMPARE(header->sectionSize(0) + header->sectionSize(1), header->length());
+    QCOMPARE(header->sectionSize(0), header->sectionSize(1));
     QVERIFY(header->sectionSize(1) > 0);
 
     dialog.close();
@@ -7198,16 +7199,17 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
 }
 
 // TC-SETTINGS-CONTENT-GEOMETRY
-// Test purpose: verify the shared content-derived Settings width and per-tab
-// minimum heights, including the 16-row Shortcuts viewport.
+// Test purpose: verify that each Settings tab gets its own content-derived
+// width and minimum height, including the 16-row Shortcuts viewport.
 // Preconditions: the production QVOptionsDialog and its populated shortcut
 // table are available.
 // Input data: category indexes 0 (General), 1 (Shortcuts), and 2 (Mouse).
 // Steps: show the dialog, switch through all categories, and inspect window
 // constraints, scroll ranges, natural content sizes, and the last visible row.
-// Expected result: every tab has the same minimum no-horizontal-scroll width;
-// General and Mouse have exact no-vertical-scroll heights; Shortcuts shows
-// exactly 16 complete data rows and row 16 is Random File.
+// Expected result: each tab uses its recorded natural width, all pages avoid
+// horizontal scrolling, General and Mouse have exact no-vertical-scroll
+// heights, and Shortcuts shows exactly 16 complete data rows with row 16 as
+// Random File.
 // Postcondition: the dialog is closed and no settings are modified.
 void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 {
@@ -7225,40 +7227,47 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QVERIFY(mouseScrollArea);
     QVERIFY(table);
     QVERIFY(stack);
+    tabs->setCurrentIndex(0);
     dialog.prepareForDisplay();
-    const int fixedWidth = dialog.property("settingsFixedWidth").toInt();
-    const int naturalPageWidth = dialog.property("settingsNaturalPageWidth").toInt();
-    QVERIFY(fixedWidth > 0);
-    QVERIFY(naturalPageWidth > 0);
-    QCOMPARE(dialog.minimumWidth(), fixedWidth);
-    QCOMPARE(dialog.maximumWidth(), fixedWidth);
-    QCOMPARE(stack->width(), naturalPageWidth);
-    QCOMPARE(naturalPageWidth,
-             qMax(dialog.property("settingsGeneralNaturalWidth").toInt(),
-                  qMax(dialog.property("settingsMouseNaturalWidth").toInt(),
-                       dialog.property("settingsShortcutsNaturalWidth").toInt())));
+    QVERIFY(dialog.property("settingsAdaptiveTabWidths").toBool());
+    QVariantList tabWidths = dialog.property("settingsTabWidths").toList();
+    QCOMPARE(tabWidths.size(), tabs->count());
+    for (const QVariant &width : tabWidths)
+        QVERIFY(width.toInt() > 0);
+    const QMargins dialogMargins = dialog.layout()->contentsMargins();
     QVERIFY(!dialog.isSizeGripEnabled());
     QCOMPARE(table->rowCount() >= 16, true);
     QCOMPARE(table->item(15, 0)->text(), QStringLiteral("Random File"));
 
-            dialog.show();
-            QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
-            tabs->setCurrentIndex(0);
+    dialog.show();
+    QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+    QTest::qWait(50);
+    tabs->setCurrentIndex(0);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    QCOMPARE(dialog.width(), fixedWidth);
+    tabWidths = dialog.property("settingsTabWidths").toList();
+    QCOMPARE(tabWidths.size(), tabs->count());
+    const auto dialogWidthForTab = [&](const int index) {
+        return tabWidths.at(index).toInt()
+            + dialogMargins.left() + dialogMargins.right();
+    };
+    QCOMPARE(dialog.width(), dialogWidthForTab(0));
+    QCOMPARE(dialog.minimumWidth(), dialog.width());
+    QCOMPARE(dialog.maximumWidth(), dialog.width());
+    QCOMPARE(stack->width(), tabWidths.at(0).toInt());
     QCOMPARE(generalScrollArea->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(generalScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
     QCOMPARE(generalScrollArea->widget()->minimumHeight(),
              generalScrollArea->viewport()->height());
-    if (dialog.property("settingsGeneralNaturalWidth").toInt() == naturalPageWidth)
-        QCOMPARE(generalScrollArea->widget()->minimumWidth(),
-                 generalScrollArea->viewport()->width());
+    QCOMPARE(generalScrollArea->widget()->minimumWidth(),
+             generalScrollArea->viewport()->width());
     const int generalHeight = dialog.height();
     QVERIFY(generalHeight > 0);
 
     tabs->setCurrentIndex(1);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    QCOMPARE(dialog.width(), dialogWidthForTab(1));
+    QCOMPARE(stack->width(), tabWidths.at(1).toInt());
     int visibleRowsHeight = 0;
     for (int row = 0; row < 16; ++row)
         visibleRowsHeight += table->rowHeight(row);
@@ -7267,8 +7276,9 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QCOMPARE(table->height(), expectedTableHeight);
     QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(table->viewport()->height(), visibleRowsHeight);
-    if (dialog.property("settingsShortcutsNaturalWidth").toInt() == naturalPageWidth)
-        QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
+    QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
+    QCOMPARE(table->horizontalHeader()->sectionSize(0),
+             table->horizontalHeader()->sectionSize(1));
     QVERIFY(table->visualItemRect(table->item(15, 0)).bottom()
             <= table->viewport()->rect().bottom());
     if (table->rowCount() > 16)
@@ -7279,15 +7289,15 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 
     tabs->setCurrentIndex(2);
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
-    QCOMPARE(dialog.width(), fixedWidth);
+    QCOMPARE(dialog.width(), dialogWidthForTab(2));
+    QCOMPARE(stack->width(), tabWidths.at(2).toInt());
     QCOMPARE(mouseScrollArea->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(mouseScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
     QCOMPARE(mouseScrollArea->widget()->minimumHeight(),
              mouseScrollArea->viewport()->height());
-    if (dialog.property("settingsMouseNaturalWidth").toInt() == naturalPageWidth)
-        QCOMPARE(mouseScrollArea->widget()->minimumWidth(),
-                 mouseScrollArea->viewport()->width());
+    QCOMPARE(mouseScrollArea->widget()->minimumWidth(),
+             mouseScrollArea->viewport()->width());
     QVERIFY(dialog.height() > 0);
     QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
 
@@ -7508,18 +7518,29 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
 
             dialog.show();
             QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
+            QTest::qWait(50);
             QList<QSize> categorySizes;
+            const QMargins dialogMargins = dialog.layout()->contentsMargins();
+            const QVariantList tabWidths = dialog.property("settingsTabWidths").toList();
+            QCOMPARE(tabWidths.size(), tabs->count());
             for (int category = 0; category < tabs->count(); ++category)
             {
                 tabs->setCurrentIndex(category);
                 QTRY_VERIFY_WITH_TIMEOUT(
                     !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
                 categorySizes.append(dialog.size());
-                QCOMPARE(dialog.width(), dialog.property("settingsFixedWidth").toInt());
+                QCOMPARE(dialog.width(), tabWidths.at(category).toInt()
+                         + dialogMargins.left() + dialogMargins.right());
+                QCOMPARE(dialog.findChild<QStackedWidget *>(QStringLiteral("stackedWidget"))->width(),
+                         tabWidths.at(category).toInt());
             }
 
-            QCOMPARE(categorySizes.at(0).width(), categorySizes.at(1).width());
-            QCOMPARE(categorySizes.at(1).width(), categorySizes.at(2).width());
+            QCOMPARE(categorySizes.at(0).width(),
+                     tabWidths.at(0).toInt() + dialogMargins.left() + dialogMargins.right());
+            QCOMPARE(categorySizes.at(1).width(),
+                     tabWidths.at(1).toInt() + dialogMargins.left() + dialogMargins.right());
+            QCOMPARE(categorySizes.at(2).width(),
+                     tabWidths.at(2).toInt() + dialogMargins.left() + dialogMargins.right());
             tabs->setCurrentIndex(0);
             QTRY_VERIFY_WITH_TIMEOUT(
                 !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
@@ -8195,6 +8216,13 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             tabs->setCurrentIndex(1);
             QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
             QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
+            QVERIFY(!table->horizontalHeader()->stretchLastSection());
+            QCOMPARE(table->horizontalHeader()->sectionResizeMode(0),
+                     QHeaderView::Stretch);
+            QCOMPARE(table->horizontalHeader()->sectionResizeMode(1),
+                     QHeaderView::Stretch);
+            QCOMPARE(table->horizontalHeader()->sectionSize(0),
+                     table->horizontalHeader()->sectionSize(1));
             for (int row = 0; row < table->rowCount(); ++row)
             {
                 for (int column = 0; column < table->columnCount(); ++column)

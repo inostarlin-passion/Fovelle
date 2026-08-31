@@ -75,12 +75,12 @@ def make_case(
 CASES = (
     make_case(
         "SET-LABEL-CHECKERBOARD",
-        "通用 Tab 将加载图片时显示棋盘格重命名为打开图片后使用棋盘格背景。",
+        "General Tab 将棋盘格背景选项重命名为使用棋盘格背景。",
         "验证棋盘格复选框在实际设置对话框中使用新的英文源文案。",
         "QVApplication 已初始化，设置对话框可构造。",
         "英文语言和 checkerboardBackgroundCheckbox。",
         "构造 QVOptionsDialog，读取复选框文本并与新文案比较。",
-        "文本精确等于 Use checkerboard background after opening image。",
+        "文本精确等于 Use checkerboard background。",
         "销毁对话框并恢复临时语言设置。",
         "unit",
         "tests/tst_qviewtests.cpp::FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions",
@@ -221,25 +221,25 @@ CASES = (
 
 TRANSLATIONS = {
     "qview_es.ts": {
-        "Use checkerboard background after opening image": "Usar fondo de tablero de ajedrez después de abrir la imagen",
+        "Use checkerboard background": "Usar fondo de tablero de ajedrez",
         "Open images in the same window": "Abrir imágenes en la misma ventana",
         "After deleting files:": "Después de borrar archivos:",
         "No Action": "Sin acción",
     },
     "qview_ja.ts": {
-        "Use checkerboard background after opening image": "画像を開いた後にチェック柄の背景を使用",
+        "Use checkerboard background": "チェック柄の背景を使用",
         "Open images in the same window": "画像を同じウィンドウで開く",
         "After deleting files:": "ファイル削除後の動作:",
         "No Action": "アクションなし",
     },
     "qview_zh_Hans.ts": {
-        "Use checkerboard background after opening image": "打开图片后使用棋盘格背景",
+        "Use checkerboard background": "使用棋盘格背景",
         "Open images in the same window": "使用同一窗口打开图片",
         "After deleting files:": "删除文件后:",
         "No Action": "无动作",
     },
     "qview_zh_Hant.ts": {
-        "Use checkerboard background after opening image": "開啟影像後使用棋盤格背景",
+        "Use checkerboard background": "使用棋盤格背景",
         "Open images in the same window": "使用同一視窗開啟影像",
         "After deleting files:": "刪除檔案後:",
         "No Action": "無動作",
@@ -477,7 +477,7 @@ def static_stage(repo: Path) -> dict[str, Any]:
     ))
 
     required_source_markers = {
-        "checkerboard": "Use checkerboard background after opening image" in ui,
+        "checkerboard": "Use checkerboard background" in ui,
         "same_window": "Open images in the same window" in ui,
         "after_delete": "After deleting files:" in ui,
         "no_action": 'tr("No Action")' in options_cpp,
