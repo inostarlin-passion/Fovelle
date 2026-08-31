@@ -41,7 +41,7 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
             }
 
             refreshDesiredImages(!debouncePreloading);
-            if (debouncePreloading && preloadingMode != Qv::PreloadMode::Disabled)
+            if (debouncePreloading)
                 preloadDebounceTimer.start();
         });
 
@@ -383,14 +383,14 @@ QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool incl
     QList<QVImageLoader::DesiredImage> desiredImages {{absoluteTargetPath, 0}};
 
     const auto &fileList = currentFileDetails.folderFileInfoList;
-    if (!includePreloads || fileList.isEmpty() || preloadingMode == Qv::PreloadMode::Disabled)
+    if (!includePreloads || fileList.isEmpty())
         return desiredImages;
 
     const int loadedIndex = currentFileDetails.loadedIndexInFolder;
     if (loadedIndex == -1)
         return desiredImages;
 
-    const int preloadDistance = preloadingMode == Qv::PreloadMode::Extended ? 3 : 1;
+    const int preloadDistance = Qv::AdjacentPreloadDistance;
     const bool loopFolders = fileEnumerator.getIsLoopFoldersEnabled();
     for (int distance = 1; distance <= preloadDistance; ++distance)
     {
@@ -416,15 +416,13 @@ void QVImageCore::refreshDesiredImages(const bool includePreloads)
 
     if (loadInProgress)
     {
-        // A disabled setting should purge the old cache without cancelling the
-        // foreground load. Enabled modes are reconciled once that load finishes.
-        if (preloadingMode == Qv::PreloadMode::Disabled)
-            imageLoader.setDesiredImages({});
+        // Reconcile the fixed adjacent policy after the foreground load
+        // finishes; do not disturb the in-flight foreground request.
         return;
     }
 
     const QString targetFilePath = currentFileDetails.fileInfo.absoluteFilePath();
-    if (targetFilePath.isEmpty() || preloadingMode == Qv::PreloadMode::Disabled)
+    if (targetFilePath.isEmpty())
     {
         imageLoader.setDesiredImages({});
         return;
@@ -543,9 +541,6 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
 void QVImageCore::settingsUpdated()
 {
     auto &settingsManager = qvApp->getSettingsManager();
-
-    //preloading mode
-    preloadingMode = settingsManager.getEnum<Qv::PreloadMode>("preloadingmode");
 
     //update folder info to reflect new settings (e.g. sort order)
     fileEnumerator.loadSettings(false);

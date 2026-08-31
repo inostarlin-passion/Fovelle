@@ -36,6 +36,8 @@ EXPECTED_CASES = (
     ("TC-FMT-SETTINGS", "FeatureTests", "testSettingsFormatsIncludeNativeImageFormats"),
     ("TC-IMG-SMALL-SETTING", "FeatureTests", "testSmallImageOneToOneSettingIsExposedInImageOptions"),
     ("TC-SETTINGS-GROUPS-DEFAULTS", "FeatureTests", "testSettingsGeneralGroupsAndDefaults"),
+    ("TC-PRELOAD-FORCED-ADJACENT-DISABLED", "FeatureTests", "testPreloadingIgnoresDisabledUserSetting"),
+    ("TC-PRELOAD-FORCED-ADJACENT-EXTENDED", "FeatureTests", "testPreloadingIgnoresExtendedUserSetting"),
     ("TC-ISSUE-864-OPENWITH-TEARDOWN", "FeatureTests", "testOpenWithWorkerTeardownContract"),
     ("TC-APP-VERSION", "FeatureTests", "testApplicationVersionIsCurrent"),
     ("TC-ZOOM-MOUSE", "GraphicsViewTests", "testMouseWheelUsesOneDiscreteStep"),

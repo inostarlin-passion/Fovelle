@@ -144,8 +144,10 @@ int main(int argc, char *argv[])
                         if (table)
                         {
                             auto *header = table->horizontalHeader();
-                            columnsEqual = header->sectionSize(0)
-                                == header->sectionSize(1)
+                            // Stretch sections are integer pixels; an odd
+                            // viewport can therefore differ by one pixel.
+                            columnsEqual = qAbs(header->sectionSize(0)
+                                                - header->sectionSize(1)) <= 1
                                 && header->sectionSize(0) > 0;
                         }
                         checkerboardRenamed = checkerboard

@@ -131,6 +131,8 @@ private slots:
     void testSettingsFormatsIncludeNativeImageFormats();
     void testSettingsFormatsPaneIsRemoved();
     void testSettingsGeneralLanguageAndRemovedOptions();
+    void testPreloadingIgnoresDisabledUserSetting();
+    void testPreloadingIgnoresExtendedUserSetting();
     void testSettingsMouseCursorPanelIsRemoved();
     void testSettingsLanguageCatalogIsFixed();
     void testSettingsLanguageDefaultsToSystem();
@@ -2878,7 +2880,7 @@ void FeatureTests::testSettingsFormatsPaneIsRemoved()
 // object names.
 // Expected result: the first category is General; Language is present; the
 // sorting, ascending/descending, and preloading controls are absent; the
-// preloading default remains Adjacent in SettingsManager.
+// compatibility default remains the fixed Adjacent distance.
 // Postcondition: the dialog is destroyed without changing user settings.
 void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
 {
@@ -2894,8 +2896,170 @@ void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
     QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton0"));
     QVERIFY(!dialog.findChild<QWidget *>("descendingRadioButton1"));
     QVERIFY(!dialog.findChild<QWidget *>("preloadingComboBox"));
-    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::PreloadMode>("preloadingmode", true),
-             Qv::PreloadMode::Adjacent);
+    QCOMPARE(qvApp->getSettingsManager().getInteger("preloadingmode", true),
+             Qv::AdjacentPreloadDistance);
+}
+
+// AC-PRELOAD-FORCED-ADJACENT
+// Test purpose: verify that a persisted Disabled value cannot turn off the
+// fixed adjacent preloading policy.
+// Preconditions: a Cocoa MainWindow, QVImageLoader, and a writable temporary
+// folder are available.
+// Input data: a four-image folder and options/preloadingmode=0.
+// Steps: open the first image, observe loader priorities, and wait for the
+// neighboring image request.
+// Expected result: the foreground image has priority 0 and the immediate
+// neighbor is requested at priority 1 despite the persisted Disabled value.
+// Postcondition: the window closes and the original setting is restored.
+void FeatureTests::testPreloadingIgnoresDisabledUserSetting()
+{
+    ScopedOptionValues options({
+        {"preloadingmode", 0},
+        {"loopfoldersenabled", false}
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString currentPath = createTestImage(directory, "01-current", Qt::red);
+    const QString adjacentPath = createTestImage(directory, "02-adjacent", Qt::green);
+    const QString distantPath = createTestImage(directory, "03-distant", Qt::blue);
+    const QString lastPath = createTestImage(directory, "04-last", Qt::yellow);
+    QVERIFY(!currentPath.isEmpty());
+    QVERIFY(!adjacentPath.isEmpty());
+    QVERIFY(!distantPath.isEmpty());
+    QVERIFY(!lastPath.isEmpty());
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    auto *loader = view->findChild<QVImageLoader *>();
+    QVERIFY(loader);
+    QSignalSpy startedSpy(loader, &QVImageLoader::loadStarted);
+    QVERIFY(startedSpy.isValid());
+
+    window.openFile(currentPath);
+    QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            QFileInfo(currentPath).absoluteFilePath(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT([&]() {
+        for (const auto &record : startedSpy)
+        {
+            if (record.at(0).toString() == QFileInfo(adjacentPath).absoluteFilePath()
+                && record.at(1).toInt() == 1)
+                return true;
+        }
+        return false;
+    }(), 5000);
+
+    bool sawForeground = false;
+    bool sawAdjacent = false;
+    for (const auto &record : startedSpy)
+    {
+        const QString path = record.at(0).toString();
+        const int priority = record.at(1).toInt();
+        sawForeground = sawForeground || (path == QFileInfo(currentPath).absoluteFilePath()
+                                          && priority == 0);
+        sawAdjacent = sawAdjacent || (path == QFileInfo(adjacentPath).absoluteFilePath()
+                                      && priority == 1);
+        QVERIFY(priority <= 1);
+        QVERIFY(path != QFileInfo(distantPath).absoluteFilePath());
+        QVERIFY(path != QFileInfo(lastPath).absoluteFilePath());
+    }
+    QVERIFY(sawForeground);
+    QVERIFY(sawAdjacent);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-PRELOAD-FORCED-ADJACENT-BOUND
+// Test purpose: verify that a persisted Extended value cannot expand the fixed
+// policy beyond the two immediate neighbors.
+// Preconditions: a Cocoa MainWindow, QVImageLoader, and a writable temporary
+// folder are available.
+// Input data: a four-image folder and options/preloadingmode=2.
+// Steps: open the second image, observe all loader requests after the
+// foreground load, and classify their priorities and paths.
+// Expected result: both immediate neighbors are requested at priority 1; no
+// distance-2 image is requested and no priority above 1 is emitted.
+// Postcondition: the window closes and the original setting is restored.
+void FeatureTests::testPreloadingIgnoresExtendedUserSetting()
+{
+    ScopedOptionValues options({
+        {"preloadingmode", 2},
+        {"loopfoldersenabled", false}
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString firstPath = createTestImage(directory, "01-first", Qt::red);
+    const QString currentPath = createTestImage(directory, "02-current", Qt::green);
+    const QString nextPath = createTestImage(directory, "03-next", Qt::blue);
+    const QString distantPath = createTestImage(directory, "04-distant", Qt::yellow);
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!currentPath.isEmpty());
+    QVERIFY(!nextPath.isEmpty());
+    QVERIFY(!distantPath.isEmpty());
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    auto *loader = view->findChild<QVImageLoader *>();
+    QVERIFY(loader);
+    QSignalSpy startedSpy(loader, &QVImageLoader::loadStarted);
+    QVERIFY(startedSpy.isValid());
+
+    window.openFile(currentPath);
+    QTRY_COMPARE_WITH_TIMEOUT(
+            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+            QFileInfo(currentPath).absoluteFilePath(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT([&]() {
+        bool sawFirst = false;
+        bool sawNext = false;
+        for (const auto &record : startedSpy)
+        {
+            sawFirst = sawFirst || record.at(0).toString()
+                    == QFileInfo(firstPath).absoluteFilePath();
+            sawNext = sawNext || record.at(0).toString()
+                    == QFileInfo(nextPath).absoluteFilePath();
+        }
+        return sawFirst && sawNext;
+    }(), 5000);
+
+    bool sawForeground = false;
+    bool sawFirst = false;
+    bool sawNext = false;
+    for (const auto &record : startedSpy)
+    {
+        const QString path = record.at(0).toString();
+        const int priority = record.at(1).toInt();
+        sawForeground = sawForeground || (path == QFileInfo(currentPath).absoluteFilePath()
+                                          && priority == 0);
+        sawFirst = sawFirst || (path == QFileInfo(firstPath).absoluteFilePath()
+                                && priority == 1);
+        sawNext = sawNext || (path == QFileInfo(nextPath).absoluteFilePath()
+                              && priority == 1);
+        QVERIFY(priority <= 1);
+        QVERIFY(path != QFileInfo(distantPath).absoluteFilePath());
+    }
+    QVERIFY(sawForeground);
+    QVERIFY(sawFirst);
+    QVERIFY(sawNext);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-SETTINGS-MOUSE-CURSOR-REMOVED
@@ -3055,14 +3219,15 @@ void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
 
 // TC-SETTINGS-MOUSE-MIGRATION
 // Test purpose: verify an existing profile cannot revive either removed Mouse
-// option after migration.
+// option or a removed preload mode after migration.
 // Preconditions: the application settings store is writable and firstlaunch
 // is marked as an initialized profile so only the normal migration runs.
-// Input data: legacy navigation=true and middle-button mode=Drag values.
+// Input data: legacy navigation=true, middle-button mode=Drag, and
+// preloadingmode=0 values.
 // Steps: save the legacy values, run migrateOldSettings(), reload the manager,
 // and inspect both persisted and in-memory values.
-// Expected result: both values are deterministically rewritten to false and
-// Click, respectively.
+// Expected result: all values are deterministically rewritten to false, Click,
+// and the fixed Adjacent distance, respectively.
 // Postcondition: the original profile values are restored.
 void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
 {
@@ -3071,7 +3236,8 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
     settings.setValue(QStringLiteral("firstlaunch"), true);
     ScopedOptionValues options({
         {QStringLiteral("navigationregionsenabled"), true},
-        {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Drag)}
+        {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Drag)},
+        {QStringLiteral("preloadingmode"), 0}
     });
 
     SettingsManager::migrateOldSettings();
@@ -3079,10 +3245,14 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
     QCOMPARE(settings.value(QStringLiteral("options/navigationregionsenabled")).toBool(), false);
     QCOMPARE(settings.value(QStringLiteral("options/viewportmiddlebuttonmode")).toInt(),
              static_cast<int>(Qv::ClickOrDrag::Click));
+    QCOMPARE(settings.value(QStringLiteral("options/preloadingmode")).toInt(),
+             Qv::AdjacentPreloadDistance);
     qvApp->getSettingsManager().loadSettings();
     QCOMPARE(qvApp->getSettingsManager().getBoolean(QStringLiteral("navigationregionsenabled")), false);
     QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::ClickOrDrag>(
                  QStringLiteral("viewportmiddlebuttonmode")), Qv::ClickOrDrag::Click);
+    QCOMPARE(qvApp->getSettingsManager().getInteger(QStringLiteral("preloadingmode")),
+             Qv::AdjacentPreloadDistance);
 }
 
 // TC-PREFERENCES-FORMATS-ASSOCIATE
@@ -5022,7 +5192,7 @@ void SDRSampleInteractionTests::testProvidedRasterStaysAuthoritativeDuringIntera
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"preloadingmode", Qv::AdjacentPreloadDistance},
         {"checkerboardbackground", false},
         {"onetoonepixelsizing", false}
     });
@@ -5107,7 +5277,7 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"preloadingmode", Qv::AdjacentPreloadDistance},
         {"checkerboardbackground", false},
         {"onetoonepixelsizing", false}
     });
@@ -5199,7 +5369,7 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
 // Preconditions: FOVELLE_SDR_SAMPLE_DIR names the supplied SDR corpus; the
 // optional FOVELLE_LARGE_SDR_SAMPLE names a readable large raster image.
 // Input data: every supplied raster sample, followed by the optional large
-// image, with preloading disabled so every open is a genuine cold decode.
+// image, with the fixed adjacent policy applied consistently to every open.
 // Steps: open one file, wait for its first settled viewport paint, zoom to 4x,
 // then dispatch and settle 48 two-axis pan samples.
 // Expected result: every supported sample loads and emits a single structured
@@ -5230,7 +5400,7 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"preloadingmode", Qv::AdjacentPreloadDistance},
         {"checkerboardbackground", false},
         {"onetoonepixelsizing", false}
     });
@@ -5394,7 +5564,7 @@ void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
 
     ScopedOptionValues options({
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Adjacent)}
+        {"preloadingmode", Qv::AdjacentPreloadDistance}
     });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -5448,7 +5618,7 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", static_cast<int>(Qv::PreloadMode::Disabled)},
+        {"preloadingmode", Qv::AdjacentPreloadDistance},
         {"checkerboardbackground", false},
         {"onetoonepixelsizing", false}
     });
@@ -6899,15 +7069,16 @@ void ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()
 
 // AC-SETTINGS-SHORTCUT-COLUMNS
 // Test purpose: verify that the Action and Shortcuts columns use the same
-// adaptive width and fill the Shortcuts page without horizontal overflow.
+// adaptive width (or differ by at most one integer pixel) and fill the
+// Shortcuts page without horizontal overflow.
 // Preconditions: a visible Cocoa QVOptionsDialog has a populated Shortcuts
 // table and its initial page metrics have been prepared.
 // Input data: the two table columns and the current table viewport geometry.
 // Steps: select Shortcuts and inspect header modes, section lengths, and
 // horizontal scrolling.
-// Expected result: both sections are stretched equally, the header exactly
-// covers the viewport, both sections fit without a horizontal scrollbar, and
-// the two column widths are identical and positive.
+// Expected result: both sections are stretched, the header exactly covers the
+// viewport, both sections fit without a horizontal scrollbar, and integer
+// rounding leaves no more than one pixel of difference between the columns.
 // Postcondition: the dialog is closed without changing settings.
 void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
 {
@@ -6932,7 +7103,7 @@ void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
     QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(header->length(), table->viewport()->width());
     QCOMPARE(header->sectionSize(0) + header->sectionSize(1), header->length());
-    QCOMPARE(header->sectionSize(0), header->sectionSize(1));
+    QVERIFY(qAbs(header->sectionSize(0) - header->sectionSize(1)) <= 1);
     QVERIFY(header->sectionSize(1) > 0);
 
     dialog.close();
@@ -7277,8 +7448,8 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(table->viewport()->height(), visibleRowsHeight);
     QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
-    QCOMPARE(table->horizontalHeader()->sectionSize(0),
-             table->horizontalHeader()->sectionSize(1));
+    QVERIFY(qAbs(table->horizontalHeader()->sectionSize(0)
+                 - table->horizontalHeader()->sectionSize(1)) <= 1);
     QVERIFY(table->visualItemRect(table->item(15, 0)).bottom()
             <= table->viewport()->rect().bottom());
     if (table->rowCount() > 16)
@@ -8221,8 +8392,8 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
                      QHeaderView::Stretch);
             QCOMPARE(table->horizontalHeader()->sectionResizeMode(1),
                      QHeaderView::Stretch);
-            QCOMPARE(table->horizontalHeader()->sectionSize(0),
-                     table->horizontalHeader()->sectionSize(1));
+            QVERIFY(qAbs(table->horizontalHeader()->sectionSize(0)
+                         - table->horizontalHeader()->sectionSize(1)) <= 1);
             for (int row = 0; row < table->rowCount(); ++row)
             {
                 for (int column = 0; column < table->columnCount(); ++column)

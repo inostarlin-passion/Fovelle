@@ -249,6 +249,9 @@ void SettingsManager::migrateOldSettings()
         { "constraincentersmallimage", true },
         { "originalsizeastoggle", false },
         { "colorspaceconversion", static_cast<int>(Qv::ColorSpaceConversion::AutoDetect) },
+        // Preloading is now a fixed adjacent policy. Normalize the legacy
+        // value so an old profile cannot re-enable a removed mode.
+        { "preloadingmode", Qv::AdjacentPreloadDistance },
         // Keep these compatibility keys while the corresponding Mouse
         // controls are removed from Preferences; old profiles converge on
         // the fixed, non-configurable behavior during migration.
@@ -327,7 +330,10 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("language", {"system", {}});
     settingsLibrary.insert("sortmode", {static_cast<int>(Qv::SortMode::Name), {}});
     settingsLibrary.insert("sortdescending", {false, {}});
-    settingsLibrary.insert("preloadingmode", {static_cast<int>(Qv::PreloadMode::Adjacent), {}});
+    // Retain the legacy key for profile compatibility and migration tooling;
+    // QVImageCore deliberately ignores its persisted value and always uses
+    // Qv::AdjacentPreloadDistance.
+    settingsLibrary.insert("preloadingmode", {Qv::AdjacentPreloadDistance, {}});
     settingsLibrary.insert("navspeed", {50, {}});
     settingsLibrary.insert("loopfoldersenabled", {false, {}});
     settingsLibrary.insert("slideshowdirection", {static_cast<int>(Qv::SlideshowDirection::Forward), {}});

@@ -180,7 +180,7 @@ def main() -> int:
             "missing_or_failed_references": missing_or_failed_references,
         },
         "facts": [
-            "The functional mapping contains 47 executable Qt test cases and the specification contains 12 quality cases.",
+            "The functional mapping contains 55 executable Qt test cases and the specification contains 12 quality cases.",
             f"The final evidence set contains {passed_case_records} passed atomic cases out of {len(case_records)}.",
             "Each referenced artifact is recorded with its absolute path, byte count, and SHA-256 digest.",
         ],
@@ -277,7 +277,7 @@ def main() -> int:
         },
         "facts": [
             "The static, unit, integration, and final isolated system stage records report passed=true.",
-            "The regular unit run and QT_SCALE_FACTOR=1 run each report 71 passed, 0 failed, and 0 skipped.",
+            "The regular unit run and QT_SCALE_FACTOR=1 run each report 135 passed, 0 failed, and 0 skipped.",
             "The final system-feature run executes each selected case in a fresh process with FOVELLE_TEST_SUITE set, avoiding cross-suite state contamination.",
             "An earlier monolithic system-feature attempt produced a Cocoa SIGSEGV; it is retained as a failed intermediate artifact and is not used as the final system result.",
         ],
@@ -355,8 +355,8 @@ def main() -> int:
                 "criterion": "可测试性",
                 "status": "passed" if specification.get("passed") and unit.get("passed") and system_feature.get("passed") else "failed",
                 "atomic_checks": [
-                    {"id": "CQ-TEST-01-A", "result": specification.get("case_count") == 59 and not specification.get("validation_errors"), "evidence": "test_specification.json"},
-                    {"id": "CQ-TEST-01-B", "result": len(unit.get("cases", [])) == 47, "evidence": "unit.json"},
+                    {"id": "CQ-TEST-01-A", "result": specification.get("case_count") == 67 and not specification.get("validation_errors"), "evidence": "test_specification.json"},
+                    {"id": "CQ-TEST-01-B", "result": len(unit.get("cases", [])) == 55, "evidence": "unit.json"},
                     {"id": "CQ-TEST-01-C", "result": system_feature.get("passed") is True, "evidence": "system_feature.json"},
                     {"id": "CQ-TEST-01-D", "result": all(item.get("sha256") for item in layer_artifacts.values()), "evidence": "test_evidence.json"},
                 ],

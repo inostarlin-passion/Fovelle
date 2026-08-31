@@ -22,6 +22,10 @@ namespace Qv
     inline constexpr qreal MinimumZoomLevel = 0.01;
     inline constexpr qreal MaximumZoomLevel = 64.0;
 
+    // Preloading is intentionally a fixed policy. Keep the adjacent distance
+    // as a scalar instead of exposing a user-selectable mode enum.
+    inline constexpr int AdjacentPreloadDistance = 1;
+
     inline constexpr QPoint CalculateViewportCenterPos(std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
     // Settings value enums
@@ -59,13 +63,6 @@ namespace Qv
         AutoDetect = 1,
         SRgb = 2,
         DisplayP3 = 3
-    };
-
-    enum class PreloadMode
-    {
-        Disabled = 0,
-        Adjacent = 1,
-        Extended = 2
     };
 
     enum class SlideshowDirection

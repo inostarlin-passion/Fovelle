@@ -108,7 +108,6 @@ private:
 
     FileDetails currentFileDetails;
 
-    Qv::PreloadMode preloadingMode {Qv::PreloadMode::Adjacent};
     Qv::ColorSpaceConversion colorSpaceConversion {Qv::ColorSpaceConversion::AutoDetect};
 
     int largestDimension {1920};

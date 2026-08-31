@@ -843,15 +843,23 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // Account for its style-provided width and the frame directly. Resizing a
     // hidden table to infer this value is not reliable because its parent
     // layout still owns the table geometry until first presentation.
-    // Both columns share one natural width. The even total keeps the two
-    // Stretch sections exactly equal after Qt distributes the viewport.
+    // Both columns share one natural width. An even total minimizes the
+    // remainder after Qt distributes the viewport between the two Stretch
+    // sections.
     const int headerWidth = 2 * equalShortcutColumnWidth;
     const int tableChromeWidth = 2 * table->frameWidth()
             + (table->rowCount() > visibleRows
                ? table->verticalScrollBar()->sizeHint().width() : 0);
     const QMargins shortcutMargins = ui->shortcutsLayout->contentsMargins();
-    const int shortcutsNaturalWidth = shortcutMargins.left() + headerWidth
+    const int measuredShortcutsWidth = shortcutMargins.left() + headerWidth
             + tableChromeWidth + shortcutMargins.right();
+    // QHeaderView distributes an odd viewport remainder between Stretch
+    // sections. Normalize the page width to minimize that remainder on Cocoa
+    // styles whose scrollbar metrics differ by one pixel between the hidden
+    // measurement pass and the visible table; the runtime contract accepts
+    // the resulting one-pixel integer rounding.
+    const int shortcutsNaturalWidth = measuredShortcutsWidth
+            + measuredShortcutsWidth % 2;
 
     const int generalNaturalWidth = generalNaturalSize.width()
             + 2 * ui->generalScrollArea->frameWidth();

@@ -327,7 +327,7 @@ CASES = [
         ["Debug 测试二进制已构建。"],
         {"suite": "FeatureTests", "test": "testSettingsGeneralLanguageAndRemovedOptions", "default": "Adjacent"},
         ["检查设置页面没有 Preloading 控件。", "读取默认 preload mode。"],
-        "Preloading 控件不存在，默认枚举值为 Adjacent。",
+        "Preloading 控件不存在，兼容默认值为固定 Adjacent 距离。",
         ["不删除兼容设置键。"],
     ),
     make_case(

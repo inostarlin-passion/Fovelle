@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
 
+      - name: Verify fixed adjacent preload policy
+        run: python3 tests/preload_policy_quality.py
+
       - name: Run tests
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
 

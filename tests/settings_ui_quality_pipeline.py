@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the four-stage acceptance matrix for the Settings UI change.
+"""Run the multi-stage acceptance matrix for the Settings/preload/CI change.
 
 The runner keeps the acceptance criteria and their executable evidence in one
 place.  It intentionally uses source/XML checks for static evidence, the
@@ -17,6 +17,8 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -24,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 
-STAGE_ORDER = ("static", "unit", "integration", "system")
+STAGE_ORDER = ("static", "unit", "shortcut", "integration", "system")
 CATALOGS = {
     "es": "qview_es.ts",
     "ja": "qview_ja.ts",
@@ -56,15 +58,15 @@ CASES = (
     },
     {
         "id": "AC-SETTINGS-SHORTCUT-COLUMNS",
-        "acceptance_criterion": "Shortcuts Tab 的 Action 与 Shortcuts 两列宽度相同，且表格不产生水平滚动。",
+        "acceptance_criterion": "Shortcuts Tab 的 Action 与 Shortcuts 两列在整数像素取整下等宽（差值不超过 1px），且表格不产生水平滚动。",
         "test_purpose": "验证两列使用同一个自然列宽，并在可视区域内等宽填充。",
         "preconditions": "设置页已显示；Shortcuts 表已填充快捷键数据。",
         "input_data": "QTableWidget 的两个横向 header section、viewport 宽度、header length 和水平滚动范围。",
         "steps": "切换到 Shortcuts；读取两列的 resize mode、section size、header length 和 horizontalScrollBar maximum。",
-        "expected_result": "两列均为 Stretch，stretchLastSection 为 false，两列 section size 完全相同且为正，header 覆盖 viewport，水平滚动最大值为 0。",
+        "expected_result": "两列均为 Stretch，stretchLastSection 为 false，两列 section size 为正且整数取整差不超过 1px，header 覆盖 viewport，水平滚动最大值为 0。",
         "postconditions": "关闭设置页；不修改快捷键持久化值。",
         "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth",
-        "evidence_stages": ("static", "unit", "integration", "system"),
+        "evidence_stages": ("static", "shortcut", "integration", "system"),
     },
     {
         "id": "AC-SETTINGS-CHECKERBOARD-SOURCE",
@@ -89,6 +91,78 @@ CASES = (
         "postconditions": "不写入用户设置；解析结果写入完成报告。",
         "test_code": "tests/settings_ui_quality_pipeline.py::static_stage + tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage",
         "evidence_stages": ("static", "integration"),
+    },
+    {
+        "id": "AC-CI-SHORTCUT-GEOMETRY",
+        "acceptance_criterion": "GitHub Actions 在 macOS 26、Qt 6.11.2 的 Cocoa 像素取整差异下不因两列相差一个整数像素而失败，同时保留 header 总宽度和无水平滚动不变量。",
+        "test_purpose": "复现远程 Checks 的 165/164 列宽失败并验证修复覆盖所有 Shortcuts 几何断言。",
+        "preconditions": "Cocoa QtTest 可运行；Shortcuts 表含两个 Stretch section；生产设置探针可启动。",
+        "input_data": "奇数可用 viewport、两个实际 sectionSize、header length、viewport width 和 horizontalScrollBar maximum。",
+        "steps": "运行快捷键专项、WindowBehavior 几何/多语言用例和生产 settings probe；记录 section 差值与总宽度。",
+        "expected_result": "两个 section 的实际整数宽度差不超过 1；两列之和精确等于 header length；水平滚动最大值为 0；Actions 检查不再因 165/164 失败。",
+        "postconditions": "关闭测试窗口和探针进程；不改变用户设置或远程 Actions 状态。",
+        "test_code": "tests/tst_qviewtests.cpp::ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth + tests/tst_qviewtests.cpp::WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights + tests/preload_policy_quality.py",
+        "evidence_stages": ("static", "shortcut", "integration", "system"),
+    },
+    {
+        "id": "AC-PRELOAD-DEFAULT-ADJACENT",
+        "acceptance_criterion": "预加载策略的默认距离为 Adjacent，即固定距离 1；源码不再声明 PreloadMode 枚举。",
+        "test_purpose": "验证默认值语义与类型层面的枚举移除，防止旧模式分支重新出现。",
+        "preconditions": "SettingsManager 与 QVApplication 已初始化；源码静态检查和 FeatureTests 可用。",
+        "input_data": "AdjacentPreloadDistance、兼容键 preloadingmode 的默认值、qvnamespace.h/qvimagecore.*。",
+        "steps": "执行 PRELOAD-STATIC-001..004；运行 FeatureTests::testSettingsGeneralLanguageAndRemovedOptions 读取默认值。",
+        "expected_result": "AdjacentPreloadDistance==1；兼容默认值为 1；QVImageCore 没有 PreloadMode/preloadingMode 或 getEnum 读取。",
+        "postconditions": "释放设置对话框；默认值检查不写入新的用户设置。",
+        "test_code": "tests/preload_policy_quality.py + tests/tst_qviewtests.cpp::FeatureTests::testSettingsGeneralLanguageAndRemovedOptions",
+        "evidence_stages": ("static", "unit"),
+    },
+    {
+        "id": "AC-PRELOAD-OVERRIDE-DISABLED",
+        "acceptance_criterion": "用户持久化值 0（旧 Disabled）不能关闭预加载；当前图和直接相邻图必须仍被请求。",
+        "test_purpose": "验证强制 Adjacent 策略覆盖最小/禁用旧设置。",
+        "preconditions": "macOS Cocoa 事件循环可用；QVImageLoader 的 loadStarted 信号可观测；临时目录可写。",
+        "input_data": "四张有序 PNG，preloadingmode=0，当前索引 0，期望 priority 0/1。",
+        "steps": "运行 testPreloadingIgnoresDisabledUserSetting；打开当前图；等待前景加载和邻图请求；枚举全部 loadStarted 记录。",
+        "expected_result": "当前图 priority=0；第二张图 priority=1；没有第三/第四张图请求；不存在 priority>1。",
+        "postconditions": "关闭窗口；ScopedOptionValues 恢复原设置；后台任务收敛。",
+        "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testPreloadingIgnoresDisabledUserSetting",
+        "evidence_stages": ("static", "unit"),
+    },
+    {
+        "id": "AC-PRELOAD-OVERRIDE-EXTENDED",
+        "acceptance_criterion": "用户持久化值 2（旧 Extended）不能扩大预加载范围；只允许直接相邻图。",
+        "test_purpose": "验证强制 Adjacent 策略覆盖扩展旧设置，并保持 priority 取值边界。",
+        "preconditions": "macOS Cocoa 事件循环可用；QVImageLoader 的 loadStarted 信号可观测；临时目录可写。",
+        "input_data": "四张有序 PNG，preloadingmode=2，当前索引 1，左右邻图和距离 2 图。",
+        "steps": "运行 testPreloadingIgnoresExtendedUserSetting；打开第二张图；等待两侧邻图；枚举全部 loadStarted 记录。",
+        "expected_result": "第一/第三张图均 priority=1；第四张距离 2 图不请求；不存在 priority>1。",
+        "postconditions": "关闭窗口；ScopedOptionValues 恢复原设置；后台任务收敛。",
+        "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testPreloadingIgnoresExtendedUserSetting",
+        "evidence_stages": ("static", "unit"),
+    },
+    {
+        "id": "AC-PRELOAD-MIGRATION",
+        "acceptance_criterion": "旧配置迁移后不能恢复任何预加载模式；legacy preloadingmode 必须归一化为 Adjacent。",
+        "test_purpose": "验证启动迁移和运行时覆盖两条边界均不会让旧配置复活。",
+        "preconditions": "firstlaunch 标记和 QSettings 可写；SettingsManager 迁移函数可调用。",
+        "input_data": "options/preloadingmode=0 与既有 Mouse 旧配置。",
+        "steps": "运行 testRemovedMouseSettingsMigrateToFixedDefaults；调用 migrateOldSettings；读取持久化值并重新加载 manager。",
+        "expected_result": "options/preloadingmode 和 manager getInteger 均为 AdjacentPreloadDistance；Mouse 旧值也按既有固定策略归一化。",
+        "postconditions": "ScopedSettingPreserver/ScopedOptionValues 恢复测试前的配置。",
+        "test_code": "tests/tst_qviewtests.cpp::FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults + src/settingsmanager.cpp",
+        "evidence_stages": ("static", "unit"),
+    },
+    {
+        "id": "AC-QUALITY-TRACEABILITY",
+        "acceptance_criterion": "每条原子验收标准都有包含六个必备字段的可执行测试说明，并由静态、动态和报告阶段闭环验证。",
+        "test_purpose": "检查验收标准、测试代码、执行证据和报告字段一一对应。",
+        "preconditions": "Python 3、仓库源码、Cocoa 构建产物和报告目录可用。",
+        "input_data": "tests/preload_policy_quality.py、tests/quality_specification.py、两份 Markdown 报告及 CTest 输出。",
+        "steps": "执行静态策略门禁、规格映射校验、全量 CTest、QT_SCALE_FACTOR=1 CTest、设置质量流水线和生产探针；核对报告中的命令与结果。",
+        "expected_result": "静态门禁 11/11；规格映射 67 条且无校验错误；动态 CTest 和报告阶段返回码均为 0；每个用例均有测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。",
+        "postconditions": "报告保留本次主机、工具链、命令和边界说明；不产生未声明的远程副作用。",
+        "test_code": "tests/preload_policy_quality.py + tests/quality_specification.py + reports/test_case_specification.md + reports/test_completion_report.md",
+        "evidence_stages": ("static", "unit", "shortcut", "integration", "system"),
     },
 )
 
@@ -128,6 +202,41 @@ RESEARCH_TRACE = (
         "finding": "实现保存三项 settingsTabWidths；测试在三个 Tab 和五种应用语言下检查实际几何与无水平滚动，并检查两列 section size。",
         "premise": "本地 macOS 15 / Qt 6.11.1 是当前可执行验证环境，Cocoa 原生 toolbar 的显示通过生产路径调用。",
         "deduction": "静态、QtTest 集成和真实 app system probe 共同覆盖源文案、译文、页面宽度及原生窗口边界。",
+    },
+    {
+        "hop": 6,
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33361992196/job/99394990862",
+        "finding": "远程 Checks 的 configure/build、Qt 安装、clang-tidy 和 clang-format 均完成；失败集中在 FovelleTests 的 Shortcuts 断言，实际 sectionSize 为 165 与 164。",
+        "premise": "远程日志是对 HEAD 的只读执行证据，不把日志中的结论直接当作修复方案。",
+        "deduction": "失败是整数像素余数被严格相等断言放大的测试契约问题，而非 Qt 安装或编译失败；修复应保留总宽度/无滚动不变量并接受最多 1px 取整差。",
+    },
+    {
+        "hop": 7,
+        "source": "https://doc.qt.io/qt-6/qheaderview.html",
+        "finding": "QHeaderView 的 Stretch section 会填充可用 header 空间，实际宽度由整数 sectionSize 体现；可用空间为奇数时，两个 section 不必获得相同整数。",
+        "premise": "Shortcuts 表的业务不变量是完整填充且无水平滚动，而不是依赖浮点宽度。",
+        "deduction": "将断言拆为 header 总宽精确相等、两列正数、差值≤1px，才能对 Cocoa/Retina 尺寸取整稳定。",
+    },
+    {
+        "hop": 8,
+        "source": "https://doc.qt.io/qt-6/qsettings.html",
+        "finding": "QSettings 会按键持久化 QVariant 值，旧配置可在启动时被读取并改写。",
+        "premise": "需求要求覆盖用户设置，同时不能让旧 profile 在迁移后重新启用已删除模式。",
+        "deduction": "保留 legacy key 仅用于兼容迁移，将其归一化为 1；QVImageCore 不读取该 key，而是固定使用 AdjacentPreloadDistance。",
+    },
+    {
+        "hop": 9,
+        "source": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md",
+        "finding": "仓库 CI 使用 macOS 26 runner，install-qt-action 提供 version 输入，当前 workflow 固定 Qt 6.11.2。",
+        "premise": "修复必须在触发失败的 runner/toolchain 组合上可复现，不能只在本地 Qt 版本上成立。",
+        "deduction": "将固定策略静态门禁放入 Checks/build workflow，并保留 bounded CTest timeout，使源代码防回归检查与动态回归检查在同一 CI 入口执行。",
+    },
+    {
+        "hop": 10,
+        "source": "https://github.com/jurplel/install-qt-action/blob/master/action/action.yml",
+        "finding": "install-qt-action 的 action metadata 支持 version 输入，workflow 可把 Qt 版本作为可审计的固定构建前提。",
+        "premise": "远程失败环境使用 Qt 6.11.2，修复验证需要区分本地 Qt 6.11.1 与 CI 固定版本。",
+        "deduction": "报告同时记录本地 Qt 6.11.1 的动态结果和 CI workflow 的 Qt 6.11.2 固定项，不把本地运行冒充远程重跑。",
     },
 )
 
@@ -302,7 +411,8 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
         "english_label_test": "Use checkerboard background" in tests,
         "adaptive_tab_test": "testSettingsDialogUsesFixedWidthAndTabHeights" in tests,
         "equal_columns_test": "QHeaderView::Stretch" in tests
-            and "sectionSize(0)" in tests and "sectionSize(1)" in tests,
+            and "sectionSize(0)" in tests and "sectionSize(1)" in tests
+            and "qAbs(header->sectionSize(0) - header->sectionSize(1)) <= 1" in tests,
         "all_language_test": "testSettingsEveryTabFitsEveryLanguage" in tests,
         "system_probe_hook": "FOVELLE_SETTINGS_SYSTEM_PROBE" in (
             repo / "src/main.cpp").read_text(encoding="utf-8"),
@@ -318,10 +428,12 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
         python_valid = False
         python_error = str(error)
     add("ST-PYTHON-SYNTAX", python_valid, {"error": python_error},
-        "the four-stage test runner parses successfully")
+        "the multi-stage test runner parses successfully")
 
     if shutil.which("clang-format"):
-        changed_cpp_files = [cpp_path, header_path, repo / "src/main.cpp", test_path]
+        changed_cpp_files = [cpp_path, header_path, repo / "src/main.cpp", test_path,
+                             repo / "src/qvimagecore.cpp", repo / "src/qvimagecore.h",
+                             repo / "src/qvnamespace.h", repo / "src/settingsmanager.cpp"]
         format_result = run_command(
             ["clang-format", "--dry-run", "--Werror", *map(str, changed_cpp_files)],
             repo, timeout=60)
@@ -361,6 +473,22 @@ def static_stage(repo: Path, build_dir: Path) -> dict[str, Any]:
     else:
         add("ST-CLANG-FORMAT", True, {"skipped": "clang-format unavailable"},
             "clang-format unavailable is an explicit static-stage skip")
+
+    preload_static = run_command(
+        [sys.executable, str(repo / "tests" / "preload_policy_quality.py"),
+         "--repo", str(repo)], repo, timeout=60)
+    add("ST-PRELOAD-POLICY", preload_static["passed"], preload_static,
+        "the fixed Adjacent preload policy and CI geometry regression are statically guarded")
+
+    with tempfile.TemporaryDirectory(prefix="fovelle-spec-") as temporary_directory:
+        specification_result = run_command(
+            [sys.executable, str(repo / "tests" / "quality_specification.py"),
+             "--repo", str(repo),
+             "--output", str(Path(temporary_directory) / "test-specification.json"),
+             "--markdown-output", str(Path(temporary_directory) / "test-specification.md")],
+            repo, timeout=60)
+    add("ST-TEST-SPECIFICATION", specification_result["passed"], specification_result,
+        "the executable case mapping has complete six-field specifications")
 
     diff_result = run_command(["git", "diff", "--check", "HEAD", "--", "src",
                                "i18n", "tests", ".gitignore"], repo, timeout=30)
@@ -417,6 +545,16 @@ def qtest_stage(binary: Path, repo: Path, suite: str, cases: list[str],
 def unit_stage(binary: Path, repo: Path) -> dict[str, Any]:
     return qtest_stage(binary, repo, "FeatureTests", [
         "testSettingsRenamedLabelsAndRemovedMouseOptions",
+        "testSettingsGeneralLanguageAndRemovedOptions",
+        "testPreloadingIgnoresDisabledUserSetting",
+        "testPreloadingIgnoresExtendedUserSetting",
+        "testRemovedMouseSettingsMigrateToFixedDefaults",
+    ])
+
+
+def shortcut_stage(binary: Path, repo: Path) -> dict[str, Any]:
+    return qtest_stage(binary, repo, "ShortcutSettingsTests", [
+        "testShortcutsColumnFillsRemainingWidth",
     ])
 
 
@@ -471,11 +609,11 @@ def markdown_escape(value: Any) -> str:
 
 def write_specification(path: Path, generated_at: str) -> None:
     lines = [
-        "# 设置页变更测试用例说明",
+        "# CI 修复与固定相邻预加载测试用例说明",
         "",
         f"> 生成时间（UTC）：{generated_at}",
         ">",
-        "> 任务范围：设置页三个 Tab 的内容自适应宽度；Shortcuts 的 Action/Shortcuts 两列等宽；General 的棋盘格背景文案及所有语言翻译。",
+        "> 任务范围：修复 GitHub Actions 的 Cocoa 几何回归；固定预加载为 Adjacent；移除预加载模式枚举；并保留设置页相关回归覆盖。",
         "",
         "## 一、原子化验收标准",
         "",
@@ -506,8 +644,10 @@ def write_specification(path: Path, generated_at: str) -> None:
     lines.append("检索只采用 Qt 官方文档作为框架行为事实来源；仓库源码和本地 Cocoa 执行是实现事实来源。推理链明确区分事实、前提和结论：")
     lines.append("")
     for item in RESEARCH_TRACE:
+        source = item["source"]
+        source_markdown = f"`{source}`" if source.startswith("local:") else f"[官方文档/执行证据]({source})"
         lines += [
-            f"{item['hop']}. 来源：[官方文档/本地证据]({item['source']})。",
+            f"{item['hop']}. 来源：{source_markdown}。",
             f"   - 已证事实：{item['finding']}",
             f"   - 显式前提：{item['premise']}",
             f"   - 下钻结论：{item['deduction']}",
@@ -517,9 +657,10 @@ def write_specification(path: Path, generated_at: str) -> None:
         "## 四、测试设计约束",
         "",
         "1. 页面宽度验收以当前 Tab 的自然内容宽度为输入，不用单一最大宽度掩盖某个页面的尺寸契约。",
-        "2. Shortcuts 的等宽验收同时读取两个 section 的实际 `sectionSize`、header/viewport 几何和水平滚动范围。",
-        "3. 翻译验收检查 source、译文精确值和 `unfinished` 状态；英文由源字符串和 QtTest 运行时检查覆盖。",
-        "4. 系统阶段使用生产应用的显式 `FOVELLE_SETTINGS_SYSTEM_PROBE` 环境入口，不改变普通启动路径或用户设置。",
+        "2. Shortcuts 的等宽验收同时读取两个 section 的实际 `sectionSize`、header/viewport 几何和水平滚动范围，并接受最多 1px 的整数取整差。",
+        "3. 预加载验收同时覆盖默认常量、旧配置迁移、Disabled/Extended 两个用户设置覆盖值和距离/优先级边界。",
+        "4. 静态门禁检查旧 `PreloadMode` 类型和 runtime setting read 不存在；动态用例检查实际 loader 请求。",
+        "5. 系统阶段使用生产应用的显式 `FOVELLE_SETTINGS_SYSTEM_PROBE` 环境入口，不改变普通启动路径或用户设置。",
         "",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -538,7 +679,7 @@ def write_completion(path: Path, generated_at: str, repo: Path,
     passed = all_stages_passed and all_cases_passed
 
     lines = [
-        "# 设置页变更测试完成报告",
+        "# CI 修复与固定相邻预加载测试完成报告",
         "",
         f"> 生成时间（UTC）：{generated_at}",
         f"> 仓库：`{repo}`",
@@ -548,7 +689,7 @@ def write_completion(path: Path, generated_at: str, repo: Path,
         "",
         f"**总体状态：{'通过' if passed else '未通过'}**。",
         "",
-        "验收闭环按 `static → unit → integration → system` 顺序执行；每一级的通过条件来自命令返回码及其结构化输出，而非手工填写。",
+        "验收闭环按 `static → unit → shortcut → integration → system` 顺序执行；每一级的通过条件来自命令返回码及其结构化输出，而非手工填写。",
         "",
         "| 阶段 | 状态 | 返回码 | 耗时（ms） |",
         "|---|---|---:|---:|",
@@ -572,7 +713,7 @@ def write_completion(path: Path, generated_at: str, repo: Path,
             for check in item.get("checks", []):
                 lines.append("- `%s`: %s" % (check["id"],
                     "PASS" if check["passed"] else "FAIL"))
-        elif stage in ("unit", "integration"):
+        elif stage in ("unit", "shortcut", "integration"):
             lines.append(f"- suite：`{item.get('suite')}`")
             lines.append(f"- cases：`{', '.join(item.get('cases', []))}`")
             lines.append(f"- QTest totals：`{item.get('qtest_totals')}`")
@@ -591,6 +732,8 @@ def write_completion(path: Path, generated_at: str, repo: Path,
         "- 语言目录验收覆盖项目当前枚举的 English、Español、日本語、简体中文、繁體中文；English 使用源字符串，不生成独立英文 TS。",
         "- system probe 只在测试环境变量存在时打开设置页并退出；普通用户启动和设置持久化路径不受影响。",
         "- Qt 官方文档只用于确认框架语义；具体宽度数值、翻译值和运行结果以本仓库源码与本次命令输出为准。",
+        "- 本地动态验证使用 Qt 6.11.1；GitHub Actions workflow 固定 Qt 6.11.2，因此本地通过不等同于远程重跑，但静态门禁会锁定远程版本配置。",
+        "- 独立全量 CTest（含原生拖拽、所有非样本 QtTest 和快捷键专项）及 QT_SCALE_FACTOR=1 全量 CTest 均作为报告生成前的额外回归证据执行。",
         "",
     ]
     format_check = next(
@@ -607,7 +750,9 @@ def write_completion(path: Path, generated_at: str, repo: Path,
             ]
     lines += ["## 五、溯源链接", ""]
     for item in RESEARCH_TRACE:
-        lines.append(f"- Hop {item['hop']}：[证据来源]({item['source']})")
+        source = item["source"]
+        source_markdown = f"`{source}`" if source.startswith("local:") else f"[证据来源]({source})"
+        lines.append(f"- Hop {item['hop']}：{source_markdown}")
     lines += ["", f"最终通过判定：`{str(passed).lower()}`", ""]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -636,6 +781,11 @@ def main() -> int:
         "static": static_stage(repo, build_dir),
         "unit": unit_stage(binary, repo) if binary.is_file() else {
             "stage": "unit", "passed": False, "return_code": None,
+            "output": f"missing binary: {binary}", "duration_ms": 0,
+            "command": [], "qtest_totals": None,
+        },
+        "shortcut": shortcut_stage(binary, repo) if binary.is_file() else {
+            "stage": "shortcut", "passed": False, "return_code": None,
             "output": f"missing binary: {binary}", "duration_ms": 0,
             "command": [], "qtest_totals": None,
         },
