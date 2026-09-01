@@ -316,6 +316,7 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
+    void restorePendingZoomAnchor();
     void scheduleVerticalScrollBarGeometry();
 
     QVGraphicsImageItem *loadedPixmapItem {nullptr};
@@ -371,6 +372,10 @@ private:
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
     ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
     std::optional<QPointF> fullScreenPanAnchorScene;
+    std::optional<QPointF> pendingZoomAnchorScene;
+    std::optional<QPoint> pendingZoomAnchorViewport;
+    bool pendingZoomAnchorFollowsViewportCenter {false};
+    quint64 pendingZoomAnchorGeneration {0};
     std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};

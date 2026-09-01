@@ -228,6 +228,9 @@ private slots:
     void testNativePinchZoomChangesScaleAtGesturePosition();
     void testNativePanChangesViewport();
     void testScrollBarsFollowImageOverflowAxes();
+    void testScrollBarsReachImageEdges();
+    void testScrollBarHandleTrackEndpoints();
+    void testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar();
     void testVerticalScrollBarAvoidsTitlebarOverlap();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
@@ -3992,6 +3995,7 @@ void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// AC-ZOOM-CENTER-THRESHOLD
 // TC-LAYOUT-ZOOM-SCROLLBAR-THRESHOLD
 // Test purpose: verify that zooming across the point where AsNeeded
 // scrollbars appear does not change the image-relative point at the viewport
@@ -4001,8 +4005,8 @@ void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
 // 1.25x step introduces overflow on both axes.
 // Input data: one center-anchored zoom-in step.
 // Steps: record the normalized image coordinate at the usable viewport center, zoom
-// in once, inspect the immediate scrollbar layout, then wait for high-quality
-// scaling and inspect it again.
+// in once, inspect the immediate scrollbar layout, then wait for the deferred
+// anchor/layout window and inspect it again.
 // Expected result: both overflow axes are available and the normalized image
 // coordinate changes by no more than 0.5% at either transition.
 // Postcondition: the window, settings, image, and temporary directory are released.
@@ -4996,6 +5000,7 @@ void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
 
         MainWindow window;
         window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.setWindowState(Qt::WindowNoState);
         window.resize(640, 480);
         window.show();
         QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
@@ -5036,6 +5041,196 @@ void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
     checkCase("scroll-vertical", QSize(100, 1600), false, true);
     checkCase("scroll-both", QSize(1600, 1600), true, true);
 
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-SCROLLBAR-IMAGE-EDGES
+// Test purpose: verify that dragging either scrollbar to either endpoint makes
+// the corresponding image edge coincide with the usable viewport edge.
+// Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
+// displays a 1600x1600 image, so both AsNeeded scrollbars have a range.
+// Input data: the native minimum and maximum values of both scrollbars.
+// Steps: move both bars to their minimums, inspect the mapped image rectangle,
+// then move both bars to their maximums and inspect it again.
+// Expected result: left/top image edges reach the usable viewport's left/top
+// edges at the minimums; right/bottom image edges reach its right/bottom edges
+// at the maximums, within two device-independent pixels.
+// Postcondition: the window, scrollbars, and temporary image are released.
+void GraphicsViewTests::testScrollBarsReachImageEdges()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("scrollbar-image-edges"), Qt::darkCyan, QSize(1600, 1600));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->isVisible()
+            && view->verticalScrollBar()->isVisible(), 2000);
+
+    const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
+    QVERIFY(!imageSceneRect.isEmpty());
+    auto usableViewport = [&]() {
+        QRect result = view->viewport()->rect();
+        result.setTop(window.getViewportPosition().obscuredHeight);
+        return result;
+    };
+    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->minimum());
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->minimum());
+    QCoreApplication::processEvents();
+    const QRect minMappedImageRect = view->mapFromScene(imageSceneRect).boundingRect();
+    const QRect minViewportRect = usableViewport();
+    constexpr int EdgeTolerance = 2;
+    QVERIFY2(qAbs(minMappedImageRect.left() - minViewportRect.left()) <= EdgeTolerance,
+             "The horizontal minimum did not expose the image's left edge");
+    QVERIFY2(qAbs(minMappedImageRect.top() - minViewportRect.top()) <= EdgeTolerance,
+             "The vertical minimum did not expose the image's top edge");
+
+    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
+    QCoreApplication::processEvents();
+    const QRect maxMappedImageRect = view->mapFromScene(imageSceneRect).boundingRect();
+    const QRect maxViewportRect = usableViewport();
+    QVERIFY2(qAbs(maxMappedImageRect.right() - maxViewportRect.right()) <= EdgeTolerance,
+             "The horizontal maximum did not expose the image's right edge");
+    QVERIFY2(qAbs(maxMappedImageRect.bottom() - maxViewportRect.bottom()) <= EdgeTolerance,
+             "The vertical maximum did not expose the image's bottom edge");
+
+    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light).contains(
+        QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
+    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light).contains(
+        QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-SCROLLBAR-VISUAL-ENDPOINT
+// Test purpose: verify the handle style leaves no movement-direction inset at
+// either scrollbar endpoint.
+// Preconditions: the production light-theme scrollbar style is available.
+// Input data: the vertical and horizontal style rules returned by the view.
+// Steps: read both handle rules and inspect their directional margins.
+// Expected result: vertical movement margins are zero while its side margin is
+// one pixel; horizontal movement margins are zero while its side margin is
+// one pixel.
+// Postcondition: no widget or persistent setting is changed.
+void GraphicsViewTests::testScrollBarHandleTrackEndpoints()
+{
+    const QString style = QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light);
+    QVERIFY(style.contains(
+        QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
+    QVERIFY(style.contains(
+        QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
+    QVERIFY(!style.contains(QStringLiteral("margin: 2px 1px")));
+    QVERIFY(!style.contains(QStringLiteral("margin: 1px 2px")));
+}
+
+// AC-ZOOM-BOTTOM-RIGHT-STABLE
+// Test purpose: verify that zooming near the lower-right image area remains
+// anchored when a horizontal AsNeeded scrollbar appears and after the delayed
+// scaling/layout phase completes.
+// Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
+// displays a 620x420 image; the image initially fits, while a 1.25x zoom
+// introduces horizontal overflow and leaves enough vertical range for a
+// lower-right scene anchor to remain attainable.
+// Input data: target viewport point 40px inside the lower-right corner and a
+// zoom level of 1.25.
+// Steps: record the scene point under the target, zoom at that point, wait for
+// the horizontal scrollbar to appear, record the mapped anchor immediately,
+// then wait 150ms and record it again.
+// Expected result: both bars are visible, and the recorded scene point stays
+// at the target within two pixels at both checkpoints; no second position
+// jump is observable.
+// Postcondition: the window, scrollbars, and temporary image are released.
+void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("zoom-bottom-right-scrollbar"), Qt::darkYellow, QSize(620, 420));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !view->horizontalScrollBar()->isVisible()
+            && !view->verticalScrollBar()->isVisible(), 2000);
+
+    QRect usableViewport = view->viewport()->rect();
+    usableViewport.setTop(window.getViewportPosition().obscuredHeight);
+    const QPoint target(
+        usableViewport.right() - 40,
+        usableViewport.bottom() - 100);
+    const QPointF anchorScene = view->mapToScene(target);
+    qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
+            << "before=" << view->mapFromScene(anchorScene)
+            << "image=" << view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect()
+            << "viewport=" << view->viewport()->rect();
+    view->zoomAbsolute(1.25, target);
+
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible(), 2000);
+    QVERIFY(view->verticalScrollBar()->isVisible());
+    QCoreApplication::processEvents();
+    const QPointF anchorAfterLayout = view->mapFromScene(anchorScene);
+    qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
+            << "target=" << target
+            << "after_layout=" << anchorAfterLayout
+            << "image=" << view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect()
+            << "viewport=" << view->viewport()->rect()
+            << "hbar=" << view->horizontalScrollBar()->geometry();
+    QVERIFY2(QLineF(anchorAfterLayout, target).length() <= 2.0,
+             "The scene anchor moved when the automatic scrollbars appeared");
+
+    QTest::qWait(150);
+    QCoreApplication::processEvents();
+    const QPointF anchorAfterSettling = view->mapFromScene(anchorScene);
+    qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
+            << "target=" << target
+            << "after_settling=" << anchorAfterSettling
+            << "hbar=" << view->horizontalScrollBar()->geometry();
+    QVERIFY2(QLineF(anchorAfterSettling, target).length() <= 2.0,
+             "The scene anchor moved after the delayed zoom/layout phase");
+    QVERIFY2(QLineF(anchorAfterSettling, anchorAfterLayout).length() <= 1.0,
+             "The scene anchor moved a second time after layout settled");
+
+    window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 

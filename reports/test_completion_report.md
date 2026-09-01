@@ -1,62 +1,138 @@
-# 图片拖拽橡皮筋效果测试完成报告
+# 滚动条端点与右下角缩放测试完成报告
 
-## 1. 结论
+## 1. 完成结论
 
-结论：通过。
+本次修复已完成。针对 `reports/root_cause.md` 中的两条问题，四条原子验收标准全部通过：
 
-在 `constrainimageposition=true` 下，图片平移现在同步停在计算出的边界，不再产生越界阻力或释放后的回弹动画；关闭约束的既有自由平移行为保持不变。
+| 原子标准 | 结论 | 证据 |
+| --- | --- | --- |
+| AC-SB-01：两轴滚动条 min/max 可达图片四边 | PASS | `testScrollBarsReachImageEdges` |
+| AC-SB-02：handle 运动方向无端部视觉内缩 | PASS | `testScrollBarHandleTrackEndpoints` + `ST-SB-01` |
+| AC-ZOOM-01：中心缩放跨 AsNeeded 阈值稳定 | PASS | `testZoomAcrossScrollbarThresholdKeepsViewportCenterStable` |
+| AC-ZOOM-02：右下显式锚点在出现/稳定后不跳变 | PASS | `testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar` |
 
-## 2. 实现摘要
+## 2. 实现变更
 
-| 项目 | 结果 |
-|---|---|
-| 边界算法 | `ScrollHelper::calculateScrollDelta()` 使用 `qBound()` 直接限制最终位移 |
-| 回弹实现 | overscroll 状态、5% 阻力和 250ms 动画计时器已移除 |
-| 上层调用 | `QVGraphicsView` 约束调用统一为无参数同步 `constrain()` |
-| 非回归语义 | `shouldConstrain=false` 仍允许越界平移 |
-| 测试代码 | 新增 `ScrollHelperTests` 五个测试入口并注册到现有 QtTest runner |
+- [`src/qvgraphicsview.cpp`](../src/qvgraphicsview.cpp#L274)：自动滚动条引起的 viewport resize 在 pending zoom anchor 有效时跳过普通 `-sizeDelta/2` 重定位，先恢复锚点；scene-rect 重入也走同一恢复路径。
+- [`src/qvgraphicsview.cpp`](../src/qvgraphicsview.cpp#L1029)：垂直 handle 改为 `margin: 0px 1px`，水平 handle 改为 `margin: 1px 0px`，移除运动方向两端的 2px 视觉间隙。
+- [`src/qvgraphicsview.cpp`](../src/qvgraphicsview.cpp#L1292)：加载新文件时使旧 zoom anchor generation 失效，避免旧 scene 点污染新图片。
+- [`src/qvgraphicsview.cpp`](../src/qvgraphicsview.cpp#L1610)：缩放前保存 scene anchor、目标 viewport 点及“固定鼠标点/跟随新 viewport 中心”模式；在 transform、scene rect、resize 和延迟窗口后恢复两轴值。
+- [`src/qvgraphicsview.cpp`](../src/qvgraphicsview.cpp#L2826)：新增 `restorePendingZoomAnchor()`，使用当前映射偏差、RTL 水平翻转和整数像素取整恢复滚动值，并标记为内部更新。
+- [`src/qvgraphicsview.h`](../src/qvgraphicsview.h#L319)：增加锚点恢复接口及 pending 状态。
+- [`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp#L5047)：固化图片四边端点、handle 样式和右下锚点回归测试；并为现有滚动条轴策略测试固定 `WindowNoState`，避免持久化窗口状态改变 viewport 前置条件。
+- [`tests/scrollbar_zoom_acceptance_static.py`](../tests/scrollbar_zoom_acceptance_static.py)：新增结构静态验收脚本。
+- [`reports/technical_design_document.md`](technical_design_document.md)、[`reports/test_case_specification.md`](test_case_specification.md)：写入设计、原子标准和完整测试字段。
 
-## 3. 测试环境
+## 3. 静态验证
 
-- macOS 15.7.9，Apple Silicon
-- Qt 6.11.1，arm64，Release
-- C++17，CMake 构建目录：`build-current`
-- QtTest 环境：`QT_QPA_PLATFORM=cocoa`、`QT_FATAL_WARNINGS=1`、`QTEST_FUNCTION_TIMEOUT=30000`
-- 工作树基线提交：`dcde9a5`；验证包含当前工作树改动
+### 3.1 项目专用结构检查
 
-## 4. 原子验收追踪
+执行：
 
-| 原子标准 | 生产代码证据 | 动态测试 | 判定 |
-|---|---|---|---|
-| AC-RB-MIN-EDGE | `qBound(min-current, delta, max-current)` | `testMinimumEdgesAreHardClamped` | PASS |
-| AC-RB-MAX-EDGE | 同一硬钳制契约覆盖最大边界 | `testMaximumEdgesAreHardClamped` | PASS |
-| AC-RB-NO-RETURN-ANIMATION | 无 `overscrollDistance`、动画 timer 和动画函数 | `testEdgePositionDoesNotReboundAfterRelease`，等待 350ms | PASS |
-| AC-RB-INTERIOR-MOTION | 合法 delta 由 `qBound()` 原样返回 | `testInteriorDragPreservesExactMovement` | PASS |
-| AC-RB-CONSTRAINT-OPT-OUT | `shouldConstrain=false` 时跳过硬钳制 | `testUnconstrainedModeRemainsUnbounded` | PASS |
+```bash
+python3 tests/scrollbar_zoom_acceptance_static.py \
+  --repo . --output reports/evidence/scrollbar_zoom_static.json
+```
 
-## 5. 静态分析与构建结果
+结果：返回码 `0`，JSON `passed=true`，以下 6 项全部为 `true`：
 
-| 验证项 | 命令/范围 | 结果 |
-|---|---|---|
-| 任务专用静态追踪 | `python3 tests/rubber_band_acceptance_static.py --repo . --output .tmp/rubber-band-static.json` | `ST-RB-01` 至 `ST-RB-05` 全部 PASS，返回码 0 |
-| Python 语法 | 任务脚本由 Python 3 解释执行 | PASS |
-| 目标构建 | `cmake --build build-current --target fovelle_tests --parallel 2` | PASS，`fovelle_tests` 成功链接 |
-| 全量应用构建 | `cmake --build build-current --parallel 2` | PASS，`Fovelle.app`、`fovelle_tests` 与 native helper 成功构建 |
-| C++ 静态诊断 | `clang-tidy -p=build-current --extra-arg=-isysroot --extra-arg=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk src/scrollhelper.cpp`；同参数检查 `src/qvgraphicsview.cpp tests/tst_qviewtests.cpp` | PASS，返回码 0 |
-| 差异空白检查 | `git diff --check HEAD -- src tests reports` | PASS，返回码 0 |
+```text
+ST-SB-01   PASS   AsNeeded/QSS 端点合同
+ST-SB-02   PASS   active item scene geometry 与 scene-rect guard
+ST-ZOOM-01 PASS   pending anchor 保存、延迟恢复、中心/RTL 规则
+ST-ZOOM-02 PASS   自动 scrollbar resize 不走普通半差补偿
+ST-TEST-01 PASS   每条标准都有可执行 QtTest 入口
+ST-TEST-02 PASS   每个测试说明均含六个必填字段
+```
 
-补充说明：当前 Homebrew LLVM 的 `clang-format --dry-run --Werror` 对仓库既有 C++ 文件产生大量基线格式诊断，本次没有对全文件做格式化改写；目标代码已通过带显式 macOS SDK 的 clang-tidy、编译器和任务专用静态契约。
+同时执行 `python3 -m py_compile tests/scrollbar_zoom_acceptance_static.py`，返回码 `0`。
 
-## 6. 动态测试结果
+### 3.2 Clang 静态分析器
 
-| 批次 | 结果 |
-|---|---|
-| `FOVELLE_TEST_SUITE=ScrollHelperTests ... fovelle_tests -v2` | 7 passed，0 failed，0 skipped |
-| `FOVELLE_TEST_SUITE=GraphicsViewTests ... fovelle_tests -silent` | 29 passed，0 failed，0 skipped |
-| 完整 `ctest --test-dir build-current --output-on-failure --timeout 90 -j1` | 3/3 passed；native drag 3.53s、全量 QtTest 35.85s、快捷键 2.23s；总计 41.62s |
+执行生产 view 文件的核心 analyzer 检查：
 
-专测用例的关键证据：最小边界保持 `(0,0)`，最大边界保持 `(1000,500)`；内部位移 `(300,200)+(-75,65)` 精确得到 `(225,265)`；关闭约束时得到 `(-120,-80)`；350ms 等待期间没有额外 `valueChanged` 信号。
+```bash
+SDK_PATH="$(xcrun --show-sdk-path)"
+clang-tidy -p build-current src/qvgraphicsview.cpp \
+  --checks='-*,clang-analyzer-core.*' \
+  --extra-arg=-isysroot --extra-arg="$SDK_PATH"
+```
 
-## 7. 结论与剩余风险
+结果：返回码 `0`，无 analyzer 输出。泛化 `bugprone-*` 检查未作为门禁，因为该仓库已有与本次改动无关的参数可交换、窄化转换等告警；核心 analyzer 结果不受影响。
 
-代码实现、目标/全量构建、任务静态追踪、clang-tidy、专测、图形视图回归、完整 CTest 和差异检查均已完成并通过；没有遗留的待运行项。
+### 3.3 编译与格式检查
+
+```bash
+cmake --build build-current --target Fovelle fovelle_tests --parallel 2
+git diff --check
+```
+
+结果：两个目标均构建成功，`git diff --check` 返回码 `0`。应用打包阶段出现 Ghostscript 依赖的既有 macOS code-signature invalidation warning，但不影响构建退出码。
+
+## 4. 动态验证
+
+### 4.1 完整 GraphicsViewTests
+
+执行：
+
+```bash
+FOVELLE_TEST_SUITE=GraphicsViewTests \
+QTEST_FUNCTION_TIMEOUT=30000 \
+build-current/tests/fovelle_tests -v1
+```
+
+结果：`32 passed, 0 failed, 0 skipped, 0 blacklisted`，退出码 `0`。
+
+关键回归日志：
+
+```text
+before        = QPoint(599,407)
+after_layout  = QPointF(599,407)
+after_settling= QPointF(599,407)
+```
+
+在 640×480 Cocoa 测试窗口中，两个滚动条出现后 viewport 为 628×496；锚点没有发生可观测像素位移。
+
+### 4.2 ScrollHelperTests
+
+执行：
+
+```bash
+FOVELLE_TEST_SUITE=ScrollHelperTests \
+QTEST_FUNCTION_TIMEOUT=30000 \
+build-current/tests/fovelle_tests -v1
+```
+
+结果：`7 passed, 0 failed, 0 skipped, 0 blacklisted`，退出码 `0`。最小端、最大端硬钳制及无回弹回归均通过。
+
+### 4.3 验收用例与相关回归子集
+
+额外执行的 10 个 GraphicsView 用例（含旧滚动条轴策略、图片端点、handle 样式、中心阈值、右下锚点、fit/旋转和标题栏安全区）结果为 `10 passed, 0 failed`；与 `ScrollHelperTests` 合计定向动态结果为 `17 passed, 0 failed`。
+
+## 5. 根因到修复的闭环
+
+| 已确证机制 | 修复/验证 |
+| --- | --- |
+| 显式 `sceneRect` 是 Qt 滚动条范围的输入，必须覆盖 active item | `getSceneRectForViewport()` 继续以 active item 几何为非 native 来源；`ST-SB-02` 检查同步更新与 guard；AC-SB-01 动态检查实际边缘 |
+| `ScrollBarAsNeeded` 显示时 viewport 缩小且两轴 range/value 联动 | `resizeEvent()` 的 pending 分支跳过普通 resize 半差移动；AC-ZOOM-01/02 在出现后采样 |
+| QScrollBar value 为整数并受 min/max 截断 | 只恢复合法 range 内的值；测试目标在右下区域但留有可达余量，并使用明确容差 |
+| QSS movement-direction margin 造成视觉端点间隙 | 两条 handle 规则改为零运动方向 margin；AC-SB-02 动态与静态双重检查 |
+| 延迟 backing/scene 几何更新可能触发第二次位置变化 | generation 保护的 150ms pending anchor 窗口覆盖后续布局；AC-ZOOM-02 对立即与稳定两个时刻分别断言 |
+
+## 6. 联网检索与溯源记录
+
+本次采用四跳证据链：Qt 类文档确认 scene/range 语义 → Qt 官方源码确认 `AsNeeded` 两轴重算 → 项目源码/历史确认 `zoomAbsolute`、`updateSceneRect`、`resizeEvent` 时序 → QtTest 采集实际 viewport、映射锚点和 scrollbar endpoint。使用的权威资料为：
+
+- [QGraphicsView sceneRect、scrollbar range 与 fitInView](https://doc.qt.io/qt-6/qgraphicsview.html)
+- [QAbstractScrollArea viewport 与 AsNeeded 行为](https://doc.qt.io/qt-6/qabstractscrollarea.html)
+- [QAbstractSlider value 的整数合法范围](https://doc.qt.io/qt-6/qabstractslider.html)
+- [Qt `QGraphicsViewPrivate::recalculateContentSize()` 源码](https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp)
+- [Qt ScrollBarAsNeeded 枚举](https://doc.qt.io/qt-6/qt.html)
+- [Qt 样式表 box model 与 margin](https://doc.qt.io/qt-6/stylesheet-customizing.html#box-model)
+- [QPixmap device-independent size](https://doc.qt.io/qt-6/qpixmap.html#deviceIndependentSize)
+
+## 7. 遗留限制
+
+- QtTest 使用 Cocoa 真实 viewport，但没有在 CI 中注入跨应用的物理 HID scrollbar 拖拽；端点行为通过真实 `QScrollBar::minimum()/maximum()`、映射图片边缘和 QSS 合同验证。
+- 右下用例刻意避开图片边界本身的合法 maximum 截断，以隔离“自动滚动条出现导致的跳变”与“目标不可达”的正常行为。
+- `reports/evidence/scrollbar_zoom_static.json` 是静态检查的机器可读证据；报告正文记录了最终命令和退出结果。

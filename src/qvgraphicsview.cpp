@@ -272,7 +272,25 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         // from that nested resize; Qt documents that this pattern can recurse
         // when automatic scrollbar state toggles during a resize.
         if (isUpdatingSceneRect)
+        {
+            restorePendingZoomAnchor();
             return;
+        }
+
+        // A zoom can make an AsNeeded scrollbar appear without changing the
+        // outer view size.  QAbstractScrollArea then resizes the viewport and
+        // QGraphicsView's normal half-delta compensation would move the image
+        // a second time.  The zoom transaction already owns the focal point;
+        // restore it after the scrollbar layout instead of treating this as a
+        // user-initiated window resize.
+        if (pendingZoomAnchorScene.has_value()
+            && pendingZoomAnchorViewport.has_value())
+        {
+            restorePendingZoomAnchor();
+            logViewportState("resize-zoom-anchor-restored");
+            refreshVerticalScrollBarGeometry();
+            return;
+        }
 
         if (shouldRestoreCalculatedZoom)
         {
@@ -1008,8 +1026,8 @@ QString QVGraphicsView::scrollBarStyleSheet(const Qv::Theme theme)
         "QScrollBar:vertical { width: 12px; }"
         "QScrollBar:horizontal { height: 12px; }"
         "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: %2; border: none; border-radius: 5px; }"
-        "QScrollBar::handle:vertical { min-height: 24px; margin: 2px 1px; }"
-        "QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 2px; }"
+        "QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }"
+        "QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }"
         "QScrollBar::handle:hover, QScrollBar::handle:pressed { background: %3; }"
         "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical, QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: %1; }"
         "QScrollBar::add-line, QScrollBar::sub-line { background: transparent; border: none; width: 0px; height: 0px; }")
@@ -1273,6 +1291,11 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
+    ++pendingZoomAnchorGeneration;
+    pendingZoomAnchorScene.reset();
+    pendingZoomAnchorViewport.reset();
+    pendingZoomAnchorFollowsViewportCenter = false;
+
     // A native HDR presentation may have parked Qt viewport painting.  The
     // SDR proxy for the next file must be paintable while its renderer is
     // decoded and prepared.
@@ -1584,6 +1607,29 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     }
     const QPointF scenePos = pos.has_value() ? mapToScene(pos.value()) - lastZoomRoundingError : QPointF();
 
+    if (isChanging && pos.has_value())
+    {
+        pendingZoomAnchorScene = scenePos;
+        pendingZoomAnchorViewport = pos;
+        pendingZoomAnchorFollowsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
+        const quint64 anchorGeneration = ++pendingZoomAnchorGeneration;
+        QTimer::singleShot(150, this, [this, anchorGeneration]() {
+            if (anchorGeneration != pendingZoomAnchorGeneration)
+                return;
+            restorePendingZoomAnchor();
+            pendingZoomAnchorScene.reset();
+            pendingZoomAnchorViewport.reset();
+            pendingZoomAnchorFollowsViewportCenter = false;
+        });
+    }
+    else if (isChanging)
+    {
+        ++pendingZoomAnchorGeneration;
+        pendingZoomAnchorScene.reset();
+        pendingZoomAnchorViewport.reset();
+        pendingZoomAnchorFollowsViewportCenter = false;
+    }
+
     if (appliedExpensiveScaleZoomLevel != 0.0)
     {
         const qreal baseTransformScale = 1.0 / devicePixelRatioF();
@@ -1608,6 +1654,7 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         const QPointF move = mapFromScene(scenePos) - pos.value();
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (move.x() * getRtlFlip()));
         verticalScrollBar()->setValue(verticalScrollBar()->value() + move.y());
+        restorePendingZoomAnchor();
         lastZoomRoundingError = mapToScene(pos.value()) - scenePos;
         constrainBoundsTimer->start();
     }
@@ -2770,9 +2817,29 @@ void QVGraphicsView::updateSceneRect(
         {
             verticalScrollBar()->setValue(verticalValue);
         }
+        restorePendingZoomAnchor();
         logViewportState("scene-rect-viewport-restored");
     }
     refreshVerticalScrollBarGeometry();
+}
+
+void QVGraphicsView::restorePendingZoomAnchor()
+{
+    if (!pendingZoomAnchorScene.has_value()
+        || !pendingZoomAnchorViewport.has_value())
+        return;
+
+    QScopedValueRollback<bool> internalUpdateGuard(
+            fullScreenPanInternalUpdate, true);
+    const QPointF mappedAnchor = mapFromScene(pendingZoomAnchorScene.value());
+    const QPoint anchorViewport = pendingZoomAnchorFollowsViewportCenter
+            ? getUsableViewportRect().center()
+            : pendingZoomAnchorViewport.value();
+    const QPointF delta = mappedAnchor - anchorViewport;
+    horizontalScrollBar()->setValue(
+        horizontalScrollBar()->value() + qRound(delta.x() * getRtlFlip()));
+    verticalScrollBar()->setValue(
+        verticalScrollBar()->value() + qRound(delta.y()));
 }
 
 QRectF QVGraphicsView::getSceneRectForViewport() const

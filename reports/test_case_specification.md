@@ -1,85 +1,209 @@
-# 图片拖拽橡皮筋效果测试用例说明
+# 滚动条与右下角缩放测试用例说明
 
-- 规格版本：1.0
-- 编写日期：2026-09-01
-- 被测范围：`ScrollHelper` 图片平移边界与上层约束调用
-- 测试代码：[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `ScrollHelperTests`
-- 静态追踪：[`tests/rubber_band_acceptance_static.py`](../tests/rubber_band_acceptance_static.py)
+## 1. 测试范围与规则
 
-## 原子标准与测试映射
+本规格对应 [`reports/technical_design_document.md`](technical_design_document.md) 的四条原子验收标准。动态测试使用 CMake 生成的 QtTest 程序 `build-current/tests/fovelle_tests`，在 macOS Cocoa 平台运行；静态测试读取源码、测试 marker 与本规格文件，输出机器可读 JSON。
 
-| 原子标准 | 测试用例 | 测试代码 | 类型 |
-|---|---|---|---|
-| AC-RB-MIN-EDGE | TC-RB-MIN-EDGE | `ScrollHelperTests::testMinimumEdgesAreHardClamped` | QtTest 动态单元测试 |
-| AC-RB-MAX-EDGE | TC-RB-MAX-EDGE | `ScrollHelperTests::testMaximumEdgesAreHardClamped` | QtTest 动态单元测试 |
-| AC-RB-NO-RETURN-ANIMATION | TC-RB-NO-RETURN-ANIMATION | `ScrollHelperTests::testEdgePositionDoesNotReboundAfterRelease` | QtTest 动态时序测试 |
-| AC-RB-INTERIOR-MOTION | TC-RB-INTERIOR-MOTION | `ScrollHelperTests::testInteriorDragPreservesExactMovement` | QtTest 动态单元测试 |
-| AC-RB-CONSTRAINT-OPT-OUT | TC-RB-CONSTRAINT-OPT-OUT | `ScrollHelperTests::testUnconstrainedModeRemainsUnbounded` | QtTest 动态非回归测试 |
+Qt 行为依据：[`QGraphicsView::sceneRect`](https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop)、[`QAbstractScrollArea`](https://doc.qt.io/qt-6/qabstractscrollarea.html#details)、[`QAbstractSlider::value`](https://doc.qt.io/qt-6/qabstractslider.html#value-prop)、[`Qt::ScrollBarAsNeeded`](https://doc.qt.io/qt-6/qt.html) 和样式表 [box model](https://doc.qt.io/qt-6/stylesheet-customizing.html#box-model)。
 
-测试夹具用 `QScrollArea` 提供滚动条，用固定的 `contentRect=1600x900` 和 `usableViewportRect=600x400` 让合法范围确定为横向 `[0,1000]`、纵向 `[0,500]`。滚动条实际范围故意扩大到 `[-2000,2000]`，因此旧实现的越界值不会被 Qt 先行吞掉，能够直接观测 helper 是否产生 overscroll。
+测试容差的理由：QScrollBar 使用整数值，且 Cocoa viewport 有 titlebar unobscured inset；因此功能端点允许 2px，中心归一化坐标允许 0.005，锚点稳定的二次位移允许 1px。
 
-## TC-RB-MIN-EDGE
+## TC-SB-IMAGE-EDGES
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证图片向左上边缘继续拖动时，横向和纵向都在最小边界同步停止，不产生越界位移。 |
-| 前置条件 | `ScrollHelper` 夹具已创建；内容矩形为 `1600x900`；可用 viewport 为 `600x400`；启用位置约束；滚动条实际范围宽于图片合法范围。 |
-| 输入数据 | 当前滚动位置 `(0,0)`；平移 delta `(-120,-80)`。 |
-| 操作步骤 | 1. 将滚动条设到 `(0,0)`。<br>2. 调用 `helper.move(QPointF(-120,-80))` 模拟继续向左上拖动。<br>3. 调用 `helper.constrain()` 模拟释放后的约束路径。<br>4. 分别读取两个滚动条值。 |
-| 预期结果 | `move()` 返回后横/竖值均为 `0`；`constrain()` 后仍为 `0`，不出现负值。 |
-| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
+### 测试目的
 
-## TC-RB-MAX-EDGE
+验证水平和垂直滚动条在最小值/最大值时都能把图片真实左、上、右、下边缘送到可用 viewport 对应边缘，避免“滑块已经到端点但图片仍不到边”的双重 scene/range 问题。
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证图片向右下边缘继续拖动时，横向和纵向都在最大边界同步停止，不产生越界位移。 |
-| 前置条件 | 与 TC-RB-MIN-EDGE 相同；计算出的合法范围为横向 `[0,1000]`、纵向 `[0,500]`。 |
-| 输入数据 | 当前滚动位置 `(1000,500)`；平移 delta `(120,80)`。 |
-| 操作步骤 | 1. 将滚动条设到 `(1000,500)`。<br>2. 调用 `helper.move(QPointF(120,80))` 模拟继续向右下拖动。<br>3. 调用 `helper.constrain()`。<br>4. 分别读取两个滚动条值。 |
-| 预期结果 | `move()` 返回后横/竖值均为 `(1000,500)`；`constrain()` 后仍保持该值，不出现超过最大值的状态。 |
-| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
+### 前置条件
 
-## TC-RB-NO-RETURN-ANIMATION
+- 使用 macOS Cocoa 可见窗口，尺寸为 640×480。
+- `windowresizemode=Never`、`calculatedzoommode=OriginalSize`、平滑缩放关闭。
+- 打开 1600×1600 的确定性 PNG，使两个 `ScrollBarAsNeeded` 都可见并具有非零范围。
+- 窗口 titlebar 的遮挡高度由被测 view 提供，不在测试中硬编码为图片位置。
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证释放拖动后不再启动延迟回弹，边缘位置不会在后续时间窗口发生二次变化。 |
-| 前置条件 | 约束已启用；起点为 `(0,0)`；滚动条范围允许旧实现的非法中间值；已连接两个 `QScrollBar::valueChanged` 的 `QSignalSpy`。 |
-| 输入数据 | 平移 delta `(-120,-80)`；调用 `constrain()` 后等待 `350ms`，该时长超过旧实现的 `250ms` 回弹动画。 |
-| 操作步骤 | 1. 调用 `move()` 尝试越过左上边缘。<br>2. 调用 `constrain()` 模拟鼠标释放。<br>3. 记录此时两个 signal spy 的计数和值。<br>4. 运行 Qt 事件循环等待 `350ms`。<br>5. 再次读取滚动条值和 signal 计数。 |
-| 预期结果 | 等待前后值均为 `(0,0)`；等待期间两个 `valueChanged` 计数均不增加，不存在回弹动画或延迟修正。 |
-| 后置条件 | 事件循环结束；无 helper 动画计时器需要清理；夹具析构。 |
+### 输入数据
 
-## TC-RB-INTERIOR-MOTION
+- 图片：`scrollbar-image-edges.png`，颜色 `darkCyan`，尺寸 1600×1600。
+- 横向、纵向 scrollbar 的 `minimum()` 与 `maximum()`。
+- 端点判定容差：2 个逻辑像素。
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证移除边缘阻力不会改变合法范围内部的普通图片拖动。 |
-| 前置条件 | 约束已启用；当前值为内部位置 `(300,200)`，不接近任一边界。 |
-| 输入数据 | 平移 delta `(-75,65)`；等待窗口 `350ms`。 |
-| 操作步骤 | 1. 调用 `helper.move(QPointF(-75,65))`。<br>2. 检查即时值。<br>3. 调用 `helper.constrain()` 并等待 `350ms`。<br>4. 再次检查最终值。 |
-| 预期结果 | 即时值为 `(225,265)`；等待和约束后仍为 `(225,265)`；delta 未被缩放或修正。 |
-| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
+### 操作步骤
 
-## TC-RB-CONSTRAINT-OPT-OUT
+1. 显示窗口并打开临时图片。
+2. 等待图片加载及两个滚动条出现，取得 `scene()->itemsBoundingRect()`。
+3. 将两轴分别设置为 `minimum()`，处理事件后比较映射图片矩形与可用 viewport 的左/上边缘。
+4. 将两轴分别设置为 `maximum()`，处理事件后比较映射图片矩形与可用 viewport 的右/下边缘。
+5. 在同一 QtTest 中确认生产样式包含无运动方向内缩的两条 handle 规则。
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证关闭图片位置约束时，已有的自由越界浏览行为不被本次修复误伤。 |
-| 前置条件 | `parameters.shouldConstrain=false`；当前值为 `(0,0)`；滚动条实际范围可表示负值。 |
-| 输入数据 | 平移 delta `(-120,-80)`。 |
-| 操作步骤 | 1. 关闭夹具约束开关。<br>2. 调用 `helper.move(QPointF(-120,-80))`。<br>3. 调用 `helper.constrain()`。<br>4. 读取两个滚动条值。 |
-| 预期结果 | 最终值为 `(-120,-80)`；关闭约束时仍不强制钳制到图片边缘。 |
-| 后置条件 | 测试夹具析构；不会修改持久化用户设置。 |
+### 预期结果
 
-## 静态追踪验证
+- 两个滚动条均可见且确有滚动范围。
+- 最小值时：图片左边缘与可用 viewport 左边缘、图片上边缘与可用 viewport 上边缘的差值均不超过 2px。
+- 最大值时：图片右边缘与可用 viewport 右边缘、图片下边缘与可用 viewport 下边缘的差值均不超过 2px。
+- 用例通过 `QVGraphicsView::testScrollBarsReachImageEdges`，退出码为 0。
 
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证硬钳制实现、回弹符号删除、上层调用点、五个测试 marker 和规格必备字段形成可审计闭环。 |
-| 前置条件 | 源码、测试源码、本规格和 Python 3 均可读取。 |
-| 输入数据 | 仓库根目录；输出路径 `.tmp/rubber-band-static.json`。 |
-| 操作步骤 | 执行 `python3 tests/rubber_band_acceptance_static.py --repo . --output .tmp/rubber-band-static.json`；读取 JSON 的 `passed` 和每个 check 的 `pass`。 |
-| 预期结果 | `ST-RB-01` 至 `ST-RB-05` 全部为 `true`，进程返回码为 `0`。 |
-| 后置条件 | JSON 证据保留在 `.tmp`；不修改产品源码、用户设置或测试输入。 |
+### 后置条件
+
+关闭窗口，恢复应用 `quitOnLastWindowClosed`，临时目录由 `QTemporaryDir` 清理；不留下持久化设置。
+
+### 固化代码
+
+[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `GraphicsViewTests::testScrollBarsReachImageEdges()`。
+
+## TC-SB-VISUAL-ENDPOINT
+
+### 测试目的
+
+验证滑块本身在视觉上可以贴到轨道的运动方向两端，排除 QSS margin 造成的“数值到了但看起来没到”。
+
+### 前置条件
+
+生产代码可调用 `QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light)`，无需创建窗口或修改用户设置。
+
+### 输入数据
+
+- Light theme 的完整滚动条样式字符串。
+- 期望垂直规则：`margin: 0px 1px`。
+- 期望水平规则：`margin: 1px 0px`。
+
+### 操作步骤
+
+1. 读取静态样式函数返回值。
+2. 检查垂直 handle 规则与水平 handle 规则。
+3. 检查旧的 `margin: 2px 1px` 与 `margin: 1px 2px` 不再出现。
+
+### 预期结果
+
+垂直方向上下 margin 为 0，水平方向左右 margin 为 0，侧向 1px 留白保持；用例通过 `GraphicsViewTests::testScrollBarHandleTrackEndpoints`。
+
+### 后置条件
+
+不创建窗口、不改变滚动值、不修改 QSettings；返回值仅在测试进程内读取。
+
+### 固化代码
+
+[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `GraphicsViewTests::testScrollBarHandleTrackEndpoints()`；运行时结构合同另由 [`tests/scrollbar_zoom_acceptance_static.py`](../tests/scrollbar_zoom_acceptance_static.py) 复核。
+
+## TC-ZOOM-CENTER-THRESHOLD
+
+### 测试目的
+
+验证以可用 viewport 中心缩放跨过 `AsNeeded` 阈值时，横/纵滚动条出现及延迟布局窗口结束后，中心对应的图片归一化坐标保持稳定。
+
+### 前置条件
+
+- 使用可见 640×480 Cocoa 窗口、`OriginalSize`、`Never` 窗口调整模式。
+- 测试图片尺寸取当前可用 viewport 的 90%，初始不溢出。
+- 缩放使用一次中心锚定的 1.25 倍步骤；两轴出现后 viewport 会缩小。
+
+### 输入数据
+
+- 确定性 PNG：宽高为初始可用 viewport 的 90%。
+- 目标：`Qv::CalculateViewportCenterPos`。
+- 归一化坐标误差阈值：0.005。
+
+### 操作步骤
+
+1. 打开图片并确认初始没有滚动条。
+2. 记录可用 viewport 中心对应的图片归一化 `(x,y)`。
+3. 调用 `zoomIn()`，等待两个滚动条出现并处理布局事件。
+4. 再等待 150ms，记录延迟窗口后的归一化坐标。
+
+### 预期结果
+
+- 两轴 `AsNeeded` 滚动条均出现。
+- 滚动条出现后与初始坐标的距离不超过 0.005。
+- 150ms 后与出现后坐标的距离不超过 0.005。
+- 用例通过 `GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable`。
+
+### 后置条件
+
+关闭窗口并恢复应用退出策略；临时图片及设置保护对象自动释放。
+
+### 固化代码
+
+[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()`。
+
+## TC-ZOOM-BOTTOM-RIGHT
+
+### 测试目的
+
+验证右下区域显式鼠标锚点缩放时，水平滚动条出现引起的联动 viewport resize 不会造成图片锚点瞬间跳变，且延迟窗口结束后不发生第二次跳变。
+
+### 前置条件
+
+- 使用可见 640×480 Cocoa 窗口、`OriginalSize`、`Never` 窗口调整模式和平滑缩放关闭。
+- 打开 620×420 图片：1.0 倍时可放入 viewport，1.25 倍时出现横向溢出并使两轴滚动条可见。
+- 目标点位于可用 viewport 右下方，但向内留 40px（水平）和 100px（垂直），确保不是“目标本身超过 maximum”造成的合法截断。
+
+### 输入数据
+
+- 确定性 PNG：620×420、颜色 `darkYellow`。
+- 显式目标点：`(usableViewport.right()-40, usableViewport.bottom()-100)`。
+- 缩放级别：1.25。
+- 立即锚点容差：2px；稳定后二次位移容差：1px。
+
+### 操作步骤
+
+1. 打开图片，确认 1.0 倍时两轴滚动条隐藏。
+2. 记录目标点下的 `scenePos`。
+3. 调用 `zoomAbsolute(1.25, target)`。
+4. 等待横向滚动条出现，确认纵向滚动条也因耦合布局出现，记录 `mapFromScene(scenePos)`。
+5. 等待 150ms 并处理事件，再次记录该映射点。
+
+### 预期结果
+
+- 滚动条出现后的映射点与原目标的距离不超过 2px。
+- 150ms 后映射点与原目标的距离仍不超过 2px。
+- 两次观测之间的距离不超过 1px，即没有延迟二次位移。
+- 用例通过 `GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar`，日志应显示本次样例的 `before=(599,407)`、`after_layout=(599,407)`、`after_settling=(599,407)`（当前 640×480 Cocoa 测试环境）。
+
+### 后置条件
+
+关闭窗口，恢复应用退出策略，删除临时图片；pending anchor 的 generation timer 随 view 生命周期结束。
+
+### 固化代码
+
+[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar()`。
+
+## TC-STATIC-CONTRACT
+
+### 测试目的
+
+用源码结构静态检查确认动态用例所依赖的关键实现合同没有被回退：AsNeeded/QSS、active item scene geometry、pending anchor、resize 分支、测试 marker 和本规格六字段。
+
+### 前置条件
+
+- 仓库根目录可读。
+- 已生成本规格文件和 `tests/scrollbar_zoom_acceptance_static.py`。
+- Python 3 可执行。
+
+### 输入数据
+
+- 源码：`src/qvgraphicsview.cpp`、`src/qvgraphicsview.h`。
+- 测试源码：`tests/tst_qviewtests.cpp`。
+- 本规格文件。
+- 输出文件：`reports/evidence/scrollbar_zoom_static.json`。
+
+### 操作步骤
+
+执行：
+
+```bash
+python3 tests/scrollbar_zoom_acceptance_static.py \
+  --repo . --output reports/evidence/scrollbar_zoom_static.json
+```
+
+读取 stdout 与 JSON 的 `passed` 及每个 `checks[].pass`。
+
+### 预期结果
+
+`ST-SB-01`、`ST-SB-02`、`ST-ZOOM-01`、`ST-ZOOM-02`、`ST-TEST-01`、`ST-TEST-02` 全部为 `true`，脚本返回码为 0。
+
+### 后置条件
+
+JSON 证据文件保留在 ignored 的 `reports/evidence/` 目录供报告溯源；源码与用户设置不变。
+
+### 固化代码
+
+[`tests/scrollbar_zoom_acceptance_static.py`](../tests/scrollbar_zoom_acceptance_static.py)。
