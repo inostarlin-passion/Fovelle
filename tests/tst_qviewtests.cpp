@@ -35,6 +35,7 @@
 #include <QSignalSpy>
 #include <QSettings>
 #include <QStyle>
+#include <QStyleOption>
 #include <QStyleOptionGraphicsItem>
 #include <QStyleHints>
 #include <QSvgRenderer>
@@ -54,6 +55,7 @@
 #include <QMenu>
 #include <QStackedWidget>
 #include <QTranslator>
+#include <QScopeGuard>
 
 #include "mainwindow.h"
 #include "actionmanager.h"
@@ -233,6 +235,7 @@ private slots:
     void testScrollBarGeometryMatchesViewMetricAndDoesNotRebound();
     void testScrollBarHandleTrackEndpoints();
     void testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar();
+    void testManualScrollCancelsPendingZoomAnchor();
     void testVerticalScrollBarAvoidsTitlebarOverlap();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
@@ -4336,9 +4339,11 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
+// AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR
 // TC-ZOOM-FULLSCREEN-PAN-BOTTOM
 // Test purpose: verify that leaving full screen does not pull a zoomed image
-// away from the bottom edge selected by the vertical scrollbar.
+// away from the bottom edge selected by the vertical scrollbar, and that a
+// manual scrollbar move supersedes an older delayed zoom anchor.
 // Preconditions: a visible 640x480 window uses manual/original-size zoom and
 // loads an image that overflows vertically at 200% in both window modes.
 // Input data: one 2048x1536 PNG and a 2.0x zoom; the vertical scrollbar is at
@@ -4348,7 +4353,8 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 // verify the bottom edge before manual recovery, move the scrollbar to its
 // maximum, exit full screen, and inspect the final mapped image edge.
 // Expected result: the vertical scrollbar remains at its maximum and the
-// image's bottom edge remains coincident with the viewport's bottom edge.
+// image's bottom edge remains coincident with the viewport's bottom edge; the
+// delayed zoom callback does not recenter the manual endpoint.
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
 {
@@ -5347,6 +5353,99 @@ void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollba
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR
+// Test purpose: verify that an explicit scrollbar pan wins over the delayed
+// anchor created by the preceding zoom operation.
+// Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
+// displays a 2048x1536 image with vertical overflow at 2.0x.
+// Input data: a 2.0x zoom, the vertical scrollbar maximum, and the 150ms
+// pending-anchor delay used by the production zoom transaction.
+// Steps: zoom the image, drag the vertical scrollbar to maximum before the
+// delayed callback fires, wait past that callback, and map the image bottom.
+// Expected result: the scrollbar remains at maximum and the image bottom stays
+// within two pixels of the viewport bottom; the old zoom center is not replayed.
+// Postcondition: the window, scrollbar, temporary image, and test settings are released.
+void GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("manual-pan-cancels-zoom-anchor"), Qt::darkMagenta,
+        QSize(2048, 1536));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    auto *verticalScrollBar = view->verticalScrollBar();
+    QVERIFY2(
+        verticalScrollBar->maximum() > verticalScrollBar->minimum(),
+        "The zoomed image did not expose a vertical scrollbar range synchronously");
+
+    QStyleOptionSlider sliderOption;
+    sliderOption.initFrom(verticalScrollBar);
+    sliderOption.orientation = Qt::Vertical;
+    sliderOption.minimum = verticalScrollBar->minimum();
+    sliderOption.maximum = verticalScrollBar->maximum();
+    sliderOption.pageStep = verticalScrollBar->pageStep();
+    sliderOption.sliderPosition = verticalScrollBar->sliderPosition();
+    sliderOption.sliderValue = verticalScrollBar->value();
+    const QRect handle = verticalScrollBar->style()->subControlRect(
+        QStyle::CC_ScrollBar, &sliderOption, QStyle::SC_ScrollBarSlider,
+        verticalScrollBar);
+    QVERIFY2(!handle.isEmpty(), "The vertical scrollbar handle was not available");
+    const QPoint handleCenter = handle.center();
+    const int targetY = verticalScrollBar->rect().bottom() - handle.height() / 2;
+    QTest::mousePress(
+        verticalScrollBar, Qt::LeftButton, Qt::NoModifier, handleCenter);
+    QTest::mouseMove(
+        verticalScrollBar, QPoint(handleCenter.x(), targetY));
+    QTest::mouseRelease(
+        verticalScrollBar, Qt::LeftButton, Qt::NoModifier,
+        QPoint(handleCenter.x(), targetY));
+    const int selectedMaximum = verticalScrollBar->maximum();
+    QVERIFY2(
+        qAbs(verticalScrollBar->value() - selectedMaximum) <= 1,
+        "The vertical scrollbar did not reach its selected maximum");
+
+    QTest::qWait(250);
+    QCoreApplication::processEvents();
+    const int settledMaximum = verticalScrollBar->maximum();
+    QVERIFY2(
+        qAbs(verticalScrollBar->value() - settledMaximum) <= 1,
+        "The delayed zoom anchor moved the scrollbar away from the current maximum");
+
+    const QRectF imageRect = view->scene()->itemsBoundingRect();
+    const QPointF imageBottom = view->mapFromScene(
+        QPointF(imageRect.center().x(), imageRect.bottom()));
+    QVERIFY2(qAbs(imageBottom.y() - view->viewport()->rect().bottom()) <= 2.0,
+             "The delayed zoom anchor moved the manually selected bottom edge");
+
+    window.close();
 }
 
 // AC-SCROLLBAR-TITLEBAR-INSET

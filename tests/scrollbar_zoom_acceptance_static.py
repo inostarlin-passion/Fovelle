@@ -120,6 +120,31 @@ def main() -> int:
         "the regression test compares both styled scrollbar thicknesses with the view metric and checks the delayed endpoint",
     )
 
+    manual_pan_anchor_contract = (
+        "void cancelPendingZoomAnchor();" in view_header
+        and "const bool isExternalViewportChange" in view_cpp
+        and "cancelPendingZoomAnchor();" in view_cpp
+        and "&QScrollBar::sliderPressed" in view_cpp
+        and "&QScrollBar::actionTriggered" in view_cpp
+        and "pendingZoomAnchorGeneration;" in view_cpp
+        and "testManualScrollCancelsPendingZoomAnchor" in tests_cpp
+    )
+    add_check(
+        checks,
+        "ST-ZOOM-03",
+        manual_pan_anchor_contract,
+        {
+            "cancellation_api_declared": "void cancelPendingZoomAnchor();" in view_header,
+            "viewport_change_guard_is_present": "const bool isExternalViewportChange" in view_cpp,
+            "user_scroll_signals_cancel_anchor": "&QScrollBar::sliderPressed" in view_cpp
+            and "&QScrollBar::actionTriggered" in view_cpp,
+            "pan_paths_cancel_anchor": "cancelPendingZoomAnchor();" in view_cpp,
+            "generation_invalidates_delayed_callback": "pendingZoomAnchorGeneration;" in view_cpp,
+            "manual_pan_regression_present": "testManualScrollCancelsPendingZoomAnchor" in tests_cpp,
+        },
+        "an explicit scrollbar pan cancels the preceding zoom anchor before its delayed callback can recenter the view",
+    )
+
     ci_contract = (
         "option(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION" in tests_cmake
         and "if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)" in tests_cmake
@@ -197,6 +222,7 @@ def main() -> int:
             "AC-ZOOM-BOTTOM-RIGHT-STABLE",
             "AC-SCROLLBAR-NATIVE-EXTENT",
             "AC-ZOOM-ENDPOINT-NO-REBOUND",
+            "AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR",
         )
     }
     function_markers = {
@@ -207,6 +233,7 @@ def main() -> int:
             "testScrollBarHandleTrackEndpoints",
             "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
             "testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar",
+            "testManualScrollCancelsPendingZoomAnchor",
         )
     }
     add_check(
@@ -232,6 +259,7 @@ def main() -> int:
         "TC-ZOOM-CENTER-THRESHOLD",
         "TC-ZOOM-BOTTOM-RIGHT",
         "TC-ZOOM-ENDPOINT",
+        "TC-ZOOM-MANUAL-PAN",
         "TC-STATIC-CONTRACT",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}

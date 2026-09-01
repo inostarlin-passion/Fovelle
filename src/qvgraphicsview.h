@@ -316,6 +316,7 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
+    void cancelPendingZoomAnchor();
     void restorePendingZoomAnchor();
     void scheduleVerticalScrollBarGeometry();
 

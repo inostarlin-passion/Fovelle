@@ -1,6 +1,6 @@
 # Fovelle 图片缩放与滚动条测试用例说明
 
-本文将技术设计中的 8 条原子验收标准映射为可执行测试。每个用例都明确包含：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。
+本文将技术设计中的 9 条原子验收标准映射为可执行测试。每个用例都明确包含：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。
 
 测试层分为：源码静态合同、QtTest 动态回归、CTest 集成清单。Cocoa 测试使用确定性临时 PNG，不依赖用户提供的 `/Volumes/CRYSTAL` 文件；手工复现仍以 `reports/root_cause.md` 中的 `1.avif` 为基准。
 
@@ -187,6 +187,45 @@ minimum 时左/上边缘、maximum 时右/下边缘均在 2px 内贴合 viewport
 ### 固化代码
 
 `tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar`。
+
+## TC-ZOOM-MANUAL-PAN
+
+### 测试目的
+
+验证缩放事务留下的延迟 viewport anchor 不会覆盖用户随后对垂直滚动条做出的最大端点选择。
+
+### 前置条件
+
+- Cocoa `MainWindow` 已显示，窗口约为 640×480，`windowresizemode=Never` 且 `calculatedzoommode=OriginalSize`。
+- 2048×1536 临时 PNG 已加载；2.0x 缩放后垂直 scrollbar 存在非零范围。
+- 生产代码的延迟 zoom anchor 回调窗口为 150ms。
+
+### 输入数据
+
+- `view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos)`。
+- 垂直 scrollbar 的当前 `maximum()`。
+- 垂直 scrollbar handle 的 `QStyle::SC_ScrollBarSlider` 几何位置。
+- 250ms 等待窗口、当前 maximum ±1 的端点容差和图像底边 ±2px 的几何容差。
+
+### 操作步骤
+
+1. 打开临时 2048×1536 PNG 并等待加载完成。
+2. 执行 2.0x 中心缩放，等待垂直 scrollbar 的范围可用。
+3. 在延迟回调尚未处理前按住垂直 scrollbar handle 并拖到轨道底部，确认选择立即生效。
+4. 等待 250ms 并处理事件，覆盖 150ms 延迟 anchor 回调。
+5. 读取当前 scrollbar maximum/value，并把图像底边中点映射到 viewport。
+
+### 预期结果
+
+延迟回调不会把 value 重新定位到旧缩放中心；等待结束后 value 距当前 maximum 不超过 1，图像底边距 viewport 底边不超过 2px。
+
+### 后置条件
+
+关闭窗口，释放临时 PNG 和测试对象，并恢复应用退出策略及 scoped 测试设置。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-ZOOM-03`。
 
 ## TC-ZOOM-ENDPOINT
 

@@ -162,14 +162,19 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(hdrGeometryTimer, &QTimer::timeout, this,
             &QVGraphicsView::finishHDRGeometryStabilization);
     const auto viewportScrollChanged = [this]() {
+        // Keep fullscreen preservation tied to user-visible viewport changes,
+        // but do not infer user input from valueChanged alone: QAbstractScrollArea
+        // emits the same signal while it lays out AsNeeded scrollbars after a
+        // zoom. Those internal changes must not cancel the pending zoom anchor.
+        const bool isExternalViewportChange =
+            !fullScreenPanInternalUpdate && !isUpdatingSceneRect;
         // During a fullscreen transition, a scrollbar change outside an
         // explicitly guarded geometry update is the newest user-visible pan
         // state. Capture it before a later resize or scene-rect rebuild can
         // replay the anchor from the transition's request boundary. This also
         // covers direct QScrollBar::setValue() calls used by the regression
         // test; QAbstractSlider emits valueChanged for every changed value.
-        if (fullScreenPanPreservationActive && !fullScreenPanInternalUpdate
-            && !isUpdatingSceneRect)
+        if (fullScreenPanPreservationActive && isExternalViewportChange)
             captureFullScreenPanState();
         // Scrollbar values also change while opening/fitting a file. Treat
         // only changes after the native surface is fully active as an input
@@ -191,6 +196,14 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             viewportScrollChanged);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
             viewportScrollChanged);
+    connect(horizontalScrollBar(), &QScrollBar::sliderPressed, this,
+            [this]() { cancelPendingZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::sliderPressed, this,
+            [this]() { cancelPendingZoomAnchor(); });
+    connect(horizontalScrollBar(), &QScrollBar::actionTriggered, this,
+            [this](int) { cancelPendingZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::actionTriggered, this,
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(qvApp, &QGuiApplication::applicationStateChanged, this,
             [this](const Qt::ApplicationState state) {
         const bool active = state == Qt::ApplicationActive
@@ -767,6 +780,7 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
             QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
         if (!trackpadDelta.isNull())
         {
+            cancelPendingZoomAnchor();
             scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
             constrainBoundsTimer->start();
         }
@@ -864,6 +878,7 @@ void QVGraphicsView::keyPressEvent(QKeyEvent *event)
             (horizontalScrollBar()->singleStep() * scrollXSmallSteps) * getRtlFlip(),
             (verticalScrollBar()->singleStep() * scrollYSmallSteps) + (verticalScrollBar()->pageStep() * scrollYLargeSteps)
         };
+        cancelPendingZoomAnchor();
         scrollHelper->move(delta);
         constrainBoundsTimer->start();
         return;
@@ -948,6 +963,7 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
 {
     if (action == Qv::ViewportDragAction::Pan)
     {
+        cancelPendingZoomAnchor();
         scrollHelper->move(QPointF(-delta.x() * getRtlFlip(), -delta.y()));
     }
     else if (action == Qv::ViewportDragAction::MoveWindow)
@@ -1203,6 +1219,7 @@ void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, 
         if (hasShiftModifier)
             std::swap(scrollX, scrollY);
 
+        cancelPendingZoomAnchor();
         scrollHelper->move(QPointF(scrollX, scrollY));
         constrainBoundsTimer->start();
     }
@@ -1294,10 +1311,7 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
-    ++pendingZoomAnchorGeneration;
-    pendingZoomAnchorScene.reset();
-    pendingZoomAnchorViewport.reset();
-    pendingZoomAnchorFollowsViewportCenter = false;
+    cancelPendingZoomAnchor();
 
     // A native HDR presentation may have parked Qt viewport painting.  The
     // SDR proxy for the next file must be paintable while its renderer is
@@ -1627,10 +1641,7 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     }
     else if (isChanging)
     {
-        ++pendingZoomAnchorGeneration;
-        pendingZoomAnchorScene.reset();
-        pendingZoomAnchorViewport.reset();
-        pendingZoomAnchorFollowsViewportCenter = false;
+        cancelPendingZoomAnchor();
     }
 
     if (appliedExpensiveScaleZoomLevel != 0.0)
@@ -1655,9 +1666,17 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     if (pos.has_value())
     {
         const QPointF move = mapFromScene(scenePos) - pos.value();
-        horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (move.x() * getRtlFlip()));
-        verticalScrollBar()->setValue(verticalScrollBar()->value() + move.y());
-        restorePendingZoomAnchor();
+        {
+            // These scrollbar writes are part of the zoom transaction, not a
+            // new user pan. Keep the delayed anchor alive until layout has
+            // settled, while restorePendingZoomAnchor() itself remains
+            // protected by the same internal-update guard.
+            QScopedValueRollback<bool> internalUpdateGuard(
+                    fullScreenPanInternalUpdate, true);
+            horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (move.x() * getRtlFlip()));
+            verticalScrollBar()->setValue(verticalScrollBar()->value() + move.y());
+            restorePendingZoomAnchor();
+        }
         lastZoomRoundingError = mapToScene(pos.value()) - scenePos;
         constrainBoundsTimer->start();
     }
@@ -2018,6 +2037,7 @@ void QVGraphicsView::beginFullScreenPanPreservation()
     // A delayed constraint can otherwise write an old scroll value after the
     // transition has already established its new range.
     constrainBoundsTimer->stop();
+    cancelPendingZoomAnchor();
 
     // MainWindow starts preservation before asking Qt/AppKit to change the
     // window state. The native animation callback also calls this method when
@@ -2041,6 +2061,7 @@ void QVGraphicsView::beginFullScreenPanPreservation()
 void QVGraphicsView::refreshFullScreenPanPreservation()
 {
     constrainBoundsTimer->stop();
+    cancelPendingZoomAnchor();
 
     // Unlike begin(), this method is called at the exit request boundary. The
     // user may have dragged to a new edge while already in full screen, so the
@@ -2622,6 +2643,7 @@ bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
     {
         if (getCurrentFileDetails().isPixmapLoaded && !event->delta().isNull())
         {
+            cancelPendingZoomAnchor();
             scrollHelper->move(nativeGesturePanScrollDelta(event->delta(), isRightToLeft()));
             constrainBoundsTimer->start();
         }
@@ -2843,6 +2865,18 @@ void QVGraphicsView::restorePendingZoomAnchor()
         horizontalScrollBar()->value() + qRound(delta.x() * getRtlFlip()));
     verticalScrollBar()->setValue(
         verticalScrollBar()->value() + qRound(delta.y()));
+}
+
+void QVGraphicsView::cancelPendingZoomAnchor()
+{
+    if (!pendingZoomAnchorScene.has_value()
+        && !pendingZoomAnchorViewport.has_value())
+        return;
+
+    ++pendingZoomAnchorGeneration;
+    pendingZoomAnchorScene.reset();
+    pendingZoomAnchorViewport.reset();
+    pendingZoomAnchorFollowsViewportCenter = false;
 }
 
 QRectF QVGraphicsView::getSceneRectForViewport() const
