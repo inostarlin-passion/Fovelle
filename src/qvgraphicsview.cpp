@@ -82,7 +82,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{
         QScopedValueRollback<bool> internalUpdateGuard(
                 fullScreenPanInternalUpdate, true);
-        scrollHelper->constrain(disableDelayedConstraint);
+        scrollHelper->constrain();
         restoreFullScreenPanPreservation();
     });
 
@@ -1317,8 +1317,6 @@ void QVGraphicsView::postLoad()
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;
     hdrGeometryTimer->stop();
-    scrollHelper->cancelAnimation();
-
     // Set the pixmap to the new image and reset the transform's scale to a known value
     removeExpensiveScaling();
     if (imageCore.getLoadedHDRImage() || imageCore.getLoadedSDRImage())
@@ -1605,8 +1603,6 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         emit calculatedZoomModeChanged();
     }
 
-    scrollHelper->cancelAnimation();
-
     if (pos.has_value())
     {
         const QPointF move = mapFromScene(scenePos) - pos.value();
@@ -1839,7 +1835,6 @@ void QVGraphicsView::centerImage()
     horizontalScrollBar()->setValue(hOffset + (hOverflow / (isRightToLeft() ? -2 : 2)));
     verticalScrollBar()->setValue(vOffset + (vOverflow / 2));
 
-    scrollHelper->cancelAnimation();
     logViewportState("center-after");
 }
 
@@ -1963,18 +1958,16 @@ void QVGraphicsView::fitOrConstrainImage()
     if (calculatedZoomMode.has_value())
         recalculateZoom();
     else
-        scrollHelper->constrain(true);
+        scrollHelper->constrain();
 
     restoreFullScreenPanPreservation();
 }
 
 void QVGraphicsView::beginFullScreenPanPreservation()
 {
-    // A delayed constraint or an in-flight overscroll animation can otherwise
-    // write an old scroll value after the transition has already established
-    // its new range.
+    // A delayed constraint can otherwise write an old scroll value after the
+    // transition has already established its new range.
     constrainBoundsTimer->stop();
-    scrollHelper->cancelAnimation();
 
     // MainWindow starts preservation before asking Qt/AppKit to change the
     // window state. The native animation callback also calls this method when
@@ -1998,7 +1991,6 @@ void QVGraphicsView::beginFullScreenPanPreservation()
 void QVGraphicsView::refreshFullScreenPanPreservation()
 {
     constrainBoundsTimer->stop();
-    scrollHelper->cancelAnimation();
 
     // Unlike begin(), this method is called at the exit request boundary. The
     // user may have dragged to a new edge while already in full screen, so the
@@ -2017,7 +2009,6 @@ void QVGraphicsView::refreshFullScreenPanPreservation()
 void QVGraphicsView::endFullScreenPanPreservation()
 {
     constrainBoundsTimer->stop();
-    scrollHelper->cancelAnimation();
     restoreFullScreenPanPreservation();
     fullScreenPanPreservationActive = false;
     fullScreenHorizontalPanEdge = ScrollEdge::None;

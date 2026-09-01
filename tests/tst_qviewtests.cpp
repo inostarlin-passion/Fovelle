@@ -65,6 +65,7 @@
 #include "qvmovie.h"
 #include "qvoptionsdialog.h"
 #include "qvshortcutdialog.h"
+#include "scrollhelper.h"
 #include "settingsmanager.h"
 #include "qvinfodialog.h"
 #include "qvaboutdialog.h"
@@ -237,6 +238,18 @@ private slots:
     void testVectorPaintClearsStalePixelsBeforeTileReady();
     void testVectorFormatsUseDocumentSceneItem();
     void testVectorInteractionPaintCpuBudgetFor120Hz();
+};
+
+class ScrollHelperTests : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void testMinimumEdgesAreHardClamped();
+    void testMaximumEdgesAreHardClamped();
+    void testEdgePositionDoesNotReboundAfterRelease();
+    void testInteriorDragPreservesExactMovement();
+    void testUnconstrainedModeRemainsUnbounded();
 };
 
 class ApplicationEventTests : public QObject
@@ -777,6 +790,36 @@ public:
 
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class ScrollHelperTestHarness
+{
+public:
+    ScrollHelper::Parameters parameters{
+        QRect(0, 0, 1600, 900),
+        QRect(0, 0, 600, 400),
+        true,
+        true};
+    QScrollArea scrollArea;
+    ScrollHelper helper;
+
+    ScrollHelperTestHarness()
+        : helper(&scrollArea, [this](ScrollHelper::Parameters &output) {
+              output = parameters;
+          })
+    {
+        // Keep the widget ranges wider than the image's valid ranges. This
+        // makes any helper-level overshoot observable instead of letting
+        // QScrollBar silently clamp it first.
+        scrollArea.horizontalScrollBar()->setRange(-2000, 2000);
+        scrollArea.verticalScrollBar()->setRange(-2000, 2000);
+    }
+
+    void setPosition(const int horizontal, const int vertical)
+    {
+        scrollArea.horizontalScrollBar()->setValue(horizontal);
+        scrollArea.verticalScrollBar()->setValue(vertical);
+    }
 };
 
 class SourceLanguageTranslator final : public QTranslator
@@ -4782,6 +4825,144 @@ void GraphicsViewTests::testNativePanChangesViewport()
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-RB-MIN-EDGE
+// Test purpose: verify an image pan that reaches the top-left boundary stops
+// at the calculated minimum on both axes without exposing a rubber band.
+// Preconditions: a ScrollHelper has a 1600x900 content rect, a 600x400
+// usable viewport, constrained positioning enabled, and observable scrollbar
+// ranges wider than the valid image range.
+// Input data: current scroll position (0, 0) and drag delta (-120, -80).
+// Steps: move the helper past both minimum edges and invoke the normal
+// post-drag constraint path.
+// Expected result: both values remain exactly at the calculated minimum,
+// (0, 0), immediately and after the constraint call.
+// Postcondition: the helper harness and its scroll area are destroyed.
+void ScrollHelperTests::testMinimumEdgesAreHardClamped()
+{
+    ScrollHelperTestHarness harness;
+    harness.setPosition(0, 0);
+
+    harness.helper.move(QPointF(-120.0, -80.0));
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 0);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 0);
+
+    harness.helper.constrain();
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 0);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 0);
+}
+
+// AC-RB-MAX-EDGE
+// Test purpose: verify an image pan that reaches the bottom-right boundary
+// stops at the calculated maximum on both axes without overshooting.
+// Preconditions: the same constrained helper harness as the minimum-edge
+// case; its valid ranges are horizontal [0, 1000] and vertical [0, 500].
+// Input data: current scroll position (1000, 500) and drag delta (120, 80).
+// Steps: move the helper past both maximum edges and invoke the normal
+// post-drag constraint path.
+// Expected result: both values remain exactly at (1000, 500) immediately and
+// after the constraint call.
+// Postcondition: the helper harness and its scroll area are destroyed.
+void ScrollHelperTests::testMaximumEdgesAreHardClamped()
+{
+    ScrollHelperTestHarness harness;
+    harness.setPosition(1000, 500);
+
+    harness.helper.move(QPointF(120.0, 80.0));
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 1000);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 500);
+
+    harness.helper.constrain();
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 1000);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 500);
+}
+
+// AC-RB-NO-RETURN-ANIMATION
+// Test purpose: verify releasing a drag does not schedule a delayed return
+// animation after an edge attempt.
+// Preconditions: a constrained helper harness starts at the minimum edge and
+// the scrollbar ranges make any illegal intermediate value observable.
+// Input data: drag delta (-120, -80), followed by constrain() and a 350ms
+// event-loop interval longer than the former 250ms rebound animation.
+// Steps: record valueChanged counts, move past the edge, call constrain(),
+// wait for the former animation window, and inspect values and signal counts.
+// Expected result: values stay at (0, 0) and no valueChanged signal is emitted
+// after the synchronous clamp/constraint path completes.
+// Postcondition: no active helper timer remains and the harness is destroyed.
+void ScrollHelperTests::testEdgePositionDoesNotReboundAfterRelease()
+{
+    ScrollHelperTestHarness harness;
+    harness.setPosition(0, 0);
+    QSignalSpy horizontalChanges(
+        harness.scrollArea.horizontalScrollBar(), &QScrollBar::valueChanged);
+    QSignalSpy verticalChanges(
+        harness.scrollArea.verticalScrollBar(), &QScrollBar::valueChanged);
+
+    harness.helper.move(QPointF(-120.0, -80.0));
+    harness.helper.constrain();
+    const int horizontalChangesAfterConstraint = horizontalChanges.count();
+    const int verticalChangesAfterConstraint = verticalChanges.count();
+
+    QTest::qWait(350);
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 0);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 0);
+    QCOMPARE(horizontalChanges.count(), horizontalChangesAfterConstraint);
+    QCOMPARE(verticalChanges.count(), verticalChangesAfterConstraint);
+}
+
+// AC-RB-INTERIOR-MOTION
+// Test purpose: verify removing edge resistance does not alter normal image
+// movement while the pointer remains inside both scroll ranges.
+// Preconditions: a constrained helper harness starts at (300, 200), away
+// from all image edges.
+// Input data: drag delta (-75, 65).
+// Steps: move the helper once, invoke constrain(), wait through the former
+// animation duration, and compare the resulting values with exact arithmetic.
+// Expected result: the final position is (225, 265) throughout; no movement
+// is scaled or corrected when the proposed position is valid.
+// Postcondition: the helper harness and its scroll area are destroyed.
+void ScrollHelperTests::testInteriorDragPreservesExactMovement()
+{
+    ScrollHelperTestHarness harness;
+    harness.setPosition(300, 200);
+
+    harness.helper.move(QPointF(-75.0, 65.0));
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 225);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 265);
+
+    harness.helper.constrain();
+    QTest::qWait(350);
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), 225);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), 265);
+}
+
+// AC-RB-CONSTRAINT-OPT-OUT
+// Test purpose: verify the existing unconstrained-position setting still
+// permits deliberate scrolling beyond the image edges.
+// Preconditions: the helper harness has constrained positioning disabled and
+// starts at (0, 0).
+// Input data: drag delta (-120, -80).
+// Steps: move past the minimum edge, invoke constrain(), and inspect values.
+// Expected result: values remain (-120, -80); disabling the image constraint
+// is not silently converted into hard clamping by this fix.
+// Postcondition: the helper harness and its scroll area are destroyed.
+void ScrollHelperTests::testUnconstrainedModeRemainsUnbounded()
+{
+    ScrollHelperTestHarness harness;
+    harness.parameters.shouldConstrain = false;
+    harness.setPosition(0, 0);
+
+    harness.helper.move(QPointF(-120.0, -80.0));
+    harness.helper.constrain();
+
+    QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), -120);
+    QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), -80);
 }
 
 // TC-SCROLLBAR-AXES
@@ -9875,6 +10056,7 @@ int main(int argc, char *argv[])
     HDRSampleTests hdrSampleTests;
     SDRSampleInteractionTests sdrSampleInteractionTests;
     GraphicsViewTests graphicsViewTests;
+    ScrollHelperTests scrollHelperTests;
     ApplicationEventTests applicationEventTests;
     ImageCoreAndMovieTests imageCoreAndMovieTests;
     WindowBehaviorTests windowBehaviorTests;
@@ -9887,6 +10069,7 @@ int main(int argc, char *argv[])
     result |= runSuite("FeatureTests", &featureTests);
     result |= runSuite("HDRPolicyTests", &hdrPolicyTests);
     result |= runSuite("GraphicsViewTests", &graphicsViewTests);
+    result |= runSuite("ScrollHelperTests", &scrollHelperTests);
     result |= runSuite("ApplicationEventTests", &applicationEventTests);
     result |= runSuite("ImageCoreAndMovieTests", &imageCoreAndMovieTests);
     result |= runSuite("WindowBehaviorTests", &windowBehaviorTests);

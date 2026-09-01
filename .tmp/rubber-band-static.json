@@ -1,0 +1,99 @@
+{
+  "kind": "rubber-band-removal-static",
+  "passed": true,
+  "checks": [
+    {
+      "id": "ST-RB-01",
+      "pass": true,
+      "actual": {
+        "uses_qbound": true,
+        "lower_delta": true,
+        "upper_delta": true
+      },
+      "expected": "constrained movement is synchronously bounded to the calculated range"
+    },
+    {
+      "id": "ST-RB-02",
+      "pass": true,
+      "actual": {
+        "stale_symbols": []
+      },
+      "expected": "the helper has no resistance, overscroll state, or rebound timer"
+    },
+    {
+      "id": "ST-RB-03",
+      "pass": true,
+      "actual": {
+        "parameterless_constraint": true,
+        "updated_call_sites": true,
+        "old_constraint_call_absent": true,
+        "old_cancel_call_absent": true
+      },
+      "expected": "all production call sites use the synchronous constraint contract"
+    },
+    {
+      "id": "ST-RB-04",
+      "pass": true,
+      "actual": {
+        "markers": {
+          "AC-RB-MIN-EDGE": true,
+          "AC-RB-MAX-EDGE": true,
+          "AC-RB-NO-RETURN-ANIMATION": true,
+          "AC-RB-INTERIOR-MOTION": true,
+          "AC-RB-CONSTRAINT-OPT-OUT": true
+        },
+        "suite_registered": true
+      },
+      "expected": "every atomic acceptance criterion has executable QtTest coverage"
+    },
+    {
+      "id": "ST-RB-05",
+      "pass": true,
+      "actual": {
+        "fields_by_case": {
+          "TC-RB-MIN-EDGE": {
+            "测试目的": true,
+            "前置条件": true,
+            "输入数据": true,
+            "操作步骤": true,
+            "预期结果": true,
+            "后置条件": true
+          },
+          "TC-RB-MAX-EDGE": {
+            "测试目的": true,
+            "前置条件": true,
+            "输入数据": true,
+            "操作步骤": true,
+            "预期结果": true,
+            "后置条件": true
+          },
+          "TC-RB-NO-RETURN-ANIMATION": {
+            "测试目的": true,
+            "前置条件": true,
+            "输入数据": true,
+            "操作步骤": true,
+            "预期结果": true,
+            "后置条件": true
+          },
+          "TC-RB-INTERIOR-MOTION": {
+            "测试目的": true,
+            "前置条件": true,
+            "输入数据": true,
+            "操作步骤": true,
+            "预期结果": true,
+            "后置条件": true
+          },
+          "TC-RB-CONSTRAINT-OPT-OUT": {
+            "测试目的": true,
+            "前置条件": true,
+            "输入数据": true,
+            "操作步骤": true,
+            "预期结果": true,
+            "后置条件": true
+          }
+        }
+      },
+      "expected": "the Markdown specification records all six required fields for each test case"
+    }
+  ]
+}

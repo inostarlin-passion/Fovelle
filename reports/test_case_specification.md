@@ -1,81 +1,85 @@
-# 三项界面问题测试用例说明
+# 图片拖拽橡皮筋效果测试用例说明
 
 - 规格版本：1.0
 - 编写日期：2026-09-01
-- 被测基线：`e6c73fb6cd9c893804f06e2561ba508b958a2ebd`（实现后以当前工作树重新构建）
-- 根因依据：`reports/root_cause.md`
-- 日期格式依据：`/Users/inostarlin/Downloads/不同语言的修改时间格式.xlsx`
+- 被测范围：`ScrollHelper` 图片平移边界与上层约束调用
+- 测试代码：[`tests/tst_qviewtests.cpp`](../tests/tst_qviewtests.cpp) 的 `ScrollHelperTests`
+- 静态追踪：[`tests/rubber_band_acceptance_static.py`](../tests/rubber_band_acceptance_static.py)
 
-本文将需求拆成 4 条可独立判定的原子验收标准。每个动态用例均固化在 `tests/tst_qviewtests.cpp`；每个用例明确测试目的、前置条件、输入数据、操作步骤、预期结果和后置条件。
+## 原子标准与测试映射
 
-## 原子验收标准与测试映射
+| 原子标准 | 测试用例 | 测试代码 | 类型 |
+|---|---|---|---|
+| AC-RB-MIN-EDGE | TC-RB-MIN-EDGE | `ScrollHelperTests::testMinimumEdgesAreHardClamped` | QtTest 动态单元测试 |
+| AC-RB-MAX-EDGE | TC-RB-MAX-EDGE | `ScrollHelperTests::testMaximumEdgesAreHardClamped` | QtTest 动态单元测试 |
+| AC-RB-NO-RETURN-ANIMATION | TC-RB-NO-RETURN-ANIMATION | `ScrollHelperTests::testEdgePositionDoesNotReboundAfterRelease` | QtTest 动态时序测试 |
+| AC-RB-INTERIOR-MOTION | TC-RB-INTERIOR-MOTION | `ScrollHelperTests::testInteriorDragPreservesExactMovement` | QtTest 动态单元测试 |
+| AC-RB-CONSTRAINT-OPT-OUT | TC-RB-CONSTRAINT-OPT-OUT | `ScrollHelperTests::testUnconstrainedModeRemainsUnbounded` | QtTest 动态非回归测试 |
 
-| 原子标准 | 测试用例 | 测试层级 |
-|---|---|---|
-| AC-NAV-PREVIOUS-ABSENT：没有上一张图片时隐藏左侧按钮 | TC-NAV-PREVIOUS-ABSENT | Cocoa QtTest |
-| AC-NAV-NEXT-ABSENT：没有下一张图片时隐藏右侧按钮 | TC-NAV-NEXT-ABSENT | Cocoa QtTest |
-| AC-FILEINFO-MODIFIED-FORMAT：Modified 按 UI 语言使用参考格式 | TC-FILEINFO-MODIFIED-FORMAT | QtTest 数据表断言 |
-| AC-SCROLLBAR-TITLEBAR-INSET：垂直滚动条顶端避开标题栏遮挡区 | TC-SCROLLBAR-TITLEBAR-INSET | Cocoa QtTest |
+测试夹具用 `QScrollArea` 提供滚动条，用固定的 `contentRect=1600x900` 和 `usableViewportRect=600x400` 让合法范围确定为横向 `[0,1000]`、纵向 `[0,500]`。滚动条实际范围故意扩大到 `[-2000,2000]`，因此旧实现的越界值不会被 Qt 先行吞掉，能够直接观测 helper 是否产生 overscroll。
 
-## TC-NAV-PREVIOUS-ABSENT
-
-| 字段 | 内容 |
-|---|---|
-| 测试目的 | 验证文件夹首图在关闭循环浏览时不存在上一张图片，左侧 Previous 导航按钮不会被请求显示。 |
-| 前置条件 | Cocoa QtTest 应用可启动；窗口宽度为 800；排序为 Name 升序；`loopfoldersenabled=false`；目录含至少三张可解码 PNG。 |
-| 输入数据 | `01-boundary.png`、`02-boundary.png`、`03-boundary.png`，当前打开 `01-boundary.png`；鼠标位置为内容区左边缘和右边缘。 |
-| 操作步骤 | 1. 构造 `MainWindow` 并打开首图。<br>2. 等待图像加载完成、目录列表数为 3 且索引为 0。<br>3. 将鼠标移到 viewport 左边缘。<br>4. 读取 `previousImageButton` 的 `navigationRequestedVisible`。<br>5. 将鼠标移到右边缘，读取 Next 的同一属性。 |
-| 预期结果 | 左边缘时 Previous 的 requested visibility 为 `false`；右边缘时 Next 为 `true`，说明只有“无上一张”的方向被屏蔽，正常可用方向未被误伤。 |
-| 后置条件 | 关闭窗口；恢复测试前的 QSettings；释放 `QTemporaryDir` 和异步加载资源。 |
-
-测试代码：`tests/tst_qviewtests.cpp::WindowBehaviorTests::testPreviousNavigationButtonHiddenWithoutPreviousFile`
-
-## TC-NAV-NEXT-ABSENT
+## TC-RB-MIN-EDGE
 
 | 字段 | 内容 |
 |---|---|
-| 测试目的 | 验证文件夹末图在关闭循环浏览时不存在下一张图片，右侧 Next 导航按钮不会被请求显示。 |
-| 前置条件 | Cocoa QtTest 应用可启动；窗口宽度为 800；排序为 Name 升序；`loopfoldersenabled=false`；目录含至少三张可解码 PNG。 |
-| 输入数据 | 与 TC-NAV-PREVIOUS-ABSENT 相同的三张图片，当前打开 `03-boundary.png`；鼠标位置为内容区右边缘和左边缘。 |
-| 操作步骤 | 1. 构造 `MainWindow` 并打开末图。<br>2. 等待图像加载完成、目录列表数为 3 且索引为 2。<br>3. 将鼠标移到 viewport 右边缘。<br>4. 读取 `nextImageButton` 的 `navigationRequestedVisible`。<br>5. 将鼠标移到左边缘，读取 Previous 的同一属性。 |
-| 预期结果 | 右边缘时 Next 的 requested visibility 为 `false`；左边缘时 Previous 为 `true`，说明只有“无下一张”的方向被屏蔽，正常可用方向未被误伤。 |
-| 后置条件 | 关闭窗口；恢复测试前的 QSettings；释放 `QTemporaryDir` 和异步加载资源。 |
+| 测试目的 | 验证图片向左上边缘继续拖动时，横向和纵向都在最小边界同步停止，不产生越界位移。 |
+| 前置条件 | `ScrollHelper` 夹具已创建；内容矩形为 `1600x900`；可用 viewport 为 `600x400`；启用位置约束；滚动条实际范围宽于图片合法范围。 |
+| 输入数据 | 当前滚动位置 `(0,0)`；平移 delta `(-120,-80)`。 |
+| 操作步骤 | 1. 将滚动条设到 `(0,0)`。<br>2. 调用 `helper.move(QPointF(-120,-80))` 模拟继续向左上拖动。<br>3. 调用 `helper.constrain()` 模拟释放后的约束路径。<br>4. 分别读取两个滚动条值。 |
+| 预期结果 | `move()` 返回后横/竖值均为 `0`；`constrain()` 后仍为 `0`，不出现负值。 |
+| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
 
-测试代码：`tests/tst_qviewtests.cpp::WindowBehaviorTests::testNextNavigationButtonHiddenWithoutNextFile`
-
-## TC-FILEINFO-MODIFIED-FORMAT
+## TC-RB-MAX-EDGE
 
 | 字段 | 内容 |
 |---|---|
-| 测试目的 | 验证 File Info 的 Modified 字段按当前 UI 语言使用参考工作簿中的唯一格式，并验证 live `QVInfoDialog` 接线没有绕过 formatter。 |
-| 前置条件 | `QVInfoDialog`、`SettingsManager` 和 Qt `QLocale` 可用；创建一张临时 PNG；使用固定的日期时间，避免依赖测试机器当前时间。 |
-| 输入数据 | 固定时间 `2026-09-01 13:55`；语言代码及期望值如下。 |
-| 操作步骤 | 1. 对每个语言代码调用 `QVInfoDialog::formatModifiedDateTime()`。<br>2. 比较结果与参考输出。<br>3. 将 `options/language` 写入该语言，创建 `QVInfoDialog` 并调用 `setInfo()`。<br>4. 读取 `modifiedLabel`，与同一 formatter 对实际文件 `lastModified()` 的结果比较。 |
-| 预期结果 | 所有数据行均通过：<br><br>`en` → `Sep 1, 2026, 1:55 PM`<br>`zh_Hans` → `2026年9月1日 13:55`<br>`zh_Hant` → `2026年9月1日 下午1:55`<br>`es` → `1 sept 2026, 13:55`<br>`ja` → `2026年9月1日 13:55`。<br><br>live `modifiedLabel` 与 formatter 一致。 |
-| 后置条件 | 恢复 language QSettings；销毁对话框；删除临时目录；不改变系统 locale。 |
+| 测试目的 | 验证图片向右下边缘继续拖动时，横向和纵向都在最大边界同步停止，不产生越界位移。 |
+| 前置条件 | 与 TC-RB-MIN-EDGE 相同；计算出的合法范围为横向 `[0,1000]`、纵向 `[0,500]`。 |
+| 输入数据 | 当前滚动位置 `(1000,500)`；平移 delta `(120,80)`。 |
+| 操作步骤 | 1. 将滚动条设到 `(1000,500)`。<br>2. 调用 `helper.move(QPointF(120,80))` 模拟继续向右下拖动。<br>3. 调用 `helper.constrain()`。<br>4. 分别读取两个滚动条值。 |
+| 预期结果 | `move()` 返回后横/竖值均为 `(1000,500)`；`constrain()` 后仍保持该值，不出现超过最大值的状态。 |
+| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
 
-测试代码：`tests/tst_qviewtests.cpp::FeatureTests::testFileInfoModifiedUsesUiLanguageFormats`
-
-## TC-SCROLLBAR-TITLEBAR-INSET
+## TC-RB-NO-RETURN-ANIMATION
 
 | 字段 | 内容 |
 |---|---|
-| 测试目的 | 验证 full-size client area 下可见垂直滚动条的物理顶端不再落入 macOS 标题栏遮挡区域。 |
-| 前置条件 | Cocoa QtTest 应用可启动；MainWindow 已显示并启用 full-size content view；运行时 `obscuredHeight > 0`；`ScrollBarAsNeeded` 和 OriginalSize 可用。 |
-| 输入数据 | `1600x1600` 深青色 PNG；窗口 `640x480`；`windowresizemode=Never`、`calculatedzoommode=OriginalSize`。 |
-| 操作步骤 | 1. 显示窗口并打开临时图片。<br>2. 等待图像加载、标题栏遮挡高度为正、垂直滚动条可见。<br>3. 将 `verticalScrollBar()->mapTo(view, QPoint())` 的 y 坐标映射到 `QVGraphicsView`。<br>4. 与 `window.getViewportPosition().obscuredHeight` 比较，并记录运行时几何证据。 |
-| 预期结果 | `barTop >= obscuredHeight`；测试日志记录 `FOVELLE_SCROLLBAR_SAFE_AREA bar_top=... obscured_height=...`；滚动条仍保留原有溢出/底部布局。 |
-| 后置条件 | 关闭窗口；恢复 QSettings；释放图片、滚动条和临时目录。 |
+| 测试目的 | 验证释放拖动后不再启动延迟回弹，边缘位置不会在后续时间窗口发生二次变化。 |
+| 前置条件 | 约束已启用；起点为 `(0,0)`；滚动条范围允许旧实现的非法中间值；已连接两个 `QScrollBar::valueChanged` 的 `QSignalSpy`。 |
+| 输入数据 | 平移 delta `(-120,-80)`；调用 `constrain()` 后等待 `350ms`，该时长超过旧实现的 `250ms` 回弹动画。 |
+| 操作步骤 | 1. 调用 `move()` 尝试越过左上边缘。<br>2. 调用 `constrain()` 模拟鼠标释放。<br>3. 记录此时两个 signal spy 的计数和值。<br>4. 运行 Qt 事件循环等待 `350ms`。<br>5. 再次读取滚动条值和 signal 计数。 |
+| 预期结果 | 等待前后值均为 `(0,0)`；等待期间两个 `valueChanged` 计数均不增加，不存在回弹动画或延迟修正。 |
+| 后置条件 | 事件循环结束；无 helper 动画计时器需要清理；夹具析构。 |
 
-测试代码：`tests/tst_qviewtests.cpp::GraphicsViewTests::testVerticalScrollBarAvoidsTitlebarOverlap`
-
-## 静态追踪用例
+## TC-RB-INTERIOR-MOTION
 
 | 字段 | 内容 |
 |---|---|
-| 测试目的 | 检查实现 marker、动态测试 marker 和本规格的六个必备字段形成可审计闭环。 |
-| 前置条件 | 仓库源文件和本 Markdown 文件存在；Python 3 可用。 |
-| 输入数据 | `tests/task_acceptance_static.py`、`src/mainwindow.cpp`、`src/qvimagecore.*`、`src/qvinfodialog.*`、`src/qvgraphicsview.*`、`tests/tst_qviewtests.cpp`。 |
-| 操作步骤 | 执行 `python3 tests/task_acceptance_static.py --repo . --output .tmp/task-acceptance-static.json`，检查 JSON 中每个 check 的 `pass` 字段。 |
-| 预期结果 | 导航边界、语言格式、safe-area 几何和规格字段检查全部为 `true`，脚本返回码为 0。 |
-| 后置条件 | 保留 JSON 作为本次运行的临时证据或在报告中记录其摘要；不修改产品设置和源代码。 |
+| 测试目的 | 验证移除边缘阻力不会改变合法范围内部的普通图片拖动。 |
+| 前置条件 | 约束已启用；当前值为内部位置 `(300,200)`，不接近任一边界。 |
+| 输入数据 | 平移 delta `(-75,65)`；等待窗口 `350ms`。 |
+| 操作步骤 | 1. 调用 `helper.move(QPointF(-75,65))`。<br>2. 检查即时值。<br>3. 调用 `helper.constrain()` 并等待 `350ms`。<br>4. 再次检查最终值。 |
+| 预期结果 | 即时值为 `(225,265)`；等待和约束后仍为 `(225,265)`；delta 未被缩放或修正。 |
+| 后置条件 | 测试夹具析构，滚动条和 helper 一并释放。 |
+
+## TC-RB-CONSTRAINT-OPT-OUT
+
+| 字段 | 内容 |
+|---|---|
+| 测试目的 | 验证关闭图片位置约束时，已有的自由越界浏览行为不被本次修复误伤。 |
+| 前置条件 | `parameters.shouldConstrain=false`；当前值为 `(0,0)`；滚动条实际范围可表示负值。 |
+| 输入数据 | 平移 delta `(-120,-80)`。 |
+| 操作步骤 | 1. 关闭夹具约束开关。<br>2. 调用 `helper.move(QPointF(-120,-80))`。<br>3. 调用 `helper.constrain()`。<br>4. 读取两个滚动条值。 |
+| 预期结果 | 最终值为 `(-120,-80)`；关闭约束时仍不强制钳制到图片边缘。 |
+| 后置条件 | 测试夹具析构；不会修改持久化用户设置。 |
+
+## 静态追踪验证
+
+| 字段 | 内容 |
+|---|---|
+| 测试目的 | 验证硬钳制实现、回弹符号删除、上层调用点、五个测试 marker 和规格必备字段形成可审计闭环。 |
+| 前置条件 | 源码、测试源码、本规格和 Python 3 均可读取。 |
+| 输入数据 | 仓库根目录；输出路径 `.tmp/rubber-band-static.json`。 |
+| 操作步骤 | 执行 `python3 tests/rubber_band_acceptance_static.py --repo . --output .tmp/rubber-band-static.json`；读取 JSON 的 `passed` 和每个 check 的 `pass`。 |
+| 预期结果 | `ST-RB-01` 至 `ST-RB-05` 全部为 `true`，进程返回码为 `0`。 |
+| 后置条件 | JSON 证据保留在 `.tmp`；不修改产品源码、用户设置或测试输入。 |
