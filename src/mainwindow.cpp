@@ -826,6 +826,7 @@ void MainWindow::setNavigationButtonVisible(
     bool &requestedVisible = button == previousImageButton
             ? previousImageButtonRequestedVisible
             : nextImageButtonRequestedVisible;
+    button->setProperty("navigationRequestedVisible", visible);
     if (requestedVisible == visible) {
         if (graphicsView->usesNativeHDRNavigationOverlay())
             button->hide();
@@ -871,6 +872,8 @@ void MainWindow::hideNavigationButtonsImmediately()
     pressedNavigationButton = -1;
     previousImageButton->setProperty("paintOpacity", 0.0);
     nextImageButton->setProperty("paintOpacity", 0.0);
+    previousImageButton->setProperty("navigationRequestedVisible", false);
+    nextImageButton->setProperty("navigationRequestedVisible", false);
     previousImageButton->update();
     nextImageButton->update();
     previousImageButton->hide();
@@ -900,9 +903,11 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
         graphicsView->mapTo(this, nextImageButton->geometry().topLeft()),
         nextImageButton->size());
     const int activationWidth = navigationEdgeWidth(width());
-    const bool leftVisible = contentRect.contains(windowPosition) &&
+    const bool leftAvailable = graphicsView->hasPreviousFile();
+    const bool rightAvailable = graphicsView->hasNextFile();
+    const bool leftVisible = leftAvailable && contentRect.contains(windowPosition) &&
         (windowPosition.x() < contentRect.left() + activationWidth || previousWindowRect.contains(windowPosition));
-    const bool rightVisible = contentRect.contains(windowPosition) &&
+    const bool rightVisible = rightAvailable && contentRect.contains(windowPosition) &&
         (windowPosition.x() >= contentRect.right() - activationWidth + 1 || nextWindowRect.contains(windowPosition));
 
     if ((leftVisible && !previousImageButtonRequestedVisible)
@@ -987,6 +992,10 @@ void MainWindow::showEvent(QShowEvent *event)
         if (!isFullScreen()
             && QSettings().value(QStringLiteral("options/titlebarhidden"), false).toBool())
             setTitlebarHidden(true, false);
+        QTimer::singleShot(0, this, [this]() {
+            if (graphicsView)
+                graphicsView->refreshVerticalScrollBarGeometry();
+        });
     });
 
     if (!menusInitialized)
@@ -1368,6 +1377,7 @@ void MainWindow::fileChanged(const bool isRestoringState)
         refreshProperties();
     buildWindowTitle();
     clearTitlebarIcons();
+    hideNavigationButtonsImmediately();
     if (!isRestoringState)
         setWindowSize();
     pauseChanged();

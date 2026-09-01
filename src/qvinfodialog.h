@@ -2,6 +2,7 @@
 #define QVINFODIALOG_H
 
 #include <QDialog>
+#include <QDateTime>
 #include <QFileInfo>
 #include <QLocale>
 
@@ -20,6 +21,9 @@ public:
     void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount);
 
     void updateInfo();
+
+    static QString formatModifiedDateTime(const QDateTime &dateTime,
+                                          const QString &languageCode);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

@@ -75,6 +75,8 @@ public:
     const QVMovie& getLoadedMovie() const { return loadedMovie; }
     const FileDetails& getCurrentFileDetails() const { return currentFileDetails; }
     bool hasFileOrPendingLoad() const { return fileOrLoadPending; }
+    bool hasPreviousFile();
+    bool hasNextFile();
 
 signals:
     void animatedFrameChanged(QRect rect);

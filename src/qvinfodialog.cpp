@@ -2,6 +2,7 @@
 #include "ui_qvinfodialog.h"
 #include "qvapplication.h"
 #include "nativedialogs.h"
+#include "settingsmanager.h"
 #include <QDateTime>
 #include <QMimeDatabase>
 #include <QTimer>
@@ -62,7 +63,9 @@ void QVInfoDialog::updateInfo()
     ui->typeLabel->setText(mime.name());
     ui->locationLabel->setText(fileInfo.path());
     ui->sizeLabel->setText(tr("%1 (%2 bytes)").arg(formatBytes(fileInfo.size()), locale.toString(fileInfo.size())));
-    ui->modifiedLabel->setText(fileInfo.lastModified().toString(locale.dateTimeFormat()));
+    ui->modifiedLabel->setText(formatModifiedDateTime(
+        fileInfo.lastModified(),
+        qvApp->getSettingsManager().getString(QStringLiteral("language"))));
     ui->dimensionsLabel->setText(tr("%1 x %2 (%3 MP)").arg(QString::number(width), QString::number(height), QString::number(megapixels, 'f', 1)));
     if (gcd != 0)
         ui->ratioLabel->setText(QString::number(width / gcd) + ":" + QString::number(height / gcd));
@@ -78,6 +81,39 @@ void QVInfoDialog::updateInfo()
         ui->framesLabel->hide();
     }
     window()->adjustSize();
+}
+
+QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime,
+                                             const QString &languageCode)
+{
+    QString resolvedLanguage = languageCode;
+    if (resolvedLanguage == QStringLiteral("system"))
+        resolvedLanguage = SettingsManager::languageCodeForLocale(QLocale::system());
+
+    QLocale locale(QStringLiteral("en_US"));
+    QString format = QStringLiteral("MMM d, yyyy, h:mm AP");
+    if (resolvedLanguage == QStringLiteral("zh_Hans"))
+    {
+        locale = QLocale(QStringLiteral("zh_CN"));
+        format = QStringLiteral("yyyy年M月d日 HH:mm");
+    }
+    else if (resolvedLanguage == QStringLiteral("zh_Hant"))
+    {
+        locale = QLocale(QStringLiteral("zh_TW"));
+        format = QStringLiteral("yyyy年M月d日 APh:mm");
+    }
+    else if (resolvedLanguage == QStringLiteral("es"))
+    {
+        locale = QLocale(QStringLiteral("es_ES"));
+        format = QStringLiteral("d MMM yyyy, HH:mm");
+    }
+    else if (resolvedLanguage == QStringLiteral("ja"))
+    {
+        locale = QLocale(QStringLiteral("ja_JP"));
+        format = QStringLiteral("yyyy年M月d日 HH:mm");
+    }
+
+    return locale.toString(dateTime, format);
 }
 
 void QVInfoDialog::keyPressEvent(QKeyEvent *event)

@@ -30,6 +30,19 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     viewport()->setAutoFillBackground(false);
     viewport()->setMouseTracking(true);
 
+    const auto scheduleScrollBarGeometryUpdate = [this](int, int) {
+        scheduleVerticalScrollBarGeometry();
+    };
+    connect(horizontalScrollBar(), &QScrollBar::rangeChanged, this,
+            scheduleScrollBarGeometryUpdate);
+    connect(verticalScrollBar(), &QScrollBar::rangeChanged, this,
+            scheduleScrollBarGeometryUpdate);
+    QWidget *barGeometryWidget = verticalScrollBar()->parentWidget();
+    if (!barGeometryWidget || barGeometryWidget == this
+        || barGeometryWidget == viewport())
+        barGeometryWidget = verticalScrollBar();
+    barGeometryWidget->installEventFilter(this);
+
     // Scene setup
     auto *scene = new QGraphicsScene(this);
     // This view owns one image item.  Avoid maintaining/querying the BSP
@@ -299,10 +312,12 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
                 verticalScrollBar()->setValue(verticalScrollBar()->maximum());
         }
         logViewportState("resize");
+        refreshVerticalScrollBarGeometry();
     }
     else
     {
         QGraphicsView::resizeEvent(event);
+        refreshVerticalScrollBarGeometry();
     }
 }
 
@@ -668,7 +683,28 @@ bool QVGraphicsView::event(QEvent *event)
         }
     }
 
-    return QGraphicsView::event(event);
+    const bool result = QGraphicsView::event(event);
+    if (event->type() == QEvent::LayoutRequest)
+        scheduleVerticalScrollBarGeometry();
+    return result;
+}
+
+bool QVGraphicsView::eventFilter(QObject *watched, QEvent *event)
+{
+    QWidget *barGeometryWidget = verticalScrollBar()
+        ? verticalScrollBar()->parentWidget() : nullptr;
+    if (!barGeometryWidget || barGeometryWidget == this
+        || barGeometryWidget == viewport())
+        barGeometryWidget = verticalScrollBar();
+
+    if (watched == barGeometryWidget
+        && (event->type() == QEvent::LayoutRequest
+            || event->type() == QEvent::Move
+            || event->type() == QEvent::Resize
+            || event->type() == QEvent::Show))
+        scheduleVerticalScrollBarGeometry();
+
+    return QGraphicsView::eventFilter(watched, event);
 }
 
 void QVGraphicsView::focusInEvent(QFocusEvent *event)
@@ -2578,6 +2614,52 @@ MainWindow* QVGraphicsView::getMainWindow() const
     return qobject_cast<MainWindow*>(window());
 }
 
+void QVGraphicsView::scheduleVerticalScrollBarGeometry()
+{
+    if (verticalScrollBarGeometryUpdatePending)
+        return;
+
+    verticalScrollBarGeometryUpdatePending = true;
+    QTimer::singleShot(0, this, [this]() {
+        verticalScrollBarGeometryUpdatePending = false;
+        refreshVerticalScrollBarGeometry();
+    });
+}
+
+void QVGraphicsView::refreshVerticalScrollBarGeometry()
+{
+    if (isUpdatingVerticalScrollBarGeometry || !verticalScrollBar())
+        return;
+
+    // QAbstractScrollArea lays out the QScrollBar inside a private container.
+    // Its layout knows about the viewport but not Fovelle's macOS full-size
+    // titlebar overlap. Move that container's top edge after Qt lays it out;
+    // the bottom edge remains owned by Qt so horizontal-bar corner handling is
+    // unchanged. On Qt versions without a separate container, adjust the bar
+    // itself instead.
+    QWidget *barGeometryWidget = verticalScrollBar()->parentWidget();
+    if (!barGeometryWidget || barGeometryWidget == this
+        || barGeometryWidget == viewport())
+        barGeometryWidget = verticalScrollBar();
+
+    const QRect geometry = barGeometryWidget->geometry();
+    if (geometry.width() <= 0 || geometry.height() <= 0)
+        return;
+
+    const int obscuredHeight = getMainWindow()
+        ? qMax(0, getMainWindow()->getViewportPosition().obscuredHeight)
+        : 0;
+    const int adjustedTop = qMin(obscuredHeight, geometry.bottom() + 1);
+    if (geometry.top() == adjustedTop)
+        return;
+
+    QScopedValueRollback<bool> updateGuard(
+        isUpdatingVerticalScrollBarGeometry, true);
+    QRect adjustedGeometry = geometry;
+    adjustedGeometry.setTop(adjustedTop);
+    barGeometryWidget->setGeometry(adjustedGeometry);
+}
+
 QVGraphicsView::ScrollEdge QVGraphicsView::getScrollEdge(const QScrollBar *scrollBar) const
 {
     // ScrollHelper calculates the image-space range from QRect dimensions while
@@ -2629,6 +2711,7 @@ void QVGraphicsView::updateSceneRect(
     if (!fileDetails.isPixmapLoaded || fileDetails.loadedPixmapSize.isEmpty())
     {
         setSceneRect(QRectF());
+        refreshVerticalScrollBarGeometry();
         return;
     }
 
@@ -2698,6 +2781,7 @@ void QVGraphicsView::updateSceneRect(
         }
         logViewportState("scene-rect-viewport-restored");
     }
+    refreshVerticalScrollBarGeometry();
 }
 
 QRectF QVGraphicsView::getSceneRectForViewport() const

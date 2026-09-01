@@ -5,6 +5,8 @@
 #include <optional>
 #include <time.h>
 #include <QFileInfo>
+#include <QDateTime>
+#include <QTimeZone>
 #include <QDir>
 #include <QFileOpenEvent>
 #include <QImage>
@@ -137,6 +139,7 @@ private slots:
     void testSettingsLanguageCatalogIsFixed();
     void testSettingsLanguageDefaultsToSystem();
     void testSystemLanguageMappingFallsBackToEnglish();
+    void testFileInfoModifiedUsesUiLanguageFormats();
     void testAutoUpdateCheckLabelIsRenamed();
     void testSettingsRenamedLabelsAndRemovedMouseOptions();
     void testRemovedMouseSettingsMigrateToFixedDefaults();
@@ -224,6 +227,7 @@ private slots:
     void testNativePinchZoomChangesScaleAtGesturePosition();
     void testNativePanChangesViewport();
     void testScrollBarsFollowImageOverflowAxes();
+    void testVerticalScrollBarAvoidsTitlebarOverlap();
     void testScrollBarsMatchTheme();
     void testNativeGestureResponsePerformance();
     void testRasterPanUsesCompleteRepaintOnMacOS();
@@ -302,6 +306,8 @@ private slots:
     void testNavigationButtonUsesTransparentPaintOnlyFade();
     void testNavigationButtonsFadeTransition();
     void testNavigationButtonsClickSwitchesFiles();
+    void testPreviousNavigationButtonHiddenWithoutPreviousFile();
+    void testNextNavigationButtonHiddenWithoutNextFile();
 };
 
 class ShortcutSettingsTests : public QObject
@@ -3148,6 +3154,57 @@ void FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
     QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("de-DE"))), QStringLiteral("en"));
 }
 
+// AC-FILEINFO-MODIFIED-FORMAT
+// Test purpose: verify the File Info Modified value follows the UI-language
+// format contract captured in 不同语言的修改时间格式.xlsx.
+// Preconditions: the deterministic Qt locale formatter is available and a
+// temporary file can be used to exercise QVInfoDialog::updateInfo().
+// Input data: 2026-09-01 13:55 and the five supported explicit UI language
+// codes, plus one real QFileInfo for the dialog wiring path.
+// Steps: compare the formatter output with every reference example, then set
+// the language setting and inspect the live modifiedLabel text.
+// Expected result: English, Simplified Chinese, Traditional Chinese, Spanish,
+// and Japanese each produce the exact reference string and the dialog uses the
+// same formatter for its Modified field.
+// Postcondition: the temporary language setting, dialog, and file are released.
+void FeatureTests::testFileInfoModifiedUsesUiLanguageFormats()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    const QDateTime referenceDateTime(
+        QDate(2026, 9, 1), QTime(13, 55), QTimeZone::systemTimeZone());
+#else
+    const QDateTime referenceDateTime(
+        QDate(2026, 9, 1), QTime(13, 55), Qt::LocalTime);
+#endif
+    const QList<QPair<QString, QString>> expectedFormats {
+        {QStringLiteral("en"), QStringLiteral("Sep 1, 2026, 1:55 PM")},
+        {QStringLiteral("zh_Hans"), QStringLiteral("2026年9月1日 13:55")},
+        {QStringLiteral("zh_Hant"), QStringLiteral("2026年9月1日 下午1:55")},
+        {QStringLiteral("es"), QStringLiteral("1 sept 2026, 13:55")},
+        {QStringLiteral("ja"), QStringLiteral("2026年9月1日 13:55")},
+    };
+    for (const auto &[language, expected] : expectedFormats)
+        QCOMPARE(QVInfoDialog::formatModifiedDateTime(referenceDateTime, language), expected);
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString imagePath = createTestImage(
+        directory, QStringLiteral("modified-format"), Qt::darkGray);
+    QVERIFY(!imagePath.isEmpty());
+    const QFileInfo fileInfo(imagePath);
+    for (const auto &[language, expected] : expectedFormats)
+    {
+        ScopedOptionValues options({{QStringLiteral("language"), language}});
+        QVInfoDialog dialog;
+        dialog.setInfo(fileInfo, QSize(32, 32), 0);
+        auto *modifiedLabel = dialog.findChild<QLabel *>(QStringLiteral("modifiedLabel"));
+        QVERIFY(modifiedLabel);
+        QCOMPARE(modifiedLabel->text(),
+                 QVInfoDialog::formatModifiedDateTime(fileInfo.lastModified(), language));
+        Q_UNUSED(expected)
+    }
+}
+
 // TC-SETTINGS-AUTO-UPDATE-LABEL
 // Test purpose: verify the update-frequency label uses the new concise
 // English wording and no longer exposes the former phrase.
@@ -4798,6 +4855,60 @@ void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
     checkCase("scroll-vertical", QSize(100, 1600), false, true);
     checkCase("scroll-both", QSize(1600, 1600), true, true);
 
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-SCROLLBAR-TITLEBAR-INSET
+// Test purpose: verify the physical vertical scrollbar begins below the
+// macOS full-size titlebar area instead of being covered by it.
+// Preconditions: a Cocoa MainWindow is shown with full-size content enabled and
+// the titlebar reports a positive obscured height.
+// Input data: a 1600x1600 PNG, OriginalSize mode, and a 640x480 window.
+// Steps: open the overflowing image, wait for the vertical scrollbar, map its
+// top-left into QVGraphicsView coordinates, and compare it with obscuredHeight.
+// Expected result: the mapped vertical scrollbar top is at or below the first
+// unobscured row while its bottom/overflow behavior remains available.
+// Postcondition: the window, scrollbar, and temporary image are released.
+void GraphicsViewTests::testVerticalScrollBarAvoidsTitlebarOverlap()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("scrollbar-titlebar"), Qt::darkCyan, QSize(1600, 1600));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight > 0, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->verticalScrollBar()->mapTo(view, QPoint()).y()
+            >= window.getViewportPosition().obscuredHeight,
+        2000);
+
+    const int barTop = view->verticalScrollBar()->mapTo(view, QPoint()).y();
+    const int obscuredHeight = window.getViewportPosition().obscuredHeight;
+    qInfo("FOVELLE_SCROLLBAR_SAFE_AREA bar_top=%d obscured_height=%d",
+          barTop, obscuredHeight);
+    QVERIFY(barTop >= obscuredHeight);
+
+    window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
@@ -9257,6 +9368,7 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
         {"checkerboardbackground", false},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"loopfoldersenabled", true},
         {"sortmode", static_cast<int>(Qv::SortMode::Name)},
         {"sortdescending", false}
     });
@@ -9492,6 +9604,7 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
         {"checkerboardbackground", false},
         {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"loopfoldersenabled", true},
         {"sortmode", static_cast<int>(Qv::SortMode::Name)},
         {"sortdescending", false}
     });
@@ -9621,6 +9734,126 @@ void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
         window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
         QFileInfo(secondPath).absoluteFilePath(),
         5000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-NAV-PREVIOUS-ABSENT
+// Test purpose: verify the Previous button is unavailable at the first image
+// when folder looping is disabled, while Next remains available.
+// Preconditions: a visible three-image folder is opened with a known name sort
+// and loopfoldersenabled=false.
+// Input data: 01-boundary.png, 02-boundary.png, and 03-boundary.png.
+// Steps: open the first image, move to the left edge, inspect the requested
+// visibility state, then move to the right edge and inspect Next.
+// Expected result: Previous stays hidden at index 0; Next is requested visible
+// at the right edge.
+// Postcondition: the window and temporary files are released; settings restore.
+void WindowBehaviorTests::testPreviousNavigationButtonHiddenWithoutPreviousFile()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("loopfoldersenabled"), false},
+        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name)},
+        {QStringLiteral("sortdescending"), false},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(dir, QStringLiteral("01-boundary"), Qt::red);
+    const QString middlePath = createTestImage(dir, QStringLiteral("02-boundary"), Qt::green);
+    const QString lastPath = createTestImage(dir, QStringLiteral("03-boundary"), Qt::blue);
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!middlePath.isEmpty());
+    QVERIFY(!lastPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(firstPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size(), 3, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 0, 2000);
+
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    auto *previousButton = window.findChild<QPushButton *>(QStringLiteral("previousImageButton"));
+    auto *nextButton = window.findChild<QPushButton *>(QStringLiteral("nextImageButton"));
+    QVERIFY(view);
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    const int middleY = view->viewport()->height() / 2;
+    sendMouseMove(view->viewport(), QPoint(1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !previousButton->property("navigationRequestedVisible").toBool(), 1000);
+
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        nextButton->property("navigationRequestedVisible").toBool(), 1000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-NAV-NEXT-ABSENT
+// Test purpose: verify the Next button is unavailable at the last image when
+// folder looping is disabled, while Previous remains available.
+// Preconditions: a visible three-image folder is opened with a known name sort
+// and loopfoldersenabled=false.
+// Input data: the same sorted boundary folder, opened at 03-boundary.png.
+// Steps: open the last image, move to the right edge, inspect the requested
+// visibility state, then move to the left edge and inspect Previous.
+// Expected result: Next stays hidden at the final index; Previous is requested
+// visible at the left edge.
+// Postcondition: the window and temporary files are released; settings restore.
+void WindowBehaviorTests::testNextNavigationButtonHiddenWithoutNextFile()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("loopfoldersenabled"), false},
+        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name)},
+        {QStringLiteral("sortdescending"), false},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(dir, QStringLiteral("01-boundary"), Qt::red);
+    const QString middlePath = createTestImage(dir, QStringLiteral("02-boundary"), Qt::green);
+    const QString lastPath = createTestImage(dir, QStringLiteral("03-boundary"), Qt::blue);
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!middlePath.isEmpty());
+    QVERIFY(!lastPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(lastPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size(), 3, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 2, 2000);
+
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    auto *previousButton = window.findChild<QPushButton *>(QStringLiteral("previousImageButton"));
+    auto *nextButton = window.findChild<QPushButton *>(QStringLiteral("nextImageButton"));
+    QVERIFY(view);
+    QVERIFY(previousButton);
+    QVERIFY(nextButton);
+    const int middleY = view->viewport()->height() / 2;
+    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !nextButton->property("navigationRequestedVisible").toBool(), 1000);
+
+    sendMouseMove(view->viewport(), QPoint(1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        previousButton->property("navigationRequestedVisible").toBool(), 1000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

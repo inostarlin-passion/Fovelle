@@ -110,6 +110,9 @@ public:
     const QVImageCore::FileDetails& getCurrentFileDetails() const { return imageCore.getCurrentFileDetails(); }
     const QVMovie& getLoadedMovie() const { return imageCore.getLoadedMovie(); }
     bool hasFileOrPendingLoad() const { return imageCore.hasFileOrPendingLoad(); }
+    bool hasPreviousFile() { return imageCore.hasPreviousFile(); }
+    bool hasNextFile() { return imageCore.hasNextFile(); }
+    void refreshVerticalScrollBarGeometry();
     qreal getZoomLevel() const { return zoomLevel; }
     bool usesVectorRendering() const;
     Qv::VectorImageFormat vectorImageFormat() const;
@@ -213,6 +216,8 @@ protected:
 
     bool event(QEvent *event) override;
 
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
     void focusInEvent(QFocusEvent *event) override;
 
     void focusOutEvent(QFocusEvent *event) override;
@@ -311,6 +316,7 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
+    void scheduleVerticalScrollBarGeometry();
 
     QVGraphicsImageItem *loadedPixmapItem {nullptr};
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
@@ -358,6 +364,8 @@ private:
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
     bool isUpdatingSceneRect {false};
+    bool verticalScrollBarGeometryUpdatePending {false};
+    bool isUpdatingVerticalScrollBarGeometry {false};
     bool fullScreenPanInternalUpdate {false};
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};

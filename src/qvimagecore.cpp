@@ -357,6 +357,32 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
     return result;
 }
 
+bool QVImageCore::hasPreviousFile()
+{
+    if (folderInfoDirty)
+        updateFolderInfo();
+
+    const auto &fileList = currentFileDetails.folderFileInfoList;
+    const int currentIndex = currentFileDetails.loadedIndexInFolder;
+    if (fileList.size() < 2 || currentIndex < 0)
+        return false;
+
+    return currentIndex > 0 || fileEnumerator.getIsLoopFoldersEnabled();
+}
+
+bool QVImageCore::hasNextFile()
+{
+    if (folderInfoDirty)
+        updateFolderInfo();
+
+    const auto &fileList = currentFileDetails.folderFileInfoList;
+    const int currentIndex = currentFileDetails.loadedIndexInFolder;
+    if (fileList.size() < 2 || currentIndex < 0)
+        return false;
+
+    return currentIndex < fileList.size() - 1 || fileEnumerator.getIsLoopFoldersEnabled();
+}
+
 void QVImageCore::updateFolderInfo(QString dirPath)
 {
     if (dirPath.isEmpty())
