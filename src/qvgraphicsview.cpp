@@ -200,6 +200,10 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             [this]() { cancelPendingZoomAnchor(); });
     connect(verticalScrollBar(), &QScrollBar::sliderPressed, this,
             [this]() { cancelPendingZoomAnchor(); });
+    connect(horizontalScrollBar(), &QScrollBar::sliderMoved, this,
+            [this](int) { cancelPendingZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::sliderMoved, this,
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(horizontalScrollBar(), &QScrollBar::actionTriggered, this,
             [this](int) { cancelPendingZoomAnchor(); });
     connect(verticalScrollBar(), &QScrollBar::actionTriggered, this,

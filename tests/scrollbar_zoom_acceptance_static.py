@@ -125,6 +125,7 @@ def main() -> int:
         and "const bool isExternalViewportChange" in view_cpp
         and "cancelPendingZoomAnchor();" in view_cpp
         and "&QScrollBar::sliderPressed" in view_cpp
+        and "&QScrollBar::sliderMoved" in view_cpp
         and "&QScrollBar::actionTriggered" in view_cpp
         and "pendingZoomAnchorGeneration;" in view_cpp
         and "testManualScrollCancelsPendingZoomAnchor" in tests_cpp
@@ -137,6 +138,7 @@ def main() -> int:
             "cancellation_api_declared": "void cancelPendingZoomAnchor();" in view_header,
             "viewport_change_guard_is_present": "const bool isExternalViewportChange" in view_cpp,
             "user_scroll_signals_cancel_anchor": "&QScrollBar::sliderPressed" in view_cpp
+            and "&QScrollBar::sliderMoved" in view_cpp
             and "&QScrollBar::actionTriggered" in view_cpp,
             "pan_paths_cancel_anchor": "cancelPendingZoomAnchor();" in view_cpp,
             "generation_invalidates_delayed_callback": "pendingZoomAnchorGeneration;" in view_cpp,

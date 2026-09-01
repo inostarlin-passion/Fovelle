@@ -204,14 +204,14 @@ minimum 时左/上边缘、maximum 时右/下边缘均在 2px 内贴合 viewport
 
 - `view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos)`。
 - 垂直 scrollbar 的当前 `maximum()`。
-- 垂直 scrollbar handle 的 `QStyle::SC_ScrollBarSlider` 几何位置。
+- `QAbstractSlider::SliderMove` 语义动作，以及 `setSliderPosition(maximum())` 的目标值。
 - 250ms 等待窗口、当前 maximum ±1 的端点容差和图像底边 ±2px 的几何容差。
 
 ### 操作步骤
 
 1. 打开临时 2048×1536 PNG 并等待加载完成。
 2. 执行 2.0x 中心缩放，等待垂直 scrollbar 的范围可用。
-3. 在延迟回调尚未处理前按住垂直 scrollbar handle 并拖到轨道底部，确认选择立即生效。
+3. 在延迟回调尚未处理前设置垂直 scrollbar 的 `sliderPosition` 为 `maximum()`，再触发 `QAbstractSlider::SliderMove`，模拟真实 handle 拖动产生的语义输入事件。
 4. 等待 250ms 并处理事件，覆盖 150ms 延迟 anchor 回调。
 5. 读取当前 scrollbar maximum/value，并把图像底边中点映射到 viewport。
 
@@ -221,7 +221,7 @@ minimum 时左/上边缘、maximum 时右/下边缘均在 2px 内贴合 viewport
 
 ### 后置条件
 
-关闭窗口，释放临时 PNG 和测试对象，并恢复应用退出策略及 scoped 测试设置。
+关闭窗口，释放临时 PNG 和测试对象，确认测试未遗留 Cocoa 原生 mouse grab，并恢复应用退出策略及 scoped 测试设置。
 
 ### 固化代码
 
