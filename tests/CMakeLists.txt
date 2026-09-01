@@ -109,11 +109,17 @@ if(QV_DISABLE_ONLINE_VERSION_CHECK)
     target_compile_definitions(fovelle_tests PRIVATE QV_DISABLE_ONLINE_VERSION_CHECK)
 endif()
 
-# This is an opt-in system-level reproduction driver.  Unlike the QtTest
-# target above, it launches the real app and posts a fixed CoreGraphics HID
-# drag trajectory through kCGHIDEventTap.  The external fixture is deliberately
+# This is an opt-in system-level reproduction driver. Unlike the QtTest target
+# above, it launches the real app and posts a fixed CoreGraphics HID drag
+# trajectory through kCGHIDEventTap. The external fixture is deliberately
 # configurable because it lives on the developer's mounted test volume and is
-# not available on hosted CI runners.
+# not available on hosted CI runners. Keep it out of the default CTest gate:
+# an installed fixture and Accessibility/Post Event permissions are external
+# state, so a local desktop run must opt into this test explicitly.
+option(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION
+    "Register the Accessibility-dependent native drag reproduction in CTest"
+    OFF)
+
 add_executable(fovelle_native_drag_helper
     native_drag_helper.mm
 )
@@ -131,16 +137,18 @@ target_link_libraries(fovelle_native_drag_helper PRIVATE
 set(FOVELLE_NATIVE_DRAG_IMAGE
     "/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/3.jpeg"
     CACHE FILEPATH "Image used by the native CoreGraphics drag reproduction")
-add_test(NAME FovelleNativeDragReproduction
-    COMMAND fovelle_native_drag_helper
-        --app "$<TARGET_FILE:Fovelle>"
-        --image "${FOVELLE_NATIVE_DRAG_IMAGE}"
-)
-set_tests_properties(FovelleNativeDragReproduction PROPERTIES
-    SKIP_RETURN_CODE 77
-    TIMEOUT 90
-    LABELS "native-ui;fullscreen;requires-accessibility"
-)
+if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)
+    add_test(NAME FovelleNativeDragReproduction
+        COMMAND fovelle_native_drag_helper
+            --app "$<TARGET_FILE:Fovelle>"
+            --image "${FOVELLE_NATIVE_DRAG_IMAGE}"
+    )
+    set_tests_properties(FovelleNativeDragReproduction PROPERTIES
+        SKIP_RETURN_CODE 77
+        TIMEOUT 90
+        LABELS "native-ui;fullscreen;requires-accessibility"
+    )
+endif()
 
 add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES

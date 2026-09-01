@@ -1,141 +1,124 @@
-# Fovelle 图片视图与快捷键测试完成报告
+# Fovelle 图片缩放与滚动条测试完成报告
 
-## 1. 完成结论
+## 1. 结论
 
-本次实现已完成。8 条原子验收标准均有对应测试代码，并在当前 macOS Cocoa/Qt 6.11.1 环境通过：
+代码修复、回归测试代码和三份 Markdown 报告已完成。当前本机 macOS Cocoa/Qt 6.11.1 环境下，新增端点回归、完整产品 QtTest 和默认 CTest 均通过。
 
-| 标准 | 结果 | 动态证据 |
+远端失败的直接边界是 GitHub Actions 的 CTest 产品测试步骤（对应的 Checks 与 Build Fovelle 运行记录分别为 [33493524336](https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524336) 和 [33493524330](https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524330)）。本地等价路径已验证；远端重新运行需要将工作树提交/推送后由 Actions 触发，本报告不把尚未触发的远端结果记为 PASS。
+
+## 2. 原子验收结果
+
+| 标准 | 结果 | 证据 |
 | --- | --- | --- |
-| AC-SB-01 图片四边可达 | PASS | `GraphicsViewTests::testScrollBarsReachImageEdges` |
-| AC-SB-02 handle 运动方向无端隙 | PASS | `testScrollBarHandleTrackEndpoints` |
+| AC-SB-01 图片四边可达 | PASS | `testScrollBarsReachImageEdges` |
+| AC-SB-02 scrollbar 厚度统一 | PASS | `testScrollBarGeometryMatchesViewMetricAndDoesNotRebound` |
+| AC-SB-03 handle 运动方向无端隙 | PASS | `testScrollBarHandleTrackEndpoints` |
 | AC-ZOOM-01 AsNeeded 阈值中心稳定 | PASS | `testZoomAcrossScrollbarThresholdKeepsViewportCenterStable` |
-| AC-ZOOM-02 右下锚点稳定 | PASS | `testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar` |
-| AC-SC-01 Shortcuts Action 面替换 | PASS | `testToggleFitAnd100IsTheOnlyFitShortcutAction` |
-| AC-SC-02 默认 Z | PASS | `testToggleFitAnd100DefaultsToZ` |
-| AC-SC-03 fit↔100% 状态机 | PASS | `testToggleFitAnd100ChangesBetweenFitAnd100Percent` |
-| AC-SC-04 四种翻译 | PASS | `testToggleFitAnd100Translations` |
+| AC-ZOOM-02 右下显式 anchor 稳定 | PASS | `testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar` |
+| AC-ZOOM-03 端点缩小无空白/回弹 | PASS | `testScrollBarGeometryMatchesViewMetricAndDoesNotRebound` |
+| AC-CI-01 默认 CTest 可重复 | PASS | `ctest --test-dir build -N`、默认 CTest |
+| AC-STATIC-01 测试入口与规格可追踪 | PASS | `scrollbar_zoom_acceptance_static.py`、本文件 |
 
-## 2. 实现变更
+## 3. 实现变更
 
-- `src/qvgraphicsview.cpp`：保留 active item scene geometry；scene rect 更新防重入；自动滚动条触发的 resize 在 pending zoom anchor 有效时跳过普通半差补偿；跨 transform、viewport layout 和延迟阶段恢复 anchor；运动方向 scrollbar handle margin 归零。
-- `src/scrollhelper.cpp`：端点采用硬夹紧，避免拖动/触控板平移越过图片有效范围后回弹露白。
-- `src/shortcutmanager.cpp`：将 Shortcut 行改为 `Toggle Fit and 100%` / `togglefitand100` / `Z`，并清理已删除 Action 的旧持久化快捷键。
-- `src/actionmanager.cpp`：View 菜单、Action library 与 dispatcher 统一使用新 key，移除旧三个 Action。
-- `src/mainwindow.cpp/.h`：新增 fit/100% 状态机，fit 状态触发 `zoomAbsolute(1.0, ...)`，绕过遗留 `originalsizeastoggle` 切换语义。
-- `i18n/qview_*.ts`：加入 ActionManager、ShortcutManager 两个 context 的四种精确翻译，并更新 `i18n/template.ts`。
-- `tests/tst_qviewtests.cpp`：新增 4 个 ShortcutSettingsTests，扩展 View 菜单与 Escape 冲突回归，并保留滚动/缩放回归。
-- `tests/shortcut_toggle_acceptance_static.py`：新增快捷键静态合同脚本。
+- `src/qvgraphicsview.cpp`：删除 scrollbar QSS 中固定的 12px 宽/高，让实际控件与 `QGraphicsView` 的 `PM_ScrollBarExtent` 使用同一平台几何；保留主题颜色和运动方向为 0 的 handle margin。
+- `tests/tst_qviewtests.cpp`：新增 Cocoa 回归用例，比较两轴 `sizeHint` 与平台 extent，并覆盖“最大端点 → 缩小 → 延迟约束”立即/稳定两个阶段。
+- `tests/CMakeLists.txt`：增加 `FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION`，默认关闭权限/外部 fixture 依赖的 native drag CTest；helper 仍可单独构建并显式启用。
+- `tests/scrollbar_zoom_acceptance_static.py`：增加固定厚度、平台 extent、延迟端点和默认 CTest 注册合同。
+- `tests/ci_quality_pipeline.py`：更新现行产品测试注册/CTest 清单断言，移除对已不存在的 `FovelleTaskAcceptanceAudit` 的陈旧期待。
 
-## 3. 静态验证
-
-### 3.1 Python 与源码合同
+## 4. 静态验证
 
 执行：
 
 ```bash
 python3 -m py_compile \
   tests/scrollbar_zoom_acceptance_static.py \
-  tests/shortcut_toggle_acceptance_static.py
+  tests/shortcut_toggle_acceptance_static.py \
+  tests/ci_quality_pipeline.py
 python3 tests/scrollbar_zoom_acceptance_static.py \
   --repo . --output reports/evidence/scrollbar_zoom_static.json
 python3 tests/shortcut_toggle_acceptance_static.py \
   --repo . --output reports/evidence/shortcut_toggle_static.json
-```
-
-结果：两个脚本退出码均为 `0`；滚动脚本 `ST-SB-01` 至 `ST-TEST-02` 全部 PASS；快捷键脚本 `ST-SC-01` 至 `ST-SC-06` 全部 PASS。
-
-另用 Qt Linguist `lupdate src -locations none` 生成当前 source inventory（`ActionManager` 72 项、`ShortcutManager` 45 项等），逐 context 对四个 TS 目录检查完成翻译，四个目录均无缺失项。
-
-### 3.2 Clang analyzer
-
-使用 Homebrew LLVM 的 libc++/resource headers 与 Xcode macOS SDK 运行 `clang-analyzer-core`，检查：
-
-```text
-src/qvgraphicsview.cpp
-src/actionmanager.cpp
-src/mainwindow.cpp
-src/shortcutmanager.cpp
-```
-
-结果：退出码 `0`，无 analyzer 诊断。最初未显式指定 SDK/C++ include 的探测只产生工具环境头文件错误；补齐 include 后重跑通过，该错误不属于源码缺陷。
-
-### 3.3 构建与格式
-
-执行：
-
-```bash
-cmake --build build-current \
-  --target Fovelle fovelle_tests Fovelle_lrelease --parallel 2
 git diff --check
 ```
 
-结果：应用、QtTest 和四个 QM catalog 均构建成功；`git diff --check` 通过。Ghostscript staging 的 macOS code-signature invalidation 是既有打包警告，不影响构建退出码。
+结果：Python 语法、滚动/缩放源码合同、现有快捷键合同和差异空白检查均返回 0。静态合同覆盖 QSS 固定厚度缺失、`PM_ScrollBarExtent` 动态断言、scene rect 防重入、pending zoom anchor、CTest opt-in 和六字段规格。
 
-## 4. 动态验证
-
-### 4.1 快捷键专用套件
+clang-tidy 静态分析也通过：
 
 ```bash
-FOVELLE_TEST_SUITE=ShortcutSettingsTests \
-QTEST_FUNCTION_TIMEOUT=30000 \
-build-current/tests/fovelle_tests -silent
+clang-tidy --checks=-*,clang-analyzer-* -p build src/qvgraphicsview.cpp --quiet
+clang-tidy -p build tests/tst_qviewtests.cpp --quiet
 ```
 
-结果：`11 passed, 0 failed, 0 skipped, 0 blacklisted`，退出码 `0`。
+两条命令均返回 0 且无诊断输出。
 
-### 4.2 滚动与缩放专用套件
+构建过程同时完成 C++ 编译，命令为：
 
 ```bash
-FOVELLE_TEST_SUITE=GraphicsViewTests \
-QTEST_FUNCTION_TIMEOUT=30000 \
-build-current/tests/fovelle_tests -v1
-FOVELLE_TEST_SUITE=ScrollHelperTests \
-QTEST_FUNCTION_TIMEOUT=30000 \
-build-current/tests/fovelle_tests -v1
+cmake --build build --parallel 2
 ```
 
-结果：GraphicsViewTests `32 passed, 0 failed`；ScrollHelperTests `7 passed, 0 failed`。右下锚点关键日志为：
+结果：`Fovelle`、`fovelle_tests` 和 `fovelle_native_drag_helper` 均构建成功。
+
+## 5. 动态验证
+
+关键新增用例：
+
+```bash
+QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 \
+QTEST_FUNCTION_TIMEOUT=30000 FOVELLE_TEST_SUITE=GraphicsViewTests \
+build/tests/fovelle_tests \
+  testScrollBarGeometryMatchesViewMetricAndDoesNotRebound -v1
+```
+
+结果：单次运行 `3 passed, 0 failed, 0 skipped, 0 blacklisted`；使用 `-repeat 3` 重复运行后为 `9 passed, 0 failed, 0 skipped, 0 blacklisted`。
+
+完整产品门禁：
+
+```bash
+QT_QPA_PLATFORM=cocoa \
+ctest --test-dir build --output-on-failure --timeout 90
+```
+
+结果：`100% tests passed out of 2`；`FovelleTests` 和 `FovelleShortcutSettingsTests` 均返回 0。默认 CTest 不再执行需要外部桌面权限的 native drag 驱动。
+
+现有四阶段质量脚本也通过：`static 8/8`、`unit 7/7`、`integration 4/4`、`system 3/3`，失败用例为空。
+
+额外关键回归组合（同一 Cocoa 进程）已通过：
 
 ```text
-before= QPoint(599,407)
-after_layout= QPointF(599,407)
-after_settling= QPointF(599,407)
+testScrollBarsReachImageEdges                                  PASS
+testZoomAcrossScrollbarThresholdKeepsViewportCenterStable      PASS
+testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar       PASS
+testFullscreenExitPreservesVerticalPan                          PASS
+testScrollBarGeometryMatchesViewMetricAndDoesNotRebound         PASS
 ```
 
-### 4.3 完整主套件
+真实 `build/Fovelle.app` 加载用户指定的 `1.avif` 后，三格滚轮放大出现两轴 scrollbar；继续放大一格、将垂直条置底、反向滚轮一格后，立即采样与等待 800ms 后的 scrollbar value 均保持不变，截图中右侧和下方没有空白带。AX 数值受窗口尺寸影响，不作为跨机器固定值。
 
-```bash
-QTEST_FUNCTION_TIMEOUT=30000 build-current/tests/fovelle_tests -silent
-```
-
-结果：主套件共 `167 passed, 0 failed, 0 skipped, 0 blacklisted`，退出码 `0`；ShortcutSettingsTests 通过专用选择器另行执行并计入 4.1。
-
-## 5. 根因—修复—验证闭环
+## 6. 根因—修复—验证闭环
 
 | 根因 | 修复 | 验证 |
 | --- | --- | --- |
-| AsNeeded 显示缩小 viewport，旧 resize 路径再次施加半差平移 | pending anchor 分支优先恢复并跳过普通补偿 | AC-ZOOM-01、AC-ZOOM-02 |
-| scene rect 与 active item/backing geometry 不一致 | 以 active item geometry guarded 更新 scene rect | AC-SB-01、ST-SB-02 |
-| scrollbar/ScrollHelper 允许端点越界 | `qBound` 硬夹紧，删除 overscroll/rebound | AC-SB-01、ScrollHelperTests |
-| QSS 运动方向 margin 制造视觉端隙 | 垂直上下、水平左右 margin 置零 | AC-SB-02、ST-SB-01 |
-| 旧 Action 的配置与行为分散 | 统一 `togglefitand100` key 与 MainWindow 状态机 | AC-SC-01～03、ST-SC-01～03 |
-| 新文案缺少多语言资源 | 两个生产 context 和四个 QM catalog 同步更新 | AC-SC-04、ST-SC-05 |
+| Qt 按 15px 计算 viewport，QSS 强制实际 scrollbar 为 12px | 删除 QSS 固定宽/高，回归平台 extent | AC-SB-02、AC-ZOOM-03 |
+| 3px surplus 在延迟 bounds constraint 中被纠正，造成先露白后位移 | 让 range 与实际 viewport 使用同一几何源；保留既有 hard clamp | AC-SB-01、AC-ZOOM-03 |
+| AsNeeded scrollbar appearance 触发 viewport resize | 复用既有 pending anchor 分支，跳过普通 resize 半差补偿 | AC-ZOOM-01、AC-ZOOM-02 |
+| 外部权限/挂载依赖的 native drag 进入默认 CTest | CMake 选项默认 OFF，专项运行显式 ON | AC-CI-01 |
 
-## 6. 联网溯源
+## 7. 联网溯源
 
-采用“Qt 类文档 → Qt 官方源码 → 项目源码/提交历史 → QtTest 观测”的多跳链路。关键一手资料：
+采用“GitHub Actions 运行状态 → Qt 官方文档/源码 → 项目根因报告 → 本地 QtTest/CTest”的多跳链路：
 
-- [QGraphicsView `sceneRect`](https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop)：确认 scene rect 是 scrollbar 可导航范围。
-- [QAbstractScrollArea](https://doc.qt.io/qt-6/qabstractscrollarea.html#details)：确认 scrollbar 显示会改变 viewport 几何。
-- [QAbstractSlider `value`](https://doc.qt.io/qt-6/qabstractslider.html#value-prop)：确认整数 value 的合法范围。
-- [Qt 官方 QGraphicsView 源码](https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp)：追踪 `recalculateContentSize()` 的两轴 `AsNeeded` 重算。
-- [QGraphicsView `fitInView()`](https://doc.qt.io/qt-6/qgraphicsview.html#fitInView)：确认 resize 中自动滚动条与 transform 的递归风险。
-- [Qt Style Sheet box model](https://doc.qt.io/qt-6/stylesheet-customizing.html#box-model)：确认 margin 会影响 handle 的可绘制端点。
+- [Qt QGraphicsView sceneRect](https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop)：确认 scene rect 是可导航场景范围。
+- [Qt QAbstractScrollArea](https://doc.qt.io/qt-6/qabstractscrollarea.html#details)：确认滚动条策略会改变 viewport 几何。
+- [Qt 官方 QGraphicsView 源码](https://github.com/qt/qtbase/blob/dev/src/widgets/graphicsview/qgraphicsview.cpp)：确认 `recalculateContentSize()` 读取 `PM_ScrollBarExtent`。
+- [macOS 26 arm64 Actions runner image](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md)：核对 CI runner/SDK 背景。
+- [GitHub Checks 运行记录](https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524336)、[Build Fovelle 运行记录](https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524330)：定位原始 CTest 失败边界。
+- `reports/root_cause.md`：记录 12px/15px 差异、3px range surplus 及复现观察。
 
-具体症状分流、提交反事实和显式前提见 `reports/root_cause.md`。
+## 8. 限制与后续动作
 
-## 7. 遗留限制
-
-- 测试使用真实 Cocoa viewport、Qt scrollbar range 和布局事件，但未在 CI 中注入跨应用物理 HID 滑块拖动；物理输入差异由 endpoint geometry 与 ScrollHelper 单元测试覆盖。
-- 右下锚点用例刻意避开不可达的真实 maximum，以区分正常整数截断和布局跳变。
-- `navresetszoom` 和 `OriginalSize` calculated mode 作为内部兼容设置/鼠标操作仍存在；本需求移除的是 Shortcuts/View Action 面，不是所有内部枚举或遗留配置。
+- 本地完整默认 CTest 已通过；权限依赖的 native drag 专项未作为默认门禁执行，若要运行请配置 `-DFOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION=ON`、fixture 和 macOS 权限。
+- 本地验证不等于远端 Actions 已重跑；将本次修改推送到目标分支后，应确认上述两个 workflow run 变为成功。

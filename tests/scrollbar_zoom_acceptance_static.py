@@ -43,12 +43,19 @@ def main() -> int:
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     view_header = (repo / "src/qvgraphicsview.h").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
+    tests_cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
     specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
 
     checks: list[dict] = []
 
     vertical_rule = "QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }"
     horizontal_rule = "QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }"
+    fixed_thickness_absent = (
+        "QScrollBar:vertical { width:" not in view_cpp
+        and "QScrollBar:horizontal { height:" not in view_cpp
+        and "width: 12px" not in view_cpp
+        and "height: 12px" not in view_cpp
+    )
     scrollbar_contract = (
         "setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);" in view_cpp
         and "setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);" in view_cpp
@@ -56,6 +63,7 @@ def main() -> int:
         and horizontal_rule in view_cpp
         and "margin: 2px 1px" not in view_cpp
         and "margin: 1px 2px" not in view_cpp
+        and fixed_thickness_absent
     )
     add_check(
         checks,
@@ -68,8 +76,9 @@ def main() -> int:
             "horizontal_motion_margin_zero": horizontal_rule in view_cpp,
             "legacy_endpoint_margins_absent": "margin: 2px 1px" not in view_cpp
             and "margin: 1px 2px" not in view_cpp,
+            "fixed_thickness_absent": fixed_thickness_absent,
         },
-        "AsNeeded bars use the production range and the handle has no movement-direction endpoint inset",
+        "AsNeeded bars use the native view geometry and the handle has no movement-direction endpoint inset",
     )
 
     scene_geometry_contract = (
@@ -90,6 +99,43 @@ def main() -> int:
             "active_item_geometry_source": "loadedPixmapItem->boundingRect();" in view_cpp,
         },
         "the explicit scene rectangle follows active image geometry and cannot recursively rebuild itself",
+    )
+
+    native_extent_contract = (
+        "QStyle::PM_ScrollBarExtent" in tests_cpp
+        and "verticalScrollBar()->sizeHint().width()" in tests_cpp
+        and "horizontalScrollBar()->sizeHint().height()" in tests_cpp
+        and "testScrollBarGeometryMatchesViewMetricAndDoesNotRebound" in tests_cpp
+    )
+    add_check(
+        checks,
+        "ST-SB-03",
+        native_extent_contract,
+        {
+            "platform_extent_is_observed": "QStyle::PM_ScrollBarExtent" in tests_cpp,
+            "vertical_extent_is_compared": "verticalScrollBar()->sizeHint().width()" in tests_cpp,
+            "horizontal_extent_is_compared": "horizontalScrollBar()->sizeHint().height()" in tests_cpp,
+            "delayed_endpoint_test_present": "testScrollBarGeometryMatchesViewMetricAndDoesNotRebound" in tests_cpp,
+        },
+        "the regression test compares both styled scrollbar thicknesses with the view metric and checks the delayed endpoint",
+    )
+
+    ci_contract = (
+        "option(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION" in tests_cmake
+        and "if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)" in tests_cmake
+        and "add_test(NAME FovelleTests" in tests_cmake
+        and "add_test(NAME FovelleShortcutSettingsTests" in tests_cmake
+    )
+    add_check(
+        checks,
+        "ST-CI-01",
+        ci_contract,
+        {
+            "product_suites_registered": "add_test(NAME FovelleTests" in tests_cmake
+            and "add_test(NAME FovelleShortcutSettingsTests" in tests_cmake,
+            "native_driver_is_explicitly_opt_in": "if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)" in tests_cmake,
+        },
+        "the default GitHub Actions CTest gate contains product suites only; the permission-dependent native driver is explicitly opt-in",
     )
 
     anchor_contract = (
@@ -149,12 +195,15 @@ def main() -> int:
             "AC-SCROLLBAR-VISUAL-ENDPOINT",
             "TC-LAYOUT-ZOOM-SCROLLBAR-THRESHOLD",
             "AC-ZOOM-BOTTOM-RIGHT-STABLE",
+            "AC-SCROLLBAR-NATIVE-EXTENT",
+            "AC-ZOOM-ENDPOINT-NO-REBOUND",
         )
     }
     function_markers = {
         function: function in tests_cpp
         for function in (
             "testScrollBarsReachImageEdges",
+            "testScrollBarGeometryMatchesViewMetricAndDoesNotRebound",
             "testScrollBarHandleTrackEndpoints",
             "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
             "testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar",
@@ -178,9 +227,11 @@ def main() -> int:
     )
     case_ids = (
         "TC-SB-IMAGE-EDGES",
+        "TC-SB-NATIVE-EXTENT",
         "TC-SB-VISUAL-ENDPOINT",
         "TC-ZOOM-CENTER-THRESHOLD",
         "TC-ZOOM-BOTTOM-RIGHT",
+        "TC-ZOOM-ENDPOINT",
         "TC-STATIC-CONTRACT",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}

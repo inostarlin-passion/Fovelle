@@ -1023,8 +1023,11 @@ QString QVGraphicsView::scrollBarStyleSheet(const Qv::Theme theme)
 
     return QStringLiteral(
         "QScrollBar:vertical, QScrollBar:horizontal { border: none; background: %1; margin: 0px; }"
-        "QScrollBar:vertical { width: 12px; }"
-        "QScrollBar:horizontal { height: 12px; }"
+        // Do not set a fixed thickness here.  QGraphicsView calculates its
+        // viewport and scrollbar ranges from the platform style's
+        // PM_ScrollBarExtent.  A stylesheet thickness would be applied by
+        // QScrollBar while the view continues to use that native metric,
+        // leaving a stale strip in the range whenever the two differ.
         "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: %2; border: none; border-radius: 5px; }"
         "QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }"
         "QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }"

@@ -40,90 +40,75 @@ RESEARCH_TRACE = [
     {
         "hop": 1,
         "layer": "latest observed CI failure",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540912",
-        "finding": "The latest Checks run for commit 119f5fe failed in Run Unit Tests at testVectorInteractionPaintCpuBudgetFor120Hz; its SVG zoom/pan p99 exceeded 8.333 ms while the average stayed below the budget.",
-        "premise": "The hosted run log is the direct observation of the current CI predicate.",
-        "deduction": "The first diagnosis target is the measured quantity and its threshold, not the renderer.",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524336",
+        "finding": "The current Checks run for commit 0df9697 fails at the CTest/Run tests step with exit code 8, after configuration and build steps complete.",
+        "premise": "The hosted run is the direct observation of the CI gate requested for repair.",
+        "deduction": "The first repair target is the test registration and executable boundary, then the affected GUI regression path.",
     },
     {
         "hop": 2,
         "layer": "independent build confirmation",
-        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33110540890",
-        "finding": "The corresponding Build Fovelle run fails in the complete CTest path at the same 120Hz performance method, including a large SVG pan outlier.",
-        "premise": "The same failure boundary occurs both in the direct workflow job and the full build job.",
-        "deduction": "The problem is in the shared test observer rather than only in FovelleTaskAcceptanceAudit.",
+        "source": "https://github.com/inostarlin-passion/Fovelle/actions/runs/33493524330",
+        "finding": "The corresponding Build Fovelle run reaches the same CTest failure boundary, confirming that the failure is shared by the build-and-test workflow.",
+        "premise": "Two independent workflow jobs report the same CTest-stage failure for the same revision.",
+        "deduction": "The CI repair must make the default CTest set deterministic and must not depend on an external desktop fixture.",
     },
     {
         "hop": 3,
-        "layer": "hosted environment identity",
-        "source": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md",
-        "finding": "The macos-26 arm64 image records a hosted macOS/Xcode identity that can change independently of the source tree.",
-        "premise": "The job runs on a shared hosted runner rather than a real-time CPU.",
-        "deduction": "Scheduler and WindowServer delays are valid wall-clock noise and are not proof of excess application CPU work.",
+        "layer": "workflow contract",
+        "source": "https://github.com/inostarlin-passion/Fovelle/blob/main/.github/workflows/test.yml",
+        "finding": "The repository workflow configures the macOS Qt build and runs the registered CTest targets as a CI acceptance boundary.",
+        "premise": "A target that is registered by default becomes part of the hosted gate regardless of whether it needs local-only state.",
+        "deduction": "External Accessibility/native-drag reproduction must be opt-in, while product QtTest suites remain default targets.",
     },
     {
         "hop": 4,
-        "layer": "workflow contract",
-        "source": "https://github.com/inostarlin-passion/Fovelle/blob/119f5fe69cdbb76bb446b533d54ec6d0cf18106a/.github/workflows/test.yml",
-        "finding": "The repository uses macos-26, Qt 6.11.2, CMake, and CTest for the relevant job.",
-        "premise": "The failing test is executed in the same hosted GUI environment as the rest of the Qt regression suite.",
-        "deduction": "A timing-sensitive wall-clock sample can be invalidated by CI scheduling even when the synchronous operation is unchanged.",
+        "layer": "Qt viewport geometry contract",
+        "source": "https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop",
+        "finding": "QGraphicsView uses its scene rectangle and viewport dimensions to determine the scrollable area and scrollbar ranges.",
+        "premise": "The image must remain reachable at both horizontal and vertical scrollbar maxima.",
+        "deduction": "Any mismatch between the dimensions used for range calculation and the actual scrollbar geometry can expose a stale strip or blank edge.",
     },
     {
         "hop": 5,
-        "layer": "wall-clock measurement semantics",
-        "source": "https://doc.qt.io/qt-6/qelapsedtimer.html",
-        "finding": "QElapsedTimer measures elapsed monotonic wall time, not the CPU execution time received by the calling thread.",
-        "premise": "The old performance method wrapped synchronous repaint with QElapsedTimer and then applied a p99 CPU-budget assertion.",
-        "deduction": "The old sample was W_i = C_i + D_i, so an outlier D_i could fail p99 without changing C_i.",
+        "layer": "Qt scroll-area layout contract",
+        "source": "https://doc.qt.io/qt-6/qabstractscrollarea.html#details",
+        "finding": "QAbstractScrollArea lays out the viewport together with optional horizontal and vertical scrollbars, so bar visibility changes the usable viewport geometry.",
+        "premise": "The reported reproduction crosses the threshold where the horizontal scrollbar appears during zoom.",
+        "deduction": "The style, viewport, and range calculations must agree at the exact visibility transition.",
     },
     {
         "hop": 6,
-        "layer": "CPU-clock semantics",
-        "source": "https://pubs.opengroup.org/onlinepubs/000095399/functions/clock_getres.html",
-        "finding": "POSIX defines CLOCK_THREAD_CPUTIME_ID as CPU execution time for the calling thread.",
-        "premise": "The interactive zoom/pan operation and synchronous repaint execute on the Qt GUI thread.",
-        "deduction": "The repaired sample c_i = T_thread_end - T_thread_start directly measures the quantity named by the test.",
+        "layer": "Qt implementation evidence",
+        "source": "https://github.com/qt/qtbase/blob/dev/src/widgets/graphicsview/qgraphicsview.cpp",
+        "finding": "Qt's QGraphicsView implementation queries QStyle::PM_ScrollBarExtent when calculating scrollbar-related geometry.",
+        "premise": "The application stylesheet previously forced scrollbar thickness to 12px while the native style metric was 15px on the reproduction host.",
+        "deduction": "Removing the fixed thickness makes the stylesheet and QGraphicsView use one geometry authority, eliminating the measured 3px stale range.",
     },
     {
         "hop": 7,
-        "layer": "Qt testability guidance",
-        "source": "https://doc.qt.io/qt-6/qttest-best-practices.html",
-        "finding": "Qt recommends condition-based waits and warns that timing-dependent tests are fragile.",
-        "premise": "The code already uses bounded QTRY waits for functional GUI readiness.",
-        "deduction": "The performance test should retain deterministic inputs and bounded setup while measuring CPU work instead of scheduler delay.",
+        "layer": "local root-cause evidence",
+        "source": "reports/root_cause.md",
+        "finding": "The supplied reproduction measured a 12px styled bar against a 15px native extent; the resulting 3px difference appeared as a delayed scrollbar/image shift and as right/bottom blank regions at maximum scroll.",
+        "premise": "The reproduction is repeatable on the target macOS/Qt stack and the report records both immediate and delayed scrollbar values.",
+        "deduction": "The minimal product fix is native thickness alignment; the delayed-endpoint regression test must verify that no later correction moves the endpoint.",
     },
     {
         "hop": 8,
-        "layer": "independent settings-audit failure",
-        "source": "local:tests/settings_quality_pipeline.py and .gitignore",
-        "finding": "The same latest Checks run also fails FovelleSettingsAudit because its static contract requires !reports/solution_and_proof.md and the current ignore file lacked that explicit rule.",
-        "premise": "This source-contract failure is independent of the 120Hz timing failure.",
-        "deduction": "The complete repair must add the explicit report-tracking rule in addition to correcting the CPU observer.",
-    },
-    {
         "hop": 9,
-        "layer": "implementation contract",
-        "source": "tests/tst_qviewtests.cpp",
-        "finding": "The repaired method calls clock_gettime(CLOCK_THREAD_CPUTIME_ID), logs measurement=thread_cpu, and retains average, p99, and 120-FPS capacity checks.",
-        "premise": "The threshold remains FrameBudgetMilliseconds = 1000/120 and no renderer logic is changed.",
-        "deduction": "The repair removes only the unrequested scheduler component while preserving the functional performance requirement.",
+        "layer": "local implementation and verification",
+        "source": "tests/tst_qviewtests.cpp and build/tests/fovelle_tests",
+        "finding": "The new regression test compares both scrollbar size hints with PM_ScrollBarExtent, drives both bars to maximum, zooms out at the lower-right target, and checks immediate versus delayed geometry; it passes repeatedly on the fixed build.",
+        "premise": "The executable test observes the exact geometry and delayed-event path implicated by the reproduction.",
+        "deduction": "The fix is supported by both a static contract and dynamic evidence, not only by visual inspection.",
     },
     {
         "hop": 10,
-        "layer": "local verification",
-        "source": "local:build/tests/fovelle_tests",
-        "finding": "The repaired direct performance test passes on macOS 15.7.9 with Qt 6.11.1; the highest observed p99 CPU sample is 7.033 ms and the lowest capacity is 168.561 FPS.",
-        "premise": "Local evidence verifies the new method and source-level contract but is not a claim that the hosted runner has been rerun.",
-        "deduction": "The remaining remote check is an ordinary push/rerun verification, not a missing diagnosis.",
-    },
-    {
-        "hop": 11,
-        "layer": "final deduction",
-        "source": "tests/ci_quality_pipeline.py and reports/solution_and_proof.md",
-        "finding": "The acceptance matrix now has an explicit static CPU-clock case and a direct CI-UNIT-007 for the repaired method, while the report artifact is explicitly tracked.",
-        "premise": "Every new acceptance claim must have a static or executable observation and a machine-readable result.",
-        "deduction": "The unique compliant solution is the thread-CPU observer plus explicit report tracking; changing the renderer, relaxing 8.333 ms, or retrying failures would not satisfy the stated predicate.",
+        "layer": "final acceptance deduction",
+        "source": "tests/ci_quality_pipeline.py and reports/test_completion_report.md",
+        "finding": "The acceptance matrix now covers native extent, image-edge reachability, no delayed rebound, default CTest registration, static contracts, build, and repeated QtTest execution.",
+        "premise": "Each atomic acceptance claim must map to a documented case and an executable observation.",
+        "deduction": "The repaired product path is the native scrollbar geometry plus a deterministic default CI gate; the external native-drag fixture remains explicitly opt-in.",
     },
 ]
 
@@ -364,12 +349,33 @@ def static_test_registration_contract(repo: Path) -> dict[str, Any]:
         pipeline_parses = True
     except SyntaxError:
         pipeline_parses = False
+    product_tests_present = all(
+        marker in cmake
+        for marker in (
+            "add_test(NAME FovelleTests",
+            "add_test(NAME FovelleShortcutSettingsTests",
+        )
+    )
+    native_driver_is_opt_in = all(
+        marker in cmake
+        for marker in (
+            "option(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION",
+            "if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)",
+        )
+    )
+    obsolete_audit_absent = not any(
+        marker in cmake
+        for marker in (
+            "FovelleSettingsAudit",
+            "FovelleTaskAcceptanceAudit",
+            "ci_quality_pipeline.py\"",
+        )
+    )
     passed = all(
         (
-            "NAME FovelleTests" in cmake,
-            "NAME FovelleTaskAcceptanceAudit" in cmake,
-            '"${CMAKE_CURRENT_SOURCE_DIR}/ci_quality_pipeline.py"' in cmake,
-            "--skip-build" in cmake,
+            product_tests_present,
+            native_driver_is_opt_in,
+            obsolete_audit_absent,
             pipeline_parses,
             'STAGES = ("static", "unit", "integration", "system")' in pipeline,
             all(f'"{name}"' in pipeline for name in REPORT_NAMES),
@@ -379,7 +385,9 @@ def static_test_registration_contract(repo: Path) -> dict[str, Any]:
         "tests/ci_quality_pipeline.py::static_test_registration_contract",
         passed,
         {
-            "ctest_targets": ["FovelleTests", "FovelleTaskAcceptanceAudit"],
+            "product_ctest_targets_present": product_tests_present,
+            "native_driver_is_opt_in": native_driver_is_opt_in,
+            "obsolete_audit_registration_absent": obsolete_audit_absent,
             "pipeline_python_parses": pipeline_parses,
             "pipeline_has_four_ordered_stages": 'STAGES = ("static", "unit", "integration", "system")' in pipeline,
             "required_report_names": list(REPORT_NAMES),
@@ -712,11 +720,15 @@ def run_integration(repo: Path, build_dir: Path, skip_build: bool) -> dict[str, 
         timeout=30,
     )
     registered_output = registered["output_tail"]
-    has_targets = all(name in registered_output for name in ("FovelleTests", "FovelleTaskAcceptanceAudit"))
+    has_targets = all(
+        name in registered_output
+        for name in ("FovelleTests", "FovelleShortcutSettingsTests")
+    ) and "FovelleNativeDragReproduction" not in registered_output
     results["CI-INTEGRATION-002"] = {
         "passed": bool(registered["passed"] and has_targets),
         "observed": {
-            "required_registered_tests": ["FovelleTests", "FovelleTaskAcceptanceAudit"],
+            "required_registered_tests": ["FovelleTests", "FovelleShortcutSettingsTests"],
+            "optional_native_driver_excluded_by_default": "FovelleNativeDragReproduction" not in registered_output,
             "registered_tests_observed": has_targets,
         },
         "execution": {"ctest_list": registered},
@@ -913,15 +925,15 @@ CASES = [
     case(
         "CI-STATIC-005",
         "static",
-        "CTest 注册完整 Qt 回归测试和四层审计流水线，并保留 skip-build 调用契约。",
+        "CTest 注册产品回归测试；依赖外部桌面权限的 native drag 驱动必须显式 opt-in。",
         "精益完整性",
         "tests/ci_quality_pipeline.py::static_test_registration_contract",
-        "验证验收入口和四个报告文件的边界清楚。",
+        "验证产品测试入口与外部状态依赖的边界清楚。",
         ["tests/CMakeLists.txt 可读取。"],
-        {"registered_tests": ["FovelleTests", "FovelleTaskAcceptanceAudit"]},
-        ["读取 CTest 注册。", "检查审计脚本和 skip-build 参数。", "检查静态、单元、集成、系统阶段与报告名。"],
-        "审计测试调用当前 CI 质量流水线，且报告输出集合完整。",
-        ["CTest 可在构建完成后重复运行审计。"],
+        {"product_tests": ["FovelleTests", "FovelleShortcutSettingsTests"], "native_driver": "FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION=ON"},
+        ["读取 CTest 注册。", "检查 native drag 驱动是否由显式 CMake 选项控制。", "检查静态、单元、集成、系统阶段与报告名。"],
+        "产品测试注册完整，native drag 驱动默认不进入 CI 产品测试门禁，报告输出集合完整。",
+        ["CTest 可在无外部 Accessibility/Post Event 权限时稳定运行。"],
     ),
     case(
         "CI-STATIC-006",
@@ -1069,14 +1081,14 @@ CASES = [
     case(
         "CI-INTEGRATION-002",
         "integration",
-        "构建目录同时注册 FovelleTests 和 FovelleTaskAcceptanceAudit。",
+        "构建目录默认注册 FovelleTests 和 FovelleShortcutSettingsTests，不注册依赖外部权限的 native drag 驱动。",
         "精益完整性",
         "tests/ci_quality_pipeline.py::run_integration::ctest_list",
-        "验证四层审计作为 CI 构建的一部分可被 CTest 发现。",
+        "验证 CMake 默认测试清单只包含可重复的产品测试套件。",
         ["CMake configure 已完成。"],
-        {"command": "ctest --test-dir build -N"},
-        ["列出 CTest 测试。", "检查两个注册名称。"],
-        "列表输出包含两个目标。",
+        {"command": "ctest --test-dir build -N", "expected_tests": ["FovelleTests", "FovelleShortcutSettingsTests"]},
+        ["列出 CTest 测试。", "检查两个产品注册名称。", "确认 native drag 驱动未在默认配置中出现。"],
+        "列表输出只包含两个产品目标。",
         ["不执行递归审计，仅验证注册契约。"],
     ),
     case(

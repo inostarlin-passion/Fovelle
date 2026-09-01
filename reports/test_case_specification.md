@@ -1,118 +1,151 @@
-# Fovelle 图片视图与快捷键测试用例说明
+# Fovelle 图片缩放与滚动条测试用例说明
 
-## 1. 规则与环境
+本文将技术设计中的 8 条原子验收标准映射为可执行测试。每个用例都明确包含：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。
 
-本文件对应 `reports/technical_design_document.md` 的 8 条原子验收标准。每个原子标准至少有一个动态 QtTest；源码合同另有一个静态测试用例。每个用例固定记录：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。
-
-动态测试在 macOS Cocoa、Qt 6.11.1 构建的 `build-current/tests/fovelle_tests` 上执行。滚动条 value 为整数，且 Cocoa viewport 可能有 titlebar 安全区，因此几何断言允许 1–2px 取整误差；这不允许可见的跳位、越界或延迟二次移动。
+测试层分为：源码静态合同、QtTest 动态回归、CTest 集成清单。Cocoa 测试使用确定性临时 PNG，不依赖用户提供的 `/Volumes/CRYSTAL` 文件；手工复现仍以 `reports/root_cause.md` 中的 `1.avif` 为基准。
 
 ## TC-SB-IMAGE-EDGES
 
 ### 测试目的
 
-验证水平、垂直滚动条到达最小值和最大值时，图片真实左/上/右/下边缘均可到达，消除滑块到端点但 viewport 仍露背景的情况。
+验证水平、垂直滚动条到达最小值和最大值时，图片真实左、上、右、下边缘都能到达 viewport 对应边缘。
 
 ### 前置条件
 
-- `QVApplication` 已初始化，运行在 Cocoa 平台。
-- 使用可见的 `MainWindow`，窗口固定为 `WindowNoState`，避免持久化全屏/最大化状态改变前置 viewport。
-- 设置使用可产生两轴溢出的原始尺寸/手动缩放组合。
+- `QVApplication` 与 Cocoa `MainWindow` 已初始化并可见。
+- 窗口使用 `WindowNoState`、`windowresizemode=Never`、`calculatedzoommode=OriginalSize`。
+- 图片加载完成且两轴均有非零 scrollbar range。
 
 ### 输入数据
 
-- 确定性大 PNG（当前测试使用 1600×1000 或同等可溢出尺寸）。
-- `horizontalScrollBar()`、`verticalScrollBar()` 的 `minimum()` 与 `maximum()`。
-- `scene()` 图片矩形、`getUsableViewportRect()` 和 `mapFromScene()`。
+- `tests/tst_qviewtests.cpp` 生成的 1600×1600 PNG。
+- 两个 scrollbar 的 `minimum()`、`maximum()`。
+- `scene()->itemsBoundingRect()`、viewport rectangle 和 `mapFromScene()` 的结果。
 
 ### 操作步骤
 
-1. 打开 PNG，等待 `getIsPixmapLoaded()`。
-2. 设置足够大的缩放级别，确认两轴存在非零 range。
-3. 分别将水平和垂直 scrollbar 设置为 minimum，记录图片映射矩形。
-4. 分别将两轴设置为 maximum，再记录图片映射矩形。
-5. 比较图片四边与 usable viewport 对应四边。
+1. 打开临时 PNG，等待 `getIsPixmapLoaded()`。
+2. 设为 1.0x，等待两个 AsNeeded scrollbar 可见。
+3. 将两轴设为 minimum，记录映射图片矩形。
+4. 将两轴设为 maximum，记录映射图片矩形。
+5. 比较图片四边与 viewport 四边。
 
 ### 预期结果
 
-最小值时左/上图片边缘与 usable viewport 左/上边缘重合，最大值时右/下图片边缘与 usable viewport 右/下边缘重合，误差不超过 2px；不会在端点露出细长的图片外背景。
+minimum 时左/上边缘、maximum 时右/下边缘均在 2px 内贴合 viewport；端点没有图片外背景条。
 
 ### 后置条件
 
-关闭测试窗口，释放临时 PNG，恢复测试前的窗口状态、缩放设置和退出策略。
+关闭窗口，临时 PNG 和测试对象释放，测试设置与退出策略恢复。
 
 ### 固化代码
 
 `tests/tst_qviewtests.cpp::GraphicsViewTests::testScrollBarsReachImageEdges`。
 
+## TC-SB-NATIVE-EXTENT
+
+### 测试目的
+
+验证主题样式不会把 scrollbar 厚度固定成与 `QGraphicsView` 不同的值，消除 12px/15px 分裂造成的 3px range surplus。
+
+### 前置条件
+
+- Cocoa `MainWindow` 可见，Qt style 可查询 `QStyle::PM_ScrollBarExtent`。
+- 1200×1085 图片已加载，两轴 scrollbar 可见。
+
+### 输入数据
+
+- `view->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, view)`。
+- 纵向 scrollbar `sizeHint().width()` 与横向 scrollbar `sizeHint().height()`。
+- 2.0x、1.6x 缩放级别和 viewport 右下目标点。
+
+### 操作步骤
+
+1. 在 1.0x 下等待两轴 scrollbar 出现。
+2. 读取平台 extent，比较纵条宽度和横条高度。
+3. 放大到 2.0x，将两轴 value 置于 maximum。
+4. 在右下目标点缩小到 1.6x，立即采样 value 与图片映射矩形。
+5. 等待 700ms（覆盖 500ms bounds constraint），再次采样。
+
+### 预期结果
+
+两个 scrollbar 厚度都等于 `PM_ScrollBarExtent`；缩小前后图片右/下边缘均贴合 viewport，立即与延迟采样的 value、映射矩形完全相同。
+
+### 后置条件
+
+关闭窗口，释放临时图片、scrollbar 和测试设置。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound`。
+
 ## TC-SB-VISUAL-ENDPOINT
 
 ### 测试目的
 
-验证 scrollbar handle 的运动方向没有由 QSS margin 造成的视觉端点内缩，同时保留非运动方向的 1px 侧向间距。
+验证 handle 的运动方向没有由 QSS margin 造成的视觉端点内缩。
 
 ### 前置条件
 
-- `QVGraphicsView` 已构造并应用当前主题样式表。
-- 水平和垂直 scrollbar 均可访问，且至少有可滚动 range。
+- `QVGraphicsView::scrollBarStyleSheet()` 可调用并返回当前主题样式。
+- handle 规则中保留非运动方向的 1px 侧向 margin。
 
 ### 输入数据
 
-- `QVGraphicsView::scrollBarStyleSheet()` 返回的完整样式表。
-- 水平/垂直 handle 的 `min-width`/`min-height` 与 margin 规则。
-- 动态 handle track endpoint 采样。
+- 垂直规则 `min-height: 24px; margin: 0px 1px`。
+- 水平规则 `min-width: 24px; margin: 1px 0px`。
+- 样式表中不得出现 `margin: 2px 1px` 或 `margin: 1px 2px`。
 
 ### 操作步骤
 
-1. 读取 view 主题样式表，定位两个 handle 规则。
-2. 将垂直 handle 置于 track 上端和下端，记录 handle 几何。
-3. 将水平 handle 置于 track 左端和右端，记录 handle 几何。
-4. 运行动态样式/端点断言，检查运动方向端点与轨道端点的贴合。
+1. 读取 Light theme 样式表。
+2. 检查垂直 handle 的上下 margin 和水平 handle 的左右 margin。
+3. 检查两轴没有旧的运动方向内缩规则。
 
 ### 预期结果
 
-垂直规则为 `min-height: 24px; margin: 0px 1px`，水平规则为 `min-width: 24px; margin: 1px 0px`；运动方向没有 2px 内缩，侧向 margin 仍为 1px。
+运动方向 margin 为 0，侧向 margin 为 1px；样式合同通过且不改变滚动范围。
 
 ### 后置条件
 
-不写入设置；销毁临时 view 和窗口。
+不写入持久化设置，不保留临时 UI 对象。
 
 ### 固化代码
 
-`tests/tst_qviewtests.cpp::GraphicsViewTests::testScrollBarHandleTrackEndpoints`，以及 `tests/scrollbar_zoom_acceptance_static.py::ST-SB-01`。
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testScrollBarHandleTrackEndpoints` 与 `tests/scrollbar_zoom_acceptance_static.py::ST-SB-01`。
 
 ## TC-ZOOM-CENTER-THRESHOLD
 
 ### 测试目的
 
-验证以可用 viewport 中心缩放、并跨过 `ScrollBarAsNeeded` 阈值时，中心 scene 点不会因 viewport 变窄/变矮而漂移。
+验证以可用 viewport 中心缩放并跨过 `ScrollBarAsNeeded` 阈值时，中心 scene 点不漂移。
 
 ### 前置条件
 
-- 可见 640×480 左右的普通窗口，图片初始 fit 后两轴 scrollbar 隐藏。
+- 可见 640×480 左右的 Cocoa 窗口。
+- 初始图片约为当前可用 viewport 的 90%，初始无 scrollbar。
 - 缩放目标为 `Qv::CalculateViewportCenterPos`。
-- 测试图片尺寸位于出现 scrollbar 的阈值附近。
 
 ### 输入数据
 
-- 确定性 PNG；初始 zoom level、可用 viewport 中心 scene 点。
-- 一个会使水平条出现并可能联动垂直条出现的缩放级别。
-- 归一化中心坐标和 0.005 的允许误差。
+- 确定性阈值 PNG。
+- 缩放前中心 scene 坐标及归一化 image coordinate。
+- 一个 1.25x 缩放步长和 0.005 的归一化坐标容差。
 
 ### 操作步骤
 
-1. 打开图片，记录 usable viewport 中心及其对应 scene 点。
-2. 调用 `zoomAbsolute()` 跨过 AsNeeded 阈值。
-3. 等待 scrollbar layout 完成，确认横条/纵条状态变化。
-4. 在立即阶段和延迟几何阶段分别重新映射原 scene 点。
-5. 比较两个阶段相对 viewport 中心的归一化坐标。
+1. 打开图片并确认两轴 scrollbar 隐藏。
+2. 记录可用 viewport 中心映射的归一化图片坐标。
+3. 执行一次 `zoomIn()`，等待两轴 scrollbar 出现。
+4. 在 layout 完成后和 150ms 延迟阶段分别读取中心坐标。
 
 ### 预期结果
 
-滚动条出现后和延迟阶段后的中心归一化坐标均与缩放前相差不超过 0.005；不会出现由内部 resize 的半尺寸补偿引起的跳动。
+两次采样与缩放前中心坐标的距离均不超过 0.005；不会执行错误的 resize 半差补偿。
 
 ### 后置条件
 
-关闭窗口，停止 pending anchor timer，恢复退出策略和测试设置。
+关闭窗口，pending anchor、临时图片和设置恢复。
 
 ### 固化代码
 
@@ -122,71 +155,186 @@
 
 ### 测试目的
 
-验证右下区域以固定 viewport 像素点缩放时，水平条首次出现及其之后的布局/scene 更新不会移动同一个 scene anchor。
+验证右下显式 viewport 像素点缩放时，水平 scrollbar 首次出现及随后 scene/layout 更新不会移动同一 scene anchor。
 
 ### 前置条件
 
-- 可见 640×480 Cocoa 窗口，初始图片已加载。
-- 右下目标点在图片有效范围内，并距离真正 maximum 留有余量，避免把正常 Qt 截断误判为缺陷。
-- `transformationAnchor=NoAnchor`，项目代码负责保存锚点。
+- 640×480 Cocoa 窗口已加载 620×420 图片，初始图片适配。
+- 显式目标位于 usable viewport 右下区域但未要求不可达的真实 maximum。
+- `transformationAnchor=NoAnchor`，由项目事务保存 anchor。
 
 ### 输入数据
 
-- 620×420 或等价确定性 PNG。
-- 右下显式目标点（当前样例约为 usable viewport 右侧内缩 40px、底部内缩 100px）。
-- 缩放级别 1.25；立即/稳定阶段容差 2px；阶段间二次位移容差 1px。
+- 右侧内缩 40px、底部内缩 100px 的目标点。
+- `zoomAbsolute(1.25, target)`。
+- 2px anchor 容差和 1px 阶段间位移容差。
 
 ### 操作步骤
 
-1. 打开图片并记录目标点对应的 scenePos。
-2. 调用 `zoomAbsolute(1.25, target)`。
-3. 在横向 scrollbar 出现后立即记录 `mapFromScene(scenePos)`。
-4. 处理延迟事件至少 150ms，再次记录同一映射点。
-5. 比较目标点、立即采样和稳定采样。
+1. 记录目标点下的 scene position。
+2. 以目标点执行 1.25x 缩放。
+3. 等待横/纵 scrollbar 出现，立即记录 scene position 的 viewport 映射。
+4. 等待 150ms，再次记录映射。
 
 ### 预期结果
 
-横/纵滚动条出现后的立即映射距固定目标不超过 2px；150ms 后仍不超过 2px；两次采样之间不超过 1px。图片和 scrollbar 不发生第二次可见跳位。
+立即和延迟映射都距目标不超过 2px，两个阶段间不超过 1px；图像和 scrollbar 不发生第二次可见跳位。
 
 ### 后置条件
 
-关闭窗口，释放临时图片，pending anchor generation 随 view 清理，恢复退出策略。
+关闭窗口，pending anchor generation 与临时资源清理，测试设置恢复。
 
 ### 固化代码
 
 `tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar`。
 
+## TC-ZOOM-ENDPOINT
+
+### 测试目的
+
+直接回归“滚动条到最大端点后缩小，右侧/下方先露白再位移”的缺陷。
+
+### 前置条件
+
+- 640×480 Cocoa 窗口使用手动缩放和关闭平滑缩放。
+- 1200×1085 图片已加载，两轴有足够 overflow。
+- 延迟 bounds constraint 的生产计时为 500ms。
+
+### 输入数据
+
+- 2.0x 放大级别、1.6x 缩小级别。
+- 两轴 scrollbar 的 maximum。
+- viewport 右下 4px 处的显式缩放目标。
+
+### 操作步骤
+
+1. 将两轴滚动条分别设置为 maximum，确认右/下边缘贴合。
+2. 在右下目标点执行 2.0x → 1.6x 缩小。
+3. 在函数返回后立即记录两轴 value、图片矩形和 viewport 矩形。
+4. 等待 700ms 并处理事件，再次记录同样数据。
+
+### 预期结果
+
+立即阶段不出现右侧或下方空白；两轴 value 仍在 maximum（允许 1 的整数取整误差）；700ms 后 value、图片矩形和 viewport 矩形均不变，图片四边仍贴合。
+
+### 后置条件
+
+关闭窗口，释放临时图片和测试资源，恢复应用退出策略。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound`。
+
+## TC-CI-TEST-GATE
+
+### 测试目的
+
+验证 GitHub Actions 默认 CTest 门禁只包含可重复的产品测试，不被外部桌面权限或 fixture 影响。
+
+### 前置条件
+
+- 已用 `BUILD_TESTS=ON` 配置 CMake。
+- CI workflow 的 Cocoa、Qt、CTest 和 90 秒超时配置可读。
+- 不假定 `/Volumes/CRYSTAL` 或 Accessibility/Post Event 权限存在。
+
+### 输入数据
+
+- `tests/CMakeLists.txt` 的注册项。
+- `.github/workflows/test.yml` 与 `.github/workflows/build.yml` 的 build/CTest 命令。
+- 默认 CMake 缓存值 `FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION=OFF`。
+
+### 操作步骤
+
+1. 运行 `ctest --test-dir build -N` 读取默认清单。
+2. 检查清单包含 `FovelleTests` 和 `FovelleShortcutSettingsTests`。
+3. 检查默认清单不包含 `FovelleNativeDragReproduction`。
+4. 检查 native driver 仅位于显式 `if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)` 分支。
+
+### 预期结果
+
+默认清单只含两个产品套件；workflow 保留构建和产品 CTest，外部权限专项测试仍可通过显式选项启用。
+
+### 后置条件
+
+不启动 native driver，不请求系统权限，不修改用户数据。
+
+### 固化代码
+
+`tests/CMakeLists.txt`、`tests/ci_quality_pipeline.py::static_test_registration_contract` 与 `run_integration::ctest_list`。
+
+## TC-STATIC-CONTRACT
+
+### 测试目的
+
+通过静态分析确认实现合同、测试入口和本规格六个必填字段完整存在。
+
+### 前置条件
+
+- Python 3 可执行，仓库根目录可读。
+- 三份指定 Markdown 已写入 `reports/`。
+
+### 输入数据
+
+- `src/qvgraphicsview.cpp/.h`、`src/scrollhelper.cpp`。
+- `tests/tst_qviewtests.cpp`、`tests/CMakeLists.txt`。
+- `tests/scrollbar_zoom_acceptance_static.py` 与 `tests/shortcut_toggle_acceptance_static.py`。
+- `reports/test_case_specification.md`。
+
+### 操作步骤
+
+执行：
+
+```bash
+python3 -m py_compile tests/scrollbar_zoom_acceptance_static.py \
+  tests/shortcut_toggle_acceptance_static.py tests/ci_quality_pipeline.py
+python3 tests/scrollbar_zoom_acceptance_static.py \
+  --repo . --output reports/evidence/scrollbar_zoom_static.json
+python3 tests/shortcut_toggle_acceptance_static.py \
+  --repo . --output reports/evidence/shortcut_toggle_static.json
+```
+
+检查 JSON 的 `passed` 以及每个静态检查项。
+
+### 预期结果
+
+脚本退出码均为 0；滚动条厚度、scene rect、pending anchor、端点回归、CTest opt-in 和六字段检查全部通过。
+
+### 后置条件
+
+保留 `reports/evidence/*.json` 作为机器可读证据；不改变产品设置或运行中的窗口状态。
+
+### 固化代码
+
+`tests/scrollbar_zoom_acceptance_static.py`、`tests/shortcut_toggle_acceptance_static.py` 与本文件。
+
 ## TC-SC-ACTION-SURFACE
 
 ### 测试目的
 
-验证 Settings → Shortcuts 和 View 菜单的 Action 面使用新的 `Toggle Fit and 100%`，并移除 `Original Size`、`Zoom to Fit`、`Navigation Resets Zoom`。
+保留仓库已有的快捷键回归合同，确认本次滚动条修复没有改变 Shortcuts 与 View 菜单的 Action 面。
 
 ### 前置条件
 
-- ActionManager、ShortcutManager 和 QVOptionsDialog 已初始化。
-- Settings 对话框可显示 Shortcuts Tab。
+- `ShortcutManager`、`ActionManager` 和 Shortcuts 页面已初始化。
 
 ### 输入数据
 
-- ShortcutManager 的 row inventory。
-- ActionManager canonical action key 与 View 菜单 clone。
-- Shortcuts 表格两列。
+- `togglefitand100` 新 Action。
+- 旧 `originalsize`、`zoomtofit`、`navresetszoom` Action key。
 
 ### 操作步骤
 
-1. 遍历 ShortcutManager 列表，按 `name` 检查新旧 key。
-2. 检查 canonical action library 和 View 菜单 action data。
-3. 打开 Settings，切换到 Shortcuts Tab。
-4. 按 row 映射检查新 Action 的可见名称及快捷键列。
+1. 遍历快捷键 inventory。
+2. 检查 canonical action、View 菜单 clone 和 Shortcuts 表格中的 key。
+3. 搜索旧 Action 是否仍被注册。
 
 ### 预期结果
 
-存在 `togglefitand100` 与 `Toggle Fit and 100%`；旧三个名称/key 不在可配置列表、canonical action 或 View 菜单中；新行可见且只有一个快捷键字段。
+新 Action 存在，旧三个可配置 Action 不存在，菜单与设置页使用相同 key。
 
 ### 后置条件
 
-关闭 Settings 对话框，不修改用户快捷键；临时 UI 对象销毁。
+不修改持久化快捷键，关闭测试 UI。
 
 ### 固化代码
 
@@ -196,31 +344,28 @@
 
 ### 测试目的
 
-验证 `Toggle Fit and 100%` 的默认快捷键、有效设置值和 QAction 映射均为未修饰的 `Z`。
+确认既有 `Toggle Fit and 100%` Action 的默认快捷键仍为未修饰的 `Z`。
 
 ### 前置条件
 
-- ShortcutManager 已初始化。
-- `shortcuts/togglefitand100` 可以由 scoped fixture 临时设置。
+`ShortcutManager` 已初始化且允许 scoped shortcut setting。
 
 ### 输入数据
 
-- `QKeySequence(Qt::Key_Z)`。
-- 持久化值 `shortcuts/togglefitand100 = ["Z"]`。
+`QKeySequence(Qt::Key_Z)` 及 `shortcuts/togglefitand100` 的临时设置。
 
 ### 操作步骤
 
-1. 写入 scoped Z 设置并调用 `updateShortcuts()`。
-2. 查找 `togglefitand100` row，比较 `defaultShortcuts` 与 `shortcuts`。
-3. 读取 canonical QAction 的 `shortcuts()`。
+1. 应用 scoped Z 设置并刷新 action map。
+2. 比较 row 默认值、有效值和 canonical QAction shortcuts。
 
 ### 预期结果
 
-row 与 QAction 各自恰好有一个 `QKeySequence(Qt::Key_Z)`；不存在 Ctrl、Alt、Shift 或 Qt symbolic fallback。
+三处均恰好只有一个未修饰 `Z`。
 
 ### 后置条件
 
-恢复原有 shortcut setting，并再次刷新 ShortcutManager action map。
+恢复原快捷键设置并刷新 manager。
 
 ### 固化代码
 
@@ -230,34 +375,29 @@ row 与 QAction 各自恰好有一个 `QKeySequence(Qt::Key_Z)`；不存在 Ctrl
 
 ### 测试目的
 
-验证 Z 的功能状态机：当前不是 fit 时进入适合窗口，当前是 fit 时进入精确 100%，再次触发回到 fit。
+确认既有 Z 状态机仍能在 fit 与 100% 间切换。
 
 ### 前置条件
 
-- 可见普通图片窗口已加载 1600×1000 PNG。
-- `windowresizemode=Never`、平滑缩放关闭。
-- `originalsizeastoggle=true`，用于验证新 Action 不受遗留偏好影响。
+图片窗口已加载，窗口 resize mode 为 Never，Action 可 dispatch。
 
 ### 输入数据
 
-- 手动 200% zoom。
-- canonical `togglefitand100` QAction。
-- 三次 Action dispatch。
+手动 200% zoom、canonical `togglefitand100` QAction 和三次 dispatch。
 
 ### 操作步骤
 
-1. 手动设为 200%，确认 calculated zoom mode 为空。
-2. 第一次 dispatch Action，读取 mode 和 fit level。
-3. 第二次 dispatch Action，读取 mode 和 zoom level。
-4. 第三次 dispatch Action，再读取 mode。
+1. 从手动 zoom dispatch 一次。
+2. 从 fit dispatch 第二次。
+3. 再 dispatch 第三次并读取 calculated mode。
 
 ### 预期结果
 
-第一次为 `ZoomToFit` 且 fit level 小于 1；第二次 calculated mode 为空且 zoom level 等于 1.0；第三次重新为 `ZoomToFit`。旧 `originalsizeastoggle` 不改变该结果。
+状态依次为 fit、精确 100%、fit；遗留 `originalsizeastoggle` 不改变新 Action 语义。
 
 ### 后置条件
 
-关闭窗口，恢复 calculated zoom、original-size toggle、窗口退出策略及临时文件。
+关闭窗口并恢复原设置。
 
 ### 固化代码
 
@@ -267,81 +407,30 @@ row 与 QAction 各自恰好有一个 `QKeySequence(Qt::Key_Z)`；不存在 Ctrl
 
 ### 测试目的
 
-验证新 Action 在 ShortcutManager 和 ActionManager 两个生产 context 中使用精确的四种翻译。
+确认既有新 Action 的四种翻译仍完整，避免滚动条代码变更影响资源构建。
 
 ### 前置条件
 
-- CMake 已生成 `qview_es.qm`、`qview_ja.qm`、`qview_zh_Hans.qm`、`qview_zh_Hant.qm`。
-- 英文使用 source translator，避免依赖机器 locale。
+四个 QM catalog 已生成，两个生产 translation context 可加载。
 
 ### 输入数据
 
-| 语言 | 预期文本 |
-| --- | --- |
-| 简体中文 | `切换适合窗口/100%` |
-| 繁体中文 | `切換符合視窗/100%` |
-| Español | `Alternar Ajustar/100 %` |
-| 日本語 | `合わせる/100%切り替え` |
+简体中文、繁体中文、西班牙语和日语的 `Toggle Fit and 100%` source translation。
 
 ### 操作步骤
 
-1. 逐个加载并安装语言 translator。
-2. 翻译 source `Toggle Fit and 100%`，分别指定 `ShortcutManager` 和 `ActionManager` context。
-3. 比较完整字符串，包含斜杠、百分号与西语百分号前空格。
-4. 每轮移除 translator。
+1. 逐个安装语言 translator。
+2. 在 `ActionManager`、`ShortcutManager` context 中翻译 source。
+3. 比较完整字符串后移除 translator。
 
 ### 预期结果
 
-四种语言的两个 context 均精确等于输入表，不存在空翻译、unfinished 或标点/空格差异。
+四种语言、两个 context 的翻译均为完成状态，标点、斜杠、空格和百分号精确一致。
 
 ### 后置条件
 
-移除所有临时 translator，不改变当前语言设置。
+移除临时 translator，不改变当前语言设置。
 
 ### 固化代码
 
 `tests/tst_qviewtests.cpp::ShortcutSettingsTests::testToggleFitAnd100Translations`。
-
-## TC-STATIC-CONTRACT
-
-### 测试目的
-
-通过源码静态分析验证动态用例依赖的实现合同、每条原子标准的测试入口、翻译目录和本规格六字段均存在。
-
-### 前置条件
-
-- 仓库根目录可读，Python 3 可执行。
-- `reports/technical_design_document.md` 与本文件已写入。
-
-### 输入数据
-
-- `src/qvgraphicsview.cpp/.h`、`src/scrollhelper.cpp`。
-- `src/shortcutmanager.cpp`、`src/actionmanager.cpp`、`src/mainwindow.cpp`。
-- 四个 TS catalog、两个 QtTest 源文件和本 Markdown。
-
-### 操作步骤
-
-执行：
-
-```bash
-python3 tests/scrollbar_zoom_acceptance_static.py \
-  --repo . --output reports/evidence/scrollbar_zoom_static.json
-python3 tests/shortcut_toggle_acceptance_static.py \
-  --repo . --output reports/evidence/shortcut_toggle_static.json
-python3 -m py_compile tests/scrollbar_zoom_acceptance_static.py \
-  tests/shortcut_toggle_acceptance_static.py
-```
-
-检查两个 JSON 的 `passed` 和每个 `checks[].pass`。
-
-### 预期结果
-
-滚动合同脚本的 `ST-SB-01`、`ST-SB-02`、`ST-ZOOM-01`、`ST-ZOOM-02`、`ST-TEST-01`、`ST-TEST-02` 全部为 true；快捷键脚本的 `ST-SC-01` 至 `ST-SC-06` 全部为 true；编译检查返回码为 0。
-
-### 后置条件
-
-保留 `reports/evidence/*.json` 作为机器可读溯源证据；不改变产品设置或源码运行状态。
-
-### 固化代码
-
-`tests/scrollbar_zoom_acceptance_static.py` 与 `tests/shortcut_toggle_acceptance_static.py`。

@@ -34,6 +34,7 @@
 #include <QPalette>
 #include <QSignalSpy>
 #include <QSettings>
+#include <QStyle>
 #include <QStyleOptionGraphicsItem>
 #include <QStyleHints>
 #include <QSvgRenderer>
@@ -229,6 +230,7 @@ private slots:
     void testNativePanChangesViewport();
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsReachImageEdges();
+    void testScrollBarGeometryMatchesViewMetricAndDoesNotRebound();
     void testScrollBarHandleTrackEndpoints();
     void testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar();
     void testVerticalScrollBarAvoidsTitlebarOverlap();
@@ -5129,6 +5131,109 @@ void GraphicsViewTests::testScrollBarsReachImageEdges()
         QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
     QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light).contains(
         QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-SCROLLBAR-NATIVE-EXTENT
+// AC-ZOOM-ENDPOINT-NO-REBOUND
+// Test purpose: verify that the styled scrollbar geometry uses the same native
+// extent as QGraphicsView and that a lower-right endpoint remains stable when
+// a zoom-out schedules the delayed bounds constraint.
+// Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
+// displays a 1200x1085 image with both scrollbars available.
+// Input data: native scrollbar extent, both scrollbar maximums, a lower-right
+// zoom target, and a 2.0x -> 1.6x zoom-out transition.
+// Steps: compare each scrollbar thickness with PM_ScrollBarExtent, zoom in,
+// move both bars to their maximums, zoom out at the lower-right target, record
+// the immediate endpoint, then inspect it again after the 500ms constraint.
+// Expected result: the styled bars have the platform extent; the image edges
+// coincide with the viewport at both checkpoints; scrollbar values and mapped
+// edges do not change during the delayed constraint.
+// Postcondition: the window, scrollbars, settings, and temporary image are released.
+void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("scrollbar-native-extent"), Qt::darkRed, QSize(1200, 1085));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->isVisible()
+            && view->verticalScrollBar()->isVisible(), 2000);
+
+    const int nativeExtent = view->style()->pixelMetric(
+        QStyle::PM_ScrollBarExtent, nullptr, view);
+    QCOMPARE(view->verticalScrollBar()->sizeHint().width(), nativeExtent);
+    QCOMPARE(view->horizontalScrollBar()->sizeHint().height(), nativeExtent);
+
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->isVisible()
+            && view->verticalScrollBar()->isVisible(), 2000);
+    const QPoint target(
+        view->viewport()->rect().right() - 4,
+        view->viewport()->rect().bottom() - 4);
+    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
+    QCoreApplication::processEvents();
+
+    const auto mappedImageRect = [view]() {
+        return view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
+    };
+    const auto viewportRect = [view]() { return view->viewport()->rect(); };
+    const auto edgesReachViewport = [&]() {
+        const QRect image = mappedImageRect();
+        const QRect viewport = viewportRect();
+        constexpr int EdgeTolerance = 2;
+        return qAbs(image.right() - viewport.right()) <= EdgeTolerance
+            && qAbs(image.bottom() - viewport.bottom()) <= EdgeTolerance;
+    };
+    QVERIFY2(edgesReachViewport(), "The initial maximums did not expose both image edges");
+
+    view->zoomAbsolute(1.6, target);
+    const int immediateHorizontalValue = view->horizontalScrollBar()->value();
+    const int immediateVerticalValue = view->verticalScrollBar()->value();
+    const QRect immediateImageRect = mappedImageRect();
+    const QRect immediateViewportRect = viewportRect();
+    QVERIFY2(
+        qAbs(immediateHorizontalValue - view->horizontalScrollBar()->maximum()) <= 1
+            && qAbs(immediateVerticalValue - view->verticalScrollBar()->maximum()) <= 1,
+        "Zoom-out did not preserve the lower-right endpoint immediately");
+    QVERIFY2(edgesReachViewport(), "Zoom-out exposed a right or bottom blank region");
+
+    QTest::qWait(700);
+    QCoreApplication::processEvents();
+    const QRect settledImageRect = mappedImageRect();
+    const QRect settledViewportRect = viewportRect();
+    QCOMPARE(view->horizontalScrollBar()->value(), immediateHorizontalValue);
+    QCOMPARE(view->verticalScrollBar()->value(), immediateVerticalValue);
+    QCOMPARE(settledImageRect, immediateImageRect);
+    QCOMPARE(settledViewportRect, immediateViewportRect);
+    QVERIFY2(edgesReachViewport(), "The delayed bounds constraint changed the endpoint geometry");
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
