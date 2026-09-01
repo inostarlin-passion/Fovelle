@@ -105,13 +105,9 @@ public:
 
     void zoomCustom();
 
-    void originalSize();
-
-    void setZoomToFit(const bool value);
+    void toggleFitAnd100();
 
     void setFillWindow(const bool value);
-
-    void setNavigationResetsZoom(const bool value);
 
     void setSortMode(const Qv::SortMode mode);
 
@@ -218,8 +214,6 @@ public slots:
     void zoomLevelChanged();
 
     void syncCalculatedZoomMode();
-
-    void syncNavigationResetsZoom();
 
     void syncSortParameters();
 

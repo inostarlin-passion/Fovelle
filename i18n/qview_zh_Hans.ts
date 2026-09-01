@@ -184,6 +184,10 @@
         <translation>原始大小</translation>
     </message>
     <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切换适合窗口/100%</translation>
+    </message>
+    <message>
         <source>&amp;Zoom to Fit</source>
         <translation>缩放以适应</translation>
     </message>
@@ -447,6 +451,10 @@ No write permission or file is read-only.</source>
     <message>
         <source>Set Zoom Level</source>
         <translation>设置缩放级别</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切换适合窗口/100%</translation>
     </message>
     <message>
         <source>Zoom Level (%):</source>
@@ -1449,6 +1457,10 @@ No write permission or file is read-only.</source>
     <message>
         <source>Set Zoom Level</source>
         <translation>设置缩放级别</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切换适合窗口/100%</translation>
     </message>
     <message>
         <source>Original Size</source>

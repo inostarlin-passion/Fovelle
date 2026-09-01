@@ -183,6 +183,10 @@
         <translation>原始大小(&amp;G)</translation>
     </message>
     <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切換符合視窗/100%</translation>
+    </message>
+    <message>
         <location filename="../src/actionmanager.cpp" line="747"/>
         <source>Rotate &amp;Right</source>
         <translation>向右旋轉(&amp;R)</translation>
@@ -592,6 +596,10 @@ No write permission or file is read-only.</source>
     <message>
         <source>Set Zoom Level</source>
         <translation>設定縮放等級</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切換符合視窗/100%</translation>
     </message>
     <message>
         <source>Show Title&amp;bar</source>
@@ -1651,6 +1659,10 @@ No write permission or file is read-only.</source>
         <location filename="../src/shortcutmanager.cpp" line="90"/>
         <source>Reset Zoom</source>
         <translation>重置縮放</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>切換符合視窗/100%</translation>
     </message>
     <message>
         <location filename="../src/shortcutmanager.cpp" line="91"/>

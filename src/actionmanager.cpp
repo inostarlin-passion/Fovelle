@@ -307,8 +307,7 @@ QMenu *ActionManager::buildViewMenu(QWidget *parent)
     addCloneOfAction(viewMenu, "zoomin");
     addCloneOfAction(viewMenu, "zoomout");
     addCloneOfAction(viewMenu, "zoomcustom");
-    addCloneOfAction(viewMenu, "originalsize");
-    addCloneOfAction(viewMenu, "zoomtofit");
+    addCloneOfAction(viewMenu, "togglefitand100");
     addCloneOfAction(viewMenu, "fillwindow");
     viewMenu->addSeparator();
     addCloneOfAction(viewMenu, "rotateright");
@@ -736,14 +735,10 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         relevantWindow->zoomOut();
     } else if (key == "zoomcustom") {
         relevantWindow->zoomCustom();
-    } else if (key == "originalsize") {
-        relevantWindow->originalSize();
-    } else if (key == "zoomtofit") {
-        relevantWindow->setZoomToFit(triggeredAction->isChecked());
+    } else if (key == "togglefitand100") {
+        relevantWindow->toggleFitAnd100();
     } else if (key == "fillwindow") {
         relevantWindow->setFillWindow(triggeredAction->isChecked());
-    } else if (key == "navresetszoom") {
-        relevantWindow->setNavigationResetsZoom(triggeredAction->isChecked());
     } else if (key == "rotateright") {
         relevantWindow->rotateRight();
     } else if (key == "rotateleft") {
@@ -871,24 +866,16 @@ void ActionManager::initializeActionLibrary()
     zoomCustomAction->setData({"disable"});
     actionLibrary.insert("zoomcustom", zoomCustomAction);
 
-    auto *originalSizeAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::LooksOne), tr("Ori&ginal Size"));
-    originalSizeAction->setData({"disable"});
-    actionLibrary.insert("originalsize", originalSizeAction);
-
-    auto *zoomToFitAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FitScreen), tr("&Zoom to Fit"));
-    zoomToFitAction->setData({"disable"});
-    zoomToFitAction->setCheckable(true);
-    actionLibrary.insert("zoomtofit", zoomToFitAction);
+    auto *toggleFitAnd100Action = new QAction(
+        qvApp->iconFromFont(Qv::MaterialIcon::FitScreen),
+        tr("Toggle Fit and 100%"));
+    toggleFitAnd100Action->setData({"disable"});
+    actionLibrary.insert("togglefitand100", toggleFitAnd100Action);
 
     auto *fillWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SettingsOverscan), tr("Fill &Window"));
     fillWindowAction->setData({"disable"});
     fillWindowAction->setCheckable(true);
     actionLibrary.insert("fillwindow", fillWindowAction);
-
-    auto *navigationResetsZoomAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Deselect), tr("&Navigation Resets Zoom"));
-    navigationResetsZoomAction->setData({"disable"});
-    navigationResetsZoomAction->setCheckable(true);
-    actionLibrary.insert("navresetszoom", navigationResetsZoomAction);
 
     auto *rotateRightAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RotateRight), tr("Rotate &Right"));
     rotateRightAction->setData({"disable"});

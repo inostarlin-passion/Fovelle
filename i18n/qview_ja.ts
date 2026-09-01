@@ -184,6 +184,10 @@
         <translation>等倍</translation>
     </message>
     <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>合わせる/100%切り替え</translation>
+    </message>
+    <message>
         <source>&amp;Zoom to Fit</source>
         <translation>全体表示</translation>
     </message>
@@ -448,6 +452,10 @@ No write permission or file is read-only.</source>
     <message>
         <source>Set Zoom Level</source>
         <translation>ズーム倍率を設定</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>合わせる/100%切り替え</translation>
     </message>
     <message>
         <source>Zoom Level (%):</source>
@@ -1450,6 +1458,10 @@ No write permission or file is read-only.</source>
     <message>
         <source>Set Zoom Level</source>
         <translation>ズーム倍率を設定</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>合わせる/100%切り替え</translation>
     </message>
     <message>
         <source>Original Size</source>

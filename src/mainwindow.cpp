@@ -352,7 +352,6 @@ MainWindow::MainWindow(QWidget *parent,
     });
     connect(graphicsView, &QVGraphicsView::zoomLevelChanged, this, &MainWindow::zoomLevelChanged);
     connect(graphicsView, &QVGraphicsView::calculatedZoomModeChanged, this, &MainWindow::syncCalculatedZoomMode);
-    connect(graphicsView, &QVGraphicsView::navigationResetsZoomChanged, this, &MainWindow::syncNavigationResetsZoom);
     connect(graphicsView, &QVGraphicsView::sortParametersChanged, this, &MainWindow::syncSortParameters);
     connect(graphicsView, &QVGraphicsView::cancelSlideshow, this, &MainWindow::cancelSlideshow);
 
@@ -510,7 +509,6 @@ void MainWindow::ensureMenus()
     menusInitialized = true;
     disableActions();
     syncCalculatedZoomMode();
-    syncNavigationResetsZoom();
     syncSortParameters();
 
     if (qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF"))
@@ -974,7 +972,6 @@ void MainWindow::ensureContextMenu()
     // actions before the first Cocoa menu tracking pass.
     disableActions();
     syncCalculatedZoomMode();
-    syncNavigationResetsZoom();
     syncSortParameters();
 }
 
@@ -1015,7 +1012,6 @@ void MainWindow::showEvent(QShowEvent *event)
     }
 
     syncCalculatedZoomMode();
-    syncNavigationResetsZoom();
     syncSortParameters();
 
     if (!sessionStateToLoad.isEmpty())
@@ -1399,19 +1395,9 @@ void MainWindow::zoomLevelChanged()
 
 void MainWindow::syncCalculatedZoomMode()
 {
-    const bool isZoomToFit = graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::ZoomToFit;
     const bool isFillWindow = graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::FillWindow;
-    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("zoomtofit", this))
-        action->setChecked(isZoomToFit);
     for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("fillwindow", this))
         action->setChecked(isFillWindow);
-}
-
-void MainWindow::syncNavigationResetsZoom()
-{
-    const bool value = graphicsView->getNavigationResetsZoom();
-    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("navresetszoom", this))
-        action->setChecked(value);
 }
 
 void MainWindow::syncSortParameters()
@@ -2209,24 +2195,26 @@ void MainWindow::zoomCustom()
     graphicsView->fitOrConstrainImage();
 }
 
-void MainWindow::originalSize()
+void MainWindow::toggleFitAnd100()
 {
-    graphicsView->setCalculatedZoomMode(Qv::CalculatedZoomMode::OriginalSize);
-}
-
-void MainWindow::setZoomToFit(const bool value)
-{
-    graphicsView->setCalculatedZoomMode(value ? std::optional(Qv::CalculatedZoomMode::ZoomToFit) : std::nullopt);
+    if (graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::ZoomToFit)
+    {
+        // Calling zoomAbsolute as a user action clears the calculated mode,
+        // even when the fit level already happens to be exactly 100%. This
+        // bypasses the legacy Original Size toggle preference so Z always
+        // means the requested fit/100% pair.
+        graphicsView->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+        graphicsView->fitOrConstrainImage();
+    }
+    else
+    {
+        graphicsView->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    }
 }
 
 void MainWindow::setFillWindow(const bool value)
 {
     graphicsView->setCalculatedZoomMode(value ? std::optional(Qv::CalculatedZoomMode::FillWindow) : std::nullopt);
-}
-
-void MainWindow::setNavigationResetsZoom(const bool value)
-{
-    graphicsView->setNavigationResetsZoom(value);
 }
 
 void MainWindow::setSortMode(const Qv::SortMode mode)

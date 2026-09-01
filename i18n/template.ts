@@ -180,6 +180,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Toggle Fit and 100%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&amp;Zoom to Fit</source>
         <translation type="unfinished"></translation>
     </message>
@@ -431,6 +435,10 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Set Zoom Level</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1370,6 +1378,10 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Set Zoom Level</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

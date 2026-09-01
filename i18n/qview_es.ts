@@ -184,6 +184,10 @@
         <translation>Tamaño original</translation>
     </message>
     <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>Alternar Ajustar/100 %</translation>
+    </message>
+    <message>
         <source>&amp;Zoom to Fit</source>
         <translation>Ajustar a la ventana</translation>
     </message>
@@ -448,6 +452,10 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
     <message>
         <source>Set Zoom Level</source>
         <translation>Establecer nivel de zoom</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>Alternar Ajustar/100 %</translation>
     </message>
     <message>
         <source>Zoom Level (%):</source>
@@ -1450,6 +1458,10 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
     <message>
         <source>Set Zoom Level</source>
         <translation>Establecer nivel de zoom</translation>
+    </message>
+    <message>
+        <source>Toggle Fit and 100%</source>
+        <translation>Alternar Ajustar/100 %</translation>
     </message>
     <message>
         <source>Original Size</source>

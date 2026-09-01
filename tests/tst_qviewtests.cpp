@@ -331,6 +331,10 @@ class ShortcutSettingsTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testToggleFitAnd100IsTheOnlyFitShortcutAction();
+    void testToggleFitAnd100DefaultsToZ();
+    void testToggleFitAnd100ChangesBetweenFitAnd100Percent();
+    void testToggleFitAnd100Translations();
     void testPrimaryStandardShortcutDoesNotExposeActionName();
     void testShortcutsColumnFillsRemainingWidth();
     void testDoubleClickOpensShortcutEditor();
@@ -2844,19 +2848,20 @@ void FeatureTests::testTitlebarIconClearingIsIdempotent()
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-VIEW-LEGACY-ACTIONS
-// Test purpose: verify that the View menu no longer exposes the two removed
-// image/window sizing actions while retaining Full Screen.
+// TC-VIEW-ZOOM-ACTIONS
+// Test purpose: verify that the View menu exposes the new combined fit/100%
+// action and no longer exposes the removed image/window sizing actions.
 // Preconditions: ActionManager has built the production menu clones.
 // Input data: every action in each non-context View menu clone.
 // Steps: inspect action data keys and classify the main-menu View clone.
-// Expected result: navresetszoom and matchimagesize are absent; fullscreen is
-// still present in the main menu.
+// Expected result: Toggle Fit and 100% and Full Screen are present; Original
+// Size, Zoom to Fit, and Navigation Resets Zoom are absent.
 // Postcondition: no menu or settings state is changed.
 void FeatureTests::testViewMenuRemovesLegacyActions()
 {
     bool foundMainMenu = false;
     bool foundFullscreen = false;
+    bool foundToggleFitAnd100 = false;
     const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu("view");
     QVERIFY(!viewMenus.isEmpty());
 
@@ -2869,15 +2874,20 @@ void FeatureTests::testViewMenuRemovesLegacyActions()
         for (const auto *action : viewMenu->actions())
         {
             const QString key = action->data().toStringList().value(0);
+            QVERIFY(key != QStringLiteral("originalsize"));
+            QVERIFY(key != QStringLiteral("zoomtofit"));
             QVERIFY(key != QStringLiteral("navresetszoom"));
             QVERIFY(key != QStringLiteral("matchimagesize"));
             if (key == QStringLiteral("fullscreen"))
                 foundFullscreen = true;
+            if (key == QStringLiteral("togglefitand100"))
+                foundToggleFitAnd100 = true;
         }
     }
 
     QVERIFY(foundMainMenu);
     QVERIFY(foundFullscreen);
+    QVERIFY(foundToggleFitAnd100);
 }
 
 void FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
@@ -7381,7 +7391,7 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
 // TC-ESC-RESERVED
 // Test purpose: prove a persisted image-action binding cannot compete with the
 // window's bare Escape command.
-// Preconditions: Zoom to Fit was previously saved as Escape; a zoomed image is
+// Preconditions: Toggle Fit and 100% was previously saved as Escape; a zoomed image is
 // visible in a normal window.
 // Input data: the persisted Escape binding and one physical Escape key event.
 // Steps: reload shortcuts, inspect the effective QAction map, zoom the image,
@@ -7394,7 +7404,7 @@ void WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     const QString escape = QKeySequence(Qt::Key_Escape).toString();
-    ScopedShortcutValues shortcuts({{"zoomtofit", QStringList {escape}}});
+    ScopedShortcutValues shortcuts({{"togglefitand100", QStringList {escape}}});
 
     QVERIFY(ShortcutManager::beginsWithReservedEscape(
         QKeySequence(Qt::Key_Escape)));
@@ -7404,14 +7414,14 @@ void WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()
              ShortcutManager::stringListToKeySequenceList(shortcut.shortcuts))
             QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
     }
-    const QAction *zoomToFitAction =
-        qvApp->getActionManager().getAction("zoomtofit");
-    QVERIFY(zoomToFitAction);
-    for (const QKeySequence &sequence : zoomToFitAction->shortcuts())
+    const QAction *toggleFitAnd100Action =
+        qvApp->getActionManager().getAction("togglefitand100");
+    QVERIFY(toggleFitAnd100Action);
+    for (const QKeySequence &sequence : toggleFitAnd100Action->shortcuts())
         QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
     QSettings settings;
     QCOMPARE(
-        settings.value(QStringLiteral("shortcuts/zoomtofit")).toStringList(),
+        settings.value(QStringLiteral("shortcuts/togglefitand100")).toStringList(),
         QStringList {});
 
     QTemporaryDir dir;
@@ -7524,6 +7534,224 @@ void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
     QCOMPARE(window.windowTitle(), expected);
     QVERIFY(!window.windowTitle().contains(QStringLiteral("Fovelle")));
     window.close();
+}
+
+// AC-SHORTCUT-ACTION-SURFACE
+// Test purpose: verify that the Shortcuts tab and the ActionManager expose one
+// combined fit/100% action instead of the removed zoom actions.
+// Preconditions: the application action library and a prepared Settings
+// dialog are available.
+// Input data: the shortcut inventory, the action-library keys, and the
+// visible Shortcuts table.
+// Steps: inspect the inventory, canonical actions, and table row mapping.
+// Expected result: Toggle Fit and 100% exists with the new key; Original Size,
+// Zoom to Fit, and Navigation Resets Zoom exist nowhere in the configurable
+// action surface.
+// Postcondition: the Settings dialog is closed without changing settings.
+void ShortcutSettingsTests::testToggleFitAnd100IsTheOnlyFitShortcutAction()
+{
+    const auto &shortcuts = qvApp->getShortcutManager().getShortcutsList();
+    const ShortcutManager::SShortcut *toggle = nullptr;
+    for (const auto &shortcut : shortcuts)
+    {
+        QVERIFY(shortcut.name != QStringLiteral("originalsize"));
+        QVERIFY(shortcut.name != QStringLiteral("zoomtofit"));
+        QVERIFY(shortcut.name != QStringLiteral("navresetszoom"));
+        if (shortcut.name == QStringLiteral("togglefitand100"))
+            toggle = &shortcut;
+    }
+    QVERIFY(toggle);
+    QCOMPARE(toggle->readableName,
+             QCoreApplication::translate("ShortcutManager", "Toggle Fit and 100%"));
+    QCOMPARE(toggle->defaultShortcuts,
+             QStringList {QKeySequence(Qt::Key_Z).toString()});
+
+    QVERIFY(qvApp->getActionManager().getAction("togglefitand100"));
+    QVERIFY(!qvApp->getActionManager().getAction("originalsize"));
+    QVERIFY(!qvApp->getActionManager().getAction("zoomtofit"));
+    QVERIFY(!qvApp->getActionManager().getAction("navresetszoom"));
+
+    QVOptionsDialog dialog;
+    dialog.setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog.prepareForDisplay();
+    dialog.show();
+    auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
+    auto *table = dialog.findChild<QTableWidget *>(QStringLiteral("shortcutsTable"));
+    QVERIFY(tabs);
+    QVERIFY(table);
+    tabs->setCurrentIndex(1);
+    QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
+
+    bool foundTableRow = false;
+    for (int row = 0; row < table->rowCount(); ++row)
+    {
+        auto *item = table->item(row, 0);
+        if (item && item->text() == toggle->readableName)
+        {
+            foundTableRow = true;
+            QCOMPARE(table->item(row, 1)->text(),
+                     ShortcutManager::stringListToReadableString(toggle->shortcuts));
+        }
+    }
+    QVERIFY(foundTableRow);
+    dialog.close();
+}
+
+// AC-SHORTCUT-DEFAULT-Z
+// Test purpose: verify that the combined action's default and effective
+// shortcut are both the unmodified Z key.
+// Preconditions: the shortcut manager is initialized and the new setting can
+// be scoped for the test.
+// Input data: the production default key and a persisted Z value.
+// Steps: apply the scoped value, reload shortcuts, then inspect the inventory
+// and canonical QAction.
+// Expected result: the row and QAction each contain exactly one shortcut,
+// QKeySequence(Qt::Key_Z), with no modifier.
+// Postcondition: the prior persisted value is restored and the shortcut map is
+// refreshed.
+void ShortcutSettingsTests::testToggleFitAnd100DefaultsToZ()
+{
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("togglefitand100"),
+         QStringList {QKeySequence(Qt::Key_Z).toString()}}
+    });
+
+    const ShortcutManager::SShortcut *toggle = nullptr;
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
+    {
+        if (shortcut.name == QStringLiteral("togglefitand100"))
+        {
+            toggle = &shortcut;
+            break;
+        }
+    }
+    QVERIFY(toggle);
+    QCOMPARE(toggle->defaultShortcuts,
+             QStringList {QKeySequence(Qt::Key_Z).toString()});
+    QCOMPARE(toggle->shortcuts,
+             QStringList {QKeySequence(Qt::Key_Z).toString()});
+
+    QAction *action = qvApp->getActionManager().getAction("togglefitand100");
+    QVERIFY(action);
+    QCOMPARE(action->shortcuts(),
+             QList<QKeySequence> {QKeySequence(Qt::Key_Z)});
+}
+
+// AC-SHORTCUT-TOGGLE-BEHAVIOR
+// Test purpose: verify the Z action's state machine: any non-fit state enters
+// fit-to-window, and a fit state enters exact 100%.
+// Preconditions: a visible normal image window has loaded a large PNG; the
+// legacy Original Size toggle preference is enabled to prove it is bypassed.
+// Input data: a 1600x1000 image, a manual 200% zoom, and two action triggers.
+// Steps: trigger the combined action from the manual zoom, record fit mode,
+// trigger it again, and inspect the resulting mode and zoom level.
+// Expected result: the first trigger selects ZoomToFit; the second clears the
+// calculated mode and selects zoom level 1.0; a third trigger returns to fit.
+// Postcondition: the image window and temporary settings are restored.
+void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("originalsizeastoggle"), true}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("toggle-fit-100"), Qt::darkBlue, QSize(1600, 1000));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(720, 500);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QAction *action = qvApp->getActionManager().getAction("togglefitand100");
+    QVERIFY(action);
+
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->getCalculatedZoomMode().has_value(), 2000);
+    QVERIFY(view->getZoomLevel() > 1.5);
+
+    ActionManager::actionTriggered(action, &window);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value() &&
+            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
+        2000);
+    const qreal fitLevel = view->getZoomLevel();
+    QVERIFY(fitLevel > 0.0);
+    QVERIFY(fitLevel < 1.0);
+
+    ActionManager::actionTriggered(action, &window);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->getCalculatedZoomMode().has_value(), 2000);
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
+
+    ActionManager::actionTriggered(action, &window);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value() &&
+            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
+        2000);
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-SHORTCUT-TRANSLATIONS
+// Test purpose: verify the exact requested translation for the new action in
+// both the Settings shortcut context and the ActionManager menu context.
+// Preconditions: the four built QM catalogs are available.
+// Input data: en, zh_Hans, zh_Hant, es, and ja catalogs.
+// Steps: install each catalog in turn and translate the exact source string in
+// both production contexts.
+// Expected result: each language returns the requested spelling, punctuation,
+// spacing, and slash form.
+// Postcondition: each temporary translator is removed.
+void ShortcutSettingsTests::testToggleFitAnd100Translations()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QSKIP("Translation catalogs were disabled for this build");
+#else
+    const QList<QPair<QString, QString>> languages {
+        {QStringLiteral("en"), QStringLiteral("Toggle Fit and 100%")},
+        {QStringLiteral("zh_Hans"), QStringLiteral("切换适合窗口/100%")},
+        {QStringLiteral("zh_Hant"), QStringLiteral("切換符合視窗/100%")},
+        {QStringLiteral("es"), QStringLiteral("Alternar Ajustar/100 %")},
+        {QStringLiteral("ja"), QStringLiteral("合わせる/100%切り替え")}
+    };
+
+    for (const auto &language : languages)
+    {
+        SourceLanguageTranslator sourceTranslator;
+        QTranslator catalogTranslator;
+        QTranslator *translator = &sourceTranslator;
+        if (language.first != QStringLiteral("en"))
+        {
+            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                    .arg(language.first);
+            QVERIFY2(catalogTranslator.load(path), qPrintable(path));
+            translator = &catalogTranslator;
+        }
+
+        QVERIFY(QCoreApplication::installTranslator(translator));
+        QCOMPARE(QCoreApplication::translate("ShortcutManager", "Toggle Fit and 100%"),
+                 language.second);
+        QCOMPARE(QCoreApplication::translate("ActionManager", "Toggle Fit and 100%"),
+                 language.second);
+        QVERIFY(QCoreApplication::removeTranslator(translator));
+    }
+#endif
 }
 
 // AC-SHORTCUT-DISPLAY
