@@ -1,5 +1,11 @@
 # 图片缩放垂直滚动条跳变：测试完成报告
 
+> 本轮验证日期：2026-09-03
+>
+> 验证提交：Fovelle `b378540e16a4c90a205320ea05a3653460ebd9a7`
+>
+> 环境：macOS Cocoa、Qt 6.11.1、普通 DPR 与 `QT_SCALE_FACTOR=2`
+
 ## 1. 完成结论
 
 本次修复已将“垂直滚动条跳变”从只看终态 value 的弱检查，升级为同时检查数值、thumb、物理控件 geometry、图片锚点、延迟回调和真实输入矩阵的全过程验证。
@@ -65,7 +71,7 @@ python3 tests/scrollbar_zoom_acceptance_static.py \
   --repo . --output build/test-results/scrollbar-zoom-acceptance-static.json
 ```
 
-结果：返回码 0；源码/测试/CTest 合同、六字段结构、geometry oracle、真实 pinch、非中心锚点、具名 timer 和失败证据检查均为 `pass=true`。
+结果：返回码 0；15/15 项静态合同通过，源码/测试/CTest 合同、六字段结构、geometry oracle、真实 pinch、非中心锚点、具名 timer 和失败证据检查均为 `pass=true`。
 
 ### 5.3 普通 DPR 动态轨迹
 
@@ -74,7 +80,7 @@ ctest --test-dir build \
   -R '^FovelleZoomScrollbarTrajectory$' --output-on-failure
 ```
 
-结果：12 行数据执行 deterministic + live 两阶段，测试通过，耗时约 14.00 秒。
+结果：12 行数据执行 deterministic + live 两阶段，测试通过，耗时 13.18 秒。
 
 ### 5. HiDPI 动态轨迹
 
@@ -83,7 +89,7 @@ ctest --test-dir build \
   -R '^FovelleZoomScrollbarTrajectoryHiDpi$' --output-on-failure
 ```
 
-结果：独立 `QT_SCALE_FACTOR=2` 进程的 12 行数据执行 deterministic + live 两阶段，测试通过，耗时约 44.18 秒。
+结果：独立 `QT_SCALE_FACTOR=2` 进程的 12 行数据执行 deterministic + live 两阶段，测试通过，耗时 39.42 秒。
 
 ### 5.4 默认全量 CTest
 
@@ -91,12 +97,12 @@ ctest --test-dir build \
 ctest --test-dir build --output-on-failure --timeout 120
 ```
 
-结果：`4/4` 通过，总耗时约 116.48 秒：
+结果：`4/4` 通过，总耗时 110.48 秒：
 
-- `FovelleTests`：55.73 秒；
-- `FovelleShortcutSettingsTests`：2.57 秒；
-- `FovelleZoomScrollbarTrajectory`：14.00 秒；
-- `FovelleZoomScrollbarTrajectoryHiDpi`：44.18 秒。
+- `FovelleTests`：54.35 秒；
+- `FovelleShortcutSettingsTests`：2.49 秒；
+- `FovelleZoomScrollbarTrajectory`：13.24 秒；
+- `FovelleZoomScrollbarTrajectoryHiDpi`：40.39 秒。
 
 ### 5.5 证据文件
 

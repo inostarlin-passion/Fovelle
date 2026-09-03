@@ -1,6 +1,9 @@
 .DS_Store
 .directory
-reports/
+reports/*
+!reports/test_case_specification.md
+!reports/test_completion_report.md
+!reports/technical_design_document.md
 
 # C++ objects and libs
 
