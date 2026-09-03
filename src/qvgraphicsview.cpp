@@ -44,6 +44,9 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(verticalScrollBarGeometryTimer, &QTimer::timeout, this, [this]() {
         verticalScrollBarGeometryUpdatePending = false;
         refreshVerticalScrollBarGeometry();
+        if (pendingZoomAnchorScene.has_value()
+            && pendingZoomAnchorViewport.has_value())
+            restorePendingZoomAnchor();
     });
 
     const auto scheduleScrollBarGeometryUpdate = [this](int, int) {
@@ -58,6 +61,13 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         || barGeometryWidget == viewport())
         barGeometryWidget = verticalScrollBar();
     barGeometryWidget->installEventFilter(this);
+    horizontalScrollBar()->installEventFilter(this);
+    verticalScrollBar()->installEventFilter(this);
+    QWidget *horizontalBarGeometryWidget = horizontalScrollBar()->parentWidget();
+    if (!horizontalBarGeometryWidget || horizontalBarGeometryWidget == this
+        || horizontalBarGeometryWidget == viewport())
+        horizontalBarGeometryWidget = horizontalScrollBar();
+    horizontalBarGeometryWidget->installEventFilter(this);
 
     // Scene setup
     auto *scene = new QGraphicsScene(this);
@@ -141,6 +151,18 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     zoomAnchorPostLayoutTimer->setSingleShot(true);
     zoomAnchorPostLayoutTimer->setInterval(50);
     connect(zoomAnchorPostLayoutTimer, &QTimer::timeout, this, [this]() {
+        // QAbstractScrollArea may perform a second viewport resize after the
+        // scene-rect update has returned (notably when a horizontal bar
+        // appears and shortens the vertical viewport). Restore the pending
+        // anchor once that queued layout pass has completed, before allowing
+        // the normal settled-anchor cleanup below.
+        if (pendingZoomAnchorScene.has_value()
+            && pendingZoomAnchorViewport.has_value())
+        {
+            zoomAnchorPostLayoutTimer->setInterval(50);
+            restorePendingZoomAnchor();
+            return;
+        }
         restoreSettledZoomAnchor();
         settledZoomAnchorScene.reset();
         settledZoomAnchorViewport.reset();
@@ -257,17 +279,17 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this,
             viewportScrollChanged);
     connect(horizontalScrollBar(), &QScrollBar::sliderPressed, this,
-            [this]() { cancelPendingZoomAnchor(true); });
+            [this]() { cancelPendingZoomAnchor(); });
     connect(verticalScrollBar(), &QScrollBar::sliderPressed, this,
-            [this]() { cancelPendingZoomAnchor(true); });
+            [this]() { cancelPendingZoomAnchor(); });
     connect(horizontalScrollBar(), &QScrollBar::sliderMoved, this,
-            [this](int) { cancelPendingZoomAnchor(true); });
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(verticalScrollBar(), &QScrollBar::sliderMoved, this,
-            [this](int) { cancelPendingZoomAnchor(true); });
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(horizontalScrollBar(), &QScrollBar::actionTriggered, this,
-            [this](int) { cancelPendingZoomAnchor(true); });
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(verticalScrollBar(), &QScrollBar::actionTriggered, this,
-            [this](int) { cancelPendingZoomAnchor(true); });
+            [this](int) { cancelPendingZoomAnchor(); });
     connect(qvApp, &QGuiApplication::applicationStateChanged, this,
             [this](const Qt::ApplicationState state) {
         const bool active = state == Qt::ApplicationActive
@@ -351,6 +373,9 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         if (isUpdatingSceneRect)
         {
             restorePendingZoomAnchor();
+            if (pendingZoomAnchorScene.has_value()
+                && pendingZoomAnchorViewport.has_value())
+                zoomAnchorPostLayoutTimer->start(0);
             return;
         }
 
@@ -370,6 +395,11 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
             restorePendingZoomAnchor();
             logViewportState("resize-zoom-anchor-restored");
             refreshVerticalScrollBarGeometry();
+            // The base resize handler can enqueue one more AsNeeded layout
+            // after this callback returns. Run a zero-delay restore after
+            // that layout so the newly exposed viewport edge cannot move the
+            // mouse anchor by a scrollbar extent.
+            zoomAnchorPostLayoutTimer->start(0);
 
             // A fit computed while an AsNeeded bar is visible can make that
             // bar disappear during the same zoom transition.  The viewport
@@ -809,13 +839,23 @@ bool QVGraphicsView::event(QEvent *event)
 
 bool QVGraphicsView::eventFilter(QObject *watched, QEvent *event)
 {
-    QWidget *barGeometryWidget = verticalScrollBar()
+    QWidget *verticalBarGeometryWidget = verticalScrollBar()
         ? verticalScrollBar()->parentWidget() : nullptr;
-    if (!barGeometryWidget || barGeometryWidget == this
-        || barGeometryWidget == viewport())
-        barGeometryWidget = verticalScrollBar();
+    if (!verticalBarGeometryWidget || verticalBarGeometryWidget == this
+        || verticalBarGeometryWidget == viewport())
+        verticalBarGeometryWidget = verticalScrollBar();
+    QWidget *horizontalBarGeometryWidget = horizontalScrollBar()
+        ? horizontalScrollBar()->parentWidget() : nullptr;
+    if (!horizontalBarGeometryWidget || horizontalBarGeometryWidget == this
+        || horizontalBarGeometryWidget == viewport())
+        horizontalBarGeometryWidget = horizontalScrollBar();
 
-    if (watched == barGeometryWidget
+    const bool watchedVerticalGeometry = watched == verticalBarGeometryWidget
+        || watched == verticalScrollBar();
+    const bool watchedScrollGeometry = watchedVerticalGeometry
+        || watched == horizontalBarGeometryWidget
+        || watched == horizontalScrollBar();
+    if (watchedScrollGeometry
         && (event->type() == QEvent::LayoutRequest
             || event->type() == QEvent::Move
             || event->type() == QEvent::Resize
@@ -827,8 +867,11 @@ bool QVGraphicsView::eventFilter(QObject *watched, QEvent *event)
         // before the next paint.  Repair the titlebar-safe top edge in this
         // same event turn so a frame cannot be painted at Qt's unadjusted
         // origin and then visibly jump when the zero-delay timer runs.
-        if (event->type() != QEvent::LayoutRequest)
+        if (watchedVerticalGeometry && event->type() != QEvent::LayoutRequest)
             refreshVerticalScrollBarGeometry();
+        if (pendingZoomAnchorScene.has_value()
+            && pendingZoomAnchorViewport.has_value())
+            restorePendingZoomAnchor();
     }
 
     return QGraphicsView::eventFilter(watched, event);
@@ -876,7 +919,7 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
             QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
         if (!trackpadDelta.isNull())
         {
-            cancelPendingZoomAnchor(true);
+            cancelPendingZoomAnchor();
             scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
             constrainBoundsTimer->start();
         }
@@ -974,7 +1017,7 @@ void QVGraphicsView::keyPressEvent(QKeyEvent *event)
             (horizontalScrollBar()->singleStep() * scrollXSmallSteps) * getRtlFlip(),
             (verticalScrollBar()->singleStep() * scrollYSmallSteps) + (verticalScrollBar()->pageStep() * scrollYLargeSteps)
         };
-        cancelPendingZoomAnchor(true);
+        cancelPendingZoomAnchor();
         scrollHelper->move(delta);
         constrainBoundsTimer->start();
         return;
@@ -1059,7 +1102,7 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
 {
     if (action == Qv::ViewportDragAction::Pan)
     {
-        cancelPendingZoomAnchor(true);
+        cancelPendingZoomAnchor();
         scrollHelper->move(QPointF(-delta.x() * getRtlFlip(), -delta.y()));
     }
     else if (action == Qv::ViewportDragAction::MoveWindow)
@@ -1315,7 +1358,7 @@ void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, 
         if (hasShiftModifier)
             std::swap(scrollX, scrollY);
 
-        cancelPendingZoomAnchor(true);
+        cancelPendingZoomAnchor();
         scrollHelper->move(QPointF(scrollX, scrollY));
         constrainBoundsTimer->start();
     }
@@ -1833,37 +1876,15 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
     }
 
     const bool followsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
-    QMarginsF anchorViewportMargins;
     // getDisplayedContentRect() is already transformed into scene-sized
     // content coordinates.  Mapping it through mapFromScene() a second time
     // applies the view scale twice (especially visible when fit < 1.0).
     // Anchor projection must use the image item's unscaled scene rect.
-    const QRect imageViewportRect = mapFromScene(
-        scene()->itemsBoundingRect()).boundingRect();
     std::optional<QPoint> pos = followsViewportCenter
             ? std::optional<QPoint>(getUsableViewportRect().center())
             : targetPos;
     if (pos.has_value() && !followsViewportCenter)
-    {
-        const QRect viewportRect = viewport()->rect();
-        const bool projectsLeft = targetPos->x() < imageViewportRect.left();
-        const bool projectsRight = targetPos->x() > imageViewportRect.right();
-        const bool projectsTop = targetPos->y() < imageViewportRect.top();
-        const bool projectsBottom = targetPos->y() > imageViewportRect.bottom();
         pos = zoomAnchorViewportPoint(pos.value());
-        if (projectsLeft)
-            anchorViewportMargins.setLeft(
-                qMax(0, pos->x() - viewportRect.left()));
-        else if (projectsRight)
-            anchorViewportMargins.setRight(
-                qMax(0, viewportRect.right() - pos->x()));
-        if (projectsTop)
-            anchorViewportMargins.setTop(
-                qMax(0, pos->y() - viewportRect.top()));
-        else if (projectsBottom)
-            anchorViewportMargins.setBottom(
-                qMax(0, viewportRect.bottom() - pos->y()));
-    }
     if (pos != lastZoomEventPos)
     {
         lastZoomEventPos = pos;
@@ -1880,8 +1901,6 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
         zoomTransitionVerticalPanEdge = ScrollEdge::None;
         pendingZoomAnchorScene = scenePos;
         pendingZoomAnchorViewport = pos;
-        pendingZoomAnchorViewportMargins = anchorViewportMargins;
-        retainedZoomAnchorViewportMargins = {};
         pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;
         const quint64 anchorGeneration = ++pendingZoomAnchorGeneration;
         zoomAnchorSettleGeneration = anchorGeneration;
@@ -1889,10 +1908,8 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
     }
     else if (isChanging)
     {
-        // A new center-anchored zoom supersedes any previous mouse-anchor
-        // margin.  User pan paths pass true so their first move cannot make a
-        // still-overflowing range disappear.
-        cancelPendingZoomAnchor(false);
+        // A new center-anchored zoom supersedes any previous mouse anchor.
+        cancelPendingZoomAnchor();
         zoomTransitionHorizontalPanEdge = ScrollEdge::None;
         zoomTransitionVerticalPanEdge = ScrollEdge::None;
     }
@@ -1961,53 +1978,9 @@ void QVGraphicsView::settlePendingZoomAnchor()
     const std::optional<QPoint> settledAnchorViewport = pendingZoomAnchorViewport;
     const bool followsViewportCenter = pendingZoomAnchorFollowsViewportCenter;
     restorePendingZoomAnchor();
-
-    const QMarginsF sceneMargins = getPendingZoomAnchorSceneMargins();
-    const bool hadSceneMargins = !sceneMargins.isNull();
-    const QTransform currentTransform = transform();
-    const qreal horizontalScale = qSqrt(
-        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
-    const qreal verticalScale = qSqrt(
-        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
-    QMarginsF newRetainedMargins;
-    if (!qFuzzyIsNull(horizontalScale) && !qFuzzyIsNull(verticalScale))
-    {
-        newRetainedMargins = QMarginsF(
-            sceneMargins.left() * horizontalScale,
-            sceneMargins.top() * verticalScale,
-            sceneMargins.right() * horizontalScale,
-            sceneMargins.bottom() * verticalScale);
-    }
-
-    // A virtual margin is only needed while the corresponding image axis is
-    // genuinely scrollable.  Keeping an outside-image placement after the
-    // image has shrunk below the viewport creates a synthetic range, which
-    // makes ScrollBarAsNeeded retain a bar indefinitely.  Prune each axis
-    // independently because a portrait image may still overflow vertically
-    // while fitting horizontally (and vice versa).
-    const QRect displayedImage = getDisplayedContentRect();
-    const QRect usableViewport = getUsableViewportRect();
-    if (displayedImage.width() <= usableViewport.width() + 1)
-    {
-        newRetainedMargins.setLeft(0.0);
-        newRetainedMargins.setRight(0.0);
-    }
-    if (displayedImage.height() <= usableViewport.height() + 1)
-    {
-        newRetainedMargins.setTop(0.0);
-        newRetainedMargins.setBottom(0.0);
-    }
-    const bool retainedMarginsChanged =
-        newRetainedMargins != retainedZoomAnchorViewportMargins;
-    retainedZoomAnchorViewportMargins = newRetainedMargins;
     pendingZoomAnchorScene.reset();
     pendingZoomAnchorViewport.reset();
-    pendingZoomAnchorViewportMargins = {};
     pendingZoomAnchorFollowsViewportCenter = false;
-
-    if ((hadSceneMargins || retainedMarginsChanged) && !isUpdatingSceneRect
-        && getCurrentFileDetails().isPixmapLoaded)
-        updateSceneRect();
 
     if (settledAnchorScene.has_value() && settledAnchorViewport.has_value()
         && !followsViewportCenter)
@@ -2015,6 +1988,7 @@ void QVGraphicsView::settlePendingZoomAnchor()
         settledZoomAnchorScene = settledAnchorScene;
         settledZoomAnchorViewport = settledAnchorViewport;
         restoreSettledZoomAnchor();
+        zoomAnchorPostLayoutTimer->setInterval(50);
         zoomAnchorPostLayoutTimer->start();
     }
 }
@@ -2746,108 +2720,12 @@ QRect QVGraphicsView::getDisplayedContentRect() const
     return getContentRectForZoomLevel(displayedZoomLevel);
 }
 
-QMarginsF QVGraphicsView::getPendingZoomAnchorSceneMargins() const
-{
-    if (pendingZoomAnchorFollowsViewportCenter)
-        return {};
-
-    const bool hasPendingAnchor = pendingZoomAnchorScene.has_value()
-        && pendingZoomAnchorViewport.has_value();
-    const QMarginsF viewportMargins = hasPendingAnchor
-        ? pendingZoomAnchorViewportMargins
-        : retainedZoomAnchorViewportMargins;
-    if (!hasPendingAnchor && viewportMargins.isNull())
-        return {};
-
-    const QTransform currentTransform = transform();
-    const qreal horizontalScale = qSqrt(
-        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
-    const qreal verticalScale = qSqrt(
-        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
-    if (qFuzzyIsNull(horizontalScale) || qFuzzyIsNull(verticalScale))
-        return {};
-
-    if (hasPendingAnchor
-        && qFuzzyIsNull(currentTransform.m12())
-        && qFuzzyIsNull(currentTransform.m21()))
-    {
-        // With a fitting image, QGraphicsView centers the scene and provides
-        // no scrollbar range.  An explicit mouse anchor is still a valid zoom
-        // request, so calculate the smallest side margins that make that
-        // exact placement reachable at the current animation frame.  The
-        // same calculation also extends the opposite side when an interior
-        // point would otherwise be beyond the normal maximum.
-        // The scene coordinate size is the backing item's size, not always
-        // the source image size.  Expensive scaling temporarily replaces the
-        // pixmap with a device-pixel-sized image and lowers the view
-        // transform by the matching factor; using the source size here would
-        // add a fictitious margin and can keep a scrollbar visible after a
-        // zoom-out has already made the displayed image fit.
-        const QSizeF imageSize = getCurrentFileDetails().isNativeHDRLoaded
-                || getCurrentFileDetails().isNativeSDRLoaded
-            ? QSizeF(getCurrentFileDetails().loadedPixmapSize)
-            : loadedPixmapItem->boundingRect().size();
-        const QRect viewportRect = viewport()->rect();
-        if (!imageSize.isEmpty())
-        {
-            const qreal desiredImageLeft = pendingZoomAnchorViewport->x()
-                    - pendingZoomAnchorScene->x() * horizontalScale;
-            const qreal desiredImageTop = pendingZoomAnchorViewport->y()
-                    - pendingZoomAnchorScene->y() * verticalScale;
-            const qreal minimumImageLeft = viewportRect.width()
-                    - imageSize.width() * horizontalScale;
-            const qreal minimumImageTop = viewportRect.height()
-                    - imageSize.height() * verticalScale;
-            const qreal displayedImageWidth = imageSize.width()
-                    * horizontalScale;
-            const qreal displayedImageHeight = imageSize.height()
-                    * verticalScale;
-            // An explicit wheel event at the natural center of an image that
-            // already fits needs no virtual scene margin.  Adding both sides
-            // of that otherwise reachable placement creates a short-lived
-            // horizontal range before the image actually crosses the
-            // scrollbar threshold, which can make the layout oscillate.
-            const bool usesNaturalHorizontalAlignment =
-                displayedImageWidth <= viewportRect.width()
-                && qAbs(desiredImageLeft
-                        - (viewportRect.width() - displayedImageWidth) / 2.0)
-                    <= 0.5;
-            const bool usesNaturalVerticalAlignment =
-                displayedImageHeight <= viewportRect.height()
-                && qAbs(desiredImageTop
-                        - (viewportRect.height() - displayedImageHeight) / 2.0)
-                    <= 0.5;
-            return QMarginsF(
-                usesNaturalHorizontalAlignment
-                    ? 0.0 : qMax(0.0, desiredImageLeft) / horizontalScale,
-                usesNaturalVerticalAlignment
-                    ? 0.0 : qMax(0.0, desiredImageTop) / verticalScale,
-                usesNaturalHorizontalAlignment
-                    ? 0.0
-                    : qMax(0.0, minimumImageLeft - desiredImageLeft)
-                        / horizontalScale,
-                usesNaturalVerticalAlignment
-                    ? 0.0
-                    : qMax(0.0, minimumImageTop - desiredImageTop)
-                        / verticalScale);
-        }
-    }
-
-    return QMarginsF(
-        viewportMargins.left() / horizontalScale,
-        viewportMargins.top() / verticalScale,
-        viewportMargins.right() / horizontalScale,
-        viewportMargins.bottom() / verticalScale);
-}
-
 QRect QVGraphicsView::getScrollContentRect() const
 {
-    QRect contentRect = getDisplayedContentRect();
-    const QMarginsF margins = getPendingZoomAnchorSceneMargins();
-    contentRect.adjust(
-        -qRound(margins.left()), -qRound(margins.top()),
-        qRound(margins.right()), qRound(margins.bottom()));
-    return contentRect;
+    // ScrollHelper must consume the same transformed content that is
+    // currently displayed. Zoom anchors never extend this rectangle; the
+    // native scrollbar range is the feasible placement interval.
+    return getDisplayedContentRect();
 }
 
 QPoint QVGraphicsView::zoomAnchorViewportPoint(const QPoint &requestedPoint) const
@@ -3291,7 +3169,7 @@ bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
     {
         if (getCurrentFileDetails().isPixmapLoaded && !event->delta().isNull())
         {
-            cancelPendingZoomAnchor(true);
+            cancelPendingZoomAnchor();
             scrollHelper->move(nativeGesturePanScrollDelta(event->delta(), isRightToLeft()));
             constrainBoundsTimer->start();
         }
@@ -3521,7 +3399,7 @@ void QVGraphicsView::restorePendingZoomAnchor()
         verticalScrollBar()->value() + qRound(delta.y()));
 }
 
-void QVGraphicsView::cancelPendingZoomAnchor(const bool preserveSceneMargins)
+void QVGraphicsView::cancelPendingZoomAnchor()
 {
     zoomAnchorSettleTimer->stop();
     zoomAnchorPostLayoutTimer->stop();
@@ -3546,18 +3424,6 @@ void QVGraphicsView::cancelPendingZoomAnchor(const bool preserveSceneMargins)
         zoomTransitionVerticalPanEdge =
             edgeFromSliderPosition(verticalScrollBar());
     }
-    const bool hadVirtualAnchorMargins =
-        !pendingZoomAnchorViewportMargins.isNull()
-        || !retainedZoomAnchorViewportMargins.isNull();
-    if (preserveSceneMargins
-        && !pendingZoomAnchorViewportMargins.isNull())
-    {
-        // A drag is a new viewport-authority transaction. Keep the physical
-        // blank space that made the current image position reachable, but no
-        // longer keep the old image-point anchor eligible for a delayed
-        // restore.
-        retainedZoomAnchorViewportMargins = pendingZoomAnchorViewportMargins;
-    }
     if (pendingZoomAnchorScene.has_value()
         || pendingZoomAnchorViewport.has_value())
     {
@@ -3565,23 +3431,8 @@ void QVGraphicsView::cancelPendingZoomAnchor(const bool preserveSceneMargins)
         pendingZoomAnchorScene.reset();
         pendingZoomAnchorViewport.reset();
     }
-    pendingZoomAnchorViewportMargins = {};
-    if (!preserveSceneMargins)
-        retainedZoomAnchorViewportMargins = {};
     pendingZoomAnchorFollowsViewportCenter = false;
     zoomTransitionCentersImage = false;
-
-    // A center-anchored zoom has no virtual scene margins to remove.  Avoid
-    // rebuilding the scene rect from sliderMoved/actionTriggered: Qt emits
-    // those signals before it commits the new scrollbar value, so a rebuild
-    // at that point can replay the old value and make a manual drag appear to
-    // miss its selected endpoint.  Outside-image anchors do have margins;
-    // those must be removed immediately so the non-user operation owns the
-    // range; user pan paths explicitly preserve them.
-    if (!preserveSceneMargins && hadVirtualAnchorMargins
-        && !isUpdatingSceneRect
-        && getCurrentFileDetails().isPixmapLoaded)
-        updateSceneRect();
 }
 
 void QVGraphicsView::restoreSettledZoomAnchor()
@@ -3621,24 +3472,7 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
             ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
             : loadedPixmapItem->boundingRect();
 
-    // An outside-image mouse point can legitimately request a boundary to
-    // remain away from the viewport edge after zooming.  The ordinary scene
-    // rect starts at the image origin, which would clamp that request to a
-    // zero scrollbar value. Add only the side-specific, physical blank space
-    // needed by the pending projection; it is removed when the transaction
-    // settles or is cancelled.
-    const QMarginsF anchorMargins = getPendingZoomAnchorSceneMargins();
     const QTransform currentTransform = transform();
-    const qreal anchorHorizontalScale = qSqrt(
-        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
-    const qreal anchorVerticalScale = qSqrt(
-        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
-    if (!qFuzzyIsNull(anchorHorizontalScale) && !qFuzzyIsNull(anchorVerticalScale))
-    {
-        sceneRect.adjust(
-            -anchorMargins.left(), -anchorMargins.top(),
-            anchorMargins.right(), anchorMargins.bottom());
-    }
 
     const MainWindow *mainWindow = getMainWindow();
     if (!mainWindow)
@@ -3658,7 +3492,29 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
     if (qFuzzyIsNull(verticalScale))
         return sceneRect;
 
-    const qreal scenePadding = obscuredHeight / verticalScale;
+    // Never let the titlebar compensation itself make the scene larger than
+    // the current viewport.  During an AsNeeded transition the opposite bar
+    // can temporarily reduce the viewport by its extent; using the full
+    // obscured height in that frame creates a small scrollbar range even when
+    // the image has already become short enough to fit.  Cap the padding to
+    // the remaining room on the affected transformed axis.
+    const QSizeF displayedImageSize = currentTransform.mapRect(sceneRect).size();
+    const bool paddingUsesVerticalAxis =
+        qAbs(currentTransform.m22()) >= qAbs(currentTransform.m12());
+    const qreal displayedAxisSize = paddingUsesVerticalAxis
+        ? displayedImageSize.height() : displayedImageSize.width();
+    const qreal viewportAxisSize = paddingUsesVerticalAxis
+        ? viewport()->height() : viewport()->width();
+    const qreal availablePadding = paddingUsesVerticalAxis
+        ? viewport()->height() - displayedImageSize.height()
+        : viewport()->width() - displayedImageSize.width();
+    const qreal usableAxisSize = qMax<qreal>(
+        0.0, viewportAxisSize - obscuredHeight);
+    const qreal paddingPixels = displayedAxisSize > usableAxisSize
+        ? obscuredHeight
+        : qMin<qreal>(obscuredHeight, qMax<qreal>(0.0, availablePadding));
+    const qreal scenePadding = paddingPixels
+        / verticalScale;
     if (qAbs(currentTransform.m22()) >= qAbs(currentTransform.m12()))
     {
         if (currentTransform.m22() >= 0)

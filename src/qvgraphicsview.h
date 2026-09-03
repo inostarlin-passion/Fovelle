@@ -17,7 +17,6 @@
 #include <QTimer>
 #include <QFileInfo>
 #include <QBrush>
-#include <QMarginsF>
 
 class MainWindow;
 class QVGraphicsImageItem;
@@ -320,8 +319,6 @@ protected:
 
     QRect getScrollContentRect() const;
 
-    QMarginsF getPendingZoomAnchorSceneMargins() const;
-
     QPoint zoomAnchorViewportPoint(const QPoint &requestedPoint) const;
 
     void finishZoomTransition();
@@ -362,7 +359,7 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
-    void cancelPendingZoomAnchor(bool preserveSceneMargins = false);
+    void cancelPendingZoomAnchor();
     void restorePendingZoomAnchor();
     void restoreSettledZoomAnchor();
     void scheduleVerticalScrollBarGeometry();
@@ -431,8 +428,6 @@ private:
     std::optional<QPoint> pendingZoomAnchorViewport;
     std::optional<QPointF> settledZoomAnchorScene;
     std::optional<QPoint> settledZoomAnchorViewport;
-    QMarginsF pendingZoomAnchorViewportMargins;
-    QMarginsF retainedZoomAnchorViewportMargins;
     bool pendingZoomAnchorFollowsViewportCenter {false};
     quint64 pendingZoomAnchorGeneration {0};
     quint64 zoomAnchorSettleGeneration {0};

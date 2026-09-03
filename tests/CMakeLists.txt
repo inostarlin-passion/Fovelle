@@ -181,6 +181,17 @@ set_tests_properties(FovelleFiveIssueZoomAcceptance PROPERTIES
     LABELS "zoom;dynamic;acceptance"
 )
 
+add_test(NAME FovelleFourIssueZoomAcceptance COMMAND fovelle_tests
+    testWheelZoomHasNoPositionJumpTrajectory
+    testZoomOutHasNoTransientVerticalScrollBar
+    testRightOutsideWheelZoomHasNoTransientHorizontalScrollBar
+    testToggleFitTo100HasNoAvoidableBlankSpace)
+set_tests_properties(FovelleFourIssueZoomAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 120
+    LABELS "zoom;dynamic;acceptance;four-issues"
+)
+
 add_test(NAME FovelleShortcutSettingsTests COMMAND fovelle_tests)
 set_tests_properties(FovelleShortcutSettingsTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=ShortcutSettingsTests"

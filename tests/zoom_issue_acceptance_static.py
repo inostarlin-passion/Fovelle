@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Static traceability checks for the five zoom/pan defects.
+"""Static traceability gate for the four requested zoom regressions.
 
-This is deliberately a source-level gate, not a replacement for the Cocoa
-QtTest run.  It verifies that every atomic acceptance criterion has a
-production implementation marker, an executable test function, a CTest
-entry, and a six-field Markdown case.
+The gate is intentionally independent from the Cocoa runtime test. It checks
+that each atomic acceptance criterion has a production marker, a structured
+case, an executable QtTest function, and a registered CTest entry.
 """
 
 from __future__ import annotations
@@ -43,9 +42,9 @@ def add_check(
 
 
 def markdown_section(markdown: str, case_id: str) -> str:
-    """Return the complete ### case section, including its field headings."""
-
-    match = re.search(rf"^###\s+{re.escape(case_id)}\b.*$", markdown, re.MULTILINE)
+    match = re.search(
+        rf"^###\s+{re.escape(case_id)}\b.*$", markdown, re.MULTILINE
+    )
     if not match:
         return ""
     remainder = markdown[match.end() :]
@@ -66,7 +65,6 @@ def main() -> int:
     repo = args.repo.resolve()
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     view_header = (repo / "src/qvgraphicsview.h").read_text(encoding="utf-8")
-    mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     tests_cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
     specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
@@ -76,14 +74,15 @@ def main() -> int:
     checks: list[dict] = []
 
     atomic_to_test = {
-        "AC-SB-NO-STALE-RANGE": "testZoomOutClearsStaleVerticalScrollRange",
-        "AC-DRAG-CONTINUOUS": "testMousePanKeepsOverflowRangeAndContinuity",
-        "AC-DRAG-PRESERVES-OVERFLOW-BARS": "testMousePanKeepsOverflowRangeAndContinuity",
-        "AC-KBD-ZOOM-CURSOR-ANCHOR": "testKeyboardZoomUsesCursorAnchor",
-        "AC-TOGGLE-DIRECTIONAL-ANCHOR": "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
-        "AC-TOGGLE-VISUAL-STATE": "testToggleFitAnd100UsesDisplayedState",
-        "AC-WHEEL-CONTENT-ANCHOR": "testMouseWheelKeepsBottomRightAnchor",
-        "AC-NO-LATE-REWRITE": "testZoomTerminalStateDoesNotRewriteViewport",
+        "AC-P1-ANCHOR-CONTINUITY": "testWheelZoomHasNoPositionJumpTrajectory",
+        "AC-P1-NO-LATE-JUMP": "testWheelZoomHasNoPositionJumpTrajectory",
+        "AC-P2-NO-TRANSIENT-VBAR": "testZoomOutHasNoTransientVerticalScrollBar",
+        "AC-SB-NO-STALE-RANGE": "testZoomOutHasNoTransientVerticalScrollBar",
+        "AC-P3-NO-TRANSIENT-HBAR": "testRightOutsideWheelZoomHasNoTransientHorizontalScrollBar",
+        "AC-P3-CROSS-AXIS-STABILITY": "testRightOutsideWheelZoomHasNoTransientHorizontalScrollBar",
+        "AC-P4-NO-AVOIDABLE-BLANK": "testToggleFitTo100HasNoAvoidableBlankSpace",
+        "AC-P4-OPTIMAL-CLAMP": "testToggleFitTo100HasNoAvoidableBlankSpace",
+        "AC-P4-TOGGLE-DIRECTIONAL-ANCHOR": "testToggleFitTo100HasNoAvoidableBlankSpace",
     }
     atomic_inventory = {
         criterion: {
@@ -96,114 +95,128 @@ def main() -> int:
     }
     add_check(
         checks,
-        "ST-ZOOM-ATOMIC-01",
+        "ST-4Q-ATOMIC-01",
         all(all(values.values()) for values in atomic_inventory.values()),
         atomic_inventory,
-        "every atomic acceptance criterion is traceable through the design, specification, marker, and executable test",
+        "every atomic criterion is traceable through design, specification, marker, and executable test",
     )
 
     production_contracts = {
-        "stale_range_is_pruned_per_axis": contains_all(
+        "real_scene_rect_is_authoritative": contains_all(
             view_cpp,
             (
-                "QMarginsF newRetainedMargins",
-                "newRetainedMargins.setLeft(0.0)",
-                "newRetainedMargins.setRight(0.0)",
-                "newRetainedMargins.setTop(0.0)",
-                "newRetainedMargins.setBottom(0.0)",
-                "retainedMarginsChanged",
-                "updateSceneRect()",
+                "QRect QVGraphicsView::getScrollContentRect() const",
+                "return getDisplayedContentRect();",
+                "loadedPixmapItem->boundingRect()",
+                "scene()->itemsBoundingRect()",
+                "restorePendingZoomAnchor();",
             ),
         ),
-        "manual_pan_preserves_real_overflow": contains_all(
+        "anchor_projection_uses_one_coordinate_conversion": contains_all(
             view_cpp,
             (
-                "cancelPendingZoomAnchor(const bool preserveSceneMargins)",
-                "cancelPendingZoomAnchor(true)",
-                "preserveSceneMargins",
-                "executeDragAction",
-                "scrollHelper->move",
+                "QPoint QVGraphicsView::zoomAnchorViewportPoint",
+                "projectZoomAnchor",
+                "mapToScene(pos.value())",
+                "mapFromScene(",
+                "scene()->itemsBoundingRect()).boundingRect()",
             ),
         ),
-        "keyboard_reads_cursor_anchor": contains_all(
-            view_cpp,
-            (
-                "getCursorViewportPosition()",
-                "QCursor::pos()",
-                "lastMouseViewportPosition",
-                "void QVGraphicsView::zoomIn()",
-                "void QVGraphicsView::zoomOut()",
-                "zoomRelative",
-            ),
-        ),
-        "toggle_uses_displayed_fit_and_direction": contains_all(
-            view_cpp,
-            (
-                "bool QVGraphicsView::isImageAtFit() const",
-                "calculateZoomLevelForMode",
-                "displayedZoomLevel",
-                "calculatedZoomMode",
-                "bool zoomingIn",
-                "void QVGraphicsView::toggleFitAnd100()",
-                "finishZoomTransition",
-            ),
-        ),
-        "anchor_uses_unscaled_scene_geometry": (
-            view_cpp.count("scene()->itemsBoundingRect()") >= 3
-            and "zoomAnchorViewportPoint" in view_cpp
-            and "mapFromScene(QRectF(getDisplayedContentRect()))" not in view_cpp
-        ),
-        "delayed_anchor_is_quietly_reconciled": contains_all(
+        "post_layout_anchor_reconciliation": contains_all(
             view_header + view_cpp,
             (
-                "settledZoomAnchorScene",
-                "settledZoomAnchorViewport",
                 "zoomAnchorPostLayoutTimer",
+                "zoomAnchorPostLayoutTimer->start(0)",
+                "pendingZoomAnchorScene.has_value()",
                 "restoreSettledZoomAnchor",
             ),
         ),
+        "titlebar_padding_cannot_fabricate_fit_range": contains_all(
+            view_cpp,
+            (
+                "usableAxisSize",
+                "paddingPixels",
+                "displayedAxisSize > usableAxisSize",
+            ),
+        ),
+        "keyboard_and_toggle_anchor_contract": contains_all(
+            view_cpp,
+            (
+                "getCursorViewportPosition()",
+                "lastMouseViewportPosition",
+                "void QVGraphicsView::zoomIn()",
+                "void QVGraphicsView::zoomOut()",
+                "void QVGraphicsView::toggleFitAnd100()",
+                "displayedZoomLevel",
+                "calculateZoomLevelForMode",
+            ),
+        ),
+        "fit_state_is_displayed_state": contains_all(
+            view_cpp,
+            (
+                "bool QVGraphicsView::isImageAtFit() const",
+                "horizontalScrollBar()->maximum()",
+                "verticalScrollBar()->maximum()",
+            ),
+        ),
     }
     add_check(
         checks,
-        "ST-ZOOM-PRODUCTION-01",
+        "ST-4Q-PRODUCTION-01",
         all(production_contracts.values()),
         production_contracts,
-        "the five fixes have explicit production paths for range cleanup, drag authority, cursor anchoring, displayed-state toggle, scene-space anchoring, and delayed reconciliation",
+        "production code prevents synthetic ranges, restores anchors after layout, caps titlebar padding, and distinguishes displayed fit state",
     )
 
     input_contract = {
-        "real_wheel_event": "QWheelEvent" in tests_cpp and "sendDiscreteZoomWheel" in tests_cpp,
-        "real_keyboard_shortcut": "QTest::keySequence" in tests_cpp,
-        "real_mouse_drag": all(
-            token in tests_cpp
-            for token in ("QTest::mousePress", "QTest::mouseMove", "QTest::mouseRelease")
+        "real_wheel_event": contains_all(
+            tests_cpp, ("QWheelEvent", "sendDiscreteZoomWheel", "sendEvent")
         ),
-        "terminal_wait_is_state_based": "waitForZoomTerminal" in tests_cpp,
-        "content_anchor_oracle": "QLineF" in tests_cpp and "mapToScene" in tests_cpp,
-        "range_and_geometry_oracle": all(
-            token in tests_cpp
-            for token in ("horizontalScrollBar()", "verticalScrollBar()", "itemsBoundingRect()")
+        "real_toggle_shortcut": contains_all(
+            tests_cpp, ("QTest::keySequence", "togglefitand100")
         ),
-        "quiet_event_loop_oracle": "QTest::qWait(650)" in tests_cpp
-        and "testZoomTerminalStateDoesNotRewriteViewport" in tests_cpp,
+        "initial_transient_terminal_observation": contains_all(
+            tests_cpp,
+            (
+                'QStringLiteral("initial-fit")',
+                'QStringLiteral("terminal")',
+                "QEvent::Paint",
+                "QEvent::Resize",
+            ),
+        ),
+        "independent_geometry_oracle": contains_all(
+            tests_cpp,
+            (
+                "itemsBoundingRect()",
+                "mapToScene",
+                "mapFromScene",
+                "horizontalScrollBar()",
+                "verticalScrollBar()",
+            ),
+        ),
+        "state_based_terminal_wait": contains_all(
+            tests_cpp,
+            (
+                "waitForZoomTerminal",
+                "isZoomTransitionRunning",
+                "zoomAnchorSettleTimer",
+                "verticalScrollBarGeometryTimer",
+            ),
+        ),
     }
     add_check(
         checks,
-        "ST-ZOOM-INPUT-01",
+        "ST-4Q-INPUT-01",
         all(input_contract.values()),
         input_contract,
-        "dynamic tests exercise real event entry points and independently observe anchor, range, geometry, and terminal quietness",
+        "dynamic cases use real input entry points and independently observe initial, transient, and terminal states",
     )
 
     case_ids = (
-        "TC-SB-ZOOMOUT-ATOMIC",
-        "TC-DRAG-CONTINUITY-ATOMIC",
-        "TC-DRAG-OVERFLOW-ATOMIC",
-        "TC-KBD-ZOOM-ATOMIC",
-        "TC-TOGGLE-DIRECTIONAL-ATOMIC",
-        "TC-TOGGLE-VISUAL-ATOMIC",
-        "TC-WHEEL-REAL-ATOMIC",
-        "TC-ASYNC-QUIET-ATOMIC",
+        "TC-P1-WHEEL-TRAJECTORY",
+        "TC-P2-ZOOMOUT-VBAR",
+        "TC-P3-RIGHT-OUTSIDE-WHEEL",
+        "TC-P4-TOGGLE-NO-BLANK",
         "TC-STATIC-TRACEABILITY",
     )
     fields_by_case = {
@@ -214,73 +227,75 @@ def main() -> int:
         for case_id in case_ids
     }
     specification_contract = (
-        all(section for section in (markdown_section(specification, case_id) for case_id in case_ids))
+        all(markdown_section(specification, case_id) for case_id in case_ids)
         and all(all(fields.values()) for fields in fields_by_case.values())
-        and "静态" in specification
-        and "动态" in specification
-        and "瞬态" in specification
-        and "稳态" in specification
+        and all(term in specification for term in ("静态", "动态", "初态", "暂态", "终态"))
     )
     add_check(
         checks,
-        "ST-ZOOM-SPEC-01",
+        "ST-4Q-SPEC-01",
         specification_contract,
-        {
-            "fields_by_case": fields_by_case,
-            "has_static_dynamic": "静态" in specification and "动态" in specification,
-            "has_transient_steady": "瞬态" in specification and "稳态" in specification,
-        },
-        "each structured case documents all six required fields and the specification distinguishes static/dynamic and transient/steady coverage",
+        {"fields_by_case": fields_by_case},
+        "each structured case has all six required fields and covers static/dynamic plus initial/transient/terminal states",
     )
 
     ctest_contract = {
         "static_test_registered": "FovelleZoomIssueStatic" in tests_cmake,
-        "dynamic_test_registered": "FovelleFiveIssueZoomAcceptance" in tests_cmake,
+        "four_issue_test_registered": "FovelleFourIssueZoomAcceptance" in tests_cmake,
         "cocoa_qpa": "QT_QPA_PLATFORM=cocoa" in tests_cmake,
         "static_script_is_called": "zoom_issue_acceptance_static.py" in tests_cmake,
-        "all_dynamic_functions_registered": all(
+        "all_four_functions_registered": all(
             function_name in tests_cmake
-            for function_name in atomic_to_test.values()
+            for function_name in set(atomic_to_test.values())
         ),
     }
     add_check(
         checks,
-        "ST-ZOOM-CTEST-01",
+        "ST-4Q-CTEST-01",
         all(ctest_contract.values()),
         ctest_contract,
-        "the static and dynamic acceptance gates are reproducibly registered in CTest",
+        "the static gate and all four dynamic acceptance functions are registered in reproducible CTest entries",
     )
 
+    official_sources = (
+        "https://doc.qt.io/qt-6/qabstractscrollarea.html",
+        "https://doc.qt.io/qt-6/qgraphicsview.html",
+        "https://doc.qt.io/qt-6/qaction.html",
+        "https://doc.qt.io/QT-6/qvariantanimation.html",
+        "https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp",
+    )
     report_contract = {
-        "design_has_evidence_chain": "联网多跳检索" in design and "交叉验证" in design,
-        "spec_has_atomic_decomposition": "AC-ALL" in specification and "原子验收" in specification,
-        "completion_has_traceability": "追溯" in completion and "PASS" in completion,
-        "official_qt_sources_are_linked": all(
-            url in design + specification + completion
-            for url in (
-                "https://doc.qt.io/qt-6/qabstractscrollarea.html",
-                "https://doc.qt.io/qt-6/qgraphicsview.html",
-                "https://doc.qt.io/qt-6/qaction.html",
-                "https://doc.qt.io/QT-6/qvariantanimation.html",
-            )
+        "design_has_evidence_chain": contains_all(
+            design, ("联网多跳检索", "交叉验证", "显式前提")
+        ),
+        "spec_has_four_issue_decomposition": contains_all(
+            specification, ("AC-4Q", "原子验收", "证据缺口")
+        ),
+        "completion_has_traceability": contains_all(
+            completion, ("追溯", "PASS", "四个")
+        ),
+        "official_sources_are_linked": all(
+            url in design + specification + completion for url in official_sources
         ),
     }
     add_check(
         checks,
-        "ST-ZOOM-DOC-01",
+        "ST-4Q-DOC-01",
         all(report_contract.values()),
         report_contract,
-        "the three requested Markdown artifacts expose the evidence chain, explicit premises, atomic traceability, and verified sources",
+        "the three Markdown artifacts expose the evidence chain, explicit premises, atomic traceability, and verified sources",
     )
 
     result = {
-        "kind": "five-issue-zoom-acceptance-static",
+        "kind": "four-issue-zoom-acceptance-static",
         "passed": all(check["pass"] for check in checks),
         "checks": checks,
     }
     output = args.output if args.output.is_absolute() else repo / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["passed"] else 1
 
