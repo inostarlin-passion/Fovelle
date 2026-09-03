@@ -129,19 +129,23 @@ qint64 QVFileEnumerator::getRandomSortKey(const QString &filePath) const
 
 void QVFileEnumerator::setSortMode(const Qv::SortMode mode)
 {
-    if (sortMode == mode)
+    Q_UNUSED(mode);
+    constexpr Qv::SortMode fixedSortMode = Qv::SortMode::Name;
+    if (sortMode == fixedSortMode)
         return;
 
-    sortMode = mode;
+    sortMode = fixedSortMode;
     emit sortParametersChanged();
 }
 
 void QVFileEnumerator::setSortDescending(const bool descending)
 {
-    if (sortDescending == descending)
+    Q_UNUSED(descending);
+    constexpr bool fixedSortDescending = false;
+    if (sortDescending == fixedSortDescending)
         return;
 
-    sortDescending = descending;
+    sortDescending = fixedSortDescending;
     emit sortParametersChanged();
 }
 
@@ -152,16 +156,12 @@ void QVFileEnumerator::loadSettings(const bool isInitialLoad)
     //loop folders
     isLoopFoldersEnabled = settingsManager.getBoolean("loopfoldersenabled");
 
-    if (isInitialLoad || globalSortMode != settingsManager.getEnum<Qv::SortMode>("sortmode") || globalSortDescending != settingsManager.getBoolean("sortdescending"))
-    {
-        //sort mode
-        globalSortMode = settingsManager.getEnum<Qv::SortMode>("sortmode");
-        setSortMode(globalSortMode);
-
-        //sort ascending
-        globalSortDescending = settingsManager.getBoolean("sortdescending");
-        setSortDescending(globalSortDescending);
-    }
+    // File ordering is intentionally fixed.  In particular, do not read the
+    // historical sortmode/sortdescending settings: old user preferences must
+    // not re-enable the removed context-menu feature.
+    Q_UNUSED(isInitialLoad);
+    sortMode = Qv::SortMode::Name;
+    sortDescending = false;
 
     //allow mime content detection
     allowMimeContentDetection = settingsManager.getBoolean("allowmimecontentdetection");

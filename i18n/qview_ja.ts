@@ -339,6 +339,10 @@
         <translation>プロジェクトのホームページ</translation>
     </message>
     <message>
+        <source>Website</source>
+        <translation>公式サイト</translation>
+    </message>
+    <message>
         <source>Check for Updates</source>
         <translation>アップデートを確認</translation>
     </message>

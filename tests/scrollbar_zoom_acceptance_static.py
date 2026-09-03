@@ -42,6 +42,8 @@ def main() -> int:
     repo = args.repo.resolve()
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     view_header = (repo / "src/qvgraphicsview.h").read_text(encoding="utf-8")
+    action_cpp = (repo / "src/actionmanager.cpp").read_text(encoding="utf-8")
+    mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     tests_cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
     specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
@@ -169,8 +171,8 @@ def main() -> int:
         "void restorePendingZoomAnchor();" in view_header
         and "pendingZoomAnchorScene = scenePos;" in view_cpp
         and "pendingZoomAnchorViewport = pos;" in view_cpp
-        and "pendingZoomAnchorFollowsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;" in view_cpp
-        and "QTimer::singleShot(150, this" in view_cpp
+        and "pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;" in view_cpp
+        and "QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs" in view_cpp
         and "restorePendingZoomAnchor();" in view_cpp
         and "const QPoint anchorViewport = pendingZoomAnchorFollowsViewportCenter" in view_cpp
         and "getUsableViewportRect().center()" in view_cpp
@@ -186,12 +188,103 @@ def main() -> int:
             and "pendingZoomAnchorViewport" in view_header,
             "anchor_captured_before_transform_commit": "pendingZoomAnchorScene = scenePos;" in view_cpp
             and "pendingZoomAnchorViewport = pos;" in view_cpp,
-            "delayed_restore_window": "QTimer::singleShot(150, this" in view_cpp,
+            "delayed_restore_window": "QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs" in view_cpp,
             "center_anchor_tracks_new_usable_center": "getUsableViewportRect().center()" in view_cpp,
             "both_axes_restore_with_rtl": "qRound(delta.x() * getRtlFlip())" in view_cpp
             and "qRound(delta.y())" in view_cpp,
         },
         "zoom restores the scene point at the correct viewport target across scrollbar layout and delayed geometry changes",
+    )
+
+    transition_contract = (
+        "QPropertyAnimation" in view_cpp
+        and "Q_PROPERTY(qreal animatedZoomLevel" in view_header
+        and "ZoomTransitionDurationMs = 200" in view_header
+        and "zoomAnimation->setDuration(ZoomTransitionDurationMs);" in view_cpp
+        and "zoomAnimation->setEasingCurve(QEasingCurve::OutCubic);" in view_cpp
+        and "zoomAnimation->start();" in view_cpp
+        and "void QVGraphicsView::finishZoomTransition()" in view_cpp
+    )
+    add_check(
+        checks,
+        "ST-ZOOM-TRANSITION-01",
+        transition_contract,
+        {
+            "property_animation_declared": "Q_PROPERTY(qreal animatedZoomLevel" in view_header,
+            "duration_is_200ms": "ZoomTransitionDurationMs = 200" in view_header
+            and "zoomAnimation->setDuration(ZoomTransitionDurationMs);" in view_cpp,
+            "easing_is_configured": "zoomAnimation->setEasingCurve(QEasingCurve::OutCubic);" in view_cpp,
+            "transition_is_started": "zoomAnimation->start();" in view_cpp,
+            "terminal_frame_is_normalized": "void QVGraphicsView::finishZoomTransition()" in view_cpp,
+        },
+        "all zoom entry points share one 200 ms property animation and an exact terminal frame",
+    )
+
+    menu_contract = (
+        'addCloneOfAction(helpMenu, "projecthomepage");' in action_cpp
+        and 'addCloneOfAction(helpMenu, "website");' in action_cpp
+        and 'addCloneOfAction(helpMenu, "checkupdates");' in action_cpp
+        and 'QDesktopServices::openUrl(QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")))' in action_cpp
+        and 'addCloneOfAction(contextMenu, "sortmenu")' not in mainwindow_cpp
+        and "buildSortMenu" not in action_cpp
+        and "buildSortMenu" not in mainwindow_cpp
+    )
+    add_check(
+        checks,
+        "ST-MENU-CONTRACT-01",
+        menu_contract,
+        {
+            "website_is_between_help_actions": 'addCloneOfAction(helpMenu, "projecthomepage");' in action_cpp
+            and 'addCloneOfAction(helpMenu, "website");' in action_cpp
+            and 'addCloneOfAction(helpMenu, "checkupdates");' in action_cpp,
+            "website_url_is_exact": 'https://fovelle-viewer.onrender.com/' in action_cpp,
+            "sort_menu_builder_removed": "buildSortMenu" not in action_cpp
+            and "buildSortMenu" not in mainwindow_cpp,
+        },
+        "the titlebar and context Help menus share Website while the context Sort Files By branch is absent",
+    )
+
+    file_enumerator_cpp = (repo / "src/qvfileenumerator.cpp").read_text(encoding="utf-8")
+    settings_cpp = (repo / "src/settingsmanager.cpp").read_text(encoding="utf-8")
+    sort_contract = (
+        'sortMode = Qv::SortMode::Name;' in file_enumerator_cpp
+        and 'sortDescending = false;' in file_enumerator_cpp
+        and 'settingsManager.getEnum<Qv::SortMode' not in file_enumerator_cpp
+        and 'settingsManager.getBoolean("sortdescending")' not in file_enumerator_cpp
+        and 'settingsLibrary.insert("sortmode"' not in settings_cpp
+        and 'settingsLibrary.insert("sortdescending"' not in settings_cpp
+    )
+    add_check(
+        checks,
+        "ST-SORT-CONTRACT-01",
+        sort_contract,
+        {
+            "fixed_name_order": 'sortMode = Qv::SortMode::Name;' in file_enumerator_cpp,
+            "fixed_ascending_order": 'sortDescending = false;' in file_enumerator_cpp,
+            "enumerator_does_not_read_sort_mode": 'settingsManager.getEnum<Qv::SortMode' not in file_enumerator_cpp,
+            "settings_library_has_no_legacy_keys": 'settingsLibrary.insert("sortmode"' not in settings_cpp
+            and 'settingsLibrary.insert("sortdescending"' not in settings_cpp,
+        },
+        "legacy sort preferences cannot override the fixed Name/Ascending policy",
+    )
+
+    anchor_projection_contract = (
+        "QPointF QVGraphicsView::projectZoomAnchor" in view_cpp
+        and "qBound(imageViewportRect.left()" in view_cpp
+        and "qBound(imageViewportRect.top()" in view_cpp
+        and "testZoomAnchorProjectsInsideAndOutsideImage" in tests_cpp
+    )
+    add_check(
+        checks,
+        "ST-ZOOM-ANCHOR-PROJECTION-01",
+        anchor_projection_contract,
+        {
+            "pure_projection_helper": "QPointF QVGraphicsView::projectZoomAnchor" in view_cpp,
+            "horizontal_clamp": "qBound(imageViewportRect.left()" in view_cpp,
+            "vertical_clamp": "qBound(imageViewportRect.top()" in view_cpp,
+            "dynamic_regression_present": "testZoomAnchorProjectsInsideAndOutsideImage" in tests_cpp,
+        },
+        "inside anchors remain unchanged and outside anchors clamp independently to image edges",
     )
 
     resize_transaction_contract = (
@@ -225,6 +318,11 @@ def main() -> int:
             "AC-SCROLLBAR-NATIVE-EXTENT",
             "AC-ZOOM-ENDPOINT-NO-REBOUND",
             "AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR",
+            "AC-ZOOM-TRANSITION-200MS",
+            "AC-ZOOM-ANCHOR-PROJECTION",
+            "AC-SCROLLBAR-VERTICAL-STEADY",
+            "AC-SORT-FIXED-DEFAULT",
+            "AC-HELP-WEBSITE",
         )
     }
     function_markers = {
@@ -236,6 +334,11 @@ def main() -> int:
             "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable",
             "testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar",
             "testManualScrollCancelsPendingZoomAnchor",
+            "testZoomTransitionCoversWheelKeyboardAndMenus",
+            "testZoomAnchorProjectsInsideAndOutsideImage",
+            "testZoomTransitionLeavesVerticalScrollbarStable",
+            "testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu",
+            "testWebsiteHelpActionAndContextMenuContract",
         )
     }
     add_check(
@@ -263,6 +366,11 @@ def main() -> int:
         "TC-ZOOM-ENDPOINT",
         "TC-ZOOM-MANUAL-PAN",
         "TC-STATIC-CONTRACT",
+        "TC-ZOOM-ALL-ENTRY-POINTS",
+        "TC-ZOOM-ANCHOR-INSIDE-OUTSIDE",
+        "TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY",
+        "TC-SORT-CONFIG-IGNORED-CONTEXT-REMOVED",
+        "TC-HELP-WEBSITE-URL-CONTEXT-TRANSLATION",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}
     for case_id in case_ids:

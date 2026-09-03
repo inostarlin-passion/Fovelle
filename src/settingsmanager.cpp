@@ -328,8 +328,6 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("colorspaceconversion", {static_cast<int>(Qv::ColorSpaceConversion::AutoDetect), {}});
     // Miscellaneous
     settingsLibrary.insert("language", {"system", {}});
-    settingsLibrary.insert("sortmode", {static_cast<int>(Qv::SortMode::Name), {}});
-    settingsLibrary.insert("sortdescending", {false, {}});
     // Retain the legacy key for profile compatibility and migration tooling;
     // QVImageCore deliberately ignores its persisted value and always uses
     // Qv::AdjacentPreloadDistance.

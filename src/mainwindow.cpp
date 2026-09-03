@@ -932,6 +932,12 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
     QVCocoaFunctions::showMenu(contextMenu);
 }
 
+QMenu *MainWindow::getContextMenuForTesting()
+{
+    ensureContextMenu();
+    return contextMenu;
+}
+
 void MainWindow::ensureContextMenu()
 {
     if (contextMenuInitialized)
@@ -955,8 +961,6 @@ void MainWindow::ensureContextMenu()
     contextMenu->addSeparator();
     actionManager.addCloneOfAction(contextMenu, "nextfile");
     actionManager.addCloneOfAction(contextMenu, "previousfile");
-    contextMenu->addSeparator();
-    contextMenu->addMenu(actionManager.buildSortMenu(contextMenu));
     contextMenu->addSeparator();
     contextMenu->addMenu(actionManager.buildViewMenu(contextMenu));
     contextMenu->addMenu(actionManager.buildToolsMenu(contextMenu));

@@ -409,6 +409,10 @@
         <translation>專案首頁</translation>
     </message>
     <message>
+        <source>Website</source>
+        <translation>官方網站</translation>
+    </message>
+    <message>
         <source>Check for Updates</source>
         <translation>檢查更新</translation>
     </message>

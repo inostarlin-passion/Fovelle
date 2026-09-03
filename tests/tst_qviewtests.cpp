@@ -30,6 +30,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QDesktopServices>
 #include <QRadioButton>
 #include <QPalette>
 #include <QSignalSpy>
@@ -215,6 +216,9 @@ class GraphicsViewTests : public QObject
 private slots:
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
+    void testZoomTransitionCoversWheelKeyboardAndMenus();
+    void testZoomAnchorProjectsInsideAndOutsideImage();
+    void testZoomTransitionLeavesVerticalScrollbarStable();
     void testImageIsCenteredAfterOpeningWithScrollBars();
     void testTouchpadWheelRespectsConfiguredZoomWithScrollBars();
     void testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling();
@@ -313,6 +317,8 @@ private slots:
     void testNewWindowStartsMaximized();
     void testSystemThemeResolvesFromControlledAppearance();
     void testHelpMenuContract();
+    void testWebsiteHelpActionAndContextMenuContract();
+    void testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu();
     void testEditMenuRemovesMacOSServiceItems();
     void testNativeDialogsFollowSelectedTheme();
     void testOpenUrlDialogFollowsSelectedTheme();
@@ -801,6 +807,20 @@ public:
 
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
+};
+
+class UrlHandlerProbe : public QObject
+{
+    Q_OBJECT
+
+public:
+    QUrl receivedUrl;
+
+public slots:
+    void capture(const QUrl &url)
+    {
+        receivedUrl = url;
+    }
 };
 
 class ScrollHelperTestHarness
@@ -3722,6 +3742,322 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
     QVERIFY(qFuzzyCompare(factor, 1.5625));
 }
 
+// AC-ZOOM-TRANSITION-200MS
+// TC-ZOOM-ALL-ENTRY-POINTS
+// Test purpose: verify that wheel input, the keyboard Toggle Fit and 100%
+// action, and both title-bar/context View → Zoom In actions use one 200 ms
+// transition contract.
+// Preconditions: a visible MainWindow has loaded a large raster in Original
+// Size mode, smooth scaling is disabled, and both menus are materialized.
+// Input data: one mouse-wheel step, one title-bar Zoom In action, one context
+// menu Zoom In action, and the Toggle Fit and 100% action.
+// Steps: inspect the animation object and menu clones, dispatch each source,
+// sample its in-flight value, and wait for the terminal frame.
+// Expected result: every source starts the same 200 ms animation, the logical
+// target is available immediately, an intermediate frame is observable, and
+// the displayed zoom reaches that target without an extra transition.
+// Postcondition: the window, animation, settings, and temporary image close.
+void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
+        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("zoom-transition-entry-points"), Qt::darkCyan,
+        QSize(1200, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
+
+    auto *animation = view->findChild<QPropertyAnimation *>(
+        QStringLiteral("zoomTransitionAnimation"));
+    QVERIFY(animation);
+    QCOMPARE(animation->duration(), QVGraphicsView::ZoomTransitionDurationMs);
+    QCOMPARE(animation->easingCurve().type(), QEasingCurve::OutCubic);
+
+    const auto actionKey = [](const QAction *action) {
+        return action ? action->data().toStringList().value(0) : QString();
+    };
+    const auto findAction = [&actionKey](QMenu *menu, const QString &key) {
+        for (QAction *action : ActionManager::getAllNestedActions(menu->actions()))
+        {
+            if (actionKey(action) == key)
+                return action;
+        }
+        return static_cast<QAction *>(nullptr);
+    };
+
+    QMenu *contextMenu = window.getContextMenuForTesting();
+    QVERIFY(contextMenu);
+    const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu(
+        QStringLiteral("view"), &window);
+    QVERIFY(viewMenus.size() >= 2);
+    QAction *titleBarZoomIn = nullptr;
+    QAction *contextZoomIn = nullptr;
+    for (QMenu *menu : viewMenus)
+    {
+        QAction *zoomAction = findAction(menu, QStringLiteral("zoomin"));
+        QVERIFY(zoomAction);
+        if (menu->parentWidget() == contextMenu
+            || menu->property("isContextMenu").toBool())
+            contextZoomIn = zoomAction;
+        else
+            titleBarZoomIn = zoomAction;
+        QVERIFY(findAction(menu, QStringLiteral("togglefitand100")));
+    }
+    QVERIFY(titleBarZoomIn);
+    QVERIFY(contextZoomIn);
+
+    const auto settle = [view]() {
+        QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1200);
+    };
+    const auto assertTransition = [view, animation, &settle](const QString &source) {
+        Q_UNUSED(source);
+        QVERIFY(view->isZoomTransitionRunning());
+        QCOMPARE(animation->duration(), QVGraphicsView::ZoomTransitionDurationMs);
+        const qreal initialTarget = view->getZoomLevel();
+        QVERIFY(!qFuzzyCompare(view->animatedZoomLevel() + 1.0, initialTarget + 1.0));
+        QTest::qWait(80);
+        QVERIFY(view->isZoomTransitionRunning());
+        settle();
+        const qreal finalTarget = view->getZoomLevel();
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
+            view->animatedZoomLevel(), finalTarget));
+    };
+
+    // Mouse wheel source.
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    settle();
+    const QPoint wheelPosition = view->viewport()->rect().center();
+    const QPointingDevice wheelDevice(
+        QStringLiteral("zoom transition mouse"), 41,
+        QInputDevice::DeviceType::Mouse, QPointingDevice::PointerType::Generic,
+        QInputDevice::Capability::Scroll, 3, 0);
+    QWheelEvent wheelEvent(
+        QPointF(wheelPosition),
+        QPointF(view->viewport()->mapToGlobal(wheelPosition)),
+        QPoint(0, 120), QPoint(0, 120), Qt::NoButton, Qt::NoModifier,
+        Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
+    QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
+    QVERIFY(wheelEvent.isAccepted());
+    assertTransition(QStringLiteral("wheel"));
+
+    // Title-bar View → Zoom In source.
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    settle();
+    ActionManager::actionTriggered(titleBarZoomIn, &window);
+    assertTransition(QStringLiteral("titlebar-view-zoom-in"));
+
+    // Right-click View → Zoom In source.
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    settle();
+    ActionManager::actionTriggered(contextZoomIn, &window);
+    assertTransition(QStringLiteral("context-view-zoom-in"));
+
+    // Keyboard action source. The action dispatch is the same path used by
+    // its configured shortcut and must therefore start the same transition.
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    settle();
+    QAction *toggleAction = qvApp->getActionManager().getAction(
+        QStringLiteral("togglefitand100"));
+    QVERIFY(toggleAction);
+    ActionManager::actionTriggered(toggleAction, &window);
+    assertTransition(QStringLiteral("keyboard-toggle-fit-and-100"));
+
+    window.close();
+}
+
+// AC-ZOOM-ANCHOR-PROJECTION
+// TC-ZOOM-ANCHOR-INSIDE-OUTSIDE
+// Test purpose: verify strict mouse-point zoom inside the image and boundary
+// projection for left, upper-right, and lower-left blank-space requests.
+// Preconditions: the pure projection contract is available and a visible
+// window can display a small image surrounded by blank viewport space.
+// Input data: a 300x200 image rectangle plus inside, left, upper-right, and
+// lower-left viewport points.
+// Steps: assert the pure mapping cases, then zoom from the left blank area and
+// compare the final screen position of the projected scene anchor.
+// Expected result: inside points remain unchanged; every outside coordinate is
+// clamped independently to the nearest image edge/corner, never to image
+// center or blank-space coordinates.
+// Postcondition: the temporary window, image, and settings are released.
+void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
+{
+    const QRectF imageRect(100.0, 100.0, 300.0, 200.0);
+    QCOMPARE(QVGraphicsView::projectZoomAnchor(imageRect, QPointF(250.0, 180.0)),
+             QPointF(250.0, 180.0));
+    QCOMPARE(QVGraphicsView::projectZoomAnchor(imageRect, QPointF(20.0, 160.0)),
+             QPointF(100.0, 160.0));
+    QCOMPARE(QVGraphicsView::projectZoomAnchor(imageRect, QPointF(460.0, 40.0)),
+             QPointF(400.0, 100.0));
+    QCOMPARE(QVGraphicsView::projectZoomAnchor(imageRect, QPointF(20.0, 360.0)),
+             QPointF(100.0, 300.0));
+
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("zoom-anchor-projection"), Qt::darkYellow,
+        QSize(400, 300));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->horizontalScrollBar()->isVisible()
+                             && !view->verticalScrollBar()->isVisible(), 1500);
+
+    const QRect imageViewportRect = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect viewportRect = view->viewport()->rect();
+    const QPoint requested(
+        qMax(viewportRect.left(), imageViewportRect.left() - 20),
+        imageViewportRect.center().y());
+    QVERIFY2(requested.x() < imageViewportRect.left(),
+             "The small-image fixture did not leave a left blank-space anchor");
+    const QPoint projected = QVGraphicsView::projectZoomAnchor(
+        QRectF(imageViewportRect), requested).toPoint();
+    const QPointF anchorScene = view->mapToScene(projected);
+
+    view->zoomAbsolute(2.0, requested);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
+    const QPointF anchorAfter = view->mapFromScene(anchorScene);
+    QVERIFY2(QLineF(anchorAfter, projected).length() <= 2.0,
+             "The outside-image anchor did not remain on the projected edge");
+
+    window.close();
+}
+
+// AC-SCROLLBAR-VERTICAL-STEADY
+// TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY
+// Test purpose: verify that the vertical scrollbar follows the animated scene
+// range and does not jump after the 200 ms zoom transition settles; the
+// horizontal scrollbar is observed as a control axis.
+// Preconditions: a visible 640x480 window displays a 2048x1536 image at 1:1,
+// with smooth scaling disabled and both scrollbar ranges available.
+// Input data: a center-anchored 1.5x zoom with both bars initially interior.
+// Steps: record bar values at the transition endpoint, after the delayed
+// anchor/layout window, and after the constraint timer can run.
+// Expected result: the final vertical value equals the endpoint within one
+// integer unit, with no late jump; the horizontal control axis has the same
+// steady behavior and the displayed zoom reaches its logical target.
+// Postcondition: the window, scrollbars, image, and temporary settings close.
+void GraphicsViewTests::testZoomTransitionLeavesVerticalScrollbarStable()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("vertical-scrollbar-steady"), Qt::darkMagenta,
+        QSize(2048, 1536));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum()
+            && view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(),
+        2000);
+
+    auto *horizontal = view->horizontalScrollBar();
+    auto *vertical = view->verticalScrollBar();
+    horizontal->setValue((horizontal->minimum() + horizontal->maximum()) / 3);
+    vertical->setValue((vertical->minimum() + vertical->maximum()) / 3);
+    QCoreApplication::processEvents();
+
+    view->zoomAbsolute(1.5, view->viewport()->rect().center());
+    QVERIFY(view->isZoomTransitionRunning());
+    QTest::qWait(QVGraphicsView::ZoomTransitionDurationMs + 30);
+    QCoreApplication::processEvents();
+    QVERIFY(!view->isZoomTransitionRunning());
+    const int verticalAtAnimationEnd = vertical->value();
+    const int horizontalAtAnimationEnd = horizontal->value();
+
+    QTest::qWait(QVGraphicsView::ZoomAnchorSettleDelayMs + 80);
+    QCoreApplication::processEvents();
+    const int verticalAfterAnchorSettle = vertical->value();
+    const int horizontalAfterAnchorSettle = horizontal->value();
+    QVERIFY2(qAbs(verticalAfterAnchorSettle - verticalAtAnimationEnd) <= 1,
+             "The vertical scrollbar jumped after the zoom animation");
+    QVERIFY2(qAbs(horizontalAfterAnchorSettle - horizontalAtAnimationEnd) <= 1,
+             "The horizontal scrollbar changed after the zoom animation");
+
+    QTest::qWait(300);
+    QCoreApplication::processEvents();
+    QVERIFY2(qAbs(vertical->value() - verticalAfterAnchorSettle) <= 1,
+             "The vertical scrollbar changed after the steady-state constraint");
+    QVERIFY2(qAbs(horizontal->value() - horizontalAfterAnchorSettle) <= 1,
+             "The horizontal scrollbar changed after the steady-state constraint");
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
+        view->animatedZoomLevel(), view->getZoomLevel()));
+
+    window.close();
+}
+
 // TC-IMAGE-CENTER-WITH-SCROLLBARS
 // Test purpose: verify that opening an overflowing image leaves its content
 // centered in the visible scene instead of placing it in the lower-right area.
@@ -4540,6 +4876,7 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
     QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
     QVERIFY(view->sceneRect().top() < imageSceneRect.top());
@@ -4575,6 +4912,7 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     QTRY_COMPARE_WITH_TIMEOUT(
         fullScreenFirstWindow.getViewportPosition().obscuredHeight, 0, 3000);
     fullScreenFirstView->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    QTRY_VERIFY_WITH_TIMEOUT(!fullScreenFirstView->isZoomTransitionRunning(), 1500);
     QTRY_VERIFY_WITH_TIMEOUT(
         fullScreenFirstView->verticalScrollBar()->isVisible(), 2000);
     const QRectF fullScreenFirstImageRect =
@@ -5151,14 +5489,14 @@ void GraphicsViewTests::testScrollBarsReachImageEdges()
 // AC-ZOOM-ENDPOINT-NO-REBOUND
 // Test purpose: verify that the styled scrollbar geometry uses the same native
 // extent as QGraphicsView and that a lower-right endpoint remains stable when
-// a zoom-out schedules the delayed bounds constraint.
+// a zoom-out uses the 200ms transition and delayed bounds constraint.
 // Preconditions: a visible 640x480 Cocoa window uses OriginalSize mode and
 // displays a 1200x1085 image with both scrollbars available.
 // Input data: native scrollbar extent, both scrollbar maximums, a lower-right
 // zoom target, and a 2.0x -> 1.6x zoom-out transition.
 // Steps: compare each scrollbar thickness with PM_ScrollBarExtent, zoom in,
-// move both bars to their maximums, zoom out at the lower-right target, record
-// the immediate endpoint, then inspect it again after the 500ms constraint.
+// move both bars to their maximums, zoom out at the lower-right target, wait
+// for the transition endpoint, then inspect it again after the settle window.
 // Expected result: the styled bars have the platform extent; the image edges
 // coincide with the viewport at both checkpoints; scrollbar values and mapped
 // edges do not change during the delayed constraint.
@@ -5206,8 +5544,8 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
         view->horizontalScrollBar()->isVisible()
             && view->verticalScrollBar()->isVisible(), 2000);
     const QPoint target(
-        view->viewport()->rect().right() - 4,
-        view->viewport()->rect().bottom() - 4);
+        view->viewport()->rect().right(),
+        view->viewport()->rect().bottom());
     view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
     QCoreApplication::processEvents();
@@ -5226,6 +5564,8 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
     QVERIFY2(edgesReachViewport(), "The initial maximums did not expose both image edges");
 
     view->zoomAbsolute(1.6, target);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1000);
+    QCoreApplication::processEvents();
     const int immediateHorizontalValue = view->horizontalScrollBar()->value();
     const int immediateVerticalValue = view->verticalScrollBar()->value();
     const QRect immediateImageRect = mappedImageRect();
@@ -5233,7 +5573,7 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
     QVERIFY2(
         qAbs(immediateHorizontalValue - view->horizontalScrollBar()->maximum()) <= 1
             && qAbs(immediateVerticalValue - view->verticalScrollBar()->maximum()) <= 1,
-        "Zoom-out did not preserve the lower-right endpoint immediately");
+        "Zoom-out did not preserve the lower-right endpoint at transition end");
     QVERIFY2(edgesReachViewport(), "Zoom-out exposed a right or bottom blank region");
 
     QTest::qWait(700);
@@ -5688,6 +6028,7 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
         view->horizontalScrollBar()->maximum()
             > view->horizontalScrollBar()->minimum(),
         2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
     view->horizontalScrollBar()->setValue(
         (view->horizontalScrollBar()->minimum()
          + view->horizontalScrollBar()->maximum()) / 2);
@@ -9808,13 +10149,13 @@ void WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()
 }
 
 // TC-HELP-MENU
-// Test purpose: verify Help removes Welcome and exposes the two requested
-// actions.
+// Test purpose: verify Help removes Welcome and exposes Project Homepage,
+// Website, and Check for Updates in the requested order.
 // Preconditions: the application ActionManager has built the application menu.
 // Input data: the Help menu action library.
 // Steps: inspect the menu's action texts and action-library keys.
-// Expected result: Project Homepage and Check for Updates exist; Welcome does
-// not exist.
+// Expected result: Project Homepage, Website, and Check for Updates exist in
+// that order; Welcome does not exist.
 // Postcondition: the temporary menu is released with its parent.
 void WindowBehaviorTests::testHelpMenuContract()
 {
@@ -9829,6 +10170,7 @@ void WindowBehaviorTests::testHelpMenuContract()
     }
     QVERIFY(helpMenu);
     QVERIFY(qvApp->getActionManager().getAction("projecthomepage"));
+    QVERIFY(qvApp->getActionManager().getAction("website"));
     QVERIFY(qvApp->getActionManager().getAction("checkupdates"));
     QVERIFY(!qvApp->getActionManager().getAction("welcome"));
 
@@ -9839,8 +10181,157 @@ void WindowBehaviorTests::testHelpMenuContract()
             return texts;
         });
     QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Project Homepage")));
+    QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Website")));
     QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Check for Updates")));
     QVERIFY(!actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Welcome")));
+
+    const int projectIndex = actionTexts.indexOf(QStringLiteral("Project Homepage"));
+    const int websiteIndex = actionTexts.indexOf(QStringLiteral("Website"));
+    const int updatesIndex = actionTexts.indexOf(QStringLiteral("Check for Updates"));
+    QVERIFY(projectIndex >= 0);
+    QVERIFY(websiteIndex == projectIndex + 1);
+    QVERIFY(updatesIndex == websiteIndex + 1);
+}
+
+// AC-HELP-WEBSITE
+// TC-HELP-WEBSITE-URL-CONTEXT-TRANSLATION
+// Test purpose: verify Website is present in the native Help menu and the
+// right-click Help submenu, opens the exact URL, and has synchronized
+// translations in all supported non-English catalogs.
+// Preconditions: ActionManager and a MainWindow context menu can be built;
+// translation QM files are available in a translation-enabled build.
+// Input data: the website Action, the context Help submenu, the URL
+// https://fovelle-viewer.onrender.com/, and four catalog language codes.
+// Steps: inspect both menus, intercept QDesktopServices URL dispatch, and
+// query each catalog's ActionManager translation.
+// Expected result: both menus contain Website in the same position between
+// Project Homepage and Check for Updates; the exact URL is dispatched; zh_Hans
+// returns 官方网站 and every supported catalog has a non-empty translation.
+// Postcondition: the URL handler, window, menus, and translators are released.
+void WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract()
+{
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+
+    QMenu *contextMenu = window.getContextMenuForTesting();
+    QVERIFY(contextMenu);
+    QMenu *contextHelp = nullptr;
+    for (QAction *action : contextMenu->actions())
+    {
+        if (action->data().toString() == QStringLiteral("help"))
+        {
+            contextHelp = action->menu();
+            break;
+        }
+    }
+    QVERIFY(contextHelp);
+
+    const auto websiteIndexInMenu = [](QMenu *menu) {
+        const QStringList texts = std::accumulate(
+            menu->actions().cbegin(), menu->actions().cend(), QStringList {},
+            [](QStringList values, QAction *action) {
+                values.append(action->text());
+                return values;
+            });
+        return texts;
+    };
+    const QStringList contextTexts = websiteIndexInMenu(contextHelp);
+    const int contextProjectIndex = contextTexts.indexOf(QStringLiteral("Project Homepage"));
+    const int contextWebsiteIndex = contextTexts.indexOf(QStringLiteral("Website"));
+    const int contextUpdatesIndex = contextTexts.indexOf(QStringLiteral("Check for Updates"));
+    QVERIFY(contextProjectIndex >= 0);
+    QVERIFY(contextWebsiteIndex == contextProjectIndex + 1);
+    QVERIFY(contextUpdatesIndex == contextWebsiteIndex + 1);
+
+    UrlHandlerProbe probe;
+    QDesktopServices::setUrlHandler(
+        QStringLiteral("https"), &probe, "capture");
+    const auto unregisterUrlHandler = qScopeGuard([]() {
+        QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
+    });
+    QAction *websiteAction = qvApp->getActionManager().getAction(
+        QStringLiteral("website"));
+    QVERIFY(websiteAction);
+    ActionManager::actionTriggered(websiteAction, nullptr);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        probe.receivedUrl,
+        QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")),
+        1000);
+
+#ifdef FOVELLE_TRANSLATIONS_DIR
+    const QHash<QString, QString> expectedTranslations {
+        {QStringLiteral("es"), QStringLiteral("Sitio web")},
+        {QStringLiteral("ja"), QStringLiteral("公式サイト")},
+        {QStringLiteral("zh_Hans"), QStringLiteral("官方网站")},
+        {QStringLiteral("zh_Hant"), QStringLiteral("官方網站")}
+    };
+    for (auto it = expectedTranslations.cbegin(); it != expectedTranslations.cend(); ++it)
+    {
+        QTranslator translator;
+        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
+                .arg(it.key());
+        QVERIFY2(translator.load(path), qPrintable(path));
+        const QString translation = translator.translate("ActionManager", "Website");
+        QCOMPARE(translation, it.value());
+    }
+#endif
+
+    window.close();
+}
+
+// AC-SORT-FIXED-DEFAULT
+// TC-SORT-CONFIG-IGNORED-CONTEXT-REMOVED
+// Test purpose: verify file ordering is permanently Name/Ascending, legacy
+// sort settings are not registered or read, and the context menu has no Sort
+// Files By branch or sort actions.
+// Preconditions: SettingsManager, QVFileEnumerator, and MainWindow are
+// initialized; a context menu can be materialized without opening a file.
+// Input data: hostile legacy sortmode=Random and sortdescending=true values,
+// plus the generated context menu tree.
+// Steps: write the legacy values, reload settings, inspect the fixed file
+// enumerator policy, attempt the old setters, and walk every context action.
+// Expected result: settings do not contain the removed keys; Name and
+// Ascending remain fixed; no Sort Files By, sortmenu, sortmode, or
+// sortdirection action is present.
+// Postcondition: the temporary settings, window, and menu are released.
+void WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Random)},
+        {QStringLiteral("sortdescending"), true}
+    });
+    QVERIFY(!qvApp->getSettingsManager().getSettings().contains(QStringLiteral("sortmode")));
+    QVERIFY(!qvApp->getSettingsManager().getSettings().contains(QStringLiteral("sortdescending")));
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    QMenu *contextMenu = window.getContextMenuForTesting();
+    QVERIFY(contextMenu);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QCOMPARE(view->getSortMode(), Qv::SortMode::Name);
+    QCOMPARE(view->getSortDescending(), false);
+    view->setSortMode(Qv::SortMode::Random);
+    view->setSortDescending(true);
+    QCOMPARE(view->getSortMode(), Qv::SortMode::Name);
+    QCOMPARE(view->getSortDescending(), false);
+
+    const auto actions = ActionManager::getAllNestedActions(contextMenu->actions());
+    for (const QAction *action : actions)
+    {
+        QVERIFY2(action->text().compare(QStringLiteral("Sort Files By"),
+                                        Qt::CaseInsensitive) != 0,
+                 qPrintable(action->text()));
+        const QString key = action->data().toStringList().value(0);
+        QVERIFY(key != QStringLiteral("sortmenu"));
+        QVERIFY(!key.startsWith(QStringLiteral("sortmode")));
+        QVERIFY(!key.startsWith(QStringLiteral("sortdirection")));
+    }
+
+    window.close();
 }
 
 // TC-EDIT-MACOS-SERVICES

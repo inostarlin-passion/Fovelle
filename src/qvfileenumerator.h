@@ -67,9 +67,7 @@ private:
     QCollator collator;
 
     bool isLoopFoldersEnabled {true};
-    Qv::SortMode globalSortMode {Qv::SortMode::Name};
     Qv::SortMode sortMode {Qv::SortMode::Name};
-    bool globalSortDescending {false};
     bool sortDescending {false};
     bool allowMimeContentDetection {false};
     bool skipHiddenFiles {false};

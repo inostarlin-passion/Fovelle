@@ -22,6 +22,7 @@ class QPushButton;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QMenuBar;
+class QMenu;
 
 class MainWindow : public QMainWindow
 {
@@ -48,6 +49,11 @@ public:
     void shutdownBackgroundWork();
 
     void requestPopulateOpenWithMenu();
+
+    // Materialize the same menu used by the native context-menu path without
+    // starting platform menu tracking. This is intentionally exposed for
+    // deterministic menu-contract tests.
+    QMenu *getContextMenuForTesting();
 
     void populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openWithItems);
 

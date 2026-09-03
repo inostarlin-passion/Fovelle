@@ -17,15 +17,21 @@
 #include <QTimer>
 #include <QFileInfo>
 #include <QBrush>
+#include <QMarginsF>
 
 class MainWindow;
 class QVGraphicsImageItem;
+class QPropertyAnimation;
 
 class QVGraphicsView : public QGraphicsView
 {
     Q_OBJECT
+    Q_PROPERTY(qreal animatedZoomLevel READ animatedZoomLevel WRITE setAnimatedZoomLevel)
 
 public:
+    static constexpr int ZoomTransitionDurationMs = 200;
+    static constexpr int ZoomAnchorSettleDelayMs = 150;
+
     QVGraphicsView(QWidget *parent = nullptr);
 
     struct SwipeData
@@ -48,7 +54,10 @@ public:
 
     void zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos = {});
 
-    void zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos = {}, const bool isApplyingCalculation = false);
+    void zoomAbsolute(const qreal absoluteLevel,
+                      const std::optional<QPoint> &targetPos = {},
+                      const bool isApplyingCalculation = false,
+                      const bool animateTransition = true);
 
     const std::optional<Qv::CalculatedZoomMode> &getCalculatedZoomMode() const;
     void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating = false, const std::optional<QPoint> &mousePos = {});
@@ -64,7 +73,7 @@ public:
     void applyExpensiveScaling();
     void removeExpensiveScaling();
 
-    void recalculateZoom();
+    void recalculateZoom(const bool animateTransition = true);
 
     void centerImage();
 
@@ -114,6 +123,9 @@ public:
     bool hasNextFile() { return imageCore.hasNextFile(); }
     void refreshVerticalScrollBarGeometry();
     qreal getZoomLevel() const { return zoomLevel; }
+    qreal animatedZoomLevel() const { return displayedZoomLevel; }
+    void setAnimatedZoomLevel(qreal level);
+    bool isZoomTransitionRunning() const;
     bool usesVectorRendering() const;
     Qv::VectorImageFormat vectorImageFormat() const;
     QSize lastVectorRasterSize() const;
@@ -134,6 +146,12 @@ public:
     static qreal nativeGestureZoomFactor(qreal value);
 
     static QPointF nativeGesturePanScrollDelta(const QPointF &delta, bool isRightToLeft);
+
+    // Project an explicit zoom request onto the displayed image rectangle.
+    // Keeping this operation pure makes the inside-image and outside-image
+    // anchor contract independently testable.
+    static QPointF projectZoomAnchor(const QRectF &imageViewportRect,
+                                     const QPointF &requestedViewportPoint);
 
     // Keep the Theme-to-scrollbar contract observable without rendering.
     static QString scrollBarStyleSheet(Qv::Theme theme);
@@ -284,6 +302,20 @@ protected:
 
     int getRtlFlip() const;
 
+    QRect getContentRectForZoomLevel(qreal level) const;
+
+    QRect getDisplayedContentRect() const;
+
+    QRect getScrollContentRect() const;
+
+    QMarginsF getPendingZoomAnchorSceneMargins() const;
+
+    QPoint zoomAnchorViewportPoint(const QPoint &requestedPoint) const;
+
+    void finishZoomTransition();
+
+    void stopZoomTransition();
+
     void cancelTurboNav();
 
     MainWindow* getMainWindow() const;
@@ -363,8 +395,10 @@ private:
     bool navigationResetsZoom {true};
     bool loadIsFromSessionRestore {false};
     qreal zoomLevel {1.0};
+    qreal displayedZoomLevel {1.0};
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
+    bool zoomTransitionCentersImage {false};
     bool isUpdatingSceneRect {false};
     bool verticalScrollBarGeometryUpdatePending {false};
     bool isUpdatingVerticalScrollBarGeometry {false};
@@ -372,9 +406,16 @@ private:
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
     ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
+    // A manual scrollbar drag can cancel a zoom while the animated frame is
+    // still growing. Keep an explicitly selected endpoint stable as the
+    // scrollbar range expands during that transition.
+    ScrollEdge zoomTransitionHorizontalPanEdge {ScrollEdge::None};
+    ScrollEdge zoomTransitionVerticalPanEdge {ScrollEdge::None};
     std::optional<QPointF> fullScreenPanAnchorScene;
     std::optional<QPointF> pendingZoomAnchorScene;
     std::optional<QPoint> pendingZoomAnchorViewport;
+    QMarginsF pendingZoomAnchorViewportMargins;
+    QMarginsF retainedZoomAnchorViewportMargins;
     bool pendingZoomAnchorFollowsViewportCenter {false};
     quint64 pendingZoomAnchorGeneration {0};
     std::optional<QPoint> lastZoomEventPos;
@@ -386,6 +427,7 @@ private:
     QVImageCore imageCore {this};
 
     QTimer *expensiveScaleTimer;
+    QPropertyAnimation *zoomAnimation;
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
     QTimer *hideCursorTimer;

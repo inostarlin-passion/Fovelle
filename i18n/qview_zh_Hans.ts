@@ -339,6 +339,10 @@
         <translation>项目主页</translation>
     </message>
     <message>
+        <source>Website</source>
+        <translation>官方网站</translation>
+    </message>
+    <message>
         <source>Check for Updates</source>
         <translation>检查更新</translation>
     </message>

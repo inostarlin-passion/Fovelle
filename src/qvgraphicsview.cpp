@@ -11,6 +11,7 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QPropertyAnimation>
 #include <QScopedValueRollback>
 #include <QtMath>
 #include <QGestureEvent>
@@ -54,7 +55,11 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     scrollHelper = new ScrollHelper(this,
         [this](ScrollHelper::Parameters &p)
         {
-            p.contentRect = getContentRect();
+            // During a zoom transition the scroll range must follow the
+            // frame currently on screen.  Using the final logical rect here
+            // makes QAbstractScrollArea clamp the vertical bar to a future
+            // range and then jump again when the animation settles.
+            p.contentRect = getScrollContentRect();
             p.usableViewportRect = getUsableViewportRect();
             p.shouldConstrain = constrainImagePosition;
             p.shouldCenter = constrainToCenterWhenSmaller;
@@ -69,6 +74,16 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     expensiveScaleTimer->setSingleShot(true);
     expensiveScaleTimer->setInterval(50);
     connect(expensiveScaleTimer, &QTimer::timeout, this, [this]{applyExpensiveScaling();});
+
+    // Keep the logical zoom level (used by settings and actions) separate
+    // from the currently painted zoom level.  This gives every zoom source
+    // the same 200 ms visual transition without changing action semantics.
+    zoomAnimation = new QPropertyAnimation(this, "animatedZoomLevel", this);
+    zoomAnimation->setObjectName(QStringLiteral("zoomTransitionAnimation"));
+    zoomAnimation->setDuration(ZoomTransitionDurationMs);
+    zoomAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    connect(zoomAnimation, &QPropertyAnimation::finished,
+            this, &QVGraphicsView::finishZoomTransition);
 
     vectorRefineTimer = new QTimer(this);
     vectorRefineTimer->setSingleShot(true);
@@ -1315,6 +1330,7 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
+    stopZoomTransition();
     cancelPendingZoomAnchor();
 
     // A native HDR presentation may have parked Qt viewport painting.  The
@@ -1588,6 +1604,95 @@ void QVGraphicsView::zoomOut()
     fitOrConstrainImage();
 }
 
+void QVGraphicsView::setAnimatedZoomLevel(const qreal level)
+{
+    displayedZoomLevel = boundedZoomLevel(level);
+    if (!getCurrentFileDetails().isPixmapLoaded)
+        return;
+
+    if (appliedExpensiveScaleZoomLevel != 0.0)
+    {
+        const qreal baseTransformScale = 1.0 / devicePixelRatioF();
+        const qreal relativeLevel = displayedZoomLevel / appliedExpensiveScaleZoomLevel;
+        setTransformScale(baseTransformScale * relativeLevel);
+    }
+    else
+    {
+        setTransformScale(displayedZoomLevel * appliedDpiAdjustment);
+    }
+    updateSceneRect();
+
+    if (pendingZoomAnchorScene.has_value())
+        restorePendingZoomAnchor();
+    else if (zoomTransitionCentersImage && !loadIsFromSessionRestore)
+        centerImage();
+
+    if (pendingZoomAnchorScene.has_value() || zoomTransitionCentersImage)
+        constrainBoundsTimer->start();
+
+    if (hdrRendererActive)
+        requestHDRRendererUpdate();
+}
+
+bool QVGraphicsView::isZoomTransitionRunning() const
+{
+    return zoomAnimation
+        && zoomAnimation->state() != QAbstractAnimation::Stopped;
+}
+
+QPointF QVGraphicsView::projectZoomAnchor(const QRectF &imageViewportRect,
+                                          const QPointF &requestedViewportPoint)
+{
+    if (!imageViewportRect.isValid() || imageViewportRect.isEmpty())
+        return requestedViewportPoint;
+
+    return QPointF(
+        qBound(imageViewportRect.left(), requestedViewportPoint.x(), imageViewportRect.right()),
+        qBound(imageViewportRect.top(), requestedViewportPoint.y(), imageViewportRect.bottom()));
+}
+
+void QVGraphicsView::finishZoomTransition()
+{
+    // QPropertyAnimation has already written the end value, but explicitly
+    // normalize it so a rounded/fractional frame can never remain painted.
+    setAnimatedZoomLevel(zoomLevel);
+
+    if (pendingZoomAnchorScene.has_value()
+        && pendingZoomAnchorViewport.has_value())
+    {
+        restorePendingZoomAnchor();
+        lastZoomRoundingError = mapToScene(pendingZoomAnchorViewport.value())
+                - pendingZoomAnchorScene.value();
+    }
+    else if (zoomTransitionCentersImage && !loadIsFromSessionRestore)
+    {
+        centerImage();
+    }
+    if (zoomTransitionHorizontalPanEdge != ScrollEdge::None)
+        horizontalScrollBar()->setValue(
+            zoomTransitionHorizontalPanEdge == ScrollEdge::Minimum
+                ? horizontalScrollBar()->minimum()
+                : horizontalScrollBar()->maximum());
+    if (zoomTransitionVerticalPanEdge != ScrollEdge::None)
+        verticalScrollBar()->setValue(
+            zoomTransitionVerticalPanEdge == ScrollEdge::Minimum
+                ? verticalScrollBar()->minimum()
+                : verticalScrollBar()->maximum());
+    zoomTransitionCentersImage = false;
+    zoomTransitionHorizontalPanEdge = ScrollEdge::None;
+    zoomTransitionVerticalPanEdge = ScrollEdge::None;
+    constrainBoundsTimer->start();
+}
+
+void QVGraphicsView::stopZoomTransition()
+{
+    if (zoomAnimation && zoomAnimation->state() != QAbstractAnimation::Stopped)
+        zoomAnimation->stop();
+    zoomTransitionCentersImage = false;
+    zoomTransitionHorizontalPanEdge = ScrollEdge::None;
+    zoomTransitionVerticalPanEdge = ScrollEdge::None;
+}
+
 void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos)
 {
     const qreal absoluteLevel = boundedZoomLevel(zoomLevel * relativeLevel);
@@ -1595,7 +1700,10 @@ void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional
     zoomAbsolute(absoluteLevel, pos);
 }
 
-void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos, const bool isApplyingCalculation)
+void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
+                                  const std::optional<QPoint> &targetPos,
+                                  const bool isApplyingCalculation,
+                                  const bool animateTransition)
 {
     const qreal requestedLevel = boundedZoomLevel(absoluteLevel);
     const bool keepsCalculatedZoomMode =
@@ -1620,7 +1728,35 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
     {
         setVectorInteractionPresentation(true);
     }
-    const std::optional<QPoint> pos = targetPos == Qv::CalculateViewportCenterPos ? getUsableViewportRect().center() : targetPos;
+
+    const bool followsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
+    QMarginsF anchorViewportMargins;
+    const QRect imageViewportRect = mapFromScene(
+        QRectF(getDisplayedContentRect())).boundingRect();
+    std::optional<QPoint> pos = followsViewportCenter
+            ? std::optional<QPoint>(getUsableViewportRect().center())
+            : targetPos;
+    if (pos.has_value() && !followsViewportCenter)
+    {
+        const QRect viewportRect = viewport()->rect();
+        const bool projectsLeft = targetPos->x() < imageViewportRect.left();
+        const bool projectsRight = targetPos->x() > imageViewportRect.right();
+        const bool projectsTop = targetPos->y() < imageViewportRect.top();
+        const bool projectsBottom = targetPos->y() > imageViewportRect.bottom();
+        pos = zoomAnchorViewportPoint(pos.value());
+        if (projectsLeft)
+            anchorViewportMargins.setLeft(
+                qMax(0, pos->x() - viewportRect.left()));
+        else if (projectsRight)
+            anchorViewportMargins.setRight(
+                qMax(0, viewportRect.right() - pos->x()));
+        if (projectsTop)
+            anchorViewportMargins.setTop(
+                qMax(0, pos->y() - viewportRect.top()));
+        else if (projectsBottom)
+            anchorViewportMargins.setBottom(
+                qMax(0, viewportRect.bottom() - pos->y()));
+    }
     if (pos != lastZoomEventPos)
     {
         lastZoomEventPos = pos;
@@ -1630,36 +1766,49 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
 
     if (isChanging && pos.has_value())
     {
+        zoomTransitionHorizontalPanEdge = ScrollEdge::None;
+        zoomTransitionVerticalPanEdge = ScrollEdge::None;
         pendingZoomAnchorScene = scenePos;
         pendingZoomAnchorViewport = pos;
-        pendingZoomAnchorFollowsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
+        pendingZoomAnchorViewportMargins = anchorViewportMargins;
+        retainedZoomAnchorViewportMargins = {};
+        pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;
         const quint64 anchorGeneration = ++pendingZoomAnchorGeneration;
-        QTimer::singleShot(150, this, [this, anchorGeneration]() {
+        QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs, this,
+                           [this, anchorGeneration]() {
             if (anchorGeneration != pendingZoomAnchorGeneration)
                 return;
             restorePendingZoomAnchor();
+
+            const QMarginsF sceneMargins = getPendingZoomAnchorSceneMargins();
+            const QTransform currentTransform = transform();
+            const qreal horizontalScale = qSqrt(
+                qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
+            const qreal verticalScale = qSqrt(
+                qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
+            if (!qFuzzyIsNull(horizontalScale) && !qFuzzyIsNull(verticalScale))
+            {
+                retainedZoomAnchorViewportMargins = QMarginsF(
+                    sceneMargins.left() * horizontalScale,
+                    sceneMargins.top() * verticalScale,
+                    sceneMargins.right() * horizontalScale,
+                    sceneMargins.bottom() * verticalScale);
+            }
             pendingZoomAnchorScene.reset();
             pendingZoomAnchorViewport.reset();
+            pendingZoomAnchorViewportMargins = {};
             pendingZoomAnchorFollowsViewportCenter = false;
         });
     }
     else if (isChanging)
     {
         cancelPendingZoomAnchor();
+        zoomTransitionHorizontalPanEdge = ScrollEdge::None;
+        zoomTransitionVerticalPanEdge = ScrollEdge::None;
     }
 
-    if (appliedExpensiveScaleZoomLevel != 0.0)
-    {
-        const qreal baseTransformScale = 1.0 / devicePixelRatioF();
-        const qreal relativeLevel = requestedLevel / appliedExpensiveScaleZoomLevel;
-        setTransformScale(baseTransformScale * relativeLevel);
-    }
-    else
-    {
-        setTransformScale(requestedLevel * appliedDpiAdjustment);
-    }
+    zoomTransitionCentersImage = isChanging && !pos.has_value();
     zoomLevel = requestedLevel;
-    updateSceneRect();
 
     if (shouldRestoreCalculatedZoom)
     {
@@ -1667,34 +1816,40 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional
         emit calculatedZoomModeChanged();
     }
 
-    if (pos.has_value())
+    if (!isChanging)
     {
-        const QPointF move = mapFromScene(scenePos) - pos.value();
+        if (!isZoomTransitionRunning())
         {
-            // These scrollbar writes are part of the zoom transaction, not a
-            // new user pan. Keep the delayed anchor alive until layout has
-            // settled, while restorePendingZoomAnchor() itself remains
-            // protected by the same internal-update guard.
-            QScopedValueRollback<bool> internalUpdateGuard(
-                    fullScreenPanInternalUpdate, true);
-            horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (move.x() * getRtlFlip()));
-            verticalScrollBar()->setValue(verticalScrollBar()->value() + move.y());
-            restorePendingZoomAnchor();
+            setAnimatedZoomLevel(requestedLevel);
+            if ((followsViewportCenter || !pos.has_value())
+                && !loadIsFromSessionRestore)
+                centerImage();
         }
-        lastZoomRoundingError = mapToScene(pos.value()) - scenePos;
-        constrainBoundsTimer->start();
-    }
-    else if (!loadIsFromSessionRestore)
-    {
-        centerImage();
+        return;
     }
 
-    if (isChanging)
+    if (!animateTransition)
     {
-        handleSmoothScalingChange();
-
+        stopZoomTransition();
+        setAnimatedZoomLevel(requestedLevel);
         emit zoomLevelChanged();
+        return;
     }
+
+    if (zoomAnimation->state() != QAbstractAnimation::Stopped)
+        zoomAnimation->stop();
+
+    // Scaling mode changes can replace the backing pixmap while a zoom is
+    // being requested. Rebase the current frame first, then let the property
+    // animation own every visible scale change.
+    handleSmoothScalingChange();
+    setAnimatedZoomLevel(displayedZoomLevel);
+
+    zoomAnimation->setStartValue(displayedZoomLevel);
+    zoomAnimation->setEndValue(requestedLevel);
+    zoomAnimation->start();
+
+    emit zoomLevelChanged();
 }
 
 const std::optional<Qv::CalculatedZoomMode> &QVGraphicsView::getCalculatedZoomMode() const
@@ -1731,7 +1886,7 @@ void QVGraphicsView::setCalculatedZoomMode(const std::optional<Qv::CalculatedZoo
     }
     else if (calculatedZoomMode.has_value())
     {
-        recalculateZoom();
+        recalculateZoom(true);
     }
 
     emit calculatedZoomModeChanged();
@@ -1752,6 +1907,16 @@ void QVGraphicsView::applyExpensiveScaling()
     if (!isExpensiveScalingRequested())
         return;
 
+    // Do not replace the animation's intermediate transform with the final
+    // high-resolution backing-pixmap transform.  Applying that replacement
+    // mid-transition is the same class of stale-range write that used to
+    // make the vertical scrollbar jump after zooming.
+    if (isZoomTransitionRunning())
+    {
+        expensiveScaleTimer->start(ZoomTransitionDurationMs);
+        return;
+    }
+
     // Calculate scaled resolution
     const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
     const qreal dpiAdjustment = getDpiAdjustment();
@@ -1771,6 +1936,10 @@ void QVGraphicsView::applyExpensiveScaling()
 
 void QVGraphicsView::removeExpensiveScaling()
 {
+    const bool wasZoomTransitionRunning = isZoomTransitionRunning();
+    if (wasZoomTransitionRunning)
+        stopZoomTransition();
+
     const bool wasExpensiveScalingApplied = appliedExpensiveScaleZoomLevel != 0.0;
     const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
 
@@ -1784,7 +1953,9 @@ void QVGraphicsView::removeExpensiveScaling()
 
     // Set appropriate scale factor
     const qreal dpiAdjustment = getDpiAdjustment();
-    const qreal newTransformScale = zoomLevel * dpiAdjustment;
+    const qreal newTransformScale = (wasZoomTransitionRunning
+                                         ? displayedZoomLevel : zoomLevel)
+            * dpiAdjustment;
     setTransformScale(newTransformScale);
     appliedDpiAdjustment = dpiAdjustment;
     appliedExpensiveScaleZoomLevel = 0.0;
@@ -1793,6 +1964,9 @@ void QVGraphicsView::removeExpensiveScaling()
         updateSceneRect(scrollPosition);
         logViewportState("expensive-scaling-removed");
     }
+
+    if (wasZoomTransitionRunning)
+        setAnimatedZoomLevel(displayedZoomLevel);
 }
 
 void QVGraphicsView::animatedFrameChanged(QRect rect)
@@ -1810,7 +1984,7 @@ void QVGraphicsView::animatedFrameChanged(QRect rect)
     }
 }
 
-void QVGraphicsView::recalculateZoom()
+void QVGraphicsView::recalculateZoom(const bool animateTransition)
 {
     if (!getCurrentFileDetails().isPixmapLoaded || !calculatedZoomMode.has_value())
         return;
@@ -1890,14 +2064,14 @@ void QVGraphicsView::recalculateZoom()
     lastCalculatedZoomMode = calculatedZoomMode;
     lastCalculatedZoomLevel = targetRatio;
 
-    zoomAbsolute(targetRatio, {}, true);
+    zoomAbsolute(targetRatio, {}, true, animateTransition);
 }
 
 void QVGraphicsView::centerImage()
 {
     logViewportState("center-before");
     const QRect viewRect = getUsableViewportRect();
-    const QRect contentRect = getContentRect();
+    const QRect contentRect = getDisplayedContentRect();
     const int hOffset = isRightToLeft() ?
         horizontalScrollBar()->minimum() + horizontalScrollBar()->maximum() - contentRect.left() :
         contentRect.left();
@@ -1960,14 +2134,13 @@ const QJsonObject QVGraphicsView::getSessionState() const
     if (calculatedZoomMode.has_value())
         state["calcZoomMode"] = static_cast<int>(calculatedZoomMode.value());
 
-    state["sortMode"] = static_cast<int>(getSortMode());
-    state["sortDescending"] = getSortDescending();
-
     return state;
 }
 
 void QVGraphicsView::loadSessionState(const QJsonObject &state)
 {
+    stopZoomTransition();
+    cancelPendingZoomAnchor();
     lastCalculatedZoomMode.reset();
     lastCalculatedZoomLevel.reset();
 
@@ -1982,7 +2155,7 @@ void QVGraphicsView::loadSessionState(const QJsonObject &state)
     };
     setTransform(transform);
 
-    zoomAbsolute(state["zoomLevel"].toDouble());
+    zoomAbsolute(state["zoomLevel"].toDouble(), {}, false, false);
 
     horizontalScrollBar()->setValue(state["hScroll"].toInt());
     verticalScrollBar()->setValue(state["vScroll"].toInt());
@@ -1997,11 +2170,6 @@ void QVGraphicsView::loadSessionState(const QJsonObject &state)
     }
     emit calculatedZoomModeChanged();
 
-    if (state.contains("sortMode") && state.contains("sortDescending"))
-    {
-        imageCore.setSortMode(static_cast<Qv::SortMode>(state["sortMode"].toInt()));
-        imageCore.setSortDescending(state["sortDescending"].toBool());
-    }
 }
 
 void QVGraphicsView::setLoadIsFromSessionRestore(const bool value)
@@ -2029,7 +2197,7 @@ void QVGraphicsView::fitOrConstrainImage()
     updateSceneRect({}, true);
 
     if (calculatedZoomMode.has_value())
-        recalculateZoom();
+        recalculateZoom(false);
     else
         scrollHelper->constrain();
 
@@ -2179,7 +2347,7 @@ LogicalPixelFitter QVGraphicsView::getPixelFitter() const
 
 void QVGraphicsView::matchContentCenter(const QRect target)
 {
-    const QPointF delta = QRectF(getContentRect()).center() - QRectF(target).center();
+    const QPointF delta = QRectF(getDisplayedContentRect()).center() - QRectF(target).center();
     scrollHelper->move(QPointF(delta.x() * getRtlFlip(), delta.y()));
 }
 
@@ -2203,16 +2371,109 @@ QRect QVGraphicsView::getContentRect() const
     if (!getCurrentFileDetails().isPixmapLoaded)
         return {};
 
+    return getContentRectForZoomLevel(zoomLevel);
+}
+
+QRect QVGraphicsView::getContentRectForZoomLevel(const qreal level) const
+{
+    if (!getCurrentFileDetails().isPixmapLoaded)
+        return {};
+
     // Avoid using loadedPixmapItem and the active transform because the pixmap may have expensive scaling applied
     // which introduces a rounding error to begin with, and even worse, the error will be magnified if we're in the
     // the process of zooming in and haven't re-applied the expensive scaling yet. If that's the case, callers need
     // to know what the content rect will be once the dust settles rather than what's being temporarily displayed.
     const QSizeF pixmapSize = getCurrentFileDetails().loadedPixmapSize;
     const QRectF pixmapBoundingRect = QRectF(QPoint(), pixmapSize);
-    const qreal pixmapScale = zoomLevel * appliedDpiAdjustment;
+    const qreal pixmapScale = level * appliedDpiAdjustment;
     const QTransform pixmapTransform = normalizeTransformOrigin(getUnspecializedTransform().scale(pixmapScale, pixmapScale), pixmapSize);
     const QRectF contentRect = pixmapTransform.mapRect(pixmapBoundingRect);
     return QRect(contentRect.topLeft().toPoint(), getPixelFitter().snapSize(contentRect.size()));
+}
+
+QRect QVGraphicsView::getDisplayedContentRect() const
+{
+    if (!isZoomTransitionRunning()
+        && zoomLevelsEquivalent(displayedZoomLevel, zoomLevel))
+        return getContentRect();
+    return getContentRectForZoomLevel(displayedZoomLevel);
+}
+
+QMarginsF QVGraphicsView::getPendingZoomAnchorSceneMargins() const
+{
+    if (pendingZoomAnchorFollowsViewportCenter)
+        return {};
+
+    const bool hasPendingAnchor = pendingZoomAnchorScene.has_value()
+        && pendingZoomAnchorViewport.has_value();
+    const QMarginsF viewportMargins = hasPendingAnchor
+        ? pendingZoomAnchorViewportMargins
+        : retainedZoomAnchorViewportMargins;
+    if (!hasPendingAnchor && viewportMargins.isNull())
+        return {};
+
+    const QTransform currentTransform = transform();
+    const qreal horizontalScale = qSqrt(
+        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
+    const qreal verticalScale = qSqrt(
+        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
+    if (qFuzzyIsNull(horizontalScale) || qFuzzyIsNull(verticalScale))
+        return {};
+
+    if (hasPendingAnchor
+        && qFuzzyIsNull(currentTransform.m12())
+        && qFuzzyIsNull(currentTransform.m21()))
+    {
+        // With a fitting image, QGraphicsView centers the scene and provides
+        // no scrollbar range.  An explicit mouse anchor is still a valid zoom
+        // request, so calculate the smallest side margins that make that
+        // exact placement reachable at the current animation frame.  The
+        // same calculation also extends the opposite side when an interior
+        // point would otherwise be beyond the normal maximum.
+        const QSizeF imageSize = getCurrentFileDetails().loadedPixmapSize;
+        const QRect viewportRect = viewport()->rect();
+        if (!imageSize.isEmpty())
+        {
+            const qreal desiredImageLeft = pendingZoomAnchorViewport->x()
+                    - pendingZoomAnchorScene->x() * horizontalScale;
+            const qreal desiredImageTop = pendingZoomAnchorViewport->y()
+                    - pendingZoomAnchorScene->y() * verticalScale;
+            const qreal minimumImageLeft = viewportRect.width()
+                    - imageSize.width() * horizontalScale;
+            const qreal minimumImageTop = viewportRect.height()
+                    - imageSize.height() * verticalScale;
+            return QMarginsF(
+                qMax(0.0, desiredImageLeft) / horizontalScale,
+                qMax(0.0, desiredImageTop) / verticalScale,
+                qMax(0.0, minimumImageLeft - desiredImageLeft) / horizontalScale,
+                qMax(0.0, minimumImageTop - desiredImageTop) / verticalScale);
+        }
+    }
+
+    return QMarginsF(
+        viewportMargins.left() / horizontalScale,
+        viewportMargins.top() / verticalScale,
+        viewportMargins.right() / horizontalScale,
+        viewportMargins.bottom() / verticalScale);
+}
+
+QRect QVGraphicsView::getScrollContentRect() const
+{
+    QRect contentRect = getDisplayedContentRect();
+    const QMarginsF margins = getPendingZoomAnchorSceneMargins();
+    contentRect.adjust(
+        -qRound(margins.left()), -qRound(margins.top()),
+        qRound(margins.right()), qRound(margins.bottom()));
+    return contentRect;
+}
+
+QPoint QVGraphicsView::zoomAnchorViewportPoint(const QPoint &requestedPoint) const
+{
+    const QRect imageViewportRect = mapFromScene(
+        QRectF(getDisplayedContentRect())).boundingRect();
+    const QPointF projected = projectZoomAnchor(
+        QRectF(imageViewportRect), requestedPoint);
+    return QPoint(qRound(projected.x()), qRound(projected.y()));
 }
 
 QRect QVGraphicsView::getUsableViewportRect(const bool addOverscan) const
@@ -2788,7 +3049,12 @@ void QVGraphicsView::updateSceneRect(
     // centers the smaller logical scene while painting the larger item.
     const bool preserveViewport = restoreScrollPosition.has_value() ||
         (sceneRect().isValid() && !sceneRect().isEmpty());
-    const bool preserveManualPanEdges = preserveScrollEdges
+    const bool preserveManualPanEdges =
+        (preserveScrollEdges
+         || (isZoomTransitionRunning()
+             && !pendingZoomAnchorScene.has_value()
+             && !zoomTransitionCentersImage
+             && !loadIsFromSessionRestore))
         && !restoreScrollPosition.has_value()
         && !calculatedZoomMode.has_value();
     const QPoint scrollPosition = restoreScrollPosition.value_or(
@@ -2798,13 +3064,17 @@ void QVGraphicsView::updateSceneRect(
     const ScrollEdge horizontalPanEdge =
         fullScreenHorizontalPanEdge != ScrollEdge::None
             ? fullScreenHorizontalPanEdge
-            : preserveManualPanEdges ? getScrollEdge(horizontalScrollBar())
-                                     : ScrollEdge::None;
+            : zoomTransitionHorizontalPanEdge != ScrollEdge::None
+                ? zoomTransitionHorizontalPanEdge
+                : preserveManualPanEdges ? getScrollEdge(horizontalScrollBar())
+                                         : ScrollEdge::None;
     const ScrollEdge verticalPanEdge =
         fullScreenVerticalPanEdge != ScrollEdge::None
             ? fullScreenVerticalPanEdge
-            : preserveManualPanEdges ? getScrollEdge(verticalScrollBar())
-                                     : ScrollEdge::None;
+            : zoomTransitionVerticalPanEdge != ScrollEdge::None
+                ? zoomTransitionVerticalPanEdge
+                : preserveManualPanEdges ? getScrollEdge(verticalScrollBar())
+                                         : ScrollEdge::None;
     const QRectF desiredSceneRect = getSceneRectForViewport();
     QScopedValueRollback<bool> sceneRectUpdateGuard(isUpdatingSceneRect, true);
     if (sceneRect() != desiredSceneRect)
@@ -2873,14 +3143,49 @@ void QVGraphicsView::restorePendingZoomAnchor()
 
 void QVGraphicsView::cancelPendingZoomAnchor()
 {
-    if (!pendingZoomAnchorScene.has_value()
-        && !pendingZoomAnchorViewport.has_value())
-        return;
-
-    ++pendingZoomAnchorGeneration;
-    pendingZoomAnchorScene.reset();
-    pendingZoomAnchorViewport.reset();
+    if (isZoomTransitionRunning())
+    {
+        const auto edgeFromSliderPosition = [](const QScrollBar *scrollBar) {
+            constexpr int ScrollEdgeTolerance = 3;
+            if (scrollBar->minimum() >= scrollBar->maximum())
+                return ScrollEdge::None;
+            if (scrollBar->sliderPosition()
+                <= scrollBar->minimum() + ScrollEdgeTolerance)
+                return ScrollEdge::Minimum;
+            if (scrollBar->sliderPosition()
+                >= scrollBar->maximum() - ScrollEdgeTolerance)
+                return ScrollEdge::Maximum;
+            return ScrollEdge::None;
+        };
+        zoomTransitionHorizontalPanEdge =
+            edgeFromSliderPosition(horizontalScrollBar());
+        zoomTransitionVerticalPanEdge =
+            edgeFromSliderPosition(verticalScrollBar());
+    }
+    const bool hadVirtualAnchorMargins =
+        !pendingZoomAnchorViewportMargins.isNull()
+        || !retainedZoomAnchorViewportMargins.isNull();
+    if (pendingZoomAnchorScene.has_value()
+        || pendingZoomAnchorViewport.has_value())
+    {
+        ++pendingZoomAnchorGeneration;
+        pendingZoomAnchorScene.reset();
+        pendingZoomAnchorViewport.reset();
+    }
+    pendingZoomAnchorViewportMargins = {};
+    retainedZoomAnchorViewportMargins = {};
     pendingZoomAnchorFollowsViewportCenter = false;
+    zoomTransitionCentersImage = false;
+
+    // A center-anchored zoom has no virtual scene margins to remove.  Avoid
+    // rebuilding the scene rect from sliderMoved/actionTriggered: Qt emits
+    // those signals before it commits the new scrollbar value, so a rebuild
+    // at that point can replay the old value and make a manual drag appear to
+    // miss its selected endpoint.  Outside-image anchors do have margins;
+    // those must be removed immediately so the user's pan owns the range.
+    if (hadVirtualAnchorMargins && !isUpdatingSceneRect
+        && getCurrentFileDetails().isPixmapLoaded)
+        updateSceneRect();
 }
 
 QRectF QVGraphicsView::getSceneRectForViewport() const
@@ -2889,6 +3194,26 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
                         || getCurrentFileDetails().isNativeSDRLoaded)
             ? QRectF(QPointF(), getCurrentFileDetails().loadedPixmapSize)
             : loadedPixmapItem->boundingRect();
+
+    // An outside-image mouse point can legitimately request a boundary to
+    // remain away from the viewport edge after zooming.  The ordinary scene
+    // rect starts at the image origin, which would clamp that request to a
+    // zero scrollbar value. Add only the side-specific, physical blank space
+    // needed by the pending projection; it is removed when the transaction
+    // settles or is cancelled.
+    const QMarginsF anchorMargins = getPendingZoomAnchorSceneMargins();
+    const QTransform currentTransform = transform();
+    const qreal anchorHorizontalScale = qSqrt(
+        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
+    const qreal anchorVerticalScale = qSqrt(
+        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
+    if (!qFuzzyIsNull(anchorHorizontalScale) && !qFuzzyIsNull(anchorVerticalScale))
+    {
+        sceneRect.adjust(
+            -anchorMargins.left(), -anchorMargins.top(),
+            anchorMargins.right(), anchorMargins.bottom());
+    }
+
     const MainWindow *mainWindow = getMainWindow();
     if (!mainWindow)
         return sceneRect;
@@ -2903,7 +3228,6 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
     // scene space on the view's top side so both calculations use the same
     // coordinate system. The scene padding is expressed in scene units because
     // QGraphicsView applies the current transform when calculating its indents.
-    const QTransform currentTransform = transform();
     const qreal verticalScale = qMax(qAbs(currentTransform.m22()), qAbs(currentTransform.m12()));
     if (qFuzzyIsNull(verticalScale))
         return sceneRect;
@@ -3095,7 +3419,9 @@ void QVGraphicsView::setSpeed(const int &desiredSpeed)
 
 void QVGraphicsView::rotateImage(const int relativeAngle)
 {
-    const QRect oldRect = getContentRect();
+    stopZoomTransition();
+    cancelPendingZoomAnchor();
+    const QRect oldRect = getDisplayedContentRect();
     const QTransform t = transform();
     const bool isMirroredOrFlipped = t.isRotating() ? ((t.m12() < 0) == (t.m21() < 0)) : ((t.m11() < 0) != (t.m22() < 0));
     setTransformWithNormalization(transform().rotate(relativeAngle * (isMirroredOrFlipped ? -1 : 1)));
@@ -3105,7 +3431,9 @@ void QVGraphicsView::rotateImage(const int relativeAngle)
 
 void QVGraphicsView::mirrorImage()
 {
-    const QRect oldRect = getContentRect();
+    stopZoomTransition();
+    cancelPendingZoomAnchor();
+    const QRect oldRect = getDisplayedContentRect();
     const int rotateCorrection = transform().isRotating() ? -1 : 1;
     setTransformWithNormalization(transform().scale(-1 * rotateCorrection, 1 * rotateCorrection));
     updateSceneRect();
@@ -3114,7 +3442,9 @@ void QVGraphicsView::mirrorImage()
 
 void QVGraphicsView::flipImage()
 {
-    const QRect oldRect = getContentRect();
+    stopZoomTransition();
+    cancelPendingZoomAnchor();
+    const QRect oldRect = getDisplayedContentRect();
     const int rotateCorrection = transform().isRotating() ? -1 : 1;
     setTransformWithNormalization(transform().scale(1 * rotateCorrection, -1 * rotateCorrection));
     updateSceneRect();
@@ -3123,7 +3453,9 @@ void QVGraphicsView::flipImage()
 
 void QVGraphicsView::resetTransformation()
 {
-    const QRect oldRect = getContentRect();
+    stopZoomTransition();
+    cancelPendingZoomAnchor();
+    const QRect oldRect = getDisplayedContentRect();
     const QTransform t = transform();
     const qreal scale = qFabs(t.isRotating() ? t.m21() : t.m11());
     setTransformWithNormalization(QTransform::fromScale(scale, scale));

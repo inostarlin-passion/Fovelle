@@ -1,8 +1,241 @@
 # Fovelle 图片缩放与滚动条测试用例说明
 
-本文将技术设计中的 9 条原子验收标准映射为可执行测试。每个用例都明确包含：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。
+本文将本次任务的 5 条原子验收标准映射为可执行测试。每个新增用例都明确包含：测试目的、前置条件、输入数据、操作步骤、预期结果、后置条件。文档后部保留既有滚动条、缩放和快捷键回归用例，作为交叉验证。
 
 测试层分为：源码静态合同、QtTest 动态回归、CTest 集成清单。Cocoa 测试使用确定性临时 PNG，不依赖用户提供的 `/Volumes/CRYSTAL` 文件；手工复现仍以 `reports/root_cause.md` 中的 `1.avif` 为基准。
+
+## 本次任务原子验收矩阵
+
+| 原子标准 | 结构化测试用例 | 固化测试代码 | 静态/动态阶段 | 瞬态/稳态覆盖 |
+| --- | --- | --- | --- | --- |
+| AC-ZOOM-TRANSITION-200MS | `TC-ZOOM-ALL-ENTRY-POINTS` | `GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus` | static + dynamic | 80ms in-flight + finished |
+| AC-SORT-FIXED-DEFAULT | `TC-SORT-CONFIG-IGNORED-CONTEXT-REMOVED` | `WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu` | static + dynamic | hostile config + fixed state |
+| AC-HELP-WEBSITE | `TC-HELP-WEBSITE-URL-CONTEXT-TRANSLATION` | `WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract` | static + dynamic | dispatch + menu steady state |
+| AC-ZOOM-ANCHOR-PROJECTION | `TC-ZOOM-ANCHOR-INSIDE-OUTSIDE` | `GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage` | static + dynamic | layout/animation + final anchor |
+| AC-SCROLLBAR-VERTICAL-STEADY | `TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY` | `GraphicsViewTests::testZoomTransitionLeavesVerticalScrollbarStable` | static + dynamic + CTest | animation end + settle + steady |
+
+下列五个用例严格使用六个字段；每个用例都同时记录静态合同和动态执行入口，时间相关用例分别采样瞬态与稳态。
+
+## TC-ZOOM-ALL-ENTRY-POINTS
+
+### 测试目的
+
+验证鼠标滚轮、键盘 `Toggle Fit and 100%`、标题栏 `View → Zoom In` 和右键 `View → Zoom In` 共享同一个 200ms 过渡实现，而不是只有某一条菜单路径动画化。
+
+### 前置条件
+
+- Cocoa `QApplication`、`MainWindow` 和 `QVGraphicsView` 已初始化并可见。
+- 已加载 1200×900 临时 PNG；计算缩放模式为 `OriginalSize`，平滑缩放关闭。
+- 标题栏和右键菜单已经 materialize，翻译资源和 QtTest event loop 可用。
+
+### 输入数据
+
+- 一个鼠标 wheel step。
+- canonical `togglefitand100` action。
+- 标题栏和右键 View menu 中的 `zoomin` clone。
+- `QPropertyAnimation` 对象名 `zoomTransitionAnimation`、duration 200ms、80ms 中间采样点。
+
+### 操作步骤
+
+1. 读取动画对象的 duration 和 easing curve，并确认两个 View menu 都有 `Zoom In` 和 `Toggle Fit and 100%`。
+2. 发送一个合成鼠标 wheel 事件，立即确认动画运行，80ms 时读取中间 displayed zoom。
+3. 等待动画结束，比较 displayed zoom 与 logical target。
+4. 恢复 1.0x 后，通过标题栏 View clone、右键 View clone、canonical keyboard action 依次重复步骤 2–3。
+
+### 预期结果
+
+每个入口都启动 duration 恰为 200ms 的动画；80ms 仍处于过渡且 displayed zoom 不等于终值；结束时 displayed zoom 与 logical target 相等，且没有额外的布局回弹。
+
+### 后置条件
+
+关闭窗口，释放临时 PNG、菜单和动画对象，恢复应用退出策略与 scoped settings。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-ZOOM-TRANSITION-01`。
+
+## TC-SORT-CONFIG-IGNORED-CONTEXT-REMOVED
+
+### 测试目的
+
+验证右键菜单删除 `Sort Files By`，且历史 `sortmode`/`sortdescending` 配置既不注册、不读取，也不能通过旧 setter 改变文件顺序。
+
+### 前置条件
+
+- `SettingsManager`、`QVFileEnumerator`、`ActionManager` 和 `MainWindow` 已初始化。
+- 可 materialize 右键菜单；不需要打开真实文件即可检查 action tree 和默认策略。
+
+### 输入数据
+
+- hostile legacy `sortmode=Random` 与 `sortdescending=true`。
+- 右键菜单全部嵌套 action 的 text、canonical key。
+- `Qv::SortMode::Name` 和 ascending (`false`) 期望值。
+
+### 操作步骤
+
+1. 通过 scoped `QSettings` 写入两个历史 key，并让 `SettingsManager` reload。
+2. 检查 settings library 不含两个 key，检查 enumerator 为 Name/Ascending。
+3. 调用旧的 `setSortMode(Random)` 和 `setSortDescending(true)`，再次读取策略。
+4. 深度遍历右键菜单 action，检查 `Sort Files By`、`sortmenu`、`sortmode*`、`sortdirection*` 均不存在。
+
+### 预期结果
+
+历史值不会进入产品设置或排序状态；setter 调用被固定策略忽略；右键菜单不显示 Sort Files By 分支或其子项，文件顺序保持名称升序。
+
+### 后置条件
+
+关闭测试窗口，恢复临时 QSettings，释放菜单和 enumerator，不改变用户真实配置。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-SORT-CONTRACT-01`。
+
+## TC-HELP-WEBSITE-URL-CONTEXT-TRANSLATION
+
+### 测试目的
+
+验证标题栏和右键 Help 菜单都插入 Website，位置严格位于 Project Homepage 与 Check for Updates 之间，点击 canonical action 打开指定 URL，且简体中文等目录同步翻译。
+
+### 前置条件
+
+- `ActionManager` 已创建 native menu；`MainWindow` 的右键菜单可 materialize。
+- translation-enabled build 已生成 `qview_es.qm`、`qview_ja.qm`、`qview_zh_Hans.qm`、`qview_zh_Hant.qm`。
+- URL handler probe 可拦截 `https` scheme。
+
+### 输入数据
+
+- canonical key `website`。
+- URL `https://fovelle-viewer.onrender.com/`。
+- 目标译文：`Sitio web`、`公式サイト`、`官方网站`、`官方網站`。
+
+### 操作步骤
+
+1. 读取标题栏 Help menu 和右键 Help submenu，比较三项的相对顺序。
+2. 安装 `QDesktopServices` URL handler，触发 canonical Website action，读取收到的 URL。
+3. 分别加载四个 QM catalog，以 `ActionManager/Website` 查询译文。
+
+### 预期结果
+
+两个菜单结构一致，Website 紧跟 Project Homepage 且位于 Check for Updates 之前；handler 收到精确 URL；简体中文显示“官方网站”，其他三个目录返回非空且与期望一致的译文。
+
+### 后置条件
+
+注销 URL handler，关闭窗口，卸载临时 translator，释放菜单和 probe，不发起不可控浏览器副作用。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-MENU-CONTRACT-01`。
+
+## TC-ZOOM-ANCHOR-INSIDE-OUTSIDE
+
+### 测试目的
+
+验证图片内的请求点严格保持为锚点；图片左侧、右上、左下等外部请求点逐轴投影到最近图片边界，不能回退到图片中心或继续使用空白点。
+
+### 前置条件
+
+- 纯函数投影 helper 可调用。
+- Cocoa 窗口已显示 400×300 小图片，1.0x 时四周存在可观测空白且两轴 scrollbar 隐藏。
+- 2.0x 缩放动画和 scene anchor restore 可运行。
+
+### 输入数据
+
+- 抽象 image rect `(100,100,300,200)`。
+- inside `(250,180)`、left `(20,160)`、upper-right `(460,40)`、lower-left `(20,360)`。
+- 运行时左侧空白点及其投影点、投影点对应 scene coordinate。
+
+### 操作步骤
+
+1. 对四组纯函数输入检查 x/y 独立 clamp 结果。
+2. 在运行时读取小图 viewport rect，选取图片左侧空白点并记录其投影 scene 点。
+3. 以空白点触发 2.0x 缩放，等待 200ms 动画结束和布局事件处理。
+4. 比较该 scene 点最终映射位置与投影 viewport 点。
+
+### 预期结果
+
+inside 点不变；外部点按最近边界逐轴投影，角点同时投影两轴；动画和最终稳态都不会把锚点改成图片中心或空白区原始坐标。
+
+### 后置条件
+
+关闭窗口，清理临时图片、pending anchor 和 settings，恢复退出策略。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-ZOOM-ANCHOR-PROJECTION-01`。
+
+## TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY
+
+### 测试目的
+
+验证缩放动画使用当前显示帧计算 scene range，修复垂直滚动条跳变；同时以水平滚动条作为对照，覆盖动画结束、anchor settle 和 steady constraint 三个时间状态。
+
+### 前置条件
+
+- Cocoa 640×480 窗口已加载 2048×1536 图片；两轴均有非零 scrollbar range。
+- `OriginalSize`、平滑缩放关闭；两轴先置于内部 value，避免端点约束掩盖跳变。
+
+### 输入数据
+
+- 中心锚定的 1.5x zoom。
+- 动画结束采样点 `200ms + 30ms`。
+- anchor settle 采样点再加 `150ms + 80ms`，以及最后 300ms steady 窗口。
+- 两轴 value 差异容差 1；displayed/logical zoom 等价判定。
+
+### 操作步骤
+
+1. 记录两轴初始内部 value。
+2. 触发 1.5x 中心缩放，确认动画正在运行。
+3. 在动画结束后记录两轴 value。
+4. 等待 anchor settle，再次记录两轴 value。
+5. 再等待 300ms，记录 steady value，并比较 displayed zoom 与 logical target。
+
+### 预期结果
+
+动画结束到 settle 的垂直 value 差不超过 1；settle 到稳态也不超过 1。水平对照轴同样稳定，最终 displayed zoom 等于 logical target；不出现旧实现的垂直迟滞跳变。
+
+### 后置条件
+
+关闭窗口，释放滚动条、临时图片和设置，恢复应用退出策略。
+
+### 固化代码
+
+`tests/tst_qviewtests.cpp::GraphicsViewTests::testZoomTransitionLeavesVerticalScrollbarStable`；静态合同为 `tests/scrollbar_zoom_acceptance_static.py::ST-TEST-01`，并由默认 CTest 交叉执行。
+
+## 本次任务静态/动态执行协议
+
+### 测试目的
+
+确认源码合同、结构化文档、QtTest 入口和 CTest 清单形成闭环，并让每个原子标准都有可复核证据。
+
+### 前置条件
+
+仓库根目录可读，Python 3、CMake、Qt 6 Cocoa 构建和 translation build 可用。
+
+### 输入数据
+
+`src/qvgraphicsview.*`、`src/actionmanager.*`、`src/mainwindow.*`、`src/qvfileenumerator.*`、`src/settingsmanager.cpp`、`i18n/*.ts`、`tests/tst_qviewtests.cpp`、本文件和 `reports/root_cause.md`。
+
+### 操作步骤
+
+```bash
+python3 -m py_compile tests/scrollbar_zoom_acceptance_static.py
+python3 tests/scrollbar_zoom_acceptance_static.py \
+  --repo . --output reports/evidence/scrollbar_zoom_static.json
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+```
+
+### 预期结果
+
+静态脚本、编译和默认 CTest 均返回 0；每个原子标准的动态用例无 failed/skipped/blacklisted，并保留瞬态与稳态采样结果。
+
+### 后置条件
+
+保留机器可读 JSON 证据和完成报告；不保留测试窗口、URL handler、临时配置或外部浏览器状态。
+
+### 固化代码
+
+`tests/scrollbar_zoom_acceptance_static.py`、`tests/tst_qviewtests.cpp`、`tests/CMakeLists.txt`。
 
 ## TC-SB-IMAGE-EDGES
 

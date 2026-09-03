@@ -363,6 +363,7 @@ QMenu *ActionManager::buildHelpMenu(QWidget *parent)
     addCloneOfAction(helpMenu, "about");
     helpMenu->addSeparator();
     addCloneOfAction(helpMenu, "projecthomepage");
+    addCloneOfAction(helpMenu, "website");
     addCloneOfAction(helpMenu, "checkupdates");
 
     menuCloneLibrary.insert(helpMenu->menuAction()->data().toString(), helpMenu);
@@ -596,55 +597,12 @@ QMenu *ActionManager::buildOpenWithMenu(QWidget *parent)
     return openWithMenu;
 }
 
-QMenu *ActionManager::buildSortMenu(QWidget *parent)
-{
-    const bool isContextMenu = parent->property("isContextMenu").toBool();
-    auto *sortMenu = new QVMenu(tr("Sort Files By"), parent);
-    sortMenu->menuAction()->setData("sortmenu");
-    if (isContextMenu)
-        sortMenu->setProperty("isContextMenu", true);
-    if (isContextMenu ? qvApp->getShowContextMenuIcons() : qvApp->getShowMainMenuIcons())
-        sortMenu->setIcon(qvApp->iconFromFont(Qv::MaterialIcon::Sort));
-
-    auto *sortModeGroup = new QActionGroup(sortMenu);
-    const auto addMode = [&](const QString &text, const Qv::SortMode mode) {
-        auto *action = new QAction(text, sortMenu);
-        action->setData(QStringList{"sortmode" + QString::number(static_cast<int>(mode))});
-        action->setCheckable(true);
-        sortModeGroup->addAction(action);
-        sortMenu->addAction(action);
-        actionCloneLibrary.insert(action->data().toStringList().first(), action);
-    };
-    addMode(tr("Name"), Qv::SortMode::Name);
-    addMode(tr("Date Modified"), Qv::SortMode::DateModified);
-    addMode(tr("Date Created"), Qv::SortMode::DateCreated);
-    addMode(tr("Size"), Qv::SortMode::Size);
-    addMode(tr("Type"), Qv::SortMode::Type);
-    addMode(tr("Random"), Qv::SortMode::Random);
-
-    sortMenu->addSeparator();
-
-    auto *sortDirectionGroup = new QActionGroup(sortMenu);
-    const auto addDirection = [&](const QString &text, const bool descending) {
-        auto *action = new QAction(text, sortMenu);
-        action->setData(QStringList{"sortdirection" + QString::number(static_cast<int>(descending))});
-        action->setCheckable(true);
-        sortDirectionGroup->addAction(action);
-        sortMenu->addAction(action);
-        actionCloneLibrary.insert(action->data().toStringList().first(), action);
-    };
-    addDirection(tr("Ascending"), false);
-    addDirection(tr("Descending"), true);
-
-    return sortMenu;
-}
-
 void ActionManager::actionTriggered(QAction *triggeredAction)
 {
     auto key = triggeredAction->data().toStringList().first();
 
     // For some actions, do not look for a relevant window
-    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "options", "projecthomepage", "checkupdates"};
+    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "options", "projecthomepage", "website", "checkupdates"};
     for (const auto &actionName : std::as_const(windowlessActions))
     {
         if (key == actionName)
@@ -688,6 +646,8 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         qvApp->openAboutDialog(relevantWindow);
     } else if (key == "projecthomepage") {
         QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/inostarlin-passion/Fovelle")));
+    } else if (key == "website") {
+        QDesktopServices::openUrl(QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")));
     } else if (key == "checkupdates") {
         qvApp->getUpdateChecker().check(true);
     } else if (key == "clearrecents") {
@@ -783,10 +743,6 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         relevantWindow->increaseSpeed();
     } else if (key == "slideshow") {
         relevantWindow->toggleSlideshow();
-    } else if (key.startsWith("sortmode")) {
-        relevantWindow->setSortMode(static_cast<Qv::SortMode>(key.mid(QString("sortmode").length()).toInt()));
-    } else if (key.startsWith("sortdirection")) {
-        relevantWindow->setSortDescending(key.endsWith("1"));
     }
 }
 
@@ -984,6 +940,9 @@ void ActionManager::initializeActionLibrary()
 
     auto *projectHomepageAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Project Homepage"));
     actionLibrary.insert("projecthomepage", projectHomepageAction);
+
+    auto *websiteAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Website"));
+    actionLibrary.insert("website", websiteAction);
 
     auto *checkUpdatesAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Check for Updates"));
     actionLibrary.insert("checkupdates", checkUpdatesAction);

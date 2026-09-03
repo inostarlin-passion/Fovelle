@@ -339,6 +339,10 @@
         <translation>Página principal del proyecto</translation>
     </message>
     <message>
+        <source>Website</source>
+        <translation>Sitio web</translation>
+    </message>
+    <message>
         <source>Check for Updates</source>
         <translation>Buscar actualizaciones</translation>
     </message>
