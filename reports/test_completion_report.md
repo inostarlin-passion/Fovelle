@@ -1,98 +1,135 @@
-# 图片缩放垂直滚动条跳变测试完成报告
+# 图片缩放垂直滚动条跳变：测试完成报告
 
-## 1. 结论
+## 1. 完成结论
 
-`AC-ZOOM-VBAR-TRANSIENT` 已通过：键盘快捷键和鼠标滚轮触发的放大/缩小，在 Disabled/Expensive、普通 DPR/HiDPI 下均未出现垂直滚动条 A→B→A 瞬态；动画结束、延迟回调完成和稳态 quiet turns 后仍保持通过。
+本次修复已将“垂直滚动条跳变”从只看终态 value 的弱检查，升级为同时检查数值、thumb、物理控件 geometry、图片锚点、延迟回调和真实输入矩阵的全过程验证。
 
-## 2. 原子验收结果
+当前代码在本机 Qt 6.11.1 / macOS Cocoa 下，普通 DPR 与 `QT_SCALE_FACTOR=2` 专项轨迹测试均通过。最终可核验结论限定为：在本报告第 3 节的显式矩阵和前提内，没有观测到可绘制或已提交的错误垂直滚动条位移；测试能够检出“中间跳开、最终又恢复”的 A→B→A 情形。
 
-| 原子验收标准 | 结果 | 结构化用例 | 固化测试 |
-| --- | --- | --- | --- |
-| `AC-ZOOM-VBAR-TRANSIENT`：真实键盘/滚轮缩放全过程中，垂直 value、独立期望映射、thumb 和锚点不发生错误跳变，最终保持稳定 | PASS | `TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION` | `GraphicsViewTests::testZoomShortcutsKeepVerticalScrollbarStable_data/testZoomShortcutsKeepVerticalScrollbarStable` |
+这不是“任意平台、任意窗口、任意图片都绝不可能跳变”的证明；未覆盖范围见第 7 节。
 
-每个数据行分别执行确定性逐毫秒扫描和真实时钟重放；任一 committed/paint/timer sample 失败都会使该原子标准失败，不会被最终位置恢复掩盖。
+## 2. 对原先绿色测试的复核结论
 
-## 3. 实现结果
+肉眼看到的现象与旧测试通过并不矛盾，因为旧测试验证的是数值/相对 thumb，而不是滚动条控件的屏幕几何。
 
-- `applyExpensiveScaling()` 在替换高分辨率 backing pixmap 前后按旧/新 image scene rect 重建 pending anchor 的归一化 UV，避免延迟高开销回调把垂直 value 写到旧坐标系。
-- 高开销缩放在动画进行时延迟最终 backing 替换；动画 range 始终跟随当前 displayed frame。
-- 临时 anchor margin 使用实际 backing item 的 scene 尺寸；自然居中的、仍能由对齐策略表示的 wheel anchor 不制造虚假水平 range。
-- anchor settle 改为可观测的成员 timer，并使用 generation 使过期回调失效。
-- 新增 `ZoomTraceProbe`：记录 paint、range/value、layout/resize、animation 和三个相关 timer；以独立 transform oracle、Qt style thumb oracle 和固定归一化 anchor 检查每个样本。
-- CTest 新增普通和 `QT_SCALE_FACTOR=2` 两个聚焦进程。
+旧 trace 的代表性序列为：
 
-## 4. 实际验证证据
-
-### 4.1 静态阶段
-
-```bash
-python3 -m py_compile \
-  tests/scrollbar_zoom_acceptance_static.py \
-  tests/shortcut_toggle_acceptance_static.py
-python3 tests/scrollbar_zoom_acceptance_static.py \
-  --repo . --output reports/evidence/scrollbar_zoom_static.json
-python3 tests/shortcut_toggle_acceptance_static.py \
-  --repo . --output reports/evidence/shortcut_toggle_static.json
-git diff --check
+```text
+v_value:          291 → 291 → 291
+v_bar_global_rect: (1169,291,15,480)
+                  → (1169,263,15,508)
+                  → (1169,291,15,480)
 ```
 
-结果：两个 Python 脚本均返回 0；滚动条脚本 14 个合同检查全部通过，快捷键兼容脚本 6 个检查全部通过，差异空白检查通过。
+旧 `validateZoomTrace()` 没有消费已记录的 `verticalBarGlobalRect`；旧 actual/expected thumb 又都基于同一当前 `QScrollBar` geometry 调用 style，因此整个 container 移动时，两者同步移动仍会相等。结果是 value oracle 绿色、视觉却红色。
 
-### 4.2 构建阶段
+本次新增的 `verticalBarGlobalRect` 与 `verticalBarContainerGlobalRect` 基线比较，直接关闭了这个证据缺口。修复前的独立 geometry 检查已经捕获了上述 `y=291→263→291` 轨迹；修复后该阶段不再出现错误 paint geometry。
+
+## 3. 原子验收结果
+
+| 原子标准 | 判定内容 | 固化代码 | 结果 |
+| --- | --- | --- | --- |
+| `AC-ZOOM-VBAR-VALUE` | 每个 checkable sample 的 value 与不读取 actual value 的 `V*` 一致 | `zoomTraceSampleError()` / `validateZoomTrace()` | PASS |
+| `AC-ZOOM-VBAR-GEOMETRY` | bar/container global `x/top/width` 无可见错误往返移动 | `ZoomTraceProbe::record()` / `validateZoomTrace()` | PASS |
+| `AC-ZOOM-VBAR-ANCHOR` | 同一归一化图片点保持在目标 viewport，误差 ≤2 DIP | `ZoomTraceProbe` anchor oracle | PASS |
+| `AC-ZOOM-VBAR-THUMB` | actual thumb 与当前 `QStyle` 的 expected thumb 一致 | `zoomScrollBarThumbRect()` / `zoomTraceSampleError()` | PASS |
+| `AC-ZOOM-VBAR-ASYNC` | animation、geometry、anchor、constraint、Expensive writer 结束后无回弹 | live timer/quiet/terminal checks | PASS |
+| `AC-ZOOM-VBAR-MATRIX` | keyboard、wheel、pinch × in/out × Disabled/Expensive × normal/HiDPI | data-driven QtTest + 两个 CTest | PASS |
+
+总标准 `AC-ZOOM-VBAR-TRANSIENT`：PASS。
+
+## 4. 实现变更
+
+- `QVGraphicsView` 增加具名 `verticalScrollBarGeometryTimer`，采用 single-shot、0 ms、coalesced 调度；timeout 可被测试观察并在 terminal 检查 inactive。
+- bar/container 的 `Move/Resize/Show` 事件在下一次 paint 前同步调用安全区 geometry 修复；`isUpdatingVerticalScrollBarGeometry` 防止 `setGeometry()` 引起递归，0 ms timer 继续作为兜底。
+- 保留 displayed-frame range、Expensive backing pixmap 的归一化 anchor UV 重基准、pending-anchor generation 和手动滚动取消逻辑。
+- 轨迹测试改为 12 行：真实 keyboard shortcut、真实 wheel、真实 native pinch；两个方向、两种 scaling mode 和中心/非中心图片锚点均覆盖。
+- failure trace 增加 event object、viewport/bar/container global rect；失败 frame 在事件循环回合结束后捕获，避免从 paint 回调中递归 `grab()`。
+- baseline 建立前等待平台初始化的 `100×30` scrollbar placeholder 消失，避免把不可绘制的初始化 geometry 当作起点。
+
+## 5. 实际执行记录
+
+### 5.1 构建
 
 ```bash
-cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --parallel 2
 ```
 
-结果：`Fovelle`、`fovelle_tests` 和 `fovelle_native_drag_helper` 构建成功。
+结果：`Fovelle`、`fovelle_tests`、`fovelle_native_drag_helper` 构建成功。
 
-### 4.3 聚焦轨迹
+### 5.2 静态测试
+
+```bash
+python3 -m py_compile tests/scrollbar_zoom_acceptance_static.py
+python3 tests/scrollbar_zoom_acceptance_static.py \
+  --repo . --output build/test-results/scrollbar-zoom-acceptance-static.json
+```
+
+结果：返回码 0；源码/测试/CTest 合同、六字段结构、geometry oracle、真实 pinch、非中心锚点、具名 timer 和失败证据检查均为 `pass=true`。
+
+### 5.3 普通 DPR 动态轨迹
 
 ```bash
 ctest --test-dir build \
-  -R '^FovelleZoomScrollbarTrajectory(HiDpi)?$' \
-  --output-on-failure
+  -R '^FovelleZoomScrollbarTrajectory$' --output-on-failure
 ```
 
-结果：普通 DPR 与 HiDPI `2/2` 通过；每个进程均覆盖 8 行数据、确定性扫描、live replay、timer quiet 和终态检查。
+结果：12 行数据执行 deterministic + live 两阶段，测试通过，耗时约 14.00 秒。
+
+### 5. HiDPI 动态轨迹
 
 ```bash
 ctest --test-dir build \
-  -R '^FovelleZoomScrollbarTrajectory$' \
-  --repeat until-fail:30 --output-on-failure
+  -R '^FovelleZoomScrollbarTrajectoryHiDpi$' --output-on-failure
 ```
 
-结果：普通 DPR `30/30` 通过，总耗时约 289.13 秒。
+结果：独立 `QT_SCALE_FACTOR=2` 进程的 12 行数据执行 deterministic + live 两阶段，测试通过，耗时约 44.18 秒。
 
-### 4.4 默认全量 CTest
+### 5.4 默认全量 CTest
 
 ```bash
 ctest --test-dir build --output-on-failure --timeout 120
 ```
 
-结果：`4/4` 通过，总耗时约 100.56 秒：
+结果：`4/4` 通过，总耗时约 116.48 秒：
 
-- `FovelleTests`：通过，51.61 秒；
-- `FovelleShortcutSettingsTests`：通过，2.63 秒；
-- `FovelleZoomScrollbarTrajectory`：通过，9.69 秒；
-- `FovelleZoomScrollbarTrajectoryHiDpi`：通过，36.63 秒。
+- `FovelleTests`：55.73 秒；
+- `FovelleShortcutSettingsTests`：2.57 秒；
+- `FovelleZoomScrollbarTrajectory`：14.00 秒；
+- `FovelleZoomScrollbarTrajectoryHiDpi`：44.18 秒。
 
-## 5. 证据链与交叉核验
+### 5.5 证据文件
 
-根因判断基于 [`reports/root_cause.md`](root_cause.md)、源码轨迹和 Qt 官方语义交叉核验：[`QGraphicsView::sceneRect`](https://doc.qt.io/qt-6/qgraphicsview.html#sceneRect-prop) 决定 scene 导航范围，[`QAbstractScrollArea`](https://doc.qt.io/qt-6/qabstractscrollarea.html#details) 的按需滚动条布局会改变 viewport，[`QPropertyAnimation`](https://doc.qt.io/qt-6/qpropertyanimation.html) 提供可扫描的动画属性时间域，[`QTransform`](https://doc.qt.io/qt-6/qtransform.html) 提供 scene/viewport 映射，而 [`QStyle`](https://doc.qt.io/qt-6/qstyle.html) 提供 thumb 几何来源。
+- 静态机器证据：[scrollbar-zoom-acceptance-static.json](/Users/inostarlin/code/Fovelle/build/test-results/scrollbar-zoom-acceptance-static.json)
+- 失败时的完整轨迹目录：`/Users/inostarlin/code/Fovelle/build/test-results/zoom-vbar/<case>/<stage>/`
+- 技术设计：[technical_design_document.md](/Users/inostarlin/code/Fovelle/reports/technical_design_document.md)
+- 结构化用例：[test_case_specification.md](/Users/inostarlin/code/Fovelle/reports/test_case_specification.md)
 
-链式结论是：scene range 与 displayed frame 不一致会产生布局二次写入；backing pixmap 替换会改变 scene 坐标尺度；旧 anchor 绝对坐标因此会在延迟回调中写入错误垂直位置。以同一归一化图片点重建 anchor，再用独立 transform oracle 验证，能够直接覆盖该证据缺口。
+## 6. 证据链与联网核验
 
-## 6. 输出文件
+结论来自本地源码、动态 trace 和 Qt 官方资料的交叉验证：
 
-- 技术设计：[`technical_design_document.md`](/Users/inostarlin/code/Fovelle/reports/technical_design_document.md)
-- 结构化用例：[`test_case_specification.md`](/Users/inostarlin/code/Fovelle/reports/test_case_specification.md)
-- 静态机器证据：[`scrollbar_zoom_static.json`](/Users/inostarlin/code/Fovelle/reports/evidence/scrollbar_zoom_static.json)
-- 动态失败时的轨迹位置：`build/test-results/zoom-vbar/<case>/<stage>/`
+1. [Qt `QAbstractScrollArea`](https://doc.qt.io/qt-6/qabstractscrollarea.html#details)确认 `ScrollBarAsNeeded` 的显示会改变 viewport 可用尺寸，解释了 H/V layout 交叉影响。
+2. [Qt `QPropertyAnimation`](https://doc.qt.io/qt-6/qpropertyanimation.html)确认动画属性存在中间插值状态，解释了只看终点为什么不充分。
+3. [Qt `QGraphicsView`](https://doc.qt.io/qt-6/qgraphicsview.html)和 [Qt 6.11.1 `qgraphicsview.cpp`](https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp)确认 scene/transform/viewport/range 的联动。
+4. [Qt `QStyle`](https://doc.qt.io/qt-6/qstyle.html)支持用当前平台 style 计算 thumb，而不是用固定像素模板。
+5. [Qt High DPI](https://doc.qt.io/qt-6/highdpi.html)支持把 widget geometry 以 DIP 记录，并用独立 `QT_SCALE_FACTOR=2` 进程验证 DPR 差异。
 
-## 7. 边界说明
+链式推理为：
 
-- 测试使用真实 QWidget 键盘/滚轮事件，但不模拟需要 Accessibility 权限的系统级 HID；该能力不属于本问题的默认 CTest 门禁。
-- 已执行一次临时故障注入校准：移除 backing-pixmap anchor UV 重基准后，`keyboard-zoom-in-expensive` 按预期在 sample 405 失败（`vertical value 19` 对 `expected 438`，最大偏差 419）；随后恢复实现并重新构建，sanity case 通过。故障代码未保留在最终工作区。
-- 测试使用的是 Qt 6.11.1 Cocoa/arm64 本机；外部 Accessibility/HID 和外部网络状态不作为本次通过判定。
+```text
+AsNeeded layout 改变 viewport
+  → vcontainer 产生新的 Move/Resize
+  → 原匿名 0 ms 修复晚于一次 paint
+  → bar y 从 safeTop 暂时到 viewportTop 再返回
+  → value 可能完全不变，旧 value/thumb oracle 仍可通过
+  → 独立 global geometry oracle 才能检出
+```
+
+## 7. 边界与未覆盖项
+
+- 当前证据只覆盖 Qt 6.11.1 Cocoa/arm64、测试使用的窗口/fixture 尺寸、三种输入、两个 scaling mode、两个方向和两个 DPR。
+- 系统级 Accessibility/HID 驱动未纳入默认 CTest；它依赖外部权限和外部图片路径。
+- 未证明 GPU 合成器在 QWidget 已提交正确 geometry 后自行显示错误帧的情形。
+- 变异校准不作为本次通过的必要前提；已用真实旧 geometry 缺陷产生的 RED trace 验证了新增 oracle 能捕获“value 不变但控件跳变”。若后续要做 stale-range 或单帧 `V+24` mutant，应在 disposable worktree 中执行，不能修改正式源码。
+- 如用户在当前版本仍复现，首先保留 `trace.json` 和三帧图，按 value/range、bar geometry、anchor、timer phase 四类证据定位，不应仅凭终态或肉眼截图作单一归因。

@@ -227,6 +227,28 @@ def main() -> int:
         "all zoom entry points share one 200 ms property animation and an exact terminal frame",
     )
 
+    geometry_timer_contract = (
+        "QTimer *verticalScrollBarGeometryTimer;" in view_header
+        and "verticalScrollBarGeometryTimer->setObjectName(" in view_cpp
+        and 'QStringLiteral("verticalScrollBarGeometryTimer")' in view_cpp
+        and "verticalScrollBarGeometryTimer->setSingleShot(true);" in view_cpp
+        and "verticalScrollBarGeometryTimer->setInterval(0);" in view_cpp
+        and "verticalScrollBarGeometryTimer->start();" in view_cpp
+    )
+    add_check(
+        checks,
+        "ST-ZOOM-GEOMETRY-TIMER-01",
+        geometry_timer_contract,
+        {
+            "member_timer_declared": "QTimer *verticalScrollBarGeometryTimer;" in view_header,
+            "member_timer_named": 'QStringLiteral("verticalScrollBarGeometryTimer")' in view_cpp,
+            "zero_delay_single_shot": "verticalScrollBarGeometryTimer->setSingleShot(true);" in view_cpp
+            and "verticalScrollBarGeometryTimer->setInterval(0);" in view_cpp,
+            "schedule_uses_member_timer": "verticalScrollBarGeometryTimer->start();" in view_cpp,
+        },
+        "the post-layout scrollbar geometry writer is a coalesced, observable zero-delay member timer",
+    )
+
     expensive_anchor_rebase_contract = (
         "const QRectF oldImageRect = scene()->itemsBoundingRect();" in view_cpp
         and "std::optional<QPointF> pendingAnchorUV;" in view_cpp
@@ -236,19 +258,33 @@ def main() -> int:
     )
     trajectory_contract = (
         "// AC-ZOOM-VBAR-TRANSIENT" in tests_cpp
-        and "void testZoomShortcutsKeepVerticalScrollbarStable_data()" in tests_cpp
-        and "void testZoomShortcutsKeepVerticalScrollbarStable()" in tests_cpp
+        and "void testZoomKeepsVerticalScrollbarTrajectoryStable_data()" in tests_cpp
+        and "void testZoomKeepsVerticalScrollbarTrajectoryStable()" in tests_cpp
+        and "QTest::addColumn<int>(\"anchorPolicy\")" in tests_cpp
+        and "enum class ZoomAnchorPolicy" in tests_cpp
+        and "ZoomAnchorPolicy::FixedImagePoint" in tests_cpp
         and "ZoomTraceProbe" in tests_cpp
         and "QTest::keySequence" in tests_cpp
         and "QWheelEvent" in tests_cpp
+        and "QNativeGestureEvent" in tests_cpp
+        and "sendNativeGesture(view, Qt::ZoomNativeGesture" in tests_cpp
+        and "inputSource == QStringLiteral(\"pinch\")" in tests_cpp
+        and "imageScene.width() * 0.40" in tests_cpp
+        and "imageScene.height() * 0.35" in tests_cpp
         and "animation->setCurrentTime(animationTime)" in tests_cpp
         and "manual-time-" in tests_cpp
         and "zoomAnchorSettleTimer-timeout" in tests_cpp
         and "constrainBoundsTimer-timeout" in tests_cpp
         and "expensiveScaleTimer-timeout" in tests_cpp
+        and "verticalScrollBarGeometryTimer-timeout" in tests_cpp
         and "verticalExpected" in tests_cpp
+        and "verticalBarContainerGlobalRect" in tests_cpp
+        and "firstCheckableBarGeometry" in tests_cpp
+        and "vertical scrollbar/container geometry moved" in tests_cpp
         and "SC_ScrollBarSlider" in tests_cpp
         and "writeZoomTraceFailure" in tests_cpp
+        and "firstImmediateErrorMessage" in tests_cpp
+        and "saveFailureFrames" in tests_cpp
         and "FovelleZoomScrollbarTrajectory" in tests_cmake
         and "FovelleZoomScrollbarTrajectoryHiDpi" in tests_cmake
         and "QT_SCALE_FACTOR=2" in tests_cmake
@@ -260,17 +296,31 @@ def main() -> int:
         trajectory_contract,
         {
             "atomic_marker_and_data_rows": "// AC-ZOOM-VBAR-TRANSIENT" in tests_cpp
-            and "testZoomShortcutsKeepVerticalScrollbarStable_data" in tests_cpp,
+            and "testZoomKeepsVerticalScrollbarTrajectoryStable_data" in tests_cpp
+            and "QTest::addColumn<int>(\"anchorPolicy\")" in tests_cpp,
             "real_keyboard_input": "QTest::keySequence" in tests_cpp,
             "real_wheel_input": "QWheelEvent" in tests_cpp,
+            "real_native_pinch_input": "QNativeGestureEvent" in tests_cpp
+            and "sendNativeGesture(view, Qt::ZoomNativeGesture" in tests_cpp,
+            "non_center_anchor_policy": "ZoomAnchorPolicy::FixedImagePoint" in tests_cpp
+            and "imageScene.width() * 0.40" in tests_cpp
+            and "imageScene.height() * 0.35" in tests_cpp,
             "deterministic_integer_time_scan": "animation->setCurrentTime(animationTime)" in tests_cpp
             and "manual-time-" in tests_cpp,
             "delayed_callbacks_observed": "zoomAnchorSettleTimer-timeout" in tests_cpp
             and "constrainBoundsTimer-timeout" in tests_cpp
-            and "expensiveScaleTimer-timeout" in tests_cpp,
+            and "expensiveScaleTimer-timeout" in tests_cpp
+            and "verticalScrollBarGeometryTimer-timeout" in tests_cpp,
             "independent_vertical_oracle": "verticalExpected" in tests_cpp,
+            "physical_geometry_oracle": "verticalBarContainerGlobalRect" in tests_cpp
+            and "firstCheckableBarGeometry" in tests_cpp
+            and "vertical scrollbar/container geometry moved" in tests_cpp,
             "style_thumb_oracle": "SC_ScrollBarSlider" in tests_cpp,
-            "failure_artifacts": "writeZoomTraceFailure" in tests_cpp,
+            "immediate_sample_decision": "firstImmediateErrorMessage" in tests_cpp,
+            "distinct_failure_artifacts": "saveFailureFrames" in tests_cpp
+            and "first-bad-frame.png" in tests_cpp
+            and "worst-frame.png" in tests_cpp
+            and "terminal-frame.png" in tests_cpp,
             "normal_and_hidpi_ctest": "FovelleZoomScrollbarTrajectory" in tests_cmake
             and "FovelleZoomScrollbarTrajectoryHiDpi" in tests_cmake
             and "QT_SCALE_FACTOR=2" in tests_cmake,
@@ -380,6 +430,12 @@ def main() -> int:
             "AC-ZOOM-TRANSITION-200MS",
             "AC-ZOOM-ANCHOR-PROJECTION",
             "AC-ZOOM-VBAR-TRANSIENT",
+            "AC-ZOOM-VBAR-VALUE",
+            "AC-ZOOM-VBAR-GEOMETRY",
+            "AC-ZOOM-VBAR-ANCHOR",
+            "AC-ZOOM-VBAR-THUMB",
+            "AC-ZOOM-VBAR-ASYNC",
+            "AC-ZOOM-VBAR-MATRIX",
             "AC-SORT-FIXED-DEFAULT",
             "AC-HELP-WEBSITE",
         )
@@ -395,8 +451,8 @@ def main() -> int:
             "testManualScrollCancelsPendingZoomAnchor",
             "testZoomTransitionCoversWheelKeyboardAndMenus",
             "testZoomAnchorProjectsInsideAndOutsideImage",
-            "testZoomShortcutsKeepVerticalScrollbarStable_data",
-            "testZoomShortcutsKeepVerticalScrollbarStable",
+            "testZoomKeepsVerticalScrollbarTrajectoryStable_data",
+            "testZoomKeepsVerticalScrollbarTrajectoryStable",
             "testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu",
             "testWebsiteHelpActionAndContextMenuContract",
         )
@@ -419,6 +475,13 @@ def main() -> int:
     )
     case_ids = (
         "TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION",
+        "TC-ZOOM-VBAR-VALUE-TRAJECTORY",
+        "TC-ZOOM-VBAR-GEOMETRY-TRAJECTORY",
+        "TC-ZOOM-VBAR-ANCHOR-TRAJECTORY",
+        "TC-ZOOM-VBAR-THUMB-TRAJECTORY",
+        "TC-ZOOM-VBAR-ASYNC-TERMINAL",
+        "TC-ZOOM-VBAR-INPUT-MATRIX",
+        "TC-ZOOM-VBAR-STATIC-CONTRACT",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}
     for case_id in case_ids:

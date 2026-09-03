@@ -163,7 +163,7 @@ set_tests_properties(FovelleShortcutSettingsTests PROPERTIES
 )
 
 add_test(NAME FovelleZoomScrollbarTrajectory COMMAND fovelle_tests
-    testZoomShortcutsKeepVerticalScrollbarStable -v1)
+    testZoomKeepsVerticalScrollbarTrajectoryStable -v1)
 set_tests_properties(FovelleZoomScrollbarTrajectory PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
     TIMEOUT 120
@@ -171,7 +171,7 @@ set_tests_properties(FovelleZoomScrollbarTrajectory PROPERTIES
 )
 
 add_test(NAME FovelleZoomScrollbarTrajectoryHiDpi COMMAND fovelle_tests
-    testZoomShortcutsKeepVerticalScrollbarStable -v1)
+    testZoomKeepsVerticalScrollbarTrajectoryStable -v1)
 set_tests_properties(FovelleZoomScrollbarTrajectoryHiDpi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=2;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
     TIMEOUT 120

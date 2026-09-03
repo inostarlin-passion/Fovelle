@@ -31,6 +31,20 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     viewport()->setAutoFillBackground(false);
     viewport()->setMouseTracking(true);
 
+    // Keep the post-layout titlebar-safe-area adjustment observable.  A
+    // member single-shot timer preserves the former zero-delay coalescing
+    // behavior while allowing the zoom trajectory probe to include this
+    // geometry writer in its terminal-state contract.
+    verticalScrollBarGeometryTimer = new QTimer(this);
+    verticalScrollBarGeometryTimer->setObjectName(
+        QStringLiteral("verticalScrollBarGeometryTimer"));
+    verticalScrollBarGeometryTimer->setSingleShot(true);
+    verticalScrollBarGeometryTimer->setInterval(0);
+    connect(verticalScrollBarGeometryTimer, &QTimer::timeout, this, [this]() {
+        verticalScrollBarGeometryUpdatePending = false;
+        refreshVerticalScrollBarGeometry();
+    });
+
     const auto scheduleScrollBarGeometryUpdate = [this](int, int) {
         scheduleVerticalScrollBarGeometry();
     };
@@ -767,7 +781,16 @@ bool QVGraphicsView::eventFilter(QObject *watched, QEvent *event)
             || event->type() == QEvent::Move
             || event->type() == QEvent::Resize
             || event->type() == QEvent::Show))
+    {
         scheduleVerticalScrollBarGeometry();
+
+        // Qt delivers Move/Resize after it has assigned the new geometry but
+        // before the next paint.  Repair the titlebar-safe top edge in this
+        // same event turn so a frame cannot be painted at Qt's unadjusted
+        // origin and then visibly jump when the zero-delay timer runs.
+        if (event->type() != QEvent::LayoutRequest)
+            refreshVerticalScrollBarGeometry();
+    }
 
     return QGraphicsView::eventFilter(watched, event);
 }
@@ -3027,10 +3050,7 @@ void QVGraphicsView::scheduleVerticalScrollBarGeometry()
         return;
 
     verticalScrollBarGeometryUpdatePending = true;
-    QTimer::singleShot(0, this, [this]() {
-        verticalScrollBarGeometryUpdatePending = false;
-        refreshVerticalScrollBarGeometry();
-    });
+    verticalScrollBarGeometryTimer->start();
 }
 
 void QVGraphicsView::refreshVerticalScrollBarGeometry()

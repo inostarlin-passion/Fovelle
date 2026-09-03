@@ -434,6 +434,7 @@ private:
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
     QTimer *zoomAnchorSettleTimer;
+    QTimer *verticalScrollBarGeometryTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrPresentationTimer;
     QTimer *hdrGeometryTimer;
