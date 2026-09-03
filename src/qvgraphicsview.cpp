@@ -18,6 +18,7 @@
 #include <QScrollBar>
 #include <QPainter>
 #include <QCursor>
+#include <QEventLoop>
 
 #include <algorithm>
 #include <cmath>
@@ -1137,6 +1138,24 @@ qreal QVGraphicsView::boundedZoomLevel(const qreal requestedLevel)
                       Qv::MaximumZoomLevel);
 }
 
+int QVGraphicsView::zoomTransitionDurationMs(const qreal fromLevel,
+                                              const qreal toLevel,
+                                              const bool adaptiveDuration)
+{
+    if (!adaptiveDuration || fromLevel <= 0.0 || toLevel <= 0.0
+        || qFuzzyCompare(fromLevel, toLevel))
+        return ZoomTransitionDurationMs;
+
+    // Zoom is multiplicative. Measuring distance in log2 space makes every
+    // equal-ratio change (for example 50%->100% and 100%->200%) take the same
+    // amount of time, independent of the displayed percentage labels.
+    const qreal logDistance = qAbs(qLn(toLevel / fromLevel) / qLn(2.0));
+    const qreal normalizedDistance = qMin<qreal>(1.0, logDistance / 2.0);
+    return qRound(ZoomTransitionDurationMs
+                  + (ZoomTransitionMaximumDurationMs
+                     - ZoomTransitionDurationMs) * normalizedDistance);
+}
+
 bool QVGraphicsView::usesVectorRendering() const
 {
     return loadedPixmapItem && loadedPixmapItem->hasVectorImage();
@@ -1731,9 +1750,39 @@ void QVGraphicsView::zoomOut()
 
 void QVGraphicsView::setAnimatedZoomLevel(const qreal level)
 {
+    // QGraphicsView changes from alignment indentation to scrollbar values at
+    // the exact overflow boundary.  QAbstractScrollArea then posts a second
+    // layout that changes the viewport geometry. Keep the whole frame hidden
+    // from QWidget/Cocoa presentation while that queued layout is drained;
+    // the next visible frame therefore contains one complete geometry
+    // generation rather than an intermediate indent/range/value mixture.
+    const bool coalesceLayout = isZoomTransitionRunning();
+    const bool hadHorizontalOverflow = horizontalScrollBar()->maximum()
+        > horizontalScrollBar()->minimum();
+    const bool viewUpdatesEnabled = updatesEnabled();
+    const bool viewportUpdatesEnabled = viewport()->updatesEnabled();
+    const bool horizontalUpdatesEnabled = horizontalScrollBar()->updatesEnabled();
+    const bool verticalUpdatesEnabled = verticalScrollBar()->updatesEnabled();
+    if (coalesceLayout)
+    {
+        setUpdatesEnabled(false);
+        viewport()->setUpdatesEnabled(false);
+        horizontalScrollBar()->setUpdatesEnabled(false);
+        verticalScrollBar()->setUpdatesEnabled(false);
+    }
+
     displayedZoomLevel = boundedZoomLevel(level);
     if (!getCurrentFileDetails().isPixmapLoaded)
+    {
+        if (coalesceLayout)
+        {
+            setUpdatesEnabled(viewUpdatesEnabled);
+            viewport()->setUpdatesEnabled(viewportUpdatesEnabled);
+            horizontalScrollBar()->setUpdatesEnabled(horizontalUpdatesEnabled);
+            verticalScrollBar()->setUpdatesEnabled(verticalUpdatesEnabled);
+        }
         return;
+    }
 
     if (appliedExpensiveScaleZoomLevel != 0.0)
     {
@@ -1747,6 +1796,11 @@ void QVGraphicsView::setAnimatedZoomLevel(const qreal level)
     }
     updateSceneRect();
 
+    const bool hasHorizontalOverflow = horizontalScrollBar()->maximum()
+        > horizontalScrollBar()->minimum();
+    const bool horizontalTopologyChanged =
+        hadHorizontalOverflow != hasHorizontalOverflow;
+
     if (pendingZoomAnchorScene.has_value())
         restorePendingZoomAnchor();
     else if (zoomTransitionCentersImage && !loadIsFromSessionRestore)
@@ -1755,8 +1809,38 @@ void QVGraphicsView::setAnimatedZoomLevel(const qreal level)
     if (pendingZoomAnchorScene.has_value() || zoomTransitionCentersImage)
         constrainBoundsTimer->start();
 
-    if (hdrRendererActive)
+    if (coalesceLayout && horizontalTopologyChanged)
+    {
+        // The rangeChanged handler is queued by QAbstractScrollArea. Process
+        // only the current event-loop turn while no widget can present a
+        // partial frame; this also lets the resulting resize callbacks use
+        // the same pending anchor before native geometry is submitted.
+        QCoreApplication::processEvents(
+            QEventLoop::ExcludeUserInputEvents
+            | QEventLoop::ExcludeSocketNotifiers);
+        if (pendingZoomAnchorScene.has_value())
+            restorePendingZoomAnchor();
+        if (hdrRendererActive)
+            requestHDRRendererUpdate();
+
+        setUpdatesEnabled(viewUpdatesEnabled);
+        viewport()->setUpdatesEnabled(viewportUpdatesEnabled);
+        horizontalScrollBar()->setUpdatesEnabled(horizontalUpdatesEnabled);
+        verticalScrollBar()->setUpdatesEnabled(verticalUpdatesEnabled);
+    }
+    else if (coalesceLayout)
+    {
+        setUpdatesEnabled(viewUpdatesEnabled);
+        viewport()->setUpdatesEnabled(viewportUpdatesEnabled);
+        horizontalScrollBar()->setUpdatesEnabled(horizontalUpdatesEnabled);
+        verticalScrollBar()->setUpdatesEnabled(verticalUpdatesEnabled);
+        if (hdrRendererActive)
+            requestHDRRendererUpdate();
+    }
+    else if (hdrRendererActive)
+    {
         requestHDRRendererUpdate();
+    }
 }
 
 bool QVGraphicsView::isZoomTransitionRunning() const
@@ -1849,7 +1933,8 @@ void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional
 void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
                                   const std::optional<QPoint> &targetPos,
                                   const bool isApplyingCalculation,
-                                  const bool animateTransition)
+                                  const bool animateTransition,
+                                  const bool useAdaptiveDuration)
 {
     const qreal requestedLevel = boundedZoomLevel(absoluteLevel);
     const bool keepsCalculatedZoomMode =
@@ -1954,6 +2039,8 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
 
     zoomAnimation->setStartValue(displayedZoomLevel);
     zoomAnimation->setEndValue(requestedLevel);
+    zoomAnimation->setDuration(zoomTransitionDurationMs(
+        displayedZoomLevel, requestedLevel, useAdaptiveDuration));
     zoomAnimation->start();
 
     emit zoomLevelChanged();
@@ -2230,7 +2317,7 @@ void QVGraphicsView::recalculateZoom(
     lastCalculatedZoomMode = calculatedZoomMode;
     lastCalculatedZoomLevel = targetRatio;
 
-    zoomAbsolute(targetRatio, zoomAnchor, true, animateTransition);
+    zoomAbsolute(targetRatio, zoomAnchor, true, animateTransition, true);
 }
 
 qreal QVGraphicsView::calculateZoomLevelForMode(
@@ -2361,7 +2448,8 @@ void QVGraphicsView::toggleFitAnd100()
             getCursorViewportPosition();
         zoomAbsolute(1.0, cursorPosition.has_value()
             ? cursorPosition
-            : std::optional<QPoint>(Qv::CalculateViewportCenterPos));
+            : std::optional<QPoint>(Qv::CalculateViewportCenterPos),
+            false, true, true);
         fitOrConstrainImage();
         return;
     }

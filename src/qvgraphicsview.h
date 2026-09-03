@@ -29,6 +29,7 @@ class QVGraphicsView : public QGraphicsView
 
 public:
     static constexpr int ZoomTransitionDurationMs = 200;
+    static constexpr int ZoomTransitionMaximumDurationMs = 400;
     static constexpr int ZoomAnchorSettleDelayMs = 150;
 
     QVGraphicsView(QWidget *parent = nullptr);
@@ -56,7 +57,8 @@ public:
     void zoomAbsolute(const qreal absoluteLevel,
                       const std::optional<QPoint> &targetPos = {},
                       const bool isApplyingCalculation = false,
-                      const bool animateTransition = true);
+                      const bool animateTransition = true,
+                      const bool useAdaptiveDuration = false);
 
     const std::optional<Qv::CalculatedZoomMode> &getCalculatedZoomMode() const;
     void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating = false, const std::optional<QPoint> &mousePos = {});
@@ -140,6 +142,11 @@ public:
     bool hasPendingVectorRefinement() const;
 
     static qreal boundedZoomLevel(qreal requestedLevel);
+
+    // Semantic zoom jumps use a bounded duration derived from multiplicative
+    // zoom distance. Discrete wheel/keyboard steps keep the 200 ms contract.
+    static int zoomTransitionDurationMs(qreal fromLevel, qreal toLevel,
+                                        bool adaptiveDuration);
 
     // Keep wheel-step calculation pure so mouse and touchpad behavior can be
     // verified without depending on platform event delivery.

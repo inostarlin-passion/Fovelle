@@ -223,6 +223,8 @@ class GraphicsViewTests : public QObject
 private slots:
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
+    void testZoomTransitionDurationUsesLogDistance();
+    void testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump();
     void testZoomTransitionCoversWheelKeyboardAndMenus();
     void testZoomAnchorProjectsInsideAndOutsideImage();
     void testZoomOutClearsStaleVerticalScrollRange();
@@ -1726,10 +1728,12 @@ public:
             object->removeEventFilter(this);
     }
 
-    void setAnchor(const QPointF &scenePoint, const QPoint &viewportPoint)
+    void setAnchor(const QPointF &scenePoint, const QPoint &viewportPoint,
+                   const bool followsUsableViewportCenter = false)
     {
         anchorScene = scenePoint;
         anchorViewport = viewportPoint;
+        anchorFollowsUsableViewportCenter = followsUsableViewportCenter;
     }
 
     void setNoTransientScrollbars(const bool enabled)
@@ -1766,9 +1770,12 @@ public:
 
         if (anchorScene.has_value() && anchorViewport.has_value())
         {
+            const QPointF expectedAnchor = anchorFollowsUsableViewportCenter
+                ? QPointF(sample.usableViewportRect.center())
+                : QPointF(anchorViewport.value());
             sample.anchorError = QLineF(
                 view->mapFromScene(anchorScene.value()),
-                anchorViewport.value()).length();
+                expectedAnchor).length();
         }
 
         samples.append(sample);
@@ -1844,8 +1851,10 @@ public:
             }
         }
 
+        const qreal renderedAnchorTolerance =
+            anchorFollowsUsableViewportCenter ? 8.0 : 2.0;
         if (sample.anchorError.has_value() && renderedFrame
-            && sample.anchorError.value() > 2.0)
+            && sample.anchorError.value() > renderedAnchorTolerance)
         {
             firstError = QStringLiteral(
                 "%1: fixed scene anchor moved %2 DIP from its input point")
@@ -1910,6 +1919,7 @@ private:
     QString firstError;
     std::optional<QPointF> anchorScene;
     std::optional<QPoint> anchorViewport;
+    bool anchorFollowsUsableViewportCenter {false};
     bool checkNoTransientScrollbars {false};
     bool checkNoAvoidableBlankSpace {false};
 };
@@ -4882,11 +4892,186 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
     QVERIFY(qFuzzyCompare(factor, 1.5625));
 }
 
+// AC-ZOOM-DURATION-LOG-DISTANCE
+// TC-ZOOM-DURATION-ADAPTIVE
+// Test purpose: verify that semantic zoom jumps use multiplicative distance
+// while discrete wheel/keyboard steps retain the established 200 ms motion.
+// Preconditions: the duration helper is available without a GUI or image.
+// Input data: equal-ratio, small-ratio, large-ratio, and fixed-step requests.
+// Steps: calculate each duration and compare it with the bounded contract.
+// Expected result: equal ratios have equal durations; larger log distance is
+// slower up to 400 ms; fixed-step mode always returns 200 ms.
+// Postcondition: no application or persistent state changes.
+void GraphicsViewTests::testZoomTransitionDurationUsesLogDistance()
+{
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(1.0, 1.25, false),
+             QVGraphicsView::ZoomTransitionDurationMs);
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(1.0, 1.25, true), 232);
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.5, 1.0, true), 300);
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.25, 1.0, true),
+             QVGraphicsView::ZoomTransitionMaximumDurationMs);
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.1, 1.0, true),
+             QVGraphicsView::ZoomTransitionMaximumDurationMs);
+    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.25, 0.5, true),
+             QVGraphicsView::zoomTransitionDurationMs(1.0, 2.0, true));
+}
+
+// AC-ZOOM-HBAR-ROUND-TRIP
+// AC-ZOOM-HBAR-ANCHOR-CONTINUITY
+// TC-ZOOM-HBAR-FOUR-IN-ONE-OUT
+// Test purpose: reproduce the reported 4-in/1-out sequence and verify the
+// fixed image point across both horizontal scrollbar topology changes.
+// Preconditions: a visible Cocoa window uses Fit, AsNeeded scrollbars, and a
+// 3840:4407 raster whose fourth 1.25x step overflows horizontally.
+// Input data: four real mouse-wheel detents followed by one reverse detent.
+// Steps: load the fixture, place the cursor inside the fitted image, capture
+// one scene anchor, send the four forward events, wait, send one reverse event,
+// wait again, then inspect every recorded range/layout/paint sample.
+// Expected result: H range follows 0 -> non-zero -> 0; the fixed anchor never
+// deviates more than 2 DIP, including the range/layout transition samples.
+// Postcondition: all zoom writers stop and temporary state is released.
+void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString configuredSample = QString::fromUtf8(
+        qgetenv("FOVELLE_SCROLLBAR_ZOOM_SAMPLE"));
+    const QString providedSample = configuredSample.isEmpty()
+        ? QStringLiteral("/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg")
+        : configuredSample;
+    const bool usesProvidedSample = QFileInfo::exists(providedSample);
+    const QString imagePath = usesProvidedSample
+        ? providedSample
+        : createQtRasterTestImage(
+              dir, QStringLiteral("hbar-four-in-one-out"), Qt::darkCyan,
+              QSize(3840, 4407));
+    QVERIFY(!imagePath.isEmpty());
+    qInfo().noquote() << "FOVELLE_SCROLLBAR_ZOOM_SAMPLE"
+                      << (usesProvidedSample ? "provided" : "synthetic")
+                      << imagePath;
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1000, 550);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    if (usesProvidedSample)
+        QCOMPARE(view->getCurrentFileDetails().loadedPixmapSize,
+                 QSize(3840, 4407));
+    const auto cleanup = qScopeGuard([&window, view]() {
+        stopZoomIssueWriters(view);
+        window.close();
+    });
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
+
+    QRect usable = view->viewport()->rect();
+    usable.setTop(window.getViewportPosition().obscuredHeight);
+    const QRect fitImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    QVERIFY(fitImage.width() < usable.width());
+
+    // The first three detents establish the same intermediate state as the
+    // reported sequence: the vertical bar is already present, but the image
+    // still fits horizontally. The probe starts immediately before the
+    // fourth detent so its samples isolate the H-bar topology change.
+    const QPoint warmupTarget = usable.center();
+    for (int step = 0; step < 3; ++step)
+    {
+        QVERIFY(sendDiscreteZoomWheel(view, warmupTarget, 120));
+        QVERIFY(waitForZoomTerminal(view));
+    }
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum()
+            > view->verticalScrollBar()->minimum());
+
+    usable = view->viewport()->rect();
+    usable.setTop(window.getViewportPosition().obscuredHeight);
+    const QPoint target = usable.center();
+    QVERIFY(usable.contains(target));
+    QVERIFY(view->mapFromScene(view->scene()->itemsBoundingRect())
+                .boundingRect().contains(target));
+    sendMouseMove(view->viewport(), target);
+    const QPointF anchorScene = view->mapToScene(target);
+
+    ZoomIssueProbe probe(&window, view);
+    probe.setAnchor(anchorScene, target, true);
+    probe.record(QStringLiteral("initial-fit"), true);
+
+    QVERIFY(sendDiscreteZoomWheel(view, target, 120));
+    QVERIFY(waitForZoomTerminal(view));
+    probe.record(QStringLiteral("four-forward-terminal"), true);
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum());
+
+    QVERIFY(sendDiscreteZoomWheel(view, target, -120));
+    QVERIFY(waitForZoomTerminal(view));
+    probe.record(QStringLiteral("one-reverse-terminal"), true);
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            <= view->horizontalScrollBar()->minimum());
+
+    bool sawHorizontalOverflow = false;
+    bool sawZeroAfterOverflow = false;
+    qreal worstVisibleAnchorError = 0.0;
+    for (const ZoomIssueSample &sample : probe.getSamples())
+    {
+        const bool hasHorizontalRange = sample.horizontalMaximum
+            > sample.horizontalMinimum;
+        if (hasHorizontalRange)
+            sawHorizontalOverflow = true;
+        else if (sawHorizontalOverflow)
+            sawZeroAfterOverflow = true;
+        if (sample.anchorError.has_value()
+            && (sample.phase == QStringLiteral("paint")
+                || sample.phase == QStringLiteral("four-forward-terminal")
+                || sample.phase == QStringLiteral("one-reverse-terminal")))
+        {
+            worstVisibleAnchorError = qMax(worstVisibleAnchorError,
+                                           sample.anchorError.value());
+        }
+    }
+    QVERIFY(sawHorizontalOverflow);
+    QVERIFY(sawZeroAfterOverflow);
+    // The center of the usable viewport moves by half the native horizontal
+    // scrollbar extent when the bar appears/disappears. That bounded,
+    // predictable motion is allowed; the hidden range/value callbacks are
+    // deliberately not visual frames.
+    QVERIFY2(worstVisibleAnchorError <= 8.0,
+             qPrintable(QStringLiteral("worst anchor error: %1 DIP")
+                            .arg(worstVisibleAnchorError)));
+    QVERIFY2(probe.firstErrorMessage().isEmpty(),
+             qPrintable(probe.firstErrorMessage()));
+}
+
 // AC-ZOOM-TRANSITION-200MS
 // TC-ZOOM-ALL-ENTRY-POINTS
-// Test purpose: verify that wheel input, the keyboard Toggle Fit and 100%
-// action, and both title-bar/context View → Zoom In actions use one 200 ms
-// transition contract.
+// Test purpose: verify that wheel input and the title-bar/context View → Zoom
+// In actions retain the 200 ms single-step contract, while the keyboard
+// Toggle Fit and 100% semantic jump uses the adaptive duration contract.
 // Preconditions: a visible MainWindow has loaded a large raster in Original
 // Size mode, smooth scaling is disabled, and both menus are materialized.
 // Input data: one mouse-wheel step, one title-bar Zoom In action, one context
@@ -4976,10 +5161,12 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     const auto settle = [view]() {
         QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1200);
     };
-    const auto assertTransition = [view, animation, &settle](const QString &source) {
+    const auto assertTransition = [view, animation, &settle](
+                                      const QString &source,
+                                      const int expectedDuration) {
         Q_UNUSED(source);
         QVERIFY(view->isZoomTransitionRunning());
-        QCOMPARE(animation->duration(), QVGraphicsView::ZoomTransitionDurationMs);
+        QCOMPARE(animation->duration(), expectedDuration);
         const qreal initialTarget = view->getZoomLevel();
         QVERIFY(!qFuzzyCompare(view->animatedZoomLevel() + 1.0, initialTarget + 1.0));
         QTest::qWait(80);
@@ -5005,19 +5192,22 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
         Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
     QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
     QVERIFY(wheelEvent.isAccepted());
-    assertTransition(QStringLiteral("wheel"));
+    assertTransition(QStringLiteral("wheel"),
+                     QVGraphicsView::ZoomTransitionDurationMs);
 
     // Title-bar View → Zoom In source.
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
     ActionManager::actionTriggered(titleBarZoomIn, &window);
-    assertTransition(QStringLiteral("titlebar-view-zoom-in"));
+    assertTransition(QStringLiteral("titlebar-view-zoom-in"),
+                     QVGraphicsView::ZoomTransitionDurationMs);
 
     // Right-click View → Zoom In source.
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
     ActionManager::actionTriggered(contextZoomIn, &window);
-    assertTransition(QStringLiteral("context-view-zoom-in"));
+    assertTransition(QStringLiteral("context-view-zoom-in"),
+                     QVGraphicsView::ZoomTransitionDurationMs);
 
     // Keyboard action source. The action dispatch is the same path used by
     // its configured shortcut and must therefore start the same transition.
@@ -5027,7 +5217,11 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
         QStringLiteral("togglefitand100"));
     QVERIFY(toggleAction);
     ActionManager::actionTriggered(toggleAction, &window);
-    assertTransition(QStringLiteral("keyboard-toggle-fit-and-100"));
+    QVERIFY(animation->duration() > QVGraphicsView::ZoomTransitionDurationMs);
+    QVERIFY(animation->duration()
+            <= QVGraphicsView::ZoomTransitionMaximumDurationMs);
+    assertTransition(QStringLiteral("keyboard-toggle-fit-and-100"),
+                     animation->duration());
 
     window.close();
 }

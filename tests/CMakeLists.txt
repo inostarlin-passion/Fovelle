@@ -175,6 +175,25 @@ set_tests_properties(FovelleToggleFitStabilityAcceptance PROPERTIES
     LABELS "zoom;toggle-fit;dynamic;acceptance"
 )
 
+add_test(NAME FovelleZoomScrollbarDurationStatic
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/zoom_scrollbar_duration_static.py
+        --repo ${CMAKE_SOURCE_DIR}
+        --output ${CMAKE_BINARY_DIR}/test-results/zoom-scrollbar-duration-static.json)
+set_tests_properties(FovelleZoomScrollbarDurationStatic PROPERTIES
+    TIMEOUT 30
+    LABELS "zoom;scrollbar;duration;static;acceptance"
+)
+
+add_test(NAME FovelleScrollbarZoomDurationAcceptance COMMAND fovelle_tests
+    testZoomTransitionDurationUsesLogDistance
+    testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump -v1)
+set_tests_properties(FovelleScrollbarZoomDurationAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 60
+    LABELS "zoom;scrollbar;duration;dynamic;acceptance"
+)
+
 add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests
     testZoomOutClearsStaleVerticalScrollRange
     testMousePanKeepsOverflowRangeAndContinuity
