@@ -1,4 +1,5 @@
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 set(FOVELLE_TEST_SOURCES
     tst_qviewtests.cpp
@@ -154,6 +155,30 @@ add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
     TIMEOUT 90
+)
+
+add_test(NAME FovelleZoomIssueStatic
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/zoom_issue_acceptance_static.py
+        --repo ${CMAKE_SOURCE_DIR}
+        --output ${CMAKE_BINARY_DIR}/test-results/zoom-issue-acceptance-static.json)
+set_tests_properties(FovelleZoomIssueStatic PROPERTIES
+    TIMEOUT 30
+    LABELS "zoom;static;acceptance"
+)
+
+add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests
+    testZoomOutClearsStaleVerticalScrollRange
+    testMousePanKeepsOverflowRangeAndContinuity
+    testKeyboardZoomUsesCursorAnchor
+    testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor
+    testToggleFitAnd100UsesDisplayedState
+    testMouseWheelKeepsBottomRightAnchor
+    testZoomTerminalStateDoesNotRewriteViewport)
+set_tests_properties(FovelleFiveIssueZoomAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 150
+    LABELS "zoom;dynamic;acceptance"
 )
 
 add_test(NAME FovelleShortcutSettingsTests COMMAND fovelle_tests)

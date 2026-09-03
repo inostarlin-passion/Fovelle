@@ -73,7 +73,15 @@ public:
     void applyExpensiveScaling();
     void removeExpensiveScaling();
 
-    void recalculateZoom(const bool animateTransition = true);
+    void recalculateZoom(const bool animateTransition = true,
+                         const std::optional<QPoint> &zoomAnchor = {});
+
+    // Toggle is a view operation because its decision depends on the
+    // displayed frame and on the cursor in the view, not merely on the
+    // calculated-zoom enum stored by MainWindow.
+    void toggleFitAnd100();
+
+    bool isImageAtFit() const;
 
     void centerImage();
 
@@ -302,6 +310,10 @@ protected:
 
     int getRtlFlip() const;
 
+    qreal calculateZoomLevelForMode(Qv::CalculatedZoomMode mode) const;
+
+    std::optional<QPoint> getCursorViewportPosition() const;
+
     QRect getContentRectForZoomLevel(qreal level) const;
 
     QRect getDisplayedContentRect() const;
@@ -350,8 +362,9 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
-    void cancelPendingZoomAnchor();
+    void cancelPendingZoomAnchor(bool preserveSceneMargins = false);
     void restorePendingZoomAnchor();
+    void restoreSettledZoomAnchor();
     void scheduleVerticalScrollBarGeometry();
 
     QVGraphicsImageItem *loadedPixmapItem {nullptr};
@@ -416,6 +429,8 @@ private:
     std::optional<QPointF> fullScreenPanAnchorScene;
     std::optional<QPointF> pendingZoomAnchorScene;
     std::optional<QPoint> pendingZoomAnchorViewport;
+    std::optional<QPointF> settledZoomAnchorScene;
+    std::optional<QPoint> settledZoomAnchorViewport;
     QMarginsF pendingZoomAnchorViewportMargins;
     QMarginsF retainedZoomAnchorViewportMargins;
     bool pendingZoomAnchorFollowsViewportCenter {false};
@@ -434,6 +449,7 @@ private:
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
     QTimer *zoomAnchorSettleTimer;
+    QTimer *zoomAnchorPostLayoutTimer;
     QTimer *verticalScrollBarGeometryTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrPresentationTimer;
@@ -465,6 +481,10 @@ private:
     bool isLastMousePosDubious {false};
     bool isSystemWindowDragActive {false};
     QPoint lastMousePos;
+    // QAction::triggered() does not carry a viewport position.  Keep the last
+    // delivered mouse position so keyboard/menu zooms use the same anchor as
+    // the pointer without depending on a platform global-cursor query.
+    std::optional<QPoint> lastMouseViewportPosition;
     QElapsedTimer lastFocusIn;
 
     std::optional<Qv::GoToFileMode> turboNavMode;

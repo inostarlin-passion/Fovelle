@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 
 
 def add_check(
@@ -26,11 +27,12 @@ def add_check(
 
 
 def section_for(markdown: str, heading: str) -> str:
-    start = markdown.find(f"## {heading}")
-    if start < 0:
+    match = re.search(rf"^#{{1,6}}\s+.*\b{re.escape(heading)}\b.*$", markdown, re.MULTILINE)
+    if not match:
         return ""
-    end = markdown.find("\n## ", start + 1)
-    return markdown[start : end if end >= 0 else len(markdown)]
+    remainder = markdown[match.end() :]
+    end = re.search(r"^#{1,6}\s+", remainder, re.MULTILINE)
+    return markdown[match.start() : match.end() + (end.start() if end else len(remainder))]
 
 
 def main() -> int:
@@ -123,7 +125,7 @@ def main() -> int:
     )
 
     manual_pan_anchor_contract = (
-        "void cancelPendingZoomAnchor();" in view_header
+        "void cancelPendingZoomAnchor(bool preserveSceneMargins = false);" in view_header
         and "const bool isExternalViewportChange" in view_cpp
         and "cancelPendingZoomAnchor();" in view_cpp
         and "&QScrollBar::sliderPressed" in view_cpp
@@ -137,12 +139,12 @@ def main() -> int:
         "ST-ZOOM-03",
         manual_pan_anchor_contract,
         {
-            "cancellation_api_declared": "void cancelPendingZoomAnchor();" in view_header,
+            "cancellation_api_declared": "void cancelPendingZoomAnchor(bool preserveSceneMargins = false);" in view_header,
             "viewport_change_guard_is_present": "const bool isExternalViewportChange" in view_cpp,
             "user_scroll_signals_cancel_anchor": "&QScrollBar::sliderPressed" in view_cpp
             and "&QScrollBar::sliderMoved" in view_cpp
             and "&QScrollBar::actionTriggered" in view_cpp,
-            "pan_paths_cancel_anchor": "cancelPendingZoomAnchor();" in view_cpp,
+            "pan_paths_cancel_anchor": "cancelPendingZoomAnchor(true);" in view_cpp,
             "generation_invalidates_delayed_callback": "pendingZoomAnchorGeneration;" in view_cpp,
             "manual_pan_regression_present": "testManualScrollCancelsPendingZoomAnchor" in tests_cpp,
         },
@@ -474,14 +476,15 @@ def main() -> int:
         "后置条件",
     )
     case_ids = (
-        "TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION",
-        "TC-ZOOM-VBAR-VALUE-TRAJECTORY",
-        "TC-ZOOM-VBAR-GEOMETRY-TRAJECTORY",
-        "TC-ZOOM-VBAR-ANCHOR-TRAJECTORY",
-        "TC-ZOOM-VBAR-THUMB-TRAJECTORY",
-        "TC-ZOOM-VBAR-ASYNC-TERMINAL",
-        "TC-ZOOM-VBAR-INPUT-MATRIX",
-        "TC-ZOOM-VBAR-STATIC-CONTRACT",
+        "TC-SB-ZOOMOUT-ATOMIC",
+        "TC-DRAG-CONTINUITY-ATOMIC",
+        "TC-DRAG-OVERFLOW-ATOMIC",
+        "TC-KBD-ZOOM-ATOMIC",
+        "TC-TOGGLE-DIRECTIONAL-ATOMIC",
+        "TC-TOGGLE-VISUAL-ATOMIC",
+        "TC-WHEEL-REAL-ATOMIC",
+        "TC-ASYNC-QUIET-ATOMIC",
+        "TC-STATIC-TRACEABILITY",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}
     for case_id in case_ids:

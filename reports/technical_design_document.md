@@ -1,271 +1,205 @@
-# 图片缩放时垂直滚动条跳变：技术设计文档
+# Fovelle 图片缩放、拖拽与滚动条问题：技术设计文档
 
-> 验证提交：Fovelle `b378540e16a4c90a205320ea05a3653460ebd9a7`（生产实现基于 `79712ffb3298403cae55d81f37ec3bfd23862140`）
->
-> 验证环境：macOS Cocoa、Qt 6.11.1、普通 DPR 与 `QT_SCALE_FACTOR=2`
+> 文档日期：2026-09-03
+> 被测工作树：`/Users/inostarlin/code/Fovelle`（实现尚未提交）
+> 本机验证：macOS Cocoa、Qt 6.11.1、普通 DPR；另有独立 `QT_SCALE_FACTOR=2` 轨迹门禁
+> 参考调查：[reports/root_cause.md](root_cause.md)
 
-## 1. 目标与结论
+## 1. 目标与范围
 
-目标是修复图片缩放期间垂直滚动条出现可见瞬时震荡的问题，并把“不会跳变”定义成可被逐帧验证的合同，而不是只比较缩放前后的最终位置。
+本设计修复五类相互关联的视图问题，并把每一类问题拆成可独立判定的原子验收标准：
 
-本次修复包含两部分：
+1. 图片缩小到小于可用视口后，旧的垂直滚动范围不得残留。
+2. 放大后拖拽必须连续，且真实溢出轴的滚动范围不得因为取消旧锚点而消失。
+3. `Zoom In`、`Zoom Out` 的键盘快捷操作必须使用触发时鼠标位置作为图片内容锚点。
+4. `Toggle Fit and 100%` 必须依据当前已显示帧是否 fit 决定目标；fit→100% 放大用鼠标锚点，非 fit→fit 缩小用可用视口中心锚点。
+5. 鼠标滚轮放大必须保持鼠标下的图片内容点，右下角不得因坐标域错误而移出视口。
 
-1. 生产代码在 Qt 的滚动条布局事件中，同步修正全尺寸标题栏安全区导致的垂直滚动条容器顶边；原有零延迟合并任务改为具名 member timer，保留原有延迟语义并使其可观测。
-2. 测试代码同时检查 scrollbar value、range/thumb、图片锚点和滚动条物理 geometry，并覆盖真实键盘、滚轮、native pinch、Disabled/Expensive、普通 DPR/HiDPI、逐毫秒动画和延迟回调。
+“符合”不是只检查最终 zoom 数值。每个动态检查同时观察图片内容点、scene/view 映射、两轴 range/value、viewport 几何、动画中间帧和延迟 writer 的终态；任一已绘制或已提交的中间状态违反合同即失败。
 
-验收结论定义为以下合取：
+## 2. 问题分解与证据链
 
-```text
-AC-ZOOM-VBAR-TRANSIENT
-  = VALUE ∧ GEOMETRY ∧ ANCHOR ∧ THUMB ∧ ASYNC ∧ MATRIX
-```
+### 2.1 根因到修复的映射
 
-本设计不把“终态正确”当作“过程正确”。任意中间 paint、提交状态或已执行的延迟回调违反任一谓词，测试即失败，即使之后又回到原位置。
-
-## 2. 对用户问题的直接解释：为什么肉眼看到跳变而测试仍通过
-
-旧测试通过的原因已经由故障轨迹定位，而不是推测：它记录了 `verticalBarGlobalRect`，但旧的 `validateZoomTrace()` 没有比较这个字段；它只比较了 value、独立期望值、锚点误差和“根据当前 scrollbar geometry 计算出来的”thumb。
-
-在旧失败轨迹中，垂直值可以保持不变：
-
-```text
-vertical value: 291 → 291 → 291
-bar global rect:  (1169, 291, 15, 480)
-                  → (1169, 263, 15, 508)
-                  → (1169, 291, 15, 480)
-```
-
-因此人眼看到的是控件整体先向上移动 28 DIP、轨道高度改变、随后回到安全位置；但 value 没有跳，旧断言就没有失败。旧 thumb oracle 还有一个结构性盲点：实际 thumb 和期望 thumb 都使用同一个“当前滚动条 geometry”调用 `SC_ScrollBarSlider`。如果整个 bar/container 一起移动，两个矩形会一起移动，二者仍然相等，形成自洽但不完整的绿色结果。
-
-这正是本次新增 `verticalBarGlobalRect`、`verticalBarContainerGlobalRect` 的独立 geometry oracle，以及在 `Paint`/committed sample 上比较基线的原因。现在同一轨迹会在第一个绘制到错误顶边的 sample 直接失败；生产修复则在下一次 paint 前同步把容器顶边恢复到标题栏安全区。
-
-## 3. 问题分解与显式前提
-
-### 3.1 需要分别观测的四类“位置”
-
-“垂直滚动条位置”不是一个单一变量，必须拆成以下可证伪对象：
-
-| 对象 | 观测量 | 可见失败例子 |
+| 问题 | 证据驱动的根因 | 修复策略 |
 | --- | --- | --- |
-| 数值位置 | `minimum/maximum/value/pageStep` | value 被 future range 夹住，再被锚点恢复 |
-| 比例位置 | 当前 range 与 style thumb | value 相同但 range/pageStep 改变，thumb 比例改变 |
-| 控件几何 | bar 与 parent container 的全局 `x/top/width/height` | value 不变，container 先到 viewport 顶部再回安全顶边 |
-| 内容锚点 | 同一图片内容点的 viewport 坐标 | thumb 看似稳定，但图片内容发生位移 |
+| P1：缩小后垂直条仍存在 | 缩放锚点为保证图片外部点可达而加入的虚拟 scene margin 在结算后被保留；`AsNeeded` 因此看到非零范围。 | `settlePendingZoomAnchor()` 按当前 displayed image 与 usable viewport 分轴裁剪 retained margin；margin 改变时立即 `updateSceneRect()`，使 range 重新由真实内容决定。 |
+| P2：拖动跳变、横条消失 | 旧拖动入口清除 pending/retained margin 并重建 scene；伪造的水平范围归零后，Qt 的 alignment 与 viewport 尺寸一起变化，图片发生离散重定位。 | 手动滚动/拖拽以 viewport 为新权威，`cancelPendingZoomAnchor(true)` 只取消旧内容锚点而保留当前可达性 margin；generation 使旧延迟回调失效；拖动后的真实溢出范围不被清除。 |
+| P3：键盘快捷键不跟随鼠标 | `QAction::triggered` 只携带 `checked`，原路径没有另外取得 viewport 坐标，`zoomIn/zoomOut` 固定使用中心哨兵。 | 视图缓存最近一次有效 viewport mouse event；动作触发时优先读取缓存，必要时用 `QCursor::pos()` 映射到 viewport；无有效指针才回退中心。 |
+| P4：未 fit 时 Toggle 误跳 100% | `calculatedZoomMode` 表示逻辑目标，不等于当前动画 displayed frame；动画开始后模式可能已是 fit，但图片仍溢出。 | `isImageAtFit()` 同时要求 displayed zoom 等于独立计算的 fit level 且 H/V range 为零；Toggle 依据该实际状态选 100% 或 fit；finish/resize 在 AsNeeded 布局稳定后重算 fit。 |
+| P5：右下角滚轮放大后不见 | `getDisplayedContentRect()` 已是变换后的显示尺寸，却再次作为 scene rect 传给 `mapFromScene()`，导致 transform 被重复应用。 | 锚点投影统一使用 `scene()->itemsBoundingRect()` 这一未重复变换的 item scene rect；结算后再处理 scrollbar relayout，并按可达范围钳制。 |
 
-### 3.2 分析前提
+### 2.2 显式前提
 
-- 测试运行于 macOS Cocoa；本地验证环境为 Qt 6.11.1 arm64。
-- `QVGraphicsView` 使用 `ScrollBarAsNeeded`，并将 `transformationAnchor` 设为 `NoAnchor`；应用代码自行保存/恢复缩放锚点。
-- 缩放事务同时存在最终逻辑 zoom 和动画中的当前 displayed zoom；两者在 200 ms 动画期间可能不同。
-- 动态 fixture 只有一个 raster image item；垂直方向始终溢出，水平方向在 1.00 与 1.25 附近穿越 `AsNeeded` 阈值。
-- 测试结论只覆盖显式矩阵，不外推到任意图片、平台 style、系统级 HID 驱动或合成器故障。
+以下前提是推理条件，不是隐含假设：
 
-### 3.3 风险链
+- 两轴 scrollbar policy 是 `Qt::ScrollBarAsNeeded`；`QVGraphicsView` 的 Qt transformation anchor 不负责本项目的最终定位，Fovelle 自己恢复锚点。
+- fit 的权威状态是当前 displayed frame 达到独立计算的 fit level，并且 H/V range 均为零；`calculatedZoomMode` 只能表示目标意图。
+- “可用视口”包含运行时的窗口安全区扣除，不硬编码 macOS titlebar inset。
+- 鼠标事件坐标以 viewport 局部 DIP 表示；`mapToScene()` 的输入是 viewport 点，`mapFromScene()` 的输入必须是 scene 坐标。
+- 目标点在缩放后不可达时，允许投影到图片边界和 scrollbar 合法 range；测试误差为 2 DIP。
+- 动态测试用可生成的 raster fixture，避免把 `/Volumes/CRYSTAL/...` 外置卷作为 CI 前提；该现场路径仍作为人工复现参考：`/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg`。
+- 结论覆盖显式测试矩阵，不外推到任意平台 style、任意合成器或系统级 Accessibility/HID 事件。
 
-```text
-真实缩放输入
-  → 动画改变 displayed transform
-  → scene rect / viewport / 两轴 range 重算
-  → AsNeeded 的跨轴 layout 改变 viewport 高度
-  → macOS 全尺寸标题栏安全区触发 bar/container geometry 更新
-  → 延迟 0 ms geometry writer 或下一轮 paint 看到未修正顶边
-  → 肉眼看到 y=安全顶边 → viewport 顶边 → 安全顶边
-```
+### 2.3 联网多跳检索与交叉验证
 
-同时存在另一条数据链：
+检索从证据缺口开始，路径如下：
 
 ```text
-Expensive backing pixmap 替换
-  → image item scene rect 改变
-  → 旧的绝对 scene anchor 不再代表同一图片点
-  → anchor settle / range restore 写入错误 vertical value
+用户看到的条/图片跳变
+  → 区分 range/value、bar geometry、viewport 和图片内容点
+  → 查 Qt 的 AsNeeded、sceneRect、坐标映射和 action 事件合同
+  → 用 Qt 源码核对两轴 scrollbar 布局的交叉影响
+  → 回到 Fovelle 源码追踪 scene margin、动画、锚点和拖拽写入者
+  → 用独立内容锚点与物理几何 oracle 交叉验证
+  → 用终态 quiet 检查排除延迟回调的迟到重写
 ```
 
-两条链都必须覆盖。只测 value 会漏第一条链；只测 geometry 会漏第二条链。
+已核验的公开事实：
 
-## 4. 联网检索、多跳取证与交叉验证
+- [`QAbstractScrollArea` 官方文档](https://doc.qt.io/qt-6/qabstractscrollarea.html)说明滚动条会占用 viewport 尺寸，`ScrollBarAsNeeded` 依据范围决定是否显示；因此一轴出现会改变另一轴的可用尺寸。
+- [`QGraphicsView` 官方文档](https://doc.qt.io/qt-6/qgraphicsview.html)说明 scene、transform、viewport、alignment 和 `mapToScene/mapFromScene` 共同决定内容定位；本设计不把已变换的 content rect 当作 scene 输入。
+- [`QAction` 官方文档](https://doc.qt.io/qt-6/qaction.html)说明 `triggered(bool checked = false)` 的信号参数不是鼠标位置；键盘动作必须在视图侧取得最近指针位置或使用明确 fallback。
+- [`QVariantAnimation` 官方文档](https://doc.qt.io/QT-6/qvariantanimation.html)说明当前值是在起止值间按时间插值得到；逻辑终值不能代表 200 ms 动画中的每个 displayed frame。
+- [`QPropertyAnimation` 官方文档](https://doc.qt.io/QT-6/qpropertyanimation.html)说明属性动画会把中间值写入目标属性；因此 `finishZoomTransition()` 与延迟 writer 必须纳入终态验证。
 
-检索从证据缺口出发，而不是从“滚动条 bug”关键词直接猜结论：
+交叉验证约束：Qt 文档用于确认公开语义，Qt 源码用于确认 AsNeeded 的双轴布局细节，Fovelle 源码和 QtTest trace 用于确认本项目的实际写入顺序。单独的最终截图、最终 zoom、scrollbar value 或逻辑 mode 都不能作为充分证据。
+
+## 3. 原子验收标准
+
+发布门禁定义为以下合取：
 
 ```text
-人眼看到的位移
-  → value、range/thumb、bar geometry、图片 anchor 哪一个改变？
-  → Qt 谁负责计算 viewport 与 range？
-  → AsNeeded 是否会让另一条滚动条改变 viewport？
-  → 动画使用的是当前帧还是最终目标？
-  → backing pixmap 是否改变 scene 坐标基？
-  → 延迟 writer 是否在 paint 前后覆盖了状态？
+AC-ALL
+  = AC-SB-NO-STALE-RANGE
+  ∧ AC-DRAG-CONTINUOUS
+  ∧ AC-DRAG-PRESERVES-OVERFLOW-BARS
+  ∧ AC-KBD-ZOOM-CURSOR-ANCHOR
+  ∧ AC-TOGGLE-DIRECTIONAL-ANCHOR
+  ∧ AC-TOGGLE-VISUAL-STATE
+  ∧ AC-WHEEL-CONTENT-ANCHOR
+  ∧ AC-NO-LATE-REWRITE
 ```
 
-### 4.1 已核验的 Qt 事实
+| ID | 原子判定 | 主要观测量 | 固化测试代码 |
+| --- | --- | --- | --- |
+| `AC-SB-NO-STALE-RANGE` | 缩放回 fit 并稳定后，图片小于可用视口的轴 H/V range 均为零，历史 margin 不复活。 | displayed image rect、usable viewport、H/V min/max、quiet range tuple | `GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange` |
+| `AC-DRAG-CONTINUOUS` | 每个拖拽 move 的图片内容位移等于指针 delta，误差不超过 2 DIP；边界只允许合法钳制。 | tracked scene point、press/move/release delta、每步 mapped point | `GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity` |
+| `AC-DRAG-PRESERVES-OVERFLOW-BARS` | 当前轴仍真实溢出时，开始拖拽/取消旧锚点不得把该轴 range 变为零。 | drag 前后 H/V range 和 maximum | `GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity` 的独立 range 断言 |
+| `AC-KBD-ZOOM-CURSOR-ANCHOR` | 真实 `Zoom In/Out` shortcut 保持触发时鼠标下同一 scene 内容点。 | cached/global cursor、scene anchor、mapped anchor | `GraphicsViewTests::testKeyboardZoomUsesCursorAnchor` |
+| `AC-TOGGLE-DIRECTIONAL-ANCHOR` | Toggle 目标比当前 displayed frame 大时用鼠标锚点，目标更小时用 usable viewport center。 | fit/100 两次方向、cursor anchor、center anchor | `GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor` |
+| `AC-TOGGLE-VISUAL-STATE` | 当前实际未 fit 时 Toggle 目标为 fit；只有实际 fit 时才目标 100%，不被逻辑 mode 提前值误导。 | `isImageAtFit()`、displayed/logical zoom、最终 ranges | 同一测试中的 displayed-state 断言 |
+| `AC-WHEEL-CONTENT-ANCHOR` | 真实 wheel 放大后，右下角图片内容点仍在鼠标目标附近，边界可达且不丢失。 | QWheelEvent position、scene UV、mapped image edge | `GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor` |
+| `AC-NO-LATE-REWRITE` | animation、settle、post-layout、expensive scale、constraint 完成后不再改写正确终态。 | terminal tuple、timer active 状态、两轮 event loop + 延迟 quiet | `GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport` |
 
-- [`QAbstractScrollArea` 官方文档](https://doc.qt.io/qt-6/qabstractscrollarea.html#details)说明 `ScrollBarAsNeeded` 会在滚动范围非零时显示滚动条；滚动条会占用 viewport 的对应尺寸，因此一条滚动条的出现会影响另一轴的布局。
-- [`QGraphicsView` 官方文档](https://doc.qt.io/qt-6/qgraphicsview.html)说明 scene、transform、viewport 和 transformation anchor 共同决定场景在视口中的定位；本项目选择 `NoAnchor` 后，pending anchor 是应用层的定位责任。
-- [`QPropertyAnimation` 官方文档](https://doc.qt.io/qt-6/qpropertyanimation.html)说明属性值在起止值之间插值；动画 setter 收到的是中间 displayed frame，不能用最终 logical zoom 的 geometry 代表每一帧。
-- Qt 6.11.1 的 [`QGraphicsViewPrivate::recalculateContentSize()` 源码](https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp)实际查询 scrollbar extent 并处理一轴出现后触发另一轴需求的交叉布局；这与本地 trace 中的 viewport/bar Resize、Move 顺序一致。
-- [`QStyle` 官方文档](https://doc.qt.io/qt-6/qstyle.html)提供平台相关控件几何；测试用 `QStyleOptionSlider` 与 `SC_ScrollBarSlider` 计算 thumb，不使用固定截图尺寸。
-- [`QNativeGestureEvent` 官方文档](https://doc.qt.io/qt-6/qnativegestureevent.html)定义 native gesture 事件；pinch 测试发送 Begin、Zoom 增量和 End 完整事件流，而不是调用内部 zoom 函数。
-- [Qt High DPI 官方文档](https://doc.qt.io/qt-6/highdpi.html)说明 widget 几何使用设备无关像素，而图像缓冲区可能以 DPR 表示；因此测试分别运行普通进程和 `QT_SCALE_FACTOR=2` 进程并记录实际 DPR。
+## 4. 生产实现设计
 
-### 4.2 项目内证据链
+### 4.1 坐标域与锚点算法
 
-本地源码和 trace 交叉得到：
-
-1. `zoomAbsolute()` 设置逻辑目标并启动 `QPropertyAnimation`；当前绘制帧由 `animatedZoomLevel` 决定。
-2. `updateSceneRect()`/`ScrollHelper` 根据当前 displayed frame 的内容几何维护 range，避免用最终目标制造 future range。
-3. `applyExpensiveScaling()` 在 backing pixmap 更换前保存 anchor UV，更换后按新 image rect 重建 scene anchor。
-4. Qt layout 更新 `qt_scrollarea_vcontainer` 的 geometry。旧 0 ms callback 在布局后才改 top，因而可能在其间发生一次错误 paint。
-5. 本次修复在 `QEvent::Move/Resize/Show` 的 event filter 中同轮调用 `refreshVerticalScrollBarGeometry()`；具名 `verticalScrollBarGeometryTimer` 仍负责零延迟合并和最终兜底。
-6. 测试 trace 同时记录 event object、bar/container global rect、value、range、thumb、anchor 和 timer phase，因而能把“数值正确但控件移动”与“锚点写值错误”区分开。
-
-## 5. 设计方案
-
-### 5.1 生产修复
-
-#### A. 把匿名零延迟任务变为可观测 member timer
-
-在 `QVGraphicsView` 中增加：
-
-```cpp
-QTimer *verticalScrollBarGeometryTimer;
-```
-
-配置为 named、single-shot、interval 0。`scheduleVerticalScrollBarGeometry()` 仍只启动一个 pending timer，保持原 coalescing 语义；timeout 清除 pending 标志并调用 `refreshVerticalScrollBarGeometry()`。
-
-这样做的作用是可观测性和终止合同，不是把异步回调误认为同步修复。测试可以确认这个 writer 确实执行且 terminal 时 inactive。
-
-#### B. 在下一次 paint 前修正全局安全顶边
-
-`QVGraphicsView::eventFilter()` 继续监听垂直 bar/container 的 `LayoutRequest`、`Move`、`Resize`、`Show`：
-
-- 所有事件都 schedule 具名 0 ms timer；
-- `Move/Resize/Show` 在事件已赋予新 geometry、但下一次 paint 尚未发生的同一事件轮中，直接调用 `refreshVerticalScrollBarGeometry()`；
-- `refreshVerticalScrollBarGeometry()` 只改变 bar/container 的 top，保留 Qt 管理的 bottom，避免破坏 horizontal-bar corner handling；
-- `isUpdatingVerticalScrollBarGeometry` 防止 `setGeometry()` 产生的嵌套 Move/Resize 递归；timer 作为下一轮最终兜底。
-
-修复的关键不变量是：
+`zoomAbsolute()` 的输入 `targetPos` 是 viewport DIP。算法先将其投影到当前 image item 的 viewport rect，再用 `mapToScene()` 得到稳定的 scene anchor：
 
 ```text
-任何可绘制状态的 vertical bar global top
-  ≥ viewport global top + obscuredHeight
+imageScene = scene()->itemsBoundingRect()
+imageViewport = mapFromScene(imageScene).boundingRect()
+targetViewport = project(targetPos, imageViewport)
+anchorScene = mapToScene(targetViewport) - roundingError
 ```
 
-并且在固定窗口缩放事务内，bar/container 的 `x/top/width` 不应在两个可绘制状态之间往返。
+禁止下列错误路径：把已经由 `getDisplayedContentRect()` 计算过的显示尺寸再传给 `mapFromScene()`。`zoomAnchorViewportPoint()`、`zoomAbsolute()`、`restoreSettledZoomAnchor()` 均基于同一 scene item 几何合同。
 
-#### C. 保留并约束已有缩放坐标一致性
+锚点的恢复分两阶段：
 
-- Scroll range 使用 displayed frame 的 content rect，不使用未来 logical frame；
-- Expensive backing pixmap 替换前后按归一化 `(u,v)` 重建 anchor；
-- pending anchor 使用 generation 防止过期 callback 覆盖新意图；
-- 手动 scrollbar drag、wheel/pan/action 会取消旧 pending anchor；
-- style extent 由 Qt platform style 提供，禁止方向固定宽高。
+1. 动画每次 `setAnimatedZoomLevel()` 后恢复 pending scene anchor，保证中间 frame 跟随输入。
+2. `settlePendingZoomAnchor()` 清理可失效的虚拟 margin 后保存 settled anchor；`zoomAnchorPostLayoutTimer` 在 AsNeeded 改变 viewport 后再次恢复一次，避免 bar 消失导致的横向/纵向布局回弹。
 
-### 5.2 测试修复
+### 4.2 虚拟 scene margin 与滚动范围
 
-测试统一使用 `ZoomTraceProbe`：
-
-- 真实输入：`QTest::keySequence()`、`QWheelEvent`、`QNativeGestureEvent`；
-- 真实锚点：keyboard 使用 usable viewport center，wheel/pinch 使用图片内 `(0.40, 0.35)` 非中心点；
-- 真实动画：确定性阶段逐一设置每个 integer millisecond，live 阶段保留真实 clock/queued layout/timer 交错；
-- 真实 style：按当前 `QStyleOptionSlider` 计算 actual/expected thumb；
-- 真实 geometry：记录 viewport、bar 和 bar container 全局矩形；
-- 失败证据：保存完整 JSON、first-bad/worst/terminal 三类 frame；
-- 预条件：等待平台初始化的 `100×30` placeholder 消失并达到 style extent 后，才建立轨迹 baseline。
-
-## 6. 独立预言机
-
-### 6.1 图片锚点与垂直 value
-
-对 sample `k`，当前 backing image scene rect 为：
+外部图片点需要 margin 才能被放在指定 viewport 位置，但 margin 不是永久内容。结算时按轴执行：
 
 ```text
-I_k = (L_k, T_k, W_k, H_k)
+if displayedImage.width  <= usableViewport.width  + 1:
+    left/right margin = 0
+if displayedImage.height <= usableViewport.height + 1:
+    top/bottom margin = 0
 ```
 
-输入前固定图片内容归一化坐标 `a=(u,v)`，同一内容点在当前 scene 中为：
+若旧 scene margin 或 retained margin 发生改变，且当前不是递归 `updateSceneRect()`，立即重建 scene rect。这样 `ScrollBarAsNeeded` 的 range 来源回到真实 image item；P1 的关键不是强行隐藏 scrollbar，而是消除制造 range 的虚拟输入。
+
+### 4.3 拖拽与手动滚动的事务权
+
+拖拽、slider、wheel pan、keyboard pan 和 native pan 都先以 viewport 交互为权威：
+
+- `cancelPendingZoomAnchor(true)` 停止 settle/post-layout timer、递增 generation 并清掉旧 scene anchor；
+- preserve 模式保留当前 pending margin，保证仍溢出的图片轴继续有合法 range；
+- 不在 `sliderMoved/actionTriggered` 的半提交时机重建 scene rect，避免把旧 value 重放；
+- 新的 pan 位移由 `ScrollHelper` 累加，直到边界才交给 scrollbar 合法钳制。
+
+这使 P2 的连续位移和“横条不因取消锚点消失”成为两个独立 oracle，而不是依赖一次终态截图。
+
+### 4.4 键盘缩放与 Toggle 状态机
+
+`getCursorViewportPosition()` 的优先级为：最近一次位于 viewport 内的 mouse event → 可见全局 cursor 映射 → 无有效位置。后者使用 usable viewport center 哨兵。
+
+`zoomIn()` / `zoomOut()` 始终调用该 helper；因此 QAction、菜单和快捷键最终使用相同视图锚点逻辑。`Toggle Fit and 100%` 位于 `QVGraphicsView`，原因是它必须读取 displayed frame：
 
 ```text
-p_k = (L_k + u·W_k, T_k + v·H_k)
+currentlyAtFit = isImageAtFit()
+if currentlyAtFit:
+    target = 1.0; anchor = cursor or center
+else:
+    target = calculateZoomLevelForMode(ZoomToFit)
+    anchor = cursor if target > displayedZoom else usableViewport.center()
 ```
 
-设当前 transform 为 `T_k`，目标 viewport 坐标为 `q_k`。fixture 保证 vertical range 非零、anchor 不在端点，因此期望整数 value 为：
+`isImageAtFit()` 不读取单独的 mode 名称，而是比较 displayed zoom 与独立 fit level，并要求 H/V range 为零。`finishZoomTransition()` 和含 pending anchor 的 resize 路径在 scrollbar relayout 后重新计算 fit，防止“图片已包含但倍率仍是旧 fit 值”的假 fit 状态。
+
+### 4.5 异步与终态
+
+缩放动画仍由统一的 `QPropertyAnimation` 驱动，时长 200 ms；pending settle、post-layout reconcile、constraint、expensive scale 和 scrollbar geometry writer 都是可观察的 member timer 或状态。终态处理顺序为：
 
 ```text
-r_k  = y(T_k(p_k)) - q_k
-V*_k = clamp(qRound(r_k), vMin_k, vMax_k)
+animation finished
+  → setAnimatedZoomLevel(logical zoom) 精确归一化
+  → restore pending/settled anchor
+  → 依据稳定 viewport 重算 fit（如需要）
+  → constrainBounds
+  → 等待所有相关 timer inactive
 ```
 
-代码中的 `verticalExpected` 只读 transform、当前 image rect、anchor UV、目标坐标和 range；它不读取 actual `verticalValue`，避免出现“被测值自证”。
+`verticalScrollBarGeometryTimer` 使用 named、single-shot、0 ms coalescing；它用于合并 Qt layout 事件并提供可审计的兜底，不作为唯一正确性的来源。
 
-### 6.2 thumb 与物理 geometry
+## 5. 测试设计与代码落点
 
-当前 style 下：
+### 5.1 静态测试
 
-```text
-actualThumb   = styleRect(sliderPosition = V_k)
-expectedThumb = styleRect(sliderPosition = V*_k)
-```
+`tests/zoom_issue_acceptance_static.py` 检查：
 
-其中 `styleRect` 是 `subControlRect(CC_ScrollBar, option, SC_ScrollBarSlider, bar)`。该比较检测 value/range/pageStep 引起的 thumb 偏差；独立的 bar/container 比较检测 value 不变但控件整体移动的情况。
+- 八条原子标准是否同时出现在设计、规格和 QtTest marker 中；
+- P1–P5 的生产实现合同是否存在；
+- 真实 `QWheelEvent`、`QTest::keySequence`、鼠标 drag、独立内容锚点和 range/geometry oracle 是否存在；
+- 九个结构化 Markdown case 是否包含六个字段，并显式区分静态/动态、瞬态/稳态；
+- 静态脚本和七个动态函数是否注册到 CTest。
 
-在本测试的固定窗口与安全区模型内：
+CTest 名称：`FovelleZoomIssueStatic`，输出机器证据到 `build/test-results/zoom-issue-acceptance-static.json`。
 
-- `bar/container global x、top、width` 必须保持基线不变；
-- height/bottom 可因水平 `AsNeeded` 的合法切换而变化，但不得带来 top 回弹；
-- H 只能从起始状态向目标状态切换，不能出现反向回弹；
-- vertical range 全程非零。
+### 5.2 动态测试
 
-### 6.3 瞬态与稳态
+七个 QtTest 函数覆盖八条原子标准；拖拽测试保留两个独立断言块，因为它们共享同一真实输入事务；Toggle 的方向和 displayed-state 分别使用独立函数：
 
-判定 sample 包括：
+- `testZoomOutClearsStaleVerticalScrollRange`：三格 wheel in、三格 wheel out，检查 fit 图像尺寸、两轴 range 和 quiet 状态。
+- `testMousePanKeepsOverflowRangeAndContinuity`：真实 press/move/release，检查 tracked scene point 位移以及 H/V overflow range。
+- `testKeyboardZoomUsesCursorAnchor`：真实 shortcut sequence，分别覆盖 Zoom In 与 Zoom Out。
+- `testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor`：fit→100 的 cursor anchor、100→fit 的 center anchor，并等待实际 fit。
+- `testToggleFitAnd100UsesDisplayedState`：在 fit 动画尚未结束时重复触发 Toggle，确认仍选择 fit；只有稳定 fit 才进入 100%。
+- `testMouseWheelKeepsBottomRightAnchor`：真实 `QWheelEvent` 发送到 viewport，检查右下角。
+- `testZoomTerminalStateDoesNotRewriteViewport`：Expensive scaling 下检查所有延迟 writer 完成后的 tuple 不变。
 
-- 所有 `paint` sample；
-- 连续两个 event-loop turn 无新增相关事件后的 committed sample；
-- animation finished 与各 delayed writer timeout 边界 sample；
-- deterministic `manual-time-*` sample 和 terminal sample。
+固定的 `waitForZoomTerminal()` 等待 animation 和具名 timer 均 inactive；它不以一个固定 sleep 代替状态条件。动态测试还保留既有的 scrollbar trajectory 测试，覆盖键盘、wheel、native pinch、Disabled/Expensive、普通 DPR/HiDPI 的逐时间轨迹。
 
-因此 `A → B → A` 中的 B 只要被 paint 或提交，就会失败；“最后又回来了”不再掩盖中间错误。
+## 6. 风险与限制
 
-## 7. 覆盖矩阵
-
-| 维度 | 覆盖值 |
-| --- | --- |
-| 输入 | keyboard / wheel / native pinch |
-| 方向 | 1.00→1.25 / 1.25→1.00 |
-| scaling | Disabled / Expensive |
-| anchor | keyboard center / wheel+pinch fixed image point |
-| DPR | 默认 / 独立 `QT_SCALE_FACTOR=2` 进程 |
-| 时间 | 逐 integer millisecond / real clock replay |
-| 异步源 | animation、range/layout、paint、bar geometry、anchor settle、constraint、expensive scale |
-
-12 行数据在两个 DPR 进程中运行；每行又执行 deterministic 与 live 两阶段。
-
-## 8. 原子验收标准
-
-| ID | 原子标准 | 固化位置 |
-| --- | --- | --- |
-| `AC-ZOOM-VBAR-VALUE` | 每个可判定 sample 的 actual vertical value 满足独立 `V*` oracle，误差不超过 1 个滚动单位 | `zoomTraceSampleError()`、`validateZoomTrace()` |
-| `AC-ZOOM-VBAR-GEOMETRY` | 固定窗口内 bar/container 全局 x、top、width 无可见往返移动 | `ZoomTraceProbe::record()`、`validateZoomTrace()` |
-| `AC-ZOOM-VBAR-ANCHOR` | 同一归一化图片点在目标 viewport 位置，X/Y 误差不超过 2 DIP | `ZoomTraceProbe::record()`、`zoomTraceSampleError()` |
-| `AC-ZOOM-VBAR-THUMB` | actual thumb 与当前 style 对 expected value 的 thumb 一致，并正确处理 H threshold | `zoomTraceSampleError()`、轨迹 H 状态检查 |
-| `AC-ZOOM-VBAR-ASYNC` | animation 与全部相关 delayed writer 执行后，terminal 连续静止且 tuple 不再改变 | live replay、timer phase、terminal check |
-| `AC-ZOOM-VBAR-MATRIX` | 三种真实入口、两个方向、两种 scaling、两个 DPR 均执行且覆盖充分 | data function、CTest 注册 |
-
-总标准 `AC-ZOOM-VBAR-TRANSIENT` 是上述六条的合取。
-
-## 9. 变异与可证伪性
-
-为了验证测试不是再次假绿，变异只允许在 disposable worktree：
-
-1. 恢复 stale-range：暂时让 displayed frame 使用最终 logical zoom 的 content rect；预期独立 `verticalExpected` 或 anchor Y 失败。
-2. 在动画中点把 vertical value 暂时写成 `V+24`，下一帧恢复；预期逐帧/paint oracle 在中点失败，而只比较终态的对照测试可能仍通过。
-3. 暂时跳过 `refreshVerticalScrollBarGeometry()` 的同轮调用；预期 geometry oracle 在 `y=viewportTop` 的 paint sample 失败。
-
-变异代码不进入工作区最终实现；正式通过必须来自未注入的生产代码。
-
-## 10. 非目标与边界
-
-- 本方案不宣称证明所有操作系统、style、图片解码器和窗口管理器绝对不存在滚动条问题。
-- 系统级 Accessibility/HID 拖拽不纳入默认 CTest；它需要外部权限和外部图片，不能作为可重复的默认门禁。
-- GPU 合成器在 QWidget 已提交正确 geometry 后自行显示错误帧，不属于本 geometry oracle 的可观测范围。
-- 若现场仍能复现，应首先收集 `trace.json`，区分 value/range/thumb、bar geometry、anchor 和 timer phase，再决定是否增加新的数据行；不能仅凭肉眼把新现象归因于 DPR。
+- 默认动态门禁使用 Cocoa QPA；其他平台 style 需要重新核验 platform-specific scrollbar extent 和布局事件顺序。
+- 指定 CRYSTAL JPEG 是人工现场复现输入，不作为默认 CTest 依赖；生成 fixture 用于可移植的精确断言。
+- 系统级 Accessibility/HID 驱动测试仍是显式 opt-in，不把外部权限状态混入默认门禁。
+- 2 DIP 是本测试对 fractional transform、整数 scrollbar value 和 DIP 舍入的容差，不代表任何平台都只允许 2 DIP。
+- 本设计验证“应用提交的视图状态不跳变”；不声称能证明 WindowServer/GPU 合成器在应用已提交正确 geometry 后不会产生独立故障。

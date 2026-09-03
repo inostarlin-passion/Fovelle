@@ -2201,19 +2201,7 @@ void MainWindow::zoomCustom()
 
 void MainWindow::toggleFitAnd100()
 {
-    if (graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::ZoomToFit)
-    {
-        // Calling zoomAbsolute as a user action clears the calculated mode,
-        // even when the fit level already happens to be exactly 100%. This
-        // bypasses the legacy Original Size toggle preference so Z always
-        // means the requested fit/100% pair.
-        graphicsView->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-        graphicsView->fitOrConstrainImage();
-    }
-    else
-    {
-        graphicsView->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
-    }
+    graphicsView->toggleFitAnd100();
 }
 
 void MainWindow::setFillWindow(const bool value)

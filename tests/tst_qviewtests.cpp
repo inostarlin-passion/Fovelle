@@ -19,6 +19,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPropertyAnimation>
+#include <QCursor>
 #include <QStyleOptionSlider>
 #include <QMouseEvent>
 #include <QElapsedTimer>
@@ -223,6 +224,13 @@ private slots:
     void testTouchpadWheelCanUseFractionalSteps();
     void testZoomTransitionCoversWheelKeyboardAndMenus();
     void testZoomAnchorProjectsInsideAndOutsideImage();
+    void testZoomOutClearsStaleVerticalScrollRange();
+    void testMousePanKeepsOverflowRangeAndContinuity();
+    void testKeyboardZoomUsesCursorAnchor();
+    void testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor();
+    void testToggleFitAnd100UsesDisplayedState();
+    void testMouseWheelKeepsBottomRightAnchor();
+    void testZoomTerminalStateDoesNotRewriteViewport();
     void testZoomKeepsVerticalScrollbarTrajectoryStable_data();
     void testZoomKeepsVerticalScrollbarTrajectoryStable();
     void testImageIsCenteredAfterOpeningWithScrollBars();
@@ -746,6 +754,45 @@ static bool sendNativeGesture(
 #endif
     const bool delivered = QCoreApplication::sendEvent(receiver, &event);
     return delivered && event.isAccepted();
+}
+
+static bool sendDiscreteZoomWheel(QVGraphicsView *view,
+                                  const QPoint &position,
+                                  const int delta)
+{
+    const QPointingDevice wheelDevice(
+        QStringLiteral("zoom acceptance mouse"), 91,
+        QInputDevice::DeviceType::Mouse,
+        QPointingDevice::PointerType::Generic,
+        QInputDevice::Capability::Scroll, 3, 0);
+    QWheelEvent event(
+        QPointF(position),
+        QPointF(view->viewport()->mapToGlobal(position)),
+        QPoint(0, delta), QPoint(0, delta), Qt::NoButton,
+        Qt::NoModifier, Qt::NoScrollPhase, false,
+        Qt::MouseEventNotSynthesized, &wheelDevice);
+    const bool delivered = QCoreApplication::sendEvent(
+        view->viewport(), &event);
+    return delivered && event.isAccepted();
+}
+
+static bool waitForZoomTerminal(QVGraphicsView *view,
+                                const int timeoutMs = 2000)
+{
+    return waitForTestCondition([view]() {
+        QCoreApplication::sendPostedEvents();
+        return !view->isZoomTransitionRunning()
+            && !view->findChild<QTimer *>(
+                QStringLiteral("zoomAnchorSettleTimer"))->isActive()
+            && !view->findChild<QTimer *>(
+                QStringLiteral("zoomAnchorPostLayoutTimer"))->isActive()
+            && !view->findChild<QTimer *>(
+                QStringLiteral("constrainBoundsTimer"))->isActive()
+            && !view->findChild<QTimer *>(
+                QStringLiteral("expensiveScaleTimer"))->isActive()
+            && !view->findChild<QTimer *>(
+                QStringLiteral("verticalScrollBarGeometryTimer"))->isActive();
+    }, timeoutMs);
 }
 
 static bool containsColor(const QImage &image, const QRect &area, const QColor &color)
@@ -1587,6 +1634,7 @@ static void stopZoomTraceTimers(QVGraphicsView *view)
 {
     for (QTimer *timer : {
              view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+             view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
              view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
              view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))})
     {
@@ -1599,6 +1647,7 @@ static bool zoomTraceTimersAreInactive(QVGraphicsView *view)
 {
     for (QTimer *timer : {
              view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+             view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
              view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
              view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
              view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))})
@@ -4761,6 +4810,706 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
     window.close();
 }
 
+// AC-SB-NO-STALE-RANGE
+// TC-SB-ZOOMOUT-ATOMIC
+// Test purpose: verify that an outside-image zoom-in followed by the inverse
+// zoom-out sequence removes every temporary vertical range once the displayed
+// image is smaller than the usable viewport.
+// Preconditions: a visible Cocoa window uses a generated raster, fit-to-window
+// is settled, and both cursor zoom and AsNeeded scrollbars are enabled.
+// Input data: a 1600x900 image, a cursor just outside its lower-right edge,
+// three real wheel-in events, and three inverse real wheel-out events.
+// Steps: fit the image, dispatch the wheel-in sequence, wait for the vertical
+// overflow, dispatch the inverse sequence, then wait for animation, anchor,
+// constraint, and scrollbar-geometry writers to become quiet.
+// Expected result: the image is smaller than the usable viewport and both
+// scrollbar ranges are zero; no range reappears during two extra quiet turns.
+// Postcondition: the temporary image, window, cursor state, and settings are
+// released.
+void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("zoom-out-stale-range"), Qt::darkCyan,
+        QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+
+    const QRect imageAtFit = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect usable = [&]() {
+        QRect result = view->viewport()->rect();
+        result.setTop(window.getViewportPosition().obscuredHeight);
+        return result;
+    }();
+    const QPoint outside(
+        view->viewport()->rect().right() - 2,
+        view->viewport()->rect().bottom() - 2);
+    QVERIFY2(outside.x() > imageAtFit.right()
+                 || outside.y() > imageAtFit.bottom(),
+             "fixture did not leave lower-right blank space at fit");
+    QVERIFY(usable.contains(outside));
+    QCursor::setPos(view->viewport()->mapToGlobal(outside));
+
+    for (int step = 0; step < 3; ++step)
+        QVERIFY(sendDiscreteZoomWheel(view, outside, 120));
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(view->verticalScrollBar()->maximum()
+            > view->verticalScrollBar()->minimum());
+
+    for (int step = 0; step < 3; ++step)
+        QVERIFY(sendDiscreteZoomWheel(view, outside, -120));
+    QVERIFY(waitForZoomTerminal(view));
+    QCoreApplication::processEvents();
+
+    const QRect finalImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect finalUsable = [&]() {
+        QRect result = view->viewport()->rect();
+        result.setTop(window.getViewportPosition().obscuredHeight);
+        return result;
+    }();
+    QVERIFY2(finalImage.width() <= finalUsable.width() + 1,
+             "final image width still exceeds the usable viewport");
+    QVERIFY2(finalImage.height() <= finalUsable.height() + 1,
+             "final image height still exceeds the usable viewport");
+    QVERIFY2(view->verticalScrollBar()->maximum()
+                 <= view->verticalScrollBar()->minimum(),
+             "vertical range retained a stale zoom-anchor margin");
+    QVERIFY2(view->horizontalScrollBar()->maximum()
+                 <= view->horizontalScrollBar()->minimum(),
+             "horizontal range retained a stale zoom-anchor margin");
+
+    const auto rangeTuple = [&]() {
+        return QVector<int>{
+            view->horizontalScrollBar()->minimum(),
+            view->horizontalScrollBar()->maximum(),
+            view->verticalScrollBar()->minimum(),
+            view->verticalScrollBar()->maximum()};
+    };
+    const QVector<int> settledRanges = rangeTuple();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+    QCoreApplication::sendPostedEvents();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+    QCOMPARE(rangeTuple(), settledRanges);
+
+    window.close();
+}
+
+// AC-DRAG-CONTINUOUS
+// AC-DRAG-PRESERVES-OVERFLOW-BARS
+// TC-DRAG-CONTINUITY-ATOMIC
+// TC-DRAG-OVERFLOW-ATOMIC
+// Test purpose: verify that beginning a real image drag cancels only the old
+// anchor authority and does not rebuild away a still-valid scroll range.
+// Preconditions: a visible window is fitted, then zoomed with three wheel
+// steps so both image axes genuinely overflow; the drag action is Pan.
+// Input data: a lower-right cursor anchor, three wheel-in events, and one
+// interior mouse drag with a (32,24) viewport delta.
+// Steps: complete the zoom, record an image scene point and both ranges, send
+// mouse press/move/release through the viewport, and wait through the delayed
+// constraint/settle window.
+// Expected result: the image point moves by exactly the pointer delta within
+// two DIP, both real overflow ranges remain non-zero, and the final quiet
+// state is identical to the immediate post-release state.
+// Postcondition: all input state is released and scoped settings are restored.
+void GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("viewportdragaction"), static_cast<int>(Qv::ViewportDragAction::Pan)},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("drag-after-zoom"), Qt::darkMagenta,
+        QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+
+    const QPoint wheelAnchor(
+        view->viewport()->rect().right() - 2,
+        view->viewport()->rect().bottom() - 2);
+    QCursor::setPos(view->viewport()->mapToGlobal(wheelAnchor));
+    for (int step = 0; step < 3; ++step)
+        QVERIFY(sendDiscreteZoomWheel(view, wheelAnchor, 120));
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum()
+            > view->verticalScrollBar()->minimum());
+
+    const QPoint dragStart = view->viewport()->rect().center();
+    const QPoint dragDelta(32, 24);
+    const QPoint dragEnd = dragStart + dragDelta;
+    const QPointF trackedScene = view->mapToScene(dragStart);
+    const QPointF trackedBefore = view->mapFromScene(trackedScene);
+    const int hMaximumBefore = view->horizontalScrollBar()->maximum();
+    const int vMaximumBefore = view->verticalScrollBar()->maximum();
+
+    QTest::mouseMove(view->viewport(), dragStart);
+    QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      dragStart);
+    QTest::mouseMove(view->viewport(), dragEnd, 10);
+    QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                        dragEnd);
+    QCoreApplication::processEvents();
+
+    const QPointF trackedAfter = view->mapFromScene(trackedScene);
+    QVERIFY2(QLineF(trackedBefore, trackedAfter - QPointF(dragDelta)).length()
+                 <= 2.0,
+             "image position did not follow the mouse delta continuously");
+    QVERIFY2(view->horizontalScrollBar()->maximum()
+                 > view->horizontalScrollBar()->minimum(),
+             "horizontal overflow range disappeared at drag start");
+    QVERIFY2(view->verticalScrollBar()->maximum()
+                 > view->verticalScrollBar()->minimum(),
+             "vertical overflow range disappeared at drag start");
+    QVERIFY(qAbs(view->horizontalScrollBar()->maximum() - hMaximumBefore)
+            <= 2);
+    QVERIFY(qAbs(view->verticalScrollBar()->maximum() - vMaximumBefore)
+            <= 2);
+
+    const QPointF releasedPosition = view->mapFromScene(trackedScene);
+    QVERIFY(waitForZoomTerminal(view));
+    QCOMPARE(view->horizontalScrollBar()->maximum()
+                 > view->horizontalScrollBar()->minimum(), true);
+    QCOMPARE(view->verticalScrollBar()->maximum()
+                 > view->verticalScrollBar()->minimum(), true);
+    const QPointF quietPosition = view->mapFromScene(trackedScene);
+    QVERIFY(QLineF(releasedPosition, quietPosition).length() <= 1.0);
+
+    window.close();
+}
+
+// AC-KBD-ZOOM-CURSOR-ANCHOR
+// TC-KBD-ZOOM-ATOMIC
+// Test purpose: verify that the real Zoom In and Zoom Out shortcuts retain
+// the image content under the cursor instead of silently using the viewport
+// center.
+// Preconditions: a visible window has a 1600x900 raster at fit-to-window and
+// the two zoom actions have deterministic shortcuts.
+// Input data: one non-central image point, a real configured shortcut for
+// Zoom In, then the same point at 125% and a real Zoom Out shortcut.
+// Steps: place the system cursor at the point, record its scene coordinate,
+// dispatch each shortcut, and wait until all zoom-related writers are quiet.
+// Expected result: after both transitions the tracked scene point returns to
+// the same viewport coordinate within two DIP; its error is not the center
+// anchor produced by the former implementation.
+// Postcondition: temporary shortcuts, cursor, image, and window are released.
+void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false}
+    });
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("zoomin"), QStringList{
+            QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()}},
+        {QStringLiteral("zoomout"), QStringList{
+            QKeySequence(Qt::CTRL | Qt::Key_Minus).toString()}}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("keyboard-cursor-anchor"), Qt::darkGreen,
+        QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+
+    auto chooseNonCentralImagePoint = [view]() {
+        const QRect imageRect = view->mapFromScene(
+            view->scene()->itemsBoundingRect()).boundingRect();
+        QPoint result = imageRect.center() + QPoint(70, 35);
+        result.setY(imageRect.center().y());
+        result.setX(qBound(imageRect.left() + 8, result.x(), imageRect.right() - 8));
+        result.setY(qBound(imageRect.top() + 8, result.y(), imageRect.bottom() - 8));
+        return result;
+    };
+    const QPoint cursorPoint = chooseNonCentralImagePoint();
+    const QRect usable = [&]() {
+        QRect result = view->viewport()->rect();
+        result.setTop(window.getViewportPosition().obscuredHeight);
+        return result;
+    }();
+    QVERIFY(usable.contains(cursorPoint));
+    QVERIFY(cursorPoint != usable.center());
+    sendMouseMove(view->viewport(), cursorPoint);
+    const QPoint cursorTargetIn = cursorPoint;
+    const QPointF anchorSceneIn = view->mapToScene(cursorTargetIn);
+
+    QAction *zoomInAction = qvApp->getActionManager().getAction(
+        QStringLiteral("zoomin"));
+    QAction *zoomOutAction = qvApp->getActionManager().getAction(
+        QStringLiteral("zoomout"));
+    QVERIFY(zoomInAction);
+    QVERIFY(zoomOutAction);
+    QVERIFY(!zoomInAction->shortcuts().isEmpty());
+    QVERIFY(!zoomOutAction->shortcuts().isEmpty());
+
+    QTest::keySequence(&window, zoomInAction->shortcuts().constFirst());
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(QLineF(view->mapFromScene(anchorSceneIn), cursorTargetIn).length()
+            <= 2.0);
+    QVERIFY(view->getZoomLevel() > 0.0);
+
+    // Return to a known overflowing frame and exercise the opposite keyboard
+    // direction with the same non-central cursor coordinate.
+    view->zoomAbsolute(1.25, Qv::CalculateViewportCenterPos, false, false);
+    view->fitOrConstrainImage();
+    QVERIFY(waitForZoomTerminal(view));
+    sendMouseMove(view->viewport(), cursorPoint);
+    const QPoint cursorTargetOut = cursorPoint;
+    const QPointF anchorSceneOut = view->mapToScene(cursorTargetOut);
+    QTest::keySequence(&window, zoomOutAction->shortcuts().constFirst());
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(QLineF(view->mapFromScene(anchorSceneOut), cursorTargetOut).length()
+            <= 2.0);
+
+    window.close();
+}
+
+// AC-TOGGLE-DIRECTIONAL-ANCHOR
+// AC-TOGGLE-VISUAL-STATE
+// TC-TOGGLE-DIRECTIONAL-ATOMIC
+// TC-TOGGLE-VISUAL-ATOMIC
+// Test purpose: verify the Toggle Fit and 100% state machine from the
+// displayed frame, including cursor anchoring for enlargement and viewport
+// centering for reduction.
+// Preconditions: a visible window has a large raster, fit-to-window is
+// settled, and the combined action is available.
+// Input data: a non-central cursor point, a fit→100% toggle, then a 100%→fit
+// toggle while the cursor is moved away from the viewport center.
+// Steps: trigger the action, check the cursor anchor at 100%, move the cursor,
+// record the usable-center scene point, trigger again, and wait for actual fit.
+// Expected result: the first enlargement keeps the cursor content point; the
+// reduction keeps the usable viewport center content point and ends with no
+// scrollbar range.
+// Postcondition: action state, cursor, image, window, and settings are released.
+void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("toggle-directional-anchor"), Qt::darkBlue,
+        QSize(1600, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+    QAction *toggle = qvApp->getActionManager().getAction(
+        QStringLiteral("togglefitand100"));
+    QVERIFY(toggle);
+
+    const QRect fitImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint cursorPoint = fitImage.center() + QPoint(65, 28);
+    QVERIFY(view->viewport()->rect().contains(cursorPoint));
+    sendMouseMove(view->viewport(), cursorPoint);
+    QCoreApplication::processEvents();
+    const QPoint cursorTarget = cursorPoint;
+    QVERIFY(cursorTarget != view->viewport()->rect().center());
+    const QPointF cursorAnchorScene = view->mapToScene(cursorTarget);
+
+    ActionManager::actionTriggered(toggle, &window);
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
+        view->getZoomLevel(), 1.0));
+    QVERIFY(QLineF(view->mapFromScene(cursorAnchorScene), cursorTarget).length()
+            <= 2.0);
+
+    // Establish the content center first.  The shrink half of Toggle uses
+    // the viewport center, while the cursor is deliberately moved elsewhere
+    // so a cursor-anchored implementation cannot satisfy this assertion.
+    view->centerImage();
+    QCoreApplication::processEvents();
+    QRect usable = view->viewport()->rect();
+    usable.setTop(window.getViewportPosition().obscuredHeight);
+    const QPoint newCursor = usable.topLeft() + QPoint(30, 30);
+    sendMouseMove(view->viewport(), newCursor);
+    const QPoint centerBeforeResize = usable.center();
+    const QPointF centerAnchorScene = view->mapToScene(centerBeforeResize);
+
+    ActionManager::actionTriggered(toggle, &window);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+    QRect finalUsable = view->viewport()->rect();
+    finalUsable.setTop(window.getViewportPosition().obscuredHeight);
+    const QPoint centerAfterResize = finalUsable.center();
+    QVERIFY(QLineF(view->mapFromScene(centerAnchorScene), centerAfterResize).length()
+            <= 2.0);
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum()
+            <= view->verticalScrollBar()->minimum());
+
+    window.close();
+}
+
+// AC-TOGGLE-VISUAL-STATE
+// TC-TOGGLE-VISUAL-ATOMIC
+// Test purpose: verify that Toggle reads the displayed frame rather than the
+// calculated mode that is written before a fit animation finishes.
+// Preconditions: a visible window has a large raster and a settled manual
+// zoom; the combined Toggle action is available.
+// Input data: a manual 200% frame, one fit action, an immediate second fit
+// action during the transition, and the settled fit-to-100% action.
+// Steps: start from manual zoom, trigger fit, trigger Toggle again while the
+// displayed frame is still not fit, then wait and trigger the settled action.
+// Expected result: the in-flight second trigger remains a fit request; only
+// a genuinely displayed fit frame switches to 100%.
+// Postcondition: all timers finish and temporary state is released.
+void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("toggle-displayed-state"), Qt::darkGray,
+        QSize(1600, 1000));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(720, 500);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QAction *toggle = qvApp->getActionManager().getAction(
+        QStringLiteral("togglefitand100"));
+    QVERIFY(toggle);
+
+    view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    QVERIFY(view->getZoomLevel() > 1.5);
+
+    ActionManager::actionTriggered(toggle, &window);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->getCalculatedZoomMode().has_value()
+            && view->getCalculatedZoomMode().value()
+                == Qv::CalculatedZoomMode::ZoomToFit,
+        1000);
+    QVERIFY(!view->isImageAtFit());
+    QVERIFY(view->getZoomLevel() < 1.0);
+
+    // The logical mode is already Fit, but the displayed frame is still in
+    // flight. The second trigger must remain a fit request.
+    ActionManager::actionTriggered(toggle, &window);
+    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QCOMPARE(view->getCalculatedZoomMode().value(),
+             Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(!view->isImageAtFit());
+    QVERIFY(view->getZoomLevel() < 1.0);
+
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+
+    ActionManager::actionTriggered(toggle, &window);
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
+        view->getZoomLevel(), 1.0));
+
+    window.close();
+}
+
+// AC-WHEEL-CONTENT-ANCHOR
+// TC-WHEEL-REAL-ATOMIC
+// Test purpose: verify a real mouse-wheel zoom keeps a lower-right image point
+// visible when the horizontal AsNeeded bar appears.
+// Preconditions: a 1200x900 image is fit in a visible window and the wheel
+// viewport action is Zoom.
+// Input data: the image's lower-right point inset by five DIP and one real
+// positive wheel step.
+// Steps: map the target scene point, send a QWheelEvent to the viewport, wait
+// through animation and delayed writers, then compare the point and image edge.
+// Expected result: the target remains within two DIP of the original mouse
+// position and the mapped image still contains the lower-right neighborhood.
+// Postcondition: no wheel event or timer remains active; settings are restored.
+void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
+        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)},
+        {QStringLiteral("fitoverscan"), 0}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createTestImage(
+        dir, QStringLiteral("wheel-bottom-right"), Qt::darkRed,
+        QSize(1200, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+
+    const QRect imageRect = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint target(imageRect.right() - 5, imageRect.bottom() - 5);
+    QVERIFY(view->viewport()->rect().contains(target));
+    QCursor::setPos(view->viewport()->mapToGlobal(target));
+    QTest::mouseMove(view->viewport(), target);
+    const QPointF anchorScene = view->mapToScene(target);
+
+    QVERIFY(sendDiscreteZoomWheel(view, target, 120));
+    QVERIFY(waitForZoomTerminal(view));
+    const QPointF mappedAnchor = view->mapFromScene(anchorScene);
+    QVERIFY2(QLineF(mappedAnchor, target).length() <= 2.0,
+             "real wheel zoom moved the lower-right image anchor");
+    const QRect mappedImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    QVERIFY(mappedImage.right() >= target.x() - 2);
+    QVERIFY(mappedImage.bottom() >= target.y() - 2);
+
+    window.close();
+}
+
+// AC-NO-LATE-REWRITE
+// TC-ASYNC-QUIET-ATOMIC
+// Test purpose: verify that no delayed writer changes the correct zoom
+// viewport after the terminal sample has been established.
+// Preconditions: a visible image window can perform a real wheel zoom with
+// both scrollbar axes available.
+// Input data: one lower-right wheel zoom and the complete timer set used by
+// zoom animation, anchor settle, expensive scaling, constraint, and bar layout.
+// Steps: record the terminal tuple, process two quiet event-loop turns and a
+// conservative delayed interval, then compare the tuple and timer states.
+// Expected result: zoom, transform, image mapping, scrollbar ranges/values,
+// and viewport geometry remain unchanged after all delayed callbacks finish.
+// Postcondition: the window and temporary image close with no active writer.
+void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
+{
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Expensive)},
+        {QStringLiteral("scalingtwoenabled"), true},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
+        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)},
+        {QStringLiteral("fitoverscan"), 0}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createQtRasterTestImage(
+        dir, QStringLiteral("zoom-terminal-quiet"), Qt::darkYellow,
+        QSize(1200, 900));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
+    const QRect image = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint target(image.right() - 5, image.bottom() - 5);
+    QCursor::setPos(view->viewport()->mapToGlobal(target));
+    QTest::mouseMove(view->viewport(), target);
+    QVERIFY(sendDiscreteZoomWheel(view, target, 120));
+    QVERIFY(waitForZoomTerminal(view));
+
+    const auto state = [&]() {
+        return QJsonObject{
+            {QStringLiteral("logical_zoom"), view->getZoomLevel()},
+            {QStringLiteral("displayed_zoom"), view->animatedZoomLevel()},
+            {QStringLiteral("transform_m11"), view->transform().m11()},
+            {QStringLiteral("transform_m22"), view->transform().m22()},
+            {QStringLiteral("image_rect"), zoomTraceRectF(
+                view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect())},
+            {QStringLiteral("viewport_rect"), zoomTraceRect(view->viewport()->rect())},
+            {QStringLiteral("h_value"), view->horizontalScrollBar()->value()},
+            {QStringLiteral("h_max"), view->horizontalScrollBar()->maximum()},
+            {QStringLiteral("v_value"), view->verticalScrollBar()->value()},
+            {QStringLiteral("v_max"), view->verticalScrollBar()->maximum()}};
+    };
+    const QJsonObject terminal = state();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+    QCoreApplication::sendPostedEvents();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+    QTest::qWait(650);
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    QCOMPARE(state(), terminal);
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer"))->isActive());
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer"))->isActive());
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))->isActive());
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))->isActive());
+
+    window.close();
+}
+
 // AC-ZOOM-VBAR-TRANSIENT
 // TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION
 // Test purpose: prove that a keyboard shortcut, mouse wheel, or native pinch
@@ -4807,8 +5556,11 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable_data()
             QStringLiteral("%1-zoom-out-%2").arg(source, modeName)))
             << source << false << mode << policy;
     };
-    addRows(QStringLiteral("keyboard"), disabled, viewportCenter);
-    addRows(QStringLiteral("keyboard"), expensive, viewportCenter);
+    // Keyboard QAction has no QPoint argument (QAction::triggered carries
+    // only its checked state), so the production view samples the actual
+    // cursor. Use the same non-central image anchor as the wheel/pinch rows.
+    addRows(QStringLiteral("keyboard"), disabled, fixedImagePoint);
+    addRows(QStringLiteral("keyboard"), expensive, fixedImagePoint);
     addRows(QStringLiteral("wheel"), disabled, fixedImagePoint);
     addRows(QStringLiteral("wheel"), expensive, fixedImagePoint);
     addRows(QStringLiteral("pinch"), disabled, fixedImagePoint);
@@ -5011,10 +5763,9 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         if (imageScene.isEmpty())
             return QStringLiteral("dynamic fixture has no image scene rect");
 
-        // Keyboard zoom is intentionally center anchored by the product
-        // action. Wheel and native pinch use a fixed, non-center image point
-        // so those two real input families exercise the pending-anchor and
-        // virtual-margin path instead of duplicating the keyboard case.
+        // Every zoom input family uses a fixed, non-center image point. The
+        // keyboard rows additionally move the system cursor there because the
+        // QAction route has no event-position argument to pass through.
         const QPoint fixedImageAnchor = view->mapFromScene(QPointF(
             imageScene.left() + imageScene.width() * 0.40,
             imageScene.top() + imageScene.height() * 0.35));
@@ -5032,6 +5783,9 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         if (anchorPolicyKind == ZoomAnchorPolicy::FixedImagePoint
             && inputAnchor == keyboardAnchor)
             return QStringLiteral("fixed image anchor unexpectedly equals viewport center");
+
+        if (inputSource == QStringLiteral("keyboard"))
+            sendMouseMove(view->viewport(), inputAnchor);
 
         auto probe = std::make_unique<ZoomTraceProbe>(
             &window, view, anchorPolicyKind, inputAnchor, anchorUV);
@@ -5643,7 +6397,10 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
     };
     const QPointF imageCoordinateBefore = normalizedImageCoordinateAtUsableViewportCenter();
 
-    view->zoomIn();
+    // This regression intentionally exercises an explicit center-anchored
+    // threshold transition.  Keyboard/menu Zoom In has its own cursor-anchor
+    // contract and is covered by testKeyboardZoomUsesCursorAnchor().
+    view->zoomRelative(1.25, Qv::CalculateViewportCenterPos);
     const auto bothScrollBars = [view]() {
         return view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible();
     };
@@ -9392,8 +10149,9 @@ void ShortcutSettingsTests::testToggleFitAnd100DefaultsToZ()
 // Preconditions: a visible normal image window has loaded a large PNG; the
 // legacy Original Size toggle preference is enabled to prove it is bypassed.
 // Input data: a 1600x1000 image, a manual 200% zoom, and two action triggers.
-// Steps: trigger the combined action from the manual zoom, record fit mode,
-// trigger it again, and inspect the resulting mode and zoom level.
+// Steps: trigger the combined action from the manual zoom, exercise a second
+// trigger while the first fit animation is still displaying an old frame,
+// then wait for the actual fit before entering 100%.
 // Expected result: the first trigger selects ZoomToFit; the second clears the
 // calculated mode and selects zoom level 1.0; a third trigger returns to fit.
 // Postcondition: the image window and temporary settings are restored.
@@ -9439,15 +10197,27 @@ void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         2000);
+    QVERIFY(!view->isImageAtFit());
+    // The enum is already ZoomToFit while the displayed frame is still in
+    // flight.  A second trigger must not misclassify this as a fit state and
+    // jump to 100%.
+    ActionManager::actionTriggered(action, &window);
+    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QVERIFY(view->getZoomLevel() < 1.0);
+    QVERIFY(!view->isImageAtFit());
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
     const qreal fitLevel = view->getZoomLevel();
     QVERIFY(fitLevel > 0.0);
     QVERIFY(fitLevel < 1.0);
 
     ActionManager::actionTriggered(action, &window);
+    QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(!view->getCalculatedZoomMode().has_value(), 2000);
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
 
     ActionManager::actionTriggered(action, &window);
+    QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,

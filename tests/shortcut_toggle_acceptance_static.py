@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 
@@ -33,11 +34,12 @@ def add_check(
 
 
 def section_for(markdown: str, heading: str) -> str:
-    start = markdown.find(f"## {heading}")
-    if start < 0:
+    match = re.search(rf"^#{{1,6}}\s+.*\b{re.escape(heading)}\b.*$", markdown, re.MULTILINE)
+    if not match:
         return ""
-    end = markdown.find("\n## ", start + 1)
-    return markdown[start : end if end >= 0 else len(markdown)]
+    remainder = markdown[match.end() :]
+    end = re.search(r"^#{1,6}\s+", remainder, re.MULTILINE)
+    return markdown[match.start() : match.end() + (end.start() if end else len(remainder))]
 
 
 def translated_messages(path: Path, source: str) -> dict[str, list[tuple[str, str | None]]]:
@@ -65,6 +67,7 @@ def main() -> int:
     shortcut_cpp = (repo / "src/shortcutmanager.cpp").read_text(encoding="utf-8")
     action_cpp = (repo / "src/actionmanager.cpp").read_text(encoding="utf-8")
     mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
+    view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
 
@@ -115,10 +118,14 @@ def main() -> int:
     fill_start = mainwindow_cpp.find("void MainWindow::setFillWindow", toggle_start)
     toggle_method = mainwindow_cpp[toggle_start:fill_start if fill_start >= 0 else len(mainwindow_cpp)]
     behavior_inventory = {
-        "fit_state_is_tested": "getCalculatedZoomMode() == Qv::CalculatedZoomMode::ZoomToFit" in toggle_method,
-        "manual_zoom_is_one": "zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);" in toggle_method,
-        "fit_state_is_selected": "setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);" in toggle_method,
-        "fit_recalculated": "fitOrConstrainImage();" in toggle_method,
+        "mainwindow_delegates_to_view": "graphicsView->toggleFitAnd100();" in toggle_method,
+        "displayed_fit_is_tested": "bool QVGraphicsView::isImageAtFit() const" in view_cpp,
+        "fit_target_is_independent": "calculateZoomLevelForMode" in view_cpp,
+        "manual_zoom_is_one": "zoomAbsolute(1.0" in view_cpp,
+        "directional_anchor_is_explicit": "bool zoomingIn" in view_cpp
+        and "getCursorViewportPosition()" in view_cpp,
+        "fit_recalculated_after_layout": "finishZoomTransition" in view_cpp
+        and "recalculateZoom(false" in view_cpp,
     }
     add_check(
         checks,
@@ -190,10 +197,9 @@ def main() -> int:
 
     required_fields = ("测试目的", "前置条件", "输入数据", "操作步骤", "预期结果", "后置条件")
     case_ids = (
-        "TC-SC-ACTION-SURFACE",
-        "TC-SC-DEFAULT-Z",
-        "TC-SC-TOGGLE-BEHAVIOR",
-        "TC-SC-TRANSLATIONS",
+        "TC-KBD-ZOOM-ATOMIC",
+        "TC-TOGGLE-DIRECTIONAL-ATOMIC",
+        "TC-TOGGLE-VISUAL-ATOMIC",
     )
     fields_by_case = {
         case_id: {field: field in section_for(specification, case_id) for field in required_fields}
