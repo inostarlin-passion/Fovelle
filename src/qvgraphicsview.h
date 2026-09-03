@@ -275,6 +275,11 @@ protected:
 
     QRect getUsableViewportRect(const bool addOverscan = false) const;
 
+    // Fit is a no-scrollbar destination.  Derive its size from the viewport
+    // available after AsNeeded bars disappear so the animation has one stable
+    // endpoint instead of requiring a visible terminal correction.
+    QSize getFitViewportSize(const bool addOverscan = false) const;
+
     void setTransformScale(const qreal absoluteScale);
 
     void logViewportState(const char *phase) const;

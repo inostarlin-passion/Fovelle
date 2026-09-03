@@ -157,14 +157,22 @@ set_tests_properties(FovelleTests PROPERTIES
     TIMEOUT 90
 )
 
-add_test(NAME FovelleZoomIssueStatic
+add_test(NAME FovelleToggleFitStabilityStatic
     COMMAND ${Python3_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/zoom_issue_acceptance_static.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/toggle_fit_stability_static.py
         --repo ${CMAKE_SOURCE_DIR}
-        --output ${CMAKE_BINARY_DIR}/test-results/zoom-issue-acceptance-static.json)
-set_tests_properties(FovelleZoomIssueStatic PROPERTIES
+        --output ${CMAKE_BINARY_DIR}/test-results/toggle-fit-stability-static.json)
+set_tests_properties(FovelleToggleFitStabilityStatic PROPERTIES
     TIMEOUT 30
-    LABELS "zoom;static;acceptance"
+    LABELS "zoom;toggle-fit;static;acceptance"
+)
+
+add_test(NAME FovelleToggleFitStabilityAcceptance COMMAND fovelle_tests
+    testToggleFitReturnHasMonotonicStableTerminalSize -v1)
+set_tests_properties(FovelleToggleFitStabilityAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 45
+    LABELS "zoom;toggle-fit;dynamic;acceptance"
 )
 
 add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests

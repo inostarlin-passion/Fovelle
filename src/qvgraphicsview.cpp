@@ -2156,8 +2156,8 @@ void QVGraphicsView::recalculateZoom(
         return;
 
     const QSizeF imageSize = getEffectiveOriginalSize();
-    const QSize viewSize = getUsableViewportRect(true).size();
-    const QSize usableViewportSize = getUsableViewportRect().size();
+    const QSize viewSize = getFitViewportSize(true);
+    const QSize usableViewportSize = getFitViewportSize();
 
     if (viewSize.isEmpty())
         return;
@@ -2240,8 +2240,8 @@ qreal QVGraphicsView::calculateZoomLevelForMode(
         return 0.0;
 
     const QSizeF imageSize = getEffectiveOriginalSize();
-    const QSize viewSize = getUsableViewportRect(true).size();
-    const QSize usableViewportSize = getUsableViewportRect().size();
+    const QSize viewSize = getFitViewportSize(true);
+    const QSize usableViewportSize = getFitViewportSize();
     if (viewSize.isEmpty() || imageSize.isEmpty())
         return 0.0;
 
@@ -2744,6 +2744,22 @@ QRect QVGraphicsView::getUsableViewportRect(const bool addOverscan) const
     if (addOverscan)
         rect.adjust(-fitOverscan, -fitOverscan, fitOverscan, fitOverscan);
     return rect;
+}
+
+QSize QVGraphicsView::getFitViewportSize(const bool addOverscan) const
+{
+    // QAbstractScrollArea::maximumViewportSize() is the documented viewport
+    // size for an empty scrollbar range.  ZoomToFit necessarily ends with an
+    // empty range, so using the current viewport here would make a visible
+    // AsNeeded bar part of the target calculation and change the target again
+    // when that same bar disappears near the end of the animation.
+    QSize size = maximumViewportSize();
+    if (const MainWindow *mainWindow = getMainWindow())
+        size.rheight() = qMax(
+            0, size.height() - mainWindow->getViewportPosition().obscuredHeight);
+    if (addOverscan)
+        size += QSize(fitOverscan * 2, fitOverscan * 2);
+    return size;
 }
 
 void QVGraphicsView::setTransformScale(const qreal value)

@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QFileOpenEvent>
 #include <QImage>
+#include <QImageReader>
 #include <QInputDialog>
 #include <QLineF>
 #include <QFile>
@@ -229,6 +230,8 @@ private slots:
     void testKeyboardZoomUsesCursorAnchor();
     void testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor();
     void testToggleFitAnd100UsesDisplayedState();
+    void testToggleFitReturnHasMonotonicStableTerminalSize_data();
+    void testToggleFitReturnHasMonotonicStableTerminalSize();
     void testMouseWheelKeepsBottomRightAnchor();
     void testZoomTerminalStateDoesNotRewriteViewport();
     void testWheelZoomHasNoPositionJumpTrajectory();
@@ -5654,6 +5657,225 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
     window.close();
 }
 
+// AC-FIT-01-REAL-Z-ROUND-TRIP
+// AC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET
+// AC-FIT-03-MONOTONIC-SHRINK
+// AC-FIT-04-NO-TERMINAL-RESCALE
+// AC-FIT-05-QUIESCENT-FINAL-STATE
+// AC-FIT-06-CROSS-FIXTURE
+// TC-DYNAMIC-FIT-RETURN-TRAJECTORY
+// Test purpose: verify that the shrinking half of Toggle Fit and 100% has one
+// monotonic visual trajectory and does not correct its size after animation.
+// Preconditions: a visible Cocoa window contains a 3840:4407 portrait raster,
+// the image has settled at fit, Z is bound to the combined toggle, and both
+// scrollbars are present at 100%.
+// Input data: a 2560x2938 deterministic raster (the supplied JPEG's exact
+// aspect ratio), followed by real Z key sequences for fit->100%->fit.
+// Steps: enter 100%, attach the range/layout/paint/animation probe, press Z,
+// retain every exposed image size, wait for all delayed writers, then observe
+// an additional 650 ms quiet window.
+// Expected result: width and height never increase during the shrink; the last
+// animation value, animation-finished callback, terminal state, and quiet state
+// all expose the same image size within one DIP; final mode is exact fit.
+// Postcondition: all zoom writers stop and scoped shortcut/settings state is
+// restored.
+void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize_data()
+{
+    // TC-FIT-06-CROSS-FIXTURE
+    QTest::addColumn<QString>("providedImagePath");
+    QTest::addColumn<QSize>("expectedSourceSize");
+    QTest::newRow("synthetic-same-aspect-ratio")
+        << QString() << QSize(2560, 2938);
+
+    const QString configuredPath = QString::fromUtf8(
+        qgetenv("FOVELLE_TOGGLE_FIT_SAMPLE"));
+    const QString providedPath = configuredPath.isEmpty()
+        ? QStringLiteral(
+            "/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg")
+        : configuredPath;
+    const QFileInfo providedInfo(providedPath);
+    if (providedInfo.isFile() && providedInfo.isReadable())
+    {
+        // TC-SYSTEM-PROVIDED-JPEG
+        const QSize expectedSourceSize = configuredPath.isEmpty()
+            ? QSize(3840, 4407)
+            : QImageReader(providedPath).size();
+        QTest::newRow("provided-3840x4407-jpeg")
+            << providedPath << expectedSourceSize;
+    }
+}
+
+void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
+{
+    QFETCH(QString, providedImagePath);
+    QFETCH(QSize, expectedSourceSize);
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0},
+        {QStringLiteral("fitzoomlimitenabled"), false},
+        {QStringLiteral("smallimageoneone"), false}
+    });
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("togglefitand100"), QStringList{
+            QKeySequence(Qt::Key_Z).toString()}}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = providedImagePath.isEmpty()
+        ? createQtRasterTestImage(
+            dir, QStringLiteral("toggle-fit-terminal-stability"),
+            Qt::darkYellow, QSize(2560, 2938))
+        : providedImagePath;
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(500, 550);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize,
+             expectedSourceSize);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    const auto cleanup = qScopeGuard([&window, view]() {
+        stopZoomIssueWriters(view);
+        window.close();
+    });
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
+    QVERIFY(waitForZoomTerminal(view));
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
+    const qreal referenceFitLevel = view->getZoomLevel();
+    const QSize referenceFitSize = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect().size();
+
+    QAction *toggle = qvApp->getActionManager().getAction(
+        QStringLiteral("togglefitand100"));
+    QVERIFY(toggle);
+    QVERIFY(!toggle->shortcuts().isEmpty());
+    window.raise();
+    window.activateWindow();
+    view->viewport()->setFocus(Qt::OtherFocusReason);
+    QCoreApplication::processEvents();
+
+    // TC-FIT-01-REAL-Z-ROUND-TRIP
+    QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
+    const QRect oneHundredImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const bool hasHorizontalRange = view->horizontalScrollBar()->maximum()
+        > view->horizontalScrollBar()->minimum();
+    const bool hasVerticalRange = view->verticalScrollBar()->maximum()
+        > view->verticalScrollBar()->minimum();
+    QVERIFY2(hasHorizontalRange && hasVerticalRange,
+             qPrintable(QStringLiteral(
+                 "100%% fixture needs both ranges: window=%1x%2 viewport=%3x%4 image=%5x%6 h=%7 v=%8")
+                 .arg(window.width()).arg(window.height())
+                 .arg(view->viewport()->width()).arg(view->viewport()->height())
+                 .arg(oneHundredImage.width()).arg(oneHundredImage.height())
+                 .arg(hasHorizontalRange).arg(hasVerticalRange)));
+
+    ZoomIssueProbe probe(&window, view);
+    probe.record(QStringLiteral("initial-100"), true);
+    QSignalSpy fitZoomChangeSpy(view, &QVGraphicsView::zoomLevelChanged);
+    // TC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET
+    QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
+    QVERIFY2(QVGraphicsView::zoomLevelsEquivalent(
+                 view->getZoomLevel(), referenceFitLevel),
+             "fit target changed because the 100% frame had scrollbars");
+    QVERIFY(waitForZoomTerminal(view));
+    probe.record(QStringLiteral("terminal"), true);
+    const QSize terminalSize = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect().size();
+    QTest::qWait(650);
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    probe.record(QStringLiteral("quiet"), true);
+    const QSize quietSize = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect().size();
+
+    const QVector<ZoomIssueSample> &samples = probe.getSamples();
+    QVERIFY2(!samples.isEmpty(), "the fit-return transaction produced no samples");
+    QSize previousSize = samples.constFirst().imageRect.size();
+    QSize lastAnimationValueSize;
+    QSize animationFinishedSize;
+    QStringList sizeTransitions{
+        QStringLiteral("initial:%1x%2")
+            .arg(previousSize.width()).arg(previousSize.height())
+    };
+    // TC-FIT-03-MONOTONIC-SHRINK
+    int reversalCount = 0;
+    for (const ZoomIssueSample &sample : samples)
+    {
+        const QSize currentSize = sample.imageRect.size();
+        if (currentSize != previousSize)
+            sizeTransitions.append(QStringLiteral("%1:%2x%3")
+                .arg(sample.phase).arg(currentSize.width()).arg(currentSize.height()));
+        if (currentSize.width() > previousSize.width() + 1
+            || currentSize.height() > previousSize.height() + 1)
+            ++reversalCount;
+        if (sample.phase == QStringLiteral("animation-value"))
+            lastAnimationValueSize = currentSize;
+        else if (sample.phase == QStringLiteral("animation-finished"))
+            animationFinishedSize = currentSize;
+        previousSize = currentSize;
+    }
+    QVERIFY2(reversalCount == 0,
+             qPrintable(QStringLiteral("fit-return size reversed %1 time(s): %2")
+                 .arg(reversalCount)
+                 .arg(sizeTransitions.join(QStringLiteral(", ")))));
+
+    QVERIFY2(lastAnimationValueSize.isValid(),
+             "the fit-return animation exposed no value sample");
+    QVERIFY2(animationFinishedSize.isValid(),
+             "the fit-return animation exposed no finished sample");
+    const auto sizesEquivalent = [](const QSize &lhs, const QSize &rhs) {
+        return qAbs(lhs.width() - rhs.width()) <= 1
+            && qAbs(lhs.height() - rhs.height()) <= 1;
+    };
+    // TC-FIT-04-NO-TERMINAL-RESCALE
+    QVERIFY2(sizesEquivalent(lastAnimationValueSize, animationFinishedSize),
+             qPrintable(QStringLiteral("animation end corrected image size: %1")
+                 .arg(sizeTransitions.join(QStringLiteral(", ")))));
+    QVERIFY2(sizesEquivalent(animationFinishedSize, terminalSize),
+             "a delayed writer changed image size after animation finished");
+    // TC-FIT-05-QUIESCENT-FINAL-STATE
+    QVERIFY2(sizesEquivalent(terminalSize, quietSize),
+             "image size changed during the 650 ms quiet window");
+    QVERIFY2(sizesEquivalent(referenceFitSize, terminalSize),
+             "returning to fit did not recover the original stable fit size");
+    QCOMPARE(fitZoomChangeSpy.count(), 1);
+    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum()
+            <= view->verticalScrollBar()->minimum());
+
+    qInfo().noquote()
+        << QStringLiteral(
+               "TOGGLE_FIT_STABILITY row=%1 start=%2x%3 animation_end=%4x%5 terminal=%6x%7 quiet=%8x%9 reversals=%10 zoom_writes=%11")
+               .arg(QString::fromUtf8(QTest::currentDataTag()))
+               .arg(oneHundredImage.width()).arg(oneHundredImage.height())
+               .arg(lastAnimationValueSize.width())
+               .arg(lastAnimationValueSize.height())
+               .arg(terminalSize.width()).arg(terminalSize.height())
+               .arg(quietSize.width()).arg(quietSize.height())
+               .arg(reversalCount).arg(fitZoomChangeSpy.count());
+}
+
 // AC-WHEEL-CONTENT-ANCHOR
 // TC-WHEEL-REAL-ATOMIC
 // Test purpose: verify a real mouse-wheel zoom keeps a lower-right image point
@@ -8277,6 +8499,7 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
     QCOMPARE(view->horizontalScrollBar()->sizeHint().height(), nativeExtent);
 
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(
         view->horizontalScrollBar()->isVisible()
             && view->verticalScrollBar()->isVisible(), 2000);
