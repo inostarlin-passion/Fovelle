@@ -15,9 +15,14 @@
 #include <QFile>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QPropertyAnimation>
+#include <QStyleOptionSlider>
 #include <QMouseEvent>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QNativeGestureEvent>
 #include <QPointingDevice>
 #include <QCheckBox>
@@ -218,7 +223,8 @@ private slots:
     void testTouchpadWheelCanUseFractionalSteps();
     void testZoomTransitionCoversWheelKeyboardAndMenus();
     void testZoomAnchorProjectsInsideAndOutsideImage();
-    void testZoomTransitionLeavesVerticalScrollbarStable();
+    void testZoomShortcutsKeepVerticalScrollbarStable_data();
+    void testZoomShortcutsKeepVerticalScrollbarStable();
     void testImageIsCenteredAfterOpeningWithScrollBars();
     void testTouchpadWheelRespectsConfiguredZoomWithScrollBars();
     void testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling();
@@ -463,6 +469,23 @@ static QString createTestImage(const QTemporaryDir &dir, const QString &name, co
     QImage image(size, QImage::Format_RGB32);
     image.fill(color);
     if (!image.save(path))
+        return {};
+    return path;
+}
+
+static QString createQtRasterTestImage(const QTemporaryDir &dir,
+                                       const QString &name,
+                                       const QColor color,
+                                       const QSize size)
+{
+    // XPM is intentionally outside the macOS Image I/O native-SDR path.  It
+    // keeps this trajectory on QGraphicsView/QPixmap so the production
+    // expensive-scaling timer remains observable instead of being bypassed
+    // by the independent Metal presentation path.
+    const QString path = dir.filePath(name + ".xpm");
+    QImage image(size, QImage::Format_RGB32);
+    image.fill(color);
+    if (!image.save(path, "XPM"))
         return {};
     return path;
 }
@@ -1008,6 +1031,557 @@ public:
 private:
     QHash<QString, QPair<bool, QVariant>> savedValues;
 };
+
+static QJsonArray zoomTraceRect(const QRect &rect)
+{
+    return QJsonArray{rect.x(), rect.y(), rect.width(), rect.height()};
+}
+
+static QJsonArray zoomTraceRectF(const QRectF &rect)
+{
+    return QJsonArray{rect.x(), rect.y(), rect.width(), rect.height()};
+}
+
+static QJsonArray zoomTracePoint(const QPointF &point)
+{
+    return QJsonArray{point.x(), point.y()};
+}
+
+struct ZoomTraceSample
+{
+    QString phase;
+    bool checkable {false};
+    qint64 monotonicNs {0};
+    int animationTime {-1};
+    qreal logicalZoom {0.0};
+    qreal displayedZoom {0.0};
+    QTransform transform;
+    QRectF sceneRect;
+    QRectF imageRect;
+    QRect viewportRect;
+    QRect usableViewportRect;
+    qreal devicePixelRatio {1.0};
+    bool horizontalVisible {false};
+    int horizontalMinimum {0};
+    int horizontalMaximum {0};
+    int horizontalValue {0};
+    int horizontalPageStep {0};
+    bool verticalVisible {false};
+    int verticalMinimum {0};
+    int verticalMaximum {0};
+    int verticalValue {0};
+    int verticalExpected {0};
+    int verticalPageStep {0};
+    QRect verticalBarGlobalRect;
+    QRect verticalThumbActualRect;
+    QRect verticalThumbExpectedRect;
+    QPointF anchorUV;
+    QPointF anchorScene;
+    QPointF anchorViewportTarget;
+    QPointF anchorViewportActual;
+    qreal anchorErrorX {0.0};
+    qreal anchorErrorY {0.0};
+
+    QJsonObject toJson() const
+    {
+        return QJsonObject{
+            {QStringLiteral("phase"), phase},
+            {QStringLiteral("checkable"), checkable},
+            {QStringLiteral("monotonic_ns"), monotonicNs},
+            {QStringLiteral("animation_time"), animationTime},
+            {QStringLiteral("logical_zoom"), logicalZoom},
+            {QStringLiteral("displayed_zoom"), displayedZoom},
+            {QStringLiteral("transform"), QJsonArray{
+                transform.m11(), transform.m12(), transform.m21(),
+                transform.m22(), transform.dx(), transform.dy()}},
+            {QStringLiteral("scene_rect"), zoomTraceRectF(sceneRect)},
+            {QStringLiteral("image_rect"), zoomTraceRectF(imageRect)},
+            {QStringLiteral("viewport_rect"), zoomTraceRect(viewportRect)},
+            {QStringLiteral("usable_viewport_rect"),
+             zoomTraceRect(usableViewportRect)},
+            {QStringLiteral("device_pixel_ratio"), devicePixelRatio},
+            {QStringLiteral("h_visible"), horizontalVisible},
+            {QStringLiteral("h_min"), horizontalMinimum},
+            {QStringLiteral("h_max"), horizontalMaximum},
+            {QStringLiteral("h_value"), horizontalValue},
+            {QStringLiteral("h_page_step"), horizontalPageStep},
+            {QStringLiteral("v_visible"), verticalVisible},
+            {QStringLiteral("v_min"), verticalMinimum},
+            {QStringLiteral("v_max"), verticalMaximum},
+            {QStringLiteral("v_value"), verticalValue},
+            {QStringLiteral("v_expected"), verticalExpected},
+            {QStringLiteral("v_page_step"), verticalPageStep},
+            {QStringLiteral("v_bar_global_rect"),
+             zoomTraceRect(verticalBarGlobalRect)},
+            {QStringLiteral("v_thumb_actual_rect"),
+             zoomTraceRect(verticalThumbActualRect)},
+            {QStringLiteral("v_thumb_expected_rect"),
+             zoomTraceRect(verticalThumbExpectedRect)},
+            {QStringLiteral("anchor_uv"), zoomTracePoint(anchorUV)},
+            {QStringLiteral("anchor_scene"), zoomTracePoint(anchorScene)},
+            {QStringLiteral("anchor_viewport_target"),
+             zoomTracePoint(anchorViewportTarget)},
+            {QStringLiteral("anchor_viewport_actual"),
+             zoomTracePoint(anchorViewportActual)},
+            {QStringLiteral("anchor_error_x"), anchorErrorX},
+            {QStringLiteral("anchor_error_y"), anchorErrorY},
+        };
+    }
+};
+
+static QRect zoomScrollBarThumbRect(QScrollBar *scrollBar,
+                                    const int sliderPosition)
+{
+    QStyleOptionSlider option;
+    option.initFrom(scrollBar);
+    option.orientation = scrollBar->orientation();
+    option.minimum = scrollBar->minimum();
+    option.maximum = scrollBar->maximum();
+    option.singleStep = scrollBar->singleStep();
+    option.pageStep = scrollBar->pageStep();
+    option.sliderPosition = sliderPosition;
+    option.sliderValue = sliderPosition;
+    option.upsideDown = scrollBar->orientation() == Qt::Horizontal
+        ? scrollBar->invertedAppearance() : false;
+    return scrollBar->style()->subControlRect(
+        QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider,
+        scrollBar);
+}
+
+class ZoomTraceProbe final : public QObject
+{
+public:
+    ZoomTraceProbe(MainWindow *window, QVGraphicsView *view,
+                   const bool keyboard, const QPoint mouseAnchor,
+                   const QPointF anchorUV)
+        : window(window), view(view), keyboard(keyboard),
+          mouseAnchor(mouseAnchor), anchorUV(anchorUV)
+    {
+        clock.start();
+
+        const auto addWatchedObject = [this](QObject *object) {
+            if (!object || watchedObjects.contains(object))
+                return;
+            watchedObjects.insert(object);
+            object->installEventFilter(this);
+        };
+        addWatchedObject(view);
+        addWatchedObject(view->viewport());
+        addWatchedObject(view->horizontalScrollBar());
+        addWatchedObject(view->verticalScrollBar());
+        addWatchedObject(view->horizontalScrollBar()->parentWidget());
+        addWatchedObject(view->verticalScrollBar()->parentWidget());
+
+        auto *animation = view->findChild<QPropertyAnimation *>(
+            QStringLiteral("zoomTransitionAnimation"));
+        if (animation)
+        {
+            connect(animation, &QPropertyAnimation::valueChanged, this,
+                    [this, animation](const QVariant &) {
+                record(QStringLiteral("animation-value"), false,
+                       animation->currentTime());
+            });
+            connect(animation, &QPropertyAnimation::stateChanged, this,
+                    [this, animation](QAbstractAnimation::State,
+                                      QAbstractAnimation::State) {
+                record(QStringLiteral("animation-state"), false,
+                       animation->currentTime());
+            });
+            connect(animation, &QPropertyAnimation::finished, this,
+                    [this, animation]() {
+                record(QStringLiteral("animation-finished"), true,
+                       animation->currentTime());
+            });
+        }
+
+        auto *horizontal = view->horizontalScrollBar();
+        auto *vertical = view->verticalScrollBar();
+        connect(horizontal, &QScrollBar::valueChanged, this,
+                [this](int) { record(QStringLiteral("h-value"), false); });
+        connect(vertical, &QScrollBar::valueChanged, this,
+                [this](int) { record(QStringLiteral("v-value"), false); });
+        connect(horizontal, &QScrollBar::rangeChanged, this,
+                [this](int, int) { record(QStringLiteral("h-range"), false); });
+        connect(vertical, &QScrollBar::rangeChanged, this,
+                [this](int, int) { record(QStringLiteral("v-range"), false); });
+        connect(horizontal, &QScrollBar::actionTriggered, this,
+                [this](int) { record(QStringLiteral("h-action"), false); });
+        connect(vertical, &QScrollBar::actionTriggered, this,
+                [this](int) { record(QStringLiteral("v-action"), false); });
+
+        for (QTimer *timer : {
+                 view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+                 view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+                 view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))})
+        {
+            if (!timer)
+                continue;
+            connect(timer, &QTimer::timeout, this, [this, timer]() {
+                record(timer->objectName() + QStringLiteral("-timeout"), true,
+                       currentAnimationTime());
+            });
+        }
+    }
+
+    ~ZoomTraceProbe() override
+    {
+        for (QObject *object : std::as_const(watchedObjects))
+            object->removeEventFilter(this);
+    }
+
+    void clearTrace()
+    {
+        samples.clear();
+        eventRevision = 0;
+        clock.restart();
+    }
+
+    int eventRevisionValue() const { return eventRevision; }
+
+    const QVector<ZoomTraceSample> &getSamples() const { return samples; }
+
+    bool hasPhase(const QString &phase) const
+    {
+        return std::any_of(samples.cbegin(), samples.cend(),
+                           [&phase](const ZoomTraceSample &sample) {
+            return sample.phase == phase;
+        });
+    }
+
+    void record(const QString &phase, const bool checkable,
+                const int animationTime = -1)
+    {
+        ++eventRevision;
+        ZoomTraceSample sample;
+        sample.phase = phase;
+        sample.checkable = checkable;
+        sample.monotonicNs = clock.nsecsElapsed();
+        sample.animationTime = animationTime >= 0
+            ? animationTime : currentAnimationTime();
+        sample.logicalZoom = view->getZoomLevel();
+        sample.displayedZoom = view->animatedZoomLevel();
+        sample.transform = view->transform();
+        sample.sceneRect = view->sceneRect();
+        sample.imageRect = view->scene()->itemsBoundingRect();
+        sample.viewportRect = view->viewport()->rect();
+        sample.usableViewportRect = sample.viewportRect;
+        sample.usableViewportRect.setTop(
+            window->getViewportPosition().obscuredHeight);
+        sample.devicePixelRatio = view->devicePixelRatioF();
+
+        auto *horizontal = view->horizontalScrollBar();
+        auto *vertical = view->verticalScrollBar();
+        // Cocoa may keep an overlay scrollbar widget hidden while the range
+        // is already available (for example when another native window is
+        // active).  The scrollability transition is the deterministic oracle
+        // for this regression; retain the field name for the JSON contract.
+        sample.horizontalVisible = horizontal->maximum()
+                > horizontal->minimum();
+        sample.horizontalMinimum = horizontal->minimum();
+        sample.horizontalMaximum = horizontal->maximum();
+        sample.horizontalValue = horizontal->value();
+        sample.horizontalPageStep = horizontal->pageStep();
+        sample.verticalVisible = vertical->maximum() > vertical->minimum();
+        sample.verticalMinimum = vertical->minimum();
+        sample.verticalMaximum = vertical->maximum();
+        sample.verticalValue = vertical->value();
+        sample.verticalPageStep = vertical->pageStep();
+        sample.verticalBarGlobalRect = QRect(
+            vertical->mapToGlobal(QPoint(0, 0)), vertical->size());
+
+        if (sample.verticalVisible)
+        {
+            const QRect actualThumb = zoomScrollBarThumbRect(
+                vertical, vertical->sliderPosition());
+            sample.verticalThumbActualRect = QRect(
+                vertical->mapToGlobal(actualThumb.topLeft()), actualThumb.size());
+        }
+
+        if (!sample.imageRect.isEmpty())
+        {
+            sample.anchorScene = QPointF(
+                sample.imageRect.left() + anchorUV.x() * sample.imageRect.width(),
+                sample.imageRect.top() + anchorUV.y() * sample.imageRect.height());
+        }
+        sample.anchorUV = anchorUV;
+        sample.anchorViewportTarget = keyboard
+            ? QPointF(sample.usableViewportRect.center())
+            : QPointF(mouseAnchor);
+        sample.anchorViewportActual = view->mapFromScene(sample.anchorScene);
+        sample.anchorErrorX = sample.anchorViewportActual.x()
+            - sample.anchorViewportTarget.x();
+        sample.anchorErrorY = sample.anchorViewportActual.y()
+            - sample.anchorViewportTarget.y();
+        // In the overflowing vertical axis, QGraphicsView's integer value is
+        // the transformed image-point ordinate relative to the target
+        // viewport ordinate.  Derive this independently from the actual bar
+        // value; using value + anchorError would make the check tautological.
+        sample.verticalExpected = qRound(
+            sample.transform.map(sample.anchorScene).y()
+            - sample.anchorViewportTarget.y());
+
+        if (sample.verticalVisible)
+        {
+            const int expectedPosition = qBound(
+                sample.verticalMinimum, sample.verticalExpected,
+                sample.verticalMaximum);
+            const QRect expectedThumb = zoomScrollBarThumbRect(
+                vertical, expectedPosition);
+            sample.verticalThumbExpectedRect = QRect(
+                vertical->mapToGlobal(expectedThumb.topLeft()),
+                expectedThumb.size());
+        }
+
+        samples.append(std::move(sample));
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (!watchedObjects.contains(watched))
+            return false;
+
+        QString phase;
+        switch (event->type())
+        {
+        case QEvent::Paint:
+            phase = QStringLiteral("paint");
+            break;
+        case QEvent::Resize:
+            phase = QStringLiteral("resize");
+            break;
+        case QEvent::Move:
+            phase = QStringLiteral("move");
+            break;
+        case QEvent::LayoutRequest:
+            phase = QStringLiteral("layout-request");
+            break;
+        case QEvent::Show:
+            phase = QStringLiteral("show");
+            break;
+        case QEvent::Hide:
+            phase = QStringLiteral("hide");
+            break;
+        default:
+            break;
+        }
+        if (!phase.isEmpty())
+            record(phase, event->type() == QEvent::Paint,
+                   currentAnimationTime());
+        return false;
+    }
+
+private:
+    int currentAnimationTime() const
+    {
+        const auto *animation = view->findChild<QPropertyAnimation *>(
+            QStringLiteral("zoomTransitionAnimation"));
+        return animation ? animation->currentTime() : -1;
+    }
+
+    MainWindow *window;
+    QVGraphicsView *view;
+    bool keyboard;
+    QPoint mouseAnchor;
+    QPointF anchorUV;
+    QElapsedTimer clock;
+    QSet<QObject *> watchedObjects;
+    QVector<ZoomTraceSample> samples;
+    int eventRevision {0};
+};
+
+static bool zoomTraceIsQuiet(ZoomTraceProbe &probe, const int maxTurns = 10)
+{
+    int quietTurns = 0;
+    for (int turn = 0; turn < maxTurns; ++turn)
+    {
+        const int before = probe.eventRevisionValue();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+        QCoreApplication::sendPostedEvents();
+        const int after = probe.eventRevisionValue();
+        if (after == before)
+            ++quietTurns;
+        else
+            quietTurns = 0;
+        if (quietTurns >= 2)
+            return true;
+    }
+    return false;
+}
+
+static void stopZoomTraceTimers(QVGraphicsView *view)
+{
+    for (QTimer *timer : {
+             view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+             view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+             view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))})
+    {
+        if (timer)
+            timer->stop();
+    }
+}
+
+static bool zoomTraceTimersAreInactive(QVGraphicsView *view)
+{
+    for (QTimer *timer : {
+             view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+             view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+             view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))})
+    {
+        if (timer && timer->isActive())
+            return false;
+    }
+    return true;
+}
+
+static QString zoomTraceSampleError(const ZoomTraceSample &sample)
+{
+    const auto rectDistance = [](const QRect &lhs, const QRect &rhs) {
+        return std::max({qAbs(lhs.top() - rhs.top()),
+                         qAbs(lhs.center().y() - rhs.center().y()),
+                         qAbs(lhs.bottom() - rhs.bottom())});
+    };
+    if (!sample.verticalVisible || sample.verticalMaximum <= sample.verticalMinimum)
+        return QStringLiteral("vertical scrollbar is not visible or has no range");
+    if (sample.verticalExpected < sample.verticalMinimum + 2
+        || sample.verticalExpected > sample.verticalMaximum - 2)
+        return QStringLiteral("expected vertical value %1 is too close to range [%2,%3]")
+            .arg(sample.verticalExpected)
+            .arg(sample.verticalMinimum)
+            .arg(sample.verticalMaximum);
+    if (qAbs(sample.verticalValue - sample.verticalExpected) > 1)
+        return QStringLiteral("vertical value %1 differs from expected %2")
+            .arg(sample.verticalValue).arg(sample.verticalExpected);
+    if (qAbs(sample.anchorErrorY) > 2.0)
+        return QStringLiteral("vertical anchor error is (%1,%2) DIP")
+            .arg(sample.anchorErrorX).arg(sample.anchorErrorY);
+    if (rectDistance(sample.verticalThumbActualRect,
+                     sample.verticalThumbExpectedRect) > 1)
+        return QStringLiteral("vertical thumb differs from style oracle: actual=%1,%2,%3,%4 expected=%5,%6,%7,%8")
+            .arg(sample.verticalThumbActualRect.x())
+            .arg(sample.verticalThumbActualRect.y())
+            .arg(sample.verticalThumbActualRect.width())
+            .arg(sample.verticalThumbActualRect.height())
+            .arg(sample.verticalThumbExpectedRect.x())
+            .arg(sample.verticalThumbExpectedRect.y())
+            .arg(sample.verticalThumbExpectedRect.width())
+            .arg(sample.verticalThumbExpectedRect.height());
+    return {};
+}
+
+static QString validateZoomTrace(const QVector<ZoomTraceSample> &samples,
+                                 const bool zoomIn,
+                                 const bool requireHorizontalToggle)
+{
+    bool hasCheckableSample = false;
+    bool hasHorizontalStart = false;
+    bool hasHorizontalTarget = false;
+    bool previousHorizontalVisible = false;
+    bool hasPreviousHorizontal = false;
+    int firstBadIndex = -1;
+    QString firstBad;
+    int maximumDeviation = 0;
+    int maximumDeviationIndex = -1;
+
+    for (qsizetype index = 0; index < samples.size(); ++index)
+    {
+        const ZoomTraceSample &sample = samples.at(index);
+        if (!sample.checkable)
+            continue;
+
+        hasCheckableSample = true;
+        if (!hasPreviousHorizontal)
+        {
+            previousHorizontalVisible = sample.horizontalVisible;
+            hasPreviousHorizontal = true;
+            hasHorizontalStart = sample.horizontalVisible == !zoomIn;
+        }
+        else
+        {
+            if (zoomIn && previousHorizontalVisible && !sample.horizontalVisible)
+            {
+                if (firstBadIndex < 0)
+                {
+                    firstBadIndex = static_cast<int>(index);
+                    firstBad = QStringLiteral("horizontal scrollbar toggled in the wrong direction");
+                }
+            }
+            if (!zoomIn && !previousHorizontalVisible && sample.horizontalVisible)
+            {
+                if (firstBadIndex < 0)
+                {
+                    firstBadIndex = static_cast<int>(index);
+                    firstBad = QStringLiteral("horizontal scrollbar toggled in the wrong direction");
+                }
+            }
+            previousHorizontalVisible = sample.horizontalVisible;
+        }
+        hasHorizontalTarget |= sample.horizontalVisible == zoomIn;
+
+        const int deviation = qMax(
+            qAbs(sample.verticalValue - sample.verticalExpected),
+            qRound(qAbs(sample.anchorErrorY)));
+        if (deviation > maximumDeviation)
+        {
+            maximumDeviation = deviation;
+            maximumDeviationIndex = static_cast<int>(index);
+        }
+
+        const QString sampleError = zoomTraceSampleError(sample);
+        if (firstBadIndex < 0 && !sampleError.isEmpty())
+        {
+            firstBadIndex = static_cast<int>(index);
+            firstBad = sampleError;
+        }
+    }
+
+    if (!hasCheckableSample)
+        return QStringLiteral("no committed or paint samples were recorded");
+    if (requireHorizontalToggle && !hasHorizontalStart)
+        return QStringLiteral("the horizontal scrollbar never started visible");
+    if (requireHorizontalToggle && !hasHorizontalTarget)
+        return QStringLiteral("the horizontal scrollbar never reached its target visibility");
+    if (firstBadIndex >= 0)
+        return QStringLiteral("first bad sample %1: %2; maximum deviation=%3 at sample %4")
+            .arg(firstBadIndex).arg(firstBad).arg(maximumDeviation)
+            .arg(maximumDeviationIndex);
+    return {};
+}
+
+static void writeZoomTraceFailure(const QString &caseId,
+                                  const QString &stage,
+                                  const QVector<ZoomTraceSample> &samples,
+                                  QWidget *window,
+                                  const QString &error)
+{
+    const QString path = QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("../test-results/zoom-vbar/%1/%2")
+                      .arg(caseId, stage));
+    QDir().mkpath(path);
+
+    QJsonArray trace;
+    for (const ZoomTraceSample &sample : samples)
+        trace.append(sample.toJson());
+    QJsonObject report{
+        {QStringLiteral("error"), error},
+        {QStringLiteral("sample_count"), samples.size()},
+        {QStringLiteral("trace"), trace},
+    };
+    QFile traceFile(QDir(path).filePath(QStringLiteral("trace.json")));
+    if (traceFile.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    {
+        traceFile.write(QJsonDocument(report).toJson(QJsonDocument::Indented));
+        traceFile.close();
+    }
+
+    if (window)
+    {
+        const QImage frame = window->grab().toImage();
+        frame.save(QDir(path).filePath(QStringLiteral("first-bad-frame.png")));
+        frame.save(QDir(path).filePath(QStringLiteral("worst-frame.png")));
+        frame.save(QDir(path).filePath(QStringLiteral("terminal-frame.png")));
+    }
+}
 
 static std::optional<QVImageLoader::Result> loadImage(const QString &path)
 {
@@ -3973,28 +4547,76 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
     window.close();
 }
 
-// AC-SCROLLBAR-VERTICAL-STEADY
-// TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY
-// Test purpose: verify that the vertical scrollbar follows the animated scene
-// range and does not jump after the 200 ms zoom transition settles; the
-// horizontal scrollbar is observed as a control axis.
-// Preconditions: a visible 640x480 window displays a 2048x1536 image at 1:1,
-// with smooth scaling disabled and both scrollbar ranges available.
-// Input data: a center-anchored 1.5x zoom with both bars initially interior.
-// Steps: record bar values at the transition endpoint, after the delayed
-// anchor/layout window, and after the constraint timer can run.
-// Expected result: the final vertical value equals the endpoint within one
-// integer unit, with no late jump; the horizontal control axis has the same
-// steady behavior and the displayed zoom reaches its logical target.
-// Postcondition: the window, scrollbars, image, and temporary settings close.
-void GraphicsViewTests::testZoomTransitionLeavesVerticalScrollbarStable()
+// AC-ZOOM-VBAR-TRANSIENT
+// TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION
+// Test purpose: prove that a keyboard shortcut or mouse wheel zoom has no
+// transient vertical-scrollbar excursion.  The same normalized image anchor
+// and style-derived thumb oracle are applied to every committed animation
+// millisecond and to every naturally painted state after delayed callbacks.
+// Preconditions: a visible Cocoa MainWindow can load the dynamic fixture;
+// V is always overflowing and H crosses its AsNeeded threshold.
+// Input data: input source, direction, scaling mode, and the current process
+// DPR.  The data function supplies 2 x 2 x 2 rows.
+// Steps: send real QTest key or QWheelEvent input, pause only the deterministic
+// scan, visit every animation millisecond, then replay in a new live window
+// until animation, anchor settle, constraint, and optional expensive scaling
+// timers are inactive.
+// Expected result: every committed/paint sample has the expected vertical
+// value, image anchor, and QStyle thumb geometry; H toggles only in the target
+// direction; terminal state remains unchanged after all delayed writes.
+// Postcondition: both windows, probes, timers, fixtures, and scoped settings
+// are released, and any failure writes a JSON trace plus three frame captures.
+void GraphicsViewTests::testZoomShortcutsKeepVerticalScrollbarStable_data()
 {
+    QTest::addColumn<QString>("inputSource");
+    QTest::addColumn<bool>("zoomIn");
+    QTest::addColumn<int>("scalingMode");
+
+    const auto disabled = static_cast<int>(Qv::SmoothScalingMode::Disabled);
+    const auto expensive = static_cast<int>(Qv::SmoothScalingMode::Expensive);
+    QTest::newRow("keyboard-zoom-in-disabled")
+        << QStringLiteral("keyboard") << true << disabled;
+    QTest::newRow("keyboard-zoom-out-disabled")
+        << QStringLiteral("keyboard") << false << disabled;
+    QTest::newRow("wheel-zoom-in-disabled")
+        << QStringLiteral("wheel") << true << disabled;
+    QTest::newRow("wheel-zoom-out-disabled")
+        << QStringLiteral("wheel") << false << disabled;
+    QTest::newRow("keyboard-zoom-in-expensive")
+        << QStringLiteral("keyboard") << true << expensive;
+    QTest::newRow("keyboard-zoom-out-expensive")
+        << QStringLiteral("keyboard") << false << expensive;
+    QTest::newRow("wheel-zoom-in-expensive")
+        << QStringLiteral("wheel") << true << expensive;
+    QTest::newRow("wheel-zoom-out-expensive")
+        << QStringLiteral("wheel") << false << expensive;
+}
+
+void GraphicsViewTests::testZoomShortcutsKeepVerticalScrollbarStable()
+{
+    QFETCH(QString, inputSource);
+    QFETCH(bool, zoomIn);
+    QFETCH(int, scalingMode);
+
     ScopedOptionValues options({
         {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
         {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
         {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+        {QStringLiteral("smoothscalingmode"), scalingMode},
+        {QStringLiteral("scalingtwoenabled"), true},
+        {QStringLiteral("smoothscalinglimitenabled"), false},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("disabledelayedconstraint"), false},
+        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
+        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)}
     });
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("zoomin"), QStringList{
+            QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()}},
+        {QStringLiteral("zoomout"), QStringList{
+            QKeySequence(Qt::CTRL | Qt::Key_Minus).toString()}}
+    });
+
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     const auto restoreQuitPolicy = qScopeGuard(
@@ -4004,58 +4626,342 @@ void GraphicsViewTests::testZoomTransitionLeavesVerticalScrollbarStable()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("vertical-scrollbar-steady"), Qt::darkMagenta,
-        QSize(2048, 1536));
-    QVERIFY(!imagePath.isEmpty());
+    const QString probePath = createQtRasterTestImage(
+        dir, QStringLiteral("zoom-vbar-geometry-probe"), Qt::darkGreen,
+        QSize(1, 4096));
+    QVERIFY(!probePath.isEmpty());
+    QString scenarioPath;
 
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(640, 480);
-    window.show();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-    window.openFile(imagePath);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
-    QVERIFY(view);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum()
-            && view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(),
-        2000);
+    const auto usableViewportRect = [](const MainWindow &window,
+                                        const QVGraphicsView &view) {
+        QRect rect = view.viewport()->rect();
+        rect.setTop(window.getViewportPosition().obscuredHeight);
+        return rect;
+    };
 
-    auto *horizontal = view->horizontalScrollBar();
-    auto *vertical = view->verticalScrollBar();
-    horizontal->setValue((horizontal->minimum() + horizontal->maximum()) / 3);
-    vertical->setValue((vertical->minimum() + vertical->maximum()) / 3);
-    QCoreApplication::processEvents();
+    const auto waitForLiveWindow = [](MainWindow &window) {
+        // Cocoa may keep the test runner's native window active while the
+        // newly shown test window is nevertheless the QWidget event target.
+        // QTest::keySequence() dispatches to the supplied widget directly, so
+        // visibility is the stable prerequisite for this gray-box test.
+        return waitForTestCondition(
+            [&window]() { return window.isVisible(); }, 1500);
+    };
 
-    view->zoomAbsolute(1.5, view->viewport()->rect().center());
-    QVERIFY(view->isZoomTransitionRunning());
-    QTest::qWait(QVGraphicsView::ZoomTransitionDurationMs + 30);
-    QCoreApplication::processEvents();
-    QVERIFY(!view->isZoomTransitionRunning());
-    const int verticalAtAnimationEnd = vertical->value();
-    const int horizontalAtAnimationEnd = horizontal->value();
+    const auto stopDelayedTimers = [](QVGraphicsView *view) {
+        stopZoomTraceTimers(view);
+    };
 
-    QTest::qWait(QVGraphicsView::ZoomAnchorSettleDelayMs + 80);
-    QCoreApplication::processEvents();
-    const int verticalAfterAnchorSettle = vertical->value();
-    const int horizontalAfterAnchorSettle = horizontal->value();
-    QVERIFY2(qAbs(verticalAfterAnchorSettle - verticalAtAnimationEnd) <= 1,
-             "The vertical scrollbar jumped after the zoom animation");
-    QVERIFY2(qAbs(horizontalAfterAnchorSettle - horizontalAtAnimationEnd) <= 1,
-             "The horizontal scrollbar changed after the zoom animation");
+    const auto waitForAnimationStop = [](QVGraphicsView *view,
+                                         const int timeoutMs) {
+        return waitForTestCondition(
+            [view]() { return !view->isZoomTransitionRunning(); }, timeoutMs);
+    };
 
-    QTest::qWait(300);
-    QCoreApplication::processEvents();
-    QVERIFY2(qAbs(vertical->value() - verticalAfterAnchorSettle) <= 1,
-             "The vertical scrollbar changed after the steady-state constraint");
-    QVERIFY2(qAbs(horizontal->value() - horizontalAfterAnchorSettle) <= 1,
-             "The horizontal scrollbar changed after the steady-state constraint");
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->animatedZoomLevel(), view->getZoomLevel()));
+    const auto runStage = [&](const bool deterministic,
+                              const QString &stage) -> QString {
+        MainWindow window;
+        const auto closeWindow = qScopeGuard([&window]() {
+            if (window.isVisible())
+                window.close();
+        });
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.setWindowState(Qt::WindowNoState);
+        window.resize(640, 480);
+        window.show();
+        window.raise();
+        window.activateWindow();
+        if (!waitForLiveWindow(window))
+            return QStringLiteral("window did not become active");
 
-    window.close();
+        QVGraphicsView *view = nullptr;
+        if (scenarioPath.isEmpty())
+        {
+            window.openFile(probePath);
+            if (!waitForTestCondition([&window]() {
+                    return window.getIsPixmapLoaded();
+                }, 5000))
+                return QStringLiteral("geometry probe did not load");
+            view = window.findChild<QVGraphicsView *>(
+                QStringLiteral("graphicsView"));
+            if (!view)
+                return QStringLiteral("graphics view is missing");
+            if (!waitForTestCondition([view]() {
+                    return view->verticalScrollBar()->maximum()
+                            > view->verticalScrollBar()->minimum()
+                        && view->horizontalScrollBar()->maximum()
+                            <= view->horizontalScrollBar()->minimum();
+                }, 2000))
+                return QStringLiteral("geometry probe did not establish V-only layout");
+
+            const QSize measuredViewport = view->viewport()->size();
+            const QSize scenarioSize(
+                qMax(64, static_cast<int>(std::floor(measuredViewport.width() * 0.90))),
+                qMax(256, static_cast<int>(std::ceil(measuredViewport.height() * 2.20))));
+            scenarioPath = createQtRasterTestImage(
+                dir, QStringLiteral("zoom-vbar-dynamic-fixture"), Qt::darkMagenta,
+                scenarioSize);
+            if (scenarioPath.isEmpty())
+                return QStringLiteral("dynamic fixture could not be created");
+        }
+
+        const QString expectedScenarioPath =
+            QFileInfo(scenarioPath).absoluteFilePath();
+        window.openFile(scenarioPath);
+        if (!waitForTestCondition([&window]() {
+                return window.getIsPixmapLoaded();
+            }, 5000))
+            return QStringLiteral("dynamic fixture did not load");
+        if (!view)
+            view = window.findChild<QVGraphicsView *>(
+                QStringLiteral("graphicsView"));
+        if (!view)
+            return QStringLiteral("graphics view is missing after fixture load");
+        if (!waitForTestCondition([&window, &expectedScenarioPath]() {
+                return window.getIsPixmapLoaded()
+                    && window.getCurrentFileDetails().fileInfo.absoluteFilePath()
+                        == expectedScenarioPath;
+            }, 5000))
+            return QStringLiteral("dynamic fixture path was not committed");
+
+        const qreal startLevel = zoomIn ? 1.0 : 1.25;
+        const bool expectedInitialHorizontalVisibility = !zoomIn;
+        view->zoomAbsolute(startLevel, {}, false, false);
+        view->fitOrConstrainImage();
+        view->centerImage();
+        stopDelayedTimers(view);
+        if (scalingMode == static_cast<int>(Qv::SmoothScalingMode::Expensive))
+        {
+            // Re-arm the production 50 ms backing-pixmap path immediately
+            // before the probe is installed.  No event loop turn occurs here,
+            // so the timer is guaranteed to belong to this scenario.
+            view->settingsUpdated(false);
+            view->centerImage();
+        }
+
+        if (!waitForTestCondition([&]() {
+                return view->verticalScrollBar()->maximum()
+                        > view->verticalScrollBar()->minimum()
+                    && (view->horizontalScrollBar()->maximum()
+                            > view->horizontalScrollBar()->minimum())
+                        == expectedInitialHorizontalVisibility;
+            }, 2000))
+            return QStringLiteral("dynamic fixture did not establish the requested starting layout");
+
+        const QRect usable = usableViewportRect(window, *view);
+        const QPoint keyboardAnchor = usable.center();
+        // Keep both real input routes on the same centered content point so
+        // the horizontal threshold is determined only by image scale, not by
+        // a cursor-offset virtual margin.  The dedicated anchor projection
+        // test covers off-center and outside-image points separately.
+        QPoint mouseAnchor = keyboardAnchor;
+        const QRect imageViewport = view->mapFromScene(
+            view->scene()->itemsBoundingRect()).boundingRect();
+        if (!imageViewport.contains(mouseAnchor))
+            mouseAnchor = keyboardAnchor;
+        if (!imageViewport.contains(keyboardAnchor)
+            || !imageViewport.contains(mouseAnchor))
+            return QStringLiteral("dynamic fixture did not put the input anchor inside the image");
+
+        const QPoint inputAnchor = inputSource == QStringLiteral("wheel")
+            ? mouseAnchor : keyboardAnchor;
+        const QRectF imageScene = view->scene()->itemsBoundingRect();
+        const QPointF anchorScene = view->mapToScene(inputAnchor);
+        const QPointF anchorUV(
+            (anchorScene.x() - imageScene.left()) / imageScene.width(),
+            (anchorScene.y() - imageScene.top()) / imageScene.height());
+        if (anchorUV.x() < 0.0 || anchorUV.x() > 1.0
+            || anchorUV.y() < 0.0 || anchorUV.y() > 1.0)
+            return QStringLiteral("input anchor is outside the normalized image");
+
+        auto probe = std::make_unique<ZoomTraceProbe>(
+            &window, view, inputSource == QStringLiteral("keyboard"),
+            mouseAnchor, anchorUV);
+        probe->clearTrace();
+        auto *animation = view->findChild<QPropertyAnimation *>(
+            QStringLiteral("zoomTransitionAnimation"));
+        if (!animation)
+            return QStringLiteral("zoom transition animation is missing");
+        // Preserve the committed pre-input layout as the transition's
+        // baseline.  A wheel anchor can legitimately create a temporary
+        // virtual margin in the same dispatch that starts the animation, so
+        // the first post-input paint is not a valid starting-state sample.
+        probe->record(QStringLiteral("pre-input"), true,
+                      animation->currentTime());
+
+        const auto failure = [&](const QString &reason) {
+            writeZoomTraceFailure(
+                QStringLiteral("%1-%2-%3-%4")
+                    .arg(inputSource)
+                    .arg(zoomIn ? QStringLiteral("in") : QStringLiteral("out"))
+                    .arg(scalingMode)
+                    .arg(stage),
+                stage, probe->getSamples(), &window, reason);
+            return reason;
+        };
+
+        QSignalSpy zoomChangedSpy(view, &QVGraphicsView::zoomLevelChanged);
+        if (!zoomChangedSpy.isValid())
+            return failure(QStringLiteral("zoomLevelChanged spy is invalid"));
+
+        bool inputDelivered = true;
+        if (inputSource == QStringLiteral("keyboard"))
+        {
+            const QString actionKey = zoomIn
+                ? QStringLiteral("zoomin") : QStringLiteral("zoomout");
+            QAction *action = qvApp->getActionManager().getAction(actionKey);
+            if (!action || action->shortcuts().isEmpty())
+                return failure(QStringLiteral("configured keyboard zoom shortcut is missing"));
+            // This sends the configured QKeySequence through QWidget/QShortcut
+            // dispatch; it deliberately does not invoke QAction::trigger().
+            QTest::keySequence(&window, action->shortcuts().constFirst());
+        }
+        else
+        {
+            const int delta = zoomIn ? 120 : -120;
+            const QPointingDevice wheelDevice(
+                QStringLiteral("zoom trajectory mouse"), 61,
+                QInputDevice::DeviceType::Mouse,
+                QPointingDevice::PointerType::Generic,
+                QInputDevice::Capability::Scroll, 3, 0);
+            QWheelEvent wheelEvent(
+                QPointF(mouseAnchor),
+                QPointF(view->viewport()->mapToGlobal(mouseAnchor)),
+                QPoint(0, delta), QPoint(0, delta), Qt::NoButton,
+                Qt::NoModifier, Qt::NoScrollPhase, false,
+                Qt::MouseEventNotSynthesized, &wheelDevice);
+            inputDelivered = QCoreApplication::sendEvent(
+                view->viewport(), &wheelEvent) && wheelEvent.isAccepted();
+        }
+        if (!inputDelivered)
+            return failure(QStringLiteral("the real keyboard/wheel input was not accepted"));
+        if (zoomChangedSpy.count() != 1)
+            return failure(QStringLiteral("real input emitted %1 zoom changes, expected one")
+                               .arg(zoomChangedSpy.count()));
+        const qreal expectedTarget = zoomIn ? 1.25 : 1.0;
+        if (!QVGraphicsView::zoomLevelsEquivalent(
+                view->getZoomLevel(), expectedTarget))
+            return failure(QStringLiteral("real input selected logical zoom %1, expected %2")
+                               .arg(view->getZoomLevel()).arg(expectedTarget));
+        if (!view->isZoomTransitionRunning())
+            return failure(QStringLiteral("real input did not start a zoom transition"));
+        probe->record(QStringLiteral("input-dispatched"), false,
+                      animation->currentTime());
+
+        if (deterministic)
+        {
+            animation->pause();
+            stopDelayedTimers(view);
+            animation->setCurrentTime(0);
+            stopDelayedTimers(view);
+            if (!zoomTraceIsQuiet(*probe))
+                return failure(QStringLiteral("layout did not settle after scan reset"));
+
+            const int duration = animation->duration();
+            for (int animationTime = 0; animationTime < duration;
+                 ++animationTime)
+            {
+                animation->setCurrentTime(animationTime);
+                // setAnimatedZoomLevel() arms delayed geometry writers.  Stop
+                // them before entering the event loop so this phase explores
+                // only the animation's integer time domain.
+                stopDelayedTimers(view);
+                if (!zoomTraceIsQuiet(*probe))
+                    return failure(QStringLiteral("layout did not settle at animation time %1")
+                                       .arg(animationTime));
+                probe->record(
+                    QStringLiteral("manual-time-%1").arg(animationTime),
+                    true, animationTime);
+            }
+
+            animation->resume();
+            if (!waitForAnimationStop(view, 1000))
+                return failure(QStringLiteral("animation did not finish after deterministic scan"));
+            stopDelayedTimers(view);
+            probe->record(QStringLiteral("manual-terminal"), true,
+                          duration);
+
+            int manualSampleCount = 0;
+            for (const ZoomTraceSample &sample : probe->getSamples())
+            {
+                if (sample.phase.startsWith(QStringLiteral("manual-time-")))
+                    ++manualSampleCount;
+            }
+            if (manualSampleCount != duration)
+                return failure(QStringLiteral("deterministic scan recorded %1 samples, expected %2")
+                                   .arg(manualSampleCount).arg(duration));
+        }
+        else
+        {
+            QElapsedTimer liveTimeout;
+            liveTimeout.start();
+            int quietTurns = 0;
+            while (liveTimeout.elapsed() < 2500)
+            {
+                const int before = probe->eventRevisionValue();
+                QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+                QCoreApplication::sendPostedEvents();
+                const bool finished = !view->isZoomTransitionRunning()
+                    && zoomTraceTimersAreInactive(view);
+                if (finished)
+                {
+                    if (probe->eventRevisionValue() == before)
+                        ++quietTurns;
+                    else
+                        quietTurns = 0;
+                    if (quietTurns >= 2)
+                        break;
+                }
+                else
+                {
+                    quietTurns = 0;
+                }
+                QTest::qWait(1);
+            }
+            if (view->isZoomTransitionRunning()
+                || !zoomTraceTimersAreInactive(view))
+                return failure(QStringLiteral("live replay did not reach timer-quiet terminal state"));
+            probe->record(QStringLiteral("live-terminal"), true,
+                          animation->currentTime());
+
+            for (const QString &required : {
+                     QStringLiteral("animation-finished"),
+                     QStringLiteral("zoomAnchorSettleTimer-timeout"),
+                     QStringLiteral("constrainBoundsTimer-timeout")})
+            {
+                if (!probe->hasPhase(required))
+                    return failure(QStringLiteral("live replay did not observe %1")
+                                       .arg(required));
+            }
+            if (scalingMode == static_cast<int>(Qv::SmoothScalingMode::Expensive)
+                && !probe->hasPhase(QStringLiteral("expensiveScaleTimer-timeout")))
+                return failure(QStringLiteral("expensive scaling timer was not observed"));
+        }
+
+        if (!probe->hasPhase(QStringLiteral("h-range"))
+            || !probe->hasPhase(QStringLiteral("v-range"))
+            || !probe->hasPhase(QStringLiteral("resize")))
+            return failure(QStringLiteral("trajectory did not observe range/layout events"));
+
+        const QString traceError = validateZoomTrace(
+            probe->getSamples(), zoomIn, true);
+        if (!traceError.isEmpty())
+            return failure(traceError);
+        if (!QVGraphicsView::zoomLevelsEquivalent(
+                view->animatedZoomLevel(), view->getZoomLevel()))
+            return failure(QStringLiteral("terminal displayed and logical zoom differ"));
+
+        window.close();
+        return {};
+    };
+
+    const QString deterministicError = runStage(
+        true, QStringLiteral("deterministic"));
+    if (!deterministicError.isEmpty())
+        QFAIL(qPrintable(deterministicError));
+    const QString liveError = runStage(false, QStringLiteral("live"));
+    if (!liveError.isEmpty())
+        QFAIL(qPrintable(liveError));
 }
 
 // TC-IMAGE-CENTER-WITH-SCROLLBARS

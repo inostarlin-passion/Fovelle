@@ -172,7 +172,11 @@ def main() -> int:
         and "pendingZoomAnchorScene = scenePos;" in view_cpp
         and "pendingZoomAnchorViewport = pos;" in view_cpp
         and "pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;" in view_cpp
-        and "QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs" in view_cpp
+        and "QTimer *zoomAnchorSettleTimer;" in view_header
+        and "zoomAnchorSettleTimer->setInterval(" in view_cpp
+        and "zoomAnchorSettleTimer->start();" in view_cpp
+        and "zoomAnchorSettleGeneration = anchorGeneration;" in view_cpp
+        and "void QVGraphicsView::settlePendingZoomAnchor()" in view_cpp
         and "restorePendingZoomAnchor();" in view_cpp
         and "const QPoint anchorViewport = pendingZoomAnchorFollowsViewportCenter" in view_cpp
         and "getUsableViewportRect().center()" in view_cpp
@@ -188,7 +192,10 @@ def main() -> int:
             and "pendingZoomAnchorViewport" in view_header,
             "anchor_captured_before_transform_commit": "pendingZoomAnchorScene = scenePos;" in view_cpp
             and "pendingZoomAnchorViewport = pos;" in view_cpp,
-            "delayed_restore_window": "QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs" in view_cpp,
+            "member_settle_timer": "zoomAnchorSettleTimer->setInterval(" in view_cpp
+            and "zoomAnchorSettleTimer->start();" in view_cpp,
+            "settle_generation_guard": "zoomAnchorSettleGeneration = anchorGeneration;" in view_cpp
+            and "void QVGraphicsView::settlePendingZoomAnchor()" in view_cpp,
             "center_anchor_tracks_new_usable_center": "getUsableViewportRect().center()" in view_cpp,
             "both_axes_restore_with_rtl": "qRound(delta.x() * getRtlFlip())" in view_cpp
             and "qRound(delta.y())" in view_cpp,
@@ -218,6 +225,58 @@ def main() -> int:
             "terminal_frame_is_normalized": "void QVGraphicsView::finishZoomTransition()" in view_cpp,
         },
         "all zoom entry points share one 200 ms property animation and an exact terminal frame",
+    )
+
+    expensive_anchor_rebase_contract = (
+        "const QRectF oldImageRect = scene()->itemsBoundingRect();" in view_cpp
+        and "std::optional<QPointF> pendingAnchorUV;" in view_cpp
+        and "const QRectF newImageRect = scene()->itemsBoundingRect();" in view_cpp
+        and "pendingZoomAnchorScene = QPointF(" in view_cpp
+        and "same normalized image point" in view_cpp
+    )
+    trajectory_contract = (
+        "// AC-ZOOM-VBAR-TRANSIENT" in tests_cpp
+        and "void testZoomShortcutsKeepVerticalScrollbarStable_data()" in tests_cpp
+        and "void testZoomShortcutsKeepVerticalScrollbarStable()" in tests_cpp
+        and "ZoomTraceProbe" in tests_cpp
+        and "QTest::keySequence" in tests_cpp
+        and "QWheelEvent" in tests_cpp
+        and "animation->setCurrentTime(animationTime)" in tests_cpp
+        and "manual-time-" in tests_cpp
+        and "zoomAnchorSettleTimer-timeout" in tests_cpp
+        and "constrainBoundsTimer-timeout" in tests_cpp
+        and "expensiveScaleTimer-timeout" in tests_cpp
+        and "verticalExpected" in tests_cpp
+        and "SC_ScrollBarSlider" in tests_cpp
+        and "writeZoomTraceFailure" in tests_cpp
+        and "FovelleZoomScrollbarTrajectory" in tests_cmake
+        and "FovelleZoomScrollbarTrajectoryHiDpi" in tests_cmake
+        and "QT_SCALE_FACTOR=2" in tests_cmake
+        and expensive_anchor_rebase_contract
+    )
+    add_check(
+        checks,
+        "ST-ZOOM-VBAR-TRAJECTORY-01",
+        trajectory_contract,
+        {
+            "atomic_marker_and_data_rows": "// AC-ZOOM-VBAR-TRANSIENT" in tests_cpp
+            and "testZoomShortcutsKeepVerticalScrollbarStable_data" in tests_cpp,
+            "real_keyboard_input": "QTest::keySequence" in tests_cpp,
+            "real_wheel_input": "QWheelEvent" in tests_cpp,
+            "deterministic_integer_time_scan": "animation->setCurrentTime(animationTime)" in tests_cpp
+            and "manual-time-" in tests_cpp,
+            "delayed_callbacks_observed": "zoomAnchorSettleTimer-timeout" in tests_cpp
+            and "constrainBoundsTimer-timeout" in tests_cpp
+            and "expensiveScaleTimer-timeout" in tests_cpp,
+            "independent_vertical_oracle": "verticalExpected" in tests_cpp,
+            "style_thumb_oracle": "SC_ScrollBarSlider" in tests_cpp,
+            "failure_artifacts": "writeZoomTraceFailure" in tests_cpp,
+            "normal_and_hidpi_ctest": "FovelleZoomScrollbarTrajectory" in tests_cmake
+            and "FovelleZoomScrollbarTrajectoryHiDpi" in tests_cmake
+            and "QT_SCALE_FACTOR=2" in tests_cmake,
+            "expensive_pixmap_anchor_rebased": expensive_anchor_rebase_contract,
+        },
+        "the gray-box trajectory test covers real input, every animation millisecond, delayed callbacks, style geometry, failure artifacts, and the expensive-backing-pixmap coordinate rebase",
     )
 
     menu_contract = (
@@ -320,7 +379,7 @@ def main() -> int:
             "AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR",
             "AC-ZOOM-TRANSITION-200MS",
             "AC-ZOOM-ANCHOR-PROJECTION",
-            "AC-SCROLLBAR-VERTICAL-STEADY",
+            "AC-ZOOM-VBAR-TRANSIENT",
             "AC-SORT-FIXED-DEFAULT",
             "AC-HELP-WEBSITE",
         )
@@ -336,7 +395,8 @@ def main() -> int:
             "testManualScrollCancelsPendingZoomAnchor",
             "testZoomTransitionCoversWheelKeyboardAndMenus",
             "testZoomAnchorProjectsInsideAndOutsideImage",
-            "testZoomTransitionLeavesVerticalScrollbarStable",
+            "testZoomShortcutsKeepVerticalScrollbarStable_data",
+            "testZoomShortcutsKeepVerticalScrollbarStable",
             "testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu",
             "testWebsiteHelpActionAndContextMenuContract",
         )
@@ -358,19 +418,7 @@ def main() -> int:
         "后置条件",
     )
     case_ids = (
-        "TC-SB-IMAGE-EDGES",
-        "TC-SB-NATIVE-EXTENT",
-        "TC-SB-VISUAL-ENDPOINT",
-        "TC-ZOOM-CENTER-THRESHOLD",
-        "TC-ZOOM-BOTTOM-RIGHT",
-        "TC-ZOOM-ENDPOINT",
-        "TC-ZOOM-MANUAL-PAN",
-        "TC-STATIC-CONTRACT",
-        "TC-ZOOM-ALL-ENTRY-POINTS",
-        "TC-ZOOM-ANCHOR-INSIDE-OUTSIDE",
-        "TC-ZOOM-VERTICAL-SCROLLBAR-TRANSIENT-STEADY",
-        "TC-SORT-CONFIG-IGNORED-CONTEXT-REMOVED",
-        "TC-HELP-WEBSITE-URL-CONTEXT-TRANSLATION",
+        "TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION",
     )
     fields_by_case: dict[str, dict[str, bool]] = {}
     for case_id in case_ids:

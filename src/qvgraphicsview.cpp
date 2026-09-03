@@ -71,6 +71,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(&imageCore, &QVImageCore::sortParametersChanged, this, [this]{emit sortParametersChanged();});
 
     expensiveScaleTimer = new QTimer(this);
+    expensiveScaleTimer->setObjectName(QStringLiteral("expensiveScaleTimer"));
     expensiveScaleTimer->setSingleShot(true);
     expensiveScaleTimer->setInterval(50);
     connect(expensiveScaleTimer, &QTimer::timeout, this, [this]{applyExpensiveScaling();});
@@ -86,6 +87,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             this, &QVGraphicsView::finishZoomTransition);
 
     vectorRefineTimer = new QTimer(this);
+    vectorRefineTimer->setObjectName(QStringLiteral("vectorRefineTimer"));
     vectorRefineTimer->setSingleShot(true);
     vectorRefineTimer->setInterval(50);
     connect(vectorRefineTimer, &QTimer::timeout, this, [this]() {
@@ -93,6 +95,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     });
 
     constrainBoundsTimer = new QTimer(this);
+    constrainBoundsTimer->setObjectName(QStringLiteral("constrainBoundsTimer"));
     constrainBoundsTimer->setSingleShot(true);
     connect(constrainBoundsTimer, &QTimer::timeout, this, [this]{
         QScopedValueRollback<bool> internalUpdateGuard(
@@ -100,6 +103,18 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         scrollHelper->constrain();
         restoreFullScreenPanPreservation();
     });
+
+    // Keep the zoom anchor settle transaction observable to the trajectory
+    // regression test.  A member timer is behaviorally equivalent to the
+    // previous context-bound singleShot, while allowing the test to pause
+    // every delayed geometry writer during deterministic animation scans.
+    zoomAnchorSettleTimer = new QTimer(this);
+    zoomAnchorSettleTimer->setObjectName(QStringLiteral("zoomAnchorSettleTimer"));
+    zoomAnchorSettleTimer->setSingleShot(true);
+    zoomAnchorSettleTimer->setInterval(
+        ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs);
+    connect(zoomAnchorSettleTimer, &QTimer::timeout, this,
+            &QVGraphicsView::settlePendingZoomAnchor);
 
     hideCursorTimer = new QTimer(this);
     hideCursorTimer->setSingleShot(true);
@@ -1774,31 +1789,8 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
         retainedZoomAnchorViewportMargins = {};
         pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;
         const quint64 anchorGeneration = ++pendingZoomAnchorGeneration;
-        QTimer::singleShot(ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs, this,
-                           [this, anchorGeneration]() {
-            if (anchorGeneration != pendingZoomAnchorGeneration)
-                return;
-            restorePendingZoomAnchor();
-
-            const QMarginsF sceneMargins = getPendingZoomAnchorSceneMargins();
-            const QTransform currentTransform = transform();
-            const qreal horizontalScale = qSqrt(
-                qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
-            const qreal verticalScale = qSqrt(
-                qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
-            if (!qFuzzyIsNull(horizontalScale) && !qFuzzyIsNull(verticalScale))
-            {
-                retainedZoomAnchorViewportMargins = QMarginsF(
-                    sceneMargins.left() * horizontalScale,
-                    sceneMargins.top() * verticalScale,
-                    sceneMargins.right() * horizontalScale,
-                    sceneMargins.bottom() * verticalScale);
-            }
-            pendingZoomAnchorScene.reset();
-            pendingZoomAnchorViewport.reset();
-            pendingZoomAnchorViewportMargins = {};
-            pendingZoomAnchorFollowsViewportCenter = false;
-        });
+        zoomAnchorSettleGeneration = anchorGeneration;
+        zoomAnchorSettleTimer->start();
     }
     else if (isChanging)
     {
@@ -1850,6 +1842,33 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
     zoomAnimation->start();
 
     emit zoomLevelChanged();
+}
+
+void QVGraphicsView::settlePendingZoomAnchor()
+{
+    if (zoomAnchorSettleGeneration != pendingZoomAnchorGeneration)
+        return;
+
+    restorePendingZoomAnchor();
+
+    const QMarginsF sceneMargins = getPendingZoomAnchorSceneMargins();
+    const QTransform currentTransform = transform();
+    const qreal horizontalScale = qSqrt(
+        qPow(currentTransform.m11(), 2) + qPow(currentTransform.m12(), 2));
+    const qreal verticalScale = qSqrt(
+        qPow(currentTransform.m21(), 2) + qPow(currentTransform.m22(), 2));
+    if (!qFuzzyIsNull(horizontalScale) && !qFuzzyIsNull(verticalScale))
+    {
+        retainedZoomAnchorViewportMargins = QMarginsF(
+            sceneMargins.left() * horizontalScale,
+            sceneMargins.top() * verticalScale,
+            sceneMargins.right() * horizontalScale,
+            sceneMargins.bottom() * verticalScale);
+    }
+    pendingZoomAnchorScene.reset();
+    pendingZoomAnchorViewport.reset();
+    pendingZoomAnchorViewportMargins = {};
+    pendingZoomAnchorFollowsViewportCenter = false;
 }
 
 const std::optional<Qv::CalculatedZoomMode> &QVGraphicsView::getCalculatedZoomMode() const
@@ -1919,6 +1938,16 @@ void QVGraphicsView::applyExpensiveScaling()
 
     // Calculate scaled resolution
     const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
+    const QRectF oldImageRect = scene()->itemsBoundingRect();
+    std::optional<QPointF> pendingAnchorUV;
+    if (pendingZoomAnchorScene.has_value() && !oldImageRect.isEmpty())
+    {
+        pendingAnchorUV = QPointF(
+            (pendingZoomAnchorScene->x() - oldImageRect.left())
+                    / oldImageRect.width(),
+            (pendingZoomAnchorScene->y() - oldImageRect.top())
+                    / oldImageRect.height());
+    }
     const qreal dpiAdjustment = getDpiAdjustment();
     const QSizeF mappedSize = QSizeF(getCurrentFileDetails().loadedPixmapSize) * zoomLevel * dpiAdjustment * devicePixelRatioF();
 
@@ -1930,6 +1959,20 @@ void QVGraphicsView::applyExpensiveScaling()
     setTransformScale(newTransformScale);
     appliedDpiAdjustment = dpiAdjustment;
     appliedExpensiveScaleZoomLevel = zoomLevel;
+
+    // The backing pixmap's scene dimensions now include the device-pixel
+    // density and the requested zoom.  Preserve a pending zoom anchor as the
+    // same normalized image point; replaying its old scene coordinate would
+    // place the viewport hundreds of pixels away and expose a transient
+    // scrollbar jump exactly when the delayed high-resolution frame arrives.
+    if (pendingAnchorUV.has_value())
+    {
+        const QRectF newImageRect = scene()->itemsBoundingRect();
+        if (!newImageRect.isEmpty())
+            pendingZoomAnchorScene = QPointF(
+                newImageRect.left() + pendingAnchorUV->x() * newImageRect.width(),
+                newImageRect.top() + pendingAnchorUV->y() * newImageRect.height());
+    }
     updateSceneRect(scrollPosition);
     logViewportState("expensive-scaling-applied");
 }
@@ -2430,7 +2473,16 @@ QMarginsF QVGraphicsView::getPendingZoomAnchorSceneMargins() const
         // exact placement reachable at the current animation frame.  The
         // same calculation also extends the opposite side when an interior
         // point would otherwise be beyond the normal maximum.
-        const QSizeF imageSize = getCurrentFileDetails().loadedPixmapSize;
+        // The scene coordinate size is the backing item's size, not always
+        // the source image size.  Expensive scaling temporarily replaces the
+        // pixmap with a device-pixel-sized image and lowers the view
+        // transform by the matching factor; using the source size here would
+        // add a fictitious margin and can keep a scrollbar visible after a
+        // zoom-out has already made the displayed image fit.
+        const QSizeF imageSize = getCurrentFileDetails().isNativeHDRLoaded
+                || getCurrentFileDetails().isNativeSDRLoaded
+            ? QSizeF(getCurrentFileDetails().loadedPixmapSize)
+            : loadedPixmapItem->boundingRect().size();
         const QRect viewportRect = viewport()->rect();
         if (!imageSize.isEmpty())
         {
@@ -2442,11 +2494,38 @@ QMarginsF QVGraphicsView::getPendingZoomAnchorSceneMargins() const
                     - imageSize.width() * horizontalScale;
             const qreal minimumImageTop = viewportRect.height()
                     - imageSize.height() * verticalScale;
+            const qreal displayedImageWidth = imageSize.width()
+                    * horizontalScale;
+            const qreal displayedImageHeight = imageSize.height()
+                    * verticalScale;
+            // An explicit wheel event at the natural center of an image that
+            // already fits needs no virtual scene margin.  Adding both sides
+            // of that otherwise reachable placement creates a short-lived
+            // horizontal range before the image actually crosses the
+            // scrollbar threshold, which can make the layout oscillate.
+            const bool usesNaturalHorizontalAlignment =
+                displayedImageWidth <= viewportRect.width()
+                && qAbs(desiredImageLeft
+                        - (viewportRect.width() - displayedImageWidth) / 2.0)
+                    <= 0.5;
+            const bool usesNaturalVerticalAlignment =
+                displayedImageHeight <= viewportRect.height()
+                && qAbs(desiredImageTop
+                        - (viewportRect.height() - displayedImageHeight) / 2.0)
+                    <= 0.5;
             return QMarginsF(
-                qMax(0.0, desiredImageLeft) / horizontalScale,
-                qMax(0.0, desiredImageTop) / verticalScale,
-                qMax(0.0, minimumImageLeft - desiredImageLeft) / horizontalScale,
-                qMax(0.0, minimumImageTop - desiredImageTop) / verticalScale);
+                usesNaturalHorizontalAlignment
+                    ? 0.0 : qMax(0.0, desiredImageLeft) / horizontalScale,
+                usesNaturalVerticalAlignment
+                    ? 0.0 : qMax(0.0, desiredImageTop) / verticalScale,
+                usesNaturalHorizontalAlignment
+                    ? 0.0
+                    : qMax(0.0, minimumImageLeft - desiredImageLeft)
+                        / horizontalScale,
+                usesNaturalVerticalAlignment
+                    ? 0.0
+                    : qMax(0.0, minimumImageTop - desiredImageTop)
+                        / verticalScale);
         }
     }
 
@@ -3143,6 +3222,7 @@ void QVGraphicsView::restorePendingZoomAnchor()
 
 void QVGraphicsView::cancelPendingZoomAnchor()
 {
+    zoomAnchorSettleTimer->stop();
     if (isZoomTransitionRunning())
     {
         const auto edgeFromSliderPosition = [](const QScrollBar *scrollBar) {

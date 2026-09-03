@@ -316,6 +316,8 @@ protected:
 
     void stopZoomTransition();
 
+    void settlePendingZoomAnchor();
+
     void cancelTurboNav();
 
     MainWindow* getMainWindow() const;
@@ -418,6 +420,7 @@ private:
     QMarginsF retainedZoomAnchorViewportMargins;
     bool pendingZoomAnchorFollowsViewportCenter {false};
     quint64 pendingZoomAnchorGeneration {0};
+    quint64 zoomAnchorSettleGeneration {0};
     std::optional<QPoint> lastZoomEventPos;
     QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};
@@ -430,6 +433,7 @@ private:
     QPropertyAnimation *zoomAnimation;
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
+    QTimer *zoomAnchorSettleTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrPresentationTimer;
     QTimer *hdrGeometryTimer;
