@@ -54,15 +54,29 @@ def main() -> int:
     transaction_markers = (
         "QEventLoop::ExcludeUserInputEvents",
         "horizontalTopologyChanged",
+        "ZoomTopologyEventDrainMs = 8",
+        "layoutDrainFlags",
         "setUpdatesEnabled(false)",
         "restorePendingZoomAnchor();",
         "requestHDRRendererUpdate();",
     )
     add(
         "ST-HBAR-ATOMIC-FRAME",
-        all(marker in view_cpp for marker in transaction_markers),
-        {marker: marker in view_cpp for marker in transaction_markers},
+        all(marker in view_h + view_cpp for marker in transaction_markers),
+        {marker: marker in view_h + view_cpp for marker in transaction_markers},
         "the scrollbar topology transition is coalesced before the next visible/native frame",
+    )
+
+    easing_markers = (
+        "QEasingCurve::OutCubic",
+        "QEasingCurve::Linear",
+        "QEasingCurve::Linear : QEasingCurve::OutCubic",
+    )
+    add(
+        "ST-TOGGLE-LINEAR-EASING",
+        all(marker in view_cpp for marker in easing_markers),
+        {marker: marker in view_cpp for marker in easing_markers},
+        "semantic Toggle/fit transitions use linear easing while discrete steps retain OutCubic",
     )
 
     anchor_markers = (
@@ -83,7 +97,9 @@ def main() -> int:
         "testZoomTransitionDurationUsesLogDistance",
         "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump",
         "testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition",
+        "testToggleFitAnd100CenterTrajectoryIsLinear",
         "FOVELLE_SCROLLBAR_ZOOM_SAMPLE",
+        "FOVELLE_TOGGLE_LINEAR_SAMPLE",
         "QSize(3840, 4407)",
         "four-forward-terminal",
         "one-reverse-terminal",
@@ -105,6 +121,7 @@ def main() -> int:
         "AC-TOGGLE-DIRECTIONAL-ANCHOR",
         "AC-TOGGLE-FROZEN-CENTER-ANCHOR",
         "AC-TOGGLE-ANCHOR-LIFETIME",
+        "AC-TOGGLE-LINEAR-CENTER-TRAJECTORY",
         "AC-TOGGLE-MONOTONIC-TERMINAL",
         "AC-TOGGLE-QUIESCENT-FINAL",
         "AC-STATIC-01-TRACEABILITY",
@@ -116,6 +133,7 @@ def main() -> int:
         "TC-TOGGLE-DIRECTIONAL-ANCHOR",
         "TC-TOGGLE-FROZEN-CENTER-ANCHOR",
         "TC-TOGGLE-ANCHOR-LIFETIME",
+        "TC-TOGGLE-LINEAR-CENTER-TRAJECTORY",
         "TC-TOGGLE-STABILITY-TRAJECTORY",
         "TC-STATIC-TRACEABILITY",
     )
@@ -141,14 +159,16 @@ def main() -> int:
         "FovelleZoomScrollbarDurationStatic" in cmake
         and "FovelleScrollbarZoomDurationAcceptance" in cmake
         and "FovelleToggleFitAnchorAcceptance" in cmake
+        and "FovelleToggleFitTrajectoryAcceptance" in cmake
         and "testZoomTransitionDurationUsesLogDistance" in cmake
         and "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump" in cmake,
         {
             "static_registered": "FovelleZoomScrollbarDurationStatic" in cmake,
             "dynamic_registered": "FovelleScrollbarZoomDurationAcceptance" in cmake,
             "toggle_anchor_registered": "FovelleToggleFitAnchorAcceptance" in cmake,
+            "trajectory_registered": "FovelleToggleFitTrajectoryAcceptance" in cmake,
         },
-        "static and dynamic acceptance tests are registered in CTest",
+        "static and dynamic acceptance tests, including the center-trajectory gate, are registered in CTest",
     )
 
     record = {

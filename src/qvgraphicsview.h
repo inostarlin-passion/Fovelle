@@ -31,6 +31,10 @@ public:
     static constexpr int ZoomTransitionDurationMs = 200;
     static constexpr int ZoomTransitionMaximumDurationMs = 400;
     static constexpr int ZoomAnchorSettleDelayMs = 150;
+    // A topology change can enqueue more than one layout generation.  The
+    // bounded event drain is intentionally short and is only used while
+    // widget updates are suppressed inside an active zoom transaction.
+    static constexpr int ZoomTopologyEventDrainMs = 8;
 
     QVGraphicsView(QWidget *parent = nullptr);
 

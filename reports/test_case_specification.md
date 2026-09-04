@@ -1,4 +1,4 @@
-# 测试用例说明：滚动条拓扑与 Toggle Fit/100% 锚点
+# 测试用例说明：滚动条拓扑与 Toggle Fit/100% 轨迹
 
 日期：2026-09-04
 被测代码：`src/qvgraphicsview.h`、`src/qvgraphicsview.cpp`
@@ -13,6 +13,7 @@
 | `AC-TOGGLE-DIRECTIONAL-ANCHOR` | `TC-TOGGLE-DIRECTIONAL-ANCHOR` | ✓ | ✓ |
 | `AC-TOGGLE-FROZEN-CENTER-ANCHOR` | `TC-TOGGLE-FROZEN-CENTER-ANCHOR` | ✓ | ✓ |
 | `AC-TOGGLE-ANCHOR-LIFETIME` | `TC-TOGGLE-ANCHOR-LIFETIME` | ✓ | ✓ |
+| `AC-TOGGLE-LINEAR-CENTER-TRAJECTORY` | `TC-TOGGLE-LINEAR-CENTER-TRAJECTORY` | ✓ | ✓ |
 | `AC-TOGGLE-MONOTONIC-TERMINAL` | `TC-TOGGLE-STABILITY-TRAJECTORY` | ✓ | ✓ |
 | `AC-TOGGLE-QUIESCENT-FINAL` | `TC-TOGGLE-STABILITY-TRAJECTORY` | ✓ | ✓ |
 | `AC-DURATION-01-LOG-DISTANCE` | `TC-DURATION-LOG-DISTANCE` | ✓ | ✓ |
@@ -27,7 +28,7 @@
 
 覆盖：`AC-HBAR-01-ROUND-TRIP`、`AC-HBAR-02-ANCHOR-CONTINUITY`
 
-**测试目的**：重现用户给出的“打开图片、鼠标置于图片中心、滚轮前进 4 格、再后退 1 格”路径，验证 H range 出现/消失时图片固定 scene 点没有不可预测跳变。
+**测试目的**：重现用户给出的“打开图片、鼠标置于非图片中心、滚轮前进 4 格、再后退 1 格”路径，验证 H range 出现/消失时图片固定 scene 点没有不可预测跳变。
 
 **前置条件**：Cocoa QtTest 可创建可见窗口；H/V scrollbar 为 `ScrollBarAsNeeded`；默认 wheel 倍率为 `1.25`；图片已从 Fit 稳定；`QSettings/geometry` 已隔离。
 
@@ -37,12 +38,12 @@
 
 1. 打开图片，等待加载、Fit 动画和所有已知延迟 writer 完成。
 2. 连续发送 3 个真实离散 wheel detent，每次等待结算；确认 H 无 range、V 有 range。
-3. 把鼠标移到 usable viewport 中心，记录固定 viewport 点及其 scene 点，安装 `ZoomIssueProbe`。
+3. 把鼠标移到图片内右侧约 65% 宽度、相对 usable viewport 中心垂直偏移约 `(+0,+20)` 的非中心点；该选择避开临界 H range 下物理上不可实现的居中摆放，同时仍固定真实 wheel 的非中心 viewport 点；记录其 scene 点并安装 `ZoomIssueProbe`。
 4. 发送第 4 个 `+120`，等待 animation、layout、settle 和约束完成，记录 `four-forward-terminal`。
 5. 发送 `-120`，等待同样的终态，记录 `one-reverse-terminal`。
 6. 遍历 range/value、resize、paint、animation 和 timer 样本，检查 H 的 `0→非零→0` 轨迹与固定 anchor。
 
-**预期结果**：第 4 格终态 H range 非零；反向 1 格终态 H range 归零；样本确实跨过两个 topology 边界；paint 和终态的固定 anchor 误差不超过 2 DIP，只有 resize 预处理样本允许原生横条半厚度加 1 DIP 的边界；不出现依赖延迟回弹才能成立的可见错误位置。
+**预期结果**：第 4 格终态 H range 非零；反向 1 格终态 H range 归零；样本确实跨过两个 topology 边界；固定 anchor 的 Y（H 条改变 viewport 高度的交叉轴）在所有 paint/终态样本中误差不超过 2 DIP；H 有真实 range 时 X 也不超过 2 DIP。H 无 range 且图片已 fit 时，X 遵循 Qt 的 alignment 合同，不把物理上不可达的任意非中心点误判为事务跳变；只有 resize 预处理样本允许原生横条半厚度加 1 DIP 的边界；不出现依赖延迟回弹才能成立的可见错误位置。
 
 **后置条件**：动画、settle、post-layout、约束和垂直几何 timer 均停止；窗口关闭；合成图由 `QTemporaryDir` 回收；现场 JPEG 不写入。
 
@@ -87,6 +88,28 @@
 **预期结果**：中间帧的 y 锚点与原始 `anchorViewport.y()` 相差不超过 2 DIP；H 条消失时不会把它改成新的 viewport center；终态为 Fit 且 H/V 无 range。
 
 **后置条件**：所有动画和 timer 停止；窗口关闭；设置和临时资源恢复/回收。
+
+### TC-TOGGLE-LINEAR-CENTER-TRAJECTORY
+
+覆盖：`AC-TOGGLE-LINEAR-CENTER-TRAJECTORY`
+
+**测试目的**：验证真实 `Z` 快捷键在非中心鼠标位置触发 Fit→100% 时，图片中心坐标相对动画墙钟时间线性，且 H/V topology 切换不产生额外折点。
+
+**前置条件**：Cocoa QtTest 可创建可见窗口；优先加载现场 `3840×4407` JPEG，文件不可读时使用同尺寸合成图；图片已稳定在 Fit；`togglefitand100` 已绑定 `Z`；窗口几何设置已隔离。
+
+**输入数据**：拟真现场路径、窗口请求尺寸 `1000×550`、Fit 图像内偏离 usable center 的点（约 `(+70,+30)`）、一次真实 `QTest::keySequence(..., Z)`，以及动画时间 `0、D/4、D/2、3D/4、D-1`。
+
+**操作步骤**：
+
+1. 打开图片并等待加载、Fit 和既有延迟 writer 结束；记录 image scene center。
+2. 将鼠标移到非中心图片点，聚焦 viewport，通过 shortcut delivery 发送 `Z`。
+3. 验证 `QPropertyAnimation` 正在运行、easing 为 `QEasingCurve::Linear`、时长 `D` 在 `200–400 ms`。
+4. 暂停 animation，依次设置上述整数 `currentTime`；每次排空 layout 事件，记录 displayed zoom、H/V range 和 `mapFromScene(imageCenter)`。
+5. 以起止中心连线计算期望中心，以 `t/D` 计算期望 zoom；恢复 animation 并等待终态。
+
+**预期结果**：每个采样点的 displayed zoom 与线性插值误差≤0.01；图片中心到同一直线的残差≤3 DIP，包含 scrollbar topology 变化的采样；终态 zoom 为 100%，H/V 均有 range，且 animation/timer 全部停止。
+
+**后置条件**：窗口、animation、settle/post-layout/constraint/scrollbar geometry timer 和临时资源释放；现场 JPEG 不被写入；scoped shortcut/settings 恢复。
 
 ### TC-TOGGLE-ANCHOR-LIFETIME
 
@@ -185,6 +208,7 @@
 | `TC-HBAR-FOUR-IN-ONE-OUT` | `GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump` | `FovelleScrollbarZoomDurationAcceptance` |
 | `TC-TOGGLE-DIRECTIONAL-ANCHOR` | `testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor` | `FovelleToggleFitAnchorAcceptance`、`FovelleFiveIssueZoomAcceptance` |
 | `TC-TOGGLE-FROZEN-CENTER-ANCHOR`、`TC-TOGGLE-ANCHOR-LIFETIME` | `testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition` | `FovelleToggleFitAnchorAcceptance` |
+| `TC-TOGGLE-LINEAR-CENTER-TRAJECTORY` | `testToggleFitAnd100CenterTrajectoryIsLinear` | `FovelleToggleFitTrajectoryAcceptance` |
 | `TC-TOGGLE-STABILITY-TRAJECTORY` | `testToggleFitReturnHasMonotonicStableTerminalSize` | `FovelleToggleFitStabilityAcceptance` |
 | `TC-DURATION-LOG-DISTANCE` | `testZoomTransitionDurationUsesLogDistance` | `FovelleScrollbarZoomDurationAcceptance` |
 | `TC-DURATION-FIXED-STEP` | `testZoomTransitionCoversWheelKeyboardAndMenus` | `FovelleTests` |

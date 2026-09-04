@@ -203,6 +203,14 @@ set_tests_properties(FovelleToggleFitAnchorAcceptance PROPERTIES
     LABELS "zoom;toggle-fit;anchor;dynamic;acceptance"
 )
 
+add_test(NAME FovelleToggleFitTrajectoryAcceptance COMMAND fovelle_tests
+    testToggleFitAnd100CenterTrajectoryIsLinear -v1)
+set_tests_properties(FovelleToggleFitTrajectoryAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 60
+    LABELS "zoom;toggle-fit;trajectory;dynamic;acceptance"
+)
+
 add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests
     testZoomOutClearsStaleVerticalScrollRange
     testMousePanKeepsOverflowRangeAndContinuity

@@ -19,6 +19,7 @@
 #include <QPainter>
 #include <QCursor>
 #include <QEventLoop>
+#include <QCoreApplication>
 
 #include <algorithm>
 #include <cmath>
@@ -108,6 +109,10 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     zoomAnimation = new QPropertyAnimation(this, "animatedZoomLevel", this);
     zoomAnimation->setObjectName(QStringLiteral("zoomTransitionAnimation"));
     zoomAnimation->setDuration(ZoomTransitionDurationMs);
+    // Keep ordinary one-step zooms on the established ease-out curve.  The
+    // semantic Toggle/fit path selects Linear immediately before its own
+    // animation starts (see zoomAbsolute), so its fixed scene anchor has a
+    // linear image-center trajectory without changing wheel/keyboard feel.
     zoomAnimation->setEasingCurve(QEasingCurve::OutCubic);
     connect(zoomAnimation, &QPropertyAnimation::finished,
             this, &QVGraphicsView::finishZoomTransition);
@@ -1807,13 +1812,18 @@ void QVGraphicsView::setAnimatedZoomLevel(const qreal level)
 
     if (coalesceLayout && horizontalTopologyChanged)
     {
-        // The rangeChanged handler is queued by QAbstractScrollArea. Process
-        // only the current event-loop turn while no widget can present a
-        // partial frame; this also lets the resulting resize callbacks use
-        // the same pending anchor before native geometry is submitted.
-        QCoreApplication::processEvents(
+        // The rangeChanged handler is queued by QAbstractScrollArea.  Use the
+        // bounded overload so events posted while the first layout pass is
+        // running are also drained.  A second pass covers older Qt versions
+        // whose millisecond overload may leave a follow-up MetaCall queued.
+        // No widget can present a partial frame while updates are disabled.
+        const auto layoutDrainFlags =
             QEventLoop::ExcludeUserInputEvents
-            | QEventLoop::ExcludeSocketNotifiers);
+            | QEventLoop::ExcludeSocketNotifiers;
+        QCoreApplication::processEvents(
+            layoutDrainFlags, ZoomTopologyEventDrainMs);
+        QCoreApplication::processEvents(
+            layoutDrainFlags, ZoomTopologyEventDrainMs);
         if (pendingZoomAnchorScene.has_value())
             restorePendingZoomAnchor();
         if (hdrRendererActive)
@@ -2043,6 +2053,12 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
     const int transitionDuration = zoomTransitionDurationMs(
         displayedZoomLevel, requestedLevel, useAdaptiveDuration);
     zoomAnimation->setDuration(transitionDuration);
+    // A fixed scene anchor makes the image center affine in the displayed
+    // zoom.  Semantic Toggle/fit transitions use the bounded adaptive
+    // duration and a linear easing so that this center is also linear in
+    // wall-clock time.  Discrete wheel/keyboard steps retain OutCubic.
+    zoomAnimation->setEasingCurve(useAdaptiveDuration
+        ? QEasingCurve::Linear : QEasingCurve::OutCubic);
     if (pendingZoomAnchorScene.has_value()
         && pendingZoomAnchorViewport.has_value())
     {

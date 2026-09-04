@@ -13,6 +13,7 @@ ATOMIC_CRITERIA = (
     "AC-TOGGLE-DIRECTIONAL-ANCHOR",
     "AC-TOGGLE-FROZEN-CENTER-ANCHOR",
     "AC-TOGGLE-ANCHOR-LIFETIME",
+    "AC-TOGGLE-LINEAR-CENTER-TRAJECTORY",
     "AC-TOGGLE-MONOTONIC-TERMINAL",
     "AC-TOGGLE-QUIESCENT-FINAL",
 )
@@ -21,6 +22,7 @@ CASE_IDS = (
     "TC-TOGGLE-DIRECTIONAL-ANCHOR",
     "TC-TOGGLE-FROZEN-CENTER-ANCHOR",
     "TC-TOGGLE-ANCHOR-LIFETIME",
+    "TC-TOGGLE-LINEAR-CENTER-TRAJECTORY",
     "TC-TOGGLE-STABILITY-TRAJECTORY",
 )
 
@@ -147,6 +149,10 @@ def main() -> int:
         tests_cpp,
         "void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()",
     )
+    trajectory_body = function_body(
+        tests_cpp,
+        "void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()",
+    )
     executable_contract = {
         "all_atomic_markers": all(
             criterion in tests_cpp for criterion in ATOMIC_CRITERIA
@@ -179,6 +185,13 @@ def main() -> int:
         "provided_fixture": (
             "provided-3840x4407-jpeg" in tests_cpp
             and "FOVELLE_TOGGLE_FIT_SAMPLE" in tests_cpp
+        ),
+        "linear_center_trajectory": (
+            "QTest::keySequence" in trajectory_body
+            and "QEasingCurve::Linear" in trajectory_body
+            and "setCurrentTime" in trajectory_body
+            and "centerError <= 3.0" in trajectory_body
+            and "FOVELLE_TOGGLE_LINEAR_SAMPLE" in trajectory_body
         ),
     }
     add_check(
@@ -227,6 +240,9 @@ def main() -> int:
         "https://doc.qt.io/qt-6/qabstractscrollarea.html",
         "https://doc.qt.io/qt-6/qgraphicsview.html",
         "https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp",
+        "https://doc.qt.io/qt-6/qvariantanimation.html",
+        "https://doc.qt.io/qt-6/qeasingcurve.html",
+        "https://doc.qt.io/qt-6/qcoreapplication.html",
         "https://d3js.org/d3-interpolate/zoom",
     )
     research_contract = {
@@ -253,6 +269,10 @@ def main() -> int:
         "dynamic_registered": "FovelleToggleFitStabilityAcceptance" in cmake,
         "dynamic_entry_point": (
             "testToggleFitReturnHasMonotonicStableTerminalSize" in cmake
+        ),
+        "trajectory_registered": (
+            "FovelleToggleFitTrajectoryAcceptance" in cmake
+            and "testToggleFitAnd100CenterTrajectoryIsLinear" in cmake
         ),
         "static_and_dynamic_labels": (
             'LABELS "zoom;toggle-fit;static;acceptance"' in cmake
