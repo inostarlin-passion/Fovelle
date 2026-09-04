@@ -45,15 +45,42 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(verticalScrollBarGeometryTimer, &QTimer::timeout, this, [this]() {
         verticalScrollBarGeometryUpdatePending = false;
         refreshVerticalScrollBarGeometry();
+        if (postLayoutZoomAnchorNeedsRestore)
+        {
+            restorePostLayoutZoomAnchor();
+            postLayoutZoomAnchorNeedsRestore = false;
+        }
+        postLayoutZoomAnchorScene.reset();
+        postLayoutZoomAnchorViewport.reset();
     });
 
     const auto scheduleScrollBarGeometryUpdate = [this](int, int) {
         scheduleVerticalScrollBarGeometry();
+        // A range change can be the second half of an AsNeeded topology
+        // transition and may arrive after commitZoomImmediately() returned.
+        // Reconcile the same semantic scene point before the next paint.
+        if (postLayoutZoomAnchorScene.has_value())
+        {
+            postLayoutZoomAnchorNeedsRestore = true;
+            restorePostLayoutZoomAnchor();
+        }
     };
     connect(horizontalScrollBar(), &QScrollBar::rangeChanged, this,
             scheduleScrollBarGeometryUpdate);
     connect(verticalScrollBar(), &QScrollBar::rangeChanged, this,
             scheduleScrollBarGeometryUpdate);
+    connect(horizontalScrollBar(), &QScrollBar::sliderPressed, this,
+            [this]() { cancelPostLayoutZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::sliderPressed, this,
+            [this]() { cancelPostLayoutZoomAnchor(); });
+    connect(horizontalScrollBar(), &QScrollBar::sliderMoved, this,
+            [this](int) { cancelPostLayoutZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::sliderMoved, this,
+            [this](int) { cancelPostLayoutZoomAnchor(); });
+    connect(horizontalScrollBar(), &QScrollBar::actionTriggered, this,
+            [this](int) { cancelPostLayoutZoomAnchor(); });
+    connect(verticalScrollBar(), &QScrollBar::actionTriggered, this,
+            [this](int) { cancelPostLayoutZoomAnchor(); });
     QWidget *barGeometryWidget = verticalScrollBar()->parentWidget();
     if (!barGeometryWidget || barGeometryWidget == this
         || barGeometryWidget == viewport())
@@ -206,6 +233,13 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         // test; QAbstractSlider emits valueChanged for every changed value.
         if (fullScreenPanPreservationActive && isExternalViewportChange)
             captureFullScreenPanState();
+        if (!zoomCommitInProgress && !fullScreenPanInternalUpdate
+            && !isUpdatingSceneRect && !isRestoringPostLayoutZoomAnchor
+            && postLayoutZoomAnchorNeedsRestore)
+        {
+            restorePostLayoutZoomAnchor();
+            postLayoutZoomAnchorNeedsRestore = false;
+        }
         // Scrollbar values also change while opening/fitting a file. Treat
         // only changes after the native surface is fully active as an input
         // burst; otherwise cold open needlessly keeps the display link and
@@ -810,6 +844,7 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
             QPointF(event->pixelDelta()) : QPointF(event->angleDelta()) / 2.0;
         if (!trackpadDelta.isNull())
         {
+            cancelPostLayoutZoomAnchor();
             scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
             constrainBoundsTimer->start();
         }
@@ -849,6 +884,8 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
         event->phase() != Qt::NoScrollPhase;
 #endif
 
+    if (effectiveAction == Qv::ViewportScrollAction::Pan)
+        cancelPostLayoutZoomAnchor();
     executeScrollAction(effectiveAction, effectiveDelta, eventPos, hasShiftModifier, useFractionalZoom);
     logViewportState("wheel-after");
 }
@@ -903,6 +940,7 @@ void QVGraphicsView::keyPressEvent(QKeyEvent *event)
     const int scrollYLargeSteps = event == QKeySequence::MoveToPreviousPage ? -1 : event == QKeySequence::MoveToNextPage ? 1 : 0;
     if (scrollXSmallSteps != 0 || scrollYSmallSteps != 0 || scrollYLargeSteps != 0)
     {
+        cancelPostLayoutZoomAnchor();
         const QPoint delta {
             (horizontalScrollBar()->singleStep() * scrollXSmallSteps) * getRtlFlip(),
             (verticalScrollBar()->singleStep() * scrollYSmallSteps) + (verticalScrollBar()->pageStep() * scrollYLargeSteps)
@@ -991,6 +1029,7 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
 {
     if (action == Qv::ViewportDragAction::Pan)
     {
+        cancelPostLayoutZoomAnchor();
         scrollHelper->move(QPointF(-delta.x() * getRtlFlip(), -delta.y()));
     }
     else if (action == Qv::ViewportDragAction::MoveWindow)
@@ -1763,6 +1802,28 @@ void QVGraphicsView::applyZoomAnchor(const QPointF &scenePoint,
     }
 }
 
+void QVGraphicsView::restorePostLayoutZoomAnchor()
+{
+    if (!postLayoutZoomAnchorScene.has_value()
+        || !postLayoutZoomAnchorViewport.has_value()
+        || isRestoringPostLayoutZoomAnchor)
+        return;
+
+    const QScopedValueRollback<bool> restoreGuard(
+        isRestoringPostLayoutZoomAnchor, true);
+    applyZoomAnchor(postLayoutZoomAnchorScene.value(),
+                    postLayoutZoomAnchorViewport.value());
+}
+
+void QVGraphicsView::cancelPostLayoutZoomAnchor()
+{
+    if (isRestoringPostLayoutZoomAnchor)
+        return;
+    postLayoutZoomAnchorScene.reset();
+    postLayoutZoomAnchorViewport.reset();
+    postLayoutZoomAnchorNeedsRestore = false;
+}
+
 void QVGraphicsView::settleTargetScrollAreaLayout()
 {
     const Qt::ScrollBarPolicy horizontalPolicy = horizontalScrollBarPolicy();
@@ -1827,6 +1888,7 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
     const bool horizontalUpdatesEnabled = horizontalScrollBar()->updatesEnabled();
     const bool verticalUpdatesEnabled = verticalScrollBar()->updatesEnabled();
     QScopedValueRollback<bool> commitGuard(zoomCommitInProgress, true);
+    cancelPostLayoutZoomAnchor();
 
     // A pending pan constraint belongs to the previous interaction. It must
     // not wake up after this zoom and rewrite the newly committed position.
@@ -1884,6 +1946,12 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
                     targetSceneRect.top() + uv.y() * targetSceneRect.height());
             }();
             applyZoomAnchor(sceneAnchor, targetAnchor);
+            // QAbstractScrollArea can still clamp a bar when its private
+            // container materializes a newly visible cross-axis bar. Keep the
+            // semantic point until that one topology transition is observed.
+            postLayoutZoomAnchorScene = sceneAnchor;
+            postLayoutZoomAnchorViewport = targetAnchor;
+            postLayoutZoomAnchorNeedsRestore = false;
         }
         else if (!loadIsFromSessionRestore)
         {
@@ -1893,8 +1961,16 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
         if (!plan.hasAnchor)
             scrollHelper->constrain();
         refreshVerticalScrollBarGeometry();
-        verticalScrollBarGeometryTimer->stop();
-        verticalScrollBarGeometryUpdatePending = false;
+        if (postLayoutZoomAnchorScene.has_value())
+        {
+            verticalScrollBarGeometryUpdatePending = true;
+            verticalScrollBarGeometryTimer->start();
+        }
+        else
+        {
+            verticalScrollBarGeometryTimer->stop();
+            verticalScrollBarGeometryUpdatePending = false;
+        }
         handleSmoothScalingChange();
         if (hdrRendererActive)
             requestHDRRendererUpdate();
@@ -2318,6 +2394,7 @@ void QVGraphicsView::toggleFitAnd100()
 
 void QVGraphicsView::centerImage()
 {
+    cancelPostLayoutZoomAnchor();
     logViewportState("center-before");
     const QRect viewRect = getUsableViewportRect();
     const QRect contentRect = getDisplayedContentRect();

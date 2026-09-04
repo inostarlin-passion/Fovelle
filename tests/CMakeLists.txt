@@ -259,3 +259,19 @@ set_tests_properties(FovelleZoomScrollbarTrajectoryHiDpi PROPERTIES
     TIMEOUT 120
     LABELS "zoom;scrollbar;trajectory;hidpi"
 )
+
+add_test(NAME FovelleZoomScrollbarExpensiveRefinement COMMAND fovelle_tests
+    testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement -v1)
+set_tests_properties(FovelleZoomScrollbarExpensiveRefinement PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 60
+    LABELS "zoom;scrollbar;refinement;dynamic;acceptance"
+)
+
+add_test(NAME FovelleZoomScrollbarVerticalTopology COMMAND fovelle_tests
+    testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears -v1)
+set_tests_properties(FovelleZoomScrollbarVerticalTopology PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 60
+    LABELS "zoom;scrollbar;vertical-topology;dynamic;acceptance"
+)

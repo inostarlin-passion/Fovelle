@@ -385,6 +385,8 @@ private:
                                     const QPointF &viewportPoint) const;
     void applyZoomAnchor(const QPointF &scenePoint,
                          const QPointF &viewportPoint);
+    void restorePostLayoutZoomAnchor();
+    void cancelPostLayoutZoomAnchor();
 
     QVGraphicsImageItem *loadedPixmapItem {nullptr};
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
@@ -435,6 +437,10 @@ private:
     bool zoomCommitInProgress {false};
     bool verticalScrollBarGeometryUpdatePending {false};
     bool isUpdatingVerticalScrollBarGeometry {false};
+    std::optional<QPointF> postLayoutZoomAnchorScene;
+    std::optional<QPointF> postLayoutZoomAnchorViewport;
+    bool postLayoutZoomAnchorNeedsRestore {false};
+    bool isRestoringPostLayoutZoomAnchor {false};
     bool fullScreenPanInternalUpdate {false};
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};

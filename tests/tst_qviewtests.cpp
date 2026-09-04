@@ -244,6 +244,8 @@ private slots:
     void testToggleFitTo100HasNoAvoidableBlankSpace();
     void testZoomKeepsVerticalScrollbarTrajectoryStable_data();
     void testZoomKeepsVerticalScrollbarTrajectoryStable();
+    void testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears();
+    void testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement();
     void testImageIsCenteredAfterOpeningWithScrollBars();
     void testTouchpadWheelRespectsConfiguredZoomWithScrollBars();
     void testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling();
@@ -7238,8 +7240,8 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
             QStringLiteral("zoomTransitionAnimation"));
         if (animation)
             return QStringLiteral("zoom transition animation still exists");
-        // The immediate commit is the baseline and terminal state.  There is
-        // no animation frame or delayed anchor callback to exclude.
+        // The immediate commit is the baseline for this matrix.  The dedicated
+        // vertical-topology case observes the post-layout semantic-anchor path.
         probe->record(QStringLiteral("pre-input"), true,
                       -1);
 
@@ -7366,6 +7368,315 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
     const QString committedError = runStage(QStringLiteral("committed"));
     if (!committedError.isEmpty())
         QFAIL(qPrintable(committedError));
+}
+
+// AC-ZOOM-VBAR-EXPENSIVE-REFINEMENT
+// Test purpose: verify that the delayed high-quality pixmap replacement does
+// not move the visible vertical scroll position after a zoom has committed.
+// Preconditions: a visible Cocoa window uses OriginalSize, Expensive smooth
+// scaling, and the three-times-viewport backing-pixmap budget.
+// Input data: an odd-sized raster, one non-central 1.25x zoom, and the real
+// 50 ms expensiveScaleTimer callback.
+// Steps: zoom at a fixed viewport point, stop the armed timer only to take the
+// pre-refinement baseline, restart it, and compare the same normalized image
+// point plus both styled scrollbar thumb positions after the callback.
+// Expected result: the vertical and horizontal semantic image positions and
+// scrollbar thumbs remain stable within one DIP; a delayed scene-rect rebuild
+// must not expose a one-axis jump.
+// Postcondition: the timer, window, image, and scoped settings are released.
+void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement()
+{
+    ScopedWindowGeometry windowGeometry;
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Expensive)},
+        {QStringLiteral("scalingtwoenabled"), true},
+        {QStringLiteral("smoothscalinglimitenabled"), false},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0}
+    });
+
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createQtRasterTestImage(
+        dir, QStringLiteral("zoom-expensive-refinement-vbar"), Qt::darkMagenta,
+        QSize(1201, 899));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    const auto cleanup = qScopeGuard([&window, view]() {
+        stopZoomIssueWriters(view);
+        window.close();
+    });
+
+    auto *refinementTimer = view->findChild<QTimer *>(
+        QStringLiteral("expensiveScaleTimer"));
+    QVERIFY(refinementTimer);
+    QVERIFY(waitForZoomTerminal(view));
+    view->removeExpensiveScaling();
+    refinementTimer->stop();
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    view->centerImage();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum()
+                > view->horizontalScrollBar()->minimum()
+            && view->verticalScrollBar()->maximum()
+                > view->verticalScrollBar()->minimum(),
+        2000);
+
+    QRect usable = view->viewport()->rect();
+    usable.setTop(window.getViewportPosition().obscuredHeight);
+    const QRect initialImage = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint target(
+        initialImage.left() + initialImage.width() * 0.40,
+        usable.top() + usable.height() * 0.62);
+    QVERIFY(usable.contains(target));
+    QVERIFY(initialImage.contains(target));
+    sendMouseMove(view->viewport(), target);
+    QCursor::setPos(view->viewport()->mapToGlobal(target));
+
+    view->zoomAbsolute(1.25, target);
+    QTRY_VERIFY_WITH_TIMEOUT(refinementTimer->isActive(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum()
+                > view->horizontalScrollBar()->minimum()
+            && view->verticalScrollBar()->maximum()
+                > view->verticalScrollBar()->minimum(),
+        1000);
+
+    // The timer is the production callback's scheduler. Stop it only while
+    // capturing the exact pre-callback state, then restart the same timer so
+    // the test observes the real delayed path instead of calling a helper
+    // that bypasses event delivery.
+    refinementTimer->stop();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+    const QRectF imageBefore = view->scene()->itemsBoundingRect();
+    QVERIFY(!imageBefore.isEmpty());
+    const QPointF anchorSceneBefore = view->mapToScene(target);
+    const QPointF anchorUV(
+        (anchorSceneBefore.x() - imageBefore.left()) / imageBefore.width(),
+        (anchorSceneBefore.y() - imageBefore.top()) / imageBefore.height());
+    QVERIFY(anchorUV.x() >= 0.0 && anchorUV.x() <= 1.0);
+    QVERIFY(anchorUV.y() >= 0.0 && anchorUV.y() <= 1.0);
+
+    const auto semanticAnchorViewport = [&]() {
+        const QRectF image = view->scene()->itemsBoundingRect();
+        const QPointF scenePoint(
+            image.left() + anchorUV.x() * image.width(),
+            image.top() + anchorUV.y() * image.height());
+        return view->mapFromScene(scenePoint);
+    };
+    const auto thumbGlobalRect = [](QScrollBar *bar) {
+        return QRect(bar->mapToGlobal(
+                         zoomScrollBarThumbRect(bar, bar->sliderPosition()).topLeft()),
+                     zoomScrollBarThumbRect(bar, bar->sliderPosition()).size());
+    };
+
+    const QPointF anchorBefore = semanticAnchorViewport();
+    const int hValueBefore = view->horizontalScrollBar()->value();
+    const int vValueBefore = view->verticalScrollBar()->value();
+    const QRect hThumbBefore = thumbGlobalRect(view->horizontalScrollBar());
+    const QRect vThumbBefore = thumbGlobalRect(view->verticalScrollBar());
+    QSignalSpy refinementSpy(refinementTimer, &QTimer::timeout);
+    QVERIFY(refinementSpy.isValid());
+    refinementTimer->start();
+    QVERIFY2(refinementSpy.wait(2000),
+             "the real expensiveScaleTimer callback did not run");
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    QCOMPARE(refinementSpy.count(), 1);
+
+    const QPointF anchorAfter = semanticAnchorViewport();
+    const QRectF imageAfter = view->scene()->itemsBoundingRect();
+    const QRect mappedImageAfter = view->mapFromScene(imageAfter).boundingRect();
+    const int hValueAfter = view->horizontalScrollBar()->value();
+    const int vValueAfter = view->verticalScrollBar()->value();
+    const QRect hThumbAfter = thumbGlobalRect(view->horizontalScrollBar());
+    const QRect vThumbAfter = thumbGlobalRect(view->verticalScrollBar());
+    qInfo().noquote()
+        << QStringLiteral(
+               "FOVELLE_EXPENSIVE_REFINEMENT anchor=(%1,%2)->(%3,%4) h=%5->%6 v=%7->%8")
+               .arg(anchorBefore.x()).arg(anchorBefore.y())
+               .arg(anchorAfter.x()).arg(anchorAfter.y())
+               .arg(hValueBefore).arg(hValueAfter)
+               .arg(vValueBefore).arg(vValueAfter);
+
+    QVERIFY2(qAbs(anchorAfter.x() - anchorBefore.x()) <= 1.0,
+             "horizontal image position jumped during expensive refinement");
+    QVERIFY2(qAbs(anchorAfter.y() - anchorBefore.y()) <= 1.0,
+             "vertical image position jumped during expensive refinement");
+    QVERIFY2(qAbs(hThumbAfter.center().x() - hThumbBefore.center().x()) <= 1,
+             "horizontal scrollbar thumb moved during expensive refinement");
+    QVERIFY2(qAbs(vThumbAfter.center().y() - vThumbBefore.center().y()) <= 1,
+             "vertical scrollbar thumb moved during expensive refinement");
+    QVERIFY(qAbs(hValueAfter - hValueBefore) <= 2);
+    QVERIFY(qAbs(vValueAfter - vValueBefore) <= 2);
+}
+
+// AC-VBAR-TOPOLOGY-ANCHOR
+// TC-VBAR-TOPOLOGY-ANCHOR
+// Test purpose: detect the one-event-loop-turn jump that occurs when a zoom
+// changes the vertical scrollbar from no range to a real range.
+// Preconditions: a visible 640x480 Cocoa window displays a 900x400 raster at
+// OriginalSize; the horizontal bar already has a range and the vertical bar
+// does not.
+// Input data: a fixed interior viewport point and a 1.25x cursor zoom.
+// Steps: record the scene point under the target, zoom, wait for the vertical
+// range and viewport geometry to become stable, and inspect both axes and the
+// rendered-frame probe.
+// Expected result: the scene point remains within one DIP of the target and
+// the horizontal value/anchor does not move while the vertical range appears.
+// Postcondition: the window, settings, and temporary raster are released.
+void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears()
+{
+    ScopedWindowGeometry windowGeometry;
+    ScopedOptionValues options({
+        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
+        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {QStringLiteral("onetoonepixelsizing"), false},
+        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {QStringLiteral("cursorzoom"), true},
+        {QStringLiteral("fitoverscan"), 0}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+        [originalQuitOnLastWindowClosed]() {
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString imagePath = createQtRasterTestImage(
+        dir, QStringLiteral("zoom-vertical-topology"), Qt::darkGreen,
+        QSize(900, 400));
+    QVERIFY(!imagePath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(
+        QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    const auto cleanup = qScopeGuard([&window, view]() {
+        stopZoomIssueWriters(view);
+        window.close();
+    });
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
+    view->centerImage();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->horizontalScrollBar()->maximum()
+                > view->horizontalScrollBar()->minimum()
+            && view->verticalScrollBar()->maximum()
+                <= view->verticalScrollBar()->minimum(),
+        2000);
+
+    QRect usable = view->viewport()->rect();
+    usable.setTop(window.getViewportPosition().obscuredHeight);
+    const QRect imageBefore = view->mapFromScene(
+        view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint target(imageBefore.left() + imageBefore.width() * 0.35,
+                        imageBefore.top() + imageBefore.height() * 0.72);
+    QVERIFY(usable.contains(target));
+    QVERIFY(imageBefore.contains(target));
+    const QPointF anchorScene = view->mapToScene(target);
+    ZoomIssueProbe topologyProbe(&window, view);
+    topologyProbe.setAnchor(anchorScene, target);
+    view->zoomAbsolute(1.25, target);
+    const QPointF returnedFromCommit = view->mapFromScene(anchorScene);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->verticalScrollBar()->maximum()
+                > view->verticalScrollBar()->minimum(),
+        2000);
+    QVERIFY(view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum());
+    const QPointF immediate = view->mapFromScene(anchorScene);
+    const int immediateValue = view->verticalScrollBar()->value();
+
+    QRect previousViewport;
+    int previousHorizontalMinimum = 0;
+    int previousHorizontalMaximum = 0;
+    int previousVerticalMinimum = 0;
+    int previousVerticalMaximum = 0;
+    int previousHorizontalValue = 0;
+    int previousVerticalValue = 0;
+    int stableTurns = 0;
+    QVERIFY(waitForTestCondition([&]() {
+        const QScrollBar *horizontal = view->horizontalScrollBar();
+        const QScrollBar *vertical = view->verticalScrollBar();
+        const bool unchanged = previousViewport == view->viewport()->geometry()
+            && previousHorizontalMinimum == horizontal->minimum()
+            && previousHorizontalMaximum == horizontal->maximum()
+            && previousVerticalMinimum == vertical->minimum()
+            && previousVerticalMaximum == vertical->maximum()
+            && previousHorizontalValue == horizontal->value()
+            && previousVerticalValue == vertical->value();
+        previousViewport = view->viewport()->geometry();
+        previousHorizontalMinimum = horizontal->minimum();
+        previousHorizontalMaximum = horizontal->maximum();
+        previousVerticalMinimum = vertical->minimum();
+        previousVerticalMaximum = vertical->maximum();
+        previousHorizontalValue = horizontal->value();
+        previousVerticalValue = vertical->value();
+        stableTurns = unchanged ? stableTurns + 1 : 0;
+        return stableTurns >= 2;
+    }, 2000));
+
+    const QPointF settled = view->mapFromScene(anchorScene);
+    const int immediateHorizontalValue = view->horizontalScrollBar()->value();
+    const int settledValue = view->verticalScrollBar()->value();
+    const int settledHorizontalValue = view->horizontalScrollBar()->value();
+    const int expectedValue = qBound(
+        view->verticalScrollBar()->minimum(),
+        qRound(view->transform().map(anchorScene).y() - target.y()),
+        view->verticalScrollBar()->maximum());
+    qInfo().noquote()
+        << QStringLiteral("FOVELLE_VERTICAL_TOPOLOGY commit=(%1,%2) immediate=(%3,%4) settled=(%5,%6) target=(%7,%8) h=%9->%10 v=%11->%12 expectedV=%13 range=%14..%15")
+               .arg(returnedFromCommit.x()).arg(returnedFromCommit.y())
+               .arg(immediate.x()).arg(immediate.y())
+               .arg(settled.x()).arg(settled.y())
+               .arg(target.x()).arg(target.y())
+               .arg(immediateHorizontalValue).arg(settledHorizontalValue)
+               .arg(immediateValue).arg(settledValue).arg(expectedValue)
+               .arg(view->verticalScrollBar()->minimum())
+               .arg(view->verticalScrollBar()->maximum());
+    QVERIFY2(topologyProbe.firstErrorMessage().isEmpty(),
+             qPrintable(topologyProbe.firstErrorMessage()));
+    QVERIFY2(qAbs(immediate.y() - target.y()) <= 1.0,
+             "vertical anchor jumped when the vertical scrollbar appeared");
+    QVERIFY2(qAbs(immediate.x() - target.x()) <= 1.0,
+             "horizontal anchor jumped when the vertical scrollbar appeared");
+    QVERIFY2(qAbs(settled.y() - target.y()) <= 1.0,
+             "vertical anchor moved after the vertical scrollbar settled");
+    QVERIFY2(qAbs(settled.x() - target.x()) <= 1.0,
+             "horizontal anchor moved while the vertical scrollbar settled");
+    QVERIFY(qAbs(settledHorizontalValue - immediateHorizontalValue) <= 1);
+    QVERIFY(qAbs(settledValue - expectedValue) <= 1);
 }
 
 // TC-IMAGE-CENTER-WITH-SCROLLBARS

@@ -18,12 +18,14 @@ ATOMIC_CRITERIA = (
     "AC-ANCHOR-PROJECT-FEASIBLE",
     "AC-ANCHOR-NO-POST-CORRECTION",
     "AC-ANCHOR-HBAR-TOPOLOGY",
+    "AC-VBAR-TOPOLOGY-ANCHOR",
 )
 
 CASE_IDS = (
     "TC-ZOOM-SYNC-ALL-ENTRY-POINTS",
     "TC-ANCHOR-FEASIBLE-PROJECTION",
     "TC-HBAR-FOUR-IN-ONE-OUT",
+    "TC-VBAR-TOPOLOGY-ANCHOR",
 )
 
 REQUIRED_CASE_FIELDS = (
@@ -113,6 +115,9 @@ def main() -> int:
         "target_layout_fixed_point": "settleTargetScrollAreaLayout" in view_cpp,
         "one_zoom_signal": "emit zoomLevelChanged();" in view_cpp,
         "no_event_drain": "QCoreApplication::processEvents" not in view_cpp,
+        "post_layout_anchor_reconciliation":
+            "postLayoutZoomAnchorScene" in view_h
+            and "restorePostLayoutZoomAnchor" in view_cpp,
     }
     add(
         checks,
@@ -148,6 +153,7 @@ def main() -> int:
         "no_post_correction_assertion": "QTest::qWait(250)" in tests_cpp,
         "provided_fixture": "FOVELLE_SCROLLBAR_ZOOM_SAMPLE" in tests_cpp,
         "four_forward_one_reverse": "four-forward-terminal" in tests_cpp and "one-reverse-terminal" in tests_cpp,
+        "vertical_topology": "testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears" in tests_cpp,
     }
     add(
         checks,
@@ -186,6 +192,7 @@ def main() -> int:
         "anchor_round_trip": "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump" in cmake,
         "anchor_projection": "testZoomAnchorProjectsInsideAndOutsideImage" in cmake,
         "keyboard_anchor": "testKeyboardZoomUsesCursorAnchor" in cmake,
+        "vertical_topology": "FovelleZoomScrollbarVerticalTopology" in cmake,
     }
     add(
         checks,

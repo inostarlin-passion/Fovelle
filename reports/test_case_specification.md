@@ -1,4 +1,4 @@
-# 测试用例说明：同步缩放与可行鼠标锚点
+# 测试用例说明：同步缩放、可行鼠标锚点与纵向拓扑
 
 日期：2026-09-04
 仓库：/Users/inostarlin/code/Fovelle
@@ -6,10 +6,11 @@
 
 ## 1. 测试策略
 
-测试从八条原子验收标准开始，分别覆盖：
+测试从九条原子验收标准开始，分别覆盖：
 
-- 静态测试：扫描生产头文件/实现，确认几何动画、displayed zoom 和延迟锚点
-  writer 已删除，并确认报告、测试代码、CTest 注册可追溯。
+- 静态测试：扫描生产头文件/实现，确认几何动画、displayed zoom 和旧式延迟锚点
+  writer 已删除，并确认报告、测试代码、CTest 注册可追溯；同一次布局收敛所需的
+  语义锚点恢复另由专用动态用例验证。
 - 动态测试：用 QtTest 发送真实 wheel、QTest::keySequence、标题栏菜单 action、
   右键菜单 action 和原生手势，检查同步提交、目标几何、scrollbar range/value、
   paint/resize 事件和静默窗口。
@@ -17,6 +18,9 @@
   小图居中以及目标 viewport 边界。
 - 交叉回归：现场 JPEG 可读时使用真实文件；不可读时使用同宽高比合成图。
   HiDPI、expensive scaling、RTL/旋转等既有矩阵保持执行。
+- 拓扑回归：用 900×400 合成图把初态固定为“H 有 range、V 无 range”，再用 1.25
+  倍缩放让 V 首次出现；测试同时读取提交态、稳定态、range/value 信号和 Paint
+  probe，避免只等最终状态而漏掉一帧跳变。
 
 每个结构化用例都有六个固定字段，并在“固化代码”列中指向实际测试函数或
 Python 测试脚本。没有只写在文档中而未执行的用例。
@@ -33,6 +37,7 @@ Python 测试脚本。没有只写在文档中而未执行的用例。
 | AC-ANCHOR-PROJECT-FEASIBLE | TC-ANCHOR-FEASIBLE-PROJECTION、TC-HBAR-FOUR-IN-ONE-OUT | testZoomAnchorProjectsInsideAndOutsideImage、testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump |
 | AC-ANCHOR-NO-POST-CORRECTION | TC-ZOOM-SYNC-ALL-ENTRY-POINTS、TC-FIT-QUIESCENT-TERMINAL | testZoomTransitionCoversWheelKeyboardAndMenus、testToggleFitReturnHasMonotonicStableTerminalSize |
 | AC-ANCHOR-HBAR-TOPOLOGY | TC-HBAR-FOUR-IN-ONE-OUT、TC-HIDPI-ANCHOR-MATRIX | testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump、testZoomKeepsVerticalScrollbarTrajectoryStable |
+| AC-VBAR-TOPOLOGY-ANCHOR | TC-VBAR-TOPOLOGY-ANCHOR | testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears |
 
 ## 3. 结构化测试用例
 
@@ -154,6 +159,47 @@ viewport 高度的 Y anchor 误差不超过 2 DIP；没有后续 timer 造成平
 
 所有缩放相关 writer 停止；窗口、probe、临时 fallback 和 scoped settings 释放；
 现场 JPEG 只读且未被修改。
+
+### TC-VBAR-TOPOLOGY-ANCHOR
+
+覆盖：AC-VBAR-TOPOLOGY-ANCHOR、AC-ANCHOR-NO-POST-CORRECTION。
+
+#### 测试目的
+
+稳定复现“缩放后纵向滚动条首次出现，纵向值被 Qt 的新 range 端点重写”的时序，
+并验证修复保留语义场景锚点；同时证明横向滚动条已存在时没有被连带改写。
+
+#### 前置条件
+
+Cocoa QtTest 可创建可见 640×480 窗口；窗口使用 OriginalSize、
+ScrollBarAsNeeded、Disabled smooth scaling；900×400 raster 在 1.0 倍时横向
+有 range 而纵向无 range。
+
+#### 输入数据
+
+图片内偏下且偏左的固定 viewport 点（当前 runner 为 `(185,356)`）以及一次
+`zoomAbsolute(1.25, target)`；场景点由 zoom 前的 `mapToScene()` 独立记录。
+
+#### 操作步骤
+
+1. 打开合成图，等待 H range 非零且 V range 为零。
+2. 安装 `ZoomIssueProbe`，固定 scene anchor 与 viewport target，执行 1.25 倍
+   缩放。
+3. 立即读取映射点和 V value；再等待 V range 非零且 viewport、H/V range/value
+   连续两个轮询周期不变。
+4. 读取稳定态映射点、H/V value，并检查 probe 捕获的 Paint/Resize 事件。
+
+#### 预期结果
+
+提交态与稳定态的纵向映射均在 target 一 DIP 内；V value 等于根据当前 transform、
+scene anchor 和最终 range 算出的期望值，不落到错误的新最大值；H range 仍非零，
+H value 和横向映射在提交态到稳定态之间最多变化一个整数单位；probe 不报告
+任何可见 Paint 帧的锚点误差。
+
+#### 后置条件
+
+关闭窗口并停止测试 writer；临时目录、probe 和 scoped settings 释放；不修改用户
+图片或持久设置。
 
 ### TC-KEYBOARD-CURSOR-ANCHOR
 
@@ -374,6 +420,8 @@ tests/CMakeLists.txt、两个 static Python gate 和三份 reports 文件。
 | TC-ZOOM-SYNC-ALL-ENTRY-POINTS | GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus | FovelleScrollbarZoomDurationAcceptance、FovelleTests |
 | TC-ANCHOR-FEASIBLE-PROJECTION | GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage | FovelleScrollbarZoomDurationAcceptance、FovelleTests |
 | TC-HBAR-FOUR-IN-ONE-OUT | GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump | FovelleScrollbarZoomDurationAcceptance |
+| TC-VBAR-TOPOLOGY-ANCHOR | GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears | FovelleZoomScrollbarVerticalTopology |
+| TC-EXPENSIVE-REFINEMENT | GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement | FovelleZoomScrollbarExpensiveRefinement |
 | TC-KEYBOARD-CURSOR-ANCHOR | GraphicsViewTests::testKeyboardZoomUsesCursorAnchor | FovelleFiveIssueZoomAcceptance、FovelleTests |
 | TC-TOGGLE-DIRECTIONAL-ANCHOR | GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor | FovelleToggleFitAnchorAcceptance |
 | TC-TOGGLE-FROZEN-CENTER-ANCHOR | GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition | FovelleToggleFitAnchorAcceptance |
@@ -395,6 +443,11 @@ tests/CMakeLists.txt、两个 static Python gate 和三份 reports 文件。
 专项动态：
 
     ctest --test-dir build -R 'Fovelle(ScrollbarZoomDuration|ToggleFitAnchor|ToggleFitTrajectory|ToggleFitStability)Acceptance' --output-on-failure
+    ctest --test-dir build -R 'FovelleZoomScrollbar(VerticalTopology|ExpensiveRefinement)' --output-on-failure
+
+拓扑用例稳定性：
+
+    ctest --test-dir build --repeat until-fail:10 -R '^FovelleZoomScrollbarVerticalTopology$' --output-on-failure
 
 全量：
 
