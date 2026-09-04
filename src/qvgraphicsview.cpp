@@ -138,7 +138,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     zoomAnchorSettleTimer->setObjectName(QStringLiteral("zoomAnchorSettleTimer"));
     zoomAnchorSettleTimer->setSingleShot(true);
     zoomAnchorSettleTimer->setInterval(
-        ZoomTransitionDurationMs + ZoomAnchorSettleDelayMs);
+        ZoomTransitionMaximumDurationMs + ZoomAnchorSettleDelayMs);
     connect(zoomAnchorSettleTimer, &QTimer::timeout, this,
             &QVGraphicsView::settlePendingZoomAnchor);
 
@@ -389,8 +389,6 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         if (pendingZoomAnchorScene.has_value()
             && pendingZoomAnchorViewport.has_value())
         {
-            const bool followsViewportCenter =
-                pendingZoomAnchorFollowsViewportCenter;
             const std::optional<QPoint> pendingAnchor =
                 pendingZoomAnchorViewport;
             restorePendingZoomAnchor();
@@ -414,9 +412,7 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
                 const qreal fitLevel = calculateZoomLevelForMode(
                     Qv::CalculatedZoomMode::ZoomToFit);
                 if (!zoomLevelsEquivalent(displayedZoomLevel, fitLevel))
-                    recalculateZoom(false, followsViewportCenter
-                        ? std::optional<QPoint>(Qv::CalculateViewportCenterPos)
-                        : pendingAnchor);
+                    recalculateZoom(false, pendingAnchor);
             }
             return;
         }
@@ -1862,7 +1858,6 @@ QPointF QVGraphicsView::projectZoomAnchor(const QRectF &imageViewportRect,
 
 void QVGraphicsView::finishZoomTransition()
 {
-    const bool followsViewportCenter = pendingZoomAnchorFollowsViewportCenter;
     const std::optional<QPoint> terminalZoomAnchor =
         pendingZoomAnchorViewport;
 
@@ -1906,9 +1901,7 @@ void QVGraphicsView::finishZoomTransition()
         const qreal fitLevel = calculateZoomLevelForMode(
             Qv::CalculatedZoomMode::ZoomToFit);
         if (!zoomLevelsEquivalent(displayedZoomLevel, fitLevel))
-            recalculateZoom(false, followsViewportCenter
-                ? std::optional<QPoint>(Qv::CalculateViewportCenterPos)
-                : terminalZoomAnchor);
+            recalculateZoom(false, terminalZoomAnchor);
     }
 
     constrainBoundsTimer->start();
@@ -1960,15 +1953,19 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
         setVectorInteractionPresentation(true);
     }
 
-    const bool followsViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
+    const bool requestedViewportCenter = targetPos == Qv::CalculateViewportCenterPos;
     // getDisplayedContentRect() is already transformed into scene-sized
     // content coordinates.  Mapping it through mapFromScene() a second time
     // applies the view scale twice (especially visible when fit < 1.0).
     // Anchor projection must use the image item's unscaled scene rect.
-    std::optional<QPoint> pos = followsViewportCenter
+    // Resolve the center sentinel once, at the start of the request.  The
+    // usable center can change when an AsNeeded scrollbar appears or
+    // disappears; recomputing it on every animation frame makes the scene
+    // anchor itself move.
+    std::optional<QPoint> pos = requestedViewportCenter
             ? std::optional<QPoint>(getUsableViewportRect().center())
             : targetPos;
-    if (pos.has_value() && !followsViewportCenter)
+    if (pos.has_value() && !requestedViewportCenter)
         pos = zoomAnchorViewportPoint(pos.value());
     if (pos != lastZoomEventPos)
     {
@@ -1986,10 +1983,8 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
         zoomTransitionVerticalPanEdge = ScrollEdge::None;
         pendingZoomAnchorScene = scenePos;
         pendingZoomAnchorViewport = pos;
-        pendingZoomAnchorFollowsViewportCenter = followsViewportCenter;
         const quint64 anchorGeneration = ++pendingZoomAnchorGeneration;
         zoomAnchorSettleGeneration = anchorGeneration;
-        zoomAnchorSettleTimer->start();
     }
     else if (isChanging)
     {
@@ -2013,7 +2008,7 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
         if (!isZoomTransitionRunning())
         {
             setAnimatedZoomLevel(requestedLevel);
-            if ((followsViewportCenter || !pos.has_value())
+            if ((requestedViewportCenter || !pos.has_value())
                 && !loadIsFromSessionRestore)
                 centerImage();
         }
@@ -2024,6 +2019,12 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
     {
         stopZoomTransition();
         setAnimatedZoomLevel(requestedLevel);
+        if (pendingZoomAnchorScene.has_value()
+            && pendingZoomAnchorViewport.has_value())
+        {
+            zoomAnchorSettleTimer->setInterval(ZoomAnchorSettleDelayMs);
+            zoomAnchorSettleTimer->start();
+        }
         emit zoomLevelChanged();
         return;
     }
@@ -2039,8 +2040,19 @@ void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel,
 
     zoomAnimation->setStartValue(displayedZoomLevel);
     zoomAnimation->setEndValue(requestedLevel);
-    zoomAnimation->setDuration(zoomTransitionDurationMs(
-        displayedZoomLevel, requestedLevel, useAdaptiveDuration));
+    const int transitionDuration = zoomTransitionDurationMs(
+        displayedZoomLevel, requestedLevel, useAdaptiveDuration);
+    zoomAnimation->setDuration(transitionDuration);
+    if (pendingZoomAnchorScene.has_value()
+        && pendingZoomAnchorViewport.has_value())
+    {
+        // Keep the anchor alive for the complete transition.  The settle
+        // deadline follows the actual duration, including semantic Toggle
+        // transitions that can be longer than the 200 ms single-step base.
+        zoomAnchorSettleTimer->setInterval(
+            transitionDuration + ZoomAnchorSettleDelayMs);
+        zoomAnchorSettleTimer->start();
+    }
     zoomAnimation->start();
 
     emit zoomLevelChanged();
@@ -2061,16 +2073,27 @@ void QVGraphicsView::settlePendingZoomAnchor()
     if (zoomAnchorSettleGeneration != pendingZoomAnchorGeneration)
         return;
 
+    // A delayed event can run late, or a transition can be restarted while
+    // the event loop is busy. Never retire an anchor while the transform is
+    // still changing; retry after the remaining animation time.
+    if (isZoomTransitionRunning())
+    {
+        const int remaining = qMax(
+            ZoomAnchorSettleDelayMs,
+            zoomAnimation->duration() - zoomAnimation->currentTime()
+                + ZoomAnchorSettleDelayMs);
+        zoomAnchorSettleTimer->setInterval(remaining);
+        zoomAnchorSettleTimer->start();
+        return;
+    }
+
     const std::optional<QPointF> settledAnchorScene = pendingZoomAnchorScene;
     const std::optional<QPoint> settledAnchorViewport = pendingZoomAnchorViewport;
-    const bool followsViewportCenter = pendingZoomAnchorFollowsViewportCenter;
     restorePendingZoomAnchor();
     pendingZoomAnchorScene.reset();
     pendingZoomAnchorViewport.reset();
-    pendingZoomAnchorFollowsViewportCenter = false;
 
-    if (settledAnchorScene.has_value() && settledAnchorViewport.has_value()
-        && !followsViewportCenter)
+    if (settledAnchorScene.has_value() && settledAnchorViewport.has_value())
     {
         settledZoomAnchorScene = settledAnchorScene;
         settledZoomAnchorViewport = settledAnchorViewport;
@@ -3493,9 +3516,10 @@ void QVGraphicsView::restorePendingZoomAnchor()
     QScopedValueRollback<bool> internalUpdateGuard(
             fullScreenPanInternalUpdate, true);
     const QPointF mappedAnchor = mapFromScene(pendingZoomAnchorScene.value());
-    const QPoint anchorViewport = pendingZoomAnchorFollowsViewportCenter
-            ? getUsableViewportRect().center()
-            : pendingZoomAnchorViewport.value();
+    // pendingZoomAnchorViewport is a snapshot captured when the request
+    // started. It must not be replaced with the current usable center: that
+    // center changes when an AsNeeded scrollbar appears or disappears.
+    const QPoint anchorViewport = pendingZoomAnchorViewport.value();
     const QPointF delta = mappedAnchor - anchorViewport;
     horizontalScrollBar()->setValue(
         horizontalScrollBar()->value() + qRound(delta.x() * getRtlFlip()));
@@ -3535,7 +3559,6 @@ void QVGraphicsView::cancelPendingZoomAnchor()
         pendingZoomAnchorScene.reset();
         pendingZoomAnchorViewport.reset();
     }
-    pendingZoomAnchorFollowsViewportCenter = false;
     zoomTransitionCentersImage = false;
 }
 

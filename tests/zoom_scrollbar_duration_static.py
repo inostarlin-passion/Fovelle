@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Static acceptance checks for the scrollbar-boundary and zoom-duration fix."""
+"""Static acceptance checks for the scrollbar-boundary and zoom-duration fix.
+
+AC-STATIC-01-TRACEABILITY is implemented by this executable gate.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +40,7 @@ def main() -> int:
         "ZoomTransitionMaximumDurationMs = 400",
         "zoomTransitionDurationMs(qreal fromLevel, qreal toLevel",
         "qLn(toLevel / fromLevel)",
-        "zoomAnimation->setDuration(zoomTransitionDurationMs(",
+        "zoomAnimation->setDuration(transitionDuration);",
         "zoomAbsolute(targetRatio, zoomAnchor, true, animateTransition, true)",
         "false, true, true);",
     )
@@ -62,13 +65,29 @@ def main() -> int:
         "the scrollbar topology transition is coalesced before the next visible/native frame",
     )
 
+    anchor_markers = (
+        "const bool requestedViewportCenter",
+        "pendingZoomAnchorViewport = pos",
+        "const QPoint anchorViewport = pendingZoomAnchorViewport.value()",
+        "transitionDuration + ZoomAnchorSettleDelayMs",
+        "if (isZoomTransitionRunning())",
+    )
+    add(
+        "ST-TOGGLE-FROZEN-ANCHOR",
+        all(marker in view_cpp for marker in anchor_markers),
+        {marker: marker in view_cpp for marker in anchor_markers},
+        "Toggle resolves a center request once and keeps its anchor alive through the actual animation and layout settle",
+    )
+
     test_markers = (
         "testZoomTransitionDurationUsesLogDistance",
         "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump",
+        "testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition",
         "FOVELLE_SCROLLBAR_ZOOM_SAMPLE",
         "QSize(3840, 4407)",
         "four-forward-terminal",
         "one-reverse-terminal",
+        "Toggle center anchor moved",
     )
     add(
         "ST-DYNAMIC-TEST-CODE",
@@ -83,12 +102,21 @@ def main() -> int:
         "AC-HBAR-02-ANCHOR-CONTINUITY",
         "AC-DURATION-01-LOG-DISTANCE",
         "AC-DURATION-02-FIXED-STEP",
+        "AC-TOGGLE-DIRECTIONAL-ANCHOR",
+        "AC-TOGGLE-FROZEN-CENTER-ANCHOR",
+        "AC-TOGGLE-ANCHOR-LIFETIME",
+        "AC-TOGGLE-MONOTONIC-TERMINAL",
+        "AC-TOGGLE-QUIESCENT-FINAL",
         "AC-STATIC-01-TRACEABILITY",
     )
     case_ids = (
         "TC-HBAR-FOUR-IN-ONE-OUT",
         "TC-DURATION-LOG-DISTANCE",
         "TC-DURATION-FIXED-STEP",
+        "TC-TOGGLE-DIRECTIONAL-ANCHOR",
+        "TC-TOGGLE-FROZEN-CENTER-ANCHOR",
+        "TC-TOGGLE-ANCHOR-LIFETIME",
+        "TC-TOGGLE-STABILITY-TRAJECTORY",
         "TC-STATIC-TRACEABILITY",
     )
     specification = reports["test_case_specification.md"]
@@ -112,11 +140,13 @@ def main() -> int:
         "ST-CTEST-REGISTRATION",
         "FovelleZoomScrollbarDurationStatic" in cmake
         and "FovelleScrollbarZoomDurationAcceptance" in cmake
+        and "FovelleToggleFitAnchorAcceptance" in cmake
         and "testZoomTransitionDurationUsesLogDistance" in cmake
         and "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump" in cmake,
         {
             "static_registered": "FovelleZoomScrollbarDurationStatic" in cmake,
             "dynamic_registered": "FovelleScrollbarZoomDurationAcceptance" in cmake,
+            "toggle_anchor_registered": "FovelleToggleFitAnchorAcceptance" in cmake,
         },
         "static and dynamic acceptance tests are registered in CTest",
     )

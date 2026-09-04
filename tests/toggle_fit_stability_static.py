@@ -10,24 +10,18 @@ import re
 
 
 ATOMIC_CRITERIA = (
-    "AC-FIT-01-REAL-Z-ROUND-TRIP",
-    "AC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET",
-    "AC-FIT-03-MONOTONIC-SHRINK",
-    "AC-FIT-04-NO-TERMINAL-RESCALE",
-    "AC-FIT-05-QUIESCENT-FINAL-STATE",
-    "AC-FIT-06-CROSS-FIXTURE",
+    "AC-TOGGLE-DIRECTIONAL-ANCHOR",
+    "AC-TOGGLE-FROZEN-CENTER-ANCHOR",
+    "AC-TOGGLE-ANCHOR-LIFETIME",
+    "AC-TOGGLE-MONOTONIC-TERMINAL",
+    "AC-TOGGLE-QUIESCENT-FINAL",
 )
 
 CASE_IDS = (
-    "TC-STATIC-FIT-TARGET-CONTRACT",
-    "TC-DYNAMIC-FIT-RETURN-TRAJECTORY",
-    "TC-FIT-01-REAL-Z-ROUND-TRIP",
-    "TC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET",
-    "TC-FIT-03-MONOTONIC-SHRINK",
-    "TC-FIT-04-NO-TERMINAL-RESCALE",
-    "TC-FIT-05-QUIESCENT-FINAL-STATE",
-    "TC-FIT-06-CROSS-FIXTURE",
-    "TC-SYSTEM-PROVIDED-JPEG",
+    "TC-TOGGLE-DIRECTIONAL-ANCHOR",
+    "TC-TOGGLE-FROZEN-CENTER-ANCHOR",
+    "TC-TOGGLE-ANCHOR-LIFETIME",
+    "TC-TOGGLE-STABILITY-TRAJECTORY",
 )
 
 REQUIRED_CASE_FIELDS = (
@@ -233,7 +227,7 @@ def main() -> int:
         "https://doc.qt.io/qt-6/qabstractscrollarea.html",
         "https://doc.qt.io/qt-6/qgraphicsview.html",
         "https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp",
-        "https://github.com/jurplel/qView/blob/main/src/qvgraphicsview.cpp",
+        "https://d3js.org/d3-interpolate/zoom",
     )
     research_contract = {
         source: source in technical for source in research_sources

@@ -440,7 +440,6 @@ private:
     std::optional<QPoint> pendingZoomAnchorViewport;
     std::optional<QPointF> settledZoomAnchorScene;
     std::optional<QPoint> settledZoomAnchorViewport;
-    bool pendingZoomAnchorFollowsViewportCenter {false};
     quint64 pendingZoomAnchorGeneration {0};
     quint64 zoomAnchorSettleGeneration {0};
     std::optional<QPoint> lastZoomEventPos;

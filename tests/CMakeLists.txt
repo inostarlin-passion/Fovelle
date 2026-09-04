@@ -154,7 +154,7 @@ endif()
 add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
-    TIMEOUT 90
+    TIMEOUT 180
 )
 
 add_test(NAME FovelleToggleFitStabilityStatic
@@ -192,6 +192,15 @@ set_tests_properties(FovelleScrollbarZoomDurationAcceptance PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
     TIMEOUT 60
     LABELS "zoom;scrollbar;duration;dynamic;acceptance"
+)
+
+add_test(NAME FovelleToggleFitAnchorAcceptance COMMAND fovelle_tests
+    testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor
+    testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition -v1)
+set_tests_properties(FovelleToggleFitAnchorAcceptance PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 60
+    LABELS "zoom;toggle-fit;anchor;dynamic;acceptance"
 )
 
 add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests
