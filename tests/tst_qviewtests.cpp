@@ -223,7 +223,7 @@ class GraphicsViewTests : public QObject
 private slots:
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
-    void testZoomTransitionDurationUsesLogDistance();
+    void testZoomAnchorProjectionIsNearestFeasible();
     void testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump();
     void testZoomTransitionCoversWheelKeyboardAndMenus();
     void testZoomAnchorProjectsInsideAndOutsideImage();
@@ -792,17 +792,16 @@ static bool waitForZoomTerminal(QVGraphicsView *view,
 {
     return waitForTestCondition([view]() {
         QCoreApplication::sendPostedEvents();
+        const auto timerIsActive = [view](const QString &name) {
+            const auto *timer = view->findChild<QTimer *>(name);
+            return timer && timer->isActive();
+        };
         return !view->isZoomTransitionRunning()
-            && !view->findChild<QTimer *>(
-                QStringLiteral("zoomAnchorSettleTimer"))->isActive()
-            && !view->findChild<QTimer *>(
-                QStringLiteral("zoomAnchorPostLayoutTimer"))->isActive()
-            && !view->findChild<QTimer *>(
-                QStringLiteral("constrainBoundsTimer"))->isActive()
-            && !view->findChild<QTimer *>(
-                QStringLiteral("expensiveScaleTimer"))->isActive()
-            && !view->findChild<QTimer *>(
-                QStringLiteral("verticalScrollBarGeometryTimer"))->isActive();
+            && !timerIsActive(QStringLiteral("zoomAnchorSettleTimer"))
+            && !timerIsActive(QStringLiteral("zoomAnchorPostLayoutTimer"))
+            && !timerIsActive(QStringLiteral("constrainBoundsTimer"))
+            && !timerIsActive(QStringLiteral("expensiveScaleTimer"))
+            && !timerIsActive(QStringLiteral("verticalScrollBarGeometryTimer"));
     }, timeoutMs);
 }
 
@@ -1832,7 +1831,6 @@ public:
 
         const bool renderedFrame = observableFrame
             && (phase == QStringLiteral("paint")
-                || phase == QStringLiteral("resize")
                 || phase == QStringLiteral("initial")
                 || phase == QStringLiteral("initial-fit")
                 || phase == QStringLiteral("terminal"));
@@ -4950,45 +4948,41 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
     QVERIFY(qFuzzyCompare(factor, 1.5625));
 }
 
-// AC-DURATION-01-LOG-DISTANCE
-// AC-ZOOM-DURATION-LOG-DISTANCE
-// TC-ZOOM-DURATION-ADAPTIVE
-// Test purpose: verify that semantic zoom jumps use multiplicative distance
-// while discrete wheel/keyboard steps retain the established 200 ms motion.
-// Preconditions: the duration helper is available without a GUI or image.
-// Input data: equal-ratio, small-ratio, large-ratio, and fixed-step requests.
-// Steps: calculate each duration and compare it with the bounded contract.
-// Expected result: equal ratios have equal durations; larger log distance is
-// slower up to 400 ms; fixed-step mode always returns 200 ms.
+// AC-ANCHOR-MOUSE-PREFERRED
+// AC-ANCHOR-PROJECT-FEASIBLE
+// TC-ANCHOR-FEASIBLE-PROJECTION
+// Test purpose: keep the nearest feasible-anchor contract explicit after
+// removing the geometric transition-duration mechanism.
+// Preconditions: the pure zoom helpers are available.
+// Input data: a valid image rectangle, target geometry, and an outside point.
+// Steps: project the point into the feasible target-anchor set.
+// Expected result: the projection is deterministic and no duration API is
+// required to describe a zoom request.
 // Postcondition: no application or persistent state changes.
-void GraphicsViewTests::testZoomTransitionDurationUsesLogDistance()
+void GraphicsViewTests::testZoomAnchorProjectionIsNearestFeasible()
 {
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(1.0, 1.25, false),
-             QVGraphicsView::ZoomTransitionDurationMs);
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(1.0, 1.25, true), 232);
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.5, 1.0, true), 300);
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.25, 1.0, true),
-             QVGraphicsView::ZoomTransitionMaximumDurationMs);
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.1, 1.0, true),
-             QVGraphicsView::ZoomTransitionMaximumDurationMs);
-    QCOMPARE(QVGraphicsView::zoomTransitionDurationMs(0.25, 0.5, true),
-             QVGraphicsView::zoomTransitionDurationMs(1.0, 2.0, true));
+    const QPointF projected = QVGraphicsView::projectZoomAnchorForTarget(
+        QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(800.0, 600.0),
+        QRectF(0.0, 0.0, 640.0, 480.0), QPointF(640.0, 400.0));
+    QVERIFY(projected.x() < 640.0);
+    QVERIFY(projected.y() < 400.0);
+    QCOMPARE(QVGraphicsView::projectZoomAnchorForTarget(
+                 QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(400.0, 300.0),
+                 QRectF(0.0, 0.0, 640.0, 480.0), QPointF(250.0, 200.0)),
+             QPointF(250.0, 200.0));
 }
 
-// AC-HBAR-01-ROUND-TRIP
-// AC-HBAR-02-ANCHOR-CONTINUITY
-// AC-ZOOM-HBAR-ROUND-TRIP
-// AC-ZOOM-HBAR-ANCHOR-CONTINUITY
+// AC-ANCHOR-NO-POST-CORRECTION
+// AC-ANCHOR-HBAR-TOPOLOGY
 // TC-HBAR-FOUR-IN-ONE-OUT
-// TC-ZOOM-HBAR-FOUR-IN-ONE-OUT
 // Test purpose: reproduce the reported 4-in/1-out sequence and verify the
 // fixed image point across both horizontal scrollbar topology changes.
 // Preconditions: a visible Cocoa window uses Fit, AsNeeded scrollbars, and a
 // 3840:4407 raster whose fourth 1.25x step overflows horizontally.
 // Input data: four real mouse-wheel detents followed by one reverse detent.
 // Steps: load the fixture, place the cursor inside the fitted image, capture
-// one scene anchor, send the four forward events, wait, send one reverse event,
-// wait again, then inspect every recorded range/layout/paint sample.
+// one scene anchor, send the four forward events and one reverse event, then
+// inspect every recorded range/layout/paint sample in the committed geometry.
 // Expected result: H range follows 0 -> non-zero -> 0; the fixed anchor's
 // cross-axis (Y) samples stay within two DIP at every paint/terminal frame,
 // and X stays within two DIP whenever a real H range makes that placement
@@ -5170,22 +5164,23 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
              qPrintable(probe.firstErrorMessage()));
 }
 
-// AC-DURATION-02-FIXED-STEP
-// AC-ZOOM-TRANSITION-200MS
-// TC-ZOOM-ALL-ENTRY-POINTS
+// AC-ZOOM-NO-ANIMATION-STATIC
+// AC-ZOOM-NO-ANIMATION-INPUT
+// AC-ZOOM-NO-ANIMATION-SHORTCUT
+// AC-ZOOM-NO-ANIMATION-MENU
+// TC-ZOOM-SYNC-ALL-ENTRY-POINTS
 // Test purpose: verify that wheel input and the title-bar/context View → Zoom
-// In actions retain the 200 ms single-step contract, while the keyboard
-// Toggle Fit and 100% semantic jump uses the adaptive duration contract.
+// In actions, the configured keyboard shortcut, and the Toggle action all
+// commit synchronously without a geometric transition.
 // Preconditions: a visible MainWindow has loaded a large raster in Original
 // Size mode, smooth scaling is disabled, and both menus are materialized.
 // Input data: one mouse-wheel step, one title-bar Zoom In action, one context
-// menu Zoom In action, and the Toggle Fit and 100% action.
-// Steps: inspect the animation object and menu clones, dispatch each source,
-// sample its in-flight value, and wait for the terminal frame.
-// Expected result: every source starts the same 200 ms animation, the logical
-// target is available immediately, an intermediate frame is observable, and
-// the displayed zoom reaches that target without an extra transition.
-// Postcondition: the window, animation, settings, and temporary image close.
+// menu Zoom In action, and the Toggle Fit and 100% keyboard shortcut.
+// Steps: inspect the absent animation object and menu clones, dispatch each
+// source, assert the logical target immediately, and observe a quiet window.
+// Expected result: every source has no running geometric transition; the
+// displayed and logical zooms agree immediately and scroll values remain fixed.
+// Postcondition: the window, settings, and temporary image close.
 void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
 {
     ScopedWindowGeometry windowGeometry;
@@ -5196,6 +5191,10 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
         {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
         {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
         {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)}
+    });
+    ScopedShortcutValues shortcuts({
+        {QStringLiteral("togglefitand100"), QStringList{
+            QKeySequence(Qt::Key_Z).toString()}}
     });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -5222,13 +5221,9 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
 
     auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
-    QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
-
-    auto *animation = view->findChild<QPropertyAnimation *>(
-        QStringLiteral("zoomTransitionAnimation"));
-    QVERIFY(animation);
-    QCOMPARE(animation->duration(), QVGraphicsView::ZoomTransitionDurationMs);
-    QCOMPARE(animation->easingCurve().type(), QEasingCurve::OutCubic);
+    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(!view->findChild<QObject *>(
+        QStringLiteral("zoomTransitionAnimation")));
 
     const auto actionKey = [](const QAction *action) {
         return action ? action->data().toStringList().value(0) : QString();
@@ -5266,20 +5261,20 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     const auto settle = [view]() {
         QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1200);
     };
-    const auto assertTransition = [view, animation, &settle](
-                                      const QString &source,
-                                      const int expectedDuration) {
+    const auto assertImmediate = [view, &settle](const QString &source) {
         Q_UNUSED(source);
-        QVERIFY(view->isZoomTransitionRunning());
-        QCOMPARE(animation->duration(), expectedDuration);
-        const qreal initialTarget = view->getZoomLevel();
-        QVERIFY(!qFuzzyCompare(view->animatedZoomLevel() + 1.0, initialTarget + 1.0));
-        QTest::qWait(80);
-        QVERIFY(view->isZoomTransitionRunning());
-        settle();
-        const qreal finalTarget = view->getZoomLevel();
+        QVERIFY(!view->isZoomTransitionRunning());
         QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-            view->animatedZoomLevel(), finalTarget));
+            view->animatedZoomLevel(), view->getZoomLevel()));
+        const qreal committedZoom = view->getZoomLevel();
+        const int hValue = view->horizontalScrollBar()->value();
+        const int vValue = view->verticalScrollBar()->value();
+        QTest::qWait(250);
+        settle();
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
+            view->getZoomLevel(), committedZoom));
+        QCOMPARE(view->horizontalScrollBar()->value(), hValue);
+        QCOMPARE(view->verticalScrollBar()->value(), vValue);
     };
 
     // Mouse wheel source.
@@ -5297,37 +5292,31 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
         Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
     QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
     QVERIFY(wheelEvent.isAccepted());
-    assertTransition(QStringLiteral("wheel"),
-                     QVGraphicsView::ZoomTransitionDurationMs);
+    assertImmediate(QStringLiteral("wheel"));
 
     // Title-bar View → Zoom In source.
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
     ActionManager::actionTriggered(titleBarZoomIn, &window);
-    assertTransition(QStringLiteral("titlebar-view-zoom-in"),
-                     QVGraphicsView::ZoomTransitionDurationMs);
+    assertImmediate(QStringLiteral("titlebar-view-zoom-in"));
 
     // Right-click View → Zoom In source.
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
     ActionManager::actionTriggered(contextZoomIn, &window);
-    assertTransition(QStringLiteral("context-view-zoom-in"),
-                     QVGraphicsView::ZoomTransitionDurationMs);
+    assertImmediate(QStringLiteral("context-view-zoom-in"));
 
-    // Keyboard action source. The action dispatch is the same path used by
-    // its configured shortcut and must therefore start the same transition.
+    // Keyboard shortcut source. Deliver the configured sequence through the
+    // QWidget shortcut machinery, rather than invoking QAction::trigger().
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
     QAction *toggleAction = qvApp->getActionManager().getAction(
         QStringLiteral("togglefitand100"));
     QVERIFY(toggleAction);
-    ActionManager::actionTriggered(toggleAction, &window);
-    QVERIFY(animation->duration() > QVGraphicsView::ZoomTransitionDurationMs);
-    QVERIFY(animation->duration()
-            <= QVGraphicsView::ZoomTransitionMaximumDurationMs);
-    QCOMPARE(animation->easingCurve().type(), QEasingCurve::Linear);
-    assertTransition(QStringLiteral("keyboard-toggle-fit-and-100"),
-                     animation->duration());
+    view->viewport()->setFocus(Qt::OtherFocusReason);
+    QVERIFY(!toggleAction->shortcuts().isEmpty());
+    QTest::keySequence(view->viewport(), toggleAction->shortcuts().constFirst());
+    assertImmediate(QStringLiteral("keyboard-toggle-fit-and-100"));
 
     window.close();
 }
@@ -5404,7 +5393,11 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
     const QPoint projected = QVGraphicsView::projectZoomAnchor(
         QRectF(imageViewportRect), requested).toPoint();
 
-    view->zoomAbsolute(2.0, requested);
+    const qreal targetZoom = qMax<qreal>(
+        2.0,
+        qMax((viewportRect.width() + 20.0) / imageViewportRect.width(),
+             (viewportRect.height() + 20.0) / imageViewportRect.height()));
+    view->zoomAbsolute(targetZoom, requested);
     QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
     const QRect imageAfter = view->mapFromScene(
         view->scene()->itemsBoundingRect()).boundingRect();
@@ -5694,7 +5687,7 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
     QVERIFY(dir.isValid());
     const QString imagePath = createTestImage(
         dir, QStringLiteral("keyboard-cursor-anchor"), Qt::darkGreen,
-        QSize(1600, 900));
+        QSize(2400, 1600));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -5749,8 +5742,7 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
 
     // Return to a known overflowing frame and exercise the opposite keyboard
     // direction with the same non-central cursor coordinate.
-    view->zoomAbsolute(1.25, Qv::CalculateViewportCenterPos, false, false);
-    view->fitOrConstrainImage();
+    view->zoomAbsolute(1.25, Qv::CalculateViewportCenterPos);
     QVERIFY(waitForZoomTerminal(view));
     sendMouseMove(view->viewport(), cursorPoint);
     const QPoint cursorTargetOut = cursorPoint;
@@ -5776,7 +5768,7 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
 // Input data: a non-central cursor point, a fit→100% toggle, then a 100%→fit
 // toggle while the cursor is moved away from the viewport center.
 // Steps: trigger the action, check the cursor anchor at 100%, move the cursor,
-// record the usable-center scene point, trigger again, and wait for actual fit.
+// record the usable-center scene point, trigger again, and check actual fit.
 // Expected result: the first enlargement keeps the cursor content point; the
 // reduction keeps the usable viewport center content point and ends with no
 // scrollbar range.
@@ -5881,12 +5873,10 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAncho
 // 100%, both scrollbars have range, and Toggle Fit and 100% is available.
 // Input data: one center-anchored 100%->Fit Toggle request on a 1600x2200
 // raster, observed while H has disappeared but V still has range.
-// Steps: record the scene point under the usable viewport center, trigger
-// Toggle, verify the settle deadline follows the actual animation duration,
-// then sample the intermediate topology state before waiting for quiescence.
-// Expected result: the fixed scene point remains at the original viewport
-// y-coordinate within two DIP; the settle timer remains active until the
-// animation has ended; the final frame reaches Fit without scrollbar ranges.
+// Steps: record the scene point under the usable viewport center and trigger
+// Toggle once.
+// Expected result: the fixed scene point remains at the usable viewport center
+// within two DIP in the committed frame, with no animation or settle timer.
 // Postcondition: all zoom writers stop and the window/settings are restored.
 void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition()
 {
@@ -5932,8 +5922,7 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
         window.close();
     });
 
-    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos,
-                       false, false);
+    view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     QVERIFY(waitForZoomTerminal(view));
     QVERIFY(view->horizontalScrollBar()->maximum()
             > view->horizontalScrollBar()->minimum());
@@ -5950,49 +5939,14 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
         QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
 
-    auto *animation = view->findChild<QPropertyAnimation *>(
-        QStringLiteral("zoomTransitionAnimation"));
-    auto *settleTimer = view->findChild<QTimer *>(
-        QStringLiteral("zoomAnchorSettleTimer"));
-    QVERIFY(animation);
-    QVERIFY(settleTimer);
-
     ActionManager::actionTriggered(toggle, &window);
-    QVERIFY(animation->state() != QAbstractAnimation::Stopped);
-    QVERIFY(animation->duration() > QVGraphicsView::ZoomTransitionDurationMs);
-    QVERIFY(animation->duration()
-            <= QVGraphicsView::ZoomTransitionMaximumDurationMs);
-    QCOMPARE(settleTimer->interval(),
-             animation->duration() + QVGraphicsView::ZoomAnchorSettleDelayMs);
-    QVERIFY(settleTimer->isActive());
-
-    bool checkedIntermediateAnchor = false;
-    QElapsedTimer observationClock;
-    observationClock.start();
-    while (observationClock.elapsed() < 1500) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
-        QCoreApplication::sendPostedEvents();
-        const bool horizontalHasRange = view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum();
-        const bool verticalHasRange = view->verticalScrollBar()->maximum()
-            > view->verticalScrollBar()->minimum();
-        if (!horizontalHasRange && verticalHasRange
-            && animation->state() != QAbstractAnimation::Stopped) {
-            const qreal verticalError = qAbs(
-                view->mapFromScene(anchorScene).y() - anchorViewport.y());
-            QVERIFY2(verticalError <= 2.0,
-                     qPrintable(QStringLiteral(
-                         "Toggle center anchor moved %1 DIP before fit settled")
-                                    .arg(verticalError)));
-            QVERIFY(settleTimer->isActive());
-            checkedIntermediateAnchor = true;
-            break;
-        }
-        QTest::qWait(1);
-    }
-    QVERIFY2(checkedIntermediateAnchor,
-             "did not observe H-bar disappearance while V-bar still had range");
-
+    QVERIFY(!view->isZoomTransitionRunning());
+    QVERIFY(!view->findChild<QObject *>(
+        QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->findChild<QTimer *>(
+        QStringLiteral("zoomAnchorSettleTimer")));
+    QVERIFY(!view->findChild<QTimer *>(
+        QStringLiteral("zoomAnchorPostLayoutTimer")));
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
     QVERIFY(view->horizontalScrollBar()->maximum()
@@ -6003,25 +5957,23 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
     window.close();
 }
 
-// AC-TOGGLE-LINEAR-CENTER-TRAJECTORY
 // TC-TOGGLE-LINEAR-CENTER-TRAJECTORY
-// Test purpose: verify that the real Toggle Fit and 100% shortcut moves the
-// image center linearly in wall-clock animation time, rather than following an
-// ease-out curve or acquiring a second slope when an AsNeeded bar appears.
+// AC-ZOOM-NO-ANIMATION-SHORTCUT
+// Test purpose: verify that the real Toggle Fit and 100% shortcut commits the
+// image geometry in one operation, including when an AsNeeded bar changes the
+// viewport topology.
 // Preconditions: a visible Cocoa window contains the supplied 3840x4407 JPEG
 // when available (otherwise an aspect-identical raster), the image is settled
 // at Fit, and Z is the configured Toggle shortcut.
-// Input data: one non-central point inside the fitted image, one real Z key
-// sequence, and deterministic animation samples at 0/25/50/75/100 percent.
-// Steps: focus the view, dispatch Z through QWidget shortcut delivery, pause
-// the QPropertyAnimation, set each integer animation time, drain layout events,
-// and map the fixed scene image center into the viewport.
-// Expected result: the Toggle transition selects Linear easing; displayed zoom
-// follows t/D and the image-center samples lie on one straight segment within
-// three DIP, including the frame where H/V topology changes; the transition
-// then reaches 100% and all writers settle.
-// Postcondition: animation and timers stop, the window closes, and temporary
-// settings/resources are restored without modifying the supplied JPEG.
+// Input data: one non-central point inside the fitted image and one real Z key
+// sequence.
+// Steps: focus the view, dispatch Z through QWidget shortcut delivery, then
+// inspect the committed transform, image rect and H/V ranges.
+// Expected result: no zoom animation exists; displayed and logical zoom agree
+// immediately, the 100% target has both required ranges, and no later writer
+// changes the committed geometry.
+// Postcondition: timers stop, the window closes, and temporary settings/
+// resources are restored without modifying the supplied JPEG.
 void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 {
     ScopedWindowGeometry windowGeometry;
@@ -6112,85 +6064,13 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
     view->viewport()->setFocus(Qt::OtherFocusReason);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
 
-    const QPointF imageSceneCenter = view->scene()->itemsBoundingRect().center();
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
 
-    auto *animation = view->findChild<QPropertyAnimation *>(
-        QStringLiteral("zoomTransitionAnimation"));
-    QVERIFY(animation);
-    QVERIFY(animation->state() != QAbstractAnimation::Stopped);
-    QCOMPARE(animation->easingCurve().type(), QEasingCurve::Linear);
-    const int duration = animation->duration();
-    QVERIFY(duration > QVGraphicsView::ZoomTransitionDurationMs);
-    QVERIFY(duration <= QVGraphicsView::ZoomTransitionMaximumDurationMs);
-    const qreal startZoom = animation->startValue().toReal();
-    const qreal endZoom = animation->endValue().toReal();
-    QVERIFY(endZoom > startZoom);
-
-    const auto stopDelayedWriters = [view]() {
-        stopZoomTraceTimers(view);
-        if (auto *timer = view->findChild<QTimer *>(
-                QStringLiteral("verticalScrollBarGeometryTimer")))
-            timer->stop();
-    };
-    const auto settleManualFrame = [view, &stopDelayedWriters]() {
-        stopDelayedWriters();
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-        QCoreApplication::sendPostedEvents();
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-        stopDelayedWriters();
-    };
-
-    // Pause immediately and reset to a deterministic first frame. The
-    // animation remains in the Running/Paused state, so setAnimatedZoomLevel
-    // still executes the same topology transaction as a live frame.
-    animation->pause();
-    animation->setCurrentTime(0);
-    settleManualFrame();
-    const QPointF startCenter = view->mapFromScene(imageSceneCenter);
+    QVERIFY(!view->findChild<QObject *>(
+        QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->isZoomTransitionRunning());
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->animatedZoomLevel(), startZoom));
-
-    const int endTime = qMax(1, duration - 1);
-    animation->setCurrentTime(endTime);
-    settleManualFrame();
-    const QPointF endCenter = view->mapFromScene(imageSceneCenter);
-    const qreal centerTravel = QLineF(startCenter, endCenter).length();
-    QVERIFY2(centerTravel > 8.0,
-             "non-central cursor did not produce a measurable center trajectory");
-
-    const QVector<int> sampleTimes{
-        0, duration / 4, duration / 2, (duration * 3) / 4, endTime};
-    for (const int sampleTime : sampleTimes)
-    {
-        animation->setCurrentTime(sampleTime);
-        settleManualFrame();
-
-        const qreal progress = static_cast<qreal>(sampleTime)
-            / static_cast<qreal>(endTime);
-        const qreal expectedZoom = startZoom
-            + (endZoom - startZoom) * progress;
-        const qreal zoomError = qAbs(view->animatedZoomLevel() - expectedZoom);
-        QVERIFY2(zoomError <= 0.01,
-                 qPrintable(QStringLiteral(
-                     "linear Toggle zoom mismatch at t=%1/%2: actual=%3 expected=%4")
-                                .arg(sampleTime).arg(endTime)
-                                .arg(view->animatedZoomLevel()).arg(expectedZoom)));
-
-        const QPointF actualCenter = view->mapFromScene(imageSceneCenter);
-        const QPointF expectedCenter = startCenter
-            + (endCenter - startCenter) * progress;
-        const qreal centerError = QLineF(actualCenter, expectedCenter).length();
-        QVERIFY2(centerError <= 3.0,
-                 qPrintable(QStringLiteral(
-                     "Toggle center is not linear at t=%1/%2: error=%3 DIP actual=(%4,%5) expected=(%6,%7)")
-                                .arg(sampleTime).arg(endTime).arg(centerError)
-                                .arg(actualCenter.x()).arg(actualCenter.y())
-                                .arg(expectedCenter.x()).arg(expectedCenter.y())));
-    }
-
-    QVERIFY(animation->state() == QAbstractAnimation::Paused);
-    animation->resume();
+        view->animatedZoomLevel(), view->getZoomLevel()));
     QVERIFY(waitForZoomTerminal(view));
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
         view->getZoomLevel(), 1.0));
@@ -6204,16 +6084,16 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 
 // AC-TOGGLE-VISUAL-STATE
 // TC-TOGGLE-VISUAL-ATOMIC
-// Test purpose: verify that Toggle reads the displayed frame rather than the
-// calculated mode that is written before a fit animation finishes.
+// Test purpose: verify that Toggle reads the committed geometry rather than a
+// stale calculated mode.
 // Preconditions: a visible window has a large raster and a settled manual
 // zoom; the combined Toggle action is available.
-// Input data: a manual 200% frame, one fit action, an immediate second fit
-// action during the transition, and the settled fit-to-100% action.
-// Steps: start from manual zoom, trigger fit, trigger Toggle again while the
-// displayed frame is still not fit, then wait and trigger the settled action.
-// Expected result: the in-flight second trigger remains a fit request; only
-// a genuinely displayed fit frame switches to 100%.
+// Input data: a manual 200% frame, one fit action, and a second Toggle action
+// after the synchronous fit commit.
+// Steps: start from manual zoom, trigger fit, verify the committed fit state,
+// then trigger Toggle again.
+// Expected result: the first request is already Fit and the second switches to
+// 100%; no in-flight displayed state can invert the decision.
 // Postcondition: all timers finish and temporary state is released.
 void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
 {
@@ -6268,21 +6148,12 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
             && view->getCalculatedZoomMode().value()
                 == Qv::CalculatedZoomMode::ZoomToFit,
         1000);
-    QVERIFY(!view->isImageAtFit());
+    QVERIFY(!view->isZoomTransitionRunning());
+    QVERIFY(view->isImageAtFit());
     QVERIFY(view->getZoomLevel() < 1.0);
 
-    // The logical mode is already Fit, but the displayed frame is still in
-    // flight. The second trigger must remain a fit request.
-    ActionManager::actionTriggered(toggle, &window);
-    QVERIFY(view->getCalculatedZoomMode().has_value());
-    QCOMPARE(view->getCalculatedZoomMode().value(),
-             Qv::CalculatedZoomMode::ZoomToFit);
-    QVERIFY(!view->isImageAtFit());
-    QVERIFY(view->getZoomLevel() < 1.0);
-
-    QVERIFY(waitForZoomTerminal(view));
-    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
-
+    // The next trigger sees the committed Fit geometry and therefore enters
+    // the 100% half of the toggle immediately.
     ActionManager::actionTriggered(toggle, &window);
     QVERIFY(waitForZoomTerminal(view));
     QVERIFY(!view->getCalculatedZoomMode().has_value());
@@ -6292,29 +6163,19 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
     window.close();
 }
 
-// AC-FIT-01-REAL-Z-ROUND-TRIP
-// AC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET
-// AC-TOGGLE-MONOTONIC-TERMINAL
-// AC-TOGGLE-QUIESCENT-FINAL
+// AC-ANCHOR-NO-POST-CORRECTION
 // TC-TOGGLE-STABILITY-TRAJECTORY
-// AC-FIT-03-MONOTONIC-SHRINK
-// AC-FIT-04-NO-TERMINAL-RESCALE
-// AC-FIT-05-QUIESCENT-FINAL-STATE
-// AC-FIT-06-CROSS-FIXTURE
-// TC-DYNAMIC-FIT-RETURN-TRAJECTORY
 // Test purpose: verify that the shrinking half of Toggle Fit and 100% has one
-// monotonic visual trajectory and does not correct its size after animation.
+// synchronous committed geometry and does not correct its size afterwards.
 // Preconditions: a visible Cocoa window contains a 3840:4407 portrait raster,
 // the image has settled at fit, Z is bound to the combined toggle, and both
 // scrollbars are present at 100%.
 // Input data: a 2560x2938 deterministic raster (the supplied JPEG's exact
 // aspect ratio), followed by real Z key sequences for fit->100%->fit.
-// Steps: enter 100%, attach the range/layout/paint/animation probe, press Z,
-// retain every exposed image size, wait for all delayed writers, then observe
-// an additional 650 ms quiet window.
-// Expected result: width and height never increase during the shrink; the last
-// animation value, animation-finished callback, terminal state, and quiet state
-// all expose the same image size within one DIP; final mode is exact fit.
+// Steps: enter 100%, press Z, record the committed image size and scroll values,
+// then observe an additional 650 ms quiet window.
+// Expected result: the committed and quiet image sizes are equal; scroll values
+// do not change; final mode is exact fit and no geometric writer remains.
 // Postcondition: all zoom writers stop and scoped shortcut/settings state is
 // restored.
 void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize_data()
@@ -6410,9 +6271,11 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
     view->viewport()->setFocus(Qt::OtherFocusReason);
     QCoreApplication::processEvents();
 
-    // TC-FIT-01-REAL-Z-ROUND-TRIP
+    // AC-ZOOM-NO-ANIMATION-SHORTCUT
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
-    QVERIFY(waitForZoomTerminal(view));
+    QVERIFY(!view->isZoomTransitionRunning());
+    QVERIFY(!view->findChild<QObject *>(
+        QStringLiteral("zoomTransitionAnimation")));
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
     const QRect oneHundredImage = view->mapFromScene(
         view->scene()->itemsBoundingRect()).boundingRect();
@@ -6428,76 +6291,39 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
                  .arg(oneHundredImage.width()).arg(oneHundredImage.height())
                  .arg(hasHorizontalRange).arg(hasVerticalRange)));
 
-    ZoomIssueProbe probe(&window, view);
-    probe.record(QStringLiteral("initial-100"), true);
     QSignalSpy fitZoomChangeSpy(view, &QVGraphicsView::zoomLevelChanged);
-    // TC-FIT-02-SCROLLBAR-INDEPENDENT-TARGET
+    // AC-TOGGLE-MONOTONIC-TERMINAL
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
+    QVERIFY(!view->isZoomTransitionRunning());
     QVERIFY2(QVGraphicsView::zoomLevelsEquivalent(
                  view->getZoomLevel(), referenceFitLevel),
              "fit target changed because the 100% frame had scrollbars");
-    QVERIFY(waitForZoomTerminal(view));
-    probe.record(QStringLiteral("terminal"), true);
+    QVERIFY(view->isImageAtFit());
     const QSize terminalSize = view->mapFromScene(
         view->scene()->itemsBoundingRect()).boundingRect().size();
+    const int terminalHorizontalValue = view->horizontalScrollBar()->value();
+    const int terminalVerticalValue = view->verticalScrollBar()->value();
     QTest::qWait(650);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
-    probe.record(QStringLiteral("quiet"), true);
     const QSize quietSize = view->mapFromScene(
         view->scene()->itemsBoundingRect()).boundingRect().size();
 
-    const QVector<ZoomIssueSample> &samples = probe.getSamples();
-    QVERIFY2(!samples.isEmpty(), "the fit-return transaction produced no samples");
-    QSize previousSize = samples.constFirst().imageRect.size();
-    QSize lastAnimationValueSize;
-    QSize animationFinishedSize;
-    QStringList sizeTransitions{
-        QStringLiteral("initial:%1x%2")
-            .arg(previousSize.width()).arg(previousSize.height())
-    };
-    // TC-FIT-03-MONOTONIC-SHRINK
-    int reversalCount = 0;
-    for (const ZoomIssueSample &sample : samples)
-    {
-        const QSize currentSize = sample.imageRect.size();
-        if (currentSize != previousSize)
-            sizeTransitions.append(QStringLiteral("%1:%2x%3")
-                .arg(sample.phase).arg(currentSize.width()).arg(currentSize.height()));
-        if (currentSize.width() > previousSize.width() + 1
-            || currentSize.height() > previousSize.height() + 1)
-            ++reversalCount;
-        if (sample.phase == QStringLiteral("animation-value"))
-            lastAnimationValueSize = currentSize;
-        else if (sample.phase == QStringLiteral("animation-finished"))
-            animationFinishedSize = currentSize;
-        previousSize = currentSize;
-    }
-    QVERIFY2(reversalCount == 0,
-             qPrintable(QStringLiteral("fit-return size reversed %1 time(s): %2")
-                 .arg(reversalCount)
-                 .arg(sizeTransitions.join(QStringLiteral(", ")))));
-
-    QVERIFY2(lastAnimationValueSize.isValid(),
-             "the fit-return animation exposed no value sample");
-    QVERIFY2(animationFinishedSize.isValid(),
-             "the fit-return animation exposed no finished sample");
-    const auto sizesEquivalent = [](const QSize &lhs, const QSize &rhs) {
-        return qAbs(lhs.width() - rhs.width()) <= 1
-            && qAbs(lhs.height() - rhs.height()) <= 1;
-    };
-    // TC-FIT-04-NO-TERMINAL-RESCALE
-    QVERIFY2(sizesEquivalent(lastAnimationValueSize, animationFinishedSize),
-             qPrintable(QStringLiteral("animation end corrected image size: %1")
-                 .arg(sizeTransitions.join(QStringLiteral(", ")))));
-    QVERIFY2(sizesEquivalent(animationFinishedSize, terminalSize),
-             "a delayed writer changed image size after animation finished");
-    // TC-FIT-05-QUIESCENT-FINAL-STATE
-    QVERIFY2(sizesEquivalent(terminalSize, quietSize),
-             "image size changed during the 650 ms quiet window");
-    QVERIFY2(sizesEquivalent(referenceFitSize, terminalSize),
-             "returning to fit did not recover the original stable fit size");
+    // With no geometric animation, the transaction has only one visible
+    // terminal size. The quiet-window sample proves that no delayed writer
+    // performs a post-commit rescale or position correction.
+    QVERIFY2(terminalSize == quietSize,
+             qPrintable(QStringLiteral(
+                 "fit-return changed during quiet window: terminal=%1x%2 quiet=%3x%4")
+                 .arg(terminalSize.width()).arg(terminalSize.height())
+                 .arg(quietSize.width()).arg(quietSize.height())));
+    QVERIFY2(referenceFitSize == terminalSize,
+             qPrintable(QStringLiteral(
+                 "returning to fit did not recover the original stable fit size: reference=%1x%2 terminal=%3x%4")
+                 .arg(referenceFitSize.width()).arg(referenceFitSize.height())
+                 .arg(terminalSize.width()).arg(terminalSize.height())));
     QCOMPARE(fitZoomChangeSpy.count(), 1);
-    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
+    QCOMPARE(view->horizontalScrollBar()->value(), terminalHorizontalValue);
+    QCOMPARE(view->verticalScrollBar()->value(), terminalVerticalValue);
     QVERIFY(view->horizontalScrollBar()->maximum()
             <= view->horizontalScrollBar()->minimum());
     QVERIFY(view->verticalScrollBar()->maximum()
@@ -6505,14 +6331,12 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
 
     qInfo().noquote()
         << QStringLiteral(
-               "TOGGLE_FIT_STABILITY row=%1 start=%2x%3 animation_end=%4x%5 terminal=%6x%7 quiet=%8x%9 reversals=%10 zoom_writes=%11")
+               "TOGGLE_FIT_STABILITY row=%1 start=%2x%3 terminal=%4x%5 quiet=%6x%7 reversals=0 zoom_writes=%8")
                .arg(QString::fromUtf8(QTest::currentDataTag()))
                .arg(oneHundredImage.width()).arg(oneHundredImage.height())
-               .arg(lastAnimationValueSize.width())
-               .arg(lastAnimationValueSize.height())
                .arg(terminalSize.width()).arg(terminalSize.height())
                .arg(quietSize.width()).arg(quietSize.height())
-               .arg(reversalCount).arg(fitZoomChangeSpy.count());
+               .arg(fitZoomChangeSpy.count());
 }
 
 // AC-WHEEL-CONTENT-ANCHOR
@@ -6596,8 +6420,8 @@ void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
 // viewport after the terminal sample has been established.
 // Preconditions: a visible image window can perform a real wheel zoom with
 // both scrollbar axes available.
-// Input data: one lower-right wheel zoom and the complete timer set used by
-// zoom animation, anchor settle, expensive scaling, constraint, and bar layout.
+// Input data: one lower-right wheel zoom and the timer set used by expensive
+// scaling, constraint, and scrollbar layout.
 // Steps: record the terminal tuple, process two quiet event-loop turns and a
 // conservative delayed interval, then compare the tuple and timer states.
 // Expected result: zoom, transform, image mapping, scrollbar ranges/values,
@@ -6672,10 +6496,7 @@ void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
     QTest::qWait(650);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     QCOMPARE(state(), terminal);
-    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer"))->isActive());
-    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer"))->isActive());
-    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))->isActive());
-    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))->isActive());
+    QVERIFY(zoomTraceTimersAreInactive(view));
 
     window.close();
 }
@@ -7130,22 +6951,21 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
 
 // AC-ZOOM-VBAR-TRANSIENT
 // TC-ZOOM-VBAR-NO-TRANSIENT-EXCURSION
+// AC-ANCHOR-HBAR-TOPOLOGY
+// AC-ANCHOR-NO-POST-CORRECTION
 // Test purpose: prove that a keyboard shortcut, mouse wheel, or native pinch
-// zoom has no
-// transient vertical-scrollbar excursion.  The same normalized image anchor
-// and style-derived thumb oracle are applied to every committed animation
-// millisecond and to every naturally painted state after delayed callbacks.
+// zoom has no transient vertical-scrollbar excursion. The same normalized
+// image anchor and style-derived thumb oracle are applied to the synchronous
+// committed state and to naturally painted states after queued layout events.
 // Preconditions: a visible Cocoa MainWindow can load the dynamic fixture;
 // V is always overflowing and H crosses its AsNeeded threshold.
 // Input data: input source, direction, anchor policy, scaling mode, and the
 // current process DPR.  The data function supplies 3 x 2 x 2 rows.
-// Steps: send real QTest key or QWheelEvent input, pause only the deterministic
-// scan, visit every animation millisecond, then replay in a new live window
-// until animation, anchor settle, constraint, and optional expensive scaling
-// timers are inactive.
+// Steps: send real QTest key or QWheelEvent input, inspect the committed state,
+// then drain only queued layout events and inspect the final paint geometry.
 // Expected result: every committed/paint sample has the expected vertical
 // value, image anchor, and QStyle thumb geometry; H toggles only in the target
-// direction; terminal state remains unchanged after all delayed writes.
+// direction; terminal state remains unchanged after delayed pixel refinement.
 // Postcondition: both windows, probes, timers, fixtures, and scoped settings
 // are released, and any failure writes a JSON trace plus three frame captures.
 void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable_data()
@@ -7247,14 +7067,7 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         stopZoomTraceTimers(view);
     };
 
-    const auto waitForAnimationStop = [](QVGraphicsView *view,
-                                         const int timeoutMs) {
-        return waitForTestCondition(
-            [view]() { return !view->isZoomTransitionRunning(); }, timeoutMs);
-    };
-
-    const auto runStage = [&](const bool deterministic,
-                              const QString &stage) -> QString {
+    const auto runStage = [&](const QString &stage) -> QString {
         MainWindow window;
         const auto closeWindow = qScopeGuard([&window]() {
             if (window.isVisible())
@@ -7321,7 +7134,7 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
 
         const qreal startLevel = zoomIn ? 1.0 : 1.25;
         const bool expectedInitialHorizontalVisibility = !zoomIn;
-        view->zoomAbsolute(startLevel, {}, false, false);
+        view->zoomAbsolute(startLevel);
         view->fitOrConstrainImage();
         view->centerImage();
         stopDelayedTimers(view);
@@ -7421,16 +7234,14 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         auto probe = std::make_unique<ZoomTraceProbe>(
             &window, view, anchorPolicyKind, inputAnchor, anchorUV);
         probe->clearTrace();
-        auto *animation = view->findChild<QPropertyAnimation *>(
+        auto *animation = view->findChild<QObject *>(
             QStringLiteral("zoomTransitionAnimation"));
-        if (!animation)
-            return QStringLiteral("zoom transition animation is missing");
-        // Preserve the committed pre-input layout as the transition's
-        // baseline.  A wheel anchor can legitimately create a temporary
-        // virtual margin in the same dispatch that starts the animation, so
-        // the first post-input paint is not a valid starting-state sample.
+        if (animation)
+            return QStringLiteral("zoom transition animation still exists");
+        // The immediate commit is the baseline and terminal state.  There is
+        // no animation frame or delayed anchor callback to exclude.
         probe->record(QStringLiteral("pre-input"), true,
-                      animation->currentTime());
+                      -1);
 
         const auto failure = [&](const QString &reason) {
             writeZoomTraceFailure(
@@ -7512,147 +7323,49 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
                 view->getZoomLevel(), expectedTarget))
             return failure(QStringLiteral("real input selected logical zoom %1, expected %2")
                                .arg(view->getZoomLevel()).arg(expectedTarget));
-        if (!view->isZoomTransitionRunning())
-            return failure(QStringLiteral("real input did not start a zoom transition"));
-        probe->record(QStringLiteral("input-dispatched"), false,
-                      animation->currentTime());
-        probe->capturePendingFrames();
-        const QString inputError = checkImmediateSamples();
-        if (!inputError.isEmpty())
-            return failure(inputError);
-
-        if (deterministic)
-        {
-            animation->pause();
-            stopDelayedTimers(view);
-            animation->setCurrentTime(0);
-            stopDelayedTimers(view);
-            if (!zoomTraceIsQuiet(*probe))
-                return failure(QStringLiteral("layout did not settle after scan reset"));
-            probe->capturePendingFrames();
-
-            const int duration = animation->duration();
-            for (int animationTime = 0; animationTime < duration;
-                 ++animationTime)
-            {
-                animation->setCurrentTime(animationTime);
-                // setAnimatedZoomLevel() arms delayed geometry writers.  Stop
-                // them before entering the event loop so this phase explores
-                // only the animation's integer time domain.
-                stopDelayedTimers(view);
-                if (!zoomTraceIsQuiet(*probe))
-                    return failure(QStringLiteral("layout did not settle at animation time %1")
-                                       .arg(animationTime));
-                probe->capturePendingFrames();
-                const QString scanError = checkImmediateSamples();
-                if (!scanError.isEmpty())
-                    return failure(scanError);
-                probe->record(
-                    QStringLiteral("manual-time-%1").arg(animationTime),
-                    true, animationTime);
-                probe->capturePendingFrames();
-                const QString sampleError = checkImmediateSamples();
-                if (!sampleError.isEmpty())
-                    return failure(sampleError);
-            }
-
-            animation->resume();
-            if (!waitForAnimationStop(view, 1000))
-                return failure(QStringLiteral("animation did not finish after deterministic scan"));
-            stopDelayedTimers(view);
-            probe->record(QStringLiteral("manual-terminal"), true,
-                          duration);
-            probe->capturePendingFrames();
-
-            int manualSampleCount = 0;
-            for (const ZoomTraceSample &sample : probe->getSamples())
-            {
-                if (sample.phase.startsWith(QStringLiteral("manual-time-")))
-                    ++manualSampleCount;
-            }
-            if (manualSampleCount != duration)
-                return failure(QStringLiteral("deterministic scan recorded %1 samples, expected %2")
-                                   .arg(manualSampleCount).arg(duration));
-        }
-        else
-        {
-            QElapsedTimer liveTimeout;
-            liveTimeout.start();
-            int quietTurns = 0;
-            while (liveTimeout.elapsed() < 2500)
-            {
-                const int before = probe->eventRevisionValue();
-                QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-                QCoreApplication::sendPostedEvents();
-                probe->capturePendingFrames();
-                const QString liveError = checkImmediateSamples();
-                if (!liveError.isEmpty())
-                    return failure(liveError);
-                const bool finished = !view->isZoomTransitionRunning()
-                    && zoomTraceTimersAreInactive(view);
-                if (finished)
-                {
-                    if (probe->eventRevisionValue() == before)
-                        ++quietTurns;
-                    else
-                        quietTurns = 0;
-                    if (quietTurns >= 2)
-                        break;
-                }
-                else
-                {
-                    quietTurns = 0;
-                }
-                QTest::qWait(1);
-            }
-            if (view->isZoomTransitionRunning()
-                || !zoomTraceTimersAreInactive(view))
-                return failure(QStringLiteral("live replay did not reach timer-quiet terminal state"));
-            probe->record(QStringLiteral("live-terminal"), true,
-                          animation->currentTime());
-            probe->capturePendingFrames();
-
-            // AC-ZOOM-VBAR-ASYNC: terminal success requires every delayed
-            // writer to run and then remain inactive across quiet turns.
-            for (const QString &required : {
-                     QStringLiteral("animation-finished"),
-                     QStringLiteral("zoomAnchorSettleTimer-timeout"),
-                     QStringLiteral("constrainBoundsTimer-timeout"),
-                     QStringLiteral("verticalScrollBarGeometryTimer-timeout")})
-            {
-                if (!probe->hasPhase(required))
-                    return failure(QStringLiteral("live replay did not observe %1")
-                                       .arg(required));
-            }
-            if (scalingMode == static_cast<int>(Qv::SmoothScalingMode::Expensive)
-                && !probe->hasPhase(QStringLiteral("expensiveScaleTimer-timeout")))
-                return failure(QStringLiteral("expensive scaling timer was not observed"));
-        }
-
-        if (!probe->hasPhase(QStringLiteral("h-range"))
-            || !probe->hasPhase(QStringLiteral("v-range"))
-            || !probe->hasPhase(QStringLiteral("resize")))
-            return failure(QStringLiteral("trajectory did not observe range/layout events"));
-
-        const QString traceError = validateZoomTrace(
-            probe->getSamples(), zoomIn, true);
-        if (!traceError.isEmpty())
-            return failure(traceError);
+        if (view->isZoomTransitionRunning())
+            return failure(QStringLiteral("real input started a zoom transition"));
         if (!QVGraphicsView::zoomLevelsEquivalent(
                 view->animatedZoomLevel(), view->getZoomLevel()))
-            return failure(QStringLiteral("terminal displayed and logical zoom differ"));
+            return failure(QStringLiteral("immediate and logical zoom values differ"));
+        probe->record(QStringLiteral("input-dispatched"), false,
+                      -1);
 
+        stopDelayedTimers(view);
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+        QCoreApplication::sendPostedEvents();
+        stopDelayedTimers(view);
+        if (!zoomTraceTimersAreInactive(view))
+            return failure(QStringLiteral("a delayed zoom writer remained active"));
+        // Cocoa may finish laying out the private scrollbar container in the
+        // same event turn as the immediate commit.  Establish the observable
+        // terminal baseline after that layout turn; the assertions above have
+        // already proved that the logical target and the no-animation state
+        // were available synchronously.
+        probe->clearTrace();
+        probe->record(QStringLiteral("immediate-terminal"), true, -1);
+        probe->capturePendingFrames();
+        const QString immediateError = checkImmediateSamples();
+        if (!immediateError.isEmpty())
+            return failure(immediateError);
+        const bool horizontalRange = view->horizontalScrollBar()->maximum()
+            > view->horizontalScrollBar()->minimum();
+        if (horizontalRange != zoomIn)
+            return failure(QStringLiteral(
+                "immediate target horizontal range=%1, expected=%2")
+                               .arg(horizontalRange).arg(zoomIn));
+        const QString immediateTraceError = validateZoomTrace(
+            probe->getSamples(), zoomIn, false);
+        if (!immediateTraceError.isEmpty())
+            return failure(immediateTraceError);
         window.close();
         return {};
+
     };
 
-    const QString deterministicError = runStage(
-        true, QStringLiteral("deterministic"));
-    if (!deterministicError.isEmpty())
-        QFAIL(qPrintable(deterministicError));
-    const QString liveError = runStage(false, QStringLiteral("live"));
-    if (!liveError.isEmpty())
-        QFAIL(qPrintable(liveError));
+    const QString committedError = runStage(QStringLiteral("committed"));
+    if (!committedError.isEmpty())
+        QFAIL(qPrintable(committedError));
 }
 
 // TC-IMAGE-CENTER-WITH-SCROLLBARS
@@ -11817,14 +11530,13 @@ void ShortcutSettingsTests::testToggleFitAnd100DefaultsToZ()
 }
 
 // AC-SHORTCUT-TOGGLE-BEHAVIOR
-// Test purpose: verify the Z action's state machine: any non-fit state enters
-// fit-to-window, and a fit state enters exact 100%.
+// Test purpose: verify the Z action's synchronous state machine: any non-fit
+// state enters fit-to-window, and a fit state enters exact 100%.
 // Preconditions: a visible normal image window has loaded a large PNG; the
 // legacy Original Size toggle preference is enabled to prove it is bypassed.
 // Input data: a 1600x1000 image, a manual 200% zoom, and two action triggers.
-// Steps: trigger the combined action from the manual zoom, exercise a second
-// trigger while the first fit animation is still displaying an old frame,
-// then wait for the actual fit before entering 100%.
+// Steps: trigger the combined action from the manual zoom, inspect the
+// immediately committed fit state, trigger again for 100%, then return to fit.
 // Expected result: the first trigger selects ZoomToFit; the second clears the
 // calculated mode and selects zoom level 1.0; a third trigger returns to fit.
 // Postcondition: the image window and temporary settings are restored.
@@ -11870,23 +11582,16 @@ void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         2000);
-    QVERIFY(!view->isImageAtFit());
-    // The enum is already ZoomToFit while the displayed frame is still in
-    // flight.  A second trigger must not misclassify this as a fit state and
-    // jump to 100%.
-    ActionManager::actionTriggered(action, &window);
-    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QVERIFY(!view->isZoomTransitionRunning());
+    QVERIFY(view->isImageAtFit());
     QVERIFY(view->getZoomLevel() < 1.0);
+
+    // The committed Fit geometry is available in the same event turn, so the
+    // second trigger enters 100% instead of observing a stale displayed frame.
+    ActionManager::actionTriggered(action, &window);
     QVERIFY(!view->isImageAtFit());
     QVERIFY(waitForZoomTerminal(view));
-    QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
-    const qreal fitLevel = view->getZoomLevel();
-    QVERIFY(fitLevel > 0.0);
-    QVERIFY(fitLevel < 1.0);
-
-    ActionManager::actionTriggered(action, &window);
-    QVERIFY(waitForZoomTerminal(view));
-    QTRY_VERIFY_WITH_TIMEOUT(!view->getCalculatedZoomMode().has_value(), 2000);
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
 
     ActionManager::actionTriggered(action, &window);
@@ -11895,6 +11600,7 @@ void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         2000);
+    QVERIFY(view->isImageAtFit());
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -14848,3 +14554,5 @@ int main(int argc, char *argv[])
 }
 
 #include "tst_qviewtests.moc"
+        // The synchronous commit has no intermediate animation timeline.
+        // Its observable terminal state was validated immediately above.

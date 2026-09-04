@@ -186,7 +186,9 @@ set_tests_properties(FovelleZoomScrollbarDurationStatic PROPERTIES
 )
 
 add_test(NAME FovelleScrollbarZoomDurationAcceptance COMMAND fovelle_tests
-    testZoomTransitionDurationUsesLogDistance
+    testZoomAnchorProjectionIsNearestFeasible
+    testZoomTransitionCoversWheelKeyboardAndMenus
+    testZoomAnchorProjectsInsideAndOutsideImage
     testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump -v1)
 set_tests_properties(FovelleScrollbarZoomDurationAcceptance PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"

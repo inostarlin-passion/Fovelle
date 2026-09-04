@@ -20,22 +20,12 @@
 
 class MainWindow;
 class QVGraphicsImageItem;
-class QPropertyAnimation;
 
 class QVGraphicsView : public QGraphicsView
 {
     Q_OBJECT
-    Q_PROPERTY(qreal animatedZoomLevel READ animatedZoomLevel WRITE setAnimatedZoomLevel)
 
 public:
-    static constexpr int ZoomTransitionDurationMs = 200;
-    static constexpr int ZoomTransitionMaximumDurationMs = 400;
-    static constexpr int ZoomAnchorSettleDelayMs = 150;
-    // A topology change can enqueue more than one layout generation.  The
-    // bounded event drain is intentionally short and is only used while
-    // widget updates are suppressed inside an active zoom transaction.
-    static constexpr int ZoomTopologyEventDrainMs = 8;
-
     QVGraphicsView(QWidget *parent = nullptr);
 
     struct SwipeData
@@ -60,9 +50,7 @@ public:
 
     void zoomAbsolute(const qreal absoluteLevel,
                       const std::optional<QPoint> &targetPos = {},
-                      const bool isApplyingCalculation = false,
-                      const bool animateTransition = true,
-                      const bool useAdaptiveDuration = false);
+                      const bool isApplyingCalculation = false);
 
     const std::optional<Qv::CalculatedZoomMode> &getCalculatedZoomMode() const;
     void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating = false, const std::optional<QPoint> &mousePos = {});
@@ -78,8 +66,7 @@ public:
     void applyExpensiveScaling();
     void removeExpensiveScaling();
 
-    void recalculateZoom(const bool animateTransition = true,
-                         const std::optional<QPoint> &zoomAnchor = {});
+    void recalculateZoom(const std::optional<QPoint> &zoomAnchor = {});
 
     // Toggle is a view operation because its decision depends on the
     // displayed frame and on the cursor in the view, not merely on the
@@ -136,9 +123,10 @@ public:
     bool hasNextFile() { return imageCore.hasNextFile(); }
     void refreshVerticalScrollBarGeometry();
     qreal getZoomLevel() const { return zoomLevel; }
-    qreal animatedZoomLevel() const { return displayedZoomLevel; }
-    void setAnimatedZoomLevel(qreal level);
-    bool isZoomTransitionRunning() const;
+    // Kept as a read-only compatibility name for callers that used to sample
+    // the animated frame.  Zoom has one authoritative value now.
+    qreal animatedZoomLevel() const { return zoomLevel; }
+    bool isZoomTransitionRunning() const { return false; }
     bool usesVectorRendering() const;
     Qv::VectorImageFormat vectorImageFormat() const;
     QSize lastVectorRasterSize() const;
@@ -146,11 +134,6 @@ public:
     bool hasPendingVectorRefinement() const;
 
     static qreal boundedZoomLevel(qreal requestedLevel);
-
-    // Semantic zoom jumps use a bounded duration derived from multiplicative
-    // zoom distance. Discrete wheel/keyboard steps keep the 200 ms contract.
-    static int zoomTransitionDurationMs(qreal fromLevel, qreal toLevel,
-                                        bool adaptiveDuration);
 
     // Keep wheel-step calculation pure so mouse and touchpad behavior can be
     // verified without depending on platform event delivery.
@@ -170,6 +153,18 @@ public:
     // anchor contract independently testable.
     static QPointF projectZoomAnchor(const QRectF &imageViewportRect,
                                      const QPointF &requestedViewportPoint);
+
+    // Return the closest anchor in the old viewport that can be carried into
+    // the target geometry without asking a constrained scroll bar to clamp
+    // the image afterwards.  The target image origin is projected onto the
+    // feasible interval on each axis; a smaller image uses the alignment
+    // fixed point as its only feasible origin.
+    static QPointF projectZoomAnchorForTarget(
+        const QRectF &currentImageViewportRect,
+        const QSizeF &targetImageSize,
+        const QRectF &targetUsableViewportRect,
+        const QPointF &requestedViewportPoint,
+        bool centerSmallerImage = true);
 
     // Keep the Theme-to-scrollbar contract observable without rendering.
     static QString scrollBarStyleSheet(Qv::Theme theme);
@@ -286,9 +281,8 @@ protected:
 
     QRect getUsableViewportRect(const bool addOverscan = false) const;
 
-    // Fit is a no-scrollbar destination.  Derive its size from the viewport
-    // available after AsNeeded bars disappear so the animation has one stable
-    // endpoint instead of requiring a visible terminal correction.
+    // Fit is a no-scrollbar destination. Derive its size from the viewport
+    // available after AsNeeded bars disappear.
     QSize getFitViewportSize(const bool addOverscan = false) const;
 
     void setTransformScale(const qreal absoluteScale);
@@ -337,12 +331,6 @@ protected:
 
     QPoint zoomAnchorViewportPoint(const QPoint &requestedPoint) const;
 
-    void finishZoomTransition();
-
-    void stopZoomTransition();
-
-    void settlePendingZoomAnchor();
-
     void cancelTurboNav();
 
     MainWindow* getMainWindow() const;
@@ -375,10 +363,28 @@ private:
     void captureFullScreenPanAnchor();
     void captureFullScreenPanState();
     void restoreFullScreenPanPreservation();
-    void cancelPendingZoomAnchor();
-    void restorePendingZoomAnchor();
-    void restoreSettledZoomAnchor();
     void scheduleVerticalScrollBarGeometry();
+
+    struct ZoomPlan
+    {
+        qreal targetZoom {1.0};
+        std::optional<QPoint> requestedViewport;
+        QRectF oldImageViewportRect;
+        QRectF oldImageSceneRect;
+        QPointF plannedAnchorViewport;
+        QTransform oldViewportTransform;
+        bool hasAnchor {false};
+    };
+
+    ZoomPlan makeZoomPlan(qreal targetZoom,
+                          const std::optional<QPoint> &targetPos) const;
+    void commitZoomImmediately(const ZoomPlan &plan);
+    void settleTargetScrollAreaLayout();
+    QRectF imageViewportRect() const;
+    QPointF mapViewportPointToScene(const QTransform &viewportTransform,
+                                    const QPointF &viewportPoint) const;
+    void applyZoomAnchor(const QPointF &scenePoint,
+                         const QPointF &viewportPoint);
 
     QVGraphicsImageItem *loadedPixmapItem {nullptr};
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
@@ -423,31 +429,17 @@ private:
     bool navigationResetsZoom {true};
     bool loadIsFromSessionRestore {false};
     qreal zoomLevel {1.0};
-    qreal displayedZoomLevel {1.0};
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
-    bool zoomTransitionCentersImage {false};
     bool isUpdatingSceneRect {false};
+    bool zoomCommitInProgress {false};
     bool verticalScrollBarGeometryUpdatePending {false};
     bool isUpdatingVerticalScrollBarGeometry {false};
     bool fullScreenPanInternalUpdate {false};
     bool fullScreenPanPreservationActive {false};
     ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
     ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
-    // A manual scrollbar drag can cancel a zoom while the animated frame is
-    // still growing. Keep an explicitly selected endpoint stable as the
-    // scrollbar range expands during that transition.
-    ScrollEdge zoomTransitionHorizontalPanEdge {ScrollEdge::None};
-    ScrollEdge zoomTransitionVerticalPanEdge {ScrollEdge::None};
     std::optional<QPointF> fullScreenPanAnchorScene;
-    std::optional<QPointF> pendingZoomAnchorScene;
-    std::optional<QPoint> pendingZoomAnchorViewport;
-    std::optional<QPointF> settledZoomAnchorScene;
-    std::optional<QPoint> settledZoomAnchorViewport;
-    quint64 pendingZoomAnchorGeneration {0};
-    quint64 zoomAnchorSettleGeneration {0};
-    std::optional<QPoint> lastZoomEventPos;
-    QPointF lastZoomRoundingError;
     bool isCursorAutoHideFullscreenEnabled {true};
     bool isCursorVisible {true};
     QRect lastImageContentRect;
@@ -455,11 +447,8 @@ private:
     QVImageCore imageCore {this};
 
     QTimer *expensiveScaleTimer;
-    QPropertyAnimation *zoomAnimation;
     QTimer *vectorRefineTimer;
     QTimer *constrainBoundsTimer;
-    QTimer *zoomAnchorSettleTimer;
-    QTimer *zoomAnchorPostLayoutTimer;
     QTimer *verticalScrollBarGeometryTimer;
     QTimer *hideCursorTimer;
     QTimer *hdrPresentationTimer;
