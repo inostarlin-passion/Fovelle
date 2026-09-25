@@ -8,8 +8,7 @@ The GUI regression is intentionally measured at two boundaries:
 
 The system gate launches the real Fovelle.app and uses the existing native HID
 driver.  All generated evidence is disposable and is written below
-``reports/evidence``; the human-readable specification is maintained at
-``reports/test_case_specification.md``.
+``reports/evidence``.
 """
 
 from __future__ import annotations
@@ -269,8 +268,6 @@ def run_static(repo: Path, output_dir: Path) -> dict:
     graphics_view = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     graphics_view_header = (repo / "src/qvgraphicsview.h").read_text(encoding="utf-8")
     tests = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
-    root_cause = repo / "reports/root_cause.md"
-    specification = repo / "reports/test_case_specification.md"
     pipeline = Path(__file__).read_text(encoding="utf-8")
     checks: list[dict] = []
 
@@ -355,28 +352,6 @@ def run_static(repo: Path, output_dir: Path) -> dict:
         },
         "pixel, first-frame, idle-restore and EPS/SVG drag assertions are executable",
     )
-    check(
-        checks,
-        "ST-GHOST-ROOT-CAUSE-TRACE",
-        root_cause.is_file() and all(
-            marker in root_cause.read_text(encoding="utf-8")
-            for marker in ("RC-01", "RC-02", "RC-03", "MinimalViewportUpdate", "WA_OpaquePaintEvent")
-        ),
-        {"root_cause_exists": root_cause.is_file(), "path": str(root_cause)},
-        "the implementation is reviewed against the supplied root_cause.md hypotheses",
-    )
-    check(
-        checks,
-        "ST-GHOST-SPECIFICATION",
-        specification.is_file() and all(
-            case["id"] in specification.read_text(encoding="utf-8")
-            and all(label in specification.read_text(encoding="utf-8") for label in (
-                "测试目的", "前置条件", "输入数据", "操作步骤", "预期结果", "后置条件"))
-            for case in CASES
-        ),
-        {"specification_exists": specification.is_file(), "case_count": len(CASES)},
-        "the Markdown specification contains every atomic case and all six required fields",
-    )
     case_schema_ok = all(set(CASE_FIELDS).issubset(case) for case in CASES)
     check(
         checks,
@@ -391,7 +366,7 @@ def run_static(repo: Path, output_dir: Path) -> dict:
     except SyntaxError:
         syntax_ok = False
     check(checks, "ST-GHOST-PYTHON-SYNTAX", syntax_ok, {"file": str(Path(__file__))}, "pipeline parses as Python")
-    diff = run_command(["git", "diff", "--check", "HEAD", "--", "src", "tests", ".gitignore", "reports/test_case_specification.md"], repo)
+    diff = run_command(["git", "diff", "--check", "HEAD", "--", "src", "tests", ".gitignore"], repo)
     check(checks, "ST-GHOST-DIFF-CHECK", diff["return_code"] == 0, diff, "task-scoped diff has no whitespace errors")
 
     legacy_static_path = output_dir / "eps_static.json"

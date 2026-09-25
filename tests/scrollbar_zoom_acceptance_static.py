@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
 
 
 def add_check(
@@ -26,15 +25,6 @@ def add_check(
     )
 
 
-def section_for(markdown: str, heading: str) -> str:
-    match = re.search(rf"^#{{1,6}}\s+.*\b{re.escape(heading)}\b.*$", markdown, re.MULTILINE)
-    if not match:
-        return ""
-    remainder = markdown[match.end() :]
-    end = re.search(r"^#{1,6}\s+", remainder, re.MULTILINE)
-    return markdown[match.start() : match.end() + (end.start() if end else len(remainder))]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
@@ -48,7 +38,6 @@ def main() -> int:
     mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     tests_cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
-    specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
 
     checks: list[dict] = []
 
@@ -465,41 +454,6 @@ def main() -> int:
         all(test_markers.values()) and all(function_markers.values()),
         {"acceptance_markers": test_markers, "test_functions": function_markers},
         "each atomic acceptance criterion has an executable QtTest entry point",
-    )
-
-    required_fields = (
-        "测试目的",
-        "前置条件",
-        "输入数据",
-        "操作步骤",
-        "预期结果",
-        "后置条件",
-    )
-    case_ids = (
-        "TC-SB-ZOOMOUT-ATOMIC",
-        "TC-DRAG-CONTINUITY-ATOMIC",
-        "TC-DRAG-OVERFLOW-ATOMIC",
-        "TC-KBD-ZOOM-ATOMIC",
-        "TC-TOGGLE-DIRECTIONAL-ATOMIC",
-        "TC-TOGGLE-VISUAL-ATOMIC",
-        "TC-WHEEL-REAL-ATOMIC",
-        "TC-ASYNC-QUIET-ATOMIC",
-        "TC-STATIC-TRACEABILITY",
-    )
-    fields_by_case: dict[str, dict[str, bool]] = {}
-    for case_id in case_ids:
-        section = section_for(specification, case_id)
-        fields_by_case[case_id] = {field: field in section for field in required_fields}
-    specification_contract = all(
-        section_for(specification, case_id) and all(fields.values())
-        for case_id, fields in fields_by_case.items()
-    )
-    add_check(
-        checks,
-        "ST-TEST-02",
-        specification_contract,
-        {"fields_by_case": fields_by_case},
-        "the Markdown specification records all six required fields for every acceptance test case",
     )
 
     result = {

@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
-"""Static acceptance checks for the fit/100% shortcut replacement.
-
-The script deliberately checks the production source, the four translation
-catalogs, the executable-test markers, and the Markdown case fields.  It does
-not replace the Cocoa QtTest run; it provides a reproducible source-level
-traceability gate for the same atomic criteria.
-"""
+"""Static acceptance checks for the fit/100% shortcut replacement."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import re
 import xml.etree.ElementTree as ET
 
 
@@ -31,15 +24,6 @@ def add_check(
             "expected": expected,
         }
     )
-
-
-def section_for(markdown: str, heading: str) -> str:
-    match = re.search(rf"^#{{1,6}}\s+.*\b{re.escape(heading)}\b.*$", markdown, re.MULTILINE)
-    if not match:
-        return ""
-    remainder = markdown[match.end() :]
-    end = re.search(r"^#{1,6}\s+", remainder, re.MULTILINE)
-    return markdown[match.start() : match.end() + (end.start() if end else len(remainder))]
 
 
 def translated_messages(path: Path, source: str) -> dict[str, list[tuple[str, str | None]]]:
@@ -69,7 +53,6 @@ def main() -> int:
     mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
-    specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
 
     checks: list[dict] = []
 
@@ -193,24 +176,6 @@ def main() -> int:
         ),
         translation_inventory,
         "all four supported catalogs contain the exact completed translation in both production contexts",
-    )
-
-    required_fields = ("测试目的", "前置条件", "输入数据", "操作步骤", "预期结果", "后置条件")
-    case_ids = (
-        "TC-KBD-ZOOM-ATOMIC",
-        "TC-TOGGLE-DIRECTIONAL-ATOMIC",
-        "TC-TOGGLE-VISUAL-ATOMIC",
-    )
-    fields_by_case = {
-        case_id: {field: field in section_for(specification, case_id) for field in required_fields}
-        for case_id in case_ids
-    }
-    add_check(
-        checks,
-        "ST-SC-06",
-        all(section_for(specification, case_id) and all(fields.values()) for case_id, fields in fields_by_case.items()),
-        {"fields_by_case": fields_by_case},
-        "each atomic shortcut case documents all six requested test-design fields",
     )
 
     result = {

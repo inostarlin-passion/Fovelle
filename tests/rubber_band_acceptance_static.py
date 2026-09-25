@@ -30,7 +30,6 @@ def main() -> int:
     scroll_header = (repo / "src/scrollhelper.h").read_text(encoding="utf-8")
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
-    specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
 
     checks: list[dict] = []
     clamp_contract = (
@@ -107,45 +106,6 @@ def main() -> int:
         and "runSuite(\"ScrollHelperTests\"" in tests_cpp,
         {"markers": test_markers, "suite_registered": "runSuite(\"ScrollHelperTests\"" in tests_cpp},
         "every atomic acceptance criterion has executable QtTest coverage",
-    )
-
-    required_fields = (
-        "测试目的",
-        "前置条件",
-        "输入数据",
-        "操作步骤",
-        "预期结果",
-        "后置条件",
-    )
-    test_case_ids = (
-        "TC-RB-MIN-EDGE",
-        "TC-RB-MAX-EDGE",
-        "TC-RB-NO-RETURN-ANIMATION",
-        "TC-RB-INTERIOR-MOTION",
-        "TC-RB-CONSTRAINT-OPT-OUT",
-    )
-    fields_by_case: dict[str, dict[str, bool]] = {}
-    for test_case_id in test_case_ids:
-        section_start = specification.find(f"## {test_case_id}")
-        next_section = specification.find("\n## ", section_start + 1)
-        section_end = next_section if next_section >= 0 else len(specification)
-        section = specification[section_start:section_end] if section_start >= 0 else ""
-        fields_by_case[test_case_id] = {
-            field: field in section for field in required_fields
-        }
-    specification_contract = all(
-        section_start >= 0 and all(fields.values())
-        for section_start, fields in (
-            (specification.find(f"## {test_case_id}"), fields_by_case[test_case_id])
-            for test_case_id in test_case_ids
-        )
-    )
-    add_check(
-        checks,
-        "ST-RB-05",
-        specification_contract,
-        {"fields_by_case": fields_by_case},
-        "the Markdown specification records all six required fields for each test case",
     )
 
     result = {

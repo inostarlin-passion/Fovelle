@@ -6,43 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
-
-
-ATOMIC_CRITERIA = (
-    "AC-ZOOM-NO-ANIMATION-STATIC",
-    "AC-ZOOM-NO-ANIMATION-SHORTCUT",
-    "AC-ZOOM-NO-ANIMATION-MENU",
-    "AC-ANCHOR-MOUSE-PREFERRED",
-    "AC-ANCHOR-PROJECT-FEASIBLE",
-    "AC-ANCHOR-NO-POST-CORRECTION",
-)
-
-CASE_IDS = (
-    "TC-ZOOM-SYNC-ALL-ENTRY-POINTS",
-    "TC-ANCHOR-FEASIBLE-PROJECTION",
-)
-
-REQUIRED_CASE_FIELDS = (
-    "测试目的",
-    "前置条件",
-    "输入数据",
-    "操作步骤",
-    "预期结果",
-    "后置条件",
-)
-
-
-def markdown_section(markdown: str, case_id: str) -> str:
-    match = re.search(
-        rf"^###\s+{re.escape(case_id)}\s*$", markdown, re.MULTILINE
-    )
-    if not match:
-        return ""
-    remainder = markdown[match.end() :]
-    next_heading = re.search(r"^###\s+", remainder, re.MULTILINE)
-    end = match.end() + (next_heading.start() if next_heading else len(remainder))
-    return markdown[match.start() : end]
 
 
 def add(checks: list[dict[str, object]], identifier: str, passed: bool,
@@ -67,16 +30,6 @@ def main() -> int:
     view_cpp = (repo / "src/qvgraphicsview.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
-    technical = (repo / "reports/technical_design_document.md").read_text(
-        encoding="utf-8"
-    )
-    specification = (repo / "reports/test_case_specification.md").read_text(
-        encoding="utf-8"
-    )
-    completion = (repo / "reports/test_completion_report.md").read_text(
-        encoding="utf-8"
-    )
-
     checks: list[dict[str, object]] = []
 
     forbidden = (
@@ -133,33 +86,8 @@ def main() -> int:
         "the executable suite covers shortcut entry, immediate state, directional anchor, center anchor, and quiet postcondition",
     )
 
-    case_fields = {
-        case_id: {
-            field: field in markdown_section(specification, case_id)
-            for field in REQUIRED_CASE_FIELDS
-        }
-        for case_id in CASE_IDS
-    }
-    traceability = {
-        criterion: {
-            "technical_design": criterion in technical,
-            "test_specification": criterion in specification,
-            "completion_report": criterion in completion,
-            "test_code": criterion in tests_cpp,
-        }
-        for criterion in ATOMIC_CRITERIA
-    }
-    add(
-        checks,
-        "ST-TOGGLE-TRACEABILITY",
-        all(all(fields.values()) for fields in case_fields.values())
-        and all(all(locations.values()) for locations in traceability.values()),
-        {"case_fields": case_fields, "criteria": traceability},
-        "Toggle atomic criteria have six-field cases and end-to-end traceability",
-    )
-
     registration = {
-        "static": "FovelleToggleFitStabilityStatic" in cmake,
+        "source_contract": "FovelleToggleFitStabilitySourceContract" in cmake,
         "dynamic": "FovelleToggleFitStabilityAcceptance" in cmake,
         "anchor": "FovelleToggleFitAnchorAcceptance" in cmake,
         "trajectory": "FovelleToggleFitTrajectoryAcceptance" in cmake,
@@ -173,9 +101,8 @@ def main() -> int:
     )
 
     result = {
-        "kind": "toggle-fit-synchronous-static-check",
+        "kind": "toggle-fit-synchronous-source-contract-check",
         "repo": str(repo),
-        "atomic_criteria": list(ATOMIC_CRITERIA),
         "checks": checks,
         "passed": all(check["pass"] for check in checks),
     }

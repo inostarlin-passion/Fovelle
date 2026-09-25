@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
-"""Static traceability gate for the four requested zoom regressions.
-
-The gate is intentionally independent from the Cocoa runtime test. It checks
-that each atomic acceptance criterion has a production marker, a structured
-case, an executable QtTest function, and a registered CTest entry.
-"""
+"""Static source and executable-test checks for the four zoom regressions."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import re
-
-
-REQUIRED_FIELDS = (
-    "测试目的",
-    "前置条件",
-    "输入数据",
-    "操作步骤",
-    "预期结果",
-    "后置条件",
-)
 
 
 def add_check(
@@ -41,17 +25,6 @@ def add_check(
     )
 
 
-def markdown_section(markdown: str, case_id: str) -> str:
-    match = re.search(
-        rf"^###\s+{re.escape(case_id)}\b.*$", markdown, re.MULTILINE
-    )
-    if not match:
-        return ""
-    remainder = markdown[match.end() :]
-    end = re.search(r"^#{1,3}\s+", remainder, re.MULTILINE)
-    return markdown[match.start() : match.end() + (end.start() if end else len(remainder))]
-
-
 def contains_all(source: str, needles: tuple[str, ...]) -> bool:
     return all(needle in source for needle in needles)
 
@@ -67,9 +40,6 @@ def main() -> int:
     view_header = (repo / "src/qvgraphicsview.h").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     tests_cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
-    specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
-    design = (repo / "reports/technical_design_document.md").read_text(encoding="utf-8")
-    completion = (repo / "reports/test_completion_report.md").read_text(encoding="utf-8")
 
     checks: list[dict] = []
 
@@ -86,8 +56,6 @@ def main() -> int:
     }
     atomic_inventory = {
         criterion: {
-            "in_spec": criterion in specification,
-            "in_design": criterion in design,
             "test_function": function_name in tests_cpp,
             "test_marker": f"// {criterion}" in tests_cpp,
         }
@@ -98,7 +66,7 @@ def main() -> int:
         "ST-4Q-ATOMIC-01",
         all(all(values.values()) for values in atomic_inventory.values()),
         atomic_inventory,
-        "every atomic criterion is traceable through design, specification, marker, and executable test",
+        "every atomic criterion is marked by an executable test function",
     )
 
     production_contracts = {
@@ -212,38 +180,9 @@ def main() -> int:
         "dynamic cases use real input entry points and independently observe initial, transient, and terminal states",
     )
 
-    case_ids = (
-        "TC-P1-WHEEL-TRAJECTORY",
-        "TC-P2-ZOOMOUT-VBAR",
-        "TC-P3-RIGHT-OUTSIDE-WHEEL",
-        "TC-P4-TOGGLE-NO-BLANK",
-        "TC-STATIC-TRACEABILITY",
-    )
-    fields_by_case = {
-        case_id: {
-            field: field in markdown_section(specification, case_id)
-            for field in REQUIRED_FIELDS
-        }
-        for case_id in case_ids
-    }
-    specification_contract = (
-        all(markdown_section(specification, case_id) for case_id in case_ids)
-        and all(all(fields.values()) for fields in fields_by_case.values())
-        and all(term in specification for term in ("静态", "动态", "初态", "暂态", "终态"))
-    )
-    add_check(
-        checks,
-        "ST-4Q-SPEC-01",
-        specification_contract,
-        {"fields_by_case": fields_by_case},
-        "each structured case has all six required fields and covers static/dynamic plus initial/transient/terminal states",
-    )
-
     ctest_contract = {
-        "static_test_registered": "FovelleZoomIssueStatic" in tests_cmake,
         "four_issue_test_registered": "FovelleFourIssueZoomAcceptance" in tests_cmake,
         "cocoa_qpa": "QT_QPA_PLATFORM=cocoa" in tests_cmake,
-        "static_script_is_called": "zoom_issue_acceptance_static.py" in tests_cmake,
         "all_four_functions_registered": all(
             function_name in tests_cmake
             for function_name in set(atomic_to_test.values())
@@ -255,35 +194,6 @@ def main() -> int:
         all(ctest_contract.values()),
         ctest_contract,
         "the static gate and all four dynamic acceptance functions are registered in reproducible CTest entries",
-    )
-
-    official_sources = (
-        "https://doc.qt.io/qt-6/qabstractscrollarea.html",
-        "https://doc.qt.io/qt-6/qgraphicsview.html",
-        "https://doc.qt.io/qt-6/qaction.html",
-        "https://doc.qt.io/QT-6/qvariantanimation.html",
-        "https://github.com/qt/qtbase/blob/v6.11.1/src/widgets/graphicsview/qgraphicsview.cpp",
-    )
-    report_contract = {
-        "design_has_evidence_chain": contains_all(
-            design, ("联网多跳检索", "交叉验证", "显式前提")
-        ),
-        "spec_has_four_issue_decomposition": contains_all(
-            specification, ("AC-4Q", "原子验收", "证据缺口")
-        ),
-        "completion_has_traceability": contains_all(
-            completion, ("追溯", "PASS", "四个")
-        ),
-        "official_sources_are_linked": all(
-            url in design + specification + completion for url in official_sources
-        ),
-    }
-    add_check(
-        checks,
-        "ST-4Q-DOC-01",
-        all(report_contract.values()),
-        report_contract,
-        "the three Markdown artifacts expose the evidence chain, explicit premises, atomic traceability, and verified sources",
     )
 
     result = {

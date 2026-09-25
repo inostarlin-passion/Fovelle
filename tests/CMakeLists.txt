@@ -170,14 +170,14 @@ if(APPLE AND EXISTS "${FOVELLE_FULLSCREEN_SDR_IMAGE}")
         LABELS "native-ui;fullscreen;sdr")
 endif()
 
-add_test(NAME FovelleToggleFitStabilityStatic
+add_test(NAME FovelleToggleFitStabilitySourceContract
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/toggle_fit_stability_static.py
         --repo ${CMAKE_SOURCE_DIR}
         --output ${CMAKE_BINARY_DIR}/test-results/toggle-fit-stability-static.json)
-set_tests_properties(FovelleToggleFitStabilityStatic PROPERTIES
+set_tests_properties(FovelleToggleFitStabilitySourceContract PROPERTIES
     TIMEOUT 30
-    LABELS "zoom;toggle-fit;static;acceptance"
+    LABELS "zoom;toggle-fit;source-contract;acceptance"
 )
 
 add_test(NAME FovelleToggleFitStabilityAcceptance COMMAND fovelle_tests
@@ -188,14 +188,14 @@ set_tests_properties(FovelleToggleFitStabilityAcceptance PROPERTIES
     LABELS "zoom;toggle-fit;dynamic;acceptance"
 )
 
-add_test(NAME FovelleZoomScrollbarDurationStatic
+add_test(NAME FovelleZoomScrollbarDurationSourceContract
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/zoom_scrollbar_duration_static.py
         --repo ${CMAKE_SOURCE_DIR}
         --output ${CMAKE_BINARY_DIR}/test-results/zoom-scrollbar-duration-static.json)
-set_tests_properties(FovelleZoomScrollbarDurationStatic PROPERTIES
+set_tests_properties(FovelleZoomScrollbarDurationSourceContract PROPERTIES
     TIMEOUT 30
-    LABELS "zoom;scrollbar;duration;static;acceptance"
+    LABELS "zoom;scrollbar;duration;source-contract;acceptance"
 )
 
 add_test(NAME FovelleScrollbarZoomDurationAcceptance COMMAND fovelle_tests

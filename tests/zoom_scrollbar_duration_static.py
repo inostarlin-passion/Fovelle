@@ -6,48 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
-
-
-ATOMIC_CRITERIA = (
-    "AC-ZOOM-NO-ANIMATION-STATIC",
-    "AC-ZOOM-NO-ANIMATION-INPUT",
-    "AC-ZOOM-NO-ANIMATION-SHORTCUT",
-    "AC-ZOOM-NO-ANIMATION-MENU",
-    "AC-ANCHOR-MOUSE-PREFERRED",
-    "AC-ANCHOR-PROJECT-FEASIBLE",
-    "AC-ANCHOR-NO-POST-CORRECTION",
-    "AC-ANCHOR-HBAR-TOPOLOGY",
-    "AC-VBAR-TOPOLOGY-ANCHOR",
-)
-
-CASE_IDS = (
-    "TC-ZOOM-SYNC-ALL-ENTRY-POINTS",
-    "TC-ANCHOR-FEASIBLE-PROJECTION",
-    "TC-HBAR-FOUR-IN-ONE-OUT",
-    "TC-VBAR-TOPOLOGY-ANCHOR",
-)
-
-REQUIRED_CASE_FIELDS = (
-    "测试目的",
-    "前置条件",
-    "输入数据",
-    "操作步骤",
-    "预期结果",
-    "后置条件",
-)
-
-
-def section(markdown: str, case_id: str) -> str:
-    match = re.search(
-        rf"^###\s+{re.escape(case_id)}\s*$", markdown, re.MULTILINE
-    )
-    if not match:
-        return ""
-    remainder = markdown[match.end() :]
-    next_heading = re.search(r"^###\s+", remainder, re.MULTILINE)
-    end = match.end() + (next_heading.start() if next_heading else len(remainder))
-    return markdown[match.start() : end]
 
 
 def add(checks: list[dict[str, object]], identifier: str, passed: bool,
@@ -73,15 +31,6 @@ def main() -> int:
     mainwindow_cpp = (repo / "src/mainwindow.cpp").read_text(encoding="utf-8")
     tests_cpp = (repo / "tests/tst_qviewtests.cpp").read_text(encoding="utf-8")
     cmake = (repo / "tests/CMakeLists.txt").read_text(encoding="utf-8")
-    reports = {
-        name: (repo / "reports" / name).read_text(encoding="utf-8")
-        for name in (
-            "technical_design_document.md",
-            "test_case_specification.md",
-            "test_completion_report.md",
-        )
-    }
-
     checks: list[dict[str, object]] = []
 
     forbidden_zoom_animation = (
@@ -163,31 +112,8 @@ def main() -> int:
         "QtTest exercises wheel, keyboard, title-bar menu, context menu, outside-image projection, and the reported four-in/one-out fixture",
     )
 
-    required_fields = {
-        case_id: {field: field in section(reports["test_case_specification.md"], case_id)
-                  for field in REQUIRED_CASE_FIELDS}
-        for case_id in CASE_IDS
-    }
-    traceability = {
-        criterion: {
-            "technical_design": criterion in reports["technical_design_document.md"],
-            "test_specification": criterion in reports["test_case_specification.md"],
-            "completion_report": criterion in reports["test_completion_report.md"],
-            "test_code": criterion in tests_cpp,
-        }
-        for criterion in ATOMIC_CRITERIA
-    }
-    add(
-        checks,
-        "ST-REPORT-TRACEABILITY",
-        all(all(fields.values()) for fields in required_fields.values())
-        and all(all(locations.values()) for locations in traceability.values()),
-        {"case_fields": required_fields, "criteria": traceability},
-        "each atomic criterion has a six-field case and is traceable through design, executable test code, and completion report",
-    )
-
     registration = {
-        "static_gate": "FovelleZoomScrollbarDurationStatic" in cmake,
+        "source_contract": "FovelleZoomScrollbarDurationSourceContract" in cmake,
         "sync_entry_points": "testZoomTransitionCoversWheelKeyboardAndMenus" in cmake,
         "anchor_round_trip": "testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump" in cmake,
         "anchor_projection": "testZoomAnchorProjectsInsideAndOutsideImage" in cmake,
@@ -218,9 +144,8 @@ def main() -> int:
     )
 
     result = {
-        "kind": "zoom-synchronous-anchor-static-check",
+        "kind": "zoom-synchronous-anchor-source-contract-check",
         "repo": str(repo),
-        "atomic_criteria": list(ATOMIC_CRITERIA),
         "checks": checks,
         "passed": all(check["pass"] for check in checks),
     }

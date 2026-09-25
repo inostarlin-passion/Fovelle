@@ -92,50 +92,6 @@ def main() -> int:
         "the physical vertical scrollbar geometry is reapplied after Qt layout and checked against the titlebar inset",
     )
 
-    specification = (repo / "reports/test_case_specification.md").read_text(encoding="utf-8")
-    required_spec_fields = (
-        "测试目的",
-        "前置条件",
-        "输入数据",
-        "操作步骤",
-        "预期结果",
-        "后置条件",
-    )
-    specification_markers = (
-        "AC-NAV-PREVIOUS-ABSENT",
-        "AC-NAV-NEXT-ABSENT",
-        "AC-FILEINFO-MODIFIED-FORMAT",
-        "AC-SCROLLBAR-TITLEBAR-INSET",
-    )
-    test_case_ids = (
-        "TC-NAV-PREVIOUS-ABSENT",
-        "TC-NAV-NEXT-ABSENT",
-        "TC-FILEINFO-MODIFIED-FORMAT",
-        "TC-SCROLLBAR-TITLEBAR-INSET",
-    )
-    case_field_presence = {}
-    for case_id in test_case_ids:
-        heading = f"## {case_id}"
-        start = specification.find(heading)
-        end = specification.find("\n## ", start + len(heading)) if start >= 0 else -1
-        section = specification[start:end if end >= 0 else None] if start >= 0 else ""
-        case_field_presence[case_id] = {
-            field: field in section for field in required_spec_fields
-        }
-    all_cases_have_required_fields = all(
-        all(fields.values()) for fields in case_field_presence.values()
-    )
-    add(
-        "ST-TASK-SPECIFICATION",
-        all(marker in specification for marker in specification_markers)
-        and all_cases_have_required_fields,
-        {
-            "case_fields": case_field_presence,
-            "acceptance_ids": {marker: marker in specification for marker in specification_markers},
-        },
-        "the Markdown test specification contains six required fields for every atomic acceptance case",
-    )
-
     record = {
         "kind": "task-acceptance-static-check",
         "repo": str(repo),

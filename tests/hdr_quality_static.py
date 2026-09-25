@@ -858,7 +858,6 @@ def main() -> int:
         repo / "src/qvgraphicsview.cpp",
         repo / "src/mainwindow.cpp",
         repo / "src/qvimageloader.cpp",
-        repo / "docs/hdr_pipeline.md",
     ]
     passed = (
         all(item["status"] == "passed" for item in cases)

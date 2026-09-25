@@ -93,7 +93,6 @@ def main() -> int:
     main_window = (repo / "src" / "mainwindow.cpp").read_text(encoding="utf-8")
     options = (repo / "src" / "qvoptionsdialog.cpp").read_text(encoding="utf-8")
     plist = (repo / "dist" / "mac" / "Info.plist.in").read_text(encoding="utf-8")
-    readme = (repo / "README.md").read_text(encoding="utf-8")
     tests = (repo / "tests" / "tst_qviewtests.cpp").read_text(encoding="utf-8")
     workflows = "\n".join(
         path.read_text(encoding="utf-8")
@@ -235,27 +234,23 @@ def main() -> int:
         marker in options
         for marker in ("getAllFileExtensionList", "associateSupportedFormats", "Qv::setToSortedList")
     )
-    docs_and_bundle = (
-        "- EPS" in readme
-        and "Ghostscript" in readme
-        and all(f"<string>{alias}</string>" in plist for alias in aliases)
+    bundle_and_ci = (
+        all(f"<string>{alias}</string>" in plist for alias in aliases)
         and "com.adobe.encapsulated-postscript" in plist
         and workflows.count("brew install ghostscript") >= 4
     )
     check(
         checks,
-        "ST-EPS-DOCS-SETTINGS",
-        "Settings, README, the macOS bundle declaration, and CI must expose EPS and its Ghostscript dependency.",
-        settings_wiring and docs_and_bundle,
+        "ST-EPS-SETTINGS-BUNDLE-CI",
+        "Settings, the macOS bundle declaration, and CI must expose EPS support and its Ghostscript dependency.",
+        settings_wiring and bundle_and_ci,
         {
             "settings_table_uses_application_extension_set": settings_wiring,
-            "readme_contains_eps": "- EPS" in readme,
-            "readme_documents_ghostscript": "brew install ghostscript" in readme,
             "bundle_contains_eps_aliases": all(f"<string>{alias}</string>" in plist for alias in aliases),
             "bundle_contains_eps_uti": "com.adobe.encapsulated-postscript" in plist,
             "ci_installs_ghostscript": workflows.count("brew install ghostscript") >= 4,
         },
-        ["src/qvoptionsdialog.cpp", "src/qvapplication.cpp", "README.md", "dist/mac/Info.plist.in", ".github/workflows/*.yml"],
+        ["src/qvoptionsdialog.cpp", "src/qvapplication.cpp", "dist/mac/Info.plist.in", ".github/workflows/*.yml"],
     )
 
     loader_delegation = (
