@@ -157,14 +157,14 @@ set_tests_properties(FovelleTests PROPERTIES
     TIMEOUT 180
 )
 
-set(FOVELLE_FULLSCREEN_SDR_IMAGE
-    "/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png"
-    CACHE FILEPATH "Large SDR image used by the Cocoa full-screen presentation regression")
-if(APPLE AND EXISTS "${FOVELLE_FULLSCREEN_SDR_IMAGE}")
+set(FOVELLE_FULLSCREEN_AVIF_IMAGE
+    "/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif"
+    CACHE FILEPATH "AVIF image used by the Cocoa zoomed full-screen exit regression")
+if(APPLE AND EXISTS "${FOVELLE_FULLSCREEN_AVIF_IMAGE}")
     add_test(NAME FovelleSDRFullScreenPresentation
         COMMAND fovelle_tests testProvidedRasterFullScreenTransitionKeepsImageVisible)
     set_tests_properties(FovelleSDRFullScreenPresentation PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=SDRSampleInteractionTests;FOVELLE_FULLSCREEN_SDR_IMAGE=${FOVELLE_FULLSCREEN_SDR_IMAGE}"
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=SDRSampleInteractionTests;FOVELLE_FULLSCREEN_SDR_IMAGE=${FOVELLE_FULLSCREEN_AVIF_IMAGE}"
         TIMEOUT 45
         RUN_SERIAL TRUE
         LABELS "native-ui;fullscreen;sdr")

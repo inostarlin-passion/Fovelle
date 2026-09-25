@@ -9878,17 +9878,18 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
-// TC-SDR-FULLSCREEN-PRESENTATION
-// Test purpose: reproduce the supplied large SDR PNG's Cocoa full-screen
-// handoff and detect missing synchronous layer geometry, blank frames, or
-// abrupt image relocation on the actual display.
-// Preconditions: macOS screen capture is available and the supplied 2.png is
+// TC-SDR-AVIF-ZOOM-FULLSCREEN-EXIT
+// Test purpose: reproduce the reported AVIF -> zoom -> full-screen -> exit path
+// and detect stale native-layer geometry, blank frames, image jumps, or a
+// changed scene point under the usable viewport center after restoring the window.
+// Preconditions: macOS screen capture is available and the supplied 1.avif is
 // readable; the test runs with a visible Cocoa window.
-// Input data: FOVELLE_FULLSCREEN_SDR_IMAGE, or the reported /Volumes path.
-// Steps: activate the native SDR renderer, sample the display repeatedly while
-// entering and leaving full screen, and repeat the round trip three times.
+// Input data: FOVELLE_FULLSCREEN_SDR_IMAGE, or the reported 1.avif path.
+// Steps: activate the native SDR renderer, zoom to 2x, then sample the display
+// while entering and leaving full screen for three round trips.
 // Expected result: every sample retains visible image texture and chromatic
-// content; the display centroid moves continuously and layer geometry matches.
+// content, image motion stays continuous, layer geometry matches, and the
+// scene point at viewport center is restored after each exit.
 // Postcondition: full-screen mode is exited and the test window is closed.
 void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible()
 {
@@ -9897,7 +9898,7 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
 #endif
     const QString samplePath = qEnvironmentVariable(
         "FOVELLE_FULLSCREEN_SDR_IMAGE",
-        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png"));
+        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif"));
     QVERIFY2(QFileInfo(samplePath).isFile(), qPrintable(samplePath));
 
     ScopedOptionValues options({
@@ -9934,6 +9935,16 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
     QVERIFY(window.getCurrentFileDetails().isNativeSDRLoaded);
     QVERIFY(view->usesNativeSDRMetalRenderer());
+    view->zoomAbsolute(2.0, view->viewport()->rect().center());
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0), 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        view->nativeMetalRendererDiagnostics().drawableGeometryMatches, 3000);
+    const auto usableViewportCenter = [&]() {
+        QRect rect = view->viewport()->rect();
+        rect.setTop(window.getViewportPosition().obscuredHeight);
+        return rect.center();
+    };
     screen = window.screen();
     QVERIFY(screen);
     const auto sampleDisplay = [&]() -> std::optional<QPointF> {
@@ -10041,6 +10052,13 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         Q_ARG(int, transitionTitlebarOverlap)));
     QCOMPARE(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount,
              compositorUpdatesBeforeHandoff + 1);
+    const quint64 compositorUpdatesBeforeTransitionEnd =
+        view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount;
+    QVERIFY(QMetaObject::invokeMethod(
+        &window, "cancelFullScreenLayoutTransition", Qt::DirectConnection));
+    QCOMPARE(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount,
+             compositorUpdatesBeforeTransitionEnd + 1);
+    QVERIFY(view->nativeMetalRendererDiagnostics().drawableGeometryMatches);
     const auto before = sampleDisplay();
     QVERIFY2(before.has_value(), "The supplied SDR image was not visible before full screen");
     for (int cycle = 0; cycle < 3; ++cycle)
@@ -10050,11 +10068,19 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
         const auto fullScreen = sampleDisplay();
         QVERIFY(fullScreen.has_value());
+        const QPointF fullscreenCenterScenePoint = view->mapToScene(
+            usableViewportCenter());
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
         const auto exitFrames = sampleTransition(false);
         QVERIFY2(!exitFrames.isEmpty(), "The SDR image flashed or jumped during full-screen exit");
         QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
         const auto normal = sampleDisplay();
         QVERIFY(normal.has_value());
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
+        const QPointF restoredCenterScenePoint = view->mapToScene(
+            usableViewportCenter());
+        QVERIFY2(QLineF(fullscreenCenterScenePoint, restoredCenterScenePoint).length() <= 2.0,
+                 "The viewport-center scene point jumped when full screen exited");
     }
 
     window.close();

@@ -1,108 +1,57 @@
-# 测试用例说明：SDR 图片全屏画面跳变/闪烁
+# 测试用例说明：放大 AVIF 退出全屏时的跳变/闪烁
 
 日期：2026-09-25
-样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png`（4616×2924 PNG）
-设计依据：[技术设计文档](technical_design_document.md)
+样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`（AVIF，1200×1085）
+技术依据：[技术设计文档](technical_design_document.md)
 
-## 1. 目标与边界
+## 1. 测试目标
 
-覆盖“打开指定 SDR 图片并进入 macOS 全屏”时代理窗口到原生 SDR layer 的交接。用例包含一个同步调用契约断言，以及真实屏幕过渡帧观测。测试在 Cocoa GUI 会话运行；测试所需路径可由环境变量 `FOVELLE_FULLSCREEN_SDR_IMAGE` 覆盖。
+现有 SDR 全屏专项原来使用 `2.png`，并未按报告中的顺序放大图片；也没有检查全屏退出 `Cancel` 收尾回调返回前的 SDR layer 提交。本用例改用指定 AVIF、实际 2 倍缩放，并分别验证交接提交、画面连续性、缩放状态和退出锚点。
 
-| 用例 ID | 被测行为 | 级别 | 结果判定 |
+## 2. 原子用例
+
+主执行项：`SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible`
+CTest 名称：`FovelleSDRFullScreenPresentation`
+
+| 用例 ID | 级别 | 操作 | 通过条件 |
 | --- | --- | --- | --- |
-| TC-SDR-FS-SYNC | MainWindow 全屏布局回调返回之前提交最新 SDR layer 几何。 | 集成/回归 | `compositorGeometryUpdateCount` 同步增加 1；去掉生产同步调用时必须失败。 |
-| TC-SDR-FS-VISIBLE | 真实屏幕的中心纹理和图像内容在过渡期间持续可见。 | Cocoa 系统 | 每个显示器采样帧中心局部亮度方差不低于 `0.0004`，有色内容像素不少于样本像素的 `1/30`。 |
-| TC-SDR-FS-CONTINUOUS | 图像可见颜色分布不能在相邻采样帧间大幅跳变。 | Cocoa 系统 | 归一化颜色质心距离不超过 `0.14`；native SDR renderer 的 `drawableGeometryMatches` 为真。 |
-| TC-SDR-FS-REPEAT | 全屏进出路径可重复执行。 | 重复性 | 同一窗口完成三次完整往返，无可见性或 renderer 几何断言失败。 |
+| TC-AVIF-LOAD-ZOOM | Cocoa 集成 | 打开 `1.avif`，等待 native SDR renderer 就绪，执行 `zoomAbsolute(2.0, viewportCenter)`。 | 文件加载、native SDR renderer 有效，最终 zoom 与 2.0 等价，drawable 几何匹配。 |
+| TC-FS-UPDATE-SYNC | 集成契约 | 调用全屏布局更新回调。 | `compositorGeometryUpdateCount` 同步增加 1。 |
+| TC-FS-CANCEL-SYNC | 集成回归 | 调用最终 `cancelFullScreenLayoutTransition()` 收尾。 | 收尾回调返回前计数再增加 1，且 `drawableGeometryMatches` 为真。 |
+| TC-FS-VISIBLE | Cocoa 系统 | 真实屏幕进出动画期间以 8ms 间隔采样。 | 每一帧中心局部亮度方差至少 `0.0004`，彩色内容像素至少达到抽样像素的 `1/30`。 |
+| TC-FS-CONTINUOUS | Cocoa 系统 | 比较相邻屏幕采样中的归一化有色像素质心。 | 单步距离不超过 `0.14`；发现 renderer 几何不匹配即失败。 |
+| TC-FS-ANCHOR-ZOOM | 集成回归 | 每轮全屏退出前后比较 usable viewport center 对应的 scene point。 | zoom 仍为 2.0，scene point 距离不超过 2 个图像坐标单位。 |
+| TC-FS-ROUNDTRIP | 重复性 | 对真实窗口执行三次进入/退出。 | 三轮均完成且上面各项通过。 |
 
-## 2. 前置条件
+## 3. 前置条件与可复现步骤
 
-1. macOS Cocoa 图形会话可显示 Qt 窗口，`QScreen::grabWindow(0)` 返回有效屏幕帧。
-2. 测试图片存在且可解码；当前样本文件为 18,001,858 字节，PNG RGB，4616×2924。
-3. `FovelleSDRFullScreenPresentation` 是串行 CTest 项，避免多个测试窗口争用同一桌面。
-4. 使用 `QT_FATAL_WARNINGS=1` 和 `QT_QPA_PLATFORM=cocoa`，保持与 Qt 测试进程的其他 macOS 用例一致。
+1. macOS Cocoa 桌面会话可用，`QScreen::grabWindow(0)` 可读取屏幕。
+2. 样本路径存在并能由应用 native SDR 路径解码。CMake 默认路径为本机给定卷；其他机器可用 `-DFOVELLE_FULLSCREEN_AVIF_IMAGE=/绝对路径/1.avif` 指定。测试进程也接受 `FOVELLE_FULLSCREEN_SDR_IMAGE` 环境变量覆盖。
+3. 测试窗口居中显示，设置 fit、无平滑插值、无棋盘背景和 1:1 pixel size 后加载样本。
+4. 等待 native SDR Metal renderer 启动，执行 2 倍 zoom 并等待 drawable geometry 对齐。
+5. 直接调用一次布局更新及一次取消收尾回调，逐次核对 compositor 几何提交计数；此段让最后交接的同步契约可确定性复现，不依赖 AppKit 动画计时。
+6. 经真实 `toggleFullScreen()` 进入全屏，逐帧采样；保留 2 倍缩放并记录全屏 usable viewport center 对应 scene point。
+7. 经真实 `toggleFullScreen()` 退出全屏，逐帧采样；检查 2 倍 zoom 仍存在，并确认退出后 usable viewport center 对应原 scene point。
+8. 连续执行第 6–7 步三轮。scope guard 在断言失败时也会尝试离开全屏、关闭窗口并恢复应用 quit policy。
 
-## 3. 执行步骤
+## 4. 逆向证伪
 
-主测试为 `SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible`：
+把生产代码 `MainWindow::cancelFullScreenLayoutTransition()` 中新增的同步调用暂时移除，重建后执行同一 CTest：
 
-1. 设置 `ZoomToFit`，创建在屏幕中间的 1200×800 `MainWindow`，打开指定 PNG。
-2. 确认文件进入 native SDR 路径，并等到显示器中心区域的图片纹理实际可见。
-3. 调用全屏转场开始/更新 slot；在 Qt 事件循环推进前比较原生 compositor geometry 计数，要求它同步加 1。这是防止零毫秒 timer 延后覆盖交接的回归断言。
-4. 实际切换全屏；在过渡帧中反复采样真实屏幕并核对纹理、颜色内容和 renderer 几何状态。
-5. 完成进入、退出三轮，验证每一轮的采样序列均满足阈值。
-6. 退出全屏、关闭窗口并恢复测试前的 quit policy。
+| 版本 | 收尾前实际计数 | 期望计数 | 结果 |
+| --- | ---: | ---: | --- |
+| 移除退出收尾同步 | 4 | 5 | FAIL，`TC-FS-CANCEL-SYNC` 精确失败 |
+| 恢复退出收尾同步 | 5 | 5 | PASS |
 
-清理由 scope guard 执行，因此断言失败时也尝试退出全屏并关闭窗口。
+该断言在测试真实三轮动画前执行，直接锁定新增生产行为。真实动画检查补充验证画面内容、帧间跳变和最终几何状态。
 
-## 4. 反向证伪要求
+## 5. 阈值和解释
 
-该用例必须在生产同步调用被移除时失败。已执行的反向对照如下：
+- 屏幕图像先缩至最长边不超过 360×240 的探测图；中心 16×16 邻域的亮度方差用于排除中心只剩纯色/空白的帧。
+- 对探测图隔点扫描；亮度至少 48 且 RGB 最大/最小通道差至少 42 的像素计为可见彩色内容，阈值为扫描像素数的 1/30。
+- 有色像素质心以探测图宽高归一化，邻帧欧氏距离最大 0.14。该门槛检测大幅跳变，不声称检测每个子像素变化。
+- 退出锚点必须在 usable viewport 测量：`QVGraphicsView` 会把 `MainWindow::getViewportPosition().obscuredHeight` 以上部分视为标题栏遮挡区。直接使用整个 viewport 的几何中心会把被遮挡区域纳入比较，产生错误失败。
 
-| 生产实现 | 几何提交计数 | 断言 | 结果 |
-| --- | ---: | --- | --- |
-| 移除 `MainWindow::updateFullScreenLayoutTransition()` 对 SDR 同步方法的调用 | 当前 2，期望 3 | 回调返回后立即比较计数 | FAIL |
-| 恢复同步调用 | 当前 3，期望 3 | 同一 PNG、同一 QtTest 路径 | PASS |
+## 6. 当前覆盖边界
 
-此对照用直接读取 renderer 计数的断言证明测试区分修复前后；只检查最终 `window.isFullScreen()` 或静止图像矩形不足以替代此断言。
-
-## 5. 阈值含义与边界
-
-- `centerVariance >= 0.0004` 和 chromatic coverage `>= 1/30` 用来识别中心内容消失/大面积空白帧。屏幕像素已受显示器色彩管理，因此不与 PNG 原始 RGB 值逐像素相等比较。
-- `centroidStep <= 0.14` 是屏幕归一化坐标中的相邻帧上限，用于发现大幅图像位移；细小移动需由 `drawableGeometryMatches` 几何契约补充。
-- 屏幕采样并非 WindowServer/CALayer 每次扫描输出捕获。测试能证明采样帧和 Qt/renderer 提交边界，不声称逐刷新率无缺帧。
-- 样本不可用时 CMake 不注册此专项；测试不以合成图片冒充该外部样本。
-
-测试结果和当前环境见[测试完成报告](test_completion_report.md)。
-
-## 附录：仓库既有缩放回归用例
-
-以下验收 ID 由既有静态脚本检查，并在本附录用例与 `tst_qviewtests.cpp` 中追溯：
-
-| 验收 ID | 覆盖点 |
-| --- | --- |
-| AC-ZOOM-NO-ANIMATION-STATIC | 缩放没有几何动画状态。 |
-| AC-ZOOM-NO-ANIMATION-INPUT | 滚轮缩放同步提交。 |
-| AC-ZOOM-NO-ANIMATION-SHORTCUT | 键盘快捷键缩放同步提交。 |
-| AC-ZOOM-NO-ANIMATION-MENU | 菜单入口汇入共同缩放 API。 |
-| AC-ANCHOR-MOUSE-PREFERRED | 优先使用有效鼠标锚点。 |
-| AC-ANCHOR-PROJECT-FEASIBLE | 投影到目标可行区间。 |
-| AC-ANCHOR-NO-POST-CORRECTION | 无缩放后延迟位置修正。 |
-| AC-ANCHOR-HBAR-TOPOLOGY | 横向滚动条拓扑变化时保持锚点。 |
-| AC-VBAR-TOPOLOGY-ANCHOR | 纵向滚动条拓扑变化时保持锚点。 |
-
-### TC-ZOOM-SYNC-ALL-ENTRY-POINTS
-
-- 测试目的：验证 wheel、键盘、标题栏菜单与右键菜单缩放都同步提交。
-- 前置条件：可见 Qt 图像窗口已打开栅格图片。
-- 输入数据：wheel 往返、缩放快捷键与两类 View 菜单 action。
-- 操作步骤：依次触发各入口并检查 zoom、scene、scrollbar 终态。
-- 预期结果：所有入口共享立即提交路径，静默观察期无延迟几何写入。
-- 后置条件：恢复窗口与应用 quit policy。
-
-### TC-ANCHOR-FEASIBLE-PROJECTION
-
-- 测试目的：验证目标图片尺寸改变后缩放锚点仍处于可行位置。
-- 前置条件：图像视口和纯锚点投影 helper 可用。
-- 输入数据：图片内部/外部位置、放大/缩小目标和可行原点区间。
-- 操作步骤：运行纯函数边界断言，再由真实缩放入口检查映射点。
-- 预期结果：锚点被投影到最近可行位置，不制造可避免的空白。
-- 后置条件：测试视口关闭，临时设置恢复。
-
-### TC-HBAR-FOUR-IN-ONE-OUT
-
-- 测试目的：验证四步放大和一步回退穿越横向滚动条显示边界时不移位。
-- 前置条件：真实或确定性合成图片可加载，窗口可 resize。
-- 输入数据：四次前向缩放及一次反向缩放。
-- 操作步骤：采集滚动条 range/value、viewport 和最终图片锚点。
-- 预期结果：range 按预期出现/消失，图片锚点保持在允许误差内。
-- 后置条件：图片与测试窗口关闭。
-
-### TC-VBAR-TOPOLOGY-ANCHOR
-
-- 测试目的：验证纵向 range 首次出现时已提交的场景锚点不被后续布局覆盖。
-- 前置条件：900×400 专用 viewport 和足够尺寸的测试图片。
-- 输入数据：横向已有 range、纵向无 range 的起始状态及一次缩放。
-- 操作步骤：比较提交态、range 收敛态和 paint probe 中的同一场景点。
-- 预期结果：纵向锚点保持在一 DIP 内，横向值不被连带改写。
-- 后置条件：测试窗口与临时图片释放。
+该测试是依赖显示器的 macOS 集成测试。低于屏幕采样频率的短闪帧可能落在两次截图之间；若需证明每次显示刷新均无闪烁，仍缺少 WindowServer/Core Animation 逐呈现帧捕获信源。本用例不覆盖非 SDR 文件和其他平台。

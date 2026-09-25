@@ -1255,10 +1255,15 @@ void MainWindow::cancelFullScreenLayoutTransition()
         graphicsView->fitOrConstrainImage();
     }
 
+    // Resetting the final titlebar override can change the viewport after the
+    // last animation Update callback. AppKit reveals the real window as soon
+    // as this cancellation/completion callback returns, so commit the final
+    // native SDR geometry here instead of relying on its queued zero timer.
     // Native completion/failure can arrive after the Qt window-state event
     // has already cleared the titlebar override. Pan preservation has a
     // separate lifetime and must still be closed in that case.
     graphicsView->endFullScreenPanPreservation();
+    graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
     if (hadTitlebarTransition)
         update();
 }

@@ -1,79 +1,49 @@
-# 测试完成报告：SDR 图片全屏跳变/闪烁
+# 测试完成报告：放大 AVIF 退出全屏时的跳变/闪烁
 
 日期：2026-09-25
-仓库：`/Users/inostarlin/code/Fovelle`
-样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png`
-设计：[technical_design_document.md](technical_design_document.md)
-用例：[test_case_specification.md](test_case_specification.md)
+样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`（1200×1085）
+设计：[技术设计文档](technical_design_document.md)
+用例：[测试用例说明](test_case_specification.md)
 
 ## 1. 结论
 
-已修复 macOS 全屏布局回调只排队更新 native SDR 图层几何的问题。现在隐藏的真实窗口准备交接时，Fovelle 同步刷新原生 SDR layer 几何，然后才 repaint/显示真实窗口。
+已补上 macOS 全屏退出收尾中的 SDR 图层同步提交。`cancelFullScreenLayoutTransition()` 完成最终 viewport 和 pan 状态恢复后，现在会同步更新 native SDR 几何，再返回 AppKit 交接回调。AVIF 放大、全屏进出专项连续 5 次通过；移除该生产调用后，新增计数断言按预期失败。全量 CTest 为 15/15 PASS。
 
-新回归使用用户提供的 4616×2924 PNG，检查全屏更新 slot 返回前的 compositor 几何提交、实际显示器画面纹理、相邻采样帧颜色质心和 native renderer geometry，并执行三次全屏往返。去掉生产同步调用时，计数断言稳定失败；恢复后连续重复 5 次通过。全量 CTest 为 15/15 PASS。
+## 2. 修改内容
 
-## 2. 原子验收结果
+- [mainwindow.cpp](/Users/inostarlin/code/Fovelle/src/mainwindow.cpp)：在全屏 transition cancel/completion 收尾中完成 pan preservation 后，同步提交 native SDR layer 几何，确保 AppKit 揭示真实窗口前使用最终 viewport transform。
+- [tst_qviewtests.cpp](/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp)：将测试路径改为 `1.avif`；加 2 倍缩放；增加 cancel 回调几何计数断言、drawable 对齐、退出画面采样和 usable viewport scene anchor 检查；保留三轮真实 Cocoa 往返。
+- [CMakeLists.txt](/Users/inostarlin/code/Fovelle/tests/CMakeLists.txt)：全屏专项默认样本改为给定 AVIF，并更新缓存项说明。
 
-| 验收 ID | 结果 | 证据 |
+## 3. 结果追溯
+
+| 原子验收 | 结果 | 执行证据 |
 | --- | :---: | --- |
-| AC-SDR-FS-SYNC | PASS | 修复前 `compositorGeometryUpdateCount` 为 2，回调返回后预期 3，测试失败；恢复调用后同步增至 3。 |
-| AC-SDR-FS-VISIBLE | PASS | 三轮全屏进出期间，每个屏幕采样帧均达到中心纹理方差和可见图像内容下限。 |
-| AC-SDR-FS-CONTINUOUS | PASS | 过渡采样中的质心单步位移满足 0.14 阈值，renderer 报告 geometry matches。 |
-| AC-SDR-FS-ROUNDTRIP | PASS | 指定 PNG 连续完成三次进入/退出。 |
+| AC-AVIF-LOAD | PASS | 实际样本加载，并通过 `isNativeSDRLoaded` 与 Metal SDR renderer 检查。 |
+| AC-AVIF-ZOOM | PASS | 每轮 zoom 保持为 2.0。 |
+| AC-FS-END-SYNC | PASS | 退出收尾回调返回前 geometry update count 增加 1，drawable geometry 对齐。 |
+| AC-FS-VISIBLE | PASS | 五次专项执行中的每次运行均完成三轮全屏进出屏幕采样，无纹理/彩色内容阈值失败。 |
+| AC-FS-CONTINUOUS | PASS | 五次专项执行的进入和退出采样均未超过 0.14 质心单步阈值。 |
+| AC-FS-ANCHOR | PASS | 每轮退出后的 usable viewport scene point 与全屏时记录点距离不超过 2。 |
+| AC-FS-ROUNDTRIP | PASS | 专项重复 5 次，每次三轮真实全屏往返。 |
 
-## 3. 实现变更
+## 4. 测试与逆向验证记录
 
-- [qvgraphicsview.h](/Users/inostarlin/code/Fovelle/src/qvgraphicsview.h) 增加 `synchronizeNativeSDRGeometryForFullScreenTransition()`。
-- [qvgraphicsview.cpp](/Users/inostarlin/code/Fovelle/src/qvgraphicsview.cpp) 在该方法中仅对 native SDR renderer 停止已排队的 0ms timer，并同步调用 `updateHDRRenderer()`。
-- [mainwindow.cpp](/Users/inostarlin/code/Fovelle/src/mainwindow.cpp) 在每次全屏布局更新 repaint 隐藏的真实窗口前调用同步方法。
-- [tst_qviewtests.cpp](/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp) 新增 Cocoa 全屏真实样本回归；它直接核对同步计数并连续采集屏幕过渡帧。
-- [CMakeLists.txt](/Users/inostarlin/code/Fovelle/tests/CMakeLists.txt) 样本存在时注册串行 CTest `FovelleSDRFullScreenPresentation`。
+环境：macOS 27.0.0、Qt 6.11.2、Apple clang 17、Cocoa QPA；用户给定的外接卷样本可读。
 
-## 4. 执行记录
+1. 修改专项前，使用 `1.avif` 执行旧用例通过，但旧用例没有 zoom 输入，也没有退出 cancel 收尾断言，因而不足以覆盖报告路径。
+2. 增加退出锚点断言的首次实验误将整个 viewport center 当作可用中心，导致错误失败。核对实现后改用排除标题栏遮挡的 usable viewport center，再次运行通过。
+3. `ctest --test-dir build --repeat until-fail:5 -R '^FovelleSDRFullScreenPresentation$' --output-on-failure`：5/5 PASS，单次约 5 秒，每次三轮全屏往返。
+4. 逆向变异：暂时移除 `cancelFullScreenLayoutTransition()` 的同步更新，重建并运行同一专项：FAIL，实际几何计数 4、期望 5，失败位置为退出收尾契约断言。恢复生产调用后专项 PASS。
+5. `cmake --build build --parallel 4`：PASS。
+6. `ctest --test-dir build --output-on-failure`：15/15 PASS，退出码 0，总耗时 93.84 秒。包含 QtTest、AVIF 全屏显示器采样、缩放/滚动条轨迹、HiDPI 和静态合同检查。
 
-环境：macOS 27.0.0、Qt 6.11.2、Apple clang 17、Cocoa QPA。外接样本可读，路径与用户问题给出的路径一致。
+## 5. 多源交叉验证与推导复核
 
-### 4.1 修复前反向验证
+Apple 的 [`NSWindowDelegate` 全屏回调说明](https://developer.apple.com/documentation/appkit/nswindowdelegate?changes=_6)及[`退出全屏完成回调`](https://developer.apple.com/documentation/appkit/nswindowdelegate/windowdidexitfullscreen%28_%3A%29?changes=_4)确立 AppKit 的退出生命周期；Qt [`QTimer`](https://doc.qt.io/qt-6/qtimer.html)说明 0ms timer 与其他事件源的顺序没有保证，Qt [Direct Connection 文档](https://doc.qt.io/qt-6/threads-qobject.html)说明 slot 会立即调用；Apple [`CATransaction`](https://developer.apple.com/documentation/quartzcore/catransaction?language=_1)说明 layer-tree 操作的显式提交机制。仓库代码把这些契约连接成具体时序：AppKit `DidExit` 处理器同步调用 `Cancel` handler，handler 收尾 viewport/pan 并返回后才揭示真实窗口。新增同步提交填补了该边界。
 
-临时移除 `MainWindow::updateFullScreenLayoutTransition()` 中的同步调用，重建并运行同一个 `SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible`：
+平台文档没有直接断言本程序会闪烁；结论另外由本地几何计数对照、实际屏幕采样和反向移除生产修复后的必失败实验验证。测试没有捕获 WindowServer/Core Animation 的每一次显示刷新，故结论仅表示覆盖的三轮过渡采样和图层几何提交契约通过。
 
-    Actual compositorGeometryUpdateCount: 2
-    Expected: 3
-    Result: FAIL
+## 6. 信息缺口
 
-这证明用例会检测到缺少交接前同步提交的实现。
-
-### 4.2 修复后专项重复
-
-    ctest --test-dir build --repeat until-fail:5 -R '^FovelleSDRFullScreenPresentation$' --output-on-failure
-
-结果：5/5 PASS，单次耗时约 5.1 秒。实际屏幕观测每次执行三轮全屏往返。
-
-### 4.3 全量构建与测试
-
-    cmake -S . -B build
-    cmake --build build --parallel 4
-    ctest --test-dir build --output-on-failure
-
-结果：最终工作树构建 PASS；CTest 15/15 PASS，退出码 0，总耗时 87.48 秒。包含完整 QtTest、SDR 全屏屏幕采样、现有缩放与滚动条回归、HiDPI 和静态验收门禁。
-
-## 5. 多源核验与推导复核
-
-外部资料使用一手平台文档：
-
-1. Apple [`NSWindowDelegate`](https://developer.apple.com/documentation/appkit/nswindowdelegate?changes=_6) 描述自定义全屏代理窗口、动画开始与过渡完成回调。本地代码证实 AppKit 动画期间真实窗口保持隐藏，代理窗口承担可见过渡。
-2. Qt [`QTimer`](https://doc.qt.io/qt-6/qtimer.html) 说明 0ms timer 与其他事件源的执行顺序未指定；Qt [`DirectConnection`](https://doc.qt.io/qt-6/threads-qobject.html) 说明 slot 同步执行。本地回调桥正是 DirectConnection，但 renderer 常规请求会排入 0ms timer。
-3. Apple [`CATransaction`](https://developer.apple.com/documentation/quartzcore/catransaction?language=_1) 描述 Core Animation layer-tree 事务。本地 SDR layer geometry 更新在事务中提交，并提升 compositor 几何计数。
-4. 修复前/后实测对照隔离了遗漏同步提交这一具体路径：没有同步调用时计数断言失败；调用后成功。屏幕帧重复结果对其视觉后果作独立交叉检查。
-
-因此结论限定为：全屏布局回调返回时，SDR 原生 layer geometry 已同步提交，实际采样帧没有触发测试定义的大幅跳变或空白阈值。未声称捕获了 WindowServer/CALayer 每一次刷新扫描，也未以当前样本推断其他文件格式、HDR 路径或多显示器迁移。
-
-## 6. 仍存在的信息边界
-
-- Cocoa 屏幕帧采样需要有桌面显示的 macOS 会话；无桌面 runner 不会注册该外接样本专项。
-- 质心上限能稳定检测较大位移，但不是逐像素运动估计；色彩管理也使原始文件 RGB 不适合作为屏幕逐像素基准。
-- 若要证明每一次显示器刷新均无闪帧，需要对 WindowServer/Core Animation presentation output 做逐帧系统级捕获；本次没有该类低层捕获。
-
-## 附录：既有缩放门禁仍覆盖的合同
-
-全量 CTest 同时验证下列既有原子合同，相关描述和六字段用例保留在本报告附属文档中：`AC-ZOOM-NO-ANIMATION-STATIC`、`AC-ZOOM-NO-ANIMATION-INPUT`、`AC-ZOOM-NO-ANIMATION-SHORTCUT`、`AC-ZOOM-NO-ANIMATION-MENU`、`AC-ANCHOR-MOUSE-PREFERRED`、`AC-ANCHOR-PROJECT-FEASIBLE`、`AC-ANCHOR-NO-POST-CORRECTION`、`AC-ANCHOR-HBAR-TOPOLOGY`、`AC-VBAR-TOPOLOGY-ANCHOR`。
+当前工具链未提供 WindowServer/Core Animation 逐 scanout 捕获，所以两次截图间隔内可能出现的极短闪帧无法排除。质心算法针对明显跳位，不能替代逐像素追踪。测试与结论仅限指定 1.avif 在当前 macOS Cocoa native SDR 路径。

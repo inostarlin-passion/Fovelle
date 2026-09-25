@@ -1,74 +1,57 @@
-# 技术设计文档：macOS SDR 图片全屏交接稳定性
+# 技术设计文档：放大 AVIF 退出全屏时的画面跳变
 
 日期：2026-09-25
-仓库：`/Users/inostarlin/code/Fovelle`
-问题样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png`（PNG，4616×2924）
-实现位置：`src/mainwindow.cpp`、`src/qvgraphicsview.{h,cpp}`
-测试位置：`tests/tst_qviewtests.cpp`、`tests/CMakeLists.txt`
+问题样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`（AVIF，1200×1085）
+生产代码：`src/mainwindow.cpp`、`src/qvgraphicsview.cpp`、`src/qvcocoafunctions.mm`
+回归代码：`tests/tst_qviewtests.cpp`、`tests/CMakeLists.txt`
 
 ## 1. 问题界定与原子化拆解
 
-操作路径限定为：打开给定 SDR PNG → 图片已在显示器上可见 → 进入 macOS 全屏 → 检查代理窗口与原生 SDR Metal 图层交接。症状是图像在切换期间跳位或画面闪烁。测试需观察实际 Cocoa 全屏路径，而不能只验证最终窗口状态。
+复现步骤限定为：打开给定 AVIF → 放大 → 进入 macOS 原生全屏 → 退出全屏。失败表现包括退出交接处短暂闪烁、图像位置跳变，或放大状态未保持。问题窗口是 AppKit 将全屏代理窗口交还真实 Qt 窗口的最后一次布局，而不是单纯检查最终 `isFullScreen()`。
 
-| 验收 ID | 原子要求 | 可观察结果 |
+| 验收 ID | 原子要求 | 可观察判据 |
 | --- | --- | --- |
-| AC-SDR-FS-SYNC | 全屏布局回调返回前，持久 SDR 图层已提交当前视口的几何。 | 全屏回调前后 `compositorGeometryUpdateCount` 同步增加；`drawableGeometryMatches` 为真。 |
-| AC-SDR-FS-VISIBLE | 真实 SDR 样本的过渡帧仍含有屏幕中心图像纹理及可见图像内容。 | 屏幕采样帧的中心纹理方差和颜色内容比例均高于下限。 |
-| AC-SDR-FS-CONTINUOUS | 相邻过渡采样帧的可见图像颜色质心没有大幅跳变。 | 归一化质心单步位移不超过 0.14。 |
-| AC-SDR-FS-ROUNDTRIP | 连续三轮进入/退出后窗口状态与 SDR 图层仍有效。 | 每轮均完成全屏进入、退出和可见画面检查。 |
+| AC-AVIF-LOAD | 指定 AVIF 成功进入应用实际采用的 SDR 图像路径。 | 图像加载成功，`isNativeSDRLoaded` 与 Metal SDR renderer 均为真。 |
+| AC-AVIF-ZOOM | 转场前执行实际 2 倍缩放，转场期间保持缩放。 | `getZoomLevel()` 与 2.0 等价。 |
+| AC-FS-END-SYNC | 退出全屏最后一次 viewport/pan 修正完成后，在真实窗口显示前同步提交 SDR layer 几何。 | `cancelFullScreenLayoutTransition()` 返回前 `compositorGeometryUpdateCount` 增加 1，且 `drawableGeometryMatches` 为真。 |
+| AC-FS-VISIBLE | 转场采样中画面持续含有可辨内容。 | 屏幕采样满足中心纹理方差与彩色像素比例门槛。 |
+| AC-FS-CONTINUOUS | 相邻采样帧不存在超过门槛的大幅位置跳变。 | 归一化颜色质心的单步距离不超过 0.14。 |
+| AC-FS-ANCHOR | 退出后放大图的可用视口中心仍对应全屏时相同场景点。 | 在考虑标题栏遮挡的 usable viewport 中，场景坐标偏差不超过 2 个图像坐标单位。 |
+| AC-FS-ROUNDTRIP | 真实全屏进入/退出路径重复可用。 | 连续三轮全屏往返全部满足上述画面与几何断言。 |
 
-## 2. 本地执行链与故障定位
+## 2. 多跳联网检索与多源交叉验证
 
-1. `QVCocoaFunctions` 注册 `NSWindowDelegate` 的自定义全屏窗口和动画回调。代理窗口显示全屏过渡图层；真实窗口在动画终点预备并交接。
-2. AppKit 动画回调经 `Qt::DirectConnection` 同步调用 `MainWindow::updateFullScreenLayoutTransition()`。该方法更新标题栏补偿、必要时重新 fit，再准备隐藏的真实窗口。
-3. SDR 原生图层几何由 `QVGraphicsView::updateHDRRenderer()` 下发。持久 SDR 分支在 `HDRRenderer::render()` 中同步变更 Core Animation 图层变换；但普通视口绘制只调用 `requestHDRRendererUpdate()`，它启动零毫秒 `hdrFrameRequestTimer`。
-4. 修复前，全屏回调只做 fit/repaint 并排队图层更新。代理动画在 AppKit 回调中继续推进时，零毫秒 Qt timer 的执行顺序没有保证；真实窗口可能在最新 SDR layer geometry 提交前被显示。
-5. 修复在 `MainWindow::updateFullScreenLayoutTransition()` 的真实窗口仍隐藏期间调用 `synchronizeNativeSDRGeometryForFullScreenTransition()`。该方法停止已排队的 timer 并同步调用 `updateHDRRenderer()`，使当前视口几何先提交。
+检索由系统全屏回调、Qt 定时器事件顺序、Core Animation 图层提交三个平台契约逐跳进行，并与仓库调用链及本机回归结果交叉验证。
 
-直接反向证伪结果：移除 MainWindow 对同步方法的调用后，指定样本回归在交接边界报告 compositor 几何提交数仍为 `2`，立即期望值 `3`，用例失败；恢复调用后用例通过。它验证的正是“布局回调返回前是否有同步提交”，不是只比较最终全屏状态。
+1. **AppKit 回调边界。** Apple 的 [`NSWindowDelegate` 全屏和自定义动画方法](https://developer.apple.com/documentation/appkit/nswindowdelegate?changes=_6)列出退出自定义动画回调；[`customWindowsToExitFullScreen(for:)`](https://developer.apple.com/documentation/appkit/nswindowdelegate/customwindowstoexitfullscreen%28for%3A%29)说明该回调用于定制退出动画。Apple 的 [`windowDidExitFullScreen(_:)`](https://developer.apple.com/documentation/appkit/nswindowdelegate/windowdidexitfullscreen%28_%3A%29?changes=_4)确认该通知表示窗口已经离开全屏。
+2. **仓库中的实际顺序。** `src/qvcocoafunctions.mm` 在 `NSWindowDidExitFullScreenNotification` 处理器中先调用转场 handler 的 `Cancel` 阶段，随后调用 `revealFovelleFullScreenRealWindow(window)`。handler 通过 `Qt::DirectConnection` 同步进入 `MainWindow::cancelFullScreenLayoutTransition()`；Qt [线程与 QObject 文档](https://doc.qt.io/qt-6/threads-qobject.html)说明 Direct Connection 的 slot 在信号发出时立即调用。因此该函数返回前是准备真实窗口最后画面的确定交接点。
+3. **异步更新不能满足交接前置条件。** Qt [`QTimer`](https://doc.qt.io/qt-6/qtimer.html) 明确说明 0ms timer 与其他事件源的先后次序未指定。`QVGraphicsView::requestHDRRendererUpdate()` 使用 0ms `hdrFrameRequestTimer` 排队普通 SDR 几何更新；故在最后一次 viewport 修正之后仅请求更新，不能证明它已在真实窗口显示前执行。
+4. **可同步观察的提交边界。** Apple [`CATransaction`](https://developer.apple.com/documentation/quartzcore/catransaction?language=_1)说明 layer-tree 变更可通过显式事务提交。仓库 `updatePersistentSDRTileGeometry()` 对 layer bounds/transform 执行 `CATransaction begin/commit`，并增加 `compositorGeometryUpdateCount`。`synchronizeNativeSDRGeometryForFullScreenTransition()` 停止排队 timer 并立即调用 renderer 更新，因此该计数可直接验证同步提交发生在回调返回之前。
+5. **交叉验证结论。** 平台资料仅确立回调、timer、layer transaction 的契约，不单独证明用户一定会看到闪烁。实际根因由本地代码时序和逆向变更实验确认：移除退出收尾同步后，同一 AVIF、同一测试路径在退出收尾断言处得到计数 `4`，预期 `5`，稳定失败；恢复同步后该专项连续 5 次通过。真实屏幕采样及退出场景锚点另行检查视觉和位置结果。
 
-## 3. 多跳联网检索与多源交叉验证
+## 3. 严格推导与逆向证伪
 
-检索链从平台回调契约进入事件调度语义，再与本地渲染提交点交叉核对：
+1. 最后一次动画 `Update` 已同步更新当时 viewport 的 SDR layer 几何。
+2. AppKit 完成退出时，仓库仍会先调用 Qt 的 `Cancel` handler，再揭示真实窗口。
+3. `MainWindow::cancelFullScreenLayoutTransition()` 在此边界可能清除 titlebar overlap 并调用 `fitOrConstrainImage()`；之后 `endFullScreenPanPreservation()` 还会恢复滚动位置。两步都可能改变 layer 使用的 viewport corners。
+4. 修改前该收尾路径未同步刷新 SDR layer；几何更新只会进入普通的 0ms timer 路径。由 Qt 定时器契约可知，不能据此推出它先于 AppKit 的真实窗口揭示完成。
+5. 所以回调返回时真实窗口可能携带上一个 viewport 的 layer transform；这是产生退出首帧闪烁/偏移的明确竞态条件。
+6. 修复在 pan/anchor 收尾完成后调用 `synchronizeNativeSDRGeometryForFullScreenTransition()`，把最新 geometry 在 `Cancel` 返回前提交。该调用对非原生 SDR 图像不做更新（生产 helper 内有路径守卫）。
+7. 逆向证伪移除这一调用：专项断言实际计数 4 而期望 5，证实测试能识别该缺失。恢复后计数断言、真实屏幕采样、场景锚点断言和 15 项 CTest 均通过。
 
-| 跳 | 外部一手资料 | 与本地实现交叉核对后的结论 |
-| --- | --- | --- |
-| 1：AppKit 全屏生命周期 | Apple 的 [`NSWindowDelegate` 全屏回调](https://developer.apple.com/documentation/appkit/nswindowdelegate?changes=_6)列出自定义代理窗口、开始自定义动画及进入/退出通知；自定义动画方法接收系统过渡时长。 | 本地 `customWindowsToEnterFullScreen` / `customWindowsToExitFullScreen` 创建代理窗口；`startFovelleFullScreenAnimation` 以 AppKit 进度驱动图层，完成通知再显示真实窗口。 |
-| 2：Qt 与 AppKit 的调用时序 | Qt [`QTimer`](https://doc.qt.io/qt-6/qtimer.html)说明零间隔 timer 尽快触发，但它与其他事件源的先后顺序未指定。Qt [`DirectConnection`](https://doc.qt.io/qt-6/threads-qobject.html)则同步调用接收方法。 | 源码中 `hdrFrameRequestTimer` 是 0ms timer；AppKit bridge 对布局 slot 使用 `Qt::DirectConnection`。因此仅排队更新不能构成“返回前已提交”的保证。 |
-| 3：图层提交边界 | Apple [`CATransaction`](https://developer.apple.com/documentation/quartzcore/catransaction?language=_1)将 layer-tree 操作分组成渲染树更新；显式事务通过 `commit()` 提交。 | 本地 `updatePersistentSDRTileGeometry()` 在事务中写 SDR layer 的 bounds/transform；回归所观测的 `compositorGeometryUpdateCount` 只在此几何更新路径增加。 |
-| 4：本地反向验证 | 以上 API 契约没有声称某一具体机器必然丢帧。 | 用同一 PNG、同一 QtTest 路径移除/恢复同步调用，得到 `2 ≠ 3` 的确定失败/成功对照；再以实际屏幕帧采样和五次重复执行检查可见性与重复性。 |
-
-推导边界：外部资料证明 timer 顺序不确定、DirectConnection 同步、Core Animation 有事务提交边界；它们本身不能证明某一次用户画面确实闪烁。故根因依据还包括本地调用链和修复前测试反向对照。测试没有捕获 WindowServer 或 Core Animation presentation tree 的每一次扫描输出。
+测试第一次使用 `viewport()->rect().center()` 作场景锚点时出现失败；核对 `QVGraphicsView::getUsableViewportRect()` 及 `MainWindow::getViewportPosition()` 后确认实际锚点需排除被标题栏遮挡的上沿。测试 oracle 已修正为 usable viewport center。此修正只校正测量定义；退出提交遗漏由独立计数断言及逆向实验判定。
 
 ## 4. 设计与实现
 
-- 只在文件是 native SDR 且 renderer 可用时同步刷新；普通栅格、矢量与 HDR 路径不走该同步方法。
-- 同步刷新会停止已排队的零延时 SDR renderer 请求，再使用刚完成布局的 viewport size/corners 更新原生图层。后续排队请求仍可执行，但不会覆盖旧几何。
-- 同步调用发生在 `viewport()->repaint()` 和 `MainWindow::repaint()` 前，且每次 AppKit 布局更新都执行，覆盖进入/退出动画中的多次 titlebar/viewport 几何变化。
-- 全屏回归读取指定 PNG，触发三次完整往返；在全屏期间采集显示器帧，检查中心纹理、画面内容、逐帧颜色质心变化，并检查 renderer geometry 状态。
-- CMake 仅在缓存路径指向的样本存在时注册 `FovelleSDRFullScreenPresentation`，避免缺少外接卷的构建机误报通过或失败。可以用 `-DFOVELLE_FULLSCREEN_SDR_IMAGE=/path/to/2.png` 指定副本。
+- 在 `MainWindow::cancelFullScreenLayoutTransition()` 中先执行最终 pan preservation 收尾，再同步更新 native SDR layer 几何，最后才返回 AppKit handler。
+- 把回归样本改为用户给定的 `1.avif`，并在全屏前显式调用 2 倍缩放。
+- 扩充 Cocoa 集成测试：用真实窗口和真实 AppKit 全屏进出三轮；每 8ms 采集屏幕；采样前缩为 360×240；检查中心局部亮度方差、有色内容像素比例、逐帧颜色质心位移与 Metal drawable 几何。
+- 对最终交接增加直接契约检查：调用收尾回调前后比较 compositor geometry 计数，要求精确增加一次并确认 `drawableGeometryMatches`。随后检查每轮退出时 zoom 为 2.0，usable viewport center 的 scene point 偏差不大于 2。
+- CMake 专项在指定外部样本存在时注册，`FOVELLE_FULLSCREEN_SDR_IMAGE` 可覆盖默认路径；仅 macOS Cocoa 测试执行该显示器采样用例。
 
-## 5. 风险与证据限制
+## 5. 边界与信息缺口
 
-- 屏幕帧采样依赖 macOS Cocoa 桌面会话。无活跃显示器的 headless runner 不适用。
-- 颜色质心是用于发现大幅画面位移的代理指标，不能代替逐像素配准；阈值有意只声称能检测较大单帧跳变。
-- 测试样本是外接卷文件，构建机没有该文件时专项不会被注册。此处本机文件可读且已执行。
-- 不推断测试之外所有 PNG、多个显示器切换、HDR 图像或系统降低动画效果时的行为。
-
-执行结果见[测试完成报告](test_completion_report.md)，原子步骤见[测试用例说明](test_case_specification.md)。
-
-## 附录：既有同步缩放验收追溯
-
-本次全屏修复继续运行仓库已有的同步缩放与滚动条拓扑门禁，保留其文档追溯：
-
-| 既有验收 ID | 既有合同 |
-| --- | --- |
-| AC-ZOOM-NO-ANIMATION-STATIC | 缩放路径不含几何动画 writer。 |
-| AC-ZOOM-NO-ANIMATION-INPUT | wheel 缩放即时提交终态。 |
-| AC-ZOOM-NO-ANIMATION-SHORTCUT | 键盘缩放即时提交终态。 |
-| AC-ZOOM-NO-ANIMATION-MENU | 菜单缩放汇入共同 view API。 |
-| AC-ANCHOR-MOUSE-PREFERRED | 有效鼠标位置优先作为缩放锚点。 |
-| AC-ANCHOR-PROJECT-FEASIBLE | 锚点投影到目标几何可行域。 |
-| AC-ANCHOR-NO-POST-CORRECTION | 缩放之后没有延迟位置修正。 |
-| AC-ANCHOR-HBAR-TOPOLOGY | 横向滚动条拓扑变化不移动锚点。 |
-| AC-VBAR-TOPOLOGY-ANCHOR | 纵向滚动条拓扑变化不移动锚点。 |
+- 屏幕采样间隔约 8ms，无法捕获两个采样之间的每一次 WindowServer/Core Animation scanout；对“任一刷新绝不闪帧”没有逐刷新级证据。
+- 颜色质心阈值用于发现大幅跳位，不是逐像素图像配准，也不证明低于阈值的细小运动不存在。
+- 专项依赖挂载卷中的 AVIF 和可见 macOS 桌面会话；无样本或无桌面的构建机不会得到同等显示器采样证据。
+- 结论限于该 AVIF 的 native SDR Metal 全屏退出路径；没有从本样本推断 HDR、非 macOS、其他图像解码路径或多显示器行为。
