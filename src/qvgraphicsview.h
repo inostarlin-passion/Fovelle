@@ -107,6 +107,9 @@ public:
     void beginFullScreenPanPreservation();
     void refreshFullScreenPanPreservation();
     void endFullScreenPanPreservation();
+    // Commit native SDR layer geometry before AppKit reveals the real window
+    // at a full-screen transition handoff.
+    void synchronizeNativeSDRGeometryForFullScreenTransition();
 
     QSizeF getEffectiveOriginalSize() const;
 

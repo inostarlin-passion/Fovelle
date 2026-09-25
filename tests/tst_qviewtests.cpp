@@ -53,6 +53,7 @@
 #include <QWheelEvent>
 #include <QScrollBar>
 #include <QScrollArea>
+#include <QScreen>
 #include <QSet>
 #include <QTabBar>
 #include <QTableWidget>
@@ -208,6 +209,7 @@ class SDRSampleInteractionTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testProvidedRasterFullScreenTransitionKeepsImageVisible();
     void testProvidedSamplesUseMacOSPanPresentationPolicy();
     void testProvidedRasterStaysAuthoritativeDuringInteraction();
     void testProvidedRaster120HzInteractionProbe();
@@ -9874,6 +9876,190 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// TC-SDR-FULLSCREEN-PRESENTATION
+// Test purpose: reproduce the supplied large SDR PNG's Cocoa full-screen
+// handoff and detect missing synchronous layer geometry, blank frames, or
+// abrupt image relocation on the actual display.
+// Preconditions: macOS screen capture is available and the supplied 2.png is
+// readable; the test runs with a visible Cocoa window.
+// Input data: FOVELLE_FULLSCREEN_SDR_IMAGE, or the reported /Volumes path.
+// Steps: activate the native SDR renderer, sample the display repeatedly while
+// entering and leaving full screen, and repeat the round trip three times.
+// Expected result: every sample retains visible image texture and chromatic
+// content; the display centroid moves continuously and layer geometry matches.
+// Postcondition: full-screen mode is exited and the test window is closed.
+void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible()
+{
+#ifndef Q_OS_MACOS
+    QSKIP("The custom Cocoa full-screen handoff is macOS-specific.");
+#endif
+    const QString samplePath = qEnvironmentVariable(
+        "FOVELLE_FULLSCREEN_SDR_IMAGE",
+        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png"));
+    QVERIFY2(QFileInfo(samplePath).isFile(), qPrintable(samplePath));
+
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
+        {"checkerboardbackground", false},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    QScreen *screen = QGuiApplication::primaryScreen();
+    QVERIFY(screen);
+    window.setGeometry(QStyle::alignedRect(
+        Qt::LeftToRight, Qt::AlignCenter, QSize(1200, 800),
+        screen->availableGeometry()));
+    window.show();
+    window.raise();
+    window.activateWindow();
+    auto cleanup = qScopeGuard([&]() {
+        if (window.isFullScreen())
+            window.toggleFullScreen();
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    window.openFile(samplePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+    QVERIFY(window.getCurrentFileDetails().isNativeSDRLoaded);
+    QVERIFY(view->usesNativeSDRMetalRenderer());
+    screen = window.screen();
+    QVERIFY(screen);
+    const auto sampleDisplay = [&]() -> std::optional<QPointF> {
+        const QImage capture = screen->grabWindow(0).toImage();
+        if (capture.isNull())
+            return std::nullopt;
+        const QImage probe = capture.scaled(
+            QSize(360, 240), Qt::KeepAspectRatio, Qt::FastTransformation)
+                .convertToFormat(QImage::Format_RGB32);
+        const int centerX = probe.width() / 2;
+        const int centerY = probe.height() / 2;
+        long double brightnessSum = 0.0;
+        long double brightnessSquaredSum = 0.0;
+        int centerSampleCount = 0;
+        for (int y = qMax(0, centerY - 8); y < qMin(probe.height(), centerY + 8); ++y)
+        {
+            const QRgb *line = reinterpret_cast<const QRgb *>(probe.constScanLine(y));
+            for (int x = qMax(0, centerX - 8); x < qMin(probe.width(), centerX + 8); ++x)
+            {
+                const qreal brightness = Qv::getPerceivedBrightness(
+                    QColor::fromRgb(line[x]));
+                brightnessSum += brightness;
+                brightnessSquaredSum += brightness * brightness;
+                ++centerSampleCount;
+            }
+        }
+        const long double centerMean = brightnessSum / qMax(centerSampleCount, 1);
+        const long double centerVariance = brightnessSquaredSum
+                / qMax(centerSampleCount, 1) - centerMean * centerMean;
+        if (centerVariance < 0.0004L)
+            return std::nullopt;
+        quint64 contentPixels = 0;
+        long double weightedX = 0.0;
+        long double weightedY = 0.0;
+        for (int y = 0; y < probe.height(); y += 2)
+        {
+            const QRgb *line = reinterpret_cast<const QRgb *>(probe.constScanLine(y));
+            for (int x = 0; x < probe.width(); x += 2)
+            {
+                const QColor color = QColor::fromRgb(line[x]);
+                const int maximum = qMax(color.red(), qMax(color.green(), color.blue()));
+                const int minimum = qMin(color.red(), qMin(color.green(), color.blue()));
+                if (maximum - minimum < 42 || maximum < 48)
+                    continue;
+                ++contentPixels;
+                weightedX += x;
+                weightedY += y;
+            }
+        }
+        const quint64 sampledPixels =
+            static_cast<quint64>((probe.width() + 1) / 2)
+            * static_cast<quint64>((probe.height() + 1) / 2);
+        if (contentPixels < sampledPixels / 30)
+            return std::nullopt;
+        return QPointF(
+            static_cast<qreal>(weightedX / contentPixels) / probe.width(),
+            static_cast<qreal>(weightedY / contentPixels) / probe.height());
+    };
+    const auto sampleTransition = [&](const bool entering) {
+        QVector<QPointF> centers;
+        QElapsedTimer timer;
+        timer.start();
+        window.toggleFullScreen();
+        while (timer.elapsed() < 1200)
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            if (view->usesNativeSDRMetalRenderer()
+                && !view->nativeMetalRendererDiagnostics().drawableGeometryMatches)
+                return QVector<QPointF>();
+            const auto center = sampleDisplay();
+            if (!center.has_value())
+                return QVector<QPointF>();
+            centers.append(*center);
+            if (entering ? window.isFullScreen() : !window.isFullScreen())
+            {
+                // Continue sampling through AppKit's native handoff, not just
+                // until Qt publishes its requested window state.
+                if (timer.elapsed() > 650)
+                    break;
+            }
+            QTest::qWait(8);
+        }
+        if (centers.size() < 8)
+            return QVector<QPointF>();
+        const qreal maximumStep = 0.14;
+        for (qsizetype index = 1; index < centers.size(); ++index)
+            if (QLineF(centers[index - 1], centers[index]).length() > maximumStep)
+                return QVector<QPointF>();
+        return centers;
+    };
+
+    const bool initialImagePresented = waitForTestCondition(
+        [&]() { return sampleDisplay().has_value(); }, 5000);
+    QVERIFY2(initialImagePresented,
+             "The source image center did not reach the display before the test transition");
+    const quint64 compositorUpdatesBeforeHandoff =
+        view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount;
+    const int transitionTitlebarOverlap =
+        window.getViewportPosition().obscuredHeight;
+    QVERIFY(QMetaObject::invokeMethod(
+        &window, "beginFullScreenLayoutTransition", Qt::DirectConnection,
+        Q_ARG(int, transitionTitlebarOverlap), Q_ARG(int, 0)));
+    QVERIFY(QMetaObject::invokeMethod(
+        &window, "updateFullScreenLayoutTransition", Qt::DirectConnection,
+        Q_ARG(int, transitionTitlebarOverlap)));
+    QCOMPARE(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount,
+             compositorUpdatesBeforeHandoff + 1);
+    const auto before = sampleDisplay();
+    QVERIFY2(before.has_value(), "The supplied SDR image was not visible before full screen");
+    for (int cycle = 0; cycle < 3; ++cycle)
+    {
+        const auto enterFrames = sampleTransition(true);
+        QVERIFY2(!enterFrames.isEmpty(), "The SDR image flashed or jumped during full-screen entry");
+        QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
+        const auto fullScreen = sampleDisplay();
+        QVERIFY(fullScreen.has_value());
+        const auto exitFrames = sampleTransition(false);
+        QVERIFY2(!exitFrames.isEmpty(), "The SDR image flashed or jumped during full-screen exit");
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+        const auto normal = sampleDisplay();
+        QVERIFY(normal.has_value());
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    cleanup.dismiss();
 }
 
 // TC-SDR-INT-AUTHORITATIVE-PIXELS

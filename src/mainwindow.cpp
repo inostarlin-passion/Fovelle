@@ -1238,6 +1238,8 @@ void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
         graphicsView->fitOrConstrainImage();
     }
 
+    graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
+
     // Prepare the hidden real window before the proxy animation hands it back
     // to AppKit at the normal frame.
     graphicsView->viewport()->repaint();

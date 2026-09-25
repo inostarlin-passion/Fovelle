@@ -2581,6 +2581,21 @@ void QVGraphicsView::endFullScreenPanPreservation()
     fullScreenPanAnchorScene.reset();
 }
 
+void QVGraphicsView::synchronizeNativeSDRGeometryForFullScreenTransition()
+{
+    if (!hdrRendererActive || !hdrRenderer
+        || !getCurrentFileDetails().isNativeSDRLoaded)
+        return;
+
+    // Full-screen custom animation callbacks are delivered synchronously by
+    // AppKit. A zero-delay timer requested from resize/paint may not run before
+    // AppKit reveals the real window, leaving its persistent SDR layer at the
+    // previous viewport geometry for the first visible frame. Drain that
+    // coalesced request while the real window is still hidden.
+    hdrFrameRequestTimer->stop();
+    updateHDRRenderer();
+}
+
 void QVGraphicsView::restoreFullScreenPanPreservation()
 {
     if (!fullScreenPanPreservationActive || calculatedZoomMode.has_value())

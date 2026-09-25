@@ -1,457 +1,108 @@
-# 测试用例说明：同步缩放、可行鼠标锚点与纵向拓扑
+# 测试用例说明：SDR 图片全屏画面跳变/闪烁
 
-日期：2026-09-04
-仓库：/Users/inostarlin/code/Fovelle
-对应设计：[technical_design_document.md](technical_design_document.md)
+日期：2026-09-25
+样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png`（4616×2924 PNG）
+设计依据：[技术设计文档](technical_design_document.md)
 
-## 1. 测试策略
+## 1. 目标与边界
 
-测试从九条原子验收标准开始，分别覆盖：
+覆盖“打开指定 SDR 图片并进入 macOS 全屏”时代理窗口到原生 SDR layer 的交接。用例包含一个同步调用契约断言，以及真实屏幕过渡帧观测。测试在 Cocoa GUI 会话运行；测试所需路径可由环境变量 `FOVELLE_FULLSCREEN_SDR_IMAGE` 覆盖。
 
-- 静态测试：扫描生产头文件/实现，确认几何动画、displayed zoom 和旧式延迟锚点
-  writer 已删除，并确认报告、测试代码、CTest 注册可追溯；同一次布局收敛所需的
-  语义锚点恢复另由专用动态用例验证。
-- 动态测试：用 QtTest 发送真实 wheel、QTest::keySequence、标题栏菜单 action、
-  右键菜单 action 和原生手势，检查同步提交、目标几何、scrollbar range/value、
-  paint/resize 事件和静默窗口。
-- 几何单元测试：不依赖窗口的纯投影函数覆盖图片内外点、图片放大和缩小、
-  小图居中以及目标 viewport 边界。
-- 交叉回归：现场 JPEG 可读时使用真实文件；不可读时使用同宽高比合成图。
-  HiDPI、expensive scaling、RTL/旋转等既有矩阵保持执行。
-- 拓扑回归：用 900×400 合成图把初态固定为“H 有 range、V 无 range”，再用 1.25
-  倍缩放让 V 首次出现；测试同时读取提交态、稳定态、range/value 信号和 Paint
-  probe，避免只等最终状态而漏掉一帧跳变。
+| 用例 ID | 被测行为 | 级别 | 结果判定 |
+| --- | --- | --- | --- |
+| TC-SDR-FS-SYNC | MainWindow 全屏布局回调返回之前提交最新 SDR layer 几何。 | 集成/回归 | `compositorGeometryUpdateCount` 同步增加 1；去掉生产同步调用时必须失败。 |
+| TC-SDR-FS-VISIBLE | 真实屏幕的中心纹理和图像内容在过渡期间持续可见。 | Cocoa 系统 | 每个显示器采样帧中心局部亮度方差不低于 `0.0004`，有色内容像素不少于样本像素的 `1/30`。 |
+| TC-SDR-FS-CONTINUOUS | 图像可见颜色分布不能在相邻采样帧间大幅跳变。 | Cocoa 系统 | 归一化颜色质心距离不超过 `0.14`；native SDR renderer 的 `drawableGeometryMatches` 为真。 |
+| TC-SDR-FS-REPEAT | 全屏进出路径可重复执行。 | 重复性 | 同一窗口完成三次完整往返，无可见性或 renderer 几何断言失败。 |
 
-每个结构化用例都有六个固定字段，并在“固化代码”列中指向实际测试函数或
-Python 测试脚本。没有只写在文档中而未执行的用例。
+## 2. 前置条件
 
-## 2. 原子标准到用例追溯
+1. macOS Cocoa 图形会话可显示 Qt 窗口，`QScreen::grabWindow(0)` 返回有效屏幕帧。
+2. 测试图片存在且可解码；当前样本文件为 18,001,858 字节，PNG RGB，4616×2924。
+3. `FovelleSDRFullScreenPresentation` 是串行 CTest 项，避免多个测试窗口争用同一桌面。
+4. 使用 `QT_FATAL_WARNINGS=1` 和 `QT_QPA_PLATFORM=cocoa`，保持与 Qt 测试进程的其他 macOS 用例一致。
 
-| 原子标准 | 结构化测试用例 | 固化测试代码 |
-| --- | --- | --- |
-| AC-ZOOM-NO-ANIMATION-STATIC | TC-ZOOM-SYNC-ALL-ENTRY-POINTS、TC-STATIC-TRACEABILITY | zoom_scrollbar_duration_static.py、toggle_fit_stability_static.py |
-| AC-ZOOM-NO-ANIMATION-INPUT | TC-ZOOM-SYNC-ALL-ENTRY-POINTS、TC-HBAR-FOUR-IN-ONE-OUT | testZoomTransitionCoversWheelKeyboardAndMenus、testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump |
-| AC-ZOOM-NO-ANIMATION-SHORTCUT | TC-ZOOM-SYNC-ALL-ENTRY-POINTS、TC-KEYBOARD-CURSOR-ANCHOR | testZoomTransitionCoversWheelKeyboardAndMenus、testKeyboardZoomUsesCursorAnchor |
-| AC-ZOOM-NO-ANIMATION-MENU | TC-ZOOM-SYNC-ALL-ENTRY-POINTS | testZoomTransitionCoversWheelKeyboardAndMenus |
-| AC-ANCHOR-MOUSE-PREFERRED | TC-ANCHOR-FEASIBLE-PROJECTION、TC-KEYBOARD-CURSOR-ANCHOR、TC-TOGGLE-DIRECTIONAL-ANCHOR | testZoomAnchorProjectsInsideAndOutsideImage、testKeyboardZoomUsesCursorAnchor、testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor |
-| AC-ANCHOR-PROJECT-FEASIBLE | TC-ANCHOR-FEASIBLE-PROJECTION、TC-HBAR-FOUR-IN-ONE-OUT | testZoomAnchorProjectsInsideAndOutsideImage、testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump |
-| AC-ANCHOR-NO-POST-CORRECTION | TC-ZOOM-SYNC-ALL-ENTRY-POINTS、TC-FIT-QUIESCENT-TERMINAL | testZoomTransitionCoversWheelKeyboardAndMenus、testToggleFitReturnHasMonotonicStableTerminalSize |
-| AC-ANCHOR-HBAR-TOPOLOGY | TC-HBAR-FOUR-IN-ONE-OUT、TC-HIDPI-ANCHOR-MATRIX | testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump、testZoomKeepsVerticalScrollbarTrajectoryStable |
-| AC-VBAR-TOPOLOGY-ANCHOR | TC-VBAR-TOPOLOGY-ANCHOR | testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears |
+## 3. 执行步骤
 
-## 3. 结构化测试用例
+主测试为 `SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible`：
+
+1. 设置 `ZoomToFit`，创建在屏幕中间的 1200×800 `MainWindow`，打开指定 PNG。
+2. 确认文件进入 native SDR 路径，并等到显示器中心区域的图片纹理实际可见。
+3. 调用全屏转场开始/更新 slot；在 Qt 事件循环推进前比较原生 compositor geometry 计数，要求它同步加 1。这是防止零毫秒 timer 延后覆盖交接的回归断言。
+4. 实际切换全屏；在过渡帧中反复采样真实屏幕并核对纹理、颜色内容和 renderer 几何状态。
+5. 完成进入、退出三轮，验证每一轮的采样序列均满足阈值。
+6. 退出全屏、关闭窗口并恢复测试前的 quit policy。
+
+清理由 scope guard 执行，因此断言失败时也尝试退出全屏并关闭窗口。
+
+## 4. 反向证伪要求
+
+该用例必须在生产同步调用被移除时失败。已执行的反向对照如下：
+
+| 生产实现 | 几何提交计数 | 断言 | 结果 |
+| --- | ---: | --- | --- |
+| 移除 `MainWindow::updateFullScreenLayoutTransition()` 对 SDR 同步方法的调用 | 当前 2，期望 3 | 回调返回后立即比较计数 | FAIL |
+| 恢复同步调用 | 当前 3，期望 3 | 同一 PNG、同一 QtTest 路径 | PASS |
+
+此对照用直接读取 renderer 计数的断言证明测试区分修复前后；只检查最终 `window.isFullScreen()` 或静止图像矩形不足以替代此断言。
+
+## 5. 阈值含义与边界
+
+- `centerVariance >= 0.0004` 和 chromatic coverage `>= 1/30` 用来识别中心内容消失/大面积空白帧。屏幕像素已受显示器色彩管理，因此不与 PNG 原始 RGB 值逐像素相等比较。
+- `centroidStep <= 0.14` 是屏幕归一化坐标中的相邻帧上限，用于发现大幅图像位移；细小移动需由 `drawableGeometryMatches` 几何契约补充。
+- 屏幕采样并非 WindowServer/CALayer 每次扫描输出捕获。测试能证明采样帧和 Qt/renderer 提交边界，不声称逐刷新率无缺帧。
+- 样本不可用时 CMake 不注册此专项；测试不以合成图片冒充该外部样本。
+
+测试结果和当前环境见[测试完成报告](test_completion_report.md)。
+
+## 附录：仓库既有缩放回归用例
+
+以下验收 ID 由既有静态脚本检查，并在本附录用例与 `tst_qviewtests.cpp` 中追溯：
+
+| 验收 ID | 覆盖点 |
+| --- | --- |
+| AC-ZOOM-NO-ANIMATION-STATIC | 缩放没有几何动画状态。 |
+| AC-ZOOM-NO-ANIMATION-INPUT | 滚轮缩放同步提交。 |
+| AC-ZOOM-NO-ANIMATION-SHORTCUT | 键盘快捷键缩放同步提交。 |
+| AC-ZOOM-NO-ANIMATION-MENU | 菜单入口汇入共同缩放 API。 |
+| AC-ANCHOR-MOUSE-PREFERRED | 优先使用有效鼠标锚点。 |
+| AC-ANCHOR-PROJECT-FEASIBLE | 投影到目标可行区间。 |
+| AC-ANCHOR-NO-POST-CORRECTION | 无缩放后延迟位置修正。 |
+| AC-ANCHOR-HBAR-TOPOLOGY | 横向滚动条拓扑变化时保持锚点。 |
+| AC-VBAR-TOPOLOGY-ANCHOR | 纵向滚动条拓扑变化时保持锚点。 |
 
 ### TC-ZOOM-SYNC-ALL-ENTRY-POINTS
 
-覆盖：AC-ZOOM-NO-ANIMATION-STATIC、AC-ZOOM-NO-ANIMATION-INPUT、
-AC-ZOOM-NO-ANIMATION-SHORTCUT、AC-ZOOM-NO-ANIMATION-MENU。
-
-#### 测试目的
-
-验证鼠标 wheel、键盘 Toggle 快捷键、标题栏 View 菜单和右键 View 菜单的缩放
-都没有几何过渡，并且共享同一个同步提交点。
-
-#### 前置条件
-
-Qt Cocoa 测试环境可创建可见 MainWindow；窗口加载 1200×900 raster；AsNeeded
-滚动条和 smooth scaling 已按测试设置初始化；标题栏和右键 View 菜单均已物化；
-Toggle action 绑定 Z。
-
-#### 输入数据
-
-一个真实 QWheelEvent；标题栏 View → Zoom In action；右键 View → Zoom In action；
-一个通过 QTest::keySequence 发送的 Z；每个输入后观察 250ms 静默窗口。
-
-#### 操作步骤
-
-1. 打开图片并等待加载。
-2. 确认 view 不存在名为 zoomTransitionAnimation 的 QObject，且
-   isZoomTransitionRunning() 为 false。
-3. 发送 wheel event，记录 zoom、H/V scrollbar value，等待 250ms 后复读。
-4. 触发标题栏 clone 和右键 clone，各自记录同样数据。
-5. 聚焦 viewport，通过 QTest::keySequence 发送 Toggle shortcut，再记录同样数据。
-
-#### 预期结果
-
-每个入口返回后 displayed/logical zoom 相等且没有运行中的几何 transition；
-每次提交只产生目标状态，250ms 内 zoom、image rect 和 scrollbar value 不改变；
-标题栏与右键菜单没有独立的第二套缩放行为。
-
-#### 后置条件
-
-窗口关闭；临时图片和 scoped settings/shortcuts 释放；无测试 timer 或 action
-状态泄漏。
+- 测试目的：验证 wheel、键盘、标题栏菜单与右键菜单缩放都同步提交。
+- 前置条件：可见 Qt 图像窗口已打开栅格图片。
+- 输入数据：wheel 往返、缩放快捷键与两类 View 菜单 action。
+- 操作步骤：依次触发各入口并检查 zoom、scene、scrollbar 终态。
+- 预期结果：所有入口共享立即提交路径，静默观察期无延迟几何写入。
+- 后置条件：恢复窗口与应用 quit policy。
 
 ### TC-ANCHOR-FEASIBLE-PROJECTION
 
-覆盖：AC-ANCHOR-MOUSE-PREFERRED、AC-ANCHOR-PROJECT-FEASIBLE。
-
-#### 测试目的
-
-验证鼠标是首选锚点，图片外点先裁到当前图片边界，并在目标图片尺寸/viewport
-约束下投影到距离鼠标最近的可行锚点。
-
-#### 前置条件
-
-纯函数 QVGraphicsView::projectZoomAnchorForTarget 可调用；动态部分可以创建
-可见窗口并加载 400×300 raster；小图在 1.0 倍时留有 viewport 空白。
-
-#### 输入数据
-
-纯函数的图片内点、左侧/右上/左下外点；动态部分从 1.0 倍开始，使用一个左侧
-空白中的请求点和自适应目标 zoom，使目标图片溢出 viewport。
-
-#### 操作步骤
-
-1. 对图片内点执行投影，确认结果不变。
-2. 对三个外点执行投影，确认每个轴独立裁到最近图片边界。
-3. 打开动态 fixture，解析当前 image rect、viewport rect 和请求点。
-4. 调用 zoomAbsolute(targetZoom, requestedPoint)，读取目标 image rect 与 viewport
-   四条边。
-
-#### 预期结果
-
-纯函数结果等于逐轴 clamp；动态目标图片覆盖 usable viewport 的四条边，不因
-图片外鼠标点制造可滚动空白；投影是确定性的，不把外点错误地吸到图片中心。
-
-#### 后置条件
-
-窗口、临时 raster 和设置释放；未写入任何持久图片或用户文件。
+- 测试目的：验证目标图片尺寸改变后缩放锚点仍处于可行位置。
+- 前置条件：图像视口和纯锚点投影 helper 可用。
+- 输入数据：图片内部/外部位置、放大/缩小目标和可行原点区间。
+- 操作步骤：运行纯函数边界断言，再由真实缩放入口检查映射点。
+- 预期结果：锚点被投影到最近可行位置，不制造可避免的空白。
+- 后置条件：测试视口关闭，临时设置恢复。
 
 ### TC-HBAR-FOUR-IN-ONE-OUT
 
-覆盖：AC-ZOOM-NO-ANIMATION-INPUT、AC-ANCHOR-PROJECT-FEASIBLE、
-AC-ANCHOR-NO-POST-CORRECTION、AC-ANCHOR-HBAR-TOPOLOGY。
-
-#### 测试目的
-
-复现报告中的“鼠标滚轮前进四格放大、回退一格缩小”，验证横向滚动条拓扑交叉
-时没有缩放后的位置跳变。
-
-#### 前置条件
-
-Cocoa QtTest 可创建可见窗口；Fit、cursorzoom、AsNeeded scrollbars 和位置约束
-开启；优先使用现场 JPEG
-/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg，
-否则使用 3840×4407 合成 raster。
-
-#### 输入数据
-
-Fit 状态下图片内偏右且非中心的鼠标点；三个 warm-up wheel +120；第四个
-+120；随后一个 -120；记录 H/V range、value、resize、paint 和终态。
-
-#### 操作步骤
-
-1. 打开 fixture，等待 Fit 终态并把鼠标移到非中心图片点。
-2. 发送三个 +120 warm-up，确认 V 有 range、H 无 range。
-3. 安装 trace probe，记录 initial-fit。
-4. 发送第四个 +120，记录 four-forward-terminal。
-5. 发送一个 -120，记录 one-reverse-terminal。
-6. 遍历 trace，检查 H range、交叉轴 Y anchor、溢出时 X anchor 和 quiet 状态。
-
-#### 预期结果
-
-H range 经过 0→非零→0；第四格后目标图片产生 H overflow，回退一格后
-H range 消失；有 H range 的可行状态中鼠标锚点误差不超过 2 DIP，H bar 改变
-viewport 高度的 Y anchor 误差不超过 2 DIP；没有后续 timer 造成平移。
-
-#### 后置条件
-
-所有缩放相关 writer 停止；窗口、probe、临时 fallback 和 scoped settings 释放；
-现场 JPEG 只读且未被修改。
+- 测试目的：验证四步放大和一步回退穿越横向滚动条显示边界时不移位。
+- 前置条件：真实或确定性合成图片可加载，窗口可 resize。
+- 输入数据：四次前向缩放及一次反向缩放。
+- 操作步骤：采集滚动条 range/value、viewport 和最终图片锚点。
+- 预期结果：range 按预期出现/消失，图片锚点保持在允许误差内。
+- 后置条件：图片与测试窗口关闭。
 
 ### TC-VBAR-TOPOLOGY-ANCHOR
 
-覆盖：AC-VBAR-TOPOLOGY-ANCHOR、AC-ANCHOR-NO-POST-CORRECTION。
-
-#### 测试目的
-
-稳定复现“缩放后纵向滚动条首次出现，纵向值被 Qt 的新 range 端点重写”的时序，
-并验证修复保留语义场景锚点；同时证明横向滚动条已存在时没有被连带改写。
-
-#### 前置条件
-
-Cocoa QtTest 可创建可见 640×480 窗口；窗口使用 OriginalSize、
-ScrollBarAsNeeded、Disabled smooth scaling；900×400 raster 在 1.0 倍时横向
-有 range 而纵向无 range。
-
-#### 输入数据
-
-图片内偏下且偏左的固定 viewport 点（当前 runner 为 `(185,356)`）以及一次
-`zoomAbsolute(1.25, target)`；场景点由 zoom 前的 `mapToScene()` 独立记录。
-
-#### 操作步骤
-
-1. 打开合成图，等待 H range 非零且 V range 为零。
-2. 安装 `ZoomIssueProbe`，固定 scene anchor 与 viewport target，执行 1.25 倍
-   缩放。
-3. 立即读取映射点和 V value；再等待 V range 非零且 viewport、H/V range/value
-   连续两个轮询周期不变。
-4. 读取稳定态映射点、H/V value，并检查 probe 捕获的 Paint/Resize 事件。
-
-#### 预期结果
-
-提交态与稳定态的纵向映射均在 target 一 DIP 内；V value 等于根据当前 transform、
-scene anchor 和最终 range 算出的期望值，不落到错误的新最大值；H range 仍非零，
-H value 和横向映射在提交态到稳定态之间最多变化一个整数单位；probe 不报告
-任何可见 Paint 帧的锚点误差。
-
-#### 后置条件
-
-关闭窗口并停止测试 writer；临时目录、probe 和 scoped settings 释放；不修改用户
-图片或持久设置。
-
-### TC-KEYBOARD-CURSOR-ANCHOR
-
-覆盖：AC-ZOOM-NO-ANIMATION-SHORTCUT、AC-ANCHOR-MOUSE-PREFERRED。
-
-#### 测试目的
-
-验证 Zoom In/Out 的真实键盘快捷键沿用最近一次 viewport mouse position，而不是
-无条件跳到 viewport center。
-
-#### 前置条件
-
-可见窗口加载 1600×900 raster；zoom to cursor 开启；Zoom In/Out shortcuts 已
-注册；当前窗口处于有溢出的稳定 zoom。
-
-#### 输入数据
-
-图片内偏离中心的 cursor point；一次真实 Zoom In shortcut；恢复稳定 1.25 倍
-后再发送一次真实 Zoom Out shortcut。
-
-#### 操作步骤
-
-1. 将鼠标移动到非中心图片点并记录其 scene point。
-2. 用 QTest::keySequence 发送 Zoom In，立即检查 transition 状态并读取 scene 点
-   的 viewport 映射。
-3. 恢复 1.25 倍，重复移动鼠标、记录 scene point、发送 Zoom Out。
-4. 等待固定的同步提交检查，不依赖动画时长。
-
-#### 预期结果
-
-两个快捷键均无几何动画；两次 scene anchor 映射与输入点的误差不超过 2 DIP；
-logical/displayed zoom 一致。
-
-#### 后置条件
-
-窗口和临时图片关闭；快捷键、设置、cursor 和滚动条状态恢复。
-
-### TC-TOGGLE-DIRECTIONAL-ANCHOR
-
-覆盖：AC-ANCHOR-MOUSE-PREFERRED、AC-ANCHOR-PROJECT-FEASIBLE。
-
-#### 测试目的
-
-验证 Toggle Fit and 100% 的放大端保持 cursor anchor，缩小端使用 usable viewport
-center，不会把移动后的 cursor 错当成中心。
-
-#### 前置条件
-
-可见窗口加载 1600×900 raster；图片已稳定 Fit；Toggle action 可用；位置约束和
-cursor zoom 开启。
-
-#### 输入数据
-
-Fit 图片中的非中心 cursor point；一次 Fit→100% action；把 cursor 移到左上区域；
-再执行一次 100%→Fit action。
-
-#### 操作步骤
-
-1. 记录非中心 cursor 对应的 scene point并触发第一次 Toggle。
-2. 读取 100% 目标映射，检查 cursor anchor。
-3. 执行 centerImage，移动 cursor，记录 usable center 对应的 scene point。
-4. 触发第二次 Toggle，读取最终 usable center、zoom 和 scrollbar range。
-
-#### 预期结果
-
-放大端 cursor anchor 误差不超过 2 DIP；缩小端记录的 center scene point 回到
-最终 usable center，误差不超过 2 DIP；最终为 Fit 且 H/V range 为零。
-
-#### 后置条件
-
-action、cursor、窗口、临时图片和 settings 恢复。
-
-### TC-TOGGLE-FROZEN-CENTER-ANCHOR
-
-覆盖：AC-ANCHOR-PROJECT-FEASIBLE、AC-ANCHOR-NO-POST-CORRECTION。
-
-#### 测试目的
-
-验证 100%→Fit 的 center sentinel 在请求开始只解析一次，即使 H bar 消失并改变
-viewport 几何，也不会重新读取新的 center。
-
-#### 前置条件
-
-可见窗口加载 1600×2200 portrait raster；100% 状态下 H/V 均有 range；Toggle
-action 可用；生产实现没有 zoomTransitionAnimation、zoomAnchorSettleTimer。
-
-#### 输入数据
-
-100% stable frame 的 usable center viewport point 及其 scene point；一次
-100%→Fit Toggle；H 无 range、V 仍有 range 的布局边界。
-
-#### 操作步骤
-
-1. 在 100% frame 调用 centerImage 并记录 center scene point。
-2. 触发 Toggle，立即检查无 transition、无动画对象、无 anchor settle timer。
-3. 等待同步布局完成，读取最终 Fit 的 image/viewport、H/V range 和 center scene
-   point 映射。
-
-#### 预期结果
-
-中心锚点只在一次提交中被使用；最终 Fit 的 center scene point 映射误差不超过
-2 DIP；H/V range 均为零，且没有延迟位置修正。
-
-#### 后置条件
-
-窗口关闭；timer、action、设置和临时图片释放。
-
-### TC-FIT-QUIESCENT-TERMINAL
-
-覆盖：AC-ZOOM-NO-ANIMATION-SHORTCUT、AC-ANCHOR-NO-POST-CORRECTION。
-
-#### 测试目的
-
-验证 Fit→100%→Fit 往返没有动画完成后的二次 rescale 或平移。
-
-#### 前置条件
-
-可见窗口加载 2560×2938 合成图；如果环境存在现场文件，则追加 3840×4407
-provided row；Fit 已稳定；Z 绑定 Toggle shortcut。
-
-#### 输入数据
-
-两次真实 QTest::keySequence Z；100% 起始 image size；Fit 参考 image size；
-终态 image size、H/V value；终态后的 650ms quiet window。
-
-#### 操作步骤
-
-1. 从 Fit 发送 Z 到 100%，确认两轴有 range。
-2. 再发送 Z 回 Fit，立即检查 no transition、目标 zoom、Fit 和 H/V range。
-3. 记录 terminal image size、scroll values，等待 650ms 后重新读取。
-4. 比较参考 Fit、terminal 和 quiet 三组 image size 以及 H/V values。
-
-#### 预期结果
-
-图片缩小提交只有一个可见终态；reference/terminal/quiet image size 相等；
-650ms 内 H/V values 不变；signal 只记录一次目标 zoom 写入；不存在 position
-rebound。
-
-#### 后置条件
-
-窗口和临时 fixture 释放；所有相关 timer 停止；provided JPEG 未修改。
-
-### TC-HIDPI-ANCHOR-MATRIX
-
-覆盖：AC-ANCHOR-HBAR-TOPOLOGY、AC-ANCHOR-NO-POST-CORRECTION。
-
-#### 测试目的
-
-验证 expensive backing、keyboard/wheel/pinch 三类输入以及 QT_SCALE_FACTOR=2
-下，归一化图片坐标不会使 V scrollbar 或 anchor 发生二次跳变。
-
-#### 前置条件
-
-QtTest 可创建窗口；测试矩阵依次启用 Disabled/Expensive scaling、keyboard/wheel/
-pinch；每个 row 使用稳定的 V-only 或 H+V 初始布局。
-
-#### 输入数据
-
-1×4096 探测图自动生成的 V-only fixture；根据实际 viewport 生成的动态 raster；
-固定图片 UV 点；一次 zoom in 或 zoom out；普通和 QT_SCALE_FACTOR=2 两种运行。
-
-#### 操作步骤
-
-1. 对每个 scaling/input/zoom direction row 建立稳定 baseline。
-2. 发送真实 input，检查 zoom signal count、logical/displayed equality 和无动画。
-3. 停止所有延迟 timer，记录 immediate-terminal trace。
-4. 比较 V range/value、bar geometry、image UV anchor 与目标值。
-
-#### 预期结果
-
-12 个普通矩阵和 HiDPI 矩阵均通过；没有 geometric animation；expensive backing
-替换不会把旧 scene coordinate 误当成新 coordinate；anchor/scrollbar geometry
-误差在测试定义的 2 DIP/整数舍入范围内。
-
-#### 后置条件
-
-窗口、trace、动态 fixture 和设置释放；不修改用户图片。
-
-### TC-STATIC-TRACEABILITY
-
-覆盖：AC-ZOOM-NO-ANIMATION-STATIC 及全部原子标准的文档追溯。
-
-#### 测试目的
-
-静态确认生产合同、结构化用例、测试源码、CTest 注册和完成报告形成闭环。
-
-#### 前置条件
-
-Python 3、源码、CTest 构建目录以及三份 Markdown 文件存在；不要求现场卷或
-真实显示器。
-
-#### 输入数据
-
-src/qvgraphicsview.{h,cpp}、src/mainwindow.cpp、tests/tst_qviewtests.cpp、
-tests/CMakeLists.txt、两个 static Python gate 和三份 reports 文件。
-
-#### 操作步骤
-
-1. 执行 zoom_scrollbar_duration_static.py 并写出 JSON 结果。
-2. 执行 toggle_fit_stability_static.py 并写出 JSON 结果。
-3. 检查每个原子 ID 在技术设计、测试说明、测试源码和完成报告中出现。
-4. 检查每个 case 的六个字段和每个动态函数的 CTest 注册。
-
-#### 预期结果
-
-两个 Python 进程退出码为 0，JSON passed=true；不存在生产几何动画 marker；
-每个原子标准都有可执行测试或静态证据，且六字段完整。
-
-#### 后置条件
-
-只生成 build/test-results 下的机器可读 JSON，不修改生产源码、用户设置或输入
-图片。
-
-## 4. 固化代码与 CTest 编排
-
-| 结构化用例 | 测试代码 | CTest |
-| --- | --- | --- |
-| TC-ZOOM-SYNC-ALL-ENTRY-POINTS | GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus | FovelleScrollbarZoomDurationAcceptance、FovelleTests |
-| TC-ANCHOR-FEASIBLE-PROJECTION | GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage | FovelleScrollbarZoomDurationAcceptance、FovelleTests |
-| TC-HBAR-FOUR-IN-ONE-OUT | GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump | FovelleScrollbarZoomDurationAcceptance |
-| TC-VBAR-TOPOLOGY-ANCHOR | GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears | FovelleZoomScrollbarVerticalTopology |
-| TC-EXPENSIVE-REFINEMENT | GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement | FovelleZoomScrollbarExpensiveRefinement |
-| TC-KEYBOARD-CURSOR-ANCHOR | GraphicsViewTests::testKeyboardZoomUsesCursorAnchor | FovelleFiveIssueZoomAcceptance、FovelleTests |
-| TC-TOGGLE-DIRECTIONAL-ANCHOR | GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor | FovelleToggleFitAnchorAcceptance |
-| TC-TOGGLE-FROZEN-CENTER-ANCHOR | GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition | FovelleToggleFitAnchorAcceptance |
-| TC-FIT-QUIESCENT-TERMINAL | GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize | FovelleToggleFitStabilityAcceptance |
-| TC-HIDPI-ANCHOR-MATRIX | GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable | FovelleZoomScrollbarTrajectory、FovelleZoomScrollbarTrajectoryHiDpi |
-| TC-STATIC-TRACEABILITY | 两个 static Python gate | FovelleZoomScrollbarDurationStatic、FovelleToggleFitStabilityStatic |
-
-## 5. 测试执行命令
-
-构建：
-
-    cmake -S . -B build
-    cmake --build build --parallel 4
-
-静态：
-
-    ctest --test-dir build -R 'Fovelle(ToggleFitStability|ZoomScrollbarDuration)Static' --output-on-failure
-
-专项动态：
-
-    ctest --test-dir build -R 'Fovelle(ScrollbarZoomDuration|ToggleFitAnchor|ToggleFitTrajectory|ToggleFitStability)Acceptance' --output-on-failure
-    ctest --test-dir build -R 'FovelleZoomScrollbar(VerticalTopology|ExpensiveRefinement)' --output-on-failure
-
-拓扑用例稳定性：
-
-    ctest --test-dir build --repeat until-fail:10 -R '^FovelleZoomScrollbarVerticalTopology$' --output-on-failure
-
-全量：
-
-    ctest --test-dir build --output-on-failure
-
-所有命令的实际结果和环境说明写入
-[reports/test_completion_report.md](test_completion_report.md)。
+- 测试目的：验证纵向 range 首次出现时已提交的场景锚点不被后续布局覆盖。
+- 前置条件：900×400 专用 viewport 和足够尺寸的测试图片。
+- 输入数据：横向已有 range、纵向无 range 的起始状态及一次缩放。
+- 操作步骤：比较提交态、range 收敛态和 paint probe 中的同一场景点。
+- 预期结果：纵向锚点保持在一 DIP 内，横向值不被连带改写。
+- 后置条件：测试窗口与临时图片释放。

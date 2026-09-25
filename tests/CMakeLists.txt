@@ -157,6 +157,19 @@ set_tests_properties(FovelleTests PROPERTIES
     TIMEOUT 180
 )
 
+set(FOVELLE_FULLSCREEN_SDR_IMAGE
+    "/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png"
+    CACHE FILEPATH "Large SDR image used by the Cocoa full-screen presentation regression")
+if(APPLE AND EXISTS "${FOVELLE_FULLSCREEN_SDR_IMAGE}")
+    add_test(NAME FovelleSDRFullScreenPresentation
+        COMMAND fovelle_tests testProvidedRasterFullScreenTransitionKeepsImageVisible)
+    set_tests_properties(FovelleSDRFullScreenPresentation PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=SDRSampleInteractionTests;FOVELLE_FULLSCREEN_SDR_IMAGE=${FOVELLE_FULLSCREEN_SDR_IMAGE}"
+        TIMEOUT 45
+        RUN_SERIAL TRUE
+        LABELS "native-ui;fullscreen;sdr")
+endif()
+
 add_test(NAME FovelleToggleFitStabilityStatic
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/toggle_fit_stability_static.py

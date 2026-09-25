@@ -1,152 +1,79 @@
-# 测试完成报告：同步图片缩放、可行锚点与纵向拓扑
+# 测试完成报告：SDR 图片全屏跳变/闪烁
 
-日期：2026-09-04
-仓库：/Users/inostarlin/code/Fovelle
-构建目录：/Users/inostarlin/code/Fovelle/build
-设计依据：[technical_design_document.md](technical_design_document.md)
-用例依据：[test_case_specification.md](test_case_specification.md)
+日期：2026-09-25
+仓库：`/Users/inostarlin/code/Fovelle`
+样本：`/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/2.png`
+设计：[technical_design_document.md](technical_design_document.md)
+用例：[test_case_specification.md](test_case_specification.md)
 
-## 1. 完成结论
+## 1. 结论
 
-生产代码、原子验收拆解、结构化测试用例、可执行测试代码、静态门禁和 CTest
-编排均已完成。验证结果以 Qt 6.11.1、macOS Cocoa QPA、当前构建目录和本机
-可读现场 JPEG 为依据；现场文件只读。
+已修复 macOS 全屏布局回调只排队更新 native SDR 图层几何的问题。现在隐藏的真实窗口准备交接时，Fovelle 同步刷新原生 SDR layer 几何，然后才 repaint/显示真实窗口。
 
-结论范围是 Qt/Fovelle widget 层的可观察提交边界：transform、scene rect、
-viewport、scrollbar range/value、paint、resize 和 timer。没有进行
-WindowServer/CALayer presentation-layer 逐帧捕获，因此报告不把结论扩大为
-macOS 合成器屏幕扫描级证明。
-
-本次问题的修复闭环也已完成：修复前专用拓扑用例稳定观察到提交态锚点
-`(185,356)` 在 V range 收敛后变为 `(185,353)`，V value 从 `4` 被改写为 `7`；
-修复后同一用例在提交态和稳定态均保持 `(185,356)`/`4`，并由 Paint probe
-确认没有可见的纵向跳变。
+新回归使用用户提供的 4616×2924 PNG，检查全屏更新 slot 返回前的 compositor 几何提交、实际显示器画面纹理、相邻采样帧颜色质心和 native renderer geometry，并执行三次全屏往返。去掉生产同步调用时，计数断言稳定失败；恢复后连续重复 5 次通过。全量 CTest 为 15/15 PASS。
 
 ## 2. 原子验收结果
 
-| ID | 结果 | 固化证据 |
+| 验收 ID | 结果 | 证据 |
 | --- | :---: | --- |
-| AC-ZOOM-NO-ANIMATION-STATIC | PASS | 两个 Python 静态 gate 检查生产头/实现不存在几何 QPropertyAnimation、displayed zoom、旧式 pending anchor 和缩放结算 timer，并检查 ZoomPlan/单一 commit。 |
-| AC-ZOOM-NO-ANIMATION-INPUT | PASS | testZoomTransitionCoversWheelKeyboardAndMenus 真实发送 wheel；即时状态和 250ms quiet window 通过；全量 QtTest 通过。 |
-| AC-ZOOM-NO-ANIMATION-SHORTCUT | PASS | testZoomTransitionCoversWheelKeyboardAndMenus、testKeyboardZoomUsesCursorAnchor 和 Toggle 专项使用 QTest::keySequence；无运行 transition。 |
-| AC-ZOOM-NO-ANIMATION-MENU | PASS | 同一入口测试物化标题栏 View clone 和右键 View clone，并验证两者均落到同步 view API。 |
-| AC-ANCHOR-MOUSE-PREFERRED | PASS | testZoomAnchorProjectionIsNearestFeasible、键盘 cursor anchor 和 Toggle 定向锚点断言通过。 |
-| AC-ANCHOR-PROJECT-FEASIBLE | PASS | 纯投影函数覆盖内外点；动态测试确认目标 image 覆盖 usable viewport 且不产生可避免空白。 |
-| AC-ANCHOR-NO-POST-CORRECTION | PASS | 现场四进一退、终态 quiet window、timer inactive 和 scroll value 稳定性断言通过。 |
-| AC-ANCHOR-HBAR-TOPOLOGY | PASS | 现场 JPEG 专项验证 H range 0→非零→0；paint/terminal 锚点误差及 V 交叉轴断言通过；普通/HiDPI 矩阵通过。 |
-| AC-VBAR-TOPOLOGY-ANCHOR | PASS | `testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears` 覆盖 H 已有 range、V 首次出现、range/value 收敛、Paint probe 和双轴稳定性。 |
+| AC-SDR-FS-SYNC | PASS | 修复前 `compositorGeometryUpdateCount` 为 2，回调返回后预期 3，测试失败；恢复调用后同步增至 3。 |
+| AC-SDR-FS-VISIBLE | PASS | 三轮全屏进出期间，每个屏幕采样帧均达到中心纹理方差和可见图像内容下限。 |
+| AC-SDR-FS-CONTINUOUS | PASS | 过渡采样中的质心单步位移满足 0.14 阈值，renderer 报告 geometry matches。 |
+| AC-SDR-FS-ROUNDTRIP | PASS | 指定 PNG 连续完成三次进入/退出。 |
 
-## 3. 执行记录
+## 3. 实现变更
 
-### 3.1 构建
+- [qvgraphicsview.h](/Users/inostarlin/code/Fovelle/src/qvgraphicsview.h) 增加 `synchronizeNativeSDRGeometryForFullScreenTransition()`。
+- [qvgraphicsview.cpp](/Users/inostarlin/code/Fovelle/src/qvgraphicsview.cpp) 在该方法中仅对 native SDR renderer 停止已排队的 0ms timer，并同步调用 `updateHDRRenderer()`。
+- [mainwindow.cpp](/Users/inostarlin/code/Fovelle/src/mainwindow.cpp) 在每次全屏布局更新 repaint 隐藏的真实窗口前调用同步方法。
+- [tst_qviewtests.cpp](/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp) 新增 Cocoa 全屏真实样本回归；它直接核对同步计数并连续采集屏幕过渡帧。
+- [CMakeLists.txt](/Users/inostarlin/code/Fovelle/tests/CMakeLists.txt) 样本存在时注册串行 CTest `FovelleSDRFullScreenPresentation`。
 
-命令：
+## 4. 执行记录
+
+环境：macOS 27.0.0、Qt 6.11.2、Apple clang 17、Cocoa QPA。外接样本可读，路径与用户问题给出的路径一致。
+
+### 4.1 修复前反向验证
+
+临时移除 `MainWindow::updateFullScreenLayoutTransition()` 中的同步调用，重建并运行同一个 `SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible`：
+
+    Actual compositorGeometryUpdateCount: 2
+    Expected: 3
+    Result: FAIL
+
+这证明用例会检测到缺少交接前同步提交的实现。
+
+### 4.2 修复后专项重复
+
+    ctest --test-dir build --repeat until-fail:5 -R '^FovelleSDRFullScreenPresentation$' --output-on-failure
+
+结果：5/5 PASS，单次耗时约 5.1 秒。实际屏幕观测每次执行三轮全屏往返。
+
+### 4.3 全量构建与测试
 
     cmake -S . -B build
     cmake --build build --parallel 4
-
-结果：PASS。Fovelle、fovelle_tests 和全部 CTest 条目成功生成/链接。
-
-### 3.2 静态测试
-
-命令：
-
-    ctest --test-dir build -R '^(FovelleToggleFitStabilityStatic|FovelleZoomScrollbarDurationStatic)$' --output-on-failure
-
-结果：PASS（2/2）。机器可读产物：
-
-- [toggle-fit-stability-static.json](/Users/inostarlin/code/Fovelle/build/test-results/toggle-fit-stability-static.json)
-- [zoom-scrollbar-duration-static.json](/Users/inostarlin/code/Fovelle/build/test-results/zoom-scrollbar-duration-static.json)
-
-静态 gate 的检查内容包括：删除的生产 marker、同步 commit 顺序、目标 topology
-重规划、归一化 backing anchor、动态测试符号、六字段用例和四层文档追溯。
-
-### 3.3 缩放入口与投影专项
-
-命令：
-
-    ctest --test-dir build -R '^FovelleScrollbarZoomDurationAcceptance$' --output-on-failure
-
-结果：PASS。覆盖纯可行锚点投影、wheel/键盘/标题栏菜单/右键菜单同步入口和
-现场 JPEG 的四格放大、一格回退序列。
-
-### 3.4 Toggle 锚点与终态专项
-
-命令：
-
-    ctest --test-dir build -R '^FovelleToggleFitAnchorAcceptance$' --output-on-failure
-    ctest --test-dir build -R '^FovelleToggleFitTrajectoryAcceptance$' --output-on-failure
-    ctest --test-dir build -R '^FovelleToggleFitStabilityAcceptance$' --output-on-failure
-
-结果：PASS（3/3）。Toggle 的同步状态、定向 cursor/center 锚点、横条布局切换、
-Fit→100%→Fit 终态和 650ms quiet window 均通过。稳定性用例输出
-reversals=0、zoom_writes=1；合成 2560×2938 row 和现场 3840×4407 row 均执行。
-
-### 3.5 既有缩放回归与 HiDPI
-
-命令：
-
-    ctest --test-dir build -R '^(FovelleFiveIssueZoomAcceptance|FovelleFourIssueZoomAcceptance)$' --output-on-failure
-    ctest --test-dir build -R '^FovelleZoomScrollbarTrajectory$' --output-on-failure
-    ctest --test-dir build -R '^FovelleZoomScrollbarTrajectoryHiDpi$' --output-on-failure
-
-结果：PASS（4/4）。既有 wheel、键盘、滚动条、blank-space、expensive scaling
-和 QT_SCALE_FACTOR=2 矩阵保持通过。
-
-### 3.6 全量 QtTest
-
-命令：
-
-    ctest --test-dir build -R '^FovelleTests$' --output-on-failure
-
-结果：PASS（1/1，退出码 0）。包含 ImageLoader、Feature、HDRPolicy、
-GraphicsView、ShortcutSettings、UI 和 native 相关回归。
-
-### 3.7 本次纵向拓扑专项
-
-命令：
-
-    ctest --test-dir build -R '^(FovelleZoomScrollbarVerticalTopology|FovelleZoomScrollbarExpensiveRefinement)$' --output-on-failure
-    ctest --test-dir build --repeat until-fail:10 -R '^FovelleZoomScrollbarVerticalTopology$' --output-on-failure
-
-结果：PASS（专项 2/2；拓扑用例重复 10/10）。固定场景点在专用 900×400
-fixture 的 commit/settled 状态均为 `(185,356)`；H value `209→209`，V value
-`4→4`，最终 V range 为 `-28..7`，期望值为 `4`。
-
-### 3.8 全量 CTest 编排
-
-命令：
-
     ctest --test-dir build --output-on-failure
 
-结果：PASS（14/14，退出码 0），覆盖 2 个静态 gate、同步入口、投影、现场边界、
-Toggle 锚点/轨迹/终态、既有回归、HiDPI，以及本次纵向拓扑/延迟替换专项。
+结果：最终工作树构建 PASS；CTest 15/15 PASS，退出码 0，总耗时 87.48 秒。包含完整 QtTest、SDR 全屏屏幕采样、现有缩放与滚动条回归、HiDPI 和静态验收门禁。
 
-## 4. 实现证据摘要
+## 5. 多源核验与推导复核
 
-- qvgraphicsview.cpp 已删除缩放用 QPropertyAnimation、displayed zoom writer、
-  旧式 pending anchor 和 anchor settle timer；保留的
-  `postLayoutZoomAnchorScene/Viewport` 只记录同一次 zoom 的语义场景点，用来
-  吸收 Qt AsNeeded range/value 收敛，不产生时间插值。
-- zoomAbsolute() 将所有入口导向 makeZoomPlan() →
-  commitZoomImmediately()；提交中暂时关闭 widget updates，写入目标 transform/
-  scene rect，固定点收敛 AsNeeded scrollbar topology，并在 range/value 更新时
-  重放同一场景 anchor。
-- projectZoomAnchorForTarget() 逐轴求目标图片原点可行区间，再对其逆仿射像做
-  clamp；目标 H/V topology 物化后会重新计算。
-- expensive backing 替换使用旧/新 scene rect 的归一化图片坐标，不能把像素密度
-  变化解释成新的几何缩放。
-- QScrollBar 的整数舍入只在同一提交内做有限两次修正，不安排缩放后的延迟位置
-  writer；已有 pan constraint timer 在 zoom commit 开始时停止；用户主动平移会
-  取消拓扑恢复状态。
+外部资料使用一手平台文档：
 
-## 5. 证据边界与复核入口
+1. Apple [`NSWindowDelegate`](https://developer.apple.com/documentation/appkit/nswindowdelegate?changes=_6) 描述自定义全屏代理窗口、动画开始与过渡完成回调。本地代码证实 AppKit 动画期间真实窗口保持隐藏，代理窗口承担可见过渡。
+2. Qt [`QTimer`](https://doc.qt.io/qt-6/qtimer.html) 说明 0ms timer 与其他事件源的执行顺序未指定；Qt [`DirectConnection`](https://doc.qt.io/qt-6/threads-qobject.html) 说明 slot 同步执行。本地回调桥正是 DirectConnection，但 renderer 常规请求会排入 0ms timer。
+3. Apple [`CATransaction`](https://developer.apple.com/documentation/quartzcore/catransaction?language=_1) 描述 Core Animation layer-tree 事务。本地 SDR layer geometry 更新在事务中提交，并提升 compositor 几何计数。
+4. 修复前/后实测对照隔离了遗漏同步提交这一具体路径：没有同步调用时计数断言失败；调用后成功。屏幕帧重复结果对其视觉后果作独立交叉检查。
 
-外部语义复核使用 Qt 官方 QAction、QPropertyAnimation、QGraphicsView、
-QAbstractScrollArea、QScrollBar、QWidget updatesEnabled 文档，以及 Qt 6.11.1
-同版本源码；最近点公式使用 Parikh/Boyd 的 box projection 资料。链接和推理
-前提集中在 [technical_design_document.md](technical_design_document.md)。
+因此结论限定为：全屏布局回调返回时，SDR 原生 layer geometry 已同步提交，实际采样帧没有触发测试定义的大幅跳变或空白阈值。未声称捕获了 WindowServer/CALayer 每一次刷新扫描，也未以当前样本推断其他文件格式、HDR 路径或多显示器迁移。
 
-若未来需要证明“屏幕上每一帧”而非 widget 层无跳变，应在目标 macOS 机器上
-追加屏幕或 Core Animation presentation-layer 捕获，并与当前 QtTest trace 的
-monotonic timestamp 对齐。
+## 6. 仍存在的信息边界
+
+- Cocoa 屏幕帧采样需要有桌面显示的 macOS 会话；无桌面 runner 不会注册该外接样本专项。
+- 质心上限能稳定检测较大位移，但不是逐像素运动估计；色彩管理也使原始文件 RGB 不适合作为屏幕逐像素基准。
+- 若要证明每一次显示器刷新均无闪帧，需要对 WindowServer/Core Animation presentation output 做逐帧系统级捕获；本次没有该类低层捕获。
+
+## 附录：既有缩放门禁仍覆盖的合同
+
+全量 CTest 同时验证下列既有原子合同，相关描述和六字段用例保留在本报告附属文档中：`AC-ZOOM-NO-ANIMATION-STATIC`、`AC-ZOOM-NO-ANIMATION-INPUT`、`AC-ZOOM-NO-ANIMATION-SHORTCUT`、`AC-ZOOM-NO-ANIMATION-MENU`、`AC-ANCHOR-MOUSE-PREFERRED`、`AC-ANCHOR-PROJECT-FEASIBLE`、`AC-ANCHOR-NO-POST-CORRECTION`、`AC-ANCHOR-HBAR-TOPOLOGY`、`AC-VBAR-TOPOLOGY-ANCHOR`。
