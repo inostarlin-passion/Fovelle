@@ -10986,6 +10986,32 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
             return static_cast<qreal>(mismatchedPixels) / overlapPixels;
         };
 
+        // QScreen::grabWindow() reads pixels from the platform screen. On
+        // Cocoa, the first capture after opening a new document can precede
+        // the window server presenting the newly painted viewport. Establish
+        // a visible baseline before starting the drag; captures taken during
+        // the drag remain immediate so a transient blank frame still fails.
+        qreal initialDarkPixelRatio = -1.0;
+        QElapsedTimer screenCaptureReadyTimer;
+        screenCaptureReadyTimer.start();
+        do {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            view->viewport()->repaint();
+            initialDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
+            if (!checksScreenFrames || initialDarkPixelRatio >= MinimumVisibleDarkPixelRatio) {
+                break;
+            }
+            QTest::qWait(16);
+        } while (screenCaptureReadyTimer.elapsed() < 1000);
+        if (checksScreenFrames) {
+            QVERIFY2(initialDarkPixelRatio >= MinimumVisibleDarkPixelRatio,
+                     qPrintable(QStringLiteral(
+                                        "%1 viewport was not visible in screen capture before drag "
+                                        "(dark-pixel ratio %2)")
+                                        .arg(document.first)
+                                        .arg(initialDarkPixelRatio, 0, 'f', 6)));
+        }
+
         QScrollBar *bar = view->horizontalScrollBar();
         bar->setValue((bar->minimum() + bar->maximum()) / 2);
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
@@ -11022,7 +11048,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVERIFY(viewportArea > 0);
         const qreal firstFrameDirtyRatio = static_cast<qreal>(
             recorder.recordedAreas().constFirst()) / viewportArea;
-        qreal minimumDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
+        qreal minimumDarkPixelRatio = initialDarkPixelRatio;
         qreal maximumStationaryFrameChangeRatio = 0.0;
         qreal maximumTranslatedOverlapMismatchRatio = 0.0;
         bool screenFramesAreNonBlank = !checksScreenFrames
