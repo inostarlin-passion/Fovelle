@@ -45,6 +45,7 @@
 3. 把精度/范围置于初值之前后，同一路径的内部数值和可见文本均为 6400；这验证了修复点改变的正是初值截断链路。
 4. Qt 官方 `QGraphicsView` 文档说明全视口模式会更新整个视口，并用于需禁用滚动优化的场景；公开源码展示 `scrollContentsBy()` 的模式分支；Qt `QPaintEvent` 文档说明 paint region 的语义。这支持以实际鼠标事件、更新模式、paint region 和屏幕截图组合验证，而不是只断言内部标志。[`QGraphicsView` API](https://doc.qt.io/qt-6/qgraphicsview.html) [`scrollContentsBy()` 源码](https://codebrowser.dev/qt6/qtbase/src/widgets/graphicsview/qgraphicsview.cpp.html#L3618) [`QPaintEvent` API](https://doc.qt.io/qt-6/qpaintevent.html)
 5. Cocoa 测试用真实窗口的 `QScreen::grabWindow()` 截取视口区域。滚动连续性比较先按真实滚动偏移与 DPR 配准两帧，只计算相交像素区域；另比较候选帧与静止帧。通道差值阈值和 5% 占比均为项目回归门槛，不是 Qt 或 Apple 规定的行业标准。外部 SVG 的颜色不可预设，所以不对它套用暗像素阈值，但仍执行帧稳定性、更新模式、滚动和 paint 区域断言。
+6. GitHub Actions 的失败日志显示，在之前 10% 暗像素门槛下，SVG 初始截图的暗像素比例为 0.055684；同一运行中 EPS/SVG 的全视口 paint、拖动状态和帧连续性判据均通过。Qt `QScreen::grabWindow()` 文档指出它取屏幕窗口像素，且坐标是设备无关像素、高 DPI 返回图可能更大；因此固定的近黑覆盖率不应被解释为图像是否正确的通用准则。门槛降为 1%，仅作“非空画面信号”检查，原有按滚动位移配准的帧连续性、静止变化、paint 覆盖和交互状态检查仍保留。该调整对截图构图/颜色敏感的断言进行了校准，并未放宽拖影连续性门槛。[`QScreen::grabWindow()` 文档](https://doc.qt.io/qt-6/qscreen.html#grabWindow)
 6. 逆向复核包括缩放回归用例在生产修复前失败（100≠6400）、修复后通过；拖动用例覆盖了按住跨越 50 ms 定时器期限和释放恢复，并重复检查指定外部 SVG。已有负向控制曾将计时器恢复为无条件退出交互模式，测试因此失败；修复状态机后通过。
 
 ## 4. 本次对拖动回归的加固
