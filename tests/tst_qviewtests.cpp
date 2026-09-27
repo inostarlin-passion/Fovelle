@@ -10893,26 +10893,20 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
 
         const bool checksScreenFrames = document.first != QStringLiteral("svg")
                 || !usesExternalSvgSample;
-        // Keep this as a minimal nonblank signal only. A 10% near-black
-        // threshold rejected the stable SVG capture observed in GitHub Actions
-        // (5.5684%); actual drag continuity is checked independently below.
+        // Keep this as a minimal nonblank signal only; actual drag continuity
+        // is checked independently below.
         constexpr qreal MinimumVisibleDarkPixelRatio = 0.01;
         const auto viewportCapture = [&]() {
-            const QPixmap windowCapture = window.screen()->grabWindow(window.winId());
-            if (windowCapture.isNull())
+            // QScreen::grabWindow() samples the composited display. On hosted
+            // macOS runners that capture can contain stale or unrelated screen
+            // pixels even while the widget receives a full paint event. Capture
+            // the viewport's own rendered contents so this assertion measures
+            // Qt's frame instead of WindowServer presentation timing.
+            const QPixmap viewportPixmap = view->viewport()->grab();
+            if (viewportPixmap.isNull())
                 return QImage();
-            const qreal dpr = windowCapture.devicePixelRatio();
-            const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint());
-            QRect pixelRect(qRound(viewportOrigin.x() * dpr),
-                            qRound(viewportOrigin.y() * dpr),
-                            qRound(view->viewport()->width() * dpr),
-                            qRound(view->viewport()->height() * dpr));
-            const QImage frame = windowCapture.toImage()
+            return viewportPixmap.toImage()
                     .convertToFormat(QImage::Format_RGB32);
-            pixelRect = pixelRect.intersected(frame.rect());
-            if (pixelRect.isEmpty())
-                return QImage();
-            return frame.copy(pixelRect);
         };
         const auto viewportDarkPixelRatio = [](const QImage &frame) {
             if (frame.isNull())
@@ -11026,9 +11020,9 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         qreal minimumDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
         qreal maximumStationaryFrameChangeRatio = 0.0;
         qreal maximumTranslatedOverlapMismatchRatio = 0.0;
-        bool screenFramesAreNonBlank = !checksScreenFrames
+        bool capturedFramesAreNonBlank = !checksScreenFrames
                 || minimumDarkPixelRatio >= MinimumVisibleDarkPixelRatio;
-        bool screenFramesAreStable = true;
+        bool capturedFramesAreStable = true;
 
         // The old code returned to MinimalViewportUpdate after this quiet
         // interval even though the left mouse button remained held.
@@ -11039,7 +11033,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QImage previousDragFrame = viewportCapture();
         int previousHorizontalScroll = bar->value();
         int previousVerticalScroll = view->verticalScrollBar()->value();
-        const qreal captureScale = window.screen()->devicePixelRatio();
+        const qreal captureScale = previousDragFrame.devicePixelRatio();
         QVector<qint64> firstPaintAreaForEachDragStep;
         // Cross the bounded interaction-tile overscan so the test exercises
         // tile replacement as well as the initial cached portion of the drag.
@@ -11084,7 +11078,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                 if (earliestOverlapMismatchRatio < 0.0
                     || firstOverlapMismatchRatio < 0.0)
                 {
-                    screenFramesAreStable = false;
+                    capturedFramesAreStable = false;
                 }
                 else
                 {
@@ -11095,7 +11089,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                     if (earliestOverlapMismatchRatio > 0.05
                         || firstOverlapMismatchRatio > 0.05)
                     {
-                        screenFramesAreStable = false;
+                        capturedFramesAreStable = false;
                     }
                 }
                 if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_DRAG_FRAME_TRACE"))
@@ -11112,13 +11106,13 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                         .arg(earliestUntranslatedChangeRatio, 0, 'f', 6);
                 }
                 if (overlapMismatchRatio > 0.05)
-                    screenFramesAreStable = false;
+                    capturedFramesAreStable = false;
             }
             else
             {
                 // A frame pair with no common viewport pixels cannot prove
                 // translated content continuity and must not pass vacuously.
-                screenFramesAreStable = false;
+                capturedFramesAreStable = false;
             }
             previousDragFrame = settledCandidateFrame;
             previousHorizontalScroll = bar->value();
@@ -11129,7 +11123,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                                              frameDarkPixelRatio);
             if (checksScreenFrames
                 && frameDarkPixelRatio < MinimumVisibleDarkPixelRatio)
-                screenFramesAreNonBlank = false;
+                capturedFramesAreNonBlank = false;
             // Compare the following stationary frame to detect recurring
             // presentation changes without treating the one-time refinement
             // transition as a flash.
@@ -11141,7 +11135,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                 maximumStationaryFrameChangeRatio = qMax(
                     maximumStationaryFrameChangeRatio, changedRatio);
                 if (changedRatio > 0.05)
-                    screenFramesAreStable = false;
+                    capturedFramesAreStable = false;
             }
         }
         const bool fullUpdateAfterContinuedDrag =
@@ -11167,8 +11161,8 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         const bool dragPresentationContractPassed =
                 fullUpdateOnFirstDragFrame && fullUpdateAfterPause
                 && fullUpdateAfterContinuedDrag && firstFrameDirtyRatio >= 0.90
-                && everyDragScrollPaintCoveredViewport && screenFramesAreNonBlank
-                && screenFramesAreStable;
+                && everyDragScrollPaintCoveredViewport && capturedFramesAreNonBlank
+                && capturedFramesAreStable;
         if (!dragPresentationContractPassed)
         {
             qInfo().noquote() << QStringLiteral(
@@ -11182,9 +11176,9 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                 .arg(fullUpdateAfterContinuedDrag)
                 .arg(firstFrameDirtyRatio, 0, 'f', 3)
                 .arg(everyDragScrollPaintCoveredViewport)
-                .arg(screenFramesAreNonBlank)
+                .arg(capturedFramesAreNonBlank)
                 .arg(minimumDarkPixelRatio, 0, 'f', 6)
-                .arg(screenFramesAreStable)
+                .arg(capturedFramesAreStable)
                 .arg(maximumStationaryFrameChangeRatio, 0, 'f', 3)
                 .arg(maximumTranslatedOverlapMismatchRatio, 0, 'f', 3);
             window.close();
