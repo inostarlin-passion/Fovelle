@@ -10891,22 +10891,27 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVERIFY(view->vectorRenderCount() > 0);
         QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
 
-        const bool checksScreenFrames = document.first != QStringLiteral("svg")
+        const bool checksCapturedFrames = document.first != QStringLiteral("svg")
                 || !usesExternalSvgSample;
         // Keep this as a minimal nonblank signal only; actual drag continuity
         // is checked independently below.
         constexpr qreal MinimumVisibleDarkPixelRatio = 0.01;
         const auto viewportCapture = [&]() {
-            // QScreen::grabWindow() samples the composited display. On hosted
-            // macOS runners that capture can contain stale or unrelated screen
-            // pixels even while the widget receives a full paint event. Capture
-            // the viewport's own rendered contents so this assertion measures
-            // Qt's frame instead of WindowServer presentation timing.
-            const QPixmap viewportPixmap = view->viewport()->grab();
-            if (viewportPixmap.isNull())
+            // WindowServer and QWidget::grab() have both produced blank SVG
+            // captures on hosted macOS runners. QWidget::render() paints the
+            // widget tree into a deterministic in-memory target, avoiding
+            // native display and backing-store capture behavior.
+            QImage windowFrame(window.size(), QImage::Format_RGB32);
+            if (windowFrame.isNull())
                 return QImage();
-            return viewportPixmap.toImage()
-                    .convertToFormat(QImage::Format_RGB32);
+            windowFrame.fill(Qt::white);
+            window.render(&windowFrame);
+            const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint());
+            QRect viewportRect(viewportOrigin, view->viewport()->size());
+            viewportRect = viewportRect.intersected(windowFrame.rect());
+            if (viewportRect.isEmpty())
+                return QImage();
+            return windowFrame.copy(viewportRect);
         };
         const auto viewportDarkPixelRatio = [](const QImage &frame) {
             if (frame.isNull())
@@ -11020,7 +11025,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         qreal minimumDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
         qreal maximumStationaryFrameChangeRatio = 0.0;
         qreal maximumTranslatedOverlapMismatchRatio = 0.0;
-        bool capturedFramesAreNonBlank = !checksScreenFrames
+        bool capturedFramesAreNonBlank = !checksCapturedFrames
                 || minimumDarkPixelRatio >= MinimumVisibleDarkPixelRatio;
         bool capturedFramesAreStable = true;
 
@@ -11121,7 +11126,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
             if (frameDarkPixelRatio >= 0.0)
                 minimumDarkPixelRatio = qMin(minimumDarkPixelRatio,
                                              frameDarkPixelRatio);
-            if (checksScreenFrames
+            if (checksCapturedFrames
                 && frameDarkPixelRatio < MinimumVisibleDarkPixelRatio)
                 capturedFramesAreNonBlank = false;
             // Compare the following stationary frame to detect recurring
