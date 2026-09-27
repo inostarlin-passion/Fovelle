@@ -10848,9 +10848,10 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
+    bool usesExternalSvgSample = false;
     const QList<QPair<QString, QString>> documents {
         {QStringLiteral("eps"), createLargeEPSVectorImage(dir, QStringLiteral("drag-eps"))},
-        {QStringLiteral("svg"), svgSamplePath(dir)}
+        {QStringLiteral("svg"), svgSamplePath(dir, &usesExternalSvgSample)}
     };
     for (const auto &document : documents)
         QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
@@ -10890,11 +10891,8 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVERIFY(view->vectorRenderCount() > 0);
         QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
 
-        const QString configuredSvgSample =
-                QString::fromUtf8(qgetenv("FOVELLE_SVG_SAMPLE"));
-        const bool usesExternalSvgSample = document.first == QStringLiteral("svg")
-                && QFileInfo::exists(configuredSvgSample);
-        const bool checksScreenFrames = !usesExternalSvgSample;
+        const bool checksScreenFrames = document.first != QStringLiteral("svg")
+                || !usesExternalSvgSample;
         constexpr qreal MinimumVisibleDarkPixelRatio = 0.10;
         const auto viewportCapture = [&]() {
             const QPixmap windowCapture = window.screen()->grabWindow(window.winId());
@@ -10986,32 +10984,6 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
             return static_cast<qreal>(mismatchedPixels) / overlapPixels;
         };
 
-        // QScreen::grabWindow() reads pixels from the platform screen. On
-        // Cocoa, the first capture after opening a new document can precede
-        // the window server presenting the newly painted viewport. Establish
-        // a visible baseline before starting the drag; captures taken during
-        // the drag remain immediate so a transient blank frame still fails.
-        qreal initialDarkPixelRatio = -1.0;
-        QElapsedTimer screenCaptureReadyTimer;
-        screenCaptureReadyTimer.start();
-        do {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
-            view->viewport()->repaint();
-            initialDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
-            if (!checksScreenFrames || initialDarkPixelRatio >= MinimumVisibleDarkPixelRatio) {
-                break;
-            }
-            QTest::qWait(16);
-        } while (screenCaptureReadyTimer.elapsed() < 1000);
-        if (checksScreenFrames) {
-            QVERIFY2(initialDarkPixelRatio >= MinimumVisibleDarkPixelRatio,
-                     qPrintable(QStringLiteral(
-                                        "%1 viewport was not visible in screen capture before drag "
-                                        "(dark-pixel ratio %2)")
-                                        .arg(document.first)
-                                        .arg(initialDarkPixelRatio, 0, 'f', 6)));
-        }
-
         QScrollBar *bar = view->horizontalScrollBar();
         bar->setValue((bar->minimum() + bar->maximum()) / 2);
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
@@ -11048,7 +11020,7 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVERIFY(viewportArea > 0);
         const qreal firstFrameDirtyRatio = static_cast<qreal>(
             recorder.recordedAreas().constFirst()) / viewportArea;
-        qreal minimumDarkPixelRatio = initialDarkPixelRatio;
+        qreal minimumDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
         qreal maximumStationaryFrameChangeRatio = 0.0;
         qreal maximumTranslatedOverlapMismatchRatio = 0.0;
         bool screenFramesAreNonBlank = !checksScreenFrames
