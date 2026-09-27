@@ -23,7 +23,7 @@
 - 2026-09-27 最终全流程复核 `tests/vector_drag_ghosting_pipeline.py --stage all`：static 9/9、unit 2/2、integration 4/4、system 4/4 检查通过，阶段顺序为 static → unit → integration → system。
 - 全流程中的真实 HID 系统阶段使用 `FOVELLE_SVG_SAMPLE=/Users/inostarlin/Downloads/wanimagazine_logo.svg`：EPS 与指定 SVG 均通过；native helper 对示例 SVG 发出 32 个按住拖动事件并确认实际纵向滚动、退出锚点稳定及恢复普通窗口几何。最新日志中 EPS/SVG 分别有 46/48 条 `mouse_pan_active=true` paint，逐条均为 `update_mode=full`、`dirty_ratio=1.0`。
 - `python3 -m py_compile tests/vector_drag_ghosting_pipeline.py`、`git diff --check HEAD` 通过。
-- GitHub Actions 曾因 SVG 集成截图 `nonblank=0` 失败。日志中的原始基线暗像素比例为 0.055684，而断言要求至少 0.10；本次校准为 0.01 并将实测最小比例加进失败遥测。修复后本机 Cocoa 拖动回归 `-repeat 3` 通过（9 passed，0 failed）；远端 Actions 结果等待本次提交触发后确认。
+- GitHub Actions 曾因 SVG 集成截图 `nonblank=0` 失败。日志中的原始基线暗像素比例为 0.055684，而断言要求至少 0.10；本次校准为 0.01 并将实测最小比例加进失败遥测。修复后本机 Cocoa 拖动回归 `-repeat 3` 通过（9 passed，0 failed）；提交 `eed5cae` 的 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/runs/36312464801)（含完整单元测试、clang-tidy、clang-format）和 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/runs/36312464871) 均成功。
 - 执行环境：macOS 27，Apple Silicon，Qt 6.11.2，Cocoa。
 
 运行示例：
