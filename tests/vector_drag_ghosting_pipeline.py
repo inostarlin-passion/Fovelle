@@ -336,6 +336,8 @@ def run_static(repo: Path, output_dir: Path) -> dict:
             "stale_pixels",
             "QGraphicsView::FullViewportUpdate",
             "dirtyRatio >= 0.90",
+            "translatedOverlapMismatchRatio",
+            "max_translated_overlap_mismatch_ratio",
             "testVectorDragFrameBudgetForEPSAndSVG",
         )),
         {
@@ -346,11 +348,24 @@ def run_static(repo: Path, output_dir: Path) -> dict:
                     "stale_pixels",
                     "QGraphicsView::FullViewportUpdate",
                     "dirtyRatio >= 0.90",
+                    "translatedOverlapMismatchRatio",
+                    "max_translated_overlap_mismatch_ratio",
                     "testVectorDragFrameBudgetForEPSAndSVG",
                 )
             }
         },
-        "pixel, first-frame, idle-restore and EPS/SVG drag assertions are executable",
+        "pixel, first-frame, translated-overlap, idle-restore and EPS/SVG drag assertions are executable",
+    )
+    check(
+        checks,
+        "ST-GHOST-ACTIVE-MOUSE-PAINT-TRACE",
+        "mouse_pan_active=" in graphics_view
+        and "isVectorMousePanActive" in graphics_view_header,
+        {
+            "view_logs_mouse_pan_state": "mouse_pan_active=" in graphics_view,
+            "view_has_mouse_pan_state": "isVectorMousePanActive" in graphics_view_header,
+        },
+        "paint diagnostics identify actual held mouse-pan frames so system tests can inspect every such paint",
     )
     case_schema_ok = all(set(CASE_FIELDS).issubset(case) for case in CASES)
     check(
@@ -510,8 +525,12 @@ def run_system(repo: Path, build_dir: Path, output_dir: Path) -> dict:
 
     executions = []
     with tempfile.TemporaryDirectory(prefix="fovelle-vector-ghost-") as temporary:
-        eps, svg = write_system_fixtures(Path(temporary))
-        for fmt, path in (("eps", eps), ("svg", svg)):
+        eps, fixture_svg = write_system_fixtures(Path(temporary))
+        configured_svg = os.environ.get("FOVELLE_SVG_SAMPLE", "")
+        svg_sample = Path(configured_svg).expanduser() if configured_svg else fixture_svg
+        if not svg_sample.is_file():
+            svg_sample = fixture_svg
+        for fmt, path in (("eps", eps), ("svg", svg_sample)):
             execution = run_command(
                 [str(helper), "--app", str(app), "--image", str(path)],
                 repo,
@@ -526,11 +545,30 @@ def run_system(repo: Path, build_dir: Path, output_dir: Path) -> dict:
             log_copy.write_text(log_text, encoding="utf-8")
             result_ok = "NATIVE_DRAG_RESULT passed=true" in output
             presentation_ok = bool(re.search(r"FOVELLE_VECTOR_PRESENTATION\s+active=true\s+update_mode=full", log_text)) and bool(re.search(r"FOVELLE_VECTOR_PRESENTATION\s+active=false\s+update_mode=minimal", log_text))
-            paint_ok = bool(re.search(r"FOVELLE_VECTOR_PAINT\s+update_mode=\s*full\s+dirty_area=\s*\d+\s+viewport_area=\s*\d+\s+dirty_ratio=\s*([01](?:\.\d+)?)", log_text))
+            mouse_pan_paints = []
+            for line in log_text.splitlines():
+                if "FOVELLE_VECTOR_PAINT" not in line:
+                    continue
+                mouse_pan_match = re.search(r"mouse_pan_active=\s*(true|false)", line)
+                if not mouse_pan_match or mouse_pan_match.group(1) != "true":
+                    continue
+                mode_match = re.search(r"update_mode=\s*(\w+)", line)
+                ratio_match = re.search(r"dirty_ratio=\s*([-+0-9.eE]+)", line)
+                mouse_pan_paints.append({
+                    "update_mode": mode_match.group(1) if mode_match else None,
+                    "dirty_ratio": float(ratio_match.group(1)) if ratio_match else None,
+                    "line": line,
+                })
+            paint_ok = bool(mouse_pan_paints) and all(
+                paint["update_mode"] == "full"
+                and paint["dirty_ratio"] is not None
+                and paint["dirty_ratio"] >= 0.90
+                for paint in mouse_pan_paints
+            )
             render_format = "pdf" if fmt == "eps" else "svg"
             render_ok = f"FOVELLE_VECTOR_RENDER format={render_format}" in log_text
-            check(checks, f"SYS-NATIVE-HID-{fmt.upper()}", execution["return_code"] == 0 and result_ok and presentation_ok and paint_ok and render_ok, {"execution": execution, "log_path": str(log_copy), "native_result": result_ok, "presentation": presentation_ok, "paint": paint_ok, "render": render_ok}, "real bundle reports full interaction repaint, minimal idle restore and vector render")
-            executions.append({"format": fmt, "execution": execution, "log_path": str(log_copy), "native_result": result_ok, "presentation": presentation_ok, "paint": paint_ok, "render": render_ok})
+            check(checks, f"SYS-NATIVE-HID-{fmt.upper()}", execution["return_code"] == 0 and result_ok and presentation_ok and paint_ok and render_ok, {"execution": execution, "log_path": str(log_copy), "native_result": result_ok, "presentation": presentation_ok, "mouse_pan_paint_count": len(mouse_pan_paints), "mouse_pan_paints": mouse_pan_paints, "render": render_ok}, "real bundle reports full interaction repaint, minimal idle restore, vector render, and every held mouse-pan paint covers at least 90% of the viewport")
+            executions.append({"format": fmt, "execution": execution, "log_path": str(log_copy), "native_result": result_ok, "presentation": presentation_ok, "mouse_pan_paint_count": len(mouse_pan_paints), "mouse_pan_paints": mouse_pan_paints, "paint": paint_ok, "render": render_ok})
 
     result = {
         "kind": "vector-drag-ghosting-system",

@@ -488,6 +488,7 @@ private:
     bool isDelayingDrag {false};
     bool isLastMousePosDubious {false};
     bool isSystemWindowDragActive {false};
+    bool isVectorMousePanActive {false};
     QPoint lastMousePos;
     // QAction::triggered() does not carry a viewport position.  Keep the last
     // delivered mouse position so keyboard/menu zooms use the same anchor as

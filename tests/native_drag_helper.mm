@@ -30,7 +30,7 @@ constexpr int TransitionTimeoutMilliseconds = 8000;
 constexpr int ScrollEdgeTolerance = 3;
 constexpr int NearBottomMaximumGap = 160;
 constexpr double DragStartNormalizedY = 0.94;
-constexpr double DragEndNormalizedY = 0.60;
+constexpr double DragEndNormalizedY = 0.70;
 constexpr double AnchorTolerance = 4.0;
 
 struct Options
@@ -669,26 +669,32 @@ int runReproduction(const Options &options)
             CGRectGetHeight(fullScreenBounds) > CGRectGetHeight(normalWindow->bounds) + 20.0
             ? normalViewportHeight + 20
             : 0;
+    const int minimumDragRange = std::max(1, fullScreenViewportHeightFloor * 2 / 5);
 
-    constexpr int NativeZoomScrollEvents = 3;
+    constexpr int NativeZoomScrollEventLimit = 16;
     const CGPoint fullScreenInteractionPoint = pointInWindow(fullScreenBounds, 0.50, 0.50);
     const size_t zoomStart = samples.size();
-    for (int step = 0; step < NativeZoomScrollEvents; ++step) {
+    bool zoomed = false;
+    for (int step = 0; step < NativeZoomScrollEventLimit && !zoomed; ++step) {
         if (!postScrollEvent(fullScreenInteractionPoint, 1)) {
             std::cerr << "Failed to post the native full-screen zoom scroll event.\n";
             return 1;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        // Keep zooming only until the image is vertically scrollable. A
+        // fixed event count worked for portrait fixtures but left panoramic
+        // SVG logos short of the drag range that the system gesture needs.
+        zoomed = waitForLog(
+                application->logPath,
+                [zoomStart, fullScreenViewportHeightFloor, minimumDragRange](
+                        const std::vector<ViewportSample> &current) {
+                    const ViewportSample *sample = latestSampleAfter(current, zoomStart);
+                    return sample
+                            && sample->viewportHeight >= fullScreenViewportHeightFloor
+                            && sample->maximum - sample->minimum >= minimumDragRange;
+                },
+                750, &samples);
     }
-
-    const bool zoomed = waitForLog(
-            application->logPath,
-            [zoomStart, fullScreenViewportHeightFloor](const std::vector<ViewportSample> &current) {
-                const ViewportSample *sample = latestSampleAfter(current, zoomStart);
-                return sample && sample->viewportHeight >= fullScreenViewportHeightFloor
-                        && sample->maximum > sample->minimum;
-            },
-            5000, &samples);
     if (!zoomed) {
         std::cerr << "The native full-screen scroll sequence did not produce a scrollable image.\n";
         return 1;
@@ -753,7 +759,7 @@ int runReproduction(const Options &options)
               << " exit_anchor_stable=" << (result.exitAnchorStable ? "true" : "false")
               << " no_origin_reset=" << (result.noOriginReset ? "true" : "false")
               << " returned_to_normal_geometry=" << (returnedToNormalGeometry ? "true" : "false")
-              << " trajectory=vertical-94-to-60-steps-32"
+              << " trajectory=vertical-94-to-70-steps-32"
               << " drag_events=" << result.dragEvents << '\n';
 
     return result.passed ? 0 : 1;

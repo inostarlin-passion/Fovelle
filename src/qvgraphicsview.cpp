@@ -130,7 +130,11 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     vectorRefineTimer->setSingleShot(true);
     vectorRefineTimer->setInterval(50);
     connect(vectorRefineTimer, &QTimer::timeout, this, [this]() {
-        setVectorInteractionPresentation(false);
+        // A quiet interval can happen while the user still holds the mouse
+        // (for example when vector rendering or event delivery stalls). Keep
+        // full viewport repainting until the pan gesture is actually released.
+        if (!isVectorMousePanActive)
+            setVectorInteractionPresentation(false);
     });
 
     constrainBoundsTimer = new QTimer(this);
@@ -426,6 +430,7 @@ void QVGraphicsView::paintEvent(QPaintEvent *event)
                           << "update_mode=" << updateMode
                           << "dirty_area=" << dirtyArea
                           << "viewport_area=" << viewportArea
+                          << "mouse_pan_active=" << isVectorMousePanActive
                           << "dirty_ratio="
                           << (viewportArea > 0
                                   ? static_cast<qreal>(dirtyArea) / viewportArea
@@ -999,6 +1004,11 @@ void QVGraphicsView::startDragAction(const Qv::ViewportDragAction action)
 {
     if (action == Qv::ViewportDragAction::Pan)
     {
+        if (getCurrentFileDetails().isVectorLoaded)
+        {
+            isVectorMousePanActive = true;
+            setVectorInteractionPresentation(true);
+        }
         viewport()->setCursor(Qt::ClosedHandCursor);
     }
     else if (action == Qv::ViewportDragAction::MoveWindow)
@@ -1014,6 +1024,10 @@ void QVGraphicsView::startDragAction(const Qv::ViewportDragAction action)
 
 void QVGraphicsView::resetDragState()
 {
+    const bool endedVectorMousePan = isVectorMousePanActive;
+    isVectorMousePanActive = false;
+    if (endedVectorMousePan)
+        setVectorInteractionPresentation(false);
     pressedMouseButton = Qt::NoButton;
     mousePressModifiers = Qt::NoModifier;
     isDelayingDrag = false;
@@ -1382,6 +1396,7 @@ void QVGraphicsView::beforeLoad()
     // SDR proxy for the next file must be paintable while its renderer is
     // decoded and prepared.
     setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+    isVectorMousePanActive = false;
     hdrLayoutReady = false;
     hdrActivationCompleted = false;
     hdrPendingGeometryValid = false;

@@ -19,11 +19,12 @@ namespace
 constexpr quint64 MaxVectorTilePixels = 64ULL * 1024ULL * 1024ULL;
 constexpr int MaxVectorTileDimension = 16384;
 constexpr int VectorTilePanOverscanPixels = 128;
-// During an active pan, QGraphicsView already scrolls the retained backing
-// store and exposes only the newly uncovered strip. Keep a small seam guard
-// for that strip instead of rerendering 128 device pixels of unused content
-// on both sides of every worker request.
-constexpr int VectorTileInteractionOverscanPixels = 16;
+// During an active pan, retain enough terminal-density content beyond the
+// viewport that ordinary successive drag frames do not fall back to the
+// low-resolution preview while an asynchronous tile is being rendered. This
+// stays bounded in device pixels and uses the same budget as idle panning.
+constexpr int VectorTileInteractionOverscanPixels = 128;
+constexpr int VectorTilePrefetchMarginPixels = 64;
 // A vector tile must never be rendered below the density at which it is
 // displayed. Downsampling during a gesture throws away vector detail, and no
 // later filtering can reconstruct it when that tile is magnified again.
@@ -679,7 +680,36 @@ void QVGraphicsImageItem::paint(QPainter *painter,
             vectorSourceGeneration
         };
     };
+    const auto retainedTileCoversRequest = [this](const AsyncTileRequest &request) {
+        for (const VectorTile &tile : vectorTiles)
+        {
+            if (scaleEquivalent(tile.deviceScaleX, request.deviceScaleX)
+                && scaleEquivalent(tile.deviceScaleY, request.deviceScaleY)
+                && tile.sourceRect.adjusted(-1e-9, -1e-9, 1e-9, 1e-9)
+                        .contains(request.sourceRect))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
     int tileIndex = matchingVectorTile(sourceRect, deviceScaleX, deviceScaleY);
+    if (tileIndex >= 0 && vectorInteractionActive)
+    {
+        const VectorTile &tile = vectorTiles.at(tileIndex);
+        const qreal remainingMarginPixels = qMin(
+            qMin((sourceRect.left() - tile.sourceRect.left()) * deviceScaleX,
+                 (tile.sourceRect.right() - sourceRect.right()) * deviceScaleX),
+            qMin((sourceRect.top() - tile.sourceRect.top()) * deviceScaleY,
+                 (tile.sourceRect.bottom() - sourceRect.bottom()) * deviceScaleY));
+        if (remainingMarginPixels <= VectorTilePrefetchMarginPixels)
+        {
+            const AsyncTileRequest prefetch = tileRequest();
+            if (!retainedTileCoversRequest(prefetch))
+                requestAsyncVectorTile(prefetch);
+        }
+    }
     const bool cacheHit = tileIndex >= 0;
     bool reusedVectorTile = false;
     if (tileIndex < 0)
@@ -689,9 +719,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         // the visible rect while a newly exposed tile is being produced. Do
         // not continuously regenerate that same request; its device-pixel
         // overscan determines when a pan really needs another request.
-        if (matchingVectorTile(sourceRect,
-                               request.deviceScaleX,
-                               request.deviceScaleY) < 0)
+        if (!retainedTileCoversRequest(request))
         {
             requestAsyncVectorTile(request);
         }

@@ -70,10 +70,14 @@ double getDouble(QWidget *parent,
     dialog.setWindowTitle(title);
     dialog.setLabelText(label);
     dialog.setInputMode(QInputDialog::DoubleInput);
-    dialog.setDoubleValue(value);
+    dialog.setDoubleDecimals(decimals);
     dialog.setDoubleMinimum(minimum);
     dialog.setDoubleMaximum(maximum);
-    dialog.setDoubleDecimals(decimals);
+    // QDoubleSpinBox clamps its value to the current range. Install the
+    // caller's range before the initial value so values above the spin box's
+    // default 99.99 maximum are not silently reduced before the wider range
+    // takes effect.
+    dialog.setDoubleValue(value);
     applyTheme(&dialog);
     const bool accepted = dialog.exec() == QDialog::Accepted;
     if (ok)

@@ -351,6 +351,7 @@ private slots:
     void testEditMenuRemovesMacOSServiceItems();
     void testNativeDialogsFollowSelectedTheme();
     void testOpenUrlDialogFollowsSelectedTheme();
+    void testZoomCustomDialogStartsAtCurrentLevel();
     void testThemeAppliesNativeAppearanceAndViewportBackground();
     void testCheckerboardOverridesThemeAndRestoresBackground();
     void testNavigationEdgeActivationExcludesTitlebar();
@@ -709,7 +710,8 @@ static QString svgSamplePath(const QTemporaryDir &fallbackDirectory,
     return createSVGVectorImage(fallbackDirectory, "fallback-vector");
 }
 
-static void sendMouseMove(QWidget *widget, const QPoint &position)
+static void sendMouseMove(QWidget *widget, const QPoint &position,
+                          const Qt::MouseButtons buttons = Qt::NoButton)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     QMouseEvent event(
@@ -718,7 +720,7 @@ static void sendMouseMove(QWidget *widget, const QPoint &position)
         QPointF(position),
         QPointF(widget->mapToGlobal(position)),
         Qt::NoButton,
-        Qt::NoButton,
+        buttons,
         Qt::NoModifier);
 #else
     QMouseEvent event(
@@ -726,7 +728,7 @@ static void sendMouseMove(QWidget *widget, const QPoint &position)
         position,
         widget->mapToGlobal(position),
         Qt::NoButton,
-        Qt::NoButton,
+        buttons,
         Qt::NoModifier);
 #endif
     QCoreApplication::sendEvent(widget, &event);
@@ -10825,12 +10827,12 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
 // Test purpose: verify the actual QGraphicsView scroll path disables backing
 // store reuse for both vector formats before the first drag frame.
 // Preconditions: deterministic EPS/SVG documents and a visible Cocoa view.
-// Input data: one six-pixel logical horizontal scrollbar move after a
-// terminal-density tile has become paintable.
-// Operation steps: record the first paint event caused by the scroll and
-// compare its dirty area with the same viewport painted as one full frame.
-// Expected result: the first scroll paint covers the complete viewport, while
-// the vector item remains opaque, asynchronous, and terminal-density based.
+// Input data: an actual left-button pan, including a pause longer than the
+// vector refinement timeout while the button remains pressed.
+// Operation steps: drag the image, record the first resulting paint, wait
+// beyond the old timeout, continue the drag, and then release the button.
+// Expected result: full viewport updates remain enabled until release; the
+// view then returns to minimal updates.
 // Postconditions: the window and temporary documents are released.
 void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
 {
@@ -10858,6 +10860,8 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
     window.setWindowState(Qt::WindowNoState);
     window.resize(640, 480);
     window.show();
+    window.raise();
+    window.activateWindow();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
@@ -10886,37 +10890,318 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVERIFY(view->vectorRenderCount() > 0);
         QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
 
+        const QString configuredSvgSample =
+                QString::fromUtf8(qgetenv("FOVELLE_SVG_SAMPLE"));
+        const bool usesExternalSvgSample = document.first == QStringLiteral("svg")
+                && QFileInfo::exists(configuredSvgSample);
+        const bool checksScreenFrames = !usesExternalSvgSample;
+        constexpr qreal MinimumVisibleDarkPixelRatio = 0.10;
+        const auto viewportCapture = [&]() {
+            const QPixmap windowCapture = window.screen()->grabWindow(window.winId());
+            if (windowCapture.isNull())
+                return QImage();
+            const qreal dpr = windowCapture.devicePixelRatio();
+            const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint());
+            QRect pixelRect(qRound(viewportOrigin.x() * dpr),
+                            qRound(viewportOrigin.y() * dpr),
+                            qRound(view->viewport()->width() * dpr),
+                            qRound(view->viewport()->height() * dpr));
+            const QImage frame = windowCapture.toImage()
+                    .convertToFormat(QImage::Format_RGB32);
+            pixelRect = pixelRect.intersected(frame.rect());
+            if (pixelRect.isEmpty())
+                return QImage();
+            return frame.copy(pixelRect);
+        };
+        const auto viewportDarkPixelRatio = [](const QImage &frame) {
+            if (frame.isNull())
+                return qreal(-1.0);
+            qint64 darkPixels = 0;
+            const qint64 totalPixels = static_cast<qint64>(frame.width())
+                    * frame.height();
+            for (int y = 0; y < frame.height(); ++y)
+            {
+                const QRgb *row = reinterpret_cast<const QRgb *>(
+                        frame.constScanLine(y));
+                for (int x = 0; x < frame.width(); ++x)
+                    darkPixels += qMax(qRed(row[x]), qMax(qGreen(row[x]),
+                                                          qBlue(row[x]))) < 32;
+            }
+            return static_cast<qreal>(darkPixels) / totalPixels;
+        };
+        const auto changedPixelRatio = [](const QImage &before, const QImage &after) {
+            if (before.isNull() || after.isNull() || before.size() != after.size())
+                return qreal(-1.0);
+            qint64 changedPixels = 0;
+            const qint64 totalPixels = static_cast<qint64>(before.width())
+                    * before.height();
+            for (int y = 0; y < before.height(); ++y)
+            {
+                const QRgb *beforeRow = reinterpret_cast<const QRgb *>(
+                        before.constScanLine(y));
+                const QRgb *afterRow = reinterpret_cast<const QRgb *>(
+                        after.constScanLine(y));
+                for (int x = 0; x < before.width(); ++x)
+                {
+                    const int delta = qMax(
+                        qAbs(qRed(beforeRow[x]) - qRed(afterRow[x])),
+                        qMax(qAbs(qGreen(beforeRow[x]) - qGreen(afterRow[x])),
+                             qAbs(qBlue(beforeRow[x]) - qBlue(afterRow[x]))));
+                    changedPixels += delta > 24;
+                }
+            }
+            return static_cast<qreal>(changedPixels) / totalPixels;
+        };
+        const auto translatedOverlapMismatchRatio = [](
+                const QImage &before, const QImage &after,
+                const int scrollDeltaX, const int scrollDeltaY) {
+            if (before.isNull() || after.isNull() || before.size() != after.size())
+                return qreal(-1.0);
+            const int firstX = qMax(0, -scrollDeltaX) + 2;
+            const int lastX = qMin(after.width(), before.width() - scrollDeltaX) - 2;
+            const int firstY = qMax(0, -scrollDeltaY) + 2;
+            const int lastY = qMin(after.height(), before.height() - scrollDeltaY) - 2;
+            if (lastX <= firstX || lastY <= firstY)
+                return qreal(-1.0);
+            qint64 mismatchedPixels = 0;
+            const qint64 overlapPixels = static_cast<qint64>(lastX - firstX)
+                    * (lastY - firstY);
+            for (int y = firstY; y < lastY; ++y)
+            {
+                const QRgb *beforeRow = reinterpret_cast<const QRgb *>(
+                        before.constScanLine(y + scrollDeltaY));
+                const QRgb *afterRow = reinterpret_cast<const QRgb *>(
+                        after.constScanLine(y));
+                for (int x = firstX; x < lastX; ++x)
+                {
+                    const QRgb previous = beforeRow[x + scrollDeltaX];
+                    const QRgb current = afterRow[x];
+                    const int delta = qMax(
+                        qAbs(qRed(previous) - qRed(current)),
+                        qMax(qAbs(qGreen(previous) - qGreen(current)),
+                             qAbs(qBlue(previous) - qBlue(current))));
+                    mismatchedPixels += delta > 32;
+                }
+            }
+            return static_cast<qreal>(mismatchedPixels) / overlapPixels;
+        };
+
         QScrollBar *bar = view->horizontalScrollBar();
         bar->setValue((bar->minimum() + bar->maximum()) / 2);
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         view->viewport()->repaint();
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
+        view->viewport()->repaint();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
 
+        const int initialScrollValue = bar->value();
+        const QPoint dragStart(view->viewport()->width() / 2,
+                               view->viewport()->height() / 2);
+        const QPoint firstDragPosition = dragStart - QPoint(18, 0);
         PaintRegionRecorder recorder;
         view->viewport()->installEventFilter(&recorder);
-        bar->setValue(qMin(bar->value() + 6, bar->maximum()));
-        QCOMPARE(view->viewportUpdateMode(), QGraphicsView::FullViewportUpdate);
+        bool dragButtonPressed = false;
+        const auto releaseDragButton = qScopeGuard([&]() {
+            if (dragButtonPressed)
+                QTest::mouseRelease(view->viewport(), Qt::LeftButton,
+                                    Qt::NoModifier, firstDragPosition);
+            view->viewport()->removeEventFilter(&recorder);
+        });
+        QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          dragStart);
+        dragButtonPressed = true;
+        sendMouseMove(view->viewport(), firstDragPosition, Qt::LeftButton);
+        const bool fullUpdateOnFirstDragFrame =
+                view->viewportUpdateMode() == QGraphicsView::FullViewportUpdate;
+        QTRY_VERIFY_WITH_TIMEOUT(bar->value() != initialScrollValue, 1000);
         QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
-        view->viewport()->removeEventFilter(&recorder);
-
         const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
                 * view->viewport()->height();
         QVERIFY(viewportArea > 0);
-        const qint64 exposedArea = recorder.recordedAreas().constFirst();
-        const qreal dirtyRatio = static_cast<qreal>(exposedArea) / viewportArea;
-        const qreal estimatedCapacityRatio = dirtyRatio > 0.0
-                ? 1.0 / dirtyRatio : std::numeric_limits<qreal>::infinity();
+        const qreal firstFrameDirtyRatio = static_cast<qreal>(
+            recorder.recordedAreas().constFirst()) / viewportArea;
+        qreal minimumDarkPixelRatio = viewportDarkPixelRatio(viewportCapture());
+        qreal maximumStationaryFrameChangeRatio = 0.0;
+        qreal maximumTranslatedOverlapMismatchRatio = 0.0;
+        bool screenFramesAreNonBlank = !checksScreenFrames
+                || minimumDarkPixelRatio >= MinimumVisibleDarkPixelRatio;
+        bool screenFramesAreStable = true;
+
+        // The old code returned to MinimalViewportUpdate after this quiet
+        // interval even though the left mouse button remained held.
+        QTest::qWait(120);
+        const bool fullUpdateAfterPause =
+                view->viewportUpdateMode() == QGraphicsView::FullViewportUpdate;
+        QPoint lastDragPosition = firstDragPosition;
+        QImage previousDragFrame = viewportCapture();
+        int previousHorizontalScroll = bar->value();
+        int previousVerticalScroll = view->verticalScrollBar()->value();
+        const qreal captureScale = window.screen()->devicePixelRatio();
+        QVector<qint64> firstPaintAreaForEachDragStep;
+        // Cross the bounded interaction-tile overscan so the test exercises
+        // tile replacement as well as the initial cached portion of the drag.
+        for (int step = 1; step <= 40; ++step)
+        {
+            lastDragPosition -= QPoint(4, 0);
+            recorder.clear();
+            sendMouseMove(view->viewport(), lastDragPosition, Qt::LeftButton);
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
+            firstPaintAreaForEachDragStep.append(
+                recorder.recordedAreas().constFirst());
+            const QImage earliestCapturedFrame = viewportCapture();
+            QTest::qWait(20);
+            const QImage firstCapturedFrame = viewportCapture();
+            // Keep the earliest presented frame in the oracle. Comparing only
+            // a later settled frame can hide a transient flash while an
+            // asynchronous vector tile is being published.
+            QTest::qWait(20);
+            const QImage settledCandidateFrame = viewportCapture();
+            const int scrollDeltaX = qRound(
+                (bar->value() - previousHorizontalScroll) * captureScale);
+            const int scrollDeltaY = qRound(
+                (view->verticalScrollBar()->value() - previousVerticalScroll)
+                * captureScale);
+            const qreal overlapMismatchRatio = translatedOverlapMismatchRatio(
+                previousDragFrame, settledCandidateFrame,
+                scrollDeltaX, scrollDeltaY);
+            const qreal earliestOverlapMismatchRatio = translatedOverlapMismatchRatio(
+                previousDragFrame, earliestCapturedFrame,
+                scrollDeltaX, scrollDeltaY);
+            const qreal firstOverlapMismatchRatio = translatedOverlapMismatchRatio(
+                previousDragFrame, firstCapturedFrame,
+                scrollDeltaX, scrollDeltaY);
+            const qreal earliestUntranslatedChangeRatio = changedPixelRatio(
+                previousDragFrame, earliestCapturedFrame);
+            if (overlapMismatchRatio >= 0.0)
+            {
+                maximumTranslatedOverlapMismatchRatio = qMax(
+                    maximumTranslatedOverlapMismatchRatio,
+                    overlapMismatchRatio);
+                if (earliestOverlapMismatchRatio < 0.0
+                    || firstOverlapMismatchRatio < 0.0)
+                {
+                    screenFramesAreStable = false;
+                }
+                else
+                {
+                    maximumTranslatedOverlapMismatchRatio = qMax(
+                        maximumTranslatedOverlapMismatchRatio,
+                        qMax(earliestOverlapMismatchRatio,
+                             firstOverlapMismatchRatio));
+                    if (earliestOverlapMismatchRatio > 0.05
+                        || firstOverlapMismatchRatio > 0.05)
+                    {
+                        screenFramesAreStable = false;
+                    }
+                }
+                if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_DRAG_FRAME_TRACE"))
+                {
+                    qInfo().noquote() << QStringLiteral(
+                        "VECTOR_DRAG_FRAME_TRACE format=%1 step=%2 scroll_delta=%3,%4 "
+                        "earliest_mismatch=%5 first_mismatch=%6 settled_mismatch=%7 "
+                        "earliest_untranslated_change=%8")
+                        .arg(document.first).arg(step)
+                        .arg(scrollDeltaX).arg(scrollDeltaY)
+                        .arg(earliestOverlapMismatchRatio, 0, 'f', 6)
+                        .arg(firstOverlapMismatchRatio, 0, 'f', 6)
+                        .arg(overlapMismatchRatio, 0, 'f', 6)
+                        .arg(earliestUntranslatedChangeRatio, 0, 'f', 6);
+                }
+                if (overlapMismatchRatio > 0.05)
+                    screenFramesAreStable = false;
+            }
+            else
+            {
+                // A frame pair with no common viewport pixels cannot prove
+                // translated content continuity and must not pass vacuously.
+                screenFramesAreStable = false;
+            }
+            previousDragFrame = settledCandidateFrame;
+            previousHorizontalScroll = bar->value();
+            previousVerticalScroll = view->verticalScrollBar()->value();
+            const qreal frameDarkPixelRatio = viewportDarkPixelRatio(firstCapturedFrame);
+            if (frameDarkPixelRatio >= 0.0)
+                minimumDarkPixelRatio = qMin(minimumDarkPixelRatio,
+                                             frameDarkPixelRatio);
+            if (checksScreenFrames
+                && frameDarkPixelRatio < MinimumVisibleDarkPixelRatio)
+                screenFramesAreNonBlank = false;
+            // Compare the following stationary frame to detect recurring
+            // presentation changes without treating the one-time refinement
+            // transition as a flash.
+            QTest::qWait(20);
+            const qreal changedRatio = changedPixelRatio(
+                settledCandidateFrame, viewportCapture());
+            if (changedRatio >= 0.0)
+            {
+                maximumStationaryFrameChangeRatio = qMax(
+                    maximumStationaryFrameChangeRatio, changedRatio);
+                if (changedRatio > 0.05)
+                    screenFramesAreStable = false;
+            }
+        }
+        const bool fullUpdateAfterContinuedDrag =
+                view->viewportUpdateMode() == QGraphicsView::FullViewportUpdate;
+        bool everyDragScrollPaintCoveredViewport = true;
+        for (const qint64 paintArea : firstPaintAreaForEachDragStep)
+        {
+            if (static_cast<qreal>(paintArea) / viewportArea < 0.90)
+            {
+                everyDragScrollPaintCoveredViewport = false;
+                break;
+            }
+        }
+        QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                            lastDragPosition);
+        dragButtonPressed = false;
+        QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(),
+                                  QGraphicsView::MinimalViewportUpdate, 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
+        QCoreApplication::processEvents();
+        view->viewport()->removeEventFilter(&recorder);
+
+        const bool dragPresentationContractPassed =
+                fullUpdateOnFirstDragFrame && fullUpdateAfterPause
+                && fullUpdateAfterContinuedDrag && firstFrameDirtyRatio >= 0.90
+                && everyDragScrollPaintCoveredViewport && screenFramesAreNonBlank
+                && screenFramesAreStable;
+        if (!dragPresentationContractPassed)
+        {
+            qInfo().noquote() << QStringLiteral(
+                "VECTOR_DRAG_FAILURE format=%1 first_full=%2 pause_full=%3 "
+                "continued_full=%4 first_dirty=%5 all_scroll_paints_full=%6 "
+                "nonblank=%7 stable=%8 max_frame_change=%9 max_overlap_mismatch=%10")
+                .arg(document.first)
+                .arg(fullUpdateOnFirstDragFrame)
+                .arg(fullUpdateAfterPause)
+                .arg(fullUpdateAfterContinuedDrag)
+                .arg(firstFrameDirtyRatio, 0, 'f', 3)
+                .arg(everyDragScrollPaintCoveredViewport)
+                .arg(screenFramesAreNonBlank)
+                .arg(screenFramesAreStable)
+                .arg(maximumStationaryFrameChangeRatio, 0, 'f', 3)
+                .arg(maximumTranslatedOverlapMismatchRatio, 0, 'f', 3);
+            window.close();
+            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+            QVERIFY2(dragPresentationContractPassed,
+                     qPrintable(document.first
+                                + QStringLiteral(" drag lost full viewport repainting")));
+        }
+
         qInfo().noquote() << QStringLiteral(
-            "VECTOR_DRAG_FPS format=%1 update_mode=full dirty_ratio=%2 "
-            "estimated_capacity_ratio=%3 viewport_area=%4 exposed_area=%5")
+            "VECTOR_DRAG_PRESENTATION format=%1 first_frame_dirty_ratio=%2 "
+            "minimum_dark_pixel_ratio=%3 max_stationary_frame_change_ratio=%4 "
+            "max_translated_overlap_mismatch_ratio=%5 pause_ms=120 "
+            "release_update_mode=minimal viewport_area=%6")
             .arg(document.first)
-            .arg(dirtyRatio, 0, 'f', 6)
-            .arg(estimatedCapacityRatio, 0, 'f', 3)
-            .arg(viewportArea)
-            .arg(exposedArea);
-        QVERIFY2(dirtyRatio >= 0.90,
-                 qPrintable(document.first
-                            + QStringLiteral(" drag repaint did not cover the full viewport")));
+            .arg(firstFrameDirtyRatio, 0, 'f', 6)
+            .arg(minimumDarkPixelRatio, 0, 'f', 6)
+            .arg(maximumStationaryFrameChangeRatio, 0, 'f', 6)
+            .arg(maximumTranslatedOverlapMismatchRatio, 0, 'f', 6)
+            .arg(viewportArea);
     }
 
     window.close();
@@ -14361,6 +14646,61 @@ void WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()
     QVERIFY(lightBase != darkBase);
     QVERIFY(lightWindow.lightness() > darkWindow.lightness());
     QVERIFY(lightBase.lightness() > darkBase.lightness());
+}
+
+// TC-ZOOM-CUSTOM-CURRENT-VALUE
+// Test purpose: verify the Set Zoom Level action presents the active view zoom
+// as its initial input, including values above QInputDialog's default maximum.
+// Preconditions: a visible MainWindow with a loaded vector image.
+// Input data: 6400 percent zoom (64x).
+// Steps: invoke the production zoomCustom path and inspect the modal dialog's
+// actual QDoubleSpinBox value before rejecting it.
+// Expected result: the displayed value matches the current zoom in percent.
+// Postcondition: the modal dialog and window are closed.
+void WindowBehaviorTests::testZoomCustomDialogStartsAtCurrentLevel()
+{
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
+    });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString svgPath = createSVGVectorImage(dir, "zoom-dialog-current-value");
+    QVERIFY(!svgPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(640, 480);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(svgPath);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+        QFileInfo(svgPath).absoluteFilePath(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
+    const double expectedPercent = qRound(view->getZoomLevel() * 1000.0) / 10.0;
+    QVERIFY(expectedPercent > 100.0);
+
+    double dialogValue = -1.0;
+    double visibleInputValue = -1.0;
+    QTimer::singleShot(0, &window, [&]() {
+        auto *dialog = window.findChild<QInputDialog *>();
+        if (!dialog)
+            return;
+        dialogValue = dialog->doubleValue();
+        if (auto *spinBox = dialog->findChild<QDoubleSpinBox *>())
+            visibleInputValue = QLocale().toDouble(spinBox->text());
+        dialog->reject();
+    });
+    window.zoomCustom();
+    window.close();
+
+    QVERIFY2(dialogValue >= 0.0, "Set Zoom Level did not open a double input dialog");
+    QCOMPARE(dialogValue, expectedPercent);
+    QCOMPARE(visibleInputValue, expectedPercent);
 }
 
 // TC-THEME-COLORS
