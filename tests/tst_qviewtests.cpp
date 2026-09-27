@@ -10897,31 +10897,23 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         // is checked independently below.
         constexpr qreal MinimumVisibleDarkPixelRatio = 0.01;
         const auto viewportCapture = [&]() {
-            // Match the backing-store's pixel density so vector tile selection
-            // uses the same device transform as the on-screen viewport. A
-            // default 1x image misses the 2x tiles used by Retina runners and
-            // captures the transparent fallback while replacement work runs.
-            const qreal captureScale = window.devicePixelRatioF();
-            const QSize framePixelSize(
-                qCeil(window.width() * captureScale),
-                qCeil(window.height() * captureScale));
-            QImage windowFrame(framePixelSize, QImage::Format_RGB32);
-            if (windowFrame.isNull())
+            // Ask the graphics view to render its scene in viewport
+            // coordinates. Rendering the top-level QWidget can omit a native
+            // scroll-area viewport on hosted macOS, yielding a blank image
+            // even while the view's own paint path is producing vector tiles.
+            const qreal captureScale = view->viewport()->devicePixelRatioF();
+            const QSize viewportSize = view->viewport()->size();
+            QImage viewportFrame(QSize(qCeil(viewportSize.width() * captureScale),
+                                       qCeil(viewportSize.height() * captureScale)),
+                                 QImage::Format_RGB32);
+            if (viewportFrame.isNull())
                 return QImage();
-            windowFrame.setDevicePixelRatio(captureScale);
-            windowFrame.fill(Qt::white);
-            window.render(&windowFrame);
-            const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint());
-            QRect viewportRect(
-                qRound(viewportOrigin.x() * captureScale),
-                qRound(viewportOrigin.y() * captureScale),
-                qRound(view->viewport()->width() * captureScale),
-                qRound(view->viewport()->height() * captureScale));
-            viewportRect = viewportRect.intersected(windowFrame.rect());
-            if (viewportRect.isEmpty())
-                return QImage();
-            QImage viewportFrame = windowFrame.copy(viewportRect);
             viewportFrame.setDevicePixelRatio(captureScale);
+            viewportFrame.fill(Qt::white);
+            QPainter painter(&viewportFrame);
+            view->render(&painter, QRectF(QPointF(), QSizeF(viewportSize)),
+                         view->viewport()->rect(), Qt::IgnoreAspectRatio);
+            painter.end();
             return viewportFrame;
         };
         const auto viewportDarkPixelRatio = [](const QImage &frame) {
