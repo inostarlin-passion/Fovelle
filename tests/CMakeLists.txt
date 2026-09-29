@@ -152,7 +152,10 @@ if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)
     )
 endif()
 
-add_test(NAME FovelleTests COMMAND fovelle_tests)
+add_test(NAME FovelleTests
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test_suites.py
+        $<TARGET_FILE:fovelle_tests>)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
     TIMEOUT 180
