@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Python test dependencies
+        run: python3 -m pip install --disable-pip-version-check -r tests/requirements.txt
+
       - name: Verify Xcode and macOS SDK
         shell: bash
         run: |

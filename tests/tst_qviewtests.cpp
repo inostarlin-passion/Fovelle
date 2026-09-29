@@ -15432,7 +15432,10 @@ void WindowBehaviorTests::testNavigationBoundaryHintFeedbackAndAppearance()
     QCOMPARE(hint->property("hintAppearance").toString(), QStringLiteral("light"));
     QCOMPARE(hint->property("hintBackground").value<QColor>(), QColor(34, 34, 34, 232));
     QVERIFY(!hint->accessibleName().isEmpty());
-    QVERIFY(displayTimer->isActive());
+    // Opacity can reach its terminal value just before QPropertyAnimation emits
+    // finished() and starts the dwell timer. Wait for that event-loop turn
+    // instead of sampling timer state at the animation boundary.
+    QTRY_VERIFY_WITH_TIMEOUT(displayTimer->isActive(), 1000);
 
     {
         ScopedOptionValues darkTheme(
@@ -15541,12 +15544,16 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
                              10000);
     QTest::qWait(150);
 
-    const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint(0, 0));
     const QSize viewportSize = view->viewport()->size();
     const auto captureScreenViewport = [&]() {
-        const QPixmap screenshot =
-                screen->grabWindow(window.winId(), viewportOrigin.x(), viewportOrigin.y(),
-                                   viewportSize.width(), viewportSize.height());
+        // On macOS a desktop capture uses virtual-desktop coordinates; a
+        // window-id capture can include the native titlebar in its result.
+        // Capture the actual viewport rectangle so focus-dependent AppKit
+        // titlebar rendering is not mistaken for a change to the image.
+        const QPoint screenOrigin =
+                view->viewport()->mapToGlobal(QPoint(0, 0)) - screen->geometry().topLeft();
+        const QPixmap screenshot = screen->grabWindow(0, screenOrigin.x(), screenOrigin.y(),
+                                                      viewportSize.width(), viewportSize.height());
         QImage image = screenshot.toImage().convertToFormat(QImage::Format_RGBA8888);
         image.setDevicePixelRatio(1.0);
         return image;
@@ -15612,15 +15619,13 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
     QVERIFY(!inactive.isNull());
     QVERIFY(inactive.save(dir.filePath(QStringLiteral("inactive.png"))));
     QCOMPARE(transparentBackgroundSample(inactive), focusedBackdrop);
-    // QScreen returns the window's screen-composited pixels, including the
-    // rounded outer window corner. AppKit changes that antialiased corner on
-    // deactivation even though the viewport remains bit-identical; exclude a
-    // 32-device-pixel frame margin while retaining the transparent-pixel
-    // sample above and all image/viewport content.
-    constexpr int frameMargin = 32;
+    // The native macOS titlebar overlaps the top of this viewport capture.
+    // Its controls and title change appearance on deactivation; exclude that
+    // system-owned 32-point strip at the capture's device-pixel scale while
+    // retaining the transparent-pixel sample and image content below it.
+    const int frameMargin = static_cast<int>(32.0 * screen->devicePixelRatio() + 0.5);
     QVERIFY(focused.width() > frameMargin * 2 && focused.height() > frameMargin * 2);
-    const QRect contentRect(frameMargin, frameMargin,
-                            focused.width() - frameMargin * 2,
+    const QRect contentRect(frameMargin, frameMargin, focused.width() - frameMargin * 2,
                             focused.height() - frameMargin * 2);
     QVERIFY2(inactive.copy(contentRect) == focused.copy(contentRect),
              qPrintable(QStringLiteral("viewport screen pixels changed after deactivation; "
