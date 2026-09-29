@@ -5787,6 +5787,15 @@ bool QVCocoaFunctions::isWindowChildOf(const QWindow *child, const QWindow *pare
         && childWindow.parentWindow == parentWindow;
 }
 
+static NSAppearanceName closestStandardAppearanceName(NSAppearance *appearance)
+{
+    if (!appearance)
+        return nil;
+
+    NSArray *candidates = @[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ];
+    return [appearance bestMatchFromAppearancesWithNames:candidates];
+}
+
 Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
 {
     if (theme != Qv::Theme::System)
@@ -5802,8 +5811,7 @@ Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
     if (!appearance)
         return Qv::Theme::Light;
 
-    NSArray *candidates = @[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ];
-    const NSAppearanceName match = [appearance bestMatchFromAppearancesWithNames:candidates];
+    const NSAppearanceName match = closestStandardAppearanceName(appearance);
     return [match isEqualToString:NSAppearanceNameDarkAqua] ? Qv::Theme::Dark : Qv::Theme::Light;
 }
 
@@ -5867,7 +5875,7 @@ QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
         return {};
 
     auto *view = reinterpret_cast<NSView*>(window->winId());
-    NSString *name = view.window.effectiveAppearance.name;
+    NSString *name = closestStandardAppearanceName(view.window.effectiveAppearance);
     if ([name isEqualToString:NSAppearanceNameAqua])
         return QStringLiteral("Aqua");
     if ([name isEqualToString:NSAppearanceNameDarkAqua])
@@ -5877,7 +5885,7 @@ QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
 
 QString QVCocoaFunctions::getActiveModalWindowAppearanceName()
 {
-    NSString *name = NSApp.modalWindow.effectiveAppearance.name;
+    NSString *name = closestStandardAppearanceName(NSApp.modalWindow.effectiveAppearance);
     if ([name isEqualToString:NSAppearanceNameAqua])
         return QStringLiteral("Aqua");
     if ([name isEqualToString:NSAppearanceNameDarkAqua])
