@@ -484,6 +484,14 @@ No write permission or file is read-only.</source>
         <source>Next File</source>
         <translation>下一个文件</translation>
     </message>
+    <message>
+        <source>No previous image</source>
+        <translation>没有上一张图片</translation>
+    </message>
+    <message>
+        <source>No next image</source>
+        <translation>没有下一张图片</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

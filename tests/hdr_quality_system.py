@@ -125,6 +125,49 @@ def capture_origin_logical(records: list[dict], captures: list[dict]) -> tuple[f
     return 0.0, 0.0
 
 
+def focus_endpoint_captures(
+    records: list[dict], captures: list[dict]
+) -> tuple[dict | None, dict | None]:
+    """Select screenshots correlated with settled focus and inactive phases."""
+    def first_phase(name: str, after_ms: int = -1) -> dict | None:
+        return next((item for item in records
+                     if item.get("phase") == name
+                     and int(item.get("timestamp_ms", 0)) > after_ms), None)
+
+    focused = first_phase("final-frame-visible")
+    deactivated = first_phase(
+        "window-deactivated",
+        int(focused.get("timestamp_ms", -1)) if focused else -1,
+    )
+    inactive = first_phase(
+        "inactive-sdr-visible",
+        int(deactivated.get("timestamp_ms", -1)) if deactivated else -1,
+    )
+    activated = first_phase(
+        "window-activated",
+        int(inactive.get("timestamp_ms", -1)) if inactive else -1,
+    )
+    if not all((focused, deactivated, inactive, activated)):
+        return None, None
+
+    focused_ms = int(focused["timestamp_ms"])
+    deactivated_ms = int(deactivated["timestamp_ms"])
+    inactive_ms = int(inactive["timestamp_ms"])
+    activated_ms = int(activated["timestamp_ms"])
+    focused_captures = [
+        item for item in captures
+        if focused_ms <= int(item.get("capture_timestamp_ms", 0)) < deactivated_ms
+    ]
+    inactive_captures = [
+        item for item in captures
+        if inactive_ms <= int(item.get("capture_timestamp_ms", 0)) < activated_ms
+    ]
+    return (
+        focused_captures[-1] if focused_captures else None,
+        inactive_captures[0] if inactive_captures else None,
+    )
+
+
 def viewport_pixel_crop(
     records: list[dict], capture_origin: tuple[float, float] = (0.0, 0.0)
 ) -> tuple[int, int, int, int] | None:
@@ -493,6 +536,7 @@ def launch(
     interaction: bool = False,
     theme_switch: bool = False,
     navigation: bool = False,
+    focus_transition: bool = False,
     capture_seconds: float = CAPTURE_SECONDS,
     capture_schedule: list[float] | None = None,
     capture_directory: Path | None = None,
@@ -519,6 +563,9 @@ def launch(
         environment["FOVELLE_HDR_TEST_THEME_SWITCH"] = "1"
     if navigation:
         environment["FOVELLE_HDR_TEST_NAVIGATION"] = "1"
+    if focus_transition:
+        environment["FOVELLE_HDR_TEST_FOCUS_TRANSITION"] = "1"
+        environment["FOVELLE_HDR_TRANSITION_LOG"] = "1"
     command = [str(app), str(image)]
     started = time.perf_counter()
     captures = []
@@ -530,29 +577,133 @@ def launch(
             stderr=subprocess.STDOUT,
             env=environment,
         )
-        for capture_index, offset in enumerate(sorted(capture_schedule or []), start=1):
-            remaining = started + offset - time.perf_counter()
-            if remaining > 0:
-                time.sleep(remaining)
-            if process.poll() is not None:
-                break
-            if capture_directory is not None:
-                scenario = (
-                    "interaction" if interaction else "theme" if theme_switch
-                    else "navigation" if navigation else "launch"
+        if focus_transition and capture_directory is not None:
+            # Capture the inactive endpoint immediately after the production
+            # timer reports that its SDR fallback is stable. Fixed process
+            # offsets are unreliable because image decode and HDR preparation
+            # time vary between machines.
+            capture_directory.mkdir(parents=True, exist_ok=True)
+            capture_jobs = []
+
+            def start_async_capture(name: str, requested_offset: float | None,
+                                    native_window_number: int | None) -> None:
+                capture_path = capture_directory / name
+                capture_command = ["/usr/sbin/screencapture", "-x", "-t", "png"]
+                if native_window_number is not None and native_window_number > 0:
+                    capture_command.extend(["-o", "-l", str(native_window_number)])
+                capture_command.append(str(capture_path))
+                started_offset = time.perf_counter() - started
+                timestamp_ms = int(time.time() * 1000)
+                capture_process = subprocess.Popen(
+                    capture_command, text=True, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
                 )
-                capture_path = capture_directory / (
-                    f"{format_name.replace('-', '_')}"
-                    f"_{scenario}_{capture_index}_{int(offset * 1000):04d}ms.png"
-                )
-                capture_started_offset = time.perf_counter() - started
-                capture = capture_screen(
-                    capture_path, live_native_window_number(output_file)
-                )
-                capture["requested_offset_seconds"] = offset
-                capture["started_offset_seconds"] = capture_started_offset
-                capture["finished_offset_seconds"] = time.perf_counter() - started
-                captures.append(capture)
+                capture_jobs.append({
+                    "process": capture_process,
+                    "path": str(capture_path),
+                    "command": capture_command,
+                    "capture_scope": (
+                        "fovelle-native-window" if native_window_number else "desktop-fallback"
+                    ),
+                    "native_window_number": native_window_number,
+                    "requested_offset_seconds": requested_offset,
+                    "started_offset_seconds": started_offset,
+                    "capture_timestamp_ms": timestamp_ms,
+                })
+
+            base_offsets = []
+            next_base_capture = 0
+            focused_capture_started = False
+            inactive_capture_started = False
+            deadline = started + capture_seconds
+            while process.poll() is None and time.perf_counter() < deadline:
+                elapsed = time.perf_counter() - started
+                if (next_base_capture < len(base_offsets)
+                        and elapsed >= base_offsets[next_base_capture]):
+                    offset = base_offsets[next_base_capture]
+                    start_async_capture(
+                        f"{format_name.replace('-', '_')}_focus_focused.png",
+                        offset, live_native_window_number(output_file),
+                    )
+                    next_base_capture += 1
+                try:
+                    output_size = os.fstat(output_file.fileno()).st_size
+                    live_output = os.pread(
+                        output_file.fileno(), output_size, 0
+                    ).decode("utf-8", errors="replace")
+                except OSError:
+                    live_output = ""
+                inactive_ready = False
+                focused_ready = False
+                for match in re.finditer(r"FOVELLE_HDR\s+(\{[^\n\r]+\})", live_output):
+                    try:
+                        item = json.loads(match.group(1))
+                    except json.JSONDecodeError:
+                        continue
+                    if (item.get("phase") == "inactive-sdr-visible"
+                            and item.get("fallback_visible") is True
+                            and float(item.get("layer_opacity", -1)) <= 0.01):
+                        inactive_ready = True
+                    if (item.get("phase") == "final-frame-visible"
+                            and item.get("first_frame_presented") is True
+                            and item.get("presentation_animation_in_flight") is False):
+                        focused_ready = True
+                if focused_ready and not focused_capture_started:
+                    start_async_capture(
+                        f"{format_name.replace('-', '_')}_focus_focused.png",
+                        None, live_native_window_number(output_file),
+                    )
+                    focused_capture_started = True
+                if inactive_ready and not inactive_capture_started:
+                    start_async_capture(
+                        f"{format_name.replace('-', '_')}_focus_inactive_stable.png",
+                        None, live_native_window_number(output_file),
+                    )
+                    inactive_capture_started = True
+                time.sleep(0.01)
+
+            for job in capture_jobs:
+                capture_process = job.pop("process")
+                try:
+                    capture_output, _ = capture_process.communicate(timeout=15)
+                except subprocess.TimeoutExpired:
+                    capture_process.kill()
+                    capture_output, _ = capture_process.communicate()
+                capture_path = Path(job["path"])
+                job.update({
+                    "return_code": capture_process.returncode,
+                    "output": capture_output or "",
+                    "bytes": capture_path.stat().st_size if capture_path.is_file() else 0,
+                    "sha256": sha256(capture_path) if capture_path.is_file() else None,
+                    "finished_offset_seconds": time.perf_counter() - started,
+                })
+                captures.append(job)
+        else:
+            for capture_index, offset in enumerate(sorted(capture_schedule or []), start=1):
+                remaining = started + offset - time.perf_counter()
+                if remaining > 0:
+                    time.sleep(remaining)
+                if process.poll() is not None:
+                    break
+                if capture_directory is not None:
+                    scenario = (
+                        "interaction" if interaction else "theme" if theme_switch
+                        else "navigation" if navigation else "launch"
+                    )
+                    capture_path = capture_directory / (
+                        f"{format_name.replace('-', '_')}"
+                        f"_{scenario}_{capture_index}_{int(offset * 1000):04d}ms.png"
+                    )
+                    capture_started_offset = time.perf_counter() - started
+                    capture_timestamp_ms = int(time.time() * 1000)
+                    capture = capture_screen(
+                        capture_path, live_native_window_number(output_file)
+                    )
+                    capture["requested_offset_seconds"] = offset
+                    capture["started_offset_seconds"] = capture_started_offset
+                    capture["capture_timestamp_ms"] = capture_timestamp_ms
+                    capture["finished_offset_seconds"] = time.perf_counter() - started
+                    captures.append(capture)
 
         remaining = started + capture_seconds - time.perf_counter()
         if remaining > 0:
@@ -589,6 +740,12 @@ def launch(
             navigation_events.append(json.loads(match.group(1)))
         except json.JSONDecodeError:
             continue
+    transition_records = []
+    for match in re.finditer(r"FOVELLE_HDR_TRANSITION\s+(\{[^\n\r]+\})", output):
+        try:
+            transition_records.append(json.loads(match.group(1)))
+        except json.JSONDecodeError:
+            continue
     return {
         "format": format_name,
         "run_index": run_index,
@@ -597,6 +754,7 @@ def launch(
         "interaction": interaction,
         "theme_switch": theme_switch,
         "navigation": navigation,
+        "focus_transition": focus_transition,
         "command": command,
         "capture_seconds": capture_seconds,
         "elapsed_seconds": time.perf_counter() - started,
@@ -606,6 +764,7 @@ def launch(
         "telemetry": telemetry,
         "presentation_events": presentation_events,
         "navigation_events": navigation_events,
+        "transition_records": transition_records,
         "screen_captures": captures,
         "process_output": output,
         "process_healthy": (
@@ -732,6 +891,101 @@ def presentation_timing(events: list[dict]) -> dict:
     }
 
 
+def focus_transition_metrics(records: list[dict]) -> dict:
+    """Verify sampled renderer opacity travels smoothly in both directions."""
+    deactivate_index = next((index for index, item in enumerate(records)
+                             if item.get("active_requested") is False), None)
+    deactivate_settled_index = next((
+        index for index, item in enumerate(records)
+        if deactivate_index is not None and index >= deactivate_index
+        and item.get("active_requested") is False
+        and item.get("animation_in_flight") is False
+    ), None)
+    activate_index = next((index for index, item in enumerate(records)
+                           if deactivate_settled_index is not None
+                           and index > deactivate_settled_index
+                           and item.get("active_requested") is True), None)
+    activate_settled_index = next((
+        index for index, item in enumerate(records)
+        if activate_index is not None and index >= activate_index
+        and item.get("active_requested") is True
+        and item.get("animation_in_flight") is False
+    ), None)
+
+    def direction(active: bool, start_index: int | None,
+                  settled_index: int | None) -> dict:
+        end_index = settled_index + 1 if settled_index is not None else len(records)
+        samples = records[start_index:end_index] if start_index is not None else []
+        samples = [item for item in samples if item.get("active_requested") is active]
+        animated = [item for item in samples if item.get("animation_in_flight") is True]
+        settled = (records[settled_index] if settled_index is not None else None)
+        opacities = [float(item.get("opacity", -1)) for item in animated]
+        timestamps = [int(item.get("timestamp_ms", 0)) for item in animated]
+        settled_timestamp = int(settled.get("timestamp_ms", 0)) if settled else 0
+        span_ms = settled_timestamp - timestamps[0] if timestamps and settled_timestamp else 0
+        monotonic = len(opacities) >= 8 and all(
+            (right <= left + 0.015) if not active else (right + 0.015 >= left)
+            for left, right in zip(opacities, opacities[1:])
+        )
+        return {
+            "animated_sample_count": len(animated),
+            "opacity_samples": opacities,
+            "opacity_monotonic": monotonic,
+            "animation_span_ms": span_ms,
+            "settled": settled,
+        }
+
+    deactivate = direction(False, deactivate_index, deactivate_settled_index)
+    activate = direction(True, activate_index, activate_settled_index)
+    down_samples = deactivate["opacity_samples"]
+    up_samples = activate["opacity_samples"]
+    down_end = deactivate["settled"]
+    up_end = activate["settled"]
+    return {
+        "deactivation": deactivate,
+        "activation": activate,
+        "deactivation_has_multiple_intermediate_frames": (
+            deactivate["animated_sample_count"] >= 8
+        ),
+        "deactivation_opacity_decreases_monotonically": (
+            deactivate["opacity_monotonic"] and bool(down_samples)
+            and down_samples[0] >= 0.8 and down_samples[-1] <= 0.2
+        ),
+        "deactivation_matches_opening_duration": (
+            350 <= deactivate["animation_span_ms"] <= 550
+        ),
+        "inactive_endpoint_is_crisp_sdr_proxy": (
+            down_end is not None and abs(float(down_end.get("opacity", -1))) <= 0.01
+            and down_end.get("fallback_visible") is True
+            and down_end.get("wants_edr") is False
+        ),
+        "activation_opacity_increases_monotonically": (
+            activate["opacity_monotonic"] and bool(up_samples)
+            and up_samples[0] <= 0.2 and up_samples[-1] >= 0.8
+        ),
+        "activation_matches_opening_duration": (
+            350 <= activate["animation_span_ms"] <= 550
+        ),
+        "focused_hdr_endpoint_is_restored": (
+            up_end is not None and abs(float(up_end.get("opacity", -1)) - 1.0) <= 0.01
+            and up_end.get("wants_edr") is True
+        ),
+    }
+
+
+def focus_proxy_matches_source_resolution(records: list[dict]) -> bool:
+    """Require the settled inactive Qt endpoint to retain every source pixel."""
+    endpoint = next((item for item in records
+                    if item.get("phase") == "inactive-sdr-visible"
+                    and item.get("fallback_visible") is True), None)
+    return bool(endpoint) and (
+        int(endpoint.get("fallback_pixmap_width", 0))
+        == int(endpoint.get("pixel_width", -1))
+        and int(endpoint.get("fallback_pixmap_height", 0))
+        == int(endpoint.get("pixel_height", -1))
+    )
+
+
 def make_case(identifier: str, checks: dict[str, bool], observations: dict) -> dict:
     passed = bool(checks) and all(checks.values())
     return {
@@ -840,11 +1094,20 @@ def main() -> int:
         capture_schedule=[8.8, 10.2, 11.8],
         capture_directory=capture_directory,
     )
+    focus_transition_run = launch(
+        app,
+        jpeg,
+        1,
+        focus_transition=True,
+        capture_seconds=3.4,
+        capture_schedule=[1.2],
+        capture_directory=capture_directory,
+    )
     compositor_120hz_probe = launch_120hz_compositor_probe(app, jpeg)
     runs.extend((
         forced_sdr, bootstrap_jpeg, bootstrap_raw, interaction_run,
         theme_run, nef_interaction_run, raw_interaction_run,
-        plain_dng_open_run, navigation_run,
+        plain_dng_open_run, navigation_run, focus_transition_run,
     ))
 
     real_runs = [
@@ -854,6 +1117,7 @@ def main() -> int:
         and not run["interaction"]
         and not run["theme_switch"]
         and not run["navigation"]
+        and not run["focus_transition"]
     ]
     jpeg_runs = [run for run in real_runs if run["format"] == "gain-map-jpeg"]
     raw_runs = [run for run in real_runs if run["format"] == "raw-dng"]
@@ -957,6 +1221,41 @@ def main() -> int:
             nef_edge_similarities.append(similarity)
 
     navigation_events = navigation_run["navigation_events"]
+    focus_metrics = focus_transition_metrics(
+        focus_transition_run["transition_records"]
+    )
+    focus_first_presented = next((
+        item for item in focus_transition_run["telemetry"]
+        if item.get("first_frame_presented") is True
+    ), None)
+    focus_capture_by_offset = {
+        round(float(item.get("requested_offset_seconds", -1)), 2): item
+        for item in focus_transition_run["screen_captures"]
+    }
+    focus_initial_capture, focus_inactive_capture = focus_endpoint_captures(
+        focus_transition_run["telemetry"], focus_transition_run["screen_captures"]
+    )
+    focus_capture_origin = capture_origin_logical(
+        focus_transition_run["telemetry"], focus_transition_run["screen_captures"]
+    )
+    focus_image_crop = image_pixel_crop(
+        focus_transition_run["telemetry"], focus_capture_origin
+    )
+    focus_edge_similarity = 0.0
+    if (
+        focus_initial_capture and focus_inactive_capture
+        and focus_initial_capture["return_code"] == 0
+        and focus_inactive_capture["return_code"] == 0
+        and Path(focus_initial_capture["path"]).is_file()
+        and Path(focus_inactive_capture["path"]).is_file()
+        and focus_image_crop is not None
+    ):
+        focus_edge_similarity = edge_cosine_similarity(
+            Path(focus_initial_capture["path"]),
+            Path(focus_inactive_capture["path"]),
+            focus_image_crop,
+            focus_image_crop,
+        )
     navigation_visible_events = [
         item for item in navigation_events
         if item.get("phase") == "fractional-visible"
@@ -1461,6 +1760,54 @@ def main() -> int:
                 "The SDR proxy (or prior HDR drawable) covers preparation; "
                 "only the final-headroom drawable is revealed after presentation. "
                 "WindowServer owns the one-time EDR adaptation."
+            ),
+        }),
+        make_case("SYS-HDR-FOCUS-FADE-AND-SHARP-ENDPOINT", {
+            "focus_probe_run_healthy": focus_transition_run["process_healthy"],
+            "focus_probe_uses_a_real_gain_map_hdr_source": (
+                focus_first_presented is not None
+                and focus_first_presented.get("source_kind") == "adaptive-hdr"
+                and (focus_first_presented.get("has_apple_gain_map") is True
+                     or focus_first_presented.get("has_iso_gain_map") is True)
+                and float(focus_first_presented.get("target_headroom", 1.0)) > 1.0
+            ),
+            "focus_out_has_intermediate_animation_frames": focus_metrics[
+                "deactivation_has_multiple_intermediate_frames"
+            ],
+            "focus_out_opacity_is_monotonically_decreasing": focus_metrics[
+                "deactivation_opacity_decreases_monotonically"
+            ],
+            "focus_out_duration_matches_opening": focus_metrics[
+                "deactivation_matches_opening_duration"
+            ],
+            "focus_out_settles_on_crisp_sdr_proxy": focus_metrics[
+                "inactive_endpoint_is_crisp_sdr_proxy"
+            ],
+            "focus_out_proxy_retains_full_source_resolution":
+                focus_proxy_matches_source_resolution(
+                    focus_transition_run["telemetry"]
+                ),
+            "focus_in_opacity_is_monotonically_increasing": focus_metrics[
+                "activation_opacity_increases_monotonically"
+            ],
+            "focus_in_duration_matches_opening": focus_metrics[
+                "activation_matches_opening_duration"
+            ],
+            "focus_in_restores_hdr_endpoint": focus_metrics[
+                "focused_hdr_endpoint_is_restored"
+            ],
+            "inactive_screen_image_retains_focused_edge_detail": (
+                focus_edge_similarity >= 0.90
+            ),
+        }, {
+            "focus_transition_metrics": focus_metrics,
+            "first_presented_hdr_record": focus_first_presented,
+            "focused_to_inactive_image_edge_cosine_similarity": focus_edge_similarity,
+            "focus_screen_captures": focus_transition_run["screen_captures"],
+            "policy": (
+                "Use the existing 450 ms ease-in/ease-out compositor-opacity fade "
+                "in reverse on focus loss. Keep the aligned SDR proxy beneath the "
+                "HDR layer so its settled zero-opacity endpoint remains crisp."
             ),
         }),
         make_case("SYS-HDR-WINDOWSERVER-HEADROOM", {

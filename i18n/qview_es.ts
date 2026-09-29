@@ -485,6 +485,14 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>Next File</source>
         <translation>Archivo siguiente</translation>
     </message>
+    <message>
+        <source>No previous image</source>
+        <translation>No hay imagen anterior</translation>
+    </message>
+    <message>
+        <source>No next image</source>
+        <translation>No hay imagen siguiente</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

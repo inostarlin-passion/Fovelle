@@ -85,7 +85,8 @@ public:
 
     void setLoadIsFromSessionRestore(const bool value);
 
-    void goToFile(const Qv::GoToFileMode mode, const int index = 0);
+    void goToFile(const Qv::GoToFileMode mode, const int index = 0,
+                  const bool reportNavigationBoundary = true);
 
     void settingsUpdated(const bool isInitialLoad);
 
@@ -205,6 +206,9 @@ public:
                                  bool darkBackground, bool hovered,
                                  bool pressed, bool enabled);
     void clearHDRNavigationOverlays();
+    void setHDRBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
+    void setHDRBoundaryHintOpacity(qreal opacity);
+    void clearHDRBoundaryHintOverlay();
 
     int getFitOverscan() const { return fitOverscan; }
 
@@ -220,6 +224,8 @@ signals:
     void navigationResetsZoomChanged();
 
     void sortParametersChanged();
+
+    void navigationBoundaryReached(Qv::GoToFileMode mode);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

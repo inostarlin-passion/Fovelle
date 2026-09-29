@@ -364,6 +364,8 @@ private slots:
     void testNavigationButtonsClickSwitchesFiles();
     void testPreviousNavigationButtonHiddenWithoutPreviousFile();
     void testNextNavigationButtonHiddenWithoutNextFile();
+    void testNavigationBoundaryHintFeedbackAndAppearance();
+    void testViewportImageRemainsSharpAfterFocusLoss();
 };
 
 class ShortcutSettingsTests : public QObject
@@ -15179,6 +15181,280 @@ void WindowBehaviorTests::testNextNavigationButtonHiddenWithoutNextFile()
     QTRY_VERIFY_WITH_TIMEOUT(
         previousButton->property("navigationRequestedVisible").toBool(), 1000);
 
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-NAV-BOUNDARY-HINT
+// Test purpose: prove unavailable Previous/Next requests show directional,
+// localized feedback while successful navigation remains silent.
+// Preconditions: loopfoldersenabled=false and a sorted three-image folder.
+// Input data: 01-hint.png, 02-hint.png, and 03-hint.png.
+// Steps: navigate successfully in both directions, request Previous at index 0,
+// then Next at index 2, inspecting hint identity and animation metadata.
+// Expected result: only boundary attempts show one hint; it uses a 180 ms fade
+// and remains fully visible for the specified 4000 ms dwell.
+// Postcondition: close the window and restore settings and temporary files.
+void WindowBehaviorTests::testNavigationBoundaryHintFeedbackAndAppearance()
+{
+    ScopedOptionValues options(
+            { { QStringLiteral("loopfoldersenabled"), false },
+              { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Light) },
+              { QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name) },
+              { QStringLiteral("sortdescending"), false },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("windowresizemode"),
+                static_cast<int>(Qv::WindowResizeMode::Never) } });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString firstPath = createTestImage(dir, QStringLiteral("01-hint"), Qt::red);
+    const QString middlePath = createTestImage(dir, QStringLiteral("02-hint"), Qt::green);
+    const QString lastPath = createTestImage(dir, QStringLiteral("03-hint"), Qt::blue);
+    QVERIFY(!firstPath.isEmpty());
+    QVERIFY(!middlePath.isEmpty());
+    QVERIFY(!lastPath.isEmpty());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(800, 600);
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.openFile(firstPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 0, 2000);
+
+    auto *hint = window.findChild<QWidget *>(QStringLiteral("navigationBoundaryHint"));
+    auto *fade = window.findChild<QPropertyAnimation *>(
+            QStringLiteral("navigationBoundaryHintOpacityAnimation"));
+    auto *displayTimer =
+            window.findChild<QTimer *>(QStringLiteral("navigationBoundaryHintDisplayTimer"));
+    QVERIFY(hint);
+    QVERIFY(fade);
+    QVERIFY(displayTimer);
+    QVERIFY(!hint->isVisible());
+    QCOMPARE(hint->property("transitionDurationMs").toInt(),
+             MainWindow::NavigationBoundaryHintAnimationDuration);
+    QCOMPARE(hint->property("displayDurationMs").toInt(),
+             MainWindow::NavigationBoundaryHintDisplayDuration);
+    QCOMPARE(displayTimer->interval(), MainWindow::NavigationBoundaryHintDisplayDuration);
+
+    window.nextFile();
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 1, 5000);
+    QCOMPARE(hint->property("hintMessageId").toString(), QString());
+    window.previousFile();
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 0, 5000);
+    QCOMPARE(hint->property("hintMessageId").toString(), QString());
+
+    window.previousFile();
+    QTRY_COMPARE_WITH_TIMEOUT(hint->property("hintMessageId").toString(),
+                              QStringLiteral("previous"), 1000);
+    QCOMPARE(fade->duration(), MainWindow::NavigationBoundaryHintAnimationDuration);
+    QTRY_VERIFY_WITH_TIMEOUT(window.property("boundaryHintOpacity").toReal() > 0.99, 1000);
+    QCOMPARE(hint->property("hintAppearance").toString(), QStringLiteral("light"));
+    QCOMPARE(hint->property("hintBackground").value<QColor>(), QColor(34, 34, 34, 232));
+    QVERIFY(!hint->accessibleName().isEmpty());
+    QVERIFY(displayTimer->isActive());
+
+    {
+        ScopedOptionValues darkTheme(
+                { { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) } });
+        window.previousFile();
+        QCOMPARE(hint->property("hintAppearance").toString(), QStringLiteral("dark"));
+        QCOMPARE(hint->property("hintBackground").value<QColor>(), QColor(242, 242, 242, 238));
+        QCOMPARE(hint->property("hintForeground").value<QColor>(), QColor(28, 28, 28));
+    }
+
+#ifdef FOVELLE_TRANSLATIONS_DIR
+    const QList<QPair<QString, QString>> localizedMessages{
+        { QStringLiteral("qview_zh_Hans.qm"), QStringLiteral("没有上一张图片") },
+        { QStringLiteral("qview_zh_Hant.qm"), QStringLiteral("沒有上一張圖片") },
+        { QStringLiteral("qview_es.qm"), QStringLiteral("No hay imagen anterior") },
+        { QStringLiteral("qview_ja.qm"), QStringLiteral("前の画像はありません") }
+    };
+    for (const auto &localizedMessage : localizedMessages) {
+        QTranslator translator;
+        QVERIFY(translator.load(QStringLiteral(FOVELLE_TRANSLATIONS_DIR) + QLatin1Char('/')
+                                + localizedMessage.first));
+        QCoreApplication::installTranslator(&translator);
+        window.previousFile();
+        QCOMPARE(hint->accessibleName(), localizedMessage.second);
+        QCoreApplication::removeTranslator(&translator);
+    }
+#endif
+
+    window.openFile(lastPath);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 2, 5000);
+    window.nextFile();
+    QCOMPARE(hint->property("hintMessageId").toString(), QStringLiteral("next"));
+    QTRY_VERIFY_WITH_TIMEOUT(window.property("boundaryHintOpacity").toReal() > 0.99, 1000);
+
+    if (auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+        view && view->usesNativeHDRNavigationOverlay()) {
+        QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().nativeBoundaryHintVisible,
+                                 1000);
+    }
+
+    {
+        ScopedOptionValues loopEnabled({ { QStringLiteral("loopfoldersenabled"), true } });
+        window.nextFile();
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 0, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.property("boundaryHintOpacity").toReal(), 0.0, 1000);
+        window.previousFile();
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, 2, 5000);
+        QCOMPARE(window.property("boundaryHintOpacity").toReal(), 0.0);
+    }
+
+    window.close();
+    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// AC-VIEWPORT-FOCUS-SHARP / AC-TRANSPARENT-RASTER-BACKGROUND
+// Test purpose: verify WindowServer output stays sharp and transparent pixels
+// keep compositing over the app's viewport background after real deactivation.
+// Preconditions: Cocoa screen capture and a transparent native-SDR PNG fixture.
+// Input data: the transparent Yahoo Auctions logo PNG in tests/data.
+// Steps: capture the real viewport, activate another non-overlapping window,
+// then capture the same viewport again while the main window is inactive.
+// Expected result: native SDR remains presented and both screen captures match.
+// Postcondition: close both windows and restore application state.
+void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
+{
+    ScopedOptionValues options({ { QStringLiteral("checkerboardbackground"), false },
+                                 { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) },
+                                 { QStringLiteral("calculatedzoommode"),
+                                   static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+                                 { QStringLiteral("windowresizemode"),
+                                   static_cast<int>(Qv::WindowResizeMode::Never) } });
+    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path =
+            QStringLiteral(FOVELLE_TEST_FIXTURE_DIR) + QStringLiteral("/focus_transparency.png");
+    const QImage fixture(path);
+    QVERIFY(!fixture.isNull());
+    QVERIFY(fixture.hasAlphaChannel());
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    QScreen *screen = qvApp->primaryScreen();
+    QVERIFY(screen);
+    const QRect available = screen->availableGeometry();
+    const QSize mainSize(qMin(1100, qMax(300, available.width() * 11 / 20)),
+                         qMin(700, qMax(300, available.height() * 3 / 5)));
+    window.resize(mainSize);
+    window.move(available.topLeft() + QPoint(20, 20));
+    window.show();
+    window.showNormal();
+    window.resize(mainSize);
+    window.move(available.topLeft() + QPoint(20, 20));
+    window.raise();
+    window.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 2000);
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().isNativeSDRLoaded, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().presentationActiveRequested,
+                             10000);
+    QTest::qWait(150);
+
+    const QPoint viewportOrigin = view->viewport()->mapTo(&window, QPoint(0, 0));
+    const QSize viewportSize = view->viewport()->size();
+    const auto captureScreenViewport = [&]() {
+        const QPixmap screenshot =
+                screen->grabWindow(window.winId(), viewportOrigin.x(), viewportOrigin.y(),
+                                   viewportSize.width(), viewportSize.height());
+        QImage image = screenshot.toImage().convertToFormat(QImage::Format_RGBA8888);
+        image.setDevicePixelRatio(1.0);
+        return image;
+    };
+    const auto transparentBackgroundSample = [view, viewportSize](const QImage &capture) {
+        const QPoint sourcePoint = view->mapFromScene(QPointF(470.5, 34.5));
+        const QPoint capturePoint(qRound(sourcePoint.x() * capture.width()
+                                         / static_cast<qreal>(viewportSize.width())),
+                                  qRound(sourcePoint.y() * capture.height()
+                                         / static_cast<qreal>(viewportSize.height())));
+        return capture.pixelColor(capturePoint);
+    };
+    const QImage focused = captureScreenViewport();
+    QVERIFY(!focused.isNull());
+    QVERIFY(focused.width() >= viewportSize.width());
+    QVERIFY(focused.height() >= viewportSize.height());
+    QCOMPARE(fixture.pixelColor(470, 34).alpha(), 0);
+    const QColor focusedBackdrop = transparentBackgroundSample(focused);
+    const QColor expectedBackdrop = Qv::viewportBackgroundColor(Qv::Theme::Dark);
+    QVERIFY2(qAbs(focusedBackdrop.red() - expectedBackdrop.red()) <= 12
+                     && qAbs(focusedBackdrop.green() - expectedBackdrop.green()) <= 12
+                     && qAbs(focusedBackdrop.blue() - expectedBackdrop.blue()) <= 12,
+             qPrintable(QStringLiteral("transparent PNG backdrop was %1,%2,%3; expected %4")
+                                .arg(focusedBackdrop.red())
+                                .arg(focusedBackdrop.green())
+                                .arg(focusedBackdrop.blue())
+                                .arg(expectedBackdrop.name())));
+    QVERIFY(focused.save(dir.filePath(QStringLiteral("focused.png"))));
+
+    QDialog informationWindow(nullptr, Qt::Window | Qt::Tool);
+    informationWindow.setWindowTitle(QStringLiteral("Focus test information"));
+    informationWindow.resize(220, 120);
+    const QPoint informationPosition = available.width() >= mainSize.width() + 280
+            ? available.topLeft() + QPoint(mainSize.width() + 40, 40)
+            : available.topLeft() + QPoint(40, mainSize.height() + 40);
+    informationWindow.move(informationPosition);
+    const QRect mainFrame = window.frameGeometry();
+    const QRect informationFrame = informationWindow.frameGeometry();
+    QVERIFY2(!mainFrame.intersects(informationFrame),
+             qPrintable(QStringLiteral("main=%1,%2 %3x%4 info=%5,%6 %7x%8 available=%9,%10 %11x%12")
+                                .arg(mainFrame.x())
+                                .arg(mainFrame.y())
+                                .arg(mainFrame.width())
+                                .arg(mainFrame.height())
+                                .arg(informationFrame.x())
+                                .arg(informationFrame.y())
+                                .arg(informationFrame.width())
+                                .arg(informationFrame.height())
+                                .arg(available.x())
+                                .arg(available.y())
+                                .arg(available.width())
+                                .arg(available.height())));
+    informationWindow.show();
+    informationWindow.raise();
+    informationWindow.activateWindow();
+    QTRY_VERIFY_WITH_TIMEOUT(informationWindow.isActiveWindow(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isActiveWindow(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().presentationActiveRequested,
+                             2000);
+    QTest::qWait(150);
+    QCOMPARE(view->viewportUpdateMode(), QGraphicsView::NoViewportUpdate);
+    const QImage inactive = captureScreenViewport();
+    QVERIFY(!inactive.isNull());
+    QVERIFY(inactive.save(dir.filePath(QStringLiteral("inactive.png"))));
+    QCOMPARE(transparentBackgroundSample(inactive), focusedBackdrop);
+    // QScreen returns the window's screen-composited pixels, including the
+    // rounded outer window corner. AppKit changes that antialiased corner on
+    // deactivation even though the viewport remains bit-identical; exclude a
+    // 32-device-pixel frame margin while retaining the transparent-pixel
+    // sample above and all image/viewport content.
+    constexpr int frameMargin = 32;
+    QVERIFY(focused.width() > frameMargin * 2 && focused.height() > frameMargin * 2);
+    const QRect contentRect(frameMargin, frameMargin,
+                            focused.width() - frameMargin * 2,
+                            focused.height() - frameMargin * 2);
+    QVERIFY2(inactive.copy(contentRect) == focused.copy(contentRect),
+             qPrintable(QStringLiteral("viewport screen pixels changed after deactivation; "
+                                       "focused=%1x%2 inactive=%3x%4")
+                                .arg(focused.width())
+                                .arg(focused.height())
+                                .arg(inactive.width())
+                                .arg(inactive.height())));
+
+    informationWindow.close();
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }

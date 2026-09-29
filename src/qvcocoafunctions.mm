@@ -2916,6 +2916,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [navigationButtonLayers[index] addSublayer:navigationBackgroundLayers[index]];
             [navigationButtonLayers[index] addSublayer:navigationChevronLayers[index]];
         }
+        boundaryHintLayer = [[CALayer layer] retain];
+        boundaryHintLayer.geometryFlipped = YES;
+        boundaryHintLayer.hidden = YES;
+        boundaryHintLayer.zPosition = 10.0;
+        boundaryHintLayer.contentsGravity = kCAGravityResize;
+        [navigationOverlayLayer addSublayer:boundaryHintLayer];
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         metalLayer.frame = CGRectZero;
@@ -3000,6 +3006,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [displayLink release];
         [displayLinkDelegate release];
         [navigationOverlayLayer release];
+        [boundaryHintLayer release];
         [presentationContainerLayer release];
         [metalLayer release];
         [persistentImageLayer release];
@@ -3333,6 +3340,61 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction commit];
         state.nativeNavigationVisibleCount = 0;
         ++state.navigationOverlayUpdateCount;
+    }
+
+    void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image)
+    {
+        if (!navigationOverlayLayer || !boundaryHintLayer || image.isNull())
+            return;
+
+        syncViewportLayerGeometry();
+        CGImageRef cgImage = createFullScreenSnapshotCGImage(image);
+        if (!cgImage)
+            return;
+
+        const CGFloat frameWidth = std::max<qreal>(0.0, viewportRect.width());
+        const CGFloat frameHeight = std::max<qreal>(0.0, viewportRect.height());
+        const CGFloat frameY = CGRectGetHeight(navigationOverlayLayer.bounds)
+                - viewportRect.y() - frameHeight;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        boundaryHintLayer.frame = CGRectMake(viewportRect.x(), frameY,
+                                              frameWidth, frameHeight);
+        boundaryHintLayer.contentsScale = image.devicePixelRatioF();
+        boundaryHintLayer.contents = (id)cgImage;
+        boundaryHintLayer.hidden = NO;
+        [CATransaction commit];
+        CGImageRelease(cgImage);
+        state.nativeBoundaryHintVisible = boundaryHintLayer.opacity > 0.001F;
+        ++state.boundaryHintUpdateCount;
+    }
+
+    void setBoundaryHintOpacity(const qreal opacity)
+    {
+        if (!boundaryHintLayer)
+            return;
+        const CGFloat boundedOpacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        boundaryHintLayer.opacity = boundedOpacity;
+        boundaryHintLayer.hidden = boundedOpacity <= 0.001F;
+        [CATransaction commit];
+        state.nativeBoundaryHintVisible = boundedOpacity > 0.001F;
+        ++state.boundaryHintUpdateCount;
+    }
+
+    void clearBoundaryHintOverlay()
+    {
+        if (!boundaryHintLayer)
+            return;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        boundaryHintLayer.opacity = 0.0F;
+        boundaryHintLayer.hidden = YES;
+        boundaryHintLayer.contents = nil;
+        [CATransaction commit];
+        state.nativeBoundaryHintVisible = false;
+        ++state.boundaryHintUpdateCount;
     }
 
     void clearPersistentSDRTileSurface()
@@ -4983,6 +5045,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CALayer *persistentImageLayer{ nil };
     CAMetalLayer *metalLayer{ nil };
     CALayer *navigationOverlayLayer{ nil };
+    CALayer *boundaryHintLayer{ nil };
     CALayer *navigationButtonLayers[2]{ nil, nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
     CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
@@ -5107,6 +5170,25 @@ void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()
 {
     if (impl)
         impl->clearNavigationOverlays();
+}
+
+void QVCocoaFunctions::HDRRenderer::setBoundaryHintOverlay(
+        const QRectF &viewportRect, const QImage &image)
+{
+    if (impl)
+        impl->setBoundaryHintOverlay(viewportRect, image);
+}
+
+void QVCocoaFunctions::HDRRenderer::setBoundaryHintOpacity(const qreal opacity)
+{
+    if (impl)
+        impl->setBoundaryHintOpacity(opacity);
+}
+
+void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
+{
+    if (impl)
+        impl->clearBoundaryHintOverlay();
 }
 
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
@@ -6509,7 +6591,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                                 workingColorSpace, fallbackColorSpace);
                         result.image = imageFromCIImage(
                                 processedSDR, context, fallbackColorSpace,
-                                fallbackLargestDimension);
+                                0);
                         if (context)
                             [context clearCaches];
                         if (workingColorSpace)
@@ -6550,20 +6632,17 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                    // The embedded preview is the intended cold-open proxy:
-                    // it is already camera-rendered, while evaluating the
-                    // source-sized sdrImage here would decode the complete RAW
-                    // before the proxy can cover the viewport. If the file has
-                    // no embedded preview, retain the existing Core Image
-                    // fallback. The immutable full-resolution SDR/HDR graphs
-                    // above remain available to the native renderer for the
-                    // final frame and zoom.
+                    // Keep the Qt fallback at the SDR graph's source resolution.
+                    // This image remains the stable endpoint while the HDR
+                    // presentation fades out; a 2048px thumbnail is visibly
+                    // soft when the user is zoomed in. The native graphs stay
+                    // authoritative for the focused HDR frame and interactions.
                     if (result.image.isNull()) {
-                        CIImage *coldOpenImage = embeddedRawProxy
-                                ?: sdrImage ?: sdrRawFilter.previewImage;
+                        CIImage *coldOpenImage = sdrImage
+                                ?: embeddedRawProxy ?: sdrRawFilter.previewImage;
                         result.image = imageFromCIImage(coldOpenImage, context,
                                                         fallbackColorSpace,
-                                                        fallbackLargestDimension);
+                                                        0);
                     }
 
                     // CIRAWFilter currently reports contentHeadroom == 0 for
@@ -6619,7 +6698,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
                 result.image = imageFromCIImage(embeddedRawProxy, context,
                                                 fallbackColorSpace,
-                                                fallbackLargestDimension);
+                                                0);
                 if (context)
                     [context clearCaches];
                 if (workingColorSpace)
@@ -6636,7 +6715,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
                     result.image = imageFromCIImage(rawPreview, context,
-                                                    fallbackColorSpace, fallbackLargestDimension);
+                                                    fallbackColorSpace, 0);
                     result.usedRawPreview = !result.image.isNull();
                     if (context)
                         [context clearCaches];
@@ -6740,8 +6819,12 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                         CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                         CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                         CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                        result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace,
-                                                        fallbackLargestDimension);
+                        // This is the inactive-focus endpoint too, not only a
+                        // short-lived loading placeholder. Keep every source
+                        // pixel so the stable SDR image remains as detailed as
+                        // the native HDR presentation at arbitrary zoom.
+                        result.image = imageFromCIImage(sdrImage, context,
+                                                        fallbackColorSpace, 0);
                         if (context)
                             [context clearCaches];
                         if (workingColorSpace)

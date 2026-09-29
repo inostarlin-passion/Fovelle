@@ -382,6 +382,10 @@ def main() -> int:
         renderer, "float currentPresentationOpacity() const",
         "CGColorRef navigationColor"
     )
+    focus_system = (repo / "tests/hdr_quality_system.py").read_text(encoding="utf-8")
+    focus_mutation_tests = (
+        repo / "tests/test_hdr_focus_transition_metrics.py"
+    ).read_text(encoding="utf-8")
     case("ST-HDR-FOCUS-PRESENTATION-TRANSITION", {
         "window_activation_is_propagated": (
             "QEvent::WindowActivate" in focus_event_handler
@@ -390,7 +394,7 @@ def main() -> int:
             and "setHDRPresentationActive(false)" in focus_event_handler
             and "applicationStateChanged" in view
         ),
-        "sdr_proxy_is_committed_before_fade_out": (
+        "sdr_proxy_is_visible_before_focus_fallback": (
             "loadedPixmapItem->setVisible(true)" in view
             and "QTimer::singleShot(active ? 0 : 16" in view
         ),
@@ -403,11 +407,39 @@ def main() -> int:
             and "fullTransitionDuration = 0.45" in focus_transition
             and "fullTransitionDuration * distance" in focus_transition
         ),
-        "edr_is_disabled_only_after_fade_out": (
-            "if (!presentationActiveRequested)\n            setExtendedDynamicRangeEnabled(false);"
-            in focus_transition
-            and "if (presentationActiveRequested)\n            setExtendedDynamicRangeEnabled(true);"
-            in focus_transition
+        "both_focus_directions_use_same_renderer_fade": (
+            "hdrRenderer->setPresentationActive(active, true);" in view
+            and "Both directions use the renderer's same 450 ms opacity curve." in view
+            and "fullTransitionDuration = 0.45" in focus_transition
+            and "kCAMediaTimingFunctionEaseInEaseOut" in focus_transition
+        ),
+        "focus_transition_has_runtime_opacity_probe": (
+            "FOVELLE_HDR_TEST_FOCUS_TRANSITION" in view
+            and "FOVELLE_HDR_TRANSITION" in view
+            and "timestamp_ms" in view
+        ),
+        "regression_test_rejects_instant_deactivation_and_checks_settled_capture": (
+            "test_rejects_legacy_instant_deactivation_bug" in focus_mutation_tests
+            and "test_rejects_regression_to_bounded_2048px_inactive_proxy" in focus_mutation_tests
+            and "focus_transition_metrics" in focus_system
+            and "focus_proxy_matches_source_resolution" in focus_system
+            and "focus_endpoint_captures" in focus_system
+            and "inactive-sdr-visible" in focus_system
+            and "SYS-HDR-FOCUS-FADE-AND-SHARP-ENDPOINT" in focus_system
+        ),
+        "hdr_sdr_fallback_retains_full_source_pixel_dimensions": (
+            "imageFromCIImage(sdrImage, context,\n                                                        fallbackColorSpace, 0)" in cocoa
+            and "fallback_pixmap_width" in view
+            and "fallback_pixmap_height" in view
+            and "focus_proxy_matches_source_resolution" in focus_system
+        ),
+        "focus_system_probes_zoomed_native_and_inactive_endpoints": (
+            "zoomAbsolute(zoomLevel * 2.0, Qv::CalculateViewportCenterPos)" in view
+            and "focused_ready" in focus_system
+            and "inactive_ready" in focus_system
+        ),
+        "existing_native_sdr_sharpness_contract_remains": (
+            "testViewportImageRemainsSharpAfterFocusLoss" in (repo / "tests/tst_qviewtests.cpp").read_text()
         ),
     })
     case("ST-HDR-GEOMETRY-LIFECYCLE", {

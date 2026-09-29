@@ -613,6 +613,14 @@ No write permission or file is read-only.</source>
         <source>Zoom Level (%):</source>
         <translation>縮放等級（%）:</translation>
     </message>
+    <message>
+        <source>No previous image</source>
+        <translation>沒有上一張圖片</translation>
+    </message>
+    <message>
+        <source>No next image</source>
+        <translation>沒有下一張圖片</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

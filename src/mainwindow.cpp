@@ -44,6 +44,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDebug>
+#include <QAccessible>
 #include <QtMath>
 
 namespace
@@ -187,6 +188,93 @@ protected:
         QLabel::paintEvent(event);
     }
 };
+
+class NavigationBoundaryHint : public QWidget
+{
+public:
+    explicit NavigationBoundaryHint(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFocusPolicy(Qt::NoFocus);
+        setObjectName(QStringLiteral("navigationBoundaryHint"));
+    }
+
+    void setMessage(const QString &message)
+    {
+        text = message;
+        setAccessibleName(message);
+        setFixedSize(sizeHint());
+        update();
+    }
+
+    void setMessageId(const QString &id)
+    {
+        setProperty("hintMessageId", id);
+    }
+
+    void setAppearance(const Qv::Theme theme)
+    {
+        darkAppearance = theme == Qv::Theme::Dark;
+        setProperty("hintAppearance", darkAppearance ? QStringLiteral("dark")
+                                                       : QStringLiteral("light"));
+        setProperty("hintBackground", darkAppearance ? QColor(242, 242, 242, 238)
+                                                       : QColor(34, 34, 34, 232));
+        setProperty("hintForeground", darkAppearance ? QColor(28, 28, 28)
+                                                       : QColor(255, 255, 255));
+        update();
+    }
+
+    QSize sizeHint() const override
+    {
+        const QFontMetrics metrics(font());
+        return QSize(qMax(180, metrics.horizontalAdvance(text) + 36), 42);
+    }
+
+    QImage nativeImage() const
+    {
+        const qreal dpr = devicePixelRatioF();
+        QImage image(QSize(qCeil(width() * dpr), qCeil(height() * dpr)),
+                     QImage::Format_ARGB32_Premultiplied);
+        image.setDevicePixelRatio(dpr);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        drawHint(painter, 1.0);
+        return image;
+    }
+
+    void setPaintOpacity(const qreal opacity)
+    {
+        paintOpacity = qBound(0.0, opacity, 1.0);
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event);
+        QPainter painter(this);
+        drawHint(painter, paintOpacity);
+    }
+
+private:
+    void drawHint(QPainter &painter, const qreal opacity) const
+    {
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setOpacity(opacity);
+        painter.setPen(QPen(darkAppearance ? QColor(0, 0, 0, 28)
+                                           : QColor(255, 255, 255, 36), 1.0));
+        painter.setBrush(property("hintBackground").value<QColor>());
+        painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 11.0, 11.0);
+        painter.setPen(property("hintForeground").value<QColor>());
+        painter.setFont(font());
+        painter.drawText(rect().adjusted(16, 0, -16, 0), Qt::AlignCenter, text);
+    }
+
+    QString text;
+    bool darkAppearance {false};
+    qreal paintOpacity {0.0};
+};
 }
 
 MainWindow::MainWindow(QWidget *parent,
@@ -230,6 +318,40 @@ MainWindow::MainWindow(QWidget *parent,
     markConstruction("graphics-view-ready");
 
     initializeNavigationButtons();
+
+    navigationBoundaryHint = new NavigationBoundaryHint(graphicsView->viewport());
+    navigationBoundaryHint->setProperty("transitionDurationMs",
+                                        NavigationBoundaryHintAnimationDuration);
+    navigationBoundaryHint->setProperty("displayDurationMs",
+                                        NavigationBoundaryHintDisplayDuration);
+    navigationBoundaryHint->hide();
+    navigationBoundaryHintAnimation = new QPropertyAnimation(
+        this, "boundaryHintOpacity", this);
+    navigationBoundaryHintAnimation->setObjectName(
+        QStringLiteral("navigationBoundaryHintOpacityAnimation"));
+    navigationBoundaryHintAnimation->setDuration(NavigationBoundaryHintAnimationDuration);
+    navigationBoundaryHintAnimation->setEasingCurve(QEasingCurve::InOutQuad);
+    connect(navigationBoundaryHintAnimation, &QPropertyAnimation::finished, this, [this]() {
+        if (navigationBoundaryHintAnimation->endValue().toReal() > 0.5) {
+            navigationBoundaryHintTimer->start(NavigationBoundaryHintDisplayDuration);
+        } else {
+            navigationBoundaryHint->hide();
+            graphicsView->clearHDRBoundaryHintOverlay();
+        }
+    });
+    navigationBoundaryHintTimer = new QTimer(this);
+    navigationBoundaryHintTimer->setObjectName(
+        QStringLiteral("navigationBoundaryHintDisplayTimer"));
+    navigationBoundaryHintTimer->setSingleShot(true);
+    navigationBoundaryHintTimer->setInterval(NavigationBoundaryHintDisplayDuration);
+    connect(navigationBoundaryHintTimer, &QTimer::timeout, this, [this]() {
+        navigationBoundaryHintAnimation->stop();
+        navigationBoundaryHintAnimation->setStartValue(currentBoundaryHintOpacity);
+        navigationBoundaryHintAnimation->setEndValue(0.0);
+        navigationBoundaryHintAnimation->start();
+    });
+    connect(graphicsView, &QVGraphicsView::navigationBoundaryReached,
+            this, &MainWindow::showNavigationBoundaryHint);
 
     titlebarBubble = new TitlebarBubble(graphicsView);
     titlebarBubble->move(12, 4);
@@ -721,6 +843,101 @@ void MainWindow::initializeNavigationButtons()
     updateNavigationButtonGeometry();
 }
 
+qreal MainWindow::boundaryHintOpacity() const
+{
+    return currentBoundaryHintOpacity;
+}
+
+void MainWindow::setBoundaryHintOpacity(const qreal opacity)
+{
+    currentBoundaryHintOpacity = qBound(0.0, opacity, 1.0);
+    if (auto *hint = static_cast<NavigationBoundaryHint *>(navigationBoundaryHint))
+        hint->setPaintOpacity(currentBoundaryHintOpacity);
+    syncNavigationBoundaryHintOverlay();
+}
+
+void MainWindow::showNavigationBoundaryHint(const Qv::GoToFileMode mode)
+{
+    if (mode != Qv::GoToFileMode::Previous && mode != Qv::GoToFileMode::Next)
+        return;
+
+    auto *hint = static_cast<NavigationBoundaryHint *>(navigationBoundaryHint);
+    hint->setMessage(mode == Qv::GoToFileMode::Previous
+                         ? tr("No previous image")
+                         : tr("No next image"));
+    hint->setMessageId(mode == Qv::GoToFileMode::Previous
+                           ? QStringLiteral("previous")
+                           : QStringLiteral("next"));
+    const Qv::Theme configuredTheme =
+        qvApp->getSettingsManager().getEnum<Qv::Theme>("theme");
+    hint->setAppearance(QVCocoaFunctions::resolvedTheme(configuredTheme));
+    navigationBoundaryHintTimer->stop();
+    navigationBoundaryHintAnimation->stop();
+    hint->setPaintOpacity(currentBoundaryHintOpacity);
+    updateNavigationBoundaryHintGeometry();
+    hint->show();
+    syncNavigationBoundaryHintOverlay();
+
+    QAccessibleEvent accessibleEvent(hint, QAccessible::Alert);
+    QAccessible::updateAccessibility(&accessibleEvent);
+
+    navigationBoundaryHintAnimation->setStartValue(currentBoundaryHintOpacity);
+    navigationBoundaryHintAnimation->setEndValue(1.0);
+    navigationBoundaryHintAnimation->start();
+}
+
+void MainWindow::hideNavigationBoundaryHint()
+{
+    navigationBoundaryHintTimer->stop();
+    if (currentBoundaryHintOpacity <= 0.001) {
+        navigationBoundaryHint->hide();
+        graphicsView->clearHDRBoundaryHintOverlay();
+        return;
+    }
+    navigationBoundaryHintAnimation->stop();
+    navigationBoundaryHintAnimation->setStartValue(currentBoundaryHintOpacity);
+    navigationBoundaryHintAnimation->setEndValue(0.0);
+    navigationBoundaryHintAnimation->start();
+}
+
+void MainWindow::updateNavigationBoundaryHintGeometry()
+{
+    if (!navigationBoundaryHint || !graphicsView)
+        return;
+    QWidget *viewport = graphicsView->viewport();
+    const QSize hintSize = navigationBoundaryHint->sizeHint();
+    const int x = qMax(0, (viewport->width() - hintSize.width()) / 2);
+    const int y = qMax(0, viewport->height() - hintSize.height() - 24);
+    navigationBoundaryHint->setGeometry(QRect(QPoint(x, y), hintSize));
+    navigationBoundaryHint->raise();
+    syncNavigationBoundaryHintOverlay();
+}
+
+void MainWindow::syncNavigationBoundaryHintOverlay()
+{
+    if (!navigationBoundaryHint || !graphicsView)
+        return;
+    auto *hint = static_cast<NavigationBoundaryHint *>(navigationBoundaryHint);
+    if (currentBoundaryHintOpacity <= 0.001) {
+        if (graphicsView->usesNativeHDRNavigationOverlay()) {
+            graphicsView->setHDRBoundaryHintOverlay(hint->geometry(), hint->nativeImage());
+            graphicsView->setHDRBoundaryHintOpacity(0.0);
+            hint->hide();
+        }
+        return;
+    }
+
+    if (graphicsView->usesNativeHDRNavigationOverlay()) {
+        graphicsView->setHDRBoundaryHintOverlay(hint->geometry(), hint->nativeImage());
+        graphicsView->setHDRBoundaryHintOpacity(currentBoundaryHintOpacity);
+        hint->hide();
+    } else {
+        graphicsView->clearHDRBoundaryHintOverlay();
+        hint->show();
+        hint->raise();
+    }
+}
+
 void MainWindow::updateNavigationButtonGeometry()
 {
     if (!graphicsView || !previousImageButton || !nextImageButton)
@@ -1032,6 +1249,7 @@ void MainWindow::showEvent(QShowEvent *event)
     clearTitlebarIcons();
     updateNavigationButtonGeometry();
     updateNavigationButtonAppearance();
+    updateNavigationBoundaryHintGeometry();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -1082,6 +1300,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     updateTitlebarBubbleText();
     updateNavigationButtonGeometry();
     updateNavigationButtonAppearance();
+    updateNavigationBoundaryHintGeometry();
     if (!areNavigationButtonsSupported(width()))
         hideNavigationButtonsImmediately();
 }
@@ -1353,6 +1572,11 @@ void MainWindow::settingsUpdated()
 
     updateNavigationButtonGeometry();
     updateNavigationButtonAppearance();
+    if (navigationBoundaryHint) {
+        static_cast<NavigationBoundaryHint *>(navigationBoundaryHint)->setAppearance(
+            QVCocoaFunctions::resolvedTheme(theme));
+        updateNavigationBoundaryHintGeometry();
+    }
 
     // repaint in case background color changed
     update();
@@ -1377,6 +1601,7 @@ void MainWindow::openRecent(int i)
 
 void MainWindow::fileChanged(const bool isRestoringState)
 {
+    hideNavigationBoundaryHint();
     openWithPopulatedFilePath.clear();
     disableActions();
 
@@ -2266,12 +2491,14 @@ void MainWindow::firstFile()
 
 void MainWindow::previousFile()
 {
-    graphicsView->goToFile(Qv::GoToFileMode::Previous);
+    graphicsView->goToFile(Qv::GoToFileMode::Previous, 0,
+                           !slideshowTimer || !slideshowTimer->isActive());
 }
 
 void MainWindow::nextFile()
 {
-    graphicsView->goToFile(Qv::GoToFileMode::Next);
+    graphicsView->goToFile(Qv::GoToFileMode::Next, 0,
+                           !slideshowTimer || !slideshowTimer->isActive());
 }
 
 void MainWindow::lastFile()

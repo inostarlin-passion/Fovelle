@@ -95,6 +95,7 @@ target_link_libraries(fovelle_tests PRIVATE
 target_compile_definitions(fovelle_tests PRIVATE
     "VERSION=${PROJECT_VERSION}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
+    "FOVELLE_TEST_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\""
     QT_DEPRECATED_WARNINGS
     QT_NO_FOREACH
 )
@@ -155,6 +156,31 @@ add_test(NAME FovelleTests COMMAND fovelle_tests)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
     TIMEOUT 180
+)
+
+add_test(NAME FovelleNavigationBoundaryHintStatic
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/navigation_boundary_hint_static.py)
+set_tests_properties(FovelleNavigationBoundaryHintStatic PROPERTIES
+    TIMEOUT 30
+    LABELS "navigation;hint;localization;source-contract;acceptance"
+)
+
+add_test(NAME FovelleHDRFocusTransitionEvidence
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_hdr_focus_transition_metrics.py)
+set_tests_properties(FovelleHDRFocusTransitionEvidence PROPERTIES
+    TIMEOUT 30
+    LABELS "hdr;focus;transition;dynamic-evidence;acceptance"
+)
+
+add_test(NAME FovelleNavigationBoundaryHintDynamic COMMAND fovelle_tests
+    testNavigationBoundaryHintFeedbackAndAppearance
+    testViewportImageRemainsSharpAfterFocusLoss -v1)
+set_tests_properties(FovelleNavigationBoundaryHintDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 45
+    LABELS "navigation;hint;focus;dynamic;acceptance"
 )
 
 set(FOVELLE_FULLSCREEN_AVIF_IMAGE

@@ -128,6 +128,7 @@ public:
         bool encodesMetalOffMainThread{ false };
         bool frameInFlight{ false };
         bool usesNativeNavigationOverlay{ false };
+        bool nativeBoundaryHintVisible{ false };
         bool firstVisibleFrameUsesFinalHeadroom{ false };
         bool usesDisplayLinkInteractionPacing{ false };
         bool usesPersistentHDRSurface{ false };
@@ -172,6 +173,7 @@ public:
         quint64 presentedFrameCount{ 0 };
         quint64 missedTargetDeadlineCount{ 0 };
         quint64 navigationOverlayUpdateCount{ 0 };
+        quint64 boundaryHintUpdateCount{ 0 };
         quint64 displayLinkInteractiveSubmissionCount{ 0 };
         quint64 compositorGeometryUpdateCount{ 0 };
         quint64 compositorInteractiveSubmissionCount{ 0 };
@@ -235,6 +237,9 @@ public:
                                   bool darkBackground, bool hovered,
                                   bool pressed, bool enabled);
         void clearNavigationOverlays();
+        void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
+        void setBoundaryHintOpacity(qreal opacity);
+        void clearBoundaryHintOverlay();
         HDRRendererDiagnostics diagnostics() const;
 
     private:

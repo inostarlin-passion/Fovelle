@@ -91,3 +91,57 @@
 - Qt backing store 更新机制：[公开 `QBackingStore` 源码](https://codebrowser.dev/qt6/qtbase/src/gui/painting/qbackingstore.cpp.html)用于交叉核验局部更新/flush 区域的概念。它与 `QGraphicsView` 文档/源码解释的是渲染更新路径，并不证明用户报告现场的具体闪烁原因。
 
 证据链的边界：全视口 paint 日志说明 Qt 的 paint 事件覆盖范围；重叠帧比较说明抽样到的内容与滚动位移一致；两者互补但均不直接采集 GPU/显示器每次刷新。没有从用户现场获得修复前逐帧录屏或硬件刷新捕获，故对更短的亚采样闪烁、其他 macOS/Qt/GPU 组合及其他 SVG/EPS 文档保留未验证项。未穷尽所有可能的硬件/驱动/显示刷新证据源；上述现场缺口明确保留，不据此推断根因普遍适用。
+
+# 图片序列边界提示与失焦图像保真：技术设计补充
+
+日期：2026-09-29
+状态：实现完成；边界提示、主题适配、多语言和视口失焦保真均加入静态与动态验收
+
+## 1. 问题界定与原子化验收标准
+
+本次只处理图片序列浏览的边界反馈、提示外观/本地化，以及视口失去焦点时图像的可读性：
+
+- **AC-NAV-HINT-BOUNDARY**：当用户确实请求不存在的上一张或下一张图片时，分别显示 `No previous image` 或 `No next image`；正常移动、启用循环时的移动、幻灯片自动到边界不显示该提示。
+- **AC-NAV-HINT-LOCALIZED**：提示经 Qt 翻译机制呈现，支持的西班牙语、日语、简体中文和繁体中文目录都包含两条完整译文，辅助技术收到相同文本。
+- **AC-NAV-HINT-APPEARANCE-ANIMATION**：提示随应用 Light/Dark/System Appearance 切换前景与背景样式；单条消息置于视口底部居中，淡入/淡出各 180 ms，完全显示 4000 ms，重复触发复用同一提示。
+- **AC-VIEWPORT-FOCUS-SHARP**：通过真实屏幕合成像素验证，另一顶层窗口获得焦点后图片视口与聚焦时相同，不接受仅检查控件离屏 render 的结果。
+- **AC-TRANSPARENT-RASTER-BACKGROUND**：含 alpha 通道的 native SDR PNG 失焦时仍以相同 viewport 背景合成；不泄漏窗口后方其他内容；native SDR presentation 与底色图层在失焦时保持可见。
+- **AC-HDR-FOCUS-FADE-SOURCE-DETAIL**：HDR 图片失焦时，原生 HDR presentation opacity 由当前屏幕值平滑单调降至 0；使用打开图片时同一 450 ms ease-in/ease-out 动画。动画结束后 EDR layer 完全透明、EDR 关闭，SDR fallback 的实际像素宽高必须与 HDR 源图相等；两倍放大后从真实窗口端点截图验证稳定失焦图像与聚焦图像边缘相似度≥0.90。缺少 fallback 尺寸遥测视为不通过。重新聚焦以同一时长反向恢复。
+
+## 2. 链式推导和实现边界
+
+项目的 `QVImageCore::goToFile()` 已在不循环的序列边界返回 `reachedEnd`，而循环启用会将索引回绕。`QVGraphicsView::goToFile()` 据此只为 Previous/Next 到达边界发信号；MainWindow 的幻灯片入口将通知标志关闭。成功的导航不触发提示。
+
+Apple 的 Feedback 指南要求反馈重要性与打断程度相称，并指出重要信息可在相关界面中被动呈现；Alerts 指南建议不要用会打断当前任务的警报传达一般信息。因此这里采用单行、无按钮、不会获取焦点的状态提示。Material 的 snackbar 指南提供了底部短消息、一次仅显示一条及至少 4 秒自动消失的可验证先例；该平台规范不是 macOS 要求，4 秒在本项目中是据此采用的设计值。项目导航按钮已有 180 ms 透明度过渡，提示沿用这一既有时长。Apple Motion 指南同时要求反馈动效简短、克制，且不能只靠动画传递关键信息。
+
+外观样式根据 `theme` 设置并通过 `QVCocoaFunctions::resolvedTheme()` 解析 System appearance：Light 使用深色半透明圆角底和白字，Dark 使用浅色半透明圆角底和深字。英文源字符串放在 `MainWindow::tr()`，四份已发布 TS 目录添加对应译文；触发时发出 `QAccessible::Alert`，文本与视觉提示一致。Qt 官方文档说明 `lupdate` 从 `tr()` 抽取源文案、TS 文件携带译文、lrelease 生成运行时 QM；QAccessible 的 Alert 是状态通知事件。
+
+原生 HDR 图像使用独立 Metal/Core Animation 图层。不能让 Qt 透明 QWidget 直接覆盖 HDR 像素，因此提示先由同一自绘控件栅格化，再作为 CALayer 图像叠加到现有 viewport overlay layer；SDR/Qt 绘制路径继续显示同一控件。HDR 失焦时 `QVGraphicsView::setHDRPresentationActive(false)` 先确保 SDR fallback 位于原生层下方，再调用 renderer 的同一 opacity 动画由 1 降至 0。renderer 继续保持 EDR 直到动画完成，完成回调再关闭 EDR。关键是该 fallback 同时是加载占位和稳定失焦终态：HDR 解码路径必须以 `imageFromCIImage(..., largestDimension=0)` 物化完整 SDR 源尺寸；沿用 loader 的 2048 像素上限会在高缩放下放大采样不足的代理并造成稳定模糊。失焦终态遥测记录代理与源图尺寸供动态验收。聚焦时沿相同 450 ms ease-in/ease-out 反向淡入。
+
+另一个独立的失焦路径影响普通透明 PNG：ImageIO 将其识别为 native SDR，原生 CALayer 子树除了图片还负责提供不透明的主题底色；此前通用失焦处理把这个子树和 HDR 一样隐藏，底层 QWidget 对这类 macOS raster 视口又未声明 opaque，于是 PNG 的透明像素露出窗口后方内容。修复仅让 native SDR 图层保持可见及其 presentationActiveRequested=true；当窗口不活跃时，原生 SDR 依然是一张不变的 SDR 图像，因此不需要焦点淡出或 SDR proxy 双层合成。HDR 使用独立的反向淡出路径：有动画、保留 EDR 至淡出结束，并以清晰 SDR proxy 收敛。首次加载期间仍允许 Qt proxy 可见，等 native SDR 的首帧及几何稳定后才隐藏 proxy。
+
+上一版焦点测试只调用 `viewport()->render()`，并使用不透明 SVG。Qt 文档说明 `QScreen::grabWindow()` 捕获屏幕像素，包括窗口上方实际合成的内容；因此控件 render 不能覆盖 WindowServer/CALayer 的合成结果。本次动态测试改用用户样本的透明 PNG 固定 fixture，真实激活另一个不遮挡视口的顶层窗口，等待主窗失焦后从 `QScreen::grabWindow(mainWindow.winId(), ...)` 读取同一 viewport 像素，裁去包含窗口圆角/外缘的32个物理像素后比较内容区，并检查已知透明源像素仍显示 Dark viewport 底色。裁边是因为 macOS 失焦会改变窗口外框的抗锯齿像素；viewport 图像区和透明点仍精确比较。
+
+## 3. 逆向证伪复核
+
+- 循环开启时索引会回绕，若仍提示会把成功导航错报为失败；边界反馈只由 `reachedEnd` 与 Previous/Next 双重条件触发。
+- 幻灯片碰到末尾属于定时播放状态变化，不是用户刚发起的边界请求；自动推进显式抑制提示。
+- 弹窗会抢焦点并遮挡图片；普通提示不抢焦点，也不创建按钮。
+- 视口中央会直接挡住主要图像内容，顶部靠近 macOS 标题栏/窗口控件；底部居中的单行形式符合 snackbar 的短反馈先例。
+- 仅在当前 Appearance 改 QSS 不足以保证 HDR 下正确合成，故对同一原生图层增加 bitmap overlay；静态测试检查两条呈现路径，动态测试在可用的 native overlay 下检查原生提示确实可见。
+- 仅比较 QWidget 内部绘制会漏掉 Core Animation 子树被隐藏及透明像素穿透；反向复核通过先让测试对用户 PNG 和真实顶层窗口切换失败，再修正 renderer 生命周期。
+- 把 native SDR 简单替换为 Qt proxy 也不满足要求：proxy 可以呈现图片，但测试确认失焦时必须保留与聚焦相同的真实 WindowServer 背景合成像素；只保持 HDR 的 SDR fallback 逻辑，而让 native SDR 的 opaque backdrop 常驻。
+- 把 HDR 失焦直接设为 opacity=0 会让测试缺少任何中间采样，也无法满足亮度渐降；如果淡出开始时就关闭 EDR，现存 HDR layer 会被提前 clamp。焦点测试检查原生 presentation opacity 的单调方向、450 ms 量级、EDR 直到淡出完成、失焦 SDR endpoint 及真实屏幕图像边缘相似度。opacity 是实际动画属性在 presentation tree 中的值；在图像高光 HDR 层与保持不变的 SDR proxy 合成时，HDR 层占比持续下降，亮度随之向 SDR 端点收敛。真实截图通过状态日志时间戳与 `final-frame-visible` / `inactive-sdr-visible` 端点关联后用于细节比较；未把 PNG 截图像素值当作绝对 HDR 光度：8-bit 编码会把多个高光样本夹到255，不能可靠代表亮度轨迹。
+- 先前测例在视图适屏时用≥0.90边缘 cosine 通过，仍可能漏掉失焦后切至2048px fallback 的高倍放大模糊。逆向复核将 production `zoomAbsolute()` 放大到2×并检查 inactive 端点 fallback 的实际宽高等于6048×8064源图尺寸；突变测试把代理降为1536×2048，尺寸断言必须失败。屏幕帧继续作为独立合成结果验证，来源尺寸断言负责区分图像采样精度而不依赖HDR色调映射造成的像素亮度差。
+
+## 4. 外部资料
+
+- Apple Human Interface Guidelines：[Feedback](https://developer.apple.com/design/human-interface-guidelines/feedback)、[Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)、[Motion](https://developer.apple.com/design/human-interface-guidelines/motion)
+- Material Components：[Snackbars](https://m2.material.io/components/snackbars)
+- Qt 6.11：[QAccessible](https://doc.qt.io/qt-6/qaccessible.html)、[Using lupdate](https://doc.qt.io/qt-6/linguist-lupdate.html)、[Localizing Applications](https://doc.qt.io/qt-6/localization.html)、[QWindow focus events](https://doc.qt.io/qt-6/qwindow.html)、[QGraphicsView](https://doc.qt.io/qt-6/qgraphicsview.html)
+- 失焦合成复核：[Qt `QScreen::grabWindow()`](https://doc.qt.io/qt-6/qscreen.html#grabWindow)说明返回屏幕像素且其他覆盖窗口会出现在结果中；[Apple `NSView.isOpaque`](https://developer.apple.com/documentation/appkit/nsview/isopaque)说明 opaque 代表视图填满 frame 的不透明内容；[Apple `CALayer.isOpaque`](https://developer.apple.com/documentation/quartzcore/calayer/isopaque)说明标记 opaque 的 layer 必须填满 bounds。结合项目透明 PNG alpha 数据和失焦前后实际屏幕像素，支持“隐藏携带 opaque viewport 背景的原生 SDR layer 后会露出底层窗口”的因果链。
+- HDR 焦点动画复核：[Apple `CABasicAnimation`](https://developer.apple.com/documentation/quartzcore/cabasicanimation?language=objc)确认 layer opacity 可作为标量属性动画；[`CALayer.opacity`](https://developer.apple.com/documentation/quartzcore/calayer/opacity?language=objc)说明 opacity 是 0…1 的可动画透明度；[`CALayer.presentationLayer`](https://developer.apple.com/documentation/quartzcore/calayer/presentation%28%29?changes=_8&language=objc)说明动画期间可读取当前屏幕呈现值；[`CAMediaTiming.duration`](https://developer.apple.com/documentation/quartzcore/camediatiming/duration)以秒定义动画时长；[Apple ease-in/ease-out](https://developer.apple.com/documentation/quartzcore/camediatimingfunctionname/easeineaseout?changes=_7)定义前后缓、中间加速的时序曲线；[Qt `QScreen::grabWindow()`](https://doc.qt.io/qt-6/qscreen.html#grabWindow)确认可按窗口 ID 采集屏幕合成像素。文档支持选用 opacity/presentation-layer/真实屏幕截图作为验证手段；450 ms 的产品时长来自项目已有打开动画，非外部规范强制值。
+- 分辨率选择交叉验证：[Apple `kCGImageSourceThumbnailMaxPixelSize`](https://developer.apple.com/documentation/imageio/kcgimagesourcethumbnailmaxpixelsize)说明该值控制缩略图最大宽高，不设上限时可达到原图尺寸；[Apple `CIImage`](https://developer.apple.com/documentation/coreimage/ciimage?language=objc)把 CIImage 定义为延迟计算的图像处理配方；[Apple Gain Map HDR WWDC24](https://developer.apple.com/videos/play/wwdc2024/10177/)说明 SDR base 与 gain map 可独立保留为 CIImage 后再按 headroom 处理；[Qt `QImage::scaled()`](https://doc.qt.io/qt-6/qimage.html#scaled)确认缩放操作返回实际缩放副本；[Qt `QScreen::grabWindow()`](https://doc.qt.io/qt-6/qscreen.html#grabWindow)确认高 DPI 截图可能包含多于逻辑请求尺寸的物理像素。由此可知把 source-sized SDR CIImage 写入 2048px 上限的 Qt pixmap 会不可逆丢弃 fallback 源采样，且适屏截图不足以证明高倍率细节；外部资料支持机制和观测方法，本项目动态日志与 2×真实窗口测试确认具体缺陷与修复。
+- 项目既有实现：[导航过渡时长](../src/mainwindow.h)、[焦点/Metal presentation 切换](../src/qvgraphicsview.cpp)、[原生导航叠层](../src/qvcocoafunctions.mm)
+
+证据范围：Material 4 秒时长是跨平台设计先例，非 macOS HIG 强制值；本机 QtTest 验证当前 macOS 27/Qt 6.11.2 配置。失焦清晰度测试使用屏幕级 WindowServer 采样，不只检查 QWidget；焦点过渡通过每16ms的 Core Animation presentation-layer 值采样，不将离散 PNG 截图误作绝对 HDR 光度仪。屏幕截图仍不覆盖每次刷新；对其他 GPU、显示器和 macOS/Qt 版本的实际呈现仍需目标环境运行。

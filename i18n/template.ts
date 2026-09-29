@@ -461,6 +461,14 @@ No write permission or file is read-only.</source>
         <source>Start S&amp;lideshow</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>No previous image</source>
+        <translation></translation>
+    </message>
+    <message>
+        <source>No next image</source>
+        <translation></translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

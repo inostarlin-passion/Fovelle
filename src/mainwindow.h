@@ -27,6 +27,7 @@ class QMenu;
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
+    Q_PROPERTY(qreal boundaryHintOpacity READ boundaryHintOpacity WRITE setBoundaryHintOpacity)
 
 public:
     struct DeletedPaths
@@ -181,6 +182,8 @@ public:
     static constexpr int NavigationButtonSize = 60;
     static constexpr int NavigationButtonEdgeMargin = 20;
     static constexpr int NavigationButtonAnimationDuration = 180;
+    static constexpr int NavigationBoundaryHintAnimationDuration = 180;
+    static constexpr int NavigationBoundaryHintDisplayDuration = 4000;
 
     static int navigationEdgeWidth(int windowWidth);
 
@@ -251,6 +254,13 @@ protected slots:
     void shortcutsUpdated();
 
 private:
+    qreal boundaryHintOpacity() const;
+    void setBoundaryHintOpacity(qreal opacity);
+    void showNavigationBoundaryHint(Qv::GoToFileMode mode);
+    void hideNavigationBoundaryHint();
+    void updateNavigationBoundaryHintGeometry();
+    void syncNavigationBoundaryHintOverlay();
+
     void ensureMenus();
 
     void clearTitlebarIcons();
@@ -295,6 +305,10 @@ private:
     QPushButton *nextImageButton {nullptr};
     QPropertyAnimation *previousImageButtonAnimation {nullptr};
     QPropertyAnimation *nextImageButtonAnimation {nullptr};
+    QWidget *navigationBoundaryHint {nullptr};
+    QPropertyAnimation *navigationBoundaryHintAnimation {nullptr};
+    QTimer *navigationBoundaryHintTimer {nullptr};
+    qreal currentBoundaryHintOpacity {0.0};
     bool previousImageButtonRequestedVisible {false};
     bool nextImageButtonRequestedVisible {false};
     bool previousImageButtonHovered {false};

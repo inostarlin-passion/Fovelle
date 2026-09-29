@@ -485,6 +485,14 @@ No write permission or file is read-only.</source>
         <source>Next File</source>
         <translation>次のファイル</translation>
     </message>
+    <message>
+        <source>No previous image</source>
+        <translation>前の画像はありません</translation>
+    </message>
+    <message>
+        <source>No next image</source>
+        <translation>次の画像はありません</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

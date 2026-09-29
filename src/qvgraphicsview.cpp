@@ -19,6 +19,7 @@
 #include <QCursor>
 #include <QEventLoop>
 #include <QCoreApplication>
+#include <QDateTime>
 
 #include <algorithm>
 #include <cmath>
@@ -183,11 +184,14 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
                                      { QStringLiteral("transition_count"),
                                        static_cast<qint64>(
                                                rendererState.presentationTransitionCount) },
+                                     { QStringLiteral("timestamp_ms"),
+                                       QDateTime::currentMSecsSinceEpoch() },
                                      { QStringLiteral("wants_edr"),
                                        rendererState.wantsExtendedDynamicRangeContent },
                                  }).toJson(QJsonDocument::Compact);
         }
-        const bool fullyVisible = hdrPresentationActive
+        const bool nativeSDRPresentation = getCurrentFileDetails().isNativeSDRLoaded;
+        const bool fullyVisible = (hdrPresentationActive || nativeSDRPresentation)
                 && rendererState.firstFramePresented
                 && rendererState.firstVisibleFrameUsesFinalHeadroom
                 && rendererState.presentationActiveRequested
@@ -196,9 +200,9 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         if (fullyVisible) {
             loadedPixmapItem->setVisible(false);
             hdrActivationCompleted = true;
-            // Once the opaque native HDR surface is visible, repainting the
+            // Once the opaque native image surface is visible, repainting the
             // hidden QGraphicsScene only creates an additional Qt backing
-            // store transaction for every scrollbar change.  The Metal layer
+            // store transaction for every scrollbar change. The native image layer
             // and its native navigation sublayers are now the sole viewport
             // presentation path, so leave the Qt pixels parked until the next
             // image load.
@@ -1244,6 +1248,15 @@ void QVGraphicsView::setHDRPresentationActive(const bool active)
     if (!hdrRendererActive || !hdrRenderer)
         return;
 
+    if (getCurrentFileDetails().isNativeSDRLoaded) {
+        // Native SDR does not need the HDR focus fallback. Its persistent
+        // layer also supplies the opaque viewport backdrop behind alpha PNGs;
+        // hiding it on deactivation would expose the window beneath.
+        hdrRenderer->setPresentationActive(true, false);
+        hdrPresentationTimer->start();
+        return;
+    }
+
     // The SDR proxy must be committed behind the native HDR container before
     // a fade-out begins. Re-enable viewport updates now, then begin that fade
     // on the next display interval so there is no empty intermediate frame.
@@ -1257,6 +1270,10 @@ void QVGraphicsView::setHDRPresentationActive(const bool active)
         if (requestGeneration != hdrPresentationRequestGeneration
             || !hdrRendererActive || !hdrRenderer)
             return;
+        // Keep the aligned SDR proxy underneath the HDR surface throughout the
+        // reversible fade. On deactivation it becomes the crisp final image;
+        // on activation it remains the crisp base while the HDR brightness
+        // rises. Both directions use the renderer's same 450 ms opacity curve.
         hdrRenderer->setPresentationActive(active, true);
         logHDRState(active ? "window-activated" : "window-deactivated");
     });
@@ -1276,6 +1293,24 @@ void QVGraphicsView::clearHDRNavigationOverlays()
 {
     if (hdrRenderer)
         hdrRenderer->clearNavigationOverlays();
+}
+
+void QVGraphicsView::setHDRBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image)
+{
+    if (hdrRenderer)
+        hdrRenderer->setBoundaryHintOverlay(viewportRect, image);
+}
+
+void QVGraphicsView::setHDRBoundaryHintOpacity(const qreal opacity)
+{
+    if (hdrRenderer)
+        hdrRenderer->setBoundaryHintOpacity(opacity);
+}
+
+void QVGraphicsView::clearHDRBoundaryHintOverlay()
+{
+    if (hdrRenderer)
+        hdrRenderer->clearBoundaryHintOverlay();
 }
 
 void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom)
@@ -1473,7 +1508,11 @@ void QVGraphicsView::postLoad()
     }
     hdrPresentationActive = window()->isActiveWindow();
     if (hdrRendererActive) {
-        hdrRenderer->setPresentationActive(hdrPresentationActive, true);
+        // Native SDR content and its opaque backdrop remain valid while the
+        // app is inactive; only HDR needs to follow the activation state.
+        const bool presentationActive = hdrPresentationActive
+                || getCurrentFileDetails().isNativeSDRLoaded;
+        hdrRenderer->setPresentationActive(presentationActive, true);
         hdrPresentationTimer->start();
     } else {
         hdrPresentationTimer->stop();
@@ -1626,6 +1665,17 @@ void QVGraphicsView::postLoad()
     if (hdrRendererActive && !hdrFocusTransitionTestScheduled
         && qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_FOCUS_TRANSITION")) {
         hdrFocusTransitionTestScheduled = true;
+        QTimer::singleShot(100, this, [this]() {
+            // Exercise source detail beyond the bounded 2048px cold-open
+            // placeholder. The stable inactive image must retain the same
+            // source detail as the native HDR renderer at this zoom.
+            zoomAbsolute(zoomLevel * 2.0, Qv::CalculateViewportCenterPos);
+        });
+        // A process launched behind another app is not guaranteed to own the
+        // initial key-window state. Start the probe on the same focused
+        // renderer state before scheduling the corresponding deactivation.
+        QTimer::singleShot(0, this,
+                           [this]() { setHDRPresentationActive(true); });
         QTimer::singleShot(1400, this,
                            [this]() { setHDRPresentationActive(false); });
         QTimer::singleShot(2200, this,
@@ -2516,12 +2566,17 @@ void QVGraphicsView::setLoadIsFromSessionRestore(const bool value)
     loadIsFromSessionRestore = value;
 }
 
-void QVGraphicsView::goToFile(const Qv::GoToFileMode mode, const int index)
+void QVGraphicsView::goToFile(const Qv::GoToFileMode mode, const int index,
+                             const bool reportNavigationBoundary)
 {
     const QVImageCore::GoToFileResult result = imageCore.goToFile(mode, index);
 
-    if (result.reachedEnd)
+    if (result.reachedEnd) {
         emit cancelSlideshow();
+        if (reportNavigationBoundary
+            && (mode == Qv::GoToFileMode::Previous || mode == Qv::GoToFileMode::Next))
+            emit navigationBoundaryReached(mode);
+    }
 }
 
 void QVGraphicsView::fitOrConstrainImage()
@@ -2936,7 +2991,7 @@ void QVGraphicsView::updateHDRRenderer()
 
     const auto beforeRender = hdrRenderer->diagnostics();
 
-    if (hdrPresentationActive
+    if ((hdrPresentationActive || getCurrentFileDetails().isNativeSDRLoaded)
         && beforeRender.firstFramePresented && beforeRender.drawableGeometryMatches
         && beforeRender.presentationActiveRequested
         && !beforeRender.presentationAnimationInFlight
@@ -2981,6 +3036,7 @@ void QVGraphicsView::logHDRState(const char *phase) const
         imageCorners.append(QJsonArray{ corner.x(), corner.y() });
     QJsonObject object{
         { QStringLiteral("phase"), QString::fromLatin1(phase) },
+        { QStringLiteral("timestamp_ms"), QDateTime::currentMSecsSinceEpoch() },
         { QStringLiteral("path"), fileDetails.fileInfo.absoluteFilePath() },
         { QStringLiteral("source_kind"), metadata.sourceKind },
         { QStringLiteral("type_identifier"), metadata.typeIdentifier },
@@ -3011,6 +3067,8 @@ void QVGraphicsView::logHDRState(const char *phase) const
         { QStringLiteral("layout_ready"), hdrLayoutReady },
         { QStringLiteral("geometry_pending"), hdrPendingGeometryValid && !hdrLayoutReady },
         { QStringLiteral("fallback_visible"), loadedPixmapItem->isVisible() },
+        { QStringLiteral("fallback_pixmap_width"), loadedPixmapItem->pixmap().width() },
+        { QStringLiteral("fallback_pixmap_height"), loadedPixmapItem->pixmap().height() },
         { QStringLiteral("zoom_level"), zoomLevel },
         { QStringLiteral("viewport_global_x"), viewportGlobalOrigin.x() },
         { QStringLiteral("viewport_global_y"), viewportGlobalOrigin.y() },
