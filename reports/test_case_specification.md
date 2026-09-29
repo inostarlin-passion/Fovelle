@@ -325,3 +325,173 @@ RGBA fixture 的 `(470, 34)` alpha 值为 0；viewport 底色来自 `Qv::viewpor
 - **预期结果**：opacity 单调上升、时长350–550ms，终态 opacity=1 且 EDR=true。
 - **后置条件**：窗口恢复前台后由runner退出并清理。
 - **覆盖**：动态；`test_accepts_smooth_bidirectional_450ms_transition`。
+
+# macOS 原生提示框：测试用例补充
+
+本组按六条原子标准分开执行：直接构造入口、原生平台路径、感叹号类别图标移除、macOS sheet 紧凑布局、parent/sheet 模态，以及 Cocoa Appearance 运行时行为。每条用例含测试目的、前置条件、输入数据、操作步骤、预期结果和后置条件。源代码契约由 Python 静态测试执行；图标、模态和 Appearance 行为由 Cocoa Qt 动态测试执行。
+
+## TC-ALERT-CENTRAL — 消息框创建入口唯一
+
+- **测试目的**：确保生产代码只在统一适配器中直接创建 `QMessageBox`。
+- **前置条件**：仓库 `src/` 下生产 C++/Objective-C++ 源文件可读。
+- **输入数据**：全部 `.cpp`、`.mm` 文件；扫描前去掉注释，排除文档中的示例代码。
+- **操作步骤**：执行 `python3 tests/native_alerts_acceptance.py`；枚举 QMessageBox 构造表达式并核对文件位置。
+- **预期结果**：唯一实例化表达式为 `src/nativedialogs.cpp` 中的 `new QMessageBox(parent)`；更新和会话提示只能从共享工厂取得。
+- **后置条件**：静态扫描不修改生产源码或 UI 状态。
+- **类型/代码**：静态；`NativeAlertsAcceptance.test_ST_ALERT_CENTRAL`。
+
+## TC-ALERT-NATIVE — 不禁用原生消息框
+
+- **测试目的**：阻止某个入口将提示框退回自绘/非平台原生消息框路径。
+- **前置条件**：共享工厂源代码可读；测试运行时 Qt 版本宏可解析。
+- **输入数据**：`NativeDialogs::createMessageBox()` 构造、选项和内容赋值顺序；全部生产源文件的 `DontUseNativeDialog` 引用。
+- **操作步骤**：在 `python3 tests/native_alerts_acceptance.py` 中检查 Qt 6.6+ 的关闭原生禁用选项操作位于正文赋值之前，并搜索是否有代码启用此选项。
+- **预期结果**：选项在设置正文前被明确设为 false，且生产代码没有任何 `DontUseNativeDialog=true`。
+- **后置条件**：无窗口或配置被打开/修改。
+- **类型/代码**：静态；`NativeAlertsAcceptance.test_ST_ALERT_NATIVE`。
+
+## TC-ALERT-ICON — 移除信息/警告感叹号图标
+
+- **测试目的**：去掉 Information 与 Warning QMessageBox 左侧不美观的感叹号类别 glyph，同时不抹去 Critical/Question 的区别。
+- **前置条件**：NativeDialogs 工厂和 Cocoa QtTest 环境已构建。
+- **输入数据**：Information、Warning、Critical、Question 四种消息框类型；所有用例使用普通文案和标准按钮。
+- **操作步骤**：静态运行 `python3 tests/native_alerts_acceptance.py` 检查分类映射；动态创建四种 QMessageBox 并读取 `icon()`。
+- **预期结果**：Information/Warning 的 icon 为 `NoIcon`；Critical 仍为 `Critical`，Question 仍为 `Question`；原始正文与按钮保留。
+- **后置条件**：临时消息框全部删除，不弹出无关用户提示。
+- **类型/代码**：静态+动态；`NativeAlertsAcceptance.test_UT_ALERT_ICON`、`WindowBehaviorTests::testNativeMessageBoxesUseParentSheets`。
+
+## TC-ALERT-LAYOUT — 无类别图标的原生紧凑 sheet
+
+- **测试目的**：确认无感叹号类别图标后，带父级消息框使用原生 sheet 版式，不再为大图标预留布局宽度。
+- **前置条件**：macOS Cocoa 平台插件可用；NativeDialogs 保持原生消息框选项。
+- **输入数据**：一个短正文、一枚标准 OK 按钮、有父窗口的 Information 提示框。
+- **操作步骤**：运行动态用例，检查 icon 为 NoIcon、modal 为 WindowModal、parentWidget 指向 owner；显示消息框并查询其 Cocoa window appearance。
+- **预期结果**：提示附着到所属窗口并呈现 Qt 定义的 macOS Sheet；信息/警告类别图标不存在；不通过应用 QSS 绘制额外布局。
+- **后置条件**：关闭 sheet 和 owner，Appearance/选项由测试作用域恢复。
+- **类型/代码**：静态+动态；`test_ST_ALERT_SHEET`、`WindowBehaviorTests::testNativeMessageBoxesUseParentSheets`。
+
+## TC-ALERT-SHEET — 父窗口附着和无主窗口模态
+
+- **测试目的**：确保有明确所属设置/应用窗口的提示是原生 sheet，同时保留退出流程无主窗口时的应用模态。
+- **前置条件**：共享适配器和 Cocoa 动态测试源码存在。
+- **输入数据**：非空 QWidget parent 与 null parent。
+- **操作步骤**：静态检查工厂 parent 条件；运行 Qt 动态用例并读取两类 QMessageBox 的 window modality。
+- **预期结果**：有父级的是 `Qt::WindowModal` 且 `parentWidget()` 指向该 owner；无父级的是 `Qt::ApplicationModal`。Qt 文档规定前者在 macOS 呈现为 parent sheet。
+- **后置条件**：动态用例关闭提示框和临时 owner。
+- **类型/代码**：静态+动态；`test_ST_ALERT_SHEET`、`WindowBehaviorTests::testNativeMessageBoxesUseParentSheets`。
+
+## TC-ALERT-APPEARANCE — Light、Dark 和 System 外观
+
+- **测试目的**：确保共享提示框的 AppKit 窗口与应用 Appearance 同步。
+- **前置条件**：macOS Cocoa Qt 测试二进制、NativeDialogs theme bridge 和 `FOVELLE_SYSTEM_THEME` 测试覆盖可用。
+- **输入数据**：应用 Light、Dark；System 配置且受控系统 Appearance 分别为 light、dark；各路径均创建有父窗口的信息框。
+- **操作步骤**：运行 `ctest --test-dir build -R 'FovelleNativeAlerts(Static|Dynamic)' --output-on-failure`；测试显示消息框并采集实际窗口 Appearance 名称。
+- **预期结果**：Light/System-light 为 Aqua；Dark/System-dark 为 DarkAqua；同时 native option 未禁用、信息图标为 NoIcon、父窗口/模态、正文和标准 OK 按钮正确。
+- **后置条件**：所有提示和 owner 关闭；ScopedOptionValues/ScopedEnvironmentValue 恢复测试前设置。
+- **类型/代码**：静态+动态；`NativeAlertsAcceptance.test_UT_ALERT_APPEARANCE`、`WindowBehaviorTests::testNativeMessageBoxesUseParentSheets`。
+
+## TC-ALERT-CONTENT — 按钮角色与 Cancel 语义
+
+- **测试目的**：确认通过共享 native sheet 呈现时，退出会话提示的自定义操作仍传回正确业务角色，标准 Cancel 仍可取消。
+- **前置条件**：Cocoa QtTest 构建完成；测试临时 owner 可显示。
+- **输入数据**：`Remember` (YesRole)、`End Session` (NoRole)、标准 `Cancel` 按钮。
+- **操作步骤**：运行 `WindowBehaviorTests::testNativeMessageBoxPreservesActionResponses`；在每个 `exec()` 模态事件循环中由单次 timer 自动点击 Remember 或 Cancel。
+- **预期结果**：第一个消息框的 clicked button 为 Remember 且角色为 YesRole；第二个消息框的 clicked standard button 为 Cancel。
+- **后置条件**：两个消息框及临时 owner 窗口关闭并释放。
+- **类型/代码**：Cocoa 动态；`WindowBehaviorTests::testNativeMessageBoxPreservesActionResponses`，由 `FovelleNativeAlertsDynamic` 执行。
+
+
+# macOS QMessageBox → NSAlert 全量委托：测试用例补充
+
+日期：2026-09-29
+范围：以下用例取代本文件较早版本中的 WindowModal sheet、保留自定义按钮和移除 Information/Warning severity 图标的过期验收方向。系统尺寸、边距、文字位置或按钮横向等距不属于应用级可断言项。
+
+## 原子验收标准
+
+- **AC-NATIVE-01** 生产 QMessageBox 只有一个统一构造入口，无静态消息框旁路。
+- **AC-NATIVE-02** 当前 Cocoa 运行时实际显示 NSAlert；无 native 禁用、NonModal/WindowModal fallback、rich text 或 detailed text 触发条件。
+- **AC-NATIVE-03** 仅提供 messageText、可选 informativeText、severity 和标准按钮；没有自定义按钮、checkbox、标题窗口属性或图标。
+- **AC-NATIVE-04** 业务不控制 alert 视觉/几何，不对宽度/边距/按钮位置作断言。
+- **AC-NATIVE-05** 调用方文字仍可本地化；长文案由 AppKit 排版，Light/Dark/System 随有效 Appearance。
+- **AC-NATIVE-06** 标准按钮的 Qt 结果映射保持正确。
+- **AC-NATIVE-07** 回归屏障能检出代表性的 native fallback 和视觉自绘突变。
+
+## TC-ST-ALERT-CENTRAL — 单一构造入口（静态）
+
+- **测试目的**：确保所有生产 QMessageBox 均由统一入口创建。
+- **前置条件**：项目 `src/` 源码可读。
+- **输入数据**：所有生产 `.cpp`、`.mm` 文件。
+- **操作步骤**：运行 `python3 tests/native_alerts_acceptance.py`，扫描 new/stack 构造、继承和静态便捷 API；确认唯一构造点和每个调用方。
+- **预期结果**：仅 `src/nativedialogs.cpp` 构造 QMessageBox，所有 production 提示经 NativeDialogs；未使用 `QMessageBox::information/warning/critical/question`。
+- **后置条件**：不修改项目状态。
+- **测试代码/类型**：`NativeAlertsAcceptance.test_ST_ALERT_CENTRAL`；静态。
+
+## TC-ST-ALERT-SEMANTICS — 原生 Alert 语义字段（静态）
+
+- **测试目的**：阻止应用在消息语义字段外继续设置视觉控件。
+- **前置条件**：统一 factory 源码可读。
+- **输入数据**：factory 的 severity、text、informativeText、standardButtons 属性及可能的 title/icon/custom-action API。
+- **操作步骤**：扫描 `createMessageBox()` 函数体，验证四种语义字段和 plain-text 规范化；反向扫描自定义标题、图标、按钮、details 和 checkbox。
+- **预期结果**：有 `setIcon(severity)`、`setText(plainAlertText(messageText))`、`setInformativeText(plainAlertText(informativeText))`、`setStandardButtons(buttons)`；没有 window title、pixmap、custom button、checkbox、details。
+- **后置条件**：无运行时窗口变更。
+- **测试代码/类型**：`NativeAlertsAcceptance.test_ST_ALERT_SEMANTICS`；静态。
+
+## TC-ST-ALERT-NATIVE-ROUTE — Cocoa native helper 条件（静态）
+
+- **测试目的**：捕捉 `QMessageBox` 配置可能使 Qt Cocoa 返回 QWidget fallback 的情况。
+- **前置条件**：目标为 macOS Cocoa build；参考 Qt 6.11 backend 条件。
+- **输入数据**：native option 顺序、模态、show/open、rich/detail 字段。
+- **操作步骤**：检查 option 在语义属性前关闭；确认 application-modal、`show()`，并确认 rich input 被归一、无 detailedText；扫描所有 factory 调用。
+- **预期结果**：factory 满足 Qt Cocoa NSAlert 的 native helper 前置条件；任何禁用选项、`open()`、详细文本或窗口模态改动均失败。
+- **后置条件**：源码不变。
+- **测试代码/类型**：`NativeAlertsAcceptance.test_ST_ALERT_NATIVE_ROUTE`；静态。
+
+## TC-ST-ALERT-NO-CUSTOM-LAYOUT — 禁止 widget 视觉/几何（静态）
+
+- **测试目的**：保证尺寸、间距、按钮排布和 Appearance 交给 AppKit。
+- **前置条件**：production 源码可扫描。
+- **输入数据**：alert 对象的方法调用。
+- **操作步骤**：扫描消息框实例上 stylesheet、fixed size、geometry、margins、font、layout、custom button、checkbox、icon pixmap 和 theme adapter 调用。
+- **预期结果**：没有业务自设外观或几何；普通设置/关于等非 QMessageBox 对话框不被该规则误扫。
+- **后置条件**：只读扫描完成。
+- **测试代码/类型**：`NativeAlertsAcceptance.test_ST_ALERT_NATIVE_STYLING`；静态。
+
+## TC-ST-ALERT-LOCALIZATION — 本地化入口（静态）
+
+- **测试目的**：防止生产提示绕过 tr 文案或自行安装标准按钮文字。
+- **前置条件**：Qt 翻译和 Cocoa platform theme 编译配置可读取。
+- **输入数据**：生产 `showMessage/createMessageBox` 调用参数和标准按钮工厂。
+- **操作步骤**：解析生产调用参数；查验至少一个业务文本来自 `tr()`（局部组装的 Delete 文案追到 `messageText = tr(...)`）；确认标准按钮只有枚举值。
+- **预期结果**：业务 copy 经翻译系统提供；按钮标签由 Qt Cocoa/AppKit 平台提供；未硬编码按钮文字。
+- **后置条件**：不生成或更改翻译目录。
+- **测试代码/类型**：`NativeAlertsAcceptance.test_ST_ALERT_LOCALIZATION`；静态。
+
+## TC-UT-ALERT-NSALERT-APPEARANCE — 真实 NSAlert 与长文案（动态）
+
+- **测试目的**：验证四种 severity、三种 Appearance 分支和长多语言文案确实由 Cocoa 原生 alert 呈现。
+- **前置条件**：macOS QtTest binary 以 `QT_QPA_PLATFORM=cocoa` 运行；可读 `qt.qpa.dialogs` debug 日志。
+- **输入数据**：Information/Warning/Critical/Question；Light、Dark、受控 System-light/System-dark；日文+西班牙文长文案，并包裹 HTML 标签作为归一化输入；标准 OK。
+- **操作步骤**：执行 `testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity`；由定时器点击标准 OK；捕获 Qt Cocoa 日志；读取活动 AppKit modal window 的 `effectiveAppearance`。
+- **预期结果**：每个 case 包含 `Showing <NSAlert`；severity、plain message/informativeText 和标准 OK 正确；有效外观为期望 Aqua 或 DarkAqua；不测具体几何。
+- **后置条件**：每个 alert 关闭并删除，settings 和受控环境变量恢复。
+- **测试代码/类型**：`WindowBehaviorTests::testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity`；动态。
+
+## TC-UT-ALERT-STANDARD-RESPONSES — 标准动作映射（动态）
+
+- **测试目的**：确保无自定义 button 时业务确认结果仍稳定。
+- **前置条件**：同 TC-UT-ALERT-NSALERT-APPEARANCE。
+- **输入数据**：Save、Discard、Cancel 标准按钮，各点击一次。
+- **操作步骤**：执行 `testNativeMessageBoxStandardButtonResponses`；逐个显示标准 Cocoa alert，模拟点击相应标准按钮，捕获 native 后端日志和 Qt 响应。
+- **预期结果**：每个 Alert 恰有三个标准按钮；Qt result 与 clicked standard button 都等于输入枚举；每个弹窗实际创建 NSAlert。
+- **后置条件**：alert 关闭并删除。
+- **测试代码/类型**：`WindowBehaviorTests::testNativeMessageBoxStandardButtonResponses`；动态。
+
+## TC-MT-ALERT-REVERSE — 逆向突变检出（静态突变）
+
+- **测试目的**：证明源码验收不会在典型违规改变后仍然通过。
+- **前置条件**：干净源码静态检查通过。
+- **输入数据**：内存突变：AppModal→WindowModal、插入 fixed size、插入 custom button、native option false→true。
+- **操作步骤**：执行 `NativeAlertsAcceptance.test_MT_ALERT_REVERSE_FALSIFICATION_GUARDS`；每个突变只注入内存中的 factory 文本，再调用相应契约测试。
+- **预期结果**：四种突变全部由 AssertionError 拒绝；源文件在测试中不被改写。
+- **后置条件**：源树哈希/工作区保持不变。
+- **测试代码/类型**：静态突变测试。

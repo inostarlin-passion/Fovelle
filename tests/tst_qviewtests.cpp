@@ -41,10 +41,12 @@
 #include <QRadioButton>
 #include <QPalette>
 #include <QSignalSpy>
+#include <QLoggingCategory>
 #include <QSettings>
 #include <QStyle>
 #include <QStyleOptionGraphicsItem>
 #include <QStyleHints>
+#include <QTimer>
 #include <QSvgRenderer>
 #include <QTextDocumentFragment>
 #include <QTemporaryDir>
@@ -81,6 +83,48 @@
 #include "qvinfodialog.h"
 #include "qvaboutdialog.h"
 #include "nativedialogs.h"
+
+namespace
+{
+QStringList *capturedNativeDialogMessages = nullptr;
+QtMessageHandler previousNativeDialogHandler = nullptr;
+
+void captureNativeDialogMessages(QtMsgType type,
+                                 const QMessageLogContext &context,
+                                 const QString &message)
+{
+    if (capturedNativeDialogMessages && context.category
+        && QByteArray(context.category) == QByteArrayLiteral("qt.qpa.dialogs"))
+        capturedNativeDialogMessages->append(message);
+    else if (previousNativeDialogHandler)
+        previousNativeDialogHandler(type, context, message);
+}
+
+class ScopedNativeDialogLogCapture
+{
+public:
+    explicit ScopedNativeDialogLogCapture(QStringList *messages) :
+        previousRules(qgetenv("QT_LOGGING_RULES")),
+        previousHandler(qInstallMessageHandler(captureNativeDialogMessages))
+    {
+        capturedNativeDialogMessages = messages;
+        previousNativeDialogHandler = previousHandler;
+        QLoggingCategory::setFilterRules(QStringLiteral("qt.qpa.dialogs.debug=true"));
+    }
+
+    ~ScopedNativeDialogLogCapture()
+    {
+        capturedNativeDialogMessages = nullptr;
+        QLoggingCategory::setFilterRules(QString::fromLocal8Bit(previousRules));
+        qInstallMessageHandler(previousHandler);
+        previousNativeDialogHandler = nullptr;
+    }
+
+private:
+    QByteArray previousRules;
+    QtMessageHandler previousHandler;
+};
+}
 
 class ImageLoaderTests : public QObject
 {
@@ -350,6 +394,8 @@ private slots:
     void testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu();
     void testEditMenuRemovesMacOSServiceItems();
     void testNativeDialogsFollowSelectedTheme();
+    void testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity();
+    void testNativeMessageBoxStandardButtonResponses();
     void testOpenUrlDialogFollowsSelectedTheme();
     void testZoomCustomDialogStartsAtCurrentLevel();
     void testThemeAppliesNativeAppearanceAndViewportBackground();
@@ -14384,7 +14430,137 @@ void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
             QStringLiteral("Theme test"),
             QStringLiteral("Native dialog"),
             QMessageBox::Ok);
-        assertAppearance(messageBox);
+        QCOMPARE(messageBox->windowModality(), Qt::ApplicationModal);
+        QCOMPARE(messageBox->text(), QStringLiteral("Theme test"));
+        QCOMPARE(messageBox->informativeText(), QStringLiteral("Native dialog"));
+        QCOMPARE(messageBox->icon(), QMessageBox::Information);
+        delete messageBox;
+    }
+}
+
+// TC-ALERT-NATIVE-APPEARANCE-DYNAMIC
+// Purpose: prove that long, localized alert content and every severity are
+// presented by Qt's Cocoa NSAlert helper under the selected AppKit appearance.
+// Preconditions: this QtTest target runs with QT_QPA_PLATFORM=cocoa.
+// Input: Information, Warning, Critical, Question; Light and Dark appearance;
+// long Japanese informative text and HTML-like input that must become plain.
+// Steps: build through NativeDialogs, assert semantic properties, call exec(),
+// click the standard response, and capture qt.qpa.dialogs' NSAlert trace.
+// Expected: every case logs "Showing <NSAlert", retains content/severity and
+// standard buttons, and the live AppKit modal has Aqua or DarkAqua appearance.
+// Postcondition: each alert closes, objects are deleted, and theme is restored.
+void WindowBehaviorTests::testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity()
+{
+    const QString longLocalizedText = QStringLiteral(
+        "画像を開けませんでした。詳細を確認してから、もう一度お試しください。 "
+        "La imagen no se pudo abrir. Comprueba los detalles e inténtalo de nuevo. ")
+        .repeated(8);
+
+    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
+    {
+        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
+        const QString expectedAppearance = theme == Qv::Theme::Dark
+            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+
+        for (const auto severity : {QMessageBox::Information, QMessageBox::Warning,
+                                    QMessageBox::Critical, QMessageBox::Question})
+        {
+            QStringList nativeMessages;
+            QString appearanceAtPresentation;
+            ScopedNativeDialogLogCapture capture(&nativeMessages);
+            auto *messageBox = NativeDialogs::createMessageBox(
+                severity,
+                QStringLiteral("Localized alert"),
+                QStringLiteral("<b>") + longLocalizedText + QStringLiteral("</b>"),
+                QMessageBox::Ok);
+            messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
+            QCOMPARE(messageBox->windowModality(), Qt::ApplicationModal);
+            QCOMPARE(messageBox->text(), QStringLiteral("Localized alert"));
+            QCOMPARE(messageBox->informativeText(), longLocalizedText);
+            QCOMPARE(messageBox->icon(), severity);
+            QCOMPARE(messageBox->standardButtons(), QMessageBox::StandardButtons(QMessageBox::Ok));
+            QCOMPARE(messageBox->textFormat(), Qt::PlainText);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+            QVERIFY(!messageBox->testOption(QMessageBox::Option::DontUseNativeDialog));
+#endif
+
+            auto *okButton = messageBox->button(QMessageBox::Ok);
+            QVERIFY(okButton);
+            QTimer::singleShot(250, messageBox, [messageBox, okButton, &appearanceAtPresentation] {
+                appearanceAtPresentation = QVCocoaFunctions::getActiveModalWindowAppearanceName();
+                okButton->click();
+            });
+            QCOMPARE(messageBox->exec(), int(QMessageBox::Ok));
+            QVERIFY2(nativeMessages.join('\n').contains(QStringLiteral("Showing <NSAlert")),
+                     qPrintable(nativeMessages.join('\n')));
+            QCOMPARE(appearanceAtPresentation, expectedAppearance);
+            delete messageBox;
+        }
+    }
+
+    // System appearance resolves through NSApp and is inherited by NSAlert.
+    for (const auto systemTheme : {QByteArray("light"), QByteArray("dark")})
+    {
+        ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::System)}});
+        ScopedEnvironmentValue environment("FOVELLE_SYSTEM_THEME");
+        qputenv("FOVELLE_SYSTEM_THEME", systemTheme);
+        QCOMPARE(NativeDialogs::currentTheme(), Qv::Theme::System);
+        QVCocoaFunctions::setApplicationTheme(Qv::Theme::System);
+        const QString expectedAppearance = systemTheme == "dark"
+            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+        QStringList nativeMessages;
+        QString appearanceAtPresentation;
+        ScopedNativeDialogLogCapture capture(&nativeMessages);
+        auto *messageBox = NativeDialogs::createMessageBox(
+            QMessageBox::Information,
+            QStringLiteral("System appearance"),
+            QStringLiteral("The native alert follows the current system appearance."),
+            QMessageBox::Ok);
+        messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
+        auto *okButton = messageBox->button(QMessageBox::Ok);
+        QTimer::singleShot(250, messageBox, [messageBox, okButton, &appearanceAtPresentation] {
+            appearanceAtPresentation = QVCocoaFunctions::getActiveModalWindowAppearanceName();
+            okButton->click();
+        });
+        QCOMPARE(messageBox->exec(), int(QMessageBox::Ok));
+        QVERIFY(nativeMessages.join('\n').contains(QStringLiteral("Showing <NSAlert")));
+        QCOMPARE(appearanceAtPresentation, expectedAppearance);
+        delete messageBox;
+    }
+}
+
+// TC-ALERT-STANDARD-RESPONSES-DYNAMIC
+// Purpose: verify business actions use only platform-standard QMessageBox
+// buttons and preserve their result identifiers through Cocoa presentation.
+// Preconditions: a native Cocoa QtTest executable is running.
+// Input: Save/Discard/Cancel, each clicked in turn.
+// Steps: display each native alert, click the named standard button, capture
+// the native trace, and inspect the returned QMessageBox standard identifier.
+// Expected: standard button membership is exact, NSAlert was used, and each
+// response is mapped back to the same standard identifier.
+// Postcondition: each QMessageBox is closed and deleted.
+void WindowBehaviorTests::testNativeMessageBoxStandardButtonResponses()
+{
+    for (const auto expectedButton : {QMessageBox::Save, QMessageBox::Discard,
+                                      QMessageBox::Cancel})
+    {
+        QStringList nativeMessages;
+        ScopedNativeDialogLogCapture capture(&nativeMessages);
+        auto *messageBox = NativeDialogs::createMessageBox(
+            QMessageBox::Question,
+            QStringLiteral("Remember Session?"),
+            QStringLiteral("Would you like to remember the opened images for next time?"),
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+        messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
+        QCOMPARE(messageBox->buttons().size(), 3);
+        auto *button = messageBox->button(expectedButton);
+        QVERIFY(button);
+        QTimer::singleShot(250, messageBox, [button] { button->click(); });
+        QCOMPARE(messageBox->exec(), int(expectedButton));
+        QCOMPARE(messageBox->standardButton(messageBox->clickedButton()), expectedButton);
+        QVERIFY2(nativeMessages.join('\n').contains(QStringLiteral("Showing <NSAlert")),
+                 qPrintable(nativeMessages.join('\n')));
+        delete messageBox;
     }
 }
 

@@ -145,3 +145,98 @@ Apple 的 Feedback 指南要求反馈重要性与打断程度相称，并指出�
 - 项目既有实现：[导航过渡时长](../src/mainwindow.h)、[焦点/Metal presentation 切换](../src/qvgraphicsview.cpp)、[原生导航叠层](../src/qvcocoafunctions.mm)
 
 证据范围：Material 4 秒时长是跨平台设计先例，非 macOS HIG 强制值；本机 QtTest 验证当前 macOS 27/Qt 6.11.2 配置。失焦清晰度测试使用屏幕级 WindowServer 采样，不只检查 QWidget；焦点过渡通过每16ms的 Core Animation presentation-layer 值采样，不将离散 PNG 截图误作绝对 HDR 光度仪。屏幕截图仍不覆盖每次刷新；对其他 GPU、显示器和 macOS/Qt 版本的实际呈现仍需目标环境运行。
+
+# macOS 感叹号提示框外观统一：技术设计补充
+
+日期：2026-09-29
+状态：实现完成；共享消息框入口、父窗口 sheet 模态、Appearance 适配均加入静态和 Cocoa 动态验收
+
+## 1. 问题界定与原子化验收标准
+
+用户指出带感叹号的提示框外观不协调，后续明确要求“感叹号要移除”，并补充要求调整排版，使其简洁美观。示例是切换语言后显示的“Restart Required”提示。源码确认该入口传入 `QMessageBox::Information`；截图的白色感叹号气泡与本仓库蓝色 Fovelle 应用图标不同，是消息框类别图标，不应保留。此次验收同时覆盖去掉该类别图标、压缩无图标后的布局、父窗口归属和 Appearance。
+
+- **AC-ALERT-CENTRAL**：生产代码中的 `QMessageBox` 实例只由 `NativeDialogs::createMessageBox()` 创建；具体提示入口不得私自另建 QMessageBox 或独立设置主题。
+- **AC-ALERT-NATIVE**：共享工厂保留 Qt Cocoa 原生消息框实现路径，不对消息框启用 `DontUseNativeDialog`；Qt 6.6 及以上在设置消息内容前明确关闭该选项。
+- **AC-ALERT-ICON**：Information 与 Warning 类别不显示 Qt 默认感叹号图标；提示正文和 severity 文案保留。Critical 与 Question 类别继续保留各自语义图标。
+- **AC-ALERT-SHEET**：传入父窗口的提示框使用 `Qt::WindowModal`，在 macOS 按 Qt 文档呈现为该窗口的 sheet；没有父窗口的应用级提示维持 `Qt::ApplicationModal`。
+- **AC-ALERT-LAYOUT**：有父窗口的普通提示以无类别图标的标准 macOS sheet 呈现，避免大图标占据横向空间；沿用系统正文/按钮排版，不叠加自定义 QSS、额外装饰或空白占位。
+- **AC-ALERT-CONTENT**：迁移前的正文、标准按钮、角色按钮、默认按钮、Escape/Cancel 语义仍由原有业务入口提供；Information/Warning 的感叹号 glyph 按 AC-ALERT-ICON 移除，不改变 Critical/Question 类别。
+- **AC-ALERT-APPEARANCE**：Light 与 Dark 设置分别解析为 Aqua 和 DarkAqua；System 模式跟随系统有效 Appearance。Qt 控件调色板与 AppKit 窗口使用同一应用主题，不硬编码一套亮/暗样式。
+- **AC-ALERT-ALL-ENTRYPOINTS**：普通提示、更新提示、退出时的会话保存提示均调用共享创建/主题实现；自定义角色按钮可以附加于共享 QMessageBox，而不另行绘制消息框容器。
+
+## 2. 多跳外部检索与交叉核验
+
+1. Apple [Alerts HIG](https://developer.apple.com/design/human-interface-guidelines/alerts) 把 alert 定义为提供即时关键消息的模态视图，建议克制使用并仅保留必要信息/有用操作；同一页面说明 macOS 会自动显示应用图标。截图中的感叹号 glyph 与仓库 app icon 对照并非同一图像，项目消息源码又传入 Information，因此依据不是猜图标来源，而是明确移除该消息类型的类别图标。
+2. Apple [Sheets HIG](https://developer.apple.com/design/human-interface-guidelines/sheets) 说明 sheet 属于其主窗口，并建议同一主界面一次只显示一个 sheet；关闭后用户预期回到父窗口。Apple [Modality HIG](https://developer.apple.com/design/human-interface-guidelines/modality) 补充模态应有清晰收益。切换设置语言需要用户知晓并留在偏好设置流程内，窗口附着的提示比无归属的应用级窗口符合这一关系。
+3. Qt 官方 [`QMessageBox`](https://doc.qt.io/qt-6/qmessagebox.html) 独立描述 Cocoa 行为：macOS 下父窗口非空且模态为 `Qt::WindowModal` 时消息框是 Qt Sheet，否则为普通标准对话框；它也记载 `DontUseNativeDialog` 是关闭原生消息框的选项，默认禁用。这个 API 说明将 Apple 的归属原则映射到本项目可测试的具体属性。
+4. Qt [`QMessageBox` icon 属性](https://doc.qt.io/qt-6/qmessagebox.html#icon-prop)允许使用 `QMessageBox::NoIcon`，且图形来自当前 GUI style；Apple [`NSAlert.icon`](https://developer.apple.com/documentation/appkit/nsalert/icon) 则说明 AppKit alert 默认用应用图标，并可能在上下文明确的 window sheet 中省略它。两者说明需要区分类别 glyph 与 AppKit 应用图标：本任务只去掉 Information/Warning 的类别感叹号，不以空白自定义图片篡改系统 alert 的 app-icon 行为。Qt 类别图标依据与用户截图和仓库应用图标资源核对后确认。
+5. Apple [`NSAppearance`](https://developer.apple.com/documentation/appkit/nsappearance) 说明 AppKit Appearance 决定窗口、视图和控件绘制颜色/图像，并由应用、窗口、视图逐层继承；[`NSApplication.appearance`](https://developer.apple.com/documentation/appkit/nsapplication/appearance) 说明 nil 时使用系统 Appearance。项目现有 `QVCocoaFunctions::setApplicationTheme()` 和 Qt palette 更新路径已负责 Light/Dark/System，因此消息框需继续走 `NativeDialogs::applyTheme()`。
+
+检索链闭合为：Apple 定义 alert/sheet、类别重要性和 Appearance → Qt 文档给出 icon 类别及 Cocoa sheet 的 parent/modality 条件 → 对照用户截图、应用图标资产、代码入口和 theme bridge → 用 Cocoa 运行时检查 Aqua/DarkAqua、Qt modality、图标属性与消息内容。Apple 与 Qt 分别发布的第一方资料相互印证了原生 sheet 和系统控件外观；项目证据确认截图中的类别 glyph 源自 `Information` 类型。
+
+## 3. 推导、方案和逆向证伪
+
+唯一实现方案是保留 `QMessageBox` 及其默认原生平台实现，所有生产消息框集中由 `NativeDialogs::createMessageBox()` 配置；Information/Warning 转为 `NoIcon`，Critical/Question 保留类别语义；有父级时选 `WindowModal`，无父级才用 `ApplicationModal`，并对每个对话框应用当前应用 Appearance。无图标移除了感叹号类别 glyph 与其占位宽度，WindowModal sheet 提供 macOS 标准紧凑排版。没有另画仿原生容器或固定颜色，因为这会偏离 AppKit 原生绘制与 Appearance 继承。Apple 的 NSAlert 文档说明 alert 默认 app icon，在信息清楚的 window sheet 中 AppKit 也可能省略 app icon；验收移除的是截图中 Information/Warning 的感叹号类别图标，不声称强制隐藏 AppKit 自身可能采用的应用图标。
+
+实现改动：
+
+- 工厂先创建默认 QMessageBox，再（Qt 6.6+）明确保证 `DontUseNativeDialog=false`，随后设置图标、标题、正文、标准按钮、父级对应模态和主题。
+- `UpdateChecker::openDialog()` 改由共享工厂创建，保留 Skip/Download/Disable Checking 等业务按钮及原来的按钮角色/回调。
+- `QVApplication::getSessionSaveDecision()` 改由共享工厂创建，保留 Remember、End Session、Cancel 的决策语义；退出阶段本无父窗口，继续采用应用模态。
+- 设置页语言提示及其他 `NativeDialogs::showMessage()` 调用无需各自改动，统一从共享策略获益。
+
+逆向证伪：若恢复 `ApplicationModal`，Qt 官方文档预测有父窗口时将呈现普通对话框，而 sheet 动态测试应失败；若打开 `DontUseNativeDialog`，静态契约和 Qt 6.6+ 运行时选项断言应失败；若删除主题传递或固定窗口 Appearance，Light/Dark/System 的窗口 Appearance 检查应失败；若迁移丢失正文或标准按钮，动态内容检查失败。无父窗口另作反例，避免把所有消息框盲目改为 WindowModal。
+
+## 4. 测试范围与外部资料边界
+
+原子测试定义在 [`native_alerts_acceptance.py`](../tests/native_alerts_acceptance.py)、`WindowBehaviorTests::testNativeMessageBoxesUseParentSheets()` 和 `testNativeMessageBoxPreservesActionResponses()`。动态测试逐类验证 Information/Warning 的 `NoIcon` 与 Critical/Question 的保留行为、custom role/default/Cancel 结果；同时检查父级模态和真实窗口 Appearance。完整六字段规格见 [测试用例说明](test_case_specification.md)；当前执行记录见 [测试完成报告](test_completion_report.md)。
+
+HIG 描述设计原则，不规定 Qt 版本的具体渲染实现；Qt API 文档提供 parent/modality 原生 sheet 条件。Cocoa 动态检查确认本机实际 Aqua/DarkAqua 窗口和 Qt 模态属性，但它不截图识别视觉像素，也不代表所有 Qt、macOS 版本及第三方平台插件。Qt 的原生消息框选项只从 Qt 6.6 起可通过公开 API 读取/设置，所以 Qt 5 构建依靠默认 Cocoa 路径以及适配器源代码契约；此次实机执行环境为 Qt 6.11.2。自定义业务按钮内容仍需后续检查对应版本 Cocoa backend 的视觉实际呈现；本次没有用自绘重现系统按钮的能力作超出测试证据的承诺。
+
+
+# macOS QMessageBox 全量委托 NSAlert：统一实现补充
+
+日期：2026-09-29
+状态：实现完成；生产构建、静态契约、Cocoa 运行时和反向突变测试通过。**本节 supersede 本文件前一节“macOS 感叹号提示框外观统一”中保留 QWidget 图标、WindowModal sheet 和逐窗口主题的旧方案。**
+
+## 问题界定与原子化验收标准
+
+用户将实现边界明确为：提示语义由业务层提供；macOS 的 alert 视觉、尺寸、文字换行和按钮布局均由 AppKit `NSAlert` 决定。不能以“左右间距相等”等应用侧几何规则为目标。
+
+- **AC-NATIVE-01 全量入口**：所有生产 `QMessageBox` 都经 `NativeDialogs` 创建；不存在直接实例化、静态便捷 API 或平行提示框实现。
+- **AC-NATIVE-02 Cocoa 运行时路径**：Qt Cocoa 必须实际创建 `NSAlert`；启用 native helper、使用 application-modal、无详细区和自定义 checkbox；对可能含 HTML 的文本先转为纯文本，避免平台后端回退 QWidget。使用 `show()`，不使用会改成 window-modal 的 `open()`。
+- **AC-NATIVE-03 仅提供语义**：只设置 `messageText`（Qt `QMessageBox::text`）、可选 `informativeText`、severity 和标准按钮。标题不作为独立窗口标题；无自定义图标、按钮标签/角色、复选框、详情窗格或附件控件。默认键/Escape 可指向已有标准按钮。
+- **AC-NATIVE-04 系统负责呈现**：提示框不设置 stylesheet、固定大小、geometry、padding/margin、font、layout 或自绘控件；代码和测试不把等距、特定宽高/换行位置当验收要求。
+- **AC-NATIVE-05 本地化与 Appearance**：业务文案仍由 Qt `tr()` 提供；标准按钮交给 Cocoa platform theme。Light/Dark/System 经既有应用级 Appearance 设置由 NSAlert 继承；长短和不同文字系统交由 AppKit 自适应。
+- **AC-NATIVE-06 动作结果**：业务流程只使用标准按钮标识，并保持可验证的确认/取消结果映射。
+- **AC-NATIVE-07 可证伪性**：静态扫描能识别回退触发点/自定义外观；运行时测试必须观察到 Qt Cocoa 的 `NSAlert` 创建日志，并验证有效 Appearance 与按钮响应。
+
+## 多跳检索、交叉验证与推导
+
+1. Qt 6.11.2 [`QMessageBox` API 文档](https://doc.qt.io/qt-6/qmessagebox.html)说明消息由 primary text、可选 informative text、severity icon 和标准按钮组成；`DontUseNativeDialog` 是明确关闭 native helper 的选项；macOS 下 `open()` 会影响模态，`Qt::WindowModal` 才是 sheet 路径。
+2. 第一方 Qt 6.11 Cocoa 后端 [`qcocoamessagedialog.mm`](https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoamessagedialog.mm)进一步验证：helper 实例化 AppKit `NSAlert`，把 Qt text/informativeText 转成对应 NSAlert 字段和 severity；它会在 NonModal、缺少 window-modal parent、详细文本或 rich text 时拒绝 native helper。源码还对 macOS Tahoe 的 WindowModal mouse-button 问题主动返回 false，导致 Qt QWidget fallback。对照 [`qcocoatheme.mm`](https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoatheme.mm)，确认 Cocoa platform theme 为 MessageDialog 提供该 helper。因此仅检查 `DontUseNativeDialog == false` 并不足以证明原生呈现。
+3. Apple [`NSAlert`](https://developer.apple.com/documentation/AppKit/NSAlert?language=objc) 文档定义 `messageText`、`informativeText`、alertStyle，且分别提供 app-modal `runModal` 和 window sheet API。这与 Qt 对字段和模态的映射相互印证。
+4. Apple [AppKit macOS 11 release notes](https://developer.apple.com/documentation/macos-release-notes/appkit-release-notes-for-macos-11)明确说 NSAlert 从 Big Sur 起采用更纵向、通常更窄的布局，message/informative text 换行受系统宽度影响，按钮通常纵向排列并由系统决定是否并排；系统还约束 alert 最大高度。由此推导，应用不应修正边距或重设宽度；把布局约束交回 AppKit 才符合本需求。
+5. Qt Cocoa 源码按平台 `standardButtonText()` 读取标准按钮文案并加入 NSAlert；Qt [`QMessageBox` 文档](https://doc.qt.io/qt-6/qmessagebox.html)说明标准按钮次序按平台变化，且 `Discard` 的自然语言标签按平台为 “Discard” 或 “Don’t Save”。结合 Apple NSAlert 自动系统布局，可以保持按钮可本地化而不自行指定按钮文字。
+
+**链式推导**：统一工厂 → 为 Qt 6.6+ 在任何字段赋值前保留 native option → AppModal（包括有 owner 的窗口）规避 Cocoa Tahoe 的 WindowModal fallback → 标准按钮且不设 details/checkbox → 将 rich input 归一为 plain text → 动态观测到 `Showing <NSAlert...>`。AppKit 接管 Alert 构造后，由 Apple 文档支持其尺寸/文字/按钮自适应，所以不应再用 QWidget geometry 作为通过条件。应用的 `NSApp` Appearance 在显示原生 alert 时继承，运行时测试在 `NSApp.modalWindow` 读取实际有效外观。
+
+## 唯一实现方案与范围变化
+
+`NativeDialogs::createMessageBox()` 是唯一构造点，接口现在直接接收 severity、messageText、informativeText、标准按钮和可选 parent。工厂将文本设为 `Qt::PlainText`；若 `Qt::mightBeRichText()` 识别到 HTML，则先经 `QTextDocument::toPlainText()` 归一，避免 Qt Cocoa 对 rich text 拒绝 NSAlert。工厂不再设 window title、widget palette/Appearance、icon pixmap、details、checkbox、自定义 button 或任何几何/视觉属性。`NativeDialogs::showMessage()` 用 `show()` 保留 application modality。NSApp Appearance 继续由 `QVCocoaFunctions::setApplicationTheme()` 决定，alert 自身不作局部外观覆写。
+
+- 会话保存提示把自定义 “Remember / End Session” 改成标准 Save / Discard / Cancel；业务映射仍分别为记住、结束且不保存、取消。
+- 更新提示使用 Open / Ignore / Close：Open 打开下载地址，Ignore 记住忽略此版本，Close 关闭。此前 alert 内的自定义 Download、Skip Version 和 Disable Checking 标签/动作不再通过非标准按钮呈现；自动更新频率仍可在 Preferences 设置。
+- 删除确认移除了 alert 内 “Do not ask again” checkbox；已有 Preferences 的 `askdelete` 项继续控制是否询问。删除确认本身使用标准 Yes / No。
+
+因 Qt 6.11 Cocoa 源码已确认 Tahoe 上 parent + WindowModal 会退出 native helper，所有提示采用 application-modal NSAlert；它阻止本应用其他窗口操作，但不是贴附 owner 的 sheet。这是保证本机/此 Qt 版本实际 native 的明确模态选择。没有把这项 trade-off 隐去。
+
+## 逆向证伪复核
+
+静态验收脚本执行四种内存突变，不改工作区：把 AppModal 改成 WindowModal、添加固定尺寸、添加自定义按钮、将 native option 改为 true；每种突变均被对应契约断言拒绝。动态回归若退回 QWidget，就收不到 Qt Cocoa 后端 `Showing <NSAlert` 日志；若 Appearance 未继承则 Aqua/DarkAqua 断言失败；若按钮响应映射丢失，Save/Discard/Cancel 的结果标识断言失败。动态测试使用包含日文/西班牙文的长文字和 HTML 包裹内容，验证 plain text 归一后仍能走 native 路径。测试不检查 alert 宽度、margin 或按钮之间像素距离，因为这些属于系统布局决策。
+
+## 参考资料
+
+- Apple：[NSAlert](https://developer.apple.com/documentation/AppKit/NSAlert?language=objc)、[AppKit macOS 11 release notes](https://developer.apple.com/documentation/macos-release-notes/appkit-release-notes-for-macos-11)
+- Qt：[QMessageBox](https://doc.qt.io/qt-6/qmessagebox.html)、[Cocoa native alert implementation](https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoamessagedialog.mm)、[Cocoa platform theme](https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoatheme.mm)
+- 项目实现：[NativeDialogs factory](../src/nativedialogs.cpp)、[Cocoa Appearance bridge](../src/qvcocoafunctions.mm)、[static/dynamic test integration](../tests/CMakeLists.txt)

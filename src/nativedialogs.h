@@ -19,15 +19,15 @@ namespace NativeDialogs
     // early winId(); it applies to an existing handle and on the next turn.
     void applyTheme(QWidget *dialog);
 
-    QMessageBox *createMessageBox(QMessageBox::Icon icon,
-                                  const QString &title,
-                                  const QString &text,
+    QMessageBox *createMessageBox(QMessageBox::Icon severity,
+                                  const QString &messageText,
+                                  const QString &informativeText,
                                   QMessageBox::StandardButtons buttons,
                                   QWidget *parent = nullptr);
 
-    void showMessage(QMessageBox::Icon icon,
-                     const QString &title,
-                     const QString &text,
+    void showMessage(QMessageBox::Icon severity,
+                     const QString &messageText,
+                     const QString &informativeText = {},
                      QMessageBox::StandardButtons buttons = QMessageBox::Ok,
                      QWidget *parent = nullptr);
 

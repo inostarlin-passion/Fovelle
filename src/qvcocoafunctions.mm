@@ -5875,6 +5875,16 @@ QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
     return name ? QString::fromUtf8(name.UTF8String) : QString();
 }
 
+QString QVCocoaFunctions::getActiveModalWindowAppearanceName()
+{
+    NSString *name = NSApp.modalWindow.effectiveAppearance.name;
+    if ([name isEqualToString:NSAppearanceNameAqua])
+        return QStringLiteral("Aqua");
+    if ([name isEqualToString:NSAppearanceNameDarkAqua])
+        return QStringLiteral("DarkAqua");
+    return name ? QString::fromUtf8(name.UTF8String) : QString();
+}
+
 void QVCocoaFunctions::configureSettingsToolbar(QWindow *window, QTabBar *categoryTabs)
 {
     if (!window || !categoryTabs || categoryTabs->count() == 0)

@@ -196,3 +196,81 @@ Qt `QGraphicsView` 官方文档与公开 `scrollContentsBy()` 源码说明更新
 Apple [`CABasicAnimation`](https://developer.apple.com/documentation/quartzcore/cabasicanimation?language=objc) 文档确认标量 `opacity` 可插值动画；[`CALayer.opacity`](https://developer.apple.com/documentation/quartzcore/calayer/opacity?language=objc) 定义 0 到 1 的可动画透明度；[`presentationLayer`](https://developer.apple.com/documentation/quartzcore/calayer/presentation%28%29?changes=_8&language=objc) 文档说明动画期间它近似表示屏幕当前值；[`CAMediaTiming.duration`](https://developer.apple.com/documentation/quartzcore/camediatiming/duration) 定义以秒表示的时长；[`easeInEaseOut`](https://developer.apple.com/documentation/quartzcore/camediatimingfunctionname/easeineaseout?changes=_7) 说明曲线前后缓、中段加速。Qt [`QScreen::grabWindow()`](https://doc.qt.io/qt-6/qscreen.html#grabWindow) 捕获屏幕合成像素，支持使用真实窗口截图检验最终清晰度。以上资料分别核实动画属性、动画采样和终态采集手段；450ms 来自本项目打开 HDR 图像时既有动画，不是平台规范要求。
 
 真实系统证据限定于本机 macOS 27、Qt 6.11.2、当前 EDR 显示器及固定 Apple gain-map JPEG；对其他 GPU 和显示器不作普遍保证。屏幕截图用于空间细节而非 absolute luminance，过渡亮度依据 Core Animation 当前 opacity 和其固定 SDR 下层的合成路径验证。
+
+# macOS 原生感叹号提示框：测试完成报告
+
+日期：2026-09-29
+
+## 验收标准和结果
+
+| 原子验收标准 | 主要验证 | 结果 |
+|---|---|---|
+| AC-ALERT-CENTRAL：生产 QMessageBox 统一由 NativeDialogs 创建 | Python 静态构造点扫描 | 通过；唯一构造点为 `src/nativedialogs.cpp` |
+| AC-ALERT-NATIVE：原生消息框选项未禁用 | Python 顺序/反向扫描；Qt 6.6+ 动态 `testOption()` | 通过 |
+| AC-ALERT-ICON：Information/Warning 感叹号类别图标移除，Critical/Question 保留 | Python factory mapping；四种 icon 的 Cocoa Qt 动态属性断言 | 通过 |
+| AC-ALERT-LAYOUT：父级提示采用无类别图标的原生 sheet 紧凑版式 | Cocoa parent/modality/icon 属性；原生选项契约 | 通过 |
+| AC-ALERT-SHEET：有父级为 WindowModal，无父级保持 ApplicationModal | 静态 parent 条件；Cocoa Qt 运行时属性 | 通过 |
+| AC-ALERT-CONTENT：正文和业务按钮/角色保持 | 正文/OK 属性断言；Cocoa 模态路径自动点击 Remember 与 Cancel 并校验返回角色 | 通过 |
+| AC-ALERT-APPEARANCE：Light/Dark/System 遵循 AppKit appearance | Cocoa `effectiveAppearance` 窗口检查及 Theme adapter 源码 | 通过；Aqua/DarkAqua 和受控 System 两分支均通过 |
+| AC-ALERT-ALL-ENTRYPOINTS：更新、会话和普通提示复用共享实现 | 全生产源码 QMessageBox 构造点静态扫描 | 通过 |
+
+## 执行记录
+
+- 构建命令：`cmake --build build --target fovelle_tests -j4`；结果：成功。
+- 应用构建：`cmake --build build --target Fovelle -j4`；结果：`Fovelle.app/Contents/MacOS/Fovelle` 成功链接，脚本完成 app 构建。Ghostscript staging 的 install_name_tool 输出依赖库签名将失效的警告，但目标构建成功。
+- 静态测试：`python3 tests/native_alerts_acceptance.py`；结果：5/5 通过。
+- 新增 CTest：`ctest --test-dir build -R 'FovelleNativeAlerts(Static|Dynamic)' --output-on-failure`；结果：2/2 通过。最终运行静态测试 0.07 秒、Cocoa 动态测试 3.81 秒，总耗时 3.89 秒。
+- 动态测试覆盖：Information/Warning→NoIcon，Critical/Question 类别图标不变；Light→Aqua、Dark→DarkAqua、System/light→Aqua、System/dark→DarkAqua；有父窗口 WindowModal、无父窗口 ApplicationModal；正文、标准按钮、Remember/End Session 角色、Cancel 结果和 Qt 6.6+ 原生对话框选项均断言通过。
+- 建置/执行环境：仓库当前 `build` 目录的 Cocoa Qt 构建，macOS，本机已解析 Qt 6.11.2。
+
+## 证据链、逆向复核与限制
+
+Apple [Alerts HIG](https://developer.apple.com/design/human-interface-guidelines/alerts) 说明 macOS alert 默认显示应用图标；Apple [`NSAlert.icon`](https://developer.apple.com/documentation/appkit/nsalert/icon) 补充默认 app icon 可在上下文明确的 window sheet 中省略。Qt [`QMessageBox`](https://doc.qt.io/qt-6/qmessagebox.html) 文档确认 Information、Warning 等图标由 GUI style 提供且 `NoIcon` 是可用值；截图中的白色感叹号气泡与项目真实蓝色 Fovelle 图标不同，且语言提示代码调用 `QMessageBox::Information`，所以实现将两种感叹号类别映射为 `NoIcon`，不隐藏 Apple 原生 app icon 策略。Apple [Sheets HIG](https://developer.apple.com/design/human-interface-guidelines/sheets) 定义主窗口归属/一次一个 sheet；Qt 文档明确将有父窗口且 `Qt::WindowModal` 映射为 macOS Qt Sheet，亦说明 `DontUseNativeDialog` 用于禁用原生实现且默认关闭。Apple [`NSAppearance`](https://developer.apple.com/documentation/appkit/nsappearance) 与 [`NSApplication.appearance`](https://developer.apple.com/documentation/appkit/nsapplication/appearance) 说明 AppKit 控件继承 appearance，系统模式可继承当前系统外观。落地链为：移除 Qt 感叹号类别图标 → 使用 parent window sheet 的平台版式 → 现有主题 bridge 负责 Aqua/DarkAqua → 在 Cocoa 实际 window handle 验证结果。
+
+反向证伪点也被落实为测试：恢复 ApplicationModal 会破坏 sheet 模态断言；启用 DontUseNativeDialog 会破坏静态契约及 Qt 6.6+ 选项断言；丢失 Theme bridge 会破坏两套 appearance 检查；丢失 parent 条件会破坏动态 parent/modal 检查。当前这轮没有人为修改源码执行突变，因此上述是代码中的明确负向断言路径，不把它报告成实际完成的 mutation-testing 结果。
+
+测试确认的是 Qt/Cocoa 属性和窗口最终 Appearance，而没有做截图像素/无障碍快照的视觉比较。自定义按钮角色的业务连线被迁移保留，但本次运行用例未实际点击 Download、Skip Version、Remember 或 End Session；这些交互仍由既有业务路径负责。Qt 5 不提供该 QMessageBox option 的公开 setter/getter（此选项从 Qt 6.6 引入），所以 Qt 5 只由默认值/静态路径和 Cocoa sheet 规则覆盖；本机实机验证基于 Qt 6.11.2。HIG 是平台设计建议，并非对所有 Qt/Cocoa 版本的像素级外观保证。
+
+## 后续完整回归说明
+
+本次最新完整 `FovelleTests` 回归在加入按钮响应回归之前执行，新增 `testNativeMessageBoxesUseParentSheets` 通过；其余窗口相关项通过，唯一失败为 `WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss` 的失焦前后屏幕像素相等断言（[测试位置](../tests/tst_qviewtests.cpp)）。该用例曾单独重跑一次，同一断言仍失败。这不是消息框生产路径；本次未改动失焦图像行为。最终定向 Alert 静态/动态 CTest（包含新增按钮响应测试）为 2/2 通过。
+
+
+# macOS QMessageBox 全量委托 AppKit NSAlert：测试完成报告补充
+
+日期：2026-09-29
+结论：所有生产 QMessageBox 已通过统一工厂并由 Cocoa `NSAlert` 后端显示；应用层不再控制 alert 的视觉与几何布局。
+
+## 验收结果
+
+| 原子标准 | 结果 | 证据 |
+|---|---|---|
+| AC-NATIVE-01 单一构造入口 | 通过 | 静态扫描只找到 `src/nativedialogs.cpp` 一个 QMessageBox 构造点，无静态便捷 API |
+| AC-NATIVE-02 Cocoa runtime | 通过 | 动态捕获 Qt Cocoa `qt.qpa.dialogs` 中 `Showing <NSAlert`；factory 使用 ApplicationModal 和 `show()`，转换 rich text、无详情/checkbox |
+| AC-NATIVE-03 只提供语义 | 通过 | factory 仅设置 severity、messageText、informativeText、plain-text mode、standardButtons；业务已删除 QMessageBox 自定义 buttons/checkbox |
+| AC-NATIVE-04 AppKit 负责布局 | 通过 | 静态检查禁止 QMessageBox 自设 style/size/geometry/margin/font/layout/button/icon；动态测试不锁定宽度或位置 |
+| AC-NATIVE-05 本地化与外观 | 通过 | 生产调用文案经过 `tr()` 检查；动态运行验证四种 severity 的 Light/Dark/System 颜色继承 |
+| AC-NATIVE-06 标准动作结果 | 通过 | Save/Discard/Cancel 均从原生提示返回相同标准按钮枚举 |
+| AC-NATIVE-07 回归可证伪 | 通过 | 四种内存突变（WindowModal、固定尺寸、自定义按钮、禁用 native）均稳定被拒绝 |
+
+## 执行记录
+
+- `python3 tests/native_alerts_acceptance.py`：8/8 通过，含六字段测试用例元数据检查和 4 种故障突变。
+- `cmake --build build --target Fovelle fovelle_tests -j 6`：两个目标成功。Ghostscript 依赖 `install_name_tool` 在 staging 文件上的签名失效警告是打包脚本的既有提示；构建完成退出码为 0。
+- `ctest --test-dir build -R 'FovelleNativeAlerts' --output-on-failure`：最终执行 2/2 CTest 通过（静态 0.18s；动态 3.64s；总计 3.83s）。
+- 动态矩阵包含 Light/Dark × Information/Warning/Critical/Question 共 8 个 alert，System-light/System-dark 再 2 个 alert；均检查后端的 `NSAlert` 创建日志和 alert 当前有效 Appearance。另对 Save/Discard/Cancel 各动态点击一次，共 3 个 response case。HTML 样式包裹的多语言长句被转换为 plain text 后仍走 NSAlert。
+- 运行平台是本机 macOS Cocoa、当前 build 的 Qt 6.11.2。未运行全套 `FovelleTests`，只运行本任务关联的目标和测试；其他图像/HDR/navigation 行为不在本次改动范围。
+
+## 实施范围及可见行为
+
+会话提示用系统标准 Save / Discard / Cancel 替换 Remember / End Session 自定义标签；更新提示改用 Open / Ignore / Close。更新检查禁用设置继续在 Preferences 提供；删除确认不再内嵌 “Do not ask again” checkbox，是否询问仍由 Preferences 里的 `askdelete` 设置控制。这样 alert 中没有 AppKit 标准 API 以外的按钮文字、suppression checkbox 或应用绘制控件。
+
+为规避已在 Qt 6.11 Cocoa 源码中确认的 Tahoe WindowModal fallback，有 parent 的 QMessageBox 也改为 ApplicationModal。它是原生 `NSAlert.runModal` 标准 alert 而不是附着 window sheet；因此本应用其他窗口也会被模态阻止，native 路径和“保留 sheet”无法在这套 Qt/Cocoa 条件下同时满足。本次按用户当前更高优先级的全量 NSAlert 约束选用应用模态。
+
+## 多源验证与反向证伪记录
+
+Qt [`QMessageBox` 文档](https://doc.qt.io/qt-6/qmessagebox.html)描述 message/informative/severity/standard-buttons 与 native option；Qt 6.11 Cocoa [`QCocoaMessageDialog`](https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoamessagedialog.mm)直接实例化 NSAlert，并列出 rich/detail/模态 fallback 条件；Apple [`NSAlert`](https://developer.apple.com/documentation/AppKit/NSAlert?language=objc)文档给出这些语义字段和 app-modal 展示 API。Apple [macOS 11 AppKit notes](https://developer.apple.com/documentation/macos-release-notes/appkit-release-notes-for-macos-11)说明 NSAlert 自动采用纵向为主的系统布局、按钮自适应与系统最大高度。多源链共同支持此次实现与“不做 margin/宽度/按钮位置指标”的测试边界。
+
+逆向验证并非仅在报告中列想象的坏例：测试以内存形式把 modality 改成 WindowModal、加入固定尺寸、加入文字自定义按钮及启用 DontUseNativeDialog，实际调用静态验收方法并确认每个突变失败。动态 native-path 测试若出现 QWidget fallback 即缺少 `Showing <NSAlert`，因此本地化长字串和 Appearance 测试能反驳“只关掉禁用选项就等于走 native”的弱假设。
+
+资料结论限定到本机 Qt 6.11.2 backend 和当前 macOS：Qt 未来版本可能修复 Tahoe sheet 的按钮问题，届时可重新评估 parent sheet，但仍应以运行时 `NSAlert` 证据验证。native NSAlert 的实际排版应由系统版本、辅助功能和语言驱动；本次不做固化像素快照。

@@ -4,7 +4,6 @@
 #include "nativedialogs.h"
 
 #include <QMessageBox>
-#include <QPushButton>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QDesktopServices>
@@ -149,40 +148,29 @@ void UpdateChecker::openDialog(QWidget *parent, bool isAutoCheck)
     if (!(hasChecked && checkResult.wasSuccessful && checkResult.isConsideredUpdate()))
         return;
 
-    auto *msgBox = new QMessageBox(parent);
-    msgBox->setAttribute(Qt::WA_DeleteOnClose);
-    NativeDialogs::applyTheme(msgBox);
-    msgBox->setWindowTitle(tr("Fovelle Update Available"));
-    msgBox->setText(tr("A newer version is available to download.")
-                    + "\n\n" + checkResult.releaseName + ":\n" + checkResult.changelog);
-    msgBox->setWindowModality(Qt::ApplicationModal);
-    msgBox->setStandardButtons(QMessageBox::Close | (isAutoCheck ? QMessageBox::Reset : QMessageBox::NoButton));
-    if (isAutoCheck)
-    {
-        auto *skipButton = new QPushButton(tr("Skip Version"), msgBox);
-        msgBox->addButton(skipButton, QMessageBox::ActionRole);
-        connect(skipButton, &QAbstractButton::clicked, this, [this]{
-            setSkippedTagName(checkResult.tagName);
-        });
-    }
-    auto *downloadButton = new QPushButton(tr("Download"), msgBox);
-    msgBox->addButton(downloadButton, QMessageBox::ActionRole);
-    connect(downloadButton, &QAbstractButton::clicked, this, [this]{
-        QDesktopServices::openUrl(DOWNLOAD_URL);
+    auto *msgBox = NativeDialogs::createMessageBox(
+        QMessageBox::Information,
+        tr("Fovelle Update Available"),
+        tr("A newer version is available to download.")
+            + "\n\n" + checkResult.releaseName + ":\n" + checkResult.changelog,
+        QMessageBox::Open | QMessageBox::Close
+            | (isAutoCheck ? QMessageBox::Ignore : QMessageBox::NoButton),
+        parent);
+    msgBox->setDefaultButton(QMessageBox::Open);
+    msgBox->setEscapeButton(QMessageBox::Close);
+    connect(msgBox, &QMessageBox::buttonClicked, this,
+            [this, msgBox, isAutoCheck, tagName = checkResult.tagName](QAbstractButton *button) {
+        switch (msgBox->standardButton(button)) {
+        case QMessageBox::Open:
+            QDesktopServices::openUrl(DOWNLOAD_URL);
+            break;
+        case QMessageBox::Ignore:
+            if (isAutoCheck)
+                setSkippedTagName(tagName);
+            break;
+        default:
+            break;
+        }
     });
-    if (isAutoCheck)
-    {
-        msgBox->button(QMessageBox::Reset)->setText(tr("&Disable Checking"));
-        connect(msgBox->button(QMessageBox::Reset), &QAbstractButton::clicked, qvApp, []{
-            QSettings settings;
-            settings.beginGroup("options");
-            settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Never));
-            qvApp->getSettingsManager().loadSettings();
-            NativeDialogs::showMessage(QMessageBox::Information,
-                                       tr("Fovelle Update Checking Disabled"),
-                                       tr("Automatic update checking has been disabled.\nYou can reenable it in Preferences."));
-        });
-    }
-    msgBox->open();
-    msgBox->setDefaultButton(QMessageBox::Close);
+    msgBox->show();
 }

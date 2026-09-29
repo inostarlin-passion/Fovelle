@@ -25,8 +25,8 @@ void QVRenameDialog::onFinished(int result)
 {
     if (!fileInfo.isWritable())
     {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
-                                   tr("Could not rename %1:\nNo write permission or file is read-only.").arg(fileInfo.fileName()),
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Could not rename %1:\nNo write permission or file is read-only.").arg(fileInfo.fileName()), {},
                                    QMessageBox::Ok, this);
         return;
     }
@@ -46,8 +46,8 @@ void QVRenameDialog::onFinished(int result)
             }
             else
             {
-                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
-                                           tr("Could not rename %1:\n(Check that all characters are valid)").arg(fileInfo.fileName()),
+                NativeDialogs::showMessage(QMessageBox::Critical,
+                                           tr("Could not rename %1:\n(Check that all characters are valid)").arg(fileInfo.fileName()), {},
                                            QMessageBox::Ok, this);
             }
         }

@@ -4,7 +4,24 @@
 #include "qvcocoafunctions.h"
 
 #include <QInputDialog>
+#include <QTextDocument>
 #include <QTimer>
+
+namespace
+{
+QString plainAlertText(const QString &text)
+{
+    if (!Qt::mightBeRichText(text))
+        return text;
+
+    // NSAlert accepts plain strings, not Qt rich text. Convert rich input at
+    // the shared boundary so Qt's Cocoa helper never falls back to a QWidget
+    // dialog for this reason.
+    QTextDocument document;
+    document.setHtml(text);
+    return document.toPlainText();
+}
+}
 
 namespace NativeDialogs
 {
@@ -33,28 +50,42 @@ void applyTheme(QWidget *dialog)
     QTimer::singleShot(0, dialog, apply);
 }
 
-QMessageBox *createMessageBox(const QMessageBox::Icon icon,
-                              const QString &title,
-                              const QString &text,
+QMessageBox *createMessageBox(const QMessageBox::Icon severity,
+                              const QString &messageText,
+                              const QString &informativeText,
                               const QMessageBox::StandardButtons buttons,
                               QWidget *parent)
 {
-    auto *messageBox = new QMessageBox(icon, title, text, buttons, parent);
+    auto *messageBox = new QMessageBox(parent);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    // Keep Qt's Cocoa native-message-dialog path enabled. Set this before
+    // assigning message content, as required by QMessageBox::setOption().
+    messageBox->setOption(QMessageBox::Option::DontUseNativeDialog, false);
+#endif
+    messageBox->setIcon(severity);
+    messageBox->setText(plainAlertText(messageText));
+    messageBox->setInformativeText(plainAlertText(informativeText));
+    messageBox->setTextFormat(Qt::PlainText);
+    messageBox->setStandardButtons(buttons);
+    // Keep every alert on QCocoaMessageDialog's NSAlert path. In particular,
+    // Cocoa falls back to QWidget for window-modal alerts on macOS Tahoe.
+    // App-modal NSAlert inherits NSApp's current Appearance and system layout.
     messageBox->setWindowModality(Qt::ApplicationModal);
     messageBox->setAttribute(Qt::WA_DeleteOnClose);
-    applyTheme(messageBox);
     return messageBox;
 }
 
-void showMessage(const QMessageBox::Icon icon,
-                 const QString &title,
-                 const QString &text,
+void showMessage(const QMessageBox::Icon severity,
+                 const QString &messageText,
+                 const QString &informativeText,
                  const QMessageBox::StandardButtons buttons,
                  QWidget *parent)
 {
-    auto *messageBox = createMessageBox(icon, title, text, buttons, parent);
-    messageBox->open();
-    applyTheme(messageBox);
+    auto *messageBox = createMessageBox(severity, messageText, informativeText, buttons, parent);
+    // open() changes QMessageBox to window-modal on macOS. show() preserves
+    // the explicitly selected application modality and still returns
+    // immediately while AppKit runs the native modal alert.
+    messageBox->show();
 }
 
 double getDouble(QWidget *parent,

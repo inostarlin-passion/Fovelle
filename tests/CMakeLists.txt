@@ -158,6 +158,23 @@ set_tests_properties(FovelleTests PROPERTIES
     TIMEOUT 180
 )
 
+add_test(NAME FovelleNativeAlertsStatic
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/native_alerts_acceptance.py)
+set_tests_properties(FovelleNativeAlertsStatic PROPERTIES
+    TIMEOUT 30
+    LABELS "macos;native-dialog;appearance;source-contract;acceptance"
+)
+
+add_test(NAME FovelleNativeAlertsDynamic COMMAND fovelle_tests
+    testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity
+    testNativeMessageBoxStandardButtonResponses -v1)
+set_tests_properties(FovelleNativeAlertsDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 45
+    LABELS "macos;native-dialog;appearance;dynamic;acceptance"
+)
+
 add_test(NAME FovelleNavigationBoundaryHintStatic
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/navigation_boundary_hint_static.py)

@@ -7,7 +7,6 @@
 #include <QWheelEvent>
 #include <QGraphicsScene>
 #include <QSettings>
-#include <QMessageBox>
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>

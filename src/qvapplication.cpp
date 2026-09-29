@@ -10,7 +10,6 @@
 #include <QTimer>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QPushButton>
 #include <QFontDatabase>
 #include <QIcon>
 #include <QStyleHints>
@@ -279,12 +278,12 @@ void QVApplication::checkedUpdates()
     else if (aboutDialog || isManualCheck)
     {
         if (!checkResult.wasSuccessful)
-            NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"),
-                                       tr("Error checking for updates:\n%1").arg(checkResult.errorMessage),
+            NativeDialogs::showMessage(QMessageBox::Critical,
+                                       tr("Error checking for updates:\n%1").arg(checkResult.errorMessage), {},
                                        QMessageBox::Ok, dialogParent);
         else
-            NativeDialogs::showMessage(QMessageBox::Information, tr("No Updates"),
-                                       tr("You already have the latest version."),
+            NativeDialogs::showMessage(QMessageBox::Information,
+                                       tr("You already have the latest version."), {},
                                        QMessageBox::Ok, dialogParent);
     }
 
@@ -616,20 +615,21 @@ QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
     if (!getSettingsManager().getBoolean("persistsession") || !foundLoadedImage())
         return SessionSaveDecision::No;
 
-    QMessageBox msgBox;
-    msgBox.setWindowModality(Qt::ApplicationModal);
-    NativeDialogs::applyTheme(&msgBox);
-    msgBox.setWindowTitle(tr("Remember Session?"));
-    msgBox.setText(tr("Would you like to remember your opened images and re-open them at next launch?"));
-    QPushButton *yesButton = msgBox.addButton(tr("&Remember"), QMessageBox::YesRole);
-    msgBox.addButton(tr("&End Session"), QMessageBox::NoRole);
-    msgBox.setStandardButtons(QMessageBox::Cancel);
-    msgBox.setDefaultButton(yesButton);
-    msgBox.setEscapeButton(QMessageBox::Cancel);
-    msgBox.exec();
-    if (msgBox.standardButton(msgBox.clickedButton()) == QMessageBox::Cancel)
+    auto *msgBox = NativeDialogs::createMessageBox(
+        QMessageBox::Question,
+        tr("Remember Session?"),
+        tr("Would you like to remember your opened images and re-open them at next launch?"),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    msgBox->setAttribute(Qt::WA_DeleteOnClose, false);
+    msgBox->setDefaultButton(QMessageBox::Save);
+    msgBox->setEscapeButton(QMessageBox::Cancel);
+    msgBox->exec();
+    const auto clickedButton = msgBox->standardButton(msgBox->clickedButton());
+    delete msgBox;
+    if (clickedButton == QMessageBox::Cancel)
         return SessionSaveDecision::Cancel;
-    return msgBox.clickedButton() == yesButton ? SessionSaveDecision::Yes : SessionSaveDecision::No;
+    return clickedButton == QMessageBox::Save
+        ? SessionSaveDecision::Yes : SessionSaveDecision::No;
 }
 
 void QVApplication::addClosedWindowSessionState(const QJsonObject &state, const qint64 lastActivatedTimestamp)

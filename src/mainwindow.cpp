@@ -2115,7 +2115,7 @@ void MainWindow::openUrl(const QUrl &url)
         return;
 
     if (!url.isValid()) {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error: URL is invalid"), QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error: URL is invalid"), {}, QMessageBox::Ok, this);
         return;
     }
 
@@ -2142,7 +2142,10 @@ void MainWindow::openUrl(const QUrl &url)
         if (reply->error())
         {
             progressDialog->close();
-            NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error ") + QString::number(reply->error()) + ": " + reply->errorString(), QMessageBox::Ok, this);
+            NativeDialogs::showMessage(QMessageBox::Critical,
+                                       tr("Error ") + QString::number(reply->error())
+                                           + ": " + reply->errorString(),
+                                       {}, QMessageBox::Ok, this);
 
             progressDialog->deleteLater();
             return;
@@ -2173,7 +2176,7 @@ void MainWindow::openUrl(const QUrl &url)
             }
             else
             {
-                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Error: Invalid image"), QMessageBox::Ok, this);
+                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error: Invalid image"), {}, QMessageBox::Ok, this);
                 tempFile->deleteLater();
             }
             progressDialog->deleteLater();
@@ -2247,7 +2250,9 @@ void MainWindow::askDeleteFile(bool permanent)
 
     if (!fileInfo.isWritable())
     {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName), QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName),
+                                   {}, QMessageBox::Ok, this);
         return;
     }
 
@@ -2261,26 +2266,17 @@ void MainWindow::askDeleteFile(bool permanent)
         messageText = tr("Are you sure you want to move %1 to the Trash?").arg(fileName);
     }
 
-    auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, tr("Delete"), messageText,
+    auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, messageText, {},
                        QMessageBox::Yes | QMessageBox::No, this);
-    if (!permanent)
-        msgBox->setCheckBox(new QCheckBox(tr("Do not ask again")));
 
-    connect(msgBox, &QMessageBox::finished, this, [this, msgBox, permanent](int result){
+    connect(msgBox, &QMessageBox::finished, this, [this, permanent](int result){
         if (result != QMessageBox::Yes)
             return;
 
-        if (!permanent)
-        {
-            QSettings settings;
-            settings.beginGroup("options");
-            settings.setValue("askdelete", !msgBox->checkBox()->isChecked());
-            qvApp->getSettingsManager().loadSettings();
-        }
         this->deleteFile(permanent);
     });
 
-    msgBox->open();
+    msgBox->show();
 }
 
 void MainWindow::deleteFile(bool permanent)
@@ -2308,7 +2304,8 @@ void MainWindow::deleteFile(bool permanent)
     if (!success || QFile::exists(filePath))
     {
         openFile(filePath);
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't delete %1.").arg(fileName), QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't delete %1.").arg(fileName),
+                                   {}, QMessageBox::Ok, this);
         return;
     }
 
@@ -2342,15 +2339,18 @@ void MainWindow::undoDelete()
     const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
     if (!fileInfo.isWritable())
     {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Can't undo deletion of %1:\n"
-                                                    "No write permission or file is read-only.").arg(fileInfo.fileName()), QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't undo deletion of %1:\n"
+                                                    "No write permission or file is read-only.").arg(fileInfo.fileName()),
+                                   {}, QMessageBox::Ok, this);
         return;
     }
 
     bool success = QFile::rename(lastDeletedFile.pathInTrash, lastDeletedFile.previousPath);
     if (!success)
     {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error"), tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()), QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()),
+                                   {}, QMessageBox::Ok, this);
         return;
     }
 

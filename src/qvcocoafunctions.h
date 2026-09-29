@@ -300,6 +300,7 @@ public:
     static void setWindowTheme(Qv::Theme theme, QWindow *window);
 
     static QString getWindowAppearanceName(const QWindow *window);
+    static QString getActiveModalWindowAppearanceName();
 
     // Install the system Settings toolbar used to switch the hidden Qt page
     // model.  The AppKit toolbar supplies native layout, selection, vibrancy,
