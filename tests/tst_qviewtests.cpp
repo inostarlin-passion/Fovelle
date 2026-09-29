@@ -14890,6 +14890,10 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     window.resize(800, 600);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
+    window.raise();
+    window.activateWindow();
+    QVERIFY2(QTest::qWaitForWindowActive(&window, 5000),
+             "navigation contrast test requires an active macOS window");
     window.openFile(firstPath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size() == 2, 5000);
@@ -14905,10 +14909,13 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+            previousButton->property("navigationRequestedVisible").toBool(),
+            5000);
     if (nativeOverlay)
         QTRY_VERIFY_WITH_TIMEOUT(
                 view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0,
-                1000);
+                5000);
     else
         QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("sampledContentBrightness").isValid(), 1000);
@@ -14916,8 +14923,11 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     QVERIFY(previousButton->property("sampledContentBrightness").toDouble() > 0.5);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
+    QTRY_VERIFY_WITH_TIMEOUT(
+            nextButton->property("navigationRequestedVisible").toBool(),
+            5000);
     if (!nativeOverlay)
-        QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
     QCOMPARE(nextButton->property("contrastStyle").toString(), QStringLiteral("dark"));
     QVERIFY(nextButton->property("sampledContentBrightness").toDouble() < 0.5);
