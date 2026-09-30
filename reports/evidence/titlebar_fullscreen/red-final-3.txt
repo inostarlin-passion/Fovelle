@@ -1,0 +1,18 @@
+********* Start testing of WindowBehaviorTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.0
+PASS   : WindowBehaviorTests::initTestCase()
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-raster) TITLEBAR_ENTRY 0 samples 103 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.32
+FAIL!  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-raster) '!exposedTitlebar' returned FALSE. (Hidden native titlebar became visible during entry)
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(14233)]
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-vector) TITLEBAR_ENTRY 0 samples 89 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.32
+FAIL!  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-vector) '!exposedTitlebar' returned FALSE. (Hidden native titlebar became visible during entry)
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(14233)]
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster) TITLEBAR_ENTRY 0 samples 103 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster) TITLEBAR_ENTRY 1 samples 104 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster)
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector) TITLEBAR_ENTRY 0 samples 95 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector) TITLEBAR_ENTRY 1 samples 92 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector)
+PASS   : WindowBehaviorTests::cleanupTestCase()
+Totals: 4 passed, 2 failed, 0 skipped, 0 blacklisted, 10804ms
+********* Finished testing of WindowBehaviorTests *********

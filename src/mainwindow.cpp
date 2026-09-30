@@ -1409,12 +1409,6 @@ void MainWindow::fullscreenChanged()
     // fullscreen titlebar details are now always hidden.
     ui->fullscreenLabel->setVisible(false);
 
-    if (!isFullscreen && storedTitlebarHidden)
-    {
-        setTitlebarHidden(true, false);
-        storedTitlebarHidden = false;
-    }
-
     if (!isFullscreen && activeFullScreenTitlebarOverlap >= 0)
     {
         activeFullScreenTitlebarOverlap =
@@ -1515,8 +1509,7 @@ QColor MainWindow::fullScreenTransitionBackgroundColor() const
 
 int MainWindow::fullScreenTransitionTitlebarOverlap() const
 {
-    return storedTitlebarHidden
-        ? 0 : qMax(QVCocoaFunctions::getObscuredHeight(windowHandle()), 0);
+    return qMax(QVCocoaFunctions::getObscuredHeight(windowHandle()), 0);
 }
 
 void MainWindow::pauseChanged()
@@ -2642,15 +2635,13 @@ void MainWindow::toggleFullScreen()
     else
     {
         // QWindow can publish WindowFullScreen before AppKit starts its native
-        // transition. Capture the user's edge before titlebar restoration or
-        // any other geometry change can fire the delayed constraint.
+        // transition. Capture the user's edge before any geometry change can
+        // fire the delayed constraint.
         graphicsView->beginFullScreenPanPreservation();
 
-        // Restore the titlebar before entering fullscreen because macOS may apply special titlebar handling.
-        storedTitlebarHidden = getTitlebarHidden();
-        if (storedTitlebarHidden)
-            setTitlebarHidden(false, false);
-
+        // Keep the user's titlebar presentation through native entry. Restoring
+        // it here exposes window chrome and fits the image into a smaller
+        // viewport before AppKit captures the transition's starting frame.
         showFullScreen();
     }
 }

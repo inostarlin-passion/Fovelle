@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <numeric>
 #include <optional>
 #include <time.h>
@@ -83,6 +84,8 @@
 #include "qvinfodialog.h"
 #include "qvaboutdialog.h"
 #include "nativedialogs.h"
+
+#include "native_titlebar_probe.h"
 
 namespace
 {
@@ -381,6 +384,8 @@ private slots:
     void testSettingsDialogIsNativeChildAboveMainWindow();
     void testAssociateFormatsButtonIsCentered();
     void testTitlebarHiddenPersistsToNewWindow();
+    void testTitlebarPresentationDuringFullScreen_data();
+    void testTitlebarPresentationDuringFullScreen();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
     void testSettingsColonAlignmentSurvivesTranslations();
@@ -8545,6 +8550,14 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            window.toggleFullScreen();
+            waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     window.setWindowState(Qt::WindowNoState);
     window.resize(640, 480);
     window.show();
@@ -8561,7 +8574,10 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
     QVERIFY(view->sceneRect().top() < imageSceneRect.top());
 
+    const auto normalNative = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        nativeTitlebarSnapshot(window.windowHandle()).entries > normalNative.entries, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight, 0, 3000);
     QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
@@ -8572,11 +8588,20 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     const int zoomFirstViewportTop = view->viewport()->rect().top();
 
     window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        nativeTitlebarSnapshot(window.windowHandle()).exits > normalNative.exits, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
     window.close();
 
     MainWindow fullScreenFirstWindow;
     fullScreenFirstWindow.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto secondCleanup = qScopeGuard([&] {
+        if (fullScreenFirstWindow.isFullScreen()) {
+            fullScreenFirstWindow.toggleFullScreen();
+            waitForTestCondition([&] { return !fullScreenFirstWindow.isFullScreen(); }, 5000);
+        }
+        fullScreenFirstWindow.close();
+    });
     fullScreenFirstWindow.setWindowState(Qt::WindowNoState);
     fullScreenFirstWindow.resize(640, 480);
     fullScreenFirstWindow.show();
@@ -8587,7 +8612,10 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
         fullScreenFirstWindow.findChild<QVGraphicsView *>();
     QVERIFY(fullScreenFirstView);
 
+    const auto secondNative = nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle());
     fullScreenFirstWindow.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).entries > secondNative.entries, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.isFullScreen(), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(
         fullScreenFirstWindow.getViewportPosition().obscuredHeight, 0, 3000);
@@ -8607,6 +8635,8 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
         fullScreenFirstView->viewport()->rect().top();
 
     fullScreenFirstWindow.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(
+        nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).exits > secondNative.exits, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!fullScreenFirstWindow.isFullScreen(), 5000);
     fullScreenFirstWindow.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -14114,6 +14144,131 @@ void WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()
     settings.setValue(QStringLiteral("options/titlebarhidden"), originalPreference);
     settings.sync();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+}
+
+// Observe the request itself as well as the asynchronous native handoff.
+// Endpoint-only assertions cannot detect titlebar restoration before entry.
+void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen_data()
+{
+    QTest::addColumn<bool>("hidden");
+    QTest::addColumn<bool>("vectorImage");
+    QTest::newRow("hidden-raster") << true << false;
+    QTest::newRow("hidden-vector") << true << true;
+    QTest::newRow("visible-raster") << false << false;
+    QTest::newRow("visible-vector") << false << true;
+}
+
+void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
+{
+    QFETCH(bool, hidden);
+    QFETCH(bool, vectorImage);
+    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
+    ScopedOptionValues options({
+        {"titlebarhidden", hidden},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            window.toggleFullScreen();
+            waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(vectorImage ? "portrait.svg" : "portrait.png");
+    if (vectorImage) {
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/></svg>");
+    } else {
+        QImage image(800, 1600, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+    }
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    window.setTitlebarHidden(hidden, false);
+    QTest::qWait(200);
+    QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
+    if (!hidden)
+        QVERIFY(window.getViewportPosition().obscuredHeight > 0);
+
+    for (int cycle = 0; cycle < 2; ++cycle) {
+        const auto initialNativeState = nativeTitlebarSnapshot(window.windowHandle());
+        const qreal initialZoom = view->getZoomLevel();
+        bool exposedTitlebar = false;
+        int maximumInset = 0;
+        qreal minimumZoom = initialZoom;
+        int samples = 0;
+        const auto sample = [&] {
+            ++samples;
+            exposedTitlebar |= !nativeTitlebarSnapshot(window.windowHandle()).hidden;
+            maximumInset = qMax(maximumInset, window.getViewportPosition().obscuredHeight);
+            minimumZoom = qMin(minimumZoom, view->getZoomLevel());
+        };
+        class Recorder final : public QObject {
+        public:
+            std::function<void()> sample;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Resize || event->type() == QEvent::Paint
+                    || event->type() == QEvent::WindowStateChange)
+                    sample();
+                return false;
+            }
+        } recorder;
+        recorder.sample = sample;
+        window.installEventFilter(&recorder);
+        view->viewport()->installEventFilter(&recorder);
+        QTimer timer;
+        connect(&timer, &QTimer::timeout, &window, sample);
+        timer.start(1);
+        sample();
+        window.toggleFullScreen();
+        sample();
+        // Qt may publish fullscreen before the native animation completes.
+        const bool nativeEntryCompleted = waitForTestCondition([&] {
+            return nativeTitlebarSnapshot(window.windowHandle()).entries
+                > initialNativeState.entries;
+        }, 5000);
+        QTest::qWait(200);
+        sample();
+        timer.stop();
+        window.removeEventFilter(&recorder);
+        view->viewport()->removeEventFilter(&recorder);
+        QVERIFY2(nativeEntryCompleted, "AppKit did-enter notification was not observed");
+        QVERIFY(window.isFullScreen());
+        QVERIFY(samples > 20);
+        qInfo() << "TITLEBAR_ENTRY" << cycle << "samples" << samples
+                << "exposed" << exposedTitlebar << "maximumInset" << maximumInset
+                << "minimumZoom" << minimumZoom << "initialZoom" << initialZoom;
+        if (hidden) {
+            QVERIFY2(!exposedTitlebar, "Hidden native titlebar became visible during entry");
+            QCOMPARE(maximumInset, 0);
+            QVERIFY2(minimumZoom >= initialZoom - 0.0001,
+                     "Titlebar restoration compressed the fitted image during entry");
+        }
+        window.toggleFullScreen();
+        QTRY_VERIFY_WITH_TIMEOUT(
+            nativeTitlebarSnapshot(window.windowHandle()).exits > initialNativeState.exits, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+        QTest::qWait(200);
+        QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
+        QCOMPARE(window.getTitlebarHidden(), hidden);
+        QCOMPARE(QSettings().value("options/titlebarhidden").toBool(), hidden);
+    }
 }
 
 // TC-SETTINGS-SMOOTH-DEFAULT

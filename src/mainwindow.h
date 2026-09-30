@@ -334,7 +334,6 @@ private:
     bool isClosing {false};
     QElapsedTimer lastActivated;
 
-    bool storedTitlebarHidden {false};
 
     QNetworkAccessManager networkAccessManager;
 

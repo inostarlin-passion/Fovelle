@@ -1,0 +1,398 @@
+{
+  "baseline_commit": "193dc10f263ecae73fc63886a30b218459fbe7a8",
+  "baseline_runs": 3,
+  "baseline_failures_per_run": 2,
+  "fixed_repeat_runs": 3,
+  "final_regression_run": "passed",
+  "adjacent_unique_cases": 12,
+  "graphics_final_repeat_runs": 3,
+  "initial_graphics_failure": "exit timeout followed by SIGSEGV; repaired test awaits native notifications",
+  "source_sha256": {
+    "src/mainwindow.cpp": "6761d7095d13ebff198c40e4ac2b49cf256df1dfe3905003f6fab0fab270bf11",
+    "src/mainwindow.h": "ab0ce87d064ce798be6a6c4902642b21bb2bec04ecc9a4c79cf843652389f6ca",
+    "tests/tst_qviewtests.cpp": "59e463cc86c161ff191a7266395932e74812eea11ae9c5f8adfcf6f6c177ec0a",
+    "tests/native_titlebar_probe.mm": "cd62815ec3f8ba213beca7b5305f82666175d47eca07e0e79e770a1144c603b4",
+    "tests/native_titlebar_probe.h": "d1f1dafad672ce6263248f949a19afaae47ef411fc5e583619764aeac0c199bf",
+    "tests/CMakeLists.txt": "2e1f292eca62ac4fb34be9b76597e0b90fbeef362f4647101e1df08fe9627c46"
+  },
+  "metrics": [
+    {
+      "log": "red-final-1.txt",
+      "cycle": 0,
+      "samples": 105,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-1.txt",
+      "cycle": 0,
+      "samples": 91,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-1.txt",
+      "cycle": 0,
+      "samples": 102,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-1.txt",
+      "cycle": 1,
+      "samples": 102,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-1.txt",
+      "cycle": 0,
+      "samples": 93,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-1.txt",
+      "cycle": 1,
+      "samples": 94,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 0,
+      "samples": 105,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 0,
+      "samples": 91,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 0,
+      "samples": 103,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 1,
+      "samples": 102,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 0,
+      "samples": 93,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-2.txt",
+      "cycle": 1,
+      "samples": 91,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 0,
+      "samples": 103,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 0,
+      "samples": 89,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 0,
+      "samples": 103,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 1,
+      "samples": 104,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 0,
+      "samples": 95,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "red-final-3.txt",
+      "cycle": 1,
+      "samples": 92,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 107,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 102,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 88,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 84,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 99,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 103,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 93,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 94,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 102,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 104,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 89,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 85,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 104,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 102,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 94,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 91,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 104,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 106,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 87,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 85,
+      "exposed": false,
+      "maximum_inset": 0,
+      "minimum_zoom": 0.32,
+      "initial_zoom": 0.32
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 108,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 104,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 0,
+      "samples": 94,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    },
+    {
+      "log": "green-final-repeat.txt",
+      "cycle": 1,
+      "samples": 90,
+      "exposed": true,
+      "maximum_inset": 32,
+      "minimum_zoom": 0.3,
+      "initial_zoom": 0.3
+    }
+  ]
+}

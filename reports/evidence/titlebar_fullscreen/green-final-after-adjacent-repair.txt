@@ -1,0 +1,50 @@
+Start testing: Sep 30 10:52 CST
+----------------------------------------------------------
+21/21 Testing: FovelleHiddenTitlebarFullScreen
+21/21 Test: FovelleHiddenTitlebarFullScreen
+Command: "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests" "testTitlebarPresentationDuringFullScreen" "-v1"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleHiddenTitlebarFullScreen" start time: Sep 30 10:52 CST
+Output:
+----------------------------------------------------------
+********* Start testing of WindowBehaviorTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.0
+INFO   : WindowBehaviorTests::initTestCase() entering
+PASS   : WindowBehaviorTests::initTestCase()
+INFO   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen() entering
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-raster) TITLEBAR_ENTRY 0 samples 101 exposed false maximumInset 0 minimumZoom 0.32 initialZoom 0.32
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-raster) TITLEBAR_ENTRY 1 samples 103 exposed false maximumInset 0 minimumZoom 0.32 initialZoom 0.32
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-raster)
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-vector) TITLEBAR_ENTRY 0 samples 87 exposed false maximumInset 0 minimumZoom 0.32 initialZoom 0.32
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-vector) TITLEBAR_ENTRY 1 samples 84 exposed false maximumInset 0 minimumZoom 0.32 initialZoom 0.32
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(hidden-vector)
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster) TITLEBAR_ENTRY 0 samples 106 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster) TITLEBAR_ENTRY 1 samples 102 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-raster)
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector) TITLEBAR_ENTRY 0 samples 92 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+QINFO  : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector) TITLEBAR_ENTRY 1 samples 91 exposed true maximumInset 32 minimumZoom 0.3 initialZoom 0.3
+PASS   : WindowBehaviorTests::testTitlebarPresentationDuringFullScreen(visible-vector)
+INFO   : WindowBehaviorTests::cleanupTestCase() entering
+PASS   : WindowBehaviorTests::cleanupTestCase()
+Totals: 6 passed, 0 failed, 0 skipped, 0 blacklisted, 14473ms
+********* Finished testing of WindowBehaviorTests *********
+<end of output>
+Test time =  14.61 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleHiddenTitlebarFullScreen" end time: Sep 30 10:53 CST
+"FovelleHiddenTitlebarFullScreen" time elapsed: 00:00:14
+----------------------------------------------------------
+
+End testing: Sep 30 10:53 CST
+
+acceptance =  14.61 sec*proc
+
+dynamic =  14.61 sec*proc
+
+fullscreen =  14.61 sec*proc
+
+macos =  14.61 sec*proc
+
+titlebar =  14.61 sec*proc
+

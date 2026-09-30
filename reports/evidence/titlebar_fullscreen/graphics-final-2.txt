@@ -1,0 +1,11 @@
+********* Start testing of GraphicsViewTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.0
+PASS   : GraphicsViewTests::initTestCase()
+QINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC enter_ms=8
+QINFO  : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize() FS_METRIC exit_ms=1218
+PASS   : GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
+PASS   : GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
+PASS   : GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
+PASS   : GraphicsViewTests::cleanupTestCase()
+Totals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 5645ms
+********* Finished testing of GraphicsViewTests *********

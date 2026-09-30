@@ -3,6 +3,7 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 set(FOVELLE_TEST_SOURCES
     tst_qviewtests.cpp
+    native_titlebar_probe.mm
     ../src/mainwindow.cpp
     ../src/openwith.cpp
     ../src/qvfileenumerator.cpp
@@ -334,3 +335,11 @@ set_tests_properties(FovelleZoomScrollbarVerticalTopology PROPERTIES
     TIMEOUT 60
     LABELS "zoom;scrollbar;vertical-topology;dynamic;acceptance"
 )
+
+add_test(NAME FovelleHiddenTitlebarFullScreen COMMAND fovelle_tests
+    testTitlebarPresentationDuringFullScreen -v1)
+set_tests_properties(FovelleHiddenTitlebarFullScreen PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 90
+    RUN_SERIAL TRUE
+    LABELS "macos;titlebar;fullscreen;dynamic;acceptance")

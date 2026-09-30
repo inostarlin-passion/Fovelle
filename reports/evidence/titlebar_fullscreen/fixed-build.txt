@@ -1,0 +1,44 @@
+[  0%] Built target fovelle_tests_autogen_timestamp_deps
+[  3%] Automatic MOC and UIC for target fovelle_tests
+[  3%] Built target fovelle_tests_autogen
+[  6%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/fovelle_tests_autogen/mocs_compilation.cpp.o
+[  9%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/tst_qviewtests.cpp.o
+[ 12%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/mainwindow.cpp.o
+[ 15%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/openwith.cpp.o
+[ 18%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvfileenumerator.cpp.o
+[ 21%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvgraphicsview.cpp.o
+[ 24%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvoptionsdialog.cpp.o
+[ 27%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvapplication.cpp.o
+[ 30%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvaboutdialog.cpp.o
+[ 33%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvinfodialog.cpp.o
+[ 36%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvimagecore.cpp.o
+[ 39%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvshortcutdialog.cpp.o
+[ 42%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/actionmanager.cpp.o
+[ 45%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/shortcutmanager.cpp.o
+[ 48%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/updatechecker.cpp.o
+[ 51%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/nativedialogs.cpp.o
+[ 54%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvcocoafunctions.mm.o
+[ 57%] Linking CXX executable fovelle_tests
+[100%] Built target fovelle_tests
+[  0%] Built target Fovelle_autogen_timestamp_deps
+[  2%] Automatic MOC and UIC for target Fovelle
+[  2%] Built target Fovelle_autogen
+[  7%] Building CXX object CMakeFiles/Fovelle.dir/Fovelle_autogen/mocs_compilation.cpp.o
+[  7%] Building CXX object CMakeFiles/Fovelle.dir/src/main.cpp.o
+[ 10%] Building CXX object CMakeFiles/Fovelle.dir/src/mainwindow.cpp.o
+[ 13%] Building CXX object CMakeFiles/Fovelle.dir/src/openwith.cpp.o
+[ 15%] Building CXX object CMakeFiles/Fovelle.dir/src/qvfileenumerator.cpp.o
+[ 18%] Building CXX object CMakeFiles/Fovelle.dir/src/qvgraphicsview.cpp.o
+[ 21%] Building CXX object CMakeFiles/Fovelle.dir/src/qvoptionsdialog.cpp.o
+[ 23%] Building CXX object CMakeFiles/Fovelle.dir/src/qvapplication.cpp.o
+[ 26%] Building CXX object CMakeFiles/Fovelle.dir/src/qvaboutdialog.cpp.o
+[ 28%] Building CXX object CMakeFiles/Fovelle.dir/src/qvinfodialog.cpp.o
+[ 31%] Building CXX object CMakeFiles/Fovelle.dir/src/qvimagecore.cpp.o
+[ 34%] Building CXX object CMakeFiles/Fovelle.dir/src/qvshortcutdialog.cpp.o
+[ 36%] Building CXX object CMakeFiles/Fovelle.dir/src/actionmanager.cpp.o
+[ 39%] Building CXX object CMakeFiles/Fovelle.dir/src/shortcutmanager.cpp.o
+[ 42%] Building CXX object CMakeFiles/Fovelle.dir/src/updatechecker.cpp.o
+[ 44%] Building CXX object CMakeFiles/Fovelle.dir/src/nativedialogs.cpp.o
+[ 47%] Building CXX object CMakeFiles/Fovelle.dir/src/qvcocoafunctions.mm.o
+[ 50%] Linking CXX executable Fovelle.app/Contents/MacOS/Fovelle
+[100%] Built target Fovelle
