@@ -359,3 +359,11 @@ set_tests_properties(FovelleFullScreenPaintBudget PROPERTIES
     TIMEOUT 30
     RUN_SERIAL TRUE
     LABELS "macos;fullscreen;paint;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenPreparationBudget COMMAND fovelle_tests
+    testFullScreenPreparationPaintBudget -v1)
+set_tests_properties(FovelleFullScreenPreparationBudget PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 60
+    RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;preparation;dynamic;acceptance")

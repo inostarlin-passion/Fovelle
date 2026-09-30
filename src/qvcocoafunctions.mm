@@ -19,6 +19,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QStyleHints>
 #include <QTabBar>
@@ -74,6 +75,9 @@ static constexpr int RawHeadroomProbeLargestDimension = 1024;
 enum class FovelleFullScreenAnimationPhase : NSInteger
 {
     Begin,
+    Measure,
+    SuspendDrawing,
+    ResumeDrawing,
     Update,
     Cancel
 };
@@ -835,39 +839,42 @@ static void startFovelleFullScreenAnimation(
     [proxy orderWindow:NSWindowAbove relativeTo:window.windowNumber];
     window.alphaValue = 0.0;
 
-    // Measure both layouts from the same live zoom/pan state while the real
-    // window is hidden. The proxy then owns every visible intermediate frame;
-    // the real window is shown only after it has painted the exact endpoint.
+    // Measure geometry without drawing the transparent real window. These
+    // temporary layouts never become visible: the proxy already holds the
+    // source pixels. The final Update still synchronously paints the endpoint.
     handler(
         FovelleFullScreenAnimationPhase::Begin,
         sourceTitlebarOverlap, endTitlebarOverlap);
+    handler(FovelleFullScreenAnimationPhase::SuspendDrawing, 0, 0);
+    auto resumeDrawing = qScopeGuard([&] {
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+    });
     [window setFrame:sourceFrame display:NO];
     handler(
-        FovelleFullScreenAnimationPhase::Update,
+        FovelleFullScreenAnimationPhase::Measure,
         sourceTitlebarOverlap, endTitlebarOverlap);
-    [window displayIfNeeded];
     const QRect sourceImageRect = rectProvider();
 
     [window setFrame:endFrame display:NO];
     handler(
-        FovelleFullScreenAnimationPhase::Update,
+        FovelleFullScreenAnimationPhase::Measure,
         endTitlebarOverlap, endTitlebarOverlap);
-    [window displayIfNeeded];
     const QRect endImageRect = rectProvider();
     if (sourceImageRect.isEmpty() || endImageRect.isEmpty())
     {
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+        resumeDrawing.dismiss();
         restoreFovelleFullScreenAnimationStartFrame(window);
         cleanupFovelleFullScreenProxy(window);
         return;
     }
 
     // AppKit owns the Space transition. Restore the semantic source until the
-    // animation's final progress callback commits the pre-painted endpoint.
+    // animation's final progress callback paints and commits the endpoint.
     [window setFrame:sourceFrame display:NO];
     handler(
-        FovelleFullScreenAnimationPhase::Update,
+        FovelleFullScreenAnimationPhase::Measure,
         sourceTitlebarOverlap, endTitlebarOverlap);
-    [window displayIfNeeded];
 
     auto *animation = [[FovelleFullScreenAnimation alloc]
         initWithRealWindow:window
@@ -893,6 +900,8 @@ static void startFovelleFullScreenAnimation(
         handler:handler];
     if (!animation)
     {
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+        resumeDrawing.dismiss();
         restoreFovelleFullScreenAnimationStartFrame(window);
         cleanupFovelleFullScreenProxy(window);
         return;
@@ -900,7 +909,18 @@ static void startFovelleFullScreenAnimation(
     objc_setAssociatedObject(
         window, &FullScreenAnimationAssociationKey,
         animation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    // Re-enabling Qt updates can itself paint. Submit the proxy trajectory
+    // first, so any resumed drawing cannot hold it at the source geometry.
+    // An instantaneous animation must instead enable endpoint drawing first.
+    if (duration <= 0) {
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+        resumeDrawing.dismiss();
+    }
     [animation startAnimation];
+    if (duration > 0) {
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+        resumeDrawing.dismiss();
+    }
     [animation release];
 }
 
@@ -5611,18 +5631,50 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
     if (customAnimationEnabled)
     {
         const QPointer<QWidget> guardedWindow(window);
+        __block QVector<QPair<QPointer<QWidget>, bool>> measurementUpdateStates;
         FovelleFullScreenAnimationHandler handler = ^(
             const FovelleFullScreenAnimationPhase phase,
             const int titlebarOverlap,
             const int targetTitlebarOverlap) {
             if (!guardedWindow)
                 return;
+            if (phase == FovelleFullScreenAnimationPhase::SuspendDrawing)
+            {
+                measurementUpdateStates.clear();
+                measurementUpdateStates.append({guardedWindow,
+                    guardedWindow->testAttribute(Qt::WA_ForceUpdatesDisabled)});
+                for (QWidget *child : guardedWindow->findChildren<QWidget *>())
+                    measurementUpdateStates.append({QPointer<QWidget>(child),
+                        child->testAttribute(Qt::WA_ForceUpdatesDisabled)});
+                guardedWindow->setUpdatesEnabled(false);
+                return;
+            }
+            if (phase == FovelleFullScreenAnimationPhase::ResumeDrawing)
+            {
+                // Zoom commits suspend child widgets too. Restore explicit
+                // flags, not inherited effective states, so nested layout
+                // work cannot leave a child permanently unable to paint.
+                for (const auto &state : measurementUpdateStates)
+                    if (state.first)
+                        state.first->setUpdatesEnabled(!state.second);
+                measurementUpdateStates.clear();
+                return;
+            }
             if (phase == FovelleFullScreenAnimationPhase::Cancel)
             {
                 QMetaObject::invokeMethod(
                     guardedWindow.data(),
                     "cancelFullScreenLayoutTransition",
                     Qt::DirectConnection);
+                return;
+            }
+            if (phase == FovelleFullScreenAnimationPhase::Measure)
+            {
+                QMetaObject::invokeMethod(
+                    guardedWindow.data(),
+                    "measureFullScreenLayoutTransition",
+                    Qt::DirectConnection,
+                    Q_ARG(int, titlebarOverlap));
                 return;
             }
             if (phase == FovelleFullScreenAnimationPhase::Update)

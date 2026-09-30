@@ -1,53 +1,55 @@
-# 全屏重复绘制：测试完成报告
+# 全屏启动测量绘制阻塞：测试完成报告
 
-日期：2026-10-01。基线：`1b57b8509d05b57e83f09125eb754bfbf00621d5`。环境：macOS 27.0（26A428）、arm64、Qt／QtTest 6.11.2、Apple LLVM 17、Release、Cocoa、`QT_FATAL_WARNINGS=1`。
+日期：2026-10-01。生产基线：`2f2136e33acd13d9aef65646f509da8350aff9f6`。环境：macOS 27.0（26A428）、arm64、Qt／QtTest 6.11.2、Apple LLVM 17、Release、Cocoa、`QT_FATAL_WARNINGS=1`。
 
-## 结论与适用范围
+## 结论
 
-已补足现有中段运动测试漏掉的同步布局绘制成本检查，并修复非不透明视口在一次全屏布局更新中重复绘制的路径。相同最终测试在基线生产代码上连续三轮稳定检出，在修复后连续三轮全通过；原生全屏、标题栏、实际 AVIF 画面和系统检查通过。
+已新增能稳定检出原生全屏启动阶段多轮隐藏窗口绘制成本的测试，并分离临时几何测量与终点同步绘制。相同最终测试在基线生产代码上连续三轮失败，在最终修复生产代码上连续三轮全通过。5项CTest、系统检查和邻接回归通过。
 
-该结果确认受控绘制成本下的重复工作及修复效果。没有用户自然卡顿现场或物理显示逐帧时间线，不宣称所有全屏卡顿原因都已消除。
+结论针对受控绘制负载下的启动机制，未将它指定为用户某次自然卡顿的唯一原因，未将呈现层近似几何当物理屏幕帧时间。
 
-## 问题拆解、检索与推导结果
+## 问题拆解与证据链
 
-启动准备／终点交接的同步工作与中段属性动画分开验证。按 Apple 提交期限 → Qt 立即绘制语义 → 版本匹配绘制管理器源码 → 本地视口不透明分支 → 真实 Paint 事件的顺序检索和交叉验证，发现 `viewport.repaint(); window.repaint();` 对 macOS 栅格视口重复绘制。
+现有单次Update预算已通过，但原生启动仍有source／target／source三轮布局与绘制；中段motion采样也无法约束提交前成本。按Apple自定义全屏生命周期→Qt resize／绘制语义→本地原生调用链→实际Paint观测建立新用例。首次分离显式绘制仍失败，再检索updatesEnabled规范并核对Qt 6.11.2源码及本地嵌套zoom事务，收敛为测量期间暂停绘制、恢复完整显式状态、先提交轨迹后恢复的方案。
 
-SVG 对照否定了“所有图片都重复”的推断：基线 SVG 一次绘制并通过。修复仅将第一次请求换为 update，保留同步父窗口 repaint；同一测试验证既消除第二次绘制，又没有跳过必须完成的绘制。来源及完整设计见 [技术设计](technical_design_document.md)，测试步骤见 [用例说明](test_case_specification.md)。
+网络一手来源、多源核对、演绎和反例见 [技术设计](technical_design_document.md)；原子断言、指标定义和运行入口见 [用例说明](test_case_specification.md)。
 
-## 红绿证据
+## 最终红绿结果
 
-四行：visible-raster、visible-vector、hidden-raster、hidden-vector；每行三次同步 Update，每轮12观测。每次真实视口 Paint 添加40 ms成本，预算75 ms，且必须在函数返回前恰好绘制一次。
+四行：visible-raster、visible-vector、hidden-raster、hidden-vector。每行一次真正原生进入和退出，每轮8个方向过程。视口每个proxy-active Paint附加40ms成本；源宽度±0.1pt内累计≤75ms、至多1次Paint。
 
-| 结果 | 基线生产代码，最终测试三轮 | 修复生产代码，同一测试三轮 |
+| 指标 | 基线生产代码，最终测试三轮 | 最终修复代码，同一测试三轮 |
 | --- | --- | --- |
-| 栅格行 | 每轮2行失败；每次2个 Paint | 每轮2行通过；每次1个 Paint |
-| 栅格耗时范围 | 83.14–97.02 ms | 41.37–50.65 ms |
-| SVG行 | 每轮2行通过；每次1个 Paint | 每轮2行通过；每次1个 Paint |
-| SVG耗时范围 | 48.80–57.04 ms | 49.23–59.26 ms |
-| 总观测 | 36，其中18栅格重复绘制 | 36，全部合格 |
-| QtTest 总结 | 每轮4 passed／2 failed／0 skipped，退出码2 | 每轮6 passed／0 failed／0 skipped，退出码0 |
+| 方向过程 | 24 | 24 |
+| 源几何阶段Paint次数 | 全部5次 | 0–1次 |
+| 受控累计Paint成本 | 204.20–205.14ms | 0–41.04ms |
+| 业务数据行 | 每轮4行失败 | 每轮4行通过 |
+| QtTest总结 | 每轮2 passed／4 failed／0 skipped，退出码4 | 每轮6 passed／0 failed／0 skipped，退出码0 |
+| 原生完成、往返geometry／zoom／标题栏 | 仍完成，成本断言失败 | 全部通过 |
 
-QtTest 的 passed 数包含 init／cleanup，业务数据行只有4行。耗时为受控条件绝对范围，不能当自然绘制性能或整个全屏往返时间。
+passed计数包含init／cleanup。成本只统计过滤器附加的40ms睡眠，不是完整启动延迟或自然绘制耗时；0次源阶段Paint不意味着无交接绘制，新测试要求proxy Paint样本非空，旧端点预算要求同步绘制一次，真实AVIF截图另行验证。
 
-原始日志：[红1](evidence/fullscreen_paint/red-final-1.txt)、[红2](evidence/fullscreen_paint/red-final-2.txt)、[红3](evidence/fullscreen_paint/red-final-3.txt)、[绿1](evidence/fullscreen_paint/green-1.txt)、[绿2](evidence/fullscreen_paint/green-2.txt)、[绿3](evidence/fullscreen_paint/green-3.txt)。[summary.json](evidence/fullscreen_paint/summary.json) 包含样本、环境和生产／测试源码 SHA-256；[changes.patch](evidence/fullscreen_paint/changes.patch) 保留代码变更。
+原始：[红1](evidence/fullscreen_preparation/red-1.txt)、[红2](evidence/fullscreen_preparation/red-2.txt)、[红3](evidence/fullscreen_preparation/red-3.txt)、[绿1](evidence/fullscreen_preparation/green-final-1.txt)、[绿2](evidence/fullscreen_preparation/green-final-2.txt)、[绿3](evidence/fullscreen_preparation/green-final-3.txt)。[summary.json](evidence/fullscreen_preparation/summary.json) 保留全样本、版本、6个生产／测试文件及测试／应用二进制SHA-256；[changes.patch](evidence/fullscreen_preparation/changes.patch) 保留代码补丁。
 
-## 集成和邻接验证
+## 构建与回归
 
-- 构建 `fovelle_tests` 与 `Fovelle` 成功，见 [构建日志](evidence/fullscreen_paint/build-green.txt)。
-- [CTest日志](evidence/fullscreen_paint/ctest.txt)：4／4通过，耗时48.69 s。包含 FullScreenMotion、FullScreenPaintBudget、HiddenTitlebarFullScreen、SDRFullScreenPresentation。
-- AVIF 使用本机既有 `/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`，截图回归通过，非跳过。该资源是本机外部 fixture，异机运行须配置可用资源。
-- [系统记录](evidence/fullscreen_paint/system.json)：两个子进程退出码均0，6项功能检查通过，32个原生运动方向过程和12个绘制预算样本均通过。旧响应指标与新绘制指标分别记录。
-- [GraphicsView回归](evidence/fullscreen_paint/GraphicsViewTests-regression.txt)：fit、退出垂直 pan、overflow inset；[菜单回归](evidence/fullscreen_paint/WindowBehaviorTests-regression.txt)：Escape退出。结果见 [regressions.json](evidence/fullscreen_paint/regressions.json)。
-- 系统绘制解析器负向验证：缺失样本、重复样本、0次绘制、2次绘制、1000 ms超预算都被拒绝；完整绿记录通过，见 [gate-validation.json](evidence/fullscreen_paint/gate-validation.json)。这是解析器指标变异验证，不冒称生产代码变异测试。
+- `fovelle_tests`及`Fovelle`最终构建成功，见 [build-green-4.txt](evidence/fullscreen_preparation/build-green-4.txt)。
+- [CTest](evidence/fullscreen_preparation/ctest.txt)：5／5通过，总耗时58.65s，包含准备预算、端点预算、原生motion、标题栏与SDR截图。
+- [系统检查](evidence/fullscreen_preparation/system.json)：两套测试进程退出码均0；7项功能、32个运动方向过程、12个端点预算样本、8个准备过程完整并通过。
+- [GraphicsView回归](evidence/fullscreen_preparation/GraphicsViewTests-regression.txt)：fit、退出垂直pan、overflow inset通过；[菜单回归](evidence/fullscreen_preparation/WindowBehaviorTests-regression.txt)：Escape退出通过。全部任务状态见 [regressions.json](evidence/fullscreen_preparation/regressions.json)。
+- SDR测试使用本机既有 `/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`，完成画面回归；该fixture为本机外部资源，异机运行需配置。准备测试的PNG／SVG为自动生成临时资源。
+- [解析器负向验证](evidence/fullscreen_preparation/gate-validation.json)：缺失、重复、原生未完成、空观测、次数超限、成本1000ms均被拒绝，完整绿记录通过。此处为遥测变异检查，未冒称生产故障注入。
 
-## 实验校准与反证记录
+## 失败探索与证伪
 
-初始空窗口实验发现两次 Paint；随后加入真实 SVG fixture，却得到基线通过，日志保留。继续核查本地不透明分支后加入真实 PNG对照，并冻结四行最终测试。最终红绿结果使用相同测试，未把探索日志算作正式红绿次数。
-
-此反例使归因从“所有视口”收敛为“非不透明视口”，防止用空窗口或源码调用次数替代真实图片绘制。探索日志 `red-1.txt`、`green-loaded-exploratory.txt` 与正式 `red-final-*` 分开保留。
+1. [red-exploratory](evidence/fullscreen_preparation/red-exploratory.txt) 建立实际多次Paint事实；正式red三轮使用最终完整性断言。
+2. [green-exploratory](evidence/fullscreen_preparation/green-exploratory.txt)：仅将临时Update分离为Measure、删display仍有2–3次源阶段Paint，测试拒绝，证明resize引发绘制也须处理。
+3. [green-1](evidence/fullscreen_preparation/green-1.txt)：只恢复父窗口状态导致子控件仍禁用，空samples被拒绝。[diagnostic](evidence/fullscreen_preparation/diagnostic.txt) 显示原生动画虽完成，不能据此声称正确。
+4. [green-stage3](evidence/fullscreen_preparation/green-stage3.txt)：恢复完整状态但在轨迹提交前执行，栅格仍2次源阶段Paint并超预算；继续修正提交顺序。
+5. 最终代码先提交轨迹再恢复绘制，同一阈值三轮绿。所有失败日志保留，未计入正式通过次数，未放宽75ms阈值。
 
 ## 剩余限制
 
-绘制成本用例直接调用真实桥接槽，测量阶段成本，不直接测量输入至首个物理屏幕变化。原生运动用例读取 Core Animation presentation 近似几何；不能证明所有合成期限满足。快照转换、三次布局准备、终点队列等待、高质量缩放和系统合成候选仍须自然现场证据。
+新测试用受控40ms Paint成本稳定放大启动工作量，确认机制及单变量修复；缺少用户自然卡顿现场性能栈。presentation为近似状态，不能证明物理显示器没有长帧。快照转换、必要布局计算、尾部主线程等待和合成期限仍是独立候选。
 
-本次确认的信息足以完成上述小范围修复及回归；继续网页搜索不能代替缺失的现场性能轨迹。历史报告备份在 [prior_reports](evidence/fullscreen_paint/prior_reports/)，旧运动驱动修复证据仍在 `evidence/fullscreen_motion`。
+空几何／初始化失败和零duration分支的恢复顺序做了代码审查；没有专门故障注入或零duration运行证据，不将这些审查写作动态测试通过。历史报告备份在 [prior_reports](evidence/fullscreen_preparation/prior_reports/)，既有运动和单次重复绘制证据分别保留在fullscreen_motion／fullscreen_paint目录。

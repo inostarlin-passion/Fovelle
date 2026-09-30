@@ -1439,7 +1439,7 @@ void MainWindow::beginFullScreenLayoutTransition(
     graphicsView->beginFullScreenPanPreservation();
 }
 
-void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
+void MainWindow::measureFullScreenLayoutTransition(const int titlebarOverlap)
 {
     if (isClosing || activeFullScreenTitlebarOverlap < 0)
         return;
@@ -1450,7 +1450,14 @@ void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
         activeFullScreenTitlebarOverlap = boundedOverlap;
         graphicsView->fitOrConstrainImage();
     }
+}
 
+void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
+{
+    if (isClosing || activeFullScreenTitlebarOverlap < 0)
+        return;
+
+    measureFullScreenLayoutTransition(titlebarOverlap);
     graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
 
     // Merge viewport dirtiness into one synchronous whole-window paint. A

@@ -200,6 +200,8 @@ public slots:
     void beginFullScreenLayoutTransition(
         int titlebarOverlap, int targetTitlebarOverlap);
 
+    void measureFullScreenLayoutTransition(int titlebarOverlap);
+
     void updateFullScreenLayoutTransition(int titlebarOverlap);
 
     void cancelFullScreenLayoutTransition();

@@ -386,6 +386,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
+    void testFullScreenPreparationPaintBudget_data();
+    void testFullScreenPreparationPaintBudget();
     void testFullScreenLayoutPaintBudget_data();
     void testFullScreenLayoutPaintBudget();
     void testFullScreenPresentationKeepsMoving_data();
@@ -14378,6 +14380,126 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving_data()
                     + (vectorImage ? "vector-" : "raster-") + (busy ? "busy" : "idle");
                 QTest::newRow(name.constData()) << hidden << vectorImage << busy;
             }
+}
+
+void WindowBehaviorTests::testFullScreenPreparationPaintBudget_data()
+{
+    testFullScreenLayoutPaintBudget_data();
+}
+
+void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
+{
+    QFETCH(bool, hidden);
+    QFETCH(bool, vectorImage);
+    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
+    ScopedOptionValues options({
+        {"titlebarhidden", hidden},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            const auto state = nativeTitlebarSnapshot(window.windowHandle());
+            window.toggleFullScreen();
+            waitForTestCondition([&] {
+                return nativeTitlebarSnapshot(window.windowHandle()).exits > state.exits;
+            }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(vectorImage ? "motion.svg" : "motion.png");
+    if (vectorImage) {
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/><rect width=\"400\" height=\"800\" fill=\"blue\"/></svg>");
+    } else {
+        QImage image(800, 1600, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QPainter painter(&image);
+        painter.fillRect(0, 0, 400, 800, Qt::blue);
+        painter.end();
+        QVERIFY(image.save(path));
+    }
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    window.setTitlebarHidden(hidden, false);
+    QTest::qWait(250);
+    const QRect initialGeometry = window.geometry();
+    const qreal initialZoom = view->getZoomLevel();
+    class PreparationCost : public QObject {
+    public:
+        MainWindow *window = nullptr;
+        double sourceWidth = 0;
+        int sourcePaints = 0;
+        double sourceCostMs = 0;
+        QJsonArray samples;
+        bool eventFilter(QObject *, QEvent *event) override {
+            if (event->type() != QEvent::Paint)
+                return false;
+            const auto p = nativeFullScreenPresentation(window->windowHandle());
+            if (!p.active)
+                return false;
+            const bool stationarySource = qAbs(p.windowRect.width() - sourceWidth) < 0.1;
+            QElapsedTimer timer;
+            timer.start();
+            QThread::msleep(40);
+            const double ms = timer.nsecsElapsed() / 1000000.0;
+            if (stationarySource) {
+                ++sourcePaints;
+                sourceCostMs += ms;
+            }
+            samples.append(QJsonObject {{"proxy_width", p.windowRect.width()},
+                {"source", stationarySource}, {"cost_ms", ms}});
+            return false;
+        }
+    } cost;
+    cost.window = &window;
+    view->viewport()->installEventFilter(&cost);
+    auto removeFilter = qScopeGuard([&] { view->viewport()->removeEventFilter(&cost); });
+    QStringList failures;
+    for (bool entering : {true, false}) {
+        cost.sourceWidth = window.width();
+        cost.sourcePaints = 0;
+        cost.sourceCostMs = 0;
+        cost.samples = {};
+        const auto before = nativeTitlebarSnapshot(window.windowHandle());
+        window.toggleFullScreen();
+        const bool complete = waitForTestCondition([&] {
+            const auto state = nativeTitlebarSnapshot(window.windowHandle());
+            return entering ? state.entries > before.entries : state.exits > before.exits;
+        }, 5000);
+        qInfo().noquote() << "FULLSCREEN_PREPARATION"
+            << QJsonDocument(QJsonObject {{"row", QString::fromLatin1(QTest::currentDataTag())},
+                {"entering", entering}, {"completed", complete},
+                {"source_paints", cost.sourcePaints}, {"source_cost_ms", cost.sourceCostMs},
+                {"samples", cost.samples}}).toJson(QJsonDocument::Compact);
+        QVERIFY(complete);
+        QVERIFY2(!cost.samples.isEmpty(), "Custom proxy paint observation missing");
+        QCOMPARE(window.isFullScreen(), entering);
+        if (cost.sourcePaints > 1 || cost.sourceCostMs > 75)
+            failures << QString("%1: stationary proxy paid %2 paints / %3ms")
+                .arg(entering ? "enter" : "exit").arg(cost.sourcePaints).arg(cost.sourceCostMs);
+        QTest::qWait(150);
+    }
+    QCOMPARE(window.geometry(), initialGeometry);
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), initialZoom));
+    QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
 
 void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()

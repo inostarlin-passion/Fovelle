@@ -22,6 +22,7 @@ FUNCTIONAL_CASES = (
     "testConfiguredFullscreenShortcutStillWorks",
     "testFullScreenPresentationKeepsMoving",
     "testFullScreenLayoutPaintBudget",
+    "testFullScreenPreparationPaintBudget",
 )
 
 THRESHOLDS = {
@@ -73,6 +74,19 @@ def paint_summary(output: str) -> dict:
             "metric_definition": "synchronous layout update with 40ms per actual viewport Paint event"}
 
 
+def preparation_summary(output: str) -> dict:
+    metrics = [json.loads(line.split("FULLSCREEN_PREPARATION ", 1)[1])
+               for line in output.splitlines() if "FULLSCREEN_PREPARATION {" in line]
+    expected = {(f"{title}-{kind}", entering) for title in ("visible", "hidden")
+                for kind in ("raster", "vector") for entering in (True, False)}
+    observed = [(m["row"], m["entering"]) for m in metrics]
+    passed = (len(observed) == len(expected) and set(observed) == expected
+              and all(m["completed"] and m["samples"] and 0 <= m["source_paints"] <= 1
+                      and 0 <= m["source_cost_ms"] <= 75 for m in metrics))
+    return {"passed": bool(passed), "sample_count": len(metrics), "metrics": metrics,
+            "metric_definition": "40ms cost per proxy-visible viewport Paint; source width within 0.1pt"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
@@ -94,6 +108,7 @@ def main() -> int:
     output = "\n".join(outputs)
     motion = motion_summary(output)
     paint = paint_summary(output)
+    preparation = preparation_summary(output)
     cases = []
     for index, name in enumerate(FUNCTIONAL_CASES, start=1):
         suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
@@ -104,6 +119,7 @@ def main() -> int:
                 "test": qualified_name,
                 "status": "passed" if (motion["passed"] if name == "testFullScreenPresentationKeepsMoving"
                     else paint["passed"] if name == "testFullScreenLayoutPaintBudget"
+                    else preparation["passed"] if name == "testFullScreenPreparationPaintBudget"
                     else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
             }
         )
@@ -140,7 +156,8 @@ def main() -> int:
         "performance_flags": performance_flags,
         "motion": motion,
         "paint": paint,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"],
+        "preparation": preparation,
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"] and preparation["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",

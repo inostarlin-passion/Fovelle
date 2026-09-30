@@ -1,46 +1,53 @@
-# 全屏准备与交接重复绘制：技术设计
+# 全屏启动测量阶段绘制阻塞：技术设计
 
-日期：2026-10-01。基线：`1b57b8509d05b57e83f09125eb754bfbf00621d5`。依据：[根因报告](root_cause.md)，重点处理 R1／R3 中同步绘制成本的一个已复现分支。
+日期：2026-10-01。基线提交：`2f2136e33acd13d9aef65646f509da8350aff9f6`。依据：[root_cause.md](root_cause.md) 的 R1。历史运动驱动和单次Update重复绘制已经修复，本轮处理仍存在的启动阶段成本。
 
 ## 问题界定与原子化拆解
 
-进入／退出全屏的体验由启动准备、中段运动、终点交接、实际屏幕刷新共同决定。已有测试覆盖中段 Core Animation 轨迹与最终几何，却没有给同步布局更新建立绘制成本约束。
+拆分启动准备、中段运动、终点交接与物理屏幕呈现。现有预算测试直接调用一个Update槽，现有motion测试从已提交轨迹中段采样；它们均未约束原生启动回调内三轮临时几何测量的总绘制成本。
 
-本轮拆成三个可验证命题：同一布局更新是否重复绘制视口；消除重复后能否在返回前完成视口绘制；原生全屏动画、标题栏、图像交接是否仍正确。无用户现场栈，不能把某次自然卡顿归为唯一原因。
+待验证命题：代理静止在源几何时，隐藏真实窗口是否多次绘制；仅移除显式repaint是否足够；暂停绘制能否保留布局／pan／fit；恢复绘制是否泄漏状态或继续延迟轨迹提交；交接画面是否正确。
 
-## 多跳检索与交叉验证
+## 多跳联网检索与多源交叉验证
 
-1. 从阶段定义检索 [Apple 渲染循环](https://developer.apple.com/videos/play/tech-talks/10855/) 和 [hitches](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app)，确认应用提交期限与渲染期限不同。前一轮中段轨迹通过不能排除同步准备延迟。
-2. 沿调用链读取 `startFovelleFullScreenAnimation → handler(Update) → MainWindow::updateFullScreenLayoutTransition`：进入和退出均在准备与最终 progress 中调用该同步槽。槽先更新标题栏／fit、同步 native SDR 几何，随后视口 repaint 和父窗口 repaint。
-3. 查询 [Qt 6.11.2 QWidget](https://doc.qt.io/qt-6.11/qwidget.html#repaint)，继续核对版本匹配的 [repaint manager 源码](https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/kernel/qwidgetrepaintmanager.cpp) 与 [QWidget 源码](https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/kernel/qwidget.cpp)：立即重绘与待合并脏区域采用不同请求时机；父窗口与子控件绘制受不透明区域影响。
-4. 反查本地 `updateViewportOpacityContract`：macOS 栅格／native SDR 视口不声明不透明；静态 SVG 视口声明不透明。这使“所有图片都会重复绘制”的猜测不成立。
-5. 结合 [Apple 动画性能指南](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/ImprovingAnimationPerformance/ImprovingAnimationPerformance.html)：同步绘制仍可占用主线程，属性动画不能自动消除其成本。使用实际 Paint 事件与单变量红绿实验验证本地机制。
+1. 沿原生生命周期查阅 [Apple自定义全屏动画](https://developer.apple.com/documentation/appkit/nswindowdelegate/window(_:startcustomanimationtoenterfullscreenwithduration:))：回调包括Space切换，duration应与系统运动配合。同步准备可延迟自定义轨迹启动，不能通过改变系统时长掩盖。
+2. 查询 [Qt 6.11.2 QWidget几何](https://doc.qt.io/qt-6.11/qwidget.html#geometry-prop) 与 [绘制](https://doc.qt.io/qt-6.11/qwidget.html#repaint)：布局／resize和绘制是不同职责，resize也可能触发绘制。对应本地 source→target→source setFrame＋Update＋displayIfNeeded链。
+3. 用 [Apple性能指南](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/ImprovingAnimationPerformance/ImprovingAnimationPerformance.html) 交叉确认同步绘制占用主线程；使用图层不自动消除该成本。事件过滤器对真实Paint附加固定成本，原生往返实验检验本地机制。
+4. 首次仅分离Measure／Update后仍失败，迭代查询 [updatesEnabled](https://doc.qt.io/qt-6.11/qwidget.html#updatesEnabled-prop)，继续核对 [Qt 6.11.2 QWidget源码](https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/kernel/qwidget.cpp) 的 setUpdatesEnabled_helper：显式禁用与父级继承禁用不同；恢复还会请求update。
+5. 本地commitZoomImmediately也临时禁用子控件。仅恢复父窗口会留下显式禁用的子控件，试验中的空Paint样本直接检出了该错误。最终保存并恢复整个Widget树的原始显式禁用标志。
+6. 根据 [presentation](https://developer.apple.com/documentation/quartzcore/calayer/presentation()) 的近似状态语义，测试仅判定代理源几何阶段，不将它冒称物理屏幕FPS。Apple正文经官方DocC JSON复核，保存于 [证据目录](evidence/fullscreen_preparation/)。
 
-Qt 与 Apple 为不同框架的一手来源，版本源码和运行实验补充独立证据。官方 Apple 页面仅显示 JavaScript 时，继续读取其官方 DocC JSON 正文；资料保存在 [证据目录](evidence/fullscreen_paint/)。
+Apple和Qt为不同框架的一手来源，版本源码及实际Paint／原生通知提供本地交叉证据。平台说明只支持机制，不证明用户某次自然卡顿。
 
-## 演绎与逆向证伪
+## 推导、对照与逆向证伪
 
-非不透明视口先 repaint，随后的父窗口 repaint 再涉及该区域 → 一次同步更新两次绘制 → 内容绘制较慢时准备／交接承担重复成本。这里确认的是受控条件下的重复成本，未测得用户现场的实际绘制成本。
+基线在代理源尺寸阶段发生多次真实Paint，受控绘制成本累积；此前单次Update只一次Paint并不排除跨三轮测量的重复工作。源画面已由代理快照承载，临时真实窗口alpha为0，这些中间测量画面不会被用户看到。移除临时测量绘制但保留终点同步绘制，是可验证的消融。
 
-反例为 SVG：基线每次只绘制一次，证明不能仅按两个 API 调用推定两次 Paint。加入每次 Paint 40 ms 的相同成本后，栅格基线稳定超预算；只改变视口请求为 update，仍保留父窗口同步 repaint，四种组合均只绘制一次且满足预算。该对照排除了“移除实际绘制即可变快”的假修复。
+仅删除显式绘制后仍有resize相关Paint，否定“只删repaint就足够”。仅恢复父级造成没有Paint的假快，观测完整性断言拒绝；恢复完整状态后若在提交前重绘，又产生源几何阻塞。最终顺序须先提交轨迹再恢复绘制。测试预算始终保持≤1次源几何Paint／≤75ms，未通过调宽阈值达到绿结果。
 
-## 实现设计
+## 生产代码设计
 
-生产代码仅修改 `src/mainwindow.cpp` 的重绘请求：
+`FovelleFullScreenAnimationPhase` 新增Measure、SuspendDrawing、ResumeDrawing。MainWindow新增measureFullScreenLayoutTransition：仅更新inset并在必要时fit；Update调用此测量槽后仍同步native SDR几何、标脏视口、同步绘制父窗口。
 
-```cpp
-graphicsView->viewport()->update();
-repaint();
+原生启动路径：
+
+```text
+代理承载源画面、真实窗口alpha=0
+→ Begin pan preservation
+→ 保存窗口及子控件 WA_ForceUpdatesDisabled，暂停Qt绘制
+→ source / target / source setFrame + Measure，读取几何
+→ 建立并提交Core Animation轨迹
+→ 按原始显式状态恢复整个Widget树
+→ 最终progress仍Update + displayIfNeeded
+→ 原生完成Cancel、reveal和清理
 ```
 
-先将视口标脏，再通过父窗口同步绘制处理合并区域。显式标脏保证不透明 SVG 也包含在本次绘制中。保留 native SDR 几何同步、fit、全屏 inset、pan preservation、源／目标／源测量、端点绘制和原生生命周期。没有将 QWidget 绘制移到非 GUI 线程。
+移除三轮临时displayIfNeeded。保留源语义恢复、目标几何测量、NSAnimation终点时钟、最终同步绘制及原生生命周期。scope guard保证退出时恢复；空几何或初始化失败先恢复绘制，再走原有恢复／清理路径。duration≤0时先恢复绘制再执行即时终点，避免跳过必要绘制。
 
-测试新增四行真实加载 fixture：显示／隐藏标题栏 × PNG／SVG。通过视口事件过滤器观察实际 Paint，并附加固定 40 ms 成本；同步槽每行调用三次，返回前恰有一次 Paint，耗时不超过 75 ms，图像矩形与 zoom 不变。75 ms 是辨别一次和两次受控成本的回归预算，不是显示刷新期限或真实 FPS 承诺。
+## 测试与风险边界
 
-CTest 加入 `FovelleFullScreenPaintBudget`；系统检查脚本加入完整 12 个样本矩阵校验，缺失、重复、零绘制、双绘制和超预算均失败。原生集成由已有 motion、标题栏和 AVIF 画面测试覆盖。
+新增原生进入／退出四行测试：标题栏显示／隐藏×PNG／SVG。Paint过滤器仅在原生探针确认代理active时附加40ms成本，记录源宽度±0.1pt内的累计Paint成本；要求原生通知完成、代理绘制观测非空、源阶段≤1次／≤75ms、往返geometry／zoom／标题栏正确。
 
-## 风险与验证边界
+保留旧端点绘制预算，防止“永久禁用绘制”假修复；保留motion、标题栏、SDR截图与手动pan等回归。系统脚本要求完整四行×两个方向，缺失／重复／空观测不能通过。
 
-必须保留同步 endpoint 绘制，否则真实窗口可能显示旧内容；新增测试在不泵事件的槽返回时检查绘制次数。源码变更小，但需要原生画面与几何回归。新成本测试单独调用桥接槽，不声称测量完整输入到首帧耗时；motion 测试读取呈现层近似轨迹，不声称物理屏幕逐帧测量。
-
-快照转换、三轮布局、终点事件队列等待和系统合成等剩余候选没有被此补丁全数排除。它修复了已稳定检出的重复绘制分支。运行结果与限制见 [测试完成报告](test_completion_report.md)。
+风险集中在状态恢复和终点画面。错误返回及零时长分支按代码审查核对；本轮没有针对这些分支伪称完成故障注入。实际执行结果见 [完成报告](test_completion_report.md)。本补丁减少启动测量绘制，不证明快照成本、GUI尾部等待或所有GPU长帧均已消除。
