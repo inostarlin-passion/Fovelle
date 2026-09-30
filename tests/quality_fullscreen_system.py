@@ -21,6 +21,7 @@ FUNCTIONAL_CASES = (
     "testEnterDoesNotBypassClearedFullscreenShortcut",
     "testConfiguredFullscreenShortcutStillWorks",
     "testFullScreenPresentationKeepsMoving",
+    "testFullScreenLayoutPaintBudget",
 )
 
 THRESHOLDS = {
@@ -60,6 +61,18 @@ def motion_summary(output: str) -> dict:
             "metric_definition": "Core Animation presentation trajectory; not physical display frame times"}
 
 
+def paint_summary(output: str) -> dict:
+    metrics = [json.loads(line.split("FULLSCREEN_PAINT_BUDGET ", 1)[1])
+               for line in output.splitlines() if "FULLSCREEN_PAINT_BUDGET {" in line]
+    expected = {(hidden, vector, iteration) for hidden in (False, True)
+                for vector in (False, True) for iteration in range(3)}
+    observed = [(m["hidden"], m["vector"], m["pass"]) for m in metrics]
+    passed = (len(observed) == len(expected) and set(observed) == expected
+              and all(m["paints"] == 1 and 40 <= m["elapsed_ms"] <= 75 for m in metrics))
+    return {"passed": passed, "sample_count": len(metrics), "metrics": metrics,
+            "metric_definition": "synchronous layout update with 40ms per actual viewport Paint event"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
@@ -80,6 +93,7 @@ def main() -> int:
         return_codes.append(result.returncode)
     output = "\n".join(outputs)
     motion = motion_summary(output)
+    paint = paint_summary(output)
     cases = []
     for index, name in enumerate(FUNCTIONAL_CASES, start=1):
         suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
@@ -89,6 +103,7 @@ def main() -> int:
                 "id": f"TC-FS-{index:02d}",
                 "test": qualified_name,
                 "status": "passed" if (motion["passed"] if name == "testFullScreenPresentationKeepsMoving"
+                    else paint["passed"] if name == "testFullScreenLayoutPaintBudget"
                     else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
             }
         )
@@ -124,7 +139,8 @@ def main() -> int:
         "thresholds": THRESHOLDS,
         "performance_flags": performance_flags,
         "motion": motion,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"],
+        "paint": paint,
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",

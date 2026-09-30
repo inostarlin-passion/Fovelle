@@ -1453,9 +1453,11 @@ void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
 
     graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
 
-    // Prepare the hidden real window before the proxy animation hands it back
-    // to AppKit at the normal frame.
-    graphicsView->viewport()->repaint();
+    // Merge viewport dirtiness into one synchronous whole-window paint. A
+    // separate viewport repaint followed by the parent repaint draws a
+    // non-opaque raster viewport twice. Marking it dirty also includes opaque
+    // vector viewports in the parent paint before AppKit reveals the endpoint.
+    graphicsView->viewport()->update();
     repaint();
 }
 

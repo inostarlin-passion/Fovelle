@@ -386,6 +386,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
+    void testFullScreenLayoutPaintBudget_data();
+    void testFullScreenLayoutPaintBudget();
     void testFullScreenPresentationKeepsMoving_data();
     void testFullScreenPresentationKeepsMoving();
     void testSmoothScalingDefaultIsBilinear();
@@ -14276,6 +14278,94 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
 // TC-FULLSCREEN-MOTION: bounded synchronous GUI work must not freeze an
 // already-submitted proxy animation. Sample presentation geometry even while
 // deliberately NOT dispatching the main run loop; endpoint tests miss this.
+// A bounded slow paint models content cost without blocking unrelated AppKit
+// callbacks. Count real viewport Paint events, rather than production calls.
+void WindowBehaviorTests::testFullScreenLayoutPaintBudget_data()
+{
+    QTest::addColumn<bool>("hidden");
+    QTest::addColumn<bool>("vectorImage");
+    for (bool hidden : {false, true})
+        for (bool vectorImage : {false, true}) {
+            const QByteArray name = QByteArray(hidden ? "hidden-" : "visible-")
+                + (vectorImage ? "vector" : "raster");
+            QTest::newRow(name.constData()) << hidden << vectorImage;
+        }
+}
+
+void WindowBehaviorTests::testFullScreenLayoutPaintBudget()
+{
+    QFETCH(bool, hidden);
+    QFETCH(bool, vectorImage);
+    ScopedOptionValues options({
+        {"titlebarhidden", hidden},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        window.cancelFullScreenLayoutTransition();
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(vectorImage ? "paint.svg" : "paint.png");
+    if (vectorImage) {
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/></svg>");
+    } else {
+        QImage image(800, 1600, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+    }
+    window.resize(640, 480);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QTest::qWait(250);
+    class PaintCost : public QObject {
+    public:
+        int paints = 0;
+        bool eventFilter(QObject *, QEvent *event) override {
+            if (event->type() == QEvent::Paint) {
+                ++paints;
+                QThread::msleep(40);
+            }
+            return false;
+        }
+    } cost;
+    view->viewport()->installEventFilter(&cost);
+    auto removeFilter = qScopeGuard([&] { view->viewport()->removeEventFilter(&cost); });
+    window.beginFullScreenLayoutTransition(0, 0);
+    const QRect imageRect = window.fullScreenTransitionImageRect();
+    QVERIFY(!imageRect.isEmpty());
+    const qreal zoom = view->getZoomLevel();
+    QStringList failures;
+    for (int pass = 0; pass < 3; ++pass) {
+        cost.paints = 0;
+        QElapsedTimer timer;
+        timer.start();
+        window.updateFullScreenLayoutTransition(0);
+        const double elapsed = timer.nsecsElapsed() / 1000000.0;
+        QCOMPARE(window.fullScreenTransitionImageRect(), imageRect);
+        QCOMPARE(view->getZoomLevel(), zoom);
+        qInfo().noquote() << "FULLSCREEN_PAINT_BUDGET"
+            << QJsonDocument(QJsonObject {{"hidden", hidden}, {"vector", vectorImage}, {"pass", pass},
+                {"paints", cost.paints}, {"elapsed_ms", elapsed}}).toJson(QJsonDocument::Compact);
+        // Endpoint preparation must still synchronously paint the viewport,
+        // but must not pay twice for the same unchanged geometry.
+        if (cost.paints != 1 || elapsed > 75.0)
+            failures << QString("pass %1: paints=%2 elapsed=%3ms")
+                .arg(pass).arg(cost.paints).arg(elapsed);
+    }
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
+}
+
 void WindowBehaviorTests::testFullScreenPresentationKeepsMoving_data()
 {
     QTest::addColumn<bool>("hidden");
