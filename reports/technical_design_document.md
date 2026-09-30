@@ -1,63 +1,59 @@
-# 隐藏标题栏进入全屏：技术设计文档
+# 全屏切换卡顿：技术设计文档
 
-日期：2026-09-30（Asia/Shanghai）。问题范围：macOS Cocoa 窗口从隐藏标题栏的普通模式进入原生全屏时，标题栏闪现并造成图像瞬时缩小。
+日期：2026-10-01（Asia/Shanghai）。基线：`cdd37565e9f19a43580a7ecf55fc54a797ee53cd`。依据：[root_cause.md](root_cause.md)。环境：macOS 27.0（26A428）、arm64、Qt 6.11.2、Release。
 
-## 问题界定与原子化拆解
+## 1. 问题界定与原子拆解
 
-| 原子问题 | 可验证要求 | 观测方法 |
+将进入／退出全屏的卡顿拆为启动准备、中段运动停止、终点交接、反向操作等待、几何跳变五类。旧测试只检查 Qt 状态和最终画面，GUI 定时器在主线程忙时也停止采样，不能证明运动连续。
+
+本次稳定复现并修复的是：**已开始的代理窗口动画依赖主运行循环逐帧更新，因短时同步 GUI 工作停止运动。** 使用相同的 130 ms 受控负载区分旧代码与修复代码。负载模拟运行循环占用；不宣称用户那次卡顿恰好持续 130 ms，也不把未经测量的图片转换或 GPU 问题当成定论。
+
+## 2. 多跳联网检索与多源交叉验证
+
+沿“全屏生命周期 → 调度保证 → 呈现树 → 显式动画终点 → 可动画几何 → 事务提交”继续检索。只采用官方文档和匹配版本源码；搜索摘要、论坛猜测不作为因果证据。Apple 页面仅显示 JavaScript 提示时，继续读取对应官方 DocC JSON 的 abstract／discussion。
+
+| 跳次 | 一手资料与结论 | 交叉验证及设计影响 |
 | --- | --- | --- |
-| 标题栏闪现 | 用户隐藏标题栏后，进入请求及动画期间保持隐藏的原生呈现属性 | 独立读取 NSWindow 的 titleVisibility、titlebarAppearsTransparent 和关闭按钮 hidden |
-| 视口受挤压 | 隐藏标题栏时，整个进入过程的有效顶部遮挡为 0 | 在同步布局事件与定时采样中读取 getViewportPosition().obscuredHeight |
-| 图像短暂缩小 | 从较小普通窗口进入全屏时，适应高度的竖图不能先缩小 | 记录进入期间最小缩放比例与进入前比例 |
-| 退出与持久化 | 退出后保持原来的标题栏状态及偏好，重复进入仍成立 | 原生 did-exit 通知、Qt 状态及 QSettings |
-| 对照行为 | 原本可见的标题栏仍能正常进入、退出全屏 | PNG/SVG 可见状态对照用例 |
+| 1：原生边界 | [Apple 全屏动画回调](https://developer.apple.com/documentation/appkit/nswindowdelegate/window(_:startcustomanimationtoenterfullscreenwithduration:)) 提供与系统同步的 duration；[进入完成通知](https://developer.apple.com/documentation/appkit/nswindow/didenterfullscreennotification) 表示完成 | [Qt 6.11.2 Cocoa 源码](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qcocoawindow.mm) 也通过 AppKit 动作及通知处理状态；保留原生 did-enter／did-exit |
+| 2：调度 | [NSAnimation.frameRate](https://developer.apple.com/documentation/appkit/nsanimation/framerate) 不保证实际帧率；[nonblocking](https://developer.apple.com/documentation/appkit/nsanimation/blockingmode/nonblocking) 使用运行循环 | [Qt 定时器精度](https://doc.qt.io/qt-6.11/qtimer.html#accuracy-and-timer-resolution) 同样受事件循环繁忙影响；不能把设置 60 fps 或 1 ms 采样当作连续性证明 |
+| 3：运动执行层 | [Core Animation 基础](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/CoreAnimationBasics/CoreAnimationBasics.html) 将模型、呈现、渲染状态分离，支持已提交的属性运动 | 用本地同负载红绿实验验证：摆脱应用逐帧回调后，呈现状态是否继续推进 |
+| 4：观测对象 | [CALayer presentation](https://developer.apple.com/documentation/quartzcore/calayer/presentation()) 是当前显示的近似状态 | 读取呈现树而非生产 animation progress；报告不将近似状态称为物理屏幕 FPS |
+| 5：几何与终点 | [显式动画](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/CreatingBasicAnimations/CreatingBasicAnimations.html) 不自动写模型终点；[frame](https://developer.apple.com/documentation/quartzcore/calayer/frame) 不可直接动画化 | 写模型终点，对 bounds／position 设置 from／to；动画移除后不弹回 |
+| 6：提交 | [flush](https://developer.apple.com/documentation/quartzcore/catransaction/flush()) 建议尽量利用运行循环提交；[Qt repaint](https://doc.qt.io/qt-6.11/qwidget.html#repaint) 是同步绘制 | 不再每帧改层并 flush；保留一次启动提交与必要的终点预绘制，不能由文档建议推断所有 flush 必然等待 GPU |
 
-不把正常的全屏窗口扩大与图像重新适应视口视为缺陷；本次禁止的是人为恢复标题栏造成的额外顶部占用与缩小。
+Apple 多页不计为多个独立厂商；Qt 机制、当前源码与同机实验构成进一步交叉证据。
 
-## 多跳检索与多源交叉验证
+## 3. 演绎链与逆向证伪
 
-检索从“Qt macOS fullscreen titlebar full size content view”与“NSWindow fullscreen custom animation”开始，再沿文档中的全屏样式、透明标题栏、Qt 窗口标志和完成通知迭代检索。依据来自 Apple、Qt 官方文档、Qt 项目源代码及本地动态实验；同一厂商文档的重复搜索结果不算独立来源。
+旧链：NSAnimationNonblocking → 主运行循环 setCurrentProgress → 手动插值代理窗口、图像、标题栏图层 → 每回调 commit／flush。禁用隐式动画后，没有应用回调就没有新位置。推导：运行循环暂停时，运动应保持原值。
 
-| 跳次 | 信息与来源 | 交叉验证及设计结论 |
-| --- | --- | --- |
-| 1：全屏定义 | [Apple fullScreen](https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/fullscreen) 说明原生全屏不绘制标题栏；[Qt QWindow](https://doc.qt.io/qt-6/qwindow.html) 同样定义全屏占据整屏且没有标题栏 | 两方定义一致；没有找到要求应用先恢复隐藏标题栏的依据 |
-| 2：内容与标题栏关系 | [Apple titlebarAppearsTransparent](https://developer.apple.com/documentation/appkit/nswindow/titlebarappearstransparent) 与 full-size content view 配合；[Qt WindowType](https://doc.qt.io/qt-6/qt.html#WindowType-enum) 区分 ExpandedClientAreaHint 与 NoTitleBarBackgroundHint | 透明背景、扩展内容区和隐藏标题文字是不同属性；不能只用生产代码的 Qt 标志 getter 作为视觉状态判据 |
-| 3：原生进入路径 | [Qt Cocoa 源码（6.8 分支）](https://github.com/qt/qtbase/blob/6.8/src/plugins/platforms/cocoa/qcocoawindow.mm) 的 toggleFullScreen 调用 NSWindow toggleFullScreen，并设置 FullScreenPrimary；will-enter 设置 Resizable | 历史实现用于解释平台责任边界，不冒充本机 6.11.2 的逐行源码。与本机 6.11.2 的成功原生进入实验交叉验证，支持保留隐藏标题栏并让 Qt/AppKit 管理全屏 |
-| 4：动画与完成 | [Apple customWindowsToEnterFullScreen](https://developer.apple.com/documentation/appkit/nswindowdelegate/customwindowstoenterfullscreen%28for%3A%29) 允许自定义窗口动画；[Apple didEnterFullScreenNotification](https://developer.apple.com/documentation/AppKit/NSWindow/didEnterFullScreenNotification?changes=_7_1) 表示窗口已经进入全屏 | 项目已有代理窗口动画；测试必须采样原生完成通知之前的过程，不能只检查 Qt 请求状态 |
-| 5：反证实验 | 旧实现配合新增测试连续失败；固定实现连续通过，原生完成通知确实到达 | 把文档推断收敛为本机可重复观察的因果证据 |
+最终测试停止事件处理但持续读取原生呈现状态。旧生产代码连续三轮中，4 个 busy 行失败、4 个 idle 行通过；busy 的窗口和图像均不推进。这排除“最终全屏成功便证明流畅”，也排除“所有切换都会失败”的泛化。
 
-部分 Apple 页面只返回 JavaScript 提示，部分直接 JSON/raw URL 无法由浏览工具取得；因此迭代到官方搜索结果、相关官方文档与可读取的 Qt 源码，并用真实 Cocoa 执行验证，不将失败抓取当成证据。
+新链：一次提交完整 bounds／position／opacity 轨迹 → Core Animation 推进呈现 → NSAnimation 只做终点交接。同负载下应继续运动，最终原生状态、标题栏、fit／pan 必须正确。
 
-## 链式演绎与根因
+H1／H2／H5 未被擅自升级为根因：没有测得用户自然卡顿时具体是哪项同步工作占用了 GUI。H4 的每帧 flush 随驱动方式一并去除，但没有独立 GPU 等待证据；H6 的原生切换排队规则保留。
 
-旧链路：`toggleFullScreen()` → 保存 `storedTitlebarHidden` → `setTitlebarHidden(false, false)` → 恢复原生标题文字、背景和按钮 → `fitOrConstrainImage()` → `showFullScreen()` → 原生代理动画。
+## 4. 生产实现
 
-由透明标题栏恢复为普通标题栏，`getObscuredHeight()` 从 0 增加到标题栏高度。可用高度下降，使适应视口的竖图缩小；这发生在原生动画抓取起点之前。旧代码虽然用 `storedTitlebarHidden` 强制代理标题栏 inset 为 0，却已经修改了真实窗口和图像起点，无法消除此前的闪现与挤压。
+修改：[qvcocoafunctions.mm](../src/qvcocoafunctions.mm)。
 
-动态证据：800×1600 竖图进入前 zoom=0.32；旧实现进入期间最大顶部占用为 32，最小 zoom=0.30。相同现象同时出现在 PNG 与 SVG，排除单一栅格解码路径；可见标题栏对照正常，排除测试一律禁止标题栏的错误判据。0.32→0.30 对应图像高度少了 32 个逻辑像素，比例下降 6.25%。
+- `animateFullScreenLayer()` 根据 anchorPoint 将矩形转换为 position，以 bounds 表示尺寸；对两个属性使用一致的起止矩形、duration 与媒体时间。
+- `startAnimation()` 在禁用隐式动作的事务内写模型终点，并提交窗口／图像／标题栏显式轨迹。标题栏 opacity 使用同一 ease-in-out 曲线；媒体时间经各层 convertTime 转成本地时间。
+- 开始时一次 flush，让 AppKit 同步准备期间轨迹已经提交；中间回调不再改可见几何或 flush。
+- `setCurrentProgress()` 保留一次性终点保护、真实窗口终点、布局同步、预绘制。终点移除代理动画时，模型已经在终点。
+- 原生通知、失败恢复、代理清理和进入期间退出排队仍使用既有生命周期；不把 AppKit 对象搬到后台线程。
+- 日志用 `clock_callbacks` 取代 `intermediate_frames`，增加 `motion_driver=core-animation`，避免将时钟回调数冒充显示帧数。
 
-## 逆向证伪
+保留 NSAnimation 作为终点时钟，以兼容已有通知和失败流程；非正 duration 直接设置几何终点，不建立属性运动。
 
-| 假设 | 证伪方式 | 结果 |
-| --- | --- | --- |
-| 必须恢复标题栏才能进入原生全屏 | 移除恢复操作，等待真实 did-enter/did-exit 通知 | 本机 Qt 6.11.2/Cocoa 可正常反复进入退出 |
-| 是 PNG 解码/Metal 的专有问题 | 同尺寸 SVG 对照 | 旧代码同样失败；共同窗口路径更符合证据 |
-| 只需检查最终全屏状态 | 对比同步事件及动画采样与最终状态 | 最终状态可以正确，而中间占用为 32、zoom 降低 |
-| 隐藏 getter 与生产实现同错导致假通过 | 用测试独立 Objective-C++ 探针读取 AppKit 属性 | 旧实现明确暴露原生标题栏，固定实现保持隐藏 |
-| 修复破坏可见标题栏或退出偏好 | 可见 PNG/SVG、双周期、偏好检查及邻接全屏测试 | 以测试完成报告中的实测结果为准 |
+## 5. 测试改动、校准与限制
 
-## 生产代码设计
+修改 WindowBehaviorTests、native_titlebar_probe、CTest 注册和 quality_fullscreen_system.py。探针通过 NSApp.windows 公开属性发现真实窗口上方的可见全屏辅助代理，读取窗口层和图像层 presentation；不访问生产关联键、不调用生产 progress、不回退为模型值。AppKit 访问全部在主线程。
 
-`src/mainwindow.cpp` 的进入路径保留 pan preservation，直接调用 `showFullScreen()`，不再先改变标题栏。删除退出后的补偿隐藏逻辑；`fullScreenTransitionTitlebarOverlap()` 直接依据当前原生有效遮挡，不再依据临时缓存。`src/mainwindow.h` 删除 `storedTitlebarHidden`。已有 Cocoa 动画、Qt/AppKit 状态通知及用户偏好保存路径继续承担各自职责。
+首次探针在同一 CA 事务中反复读取时，显式动画也返回重复值，修复试跑失败，原始记录保留在 `green-probe.txt`，不计为通过。探针每次读取前结束采样事务（flush），获取新的媒体时间，不泵事件循环。校准后重新构建旧代码，用最终测试三轮红结果验证校准没有让旧动画继续运动；测试阈值未放宽。
 
-这使普通隐藏窗口、代理动画起点和退出终点使用一致的真实标题栏状态，无需通过延迟恢复、截图遮挡或定时器在生产代码中补偿。
+8 行×2 cycle×2 direction，逐项检查中段观测、80 ms 静止门槛、负载期间窗口至少推进 8% 完整行程、图像宽度变化至少 5 point、原生完成及最终恢复。80 ms 是区分本次 130 ms 受控停顿的门槛，不是通用性能 SLA。
 
-## 测试设计与边界
+呈现树是平台近似值，不能保证 GPU 每个刷新周期都按时送达。既有 AVIF 屏幕截图回归交叉检查可见图像、位置与退出恢复，也不冒充高精度屏幕帧计时。启动前快照／布局成本、终点以外的系统负载和 GPU 饱和仍需现场测量，不由本次通过一概排除。
 
-在现有 `WindowBehaviorTests` 增加数据驱动回归；独立探针仅编入测试目标。CMake 注册串行 Cocoa 动态验收，防止本测试与其他 CTest 项同时操作原生全屏 Space。测试不依赖外部图片、OCR、屏幕录制权限或源码字符串匹配。
-
-本次实测环境为 macOS 27.0 / arm64 / Qt 6.11.2。对项目最低支持的 macOS 15 和 Qt 6.9 之前分支仅能给出代码路径分析，不能声明已实测。采样验证原生属性、有效布局与图像缩放，不声称录制并逐帧审核显示器合成像素。
-
-## 邻接测试修正
-
-扩展验证发现 `testFullscreenAfterOverflowRemovesTitlebarScenePadding` 在原生动画未结束时缩放、退出并创建第二个窗口，首次组合执行发生退出超时，随后崩溃。该测试原先只等 Qt 全屏状态，与上文识别的请求/完成边界不一致。为两个窗口分别增加原生 did-enter/did-exit 计数等待，并增加 scope guard 清理；不改变其场景顶部与图像边缘断言，也不放宽超时。最终重复结果见测试完成报告。
+用例见 [测试用例说明](test_case_specification.md)，实测、命令及原始证据见 [测试完成报告](test_completion_report.md)。旧版三报告保存在 [prior_reports](evidence/fullscreen_motion/prior_reports/)。

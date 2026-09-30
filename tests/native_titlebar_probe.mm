@@ -1,4 +1,5 @@
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #include <QWindow>
 #include "native_titlebar_probe.h"
@@ -46,4 +47,34 @@ NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window)
         && nativeWindow.titlebarAppearsTransparent
         && [nativeWindow standardWindowButton:NSWindowCloseButton].hidden;
     return {hidden, observer->entries, observer->exits};
+}
+
+NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    NSWindow *real = view.window;
+    if (!real || real.alphaValue != 0.0)
+        return {};
+    // Discover the visible auxiliary proxy by public AppKit properties. Do
+    // not consult production association keys or its NSAnimation progress.
+    for (NSWindow *candidate in NSApp.windows) {
+        if (candidate == real || !candidate.visible || !candidate.ignoresMouseEvents
+            || candidate.level != real.level + 1
+            || !(candidate.collectionBehavior & NSWindowCollectionBehaviorFullScreenAuxiliary))
+            continue;
+        CALayer *layer = candidate.contentView.layer.sublayers.firstObject;
+        // Presentation values are cached for the current CA transaction.
+        // End the sampling transaction so reads during a deliberately paused
+        // AppKit run loop use a fresh media time; this dispatches no UI events.
+        [CATransaction flush];
+        CALayer *presentation = layer.presentationLayer;
+        CALayer *image = presentation.sublayers.firstObject;
+        if (!presentation || !image || !image.contents)
+            continue;
+        const auto rect = [](CGRect r) {
+            return QRectF(r.origin.x, r.origin.y, r.size.width, r.size.height);
+        };
+        return {true, rect(presentation.frame), rect(image.frame)};
+    }
+    return {};
 }

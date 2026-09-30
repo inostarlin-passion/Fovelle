@@ -386,6 +386,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
+    void testFullScreenPresentationKeepsMoving_data();
+    void testFullScreenPresentationKeepsMoving();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
     void testSettingsColonAlignmentSurvivesTranslations();
@@ -14269,6 +14271,170 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
         QCOMPARE(window.getTitlebarHidden(), hidden);
         QCOMPARE(QSettings().value("options/titlebarhidden").toBool(), hidden);
     }
+}
+
+// TC-FULLSCREEN-MOTION: bounded synchronous GUI work must not freeze an
+// already-submitted proxy animation. Sample presentation geometry even while
+// deliberately NOT dispatching the main run loop; endpoint tests miss this.
+void WindowBehaviorTests::testFullScreenPresentationKeepsMoving_data()
+{
+    QTest::addColumn<bool>("hidden");
+    QTest::addColumn<bool>("vectorImage");
+    QTest::addColumn<bool>("busy");
+    for (bool hidden : {false, true})
+        for (bool vectorImage : {false, true})
+            for (bool busy : {false, true}) {
+                const QByteArray name = QByteArray(hidden ? "hidden-" : "visible-")
+                    + (vectorImage ? "vector-" : "raster-") + (busy ? "busy" : "idle");
+                QTest::newRow(name.constData()) << hidden << vectorImage << busy;
+            }
+}
+
+void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
+{
+    QFETCH(bool, hidden);
+    QFETCH(bool, vectorImage);
+    QFETCH(bool, busy);
+    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
+    ScopedOptionValues options({
+        {"titlebarhidden", hidden},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            const auto state = nativeTitlebarSnapshot(window.windowHandle());
+            window.toggleFullScreen();
+            waitForTestCondition([&] {
+                return nativeTitlebarSnapshot(window.windowHandle()).exits > state.exits;
+            }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(vectorImage ? "motion.svg" : "motion.png");
+    if (vectorImage) {
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/><rect width=\"400\" height=\"800\" fill=\"blue\"/></svg>");
+    } else {
+        QImage image(800, 1600, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QPainter painter(&image);
+        painter.fillRect(0, 0, 400, 800, Qt::blue);
+        painter.end();
+        QVERIFY(image.save(path));
+    }
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(640, 480);
+    window.show();
+    window.raise();
+    window.activateWindow();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    window.setTitlebarHidden(hidden, false);
+    QTest::qWait(250);
+    const QRect initialGeometry = window.geometry();
+    const qreal initialZoom = view->getZoomLevel();
+    QStringList failures;
+    for (int cycle = 0; cycle < 2; ++cycle) {
+        for (bool entering : {true, false}) {
+            const auto nativeBefore = nativeTitlebarSnapshot(window.windowHandle());
+            const double startWidth = window.width();
+            const double endWidth = entering ? window.screen()->geometry().width()
+                                             : initialGeometry.width();
+            QVERIFY(qAbs(endWidth - startWidth) > 200);
+            QJsonArray samples;
+            QElapsedTimer clock;
+            clock.start();
+            double lastWidth = startWidth;
+            double lastMovementMs = 0;
+            double maxFrozenMs = 0;
+            double blockedAdvance = 0;
+            double blockedImageDelta = 0;
+            double lastImageWidth = 0;
+            int interiorSamples = 0;
+            bool injected = false;
+            bool finished = false;
+            const auto sample = [&] {
+                const auto p = nativeFullScreenPresentation(window.windowHandle());
+                const double ms = clock.nsecsElapsed() / 1000000.0;
+                if (!p.active)
+                    return -1.0;
+                const double progress = (p.windowRect.width() - startWidth) / (endWidth - startWidth);
+                samples.append(QJsonObject {{"ms", ms}, {"width", p.windowRect.width()},
+                    {"image_width", p.imageRect.width()}, {"progress", progress}});
+                if (progress > 0.15 && progress < 0.85) {
+                    ++interiorSamples;
+                    if (qAbs(p.windowRect.width() - lastWidth) > 0.1)
+                        lastMovementMs = ms;
+                    else
+                        maxFrozenMs = qMax(maxFrozenMs, ms - lastMovementMs);
+                } else {
+                    lastMovementMs = ms;
+                }
+                lastWidth = p.windowRect.width();
+                lastImageWidth = p.imageRect.width();
+                return progress;
+            };
+            window.toggleFullScreen();
+            while (clock.elapsed() < 5000) {
+                const double progress = sample();
+                if (busy && !injected && progress > 0.20 && progress < 0.45) {
+                    injected = true;
+                    const double before = progress;
+                    const double imageBefore = lastImageWidth;
+                    // Controlled contention, identical on red and green. No
+                    // event processing during this 130 ms observation window.
+                    for (int i = 0; i < 13; ++i) {
+                        QThread::msleep(10);
+                        sample();
+                    }
+                    blockedAdvance = sample() - before;
+                    blockedImageDelta = qAbs(lastImageWidth - imageBefore);
+                }
+                const auto state = nativeTitlebarSnapshot(window.windowHandle());
+                if (entering ? state.entries > nativeBefore.entries : state.exits > nativeBefore.exits) {
+                    finished = true;
+                    break;
+                }
+                QTest::qWait(5);
+            }
+            const QJsonObject metrics {{"row", QString::fromLatin1(QTest::currentDataTag())},
+                {"cycle", cycle}, {"entering", entering}, {"completed", finished},
+                {"injected", injected}, {"interior_samples", interiorSamples},
+                {"max_frozen_ms", maxFrozenMs}, {"blocked_advance", blockedAdvance},
+                {"blocked_image_delta", blockedImageDelta},
+                {"samples", samples}};
+            qInfo().noquote() << "FULLSCREEN_MOTION" << QJsonDocument(metrics).toJson(QJsonDocument::Compact);
+            QVERIFY2(finished, "Native completion missing; motion sampling cannot end at Qt request state");
+            QCOMPARE(window.isFullScreen(), entering);
+            if (interiorSamples < 8)
+                failures << QStringLiteral("No usable interior presentation samples");
+            if (maxFrozenMs > 80.0)
+                failures << QStringLiteral("%1 cycle %2 froze for %3 ms")
+                    .arg(entering ? "enter" : "exit").arg(cycle).arg(maxFrozenMs);
+            if (busy && (!injected || blockedAdvance < 0.08))
+                failures << QStringLiteral("%1 cycle %2 failed to advance during GUI contention (%3)")
+                    .arg(entering ? "enter" : "exit").arg(cycle).arg(blockedAdvance);
+            if (busy && blockedImageDelta < 5.0)
+                failures << QStringLiteral("Image presentation stopped during GUI contention");
+            QTest::qWait(150);
+        }
+        QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
+        QCOMPARE(window.geometry(), initialGeometry);
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), initialZoom));
+    }
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join('\n')));
 }
 
 // TC-SETTINGS-SMOOTH-DEFAULT

@@ -252,6 +252,43 @@ static NSBitmapImageRep *captureFullScreenTitlebar(
                         handler:(FovelleFullScreenAnimationHandler)handler;
 @end
 
+// Submit the entire trajectory once. A GUI run-loop callback must not be
+// needed to advance an already-visible proxy during synchronous Qt work.
+static void animateFullScreenLayer(
+    CALayer *layer, const NSRect from, const NSRect to,
+    const NSTimeInterval duration, const CFTimeInterval startTime)
+{
+    if (!layer)
+        return;
+    const CGPoint anchor = layer.anchorPoint;
+    const auto position = [anchor](const NSRect frame) {
+        return CGPointMake(frame.origin.x + frame.size.width * anchor.x,
+            frame.origin.y + frame.size.height * anchor.y);
+    };
+    const CGRect fromBounds = CGRectMake(
+        layer.bounds.origin.x, layer.bounds.origin.y, from.size.width, from.size.height);
+    const CGRect toBounds = CGRectMake(
+        layer.bounds.origin.x, layer.bounds.origin.y, to.size.width, to.size.height);
+    layer.bounds = toBounds;
+    layer.position = position(to);
+    if (duration <= 0)
+        return;
+    CABasicAnimation *bounds = [CABasicAnimation animationWithKeyPath:@"bounds"];
+    bounds.fromValue = [NSValue valueWithRect:fromBounds];
+    bounds.toValue = [NSValue valueWithRect:toBounds];
+    CABasicAnimation *move = [CABasicAnimation animationWithKeyPath:@"position"];
+    move.fromValue = [NSValue valueWithPoint:position(from)];
+    move.toValue = [NSValue valueWithPoint:position(to)];
+    for (CABasicAnimation *animation in @[bounds, move]) {
+        animation.duration = duration;
+        animation.beginTime = [layer convertTime:startTime fromLayer:nil];
+        animation.timingFunction = [CAMediaTimingFunction
+            functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    }
+    [layer addAnimation:bounds forKey:@"fovelle.fullscreen.bounds"];
+    [layer addAnimation:move forKey:@"fovelle.fullscreen.position"];
+}
+
 @implementation FovelleFullScreenAnimation
 
 - (instancetype)initWithRealWindow:(NSWindow *)realWindow
@@ -305,6 +342,37 @@ static NSBitmapImageRep *captureFullScreenTitlebar(
     [super dealloc];
 }
 
+- (void)startAnimation
+{
+    const CFTimeInterval startTime = CACurrentMediaTime();
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    animateFullScreenLayer(_windowLayer, _startWindowFrame, _endWindowFrame,
+        self.duration, startTime);
+    animateFullScreenLayer(_imageLayer, _startImageFrame, _endImageFrame,
+        self.duration, startTime);
+    if (_titlebarLayer) {
+        animateFullScreenLayer(_titlebarLayer, _startTitlebarFrame, _endTitlebarFrame,
+            self.duration, startTime);
+        _titlebarLayer.opacity = _endTitlebarOpacity;
+        if (self.duration > 0) {
+            CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+            fade.fromValue = @(_startTitlebarOpacity);
+            fade.toValue = @(_endTitlebarOpacity);
+            fade.duration = self.duration;
+            fade.beginTime = [_titlebarLayer convertTime:startTime fromLayer:nil];
+            fade.timingFunction = [CAMediaTimingFunction
+                functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+            [_titlebarLayer addAnimation:fade forKey:@"fovelle.fullscreen.opacity"];
+        }
+    }
+    [CATransaction commit];
+    // AppKit may continue synchronous transition setup before returning to
+    // the run loop. Submit once here; never flush from intermediate ticks.
+    [CATransaction flush];
+    [super startAnimation];
+}
+
 - (void)setCurrentProgress:(NSAnimationProgress)progress
 {
     [super setCurrentProgress:progress];
@@ -312,44 +380,20 @@ static NSBitmapImageRep *captureFullScreenTitlebar(
         || !_handler)
         return;
 
-    const CGFloat value = std::clamp<CGFloat>(self.currentValue, 0.0, 1.0);
     if (progress > 0.0f && progress < 1.0f)
         ++_intermediateFrameCount;
-    const auto interpolate = [value](const CGFloat from, const CGFloat to) {
-        return from + ((to - from) * value);
-    };
-    const auto interpolateRect = [&interpolate](
-        const NSRect from, const NSRect to) {
-        return NSMakeRect(
-            interpolate(from.origin.x, to.origin.x),
-            interpolate(from.origin.y, to.origin.y),
-            interpolate(from.size.width, to.size.width),
-            interpolate(from.size.height, to.size.height));
-    };
 
-    // The proxy NSWindow never changes size. Only its independent layers move,
-    // so WindowServer cannot stretch an old window backing store between a
-    // geometry commit and Qt's next paint.
-    [CATransaction begin];
-    [CATransaction setAnimationDuration:0.0];
-    [CATransaction setDisableActions:YES];
-    _windowLayer.frame = interpolateRect(
-        _startWindowFrame, _endWindowFrame);
-    _imageLayer.frame = interpolateRect(
-        _startImageFrame, _endImageFrame);
-    if (_titlebarLayer)
-    {
-        _titlebarLayer.frame = interpolateRect(
-            _startTitlebarFrame, _endTitlebarFrame);
-        _titlebarLayer.opacity = static_cast<float>(interpolate(
-            _startTitlebarOpacity, _endTitlebarOpacity));
-    }
-    [CATransaction commit];
-    [CATransaction flush];
-
+    // NSAnimation remains the AppKit endpoint clock only. Core Animation
+    // owns all intermediate visible states independently of this run loop.
     if (!_realWindowPrepared && progress >= 1.0f)
     {
         _realWindowPrepared = YES;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [_windowLayer removeAllAnimations];
+        [_imageLayer removeAllAnimations];
+        [_titlebarLayer removeAllAnimations];
+        [CATransaction commit];
         const NSRect nativeEndFrame = NSOffsetRect(
             _endWindowFrame,
             NSMinX(_proxyWindow.frame),
@@ -365,7 +409,8 @@ static NSBitmapImageRep *captureFullScreenTitlebar(
                 << "FOVELLE_FULLSCREEN_TRANSITION"
                 << (_enteringFullScreen ? "direction=enter" : "direction=exit")
                 << "phase=handoff"
-                << "intermediate_frames=" << _intermediateFrameCount
+                << "motion_driver=core-animation"
+                << "clock_callbacks=" << _intermediateFrameCount
                 << "duration_ms=" << self.duration * 1000.0
                 << "start_window="
                 << QString::fromNSString(NSStringFromRect(_startWindowFrame))

@@ -1,63 +1,72 @@
-# 隐藏标题栏进入全屏：测试完成报告
+# 全屏切换卡顿：测试完成报告
 
-日期：2026-09-30（Asia/Shanghai）。结论：新增过程级回归在旧生产代码上连续三轮稳定检出问题；修复生产代码后连续三轮通过。修正邻接测试的原生时序等待后，再次执行新回归通过，12 项邻接用例全部通过。
+日期：2026-10-01（Asia/Shanghai）。基线提交：`cdd37565e9f19a43580a7ecf55fc54a797ee53cd`。环境：macOS 27.0（26A428）、arm64、Qt 6.11.2、Release。
 
-## 环境与基线
+## 1. 完成结论与范围
 
-- macOS 27.0（26A428）、arm64、Qt/QtTest 6.11.2、Apple LLVM 17.0.0、Release、Cocoa。
-- 原生产代码基线：`193dc10f263ecae73fc63886a30b218459fbe7a8`。
-- 红阶段保留新增测试，仅将 `src/mainwindow.cpp/.h` 临时替换为该提交的原始生产代码并重新构建。三次执行完成后恢复修复内容并重新构建；最终工作区为修复版本。
-- 测试输入为临时生成的 PNG/SVG 竖图，没有使用外部磁盘样本。
+已补充能稳定检出“代理动画依赖 GUI 主运行循环，短时同步工作使中段运动停止”的测试，并将生产运动改为一次提交的 Core Animation 属性轨迹。
 
-## 执行结果
+**同一最终版测试：旧生产代码连续三轮稳定失败，修复生产代码连续三轮全部通过。** 无负载对照、原生完成、标题栏、窗口几何、fit／pan、菜单退出及实际 AVIF 屏幕内容回归均通过。测试和生产应用均构建成功。
 
-| 验证 | 运行次数 | 结果 | 原始证据 |
+稳定性针对本机可重复的受控负载情形；未将 130 ms 故障注入冒充用户自然卡顿的现场，也未将 presentation 近似值冒充物理屏幕 FPS。其余候选根因没有现场证据，不作“一切卡顿均已排除”的结论。
+
+## 2. 最终红绿结果
+
+| 阶段 | 次数与规模 | 实际结果 | 原始证据 |
 | --- | --- | --- | --- |
-| 最终版新增测试 + 旧生产代码 | 3 | 每轮 2 个隐藏数据行失败、2 个可见对照通过；无跳过，进程返回 2 | [第 1 轮](evidence/titlebar_fullscreen/red-final-1.txt)、[第 2 轮](evidence/titlebar_fullscreen/red-final-2.txt)、[第 3 轮](evidence/titlebar_fullscreen/red-final-3.txt) |
-| 新增测试 + 修复生产代码 | 连续 3 | 每轮 4 数据行通过；每行完成 2 次原生进入退出；共 24 次进入、24 次退出 | [CTest 详细重复日志](evidence/titlebar_fullscreen/green-final-repeat.txt) |
-| 隐藏偏好、全屏快捷键/菜单/Escape | 1 | 6 项通过，无失败或跳过 | [WindowBehaviorTests](evidence/titlebar_fullscreen/WindowBehaviorTests.txt) |
-| 标题栏应用图标/文档图标/幂等清理 | 1 | 3 项通过，无失败或跳过 | [FeatureTests](evidence/titlebar_fullscreen/FeatureTests.txt) |
-| fit zoom、退出 pan、全屏 scene padding | 修正后连续 3 | 每轮 3 项通过，无失败或跳过 | [第 1 轮](evidence/titlebar_fullscreen/graphics-final-1.txt)、[第 2 轮](evidence/titlebar_fullscreen/graphics-final-2.txt)、[第 3 轮](evidence/titlebar_fullscreen/graphics-final-3.txt) |
-| 邻接测试修正后的新回归复验 | 1 | 4 数据行通过，CTest 返回 0 | [最终日志](evidence/titlebar_fullscreen/green-final-after-adjacent-repair.txt) |
-| 构建生产应用与测试目标 | 恢复修复后 | `fovelle_tests` 与 `Fovelle` 构建成功；随后测试源时序修正重新构建测试目标成功 | [恢复修复后的构建日志](evidence/titlebar_fullscreen/fixed-build.txt) |
-| 补丁格式 | 最终检查 | `git diff --check` 通过 | 工作区检查 |
+| 最终测试 + 旧生产代码 | 连续 3 轮；每轮 8 行、32 个方向过程 | 每轮 4 个 busy 行失败、4 个 idle 行通过；每轮进程返回 4，无跳过 | [红 1](evidence/fullscreen_motion/red-final-1.txt)、[红 2](evidence/fullscreen_motion/red-final-2.txt)、[红 3](evidence/fullscreen_motion/red-final-3.txt) |
+| 最终测试 + 修复生产代码 | 连续 3 轮；共 96 个方向过程，其中 48 个受控负载 | 每轮 8 行通过；每轮 QtTest 合计 10 passed（含 init／cleanup），0 failed、0 skipped；CTest 返回 0 | [绿重复日志](evidence/fullscreen_motion/green-repeat.txt) |
+| 更新后的系统入口 | 1 轮；5 个功能项，含完整 motion 矩阵 | passed=true，两套件返回均为 0；32 个 motion 方向过程通过 | [系统 JSON](evidence/fullscreen_motion/system.json)、[输出](evidence/fullscreen_motion/system-run.txt) |
+| 测试与应用构建 | 恢复最终修复源码后 | fovelle_tests 与 Fovelle 均成功 | [最终构建日志](evidence/fullscreen_motion/final-fixed-build.txt) |
 
-表格中的用例数量不包含 QtTest 的 initTestCase/cleanupTestCase。红阶段会在首个失败断言结束对应数据行，未完成第二周期，不能算作全周期成功验证。
+红绿重复组各包含 48 次进入与 48 次退出。系统入口额外完成一次完整矩阵，不与主重复组混算。
 
-## 关键观测
+### 2.1 定量对照
 
-| 指标（隐藏数据行） | 旧生产代码：三轮一致 | 修复后：连续三轮及最终复验 |
+| 指标 | 旧代码，最终红三轮 | 修复代码，绿三轮 |
 | --- | --- | --- |
-| 原生标题栏曾暴露 | true | false |
-| 有效顶部最大占用 | 32 个逻辑像素 | 0 |
-| 进入前 zoom | 0.32 | 0.32 |
-| 进入期间最小 zoom | 0.30 | 0.32 |
-| PNG/SVG 结果 | 两者同样失败 | 两者均通过 |
-| 退出后标题栏与偏好 | 失败用例未执行最终断言 | 保持原始设置 |
+| busy 窗口推进量 | 全部为 0 | 完整宽度行程的 0.4610–0.4792 |
+| busy 图像宽度变化 | 全部为 0 | 最小 133.34 point |
+| busy 观测静止时间 | 143.41–179.54 ms | 中段采样未观察到超过 0.1 point 门槛的静止序列，max_frozen_ms=0 |
+| 原生方向完成 | 每轮完整记录 32 个过程 | 每轮完整记录 32 个过程 |
 
-32 是本机观察值，不是测试硬编码阈值。正式断言要求隐藏状态占用为 0，最小 zoom 不低于进入前真实值（浮点容差 0.0001）。从 0.32 到 0.30 的比例下降为 6.25%，足以证实进入前发生图像挤压。原生状态检查与生产 Qt getter 独立，且等待本窗口的 AppKit did-enter/did-exit 通知。
+max_frozen_ms=0 表示按本用例采样尺度观察到的 presentation 轨迹一直推进，不表示物理显示每帧零延迟。判据始终为静止≤80 ms、busy 窗口推进≥0.08、图像变化≥5 point、中段样本≥8；没有为使修复通过而提高容忍值。
 
-## 首次扩展回归的失败与处理
+旧状态指标仍独立保留：系统入口的 Qt 状态确认均值 303 ms、最大 600 ms，仅 2 个响应样本，不把这个小样本的 p99 外推为真实体验分布，更不以状态指标替代 motion 门槛。
 
-首次将三条既有 GraphicsView 全屏用例组合执行时，前两条通过，`testFullscreenAfterOverflowRemovesTitlebarScenePadding` 的第二窗口退出超时，随后进程 SIGSEGV（返回 -11）。[首次原始日志](evidence/titlebar_fullscreen/GraphicsViewTests.txt) 保留了断言失败，不将该轮计为通过。
+## 3. 邻接回归
 
-检查发现该测试只等待 Qt 的全屏状态，未等待 AppKit 动画完成，随后便缩放、退出及创建下一窗口。根据已查证的原生完成边界，给两个窗口分别增加 did-enter/did-exit 等待与 scope guard 清理，保留原来的 sceneRect 和图像顶部断言，不增加超时或放宽判据。修正后三轮组合执行均成功，约 5.6–5.8 秒/轮。该结果支持时序修正；首次崩溃未另做系统栈符号化，不宣称已逐帧重建其全部系统内部过程。
+| 执行入口 | 核查内容 | 实际结果与证据 |
+| --- | --- | --- |
+| FovelleHiddenTitlebarFullScreen | hidden／visible × PNG／SVG，标题栏与 fit | 4 行通过，0 failed／skipped；[日志](evidence/fullscreen_motion/titlebar-regression.txt) |
+| GraphicsViewTests | testFitZoomSurvivesInverseWheelStepsAndFullscreenResize、testFullscreenExitPreservesVerticalPan、testFullscreenAfterOverflowRemovesTitlebarScenePadding | 3 项通过，0 failed／skipped；[日志](evidence/fullscreen_motion/graphics-regression.txt) |
+| WindowBehaviorTests | testExitFullscreenActionUsesEscapePath | 1 项通过，0 failed／skipped；[日志](evidence/fullscreen_motion/menu-regression.txt) |
+| FovelleSDRFullScreenPresentation | testProvidedRasterFullScreenTransitionKeepsImageVisible；AVIF、2× zoom、屏幕可见内容和视口场景点恢复 | 1 项通过，0 failed／skipped；实际执行了截图检查，不是无测试退出；[日志](evidence/fullscreen_motion/screen-regression.txt) |
 
-## 修复范围
+AVIF fixture 本机存在于 `/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`。核心 motion fixture 自行生成，不依赖这个外部文件。邻接命令和返回值在 [regressions.json](evidence/fullscreen_motion/regressions.json) 中逐项记录。
 
-生产进入路径不再先恢复隐藏标题栏，因此也移除了退出时补偿隐藏的分支和 `storedTitlebarHidden` 字段；代理布局重叠量依据当前原生有效遮挡。新增测试及探针仅进入测试目标；既有场景边距测试补充原生完成等待。没有通过吞掉警告、跳过用例或降低图像断言要求取得通过。
+## 4. 校准失败与逆向验证
 
-## 复现与证据保全
+首次测试构建遇到调用 private exitFullScreen 的编译错误，已改用公开 toggleFullScreen；不计入有效测试轮次。
 
-在仓库根目录：
+初版 presentation 探针在同一 CA 事务重复读数，修复首轮试跑仍失败（[green-probe.txt](evidence/fullscreen_motion/green-probe.txt)）。校准为每次读取前结束采样事务后，单行试跑通过（[校准记录](evidence/fullscreen_motion/green-calibration.txt)）。初版红日志也保留，但最终结论仅采用校准后、增加图像运动断言的 red-final 三轮与最终 green-repeat。
+
+随后临时恢复旧生产源码、保留最终测试，重新构建并连续三轮检出原问题。最终恢复修复源码再构建运行，防止“测试只对早期版本敏感”。采样 flush 不处理 UI 事件，旧图层仍静止；没有因采样器自身刷新而让旧代码误通过。
+
+系统判定器另做反向核验：三份最终红输出均被拒绝；完整绿矩阵被接受；空输出、缺一个方向、重复一个方向均被拒绝。7 项核验全部满足，见 [gate-validation.json](evidence/fullscreen_motion/gate-validation.json)。
+
+## 5. 复现命令与交付物
 
 ```bash
 cmake --build build --target fovelle_tests Fovelle -j 4
-ctest --test-dir build -R '^FovelleHiddenTitlebarFullScreen$' --repeat until-fail:3 -V
+ctest --test-dir build -R '^FovelleFullScreenMotion$' --repeat until-fail:3 -V
+python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_motion/system.json
+ctest --test-dir build -R '^FovelleHiddenTitlebarFullScreen$' -V
+QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=GraphicsViewTests build/tests/fovelle_tests testFitZoomSurvivesInverseWheelStepsAndFullscreenResize testFullscreenExitPreservesVerticalPan testFullscreenAfterOverflowRemovesTitlebarScenePadding -v1
+QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=WindowBehaviorTests build/tests/fovelle_tests testExitFullscreenActionUsesEscapePath -v1
+ctest --test-dir build -R '^FovelleSDRFullScreenPresentation$' -V
 ```
 
-原始日志保存在 `reports/evidence/titlebar_fullscreen/`；[机器可读汇总](evidence/titlebar_fullscreen/summary.json) 记录基线提交、结果、逐次进入指标及最终生产/测试源 SHA-256。完整数据矩阵与执行判据见 [测试用例说明](test_case_specification.md)，多跳检索、多源交叉验证和因果推导见 [技术设计文档](technical_design_document.md)。
+红阶段直接运行同一 motion 函数三次，每次独立保存返回值和输出；没有用 until-fail 在第一个红结果停止后宣称三轮。最终源码、测试／应用二进制 SHA-256、环境、各轮统计见 [summary.json](evidence/fullscreen_motion/summary.json)。源代码差异见 [changes.patch](evidence/fullscreen_motion/changes.patch)。
 
-## 验证边界
-
-执行了本问题回归与相关的 12 项邻接测试，没有执行仓库全部 HDR、外部样本及发布流水线。macOS 15、其他系统/Qt 版本、多显示器及独立 HiDPI 组合未实测。视觉结论依据原生呈现属性、同步布局事件、有效遮挡与实际 zoom 的组合证据，不等同于显示器逐帧录像验收。
+设计和多源推导见 [technical_design_document.md](technical_design_document.md)，步骤与判据见 [test_case_specification.md](test_case_specification.md)。旧三报告已归档到 [prior_reports](evidence/fullscreen_motion/prior_reports/)。本次完成 targeted 回归，未宣称执行了整个仓库的全部测试。

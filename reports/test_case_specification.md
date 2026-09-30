@@ -1,70 +1,71 @@
-# 隐藏标题栏进入全屏：测试用例说明
+# 全屏切换卡顿：测试用例说明
 
-日期：2026-09-30。实现位置：`tests/tst_qviewtests.cpp` 的 `WindowBehaviorTests::testTitlebarPresentationDuringFullScreen`，及测试专用 `tests/native_titlebar_probe.h/.mm`。
+日期：2026-10-01（Asia/Shanghai）。依据：[根因分析](root_cause.md)、[技术设计](technical_design_document.md)。
 
-## 测试缺口
+## 1. 目标与前提
 
-已有标题栏测试检查图标清理与隐藏偏好继承；已有全屏测试覆盖快捷键、全屏端点、滚动边缘及图像呈现。它们没有把隐藏标题栏、加载图像和进入前同步布局变化组合起来观察。最终状态断言可能在闪现消失后才运行，因此不能稳定检出本问题。
+检测已开始的全屏代理动画在 GUI 主运行循环短时忙碌时是否停顿；分别断言窗口运动、图像运动、原生完成及恢复。测试函数：`WindowBehaviorTests::testFullScreenPresentationKeepsMoving`。观测函数：`nativeFullScreenPresentation()`，读取呈现树几何近似值，不使用生产 progress。
 
-## 数据矩阵
+要求可显示窗口的 macOS Cocoa 会话；不是 Cocoa 会失败，不用 skip 掩盖环境缺失。普通窗口与全屏宽度差须大于 200 point。fixture 在 QTemporaryDir 自动生成，不依赖外部文件：800×1600 PNG／SVG，红色背景加蓝色区域。普通窗口 640×480，fit 模式，关闭 1:1 DPI 调整和加载后自动调整窗口尺寸；退出恢复选项和 quit 策略。
 
-| 数据行 | 初始标题栏 | 图片 | 进入/退出次数 | 目的 |
-| --- | --- | --- | --- | --- |
-| hidden-raster | 隐藏 | 自动生成 800×1600 PNG | 2 | 检出原生标题栏闪现、顶部占用、适应高度图像缩小 |
-| hidden-vector | 隐藏 | 自动生成同尺寸 SVG | 2 | 排除仅栅格路径问题，并验证共同窗口行为 |
-| visible-raster | 可见 | 同尺寸 PNG | 2 | 可见标题栏对照，退出后仍可见 |
-| visible-vector | 可见 | 同尺寸 SVG | 2 | 向量对照，退出后仍可见 |
+## 2. 数据矩阵
 
-每次完整运行有 4 个数据行、8 次进入和 8 次退出。失败数据行在首个错误断言处结束，不能将失败运行计为完成了全部周期。
+| 行名 | 标题栏 | 格式 | 负载 |
+| --- | --- | --- | --- |
+| visible-raster-idle | 可见 | PNG | 无额外负载 |
+| visible-raster-busy | 可见 | PNG | 中段暂停事件处理 |
+| visible-vector-idle | 可见 | SVG | 无额外负载 |
+| visible-vector-busy | 可见 | SVG | 中段暂停事件处理 |
+| hidden-raster-idle | 隐藏 | PNG | 无额外负载 |
+| hidden-raster-busy | 隐藏 | PNG | 中段暂停事件处理 |
+| hidden-vector-idle | 隐藏 | SVG | 无额外负载 |
+| hidden-vector-busy | 隐藏 | SVG | 中段暂停事件处理 |
 
-## 前置条件与输入
+每行两次往返，总计 16 次进入、16 次退出、32 个方向观测。PNG 不被擅自等同于 Qt 栅格后端，本机可能采用 native SDR；SVG 提供不同内容路径对照。
 
-要求真实 Cocoa 平台；非 Cocoa 直接失败，不以 offscreen 或跳过充当通过。使用生产 MainWindow/QVGraphicsView，禁用跟随图片自动调整窗口尺寸，选择 ZoomToFit，并关闭 1:1 像素模式。普通窗口请求 640×480，实际尺寸由 Qt/AppKit 布局决定；测试用初始真实缩放作为基线，不硬编码 zoom=0.32 或标题栏高度=32。
+## 3. TC-FS-MOTION-IDLE
 
-图像在 QTemporaryDir 内生成，不要求挂载外部磁盘。ScopedOptionValues 保存并恢复涉及的偏好；退出与窗口清理由 scope guard 执行，并恢复 quitOnLastWindowClosed。
+步骤：加载并稳定窗口 → 记录普通几何及 fit zoom → 调用生产 toggleFullScreen → 约每 5 ms 处理事件并采样呈现层 → 等待 did-enter → 同样采样退出直到 did-exit → 检查恢复 → 重复一次。
 
-## 执行步骤
+断言：
 
-1. 创建普通窗口、打开竖图，等待加载完成，设置指定标题栏状态，验证原生初始状态。可见对照另要求有效顶部遮挡大于 0。
-2. 获取本窗口 AppKit 进入、退出通知计数和初始 zoom。
-3. 安装窗口与 viewport 的同步事件过滤器，观察 Resize、Paint、WindowStateChange；同时启动 1 ms 请求间隔的定时器。实际间隔由事件循环调度决定。
-4. 在 `toggleFullScreen()` 前后立即采样；随后持续采样至该窗口 did-enter 通知计数增加，超时为 5 秒；再观察 200 ms 交接阶段。
-5. 停止定时器、移除过滤器，检查原生进入成功、Qt 全屏状态及采样数大于 20；输出累计暴露状态、最大 inset、最小 zoom 与初始 zoom。
-6. 对隐藏数据行依次断言原生呈现始终隐藏、最大 inset 为 0、最小 zoom ≥ 初始 zoom − 0.0001。
-7. 请求退出，等待该窗口 did-exit 计数增加及 Qt 普通状态；检查原生标题栏、生产 getter 和持久化偏好均等于初始设置。
-8. 同窗口重复一次进入退出，检查状态没有残留。
+- 每个方向至少 8 个中段样本；探针缺失不会回退为 Qt 状态。
+- 归一化进度 `p=(呈现宽度−起始宽度)/(终点宽度−起始宽度)`；退出分母为负，p 仍从 0 向 1 推进。
+- 只在 `0.15<p<0.85` 统计静止，排除缓入缓出的端点；相邻宽度变化超过 0.1 point 视为推进，观测到的持续静止不超过 80 ms。
+- 收到方向对应的原生通知；Qt 最终状态一致；每次往返恢复窗口几何、fit zoom、原生标题栏状态。
 
-## 判据与证据独立性
+5000 ms 是生命周期失败的保护超时，不是允许中间停顿 5 秒。运动断言汇总到完成往返后，以保留进入和退出证据；无法完成生命周期则立即失败。
 
-原生隐藏判据是 titleVisibility==NSWindowTitleHidden、titlebarAppearsTransparent==true、关闭按钮 hidden==true 同时成立，独立于生产 `getTitlebarHidden()`。通知观察限定为同一 NSWindow，探针随窗口释放取消监听。
+## 4. TC-FS-MOTION-BUSY
 
-布局判据直接观测生产的有效顶部遮挡；图像判据使用实际 zoom。同步事件与调用前后采样保证旧代码同步恢复标题栏时能被记录，而不是依赖恰巧拍到某一帧。定时采样覆盖随后的原生动画阶段，原生完成通知避免过早结束。
+在同一生产路径，观察到 `0.20<p<0.45` 后只施加一次受控负载：13 次 QThread::msleep(10)，间隙继续读取呈现层，期间不执行 Qt／AppKit 事件处理。名义暂停 130 ms，实际时间记录为单调时钟测量。
 
-故障运行先触发原生可见性断言时，后续 inset/zoom 断言不继续执行，但同次运行的三项累计值均已写入日志。修复运行则执行全部断言。
+追加断言：必须实际进入负载窗口；窗口推进至少为完整宽度行程的 0.08；图像宽度变化至少 5 point；同时满足 idle 的观测、静止门槛、原生完成和恢复检查。只让窗口动而图像冻结也会失败。
 
-## 构建与验收命令
+预期红：暂停期间 window advance／image delta 为 0，静止超过 80 ms；4 个 busy 行失败，4 个 idle 行通过。预期绿：已提交轨迹持续推进，8 行均通过并正确恢复。
 
-在仓库根目录运行：
+故障注入只在测试代码。生产没有延时开关或绕过断言的测试分支。红绿采用同一最终版测试和同一阈值。这个条件把依赖任务重叠时机的调度故障变成稳定检验，不推断用户现场的具体同步任务；暂停期间不检查输入响应，检查的是已提交运动的独立性。
+
+## 5. 校准与防漏检
+
+同一 CA 事务可能缓存呈现时间；每次读取前 flush 采样事务，刷新时间而不泵事件循环。校准后必须重新构建旧生产代码并稳定失败，证明测试仍有敏感性。没有探针、样本不足、未施加负载、未收到原生完成都失败。
+
+每个方向输出 FULLSCREEN_MOTION JSON：行名、cycle、方向、完成、注入、中段样本数、静止观测、负载推进量、图像变化量和原始 `(ms,width,image_width,progress)` 样本。quality_fullscreen_system.py 强制要求 8×2×2 完整矩阵，缺失、重复或不完整 telemetry 不可通过，并把状态响应与运动指标分开。
+
+max_frozen_ms 是观测到的静止，不是物理显示器帧间隔。呈现树是近似值，不把样本数量或 API 轨迹外推为真实 FPS。
+
+## 6. 邻接回归
+
+标题栏呈现、fit 意图、手动 pan、scene padding、菜单退出路径和 AVIF 屏幕图像／几何分别验证。实际源码函数名及执行结果见 [测试完成报告](test_completion_report.md)。AVIF 使用外部 fixture 和屏幕捕获条件，独立列出执行结果，不用跳过冒充通过；核心 motion 矩阵无该依赖。
+
+## 7. 执行
 
 ```bash
 cmake --build build --target fovelle_tests Fovelle -j 4
-ctest --test-dir build -R '^FovelleHiddenTitlebarFullScreen$' --repeat until-fail:3 --output-on-failure
+ctest --test-dir build -R '^FovelleFullScreenMotion$' --repeat until-fail:3 -V
+python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_motion/system.json
+ctest --test-dir build -R '^FovelleHiddenTitlebarFullScreen$' -V
+ctest --test-dir build -R '^FovelleSDRFullScreenPresentation$' -V
 ```
 
-CMake 测试设置 `QT_QPA_PLATFORM=cocoa`、`QT_FATAL_WARNINGS=1`、`FOVELLE_TEST_SUITE=WindowBehaviorTests`、`QTEST_FUNCTION_TIMEOUT=30000`、CTest TIMEOUT=90、RUN_SERIAL=TRUE。
-
-单独输出详细轨迹：
-
-```bash
-env QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=WindowBehaviorTests   build/tests/fovelle_tests testTitlebarPresentationDuringFullScreen -v1
-```
-
-邻接回归覆盖隐藏偏好继承、可配置全屏快捷键、菜单图标与 Escape 退出路径，以及 fit zoom、退出 pan 和顶部 scene padding。具体执行与结果见测试完成报告。
-
-## 稳定性与适用边界
-
-先用旧生产代码重复执行，再恢复修复代码重复执行，相同用例必须由红转绿。重复检出证明本机稳定性；不能将其推广为所有 macOS/Qt 组合已经验证。此测试不是显示器逐帧录屏，对系统自动显示菜单栏、用户将鼠标移至屏幕顶端等额外交互不作像素级承诺。
-
-## 既有场景边距测试的时序修正
-
-`GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding` 的两个窗口现在分别等待 did-enter 后才执行后续缩放/滚动操作，等待 did-exit 后才关闭或继续下一窗口。scope guard 确保断言失败也恢复退出策略与关闭窗口。原有 sceneRect 顶部和图像映射边缘判据保持不变；首次失败、最终重复执行结果均记录在测试完成报告。
+红测试用最终测试源码重新构建旧生产代码，直接运行 motion 函数三次，保留每次返回值。until-fail 会在首个失败停止，不能用于获得三轮红证据。所有数据和范围以原始日志为准。

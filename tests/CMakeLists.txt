@@ -343,3 +343,11 @@ set_tests_properties(FovelleHiddenTitlebarFullScreen PROPERTIES
     TIMEOUT 90
     RUN_SERIAL TRUE
     LABELS "macos;titlebar;fullscreen;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenMotion COMMAND fovelle_tests
+    testFullScreenPresentationKeepsMoving -v1)
+set_tests_properties(FovelleFullScreenMotion PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 120
+    RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;motion;dynamic;acceptance")

@@ -20,6 +20,7 @@ FUNCTIONAL_CASES = (
     "testFullscreenDefaultShortcutIsEnterAndConfigurable",
     "testEnterDoesNotBypassClearedFullscreenShortcut",
     "testConfiguredFullscreenShortcutStillWorks",
+    "testFullScreenPresentationKeepsMoving",
 )
 
 THRESHOLDS = {
@@ -37,6 +38,28 @@ def percentile99(values: list[float]) -> float | None:
     return ordered[max(0, math.ceil(len(ordered) * 0.99) - 1)]
 
 
+def motion_summary(output: str) -> dict:
+    """Require every row, direction and cycle; absent telemetry cannot pass."""
+    metrics = [json.loads(line.split("FULLSCREEN_MOTION ", 1)[1])
+               for line in output.splitlines() if "FULLSCREEN_MOTION {" in line]
+    expected = {(f"{title}-{kind}-{load}", cycle, entering)
+                for title in ("visible", "hidden") for kind in ("raster", "vector")
+                for load in ("idle", "busy") for cycle in range(2)
+                for entering in (True, False)}
+    observed = [(m["row"], m["cycle"], m["entering"]) for m in metrics]
+    busy = [m for m in metrics if m["row"].endswith("-busy")]
+    passed = (len(observed) == len(expected) and set(observed) == expected
+              and all(m["completed"] and m["interior_samples"] >= 8
+                      and m["max_frozen_ms"] <= 80.0 for m in metrics)
+              and all(m["injected"] and m["blocked_advance"] >= 0.08
+                      and m["blocked_image_delta"] >= 5.0 for m in busy))
+    return {"passed": passed, "sample_count": len(metrics),
+            "max_frozen_ms": max((m["max_frozen_ms"] for m in metrics), default=None),
+            "minimum_busy_advance": min((m["blocked_advance"] for m in busy), default=None),
+            "metrics": metrics,
+            "metric_definition": "Core Animation presentation trajectory; not physical display frame times"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
@@ -44,14 +67,19 @@ def main() -> int:
     args = parser.parse_args()
     binary = args.binary.resolve()
     started = time.perf_counter()
-    result = subprocess.run(
-        [str(binary)],
-        text=True,
-        capture_output=True,
-        env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1"},
-        check=False,
-    )
-    output = result.stdout + result.stderr
+    outputs = []
+    return_codes = []
+    for suite in ("GraphicsViewTests", "WindowBehaviorTests"):
+        names = [name for name in FUNCTIONAL_CASES
+                 if (name == FUNCTIONAL_CASES[0]) == (suite == "GraphicsViewTests")]
+        result = subprocess.run(
+            [str(binary), *names], text=True, capture_output=True,
+            env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1",
+                 "FOVELLE_TEST_SUITE": suite}, check=False, timeout=120)
+        outputs.append(result.stdout + result.stderr)
+        return_codes.append(result.returncode)
+    output = "\n".join(outputs)
+    motion = motion_summary(output)
     cases = []
     for index, name in enumerate(FUNCTIONAL_CASES, start=1):
         suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
@@ -60,7 +88,8 @@ def main() -> int:
             {
                 "id": f"TC-FS-{index:02d}",
                 "test": qualified_name,
-                "status": "passed" if re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output) else "failed",
+                "status": "passed" if (motion["passed"] if name == "testFullScreenPresentationKeepsMoving"
+                    else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
             }
         )
     fullscreen_metrics = [
@@ -86,18 +115,21 @@ def main() -> int:
     record = {
         "kind": "system-functional",
         "binary": str(binary),
-        "return_code": result.returncode,
+        "return_code": max(return_codes),
+        "suite_return_codes": return_codes,
         "elapsed_seconds": time.perf_counter() - started,
         "functional_cases": cases,
         "fullscreen_metrics": fullscreen_metrics,
         "performance": performance,
         "thresholds": THRESHOLDS,
         "performance_flags": performance_flags,
-        "passed": result.returncode == 0 and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()),
+        "motion": motion,
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",
             "The separate app-launch/resource probe records process-level timing and resource observations.",
+            "A 130 ms controlled main-run-loop pause tests animation independence; it does not identify every natural stall or GPU hitch.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
