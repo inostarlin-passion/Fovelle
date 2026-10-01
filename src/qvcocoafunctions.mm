@@ -433,6 +433,26 @@ static void animateFullScreenLayer(
 
 @end
 
+// AppKit can mark the alpha-hidden real window occluded while the proxy
+// animates. Qt then rejects synchronous QWidget repaint requests until its
+// native view delivers an expose. Do this with widget drawing suspended.
+static void exposeFovelleFullScreenRealWindow(NSWindow *window)
+{
+    NSView *view = window.contentView;
+    CALayer *layer = view.layer;
+    [layer setNeedsDisplay];
+    [layer displayIfNeeded];
+    // Qt can wrap its content layer in a container whose display delegate
+    // intentionally does nothing. Display only children owned by that same
+    // native view; application renderer layers have their own delegates.
+    for (CALayer *child in layer.sublayers) {
+        if (child.delegate == view) {
+            [child setNeedsDisplay];
+            [child displayIfNeeded];
+        }
+    }
+}
+
 static void revealFovelleFullScreenRealWindow(NSWindow *window)
 {
     NSNumber *originalAlpha = objc_getAssociatedObject(
@@ -5507,6 +5527,7 @@ void QVCocoaFunctions::setUserDefaults()
             if (handler) {
                 handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
                 if (customHandoff) {
+                    exposeFovelleFullScreenRealWindow(window);
                     handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
                     handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
                 }
@@ -5574,6 +5595,7 @@ void QVCocoaFunctions::setUserDefaults()
             if (handler) {
                 handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
                 if (customHandoff) {
+                    exposeFovelleFullScreenRealWindow(window);
                     handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
                     handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
                 }
