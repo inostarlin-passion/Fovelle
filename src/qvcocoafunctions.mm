@@ -516,6 +516,53 @@ static void clearFovelleFullScreenNormalState(NSWindow *window)
         nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+// Qt handles the same DidEnter/DidExit notification by restoring the native
+// style mask and synchronizing its window state. Keep drawing suspended until
+// every notification observer has returned, then commit one stable endpoint.
+static void finishFovelleFullScreenTransition(NSWindow *window, const bool entering)
+{
+    auto *animation = static_cast<FovelleFullScreenAnimation *>(
+        objc_getAssociatedObject(window, &FullScreenAnimationAssociationKey));
+    NSWindow *completedProxy = objc_getAssociatedObject(
+        window, &FullScreenProxyWindowAssociationKey);
+    const bool customHandoff = animation != nil;
+    if (animation)
+        animation.currentProgress = 1.0f;
+    [animation stopAnimation];
+    objc_setAssociatedObject(window, &FullScreenAnimationAssociationKey,
+        nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // A failed/closed window or a later transition may have replaced this
+        // proxy. An old completion must never clear the newer normal frame.
+        if (objc_getAssociatedObject(window, &FullScreenProxyWindowAssociationKey) != completedProxy)
+            return;
+        FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
+            window, &FullScreenAnimationHandlerAssociationKey);
+        if (handler) {
+            handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
+            if (customHandoff) {
+                exposeFovelleFullScreenRealWindow(window);
+                handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+                handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
+            }
+        }
+        cleanupFovelleFullScreenProxy(window);
+        if (!entering)
+            clearFovelleFullScreenNormalState(window);
+        objc_setAssociatedObject(window, &FullScreenTransitionCompleteAssociationKey,
+            entering ? @YES : @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+        NSNumber *pending = objc_getAssociatedObject(window, &FullScreenExitPendingAssociationKey);
+        if (entering && pending.boolValue) {
+            objc_setAssociatedObject(window, &FullScreenExitPendingAssociationKey,
+                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            if (window.styleMask & NSWindowStyleMaskFullScreen)
+                [window toggleFullScreen:nil];
+        }
+    });
+}
+
 static void restoreFovelleFullScreenAnimationStartFrame(NSWindow *window)
 {
     NSValue *startFrame = objc_getAssociatedObject(
@@ -5514,50 +5561,7 @@ void QVCocoaFunctions::setUserDefaults()
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
             NSWindow *window = notification.object;
-            auto *animation = static_cast<FovelleFullScreenAnimation *>(
-                objc_getAssociatedObject(
-                    window, &FullScreenAnimationAssociationKey));
-            const bool customHandoff = animation != nil;
-            // Completion must prepare the endpoint even if AppKit has
-            // already stopped the NSAnimation clock before this observer.
-            if (animation)
-                animation.currentProgress = 1.0f;
-            [animation stopAnimation];
-            FovelleFullScreenAnimationHandler handler =
-                objc_getAssociatedObject(
-                    window, &FullScreenAnimationHandlerAssociationKey);
-            if (handler) {
-                handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
-                if (customHandoff) {
-                    exposeFovelleFullScreenRealWindow(window);
-                    handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
-                    handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
-                }
-            }
-            objc_setAssociatedObject(
-                window, &FullScreenAnimationAssociationKey,
-                nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            revealFovelleFullScreenRealWindow(window);
-            dispatch_async(dispatch_get_main_queue(), ^{
-                // Preserve the measured normal endpoint: the symmetric exit
-                // animation consumes it when this full-screen Space closes.
-                cleanupFovelleFullScreenProxy(window);
-            });
-            objc_setAssociatedObject(
-                window, &FullScreenTransitionCompleteAssociationKey,
-                @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            NSNumber *pending = objc_getAssociatedObject(
-                window, &FullScreenExitPendingAssociationKey);
-            if (!pending.boolValue)
-                return;
-
-            objc_setAssociatedObject(
-                window, &FullScreenExitPendingAssociationKey,
-                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (window.styleMask & NSWindowStyleMaskFullScreen)
-                    [window toggleFullScreen:nil];
-            });
+            finishFovelleFullScreenTransition(window, true);
         }];
         [center addObserverForName:NSWindowWillExitFullScreenNotification
                             object:nil
@@ -5579,34 +5583,7 @@ void QVCocoaFunctions::setUserDefaults()
             objc_setAssociatedObject(
                 window, &FullScreenExitPendingAssociationKey,
                 @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            auto *animation = static_cast<FovelleFullScreenAnimation *>(
-                objc_getAssociatedObject(
-                    window, &FullScreenAnimationAssociationKey));
-            const bool customHandoff = animation != nil;
-            // Completion must prepare the endpoint even if AppKit has
-            // already stopped the NSAnimation clock before this observer.
-            if (animation)
-                animation.currentProgress = 1.0f;
-            [animation stopAnimation];
-            objc_setAssociatedObject(
-                window, &FullScreenAnimationAssociationKey,
-                nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            FovelleFullScreenAnimationHandler handler =
-                objc_getAssociatedObject(
-                    window, &FullScreenAnimationHandlerAssociationKey);
-            if (handler) {
-                handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
-                if (customHandoff) {
-                    exposeFovelleFullScreenRealWindow(window);
-                    handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
-                    handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
-                }
-            }
-            revealFovelleFullScreenRealWindow(window);
-            dispatch_async(dispatch_get_main_queue(), ^{
-                cleanupFovelleFullScreenProxy(window);
-                clearFovelleFullScreenNormalState(window);
-            });
+            finishFovelleFullScreenTransition(window, false);
         }];
     });
 }

@@ -14689,7 +14689,9 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         window.toggleFullScreen();
         const bool complete = waitForTestCondition([&] {
             const auto state = nativeTitlebarSnapshot(window.windowHandle());
-            return entering ? state.entries > before.entries : state.exits > before.exits;
+            const bool nativeComplete = entering ? state.entries > before.entries : state.exits > before.exits;
+            return nativeComplete && !nativeFullScreenPresentation(window.windowHandle(), false).active
+                && window.updatesEnabled();
         }, 5000);
         qInfo().noquote() << "FULLSCREEN_PREPARATION"
             << QJsonDocument(QJsonObject {{"row", QString::fromLatin1(QTest::currentDataTag())},
@@ -14710,7 +14712,8 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         if (cost.endpointPaints != 1 || cost.endpointCostMs < 40 || cost.endpointCpuMs > 75)
             failures << QString("%1: endpoint proxy paid %2 paints / %3ms")
                 .arg(entering ? "enter" : "exit").arg(cost.endpointPaints).arg(cost.endpointCostMs);
-        QTest::qWait(150);
+        // Start the next transition at the observed handoff boundary, without
+        // a fixed delay that could conceal stale cleanup or an early reveal.
     }
     QCOMPARE(window.geometry(), initialGeometry);
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), initialZoom));
@@ -14833,7 +14836,9 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
                     blockedImageDelta = qAbs(lastImageWidth - imageBefore);
                 }
                 const auto state = nativeTitlebarSnapshot(window.windowHandle());
-                if (entering ? state.entries > nativeBefore.entries : state.exits > nativeBefore.exits) {
+                const bool nativeComplete = entering ? state.entries > nativeBefore.entries : state.exits > nativeBefore.exits;
+                if (nativeComplete && !nativeFullScreenPresentation(window.windowHandle(), false).active
+                    && window.updatesEnabled()) {
                     finished = true;
                     break;
                 }
@@ -14858,7 +14863,7 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
                     .arg(entering ? "enter" : "exit").arg(cycle).arg(blockedAdvance);
             if (busy && blockedImageDelta < 5.0)
                 failures << QStringLiteral("Image presentation stopped during GUI contention");
-            QTest::qWait(150);
+            // Exercise back-to-back transitions after actual proxy retirement.
         }
         QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
         QCOMPARE(window.geometry(), initialGeometry);
