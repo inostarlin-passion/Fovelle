@@ -14284,6 +14284,19 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
 // deliberately NOT dispatching the main run loop; endpoint tests miss this.
 // A bounded slow paint models content cost without blocking unrelated AppKit
 // callbacks. Count real viewport Paint events, rather than production calls.
+// Model synchronous content work using a monotonic deadline. Sleeping is
+// unsuitable here: macOS can coalesce each sleep well beyond its requested
+// duration, turning one 40 ms paint into a false duplicate-paint failure.
+static void performFullScreenTestWork(const int milliseconds)
+{
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.nsecsElapsed() < milliseconds * 1000000LL) {
+        // Intentionally do not dispatch events: this models work on the GUI
+        // thread while Core Animation advances in the render server.
+    }
+}
+
 void WindowBehaviorTests::testFullScreenLayoutPaintBudget_data()
 {
     QTest::addColumn<bool>("hidden");
@@ -14338,7 +14351,7 @@ void WindowBehaviorTests::testFullScreenLayoutPaintBudget()
         bool eventFilter(QObject *, QEvent *event) override {
             if (event->type() == QEvent::Paint) {
                 ++paints;
-                QThread::msleep(40);
+                performFullScreenTestWork(40);
             }
             return false;
         }
@@ -14624,7 +14637,7 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
                 && qAbs(p.windowRect.width() - endpointWidth) < 0.1;
             QElapsedTimer timer;
             timer.start();
-            QThread::msleep(40);
+            performFullScreenTestWork(40);
             const double ms = timer.nsecsElapsed() / 1000000.0;
             if (stationarySource) {
                 ++sourcePaints;
@@ -14794,8 +14807,10 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
                     const double imageBefore = lastImageWidth;
                     // Controlled contention, identical on red and green. No
                     // event processing during this 130 ms observation window.
-                    for (int i = 0; i < 13; ++i) {
-                        QThread::msleep(10);
+                    QElapsedTimer contention;
+                    contention.start();
+                    while (contention.elapsed() < 130) {
+                        performFullScreenTestWork(10);
                         sample();
                     }
                     blockedAdvance = sample() - before;
