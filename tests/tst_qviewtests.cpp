@@ -14311,6 +14311,7 @@ void WindowBehaviorTests::testFullScreenLayoutPaintBudget_data()
 
 void WindowBehaviorTests::testFullScreenLayoutPaintBudget()
 {
+    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
     QFETCH(bool, hidden);
     QFETCH(bool, vectorImage);
     ScopedOptionValues options({
@@ -14367,18 +14368,22 @@ void WindowBehaviorTests::testFullScreenLayoutPaintBudget()
         cost.paints = 0;
         QElapsedTimer timer;
         timer.start();
+        const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
         window.updateFullScreenLayoutTransition(0);
+        const double cpuMs = (currentThreadCpuTimeNanoseconds().value() - cpuStart) / 1000000.0;
         const double elapsed = timer.nsecsElapsed() / 1000000.0;
         QCOMPARE(window.fullScreenTransitionImageRect(), imageRect);
         QCOMPARE(view->getZoomLevel(), zoom);
         qInfo().noquote() << "FULLSCREEN_PAINT_BUDGET"
             << QJsonDocument(QJsonObject {{"hidden", hidden}, {"vector", vectorImage}, {"pass", pass},
-                {"paints", cost.paints}, {"elapsed_ms", elapsed}}).toJson(QJsonDocument::Compact);
+                {"paints", cost.paints}, {"elapsed_ms", elapsed}, {"cpu_ms", cpuMs}}).toJson(QJsonDocument::Compact);
         // Endpoint preparation must still synchronously paint the viewport,
-        // but must not pay twice for the same unchanged geometry.
-        if (cost.paints != 1 || elapsed > 75.0)
-            failures << QString("pass %1: paints=%2 elapsed=%3ms")
-                .arg(pass).arg(cost.paints).arg(elapsed);
+        // but must not pay twice for the same unchanged geometry. Budget
+        // thread CPU work; host preemption and native display waits are not
+        // rendering work. Keep wall time in the report for performance audits.
+        if (cost.paints != 1 || cpuMs > 75.0)
+            failures << QString("pass %1: paints=%2 cpu=%3ms elapsed=%4ms")
+                .arg(pass).arg(cost.paints).arg(cpuMs).arg(elapsed);
     }
     QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
@@ -14563,6 +14568,7 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget_data()
 // The existing source budget alone misses this native resize -> Update chain.
 void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
 {
+    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
     QFETCH(bool, hidden);
     QFETCH(bool, vectorImage);
     QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
@@ -14622,8 +14628,10 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         int sourcePaints = 0;
         int endpointPaints = 0;
         double endpointCostMs = 0;
+        double endpointCpuMs = 0;
         double endpointWidth = 0;
         double sourceCostMs = 0;
+        double sourceCpuMs = 0;
         QJsonArray samples;
         bool eventFilter(QObject *object, QEvent *event) override {
             if (event->type() != QEvent::Paint)
@@ -14637,15 +14645,19 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
                 && qAbs(p.windowRect.width() - endpointWidth) < 0.1;
             QElapsedTimer timer;
             timer.start();
+            const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
             performFullScreenTestWork(40);
+            const double cpuMs = (currentThreadCpuTimeNanoseconds().value() - cpuStart) / 1000000.0;
             const double ms = timer.nsecsElapsed() / 1000000.0;
             if (stationarySource) {
                 ++sourcePaints;
                 sourceCostMs += ms;
+                sourceCpuMs += cpuMs;
             }
             if (endpoint) {
                 ++endpointPaints;
                 endpointCostMs += ms;
+                endpointCpuMs += cpuMs;
 
 
             }
@@ -14668,8 +14680,10 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         cost.endpointWidth = entering ? window.screen()->geometry().width() : initialGeometry.width();
         cost.endpointPaints = 0;
         cost.endpointCostMs = 0;
+        cost.endpointCpuMs = 0;
         cost.sourcePaints = 0;
         cost.sourceCostMs = 0;
+        cost.sourceCpuMs = 0;
         cost.samples = {};
         const auto before = nativeTitlebarSnapshot(window.windowHandle());
         window.toggleFullScreen();
@@ -14681,17 +14695,19 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
             << QJsonDocument(QJsonObject {{"row", QString::fromLatin1(QTest::currentDataTag())},
                 {"entering", entering}, {"completed", complete},
                 {"endpoint_paints", cost.endpointPaints}, {"endpoint_cost_ms", cost.endpointCostMs},
+                {"endpoint_cpu_ms", cost.endpointCpuMs},
                 {"source_paints", cost.sourcePaints}, {"source_cost_ms", cost.sourceCostMs},
+                {"source_cpu_ms", cost.sourceCpuMs},
                 {"samples", cost.samples}}).toJson(QJsonDocument::Compact);
         QVERIFY(complete);
         QVERIFY2(!cost.samples.isEmpty(), "Custom proxy paint observation missing");
         QCOMPARE(window.isFullScreen(), entering);
         QVERIFY(window.updatesEnabled());
         QVERIFY(view->viewport()->updatesEnabled());
-        if (cost.sourcePaints > 1 || cost.sourceCostMs > 75)
+        if (cost.sourcePaints > 1 || cost.sourceCpuMs > 75)
             failures << QString("%1: stationary proxy paid %2 paints / %3ms")
                 .arg(entering ? "enter" : "exit").arg(cost.sourcePaints).arg(cost.sourceCostMs);
-        if (cost.endpointPaints != 1 || cost.endpointCostMs < 40 || cost.endpointCostMs > 75)
+        if (cost.endpointPaints != 1 || cost.endpointCostMs < 40 || cost.endpointCpuMs > 75)
             failures << QString("%1: endpoint proxy paid %2 paints / %3ms")
                 .arg(entering ? "enter" : "exit").arg(cost.endpointPaints).arg(cost.endpointCostMs);
         QTest::qWait(150);

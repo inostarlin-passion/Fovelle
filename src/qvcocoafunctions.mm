@@ -438,6 +438,9 @@ static void animateFullScreenLayer(
 // native view delivers an expose. Do this with widget drawing suspended.
 static void exposeFovelleFullScreenRealWindow(NSWindow *window)
 {
+    // Consume AppKit's pending view/titlebar invalidation before Qt resumes
+    // painting. A later displayIfNeeded would deliver a second partial expose.
+    [window displayIfNeeded];
     NSView *view = window.contentView;
     CALayer *layer = view.layer;
     [layer setNeedsDisplay];
@@ -446,7 +449,7 @@ static void exposeFovelleFullScreenRealWindow(NSWindow *window)
     // intentionally does nothing. Display only children owned by that same
     // native view; application renderer layers have their own delegates.
     for (CALayer *child in layer.sublayers) {
-        if (child.delegate == view) {
+        if (child.delegate == (id)view) {
             [child setNeedsDisplay];
             [child displayIfNeeded];
         }
@@ -464,7 +467,6 @@ static void revealFovelleFullScreenRealWindow(NSWindow *window)
     [CATransaction begin];
     [CATransaction setAnimationDuration:0.0];
     [CATransaction setDisableActions:YES];
-    [window displayIfNeeded];
     if (originalAlpha)
         window.alphaValue = originalAlpha.doubleValue;
     [CATransaction commit];
