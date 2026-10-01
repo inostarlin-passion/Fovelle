@@ -209,6 +209,8 @@ public slots:
     QRect fullScreenTransitionImageRect() const;
 
     QImage fullScreenTransitionImage() const;
+    QImage fullScreenTransitionSourceImage() const;
+    QTransform fullScreenTransitionOrientation() const;
 
     QColor fullScreenTransitionBackgroundColor() const;
 

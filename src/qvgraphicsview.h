@@ -117,6 +117,8 @@ public:
     QRect fullScreenTransitionImageRect() const;
 
     QImage fullScreenTransitionImage() const;
+    QImage fullScreenTransitionSourceImage() const;
+    QTransform fullScreenTransitionOrientation() const;
 
     LogicalPixelFitter getPixelFitter() const;
 
@@ -464,6 +466,8 @@ private:
     mutable QImage fullScreenSnapshot;
     mutable qint64 fullScreenSnapshotSourceKey {0};
     mutable QTransform fullScreenSnapshotOrientation;
+    mutable QImage fullScreenSourceSnapshot;
+    mutable qint64 fullScreenSourceSnapshotKey {0};
 
     QVImageCore imageCore {this};
 

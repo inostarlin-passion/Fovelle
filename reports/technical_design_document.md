@@ -1,52 +1,72 @@
-# 全屏切换同步快照复用：技术设计文档
+# 全屏切换方向快照性能修复：技术设计
 
-日期：2026-10-01。Git 基线为 `98f1e06dd0169a5bf5d7efc5dbdd4376826babe0`，本轮起点还包含工作区既有的终点交接修复。新增生产变更只在 `qvgraphicsview.cpp/.h`；既有运动、准备绘制、终点交接修复继续保留。版本与九项源码指纹见 [summary](evidence/fullscreen_snapshot/summary.json)，新增生产差异见 [patch](evidence/fullscreen_snapshot/snapshot-production.patch)。
+日期：2026-10-02（Asia/Shanghai）；检索与红绿验证从2026-10-01开始。生产起点：`bfd3aa0a7b51a62cf0430262a6c0e7c98b8dccca`；最终实现为该HEAD加当前工作区差异，指纹与执行证据见 [本轮证据](evidence/fullscreen_orientation/summary.json)。[根因报告](root_cause.md) 描述的是此次修复前的候选与证据边界。
 
-## 问题界定与原子化拆解
+## 1. 问题界定与原子化拆解
 
-用户问题：进入或退出全屏有时卡顿。依据 [根因报告](root_cause.md) 的 R1，将提交前快照、准备布局、已提交运动、终点绘制与原生完成分开。现有测试已覆盖后三类中的主要受控机制，但源阶段 Paint 数量不能观察不产生 Paint 的像素变换／格式转换。
+问题为“进入／退出全屏，有时出现掉帧”。拆成提交前静止、已提交动画中段长帧、终点接管迟缓、快速反向排队、几何跳动五类；不能仅凭Qt全屏状态、最终截图或presentation层运动就确定物理屏幕掉帧。
 
-本轮可验证问题是：源像素和方向不变时，进入、退出及重复请求仍同步重建整张 RGBA 快照。其成本处于 Core Animation 轨迹提交前，会增加准备等待；是否解释用户某次自然卡顿仍须现场时间线。本轮不把八次请求的累计时间当作一次切换时间。
+本轮选择根因报告R1中一个可以受控复现的子机制：**源内容未变，但旋转／翻转后首次原生进入或退出需要同步重排大图像素，推迟动画提交。** 原生退出也必须测量，不能只优化首次进入。R2布局、R3交接、R4渲染期限、R5特定栅格高质量缩放与R6串行反向仍是其他现场候选，本轮不将它们全部升级为已确认缺陷。
 
-| 原子工作 | 基线位置与触发 | 验证方式 |
+## 2. 多跳检索与多源交叉验证
+
+| 跳次 | 检索问题 | 一手来源与项目交叉核查 |
 | --- | --- | --- |
-| 源 pixmap 转 QImage | `fullScreenTransitionImage()`，进入／退出均调用 | 当前源码与实际加载尺寸 |
-| 旋转／镜像／翻转 | 同步 `transformed(getUnspecializedTransform())` | 四角颜色、方向变化、耗时 |
-| 转预乘 RGBA8 | `createFullScreenSnapshotCGImage()` | 公共 provider 输出后执行相同格式转换，检查不可变缓冲复用 |
-| 布局／fit／zoom 改变 | 原生进入／退出 | 原生完成通知后检查源／方向未变时仍可复用 |
-| 源／方向真正改变 | 旋转、同路径重新加载、动画帧更新 | 失效正确性与源码审查分别记录 |
+| 1 | 掉帧、提交迟滞和渲染迟滞的边界 | [Apple迟滞诊断](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app) → 本地imageProvider在轨迹提交之前 → 聚焦启动阶段而不声称测到了物理FPS |
+| 2 | 热缓存为何漏掉首次方向处理 | [QImage](https://doc.qt.io/qt-6.11/qimage.html) → [Qt 6.11.2 qimage.cpp](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/image/qimage.cpp)的rotated90分配新图并逐像素旋转 → 当前缓存按sourceKey与orientation区分 → 旧测试先capture定向图再toggle |
+| 3 | 能否保留源像素而改变方向 | [CALayer.setAffineTransform](https://developer.apple.com/documentation/quartzcore/calayer/setaffinetransform(_:))、[Core Animation基础](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/CoreAnimationBasics/CoreAnimationBasics.html) → 本地代理以CGImage作为contents，方向可由固定仿射矩阵表达 |
+| 4 | 旋转后bounds与frame能否直接等同 | [CALayer.frame](https://developer.apple.com/documentation/quartzcore/calayer/frame)、[bounds](https://developer.apple.com/documentation/quartzcore/calayer/bounds)、[Qt QTransform](https://doc.qt.io/qt-6.11/qtransform.html) → Qt方向仅含90°倍数与翻转 → CA父坐标frame须逆变换为未旋转bounds |
+| 5 | 同格式native转换是否再次复制 | Qt固定版本convertToFormat_helper在格式相同时返回共享图像 → 本地CGImage provider持有QImage、以constBits提供像素 → 原生源缓存输出预乘RGBA，重复同格式转换无需重建像素 |
+| 6 | 如何证明方向正确而非跳过变换 | 读取实际代理CGImage尺寸与源角颜色；离屏栅格化实际model-layer bounds／position／transform；与Qt图像方向参考及纵横比核验 → 红阶段图像正确但源被重排；绿阶段源保持原序且图像仍正确 |
+| 7 | 能否把此证明升级为所有显示掉帧消失 | [CALayer.presentation](https://developer.apple.com/documentation/quartzcore/calayer/presentation())及[Apple动画性能指南](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/ImprovingAnimationPerformance/ImprovingAnimationPerformance.html) → 明确模型／呈现层及系统渲染边界，保留物理屏幕呈现限制 |
 
-## 多跳联网检索与多源交叉验证
+部分Apple网页只给JavaScript外壳，继续读取官方tutorials/data/documentation路径下API JSON，正文快照保存在本轮证据目录；Qt继续读取官方仓库固定版本raw源码。Apple文档、Qt文档／实现、本地调用链及最终测试红绿构成不同证据类型，不以多篇同站文档冒充独立性能实验。
 
-| 跳次与问题 | 一手联网来源 | 源码／实验核验与推论 |
-| --- | --- | --- |
-| 1：为什么 Paint 门禁会漏检 | [Apple render loop](https://developer.apple.com/videos/play/tech-talks/10855/) | 提交与渲染迟滞分开；本地 imageProvider 在准备日志及轨迹提交前同步执行，既有 Paint 预算未计入它 |
-| 2：图像变换与格式转换做什么 | [Qt 6.11 QImage](https://doc.qt.io/qt-6.11/qimage.html) | 当前 view 每次 transformed，原生桥每次 convertToFormat；固定版本 [qimage.cpp](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/image/qimage.cpp) 第2207行起表明同格式返回共享对象，异格式走转换分配路径 |
-| 3：能否可靠识别源像素变化 | [QPixmap cacheKey](https://doc.qt.io/qt-6.11/qpixmap.html#cacheKey) | 内容改变时 key 改变；文件路径、尺寸或 zoom 都不足以作为内容身份。本地 original loadedPixmap 与显示缩放 pixmap 分开，使用前者 |
-| 4：共享输出是否引入观测副作用 | [QImage constBits](https://doc.qt.io/qt-6.11/qimage.html#constBits)、[隐式共享](https://doc.qt.io/qt-6.11/implicit-sharing.html) | constBits 不 detach；测试保持 first 存活，地址不能被下一次分配复用。调用方写入触发 detach，应不污染下一次快照 |
-| 5：平台是否支持共享图像内容 | [Apple 图层性能指南](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/ImprovingAnimationPerformance/ImprovingAnimationPerformance.html)、[图层内容](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/SettingUpLayerObjects/SettingUpLayerObjects.html) | 当前 CGDataProvider 持有 QImage 并读 constBits；同格式转换可共享 CPU 像素。资料不能证明 GPU 上传／合成也被缓存，未据此作该主张 |
-| 6：是否只是理论性能猜测 | 最终原代码／修复代码三轮对照，见 [完成报告](test_completion_report.md) | 原代码每行八次重新生成完整输出缓冲；旋转行八次约512–514ms。修复后零次重建，必要新方向与新源仍保持正确 |
+检索收敛于方向快照这个可验证机制：资料足够解释像素工作和坐标转换；一般联网检索无法补齐用户自然异常的屏幕／GPU记录。其余候选的排查标准沿用根因报告，不能仅因本轮成功就排除。
 
-检索由阶段划分→Qt 图像 API→固定版本源码→内容身份／共享语义→Apple 图层规范→项目动态反例逐跳收敛。Qt 概要文档没有承诺所有转换零复制，因此继续核查 `v6.11.2` 实现；使用 `qt-6.11`，避免默认文档版本漂移。Apple 与 Qt 是不同平台来源，本地红绿是另一类证据；多篇同厂商文档不能算多个独立因果证明。
+## 3. 演绎链与逆向证伪
 
-证据已充分支持“重复 CPU 像素工作”及其修复，停止于此机制。没有用户现场 CPU／GPU／屏幕时间线，一般联网资料不能补齐其事实，故保留首次生成、标题栏捕获、必要布局和系统合成等边界。
+旧链路：方向改变 → orientation缓存未命中 → `toImage().transformed(orientation).convertToFormat(...)` → 大像素缓冲重排／分配 → 同步native provider返回更晚 → 动画提交推迟。
 
-## 链式演绎与逆向证伪
+测试反例与判定：
 
-源和方向不变→相同变换输出及预乘格式相同→每次重建不提供新像素→同步 GUI 工作重复→轨迹提交前等待可累加。原代码没有共享输出，四类行三轮都能检测；90° 旋转成本明显大于恒等分支，符合像素变换工作量差异。
+- 旧测试的热快照复用仍全部通过，证明只看热请求不是充分条件。
+- 新测试在进入前不生成目标方向快照，退出前再改方向；实际代理源尺寸／源角颜色揭示定向像素重排，不依赖脆弱的绝对耗时阈值。
+- identity进入为对照；其后退出前旋转，退出仍须检出。mirror／flip尺寸不变，因此还要检查原始角颜色，不能只判宽高。
+- 离屏输出角颜色和图像纵横比必须正确，防止仅取消旋转得到假性能改善。
+- 同路径文件重载必须呈现新像素，防止路径缓存或永久快照制造假复用。
+- 请求CPU／墙钟耗时作诊断；结构机制与相同最终测试的三轮红绿支持受控因果，不将请求耗时直接换算FPS。
 
-反向排查：原生 SDR 常用有尺寸上限的代理，不能把原文件尺寸当作快照尺寸。本测试用 XPM 走 Qt 栅格分支，并断言实际4096×3072输出。原加载器有色彩管理，初期用原始 RGB／反向 sRGB 近似作精确比较产生误报；最终以已加载、未旋转像素为参照，四角位置和色彩空间仍严格检查。探索日志不计为正式红轮。
+## 4. 生产设计与实现
 
-只缓存旋转图、仍每次异格式转换，会产生新 RGBA 缓冲，违反最终复用断言。只以文件路径缓存，会在同名重载后返回旧画面；只以源 key 缓存，会在方向改变时错用旧尺寸；缓存可写像素会被调用者 fill 污染。测试同时约束这些反例。原生布局改变不应成为失效条件，否则进入／退出后仍重复工作。
+### 4.1 原生源快照与方向分离
 
-## 实现方案
+`QVGraphicsView::fullScreenTransitionSourceImage()`按loaded pixmap的内容cacheKey缓存一份未执行用户方向变换的预乘RGBA图像。源内容未变时返回共享QImage；方向变化不失效。beforeLoad、动画帧变化、空源清理及内容key变化负责失效。
 
-`QVGraphicsView` 保存一个不可变 QImage、源 `QPixmap::cacheKey()` 和无缩放／平移的方向变换。命中时直接返回共享 QImage；未命中时释放上一条缓存，再完成 toImage→方向变换→RGBA8888_Premultiplied，并保存新结果。原生 CGImage provider 的同格式转换于是共享此缓冲，生命周期仍由其拥有的 QImage 保证。
+`fullScreenTransitionOrientation()`单独返回既有`getUnspecializedTransform()`，只包含四分之一圈旋转／镜像／翻转，没有缩放或平移。MainWindow提供对应Qt槽，native桥为它注册单独的方向provider。进入与退出均使用未定向源provider。
 
-源为空时清空并返回空；fileChanging 的 beforeLoad 与 animatedFrameChanged 清空缓存，避免旧图／旧帧驻留；源 key 和方向检查继续作为内容正确性保护。viewport、标题栏、fit、zoom、窗口位置和显示几何不参与像素缓存键。接口继续仅在现有 GUI 路径调用，未增加跨线程访问。
+既有`fullScreenTransitionImage()`保持返回定向图像的语义，避免改变旧调用者与其正确性／复用测试；原生切换不再调用它。正常应用原生链仅需要新源缓存；若其他调用者主动请求旧定向快照，可能额外保留一张定向图，本轮没有取消该兼容接口。
 
-缓存仅保存一条；本测试驻留输出约48MiB。它按实际图像尺寸增长，并非固定内存上限。切换文件、动画帧更新、下次不匹配请求或 view 析构释放缓存引用；原生 provider 或调用方仍持有共享引用时，像素应继续存活。首次新源／方向生成仍同步且可能昂贵，这是换取后续切换避免重复工作的内存／时延权衡；未通过降低图片尺寸或画质换取通过。
+### 4.2 固定图层方向与几何动画
 
-新增用例注册为 `FovelleFullScreenSnapshotReuse`，系统门禁要求四个完整且不重复的快照记录、零重建、两个原生方向完成、正确像素量／字节量、无失败及有效诊断时间。缺失观测不能通过。已有交接／运动门禁继续独立运行。
+Qt图像坐标y向下，AppKit图层坐标y向上；线性方向矩阵按垂直翻转共轭，CA系数为`(m11, -m12, -m21, m22)`。图像layer直接引用原序CGImage，以固定affineTransform表示方向。
 
-相关源码：[view](../src/qvgraphicsview.cpp)、[声明](../src/qvgraphicsview.h)、[原生 provider](../src/qvcocoafunctions.mm)、[测试](../tests/tst_qviewtests.cpp)、[CTest](../tests/CMakeLists.txt)、[系统门禁](../tests/quality_fullscreen_system.py)。之前终点交接设计保存在 [prior_reports](evidence/fullscreen_snapshot/prior_reports/)，其机制和既有回归仍有效。
+`fullScreenLayerBoundsForFrame()`将父坐标中的目标frame尺寸通过layer仿射矩阵的逆变换映射回本地bounds。90°／270°交换宽高；镜像保持尺寸。初始图像使用bounds与中心position设定，轨迹仍一次提交bounds与position动画；不新增每帧GUI回调或每帧像素变换。窗口／标题栏layer为恒等方向，既有几何行为保持一致。
+
+native完成观察者后的异步交接、expose、绘制暂停／恢复、必要最终Paint与代理清理保持原有流程；本轮没有用提前揭示真实窗口或跳过终点绘制换取测试通过。
+
+### 4.3 测试与系统门禁
+
+新用例`testFullScreenColdOrientation`进入CTest与系统门禁。探针独立枚举公开AppKit窗口属性寻找代理，不读生产association key、不读取生产缓存标志，获取实际CGImage并栅格化其图层模型。该栅格化是离屏正确性验证，明确不等于屏幕逐帧采集。
+
+系统门禁要求六行×进入／退出共12个方向记录及六个重载记录，完整、唯一且各项断言为真；缺失方向、重复行、空观测、错误角颜色、错误比例、陈旧重载、缺失／NaN／负数计时均拒绝。另有独立Python负向单元测试。
+
+同时修正旧Paint门禁与最新C++用例口径不一致的问题：C++已经按线程CPU预算判定，Python仍用墙钟75ms上限。本轮将Python对齐CPU预算，墙钟保留诊断及必要注入成本下界；仍严格约束Paint次数、CPU上限与样本完整性。此变更避免主机抢占／原生等待被误报成重复CPU绘制，不放宽重复Paint断言。
+
+## 5. 验证、风险与适用范围
+
+最终相同测试对生产起点执行三轮红、对修复执行三轮绿；再构建应用和测试，运行全屏CTest、系统门禁及fit／pan业务回归。命令、计数、版本与指纹以 [测试完成报告](test_completion_report.md) 为准。
+
+本轮消除的是原生切换前的用户方向像素重排。首次新源必要格式转换／图层创建仍同步；大内容上传／透明合成、终点队列延迟、其他应用负载及物理显示掉帧仍可能存在。native HDR／动画全矩阵、多屏刷新率／极大图峰值内存没有完整性能覆盖。失败／零时长路径做源码检查，未专门故障注入，不以常规回归冒充这些测试通过。
+
+资源断言观测的是代理源的方向重排；仅凭尺寸和角颜色不能排除一切隐藏的同像素复制或GPU上传。源缓存及同格式共享还由固定版本Qt源码和生产调用链核验，不能把这些额外成本写成已实测为零。

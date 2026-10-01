@@ -1,49 +1,69 @@
-# 全屏同步快照与既有交接回归：测试用例说明
+# 全屏方向快照性能修复：测试用例说明
 
-日期：2026-10-01。目的：修正此前没有观察到提交前像素工作的覆盖缺口，同时保持既有全屏回归。设计依据见 [技术设计](technical_design_document.md)，版本／记录见 [summary](evidence/fullscreen_snapshot/summary.json)。
+日期：2026-10-02（Asia/Shanghai）；检索与红绿验证从2026-10-01开始。基线`bfd3aa0a7b51a62cf0430262a6c0e7c98b8dccca`；机制与多跳检索见 [技术设计](technical_design_document.md)，执行结果见 [完成报告](test_completion_report.md)。
 
-## TC-FS-SNAPSHOT：不可变快照复用、失效及原生布局隔离
+## 1. 问题界定与测试目标
 
-入口：`WindowBehaviorTests::testFullScreenSnapshotReuse`，四行数据为 rotate90、mirror、flip、identity。每行自动生成4096×3072四象限 XPM，通过现有异步加载器真实加载至 MainWindow；XPM 绕过 native SDR 的限尺寸代理，断言实际像素量，窗口640×480、fit、关闭自动改窗口尺寸。
+将用户“偶发掉帧”拆为启动、中段运动、终点交接、反向等待和几何跳动。本轮重点约束启动阶段：方向变化后首次原生进入／退出，不能重建整张定向源像素；代理的方向、颜色与比例必须保持正确。已有中段独立运动、终点Paint与功能用例继续回归。
 
-1. 取加载后未旋转的已管理颜色作参照，应用相应方向，调用公开 `MainWindow::fullScreenTransitionImage()` 并执行原生 provider 使用的预乘 RGBA8 转换。
-2. 检查完整图片尺寸、四角颜色和色彩空间。90° 输出3072×4096，其余4096×3072；每张 RGBA 输出50,331,648字节，约48MiB。
-3. 保持 first QImage 存活，连续8次相同请求；要求所有 constBits 与 first 相同。指针读取只读，不触发复制；first 存活排除分配器复用旧地址的假阳性。计时只作诊断，不使用随机器速度变化的阈值替代资源断言。
-4. 真正进入并退出 macOS 原生全屏，分别等公开原生 entries／exits 计数增加；Qt 请求状态不足以结束等待。完成后相同源／方向输出仍须复用，确认布局和 zoom 不使缓存失效。
-5. 调用方复制 first 后 fill 紫色，原输出颜色须保持不变；证明共享写入 detach 不污染生产缓存。
-6. 再旋转90°，输出尺寸改变、缓冲不同于 first，后续请求复用新输出。
-7. 在同一路径重写为青色并 reload，等新的 fileChanged 和加载完成；要求画面变更、alpha为255、缓冲不同于旧方向，再次请求复用新源。青色按色彩管理后的通道关系检查，方向四角仍按已加载像素严格比较。
-8. 汇总所有复用失败，输出一条 `FULLSCREEN_SNAPSHOT` JSON，再断言无失败。每行必须完成两个原生方向；清理窗口、退出残留全屏并恢复 quit 策略。
+旧`testFullScreenSnapshotReuse`在目标方向上先capture再toggle，只覆盖热快照，漏掉第一次方向变化后的原生provider。本轮新增原生冷方向用例，且未把“测试能稳定检出此机制”写成“直接测到了所有物理掉帧”。
 
-`first_oriented_ms` 是方向设置后第一次测量；此前已取未旋转颜色参照，identity 行不能称为冷启动。`warm_8_ms` 是8次公开 provider＋格式转换的累计 CPU 墙钟时间；不是一次切换时间、真实屏幕帧率或首次可见响应。`rebuilds` 统计不同完整 RGBA 输出缓冲的请求数，不统计变换内所有临时分配。
+## 2. TC-FS-COLD-ORIENTATION（新增）
 
-稳定检出要求：冻结最终测试，在本轮生产起点上跑三轮；每轮四行都应因为重复输出而失败，不能把颜色期望错误或缺失原生完成当作有效红证据。只改生产快照逻辑，保持相同最终用例再跑三轮，应四行全过且无跳过。
+入口：`WindowBehaviorTests::testFullScreenColdOrientation`；CTest：`FovelleFullScreenColdOrientation`。平台须为真实cocoa；使用真实AppKit进入／退出与实际代理，不以Qt请求状态作为完成条件。
 
-## 系统门禁负向验证
+**数据：** 六行identity、rotate90、rotate180、rotate270、mirror、flip。每行加载4096×3072 XPM四角红／绿／蓝／黄图，共12,582,912像素；XPM避开Image I/O有尺寸上限的native SDR解码代理。RGBA量级为50,331,648字节（48MiB），这是实际受控输入，不是从文件大小估算。
 
-新增 `snapshot_summary()` 要求 rotate90／mirror／flip／identity 恰好各一条，rebuilds=0、native_directions=2、failures为空、完整实际像素量／字节量，以及非负有限时间。空输出、缺行、重复行、一次重建、原生方向未齐、失败列表非空、NaN时间、零像素、错误字节及缺字段均拒绝；最终红记录拒绝、绿记录接受。记录见 [gate-validation](evidence/fullscreen_snapshot/gate-validation.json)。这是遥测变异检查，不能作为生产故障注入的替代。
+**前置条件：** 普通窗口640×480、ZoomToFit、关闭1:1像素 sizing、禁止自动窗口缩放；临时禁用最后窗口关闭时退出。先获取identity图作为色彩管理参考，仅预热源内容，没有生成目标方向快照。
 
-## 已有回归
+**步骤：**
 
-| 用例／门禁 | 继续保障的行为 |
-| --- | --- |
-| FovelleFullScreenMotion | 标题栏显示／隐藏、raster／vector、idle／busy、两循环两方向；130ms主线程受控停顿下呈现轨迹继续 |
-| FovelleFullScreenPaintBudget | 12个直接 Update 样本，40ms注入时仅一次视口 Paint |
-| FovelleFullScreenPreparationBudget | 8个原生方向过程；源0–1次、终点恰好1次 Paint，40–75ms受控终点成本 |
-| FovelleHiddenTitlebarFullScreen | 原生标题栏状态及全屏生命周期 |
-| FovelleSDRFullScreenPresentation | 实际 SDR AVIF 画面连续性与接管位置 |
-| GraphicsView fit／pan／overflow | 窗口尺寸、退出平移与标题栏 padding 业务回归 |
+1. 按数据行改变方向，等待几何稳定；禁止调用目标方向snapshot getter。
+2. 请求真实进入全屏，记录请求的线程CPU及墙钟耗时。
+3. 在代理可见期间，通过公开窗口属性定位代理；读取其实际CGImage宽高及缩小源预览，按实际model-layer bounds、position、transform离屏栅格化代理图像。
+4. 等待原生did-enter计数增加、代理退休及绘制恢复，核对全屏状态。
+5. 在全屏内再旋转90°（镜像状态遵循生产旋转角补偿），不预热定向快照，执行真实退出并重复观测。各行出口覆盖旋转／翻转组合。
+6. 保持同一文件路径，将内容改为cyan后重载；不调用快照getter，再真实进入观察native源像素是否更新，最后退出并清理窗口／选项。
 
-上述运动指标来自呈现轨迹；Paint 延迟来自受控注入。两者均不是物理显示帧统计。快照用例自动生成 fixture；AVIF 回归依赖现有本机 fixture，可通过 `FOVELLE_FULLSCREEN_AVIF_IMAGE` CMake 配置异机路径。缓存动画帧清理、空源清理及超大图片内存峰值本轮仅源码审查，未增加动态故障注入。
+**期望：**
 
-## 执行命令
+- 进入和退出均捕获到真实代理，原生完成且恢复窗口绘制。
+- CGImage始终4096×3072，四角源像素与identity参考一致；用户方向不重排源像素。
+- 定向离屏预览四角与独立Qt方向参考一致；通道误差不超过12、alpha一致。图像frame比例与期望定向比例误差小于0.005。
+- 同路径重载的native源为cyan、alpha255，不能显示旧四角色。
+- 退出恢复普通窗口几何。缺失proxy／完成／重载证据不能静默跳过。
 
-```bash
-cmake --build build --target fovelle_tests Fovelle -j 6
-QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 QTEST_FUNCTION_TIMEOUT=60000 FOVELLE_TEST_SUITE=WindowBehaviorTests build/tests/fovelle_tests testFullScreenSnapshotReuse -v1
-ctest --test-dir build -R 'Fovelle(SDRFullScreenPresentation|HiddenTitlebarFullScreen|FullScreen)' --output-on-failure
-python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_snapshot/system.json
-QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=GraphicsViewTests build/tests/fovelle_tests testFitZoomSurvivesInverseWheelStepsAndFullscreenResize testFullscreenExitPreservesVerticalPan testFullscreenAfterOverflowRemovesTitlebarScenePadding -v1
-```
+**稳定失败要求：** 固定最终测试及输入，在原始生产HEAD连续三轮运行，每轮六个数据行均失败、无skip；identity进入可通过，退出前新增方向变化应失败。尺寸不变的mirror／flip靠源角颜色检出，90°／270°还靠宽高检出。离屏图像在红阶段本应正确，明确失败来自冗余定向源工作，而不是测试图像错误。
 
-原生测试串行执行，不能并发切换这些窗口。之前终点交接用例说明保存在 [prior_reports](evidence/fullscreen_snapshot/prior_reports/)。
+**遥测：** `FULLSCREEN_COLD_ORIENTATION`输出12行；字段含row、entering、completed、observed、源宽高、source_matches、rendered_matches、geometry_matches、request_cpu_ms、request_wall_ms。`FULLSCREEN_SOURCE_RELOAD`输出六行。请求计时用于红绿成本比较，不是通过阈值或FPS。
+
+**观测边界：** 探针读取模型并离屏栅格化，不读取显示器实际呈现时间；新测试稳定约束源方向工作的资源行为与图像正确性。它不保证GPU／WindowServer任意负载下零掉帧。
+
+## 3. 既有测试保留与回归
+
+| 用例／CTest | 作用 | 不能替代的观测 |
+| --- | --- | --- |
+| SnapshotReuse／FovelleFullScreenSnapshotReuse | 热定向快照共享、方向／同路径重载失效、调用方写入隔离、色彩空间 | 冷方向原生provider |
+| PresentationKeepsMoving／FovelleFullScreenMotion | 栅格／vector、标题栏显隐、idle／130ms GUI争用、两轮进入／退出，32条运动记录 | 物理屏幕帧时间 |
+| LayoutPaintBudget／FovelleFullScreenPaintBudget | 四分支各三次直接Update，12样本，恰好一次视口Paint及CPU预算 | 完整原生通知／收尾 |
+| PreparationPaintBudget／FovelleFullScreenPreparationBudget | 四分支×进入／退出，八过程；source最多一次、endpoint恰好一次Paint与CPU预算 | GPU期限、新源首次转换 |
+| TitlebarPresentation／FovelleHiddenTitlebarFullScreen | 原生标题栏隐藏／显示一致性 | 大图方向成本 |
+| ProvidedRasterFullScreenTransitionKeepsImageVisible／FovelleSDRFullScreenPresentation | 提供栅格native SDR全屏画面 | 所有HDR／多屏性能 |
+
+fit／pan回归运行`testFitZoomSurvivesInverseWheelStepsAndFullscreenResize`、`testFullscreenExitPreservesVerticalPan`及`testFullscreenAfterOverflowRemovesTitlebarScenePadding`。
+
+## 4. TC-FS-METRICS-GATE（新增负向门禁）
+
+入口：`tests/test_fullscreen_system_metrics.py`；CTest：`FovelleFullScreenMetricsGate`，五项Python单元测试并含多个subTest。
+
+方向门禁要求完整唯一的12个方向记录及六个重载记录。负例覆盖空输出、缺方向、重复方向／重载、未完成／未观测、源像素重排、方向错误、比例错误、宽高错误、过期重载、布尔值冒充时间、字段缺失、负数／NaN／Infinity；全部必须拒绝。
+
+Paint门禁与C++统一：线程CPU预算≤75ms，直接Update恰好一次Paint，原生source最多一次、endpoint恰好一次；墙钟保留诊断与40ms注入下界，不以墙钟上限代替CPU成本。负例仍拒绝两次／零次终点Paint、超CPU及无效CPU；合成150ms墙钟／41ms CPU样本只证明预算口径一致，不是物理性能通过证据。
+
+## 5. 执行与证据要求
+
+先构建只改测试的基线，固定最终测试跑三轮红，再修复生产并构建同一测试跑三轮绿。每轮保存完整stdout／stderr、进程退出码，失败不得以缺样本或skip通过。生产patch、源码／测试／二进制SHA-256与环境记录同步保存。
+
+全屏验收运行`ctest --test-dir build --output-on-failure -R 'FullScreen|TitlebarFullScreen'`（实际选择结果见完成报告）；系统运行`python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_orientation/system.json`。系统门禁同时要求编译进程成功、完整遥测、既有运动／Paint／快照及新增方向指标通过。
+
+只做CPU／资源机制、模型／呈现层运动和离屏内容验证；后续若用户仍报告中段物理掉帧，需补现场屏幕／渲染／调度时间线，按根因报告R4等路径继续定位。

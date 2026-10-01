@@ -1523,6 +1523,17 @@ QImage MainWindow::fullScreenTransitionImage() const
         ? graphicsView->fullScreenTransitionImage() : QImage();
 }
 
+QImage MainWindow::fullScreenTransitionSourceImage() const
+{
+    return getIsPixmapLoaded()
+        ? graphicsView->fullScreenTransitionSourceImage() : QImage();
+}
+
+QTransform MainWindow::fullScreenTransitionOrientation() const
+{
+    return graphicsView->fullScreenTransitionOrientation();
+}
+
 QColor MainWindow::fullScreenTransitionBackgroundColor() const
 {
     return customBackgroundColor.isValid()

@@ -89,3 +89,59 @@ NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool 
     }
     return {};
 }
+
+NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window)
+{
+    NSWindow *real = reinterpret_cast<NSView *>(window->winId()).window;
+    for (NSWindow *candidate in NSApp.windows) {
+        if (candidate == real || !candidate.visible || !candidate.ignoresMouseEvents
+            || candidate.level != real.level + 1
+            || !(candidate.collectionBehavior & NSWindowCollectionBehaviorFullScreenAuxiliary))
+            continue;
+        CALayer *image = candidate.contentView.layer.sublayers.firstObject.sublayers.firstObject;
+        CGImageRef contents = reinterpret_cast<CGImageRef>(image.contents);
+        if (!contents || CGRectIsEmpty(image.frame))
+            continue;
+        NativeFullScreenImageSnapshot result;
+        result.active = true;
+        result.sourceSize = QSize(CGImageGetWidth(contents), CGImageGetHeight(contents));
+        result.orientedSize = QSizeF(image.frame.size.width, image.frame.size.height);
+        result.sourcePreview = QImage(32, 32, QImage::Format_RGBA8888_Premultiplied);
+        result.orientedPreview = QImage(32, 32, QImage::Format_RGBA8888_Premultiplied);
+        const auto context = [contents](QImage &target) {
+            target.fill(Qt::transparent);
+            return CGBitmapContextCreate(target.bits(), target.width(), target.height(),
+                8, target.bytesPerLine(), CGImageGetColorSpace(contents),
+                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+        };
+        CGContextRef raw = context(result.sourcePreview);
+        if (!raw)
+            return {};
+        CGContextSetInterpolationQuality(raw, kCGInterpolationNone);
+        CGContextDrawImage(raw, CGRectMake(0, 0, 32, 32), contents);
+        CGContextRelease(raw);
+
+        // Preserve the actual model bounds, contents gravity and transform;
+        // translate only the frame origin so the entire image is in the oracle.
+        CALayer *root = [CALayer layer];
+        root.bounds = CGRectMake(0, 0, image.frame.size.width, image.frame.size.height);
+        CALayer *copy = [CALayer layer];
+        copy.contents = image.contents;
+        copy.contentsGravity = image.contentsGravity;
+        copy.bounds = image.bounds;
+        copy.anchorPoint = image.anchorPoint;
+        copy.transform = image.transform;
+        copy.position = CGPointMake(image.position.x - image.frame.origin.x,
+            image.position.y - image.frame.origin.y);
+        [root addSublayer:copy];
+        CGContextRef oriented = context(result.orientedPreview);
+        if (!oriented)
+            return {};
+        CGContextScaleCTM(oriented, 32.0 / image.frame.size.width,
+            32.0 / image.frame.size.height);
+        [root renderInContext:oriented];
+        CGContextRelease(oriented);
+        return result;
+    }
+    return {};
+}

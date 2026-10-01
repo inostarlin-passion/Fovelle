@@ -1,53 +1,69 @@
-# 全屏同步快照卡顿机制：测试完成报告
+# 全屏方向快照性能修复：测试完成报告
 
-日期：2026-10-01。本轮以 [根因报告](root_cause.md) 的 R1 为入口，修正提交前像素工作未被现有 Paint／运动测试观察到的覆盖缺口，并修复同源同方向重复生成快照。既有终点交接修复继续保留。
+日期：2026-10-02（Asia/Shanghai）；检索与红绿对照从2026-10-01开始。生产起点`bfd3aa0a7b51a62cf0430262a6c0e7c98b8dccca`；最终结果对应当前工作区修复，不能只用HEAD代表最终代码。
 
-## 完成结论
+## 1. 结果与问题边界
 
-**同一最终快照用例在本轮生产起点上连续三轮失败，修复后连续三轮通过。** 原代码四个分支每次都重建整张 RGBA 输出；修复后不变请求均共享缓冲，原生进入／退出保持复用，方向／同名文件重载后的新画面正确，调用方写入不污染缓存。测试和应用构建成功，六项全屏 CTest、系统门禁及三个 fit／pan 业务回归通过。
+**最终相同测试在原始生产基线上三轮均六行失败，修复后三轮均六行通过，无跳过。** 新测试检出了旧测试漏掉的“方向变化后首次原生进入／退出全屏，同步重排大图像素”的性能机制。修复改为缓存原序RGBA源图像、由Core Animation固定仿射矩阵表达旋转／翻转；维持方向、色彩、比例及重载正确性。
 
-确认的是重复同步像素工作的成本及其消除；没有用户现场时间线，不能声称唯一自然根因已定位或所有负载下零卡顿。首次新源／方向生成仍同步，缓存会保留一张按实际图片尺寸增长的 RGBA 图像。
+三轮共36个方向过程：原生源像素重排由30次降为0；定向离屏内容错误、比例错误均为0；18个同路径重载观察全部正确。八项全屏CTest、完整系统门禁和三个fit／pan业务回归通过。
 
-## 版本与实验可复核性
+确认的是提交前同步方向像素处理及其消除；没有物理屏幕逐帧呈现／GPU现场记录，不能声称用户自然异常的唯一根因已定位，或所有设备／负载下零掉帧。
 
-Git 基线 `98f1e06dd0169a5bf5d7efc5dbdd4376826babe0` 还包含工作区此前的交接改动，因此不是纯 HEAD 红测试。本轮红生产代码是修改快照前的工作区；原始 [cpp](evidence/fullscreen_snapshot/qvgraphicsview.cpp)／[header](evidence/fullscreen_snapshot/qvgraphicsview.h) 已保存。红测试运行完毕后才修改这两份生产文件；最终 C++ 测试和 CTest 注册保持相同，再构建绿轮。
+## 2. 问题拆解、检索与证伪结论
 
-[summary](evidence/fullscreen_snapshot/summary.json) 保存红／绿全部指标、进程退出码、环境、九项当前源码 SHA-256、原始快照源文件指纹、红／绿测试二进制及应用二进制指纹。[新增生产 patch](evidence/fullscreen_snapshot/snapshot-production.patch) 区分本轮修复；[完整源码差异](evidence/fullscreen_snapshot/changes.patch) 包含仍未提交的之前修复。环境记录：macOS27.0（26A428）、arm64、Qt6.11.2、Release。
+按启动、中段、终点、反向等待及几何跳动拆解后，从 [根因报告](root_cause.md) 的R1出发，沿Apple提交／渲染机制 → Qt固定版本像素旋转实现 → 当前缓存与旧测试预热顺序 → 原生代理源像素观测 → CALayer方向和坐标语义 → 最终红绿对照进行多跳验证。来源、迭代读取与推导见 [技术设计](technical_design_document.md)，输入与判据见 [用例说明](test_case_specification.md)。
 
-## 最终红绿结果
+Qt官方`rotated90()`确实分配并旋转整图；native imageProvider处于轨迹提交前。旧热快照复用通过，却不覆盖新方向的第一次处理。红阶段代理视觉方向与比例正确，但源尺寸／源角颜色已被定向重排；绿阶段原序源图与定向输出同时正确，排除了“只是取消方向”“降低图像分辨率”“缺观测通过”。同路径cyan重载排除了陈旧缓存。
 
-四行 rotate90／mirror／flip／identity，每行4096×3072像素、约48MiB RGBA；每行8次不变请求和原生进入／退出各一次。三轮每侧12行、96次不变请求及24个原生方向。
+Apple网页外壳信息不足时继续读取官方API JSON；Qt继续读取官方仓库v6.11.2 raw源码，快照保存在证据目录。公开资料与代码、受控红绿相互核验；检索收敛于此机制，不把一般平台文档当作自然帧率故障的实测证据。
 
-| 指标 | 修复前＋最终用例 | 修复后＋同一最终用例 |
-| --- | --- | --- |
-| 每轮四行结果 | 三轮均四行失败 | 三轮均四行通过 |
-| QtTest总结 | 三轮均2 passed／4 failed／0 skipped | 三轮均6 passed／0 failed／0 skipped |
-| 进程退出码 | 4／4／4 | 0／0／0 |
-| 不变请求重新产生完整输出缓冲 | 每行8／8，合计96次 | 每行0／8，合计0次 |
-| 90°旋转行8次请求累计耗时 | 514.342／512.105／512.625ms | 0.001042／0.000792／0.001417ms |
-| 所有行8次请求累计区间 | 8.764–514.342ms | 0.000416–0.001417ms |
-| 布局改变后的快照复用 | 原生进入、退出后均仍重建 | 所有原生方向均复用 |
-| 方向／同路径重载刷新、写入隔离 | 像素断言通过，但后续仍重建 | 像素及复用断言均通过 |
+## 3. 环境、固定测试与版本有效性
 
-passed包含init／cleanup。时间来自公共图像 provider＋RGBA归一化，不含磁盘加载、标题栏捕获、CGImage创建、完整轨迹提交或物理显示。测试对返回临时 QImage 做转换，Qt可使用rvalue就地路径；原生 provider 从const source转换，基线可能额外复制，因此这些数字不是原生代理的总耗时。输出缓冲身份的资源断言不受这一优化差异影响。绿色微秒量级数值只作本机诊断，门禁不以它设速度阈值。
+本轮环境：macOS 27.0.1（26A434）、arm64、Qt 6.11.2、Release、Apple LLVM 17.0.0。基线测试首先构建并运行，旧`testFullScreenSnapshotReuse`为6 passed／0 failed／0 skipped，见 [旧测试通过记录](evidence/fullscreen_orientation/old-test-baseline.txt)。
 
-原始日志：[红1](evidence/fullscreen_snapshot/red-1.txt)、[红2](evidence/fullscreen_snapshot/red-2.txt)、[红3](evidence/fullscreen_snapshot/red-3.txt)、[绿1](evidence/fullscreen_snapshot/green-1.txt)、[绿2](evidence/fullscreen_snapshot/green-2.txt)、[绿3](evidence/fullscreen_snapshot/green-3.txt)。
+最初四行探索证明漏检后，最终测试扩展到六行四分之一圈旋转／镜像／翻转、12个方向过程及六个原生重载观察。为保证最终对照有效，临时恢复全部五份生产文件到原始HEAD，保持最终C++测试及原生探针不变，再构建并跑三轮红；finally恢复修复源码，构建测试及应用，跑三轮绿。探索记录不混入正式三轮统计。
 
-## 构建、门禁与回归
+[summary.json](evidence/fullscreen_orientation/summary.json) 保存11项最终源码／测试／门禁SHA-256、五项基线生产指纹、最终测试及应用二进制指纹、全部正式指标和退出码。红二进制未单独留存指纹，复核依据为生产基线commit、相同最终测试／探针和构建日志；不声称保存了红二进制。
 
-- [构建](evidence/fullscreen_snapshot/build-green.txt)：fovelle_tests与Fovelle成功。
-- [CTest](evidence/fullscreen_snapshot/ctest.txt)：6／6通过，67.22s；包括新增快照、运动、直接Paint预算、完整准备／交接、标题栏和真实SDR AVIF画面。
-- [系统门禁](evidence/fullscreen_snapshot/system.json)：passed=true，两套进程退出码均0，约50.99s；32个运动记录、12个直接Paint样本、8个准备／交接过程、4个快照行完整通过。
-- [GraphicsView回归](evidence/fullscreen_snapshot/graphics-regression.txt)：fit resize、退出垂直pan、overflow标题栏padding三项通过；5 passed／0 failed／0 skipped，包括init／cleanup。
-- [门禁负向验证](evidence/fullscreen_snapshot/gate-validation.json)：空／缺行／重复、重建、原生方向未齐、失败列表、NaN时间、零像素、错误字节、缺字段均拒绝；三份红拒绝、三份绿接受。属于遥测变异检查。
-- Python语法检查及 `git diff --check`通过。
+生产变更见 [production.patch](evidence/fullscreen_orientation/production.patch)，源码／测试差异见 [changes.patch](evidence/fullscreen_orientation/changes.patch)，新增Python门禁测试见 [gate-unit.patch](evidence/fullscreen_orientation/gate-unit.patch)。之前三份报告保存在同证据目录的prior文件中，不能沿用旧报告的“全部指纹与当前一致”。
 
-快照 fixture 自动生成，不依赖外部原图。AVIF回归沿用本机既有 `/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif`，异机需配置相应fixture。执行入口及原子断言见 [用例说明](test_case_specification.md)。
+## 4. 正式三轮红绿证据
 
-## 检索、证伪与未覆盖范围
+| 阶段 | 每轮Qt结果（含init／cleanup） | 方向／重载样本 | 三轮资源结果 |
+| --- | --- | --- | --- |
+| 红1／红2／红3 | 各2 passed／6 failed／0 skipped，退出码各6 | 每轮12个方向＋6个重载 | 36方向中30次源像素重排；视觉／比例错误0；18次重载正确 |
+| 绿1／绿2／绿3 | 各8 passed／0 failed／0 skipped，退出码各0 | 每轮12个方向＋6个重载 | 36方向中重排0；视觉／比例错误0；18次重载正确 |
 
-沿 Apple提交／渲染阶段→Qt图像变换／格式转换→固定版本共享源码→pixmap内容身份→本地provider路径→实际缓冲与红绿对照进行多跳核验；来源及链式推导见 [技术设计](technical_design_document.md)。没有把论坛猜测或源码可达性直接升级为用户自然卡顿的确定归因。
+identity进入以及rotate270后的退出回到identity，红阶段这两类单方向源检查可通过；因此不能写成“36个红过程全部失败”。每个最终数据行至少一个方向失败，连续三轮六行全部检出。
 
-初期测试误将原始RGB当作加载后显示色域值，随后尝试反向sRGB精确比较也不可靠；这些 `color-*-exploratory` 日志只记录测试准备问题，不算有效红轮。最终以已加载的未旋转像素作参照，四角和色彩空间断言通过后，正式红轮全部失败于重复资源工作；未通过放宽复用断言获得绿结果。
+原始日志：[红1](evidence/fullscreen_orientation/red-final-1.txt)、[红2](evidence/fullscreen_orientation/red-final-2.txt)、[红3](evidence/fullscreen_orientation/red-final-3.txt)、[绿1](evidence/fullscreen_orientation/green-final-1.txt)、[绿2](evidence/fullscreen_orientation/green-final-2.txt)、[绿3](evidence/fullscreen_orientation/green-final-3.txt)。
 
-不透明／非不透明终点绘制、运动采样等已有修复继续由回归验证。动画帧与空源清理仅源码审查，本轮没有专门动态注入；所有HDR／动画图片、多屏刷新率组合、极大图峰值内存及冷缓存首次生成未做完整性能矩阵。现有实验足以支持本次重复快照机制与修复，仍不足以保证任意设备／负载下所有自然卡顿消失。之前三份终点交接报告副本保存在 [prior_reports](evidence/fullscreen_snapshot/prior_reports/)。
+请求GUI CPU的受控量级：全部36个绿过程约1.66–3.83ms；rotate90进入红约67.94–72.24ms，绿约1.66–1.74ms；该行退出前改为180°，红约16.69–17.49ms，绿约1.79–3.75ms。计时覆盖toggle请求同步工作，不能写成屏幕启动时间、完整切换耗时或FPS。正式通过以源内容、方向、比例、完成与重载判据为准，没有用绝对请求耗时门槛制造红绿。
+
+## 5. 构建、回归和系统门禁
+
+- [最终构建](evidence/fullscreen_orientation/build-green-final.txt)：`fovelle_tests`与`Fovelle`成功；[注册门禁构建](evidence/fullscreen_orientation/build-gate-registration.txt)成功。
+- [CTest](evidence/fullscreen_orientation/ctest.txt)：8／8通过，85.55s；包括新增冷方向／Python门禁、既有快照／运动／Paint／准备交接／标题栏／SDR画面。
+- [系统门禁](evidence/fullscreen_orientation/system.json)：passed=true，两个测试进程退出码均0，69.19s；32个运动、12个直接Paint、8个准备交接、4个热快照、12个冷方向及6个重载记录齐全且通过。
+- [GraphicsView业务回归](evidence/fullscreen_orientation/graphics-regression.txt)：fit resize、退出垂直pan、overflow标题栏padding三项通过；5 passed／0 failed／0 skipped，含init／cleanup。
+- [Python门禁单元测试](evidence/fullscreen_orientation/gate-unit.txt)：五项测试通过；[额外门禁变异验证](evidence/fullscreen_orientation/gate-validation.json)：25／25预期判定通过，三份正式红拒绝、三份正式绿接受。变异验证是遥测／预算负例，不是生产故障注入。
+- `git diff --check`与两个Python文件的语法检查通过。
+
+Python Paint门禁同步修正为与最新C++相同的线程CPU预算，保留Paint次数和必要注入下界；墙钟仍记录但不与CPU上限混用。负例继续拒绝重复Paint、超CPU、缺失／非有限CPU；主机等待样本不能冒充额外CPU工作。
+
+复现命令：
+
+```bash
+cmake --build build --target fovelle_tests Fovelle -j 4
+env QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=WindowBehaviorTests build/tests/fovelle_tests testFullScreenColdOrientation -v1
+ctest --test-dir build --output-on-failure -R 'FullScreen|TitlebarFullScreen'
+python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_orientation/system.json
+python3 tests/test_fullscreen_system_metrics.py
+```
+
+## 6. 剩余限制
+
+离屏栅格化验证的是实际代理模型图像，presentation采样验证的是运动轨迹；两者都不是物理屏幕每帧呈现回执。源尺寸／角颜色约束能检出方向重排，不能排除一切隐藏的相同像素复制或GPU上传。
+
+新源第一次必要转换、图层创建、GPU／WindowServer渲染合成、终点主队列等待及符合条件的高质量栅格缩放仍可能产生其他迟滞。未完整覆盖所有HDR／动画、多屏／刷新率／极大图内存组合，也未注入原生失败／零时长路径。本轮交付为稳定检出并消除一个有源码、平台语义及三轮红绿证据的性能机制；若中段物理掉帧仍出现，按根因报告继续采集现场呈现与调度证据。

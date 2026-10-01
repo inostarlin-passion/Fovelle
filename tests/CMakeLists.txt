@@ -375,3 +375,17 @@ set_tests_properties(FovelleFullScreenSnapshotReuse PROPERTIES
     TIMEOUT 120
     RUN_SERIAL TRUE
     LABELS "macos;fullscreen;snapshot;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenColdOrientation COMMAND fovelle_tests
+    testFullScreenColdOrientation -v1)
+set_tests_properties(FovelleFullScreenColdOrientation PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 120
+    RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;snapshot;orientation;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenMetricsGate
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_fullscreen_system_metrics.py)
+set_tests_properties(FovelleFullScreenMetricsGate PROPERTIES
+    TIMEOUT 15
+    LABELS "fullscreen;metrics;unit")

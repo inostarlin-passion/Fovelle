@@ -1,5 +1,6 @@
 #pragma once
 #include <QRectF>
+#include <QImage>
 class QWindow;
 struct NativeTitlebarSnapshot
 {
@@ -19,3 +20,15 @@ struct NativeFullScreenPresentation
     bool running {false};
 };
 NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction = true);
+
+// Read actual proxy contents and rasterize its model-layer transform. This is
+// an offscreen correctness oracle, not a physical-display frame measurement.
+struct NativeFullScreenImageSnapshot
+{
+    bool active {false};
+    QSize sourceSize;
+    QSizeF orientedSize;
+    QImage sourcePreview;
+    QImage orientedPreview;
+};
+NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window);

@@ -388,6 +388,8 @@ private slots:
     void testTitlebarPresentationDuringFullScreen();
     void testFullScreenSnapshotReuse_data();
     void testFullScreenSnapshotReuse();
+    void testFullScreenColdOrientation_data();
+    void testFullScreenColdOrientation();
     void testFullScreenPreparationPaintBudget_data();
     void testFullScreenPreparationPaintBudget();
     void testFullScreenLayoutPaintBudget_data();
@@ -14554,6 +14556,170 @@ void WindowBehaviorTests::testFullScreenSnapshotReuse()
         {"native_directions", 2}, {"failures", QJsonArray::fromStringList(failures)}
     }).toJson(QJsonDocument::Compact);
     QVERIFY2(failures.isEmpty(), qPrintable(failures.join("; ")));
+}
+
+void WindowBehaviorTests::testFullScreenColdOrientation_data()
+{
+    QTest::addColumn<int>("orientation");
+    QTest::newRow("rotate90") << 90;
+    QTest::newRow("rotate180") << 180;
+    QTest::newRow("rotate270") << 270;
+    QTest::newRow("mirror") << 1;
+    QTest::newRow("flip") << 2;
+    QTest::newRow("identity") << 0;
+}
+
+// TC-FS-COLD-ORIENTATION: observe the actual native provider BEFORE any
+// oriented snapshot request. Rotation/flip must not rebuild full-image pixels
+// on the transition path, and delegating orientation must preserve the image.
+void WindowBehaviorTests::testFullScreenColdOrientation()
+{
+    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
+    QFETCH(int, orientation);
+    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            const auto before = nativeTitlebarSnapshot(window.windowHandle());
+            window.toggleFullScreen();
+            waitForTestCondition([&] {
+                return nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits
+                    && !nativeFullScreenPresentation(window.windowHandle(), false).active;
+            }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("cold-quadrants.xpm");
+    QImage source(4096, 3072, QImage::Format_RGB32);
+    source.fill(Qt::red);
+    {
+        QPainter painter(&source);
+        painter.fillRect(2048, 0, 2048, 1536, Qt::green);
+        painter.fillRect(0, 1536, 2048, 1536, Qt::blue);
+        painter.fillRect(2048, 1536, 2048, 1536, Qt::yellow);
+    }
+    QVERIFY(source.save(path, "XPM"));
+    window.resize(640, 480);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    // Prime only the identity source for a color-managed oracle. Never
+    // generate the orientation requested by either native transition.
+    const QImage identity = window.fullScreenTransitionImage();
+    QImage reference(32, 32, QImage::Format_RGBA8888_Premultiplied);
+    {
+        QPainter painter(&reference);
+        painter.drawImage(reference.rect(), identity);
+    }
+    QTransform expectedOrientation;
+    if (orientation >= 90) { view->rotateImage(orientation); expectedOrientation.rotate(orientation); }
+    if (orientation == 1) { view->mirrorImage(); expectedOrientation.scale(-1, 1); }
+    if (orientation == 2) { view->flipImage(); expectedOrientation.scale(1, -1); }
+    QTest::qWait(200);
+    const QRect normalGeometry = window.geometry();
+    QStringList failures;
+    const auto cornersMatch = [](const QImage &actual, const QImage &expected) {
+        if (actual.isNull() || expected.isNull()) return false;
+        for (const QPoint point : {QPoint(4, 4), QPoint(27, 4), QPoint(4, 27), QPoint(27, 27)}) {
+            const QColor a = actual.pixelColor(point), b = expected.pixelColor(point);
+            if (qAbs(a.red()-b.red()) > 12 || qAbs(a.green()-b.green()) > 12
+                || qAbs(a.blue()-b.blue()) > 12 || a.alpha() != b.alpha()) return false;
+        }
+        return true;
+    };
+    for (bool entering : {true, false}) {
+        if (!entering) {
+            // Change direction in fullscreen to invalidate the old oriented
+            // cache before EXIT too. No snapshot getter between this and toggle.
+            view->rotateImage(90);
+            // rotateImage compensates its angle when mirrored/flipped.
+            expectedOrientation.rotate(expectedOrientation.determinant() < 0 ? -90 : 90);
+            QTest::qWait(200);
+        }
+        const QImage expected = reference.transformed(expectedOrientation);
+        const auto before = nativeTitlebarSnapshot(window.windowHandle());
+        NativeFullScreenImageSnapshot observed;
+        QElapsedTimer timer;
+        timer.start();
+        const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
+        window.toggleFullScreen();
+        const double requestCpuMs = (currentThreadCpuTimeNanoseconds().value()-cpuStart)/1000000.0;
+        const double requestWallMs = timer.nsecsElapsed()/1000000.0;
+        const bool completed = waitForTestCondition([&] {
+            if (!observed.active) observed = nativeFullScreenImageSnapshot(window.windowHandle());
+            const auto now = nativeTitlebarSnapshot(window.windowHandle());
+            return (entering ? now.entries > before.entries : now.exits > before.exits)
+                && !nativeFullScreenPresentation(window.windowHandle(), false).active
+                && window.updatesEnabled();
+        }, 5000);
+        const bool rawMatches = observed.active && observed.sourceSize == source.size()
+            && cornersMatch(observed.sourcePreview, reference);
+        const bool renderedMatches = observed.active && cornersMatch(observed.orientedPreview, expected);
+        const QSize orientedPixels = expectedOrientation.mapRect(QRectF(QPointF(), source.size())).size().toSize();
+        const bool geometryMatches = observed.active && observed.orientedSize.height() > 0
+            && qAbs(observed.orientedSize.width()/observed.orientedSize.height()
+                - double(orientedPixels.width())/orientedPixels.height()) < 0.005;
+        qInfo().noquote() << "FULLSCREEN_COLD_ORIENTATION" << QJsonDocument(QJsonObject {
+            {"row", QString::fromLatin1(QTest::currentDataTag())}, {"entering", entering},
+            {"completed", completed}, {"observed", observed.active},
+            {"source_width", observed.sourceSize.width()}, {"source_height", observed.sourceSize.height()},
+            {"source_matches", rawMatches}, {"rendered_matches", renderedMatches},
+            {"geometry_matches", geometryMatches},
+            {"request_cpu_ms", requestCpuMs}, {"request_wall_ms", requestWallMs}
+        }).toJson(QJsonDocument::Compact);
+        QVERIFY(completed);
+        QCOMPARE(window.isFullScreen(), entering);
+        if (!rawMatches) failures << QString("%1: orientation rebuilt/reordered native source pixels")
+            .arg(entering ? "enter" : "exit");
+        if (!renderedMatches) failures << QString("%1: native proxy orientation incorrect")
+            .arg(entering ? "enter" : "exit");
+        if (!geometryMatches) failures << QString("%1: native proxy aspect ratio incorrect")
+            .arg(entering ? "enter" : "exit");
+    }
+    QCOMPARE(window.geometry(), normalGeometry);
+    // Changing the SAME path must invalidate the raw source, not merely the
+    // legacy oriented snapshot. Observe native pixels without priming a getter.
+    source.fill(Qt::cyan);
+    QVERIFY(source.save(path, "XPM"));
+    QSignalSpy loaded(view, &QVGraphicsView::fileChanged);
+    view->reloadFile();
+    QTRY_VERIFY_WITH_TIMEOUT(loaded.count() > 0 && window.getIsPixmapLoaded(), 10000);
+    NativeFullScreenImageSnapshot reloaded;
+    const auto beforeReload = nativeTitlebarSnapshot(window.windowHandle());
+    window.toggleFullScreen();
+    QVERIFY(waitForTestCondition([&] {
+        if (!reloaded.active) reloaded = nativeFullScreenImageSnapshot(window.windowHandle());
+        return nativeTitlebarSnapshot(window.windowHandle()).entries > beforeReload.entries
+            && !nativeFullScreenPresentation(window.windowHandle(), false).active;
+    }, 5000));
+    const QColor cyan = reloaded.sourcePreview.pixelColor(16, 16);
+    const bool reloadMatches = reloaded.active && cyan.alpha() == 255
+        && cyan.green()-cyan.red() > 80 && cyan.blue()-cyan.red() > 80;
+    const auto beforeExit = nativeTitlebarSnapshot(window.windowHandle());
+    window.toggleFullScreen();
+    QVERIFY(waitForTestCondition([&] {
+        return nativeTitlebarSnapshot(window.windowHandle()).exits > beforeExit.exits
+            && !nativeFullScreenPresentation(window.windowHandle(), false).active;
+    }, 5000));
+    qInfo().noquote() << "FULLSCREEN_SOURCE_RELOAD" << QJsonDocument(QJsonObject {
+        {"row", QString::fromLatin1(QTest::currentDataTag())}, {"observed", reloaded.active},
+        {"source_matches", reloadMatches}
+    }).toJson(QJsonDocument::Compact);
+    if (!reloadMatches) failures << QStringLiteral("Same-path reload retained stale native source pixels");
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
 
 void WindowBehaviorTests::testFullScreenPreparationPaintBudget_data()

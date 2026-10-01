@@ -57,6 +57,7 @@ static constexpr char FullScreenAnimationHandlerAssociationKey = 0;
 static constexpr char FullScreenAnimationAssociationKey = 0;
 static constexpr char FullScreenImageRectProviderAssociationKey = 0;
 static constexpr char FullScreenImageProviderAssociationKey = 0;
+static constexpr char FullScreenOrientationProviderAssociationKey = 0;
 static constexpr char FullScreenBackgroundProviderAssociationKey = 0;
 static constexpr char FullScreenTitlebarOverlapProviderAssociationKey = 0;
 static constexpr char FullScreenNormalTitlebarSnapshotAssociationKey = 0;
@@ -87,6 +88,7 @@ typedef void (^FovelleFullScreenAnimationHandler)(
     int targetTitlebarOverlap);
 typedef QRect (^FovelleFullScreenImageRectProvider)(void);
 typedef QImage (^FovelleFullScreenImageProvider)(void);
+typedef QTransform (^FovelleFullScreenOrientationProvider)(void);
 typedef QColor (^FovelleFullScreenBackgroundProvider)(void);
 typedef int (^FovelleFullScreenTitlebarOverlapProvider)(void);
 
@@ -258,6 +260,17 @@ static NSBitmapImageRep *captureFullScreenTitlebar(
 
 // Submit the entire trajectory once. A GUI run-loop callback must not be
 // needed to advance an already-visible proxy during synchronous Qt work.
+static CGRect fullScreenLayerBoundsForFrame(CALayer *layer, const NSRect frame)
+{
+    // The frame is in oriented parent coordinates, while bounds are in the
+    // unrotated contents coordinates. Quarter turns swap the two dimensions.
+    const CGRect local = CGRectApplyAffineTransform(
+        CGRectMake(0, 0, frame.size.width, frame.size.height),
+        CGAffineTransformInvert(layer.affineTransform));
+    return CGRectMake(layer.bounds.origin.x, layer.bounds.origin.y,
+        local.size.width, local.size.height);
+}
+
 static void animateFullScreenLayer(
     CALayer *layer, const NSRect from, const NSRect to,
     const NSTimeInterval duration, const CFTimeInterval startTime)
@@ -269,10 +282,8 @@ static void animateFullScreenLayer(
         return CGPointMake(frame.origin.x + frame.size.width * anchor.x,
             frame.origin.y + frame.size.height * anchor.y);
     };
-    const CGRect fromBounds = CGRectMake(
-        layer.bounds.origin.x, layer.bounds.origin.y, from.size.width, from.size.height);
-    const CGRect toBounds = CGRectMake(
-        layer.bounds.origin.x, layer.bounds.origin.y, to.size.width, to.size.height);
+    const CGRect fromBounds = fullScreenLayerBoundsForFrame(layer, from);
+    const CGRect toBounds = fullScreenLayerBoundsForFrame(layer, to);
     layer.bounds = toBounds;
     layer.position = position(to);
     if (duration <= 0)
@@ -664,7 +675,7 @@ static NSRect fovelleFullScreenTargetFrame(
 
 static NSWindow *createFovelleFullScreenProxy(
     NSWindow *window, NSScreen *screen, const QRect &imageRect,
-    const QImage &snapshot, const QColor &background,
+    const QImage &snapshot, const QTransform &orientation, const QColor &background,
     NSBitmapImageRep *titlebarSnapshot, const int normalTitlebarOverlap,
     const bool enteringFullScreen)
 {
@@ -728,8 +739,14 @@ static NSWindow *createFovelleFullScreenProxy(
     imageLayer.minificationFilter = kCAFilterLinear;
     imageLayer.magnificationFilter = kCAFilterLinear;
     imageLayer.contentsScale = qMax(snapshot.devicePixelRatio(), 1.0);
-    imageLayer.frame = nativeWindowRectForLocalQtRect(
-        window.frame, imageRect);
+    // Qt's image coordinates point down; AppKit layer coordinates point up.
+    // Conjugate the orientation by a vertical flip. No pixel buffer changes.
+    [imageLayer setAffineTransform:CGAffineTransformMake(
+        orientation.m11(), -orientation.m12(),
+        -orientation.m21(), orientation.m22(), 0, 0)];
+    const NSRect imageFrame = nativeWindowRectForLocalQtRect(window.frame, imageRect);
+    imageLayer.bounds = fullScreenLayerBoundsForFrame(imageLayer, imageFrame);
+    imageLayer.position = CGPointMake(NSMidX(imageFrame), NSMidY(imageFrame));
     CGImageRelease(snapshotImage);
 
     CALayer *titlebarLayer = nil;
@@ -778,11 +795,13 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToEnterFullScreen(
         window, &FullScreenImageRectProviderAssociationKey);
     FovelleFullScreenImageProvider imageProvider = objc_getAssociatedObject(
         window, &FullScreenImageProviderAssociationKey);
+    FovelleFullScreenOrientationProvider orientationProvider = objc_getAssociatedObject(
+        window, &FullScreenOrientationProviderAssociationKey);
     FovelleFullScreenBackgroundProvider backgroundProvider =
         objc_getAssociatedObject(
             window, &FullScreenBackgroundProviderAssociationKey);
     if (!enabled.boolValue || !handler
-        || !rectProvider || !imageProvider || !backgroundProvider)
+        || !rectProvider || !imageProvider || !orientationProvider || !backgroundProvider)
         return nil;
 
     const QRect imageRect = rectProvider();
@@ -809,7 +828,7 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToEnterFullScreen(
         titlebarSnapshot, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     NSWindow *proxy = createFovelleFullScreenProxy(
-        window, window.screen, imageRect, snapshot, backgroundProvider(),
+        window, window.screen, imageRect, snapshot, orientationProvider(), backgroundProvider(),
         titlebarSnapshot, normalTitlebarOverlap, true);
     return proxy ? @[window, proxy] : nil;
 }
@@ -831,11 +850,13 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
         window, &FullScreenImageRectProviderAssociationKey);
     FovelleFullScreenImageProvider imageProvider = objc_getAssociatedObject(
         window, &FullScreenImageProviderAssociationKey);
+    FovelleFullScreenOrientationProvider orientationProvider = objc_getAssociatedObject(
+        window, &FullScreenOrientationProviderAssociationKey);
     FovelleFullScreenBackgroundProvider backgroundProvider =
         objc_getAssociatedObject(
             window, &FullScreenBackgroundProviderAssociationKey);
     if (!enabled.boolValue || !normalFrame || !handler
-        || !rectProvider || !imageProvider || !backgroundProvider)
+        || !rectProvider || !imageProvider || !orientationProvider || !backgroundProvider)
         return nil;
 
     const QRect imageRect = rectProvider();
@@ -845,7 +866,7 @@ static NSArray<NSWindow *> *fovelleCustomWindowsToExitFullScreen(
                           << "window=" << QString::fromNSString(NSStringFromRect(window.frame))
                           << "image=" << imageRect;
     NSWindow *proxy = createFovelleFullScreenProxy(
-        window, window.screen, imageRect, snapshot, backgroundProvider(),
+        window, window.screen, imageRect, snapshot, orientationProvider(), backgroundProvider(),
         titlebarSnapshot, normalTitlebarOverlap.intValue, false);
     return proxy ? @[window, proxy] : nil;
 }
@@ -5736,9 +5757,18 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
             QImage result;
             QMetaObject::invokeMethod(
                 guardedWindow.data(),
-                "fullScreenTransitionImage",
+                "fullScreenTransitionSourceImage",
                 Qt::DirectConnection,
                 Q_RETURN_ARG(QImage, result));
+            return result;
+        };
+        FovelleFullScreenOrientationProvider orientationProvider = ^QTransform {
+            if (!guardedWindow)
+                return {};
+            QTransform result;
+            QMetaObject::invokeMethod(guardedWindow.data(),
+                "fullScreenTransitionOrientation", Qt::DirectConnection,
+                Q_RETURN_ARG(QTransform, result));
             return result;
         };
         FovelleFullScreenBackgroundProvider backgroundProvider = ^QColor {
@@ -5770,6 +5800,9 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
             nativeWindow, &FullScreenImageProviderAssociationKey,
             imageProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
         objc_setAssociatedObject(
+            nativeWindow, &FullScreenOrientationProviderAssociationKey,
+            orientationProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
             nativeWindow, &FullScreenBackgroundProviderAssociationKey,
             backgroundProvider, OBJC_ASSOCIATION_COPY_NONATOMIC);
         objc_setAssociatedObject(
@@ -5795,6 +5828,9 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
             nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
         objc_setAssociatedObject(
             nativeWindow, &FullScreenImageProviderAssociationKey,
+            nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        objc_setAssociatedObject(
+            nativeWindow, &FullScreenOrientationProviderAssociationKey,
             nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
         objc_setAssociatedObject(
             nativeWindow, &FullScreenBackgroundProviderAssociationKey,

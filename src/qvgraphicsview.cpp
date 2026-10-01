@@ -1424,6 +1424,8 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
+    fullScreenSourceSnapshot = {};
+    fullScreenSourceSnapshotKey = 0;
     fullScreenSnapshot = {};
     fullScreenSnapshotSourceKey = 0;
     lastMouseViewportPosition.reset();
@@ -2208,6 +2210,8 @@ void QVGraphicsView::removeExpensiveScaling()
 
 void QVGraphicsView::animatedFrameChanged(QRect rect)
 {
+    fullScreenSourceSnapshot = {};
+    fullScreenSourceSnapshotKey = 0;
     fullScreenSnapshot = {};
     fullScreenSnapshotSourceKey = 0;
     Q_UNUSED(rect)
@@ -2767,6 +2771,32 @@ QImage QVGraphicsView::fullScreenTransitionImage() const
     fullScreenSnapshotSourceKey = sourceKey;
     fullScreenSnapshotOrientation = orientation;
     return fullScreenSnapshot;
+}
+
+QImage QVGraphicsView::fullScreenTransitionSourceImage() const
+{
+    const QPixmap &pixmap = imageCore.getLoadedPixmap();
+    if (pixmap.isNull()) {
+        fullScreenSourceSnapshot = {};
+        fullScreenSourceSnapshotKey = 0;
+        return {};
+    }
+    const qint64 key = pixmap.cacheKey();
+    if (fullScreenSourceSnapshot.isNull() || key != fullScreenSourceSnapshotKey) {
+        // Orientation is applied by the native image layer. Preserve one
+        // source conversion across rotations instead of doing an O(pixels)
+        // transformation on the GUI thread before submitting the trajectory.
+        fullScreenSourceSnapshot = {};
+        fullScreenSourceSnapshot = pixmap.toImage().convertToFormat(
+            QImage::Format_RGBA8888_Premultiplied);
+        fullScreenSourceSnapshotKey = key;
+    }
+    return fullScreenSourceSnapshot;
+}
+
+QTransform QVGraphicsView::fullScreenTransitionOrientation() const
+{
+    return getUnspecializedTransform();
 }
 
 LogicalPixelFitter QVGraphicsView::getPixelFitter() const
