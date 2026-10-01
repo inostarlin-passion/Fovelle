@@ -13,12 +13,12 @@ macOS 15.0 or later.
 ## Key Features
 
 - Supports most common RAW image formats.
-- Supports HDR rendering and display for both RAW and non-RAW images, with smooth brightness adjustment.
+- upports HDR rendering and display for both RAW and non-RAW images, with smooth brightness transitions.
 - Supports vector rendering for EPS and SVG images, with zoom levels up to 6400%.
 - Provides smooth zooming and panning for all images.
 - Provides fast cold-start image loading.
 - Preloads images for faster navigation.
-- Supports both light and dark appearances, automatically following the system appearance.
+- Supports light, dark, and system appearance modes.
 - Provides rich, customizable keyboard and mouse shortcuts.
 - Reduced app startup and exit times. Compared with qView, startup time is 24.45% lower and exit time is 51.53% lower.
 
