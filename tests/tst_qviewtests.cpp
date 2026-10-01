@@ -386,6 +386,8 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
+    void testFullScreenSnapshotReuse_data();
+    void testFullScreenSnapshotReuse();
     void testFullScreenPreparationPaintBudget_data();
     void testFullScreenPreparationPaintBudget();
     void testFullScreenLayoutPaintBudget_data();
@@ -14382,11 +14384,170 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving_data()
             }
 }
 
+// TC-FS-SNAPSHOT: exercise the synchronous image-provider + RGBA conversion
+// before native animation submission. Unchanged pixels/orientation must share
+// an immutable buffer; geometry changes must not force another pixel rebuild.
+void WindowBehaviorTests::testFullScreenSnapshotReuse_data()
+{
+    QTest::addColumn<int>("orientation");
+    QTest::addColumn<QColor>("topLeft");
+    QTest::addColumn<QColor>("topRight");
+    QTest::addColumn<QColor>("bottomLeft");
+    QTest::addColumn<QColor>("bottomRight");
+    QTest::newRow("rotate90") << 90 << QColor(Qt::blue) << QColor(Qt::red)
+        << QColor(Qt::yellow) << QColor(Qt::green);
+    QTest::newRow("mirror") << 1 << QColor(Qt::green) << QColor(Qt::red)
+        << QColor(Qt::yellow) << QColor(Qt::blue);
+    QTest::newRow("flip") << 2 << QColor(Qt::blue) << QColor(Qt::yellow)
+        << QColor(Qt::red) << QColor(Qt::green);
+    QTest::newRow("identity") << 0 << QColor(Qt::red) << QColor(Qt::green)
+        << QColor(Qt::blue) << QColor(Qt::yellow);
+}
+
+void WindowBehaviorTests::testFullScreenSnapshotReuse()
+{
+    QFETCH(int, orientation);
+    QFETCH(QColor, topLeft);
+    QFETCH(QColor, topRight);
+    QFETCH(QColor, bottomLeft);
+    QFETCH(QColor, bottomRight);
+    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            const auto before = nativeTitlebarSnapshot(window.windowHandle());
+            window.toggleFullScreen();
+            waitForTestCondition([&] {
+                return nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits;
+            }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("quadrants.xpm");
+    // XPM bypasses Image I/O's bounded native-SDR decode proxy. Measure the
+    // actual full-sized loaded bitmap rather than assuming original dimensions.
+    QImage source(4096, 3072, QImage::Format_RGB32);
+    source.fill(Qt::red);
+    {
+        QPainter painter(&source);
+        painter.fillRect(2048, 0, 2048, 1536, Qt::green);
+        painter.fillRect(0, 1536, 2048, 1536, Qt::blue);
+        painter.fillRect(2048, 1536, 2048, 1536, Qt::yellow);
+    }
+    QVERIFY(source.save(path, "XPM"));
+    window.resize(640, 480);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    // Use the loaded, color-managed pixels as the color reference. The
+    // image loader may have converted XPM's sRGB primaries to Display P3.
+    const QImage unrotated = window.fullScreenTransitionImage().convertToFormat(
+        QImage::Format_RGBA8888_Premultiplied);
+    const auto managedColor = [&](QColor color) {
+        if (color == QColor(Qt::red)) return unrotated.pixelColor(0, 0);
+        if (color == QColor(Qt::green)) return unrotated.pixelColor(unrotated.width()-1, 0);
+        if (color == QColor(Qt::blue)) return unrotated.pixelColor(0, unrotated.height()-1);
+        return unrotated.pixelColor(unrotated.width()-1, unrotated.height()-1);
+    };
+    topLeft = managedColor(topLeft);
+    topRight = managedColor(topRight);
+    bottomLeft = managedColor(bottomLeft);
+    bottomRight = managedColor(bottomRight);
+    if (orientation == 90) view->rotateImage(90);
+    if (orientation == 1) view->mirrorImage();
+    if (orientation == 2) view->flipImage();
+    const auto capture = [&] {
+        return window.fullScreenTransitionImage().convertToFormat(
+            QImage::Format_RGBA8888_Premultiplied);
+    };
+    QElapsedTimer clock;
+    clock.start();
+    const QImage first = capture();
+    const double coldMs = clock.nsecsElapsed() / 1000000.0;
+    QCOMPARE(first.size(), orientation == 90 ? QSize(3072, 4096) : source.size());
+    QCOMPARE(first.pixelColor(0, 0), topLeft);
+    QCOMPARE(first.pixelColor(first.width()-1, 0), topRight);
+    QCOMPARE(first.pixelColor(0, first.height()-1), bottomLeft);
+    QCOMPARE(first.pixelColor(first.width()-1, first.height()-1), bottomRight);
+    QCOMPARE(first.colorSpace(), unrotated.colorSpace());
+    int rebuilt = 0;
+    clock.restart();
+    for (int i = 0; i < 8; ++i) {
+        const QImage next = capture();
+        if (next.constBits() != first.constBits()) ++rebuilt;
+    }
+    const double warmMs = clock.nsecsElapsed() / 1000000.0;
+    QStringList failures;
+    if (rebuilt != 0) failures << QStringLiteral("Unchanged snapshot rebuilt %1/8 full pixel buffers").arg(rebuilt);
+    // Native entry/exit changes layout and zoom but not source/orientation.
+    for (const bool entering : {true, false}) {
+        const auto before = nativeTitlebarSnapshot(window.windowHandle());
+        window.toggleFullScreen();
+        QVERIFY2(waitForTestCondition([&] {
+            const auto now = nativeTitlebarSnapshot(window.windowHandle());
+            return entering ? now.entries > before.entries : now.exits > before.exits;
+        }, 5000), "Native full-screen completion missing");
+        QCOMPARE(window.isFullScreen(), entering);
+        if (capture().constBits() != first.constBits())
+            failures << QStringLiteral("Layout-only native %1 rebuilt snapshot").arg(entering ? "entry" : "exit");
+    }
+    // QImage sharing must remain immutable to callers that detach for writes.
+    QImage modified = first;
+    modified.fill(Qt::magenta);
+    QCOMPARE(capture().pixelColor(0, 0), topLeft);
+    // Orientation invalidation must not reuse old pixels, even with same source.
+    view->rotateImage(90);
+    const QImage rotated = capture();
+    QVERIFY(rotated.size() != first.size());
+    QVERIFY(rotated.constBits() != first.constBits());
+    if (capture().constBits() != rotated.constBits())
+        failures << QStringLiteral("Changed orientation never becomes reusable");
+    // Reload the SAME filename with different pixels; a path-only key is wrong.
+    source.fill(Qt::cyan);
+    QVERIFY(source.save(path, "XPM"));
+    QSignalSpy loaded(view, &QVGraphicsView::fileChanged);
+    view->reloadFile();
+    QTRY_VERIFY_WITH_TIMEOUT(loaded.count() > 0 && window.getIsPixmapLoaded(), 10000);
+    const QImage reloaded = capture();
+    const QColor cyan = reloaded.pixelColor(reloaded.rect().center());
+    QVERIFY2(cyan.green()-cyan.red() > 80 && cyan.blue()-cyan.red() > 80,
+        qPrintable(cyan.name()));
+    QCOMPARE(cyan.alpha(), 255);
+    QVERIFY(reloaded.constBits() != rotated.constBits());
+    if (capture().constBits() != reloaded.constBits())
+        failures << QStringLiteral("Reloaded source never becomes reusable");
+    qInfo().noquote() << "FULLSCREEN_SNAPSHOT" << QJsonDocument(QJsonObject {
+        {"row", QString::fromLatin1(QTest::currentDataTag())},
+        {"pixels", first.width() * first.height()}, {"bytes", double(first.sizeInBytes())},
+        {"first_oriented_ms", coldMs}, {"warm_8_ms", warmMs}, {"rebuilds", rebuilt},
+        {"native_directions", 2}, {"failures", QJsonArray::fromStringList(failures)}
+    }).toJson(QJsonDocument::Compact);
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join("; ")));
+}
+
 void WindowBehaviorTests::testFullScreenPreparationPaintBudget_data()
 {
     testFullScreenLayoutPaintBudget_data();
 }
 
+// TC-FS-HANDOFF: sample the proxy through its committed endpoint, require
+// one necessary terminal Paint, and reject duplicate 40ms costs before reveal.
+// Paint observation is read-only: unanimated layers identify source/endpoint;
+// cached intermediate presentation values do not classify startup costs.
+// The existing source budget alone misses this native resize -> Update chain.
 void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
 {
     QFETCH(bool, hidden);
@@ -14446,15 +14607,21 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         MainWindow *window = nullptr;
         double sourceWidth = 0;
         int sourcePaints = 0;
+        int endpointPaints = 0;
+        double endpointCostMs = 0;
+        double endpointWidth = 0;
         double sourceCostMs = 0;
         QJsonArray samples;
-        bool eventFilter(QObject *, QEvent *event) override {
+        bool eventFilter(QObject *object, QEvent *event) override {
             if (event->type() != QEvent::Paint)
                 return false;
-            const auto p = nativeFullScreenPresentation(window->windowHandle());
+            const auto p = nativeFullScreenPresentation(window->windowHandle(), false);
             if (!p.active)
                 return false;
-            const bool stationarySource = qAbs(p.windowRect.width() - sourceWidth) < 0.1;
+            const bool stationarySource = !p.running
+                && qAbs(p.windowRect.width() - sourceWidth) < 0.1;
+            const bool endpoint = !p.running
+                && qAbs(p.windowRect.width() - endpointWidth) < 0.1;
             QElapsedTimer timer;
             timer.start();
             QThread::msleep(40);
@@ -14463,7 +14630,18 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
                 ++sourcePaints;
                 sourceCostMs += ms;
             }
-            samples.append(QJsonObject {{"proxy_width", p.windowRect.width()},
+            if (endpoint) {
+                ++endpointPaints;
+                endpointCostMs += ms;
+
+
+            }
+            samples.append(QJsonObject {{"paint_width", static_cast<QPaintEvent *>(event)->rect().width()},
+                {"paint_height", static_cast<QPaintEvent *>(event)->rect().height()},
+                {"viewport_width", static_cast<QWidget *>(object)->width()},
+                {"viewport_height", static_cast<QWidget *>(object)->height()},
+                {"endpoint", endpoint}, {"running", p.running},
+                {"proxy_width", p.windowRect.width()},
                 {"source", stationarySource}, {"cost_ms", ms}});
             return false;
         }
@@ -14474,6 +14652,9 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
     QStringList failures;
     for (bool entering : {true, false}) {
         cost.sourceWidth = window.width();
+        cost.endpointWidth = entering ? window.screen()->geometry().width() : initialGeometry.width();
+        cost.endpointPaints = 0;
+        cost.endpointCostMs = 0;
         cost.sourcePaints = 0;
         cost.sourceCostMs = 0;
         cost.samples = {};
@@ -14486,14 +14667,20 @@ void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
         qInfo().noquote() << "FULLSCREEN_PREPARATION"
             << QJsonDocument(QJsonObject {{"row", QString::fromLatin1(QTest::currentDataTag())},
                 {"entering", entering}, {"completed", complete},
+                {"endpoint_paints", cost.endpointPaints}, {"endpoint_cost_ms", cost.endpointCostMs},
                 {"source_paints", cost.sourcePaints}, {"source_cost_ms", cost.sourceCostMs},
                 {"samples", cost.samples}}).toJson(QJsonDocument::Compact);
         QVERIFY(complete);
         QVERIFY2(!cost.samples.isEmpty(), "Custom proxy paint observation missing");
         QCOMPARE(window.isFullScreen(), entering);
+        QVERIFY(window.updatesEnabled());
+        QVERIFY(view->viewport()->updatesEnabled());
         if (cost.sourcePaints > 1 || cost.sourceCostMs > 75)
             failures << QString("%1: stationary proxy paid %2 paints / %3ms")
                 .arg(entering ? "enter" : "exit").arg(cost.sourcePaints).arg(cost.sourceCostMs);
+        if (cost.endpointPaints != 1 || cost.endpointCostMs < 40 || cost.endpointCostMs > 75)
+            failures << QString("%1: endpoint proxy paid %2 paints / %3ms")
+                .arg(entering ? "enter" : "exit").arg(cost.endpointPaints).arg(cost.endpointCostMs);
         QTest::qWait(150);
     }
     QCOMPARE(window.geometry(), initialGeometry);

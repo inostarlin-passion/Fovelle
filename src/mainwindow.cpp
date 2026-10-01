@@ -1454,18 +1454,31 @@ void MainWindow::measureFullScreenLayoutTransition(const int titlebarOverlap)
 
 void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
 {
-    if (isClosing || activeFullScreenTitlebarOverlap < 0)
+    if (isClosing)
         return;
 
+    // Completion can clear the temporary inset before this final paint.
+    // measure() then does nothing; geometry synchronization and repaint still
+    // consume the dirtiness accumulated while endpoint drawing was suspended.
     measureFullScreenLayoutTransition(titlebarOverlap);
     graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
 
-    // Merge viewport dirtiness into one synchronous whole-window paint. A
-    // separate viewport repaint followed by the parent repaint draws a
-    // non-opaque raster viewport twice. Marking it dirty also includes opaque
-    // vector viewports in the parent paint before AppKit reveals the endpoint.
-    graphicsView->viewport()->update();
+    // Consume pending window/ancestor dirtiness with the viewport parked.
+    // Restoring updates after a native resize can leave multiple dirty
+    // ancestors, each of which would otherwise paint a non-opaque viewport.
+    // Paint the expensive viewport once after the backing background is ready.
+    QWidget *viewport = graphicsView->viewport();
+    if (viewport->testAttribute(Qt::WA_OpaquePaintEvent)) {
+        viewport->update();
+        repaint();
+        return;
+    }
+    const bool explicitlyDisabled =
+        viewport->testAttribute(Qt::WA_ForceUpdatesDisabled);
+    viewport->setUpdatesEnabled(false);
     repaint();
+    viewport->setUpdatesEnabled(!explicitlyDisabled);
+    viewport->repaint();
 }
 
 void MainWindow::cancelFullScreenLayoutTransition()

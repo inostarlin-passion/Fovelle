@@ -366,4 +366,12 @@ set_tests_properties(FovelleFullScreenPreparationBudget PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
     TIMEOUT 60
     RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;preparation;dynamic;acceptance")
+    LABELS "macos;fullscreen;preparation;handoff;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenSnapshotReuse COMMAND fovelle_tests
+    testFullScreenSnapshotReuse -v1)
+set_tests_properties(FovelleFullScreenSnapshotReuse PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 120
+    RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;snapshot;dynamic;acceptance")

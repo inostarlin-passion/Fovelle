@@ -49,11 +49,11 @@ NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window)
     return {hidden, observer->entries, observer->exits};
 }
 
-NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window)
+NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction)
 {
     NSView *view = reinterpret_cast<NSView *>(window->winId());
     NSWindow *real = view.window;
-    if (!real || real.alphaValue != 0.0)
+    if (!real)
         return {};
     // Discover the visible auxiliary proxy by public AppKit properties. Do
     // not consult production association keys or its NSAnimation progress.
@@ -66,15 +66,26 @@ NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window)
         // Presentation values are cached for the current CA transaction.
         // End the sampling transaction so reads during a deliberately paused
         // AppKit run loop use a fresh media time; this dispatches no UI events.
-        [CATransaction flush];
+        // Paint-budget observers must not commit transactions from inside
+        // paint delivery. Motion sampling explicitly requests a fresh clock.
+        if (refreshTransaction)
+            [CATransaction flush];
         CALayer *presentation = layer.presentationLayer;
+        // Once the explicit trajectory is removed, a presentation tree may
+        // disappear even though the proxy still covers the real window.
+        // Sample its committed endpoint then; never use the model tree as
+        // a substitute while animations are running.
+        if (layer.animationKeys.count == 0)
+            presentation = layer;
         CALayer *image = presentation.sublayers.firstObject;
-        if (!presentation || !image || !image.contents)
+        CALayer *modelImage = layer.sublayers.firstObject;
+        if (!presentation || !image || !modelImage.contents)
             continue;
         const auto rect = [](CGRect r) {
             return QRectF(r.origin.x, r.origin.y, r.size.width, r.size.height);
         };
-        return {true, rect(presentation.frame), rect(image.frame)};
+        return {true, rect(presentation.frame), rect(image.frame),
+            layer.animationKeys.count != 0};
     }
     return {};
 }

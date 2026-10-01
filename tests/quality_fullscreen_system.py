@@ -23,6 +23,7 @@ FUNCTIONAL_CASES = (
     "testFullScreenPresentationKeepsMoving",
     "testFullScreenLayoutPaintBudget",
     "testFullScreenPreparationPaintBudget",
+    "testFullScreenSnapshotReuse",
 )
 
 THRESHOLDS = {
@@ -82,9 +83,29 @@ def preparation_summary(output: str) -> dict:
     observed = [(m["row"], m["entering"]) for m in metrics]
     passed = (len(observed) == len(expected) and set(observed) == expected
               and all(m["completed"] and m["samples"] and 0 <= m["source_paints"] <= 1
-                      and 0 <= m["source_cost_ms"] <= 75 for m in metrics))
+                      and 0 <= m["source_cost_ms"] <= 75
+                      and m["endpoint_paints"] == 1 and 40 <= m["endpoint_cost_ms"] <= 75
+                      and sum(bool(s.get("endpoint")) for s in m["samples"]) == 1
+                      for m in metrics))
     return {"passed": bool(passed), "sample_count": len(metrics), "metrics": metrics,
-            "metric_definition": "40ms cost per proxy-visible viewport Paint; source width within 0.1pt"}
+            "metric_definition": "40ms cost per proxy-covered viewport Paint; unanimated source and committed endpoint widths within 0.1pt"}
+
+
+def snapshot_summary(output: str) -> dict:
+    metrics = [json.loads(line.split("FULLSCREEN_SNAPSHOT ", 1)[1])
+               for line in output.splitlines() if "FULLSCREEN_SNAPSHOT {" in line]
+    expected = {"rotate90", "mirror", "flip", "identity"}
+    observed = [m.get("row") for m in metrics]
+    passed = (len(observed) == len(expected) and set(observed) == expected
+              and all(m.get("rebuilds") == 0 and m.get("native_directions") == 2
+                      and m.get("failures") == [] and m.get("pixels") == 4096 * 3072
+                      and m.get("bytes") == 4096 * 3072 * 4
+                      and all(isinstance(m.get(k), (int, float))
+                              and math.isfinite(m[k]) and m[k] >= 0
+                              for k in ("first_oriented_ms", "warm_8_ms"))
+                      for m in metrics))
+    return {"passed": bool(passed), "sample_count": len(metrics), "metrics": metrics,
+            "metric_definition": "immutable RGBA snapshot buffers for 8 unchanged requests and native entry/exit; timings are diagnostics, not display FPS"}
 
 
 def main() -> int:
@@ -109,6 +130,7 @@ def main() -> int:
     motion = motion_summary(output)
     paint = paint_summary(output)
     preparation = preparation_summary(output)
+    snapshot = snapshot_summary(output)
     cases = []
     for index, name in enumerate(FUNCTIONAL_CASES, start=1):
         suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
@@ -119,6 +141,7 @@ def main() -> int:
                 "test": qualified_name,
                 "status": "passed" if (motion["passed"] if name == "testFullScreenPresentationKeepsMoving"
                     else paint["passed"] if name == "testFullScreenLayoutPaintBudget"
+                    else snapshot["passed"] if name == "testFullScreenSnapshotReuse"
                     else preparation["passed"] if name == "testFullScreenPreparationPaintBudget"
                     else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
             }
@@ -157,7 +180,8 @@ def main() -> int:
         "motion": motion,
         "paint": paint,
         "preparation": preparation,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"] and preparation["passed"],
+        "snapshot": snapshot,
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"] and preparation["passed"] and snapshot["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",

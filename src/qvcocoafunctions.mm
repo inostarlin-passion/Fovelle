@@ -402,17 +402,20 @@ static void animateFullScreenLayer(
             _endWindowFrame,
             NSMinX(_proxyWindow.frame),
             NSMinY(_proxyWindow.frame));
+        // Native geometry delivery can synchronously paint Qt despite
+        // display:NO. Defer all endpoint drawing until AppKit's completion
+        // notification has also reconciled the final titlebar and pan layout.
+        _handler(FovelleFullScreenAnimationPhase::SuspendDrawing, 0, 0);
         [_realWindow setFrame:nativeEndFrame display:NO];
         _handler(
-            FovelleFullScreenAnimationPhase::Update,
+            FovelleFullScreenAnimationPhase::Measure,
             _endTitlebarOverlap, _endTitlebarOverlap);
-        [_realWindow displayIfNeeded];
         if (qEnvironmentVariableIsSet("FOVELLE_FULLSCREEN_TRANSITION_LOG"))
         {
             qInfo().noquote()
                 << "FOVELLE_FULLSCREEN_TRANSITION"
                 << (_enteringFullScreen ? "direction=enter" : "direction=exit")
-                << "phase=handoff"
+                << "phase=endpoint-layout"
                 << "motion_driver=core-animation"
                 << "clock_callbacks=" << _intermediateFrameCount
                 << "duration_ms=" << self.duration * 1000.0
@@ -500,8 +503,10 @@ static void restoreFovelleFullScreenAnimationStartFrame(NSWindow *window)
 
     FovelleFullScreenAnimationHandler handler = objc_getAssociatedObject(
         window, &FullScreenAnimationHandlerAssociationKey);
-    if (handler)
+    if (handler) {
         handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
+        handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+    }
     [window displayIfNeeded];
 }
 
@@ -5490,14 +5495,22 @@ void QVCocoaFunctions::setUserDefaults()
             auto *animation = static_cast<FovelleFullScreenAnimation *>(
                 objc_getAssociatedObject(
                     window, &FullScreenAnimationAssociationKey));
-            if (animation.animating)
+            const bool customHandoff = animation != nil;
+            // Completion must prepare the endpoint even if AppKit has
+            // already stopped the NSAnimation clock before this observer.
+            if (animation)
                 animation.currentProgress = 1.0f;
             [animation stopAnimation];
             FovelleFullScreenAnimationHandler handler =
                 objc_getAssociatedObject(
                     window, &FullScreenAnimationHandlerAssociationKey);
-            if (handler)
+            if (handler) {
                 handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
+                if (customHandoff) {
+                    handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+                    handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
+                }
+            }
             objc_setAssociatedObject(
                 window, &FullScreenAnimationAssociationKey,
                 nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -5546,7 +5559,10 @@ void QVCocoaFunctions::setUserDefaults()
             auto *animation = static_cast<FovelleFullScreenAnimation *>(
                 objc_getAssociatedObject(
                     window, &FullScreenAnimationAssociationKey));
-            if (animation.animating)
+            const bool customHandoff = animation != nil;
+            // Completion must prepare the endpoint even if AppKit has
+            // already stopped the NSAnimation clock before this observer.
+            if (animation)
                 animation.currentProgress = 1.0f;
             [animation stopAnimation];
             objc_setAssociatedObject(
@@ -5555,8 +5571,13 @@ void QVCocoaFunctions::setUserDefaults()
             FovelleFullScreenAnimationHandler handler =
                 objc_getAssociatedObject(
                     window, &FullScreenAnimationHandlerAssociationKey);
-            if (handler)
+            if (handler) {
                 handler(FovelleFullScreenAnimationPhase::Cancel, 0, 0);
+                if (customHandoff) {
+                    handler(FovelleFullScreenAnimationPhase::ResumeDrawing, 0, 0);
+                    handler(FovelleFullScreenAnimationPhase::Update, 0, 0);
+                }
+            }
             revealFovelleFullScreenRealWindow(window);
             dispatch_async(dispatch_get_main_queue(), ^{
                 cleanupFovelleFullScreenProxy(window);

@@ -1424,6 +1424,8 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
+    fullScreenSnapshot = {};
+    fullScreenSnapshotSourceKey = 0;
     lastMouseViewportPosition.reset();
 
     // A native HDR presentation may have parked Qt viewport painting.  The
@@ -2206,6 +2208,8 @@ void QVGraphicsView::removeExpensiveScaling()
 
 void QVGraphicsView::animatedFrameChanged(QRect rect)
 {
+    fullScreenSnapshot = {};
+    fullScreenSnapshotSourceKey = 0;
     Q_UNUSED(rect)
 
     if (isExpensiveScalingRequested())
@@ -2740,9 +2744,29 @@ QRect QVGraphicsView::fullScreenTransitionImageRect() const
 
 QImage QVGraphicsView::fullScreenTransitionImage() const
 {
-    const QImage image = imageCore.getLoadedPixmap().toImage();
-    return image.isNull()
-        ? QImage() : image.transformed(getUnspecializedTransform());
+    const QPixmap &pixmap = imageCore.getLoadedPixmap();
+    if (pixmap.isNull()) {
+        fullScreenSnapshot = {};
+        fullScreenSnapshotSourceKey = 0;
+        return {};
+    }
+    const qint64 sourceKey = pixmap.cacheKey();
+    const QTransform orientation = getUnspecializedTransform();
+    if (!fullScreenSnapshot.isNull()
+        && sourceKey == fullScreenSnapshotSourceKey
+        && orientation == fullScreenSnapshotOrientation)
+        return fullScreenSnapshot;
+
+    // The native CGImage provider needs this format. Cache the completed
+    // conversion as well as rotation/flip so its next convertToFormat() shares
+    // these pixels instead of allocating another full-image buffer.
+    // Drop the previous entry before allocating its replacement.
+    fullScreenSnapshot = {};
+    fullScreenSnapshot = pixmap.toImage().transformed(orientation)
+        .convertToFormat(QImage::Format_RGBA8888_Premultiplied);
+    fullScreenSnapshotSourceKey = sourceKey;
+    fullScreenSnapshotOrientation = orientation;
+    return fullScreenSnapshot;
 }
 
 LogicalPixelFitter QVGraphicsView::getPixelFitter() const

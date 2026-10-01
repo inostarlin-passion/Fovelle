@@ -459,6 +459,12 @@ private:
     bool isCursorVisible {true};
     QRect lastImageContentRect;
 
+    // One immutable, oriented RGBA snapshot shared with native transition
+    // providers. Source content and orientation, not viewport geometry, key it.
+    mutable QImage fullScreenSnapshot;
+    mutable qint64 fullScreenSnapshotSourceKey {0};
+    mutable QTransform fullScreenSnapshotOrientation;
+
     QVImageCore imageCore {this};
 
     QTimer *expensiveScaleTimer;

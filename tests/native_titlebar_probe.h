@@ -9,11 +9,13 @@ struct NativeTitlebarSnapshot
 };
 NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window);
 
-// Read the presentation tree, not Qt state or the production animation clock.
+// Observe the public proxy lifecycle: presentation geometry while running,
+// committed geometry after removal. Neither Qt state nor a production clock.
 struct NativeFullScreenPresentation
 {
     bool active {false};
     QRectF windowRect;
     QRectF imageRect;
+    bool running {false};
 };
-NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window);
+NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction = true);

@@ -1,43 +1,49 @@
-# 全屏启动绘制预算：测试用例说明
+# 全屏同步快照与既有交接回归：测试用例说明
 
-日期：2026-10-01。依据：[根因报告](root_cause.md) R1与 [技术设计](technical_design_document.md) 的平台规范、当前源码和受控实验。
+日期：2026-10-01。目的：修正此前没有观察到提交前像素工作的覆盖缺口，同时保持既有全屏回归。设计依据见 [技术设计](technical_design_document.md)，版本／记录见 [summary](evidence/fullscreen_snapshot/summary.json)。
 
-## 覆盖目标与原子断言
+## TC-FS-SNAPSHOT：不可变快照复用、失效及原生布局隔离
 
-| 用例 | 阶段／负载 | 判定 |
-| --- | --- | --- |
-| 新增 `testFullScreenPreparationPaintBudget` | 真正原生进入／退出；四行；真实PNG／SVG；proxy active时每Paint附加40ms | 每方向原生通知完成；Paint观测非空；源宽度±0.1pt期间≤1次Paint且累计≤75ms；往返几何／fit zoom／标题栏一致 |
-| `testFullScreenLayoutPaintBudget` | 单次同步端点Update；四行×三次 | 返回前恰好1次Paint，≤75ms，几何和zoom不变 |
-| `testFullScreenPresentationKeepsMoving` | 四种展示／图片×idle／busy，两次原生往返 | 130ms GUI暂停中代理轨迹及图像仍推进，原生完成与终点正确 |
-| 标题栏和实际SDR AVIF截图 | 原生全屏及交接 | 标题栏正确，图像持续可见及几何正确 |
-| GraphicsView／退出菜单 | fit、垂直pan、overflow inset、Escape退出 | 已有邻接行为断言通过 |
+入口：`WindowBehaviorTests::testFullScreenSnapshotReuse`，四行数据为 rotate90、mirror、flip、identity。每行自动生成4096×3072四象限 XPM，通过现有异步加载器真实加载至 MainWindow；XPM 绕过 native SDR 的限尺寸代理，断言实际像素量，窗口640×480、fit、关闭自动改窗口尺寸。
 
-## 新用例步骤
+1. 取加载后未旋转的已管理颜色作参照，应用相应方向，调用公开 `MainWindow::fullScreenTransitionImage()` 并执行原生 provider 使用的预乘 RGBA8 转换。
+2. 检查完整图片尺寸、四角颜色和色彩空间。90° 输出3072×4096，其余4096×3072；每张 RGBA 输出50,331,648字节，约48MiB。
+3. 保持 first QImage 存活，连续8次相同请求；要求所有 constBits 与 first 相同。指针读取只读，不触发复制；first 存活排除分配器复用旧地址的假阳性。计时只作诊断，不使用随机器速度变化的阈值替代资源断言。
+4. 真正进入并退出 macOS 原生全屏，分别等公开原生 entries／exits 计数增加；Qt 请求状态不足以结束等待。完成后相同源／方向输出仍须复用，确认布局和 zoom 不使缓存失效。
+5. 调用方复制 first 后 fill 紫色，原输出颜色须保持不变；证明共享写入 detach 不污染生产缓存。
+6. 再旋转90°，输出尺寸改变、缓冲不同于 first，后续请求复用新输出。
+7. 在同一路径重写为青色并 reload，等新的 fileChanged 和加载完成；要求画面变更、alpha为255、缓冲不同于旧方向，再次请求复用新源。青色按色彩管理后的通道关系检查，方向四角仍按已加载像素严格比较。
+8. 汇总所有复用失败，输出一条 `FULLSCREEN_SNAPSHOT` JSON，再断言无失败。每行必须完成两个原生方向；清理窗口、退出残留全屏并恢复 quit 策略。
 
-1. 使用scoped选项固定ZoomToFit、禁止自动窗口resize、1:1关闭；创建800×1600临时红蓝PNG或SVG，真实加载到640×480窗口。标题栏分显示／隐藏两种。
-2. 记录正常geometry和zoom，安装视口Paint过滤器；事件放行，不替代生产绘制。
-3. 每方向开始前记录窗口源宽度和原生entries／exits。过滤器读取独立native探针；只有alpha隐藏真实窗口且可见代理匹配时，才计入本次观测并附加40ms sleep。
-4. 宽度与源宽度相差<0.1pt的Paint，计入source_paints及source_cost_ms；其余Paint仍记录完整样本，不被删去。
-5. 真正toggleFullScreen，等待相应did-enter／did-exit计数增长，最多5s。输出 `FULLSCREEN_PREPARATION` JSON，然后检查完整性及预算。四行×进入／退出共8个方向过程／轮。
-6. 完整往返后断言normal geometry、等价fit zoom和原生标题栏状态。scope guard移除过滤器、必要时等退出完成、关闭窗口并恢复设置。
+`first_oriented_ms` 是方向设置后第一次测量；此前已取未旋转颜色参照，identity 行不能称为冷启动。`warm_8_ms` 是8次公开 provider＋格式转换的累计 CPU 墙钟时间；不是一次切换时间、真实屏幕帧率或首次可见响应。`rebuilds` 统计不同完整 RGBA 输出缓冲的请求数，不统计变换内所有临时分配。
 
-预算允许正常轨迹启动边界一次Paint，75ms可区别一次40ms成本与两次至少80ms。0.1pt是源几何分类容差。计时只累计受控Paint附加成本，不是完整启动延迟，也不是屏幕帧间隔。探针按Apple presentation近似语义使用。
+稳定检出要求：冻结最终测试，在本轮生产起点上跑三轮；每轮四行都应因为重复输出而失败，不能把颜色期望错误或缺失原生完成当作有效红证据。只改生产快照逻辑，保持相同最终用例再跑三轮，应四行全过且无跳过。
 
-## 稳定检出与防误通过
+## 系统门禁负向验证
 
-最终测试固定后在基线生产代码三轮红、修复代码三轮绿。必须保留源阶段成本样本、退出码及失败信息；探索性失败不计入正式红绿次数。
+新增 `snapshot_summary()` 要求 rotate90／mirror／flip／identity 恰好各一条，rebuilds=0、native_directions=2、failures为空、完整实际像素量／字节量，以及非负有限时间。空输出、缺行、重复行、一次重建、原生方向未齐、失败列表非空、NaN时间、零像素、错误字节及缺字段均拒绝；最终红记录拒绝、绿记录接受。记录见 [gate-validation](evidence/fullscreen_snapshot/gate-validation.json)。这是遥测变异检查，不能作为生产故障注入的替代。
 
-不能将“没有任何Paint观测”判为改善：新用例拒绝空samples；端点预算还要求同步Paint；实际AVIF截图验证画面。完整矩阵解析拒绝缺失、重复、原生未完成、空观测、超次数和超预算。低负载无自然卡顿时的最终状态正确不能代替此阶段检查。
+## 已有回归
 
-## 运行入口
+| 用例／门禁 | 继续保障的行为 |
+| --- | --- |
+| FovelleFullScreenMotion | 标题栏显示／隐藏、raster／vector、idle／busy、两循环两方向；130ms主线程受控停顿下呈现轨迹继续 |
+| FovelleFullScreenPaintBudget | 12个直接 Update 样本，40ms注入时仅一次视口 Paint |
+| FovelleFullScreenPreparationBudget | 8个原生方向过程；源0–1次、终点恰好1次 Paint，40–75ms受控终点成本 |
+| FovelleHiddenTitlebarFullScreen | 原生标题栏状态及全屏生命周期 |
+| FovelleSDRFullScreenPresentation | 实际 SDR AVIF 画面连续性与接管位置 |
+| GraphicsView fit／pan／overflow | 窗口尺寸、退出平移与标题栏 padding 业务回归 |
+
+上述运动指标来自呈现轨迹；Paint 延迟来自受控注入。两者均不是物理显示帧统计。快照用例自动生成 fixture；AVIF 回归依赖现有本机 fixture，可通过 `FOVELLE_FULLSCREEN_AVIF_IMAGE` CMake 配置异机路径。缓存动画帧清理、空源清理及超大图片内存峰值本轮仅源码审查，未增加动态故障注入。
+
+## 执行命令
 
 ```bash
-cmake --build build --target fovelle_tests Fovelle -j 4
-QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=WindowBehaviorTests \
-  build/tests/fovelle_tests testFullScreenPreparationPaintBudget -v1
-ctest --test-dir build -R 'Fovelle(FullScreenMotion|FullScreenPaintBudget|FullScreenPreparationBudget|HiddenTitlebarFullScreen|SDRFullScreenPresentation)$' --output-on-failure
-python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests \
-  --output reports/evidence/fullscreen_preparation/system.json
+cmake --build build --target fovelle_tests Fovelle -j 6
+QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 QTEST_FUNCTION_TIMEOUT=60000 FOVELLE_TEST_SUITE=WindowBehaviorTests build/tests/fovelle_tests testFullScreenSnapshotReuse -v1
+ctest --test-dir build -R 'Fovelle(SDRFullScreenPresentation|HiddenTitlebarFullScreen|FullScreen)' --output-on-failure
+python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/fullscreen_snapshot/system.json
+QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 FOVELLE_TEST_SUITE=GraphicsViewTests build/tests/fovelle_tests testFitZoomSurvivesInverseWheelStepsAndFullscreenResize testFullscreenExitPreservesVerticalPan testFullscreenAfterOverflowRemovesTitlebarScenePadding -v1
 ```
 
-必须使用Cocoa和支持原生全屏的本机环境；外部AVIF fixture条件记录在完成报告。物理显示器逐帧呈现、用户现场快照像素成本和尾部事件队列负载不属于本用例已证明的范围。
+原生测试串行执行，不能并发切换这些窗口。之前终点交接用例说明保存在 [prior_reports](evidence/fullscreen_snapshot/prior_reports/)。
