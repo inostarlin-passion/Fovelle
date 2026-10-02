@@ -388,6 +388,8 @@ private slots:
     void testTitlebarPresentationDuringFullScreen();
     void testFullScreenSnapshotReuse_data();
     void testFullScreenSnapshotReuse();
+    void testFullScreenDefersExpensiveRefinement_data();
+    void testFullScreenDefersExpensiveRefinement();
     void testFullScreenColdOrientation_data();
     void testFullScreenColdOrientation();
     void testFullScreenPreparationPaintBudget_data();
@@ -14719,6 +14721,101 @@ void WindowBehaviorTests::testFullScreenColdOrientation()
         {"source_matches", reloadMatches}
     }).toJson(QJsonDocument::Compact);
     if (!reloadMatches) failures << QStringLiteral("Same-path reload retained stale native source pixels");
+    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
+}
+
+// TC-FS-REFINEMENT: use XPM to reach the Qt raster branch excluded by PNG's
+// native SDR renderer. Observe actual pixmap replacement, not elapsed time.
+void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement_data()
+{
+    QTest::addColumn<bool>("entering");
+    QTest::newRow("enter") << true;
+    QTest::newRow("exit") << false;
+}
+
+void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
+{
+    QFETCH(bool, entering);
+    ScopedOptionValues options({
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false},
+        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
+        {"smoothscalinglimitenabled", false},
+        {"scalingtwoenabled", true}
+    });
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        window.cancelFullScreenLayoutTransition();
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    QTemporaryDir directory;
+    const QString path = createQtRasterTestImage(
+        directory, "fullscreen-refinement", Qt::darkCyan, QSize(2401, 1799));
+    QVERIFY(!path.isEmpty());
+    window.resize(640, 480);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QVERIFY(!view->getCurrentFileDetails().isNativeSDRLoaded);
+    QVERIFY(!view->getCurrentFileDetails().isNativeHDRLoaded);
+    QVERIFY(!view->getCurrentFileDetails().isVectorLoaded);
+    auto *timer = view->findChild<QTimer *>("expensiveScaleTimer");
+    QVERIFY(timer);
+    QVGraphicsImageItem *item = nullptr;
+    for (auto *candidate : view->scene()->items())
+        if (auto *image = dynamic_cast<QVGraphicsImageItem *>(candidate))
+            item = image;
+    QVERIFY(item);
+    QTest::qWait(250);
+    QStringList failures;
+    for (int cycle = 0; cycle < 3; ++cycle) {
+        view->removeExpensiveScaling();
+        timer->stop();
+        const qint64 originalKey = item->pixmap().cacheKey();
+        // Cover a timer already queued at the request boundary.
+        timer->start();
+        if (entering)
+            view->beginFullScreenPanPreservation();
+        else
+            view->refreshFullScreenPanPreservation();
+        // Exercise repeated native begin and resize-triggered timeout delivery.
+        window.beginFullScreenLayoutTransition(0, 0);
+        window.resize(entering ? QSize(900, 700) : QSize(640, 480));
+        timer->start(1);
+        QSignalSpy timeout(timer, &QTimer::timeout);
+        QVERIFY(timeout.wait(2000));
+        if (item->pixmap().cacheKey() != originalKey)
+            failures << QString("cycle %1: timeout scaled during transaction").arg(cycle);
+        // Animated-frame callbacks use the same synchronous scaling entry.
+        view->removeExpensiveScaling();
+        const qint64 directKey = item->pixmap().cacheKey();
+        view->applyExpensiveScaling();
+        if (item->pixmap().cacheKey() != directKey)
+            failures << QString("cycle %1: direct callback scaled during transaction").arg(cycle);
+        // A later layout wins: the resumed callback must use current geometry.
+        window.resize(entering ? QSize(1000, 750) : QSize(620, 460));
+        view->removeExpensiveScaling();
+        const qint64 finalKey = item->pixmap().cacheKey();
+        window.cancelFullScreenLayoutTransition();
+        window.cancelFullScreenLayoutTransition();
+        QSignalSpy resumed(timer, &QTimer::timeout);
+        QTRY_VERIFY_WITH_TIMEOUT(item->pixmap().cacheKey() != finalKey, 2000);
+        QCOMPARE(resumed.count(), 1);
+        const QSize expected = (QSizeF(view->getCurrentFileDetails().loadedPixmapSize)
+            * view->getZoomLevel() * view->devicePixelRatioF()).toSize();
+        QCOMPARE(item->pixmap().size(), expected);
+        QTest::qWait(100);
+        QCOMPARE(resumed.count(), 1);
+        qInfo() << "FULLSCREEN_REFINEMENT" << entering << cycle
+                << "final_size" << item->pixmap().size();
+    }
     QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
 

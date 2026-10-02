@@ -25,6 +25,7 @@ FUNCTIONAL_CASES = (
     "testFullScreenPreparationPaintBudget",
     "testFullScreenSnapshotReuse",
     "testFullScreenColdOrientation",
+    "testFullScreenDefersExpensiveRefinement",
 )
 
 THRESHOLDS = {
@@ -177,6 +178,8 @@ def main() -> int:
                     else paint["passed"] if name == "testFullScreenLayoutPaintBudget"
                     else snapshot["passed"] if name == "testFullScreenSnapshotReuse"
                     else orientation["passed"] if name == "testFullScreenColdOrientation"
+                    else all(re.search(rf"PASS\s+: {re.escape(qualified_name)}\({row}\)", output)
+                             for row in ("enter", "exit")) if name == "testFullScreenDefersExpensiveRefinement"
                     else preparation["passed"] if name == "testFullScreenPreparationPaintBudget"
                     else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
             }

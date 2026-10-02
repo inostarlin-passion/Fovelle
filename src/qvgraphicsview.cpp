@@ -2163,6 +2163,12 @@ void QVGraphicsView::applyExpensiveScaling()
     if (!isExpensiveScalingRequested())
         return;
 
+    // Timer and animated-frame callbacks run on the GUI thread. Keep pixel
+    // resampling out of the native full-screen request/measurement/handoff;
+    // the completion path schedules one refinement at the final geometry.
+    if (fullScreenPanPreservationActive)
+        return;
+
     // Calculate scaled resolution
     const QPoint scrollPosition(horizontalScrollBar()->value(), verticalScrollBar()->value());
     const qreal dpiAdjustment = getDpiAdjustment();
@@ -2607,6 +2613,7 @@ void QVGraphicsView::fitOrConstrainImage()
 
 void QVGraphicsView::beginFullScreenPanPreservation()
 {
+    expensiveScaleTimer->stop();
     // A delayed constraint can otherwise write an old scroll value after the
     // transition has already established its new range.
     constrainBoundsTimer->stop();
@@ -2632,6 +2639,7 @@ void QVGraphicsView::beginFullScreenPanPreservation()
 
 void QVGraphicsView::refreshFullScreenPanPreservation()
 {
+    expensiveScaleTimer->stop();
     constrainBoundsTimer->stop();
 
     // Unlike begin(), this method is called at the exit request boundary. The
@@ -2650,12 +2658,17 @@ void QVGraphicsView::refreshFullScreenPanPreservation()
 
 void QVGraphicsView::endFullScreenPanPreservation()
 {
+    const bool wasActive = fullScreenPanPreservationActive;
     constrainBoundsTimer->stop();
     restoreFullScreenPanPreservation();
     fullScreenPanPreservationActive = false;
     fullScreenHorizontalPanEdge = ScrollEdge::None;
     fullScreenVerticalPanEdge = ScrollEdge::None;
     fullScreenPanAnchorScene.reset();
+    // Single-shot restart coalesces all intermediate sizes. Idempotent cancel
+    // calls must not restart the delay or produce another full-image resize.
+    if (wasActive && isExpensiveScalingRequested())
+        expensiveScaleTimer->start(50);
 }
 
 void QVGraphicsView::synchronizeNativeSDRGeometryForFullScreenTransition()

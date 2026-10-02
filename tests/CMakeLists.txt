@@ -389,3 +389,11 @@ add_test(NAME FovelleFullScreenMetricsGate
 set_tests_properties(FovelleFullScreenMetricsGate PROPERTIES
     TIMEOUT 15
     LABELS "fullscreen;metrics;unit")
+
+add_test(NAME FovelleFullScreenRefinement COMMAND fovelle_tests
+    testFullScreenDefersExpensiveRefinement -v1)
+set_tests_properties(FovelleFullScreenRefinement PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 30
+    RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;refinement;dynamic;acceptance")
