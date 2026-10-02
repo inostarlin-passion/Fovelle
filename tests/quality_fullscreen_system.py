@@ -24,6 +24,7 @@ FUNCTIONAL_CASES = (
     "testTitlebarPresentationDuringFullScreen",
     "testExitFullscreenActionUsesEscapePath",
     "testFullScreenDefersExpensiveRefinement",
+    "testFullScreenVisualContinuity",
 )
 
 THRESHOLDS = {
@@ -140,6 +141,24 @@ def snapshot_summary(output: str) -> dict:
             "metric_definition": "immutable RGBA snapshot buffers for 8 unchanged requests and native entry/exit; timings are diagnostics, not display FPS"}
 
 
+CONTINUITY_ROWS = tuple(f"{metric}-{title}" for title in ("visible", "hidden")
+                        for metric in ("exit-bottom", "enter-size", "enter-position", "exit-size", "exit-position"))
+
+
+def continuity_summary(output: str) -> dict:
+    metrics = [json.loads(line.split("FULLSCREEN_CONTINUITY ", 1)[1])
+               for line in output.splitlines() if "FULLSCREEN_CONTINUITY {" in line]
+    rows = [m.get("row") for m in metrics]
+    passed = (len(rows) == len(CONTINUITY_ROWS) and set(rows) == set(CONTINUITY_ROWS)
+              and all(type(m.get("samples")) is int and m["samples"] > 0
+                      and all(type(m.get(key)) in (int, float) and math.isfinite(m[key])
+                              and 0 <= m[key] <= 2 for key in
+                              ("size_error", "position_error", "bottom_error", "bottom_pixel_errors"))
+                      for m in metrics))
+    return {"passed": bool(passed), "sample_count": len(metrics), "metrics": metrics,
+            "metric_definition": "native resize model-layer geometry and offscreen bottom strip; no physical display FPS claim"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, required=True)
@@ -176,7 +195,8 @@ def main() -> int:
                         tuple(f"{titlebar}-{image}" for titlebar in ("visible", "hidden")
                               for image in ("raster", "vector"))
                         if name == "testTitlebarPresentationDuringFullScreen" else
-                        ("enter", "exit") if name == "testFullScreenDefersExpensiveRefinement" else ("",)
+                        ("enter", "exit") if name == "testFullScreenDefersExpensiveRefinement" else
+                        CONTINUITY_ROWS if name == "testFullScreenVisualContinuity" else ("",)
                     )) else "failed",
             }
         )
@@ -200,7 +220,9 @@ def main() -> int:
         "maximum": performance["response_max_ms"] is not None and performance["response_max_ms"] <= THRESHOLDS["response_max_ms"],
         "throughput": performance["transition_ack_throughput_per_second"] >= THRESHOLDS["transition_ack_throughput_per_second"],
     }
+    continuity = continuity_summary(output)
     record = {
+        "continuity": continuity,
         "kind": "system-functional",
         "binary": str(binary),
         "return_code": max(return_codes),
@@ -211,7 +233,7 @@ def main() -> int:
         "performance": performance,
         "thresholds": THRESHOLDS,
         "performance_flags": performance_flags,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()),
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and continuity["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",

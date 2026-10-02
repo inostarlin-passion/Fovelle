@@ -366,3 +366,10 @@ set_tests_properties(FovelleNativeFullScreenRoundTrip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
     TIMEOUT 120 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;native;dynamic;acceptance")
+
+add_test(NAME FovelleFullScreenVisualContinuity COMMAND fovelle_tests
+    testFullScreenVisualContinuity -v1)
+set_tests_properties(FovelleFullScreenVisualContinuity PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 90 RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;continuity;dynamic;acceptance")

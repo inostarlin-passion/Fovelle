@@ -393,6 +393,10 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         }
         logViewportState("resize");
         refreshVerticalScrollBarGeometry();
+        // AppKit can present this resize before the coalesced frame timer runs.
+        // Publish the final fit/pan geometry alongside the new native viewport.
+        if (fullScreenPanPreservationActive)
+            synchronizeNativeSDRGeometryForFullScreenTransition();
     }
     else
     {
@@ -2047,6 +2051,10 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
     viewport()->setUpdatesEnabled(viewportUpdatesEnabled);
     horizontalScrollBar()->setUpdatesEnabled(horizontalUpdatesEnabled);
     verticalScrollBar()->setUpdatesEnabled(verticalUpdatesEnabled);
+    // Nested viewport resizes return early while this zoom transaction runs.
+    // Its final anchor/constraint is now ready for the native SDR layer.
+    if (fullScreenPanPreservationActive)
+        synchronizeNativeSDRGeometryForFullScreenTransition();
     if (viewUpdatesEnabled || viewportUpdatesEnabled)
         viewport()->update();
 }
@@ -2672,11 +2680,10 @@ void QVGraphicsView::synchronizeNativeSDRGeometryForFullScreenTransition()
         || !getCurrentFileDetails().isNativeSDRLoaded)
         return;
 
-    // Full-screen custom animation callbacks are delivered synchronously by
-    // AppKit. A zero-delay timer requested from resize/paint may not run before
-    // AppKit reveals the real window, leaving its persistent SDR layer at the
-    // previous viewport geometry for the first visible frame. Drain that
-    // coalesced request while the real window is still hidden.
+    // Native full-screen resize delivery cannot wait for a zero-delay frame
+    // timer: the container may already have the new viewport while its image
+    // still has the old transform. Update the persistent SDR geometry in this
+    // layout transaction; the native backend reuses the existing CGImage tiles.
     hdrFrameRequestTimer->stop();
     updateHDRRenderer();
 }

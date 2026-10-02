@@ -158,3 +158,81 @@ void nativeToggleFullScreen(QWindow *window)
 {
     [reinterpret_cast<NSView *>(window->winId()).window toggleFullScreen:nil];
 }
+
+NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    CALayer *root = view.layer;
+    for (CALayer *container in root.sublayers) {
+        if (!container.masksToBounds || container.hidden || container.opacity < 0.99)
+            continue;
+        for (CALayer *image in container.sublayers) {
+            if (image.hidden || image.opacity < 0.99 || image.sublayers.count == 0)
+                continue;
+            bool hasPixels = false;
+            for (CALayer *tile in image.sublayers)
+                hasPixels |= tile.contents && CFGetTypeID((CFTypeRef)tile.contents) == CGImageGetTypeID();
+            if (!hasPixels) continue;
+            const auto qtRect = [root, view](CGRect r) {
+                return QRectF(r.origin.x,
+                    root.geometryFlipped ? r.origin.y : view.bounds.size.height - CGRectGetMaxY(r),
+                    r.size.width, r.size.height);
+            };
+            CALayer *background = container.sublayers.firstObject;
+            // Rasterize actual CGImage tiles and background at the native
+            // viewport's bottom. This is an offscreen layer oracle, not FPS.
+            QImage band(qRound(container.bounds.size.width), 8, QImage::Format_RGBA8888_Premultiplied);
+            band.fill(Qt::transparent);
+            CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+            CGContextRef context = CGBitmapContextCreate(band.bits(), band.width(), band.height(),
+                8, band.bytesPerLine(), color,
+                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+            CGColorSpaceRelease(color);
+            if (context) {
+                CGContextSetInterpolationQuality(context, kCGInterpolationNone);
+                // renderInContext raster rows start at the layer's visual top.
+                // Select the last eight rows, including a restored titlebar inset.
+                CGContextTranslateCTM(context, 0, 8 - container.bounds.size.height);
+                [container renderInContext:context];
+                CGContextRelease(context);
+            }
+            return {true, qtRect([container convertRect:container.bounds toLayer:root]),
+                qtRect([image convertRect:image.bounds toLayer:root]),
+                qtRect([background convertRect:background.bounds toLayer:root]), band};
+        }
+    }
+    return {};
+}
+
+@interface FovelleResizeProbe : NSObject {
+@public
+    std::function<void()> *callback;
+}
+- (void)didResize:(NSNotification *)notification;
+@end
+@implementation FovelleResizeProbe
+- (void)didResize:(NSNotification *)notification {
+    Q_UNUSED(notification);
+    if (callback && *callback) (*callback)();
+}
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    delete callback;
+    [super dealloc];
+}
+@end
+void nativeSetResizeProbe(QWindow *window, std::function<void()> callback)
+{
+    NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
+    static char key;
+    FovelleResizeProbe *probe = objc_getAssociatedObject(native, &key);
+    if (!probe) {
+        probe = [[FovelleResizeProbe alloc] init];
+        probe->callback = new std::function<void()>;
+        [[NSNotificationCenter defaultCenter] addObserver:probe selector:@selector(didResize:)
+            name:NSWindowDidResizeNotification object:native];
+        objc_setAssociatedObject(native, &key, probe, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [probe release];
+    }
+    *probe->callback = std::move(callback);
+}

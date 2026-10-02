@@ -35,3 +35,14 @@ NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window);
 
 bool nativeFullScreenUsesSystemAnimation(QWindow *window);
 void nativeToggleFullScreen(QWindow *window);
+
+#include <functional>
+struct NativeSDRLayerGeometry {
+    bool active {false};
+    QRectF viewport;
+    QRectF image;
+    QRectF background;
+    QImage bottomBand;
+};
+NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window);
+void nativeSetResizeProbe(QWindow *window, std::function<void()> callback);

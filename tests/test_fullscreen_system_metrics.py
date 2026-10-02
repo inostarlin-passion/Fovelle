@@ -3,7 +3,7 @@ import copy
 import json
 import unittest
 
-from quality_fullscreen_system import orientation_summary, paint_summary, preparation_summary
+from quality_fullscreen_system import orientation_summary, paint_summary, preparation_summary, continuity_summary, CONTINUITY_ROWS
 
 
 def output(prefix, records):
@@ -25,6 +25,19 @@ def orientation_output(metrics, reloads):
 
 
 class FullscreenSystemMetricsTests(unittest.TestCase):
+    def test_continuity_requires_complete_valid_native_samples(self):
+        records = [dict(row=row, samples=1, size_error=0, position_error=0,
+                        bottom_error=0, bottom_pixel_errors=0) for row in CONTINUITY_ROWS]
+        self.assertTrue(continuity_summary(output('FULLSCREEN_CONTINUITY', records))['passed'])
+        for candidate in ([], records[:-1], records + records[:1]):
+            self.assertFalse(continuity_summary(output('FULLSCREEN_CONTINUITY', candidate))['passed'])
+        for field, value in (('samples', 0), ('samples', True), ('size_error', 584),
+                             ('position_error', 567), ('bottom_pixel_errors', 2256),
+                             ('bottom_error', float('nan')), ('size_error', None)):
+            candidate = copy.deepcopy(records)
+            candidate[0][field] = value
+            self.assertFalse(continuity_summary(output('FULLSCREEN_CONTINUITY', candidate))['passed'])
+
     def test_complete_orientation_and_reload_matrix_passes(self):
         metrics, reloads = orientation_records()
         self.assertTrue(orientation_summary(orientation_output(metrics, reloads))['passed'])
