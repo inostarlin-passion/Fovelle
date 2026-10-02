@@ -1424,10 +1424,6 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
-    fullScreenSourceSnapshot = {};
-    fullScreenSourceSnapshotKey = 0;
-    fullScreenSnapshot = {};
-    fullScreenSnapshotSourceKey = 0;
     lastMouseViewportPosition.reset();
 
     // A native HDR presentation may have parked Qt viewport painting.  The
@@ -1951,10 +1947,13 @@ void QVGraphicsView::settleTargetScrollAreaLayout()
 
 void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
 {
-    const bool viewUpdatesEnabled = updatesEnabled();
-    const bool viewportUpdatesEnabled = viewport()->updatesEnabled();
-    const bool horizontalUpdatesEnabled = horizontalScrollBar()->updatesEnabled();
-    const bool verticalUpdatesEnabled = verticalScrollBar()->updatesEnabled();
+    // A parent may temporarily suspend updates during a full-screen request.
+    // Preserve explicit flags so inherited suspension cannot become permanent
+    // when this nested zoom commit restores its children.
+    const bool viewUpdatesEnabled = !testAttribute(Qt::WA_ForceUpdatesDisabled);
+    const bool viewportUpdatesEnabled = !viewport()->testAttribute(Qt::WA_ForceUpdatesDisabled);
+    const bool horizontalUpdatesEnabled = !horizontalScrollBar()->testAttribute(Qt::WA_ForceUpdatesDisabled);
+    const bool verticalUpdatesEnabled = !verticalScrollBar()->testAttribute(Qt::WA_ForceUpdatesDisabled);
     QScopedValueRollback<bool> commitGuard(zoomCommitInProgress, true);
     cancelPostLayoutZoomAnchor();
 
@@ -2216,10 +2215,6 @@ void QVGraphicsView::removeExpensiveScaling()
 
 void QVGraphicsView::animatedFrameChanged(QRect rect)
 {
-    fullScreenSourceSnapshot = {};
-    fullScreenSourceSnapshotKey = 0;
-    fullScreenSnapshot = {};
-    fullScreenSnapshotSourceKey = 0;
     Q_UNUSED(rect)
 
     if (isExpensiveScalingRequested())
@@ -2619,8 +2614,8 @@ void QVGraphicsView::beginFullScreenPanPreservation()
     constrainBoundsTimer->stop();
 
     // MainWindow starts preservation before asking Qt/AppKit to change the
-    // window state. The native animation callback also calls this method when
-    // it starts; that second call must not recapture an already-changing bar
+    // window state. The native will-enter/will-exit observer also calls this
+    // method; that second call must not recapture an already-changing bar
     // value and erase the edge captured at the request boundary.
     if (fullScreenPanPreservationActive)
         return;
@@ -2747,69 +2742,6 @@ bool QVGraphicsView::isExpensiveScalingRequested() const
 QSizeF QVGraphicsView::getEffectiveOriginalSize() const
 {
     return getUnspecializedTransform().mapRect(QRectF(QPoint(), getCurrentFileDetails().loadedPixmapSize)).size() * getDpiAdjustment();
-}
-
-QRect QVGraphicsView::fullScreenTransitionImageRect() const
-{
-    if (!getCurrentFileDetails().isPixmapLoaded)
-        return {};
-
-    const QRect mappedBounds = mapFromScene(
-        scene()->itemsBoundingRect()).boundingRect();
-    return QRect(mappedBounds.topLeft(), getContentRect().size());
-}
-
-QImage QVGraphicsView::fullScreenTransitionImage() const
-{
-    const QPixmap &pixmap = imageCore.getLoadedPixmap();
-    if (pixmap.isNull()) {
-        fullScreenSnapshot = {};
-        fullScreenSnapshotSourceKey = 0;
-        return {};
-    }
-    const qint64 sourceKey = pixmap.cacheKey();
-    const QTransform orientation = getUnspecializedTransform();
-    if (!fullScreenSnapshot.isNull()
-        && sourceKey == fullScreenSnapshotSourceKey
-        && orientation == fullScreenSnapshotOrientation)
-        return fullScreenSnapshot;
-
-    // The native CGImage provider needs this format. Cache the completed
-    // conversion as well as rotation/flip so its next convertToFormat() shares
-    // these pixels instead of allocating another full-image buffer.
-    // Drop the previous entry before allocating its replacement.
-    fullScreenSnapshot = {};
-    fullScreenSnapshot = pixmap.toImage().transformed(orientation)
-        .convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-    fullScreenSnapshotSourceKey = sourceKey;
-    fullScreenSnapshotOrientation = orientation;
-    return fullScreenSnapshot;
-}
-
-QImage QVGraphicsView::fullScreenTransitionSourceImage() const
-{
-    const QPixmap &pixmap = imageCore.getLoadedPixmap();
-    if (pixmap.isNull()) {
-        fullScreenSourceSnapshot = {};
-        fullScreenSourceSnapshotKey = 0;
-        return {};
-    }
-    const qint64 key = pixmap.cacheKey();
-    if (fullScreenSourceSnapshot.isNull() || key != fullScreenSourceSnapshotKey) {
-        // Orientation is applied by the native image layer. Preserve one
-        // source conversion across rotations instead of doing an O(pixels)
-        // transformation on the GUI thread before submitting the trajectory.
-        fullScreenSourceSnapshot = {};
-        fullScreenSourceSnapshot = pixmap.toImage().convertToFormat(
-            QImage::Format_RGBA8888_Premultiplied);
-        fullScreenSourceSnapshotKey = key;
-    }
-    return fullScreenSourceSnapshot;
-}
-
-QTransform QVGraphicsView::fullScreenTransitionOrientation() const
-{
-    return getUnspecializedTransform();
 }
 
 LogicalPixelFitter QVGraphicsView::getPixelFitter() const

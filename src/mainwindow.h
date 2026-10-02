@@ -194,27 +194,9 @@ public:
 public slots:
     void openFile(const QString &fileName, const QString &baseDir = "");
 
-    // Called by the macOS full-screen bridge while AppKit animates in either
-    // direction. Both endpoint layouts use an explicit titlebar inset so the
-    // proxy and the hidden real window agree at the handoff frame.
-    void beginFullScreenLayoutTransition(
-        int titlebarOverlap, int targetTitlebarOverlap);
+    void beginNativeFullScreenTransition();
 
-    void measureFullScreenLayoutTransition(int titlebarOverlap);
-
-    void updateFullScreenLayoutTransition(int titlebarOverlap);
-
-    void cancelFullScreenLayoutTransition();
-
-    QRect fullScreenTransitionImageRect() const;
-
-    QImage fullScreenTransitionImage() const;
-    QImage fullScreenTransitionSourceImage() const;
-    QTransform fullScreenTransitionOrientation() const;
-
-    QColor fullScreenTransitionBackgroundColor() const;
-
-    int fullScreenTransitionTitlebarOverlap() const;
+    void endNativeFullScreenTransition();
 
     void toggleSlideshow();
 
@@ -302,8 +284,6 @@ private:
     QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;
     QTimer *titlebarBubbleHideTimer;
     QPropertyAnimation *titlebarBubbleHideAnimation;
-    int activeFullScreenTitlebarOverlap {-1};
-    int targetFullScreenTitlebarOverlap {0};
 
     QPushButton *previousImageButton {nullptr};
     QPushButton *nextImageButton {nullptr};
@@ -337,7 +317,6 @@ private:
     bool justLaunchedWithImage {false};
     bool isClosing {false};
     QElapsedTimer lastActivated;
-
 
     QNetworkAccessManager networkAccessManager;
 

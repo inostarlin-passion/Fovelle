@@ -32,3 +32,6 @@ struct NativeFullScreenImageSnapshot
     QImage orientedPreview;
 };
 NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window);
+
+bool nativeFullScreenUsesSystemAnimation(QWindow *window);
+void nativeToggleFullScreen(QWindow *window);

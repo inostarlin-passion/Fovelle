@@ -1409,140 +1409,22 @@ void MainWindow::fullscreenChanged()
     // fullscreen titlebar details are now always hidden.
     ui->fullscreenLabel->setVisible(false);
 
-    if (!isFullscreen && activeFullScreenTitlebarOverlap >= 0)
-    {
-        activeFullScreenTitlebarOverlap =
-            targetFullScreenTitlebarOverlap;
-        graphicsView->fitOrConstrainImage();
-
-        // AppKit has restored contentLayoutRect before Qt publishes the
-        // WindowStateChange. Removing the override therefore keeps the same
-        // effective inset and cannot expose a differently centered frame.
-        activeFullScreenTitlebarOverlap = -1;
-        graphicsView->fitOrConstrainImage();
-    }
-
     updateMenuBarVisible();
 
     graphicsView->setCursorVisible(true);
 }
 
-void MainWindow::beginFullScreenLayoutTransition(
-    const int titlebarOverlap, const int targetTitlebarOverlap)
+void MainWindow::beginNativeFullScreenTransition()
 {
-    if (isClosing)
-        return;
-
-    activeFullScreenTitlebarOverlap = qMax(titlebarOverlap, 0);
-    targetFullScreenTitlebarOverlap =
-        qMax(targetTitlebarOverlap, 0);
-    graphicsView->beginFullScreenPanPreservation();
+    if (!isClosing)
+        graphicsView->beginFullScreenPanPreservation();
 }
 
-void MainWindow::measureFullScreenLayoutTransition(const int titlebarOverlap)
+void MainWindow::endNativeFullScreenTransition()
 {
-    if (isClosing || activeFullScreenTitlebarOverlap < 0)
-        return;
-
-    const int boundedOverlap = qMax(titlebarOverlap, 0);
-    if (boundedOverlap != activeFullScreenTitlebarOverlap)
-    {
-        activeFullScreenTitlebarOverlap = boundedOverlap;
-        graphicsView->fitOrConstrainImage();
-    }
-}
-
-void MainWindow::updateFullScreenLayoutTransition(const int titlebarOverlap)
-{
-    if (isClosing)
-        return;
-
-    // Completion can clear the temporary inset before this final paint.
-    // measure() then does nothing; geometry synchronization and repaint still
-    // consume the dirtiness accumulated while endpoint drawing was suspended.
-    measureFullScreenLayoutTransition(titlebarOverlap);
-    graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
-
-    // Consume pending window/ancestor dirtiness with the viewport parked.
-    // Restoring updates after a native resize can leave multiple dirty
-    // ancestors, each of which would otherwise paint a non-opaque viewport.
-    // Paint the expensive viewport once after the backing background is ready.
-    QWidget *viewport = graphicsView->viewport();
-    if (viewport->testAttribute(Qt::WA_OpaquePaintEvent)) {
-        viewport->update();
-        repaint();
-        return;
-    }
-    const bool explicitlyDisabled =
-        viewport->testAttribute(Qt::WA_ForceUpdatesDisabled);
-    viewport->setUpdatesEnabled(false);
-    repaint();
-    viewport->setUpdatesEnabled(!explicitlyDisabled);
-    viewport->repaint();
-}
-
-void MainWindow::cancelFullScreenLayoutTransition()
-{
-    const bool hadTitlebarTransition = activeFullScreenTitlebarOverlap >= 0;
-    if (hadTitlebarTransition)
-    {
-        activeFullScreenTitlebarOverlap = -1;
-        graphicsView->fitOrConstrainImage();
-    }
-
-    // Resetting the final titlebar override can change the viewport after the
-    // last animation Update callback. AppKit reveals the real window as soon
-    // as this cancellation/completion callback returns, so commit the final
-    // native SDR geometry here instead of relying on its queued zero timer.
-    // Native completion/failure can arrive after the Qt window-state event
-    // has already cleared the titlebar override. Pan preservation has a
-    // separate lifetime and must still be closed in that case.
+    // AppKit's completion notification arrives after native geometry settles.
     graphicsView->endFullScreenPanPreservation();
     graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
-    if (hadTitlebarTransition)
-        update();
-}
-
-QRect MainWindow::fullScreenTransitionImageRect() const
-{
-    if (!getIsPixmapLoaded())
-        return {};
-
-    const QRect imageRect = graphicsView->fullScreenTransitionImageRect();
-    if (imageRect.isEmpty())
-        return {};
-
-    return QRect(
-        graphicsView->viewport()->mapTo(this, imageRect.topLeft()),
-        imageRect.size());
-}
-
-QImage MainWindow::fullScreenTransitionImage() const
-{
-    return getIsPixmapLoaded()
-        ? graphicsView->fullScreenTransitionImage() : QImage();
-}
-
-QImage MainWindow::fullScreenTransitionSourceImage() const
-{
-    return getIsPixmapLoaded()
-        ? graphicsView->fullScreenTransitionSourceImage() : QImage();
-}
-
-QTransform MainWindow::fullScreenTransitionOrientation() const
-{
-    return graphicsView->fullScreenTransitionOrientation();
-}
-
-QColor MainWindow::fullScreenTransitionBackgroundColor() const
-{
-    return customBackgroundColor.isValid()
-        ? customBackgroundColor : palette().color(QPalette::Window);
-}
-
-int MainWindow::fullScreenTransitionTitlebarOverlap() const
-{
-    return qMax(QVCocoaFunctions::getObscuredHeight(windowHandle()), 0);
 }
 
 void MainWindow::pauseChanged()
@@ -2655,8 +2537,11 @@ void MainWindow::exitFullScreen()
     // command through the same asynchronous action and let Qt publish the
     // resulting state only after NSWindowDidExitFullScreenNotification.
     graphicsView->refreshFullScreenPanPreservation();
+    const bool updatesDisabled = testAttribute(Qt::WA_ForceUpdatesDisabled);
+    setUpdatesEnabled(false);
     if (!QVCocoaFunctions::requestFullScreenExit(windowHandle()))
         graphicsView->endFullScreenPanPreservation();
+    setUpdatesEnabled(!updatesDisabled);
 }
 
 void MainWindow::toggleFullScreen()
@@ -2675,7 +2560,10 @@ void MainWindow::toggleFullScreen()
         // Keep the user's titlebar presentation through native entry. Restoring
         // it here exposes window chrome and fits the image into a smaller
         // viewport before AppKit captures the transition's starting frame.
+        const bool updatesDisabled = testAttribute(Qt::WA_ForceUpdatesDisabled);
+        setUpdatesEnabled(false);
         showFullScreen();
+        setUpdatesEnabled(!updatesDisabled);
     }
 }
 
@@ -2710,9 +2598,6 @@ void MainWindow::toggleTitlebarHidden()
 
 int MainWindow::getTitlebarOverlap() const
 {
-    if (activeFullScreenTitlebarOverlap >= 0)
-        return activeFullScreenTitlebarOverlap;
-
     // To account for fullsizecontentview on mac
     return QVCocoaFunctions::getObscuredHeight(window()->windowHandle());
 }

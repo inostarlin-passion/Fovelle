@@ -20,11 +20,9 @@ FUNCTIONAL_CASES = (
     "testFullscreenDefaultShortcutIsEnterAndConfigurable",
     "testEnterDoesNotBypassClearedFullscreenShortcut",
     "testConfiguredFullscreenShortcutStillWorks",
-    "testFullScreenPresentationKeepsMoving",
-    "testFullScreenLayoutPaintBudget",
-    "testFullScreenPreparationPaintBudget",
-    "testFullScreenSnapshotReuse",
-    "testFullScreenColdOrientation",
+    "testNativeFullScreenRoundTrip",
+    "testTitlebarPresentationDuringFullScreen",
+    "testExitFullscreenActionUsesEscapePath",
     "testFullScreenDefersExpensiveRefinement",
 )
 
@@ -161,11 +159,6 @@ def main() -> int:
         outputs.append(result.stdout + result.stderr)
         return_codes.append(result.returncode)
     output = "\n".join(outputs)
-    motion = motion_summary(output)
-    paint = paint_summary(output)
-    preparation = preparation_summary(output)
-    snapshot = snapshot_summary(output)
-    orientation = orientation_summary(output)
     cases = []
     for index, name in enumerate(FUNCTIONAL_CASES, start=1):
         suite = "GraphicsViewTests" if name == "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize" else "WindowBehaviorTests"
@@ -174,14 +167,17 @@ def main() -> int:
             {
                 "id": f"TC-FS-{index:02d}",
                 "test": qualified_name,
-                "status": "passed" if (motion["passed"] if name == "testFullScreenPresentationKeepsMoving"
-                    else paint["passed"] if name == "testFullScreenLayoutPaintBudget"
-                    else snapshot["passed"] if name == "testFullScreenSnapshotReuse"
-                    else orientation["passed"] if name == "testFullScreenColdOrientation"
-                    else all(re.search(rf"PASS\s+: {re.escape(qualified_name)}\({row}\)", output)
-                             for row in ("enter", "exit")) if name == "testFullScreenDefersExpensiveRefinement"
-                    else preparation["passed"] if name == "testFullScreenPreparationPaintBudget"
-                    else re.search(rf"PASS\s+: {re.escape(qualified_name)}\(\)", output)) else "failed",
+                "status": "passed" if all(
+                    re.search(rf"PASS\s+: {re.escape(qualified_name)}\({re.escape(row)}\)", output)
+                    for row in (
+                        tuple(f"{titlebar}-{state}-{image}" for titlebar in ("visible", "hidden")
+                              for state in ("normal", "maximized") for image in ("raster", "vector"))
+                        if name == "testNativeFullScreenRoundTrip" else
+                        tuple(f"{titlebar}-{image}" for titlebar in ("visible", "hidden")
+                              for image in ("raster", "vector"))
+                        if name == "testTitlebarPresentationDuringFullScreen" else
+                        ("enter", "exit") if name == "testFullScreenDefersExpensiveRefinement" else ("",)
+                    )) else "failed",
             }
         )
     fullscreen_metrics = [
@@ -215,18 +211,13 @@ def main() -> int:
         "performance": performance,
         "thresholds": THRESHOLDS,
         "performance_flags": performance_flags,
-        "motion": motion,
-        "paint": paint,
-        "preparation": preparation,
-        "snapshot": snapshot,
-        "orientation": orientation,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and motion["passed"] and paint["passed"] and preparation["passed"] and snapshot["passed"] and orientation["passed"],
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()),
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",
             "The separate app-launch/resource probe records process-level timing and resource observations.",
-            "A 130 ms controlled main-run-loop pause tests animation independence; it does not identify every natural stall or GPU hitch.",
-            "Cold-orientation assertions reject source-pixel rebuilds and verify offscreen proxy content; request timings are diagnostics, not physical frame times.",
+            "Native round trips require independent AppKit completion counters, original geometry/state, trailing pan edges and enabled drawing.",
+            "Qt acknowledgement timings are diagnostics; native system animation is not a physical-display FPS measurement.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

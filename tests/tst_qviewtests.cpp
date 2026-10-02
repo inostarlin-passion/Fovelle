@@ -386,18 +386,10 @@ private slots:
     void testTitlebarHiddenPersistsToNewWindow();
     void testTitlebarPresentationDuringFullScreen_data();
     void testTitlebarPresentationDuringFullScreen();
-    void testFullScreenSnapshotReuse_data();
-    void testFullScreenSnapshotReuse();
     void testFullScreenDefersExpensiveRefinement_data();
     void testFullScreenDefersExpensiveRefinement();
-    void testFullScreenColdOrientation_data();
-    void testFullScreenColdOrientation();
-    void testFullScreenPreparationPaintBudget_data();
-    void testFullScreenPreparationPaintBudget();
-    void testFullScreenLayoutPaintBudget_data();
-    void testFullScreenLayoutPaintBudget();
-    void testFullScreenPresentationKeepsMoving_data();
-    void testFullScreenPresentationKeepsMoving();
+    void testNativeFullScreenRoundTrip_data();
+    void testNativeFullScreenRoundTrip();
     void testSmoothScalingDefaultIsBilinear();
     void testSettingsFormsAlignLabelsAndValues();
     void testSettingsColonAlignmentSurvivesTranslations();
@@ -8266,13 +8258,12 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 
 // TC-ZOOM-FULLSCREEN
 // Test purpose: verify that returning to the fit ratio restores fit intent and
-// that the macOS transition snapshot has the same image geometry before and
-// after a fullscreen resize.
+// that displayed image geometry returns after a native fullscreen resize.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
 // Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit transition.
 // Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen once.
 // Expected result: ZoomToFit remains active; a changed fullscreen viewport
-// receives a recalculated zoom level; the snapshot keeps the source aspect
+// receives a recalculated zoom level; the image keeps the source aspect
 // ratio; after exit, both the fit mode and original image rectangle return.
 // Postcondition: the window closes and the application quit policy is restored.
 void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
@@ -8302,17 +8293,13 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     QVERIFY(view->getCalculatedZoomMode().has_value());
     QCOMPARE(view->getCalculatedZoomMode().value(), Qv::CalculatedZoomMode::ZoomToFit);
 
-    const QRect normalTransitionRect = window.fullScreenTransitionImageRect();
-    const QImage transitionImage = window.fullScreenTransitionImage();
+    const auto displayedImageRect = [&] {
+        return view->viewportTransform().mapRect(view->scene()->itemsBoundingRect()).toRect();
+    };
+    const QRect normalTransitionRect = displayedImageRect();
     QVERIFY(!normalTransitionRect.isEmpty());
     QCOMPARE(normalTransitionRect.width() * 9,
              normalTransitionRect.height() * 16);
-    QCOMPARE(transitionImage.size(), QSize(1600, 900));
-    const QColor transitionCenter =
-        transitionImage.pixelColor(transitionImage.rect().center());
-    QCOMPARE(transitionCenter.alpha(), 255);
-    QVERIFY(transitionCenter.blue() > transitionCenter.red());
-    QVERIFY(transitionCenter.blue() > transitionCenter.green());
 
     const qreal fitZoomBeforeWheel = view->getZoomLevel();
     const QPoint wheelPos = view->viewport()->rect().center();
@@ -8347,7 +8334,7 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
     const QRect fullscreenTransitionRect =
-        window.fullScreenTransitionImageRect();
+        displayedImageRect();
     QVERIFY(!fullscreenTransitionRect.isEmpty());
     QCOMPARE(fullscreenTransitionRect.width() * 9,
              fullscreenTransitionRect.height() * 16);
@@ -8365,7 +8352,7 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
     QTRY_COMPARE_WITH_TIMEOUT(
-        window.fullScreenTransitionImageRect(), normalTransitionRect, 5000);
+        displayedImageRect(), normalTransitionRect, 5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -8470,7 +8457,7 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
     }
 
     // QWindow publishes the full-screen state before AppKit finishes the
-    // custom proxy handoff. The edge predicate also requires the viewport to
+    // native completion. The edge predicate also requires the viewport to
     // have reached full-screen geometry, so it observes the end of that
     // handoff without an arbitrary sleep.
     const bool fullScreenBottomPreservedOnEntry = waitForTestCondition(
@@ -9986,7 +9973,7 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
 void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImageVisible()
 {
 #ifndef Q_OS_MACOS
-    QSKIP("The custom Cocoa full-screen handoff is macOS-specific.");
+    QSKIP("The native Cocoa full-screen transition is macOS-specific.");
 #endif
     const QString samplePath = qEnvironmentVariable(
         "FOVELLE_FULLSCREEN_SDR_IMAGE",
@@ -10132,25 +10119,6 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         [&]() { return sampleDisplay().has_value(); }, 5000);
     QVERIFY2(initialImagePresented,
              "The source image center did not reach the display before the test transition");
-    const quint64 compositorUpdatesBeforeHandoff =
-        view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount;
-    const int transitionTitlebarOverlap =
-        window.getViewportPosition().obscuredHeight;
-    QVERIFY(QMetaObject::invokeMethod(
-        &window, "beginFullScreenLayoutTransition", Qt::DirectConnection,
-        Q_ARG(int, transitionTitlebarOverlap), Q_ARG(int, 0)));
-    QVERIFY(QMetaObject::invokeMethod(
-        &window, "updateFullScreenLayoutTransition", Qt::DirectConnection,
-        Q_ARG(int, transitionTitlebarOverlap)));
-    QCOMPARE(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount,
-             compositorUpdatesBeforeHandoff + 1);
-    const quint64 compositorUpdatesBeforeTransitionEnd =
-        view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount;
-    QVERIFY(QMetaObject::invokeMethod(
-        &window, "cancelFullScreenLayoutTransition", Qt::DirectConnection));
-    QCOMPARE(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount,
-             compositorUpdatesBeforeTransitionEnd + 1);
-    QVERIFY(view->nativeMetalRendererDiagnostics().drawableGeometryMatches);
     const auto before = sampleDisplay();
     QVERIFY2(before.has_value(), "The supplied SDR image was not visible before full screen");
     for (int cycle = 0; cycle < 3; ++cycle)
@@ -14283,447 +14251,6 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
     }
 }
 
-// TC-FULLSCREEN-MOTION: bounded synchronous GUI work must not freeze an
-// already-submitted proxy animation. Sample presentation geometry even while
-// deliberately NOT dispatching the main run loop; endpoint tests miss this.
-// A bounded slow paint models content cost without blocking unrelated AppKit
-// callbacks. Count real viewport Paint events, rather than production calls.
-// Model synchronous content work using a monotonic deadline. Sleeping is
-// unsuitable here: macOS can coalesce each sleep well beyond its requested
-// duration, turning one 40 ms paint into a false duplicate-paint failure.
-static void performFullScreenTestWork(const int milliseconds)
-{
-    QElapsedTimer timer;
-    timer.start();
-    while (timer.nsecsElapsed() < milliseconds * 1000000LL) {
-        // Intentionally do not dispatch events: this models work on the GUI
-        // thread while Core Animation advances in the render server.
-    }
-}
-
-void WindowBehaviorTests::testFullScreenLayoutPaintBudget_data()
-{
-    QTest::addColumn<bool>("hidden");
-    QTest::addColumn<bool>("vectorImage");
-    for (bool hidden : {false, true})
-        for (bool vectorImage : {false, true}) {
-            const QByteArray name = QByteArray(hidden ? "hidden-" : "visible-")
-                + (vectorImage ? "vector" : "raster");
-            QTest::newRow(name.constData()) << hidden << vectorImage;
-        }
-}
-
-void WindowBehaviorTests::testFullScreenLayoutPaintBudget()
-{
-    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
-    QFETCH(bool, hidden);
-    QFETCH(bool, vectorImage);
-    ScopedOptionValues options({
-        {"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
-    });
-    const bool originalQuit = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    auto cleanup = qScopeGuard([&] {
-        window.cancelFullScreenLayoutTransition();
-        window.close();
-        qvApp->setQuitOnLastWindowClosed(originalQuit);
-    });
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    const QString path = directory.filePath(vectorImage ? "paint.svg" : "paint.png");
-    if (vectorImage) {
-        QFile file(path);
-        QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/></svg>");
-    } else {
-        QImage image(800, 1600, QImage::Format_RGB32);
-        image.fill(Qt::red);
-        QVERIFY(image.save(path));
-    }
-    window.resize(640, 480);
-    window.show();
-    window.openFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
-    QVERIFY(view);
-    QTest::qWait(250);
-    class PaintCost : public QObject {
-    public:
-        int paints = 0;
-        bool eventFilter(QObject *, QEvent *event) override {
-            if (event->type() == QEvent::Paint) {
-                ++paints;
-                performFullScreenTestWork(40);
-            }
-            return false;
-        }
-    } cost;
-    view->viewport()->installEventFilter(&cost);
-    auto removeFilter = qScopeGuard([&] { view->viewport()->removeEventFilter(&cost); });
-    window.beginFullScreenLayoutTransition(0, 0);
-    const QRect imageRect = window.fullScreenTransitionImageRect();
-    QVERIFY(!imageRect.isEmpty());
-    const qreal zoom = view->getZoomLevel();
-    QStringList failures;
-    for (int pass = 0; pass < 3; ++pass) {
-        cost.paints = 0;
-        QElapsedTimer timer;
-        timer.start();
-        const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
-        window.updateFullScreenLayoutTransition(0);
-        const double cpuMs = (currentThreadCpuTimeNanoseconds().value() - cpuStart) / 1000000.0;
-        const double elapsed = timer.nsecsElapsed() / 1000000.0;
-        QCOMPARE(window.fullScreenTransitionImageRect(), imageRect);
-        QCOMPARE(view->getZoomLevel(), zoom);
-        qInfo().noquote() << "FULLSCREEN_PAINT_BUDGET"
-            << QJsonDocument(QJsonObject {{"hidden", hidden}, {"vector", vectorImage}, {"pass", pass},
-                {"paints", cost.paints}, {"elapsed_ms", elapsed}, {"cpu_ms", cpuMs}}).toJson(QJsonDocument::Compact);
-        // Endpoint preparation must still synchronously paint the viewport,
-        // but must not pay twice for the same unchanged geometry. Budget
-        // thread CPU work; host preemption and native display waits are not
-        // rendering work. Keep wall time in the report for performance audits.
-        if (cost.paints != 1 || cpuMs > 75.0)
-            failures << QString("pass %1: paints=%2 cpu=%3ms elapsed=%4ms")
-                .arg(pass).arg(cost.paints).arg(cpuMs).arg(elapsed);
-    }
-    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
-}
-
-void WindowBehaviorTests::testFullScreenPresentationKeepsMoving_data()
-{
-    QTest::addColumn<bool>("hidden");
-    QTest::addColumn<bool>("vectorImage");
-    QTest::addColumn<bool>("busy");
-    for (bool hidden : {false, true})
-        for (bool vectorImage : {false, true})
-            for (bool busy : {false, true}) {
-                const QByteArray name = QByteArray(hidden ? "hidden-" : "visible-")
-                    + (vectorImage ? "vector-" : "raster-") + (busy ? "busy" : "idle");
-                QTest::newRow(name.constData()) << hidden << vectorImage << busy;
-            }
-}
-
-// TC-FS-SNAPSHOT: exercise the synchronous image-provider + RGBA conversion
-// before native animation submission. Unchanged pixels/orientation must share
-// an immutable buffer; geometry changes must not force another pixel rebuild.
-void WindowBehaviorTests::testFullScreenSnapshotReuse_data()
-{
-    QTest::addColumn<int>("orientation");
-    QTest::addColumn<QColor>("topLeft");
-    QTest::addColumn<QColor>("topRight");
-    QTest::addColumn<QColor>("bottomLeft");
-    QTest::addColumn<QColor>("bottomRight");
-    QTest::newRow("rotate90") << 90 << QColor(Qt::blue) << QColor(Qt::red)
-        << QColor(Qt::yellow) << QColor(Qt::green);
-    QTest::newRow("mirror") << 1 << QColor(Qt::green) << QColor(Qt::red)
-        << QColor(Qt::yellow) << QColor(Qt::blue);
-    QTest::newRow("flip") << 2 << QColor(Qt::blue) << QColor(Qt::yellow)
-        << QColor(Qt::red) << QColor(Qt::green);
-    QTest::newRow("identity") << 0 << QColor(Qt::red) << QColor(Qt::green)
-        << QColor(Qt::blue) << QColor(Qt::yellow);
-}
-
-void WindowBehaviorTests::testFullScreenSnapshotReuse()
-{
-    QFETCH(int, orientation);
-    QFETCH(QColor, topLeft);
-    QFETCH(QColor, topRight);
-    QFETCH(QColor, bottomLeft);
-    QFETCH(QColor, bottomRight);
-    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}
-    });
-    const bool originalQuit = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    auto cleanup = qScopeGuard([&] {
-        if (window.isFullScreen()) {
-            const auto before = nativeTitlebarSnapshot(window.windowHandle());
-            window.toggleFullScreen();
-            waitForTestCondition([&] {
-                return nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits;
-            }, 5000);
-        }
-        window.close();
-        qvApp->setQuitOnLastWindowClosed(originalQuit);
-    });
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString path = dir.filePath("quadrants.xpm");
-    // XPM bypasses Image I/O's bounded native-SDR decode proxy. Measure the
-    // actual full-sized loaded bitmap rather than assuming original dimensions.
-    QImage source(4096, 3072, QImage::Format_RGB32);
-    source.fill(Qt::red);
-    {
-        QPainter painter(&source);
-        painter.fillRect(2048, 0, 2048, 1536, Qt::green);
-        painter.fillRect(0, 1536, 2048, 1536, Qt::blue);
-        painter.fillRect(2048, 1536, 2048, 1536, Qt::yellow);
-    }
-    QVERIFY(source.save(path, "XPM"));
-    window.resize(640, 480);
-    window.show();
-    window.openFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
-    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
-    QVERIFY(view);
-    // Use the loaded, color-managed pixels as the color reference. The
-    // image loader may have converted XPM's sRGB primaries to Display P3.
-    const QImage unrotated = window.fullScreenTransitionImage().convertToFormat(
-        QImage::Format_RGBA8888_Premultiplied);
-    const auto managedColor = [&](QColor color) {
-        if (color == QColor(Qt::red)) return unrotated.pixelColor(0, 0);
-        if (color == QColor(Qt::green)) return unrotated.pixelColor(unrotated.width()-1, 0);
-        if (color == QColor(Qt::blue)) return unrotated.pixelColor(0, unrotated.height()-1);
-        return unrotated.pixelColor(unrotated.width()-1, unrotated.height()-1);
-    };
-    topLeft = managedColor(topLeft);
-    topRight = managedColor(topRight);
-    bottomLeft = managedColor(bottomLeft);
-    bottomRight = managedColor(bottomRight);
-    if (orientation == 90) view->rotateImage(90);
-    if (orientation == 1) view->mirrorImage();
-    if (orientation == 2) view->flipImage();
-    const auto capture = [&] {
-        return window.fullScreenTransitionImage().convertToFormat(
-            QImage::Format_RGBA8888_Premultiplied);
-    };
-    QElapsedTimer clock;
-    clock.start();
-    const QImage first = capture();
-    const double coldMs = clock.nsecsElapsed() / 1000000.0;
-    QCOMPARE(first.size(), orientation == 90 ? QSize(3072, 4096) : source.size());
-    QCOMPARE(first.pixelColor(0, 0), topLeft);
-    QCOMPARE(first.pixelColor(first.width()-1, 0), topRight);
-    QCOMPARE(first.pixelColor(0, first.height()-1), bottomLeft);
-    QCOMPARE(first.pixelColor(first.width()-1, first.height()-1), bottomRight);
-    QCOMPARE(first.colorSpace(), unrotated.colorSpace());
-    int rebuilt = 0;
-    clock.restart();
-    for (int i = 0; i < 8; ++i) {
-        const QImage next = capture();
-        if (next.constBits() != first.constBits()) ++rebuilt;
-    }
-    const double warmMs = clock.nsecsElapsed() / 1000000.0;
-    QStringList failures;
-    if (rebuilt != 0) failures << QStringLiteral("Unchanged snapshot rebuilt %1/8 full pixel buffers").arg(rebuilt);
-    // Native entry/exit changes layout and zoom but not source/orientation.
-    for (const bool entering : {true, false}) {
-        const auto before = nativeTitlebarSnapshot(window.windowHandle());
-        window.toggleFullScreen();
-        QVERIFY2(waitForTestCondition([&] {
-            const auto now = nativeTitlebarSnapshot(window.windowHandle());
-            return entering ? now.entries > before.entries : now.exits > before.exits;
-        }, 5000), "Native full-screen completion missing");
-        QCOMPARE(window.isFullScreen(), entering);
-        if (capture().constBits() != first.constBits())
-            failures << QStringLiteral("Layout-only native %1 rebuilt snapshot").arg(entering ? "entry" : "exit");
-    }
-    // QImage sharing must remain immutable to callers that detach for writes.
-    QImage modified = first;
-    modified.fill(Qt::magenta);
-    QCOMPARE(capture().pixelColor(0, 0), topLeft);
-    // Orientation invalidation must not reuse old pixels, even with same source.
-    view->rotateImage(90);
-    const QImage rotated = capture();
-    QVERIFY(rotated.size() != first.size());
-    QVERIFY(rotated.constBits() != first.constBits());
-    if (capture().constBits() != rotated.constBits())
-        failures << QStringLiteral("Changed orientation never becomes reusable");
-    // Reload the SAME filename with different pixels; a path-only key is wrong.
-    source.fill(Qt::cyan);
-    QVERIFY(source.save(path, "XPM"));
-    QSignalSpy loaded(view, &QVGraphicsView::fileChanged);
-    view->reloadFile();
-    QTRY_VERIFY_WITH_TIMEOUT(loaded.count() > 0 && window.getIsPixmapLoaded(), 10000);
-    const QImage reloaded = capture();
-    const QColor cyan = reloaded.pixelColor(reloaded.rect().center());
-    QVERIFY2(cyan.green()-cyan.red() > 80 && cyan.blue()-cyan.red() > 80,
-        qPrintable(cyan.name()));
-    QCOMPARE(cyan.alpha(), 255);
-    QVERIFY(reloaded.constBits() != rotated.constBits());
-    if (capture().constBits() != reloaded.constBits())
-        failures << QStringLiteral("Reloaded source never becomes reusable");
-    qInfo().noquote() << "FULLSCREEN_SNAPSHOT" << QJsonDocument(QJsonObject {
-        {"row", QString::fromLatin1(QTest::currentDataTag())},
-        {"pixels", first.width() * first.height()}, {"bytes", double(first.sizeInBytes())},
-        {"first_oriented_ms", coldMs}, {"warm_8_ms", warmMs}, {"rebuilds", rebuilt},
-        {"native_directions", 2}, {"failures", QJsonArray::fromStringList(failures)}
-    }).toJson(QJsonDocument::Compact);
-    QVERIFY2(failures.isEmpty(), qPrintable(failures.join("; ")));
-}
-
-void WindowBehaviorTests::testFullScreenColdOrientation_data()
-{
-    QTest::addColumn<int>("orientation");
-    QTest::newRow("rotate90") << 90;
-    QTest::newRow("rotate180") << 180;
-    QTest::newRow("rotate270") << 270;
-    QTest::newRow("mirror") << 1;
-    QTest::newRow("flip") << 2;
-    QTest::newRow("identity") << 0;
-}
-
-// TC-FS-COLD-ORIENTATION: observe the actual native provider BEFORE any
-// oriented snapshot request. Rotation/flip must not rebuild full-image pixels
-// on the transition path, and delegating orientation must preserve the image.
-void WindowBehaviorTests::testFullScreenColdOrientation()
-{
-    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
-    QFETCH(int, orientation);
-    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}
-    });
-    const bool originalQuit = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    auto cleanup = qScopeGuard([&] {
-        if (window.isFullScreen()) {
-            const auto before = nativeTitlebarSnapshot(window.windowHandle());
-            window.toggleFullScreen();
-            waitForTestCondition([&] {
-                return nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits
-                    && !nativeFullScreenPresentation(window.windowHandle(), false).active;
-            }, 5000);
-        }
-        window.close();
-        qvApp->setQuitOnLastWindowClosed(originalQuit);
-    });
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString path = dir.filePath("cold-quadrants.xpm");
-    QImage source(4096, 3072, QImage::Format_RGB32);
-    source.fill(Qt::red);
-    {
-        QPainter painter(&source);
-        painter.fillRect(2048, 0, 2048, 1536, Qt::green);
-        painter.fillRect(0, 1536, 2048, 1536, Qt::blue);
-        painter.fillRect(2048, 1536, 2048, 1536, Qt::yellow);
-    }
-    QVERIFY(source.save(path, "XPM"));
-    window.resize(640, 480);
-    window.show();
-    window.openFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
-    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
-    QVERIFY(view);
-    // Prime only the identity source for a color-managed oracle. Never
-    // generate the orientation requested by either native transition.
-    const QImage identity = window.fullScreenTransitionImage();
-    QImage reference(32, 32, QImage::Format_RGBA8888_Premultiplied);
-    {
-        QPainter painter(&reference);
-        painter.drawImage(reference.rect(), identity);
-    }
-    QTransform expectedOrientation;
-    if (orientation >= 90) { view->rotateImage(orientation); expectedOrientation.rotate(orientation); }
-    if (orientation == 1) { view->mirrorImage(); expectedOrientation.scale(-1, 1); }
-    if (orientation == 2) { view->flipImage(); expectedOrientation.scale(1, -1); }
-    QTest::qWait(200);
-    const QRect normalGeometry = window.geometry();
-    QStringList failures;
-    const auto cornersMatch = [](const QImage &actual, const QImage &expected) {
-        if (actual.isNull() || expected.isNull()) return false;
-        for (const QPoint point : {QPoint(4, 4), QPoint(27, 4), QPoint(4, 27), QPoint(27, 27)}) {
-            const QColor a = actual.pixelColor(point), b = expected.pixelColor(point);
-            if (qAbs(a.red()-b.red()) > 12 || qAbs(a.green()-b.green()) > 12
-                || qAbs(a.blue()-b.blue()) > 12 || a.alpha() != b.alpha()) return false;
-        }
-        return true;
-    };
-    for (bool entering : {true, false}) {
-        if (!entering) {
-            // Change direction in fullscreen to invalidate the old oriented
-            // cache before EXIT too. No snapshot getter between this and toggle.
-            view->rotateImage(90);
-            // rotateImage compensates its angle when mirrored/flipped.
-            expectedOrientation.rotate(expectedOrientation.determinant() < 0 ? -90 : 90);
-            QTest::qWait(200);
-        }
-        const QImage expected = reference.transformed(expectedOrientation);
-        const auto before = nativeTitlebarSnapshot(window.windowHandle());
-        NativeFullScreenImageSnapshot observed;
-        QElapsedTimer timer;
-        timer.start();
-        const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
-        window.toggleFullScreen();
-        const double requestCpuMs = (currentThreadCpuTimeNanoseconds().value()-cpuStart)/1000000.0;
-        const double requestWallMs = timer.nsecsElapsed()/1000000.0;
-        const bool completed = waitForTestCondition([&] {
-            if (!observed.active) observed = nativeFullScreenImageSnapshot(window.windowHandle());
-            const auto now = nativeTitlebarSnapshot(window.windowHandle());
-            return (entering ? now.entries > before.entries : now.exits > before.exits)
-                && !nativeFullScreenPresentation(window.windowHandle(), false).active
-                && window.updatesEnabled();
-        }, 5000);
-        const bool rawMatches = observed.active && observed.sourceSize == source.size()
-            && cornersMatch(observed.sourcePreview, reference);
-        const bool renderedMatches = observed.active && cornersMatch(observed.orientedPreview, expected);
-        const QSize orientedPixels = expectedOrientation.mapRect(QRectF(QPointF(), source.size())).size().toSize();
-        const bool geometryMatches = observed.active && observed.orientedSize.height() > 0
-            && qAbs(observed.orientedSize.width()/observed.orientedSize.height()
-                - double(orientedPixels.width())/orientedPixels.height()) < 0.005;
-        qInfo().noquote() << "FULLSCREEN_COLD_ORIENTATION" << QJsonDocument(QJsonObject {
-            {"row", QString::fromLatin1(QTest::currentDataTag())}, {"entering", entering},
-            {"completed", completed}, {"observed", observed.active},
-            {"source_width", observed.sourceSize.width()}, {"source_height", observed.sourceSize.height()},
-            {"source_matches", rawMatches}, {"rendered_matches", renderedMatches},
-            {"geometry_matches", geometryMatches},
-            {"request_cpu_ms", requestCpuMs}, {"request_wall_ms", requestWallMs}
-        }).toJson(QJsonDocument::Compact);
-        QVERIFY(completed);
-        QCOMPARE(window.isFullScreen(), entering);
-        if (!rawMatches) failures << QString("%1: orientation rebuilt/reordered native source pixels")
-            .arg(entering ? "enter" : "exit");
-        if (!renderedMatches) failures << QString("%1: native proxy orientation incorrect")
-            .arg(entering ? "enter" : "exit");
-        if (!geometryMatches) failures << QString("%1: native proxy aspect ratio incorrect")
-            .arg(entering ? "enter" : "exit");
-    }
-    QCOMPARE(window.geometry(), normalGeometry);
-    // Changing the SAME path must invalidate the raw source, not merely the
-    // legacy oriented snapshot. Observe native pixels without priming a getter.
-    source.fill(Qt::cyan);
-    QVERIFY(source.save(path, "XPM"));
-    QSignalSpy loaded(view, &QVGraphicsView::fileChanged);
-    view->reloadFile();
-    QTRY_VERIFY_WITH_TIMEOUT(loaded.count() > 0 && window.getIsPixmapLoaded(), 10000);
-    NativeFullScreenImageSnapshot reloaded;
-    const auto beforeReload = nativeTitlebarSnapshot(window.windowHandle());
-    window.toggleFullScreen();
-    QVERIFY(waitForTestCondition([&] {
-        if (!reloaded.active) reloaded = nativeFullScreenImageSnapshot(window.windowHandle());
-        return nativeTitlebarSnapshot(window.windowHandle()).entries > beforeReload.entries
-            && !nativeFullScreenPresentation(window.windowHandle(), false).active;
-    }, 5000));
-    const QColor cyan = reloaded.sourcePreview.pixelColor(16, 16);
-    const bool reloadMatches = reloaded.active && cyan.alpha() == 255
-        && cyan.green()-cyan.red() > 80 && cyan.blue()-cyan.red() > 80;
-    const auto beforeExit = nativeTitlebarSnapshot(window.windowHandle());
-    window.toggleFullScreen();
-    QVERIFY(waitForTestCondition([&] {
-        return nativeTitlebarSnapshot(window.windowHandle()).exits > beforeExit.exits
-            && !nativeFullScreenPresentation(window.windowHandle(), false).active;
-    }, 5000));
-    qInfo().noquote() << "FULLSCREEN_SOURCE_RELOAD" << QJsonDocument(QJsonObject {
-        {"row", QString::fromLatin1(QTest::currentDataTag())}, {"observed", reloaded.active},
-        {"source_matches", reloadMatches}
-    }).toJson(QJsonDocument::Compact);
-    if (!reloadMatches) failures << QStringLiteral("Same-path reload retained stale native source pixels");
-    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
-}
-
 // TC-FS-REFINEMENT: use XPM to reach the Qt raster branch excluded by PNG's
 // native SDR renderer. Observe actual pixmap replacement, not elapsed time.
 void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement_data()
@@ -14749,7 +14276,7 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
-        window.cancelFullScreenLayoutTransition();
+        window.endNativeFullScreenTransition();
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuit);
     });
@@ -14786,7 +14313,7 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
         else
             view->refreshFullScreenPanPreservation();
         // Exercise repeated native begin and resize-triggered timeout delivery.
-        window.beginFullScreenLayoutTransition(0, 0);
+        window.beginNativeFullScreenTransition();
         window.resize(entering ? QSize(900, 700) : QSize(640, 480));
         timer->start(1);
         QSignalSpy timeout(timer, &QTimer::timeout);
@@ -14803,8 +14330,8 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
         window.resize(entering ? QSize(1000, 750) : QSize(620, 460));
         view->removeExpensiveScaling();
         const qint64 finalKey = item->pixmap().cacheKey();
-        window.cancelFullScreenLayoutTransition();
-        window.cancelFullScreenLayoutTransition();
+        window.endNativeFullScreenTransition();
+        window.endNativeFullScreenTransition();
         QSignalSpy resumed(timer, &QTimer::timeout);
         QTRY_VERIFY_WITH_TIMEOUT(item->pixmap().cacheKey() != finalKey, 2000);
         QCOMPARE(resumed.count(), 1);
@@ -14819,328 +14346,97 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
     QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
 
-void WindowBehaviorTests::testFullScreenPreparationPaintBudget_data()
+// Native notifications, not Qt's requested state, delimit each transition.
+void WindowBehaviorTests::testNativeFullScreenRoundTrip_data()
 {
-    testFullScreenLayoutPaintBudget_data();
+    QTest::addColumn<bool>("hidden");
+    QTest::addColumn<bool>("maximized");
+    QTest::addColumn<bool>("vectorImage");
+    for (bool hidden : {false, true})
+        for (bool maximized : {false, true})
+            for (bool vectorImage : {false, true}) {
+                const QByteArray row = QByteArray(hidden ? "hidden-" : "visible-")
+                    + (maximized ? "maximized-" : "normal-")
+                    + (vectorImage ? "vector" : "raster");
+                QTest::newRow(row.constData()) << hidden << maximized << vectorImage;
+            }
 }
 
-// TC-FS-HANDOFF: sample the proxy through its committed endpoint, require
-// one necessary terminal Paint, and reject duplicate 40ms costs before reveal.
-// Paint observation is read-only: unanimated layers identify source/endpoint;
-// cached intermediate presentation values do not classify startup costs.
-// The existing source budget alone misses this native resize -> Update chain.
-void WindowBehaviorTests::testFullScreenPreparationPaintBudget()
+void WindowBehaviorTests::testNativeFullScreenRoundTrip()
 {
-    QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
     QFETCH(bool, hidden);
+    QFETCH(bool, maximized);
     QFETCH(bool, vectorImage);
-    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
-    ScopedOptionValues options({
-        {"titlebarhidden", hidden},
+    ScopedOptionValues options({{"titlebarhidden", hidden},
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}
-    });
+        {"onetoonepixelsizing", false}});
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
         if (window.isFullScreen()) {
-            const auto state = nativeTitlebarSnapshot(window.windowHandle());
             window.toggleFullScreen();
-            waitForTestCondition([&] {
-                return nativeTitlebarSnapshot(window.windowHandle()).exits > state.exits;
-            }, 5000);
+            waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
         }
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuit);
     });
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    const QString path = directory.filePath(vectorImage ? "motion.svg" : "motion.png");
+    const QString path = directory.filePath(vectorImage ? "native.svg" : "native.png");
     if (vectorImage) {
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/><rect width=\"400\" height=\"800\" fill=\"blue\"/></svg>");
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2400\" height=\"1800\"><rect width=\"2400\" height=\"1800\" fill=\"red\"/></svg>");
     } else {
-        QImage image(800, 1600, QImage::Format_RGB32);
+        QImage image(2400, 1800, QImage::Format_RGB32);
         image.fill(Qt::red);
-        QPainter painter(&image);
-        painter.fillRect(0, 0, 400, 800, Qt::blue);
-        painter.end();
         QVERIFY(image.save(path));
     }
-    window.setWindowState(Qt::WindowNoState);
-    window.resize(640, 480);
-    window.show();
-    window.raise();
-    window.activateWindow();
+    window.setGeometry(220, 180, 720, 500);
+    if (maximized) window.showMaximized(); else window.showNormal();
     window.openFile(path);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
     window.setTitlebarHidden(hidden, false);
-    QTest::qWait(250);
-    const QRect initialGeometry = window.geometry();
-    const qreal initialZoom = view->getZoomLevel();
-    class PreparationCost : public QObject {
-    public:
-        MainWindow *window = nullptr;
-        double sourceWidth = 0;
-        int sourcePaints = 0;
-        int endpointPaints = 0;
-        double endpointCostMs = 0;
-        double endpointCpuMs = 0;
-        double endpointWidth = 0;
-        double sourceCostMs = 0;
-        double sourceCpuMs = 0;
-        QJsonArray samples;
-        bool eventFilter(QObject *object, QEvent *event) override {
-            if (event->type() != QEvent::Paint)
-                return false;
-            const auto p = nativeFullScreenPresentation(window->windowHandle(), false);
-            if (!p.active)
-                return false;
-            const bool stationarySource = !p.running
-                && qAbs(p.windowRect.width() - sourceWidth) < 0.1;
-            const bool endpoint = !p.running
-                && qAbs(p.windowRect.width() - endpointWidth) < 0.1;
-            QElapsedTimer timer;
-            timer.start();
-            const qint64 cpuStart = currentThreadCpuTimeNanoseconds().value();
-            performFullScreenTestWork(40);
-            const double cpuMs = (currentThreadCpuTimeNanoseconds().value() - cpuStart) / 1000000.0;
-            const double ms = timer.nsecsElapsed() / 1000000.0;
-            if (stationarySource) {
-                ++sourcePaints;
-                sourceCostMs += ms;
-                sourceCpuMs += cpuMs;
-            }
-            if (endpoint) {
-                ++endpointPaints;
-                endpointCostMs += ms;
-                endpointCpuMs += cpuMs;
-
-
-            }
-            samples.append(QJsonObject {{"paint_width", static_cast<QPaintEvent *>(event)->rect().width()},
-                {"paint_height", static_cast<QPaintEvent *>(event)->rect().height()},
-                {"viewport_width", static_cast<QWidget *>(object)->width()},
-                {"viewport_height", static_cast<QWidget *>(object)->height()},
-                {"endpoint", endpoint}, {"running", p.running},
-                {"proxy_width", p.windowRect.width()},
-                {"source", stationarySource}, {"cost_ms", ms}});
-            return false;
-        }
-    } cost;
-    cost.window = &window;
-    view->viewport()->installEventFilter(&cost);
-    auto removeFilter = qScopeGuard([&] { view->viewport()->removeEventFilter(&cost); });
-    QStringList failures;
-    for (bool entering : {true, false}) {
-        cost.sourceWidth = window.width();
-        cost.endpointWidth = entering ? window.screen()->geometry().width() : initialGeometry.width();
-        cost.endpointPaints = 0;
-        cost.endpointCostMs = 0;
-        cost.endpointCpuMs = 0;
-        cost.sourcePaints = 0;
-        cost.sourceCostMs = 0;
-        cost.sourceCpuMs = 0;
-        cost.samples = {};
+    QTest::qWait(300);
+    const QRect originalGeometry = window.geometry();
+    const bool originalMaximized = window.isMaximized();
+    QCOMPARE(originalMaximized, maximized);
+    QVERIFY(nativeFullScreenUsesSystemAnimation(window.windowHandle()));
+    for (int cycle = 0; cycle < 2; ++cycle) {
         const auto before = nativeTitlebarSnapshot(window.windowHandle());
-        window.toggleFullScreen();
-        const bool complete = waitForTestCondition([&] {
-            const auto state = nativeTitlebarSnapshot(window.windowHandle());
-            const bool nativeComplete = entering ? state.entries > before.entries : state.exits > before.exits;
-            return nativeComplete && !nativeFullScreenPresentation(window.windowHandle(), false).active
-                && window.updatesEnabled();
-        }, 5000);
-        qInfo().noquote() << "FULLSCREEN_PREPARATION"
-            << QJsonDocument(QJsonObject {{"row", QString::fromLatin1(QTest::currentDataTag())},
-                {"entering", entering}, {"completed", complete},
-                {"endpoint_paints", cost.endpointPaints}, {"endpoint_cost_ms", cost.endpointCostMs},
-                {"endpoint_cpu_ms", cost.endpointCpuMs},
-                {"source_paints", cost.sourcePaints}, {"source_cost_ms", cost.sourceCostMs},
-                {"source_cpu_ms", cost.sourceCpuMs},
-                {"samples", cost.samples}}).toJson(QJsonDocument::Compact);
-        QVERIFY(complete);
-        QVERIFY2(!cost.samples.isEmpty(), "Custom proxy paint observation missing");
-        QCOMPARE(window.isFullScreen(), entering);
+        // Hiding all titlebar buttons makes Qt mark the normal window
+        // FullScreenAuxiliary, so direct native entry is unavailable there.
+        // The app's Qt request handles that case; native exit remains valid.
+        if (cycle == 0 || hidden) window.toggleFullScreen();
+        else nativeToggleFullScreen(window.windowHandle());
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries, 5000);
+        QVERIFY(window.isFullScreen());
+        QVERIFY(!nativeFullScreenPresentation(window.windowHandle(), false).active);
+        // Zoom AFTER actual entry, then pan to both trailing edges.
+        view->zoomAbsolute(2.0, view->viewport()->rect().center());
+        QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0), 3000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->maximum() > 0
+            && view->verticalScrollBar()->maximum() > 0, 3000);
+        view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
+        view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
+        if (cycle == 0) QTest::keyClick(&window, Qt::Key_Escape);
+        else nativeToggleFullScreen(window.windowHandle());
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), originalGeometry, 3000);
+        QCOMPARE(window.isMaximized(), originalMaximized);
+        QCOMPARE(window.getTitlebarHidden(), hidden);
         QVERIFY(window.updatesEnabled());
         QVERIFY(view->viewport()->updatesEnabled());
-        if (cost.sourcePaints > 1 || cost.sourceCpuMs > 75)
-            failures << QString("%1: stationary proxy paid %2 paints / %3ms")
-                .arg(entering ? "enter" : "exit").arg(cost.sourcePaints).arg(cost.sourceCostMs);
-        if (cost.endpointPaints != 1 || cost.endpointCostMs < 40 || cost.endpointCpuMs > 75)
-            failures << QString("%1: endpoint proxy paid %2 paints / %3ms")
-                .arg(entering ? "enter" : "exit").arg(cost.endpointPaints).arg(cost.endpointCostMs);
-        // Start the next transition at the observed handoff boundary, without
-        // a fixed delay that could conceal stale cleanup or an early reveal.
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
+        QTRY_COMPARE_WITH_TIMEOUT(view->horizontalScrollBar()->value(), view->horizontalScrollBar()->maximum(), 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(view->verticalScrollBar()->value(), view->verticalScrollBar()->maximum(), 2000);
+        QVERIFY(nativeFullScreenUsesSystemAnimation(window.windowHandle()));
     }
-    QCOMPARE(window.geometry(), initialGeometry);
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), initialZoom));
-    QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
-    QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
-}
-
-void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
-{
-    QFETCH(bool, hidden);
-    QFETCH(bool, vectorImage);
-    QFETCH(bool, busy);
-    QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
-    ScopedOptionValues options({
-        {"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}
-    });
-    const bool originalQuit = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    auto cleanup = qScopeGuard([&] {
-        if (window.isFullScreen()) {
-            const auto state = nativeTitlebarSnapshot(window.windowHandle());
-            window.toggleFullScreen();
-            waitForTestCondition([&] {
-                return nativeTitlebarSnapshot(window.windowHandle()).exits > state.exits;
-            }, 5000);
-        }
-        window.close();
-        qvApp->setQuitOnLastWindowClosed(originalQuit);
-    });
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    const QString path = directory.filePath(vectorImage ? "motion.svg" : "motion.png");
-    if (vectorImage) {
-        QFile file(path);
-        QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/><rect width=\"400\" height=\"800\" fill=\"blue\"/></svg>");
-    } else {
-        QImage image(800, 1600, QImage::Format_RGB32);
-        image.fill(Qt::red);
-        QPainter painter(&image);
-        painter.fillRect(0, 0, 400, 800, Qt::blue);
-        painter.end();
-        QVERIFY(image.save(path));
-    }
-    window.setWindowState(Qt::WindowNoState);
-    window.resize(640, 480);
-    window.show();
-    window.raise();
-    window.activateWindow();
-    window.openFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
-    QVERIFY(view);
-    window.setTitlebarHidden(hidden, false);
-    QTest::qWait(250);
-    const QRect initialGeometry = window.geometry();
-    const qreal initialZoom = view->getZoomLevel();
-    QStringList failures;
-    for (int cycle = 0; cycle < 2; ++cycle) {
-        for (bool entering : {true, false}) {
-            const auto nativeBefore = nativeTitlebarSnapshot(window.windowHandle());
-            const double startWidth = window.width();
-            const double endWidth = entering ? window.screen()->geometry().width()
-                                             : initialGeometry.width();
-            QVERIFY(qAbs(endWidth - startWidth) > 200);
-            QJsonArray samples;
-            QElapsedTimer clock;
-            clock.start();
-            double lastWidth = startWidth;
-            double lastMovementMs = 0;
-            double maxFrozenMs = 0;
-            double blockedAdvance = 0;
-            double blockedImageDelta = 0;
-            double lastImageWidth = 0;
-            int interiorSamples = 0;
-            bool injected = false;
-            bool finished = false;
-            const auto sample = [&] {
-                const auto p = nativeFullScreenPresentation(window.windowHandle());
-                const double ms = clock.nsecsElapsed() / 1000000.0;
-                if (!p.active)
-                    return -1.0;
-                const double progress = (p.windowRect.width() - startWidth) / (endWidth - startWidth);
-                samples.append(QJsonObject {{"ms", ms}, {"width", p.windowRect.width()},
-                    {"image_width", p.imageRect.width()}, {"progress", progress}});
-                if (progress > 0.15 && progress < 0.85) {
-                    ++interiorSamples;
-                    if (qAbs(p.windowRect.width() - lastWidth) > 0.1)
-                        lastMovementMs = ms;
-                    else
-                        maxFrozenMs = qMax(maxFrozenMs, ms - lastMovementMs);
-                } else {
-                    lastMovementMs = ms;
-                }
-                lastWidth = p.windowRect.width();
-                lastImageWidth = p.imageRect.width();
-                return progress;
-            };
-            window.toggleFullScreen();
-            while (clock.elapsed() < 5000) {
-                const double progress = sample();
-                if (busy && !injected && progress > 0.20 && progress < 0.45) {
-                    injected = true;
-                    const double before = progress;
-                    const double imageBefore = lastImageWidth;
-                    // Controlled contention, identical on red and green. No
-                    // event processing during this 130 ms observation window.
-                    QElapsedTimer contention;
-                    contention.start();
-                    while (contention.elapsed() < 130) {
-                        performFullScreenTestWork(10);
-                        sample();
-                    }
-                    blockedAdvance = sample() - before;
-                    blockedImageDelta = qAbs(lastImageWidth - imageBefore);
-                }
-                const auto state = nativeTitlebarSnapshot(window.windowHandle());
-                const bool nativeComplete = entering ? state.entries > nativeBefore.entries : state.exits > nativeBefore.exits;
-                if (nativeComplete && !nativeFullScreenPresentation(window.windowHandle(), false).active
-                    && window.updatesEnabled()) {
-                    finished = true;
-                    break;
-                }
-                // Event delivery and sleep wakeups can both miss the short
-                // interior interval on a hosted runner. Keep this bounded
-                // observation runnable without dispatching UI events. The
-                // explicit CA trajectory must advance independently of its
-                // GUI completion clock; all motion budgets remain unchanged.
-                if (progress >= 0.0 && progress < 0.85)
-                    performFullScreenTestWork(1);
-                else
-                    QTest::qWait(5);
-            }
-            const QJsonObject metrics {{"row", QString::fromLatin1(QTest::currentDataTag())},
-                {"cycle", cycle}, {"entering", entering}, {"completed", finished},
-                {"injected", injected}, {"interior_samples", interiorSamples},
-                {"max_frozen_ms", maxFrozenMs}, {"blocked_advance", blockedAdvance},
-                {"blocked_image_delta", blockedImageDelta},
-                {"samples", samples}};
-            qInfo().noquote() << "FULLSCREEN_MOTION" << QJsonDocument(metrics).toJson(QJsonDocument::Compact);
-            QVERIFY2(finished, "Native completion missing; motion sampling cannot end at Qt request state");
-            QCOMPARE(window.isFullScreen(), entering);
-            if (interiorSamples < 8)
-                failures << QStringLiteral("No usable interior presentation samples");
-            if (maxFrozenMs > 80.0)
-                failures << QStringLiteral("%1 cycle %2 froze for %3 ms")
-                    .arg(entering ? "enter" : "exit").arg(cycle).arg(maxFrozenMs);
-            if (busy && (!injected || blockedAdvance < 0.08))
-                failures << QStringLiteral("%1 cycle %2 failed to advance during GUI contention (%3)")
-                    .arg(entering ? "enter" : "exit").arg(cycle).arg(blockedAdvance);
-            if (busy && blockedImageDelta < 5.0)
-                failures << QStringLiteral("Image presentation stopped during GUI contention");
-            // Exercise back-to-back transitions after actual proxy retirement.
-        }
-        QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
-        QCOMPARE(window.geometry(), initialGeometry);
-        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), initialZoom));
-    }
-    QVERIFY2(failures.isEmpty(), qPrintable(failures.join('\n')));
 }
 
 // TC-SETTINGS-SMOOTH-DEFAULT

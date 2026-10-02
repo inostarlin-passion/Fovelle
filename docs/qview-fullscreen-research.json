@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-03 Asia/Shanghai",
+  "baseline": "d48c64fc16d236672de07cd4089eb9b374f34bb7",
+  "problem": "参考 qView 改造 macOS 全屏进入/退出。原路径接管 Qt 原生代理类并创建快照窗口；目标交还动画、Space 和窗口恢复给系统，保持菜单、Esc、标题栏和图像状态一致。",
+  "atomic_tasks": [
+    "固定参考版本并检查切换入口",
+    "核对原生状态和完成边界",
+    "移除代理、快照、临时标题栏布局",
+    "保留并验证异步退出、滚动边缘与精化延迟",
+    "验证普通/最大化、隐藏/显示标题栏、栅格/矢量和系统发起切换"
+  ],
+  "research_hops": [
+    {
+      "hop": 1,
+      "source": "https://github.com/jurplel/qView",
+      "result": "确认参考项目为 Qt Widgets 看图应用，沿 src 追踪主窗口与 Cocoa 桥接。"
+    },
+    {
+      "hop": 2,
+      "source": "https://github.com/jurplel/qView/blob/c5eca1c7176549e0f0718d11201547ddcdb1f8c9/src/mainwindow.cpp#L1149",
+      "result": "入口短暂暂停绘制，保存原状态并请求 Qt 全屏；WindowStateChange 负责菜单更新。"
+    },
+    {
+      "hop": 3,
+      "source": "https://github.com/jurplel/qView/blob/c5eca1c7176549e0f0718d11201547ddcdb1f8c9/src/qvcocoafunctions.mm",
+      "result": "对照 Cocoa 桥，未发现 Fovelle 的代理窗口或自定义全屏动画接管。"
+    },
+    {
+      "hop": 4,
+      "source": "https://doc.qt.io/qt-6.11/qwidget.html#showFullScreen",
+      "result": "Qt 全屏在 macOS 使用专用桌面；窗口状态变化通过 changeEvent 交付。"
+    },
+    {
+      "hop": 5,
+      "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.2/src/plugins/platforms/cocoa/qcocoawindow.mm",
+      "result": "固定本机 Qt 版本交叉核验：DidEnter/DidExit 才协调原生状态与样式，退出后继续同步目标状态；Qt 请求状态不足以证明动画完成。"
+    },
+    {
+      "hop": 6,
+      "source": "https://developer.apple.com/documentation/appkit/nswindow/togglefullscreen(_:)",
+      "result": "核对原生 toggleFullScreen 接口。网页仅返回动态文档壳，JSON 路径未成功；不以未读正文做独立证据，语义由 Qt 官方实现与本地 AppKit 调用/通知实验交叉验证。"
+    },
+    {
+      "hop": 7,
+      "source": "https://doc.qt.io/qt-6.11/qwidget.html#updatesEnabled-prop",
+      "result": "父控件暂停绘制会传递到子控件；显式禁止的子控件不会因父控件恢复而自动恢复。与 commitZoomImmediately 保存 effective updatesEnabled 的路径及失败矩阵吻合。"
+    },
+    {
+      "hop": 8,
+      "source": "https://raw.githubusercontent.com/qt/qtbase/v6.11.2/src/plugins/platforms/cocoa/qcocoawindow.mm",
+      "result": "第二轮证伪发现隐藏标题栏后的直接原生 entry 不可达；Qt setWindowFlags 在 CustomizeWindowHint 且无 FullscreenButtonHint 时设 FullScreenAuxiliary，toggleFullScreen 的 Qt 路径才准备允许全屏的 collectionBehavior。故系统原生 entry 只测标题栏按钮可用的情形；隐藏情形测应用 entry、系统原生 exit，不修改产品隐藏按钮政策。"
+    }
+  ],
+  "verified_premises": [
+    "本机 Qt 6.11.2、Cocoa，测试回报 macOS 27.0.1；结论范围为该平台。",
+    "qView 的简化入口与平台拥有动画适用于本项目；异步原生退出保留 Fovelle 既有菜单/Esc 契约，不逐行复制 qView 的 Qt 状态恢复入口。",
+    "退出原普通/最大化状态与几何由 AppKit/Qt 恢复，并通过矩阵测试独立验证。",
+    "全屏中的用户缩放/平移可改变，退出保留退出前用户状态；fit 模式应随视口重算。",
+    "系统发起 entry 的前提是原生全屏按钮/collectionBehavior 可用；隐藏标题栏后直接 native entry 不可达。"
+  ],
+  "deductions": [
+    "系统已有全屏生命周期与几何恢复 → 自定义动画代理非必要 → 删除 delegate 注入、快照代理和临时布局，沿原生完成通知收束图像精化。",
+    "Qt 状态位可能先于原生完成 → 快速退出需要等待 DidEnter → 将退出请求合并并在通知观察者结束后异步提交原生 toggle。",
+    "短暂停父绘制 → 嵌套 zoom 读取继承禁止 → 旧恢复逻辑显式禁止子控件 → 父恢复后视口仍黑；保存 WA_ForceUpdatesDisabled 而非有效绘制状态消除这条机制。"
+  ],
+  "falsification": [
+    "原生动画仍被旧代理接管？独立检查 delegate 无自定义全屏 selectors、真实窗口 alpha=1、无辅助代理窗口。",
+    "只测 Qt 请求会伪通过？使用独立 AppKit did-enter/did-exit 计数作为完成门槛。",
+    "普通窗口成功但最大化失败？八行矩阵覆盖原状态、标题栏和后端，逐行断言恢复几何/最大化状态。",
+    "应用入口正常而绿钮路径漏保留？第二轮直接对 NSWindow 调用 toggleFullScreen，验证系统发起路径。",
+    "仅有编译结果无法发现黑屏？首轮八行均在 viewport updatesEnabled 失败；同一测试复验修复，保留失败日志。",
+    "额外审计旧 ActionManagerTests：原 main 未注册它，单设该 suite 环境变量会零用例退出。临时接入后发现其 keypad Enter/Enter 只进入不退出的旧契约与当前 Return 可配置切换契约不符，且失败清理不安全。撤回此额外接入，验收采用当前已注册 WindowBehaviorTests 的三项配置/快捷键测试与真实 Esc/菜单回归；保留审计失败日志，不将零用例退出计为通过。"
+  ],
+  "convergence": "qView 固定源码 + Qt 官方 API/固定源码 + 本地 native observer 足够界定实现和验证边界。Apple 动态正文未取回，不扩大其证据权重。没有物理屏幕逐帧测量，不能宣称所有硬件场景均零掉帧；额外检索不能替代现场呈现测量。",
+  "validation": {
+    "build": "cmake --build build -j 6；git diff --check。",
+    "system": {
+      "command": "python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --output reports/evidence/qview_native_fullscreen/system.json",
+      "passed": true,
+      "functional_case_count": 8,
+      "native_round_trip_rows": 8,
+      "details": "8 个测试函数含19个实际用例（不计 init/cleanup），全部通过。原生往返每行两轮，覆盖应用和可达系统入口。"
+    },
+    "graphics_regression": {
+      "passed": true,
+      "case_count": 5,
+      "details": "全屏退出垂直平移、标题栏场景 padding、缩小滚动范围、鼠标平移、fit/100% 视口中心。"
+    },
+    "shortcuts": "当前 WindowBehaviorTests 中的3项配置/快捷键，以及真实 Esc/菜单退出测试已计入 system；历史未注册测试审计单列，不计为通过。",
+    "evidence_directory": "reports/evidence/qview_native_fullscreen",
+    "limits": "本机 macOS/Qt 下的功能和绘制状态验证，不等同物理屏幕 FPS 或所有硬件零掉帧保证。"
+  }
+}

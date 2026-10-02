@@ -145,3 +145,16 @@ NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window)
     }
     return {};
 }
+
+bool nativeFullScreenUsesSystemAnimation(QWindow *window)
+{
+    NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
+    return native && native.alphaValue == 1.0
+        && ![native.delegate respondsToSelector:@selector(customWindowsToEnterFullScreenForWindow:)]
+        && ![native.delegate respondsToSelector:@selector(customWindowsToExitFullScreenForWindow:)];
+}
+
+void nativeToggleFullScreen(QWindow *window)
+{
+    [reinterpret_cast<NSView *>(window->winId()).window toggleFullScreen:nil];
+}

@@ -108,17 +108,10 @@ public:
     void beginFullScreenPanPreservation();
     void refreshFullScreenPanPreservation();
     void endFullScreenPanPreservation();
-    // Commit native SDR layer geometry before AppKit reveals the real window
-    // at a full-screen transition handoff.
+    // Commit native SDR layer geometry at native full-screen completion.
     void synchronizeNativeSDRGeometryForFullScreenTransition();
 
     QSizeF getEffectiveOriginalSize() const;
-
-    QRect fullScreenTransitionImageRect() const;
-
-    QImage fullScreenTransitionImage() const;
-    QImage fullScreenTransitionSourceImage() const;
-    QTransform fullScreenTransitionOrientation() const;
 
     LogicalPixelFitter getPixelFitter() const;
 
@@ -463,11 +456,6 @@ private:
 
     // One immutable, oriented RGBA snapshot shared with native transition
     // providers. Source content and orientation, not viewport geometry, key it.
-    mutable QImage fullScreenSnapshot;
-    mutable qint64 fullScreenSnapshotSourceKey {0};
-    mutable QTransform fullScreenSnapshotOrientation;
-    mutable QImage fullScreenSourceSnapshot;
-    mutable qint64 fullScreenSourceSnapshotKey {0};
 
     QVImageCore imageCore {this};
 

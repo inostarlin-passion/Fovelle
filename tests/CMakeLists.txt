@@ -346,46 +346,6 @@ set_tests_properties(FovelleHiddenTitlebarFullScreen PROPERTIES
     RUN_SERIAL TRUE
     LABELS "macos;titlebar;fullscreen;dynamic;acceptance")
 
-add_test(NAME FovelleFullScreenMotion COMMAND fovelle_tests
-    testFullScreenPresentationKeepsMoving -v1)
-set_tests_properties(FovelleFullScreenMotion PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 120
-    RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;motion;dynamic;acceptance")
-
-add_test(NAME FovelleFullScreenPaintBudget COMMAND fovelle_tests
-    testFullScreenLayoutPaintBudget -v1)
-set_tests_properties(FovelleFullScreenPaintBudget PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 30
-    RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;paint;dynamic;acceptance")
-
-add_test(NAME FovelleFullScreenPreparationBudget COMMAND fovelle_tests
-    testFullScreenPreparationPaintBudget -v1)
-set_tests_properties(FovelleFullScreenPreparationBudget PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 60
-    RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;preparation;handoff;dynamic;acceptance")
-
-add_test(NAME FovelleFullScreenSnapshotReuse COMMAND fovelle_tests
-    testFullScreenSnapshotReuse -v1)
-set_tests_properties(FovelleFullScreenSnapshotReuse PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 120
-    RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;snapshot;dynamic;acceptance")
-
-add_test(NAME FovelleFullScreenColdOrientation COMMAND fovelle_tests
-    testFullScreenColdOrientation -v1)
-set_tests_properties(FovelleFullScreenColdOrientation PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 120
-    RUN_SERIAL TRUE
-    LABELS "macos;fullscreen;snapshot;orientation;dynamic;acceptance")
-
 add_test(NAME FovelleFullScreenMetricsGate
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_fullscreen_system_metrics.py)
 set_tests_properties(FovelleFullScreenMetricsGate PROPERTIES
@@ -399,3 +359,10 @@ set_tests_properties(FovelleFullScreenRefinement PROPERTIES
     TIMEOUT 30
     RUN_SERIAL TRUE
     LABELS "macos;fullscreen;refinement;dynamic;acceptance")
+
+add_test(NAME FovelleNativeFullScreenRoundTrip COMMAND fovelle_tests
+    testNativeFullScreenRoundTrip testExitFullscreenActionUsesEscapePath -v1)
+set_tests_properties(FovelleNativeFullScreenRoundTrip PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 120 RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;native;dynamic;acceptance")
