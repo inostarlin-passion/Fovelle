@@ -159,7 +159,9 @@ add_test(NAME FovelleTests
         $<TARGET_FILE:fovelle_tests>)
 set_tests_properties(FovelleTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
-    TIMEOUT 180
+    # This entry runs eight suites sequentially; hosted macOS runners exceed
+    # 180s while still making progress. Individual Qt functions retain 30s.
+    TIMEOUT 360
 )
 
 add_test(NAME FovelleNativeAlertsStatic

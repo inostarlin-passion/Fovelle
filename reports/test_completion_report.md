@@ -37,3 +37,13 @@ passed数包含init／cleanup，因此红阶段2 passed不表示某个业务数�
 ## 交付
 
 生产与测试修改留在工作区；未提交或部署。四份报告分别为 [根因分析](root_cause.md)、[技术设计](technical_design_document.md)、[测试用例说明](test_case_specification.md)及本报告。原报告已保存在 `reports/evidence/fullscreen_refinement/prior_*`，保留历史证据与本轮证据的区别。
+
+## GitHub Actions修复补充（2026-10-02）
+
+检查拆为总测试进程期限与动画采样覆盖两个独立问题。历史 [Checks失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/36894021791) 在180.27秒终止总套件；[Build失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/36894021792) 同样在180.10秒终止总套件，另外一次退出动画仅有4个中段样本，两次读取间隔326.84ms，轨迹由0.4115推进至0.9671；日志没有证明该间隔内动画冻结。
+
+多跳核验：先读取两个独立工作流的失败日志、固定提交和runner版本，再核验 [CTest TIMEOUT优先级](https://cmake.org/cmake/help/latest/prop_test/TIMEOUT.html)、[Qt 6.11.2 qWait／qSleep语义](https://doc.qt.io/qt-6.11/qtest.html)、[Qt事件处理期限](https://doc.qt.io/qt-6.11/qcoreapplication.html)与 [Apple presentationLayer](https://developer.apple.com/documentation/quartzcore/calayer/presentation%28%29?language=objc)，最后交叉对照本地采样与显式Core Animation实现。网络机制、两个远端实际失败和本地源码支持不同层面的证据；不能由单次长采样间隔认定GPU掉帧，也不能把180秒总套件超时当作单个函数死锁。
+
+修复：八套顺序执行的总CTest期限由180秒设为360秒，保留每个Qt函数30秒期限；Checks测试job预算由10分钟设为15分钟，覆盖安装、编译和总回归。中段已经开始的轨迹使用不处理事件的5ms qSleep采样，前后仍用qWait驱动原生启动与完成。不得降低8个中段样本、80ms冻结、忙负载0.08推进与5像素图像推进门槛；不得以跳过测试或失败重试代替修复。
+
+修复后本地 `FovelleFullScreenMotion` 与 `FovelleFullScreenMetricsGate` 两项通过，22.70秒。其余远端验收以修复提交的Actions状态为准；日志保存在本地 `reports/evidence/actions_fix/`。本地clang-format脚本返回0但报告大量既有格式诊断，不能据此声称全库格式无诊断；此次未执行全库格式重写，远端format结果单独核验。

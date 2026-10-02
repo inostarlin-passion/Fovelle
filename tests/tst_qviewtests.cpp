@@ -15105,7 +15105,15 @@ void WindowBehaviorTests::testFullScreenPresentationKeepsMoving()
                     finished = true;
                     break;
                 }
-                QTest::qWait(5);
+                // qWait processes arbitrary native/Qt work, which can consume
+                // the entire interior interval on a hosted runner. Once the
+                // trajectory is in flight, observe it without dispatching UI
+                // events. The explicit CA animation must keep moving even
+                // while its GUI completion clock is not being serviced.
+                if (progress > 0.15 && progress < 0.85)
+                    QTest::qSleep(5);
+                else
+                    QTest::qWait(5);
             }
             const QJsonObject metrics {{"row", QString::fromLatin1(QTest::currentDataTag())},
                 {"cycle", cycle}, {"entering", entering}, {"completed", finished},

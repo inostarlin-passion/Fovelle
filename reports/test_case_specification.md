@@ -41,3 +41,7 @@ python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests --
 ```
 
 GUI命令串行执行。新测试旧代码三次运行必须都在enter／exit失败，修复后同一测试三次运行全部通过；既有回归和系统门禁也须通过。实际日志与统计见 [完成报告](test_completion_report.md)。presentation轨迹、CPU预算及pixmap替换均不等于物理屏幕FPS；多屏、不同刷新率及现场GPU负载没有在本轮穷举。
+
+## Actions环境下的运动采样
+
+轨迹已位于0.15至0.85区间时，每5ms睡眠后读取presentation，不处理GUI事件；在区间外恢复qWait以驱动原生启动／完成。busy行仍注入原有130ms GUI成本，8样本、80ms冻结、0.08推进、5像素图像推进门槛均保持。总套件是八个独立进程的顺序组合，CTest期限360秒，单个Qt函数期限30秒。CI结果必须绑定修复提交并等待所有检查终态成功。
