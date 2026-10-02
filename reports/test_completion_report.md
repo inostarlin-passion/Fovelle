@@ -44,6 +44,9 @@ passed数包含init／cleanup，因此红阶段2 passed不表示某个业务数�
 
 多跳核验：先读取两个独立工作流的失败日志、固定提交和runner版本，再核验 [CTest TIMEOUT优先级](https://cmake.org/cmake/help/latest/prop_test/TIMEOUT.html)、[Qt 6.11.2 qWait／qSleep语义](https://doc.qt.io/qt-6.11/qtest.html)、[Qt事件处理期限](https://doc.qt.io/qt-6.11/qcoreapplication.html)与 [Apple presentationLayer](https://developer.apple.com/documentation/quartzcore/calayer/presentation%28%29?language=objc)，最后交叉对照本地采样与显式Core Animation实现。网络机制、两个远端实际失败和本地源码支持不同层面的证据；不能由单次长采样间隔认定GPU掉帧，也不能把180秒总套件超时当作单个函数死锁。
 
-修复：八套顺序执行的总CTest期限由180秒设为360秒，保留每个Qt函数30秒期限；Checks测试job预算由10分钟设为15分钟，覆盖安装、编译和总回归。中段已经开始的轨迹使用不处理事件的5ms qSleep采样，前后仍用qWait驱动原生启动与完成。不得降低8个中段样本、80ms冻结、忙负载0.08推进与5像素图像推进门槛；不得以跳过测试或失败重试代替修复。
+修复：八套顺序执行的总CTest期限由180秒设为360秒，保留每个Qt函数30秒期限；Checks测试job预算由10分钟设为15分钟，覆盖安装、编译和总回归。已经开始的轨迹使用不处理事件、不依赖睡眠唤醒的1ms短CPU段连续采样，前后仍用qWait驱动原生启动与完成。不得降低8个中段样本、80ms冻结、忙负载0.08推进与5像素图像推进门槛；不得以跳过测试或失败重试代替修复。
 
 修复后本地 `FovelleFullScreenMotion` 与 `FovelleFullScreenMetricsGate` 两项通过，22.70秒。其余远端验收以修复提交的Actions状态为准；日志保存在本地 `reports/evidence/actions_fix/`。本地clang-format脚本返回0但报告大量既有格式诊断，不能据此声称全库格式无诊断；此次未执行全库格式重写，远端format结果单独核验。
+
+
+第一次修复提交`5fd7066`的 [远端Checks](https://github.com/inostarlin-passion/Fovelle/actions/runs/37015763174) 确认总套件不再于180秒终止（194.28秒后完整返回），但一个idle进入过程仅取得5个中段样本；实际采样间隔95.18ms，轨迹由0.1539推进至0.4309，没有冻结证据。qSleep采样仍受共享runner睡眠唤醒／调度影响，进一步改为1ms短CPU段保持采样线程可运行，并从轨迹开始即连续采样。测试末端仍处理事件，原busy注入和全部门槛保持；最终状态以新修复提交的Checks／Build运行验收。
