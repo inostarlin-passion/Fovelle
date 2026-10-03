@@ -25,6 +25,7 @@ FUNCTIONAL_CASES = (
     "testExitFullscreenActionUsesEscapePath",
     "testFullScreenDefersExpensiveRefinement",
     "testFullScreenVisualContinuity",
+    "testHDRFullScreenVisualContinuity",
 )
 
 THRESHOLDS = {
@@ -145,9 +146,10 @@ CONTINUITY_ROWS = tuple(f"{metric}-{title}" for title in ("visible", "hidden")
                         for metric in ("exit-bottom", "enter-size", "enter-position", "exit-size", "exit-position"))
 
 
-def continuity_summary(output: str) -> dict:
-    metrics = [json.loads(line.split("FULLSCREEN_CONTINUITY ", 1)[1])
-               for line in output.splitlines() if "FULLSCREEN_CONTINUITY {" in line]
+def continuity_summary(output: str, prefix: str = "FULLSCREEN_CONTINUITY") -> dict:
+    metrics = [json.loads(line.split(prefix + " ", 1)[1])
+               for line in output.splitlines()
+               if re.search(rf"(?<!\w){re.escape(prefix)} \{{", line)]
     rows = [m.get("row") for m in metrics]
     passed = (len(rows) == len(CONTINUITY_ROWS) and set(rows) == set(CONTINUITY_ROWS)
               and all(type(m.get("samples")) is int and m["samples"] > 0
@@ -174,7 +176,7 @@ def main() -> int:
         result = subprocess.run(
             [str(binary), *names], text=True, capture_output=True,
             env={**os.environ, "QT_QPA_PLATFORM": "cocoa", "QT_FATAL_WARNINGS": "1",
-                 "FOVELLE_TEST_SUITE": suite}, check=False, timeout=120)
+                 "FOVELLE_TEST_SUITE": suite}, check=False, timeout=300)
         outputs.append(result.stdout + result.stderr)
         return_codes.append(result.returncode)
     output = "\n".join(outputs)
@@ -196,7 +198,7 @@ def main() -> int:
                               for image in ("raster", "vector"))
                         if name == "testTitlebarPresentationDuringFullScreen" else
                         ("enter", "exit") if name == "testFullScreenDefersExpensiveRefinement" else
-                        CONTINUITY_ROWS if name == "testFullScreenVisualContinuity" else ("",)
+                        CONTINUITY_ROWS if name in ("testFullScreenVisualContinuity", "testHDRFullScreenVisualContinuity") else ("",)
                     )) else "failed",
             }
         )
@@ -221,7 +223,9 @@ def main() -> int:
         "throughput": performance["transition_ack_throughput_per_second"] >= THRESHOLDS["transition_ack_throughput_per_second"],
     }
     continuity = continuity_summary(output)
+    hdr_continuity = continuity_summary(output, "HDR_FULLSCREEN_CONTINUITY")
     record = {
+        "hdr_continuity": hdr_continuity,
         "continuity": continuity,
         "kind": "system-functional",
         "binary": str(binary),
@@ -233,7 +237,7 @@ def main() -> int:
         "performance": performance,
         "thresholds": THRESHOLDS,
         "performance_flags": performance_flags,
-        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and continuity["passed"],
+        "passed": all(code == 0 for code in return_codes) and all(item["status"] == "passed" for item in cases) and all(performance_flags.values()) and continuity["passed"] and hdr_continuity["passed"],
         "output_tail": output[-12000:],
         "limitations": [
             "The test process sends deterministic Qt key events; it does not depend on a human keyboard or Accessibility permission.",

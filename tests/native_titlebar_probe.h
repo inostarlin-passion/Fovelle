@@ -46,3 +46,13 @@ struct NativeSDRLayerGeometry {
 };
 NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window);
 void nativeSetResizeProbe(QWindow *window, std::function<void()> callback);
+
+struct NativeHDRLayerGeometry {
+    bool active {false};
+    QRectF viewport;
+    QRectF image;
+    QRectF background;
+    QImage bottomBand;
+    QImage expectedBottomBand;
+};
+NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &expectedImage);

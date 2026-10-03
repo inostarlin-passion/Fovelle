@@ -1,52 +1,59 @@
-# 全屏过渡闪烁与图像跳变：根因分析
+# HDR全屏跳变与退出底部闪烁：根因分析
 
-日期：2026-10-03（Asia/Shanghai）。基线见 `evidence/fullscreen_visual_continuity/baseline.txt`。原四份报告已归档于 `evidence/fullscreen_visual_continuity/prior_reports/`。
+日期：2026-10-03。本轮基线见 `evidence/hdr_fullscreen_continuity/baseline.txt`。此前SDR报告归档于 `evidence/hdr_fullscreen_continuity/prior_reports/`，其结果不能证明HDR正常。
 
 ## 问题界定与原子化拆解
 
-五个问题独立验收：P1退出时底部闪烁；P2进入时尺寸跳变；P3进入时位置跳变；P4退出时尺寸跳变；P5退出时位置跳变。完成后的尺寸/位置正确不足以排除过渡期间错误帧。把观察划分为请求前、原生Will通知、原生resize、原生Did通知、完成后稳定帧；分别检查原生背景覆盖、图像尺寸、图像中心。
-
-## 多跳联网检索与多源交叉验证
-
-1. [qView固定版本图形视图](https://github.com/jurplel/qView/blob/c5eca1c7176549e0f0718d11201547ddcdb1f8c9/src/qvgraphicsview.cpp)：参考普通Qt绘制路径，追踪resize与fit；本项目额外有独立原生图层，不能直接泛化参考项目的呈现时序。
-2. [Qt 6.11.2 Cocoa窗口](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qcocoawindow.mm)：继续追踪Will/Did通知及窗口状态同步，区分请求状态和原生完成。
-3. [Qt 6.11.2 QNSWindow](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qnswindow.mm)、[QNSView](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qnsview.mm)：交叉核验原生视图、窗口背景和图层承载机制。
-4. [Qt QWidget更新策略](https://doc.qt.io/qt-6.11/qwidget.html#updatesEnabled-prop)：绘制暂停及恢复不等于阻止原生尺寸变化，也不等于同步额外图层。
-5. [Apple CALayer contentsGravity](https://developer.apple.com/documentation/quartzcore/calayer/contentsgravity)、[CATransaction disableActions](https://developer.apple.com/documentation/quartzcore/catransaction/disableactions())：HTML返回动态文档壳后，继续读取官方Markdown端点并保存到evidence。禁止隐式动画只影响属性变更动画，不能消除旧几何提交晚于视口resize的时间差。
-
-两家官方机制资料、参考项目固定源码、本地调用链和实际原生resize探针交叉验证。现场物理帧输出仍须区别于模型图层；不以网络资料代替现场实验。
+P1退出底部闪烁；P2 HDR进入尺寸跳变；P3 HDR进入位置跳变；P4 HDR退出尺寸跳变；P5 HDR退出位置跳变。分别检查请求前稳态、原生Will、原生resize、原生Did、完成后稳态。合理随窗口缩放/居中不算缺陷；当前Qt布局与原生图像几何不一致才是本轮可检验目标。P1以背景底边与实际底部内容分别检查，不能由尺寸门禁代替。
 
 ## 显式前提
 
-本轮首先验证本机macOS、Qt 6.11.2 Cocoa、PNG原生SDR持久图块后端、fit模式。源图、窗口大小、标题栏偏好、原生完成计数均由测试断言，不把Qt请求状态当完成。可能涉及SVG/Qt栅格/HDR的因素另列，尚未由此夹具证明。
+本轮本机Qt Cocoa路径；真实HDR图片解码必须断言 `isNativeHDRLoaded`，持久HDR图层必须准备完毕，不允许SDR静默替代。已存在原生HDR半浮点CGImage持久层与大图CAMetalLayer回退两条路径；分别定位，不将一种结果泛化到另一种。屏幕物理合成时序与模型图层观察区分。
 
-## 每项可能根因、推导与逆向证伪
+## 多跳联网检索与交叉验证
 
-|问题|可能根因与可检验推导|逆向证伪|
+1. [qView固定源码](https://github.com/jurplel/qView/blob/c5eca1c7176549e0f0718d11201547ddcdb1f8c9/src/qvgraphicsview.cpp)追踪普通Qt resize/fit。参考项目没有本项目独立HDR图层，不能照搬其绘制同步结论。
+2. [Qt 6.11.2 Cocoa窗口实现](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qcocoawindow.mm)与[QWidget文档](https://doc.qt.io/qt-6.11/qwidget.html)核对请求状态、resize和原生完成区别；GitHub一次读取失败时继续用官方raw端点核验。
+3. [Apple macOS Metal窗口](https://developer.apple.com/documentation/metal/managing-your-game-window-for-metal-in-macos)追踪窗口resize与drawable像素大小。该机制适用Metal回退，不代表已准备的持久CGImage也要重新分配drawable。
+4. [Apple presentsWithTransaction](https://developer.apple.com/documentation/quartzcore/cametallayer/presentswithtransaction)说明默认Metal呈现与Core Animation事务异步，不能保证同一帧；它是Metal回退的候选因素，不是持久HDR图层的当然根因。
+5. [Apple Core Animation事务](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/AdvancedAnimationTricks/AdvancedAnimationTricks.html)核验属性更新/事务机制。本地 `render` 的持久HDR分支只更新已有CGImage仿射变换，而现有全屏同步方法仅接受SDR。
+
+## 分问题的可能根因、推导与反证
+
+|问题|可能根因与链式推导|逆向证伪|
 |---|---|---|
-|P1退出底部闪烁|原生host resize/标题栏恢复 → viewport/background覆盖或坐标系与Qt新视口不一致 → 暂露旧背景/边条 → 下一事件循环修补形成闪烁。另可能为Dock/Space系统动画、Qt背景重绘、隐式图层动画。|独立读取实际图层底边、背景范围/可见性；必要时记录屏幕条带；区分应用内容区域与系统Dock区域，不能把正常Dock出现当缺陷。|
-|P2进入尺寸跳变|Qt resize同步fit → 图像缩放已变 → 原生提交由零timer延后 → 同一host尺寸下显示旧缩放 → 后续提交突然切换。另一候选为滚动条拓扑多次fit、DPR变化。|比较原生图层变换后的宽高与独立计算的Qt源图几何；记录每次原生resize，终态比较不是证伪。|
-|P3进入位置跳变|resizeDelta、fit居中和标题栏遮挡计算已改变 → 原生image/container位置仍旧 → 下一提交修正中心。另一候选为manual pan重捕获或不一致的坐标翻转。|分别比较原生viewport与image中心，固定fit与源图、记录标题栏；定位平移误差而非拿尺寸误差代替位置指标。|
-|P4退出尺寸跳变|恢复普通窗口尺寸时Qt重算fit → 可见原生图层暂留全屏缩放 → 下一事件循环或Did通知才同步。另一候选为高质量精化改变几何。|退出专用尺寸门禁，持续到原生DidExit之后稳定；源图不更换，监视原生尺寸而非只看zoom变量。|
-|P5退出位置跳变|标题栏/viewport高度恢复与原生图层坐标更新分离 → 图像中心短暂偏移；完成时pan恢复或延迟约束也可能二次移动。|退出专用中心门禁，观察viewport和image坐标、完成后尾部；与fit和manual pan回归交叉核验。|
+|P1退出底部闪烁|标题栏/视口恢复→容器或背景先变→HDR图像仍为全屏变换→底部显示旧覆盖/旧内容→延后修正形成闪动。另可能为应用背景、Dock/Space合成、HDR准备/后端切换。|比较底边范围与底部实际内容；转换前后正控制验证探针；记录后端和准备状态，不能把系统Dock出现当应用闪烁。|
+|P2 HDR进入尺寸跳变|Qt同步fit→HDR原生变换被SDR专用guard排除→旧尺寸保留到零timer刷新。另可能为HDR准备完成、drawable重建、DPR变化。|原生resize即时比较真实HDR图层宽高与Qt源图变换；断言HDR已准备、源图不变。|
+|P3 HDR进入位置跳变|Qt居中/标题栏布局改变→HDR图层平移未同步→下一提交中心突变。另可能为坐标翻转、pan重捕获。|中心欧氏距离独立于尺寸指标；前后稳态和两个标题栏模式交叉核验。|
+|P4 HDR退出尺寸跳变|普通窗口fit已恢复→原生HDR仍保留全屏比例→延后同步。另可能为SDR代理回切或精化。|退出专用宽高指标，持久层在resize时必须仍可见，原生Did之后检查稳态。|
+|P5 HDR退出位置跳变|viewport inset/中心恢复→HDR层平移留在全屏位置→延后同步。另可能为manual pan恢复和延迟约束。|退出专用中心指标，分别观察viewport、image；回归manual pan和padding。|
 
-## 当前实验状态
+## 实验状态
 
-测试先于生产修改加入实际NSWindowDidResize通知采样。下文区分探索、稳定红灯、针对性修复及未覆盖边界，不把候选原因一律视为已证实。
+先增强现有测试，再执行未修改生产基线。稳态正控制、每项独立指标、非零原生采样用于避免伪检出；下文按实际日志区分探索、稳定红灯、交叉验证和修复结果。
 
-## 实验证伪与已确认机制
+## 已复现机制与逆向排查结论
 
-- 原始底边范围测试（`red-1.txt`）没有检出P1：容器与背景底边误差为0。排除本夹具中的覆盖缺口；实际底部像素条带却有2256（visible）/2352（hidden）个错误占用像素，支持“旧图像内容处于新视口”解释。
-- 可见标题栏：普通图像矩形 `(235,32,250,500)`，全屏 `(593,0,542,1084)`。原生resize时窗口已切换视口，而图像仍是另一状态；宽高最大误差584点，中心偏差约567.112点。隐藏标题栏分别约552点、574.623点。P2/P3/P4/P5分别由进入/退出的尺寸和中心指标检出。
-- 控制实验发现离屏初版采样了顶部；修正为最后八行，并在转换前后等待稳态条件（有界3秒），避免固定200毫秒初始化等待不足引起误判。探索日志不计入稳定检出证据。resize回调自身没有等待或修补。
-- Qt渲染终态和native模型终态一致，故静态坐标翻转/持续DPR错误不足以解释本次瞬态；错误native几何精确对应旧状态，源图不变，精化不参与，支持排队提交而非解码/精化改变尺寸。
+最终DNG测试连续三轮各十行均因对应视觉指标失败，稳态正控制通过、原生采样非零，见 `red-stable-1.txt` 至 `red-stable-3.txt`。使用真实HDR标志、headroom>1及16位浮点CGImage排除SDR替代。
 
-[Apple事务文档](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/AdvancedAnimationTricks/AdvancedAnimationTricks.html)进一步核验事务组织属性变化；事务提交本身不证明显示器已输出对应物理帧。检索在本地时序证据、Qt实现和Apple事务机制相互一致后收敛。物理屏幕合成/系统Dock因素保留为未由本探针验证的候选，不能宣称被全面排除。
+- P1：容器/背景底边误差为0，但底部模型内容不匹配。故单纯“背景覆盖范围不足”不能解释本夹具；旧全屏图像变换在新普通视口中仍可形成错误底部内容。
+- P2：进入resize后Qt期望图像1626×1084，而HDR图层仍720×480，尺寸最大误差906点。
+- P3：同一进入时点图像中心偏差约567.112点（可见标题栏）/574.623点（隐藏标题栏）。
+- P4：退出resize后Qt已恢复720×480，HDR图层仍1626×1084，尺寸最大误差906点。
+- P5：同一退出时点中心偏差同上，后续终态恢复正确，支持提交延迟而非恒定坐标翻转错误。
 
-## 稳定红灯与针对性修复
+链式推导：原生resize触发Qt最终布局 → 容器立即采用新视口 → SDR专用同步guard拒绝HDR → HDR几何仍在零timer队列 → 当前图层保留旧尺寸/中心/底部内容 → 下一提交修补并形成跳变机会。真实图层错误矩形对应前一状态，源图不变、持久HDR已准备、前后稳态匹配，故“源图重解码/首次HDR准备/恒定DPR错误”不是本次复现所必需的原因。
 
-生产修改前，最终探针/断言在 `red-stable-1.txt`、`red-stable-2.txt`、`red-stable-3.txt` 连续三次运行：每次十行均因对应视觉指标失败，稳态控制通过，采样非零。五项×两种标题栏×三次，共30次稳定检出；测试源摘要保存在 `test-oracle-sha256.json`。
+探索中附着HDR层与未附着参考层的离屏颜色比较在稳态失败，日志 `control-debug*.txt` 保留，但不计作产品缺陷证据。改用相同颜色转换对真实HDR CGImage和两个模型变换栅格化，正控制通过后才统计。探针证明的是应用几何对应的像素内容，不能替代物理显示帧。
 
-对应根因分别为：P1新底部视口中仍呈现旧图像覆盖；P2进入resize后原生缩放未同步；P3进入resize后原生中心未同步；P4退出resize后原生缩放未同步；P5退出resize后原生中心未同步。共同调用链是 Qt同步布局 → 原生容器更新 → 原生图像几何留在零timer队列 → 后续提交修正。各问题仍保留上表中的其他可能成因，但它们不是本夹具已经证明的必要原因。
+Qt源码通知/布局链、Apple事务/Metal机制、本地调用链和真实窗口实验已相互印证，检索在该机制上收敛。Metal回退、HDR未准备阶段、系统Dock/Space合成和多显示器变化仍是边界候选；未用本夹具将它们全面证伪。
 
-修复在全屏preservation活跃期间，于最终resize布局和最终zoom commit后立即同步原生SDR几何，复用持久图块；保留Did阶段终态同步。修复后的同一测试结果与相关回归见 [测试完成报告](test_completion_report.md)。
+## JPEG交叉验证与修复选择
+
+另一真实Adaptive HDR JPEG完整十行也在生产修改前因对应指标失败，稳态与采样前提通过，见 `red-jpeg.txt`。其宽高误差为584点（visible）/552点（hidden），中心误差与DNG一致，支持后端时序而非DNG格式独有因素。两种源图均为已准备HDR持久层。
+
+修复更名同步方法为 `synchronizeNativeImageGeometryForFullScreenTransition()`，除原SDR外，仅允许已准备的HDR持久图层在现有最终布局点同步。未准备HDR维持保护，不引入GPU等待、重新解码或自定义窗口动画。相同测试修复后的结果见 [测试完成报告](test_completion_report.md)。
+
+DNG相同oracle修复后连续三轮30/30通过，所有模型误差均为0；测试摘要一致。这支持已准备HDR持久层的提交时机修复充分消除了本轮复现机制。
+
+JPEG修复后十行也全部通过。结合DNG三轮，共40/40基线检出、40/40修复后通过；六项CTest和39个系统数据用例通过。此结论限于上述明示的已准备HDR持久层和模型像素证据。

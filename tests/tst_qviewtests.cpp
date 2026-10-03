@@ -390,6 +390,8 @@ private slots:
     void testFullScreenDefersExpensiveRefinement();
     void testFullScreenVisualContinuity_data();
     void testFullScreenVisualContinuity();
+    void testHDRFullScreenVisualContinuity_data();
+    void testHDRFullScreenVisualContinuity();
     void testNativeFullScreenRoundTrip_data();
     void testNativeFullScreenRoundTrip();
     void testSmoothScalingDefaultIsBilinear();
@@ -14454,6 +14456,129 @@ void WindowBehaviorTests::testFullScreenVisualContinuity()
     QTest::qWait(150);
     nativeSetResizeProbe(window.windowHandle(), {});
     qInfo().noquote() << "FULLSCREEN_CONTINUITY" << QJsonDocument(QJsonObject{
+        {"row", QString::fromLatin1(QTest::currentDataTag())}, {"samples", samples},
+        {"size_error", sizeError}, {"position_error", positionError}, {"bottom_error", bottomError}, {"bottom_pixel_errors", bottomPixelErrors}
+    }).toJson(QJsonDocument::Compact);
+    QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady endpoint controls failed", 3000);
+    QVERIFY(samples > 0);
+    if (metric == "bottom") {
+        QVERIFY2(bottomError <= 2.0 && bottomPixelErrors <= 2,
+            qPrintable(QString("Bottom strip: geometry error=%1 points, wrong pixels=%2").arg(bottomError).arg(bottomPixelErrors)));
+    } else {
+        const qreal error = metric == "size" ? sizeError : positionError;
+        QVERIFY2(error <= 2.0, qPrintable(QString("%1 transient native geometry error: %2 points").arg(metric).arg(error)));
+    }
+}
+
+void WindowBehaviorTests::testHDRFullScreenVisualContinuity_data()
+{
+    QTest::addColumn<bool>("entering");
+    QTest::addColumn<QString>("metric");
+    QTest::addColumn<bool>("hidden");
+    for (bool hidden : {false, true}) {
+        const QByteArray suffix = hidden ? "-hidden" : "-visible";
+        QTest::newRow(("exit-bottom"+suffix).constData()) << false << QString("bottom") << hidden;
+        QTest::newRow(("enter-size"+suffix).constData()) << true << QString("size") << hidden;
+        QTest::newRow(("enter-position"+suffix).constData()) << true << QString("position") << hidden;
+        QTest::newRow(("exit-size"+suffix).constData()) << false << QString("size") << hidden;
+        QTest::newRow(("exit-position"+suffix).constData()) << false << QString("position") << hidden;
+    }
+}
+
+void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
+{
+    QFETCH(bool, entering);
+    QFETCH(QString, metric);
+    QFETCH(bool, hidden);
+    ScopedOptionValues options({{"titlebarhidden", hidden},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
+        {"onetoonepixelsizing", false}, {"checkerboardbackground", false}});
+    const bool originalQuit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto cleanup = qScopeGuard([&] {
+        nativeSetResizeProbe(window.windowHandle(), {});
+        if (window.isFullScreen()) {
+            window.toggleFullScreen();
+            waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuit);
+    });
+    const QString path = qEnvironmentVariable("FOVELLE_HDR_FULLSCREEN_IMAGE",
+        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
+    QVERIFY2(QFileInfo(path).isFile(), qPrintable(path));
+    QVERIFY(!path.isEmpty());
+    window.setWindowState(Qt::WindowNoState);
+    window.setGeometry(210, 160, 720, 500);
+    window.show();
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QVERIFY(view->getCurrentFileDetails().isNativeHDRLoaded);
+    QVERIFY(view->getCurrentFileDetails().hdrMetadata.contentHeadroom > 1.0F);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 15000);
+    const QSize sourceSize = view->getCurrentFileDetails().loadedPixmapSize;
+    QTest::qWait(200);
+    if (!entering) {
+        const int entries = nativeTitlebarSnapshot(window.windowHandle()).entries;
+        window.toggleFullScreen();
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries, 5000);
+        QTest::qWait(200);
+    }
+    int samples = 0;
+    qreal sizeError = 0, positionError = 0, bottomError = 0;
+    int bottomPixelErrors = 0;
+    const auto bottomMismatch = [](const NativeHDRLayerGeometry &native) {
+        if (native.bottomBand.isNull() || native.expectedBottomBand.isNull()
+            || native.bottomBand.size() != native.expectedBottomBand.size()) return 1000000;
+        int errors = 0;
+        for (int y = 1; y < native.bottomBand.height()-1; ++y)
+            for (int x = 1; x < native.bottomBand.width()-1; ++x) {
+                const QColor actual = native.bottomBand.pixelColor(x, y);
+                const QColor expected = native.expectedBottomBand.pixelColor(x, y);
+                if (qAbs(actual.red()-expected.red()) > 8
+                    || qAbs(actual.green()-expected.green()) > 8
+                    || qAbs(actual.blue()-expected.blue()) > 8) ++errors;
+            }
+        return errors;
+    };
+    const auto stableControl = [&] {
+        const QPoint origin = view->viewport()->mapTo(&window, QPoint());
+        const QRectF expectedViewport(origin, view->viewport()->size());
+        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
+        const auto native = nativeHDRLayerGeometry(window.windowHandle(), expectedImage);
+        return native.active && bottomMismatch(native) <= 2
+            && qAbs(native.image.width()-expectedImage.width()) <= 2
+            && qAbs(native.image.height()-expectedImage.height()) <= 2
+            && QLineF(native.image.center(), expectedImage.center()).length() <= 2;
+    };
+    QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady source controls failed: probe/fixture cannot classify this transition", 3000);
+    nativeSetResizeProbe(window.windowHandle(), [&] {
+        const QPoint origin = view->viewport()->mapTo(&window, QPoint());
+        const QRectF expectedViewport(origin, view->viewport()->size());
+        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
+        const auto native = nativeHDRLayerGeometry(window.windowHandle(), expectedImage);
+        if (!native.active) return;
+        ++samples;
+        sizeError = qMax(sizeError, qMax(qAbs(native.image.width()-expectedImage.width()), qAbs(native.image.height()-expectedImage.height())));
+        positionError = qMax(positionError, QLineF(native.image.center(), expectedImage.center()).length());
+        bottomError = qMax(bottomError, qMax(qAbs(native.viewport.bottom()-expectedViewport.bottom()), qAbs(native.background.bottom()-expectedViewport.bottom())));
+        const int mismatches = bottomMismatch(native);
+        bottomPixelErrors = qMax(bottomPixelErrors, mismatches);
+        qInfo() << "CONTINUITY_SAMPLE" << QTest::currentDataTag() << native.image << expectedImage << native.viewport << expectedViewport;
+    });
+    const auto before = nativeTitlebarSnapshot(window.windowHandle());
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(entering
+        ? nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries
+        : nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+    QTest::qWait(150);
+    nativeSetResizeProbe(window.windowHandle(), {});
+    qInfo().noquote() << "HDR_FULLSCREEN_CONTINUITY" << QJsonDocument(QJsonObject{
         {"row", QString::fromLatin1(QTest::currentDataTag())}, {"samples", samples},
         {"size_error", sizeError}, {"position_error", positionError}, {"bottom_error", bottomError}, {"bottom_pixel_errors", bottomPixelErrors}
     }).toJson(QJsonDocument::Compact);

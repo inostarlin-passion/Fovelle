@@ -1,36 +1,35 @@
-# 全屏视觉连续性技术设计
+# HDR全屏视觉连续性技术设计
 
-日期：2026-10-03。根因与资料链见 [根因分析](root_cause.md)。基线为 `d8f5af6699b0909155b3ee6fd19ff95aad62bf65`。
+日期：2026-10-03。基线为此前SDR修复后的版本，详见 [根因分析](root_cause.md)。此前报告归档于 `evidence/hdr_fullscreen_continuity/prior_reports/`。
 
-## 范围与前提
+## 范围与设计前提
 
-五个独立验收目标是退出底部像素连续性、进入尺寸、进入位置、退出尺寸、退出位置。已验证路径是 macOS 27.0.1、Qt 6.11.2 Cocoa、原生 SDR 持久图块、fit 模式；显示/隐藏标题栏分别覆盖。系统原生全屏动画继续由 AppKit 管理，图像随视口合理缩放与居中；“连续性”表示同一个 resize 时刻原生图像与 Qt 当前布局一致，不要求窗口变大时图像尺寸恒定。
+五个目标：退出底部内容连续、HDR进入尺寸/位置连续、HDR退出尺寸/位置连续。图像合理随窗口缩放不是缺陷；图像层应与同一resize时点的Qt布局一致。已经解码并准备的HDR使用16位半浮点CGImage持久层；大图超预算时另有CAMetalLayer回退，本轮持久层实验不能证明回退的所有物理呈现行为。
 
-## 现状与推导
+基线中的 `synchronizeNativeSDRGeometryForFullScreenTransition()` 在最终resize、zoom commit及Did结束处调用，但方法因SDR专用guard跳过HDR。Qt当前fit/constraint与容器几何已更新，HDR图像仍等零timer，形成旧图像变换与新视口同时存在。
 
-Qt resize 同步执行 fit/constraint、场景范围与滚动位置调整。额外的原生图像后端通过零延迟 timer 合并刷新。原生容器已得到新视口时，图像仍可能停留旧变换。等待 DidEnter/DidExit 后再同步只能修正终态，不能排除中间的错误内容。关闭 QWidget 绘制和禁止 CALayer 隐式动画也不能代替图层几何同步。
+## 修复方案与不变量
 
-因此在全屏过渡期间完成 Qt 布局的同一调用栈中，同步原生 SDR 几何；普通交互保留异步合并。生产同步复用现有 `synchronizeNativeSDRGeometryForFullScreenTransition()`，停止待处理帧 timer 后更新渲染器。后端继续使用已有无隐式动画的事务和持久 CGImage 图块。
+将方法更名为 `synchronizeNativeImageGeometryForFullScreenTransition()`，适用已有SDR与已准备的HDR持久层。继续沿用最终resize、zoom commit和Did结束处的同步点，停止待处理帧timer并立即提交最新图像变换。HDR持久层已缓存完整源图；更新仅改变仿射几何和背景覆盖，不重新解码、不新建快照、不阻塞GPU。
 
-## 修改点与不变量
+使用preservation生命周期覆盖进入与退出，不能只用 `isFullScreen()`。同步发生在fit、pan边缘恢复、场景范围和滚动条布局完成后；嵌套resize在zoom commit内返回，由最终zoom提交补齐。未准备HDR不能强制提前展示，准备/SDR代理/亮度与焦点过渡策略保留。
 
-1. `QVGraphicsView::resizeEvent` 完成 fit、滚动边缘恢复和竖向滚动条布局后，在全屏 pan preservation 活跃时提交原生 SDR 几何。
-2. `commitZoomImmediately` 完成最终 anchor/constraint 和更新状态恢复后补同步，覆盖嵌套 resize 因 zoom commit 保护直接返回的路径。
-3. 原生 Did 通知的终态同步保留，防止结束时的 pan 恢复留下差异。
-4. 方法仅接受已激活的原生 SDR 后端；不引入新解码、全图快照、自定义代理窗口、事件循环抽水或 GPU 等待。普通 resize/zoom 的合并策略保留。
+原生AppKit全屏动画继续由系统管理，不增加代理窗口动画。普通交互维持原有零timer合并。Did结束同步仍保留，以覆盖最后pan恢复。
 
-同步必须发生在最终布局之后；在 `QMainWindow::resizeEvent` 或嵌套 resize 中提前提交可能读到尚未完成的场景几何。全屏状态用现有 preservation 生命周期界定，不能只检查 `isFullScreen()`，因为退出阶段该值已改变。
+## 独立测试与证伪
 
-## 独立测试设计
+新增 `testHDRFullScreenVisualContinuity`，真实HDR来源、headroom>1、持久HDR准备完毕均为硬断言。原生探针只接受可见16位浮点CGImage，避免误测SDR瓦片。实际bounds通过CALayer坐标转换得到，预期矩形由Qt源图与viewportTransform独立计算。
 
-测试专用 Objective-C 通知观察器读取真实 NSWindowDidResize 通知，扫描实际可见图块树，不调用生产同步方法。原生 image bounds 经实际 layer transform 转换到根坐标；预期值由 Qt viewportTransform 与固定源图独立计算。底部测试离屏绘制真实 CGImage 图块/背景，检查最后八行的红色区域与期望图像相交范围。
+底部参考保留实际CGImage像素和方向，独立归一化其尺寸/位置到Qt预期；实际与参考使用相同sRGB转换、背景和条带采样。该方法检查模型变换对应的错误底部内容，不比较不同层附着状态的EDR色调映射，也不将其等同物理屏幕录像。resize回调内不等待、不抽事件、不调用生产刷新。前后稳态正控制和非零采样防止探针错误或缺采样伪通过。
 
-转换前和转换后均需几何/像素稳态校验，避免坐标或夹具错误伪装为缺陷。必须收到有效原生采样，零样本不能通过。每个问题单独数据行，两个标题栏模式共十行。测试不在 resize 回调内等待或刷新渲染器。
+两种标题栏×五项独立指标共十行。连续三次基线红灯后，保留相同测试进行三次绿灯验证。补充另一真实HDR格式交叉验证，保持原SDR测试及全屏往返、标题栏、manual pan和精化回归。
 
-## 风险与验证边界
+## 验收入口和风险
 
-同步可能增加过渡期间主线程工作；限制为现有 SDR 几何路径，昂贵精化仍由原生 Will/Did 生命周期暂停/恢复。通过精化、全屏往返、manual pan、标题栏和系统快捷键回归检查。离屏模型树证明错误状态存在及被消除，不等同于物理屏幕逐帧录像，也不覆盖系统 Dock/Space 合成闪烁、HDR、多显示器 DPR 切换的全部成因。
+CTest独立注册HDR连续性测试，原生窗口测试串行。系统入口分别检查HDR/SDR完整数据矩阵和指标，避免HDR标记包含SDR标记导致混淆；缺失、重复、零样本、非法或超限指标均失败。
 
-## 实验验收
+主线程新增工作限于已准备持久层的几何变换。测试文件由 `FOVELLE_HDR_FULLSCREEN_IMAGE` 指定，默认使用现有HDR样本库；样本不可用或未进入真实HDR后端时直接失败。HDR未准备阶段、超缓存大图Metal回退、多屏DPR和物理系统合成的全部闪烁成因作为明确边界，不以本轮模型测试宣称全面覆盖。
 
-相同测试在未改生产基线30/30失败，修复后30/30通过；采样误差从552–584点尺寸、约567–575点中心偏差和2256/2352底部错误像素降至0。详见 [测试完成报告](test_completion_report.md)。这支持“同步提交时机”是本夹具的充分修复条件。
+## 已完成的核心验收
+
+DNG相同测试在当前生产基线30/30稳定失败，修复后30/30通过，所有采样误差为0；JPEG基线十行全部检出，修复后十行全部通过。精确重复、格式交叉验证和相关回归见 [测试完成报告](test_completion_report.md)。

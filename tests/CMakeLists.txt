@@ -373,3 +373,10 @@ set_tests_properties(FovelleFullScreenVisualContinuity PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
     TIMEOUT 90 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;continuity;dynamic;acceptance")
+
+add_test(NAME FovelleHDRFullScreenVisualContinuity COMMAND fovelle_tests
+    testHDRFullScreenVisualContinuity -v1)
+set_tests_properties(FovelleHDRFullScreenVisualContinuity PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 300 RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;hdr;continuity;dynamic;acceptance")

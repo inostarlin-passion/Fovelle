@@ -108,8 +108,8 @@ public:
     void beginFullScreenPanPreservation();
     void refreshFullScreenPanPreservation();
     void endFullScreenPanPreservation();
-    // Commit native SDR layer geometry at native full-screen completion.
-    void synchronizeNativeSDRGeometryForFullScreenTransition();
+    // Commit prepared native image geometry during full-screen layout.
+    void synchronizeNativeImageGeometryForFullScreenTransition();
 
     QSizeF getEffectiveOriginalSize() const;
 

@@ -1424,7 +1424,7 @@ void MainWindow::endNativeFullScreenTransition()
 {
     // AppKit's completion notification arrives after native geometry settles.
     graphicsView->endFullScreenPanPreservation();
-    graphicsView->synchronizeNativeSDRGeometryForFullScreenTransition();
+    graphicsView->synchronizeNativeImageGeometryForFullScreenTransition();
 }
 
 void MainWindow::pauseChanged()

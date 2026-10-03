@@ -38,6 +38,17 @@ class FullscreenSystemMetricsTests(unittest.TestCase):
             candidate[0][field] = value
             self.assertFalse(continuity_summary(output('FULLSCREEN_CONTINUITY', candidate))['passed'])
 
+    def test_hdr_and_sdr_observations_cannot_satisfy_each_others_gate(self):
+        records = [dict(row=row, samples=1, size_error=0, position_error=0,
+                        bottom_error=0, bottom_pixel_errors=0) for row in CONTINUITY_ROWS]
+        hdr = output('HDR_FULLSCREEN_CONTINUITY', records)
+        sdr = output('FULLSCREEN_CONTINUITY', records)
+        self.assertFalse(continuity_summary(hdr)['passed'])
+        self.assertFalse(continuity_summary(sdr, 'HDR_FULLSCREEN_CONTINUITY')['passed'])
+        for prefix in ('FULLSCREEN_CONTINUITY', 'HDR_FULLSCREEN_CONTINUITY'):
+            self.assertTrue(continuity_summary(sdr+'\n'+hdr, prefix)['passed'])
+            self.assertFalse(continuity_summary(output(prefix, records[:-1]), prefix)['passed'])
+
     def test_complete_orientation_and_reload_matrix_passes(self):
         metrics, reloads = orientation_records()
         self.assertTrue(orientation_summary(orientation_output(metrics, reloads))['passed'])

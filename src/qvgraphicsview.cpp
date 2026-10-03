@@ -396,7 +396,7 @@ void QVGraphicsView::resizeEvent(QResizeEvent *event)
         // AppKit can present this resize before the coalesced frame timer runs.
         // Publish the final fit/pan geometry alongside the new native viewport.
         if (fullScreenPanPreservationActive)
-            synchronizeNativeSDRGeometryForFullScreenTransition();
+            synchronizeNativeImageGeometryForFullScreenTransition();
     }
     else
     {
@@ -2052,9 +2052,9 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
     horizontalScrollBar()->setUpdatesEnabled(horizontalUpdatesEnabled);
     verticalScrollBar()->setUpdatesEnabled(verticalUpdatesEnabled);
     // Nested viewport resizes return early while this zoom transaction runs.
-    // Its final anchor/constraint is now ready for the native SDR layer.
+    // Its final anchor/constraint is now ready for the native image layer.
     if (fullScreenPanPreservationActive)
-        synchronizeNativeSDRGeometryForFullScreenTransition();
+        synchronizeNativeImageGeometryForFullScreenTransition();
     if (viewUpdatesEnabled || viewportUpdatesEnabled)
         viewport()->update();
 }
@@ -2674,16 +2674,22 @@ void QVGraphicsView::endFullScreenPanPreservation()
         expensiveScaleTimer->start(50);
 }
 
-void QVGraphicsView::synchronizeNativeSDRGeometryForFullScreenTransition()
+void QVGraphicsView::synchronizeNativeImageGeometryForFullScreenTransition()
 {
-    if (!hdrRendererActive || !hdrRenderer
-        || !getCurrentFileDetails().isNativeSDRLoaded)
+    if (!hdrRendererActive || !hdrRenderer)
+        return;
+
+    const auto &details = getCurrentFileDetails();
+    const bool persistentHDRReady = details.isNativeHDRLoaded
+            && hdrRenderer->diagnostics().persistentHDRSurfaceReady;
+    if (!details.isNativeSDRLoaded && !persistentHDRReady)
         return;
 
     // Native full-screen resize delivery cannot wait for a zero-delay frame
     // timer: the container may already have the new viewport while its image
-    // still has the old transform. Update the persistent SDR geometry in this
-    // layout transaction; the native backend reuses the existing CGImage tiles.
+    // still has the old transform. Update the persistent image geometry in this
+    // layout transaction; the native backend reuses existing SDR tiles or the
+    // prepared half-float HDR image. Unprepared HDR keeps its reveal policy.
     hdrFrameRequestTimer->stop();
     updateHDRRenderer();
 }

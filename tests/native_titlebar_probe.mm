@@ -236,3 +236,63 @@ void nativeSetResizeProbe(QWindow *window, std::function<void()> callback)
     }
     *probe->callback = std::move(callback);
 }
+
+NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &expectedImage)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    CALayer *root = view.layer;
+    for (CALayer *container in root.sublayers) {
+        if (!container.masksToBounds || container.hidden || container.opacity < 0.99)
+            continue;
+        for (CALayer *image in container.sublayers) {
+            if (image.hidden || image.opacity < 0.99 || !image.contents
+                || CFGetTypeID((CFTypeRef)image.contents) != CGImageGetTypeID())
+                continue;
+            CGImageRef pixels = (CGImageRef)image.contents;
+            if (CGImageGetBitsPerComponent(pixels) != 16
+                || !(CGImageGetBitmapInfo(pixels) & kCGBitmapFloatComponents))
+                continue;
+            const auto qtRect = [root, view](CGRect r) {
+                return QRectF(r.origin.x, root.geometryFlipped ? r.origin.y
+                    : view.bounds.size.height - CGRectGetMaxY(r), r.size.width, r.size.height);
+            };
+            const QRectF actualImage = qtRect([image convertRect:image.bounds toLayer:root]);
+            const QRectF viewport = qtRect([container convertRect:container.bounds toLayer:root]);
+            CALayer *background = container.sublayers.firstObject;
+            // Rasterize actual HDR pixels with the observed model transform.
+            // Using the same color conversion for both strips avoids comparing
+            // an attached EDR subtree with an unattached layer's tone mapping.
+            const auto band = [container, image, background](CGAffineTransform transform) {
+                QImage result(qRound(container.bounds.size.width), 8, QImage::Format_RGBA8888_Premultiplied);
+                result.fill(Qt::transparent);
+                CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+                CGContextRef context = CGBitmapContextCreate(result.bits(), result.width(), result.height(),
+                    8, result.bytesPerLine(), color,
+                    kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+                CGColorSpaceRelease(color);
+                if (!context) return QImage();
+                if (background.backgroundColor) {
+                    CGContextSetFillColorWithColor(context, background.backgroundColor);
+                    CGContextFillRect(context, CGRectMake(0, 0, result.width(), 8));
+                }
+                CGContextTranslateCTM(context, 0, 8 - container.bounds.size.height);
+                CGContextConcatCTM(context, transform);
+                CGContextDrawImage(context, image.bounds, (CGImageRef)image.contents);
+                CGContextRelease(context);
+                return result;
+            };
+            const CGRect actual = [image convertRect:image.bounds toLayer:container];
+            const qreal targetY = root.geometryFlipped ? expectedImage.top()-viewport.top()
+                : viewport.bottom()-expectedImage.bottom();
+            const CGFloat sx = expectedImage.width()/actual.size.width;
+            const CGFloat sy = expectedImage.height()/actual.size.height;
+            const CGAffineTransform normalize = CGAffineTransformMake(sx, 0, 0, sy,
+                expectedImage.left()-viewport.left()-actual.origin.x*sx,
+                targetY-actual.origin.y*sy);
+            const CGAffineTransform expectedTransform = CGAffineTransformConcat(image.affineTransform, normalize);
+            return {true, viewport, actualImage,
+                qtRect([background convertRect:background.bounds toLayer:root]), band(image.affineTransform), band(expectedTransform)};
+        }
+    }
+    return {};
+}
