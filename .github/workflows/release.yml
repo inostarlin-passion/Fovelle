@@ -64,9 +64,11 @@ jobs:
         run: cmake --build build --parallel 2
 
       # grabWindow captures composited desktop pixels, including the Dock's
-      # shadow above availableGeometry on macOS 15. Keep it off the canvas.
-      - name: Auto-hide Dock for display capture tests
+      # shadow on macOS 15 even when auto-hidden. Move it away from the
+      # bottom strip under test as well as keeping it hidden.
+      - name: Move Dock away from bottom display capture tests
         run: |
+          defaults write com.apple.dock orientation -string left
           defaults write com.apple.dock autohide -bool true
           killall Dock || true
 
