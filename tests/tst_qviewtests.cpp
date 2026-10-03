@@ -8299,7 +8299,12 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
     });
     window.setWindowState(Qt::WindowNoState);
-    window.resize(640, 480);
+    QScreen *screen = qvApp->primaryScreen();
+    QVERIFY(screen);
+    QRect initialGeometry(QPoint(), QSize(640, 480));
+    initialGeometry.moveCenter(screen->availableGeometry().center());
+    // Do not inherit a previous test's position at the desktop/titlebar edge.
+    window.setGeometry(initialGeometry);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
@@ -8315,7 +8320,7 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     // QWidget ignores resize() to its cached size. After a native style
     // change, force a real resize so AppKit and Qt share the same baseline.
     window.resize(641, 481);
-    window.resize(640, 480);
+    window.setGeometry(initialGeometry);
     QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QCoreApplication::processEvents();
@@ -8329,7 +8334,8 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     QVERIFY(!normalTransitionRect.isEmpty());
     qInfo() << "FIT_FULLSCREEN_BASELINE" << normalTransitionRect
             << view->viewport()->size() << window.geometry()
-            << window.getViewportPosition().obscuredHeight << view->sceneRect();
+            << window.getViewportPosition().obscuredHeight << view->sceneRect()
+            << window.normalGeometry();
     const int normalContentTop = window.getViewportPosition().obscuredHeight;
     const QRect normalUsableViewport = view->viewport()->rect().adjusted(0, normalContentTop, 0, 0);
     QVERIFY2(qAbs(normalTransitionRect.center().y() - normalUsableViewport.center().y()) <= 1,
@@ -8394,7 +8400,8 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
     qInfo() << "FIT_FULLSCREEN_RESTORED" << displayedImageRect()
             << view->viewport()->size() << window.geometry()
-            << window.getViewportPosition().obscuredHeight << view->sceneRect();
+            << window.getViewportPosition().obscuredHeight << view->sceneRect()
+            << window.normalGeometry();
     QTRY_COMPARE_WITH_TIMEOUT(
         displayedImageRect(), normalTransitionRect, 5000);
 }
