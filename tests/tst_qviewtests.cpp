@@ -8274,6 +8274,8 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 // Postcondition: the window closes and the application quit policy is restored.
 void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
 {
+    ScopedEnvironmentValue diagnosticEnvironment("FOVELLE_DIAGNOSTIC_LOG");
+    qputenv("FOVELLE_DIAGNOSTIC_LOG", "1");
     ScopedOptionValues options({{"titlebarhidden", false},
         {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
         {"onetoonepixelsizing", false}});
@@ -8319,8 +8321,10 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
             << window.size();
     // QWidget ignores resize() to its cached size. After a native style
     // change, force a real resize so AppKit and Qt share the same baseline.
+    window.showNormal();
     window.resize(641, 481);
     window.setGeometry(initialGeometry);
+    QTRY_VERIFY_WITH_TIMEOUT(!window.isMaximized() && !window.isFullScreen(), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QCoreApplication::processEvents();

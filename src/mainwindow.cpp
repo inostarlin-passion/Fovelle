@@ -1418,14 +1418,21 @@ void MainWindow::beginNativeFullScreenTransition()
 {
     if (!isClosing)
     {
-        if (!isFullScreen() && !isMaximized())
+        if (!isFullScreen() && !isMaximized()
+            && !normalGeometryBeforeFullScreen.isValid())
             normalGeometryBeforeFullScreen = geometry();
+        if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
+            qInfo() << "FULLSCREEN_GEOMETRY_BEGIN" << windowState()
+                    << geometry() << normalGeometryBeforeFullScreen;
         graphicsView->beginFullScreenPanPreservation();
     }
 }
 
 void MainWindow::endNativeFullScreenTransition()
 {
+    if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
+        qInfo() << "FULLSCREEN_GEOMETRY_END" << windowState()
+                << geometry() << normalGeometryBeforeFullScreen;
     // macOS 26 can restore an expanded-content window one titlebar taller.
     // Reconcile the normal geometry after native exit, while pan preservation
     // still covers the resize. Maximized windows retain AppKit's restoration.
@@ -1433,7 +1440,7 @@ void MainWindow::endNativeFullScreenTransition()
     {
         const QRect geometryToRestore = normalGeometryBeforeFullScreen;
         normalGeometryBeforeFullScreen = QRect();
-        if (!isClosing && !isMaximized() && geometry() != geometryToRestore)
+        if (!isClosing && geometry() != geometryToRestore)
             setGeometry(geometryToRestore);
     }
     graphicsView->endFullScreenPanPreservation();
