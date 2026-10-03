@@ -8274,6 +8274,9 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 // Postcondition: the window closes and the application quit policy is restored.
 void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
 {
+    ScopedOptionValues options({{"titlebarhidden", false},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
+        {"onetoonepixelsizing", false}});
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -8284,6 +8287,17 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            const int exits = nativeTitlebarSnapshot(window.windowHandle()).exits;
+            window.toggleFullScreen();
+            waitForTestCondition([&] {
+                return nativeTitlebarSnapshot(window.windowHandle()).exits > exits;
+            }, 5000);
+        }
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     window.setWindowState(Qt::WindowNoState);
     window.resize(640, 480);
     window.show();
@@ -8293,6 +8307,9 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
+    // showEvent queues this native style change. Apply it before measuring
+    // the normal viewport so its titlebar inset matches the restored endpoint.
+    QVCocoaFunctions::setFullSizeContentView(&window, true);
     window.resize(640, 480);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QCoreApplication::processEvents();
@@ -8332,7 +8349,9 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     const qreal zoomBeforeFullscreen = view->getZoomLevel();
     QElapsedTimer transitionTimer;
     transitionTimer.start();
+    const auto before = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
     reportFullscreenMetric("enter", transitionTimer.elapsed());
     QTRY_VERIFY_WITH_TIMEOUT(
@@ -8351,6 +8370,7 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 
     transitionTimer.restart();
     window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
     reportFullscreenMetric("exit", transitionTimer.elapsed());
     QTRY_VERIFY_WITH_TIMEOUT(
@@ -8359,9 +8379,6 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         5000);
     QTRY_COMPARE_WITH_TIMEOUT(
         displayedImageRect(), normalTransitionRect, 5000);
-
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR
@@ -14511,8 +14528,10 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     });
     const QString path = qEnvironmentVariable("FOVELLE_HDR_FULLSCREEN_IMAGE",
         QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
-    QVERIFY2(QFileInfo(path).isFile(), qPrintable(path));
-    QVERIFY(!path.isEmpty());
+    if (qEnvironmentVariableIsEmpty("FOVELLE_HDR_FULLSCREEN_IMAGE")
+        && !QFileInfo(path).isFile())
+        QSKIP("Set FOVELLE_HDR_FULLSCREEN_IMAGE to a readable HDR DNG");
+    QVERIFY2(QFileInfo(path).isFile() && QFileInfo(path).isReadable(), qPrintable(path));
     window.setWindowState(Qt::WindowNoState);
     window.setGeometry(210, 160, 720, 500);
     window.show();
@@ -14770,6 +14789,9 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
         image.fill(Qt::red);
         QVERIFY(image.save(path));
     }
+    // A preceding test may have persisted maximized geometry on close.
+    // Reset the restored state before selecting this data row's start state.
+    window.setWindowState(Qt::WindowNoState);
     window.setGeometry(220, 180, 720, 500);
     if (maximized) window.showMaximized(); else window.showNormal();
     window.openFile(path);
@@ -16232,6 +16254,10 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto cleanup = qScopeGuard([&] {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     QScreen *screen = qvApp->primaryScreen();
     QVERIFY(screen);
     const QRect available = screen->availableGeometry();
@@ -16271,8 +16297,10 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
         image.setDevicePixelRatio(1.0);
         return image;
     };
+    // Sample inside the image, away from the previous/next overlays at the
+    // viewport edges. The fixture has a transparent interior around (330, 34).
     const auto transparentBackgroundSample = [view, viewportSize](const QImage &capture) {
-        const QPoint sourcePoint = view->mapFromScene(QPointF(470.5, 34.5));
+        const QPoint sourcePoint = view->mapFromScene(QPointF(330.5, 34.5));
         const QPoint capturePoint(qRound(sourcePoint.x() * capture.width()
                                          / static_cast<qreal>(viewportSize.width())),
                                   qRound(sourcePoint.y() * capture.height()
@@ -16283,7 +16311,7 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
     QVERIFY(!focused.isNull());
     QVERIFY(focused.width() >= viewportSize.width());
     QVERIFY(focused.height() >= viewportSize.height());
-    QCOMPARE(fixture.pixelColor(470, 34).alpha(), 0);
+    QCOMPARE(fixture.pixelColor(330, 34).alpha(), 0);
     const QColor focusedBackdrop = transparentBackgroundSample(focused);
     const QColor expectedBackdrop = Qv::viewportBackgroundColor(Qv::Theme::Dark);
     QVERIFY2(qAbs(focusedBackdrop.red() - expectedBackdrop.red()) <= 12
@@ -16349,8 +16377,6 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
                                 .arg(inactive.height())));
 
     informationWindow.close();
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 int main(int argc, char *argv[])
