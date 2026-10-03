@@ -26,6 +26,7 @@ FUNCTIONAL_CASES = (
     "testFullScreenDefersExpensiveRefinement",
     "testFullScreenVisualContinuity",
     "testHDRFullScreenVisualContinuity",
+    "testFullScreenBottomBackgroundHandoff",
 )
 
 THRESHOLDS = {
@@ -198,7 +199,10 @@ def main() -> int:
                               for image in ("raster", "vector"))
                         if name == "testTitlebarPresentationDuringFullScreen" else
                         ("enter", "exit") if name == "testFullScreenDefersExpensiveRefinement" else
-                        CONTINUITY_ROWS if name in ("testFullScreenVisualContinuity", "testHDRFullScreenVisualContinuity") else ("",)
+                        CONTINUITY_ROWS if name in ("testFullScreenVisualContinuity", "testHDRFullScreenVisualContinuity") else
+                        tuple(f"{image}-{state}" for image in ("sdr", "hdr")
+                              for state in ("normal", "maximized"))
+                        if name == "testFullScreenBottomBackgroundHandoff" else ("",)
                     )) else "failed",
             }
         )
@@ -225,6 +229,11 @@ def main() -> int:
     continuity = continuity_summary(output)
     hdr_continuity = continuity_summary(output, "HDR_FULLSCREEN_CONTINUITY")
     record = {
+        "bottom_background_handoff": {
+            "passed": next(case["status"] == "passed" for case in cases
+                           if case["test"].endswith("::testFullScreenBottomBackgroundHandoff")),
+            "metric_definition": "actual display pixels during controlled native content handoff; natural-animation flash not proven",
+        },
         "hdr_continuity": hdr_continuity,
         "continuity": continuity,
         "kind": "system-functional",
@@ -244,6 +253,7 @@ def main() -> int:
             "The separate app-launch/resource probe records process-level timing and resource observations.",
             "Native round trips require independent AppKit completion counters, original geometry/state, trailing pan edges and enabled drawing.",
             "Qt acknowledgement timings are diagnostics; native system animation is not a physical-display FPS measurement.",
+            "Bottom-background acceptance uses a controlled content exposure; the user's natural exit flash remains unproven.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

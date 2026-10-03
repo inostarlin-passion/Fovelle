@@ -1,6 +1,7 @@
 #pragma once
 #include <QRectF>
 #include <QImage>
+#include <QColor>
 class QWindow;
 struct NativeTitlebarSnapshot
 {
@@ -56,3 +57,7 @@ struct NativeHDRLayerGeometry {
     QImage expectedBottomBand;
 };
 NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &expectedImage);
+
+QColor nativeWindowBackground(QWindow *window);
+
+void nativeSetContentHidden(QWindow *window, bool hidden);

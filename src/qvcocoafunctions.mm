@@ -4876,6 +4876,13 @@ void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
     setApplicationTheme(theme);
     auto *view = reinterpret_cast<NSView*>(window->winId());
     [view.window setAppearance:nil];
+
+    // AppKit can expose the window background while native fullscreen content
+    // is handed back to Qt. Appearance inheritance does not set this color;
+    // match the canvas even when its backing store/layers are not covering it.
+    const QColor background = Qv::viewportBackgroundColor(resolvedTheme(theme));
+    view.window.backgroundColor = [NSColor colorWithSRGBRed:background.redF()
+        green:background.greenF() blue:background.blueF() alpha:1.0];
 }
 
 QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)

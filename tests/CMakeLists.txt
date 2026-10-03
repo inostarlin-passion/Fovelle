@@ -380,3 +380,12 @@ set_tests_properties(FovelleHDRFullScreenVisualContinuity PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
     TIMEOUT 300 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;hdr;continuity;dynamic;acceptance")
+
+# Display capture validates a controlled native content handoff separately
+# from natural-animation characterization. HDR requires the local fixture.
+add_test(NAME FovelleFullScreenBottomBackgroundHandoff COMMAND fovelle_tests
+    testFullScreenBottomBackgroundHandoff -v1)
+set_tests_properties(FovelleFullScreenBottomBackgroundHandoff PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 120 RUN_SERIAL TRUE
+    LABELS "macos;fullscreen;display-capture;background-handoff;requires-desktop")

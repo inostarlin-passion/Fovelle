@@ -1,45 +1,40 @@
-# HDR全屏测试用例说明
+# 全屏底部闪烁：测试用例说明
 
-## 测试夹具与硬性前提
+## 公共环境与输入
 
-函数 `WindowBehaviorTests::testHDRFullScreenVisualContinuity`。默认源图 `/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng`，可通过 `FOVELLE_HDR_FULLSCREEN_IMAGE` 覆盖。正常窗口720×500、ZoomToFit、禁用窗口自动缩放和棋盘背景。断言文件可读、图像已加载、真实原生HDR标志、内容headroom>1、持久HDR准备完成；探针只接受可见16位浮点CGImage。任何前提不成立都失败，不能静默改成SDR或skip。
+真实 macOS Cocoa 桌面，窗口能够激活且屏幕捕获可用；关闭棋盘背景、选择深色主题、禁用按图自动调整窗口。SDR 为测试生成的红色 800×1600 PNG，HDR 为真实 DNG；通过 `FOVELLE_HDR_FULLSCREEN_IMAGE` 指定，默认使用本地挂载样本 `3.dng`。不存在则 HDR 行 skip；存在但未识别 HDR 或表面未准备则失败。
 
-进入/退出都以AppKit Did计数确认完成。退出行先完成进入，待稳态通过后才开始退出采样。可见/隐藏标题栏各五行，共十行。
+`FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE` 可选指定证据目录。未指定不写图片；指定时按数据行保存自然 `band-*.png`、受控 `fallback.png` 和 stdout 中带时间/坐标/颜色的 BOTTOM_DISPLAY 记录。捕获使用屏幕局部坐标，考虑屏幕原点；Retina 尺寸由实际截图决定。
 
-|编号|数据行前缀|问题|验收指标|
-|---|---|---|---|
-|TC-HFS-01|exit-bottom|退出底部闪烁机制|容器/背景底边误差≤2点；底部8行内部错误像素≤2|
-|TC-HFS-02|enter-size|HDR进入尺寸跳变|原生resize样本宽高最大绝对误差≤2点|
-|TC-HFS-03|enter-position|HDR进入位置跳变|原生resize样本图像中心欧氏距离≤2点|
-|TC-HFS-04|exit-size|HDR退出尺寸跳变|原生resize样本宽高最大绝对误差≤2点|
-|TC-HFS-05|exit-position|HDR退出位置跳变|原生resize样本图像中心欧氏距离≤2点|
+## TC-BOTTOM-HANDOFF（四个独立数据行）
 
-数据行后缀分别为 `-visible`、`-hidden`。每行都要求有效原生采样数>0、转换前后稳态几何和像素匹配；不允许零采样伪通过。稳态等待有界3秒，HDR准备等待有界15秒。实际通知回调中不等待、不抽事件、不调用生产刷新。
+| 数据行 | 图像 | 恢复状态 |
+|---|---|---|
+| sdr-normal | SDR | 普通 720×500 |
+| sdr-maximized | SDR | 最大化 |
+| hdr-normal | 已准备 HDR | 普通 720×500 |
+| hdr-maximized | 已准备 HDR | 最大化 |
 
-## 独立oracle
+步骤：建立并加载窗口→把图像缩小使稳态底部没有图片→进入全屏并等待原生 DidEnter→约 16ms 定时读取底部 20 点显示窄带→请求退出并等待 DidExit→等待 500ms 尾部→检查稳态中央颜色→受控隐藏原生 contentView 150ms→抓取中央底部 80×12 点→逐像素比较→恢复内容与设置。
 
-实际矩形由真实HDR层bounds经过CALayer坐标转换得到。预期矩形由实际源图尺寸、Qt viewportTransform及viewport到窗口偏移独立计算。尺寸和位置单独度量。
+期望：有至少五次自然采样、截图非空、稳态中央背景 RGB 误差≤2；受控交接区域所有像素 RGB 误差≤2且错误像素数为零；独立原生读色与主题基色一致。基线应在最后受控断言失败（本机每行 3840/3840 错误）；修复应通过。异常截图不能被当作成功。
 
-底部实际条带由真实CGImage与观察到的图层变换栅格化。参考条带保留同一像素/方向，将变换尺寸和位置独立归一化到Qt预期。两者使用同一背景、sRGB转换和8行采样，避免附着EDR层与未附着参考层的色调映射差异。排除最外侧1像素，RGB任一分量差>8计为错误像素。这是应用模型几何对应的底部内容验证，不是物理屏幕录像。
+该用例稳定检出**底层背景色不一致导致的受控交接闪白机制**，不是稳定复现用户自然退出闪烁的用例。自然过渡采样只作证据，不对移动快照 ROI 强行作白条判定，也不假设每一显示帧已捕获。
 
-## 漏检原因与稳定性要求
+## TC-THEME-NATIVE-BACKGROUND
 
-此前测试只扫描SDR瓦片、使用纯红SDR PNG；未断言HDR路径。生产SDR专用同步跳过HDR，所以旧测试通过不能排除HDR错误。新增真实HDR探针和用例保留SDR原测试，并在系统门禁区分 `FULLSCREEN_CONTINUITY` 与 `HDR_FULLSCREEN_CONTINUITY`。缺失/重复行、零样本、非法数值、超限、HDR/SDR数据互相替代均失败。
+扩展 `testThemeAppliesNativeAppearanceAndViewportBackground`：浅色 appearance 与画布正确后，等待原生背景达到 `#969696`；设置深色并重新加载设置后，等待原生背景达到 `#212121`。每项等待上限 2s，不降低颜色要求。失败也清理窗口与 quitOnLastWindowClosed。用于防止仅深色全屏路径被局部硬编码修复。
 
-最终测试先在未改生产基线连续三轮运行，各十行必须因对应视觉指标失败且稳态通过；修复后同一测试连续三轮十行全部通过。另一真实HDR格式完整运行一次基线/修复矩阵，交叉排除单一文件布局因素。探针探索期的稳态失败不计入最终统计。
+## 回归与运行
 
-## 执行与相关回归
+新增 CTest：`FovelleFullScreenBottomBackgroundHandoff`（RUN_SERIAL，120s，单用例上限 60s）。系统驱动 `quality_fullscreen_system.py` 包含该函数。继续运行 SDR/HDR 几何连续性、原生全屏往返、标题栏、Escape、refinement、主题和棋盘测试。
 
-```sh
-cmake --build build -j 6
-FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 \
-  build/tests/fovelle_tests testHDRFullScreenVisualContinuity -v1
-FOVELLE_HDR_FULLSCREEN_IMAGE='/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/1.JPG' \
-  FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa QT_FATAL_WARNINGS=1 \
-  build/tests/fovelle_tests testHDRFullScreenVisualContinuity -v1
-ctest --test-dir build -R 'Fovelle(HDRFullScreenVisualContinuity|FullScreenVisualContinuity|NativeFullScreenRoundTrip|HiddenTitlebarFullScreen|FullScreenRefinement|FullScreenMetricsGate)' --output-on-failure
-python3 tests/quality_fullscreen_system.py --binary build/tests/fovelle_tests \
-  --output reports/evidence/hdr_fullscreen_continuity/system.json
+复现命令（仓库根目录）：
+
+```bash
+FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE=reports/evidence/fullscreen_bottom_flash/local build/tests/fovelle_tests testFullScreenBottomBackgroundHandoff -v1
 ```
 
-需要真实macOS Cocoa桌面，原生窗口测试串行。继续回归SDR连续性、PNG/SVG原生全屏往返、快捷键、标题栏、昂贵精化、退出pan及padding。HDR未准备阶段、超预算Metal回退、多屏DPR和系统Dock/Space合成的全部物理帧不在本夹具证明范围内。
+## 原始缺陷验收缺口
+
+需要在用户实际显示配置下稳定抓到自然闪烁，并明确异常属于应用还是 Dock/桌面区域。当前测试尚不能稳定检出所有自然退出闪烁；该验收项不得因受控用例通过而标为完成。

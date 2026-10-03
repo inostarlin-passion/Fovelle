@@ -296,3 +296,17 @@ NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &exp
     }
     return {};
 }
+
+QColor nativeWindowBackground(QWindow *window)
+{
+    NSColor *color = [reinterpret_cast<NSView *>(window->winId()).window.backgroundColor
+        colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+    return color ? QColor::fromRgbF(color.redComponent, color.greenComponent,
+        color.blueComponent, color.alphaComponent) : QColor();
+}
+
+void nativeSetContentHidden(QWindow *window, bool hidden)
+{
+    reinterpret_cast<NSView *>(window->winId()).window.contentView.hidden = hidden;
+    [CATransaction flush];
+}

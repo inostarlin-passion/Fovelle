@@ -392,6 +392,8 @@ private slots:
     void testFullScreenVisualContinuity();
     void testHDRFullScreenVisualContinuity_data();
     void testHDRFullScreenVisualContinuity();
+    void testFullScreenBottomBackgroundHandoff_data();
+    void testFullScreenBottomBackgroundHandoff();
     void testNativeFullScreenRoundTrip_data();
     void testNativeFullScreenRoundTrip();
     void testSmoothScalingDefaultIsBilinear();
@@ -14593,6 +14595,133 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     }
 }
 
+
+void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff_data()
+{
+    QTest::addColumn<bool>("hdr");
+    QTest::addColumn<bool>("maximized");
+    for (bool hdr : {false, true})
+        for (bool maximized : {false, true}) {
+            const QByteArray row = QByteArray(hdr ? "hdr-" : "sdr-")
+                + (maximized ? "maximized" : "normal");
+            QTest::newRow(row.constData()) << hdr << maximized;
+        }
+}
+void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
+{
+    QFETCH(bool, hdr);
+    QFETCH(bool, maximized);
+    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Dark)},
+        {"titlebarhidden", false}, {"checkerboardbackground", false},
+        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}});
+    const bool quit = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    QTemporaryDir directory;
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto cleanup = qScopeGuard([&] {
+        if (window.isFullScreen()) {
+            window.toggleFullScreen();
+            waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
+        }
+        window.close(); qvApp->setQuitOnLastWindowClosed(quit);
+    });
+    window.setGeometry(210, 160, 720, 500);
+    window.show(); window.raise(); window.activateWindow();
+    const QString hdrPath = qEnvironmentVariable("FOVELLE_HDR_FULLSCREEN_IMAGE",
+        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
+    if (hdr && !QFileInfo::exists(hdrPath))
+        QSKIP("Set FOVELLE_HDR_FULLSCREEN_IMAGE to a readable HDR DNG");
+    window.openFile(hdr ? hdrPath
+        : createTestImage(directory, "bottom", Qt::red, QSize(800, 1600)));
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    if (hdr) {
+        QVERIFY(view->getCurrentFileDetails().isNativeHDRLoaded);
+        QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 15000);
+    }
+    window.setWindowState(Qt::WindowNoState);
+    window.setGeometry(210, 160, 720, 500);
+    if (maximized) window.showMaximized();
+    QTest::qWait(200);
+    view->zoomAbsolute(0.05);
+    const int entries = nativeTitlebarSnapshot(window.windowHandle()).entries;
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries, 5000);
+    QTest::qWait(300);
+    const QColor expected = Qv::viewportBackgroundColor(Qv::Theme::Dark);
+    const QString evidenceRoot = qEnvironmentVariable("FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE");
+    const QString folder = evidenceRoot.isEmpty() ? QString()
+        : QDir(evidenceRoot).filePath(QString::fromLatin1(QTest::currentDataTag()));
+    if (!folder.isEmpty()) QVERIFY(QDir().mkpath(folder));
+    QElapsedTimer clock; clock.start();
+    int sample = 0;
+    QVector<QImage> images;
+    const auto capture = [&] {
+        const QPoint origin = view->viewport()->mapToGlobal(QPoint());
+        QScreen *screen = window.screen();
+        const QPoint bottom = origin+QPoint(0, view->viewport()->height()-24)
+            - screen->geometry().topLeft();
+        QImage image = screen->grabWindow(0, bottom.x(), bottom.y(), view->viewport()->width(), 20).toImage();
+        images.append(image);
+        ++sample;
+        if (!folder.isEmpty()) qInfo() << "BOTTOM_DISPLAY" << sample-1 << clock.elapsed() << origin << view->viewport()->size()
+            << expected << nativeWindowBackground(window.windowHandle());
+    };
+    capture();
+    QTimer timer; QObject::connect(&timer, &QTimer::timeout, &window, capture);
+    timer.start(16);
+    const int exits = nativeTitlebarSnapshot(window.windowHandle()).exits;
+    window.toggleFullScreen();
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > exits, 5000);
+    QTest::qWait(500); timer.stop(); capture();
+    if (!folder.isEmpty())
+        for (int i=0; i<images.size(); ++i)
+            QVERIFY(images[i].save(folder+QString("/band-%1.png").arg(i, 3, 10, QLatin1Char('0'))));
+    QVERIFY(sample >= 5);
+    const QImage settled = images.constLast();
+    QVERIFY(!settled.isNull());
+    // Only judge the settled app interior. Qt's target rectangle is not the
+    // animated AppKit snapshot; red content crossing it during exit is valid.
+    for (int y=0; y<settled.height(); ++y)
+        for (int x=settled.width()/3; x<2*settled.width()/3; ++x) {
+            const QColor pixel = settled.pixelColor(x,y);
+            QVERIFY(qAbs(pixel.red()-expected.red())<=2
+                && qAbs(pixel.green()-expected.green())<=2
+                && qAbs(pixel.blue()-expected.blue())<=2);
+        }
+
+    // Deliberately expose the independent AppKit fallback after the real exit.
+    // This is a controlled content handoff, NOT a claim that a natural flash
+    // occurred. Capture actual display pixels; layer-model rendering misses it.
+    nativeSetContentHidden(window.windowHandle(), true);
+    const auto restoreContent = qScopeGuard([&] {
+        nativeSetContentHidden(window.windowHandle(), false);
+    });
+    QTest::qWait(150);
+    const QPoint bottom = view->viewport()->mapToGlobal(QPoint(
+        view->viewport()->width()/2 - 40, view->viewport()->height()-24));
+    QScreen *screen = window.screen();
+    const QPoint local = bottom-screen->geometry().topLeft();
+    const QImage fallback = screen->grabWindow(0, local.x(), local.y(), 80, 12).toImage();
+    QVERIFY2(!fallback.isNull(), "Actual display capture unavailable");
+    if (!folder.isEmpty()) QVERIFY(fallback.save(folder+"/fallback.png"));
+    int wrongPixels = 0;
+    for (int y=0; y<fallback.height(); ++y)
+        for (int x=0; x<fallback.width(); ++x) {
+            const QColor pixel = fallback.pixelColor(x,y);
+            if (qAbs(pixel.red()-expected.red())>2
+                || qAbs(pixel.green()-expected.green())>2
+                || qAbs(pixel.blue()-expected.blue())>2) ++wrongPixels;
+        }
+    QVERIFY2(wrongPixels == 0, qPrintable(QString(
+        "Exposed native bottom background differs from canvas: %1/%2 pixels; native=%3 expected=%4")
+        .arg(wrongPixels).arg(fallback.width()*fallback.height())
+        .arg(nativeWindowBackground(window.windowHandle()).name()).arg(expected.name())));
+    QCOMPARE(nativeWindowBackground(window.windowHandle()), expected);
+}
+
 // Native notifications, not Qt's requested state, delimit each transition.
 void WindowBehaviorTests::testNativeFullScreenRoundTrip_data()
 {
@@ -15276,6 +15405,10 @@ void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground(
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto cleanup = qScopeGuard([&] {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     window.resize(640, 480);
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
@@ -15289,6 +15422,7 @@ void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground(
 
     QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("Aqua"), 2000);
     QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#969696")), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()), Qv::viewportBackgroundColor(Qv::Theme::Light), 2000);
 
     QSettings settings;
     settings.setValue("options/theme", static_cast<int>(Qv::Theme::Dark));
@@ -15296,9 +15430,8 @@ void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground(
     qvApp->getSettingsManager().loadSettings();
     QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("DarkAqua"), 2000);
     QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#212121")), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()), Qv::viewportBackgroundColor(Qv::Theme::Dark), 2000);
 
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-THEME-CHECKERBOARD
