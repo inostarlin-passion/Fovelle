@@ -14692,6 +14692,13 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     window.setWindowState(Qt::WindowNoState);
     window.setGeometry(210, 160, 720, 500);
     if (maximized) window.showMaximized();
+    // A display capture also sees the Dock and its shadow. Keep the pointer
+    // inside the window so an auto-hidden Dock cannot be revealed at exit.
+    const QPoint originalCursorPosition = QCursor::pos();
+    const auto restoreCursor = qScopeGuard([&] {
+        QCursor::setPos(originalCursorPosition);
+    });
+    QCursor::setPos(view->viewport()->mapToGlobal(QPoint(40, 80)));
     QTest::qWait(200);
     view->zoomAbsolute(0.05);
     const int entries = nativeTitlebarSnapshot(window.windowHandle()).entries;

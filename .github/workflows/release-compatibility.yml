@@ -27,6 +27,12 @@ jobs:
           test "${SDK_VERSION%%.*}" -eq 15
           test -d "${SDK_PATH}"
 
+      - name: Set up Python test environment
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check -r tests/requirements.txt
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -43,6 +49,7 @@ jobs:
           -DBUILD_TESTS=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
+          -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python"
           -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
           -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
           -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
