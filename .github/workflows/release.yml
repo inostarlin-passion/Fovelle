@@ -63,6 +63,13 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
 
+      # grabWindow captures composited desktop pixels, including the Dock's
+      # shadow above availableGeometry on macOS 15. Keep it off the canvas.
+      - name: Auto-hide Dock for display capture tests
+        run: |
+          defaults write com.apple.dock autohide -bool true
+          killall Dock || true
+
       - name: Test
         env:
           FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE: ${{ runner.temp }}/fullscreen-bottom-evidence

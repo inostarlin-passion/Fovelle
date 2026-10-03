@@ -14709,8 +14709,8 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     const auto capture = [&] {
         const QPoint origin = view->viewport()->mapToGlobal(QPoint());
         QScreen *screen = window.screen();
-        const QPoint bottom = origin+QPoint(0, view->viewport()->height()-24)
-            - screen->geometry().topLeft();
+        // Cocoa's grabWindow(0, ...) accepts virtual desktop coordinates.
+        const QPoint bottom = origin+QPoint(0, view->viewport()->height()-24);
         QImage image = screen->grabWindow(0, bottom.x(), bottom.y(), view->viewport()->width(), 20).toImage();
         images.append(image);
         ++sample;
@@ -14756,8 +14756,7 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     const QPoint bottom = view->viewport()->mapToGlobal(QPoint(
         view->viewport()->width()/2 - 40, view->viewport()->height()-24));
     QScreen *screen = window.screen();
-    const QPoint local = bottom-screen->geometry().topLeft();
-    const QImage fallback = screen->grabWindow(0, local.x(), local.y(), 80, 12).toImage();
+    const QImage fallback = screen->grabWindow(0, bottom.x(), bottom.y(), 80, 12).toImage();
     QVERIFY2(!fallback.isNull(), "Actual display capture unavailable");
     if (!folder.isEmpty()) QVERIFY(fallback.save(folder+"/fallback.png"));
     int wrongPixels = 0;
