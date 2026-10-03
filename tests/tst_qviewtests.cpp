@@ -8310,7 +8310,13 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     // showEvent queues this native style change. Apply it before measuring
     // the normal viewport so its titlebar inset matches the restored endpoint.
     QVCocoaFunctions::setFullSizeContentView(&window, true);
+    qInfo() << "FIT_FULLSCREEN_NATIVE_INITIAL" << nativeWindowContentSize(window.windowHandle())
+            << window.size();
+    // QWidget ignores resize() to its cached size. After a native style
+    // change, force a real resize so AppKit and Qt share the same baseline.
+    window.resize(641, 481);
     window.resize(640, 480);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QCoreApplication::processEvents();
     QVERIFY(view->getCalculatedZoomMode().has_value());
@@ -8384,6 +8390,8 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.size(), QSize(640, 480), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
     qInfo() << "FIT_FULLSCREEN_RESTORED" << displayedImageRect()
             << view->viewport()->size() << window.geometry()
             << window.getViewportPosition().obscuredHeight << view->sceneRect();

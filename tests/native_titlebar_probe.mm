@@ -49,6 +49,13 @@ NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window)
     return {hidden, observer->entries, observer->exits};
 }
 
+QSize nativeWindowContentSize(QWindow *window)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    const NSSize size = view.window.contentView.bounds.size;
+    return QSize(qRound(size.width), qRound(size.height));
+}
+
 NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction)
 {
     NSView *view = reinterpret_cast<NSView *>(window->winId());

@@ -10,6 +10,7 @@ struct NativeTitlebarSnapshot
     int exits;
 };
 NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window);
+QSize nativeWindowContentSize(QWindow *window);
 
 // Observe the public proxy lifecycle: presentation geometry while running,
 // committed geometry after removal. Neither Qt state nor a production clock.

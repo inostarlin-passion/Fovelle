@@ -2475,10 +2475,6 @@ void QVGraphicsView::toggleFitAnd100()
 
 void QVGraphicsView::centerImage()
 {
-    // AppKit can change the titlebar inset without resizing the Qt viewport.
-    // Refresh its scene padding before centering, including when a repeated
-    // fit request keeps the same zoom and therefore skips the zoom commit.
-    updateSceneRect();
     cancelPostLayoutZoomAnchor();
     logViewportState("center-before");
     const QRect viewRect = getUsableViewportRect();
