@@ -64,7 +64,17 @@ jobs:
         run: cmake --build build --parallel 2
 
       - name: Test
+        env:
+          FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE: ${{ runner.temp }}/fullscreen-bottom-evidence
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
+
+      - name: Upload failed fullscreen display evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullscreen-bottom-evidence
+          path: ${{ runner.temp }}/fullscreen-bottom-evidence
+          if-no-files-found: ignore
 
       - name: Sign, notarize, validate, and package Fovelle
         if: github.event_name == 'push'

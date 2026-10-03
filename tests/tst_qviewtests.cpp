@@ -14735,9 +14735,14 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     for (int y=0; y<settled.height(); ++y)
         for (int x=settled.width()/3; x<2*settled.width()/3; ++x) {
             const QColor pixel = settled.pixelColor(x,y);
-            QVERIFY(qAbs(pixel.red()-expected.red())<=2
+            QVERIFY2(qAbs(pixel.red()-expected.red())<=2
                 && qAbs(pixel.green()-expected.green())<=2
-                && qAbs(pixel.blue()-expected.blue())<=2);
+                && qAbs(pixel.blue()-expected.blue())<=2,
+                qPrintable(QString("Settled bottom pixel (%1,%2)=%3 expected=%4; viewport=%5x%6 origin=(%7,%8)")
+                    .arg(x).arg(y).arg(pixel.name()).arg(expected.name())
+                    .arg(view->viewport()->width()).arg(view->viewport()->height())
+                    .arg(view->viewport()->mapToGlobal(QPoint()).x())
+                    .arg(view->viewport()->mapToGlobal(QPoint()).y())));
         }
 
     // Deliberately expose the independent AppKit fallback after the real exit.
