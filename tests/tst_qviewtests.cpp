@@ -8321,6 +8321,13 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     };
     const QRect normalTransitionRect = displayedImageRect();
     QVERIFY(!normalTransitionRect.isEmpty());
+    qInfo() << "FIT_FULLSCREEN_BASELINE" << normalTransitionRect
+            << view->viewport()->size() << window.geometry()
+            << window.getViewportPosition().obscuredHeight << view->sceneRect();
+    const int normalContentTop = window.getViewportPosition().obscuredHeight;
+    const QRect normalUsableViewport = view->viewport()->rect().adjusted(0, normalContentTop, 0, 0);
+    QVERIFY2(qAbs(normalTransitionRect.center().y() - normalUsableViewport.center().y()) <= 1,
+        "The initial fit must be centered below the native titlebar");
     QCOMPARE(normalTransitionRect.width() * 9,
              normalTransitionRect.height() * 16);
 
@@ -8377,6 +8384,9 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         view->getCalculatedZoomMode().has_value() &&
             view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
         5000);
+    qInfo() << "FIT_FULLSCREEN_RESTORED" << displayedImageRect()
+            << view->viewport()->size() << window.geometry()
+            << window.getViewportPosition().obscuredHeight << view->sceneRect();
     QTRY_COMPARE_WITH_TIMEOUT(
         displayedImageRect(), normalTransitionRect, 5000);
 }
