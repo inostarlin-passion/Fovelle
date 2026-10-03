@@ -316,6 +316,7 @@ private:
     QJsonObject sessionStateToLoad;
     bool justLaunchedWithImage {false};
     bool isClosing {false};
+    QRect normalGeometryBeforeFullScreen;
     QElapsedTimer lastActivated;
 
     QNetworkAccessManager networkAccessManager;

@@ -1417,12 +1417,25 @@ void MainWindow::fullscreenChanged()
 void MainWindow::beginNativeFullScreenTransition()
 {
     if (!isClosing)
+    {
+        if (!isFullScreen() && !isMaximized())
+            normalGeometryBeforeFullScreen = geometry();
         graphicsView->beginFullScreenPanPreservation();
+    }
 }
 
 void MainWindow::endNativeFullScreenTransition()
 {
-    // AppKit's completion notification arrives after native geometry settles.
+    // macOS 26 can restore an expanded-content window one titlebar taller.
+    // Reconcile the normal geometry after native exit, while pan preservation
+    // still covers the resize. Maximized windows retain AppKit's restoration.
+    if (!isFullScreen() && normalGeometryBeforeFullScreen.isValid())
+    {
+        const QRect geometryToRestore = normalGeometryBeforeFullScreen;
+        normalGeometryBeforeFullScreen = QRect();
+        if (!isClosing && !isMaximized() && geometry() != geometryToRestore)
+            setGeometry(geometryToRestore);
+    }
     graphicsView->endFullScreenPanPreservation();
     graphicsView->synchronizeNativeImageGeometryForFullScreenTransition();
 }
@@ -2555,7 +2568,7 @@ void MainWindow::toggleFullScreen()
         // QWindow can publish WindowFullScreen before AppKit starts its native
         // transition. Capture the user's edge before any geometry change can
         // fire the delayed constraint.
-        graphicsView->beginFullScreenPanPreservation();
+        beginNativeFullScreenTransition();
 
         // Keep the user's titlebar presentation through native entry. Restoring
         // it here exposes window chrome and fits the image into a smaller
