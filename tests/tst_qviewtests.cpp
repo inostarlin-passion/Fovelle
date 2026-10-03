@@ -14737,6 +14737,13 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     QVERIFY(sample >= 5);
     const QImage settled = images.constLast();
     QVERIFY(!settled.isNull());
+    if (!folder.isEmpty()) {
+        QVERIFY(window.screen()->grabWindow(0).save(folder+"/desktop.png"));
+        QVERIFY(view->viewport()->grab().save(folder+"/qt-viewport.png"));
+        qInfo() << "BOTTOM_SETTLED_CONTROL" << QCursor::pos()
+                << window.isActiveWindow() << window.geometry()
+                << window.screen()->geometry() << window.screen()->availableGeometry();
+    }
     // Only judge the settled app interior. Qt's target rectangle is not the
     // animated AppKit snapshot; red content crossing it during exit is valid.
     for (int y=0; y<settled.height(); ++y)
