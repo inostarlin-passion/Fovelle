@@ -4626,7 +4626,12 @@ void QVCocoaFunctions::setUserDefaults()
             objc_setAssociatedObject(
                 window, &FullScreenExitPendingAssociationKey,
                 @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            notifyFullScreenLifecycle(window, false);
+            // Qt also handles this notification and resets the native style
+            // mask. Complete our geometry handoff after all observers run,
+            // so a later Qt style update cannot grow the restored window.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                notifyFullScreenLifecycle(window, false);
+            });
         }];
     });
 }
