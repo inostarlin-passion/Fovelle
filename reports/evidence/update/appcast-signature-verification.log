@@ -1,0 +1,6 @@
+{"mode": "install", "events": ["CHECK_PROGRESS_VISIBLE", "UPDATE_OFFER_VISIBLE", "DOWNLOAD_FINISHED", "EXTRACTION_FINISHED", "INSTALL_AND_RELAUNCH", "INSTALL_STARTED", "RELAUNCHED_NEW_VERSION"], "feed_requests": 1, "downloads": 1}
+.
+----------------------------------------------------------------------
+Ran 1 test in 6.379s
+
+OK

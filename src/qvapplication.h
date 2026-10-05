@@ -53,7 +53,6 @@ public:
 
     MainWindow *getMainWindow(bool shouldBeEmpty);
 
-    void checkedUpdates();
 
     void recentsMenuUpdated();
 

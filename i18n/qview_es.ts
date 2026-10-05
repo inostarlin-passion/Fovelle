@@ -1591,6 +1591,14 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
 <context>
     <name>UpdateChecker</name>
     <message>
+        <source>Unable to check for updates</source>
+        <translation>No se pueden buscar actualizaciones</translation>
+    </message>
+    <message>
+        <source>Updates are not configured. A valid HTTPS update feed and Ed25519 public key are required.</source>
+        <translation>Las actualizaciones no están configuradas. Se requiere una fuente HTTPS válida y una clave pública Ed25519.</translation>
+    </message>
+    <message>
         <source>This build is not configured for update checking.</source>
         <translation>Esta versión no está configurada para la comprobación de actualizaciones.</translation>
     </message>

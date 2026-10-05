@@ -1,0 +1,1 @@
+path @executable_path/../Frameworks (offset 12)

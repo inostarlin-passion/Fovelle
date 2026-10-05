@@ -1,0 +1,230 @@
+[
+  {
+    "id": "AC1-S",
+    "acceptance": "AC1",
+    "kind": "静态",
+    "purpose": "手动检查显示进度",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "慢速 appcast，菜单/关于按钮",
+    "steps": "两个入口调用标准检查 API；延迟响应期间观察 NSProgressIndicator",
+    "expected": "进度在响应前可见，关于窗口不阻挡 Cocoa UI",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_manual_entries_use_standard_ui"
+    ]
+  },
+  {
+    "id": "AC1-D",
+    "acceptance": "AC1",
+    "kind": "动态",
+    "purpose": "手动检查显示进度",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "慢速 appcast，菜单/关于按钮",
+    "steps": "两个入口调用标准检查 API；延迟响应期间观察 NSProgressIndicator",
+    "expected": "进度在响应前可见，关于窗口不阻挡 Cocoa UI",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_check_cancel",
+      "test_download_install_relaunch"
+    ]
+  },
+  {
+    "id": "AC2-S",
+    "acceptance": "AC2",
+    "kind": "静态",
+    "purpose": "检查与下载可取消且可恢复",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "检查延迟与 2 MiB 慢速下载",
+    "steps": "点击 Cancel，等待 canCheckForUpdates 恢复",
+    "expected": "不安装、不替换；状态恢复；一次请求",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_state_and_scheduler"
+    ]
+  },
+  {
+    "id": "AC2-D",
+    "acceptance": "AC2",
+    "kind": "动态",
+    "purpose": "检查与下载可取消且可恢复",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "检查延迟与 2 MiB 慢速下载",
+    "steps": "点击 Cancel，等待 canCheckForUpdates 恢复",
+    "expected": "不安装、不替换；状态恢复；一次请求",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_check_cancel",
+      "test_download_cancel"
+    ]
+  },
+  {
+    "id": "AC3-S",
+    "acceptance": "AC3",
+    "kind": "静态",
+    "purpose": "当前版本与错误有反馈",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "同版本、畸形 XML、HTTP 503",
+    "steps": "运行各响应场景，观察标准结果提示并关闭",
+    "expected": "当前版本不下载；错误显示提示，当前应用不变",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_manual_entries_use_standard_ui"
+    ]
+  },
+  {
+    "id": "AC3-D",
+    "acceptance": "AC3",
+    "kind": "动态",
+    "purpose": "当前版本与错误有反馈",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "同版本、畸形 XML、HTTP 503",
+    "steps": "运行各响应场景，观察标准结果提示并关闭",
+    "expected": "当前版本不下载；错误显示提示，当前应用不变",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_no_update",
+      "test_invalid_feed",
+      "test_network_error"
+    ]
+  },
+  {
+    "id": "AC4-S",
+    "acceptance": "AC4",
+    "kind": "静态",
+    "purpose": "应用内下载、安装、重启新版本",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "1.0.0 → 签名的 2.0.0 测试归档",
+    "steps": "点击 Install Update，再点 Install and Relaunch；读取版本和重启标记",
+    "expected": "实际下载完成、安装发生、包版本变为 2.0.0、重启标记出现",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_manual_entries_use_standard_ui"
+    ]
+  },
+  {
+    "id": "AC4-D",
+    "acceptance": "AC4",
+    "kind": "动态",
+    "purpose": "应用内下载、安装、重启新版本",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "1.0.0 → 签名的 2.0.0 测试归档",
+    "steps": "点击 Install Update，再点 Install and Relaunch；读取版本和重启标记",
+    "expected": "实际下载完成、安装发生、包版本变为 2.0.0、重启标记出现",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_download_install_relaunch"
+    ]
+  },
+  {
+    "id": "AC5-S",
+    "acceptance": "AC5",
+    "kind": "静态",
+    "purpose": "拒绝篡改更新",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "签名后翻转 ZIP 资源数据字节",
+    "steps": "下载篡改包，观察签名错误；对比旧包摘要",
+    "expected": "EdDSA 验证失败，不安装、不替换、不重启",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_secure_configuration_and_lifetime"
+    ]
+  },
+  {
+    "id": "AC5-D",
+    "acceptance": "AC5",
+    "kind": "动态",
+    "purpose": "拒绝篡改更新",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "签名后翻转 ZIP 资源数据字节",
+    "steps": "下载篡改包，观察签名错误；对比旧包摘要",
+    "expected": "EdDSA 验证失败，不安装、不替换、不重启",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_tampered_archive_rejected"
+    ]
+  },
+  {
+    "id": "AC6-S",
+    "acceptance": "AC6",
+    "kind": "静态",
+    "purpose": "校验更新配置并拒绝不完整发布构建",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "HTTPS/HTTP/空地址/认证地址，32 字节密钥/短密钥/非规范 base64",
+    "steps": "执行生产校验函数、初始化无配置更新器；用 CMake 脚本模式尝试无效发布参数",
+    "expected": "仅规范 HTTPS 和有效公钥通过；无配置有可读错误且不联网；无效发布失败",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_release_configuration_rejects_invalid"
+    ]
+  },
+  {
+    "id": "AC6-D",
+    "acceptance": "AC6",
+    "kind": "动态",
+    "purpose": "校验更新配置并拒绝不完整发布构建",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "HTTPS/HTTP/空地址/认证地址，32 字节密钥/短密钥/非规范 base64",
+    "steps": "执行生产校验函数、初始化无配置更新器；用 CMake 脚本模式尝试无效发布参数",
+    "expected": "仅规范 HTTPS 和有效公钥通过；无配置有可读错误且不联网；无效发布失败",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "FeatureTests.testUpdateConfigurationValidation"
+    ]
+  },
+  {
+    "id": "AC7-S",
+    "acceptance": "AC7",
+    "kind": "静态",
+    "purpose": "依赖打包与签名发布闭环",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "官方固定校验和框架，匹配/不匹配的临时签名 seed",
+    "steps": "检查复制/rpath/签名顺序；用真实发布脚本生成 appcast 并核对 enclosure；换错误 seed",
+    "expected": "框架自包含；发布在公证验证后生成 feed；URL/签名正确；错 key 被拒绝",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_release_closes_download_install_path"
+    ]
+  },
+  {
+    "id": "AC7-D",
+    "acceptance": "AC7",
+    "kind": "动态",
+    "purpose": "依赖打包与签名发布闭环",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "官方固定校验和框架，匹配/不匹配的临时签名 seed",
+    "steps": "检查复制/rpath/签名顺序；用真实发布脚本生成 appcast 并核对 enclosure；换错误 seed",
+    "expected": "框架自包含；发布在公证验证后生成 feed；URL/签名正确；错 key 被拒绝",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "test_download_install_relaunch"
+    ]
+  },
+  {
+    "id": "AC8-S",
+    "acceptance": "AC8",
+    "kind": "静态",
+    "purpose": "自动检查频率和禁用设置",
+    "preconditions": "仓库源文件存在；Python/CMake 可用。",
+    "input": "Never、Daily、Weekly、Monthly，编译/环境禁用选项",
+    "steps": "检查调度器接线；执行生产间隔映射函数",
+    "expected": "禁用选项禁止自动检查；其余对应 1/7/30 天；手动仍走标准 UI",
+    "postcondition": "生产文件与配置不变。",
+    "code": [
+      "StaticTests.test_state_and_scheduler"
+    ]
+  },
+  {
+    "id": "AC8-D",
+    "acceptance": "AC8",
+    "kind": "动态",
+    "purpose": "自动检查频率和禁用设置",
+    "preconditions": "macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。",
+    "input": "Never、Daily、Weekly、Monthly，编译/环境禁用选项",
+    "steps": "检查调度器接线；执行生产间隔映射函数",
+    "expected": "禁用选项禁止自动检查；其余对应 1/7/30 天；手动仍走标准 UI",
+    "postcondition": "临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。",
+    "code": [
+      "FeatureTests.testUpdateCheckFrequencyPolicy"
+    ]
+  }
+]

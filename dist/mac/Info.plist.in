@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>SUFeedURL</key>
+    <string>@FOVELLE_UPDATE_FEED_URL@</string>
+    <key>SUPublicEDKey</key>
+    <string>@FOVELLE_UPDATE_PUBLIC_KEY@</string>
+    <key>SUEnableAutomaticChecks</key>
+    <false/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
+    <true/>
 	<key>CFBundleExecutable</key>
 	<string>@PROJECT_NAME@</string>
 	<key>CFBundleName</key>

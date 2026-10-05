@@ -1,0 +1,11 @@
+test_case_metadata_and_atomic_coverage (__main__.StaticTests.test_case_metadata_and_atomic_coverage) ... ok
+test_manual_entries_use_standard_ui (__main__.StaticTests.test_manual_entries_use_standard_ui) ... ok
+test_release_closes_download_install_path (__main__.StaticTests.test_release_closes_download_install_path) ... ok
+test_release_configuration_rejects_invalid (__main__.StaticTests.test_release_configuration_rejects_invalid) ... ok
+test_secure_configuration_and_lifetime (__main__.StaticTests.test_secure_configuration_and_lifetime) ... ok
+test_state_and_scheduler (__main__.StaticTests.test_state_and_scheduler) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.036s
+
+OK

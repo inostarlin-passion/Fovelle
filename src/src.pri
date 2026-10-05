@@ -62,3 +62,5 @@ FORMS += \
     $$PWD/qvaboutdialog.ui \
     $$PWD/qvinfodialog.ui \
     $$PWD/qvshortcutdialog.ui
+
+macx:include($$PWD/../dist/mac/sparkle.pri)

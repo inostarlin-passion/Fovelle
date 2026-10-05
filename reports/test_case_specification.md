@@ -1,40 +1,176 @@
-# 全屏底部闪烁：测试用例说明
+# 更新功能测试用例说明
 
-## 公共环境与输入
+日期：2026-10-03（Asia/Shanghai）。验收分解为 AC1–AC8，每条含静态与动态用例，元数据固化在 `tests/update_test_cases.json`，执行入口为 `tests/update_acceptance.py` 和 Qt FeatureTests。
 
-真实 macOS Cocoa 桌面，窗口能够激活且屏幕捕获可用；关闭棋盘背景、选择深色主题、禁用按图自动调整窗口。SDR 为测试生成的红色 800×1600 PNG，HDR 为真实 DNG；通过 `FOVELLE_HDR_FULLSCREEN_IMAGE` 指定，默认使用本地挂载样本 `3.dng`。不存在则 HDR 行 skip；存在但未识别 HDR 或表面未准备则失败。
+静态检查验证应用接线、构建、安全配置和发布约束；动态检查运行真实 Sparkle 标准界面与 Installer，不以模拟下载/安装结果代替。安装测试使用 Cocoa 隔离夹具，Qt 包装层通过生产函数与生命周期测试验证。此组合不能等同于已完成线上 Developer ID 公证版端到端验证。
 
-`FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE` 可选指定证据目录。未指定不写图片；指定时按数据行保存自然 `band-*.png`、受控 `fallback.png` 和 stdout 中带时间/坐标/颜色的 BOTTOM_DISPLAY 记录。捕获使用屏幕局部坐标，考虑屏幕原点；Retina 尺寸由实际截图决定。
+## AC1-S：手动检查显示进度（静态）
 
-## TC-BOTTOM-HANDOFF（四个独立数据行）
+- **测试目的**：手动检查显示进度
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：慢速 appcast，菜单/关于按钮
+- **操作步骤**：两个入口调用标准检查 API；延迟响应期间观察 NSProgressIndicator
+- **预期结果**：进度在响应前可见，关于窗口不阻挡 Cocoa UI
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_manual_entries_use_standard_ui`
 
-| 数据行 | 图像 | 恢复状态 |
-|---|---|---|
-| sdr-normal | SDR | 普通 720×500 |
-| sdr-maximized | SDR | 最大化 |
-| hdr-normal | 已准备 HDR | 普通 720×500 |
-| hdr-maximized | 已准备 HDR | 最大化 |
+## AC1-D：手动检查显示进度（动态）
 
-步骤：建立并加载窗口→把图像缩小使稳态底部没有图片→进入全屏并等待原生 DidEnter→约 16ms 定时读取底部 20 点显示窄带→请求退出并等待 DidExit→等待 500ms 尾部→检查稳态中央颜色→受控隐藏原生 contentView 150ms→抓取中央底部 80×12 点→逐像素比较→恢复内容与设置。
+- **测试目的**：手动检查显示进度
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：慢速 appcast，菜单/关于按钮
+- **操作步骤**：两个入口调用标准检查 API；延迟响应期间观察 NSProgressIndicator
+- **预期结果**：进度在响应前可见，关于窗口不阻挡 Cocoa UI
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_check_cancel`, `test_download_install_relaunch`
 
-期望：有至少五次自然采样、截图非空、稳态中央背景 RGB 误差≤2；受控交接区域所有像素 RGB 误差≤2且错误像素数为零；独立原生读色与主题基色一致。基线应在最后受控断言失败（本机每行 3840/3840 错误）；修复应通过。异常截图不能被当作成功。
+## AC2-S：检查与下载可取消且可恢复（静态）
 
-该用例稳定检出**底层背景色不一致导致的受控交接闪白机制**，不是稳定复现用户自然退出闪烁的用例。自然过渡采样只作证据，不对移动快照 ROI 强行作白条判定，也不假设每一显示帧已捕获。
+- **测试目的**：检查与下载可取消且可恢复
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：检查延迟与 2 MiB 慢速下载
+- **操作步骤**：点击 Cancel，等待 canCheckForUpdates 恢复
+- **预期结果**：不安装、不替换；状态恢复；一次请求
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_state_and_scheduler`
 
-## TC-THEME-NATIVE-BACKGROUND
+## AC2-D：检查与下载可取消且可恢复（动态）
 
-扩展 `testThemeAppliesNativeAppearanceAndViewportBackground`：浅色 appearance 与画布正确后，等待原生背景达到 `#969696`；设置深色并重新加载设置后，等待原生背景达到 `#212121`。每项等待上限 2s，不降低颜色要求。失败也清理窗口与 quitOnLastWindowClosed。用于防止仅深色全屏路径被局部硬编码修复。
+- **测试目的**：检查与下载可取消且可恢复
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：检查延迟与 2 MiB 慢速下载
+- **操作步骤**：点击 Cancel，等待 canCheckForUpdates 恢复
+- **预期结果**：不安装、不替换；状态恢复；一次请求
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_check_cancel`, `test_download_cancel`
 
-## 回归与运行
+## AC3-S：当前版本与错误有反馈（静态）
 
-新增 CTest：`FovelleFullScreenBottomBackgroundHandoff`（RUN_SERIAL，120s，单用例上限 60s）。系统驱动 `quality_fullscreen_system.py` 包含该函数。继续运行 SDR/HDR 几何连续性、原生全屏往返、标题栏、Escape、refinement、主题和棋盘测试。
+- **测试目的**：当前版本与错误有反馈
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：同版本、畸形 XML、HTTP 503
+- **操作步骤**：运行各响应场景，观察标准结果提示并关闭
+- **预期结果**：当前版本不下载；错误显示提示，当前应用不变
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_manual_entries_use_standard_ui`
 
-复现命令（仓库根目录）：
+## AC3-D：当前版本与错误有反馈（动态）
+
+- **测试目的**：当前版本与错误有反馈
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：同版本、畸形 XML、HTTP 503
+- **操作步骤**：运行各响应场景，观察标准结果提示并关闭
+- **预期结果**：当前版本不下载；错误显示提示，当前应用不变
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_no_update`, `test_invalid_feed`, `test_network_error`
+
+## AC4-S：应用内下载、安装、重启新版本（静态）
+
+- **测试目的**：应用内下载、安装、重启新版本
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：1.0.0 → 签名的 2.0.0 测试归档
+- **操作步骤**：点击 Install Update，再点 Install and Relaunch；读取版本和重启标记
+- **预期结果**：实际下载完成、安装发生、包版本变为 2.0.0、重启标记出现
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_manual_entries_use_standard_ui`
+
+## AC4-D：应用内下载、安装、重启新版本（动态）
+
+- **测试目的**：应用内下载、安装、重启新版本
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：1.0.0 → 签名的 2.0.0 测试归档
+- **操作步骤**：点击 Install Update，再点 Install and Relaunch；读取版本和重启标记
+- **预期结果**：实际下载完成、安装发生、包版本变为 2.0.0、重启标记出现
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_download_install_relaunch`
+
+## AC5-S：拒绝篡改更新（静态）
+
+- **测试目的**：拒绝篡改更新
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：签名后翻转 ZIP 资源数据字节
+- **操作步骤**：下载篡改包，观察签名错误；对比旧包摘要
+- **预期结果**：EdDSA 验证失败，不安装、不替换、不重启
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_secure_configuration_and_lifetime`
+
+## AC5-D：拒绝篡改更新（动态）
+
+- **测试目的**：拒绝篡改更新
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：签名后翻转 ZIP 资源数据字节
+- **操作步骤**：下载篡改包，观察签名错误；对比旧包摘要
+- **预期结果**：EdDSA 验证失败，不安装、不替换、不重启
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_tampered_archive_rejected`
+
+## AC6-S：校验更新配置并拒绝不完整发布构建（静态）
+
+- **测试目的**：校验更新配置并拒绝不完整发布构建
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：HTTPS/HTTP/空地址/认证地址，32 字节密钥/短密钥/非规范 base64
+- **操作步骤**：执行生产校验函数、初始化无配置更新器；用 CMake 脚本模式尝试无效发布参数
+- **预期结果**：仅规范 HTTPS 和有效公钥通过；无配置有可读错误且不联网；无效发布失败
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_release_configuration_rejects_invalid`
+
+## AC6-D：校验更新配置并拒绝不完整发布构建（动态）
+
+- **测试目的**：校验更新配置并拒绝不完整发布构建
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：HTTPS/HTTP/空地址/认证地址，32 字节密钥/短密钥/非规范 base64
+- **操作步骤**：执行生产校验函数、初始化无配置更新器；用 CMake 脚本模式尝试无效发布参数
+- **预期结果**：仅规范 HTTPS 和有效公钥通过；无配置有可读错误且不联网；无效发布失败
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`FeatureTests.testUpdateConfigurationValidation`
+
+## AC7-S：依赖打包与签名发布闭环（静态）
+
+- **测试目的**：依赖打包与签名发布闭环
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：官方固定校验和框架，匹配/不匹配的临时签名 seed
+- **操作步骤**：检查复制/rpath/签名顺序；用真实发布脚本生成 appcast 并核对 enclosure；换错误 seed
+- **预期结果**：框架自包含；发布在公证验证后生成 feed；URL/签名正确；错 key 被拒绝
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_release_closes_download_install_path`
+
+## AC7-D：依赖打包与签名发布闭环（动态）
+
+- **测试目的**：依赖打包与签名发布闭环
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：官方固定校验和框架，匹配/不匹配的临时签名 seed
+- **操作步骤**：检查复制/rpath/签名顺序；用真实发布脚本生成 appcast 并核对 enclosure；换错误 seed
+- **预期结果**：框架自包含；发布在公证验证后生成 feed；URL/签名正确；错 key 被拒绝
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`test_download_install_relaunch`
+
+## AC8-S：自动检查频率和禁用设置（静态）
+
+- **测试目的**：自动检查频率和禁用设置
+- **前置条件**：仓库源文件存在；Python/CMake 可用。
+- **输入数据**：Never、Daily、Weekly、Monthly，编译/环境禁用选项
+- **操作步骤**：检查调度器接线；执行生产间隔映射函数
+- **预期结果**：禁用选项禁止自动检查；其余对应 1/7/30 天；手动仍走标准 UI
+- **后置条件**：生产文件与配置不变。
+- **测试代码**：`StaticTests.test_state_and_scheduler`
+
+## AC8-D：自动检查频率和禁用设置（动态）
+
+- **测试目的**：自动检查频率和禁用设置
+- **前置条件**：macOS 桌面已登录；Qt、CMake、Sparkle 已按固定版本配置；测试使用临时应用和测试密钥。
+- **输入数据**：Never、Daily、Weekly、Monthly，编译/环境禁用选项
+- **操作步骤**：检查调度器接线；执行生产间隔映射函数
+- **预期结果**：禁用选项禁止自动检查；其余对应 1/7/30 天；手动仍走标准 UI
+- **后置条件**：临时应用、私钥、更新缓存和测试 defaults 清理；生产应用与密钥不变。
+- **测试代码**：`FeatureTests.testUpdateCheckFrequencyPolicy`
+
+## 执行命令
 
 ```bash
-FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE=reports/evidence/fullscreen_bottom_flash/local build/tests/fovelle_tests testFullScreenBottomBackgroundHandoff -v1
+cmake -S . -B build -DBUILD_TESTS=ON
+cmake --build build --parallel 4
+ctest --test-dir build -R 'FovelleUpdate|FovelleNativeAlerts' --output-on-failure
+python3 tests/update_acceptance.py
 ```
 
-## 原始缺陷验收缺口
-
-需要在用户实际显示配置下稳定抓到自然闪烁，并明确异常属于应用还是 Dock/桌面区域。当前测试尚不能稳定检出所有自然退出闪烁；该验收项不得因受控用例通过而标为完成。
+也可设置 `-DFOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON`，将隔离 UI/安装测试注册为 CTest。该测试需要已登录的 macOS 图形会话和支持 Ed25519 的 OpenSSL，仅在明确启用时运行。测试 HTTP 服务器只绑定 127.0.0.1；生产包装层仍只接受 HTTPS。生产发布脚本的 Swift CryptoKit 校验从 stdin 读取临时测试私钥，测试不写入登录钥匙串。

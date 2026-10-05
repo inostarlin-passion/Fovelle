@@ -1,30 +1,69 @@
-# 全屏退出底部背景交接：技术设计
+# Fovelle 更新功能技术设计
 
-## 目标与证据边界
+日期：2026-10-03（Asia/Shanghai）。需求依据：`/Users/inostarlin/Downloads/方案.md`。
 
-消除 SDR/HDR 原生内容交接期间的窗口兜底背景色差，同时保留 qView 参考的短暂 QWidget 更新保护和 AppKit 原生全屏机制。确认的缺陷是 NSWindow 背景白色与画布深灰不一致；用户自然退出闪烁的充分因果证据尚未取得。推导、来源及证伪过程见 [根因分析](root_cause.md)。
+## 问题与显式前提
 
-## 设计前提
+原实现查询 GitHub Releases JSON 后打开浏览器，没有检查进度、包验证或应用内安装。目标是在 macOS 应用中提供手动检查进度，并完成应用内下载、验证、安装、重启。
 
-Qt 绘制、图像背景 CALayer 与 NSWindow 背景分属不同覆盖层。appearance 继承只控制外观，不能保证原生背景等于画布；渲染准备完成也不能保证动画期间每一帧覆盖完整。统一兜底色只能防止背景暴露的色差，不能修复所有可能的内容位置、亮度或 WindowServer 异常。
+前提：Developer ID 直接分发；非 Mac App Store；现有工程没有开启 App Sandbox；更新服务采用 HTTPS；发布方保有 Ed25519 签名 seed 和 Apple 发布证书。开发环境没有可用生产更新公钥，因此允许开发构建缺省配置，但手动检查明确提示缺失；tag 发布强制要求配置。本文不声称生产服务已经上线。
 
-## 生产变更
+## 原子验收标准
 
-在 `QVCocoaFunctions::setWindowTheme()` 中，继续设置应用 appearance 并让窗口继承它；调用既有 `resolvedTheme(theme)` 和 `Qv::viewportBackgroundColor()` 取得与 MainWindow 相同的背景色，使用 sRGB NSColor、alpha=1 设置 NSWindow.backgroundColor。
+| 编号 | 可单独判定的标准 |
+| --- | --- |
+| AC1 | 菜单与关于按钮的手动检查显示标准检查进度；关于窗口不阻挡更新界面。 |
+| AC2 | 检查、下载均可取消，状态恢复，不替换应用。 |
+| AC3 | 当前版本、网络故障、无效更新源都有标准反馈；无新版本不下载。 |
+| AC4 | 新版本在应用内下载、安装，重启后实际运行新版本，无下载网页跳转。 |
+| AC5 | 篡改的归档验证失败，不安装、不替换、不重启。 |
+| AC6 | 仅接受有效 HTTPS 更新源和规范 32 字节 Ed25519 公钥；缺失配置明确反馈；不完整发布构建失败。 |
+| AC7 | 固定校验和的框架被嵌入；签名由内到外；经过公证验证的归档生成签名 appcast。 |
+| AC8 | Never/禁用选项禁止自动检查；Daily/Weekly/Monthly 对应 1/7/30 天；手动检查可用。 |
 
-已有 showEvent 的延迟原生配置和 settingsUpdated 的可见窗口配置均调用该入口，因此覆盖窗口初次原生初始化、浅/深主题切换与 System 主题解析。没有另建快照、修改 Qt 私有类、延长绘制暂停、改变 HDR EDR 参数或创建替代全屏动画。
+每条标准的静态和动态测试、六项用例要素及代码映射见 `test_case_specification.md` 和 `tests/update_test_cases.json`。
 
-对正常内容覆盖完整的帧，显示效果不变；发生覆盖空隙时，窗口背景应与画布一致。棋盘背景仍由画布绘制，兜底仅使用主题基色；本设计不保证覆盖空隙能保留棋盘纹理。
+## 多跳检索与交叉验证
 
-## 测试改造
+1. 从方案引用进入 [SPUStandardUpdaterController API](https://sparkle-project.org/documentation/api-reference/Classes/SPUStandardUpdaterController.html)，确认标准控制器的手动检查入口与进度界面。
+2. 从基础说明进入 [programmatic setup / Qt](https://sparkle-project.org/documentation/programmatic-setup/)，核对 Objective-C++、ARC、控制器生命周期、KVO、链接与复制要求，再与下载的官方头文件比对。
+3. [Sparkle 基础文档](https://sparkle-project.org/documentation/)分别支持 HTTPS、EdDSA 归档签名、公钥/更新源配置、appcast 生成和更新验证；[sandboxing 文档](https://sparkle-project.org/documentation/sandboxing/)补充手工签名顺序与 entitlements 保留要求。当前非沙盒工程不启用沙盒 XPC 开关。
+4. [Apple Updating Mac Software](https://developer.apple.com/documentation/security/updating-mac-software)说明原地修改签名代码可能引发签名缓存问题，支持采用完整更新安装器；[Apple 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)与现有 Developer ID 发布脚本交叉核对。Apple 页面正文通过其官方 Markdown 链接读取。
+5. [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)用于核对 MAS 分发边界；[Sparkle 2.10.0 官方发布](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0)与 GitHub Release API 提供的 SHA-256 交叉核对官方二进制。最终固定 2.10.0，不依赖可漂移的 latest 下载。
+6. 官方 API 定义 + 仓库接线 + 隔离真实安装共同验证方案。检索在架构、API、打包、签名和发布边界均有直接证据后收敛。
 
-1. 新增测试专用 Objective-C 探针直接读 NSWindow 背景，并允许受控隐藏/恢复原生 contentView。生产代码不调用隐藏接口。
-2. 四个数据行覆盖 SDR/HDR × 普通/最大化；HDR 识别与持久表面就绪是硬前提。
-3. 实际进入和退出全屏，等待原生 Did 通知；退出过程中内存保存约 16ms 定时的底部显示窄带，尾部等待 500ms。仅稳态中央内部像素作背景断言；运动快照不按 Qt 目标 ROI 强行判错。
-4. DidExit 后隐藏 contentView 150ms，读真实屏幕中央底部 80×12 逻辑点（本机 160×24 像素），逐像素与独立主题常量比较，RGB 容差 2，要求零错误。作用域清理保证断言失败也恢复内容、关闭窗口及退出设置。
-5. 扩展现有浅/深主题测试，检查原生背景；初次原生设置为异步，允许 2s 收敛。为失败路径增加作用域清理，避免遗留窗口造成测试进程退出崩溃。
-6. 新增 CTest 门禁及系统全屏功能驱动入口；HDR 外部图片可由环境变量覆盖，缺失明确 skip，不宣称 HDR 已通过。
+## 实现与链式推导
 
-## 风险与验收
+`Qt 菜单/关于按钮 → UpdateChecker::check(true) → SPUStandardUpdaterController::checkForUpdates: → 标准检查进度 → appcast 版本判定 → 标准下载进度 → EdDSA 验证 → Sparkle Installer 替换 → 重启`。
 
-要求 Cocoa 桌面与可用显示捕获，不能在 offscreen 平台把截图成功当成验收。16ms 定时器和同步捕获不保证捕获每个刷新帧，受控交接也不等同于自然复现。代码修复验收采用红→绿及现有全屏/主题回归；原始自然闪烁验收单列为待完成，不能用这组绿测替代。
+`src/updatechecker_sparkle.mm` 用 ARC 和私有 Impl 持有控制器与 KVO observer。在 Qt 完成 Cocoa 启动后的事件循环初始化；配置不合法时不创建联网更新器。配置校验位于实际生产调用的 `isConfigurationValid`。显式调用 `startUpdater:` 接收启动错误，再观察 `canCheckForUpdates`；析构时解除观察。Qt 关于按钮在状态变化后更新可用性，并将关于窗口改为非模态，以免 Qt 模态窗口阻挡 Cocoa 更新界面。
+
+删除原有 JSON 查询、数字拼接版本比较、Qt 结果窗口、跳过版本数据库及浏览器下载路径。版本比较、跳过版本、错误提示、重复检查期间的界面管理、取消、下载和安装均由标准更新器负责。自动调度也由 Sparkle 持有；偏好变更只在值不同的时候更新属性。Monthly 改为 Sparkle 的固定 30 天间隔，区别于旧代码的日历月策略，已显式固化测试。
+
+CMake 下载并验证官方分发归档，用 ditto 保留框架符号链接/权限。生产应用只添加 `@executable_path/../Frameworks` 的 Sparkle rpath，避免依赖开发机路径。qmake 使用同一框架和模板、独立 ARC 编译规则与配置生成脚本；同时修复本机暴露出的 VERSION 大小写文件名遮蔽标准头、版本字符串转义以及缺失可选 qtbase 翻译目录问题。框架第三方许可位于 `third_party/sparkle`。
+
+## 发布配置
+
+GitHub repository variable：`SPARKLE_PUBLIC_ED_KEY`，值为 base64 公钥。GitHub secret：`SPARKLE_PRIVATE_ED_KEY`，值为 base64 的 32 字节私钥 seed；Apple 发布 secrets 延用原流程。发布者可使用 Sparkle 的 `generate_keys` 生成并管理密钥，导出时注意 seed 格式；代码不创建或写入生产密钥。
+
+开发/发布构建参数：
+
+```bash
+cmake -S . -B build \
+  -DFOVELLE_UPDATE_FEED_URL=https://github.com/inostarlin-passion/Fovelle/releases/latest/download/appcast.xml \
+  -DFOVELLE_UPDATE_PUBLIC_KEY='<发布公钥>' \
+  -DFOVELLE_REQUIRE_UPDATE_CONFIG=ON
+```
+
+发布脚本保留组件 entitlements，按内层 Mach-O、嵌套 bundle、框架、应用顺序签名；完成公证、staple、Gatekeeper、解包回验后生成 appcast。生成前用 Swift CryptoKit 从 stdin 的 seed 派生公钥，与应用内公钥比对；生成器也通过 stdin 接收 seed。归档下载地址指向固定 tag 的 Release，appcast 随同该 Release 上传，客户端读取 latest/download/appcast.xml。发布构建启用正常自动检查，仅测试步骤通过环境变量禁用自动联网。没有部署新服务或发布远端 Release。
+
+## 逆向证伪与限制
+
+- 断网/错误 feed：标准错误界面，当前应用不变。
+- 用户取消：恢复可再次检查，不安装。
+- 篡改包/签名 seed 不匹配：分别拒绝安装/拒绝生成发布 feed。
+- 缺省/HTTP/认证地址/错误公钥：生产配置校验拒绝；发布配置失败。
+- 检查按钮重复触发、旧 Qt 回调重复提示：标准控制器管理会话；旧 `checkedUpdates` 路径已删除。
+- 依赖符号链接、外部 rpath、错误签名顺序：ditto、包内 rpath、深度优先签名与实际 bundle 检查防止遗漏。
+- 未开启 Sandbox 不代表以后可以直接开启：未来沙盒分发须补充 Installer XPC 配置与 mach-lookup entitlements，并重新验证。
+- 隔离安装夹具采用临时 ad-hoc 应用和回环 HTTP；它验证真实标准 UI 与 Installer，但不能替代线上 HTTPS、Developer ID、公证、安装权限和只读挂载场景的最终发布验收。旧版未集成 Sparkle，首次升级仍需安装一次新包。

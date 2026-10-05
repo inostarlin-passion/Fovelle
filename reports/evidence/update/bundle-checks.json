@@ -1,0 +1,11 @@
+{
+  "cmake_build": "passed",
+  "qmake_build": "passed",
+  "cmake_framework": true,
+  "qmake_framework": true,
+  "cmake_license": true,
+  "qmake_license": true,
+  "qt_version": "6.11.2",
+  "test_os": "macOS 27.0.1 arm64",
+  "production_update_config_in_local_build": false
+}

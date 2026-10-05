@@ -1591,6 +1591,14 @@ No write permission or file is read-only.</source>
 <context>
     <name>UpdateChecker</name>
     <message>
+        <source>Unable to check for updates</source>
+        <translation>更新を確認できません</translation>
+    </message>
+    <message>
+        <source>Updates are not configured. A valid HTTPS update feed and Ed25519 public key are required.</source>
+        <translation>更新が設定されていません。有効な HTTPS 更新フィードと Ed25519 公開鍵が必要です。</translation>
+    </message>
+    <message>
         <source>This build is not configured for update checking.</source>
         <translation>このビルドは更新の確認に対応していません。</translation>
     </message>

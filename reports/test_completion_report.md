@@ -1,46 +1,49 @@
-# 全屏退出底部闪烁：测试完成报告
+# Fovelle 更新功能测试完成报告
 
-## 验收结论
+执行日期：2026-10-03（Asia/Shanghai）。环境：macOS 27.0.1、arm64、Qt 6.11.2、Sparkle 2.10.0。项目版本：1.2.7；安装夹具：1.0.0 → 2.0.0。
 
-**已完成：**确认并修复 NSWindow 兜底背景与画布颜色不一致，新增能够稳定检出该机制的受控实际显示像素测试。
+## 结论
 
-**尚未完成：**用户原始“自然退出全屏时屏幕底部闪烁”的稳定复现与消失验收。普通/最大化、SDR/HDR 的自然退出采样未捕获中央白条；同步抓取可能漏帧，受控隐藏内容不是自然复现，不能因此宣称整个问题解决。
+代码实现及本地验收通过：手动检查使用标准进度框；标准更新器完成应用内下载、验证、实际替换与重启。发布脚本生成的 appcast 签名经真实 `sign_update --verify` 验证，并拒绝与应用公钥不匹配的 seed。
 
-## 环境、输入与证据
+生产发布未执行。本地开发包没有生产更新地址/公钥，手动检查会提示配置缺失。线上启用需要 repository variable `SPARKLE_PUBLIC_ED_KEY`、secret `SPARKLE_PRIVATE_ED_KEY`、原有 Apple 发布 secrets，以及首次发布包含 appcast 的新版本。该外部配置与线上验证未被计为已通过。
 
-基线 `69cec025a4b75060bc61cd74b904cade27ecb024`；macOS 27.0.1、arm64、Qt 6.11.2 Cocoa、1728×1117 逻辑主屏、Retina 2 倍。SDR 为生成 PNG，HDR 为挂载卷真实 `3.dng`，本轮 HDR 行均成功运行而非 skip。
+## 实际执行
 
-证据位于 `evidence/fullscreen_bottom_flash/`：基线文件、旧报告归档、构建日志、原始自然窄带 PNG、受控 fallback PNG、带时间与坐标的日志。该目录为本地证据；版本控制忽略规则不应被误解为证据已随提交分发。
+| 验证 | 实际结果 | 证据 |
+| --- | --- | --- |
+| CMake 全部目标构建 | 通过 | `evidence/update/cmake-build.log` |
+| qmake 应用构建与框架/许可证嵌入 | 通过 | `evidence/update/bundle-checks.json` |
+| Python 更新验收 | 13/13 通过，24.776 秒（6 静态 + 7 动态） | `evidence/update/update_acceptance.log` |
+| CTest 更新与原生弹窗回归 | 4/4 test entries 通过 | `evidence/update/ctest.log` |
+| Qt FeatureTests 整组 | 输出 28 passed，0 failed，0 skipped | `evidence/update/feature-tests.log` |
+| appcast 生成、签名验证、错误 seed 拒绝及安装复验 | 通过 | `evidence/update/appcast-signature-verification.log`，最终更新验收日志 |
+| 生产 Sparkle rpath | 包内 `@executable_path/../Frameworks` | `evidence/update/rpaths.txt` |
+| shell 语法与 git diff 空白检查 | 通过 | 已执行 `bash -n` 与 `git diff --check` |
 
-## 红测与修复过程
+## 原子验收追踪
 
-| 执行 | 结果 | 解释 |
-|---|---|---|
-| red-1 / red-2 | 每轮 2 passed（初始化/清理）、4 failed、0 skipped；退出码 4 | 未修改生产代码，四行受控底部均 3840/3840 像素错误：白色代替深灰；重复证明稳定检测机制。 |
-| red-final | 四行及主题检查失败，随后进程异常退出 | 主题旧测试缺少失败清理；增加 scope guard 清理。异常记录保留，不计作有效绿测。 |
-| red-clean | 2 passed、5 failed、0 skipped；退出码 5 | 清理修复后四行及浅色原生背景检查正常报告失败，无进程崩溃。 |
-| green-1 | 四行通过，主题检查失败；退出码 1 | 发现 showEvent 原生配置异步；初始主题检查改为最多等待 2s 后严格比较颜色。 |
-| green-final-1 | 9 passed、0 failed、0 skipped；退出码 0 | 四数据行、浅/深主题、System 解析及棋盘背景共七业务用例，加初始化/清理。 |
+| 标准 | 静态证据 | 动态结果 |
+| --- | --- | --- |
+| AC1 检查进度 | 两个 Qt 入口接标准控制器；关于窗口非模态 | 慢速 feed 响应前已观察到原生进度组件 |
+| AC2 取消恢复 | KVO 状态接线与旧 Qt 回调删除 | 检查与下载取消后可用性恢复，应用摘要不变；重复手动检查只发出一次 feed 请求 |
+| AC3 版本与错误 | 标准驱动处理结果；没有第二套 Qt 结果提示 | 同版本不下载；XML 错误 1000、HTTP 503 错误 2001 均显示结果提示并恢复 |
+| AC4 下载安装重启 | 没有浏览器下载路径、没有手写替换器 | DOWNLOAD_FINISHED → INSTALL_STARTED → RELAUNCHED_NEW_VERSION，旧路径包版本实变 2.0.0 |
+| AC5 篡改拒绝 | 公钥、归档验证配置与固定依赖 | 签名不匹配错误 4005/底层 3002；无安装、无重启、旧包摘要不变 |
+| AC6 配置校验 | 发布参数失败门禁 | 生产校验函数覆盖 HTTPS/空地址/HTTP/认证地址/短密钥/非规范 base64；无配置更新器安全初始化/销毁 |
+| AC7 打包发布 | ditto、包内 rpath、深度优先签名、发布先验证后生成 feed | 两种构建均嵌入框架/许可证；真实脚本生成 feed，URL/版本/签名验证通过；错误 seed 被拒绝 |
+| AC8 频率设置 | Sparkle 调度器接线、禁用开关、避免重复背景检查 | 实际生产映射函数返回 0/86400/604800/2592000 秒；FeatureTests 回归通过 |
 
-生产变更只把 NSWindow 背景设置为解析后主题的画布色，保留原生全屏机制与现有绘制保护。测试失败路径清理与异步前提修正记录在上表；没有删除错误像素断言或放宽色差。
+16 条用例说明（每条原子标准各 1 组静态与动态）全部有六项要素和测试代码映射；允许多个标准复用同一个端到端测试。元数据完整性与映射存在性本身也由测试检查。
 
-最终版负向验证：临时移除生产代码的背景赋值后，不改变最终测试，四数据行及等待原生初始化后的浅色检查仍全部失败（`negative-final-tests.txt`，2 passed、5 failed、0 skipped，退出码 5）。随后恢复源文件并构建成功（`negative-control.json`）。这证明异步等待并未掩盖背景缺陷。
+## 失败迭代与修正
 
-## 回归结果
+初次隔离驱动只识别错误框的 OK 按钮，导致错误/签名失败场景超时。通过原生进程采样和 modal run-loop 中的按钮清单，确认实际标题是 Cancel Update；驱动补齐该按钮并在模态模式运行计时器，最终异常场景全部通过。另有早期断言把 Sparkle 的 didExtractUpdate 回调当作实际成功解压，改为明确的签名错误、安装未发生及旧包未变判据；SDK 错误详情确认验证在 unarchiving 前失败。
 
-- CTest 七项全屏相关门禁全部通过（`ctest.txt`，123.81s）：标题栏、指标有效性、refinement、原生往返、SDR 连续性、HDR 连续性、底部受控交接。
-- 更新后的系统驱动十一项功能全部通过（`system-final.json`，125.83s，两个测试进程退出码均为 0）；新门禁要求 SDR/HDR × 普通/最大化四行全部 PASS，并明确记录受控交接与自然闪烁的区别。
-- 独立指标单元检查七项通过（`metrics-unit.txt`）。
-- 未声称整个仓库全量测试已通过；本轮运行范围为上述相关门禁及主题用例。
+qmake 本机编译暴露出原有 VERSION 文件遮蔽 `<version>`、宏引号转义、缺失可选 qtbase 翻译的问题，修复后构建通过。qmake 有非阻断的 SDK 版本提示与重复 rpath 链接提示；没有将其视为编译错误或公证成功。
 
-## 自然观察与反向验证
+## 验证边界
 
-`natural-red-analysis.json` 分析 red-final 的四组共 237 次窄带截图：中央三分之一区域高亮白像素（RGB 每通道>170）最大值为零。该结果仅说明采到的区域未见白条，不能排除漏帧、其它区域或其它显示配置。
+本次动态安装采用独立的 Cocoa 夹具、真实 Sparkle 标准 UI/Installer、临时 ad-hoc 签名与回环 HTTP。Qt 包装层以真实生产校验/生命周期/设置测试和源接线验证覆盖；没有声称在已签名线上 Fovelle 中完成了完整 UI 端到端测试。生产包装层仍强制 HTTPS。
 
-早期全屏 PNG 写盘过慢，已改为过渡时只留内存窄带、结束后写盘。移动系统快照上的红色内容和固定窗口圆角亮像素被排除，不当作闪白。Qt 目标坐标也不能当作动画帧实际应用边界。
-
-## 运行方法与限制
-
-用例细节见 [测试用例说明](test_case_specification.md)，机制与候选根因见 [根因分析](root_cause.md)，实现见 [技术设计](technical_design_document.md)。HDR 文件缺失时必须报告 skip；无法截图或 HDR 识别失败不得视为通过。
-
-后续需要用户实际异常区域（应用还是 Dock/桌面）、图片、普通/最大化恢复状态及显示器配置，才能完成原始视觉缺陷验收。本报告将该项保留为待验证。
+未执行 Apple Developer ID 生产签名、公证、GitHub 远端发布或线上 HTTPS 更新；未覆盖未来 Sandbox、只读挂载与管理员权限安装路径。生产启用后仍需旧版本 → 新的公证版本端到端发布验证。测试 seed 不写入生产仓库或登录钥匙串；测试应用、defaults、缓存及遗留夹具已清理。

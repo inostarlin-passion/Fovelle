@@ -74,6 +74,7 @@ add_executable(fovelle_tests
     ${FOVELLE_TEST_FORMS}
     ../resources/resources.qrc
 )
+fovelle_link_sparkle(fovelle_tests)
 target_include_directories(fovelle_tests PRIVATE ../src)
 target_link_libraries(fovelle_tests PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
@@ -389,3 +390,21 @@ set_tests_properties(FovelleFullScreenBottomBackgroundHandoff PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
     TIMEOUT 120 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;display-capture;background-handoff;requires-desktop")
+
+add_executable(fovelle_sparkle_probe sparkle_standard_ui_probe.mm)
+set_target_properties(fovelle_sparkle_probe PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@executable_path/../Frameworks")
+target_compile_options(fovelle_sparkle_probe PRIVATE -fobjc-arc)
+target_link_libraries(fovelle_sparkle_probe PRIVATE "${FOVELLE_SPARKLE_FRAMEWORK}" "-framework AppKit")
+add_test(NAME FovelleUpdateStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py --static-only)
+add_test(NAME FovelleUpdateConfiguration COMMAND fovelle_tests
+    testUpdateConfigurationValidation testUpdateCheckFrequencyPolicy -v1)
+set_tests_properties(FovelleUpdateConfiguration PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 30)
+option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
+if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
+    add_test(NAME FovelleUpdateInstall
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py)
+    set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 240 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
+endif()

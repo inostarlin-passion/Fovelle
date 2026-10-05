@@ -2,71 +2,27 @@
 #define UPDATECHECKER_H
 
 #include "qvnamespace.h"
+#include <QObject>
+#include <memory>
 
-#include <QtNetwork>
-
+// Owns Sparkle's standard UI and installer for the lifetime of the app.
 class UpdateChecker : public QObject
 {
     Q_OBJECT
 public:
     explicit UpdateChecker(QObject *parent = nullptr);
-
-    struct CheckResult
-    {
-        bool wasSuccessful;
-        QString errorMessage;
-        QString tagName;
-        QString releaseName;
-        QString changelog;
-
-        bool isConsideredUpdate() const { return isVersionConsideredUpdate(tagName); }
-    };
-
+    ~UpdateChecker() override;
+    void initialize(Qv::UpdateCheckFrequency frequency);
+    void setFrequency(Qv::UpdateCheckFrequency frequency);
     void check(bool isManualCheck = false);
-
-    static bool shouldCheckAutomatically(const QDateTime &now,
-                                         const QDateTime &lastCheck,
-                                         Qv::UpdateCheckFrequency frequency);
-
-    void openDialog(QWidget *parent, bool isAutoCheck);
-
-    bool getIsChecking() const { return isChecking; }
-
-    bool getHasChecked() const { return hasChecked; }
-
-    bool getLastCheckWasManual() const { return lastCheckWasManual; }
-
-    CheckResult getCheckResult() const { return checkResult; }
-
+    bool getIsChecking() const;
+    QString configurationError() const;
+    static bool isConfigurationValid(const QString &feed, const QString &publicKey);
+    static int checkIntervalSeconds(Qv::UpdateCheckFrequency frequency);
 signals:
-    void checkedUpdates();
-
-protected:
-    void readReply(QNetworkReply *reply);
-
-    void onError(QString msg);
-
-    static QDateTime getLastCheckTime();
-
-    static void setLastCheckTime(QDateTime value);
-
-    static QString getSkippedTagName();
-
-    static void setSkippedTagName(QString value);
-
-    static double parseVersion(QString str);
-
-    static bool isVersionConsideredUpdate(QString tagName);
-
+    void stateChanged();
 private:
-    const QString API_BASE_URL = "https://api.github.com/repos/inostarlin-passion/Fovelle/releases";
-    const QString DOWNLOAD_URL = "https://github.com/inostarlin-passion/Fovelle/releases";
-    bool isChecking {false};
-    bool hasChecked {false};
-    bool lastCheckWasManual {false};
-    CheckResult checkResult;
-
-    QNetworkAccessManager netAccessManager;
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };
-
-#endif // UPDATECHECKER_H
+#endif

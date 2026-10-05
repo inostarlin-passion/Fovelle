@@ -207,6 +207,7 @@ private slots:
     void testSettingsGeneralGroupsAndDefaults();
     void testSettingsCooldownOptionIsRemovedAndDefaultEnabled();
     void testUpdateCheckFrequencyPolicy();
+    void testUpdateConfigurationValidation();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
     void testOpenWithWorkerTeardownContract();
 };
@@ -4912,33 +4913,41 @@ void FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()
 }
 
 // TC-UPDATE-FREQUENCY-POLICY
-// Test purpose: verify Never/Daily/Weekly/Monthly interval semantics without
-// network access or wall-clock dependence.
-// Preconditions: UpdateChecker's pure policy helper is available.
-// Input data: fixed UTC timestamps and each frequency enum.
-// Steps: evaluate before, at, and after each interval, plus an invalid last
-// check timestamp.
-// Expected result: Never never checks; a missing last check checks immediately;
-// each other frequency checks exactly at its calendar interval.
-// Postcondition: no network request or persistent setting is produced.
+// Purpose: verify the intervals actually applied to Sparkle's scheduler.
+// Preconditions: pure interval helper is available. Inputs: all four enum values.
+// Steps: compare helper results with 0, 1 day, 7 days, 30 days.
+// Expected: Never disables checks; remaining values specify those intervals.
+// Postconditions: no network or persistent settings change.
 void FeatureTests::testUpdateCheckFrequencyPolicy()
 {
-    const QDateTime last(QDate(2026, 8, 1), QTime(12, 0), QTimeZone::UTC);
-    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addDays(30), last,
-                                                      Qv::UpdateCheckFrequency::Never));
-    QVERIFY(UpdateChecker::shouldCheckAutomatically(last, {}, Qv::UpdateCheckFrequency::Daily));
-    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addSecs(24 * 3600 - 1), last,
-                                                       Qv::UpdateCheckFrequency::Daily));
-    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addDays(1), last,
-                                                    Qv::UpdateCheckFrequency::Daily));
-    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addDays(7).addSecs(-1), last,
-                                                       Qv::UpdateCheckFrequency::Weekly));
-    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addDays(7), last,
-                                                    Qv::UpdateCheckFrequency::Weekly));
-    QVERIFY(!UpdateChecker::shouldCheckAutomatically(last.addMonths(1).addSecs(-1), last,
-                                                       Qv::UpdateCheckFrequency::Monthly));
-    QVERIFY(UpdateChecker::shouldCheckAutomatically(last.addMonths(1), last,
-                                                    Qv::UpdateCheckFrequency::Monthly));
+    QCOMPARE(UpdateChecker::checkIntervalSeconds(Qv::UpdateCheckFrequency::Never), 0);
+    QCOMPARE(UpdateChecker::checkIntervalSeconds(Qv::UpdateCheckFrequency::Daily), 86400);
+    QCOMPARE(UpdateChecker::checkIntervalSeconds(Qv::UpdateCheckFrequency::Weekly), 604800);
+    QCOMPARE(UpdateChecker::checkIntervalSeconds(Qv::UpdateCheckFrequency::Monthly), 2592000);
+}
+
+// Purpose: exercise production feed/key validation and unconfigured updater lifecycle.
+// Preconditions: plain test executable has no production updater Info.plist.
+// Inputs: valid/invalid HTTPS URLs and valid/truncated/malformed Ed25519 keys.
+// Steps: validate each pair; initialize a temporary updater twice with Never.
+// Expected: only canonical HTTPS + 32-byte public key passes; missing config
+// produces a readable error, leaves no active update, and is safe to destroy.
+// Postconditions: no network request and no updater defaults changed.
+void FeatureTests::testUpdateConfigurationValidation()
+{
+    const QString key = QString::fromLatin1(QByteArray(32, 'x').toBase64());
+    QVERIFY(UpdateChecker::isConfigurationValid("https://example.com/appcast.xml", key));
+    for (const QString &feed : {QString(), QString("http://example.com/appcast.xml"),
+         QString("file:///tmp/feed.xml"), QString("https:///feed.xml"),
+         QString("https://user:password@example.com/feed.xml")})
+        QVERIFY(!UpdateChecker::isConfigurationValid(feed, key));
+    for (const QString &invalid : {QString(), key.left(40), key + "!", QString(44, 'x')})
+        QVERIFY(!UpdateChecker::isConfigurationValid("https://example.com/appcast.xml", invalid));
+    UpdateChecker checker;
+    checker.initialize(Qv::UpdateCheckFrequency::Never);
+    checker.initialize(Qv::UpdateCheckFrequency::Daily);
+    QVERIFY(!checker.configurationError().isEmpty());
+    QVERIFY(!checker.getIsChecking());
 }
 
 // TC-IMG-SMALL-SETTING

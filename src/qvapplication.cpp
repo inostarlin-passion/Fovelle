@@ -44,18 +44,18 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
     connect(this, &QCoreApplication::aboutToQuit, this, &QVApplication::onAboutToQuit);
     connect(&settingsManager, &SettingsManager::settingsUpdated, this, &QVApplication::settingsUpdated);
     connect(&actionManager, &ActionManager::recentsMenuUpdated, this, &QVApplication::recentsMenuUpdated);
-    connect(&updateChecker, &UpdateChecker::checkedUpdates, this, &QVApplication::checkedUpdates);
+    connect(&updateChecker, &UpdateChecker::stateChanged, this, [this]() {
+        if (aboutDialog)
+            aboutDialog->updateCheckForUpdatesButtonState();
+    });
 
     settingsUpdated();
     markConstruction("settings-ready");
 
-#ifndef QV_DISABLE_ONLINE_VERSION_CHECK
-    // Check for updates after the application identity and settings are ready.
-    if (!qEnvironmentVariableIsSet("FOVELLE_DISABLE_AUTO_UPDATE_CHECK")
-        && getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency")
-        != Qv::UpdateCheckFrequency::Never)
-        QTimer::singleShot(0, this, [this]() { updateChecker.check(); });
-#endif
+    // Sparkle must start after Qt has finished launching Cocoa and the app identity is ready.
+    QTimer::singleShot(0, this, [this]() {
+        updateChecker.initialize(getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
+    });
 
     // Menu icon policy is intentionally fixed.  The former checkboxes were
     // removed from Preferences, so the runtime must not be affected by stale
@@ -264,33 +264,6 @@ MainWindow *QVApplication::getMainWindow(bool shouldBeEmpty)
     return foundWindow ? foundWindow : newWindow();
 }
 
-void QVApplication::checkedUpdates()
-{
-    const UpdateChecker::CheckResult checkResult = updateChecker.getCheckResult();
-
-    QWidget *dialogParent = aboutDialog ? aboutDialog.data() : activeWindow();
-    const bool isManualCheck = updateChecker.getLastCheckWasManual();
-
-    if (checkResult.wasSuccessful && checkResult.isConsideredUpdate())
-    {
-        updateChecker.openDialog(dialogParent, !aboutDialog && !isManualCheck);
-    }
-    else if (aboutDialog || isManualCheck)
-    {
-        if (!checkResult.wasSuccessful)
-            NativeDialogs::showMessage(QMessageBox::Critical,
-                                       tr("Error checking for updates:\n%1").arg(checkResult.errorMessage), {},
-                                       QMessageBox::Ok, dialogParent);
-        else
-            NativeDialogs::showMessage(QMessageBox::Information,
-                                       tr("You already have the latest version."), {},
-                                       QMessageBox::Ok, dialogParent);
-    }
-
-    if (aboutDialog)
-        aboutDialog->updateCheckForUpdatesButtonState();
-}
-
 void QVApplication::recentsMenuUpdated()
 {
     QStringList recentsPathList;
@@ -419,6 +392,8 @@ void QVApplication::hideIncompatibleActions()
 void QVApplication::settingsUpdated()
 {
     auto &settingsManager = getSettingsManager();
+
+    updateChecker.setFrequency(settingsManager.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
 
     // Theme is an application-wide preference.  Apply it before any new
     // window or dialog asks Qt's Cocoa platform theme for its palette.

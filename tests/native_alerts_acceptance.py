@@ -200,7 +200,7 @@ class NativeAlertsAcceptance(unittest.TestCase):
         production_call_count = 0
         for file_name in (
             "qvapplication.cpp", "qvoptionsdialog.cpp", "qvrenamedialog.cpp",
-            "qvshortcutdialog.cpp", "mainwindow.cpp", "updatechecker.cpp",
+            "qvshortcutdialog.cpp", "mainwindow.cpp", "updatechecker_sparkle.mm",
         ):
             source = source_without_comments_and_strings(SRC / file_name)
             self.assertIn("NativeDialogs::", source, file_name)

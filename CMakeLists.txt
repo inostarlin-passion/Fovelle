@@ -21,7 +21,7 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${FOVELLE_VERSION_FILE}")
 
-project(Fovelle VERSION ${FOVELLE_VERSION} LANGUAGES CXX)
+project(Fovelle VERSION ${FOVELLE_VERSION} LANGUAGES CXX OBJCXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR "Fovelle supports macOS only.")
@@ -55,6 +55,8 @@ else()
     find_package(Qt5 REQUIRED COMPONENTS Core Gui Network Widgets Svg Concurrent)
     set(QT_VERSION_MAJOR 5)
 endif()
+
+include(cmake/Sparkle.cmake)
 
 set(FOVELLE_SOURCES
     src/main.cpp
@@ -130,6 +132,10 @@ add_executable(${PROJECT_NAME} MACOSX_BUNDLE
     ${FOVELLE_FORMS}
     ${FOVELLE_RESOURCES}
 )
+fovelle_link_sparkle(${PROJECT_NAME})
+fovelle_embed_sparkle(${PROJECT_NAME})
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@executable_path/../Frameworks")
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Core

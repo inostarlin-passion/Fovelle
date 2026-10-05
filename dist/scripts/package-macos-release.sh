@@ -88,6 +88,13 @@ require_env APPLE_TEAM_ID
 
 [[ -d "$APP_PATH" ]] || fail "application bundle does not exist: $APP_PATH"
 
+RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [[ "${FOVELLE_GENERATE_APPCAST:-false}" == "true" ]]; then
+    require_env SPARKLE_PRIVATE_ED_KEY
+    UPDATE_PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP_PATH/Contents/Info.plist")
+    printf '%s' "$SPARKLE_PRIVATE_ED_KEY" | swift "$RELEASE_ROOT/dist/scripts/validate-update-key.swift" "$UPDATE_PUBLIC_KEY"
+fi
+
 MACDEPLOYQT="${MACDEPLOYQT:-}"
 if [[ -z "$MACDEPLOYQT" && -n "${QT_ROOT_DIR:-}" && -x "$QT_ROOT_DIR/bin/macdeployqt" ]]; then
     MACDEPLOYQT="$QT_ROOT_DIR/bin/macdeployqt"
@@ -104,7 +111,6 @@ done
 echo "Deploying Qt and plugin dependencies with $MACDEPLOYQT"
 "$MACDEPLOYQT" "$APP_PATH" -always-overwrite
 
-RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 echo "Staging a macOS ${EXPECTED_MACOS_DEPLOYMENT_TARGET}-compatible universal Ghostscript runtime from source"
 FOVELLE_GHOSTSCRIPT_FORCE_SOURCE=true \
 FOVELLE_GHOSTSCRIPT_DEPLOYMENT_TARGET="$EXPECTED_MACOS_DEPLOYMENT_TARGET" \
@@ -233,6 +239,7 @@ sign_code() {
         --force \
         --timestamp \
         --options runtime \
+        --preserve-metadata=entitlements \
         --keychain "$KEYCHAIN_PATH" \
         --sign "$SIGNING_IDENTITY" \
         "$1"
@@ -253,7 +260,7 @@ BUNDLE_DIRECTORIES=()
 while IFS= read -r -d '' candidate; do
     BUNDLE_DIRECTORIES+=("$candidate")
 done < <(
-    find "$APP_PATH/Contents" -type d \( \
+    find "$APP_PATH/Contents" -depth -type d \( \
         -name '*.app' -o \
         -name '*.appex' -o \
         -name '*.bundle' -o \
@@ -301,6 +308,12 @@ assert_macos_deployment_target "$VERIFIED_APP"
 codesign --verify --deep --strict --verbose=2 "$VERIFIED_APP"
 xcrun stapler validate "$VERIFIED_APP"
 spctl --assess --type execute --verbose=4 --ignore-cache "$VERIFIED_APP"
+
+# The enclosing app is signed only after Sparkle helpers/XPC bundles and framework.
+# Publish appcast only after the notarized archive has passed all verification.
+if [[ "${FOVELLE_GENERATE_APPCAST:-false}" == "true" ]]; then
+    bash "$RELEASE_ROOT/dist/scripts/generate-update-appcast.sh"
+fi
 
 echo "Release package created: $RELEASE_ZIP_PATH"
 shasum -a 256 "$RELEASE_ZIP_PATH"

@@ -1,0 +1,60 @@
+********* Start testing of FeatureTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : FeatureTests::initTestCase() entering
+PASS   : FeatureTests::initTestCase()
+INFO   : FeatureTests::testApplicationVersionIsCurrent() entering
+PASS   : FeatureTests::testApplicationVersionIsCurrent()
+INFO   : FeatureTests::testWindowIconIsCleared() entering
+PASS   : FeatureTests::testWindowIconIsCleared()
+INFO   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile() entering
+PASS   : FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()
+INFO   : FeatureTests::testTitlebarIconClearingIsIdempotent() entering
+PASS   : FeatureTests::testTitlebarIconClearingIsIdempotent()
+INFO   : FeatureTests::testViewMenuRemovesLegacyActions() entering
+PASS   : FeatureTests::testViewMenuRemovesLegacyActions()
+INFO   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats() entering
+PASS   : FeatureTests::testSettingsFormatsIncludeNativeImageFormats()
+INFO   : FeatureTests::testSettingsFormatsPaneIsRemoved() entering
+PASS   : FeatureTests::testSettingsFormatsPaneIsRemoved()
+INFO   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions() entering
+PASS   : FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
+INFO   : FeatureTests::testPreloadingIgnoresDisabledUserSetting() entering
+PASS   : FeatureTests::testPreloadingIgnoresDisabledUserSetting()
+INFO   : FeatureTests::testPreloadingIgnoresExtendedUserSetting() entering
+PASS   : FeatureTests::testPreloadingIgnoresExtendedUserSetting()
+INFO   : FeatureTests::testSettingsMouseCursorPanelIsRemoved() entering
+PASS   : FeatureTests::testSettingsMouseCursorPanelIsRemoved()
+INFO   : FeatureTests::testSettingsLanguageCatalogIsFixed() entering
+PASS   : FeatureTests::testSettingsLanguageCatalogIsFixed()
+INFO   : FeatureTests::testSettingsLanguageDefaultsToSystem() entering
+PASS   : FeatureTests::testSettingsLanguageDefaultsToSystem()
+INFO   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish() entering
+PASS   : FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
+INFO   : FeatureTests::testFileInfoModifiedUsesUiLanguageFormats() entering
+PASS   : FeatureTests::testFileInfoModifiedUsesUiLanguageFormats()
+INFO   : FeatureTests::testAutoUpdateCheckLabelIsRenamed() entering
+PASS   : FeatureTests::testAutoUpdateCheckLabelIsRenamed()
+INFO   : FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions() entering
+PASS   : FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
+INFO   : FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults() entering
+PASS   : FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
+INFO   : FeatureTests::testAssociateAllSupportedFormatsDryRun() entering
+PASS   : FeatureTests::testAssociateAllSupportedFormatsDryRun()
+INFO   : FeatureTests::testPreferencesDefaultsAndRemovedControls() entering
+PASS   : FeatureTests::testPreferencesDefaultsAndRemovedControls()
+INFO   : FeatureTests::testSettingsGeneralGroupsAndDefaults() entering
+PASS   : FeatureTests::testSettingsGeneralGroupsAndDefaults()
+INFO   : FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled() entering
+PASS   : FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()
+INFO   : FeatureTests::testUpdateCheckFrequencyPolicy() entering
+PASS   : FeatureTests::testUpdateCheckFrequencyPolicy()
+INFO   : FeatureTests::testUpdateConfigurationValidation() entering
+PASS   : FeatureTests::testUpdateConfigurationValidation()
+INFO   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions() entering
+PASS   : FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
+INFO   : FeatureTests::testOpenWithWorkerTeardownContract() entering
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract()
+INFO   : FeatureTests::cleanupTestCase() entering
+PASS   : FeatureTests::cleanupTestCase()
+Totals: 28 passed, 0 failed, 0 skipped, 0 blacklisted, 1695ms
+********* Finished testing of FeatureTests *********

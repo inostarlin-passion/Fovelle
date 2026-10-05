@@ -55,6 +55,8 @@ void QVAboutDialog::updateCheckForUpdatesButtonState()
 
 void QVAboutDialog::checkForUpdatesButtonClicked()
 {
+    // Cocoa updater windows must remain reachable when launched from About.
+    setWindowModality(Qt::NonModal);
     qvApp->getUpdateChecker().check(true);
     updateCheckForUpdatesButtonState();
 }

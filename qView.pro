@@ -9,7 +9,11 @@ VERSION = $$cat($$VERSION_FILE, lines)
 }
 DISTFILES += $$VERSION_FILE
 
-QT += core gui network widgets svg
+QT += core gui network widgets svg concurrent
+# Avoid case-insensitive VERSION shadowing libc++'s <version> header.
+CONFIG -= include_source_dir
+CONFIG += no_include_pwd
+QMAKE_MACOSX_DEPLOYMENT_TARGET = 15.0
 
 TEMPLATE = app
 
@@ -17,7 +21,7 @@ QMAKE_PROJECT_DEPTH = 0
 
 # allows use of version variables elsewhere
 DEFINES += "VERSION=$$VERSION"
-DEFINES += "VERSION_STRING=\"$$VERSION\""
+DEFINES += 'VERSION_STRING=\\\"$$VERSION\\\"'
 
 # build folder organization
 DESTDIR = bin
@@ -95,6 +99,13 @@ qtbase_translations.files = \
     $$[QT_INSTALL_TRANSLATIONS]/qtbase_ko.qm \
     $$[QT_INSTALL_TRANSLATIONS]/qtbase_ru.qm \
     $$[QT_INSTALL_TRANSLATIONS]/qtbase_zh_CN.qm
+# Homebrew Qt installations can omit individual qtbase catalogs.
+AVAILABLE_QTBASE_TRANSLATIONS =
+for(catalog, qtbase_translations.files) {
+    exists($$catalog): AVAILABLE_QTBASE_TRANSLATIONS += $$catalog
+}
+qtbase_translations.files = $$AVAILABLE_QTBASE_TRANSLATIONS
+
 qtbase_translations.base = $$[QT_INSTALL_TRANSLATIONS]
 qtbase_translations.prefix = /qt-translations
 
