@@ -192,7 +192,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         const bool nativeSDRPresentation = getCurrentFileDetails().isNativeSDRLoaded;
         const bool fullyVisible = (hdrPresentationActive || nativeSDRPresentation)
                 && rendererState.firstFramePresented
-                && rendererState.firstVisibleFrameUsesFinalHeadroom
+                && (nativeSDRPresentation || rendererState.transitionProgress >= 0.999F)
                 && rendererState.presentationActiveRequested
                 && !rendererState.presentationAnimationInFlight
                 && rendererState.layerOpacity >= 0.999F;
@@ -3009,10 +3009,8 @@ void QVGraphicsView::updateHDRRenderer()
         && beforeRender.layerOpacity >= 0.999F)
         loadedPixmapItem->setVisible(false);
 
-    // Submit only the final-headroom representation. The complete SDR proxy
-    // (or prior HDR drawable during navigation) remains visible until that
-    // frame is actually presented; the native presentation container then
-    // crossfades that final endpoint without generating partial-HDR pixels.
+    // The renderer owns a presentation-clock-driven linear-light highlight ramp.
+    // Geometry requests never reset that clock.
     const bool interactive = pressedMouseButton != Qt::NoButton
             || (hdrScrollInteractionClock.isValid()
                 && hdrScrollInteractionClock.elapsed() < 160)

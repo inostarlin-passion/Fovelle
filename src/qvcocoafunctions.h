@@ -15,8 +15,10 @@
 #include <QSize>
 #include <QStringList>
 #include <QTransform>
+#include <QVector>
 
 #include <memory>
+#include <array>
 
 class QWidget;
 class QTabBar;
@@ -241,6 +243,7 @@ public:
         void setBoundaryHintOpacity(qreal opacity);
         void clearBoundaryHintOverlay();
         HDRRendererDiagnostics diagnostics() const;
+        QVector<float> probePersistentHDRPixels() const;
 
     private:
         struct Impl;
@@ -385,9 +388,20 @@ public:
 
     // Pure headroom policy helpers are exposed so endpoint behavior can be
     // verified without depending on a particular physical display. Production
-    // presentation submits the final endpoint; the curve remains useful for
-    // deterministic policy compatibility and explicit callers.
+    // brightness timing and pixel interpolation use this same curve.
     static qreal easedHDRTransition(qreal progress);
+    static qreal hdrBrightnessProgress(qreal elapsedMilliseconds, bool rapidSwitch,
+                                       bool reduceMotion, qreal totalMilliseconds = 600.0);
+    // Runs the production linear-light kernel on one float pixel for verification.
+    static std::array<float, 4> probeHDRBrightnessPixel(
+            const std::array<float, 4> &sdr, const std::array<float, 4> &hdr,
+            float headroom, float easedProgress);
+
+    // 64x64 linear float sample grid; sourceEndpoint bypasses display processing
+    // and supplies an independent decoded HDR oracle when headroom is sufficient.
+    static QVector<float> probeHDRBrightnessImage(const HDRImagePtr &image,
+            float headroom, float easedProgress, bool sourceEndpoint = false,
+            bool materializeBeforeSampling = false);
 
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
@@ -398,15 +412,14 @@ public:
     static qreal resolvedHDRContentHeadroom(qreal reportedHeadroom,
                                             qreal measuredMaximumComponent);
 
-    // The current EDR value can remain one until the first EDR frame is
-    // onscreen. Use potential capability to break that bootstrap cycle while
-    // still preferring the dynamic current value once WindowServer exposes it.
+    // Potential capability is not an available luminance budget. Rendering
+    // always uses the current dynamic value (one means SDR).
     static qreal displayHeadroomForRendering(qreal currentHeadroom,
                                              qreal potentialHeadroom,
                                              qreal contentHeadroom);
 
-    // Only a final-headroom drawable whose physical geometry is complete may
-    // replace the SDR proxy or prior HDR presentation.
+    // Legacy endpoint predicate for explicit callers. The renderer instead
+    // reveals a complete SDR base once managed preparation has finished.
     static bool isFinalHDRFrameReadyForReveal(bool drawableGeometryMatches,
                                               qreal transitionProgress);
 

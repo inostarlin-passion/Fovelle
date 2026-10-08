@@ -408,3 +408,33 @@ if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py)
     set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 240 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
 endif()
+
+add_test(NAME FovelleHDRBrightnessStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_brightness_static.py)
+set_tests_properties(FovelleHDRBrightnessStatic PROPERTIES TIMEOUT 30 LABELS "hdr;brightness;static;acceptance")
+add_test(NAME FovelleHDRBrightnessDynamic COMMAND fovelle_tests
+    testHDRBrightnessTimingAndBezier testHDRBrightnessLinearLightPixels
+    testTransitionCurveIsBoundedAndMonotonic testDisplayHeadroomBootstrapsFromPotentialCapability
+    testHDRHeadroomIsClampedToContentAndDisplay testSDRDisplayForcesUnitHeadroom)
+set_tests_properties(FovelleHDRBrightnessDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests"
+    TIMEOUT 60 LABELS "hdr;brightness;dynamic;acceptance")
+
+add_test(NAME FovelleHDRColorPixels COMMAND fovelle_tests
+    testHDRBrightnessPreservesEndpointColors -v1)
+set_tests_properties(FovelleHDRColorPixels PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests"
+    TIMEOUT 30 LABELS "hdr;color;dynamic;acceptance")
+set(FOVELLE_HDR_COLOR_FIXTURE_DIR "/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test"
+    CACHE PATH "Local HDR color regression fixtures")
+if(EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG" AND EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/2.DNG"
+   AND EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/3.dng" AND EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/4.nef")
+    add_test(NAME FovelleHDRColorSamples COMMAND fovelle_tests testHDRColorFidelity -v1)
+    set_tests_properties(FovelleHDRColorSamples PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRSampleTests;FOVELLE_HDR_JPEG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG;FOVELLE_HDR_RAW_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/2.DNG;FOVELLE_HDR_PLAIN_DNG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/3.dng;FOVELLE_HDR_NEF_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/4.nef"
+        TIMEOUT 90 LABELS "hdr;color;dynamic;local-fixture;acceptance")
+    add_test(NAME FovelleHDRColorNative COMMAND fovelle_tests testHDRBrightnessNativeColorFidelity -v1)
+    set_tests_properties(FovelleHDRColorNative PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests;FOVELLE_HDR_JPEG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG"
+        TIMEOUT 45 RUN_SERIAL TRUE LABELS "hdr;color;native;local-fixture;acceptance")
+endif()

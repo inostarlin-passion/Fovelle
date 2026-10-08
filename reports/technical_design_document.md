@@ -1,69 +1,68 @@
-# Fovelle 更新功能技术设计
+# HDR 局部偏色技术设计与根因分析
 
-日期：2026-10-03（Asia/Shanghai）。需求依据：`/Users/inostarlin/Downloads/方案.md`。
+日期：2026-10-08。用户问题：HDR 图片显示异常，进一步确认表现为“一部分偏色”。本次任务是在上一轮亮度渐变改动的基础上，先使补充测试失败，再修改生产代码。此前代码及报告快照保存在 `reports/evidence/hdr_color_regression/before/`，不覆盖用户其他工作。
 
-## 问题与显式前提
+## 问题界定与原子验收标准
 
-原实现查询 GitHub Releases JSON 后打开浏览器，没有检查进度、包验证或应用内安装。目标是在 macOS 应用中提供手动检查进度，并完成应用内下载、验证、安装、重启。
+| ID | 验收标准 |
+|---|---|
+| CR-01 | 显示余量足够、渐变结束时，所有 RGB 区域均恢复正确解码 HDR 端点，包括 HDR 值低于 1、白点附近和饱和高光，不能按局部峰值留下 SDR 颜色。 |
+| CR-02 | 中间时刻在扩展线性光空间按同一时间进度插值；不得另加空间 RGB 掩码；若 SDR/HDR 某区域本来相同，该区域应保持稳定。 |
+| CR-03 | 当前余量不足时由增益图或 Core Image 色调映射适配；余量足够时保持解码 HDR 原样；预热、可见帧与最终缓存共用端点选择。 |
+| CR-04 | 对 JPEG、处理后 DNG、普通 DNG、NEF 的真实图像进行全图 RGB 网格比较，参考值来自独立解码 HDR 分支，不能来自待测公式或就绪标志。 |
+| CR-05 | 实际交给合成器的持久图像缓存也必须保持端点颜色；参考与实际使用同样的计算/采样顺序；不能把缩小口径差异当成偏色。 |
+| CR-06 | 80+520 ms 默认渐变、250 ms 连续切图、减弱动态效果、动态余量、缩放和 SDR 窗口行为继续通过原测试与完整 Qt 回归。 |
 
-前提：Developer ID 直接分发；非 Mac App Store；现有工程没有开启 App Sandbox；更新服务采用 HTTPS；发布方保有 Ed25519 签名 seed 和 Apple 发布证书。开发环境没有可用生产更新公钥，因此允许开发构建缺省配置，但手动检查明确提示缺失；tag 发布强制要求配置。本文不声称生产服务已经上线。
+## 多跳检索、多源核验
 
-## 原子验收标准
+第一跳检索 HDR/增益图、CIColorKernel、线性颜色；第二跳阅读 WWDC24 原文、增益图和 ToneMap API；第三跳针对缓存比较差异检索 Core Image 延迟计算、合并/重排滤镜与中间缓存。以下是各判断的官方依据，工程推导与已测事实另列，不把候选根因当成事实。
 
-| 编号 | 可单独判定的标准 |
-| --- | --- |
-| AC1 | 菜单与关于按钮的手动检查显示标准检查进度；关于窗口不阻挡更新界面。 |
-| AC2 | 检查、下载均可取消，状态恢复，不替换应用。 |
-| AC3 | 当前版本、网络故障、无效更新源都有标准反馈；无新版本不下载。 |
-| AC4 | 新版本在应用内下载、安装，重启后实际运行新版本，无下载网页跳转。 |
-| AC5 | 篡改的归档验证失败，不安装、不替换、不重启。 |
-| AC6 | 仅接受有效 HTTPS 更新源和规范 32 字节 Ed25519 公钥；缺失配置明确反馈；不完整发布构建失败。 |
-| AC7 | 固定校验和的框架被嵌入；签名由内到外；经过公证验证的归档生成签名 appcast。 |
-| AC8 | Never/禁用选项禁止自动检查；Daily/Weekly/Monthly 对应 1/7/30 天；手动检查可用。 |
+| 官方来源 | 核验结论及用途 |
+|---|---|
+| [WWDC24 HDR 图像](https://developer.apple.com/videos/play/wwdc2024/10177/) 与 [增益图 headroom API](https://developer.apple.com/documentation/coreimage/ciimage/applyinggainmap(_:headroom:)) | SDR 与 HDR 是各自正确的呈现；增益图与元数据负责显示适配。不能因为 HDR 某个像素未超过白点，就认定该处必须退回 SDR 颜色。 |
+| [CIToneMapHeadroom](https://developer.apple.com/documentation/coreimage/citonemapheadroom) 与 [WWDC22 EDR 示例](https://developer.apple.com/documentation/coreimage/generating-an-animation-with-a-core-image-render-destination) | 区分内容 headroom 和当前显示 headroom；在扩展线性色彩空间绘制，用指定 source/target headroom 进行映射，而非自定义逐像素最大通道硬压缩。 |
+| [Core Image 内建滤镜处理](https://developer.apple.com/documentation/coreimage/processing-an-image-using-built-in-filters) 与 [Processing Images](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/CoreImaging/ci_tasks/ci_tasks.html) | CIImage 是延迟计算图，滤镜可能合并/重排；没有明确物化的缩小图不能直接当作全分辨率缓存的等价像素参考。 |
+| [缓存中间图](https://developer.apple.com/documentation/coreimage/ciimage/insertingintermediate(cache:)) 与 [cacheIntermediates](https://developer.apple.com/documentation/coreimage/cicontextoption/cacheintermediates) | 缓存影响计算路径和复用；缓存就绪不代表缓存内容正确，须实际读回比较。 |
 
-每条标准的静态和动态测试、六项用例要素及代码映射见 `test_case_specification.md` 和 `tests/update_test_cases.json`。
+## 可能根因、证据与逆向证伪
 
-## 多跳检索与交叉验证
+### 1. 已确认：空间亮度门槛把两套颜色端点混为一幅图
 
-1. 从方案引用进入 [SPUStandardUpdaterController API](https://sparkle-project.org/documentation/api-reference/Classes/SPUStandardUpdaterController.html)，确认标准控制器的手动检查入口与进度界面。
-2. 从基础说明进入 [programmatic setup / Qt](https://sparkle-project.org/documentation/programmatic-setup/)，核对 Objective-C++、ARC、控制器生命周期、KVO、链接与复制要求，再与下载的官方头文件比对。
-3. [Sparkle 基础文档](https://sparkle-project.org/documentation/)分别支持 HTTPS、EdDSA 归档签名、公钥/更新源配置、appcast 生成和更新验证；[sandboxing 文档](https://sparkle-project.org/documentation/sandboxing/)补充手工签名顺序与 entitlements 保留要求。当前非沙盒工程不启用沙盒 XPC 开关。
-4. [Apple Updating Mac Software](https://developer.apple.com/documentation/security/updating-mac-software)说明原地修改签名代码可能引发签名缓存问题，支持采用完整更新安装器；[Apple 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)与现有 Developer ID 发布脚本交叉核对。Apple 页面正文通过其官方 Markdown 链接读取。
-5. [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)用于核对 MAS 分发边界；[Sparkle 2.10.0 官方发布](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0)与 GitHub Release API 提供的 SHA-256 交叉核对官方二进制。最终固定 2.10.0，不依赖可漂移的 latest 下载。
-6. 官方 API 定义 + 仓库接线 + 隔离真实安装共同验证方案。检索在架构、API、打包、签名和发布边界均有直接证据后收敛。
+上一轮 `hdrBrightnessImage` 执行：`P=max(HDR.r,HDR.g,HDR.b)`，`W=smoothstep(1,1.1,P)`，`output=SDR+(compressedHDR-SDR)*W*E(t)`。
 
-## 实现与链式推导
+即便 `E(t)=1`：
 
-`Qt 菜单/关于按钮 → UpdateChecker::check(true) → SPUStandardUpdaterController::checkForUpdates: → 标准检查进度 → appcast 版本判定 → 标准下载进度 → EdDSA 验证 → Sparkle Installer 替换 → 重启`。
+- P≤1 的区域永远显示 SDR 颜色，而非正确 HDR 颜色。
+- 1<P<1.1 的区域永远停留在两种颜色之间。
+- P≥1.1 的区域才完全进入 HDR。由此形成区域性的颜色关系差异；不只是时间上的缓动效果。
 
-`src/updatechecker_sparkle.mm` 用 ARC 和私有 Impl 持有控制器与 KVO observer。在 Qt 完成 Cocoa 启动后的事件循环初始化；配置不合法时不创建联网更新器。配置校验位于实际生产调用的 `isConfigurationValid`。显式调用 `startUpdater:` 接收启动错误，再观察 `canCheckForUpdates`；析构时解除观察。Qt 关于按钮在状态变化后更新可用性，并将关于窗口改为非模态，以免 Qt 模态窗口阻挡 Cocoa 更新界面。
+反例：SDR=(.45,.40,.35)，HDR=(.90,.60,.30)，可用 headroom=8。最终应该为 HDR，旧实现却返回 SDR；中间 50% 应为 (.675,.50,.325)，旧实现仍为 SDR。近白点反例最终应为红通道 1.05，旧实现为 .925。新增测试在修改生产算法前均失败。
 
-删除原有 JSON 查询、数字拼接版本比较、Qt 结果窗口、跳过版本数据库及浏览器下载路径。版本比较、跳过版本、错误提示、重复检查期间的界面管理、取消、下载和安装均由标准更新器负责。自动调度也由 Sparkle 持有；偏好变更只在值不同的时候更新属性。Monthly 改为 Sparkle 的固定 30 天间隔，区别于旧代码的日历月策略，已显式固化测试。
+真实四类样本也失败，详见完成报告中的修复前后比较。充足 headroom 条件下仍失败，反证“只是显示器亮度不够”；单像素可复现，反证“必须是文件解码损坏或缩放几何问题”。同一批数据仅替换端点处理就通过，为本次代码缺陷建立了因果证据。
 
-CMake 下载并验证官方分发归档，用 ditto 保留框架符号链接/权限。生产应用只添加 `@executable_path/../Frameworks` 的 Sparkle rpath，避免依赖开发机路径。qmake 使用同一框架和模板、独立 ARC 编译规则与配置生成脚本；同时修复本机暴露出的 VERSION 大小写文件名遮蔽标准头、版本字符串转义以及缺失可选 qtbase 翻译目录问题。框架第三方许可位于 `third_party/sparkle`。
+### 2. 已发现的设计缺陷：绕过平台适配，并使预热与最终绘制使用不同图像图
 
-## 发布配置
+旧可见帧与缓存使用最大 RGB 通道硬缩放，预热却使用原先的增益图 / CIToneMapHeadroom 路径。这会忽略文件的显示适配语义，也无法保证预热和实际显示内容一致。逐像素同比例缩放本身不直接改变该像素的 RGB 比例，因此不将“硬缩放本身必然偏色”当作已证明结论；已确认的偏色原因是前述空间掩码混合端点。此次一并统一显示适配路径。
 
-GitHub repository variable：`SPARKLE_PUBLIC_ED_KEY`，值为 base64 公钥。GitHub secret：`SPARKLE_PRIVATE_ED_KEY`，值为 base64 的 32 字节私钥 seed；Apple 发布 secrets 延用原流程。发布者可使用 Sparkle 的 `generate_keys` 生成并管理密钥，导出时注意 seed 格式；代码不创建或写入生产密钥。
+### 3. 未获支持：持久缓存损坏或 ICC 变换错误
 
-开发/发布构建参数：
+新增实际缓存像素比较最初得到最大误差 .130859，但参考图直接缩小 CI 图，实际缓存先全分辨率计算再缩小。控制变量实验仅把独立参考也先物化全分辨率，再以相同方式缩小，误差归零，生产缓存流程未为这个实验改动。结合官方延迟计算机制，直接缩小与全分辨率物化后的结果不能用作无条件相等的参考。因此保留这次失败日志，但不将其归因于缓存损坏或 ICC 错误，也没有放宽 .01 容差来让测试通过。
 
-```bash
-cmake -S . -B build \
-  -DFOVELLE_UPDATE_FEED_URL=https://github.com/inostarlin-passion/Fovelle/releases/latest/download/appcast.xml \
-  -DFOVELLE_UPDATE_PUBLIC_KEY='<发布公钥>' \
-  -DFOVELLE_REQUIRE_UPDATE_CONFIG=ON
-```
+数学上，含空间增益的运算与重采样一般不交换：`R(S*G)` 与 `R(S)*R(G)` 不必相等。该解释是工程推导；实际实验确认的是两种采样口径产生差异，未声称定位到了 Core Image 内部某条未公开优化指令。
 
-发布脚本保留组件 entitlements，按内层 Mach-O、嵌套 bundle、框架、应用顺序签名；完成公证、staple、Gatekeeper、解包回验后生成 appcast。生成前用 Swift CryptoKit 从 stdin 的 seed 派生公钥，与应用内公钥比对；生成器也通过 stdin 接收 seed。归档下载地址指向固定 tag 的 Release，appcast 随同该 Release 上传，客户端读取 latest/download/appcast.xml。发布构建启用正常自动检查，仅测试步骤通过环境变量禁用自动联网。没有部署新服务或发布远端 Release。
+## 生产修复
 
-## 逆向证伪与限制
+移除自定义 CIColorKernel、空间白点门槛和逐像素最大通道压缩。`hdrDisplayEndpoint` 先确定正确端点：
 
-- 断网/错误 feed：标准错误界面，当前应用不变。
-- 用户取消：恢复可再次检查，不安装。
-- 篡改包/签名 seed 不匹配：分别拒绝安装/拒绝生成发布 feed。
-- 缺省/HTTP/认证地址/错误公钥：生产配置校验拒绝；发布配置失败。
-- 检查按钮重复触发、旧 Qt 回调重复提示：标准控制器管理会话；旧 `checkedUpdates` 路径已删除。
-- 依赖符号链接、外部 rpath、错误签名顺序：ditto、包内 rpath、深度优先签名与实际 bundle 检查防止遗漏。
-- 未开启 Sandbox 不代表以后可以直接开启：未来沙盒分发须补充 Installer XPC 配置与 mach-lookup entitlements，并重新验证。
-- 隔离安装夹具采用临时 ad-hoc 应用和回环 HTTP；它验证真实标准 UI 与 Installer，但不能替代线上 HTTPS、Developer ID、公证、安装权限和只读挂载场景的最终发布验收。旧版未集成 Sparkle，首次升级仍需安装一次新包。
+1. current headroom≤1 时选择 SDR。
+2. current≥content headroom 时直接使用解码 HDR，保留全部颜色。
+3. 余量不足且有可用增益图时，通过 `imageByApplyingGainMap:headroom:` 重建。
+4. 其他已知内容余量使用 `CIToneMapHeadroom`；无法使用新 API 的旧系统保留原生 EDR 合成器回退。
+
+`hdrBrightnessImage` 只做 `SDR+(adaptedHDR-SDR)*E(t)` 的线性时间插值，进度 0/1 精确返回端点。预热、Metal 可见帧、最终持久缓存和图像测试探针共用 `hdrBrightnessDisplayImage`。正确的 HDR 中间调可能与 SDR 不同；“中间调基本稳定”不能解释为永久覆盖 HDR 中间调，否则与最终色彩正确性矛盾。相同端点的非高光区域仍保持不变。
+
+色彩探针 `probeHDRBrightnessImage(..., sourceEndpoint=true)` 绕开待测显示处理，读取独立原生 HDR 参考；`probePersistentHDRPixels()` 读取实际缓存 CGImage。缓存参考明确采用全分辨率物化后再采样，不依赖就绪状态推断内容正确。
+
+## 风险与验证边界
+
+当前用户未提供发生偏色的具体文件或截图。本次已经复现并修复能导致局部颜色错误的生产缺陷，验证了本地四类真实样本；不能据此宣称已一比一复现用户那张照片的全部现场。数值容差用于 half-float 渲染误差，未宣称为视觉色差 ΔE 或亮度计测量结果。显示器 ICC、物理峰值和主观观感没有在多个物理显示器上验证。

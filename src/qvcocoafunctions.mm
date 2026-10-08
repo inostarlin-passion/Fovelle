@@ -1946,9 +1946,76 @@ void updateAtomicMaximum(std::atomic<double> &destination, const double value)
     }
 }
 
-// A background full-resolution render can outlive the C++ renderer turn that
-// scheduled it.  Main-queue installation therefore resolves the owner through
-// this independently retained gate instead of capturing a raw `Impl *`.
+// Both endpoints have already been color managed in extended-linear Display P3.
+// A temporal transition must not invent a spatial RGB mask or change the final
+// image's colors. Headroom adaptation happens before this interpolation.
+static CIImage *hdrBrightnessImage(CIImage *sdr, CIImage *hdr,
+                                   const float headroom, const float progress)
+{
+    if (!sdr) return hdr;
+    if (!hdr || headroom <= 1.0F || progress <= 0.0F) return sdr;
+    if (progress >= 1.0F) return hdr;
+    CIFilter *transition = [CIFilter filterWithName:@"CIDissolveTransition"];
+    [transition setValue:sdr forKey:kCIInputImageKey];
+    [transition setValue:hdr forKey:kCIInputTargetImageKey];
+    [transition setValue:@(progress) forKey:kCIInputTimeKey];
+    return transition.outputImage ?: sdr;
+}
+
+static CIImage *hdrDisplayEndpoint(const NativeMetalImageGraph &image,
+                                    CIImage *sdr, CIImage *hdr, const float headroom)
+{
+    if (!hdr || headroom <= 1.0F) return sdr;
+    const float contentHeadroom = image.rendererMetadata().contentHeadroom;
+    // With sufficient headroom, preserve the decoded image exactly, including
+    // chromatic differences below SDR white. They are part of the HDR rendition.
+    if (contentHeadroom > 1.0F && headroom >= contentHeadroom) return hdr;
+    if (@available(macOS 15.0, *)) {
+        if (sdr && image.gainMapCIImage())
+            return [sdr imageByApplyingGainMap:image.gainMapCIImage() headroom:headroom];
+        if (contentHeadroom > 1.0F) {
+            CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
+            [toneMap setValue:hdr forKey:kCIInputImageKey];
+            [toneMap setValue:@(contentHeadroom) forKey:@"inputSourceHeadroom"];
+            [toneMap setValue:@(headroom) forKey:@"inputTargetHeadroom"];
+            if (toneMap.outputImage) return toneMap.outputImage;
+        }
+    }
+    // Earlier systems use their EDR compositor for an unsupported tone mapper.
+    return hdr;
+}
+
+static CIImage *hdrBrightnessDisplayImage(const NativeMetalImageGraph &image,
+        CIImage *sdr, CIImage *hdr, const float headroom, const float progress)
+{
+    if (headroom <= 1.0F || progress <= 0.0F) return sdr;
+    return hdrBrightnessImage(sdr, hdrDisplayEndpoint(image, sdr, hdr, headroom),
+                              headroom, progress);
+}
+
+static QVector<float> sampleLinearHDRImage(CIImage *source)
+{
+    if (!source || CGRectIsEmpty(source.extent)) return {};
+    CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
+    CIContext *probe = metalCIContext(space, space);
+    if (!space || !probe) {
+        if (space) CGColorSpaceRelease(space);
+        return {};
+    }
+    const CGRect extent = source.extent;
+    source = [source imageByApplyingTransform:CGAffineTransformMakeTranslation(
+            -extent.origin.x, -extent.origin.y)];
+    source = [source imageByApplyingTransform:CGAffineTransformMakeScale(
+            64.0/extent.size.width, 64.0/extent.size.height)];
+    QVector<float> pixels(64*64*4);
+    [probe render:source toBitmap:pixels.data() rowBytes:64*4*sizeof(float)
+            bounds:CGRectMake(0,0,64,64) format:kCIFormatRGBAf colorSpace:space];
+    [probe clearCaches];
+    CGColorSpaceRelease(space);
+    return pixels;
+}
+
+// Background full-resolution renders resolve ownership through this gate.
 struct HDRPersistentSurfaceGate
 {
     std::atomic<void *> owner{ nullptr };
@@ -2160,11 +2227,34 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.usesDisplayLinkInteractionPacing = displayLink != nil;
         state.usesNativeNavigationOverlay = navigationOverlayLayer != nil;
         state.usesPersistentHDRSurface = persistentImageLayer != nil;
+        headroomMonitor = new QTimer();
+        headroomMonitor->setInterval(100);
+        QObject::connect(headroomMonitor, &QTimer::timeout, [this]() {
+            if (!imageIsHDR || !presentationActiveRequested) return;
+            NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
+            float current = screen ? screen.maximumExtendedDynamicRangeColorComponentValue : 1.0F;
+            bool valid = false;
+            const float override = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM").toFloat(&valid);
+            if (valid) current = std::max(1.0F, override);
+            const float currentOverride = qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM").toFloat(&valid);
+            if (valid) current = std::max(1.0F, currentOverride);
+            if (std::abs(current - state.displayRenderingHeadroom) < 0.001F) return;
+            if (persistentSurfaceReady || persistentSurfacePreparationInFlight) {
+                discardPersistentSurface(true);
+                state.displayRenderingHeadroom = std::max(1.0F, current);
+                state.displayCurrentHeadroom = state.displayRenderingHeadroom;
+                schedulePersistentSurfacePreparation();
+            } else if (brightnessStartTime >= 0.0 && state.transitionProgress >= 0.999F) {
+                render(latestViewportSize, latestCorners, 1.0, false);
+            }
+        });
+        headroomMonitor->start();
         setBackgroundColor(backgroundColor);
     }
 
     ~Impl()
     {
+        delete headroomMonitor;
         persistentSurfaceGate->owner.store(nullptr);
         if (displayLink) {
             displayLink.paused = YES;
@@ -2373,7 +2463,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
         }
 
-        constexpr CFTimeInterval fullTransitionDuration = 0.45;
+        const CFTimeInterval fullTransitionDuration =
+                NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.45;
         const CFTimeInterval duration = std::max<CFTimeInterval>(
                 0.08, fullTransitionDuration * distance);
         CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
@@ -2788,6 +2879,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         persistentSurfacePreparationInFlight = false;
         persistentSurfacePreparationGeneration = 0;
+        ++persistentSurfaceSerial;
         persistentSurfaceReady = false;
         state.persistentHDRSurfaceReady = false;
         state.persistentHDRSurfaceBytes = 0;
@@ -2929,7 +3021,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentSurfacePreparationInFlight = true;
         persistentSurfacePreparationGeneration = presentationState->generation;
         const NSUInteger generation = persistentSurfacePreparationGeneration;
-        CIImage *source = [preparedHDRImage retain];
+        const quint64 surfaceSerial = ++persistentSurfaceSerial;
+        CIImage *source = [hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage,
+                                                     state.displayRenderingHeadroom, 1.0F) retain];
         CIContext *surfaceContext = [persistentContext retain];
         CGColorSpaceRef surfaceColorSpace = CGColorSpaceRetain(outputColorSpace);
         const auto gate = persistentSurfaceGate;
@@ -2951,7 +3045,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                         (CACurrentMediaTime() - started) * 1000.0;
                 dispatch_async(dispatch_get_main_queue(), ^{
                     auto *owner = static_cast<Impl *>(gate->owner.load());
-                    if (owner)
+                    if (owner && owner->persistentSurfaceSerial == surfaceSerial)
                         owner->installPersistentSurface(
                                 surface, generation, elapsedMilliseconds);
                     if (surface)
@@ -3055,7 +3149,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 && presentationFullyVisible
                 && persistentSurfaceReady
                 && persistentImageLayer.opacity >= 0.999F;
+        // New HDR photos expose their new Qt SDR base immediately while the
+        // complete native graphs prepare, rather than covering it with the old photo.
         const bool retainPreviousPresentation = presentationActiveRequested
+                && nativeImage && !nativeImage->isHDR()
                 && (previousMetalPresentationVisible
                     || previousPersistentPresentationVisible);
         if (displayLink)
@@ -3077,6 +3174,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // Release them only on image replacement, never on zoom or pan.
         if (context)
             [context clearCaches];
+        const CFTimeInterval changedAt = CACurrentMediaTime();
+        brightnessRapidSwitch = lastImageChangeTime > 0.0
+                && changedAt - lastImageChangeTime < 1.0;
+        lastImageChangeTime = changedAt;
+        brightnessStartTime = -1.0;
         image = nativeImage;
         imageIsHDR = nativeImage && nativeImage->isHDR();
         // SDR requests 180...240 Hz only when the window's display can
@@ -3221,22 +3323,6 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.layerOpacity = 0.0F;
     }
 
-    static CIImage *mixImages(CIImage *sdr, CIImage *hdr, const float amount)
-    {
-        if (!hdr)
-            return sdr;
-        if (!sdr || amount >= 0.999F)
-            return hdr;
-        if (amount <= 0.001F)
-            return sdr;
-
-        CIFilter *transition = [CIFilter filterWithName:@"CIDissolveTransition"];
-        [transition setValue:sdr forKey:kCIInputImageKey];
-        [transition setValue:hdr forKey:kCIInputTargetImageKey];
-        [transition setValue:@(amount) forKey:kCIInputTimeKey];
-        return transition.outputImage ?: hdr;
-    }
-
     void clearPreparedImages()
     {
         [preparedHDRImage release];
@@ -3247,96 +3333,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         preparationTexture = nil;
     }
 
-    CIImage *displayImage(const NativeMetalImageGraph &nativeImage,
-                          const float targetHeadroom,
-                          const float progress)
-    {
-        CIImage *hdr = nativeImage.hdrCIImage();
-        CIImage *sdr = nativeImage.sdrCIImage();
-        const HDRMetadata &metadata = nativeImage.rendererMetadata();
-
-        if (!sdr)
-            return hdr;
-        if (state.displayRenderingHeadroom <= 1.001F || progress <= 0.001F)
-            return sdr;
-
-        if (metadata.isRaw && !metadata.usesProcessedRawPreview) {
-            const float rawAmount = state.displayRenderingHeadroom > 1.001F ? progress : 0.0F;
-            return mixImages(sdr, hdr, rawAmount);
-        }
-
-        if (metadata.usesProcessedRawPreview && nativeImage.gainMapCIImage()) {
-            if (@available(macOS 15.0, *)) {
-                // Adaptive-HDR RAW is an SDR base plus an auxiliary gain map.
-                // Ask Core Image to reconstruct exactly the headroom available
-                // for this display/activation frame. This preserves the full
-                // processed preview and avoids feeding a half-resolution gain-
-                // map graph through a second viewport-dependent tone-map ROI.
-                CIImage *adapted = [sdr imageByApplyingGainMap:nativeImage.gainMapCIImage()
-                                                     headroom:std::max(1.0F, targetHeadroom)];
-                if (adapted)
-                    return adapted;
-            }
-        }
-
-        if (@available(macOS 15.0, *)) {
-            if (metadata.contentHeadroom > 1.0F) {
-                CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
-                [toneMap setValue:hdr forKey:kCIInputImageKey];
-                [toneMap setValue:@(metadata.contentHeadroom) forKey:@"inputSourceHeadroom"];
-                [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
-                if (toneMap.outputImage)
-                    return mixImages(sdr, toneMap.outputImage, progress);
-            }
-        }
-
-        const float fallbackAmount = state.displayRenderingHeadroom > 1.001F ? progress : 0.0F;
-        return mixImages(sdr, hdr, fallbackAmount);
-    }
-
     CIImage *preparedDisplayImage(const float targetHeadroom, const float progress)
     {
-        if (!preparedSDRImage)
-            return preparedHDRImage;
-        if (!preparedHDRImage || state.displayRenderingHeadroom <= 1.001F
-            || progress <= 0.001F)
-            return preparedSDRImage;
-
-        // The decoded HDR endpoint already represents the complete gain-map or
-        // RAW graph at its declared content headroom. Reapplying the gain map
-        // for every pan at the same endpoint rebuilds an expensive full-frame
-        // graph without changing a pixel.
-        if (progress >= 0.999F
-            && targetHeadroom + 0.001F >= image->rendererMetadata().contentHeadroom)
-            return preparedHDRImage;
-
-        if (image->rendererMetadata().isRaw
-            && !image->rendererMetadata().usesProcessedRawPreview)
-            return mixImages(preparedSDRImage, preparedHDRImage, progress);
-
-        if (image->rendererMetadata().usesProcessedRawPreview
-            && image->gainMapCIImage()) {
-            if (@available(macOS 15.0, *)) {
-                CIImage *adapted = [preparedSDRImage
-                        imageByApplyingGainMap:image->gainMapCIImage()
-                                      headroom:std::max(1.0F, targetHeadroom)];
-                if (adapted)
-                    return adapted;
-            }
-        }
-
-        if (@available(macOS 15.0, *)) {
-            if (image->rendererMetadata().contentHeadroom > 1.0F) {
-                CIFilter *toneMap = [CIFilter filterWithName:@"CIToneMapHeadroom"];
-                [toneMap setValue:preparedHDRImage forKey:kCIInputImageKey];
-                [toneMap setValue:@(image->rendererMetadata().contentHeadroom)
-                           forKey:@"inputSourceHeadroom"];
-                [toneMap setValue:@(targetHeadroom) forKey:@"inputTargetHeadroom"];
-                if (toneMap.outputImage)
-                    return mixImages(preparedSDRImage, toneMap.outputImage, progress);
-            }
-        }
-        return mixImages(preparedSDRImage, preparedHDRImage, progress);
+        return hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage,
+                                         targetHeadroom, progress);
     }
 
     void syncPresentationDiagnostics()
@@ -3546,8 +3546,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                                  const bool finalHeadroom)
     {
         if (presentationState->firstFrameSubmitted
-            || !QVCocoaFunctions::isFinalHDRFrameReadyForReveal(
-                    state.drawableGeometryMatches, finalHeadroom ? 1.0 : 0.0))
+            || !state.drawableGeometryMatches
+            || (imageIsHDR && !presentationState->hdrPrepared))
             return;
 
         presentationState->firstFrameSubmitted = YES;
@@ -3572,7 +3572,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 // covered by the newly presented opaque Metal drawable.
                 if (!owner->persistentSurfaceReady && owner->persistentImage)
                     owner->discardPersistentSurface(false);
-                owner->applyPresentationTarget(true);
+                owner->brightnessStartTime = CACurrentMediaTime();
+                owner->applyPresentationTarget(false);
             }
         };
 
@@ -3678,9 +3679,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
 
         // Compile the opening ROI and several representative 4x interaction
-        // ROIs on the renderer queue. The first *visible* drawable is still
-        // the final-headroom image, while shader compilation and full-texture
-        // reads cannot block AppKit or leak a partially evaluated frame. RAW
+        // ROIs on the renderer queue. Complete source preparation prevents
+        // shader compilation and full-texture reads from blocking AppKit or
+        // exposing a partially evaluated source frame. RAW
         // gain-map graphs can specialize their ROI on first evaluation; a
         // small cross-shaped warm set prevents the first few drag samples from
         // paying that compilation cost after the user zooms.
@@ -3913,7 +3914,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (submitted && pendingRenderGeneration == renderGeneration) {
             if (interactive)
                 ++state.displayLinkInteractiveSubmissionCount;
-            if (keepAlive || (pendingInteractive
+            if ((imageIsHDR && state.transitionProgress < 0.999F)
+                || keepAlive || (pendingInteractive
                               && interactiveKeepAliveUntil > CACurrentMediaTime())) {
                 // A display-link callback must receive a drawable on every
                 // cadence while interaction is active. Re-submit the latest
@@ -3981,10 +3983,18 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                             state.contentHeadroom));
             state.bootstrappingEDR = state.displayCurrentHeadroom <= 1.001F
                     && state.displayRenderingHeadroom > 1.001F;
-            state.transitionProgress =
-                    static_cast<float>(QVCocoaFunctions::easedHDRTransition(linearProgress));
-            state.targetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
-                    state.contentHeadroom, state.displayRenderingHeadroom, linearProgress));
+            bool durationValid = false;
+            const double configuredDuration = qgetenv("FOVELLE_HDR_FADE_MS").toDouble(&durationValid);
+            const qreal elapsed = brightnessStartTime < 0.0 ? 0.0
+                    : (CACurrentMediaTime() - brightnessStartTime) * 1000.0;
+            const qreal brightnessProgress = brightnessStartTime < 0.0 ? 0.0
+                    : QVCocoaFunctions::hdrBrightnessProgress(elapsed, brightnessRapidSwitch,
+                            NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion,
+                            durationValid ? configuredDuration : 600.0);
+            state.transitionProgress = static_cast<float>(brightnessProgress);
+            state.targetHeadroom = 1.0F + (std::min(
+                    std::max(1.0F, state.contentHeadroom), state.displayRenderingHeadroom)
+                    - 1.0F) * state.transitionProgress;
             if (!imageIsHDR) {
                 // SDR uses the same color-managed float drawable, but never
                 // opts the layer into EDR or evaluates HDR transition graphs.
@@ -4078,12 +4088,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 source = tiledSDRImageForTexture(
                         *nativeSDR, viewportSize, corners, actualSize);
             } else {
-                source = preparedEndpointsActive
-                        ? preparedDisplayImage(
-                                state.targetHeadroom, state.transitionProgress)
-                        : displayImage(
-                                *image, state.targetHeadroom,
-                                state.transitionProgress);
+                source = hdrBrightnessDisplayImage(*image,
+                        preparedEndpointsActive ? preparedSDRImage : image->sdrCIImage(),
+                        preparedEndpointsActive ? preparedHDRImage : image->hdrCIImage(),
+                        state.displayRenderingHeadroom, state.transitionProgress);
                 source = imageForTexture(
                         source, viewportSize, corners, actualSize);
             }
@@ -4093,7 +4101,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
             const CGRect destinationBounds = CGRectMake(
                     0, 0, actualSize.width, actualSize.height);
-            const bool finalHeadroom = linearProgress >= 0.999;
+            const bool finalHeadroom = state.transitionProgress >= 0.999F;
             revealAfterPresentation(drawable, commandBuffer, finalHeadroom);
             state.submittedRenderGeneration = renderGeneration;
             const auto submittedFlow = frameFlow;
@@ -4270,7 +4278,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CIImage *preparedSDRImage{ nil };
     CIImage *preparedHDRImage{ nil };
     std::shared_ptr<const NativeMetalImageGraph> image;
+    QTimer *headroomMonitor{ nullptr };
+    quint64 persistentSurfaceSerial{ 0 };
     bool imageIsHDR{ false };
+    bool brightnessRapidSwitch{ false };
+    CFTimeInterval brightnessStartTime{ -1.0 };
+    CFTimeInterval lastImageChangeTime{ 0.0 };
     bool renderPending{ false };
     QSize pendingViewportSize;
     QPolygonF pendingCorners;
@@ -4426,10 +4439,83 @@ QVCocoaFunctions::sdrFrameRatePolicy(const qreal displayMaximumFramesPerSecond)
     return policy;
 }
 
+QVector<float> QVCocoaFunctions::HDRRenderer::probePersistentHDRPixels() const
+{
+    if (!impl || !impl->persistentSurfaceReady || !impl->persistentImage) return {};
+    @autoreleasepool {
+        CIImage *source = [CIImage imageWithCGImage:impl->persistentImage];
+        return sampleLinearHDRImage(source);
+    }
+}
+
 qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
 {
-    const qreal bounded = std::clamp(progress, 0.0, 1.0);
-    return bounded * bounded * (3.0 - 2.0 * bounded);
+    const qreal bounded = std::isfinite(progress) ? std::clamp(progress, 0.0, 1.0) : 0.0;
+    // Invert Bezier x(u); evaluating y(t) directly gives the wrong timing.
+    qreal low = 0.0, high = 1.0;
+    for (int i = 0; i < 48; ++i) {
+        const qreal u = (low + high) * 0.5;
+        const qreal x = 3.0 * (1.0-u)*(1.0-u)*u*0.42
+                + 3.0*(1.0-u)*u*u*0.58 + u*u*u;
+        if (x < bounded) low = u; else high = u;
+    }
+    const qreal u = (low + high) * 0.5;
+    if (bounded == 0.0 || bounded == 1.0) return bounded;
+    return 3.0*(1.0-u)*u*u + u*u*u;
+}
+
+qreal QVCocoaFunctions::hdrBrightnessProgress(const qreal elapsedMilliseconds,
+        const bool rapidSwitch, const bool reduceMotion, const qreal totalMilliseconds)
+{
+    if (reduceMotion) return 1.0;
+    const qreal total = rapidSwitch ? 250.0
+            : (std::isfinite(totalMilliseconds) ? std::clamp(totalMilliseconds, 400.0, 800.0) : 600.0);
+    const qreal delay = rapidSwitch ? 0.0 : 80.0;
+    return easedHDRTransition((elapsedMilliseconds - delay) / (total - delay));
+}
+
+std::array<float, 4> QVCocoaFunctions::probeHDRBrightnessPixel(
+        const std::array<float, 4> &sdr, const std::array<float, 4> &hdr,
+        const float headroom, const float easedProgress)
+{
+    CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
+    CIContext *probe = metalCIContext(space, space);
+    CIImage *base = [CIImage imageWithBitmapData:[NSData dataWithBytes:sdr.data() length:16]
+            bytesPerRow:16 size:CGSizeMake(1, 1) format:kCIFormatRGBAf colorSpace:space];
+    CIImage *high = [CIImage imageWithBitmapData:[NSData dataWithBytes:hdr.data() length:16]
+            bytesPerRow:16 size:CGSizeMake(1, 1) format:kCIFormatRGBAf colorSpace:space];
+    std::array<float, 4> result{};
+    [probe render:hdrBrightnessImage(base, high, headroom, easedProgress)
+            toBitmap:result.data() rowBytes:16 bounds:CGRectMake(0, 0, 1, 1)
+            format:kCIFormatRGBAf colorSpace:space];
+    CGColorSpaceRelease(space);
+    return result;
+}
+
+QVector<float> QVCocoaFunctions::probeHDRBrightnessImage(const HDRImagePtr &opaqueImage,
+        const float headroom, const float easedProgress, const bool sourceEndpoint,
+        const bool materializeBeforeSampling)
+{
+    const auto image = std::dynamic_pointer_cast<const NativeHDRImage>(opaqueImage);
+    if (!image) return {};
+    @autoreleasepool {
+        CIImage *source = sourceEndpoint ? image->hdrCIImage()
+                : hdrBrightnessDisplayImage(*image, image->sdrCIImage(), image->hdrCIImage(),
+                                            headroom, easedProgress);
+        if (materializeBeforeSampling && source) {
+            CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
+            CIContext *probe = metalCIContext(space, space);
+            CGImageRef full = [probe createCGImage:source fromRect:source.extent
+                    format:kCIFormatRGBAh colorSpace:space deferred:NO];
+            const auto pixels = full
+                    ? sampleLinearHDRImage([CIImage imageWithCGImage:full]) : QVector<float>{};
+            if (full) CGImageRelease(full);
+            [probe clearCaches];
+            CGColorSpaceRelease(space);
+            return pixels;
+        }
+        return sampleLinearHDRImage(source);
+    }
 }
 
 qreal QVCocoaFunctions::effectiveHDRHeadroom(const qreal contentHeadroom,
@@ -4456,15 +4542,9 @@ qreal QVCocoaFunctions::displayHeadroomForRendering(const qreal currentHeadroom,
                                                      const qreal potentialHeadroom,
                                                      const qreal contentHeadroom)
 {
-    const qreal safeCurrent = std::max(1.0, currentHeadroom);
-    const qreal safePotential = std::max(1.0, potentialHeadroom);
-    if (safeCurrent > 1.001 || safePotential <= 1.001)
-        return std::min(safeCurrent, safePotential);
-
-    const qreal safeContent = contentHeadroom > 1.001
-            ? contentHeadroom
-            : safePotential;
-    return std::min(safeContent, safePotential);
+    Q_UNUSED(potentialHeadroom)
+    Q_UNUSED(contentHeadroom)
+    return std::isfinite(currentHeadroom) ? std::max(1.0, currentHeadroom) : 1.0;
 }
 
 bool QVCocoaFunctions::isFinalHDRFrameReadyForReveal(

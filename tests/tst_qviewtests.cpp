@@ -218,6 +218,12 @@ class HDRPolicyTests : public QObject
 
 private slots:
     void testTransitionCurveIsBoundedAndMonotonic();
+    void testHDRBrightnessTimingAndBezier();
+    void testHDRBrightnessPreservesEndpointColors_data();
+    void testHDRBrightnessPreservesEndpointColors();
+    void testHDRBrightnessLinearLightPixels();
+    void testHDRBrightnessNativePresentation();
+    void testHDRBrightnessNativeColorFidelity();
     void testFinalFrameRevealRejectsPartialHeadroom();
     void testHDRHeadroomIsClampedToContentAndDisplay();
     void testSDRDisplayForcesUnitHeadroom();
@@ -240,6 +246,8 @@ class HDRSampleTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testHDRColorFidelity_data();
+    void testHDRColorFidelity();
     void testGainMapJPEGCreatesNativeHDRGraph();
     void testGainMapJPEGHDRContainsAboveSDRValues();
     void testDNGCreatesProcessedGainMapHDRGraph();
@@ -3341,6 +3349,94 @@ void ImageLoaderTests::testImageLoaderPreservesSourceResolutionForZoom()
 // Expected result: output is clamped to [0,1], starts at 0, ends at 1, and
 // never decreases.
 // Postcondition: no global or display state changes.
+// Cases BR-01..BR-04: deterministic time, Bezier inversion, rapid navigation,
+// and accessibility. Inputs and six-part specifications are in reports/.
+void HDRPolicyTests::testHDRBrightnessTimingAndBezier()
+{
+    using C = QVCocoaFunctions;
+    QCOMPARE(C::hdrBrightnessProgress(0, false, false), 0.0);
+    QCOMPARE(C::hdrBrightnessProgress(79, false, false), 0.0);
+    QCOMPARE(C::hdrBrightnessProgress(80, false, false), 0.0);
+    QVERIFY(std::abs(C::hdrBrightnessProgress(340, false, false) - 0.5) < 1e-9);
+    QCOMPARE(C::hdrBrightnessProgress(600, false, false), 1.0);
+    QCOMPARE(C::hdrBrightnessProgress(800, false, false, 800), 1.0);
+    QCOMPARE(C::hdrBrightnessProgress(400, false, false, 1), 1.0);
+    QVERIFY(C::hdrBrightnessProgress(600, false, false, 900) < 1.0);
+    // Independent reference values for cubic-bezier(.42,0,.58,1).
+    QVERIFY(std::abs(C::easedHDRTransition(0.25) - 0.129161931) < 1e-8);
+    QVERIFY(std::abs(C::easedHDRTransition(0.75) - 0.870838069) < 1e-8);
+    QCOMPARE(C::hdrBrightnessProgress(0, true, false), 0.0);
+    QVERIFY(std::abs(C::hdrBrightnessProgress(125, true, false) - 0.5) < 1e-9);
+    QCOMPARE(C::hdrBrightnessProgress(250, true, false), 1.0);
+    QCOMPARE(C::hdrBrightnessProgress(0, false, true), 1.0);
+    QCOMPARE(C::hdrBrightnessProgress(0, true, true), 1.0);
+}
+
+// CR-01/02: independent endpoint identity and linear-light interpolation.
+// Values are valid colors already adapted to a sufficient display headroom.
+void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors_data()
+{
+    QTest::addColumn<QVector<float>>("base");
+    QTest::addColumn<QVector<float>>("endpoint");
+    QTest::addColumn<float>("amount");
+    QTest::newRow("colored-midtone-endpoint") << QVector<float>{0.45F,0.4F,0.35F,1}
+            << QVector<float>{0.9F,0.6F,0.3F,1} << 1.0F;
+    QTest::newRow("near-white-endpoint") << QVector<float>{0.8F,0.75F,0.7F,1}
+            << QVector<float>{1.05F,0.9F,0.6F,1} << 1.0F;
+    QTest::newRow("colored-midtone-midpoint") << QVector<float>{0.45F,0.4F,0.35F,1}
+            << QVector<float>{0.9F,0.6F,0.3F,1} << 0.5F;
+    QTest::newRow("saturated-highlight") << QVector<float>{0.8F,0.25F,0.1F,1}
+            << QVector<float>{4.0F,0.7F,0.2F,1} << 1.0F;
+}
+
+void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors()
+{
+    QFETCH(QVector<float>, base);
+    QFETCH(QVector<float>, endpoint);
+    QFETCH(float, amount);
+    std::array<float,4> s{}, h{};
+    std::copy(base.cbegin(), base.cend(), s.begin());
+    std::copy(endpoint.cbegin(), endpoint.cend(), h.begin());
+    const auto actual = QVCocoaFunctions::probeHDRBrightnessPixel(s, h, 8.0F, amount);
+    for (int channel=0; channel<4; ++channel) {
+        const float expected = s[channel] + (h[channel]-s[channel])*amount;
+        QVERIFY2(std::abs(actual[channel]-expected) < 0.003F,
+                qPrintable(QString("channel=%1 actual=%2 expected=%3")
+                           .arg(channel).arg(actual[channel]).arg(expected)));
+    }
+}
+
+// BR-05/06: execute production interpolation in extended-linear P3 and read
+// float pixels back. Inputs are already display-adapted endpoints; identical
+// non-highlight endpoints must stay stable, and premultiplied alpha is preserved.
+void HDRPolicyTests::testHDRBrightnessLinearLightPixels()
+{
+    using C = QVCocoaFunctions;
+    const std::array<float, 4> base{0.8F, 0.4F, 0.2F, 1.0F};
+    const std::array<float, 4> high{3.0F, 1.5F, 0.75F, 1.0F};
+    const auto close = [](float a, float b) { return std::abs(a-b) < 0.003F; };
+    for (float amount : {0.0F, 0.25F, 0.5F, 0.75F, 1.0F}) {
+        auto pixel = C::probeHDRBrightnessPixel(base, high, 3.0F, amount);
+        QVERIFY(close(pixel[0], 0.8F + (3.0F-0.8F)*amount));
+        QVERIFY(close(pixel[1], 0.4F + (1.5F-0.4F)*amount));
+        QVERIFY(close(pixel[2], 0.2F + (0.75F-0.2F)*amount));
+        QVERIFY(close(pixel[3], 1.0F));
+        pixel = C::probeHDRBrightnessPixel(base, high, 1.0F, amount);
+        QVERIFY(close(pixel[0], base[0]));
+        for (float level : {0.01F, 0.18F, 0.5F, 1.0F}) {
+            pixel = C::probeHDRBrightnessPixel({level,level,level,1},
+                                               {level,level,level,1}, 4, amount);
+            QVERIFY(close(pixel[0], level));
+        }
+    }
+    auto pixel = C::probeHDRBrightnessPixel(base, {2.0F,1.0F,0.5F,1.0F}, 2.0F, 1.0F);
+    QVERIFY(close(pixel[0], 2.0F));
+    pixel = C::probeHDRBrightnessPixel({0.4F,0.2F,0.1F,0.5F},
+                                       {1.5F,0.75F,0.375F,0.5F}, 3, 1);
+    QVERIFY(close(pixel[0], 1.5F));
+    QVERIFY(close(pixel[3], 0.5F));
+}
+
 void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
 {
     QCOMPARE(QVCocoaFunctions::easedHDRTransition(-1.0), 0.0);
@@ -3355,6 +3451,102 @@ void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
         QVERIFY(value >= 0.0 && value <= 1.0);
         previous = value;
     }
+}
+
+// BR-07/08: real CAMetalDisplayLink presentation, geometry reuse, replacement
+// generation cancellation, and persistent-surface handoff on a gain-map JPEG.
+void HDRPolicyTests::testHDRBrightnessNativePresentation()
+{
+    const QString path = qEnvironmentVariable("FOVELLE_HDR_JPEG_SAMPLE");
+    if (!QFileInfo::exists(path)) QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
+    const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
+    QVERIFY(decoded.hdrImage);
+    QWidget viewport;
+    viewport.resize(320, 240);
+    viewport.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&viewport));
+    QVCocoaFunctions::HDRRenderer renderer(&viewport);
+    QVERIFY(renderer.isAvailable());
+    QVERIFY(renderer.setImage(decoded.hdrImage));
+    QCOMPARE(renderer.diagnostics().layerOpacity, 0.0F);
+    const QPolygonF corners{QPointF(0,0),QPointF(320,0),QPointF(320,240),QPointF(0,240)};
+    renderer.render(viewport.size(), corners, 1.0);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().firstFramePresented, 30000);
+    QVERIFY(renderer.diagnostics().transitionProgress < 0.5F);
+    QVERIFY(!renderer.diagnostics().firstVisibleFrameUsesFinalHeadroom);
+    QCOMPARE(renderer.diagnostics().layerOpacity, 1.0F);
+    QTest::qWait(160);
+    const auto partial = renderer.diagnostics();
+    QVERIFY(partial.transitionProgress > 0.0F && partial.transitionProgress < 1.0F);
+    QPolygonF moved = corners;
+    moved.translate(1,1);
+    renderer.render(viewport.size(), moved, 1.0, true);
+    QTest::qWait(30);
+    QVERIFY(renderer.diagnostics().transitionProgress >= partial.transitionProgress);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().transitionProgress >= 0.999F, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().persistentHDRSurfaceReady, 30000);
+    const QByteArray priorHeadroom = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+    const bool hadHeadroom = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM");
+    const auto restoreHeadroom = qScopeGuard([&]() {
+        if (hadHeadroom) qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", priorHeadroom);
+        else qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+    });
+    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "1");
+    QTRY_COMPARE_WITH_TIMEOUT(renderer.diagnostics().displayRenderingHeadroom, 1.0F, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().persistentHDRSurfaceReady, 30000);
+    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "3");
+    QTRY_COMPARE_WITH_TIMEOUT(renderer.diagnostics().displayRenderingHeadroom, 3.0F, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().persistentHDRSurfaceReady, 30000);
+    // Replace twice immediately; only the newest image generation may reveal.
+    QVERIFY(renderer.setImage(decoded.hdrImage));
+    QVERIFY(renderer.setImage(decoded.hdrImage));
+    QCOMPARE(renderer.diagnostics().layerOpacity, 0.0F);
+    renderer.render(viewport.size(), corners, 1.0);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().firstFramePresented, 30000);
+    QTest::qWait(350);
+    QVERIFY(renderer.diagnostics().transitionProgress >= 0.999F);
+    QVERIFY(renderer.setImage({}) == false);
+    QTest::qWait(100);
+    QVERIFY(!renderer.diagnostics().imageActive);
+}
+
+// CR-04: read actual materialized compositor contents after the real Metal
+// presentation. A ready flag cannot stand in for pixel correctness.
+void HDRPolicyTests::testHDRBrightnessNativeColorFidelity()
+{
+    const QString path = qEnvironmentVariable("FOVELLE_HDR_JPEG_SAMPLE");
+    if (!QFileInfo::exists(path)) QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
+    const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
+    QVERIFY(decoded.hdrImage);
+    const bool had = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM");
+    const QByteArray previous = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+    const auto restore = qScopeGuard([&]() {
+        if (had) qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", previous);
+        else qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+    });
+    const float headroom = std::max(16.0F, decoded.hdrMetadata.contentHeadroom);
+    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", QByteArray::number(headroom));
+    QWidget viewport;
+    viewport.resize(320,240);
+    viewport.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&viewport));
+    QVCocoaFunctions::HDRRenderer renderer(&viewport);
+    QVERIFY(renderer.setImage(decoded.hdrImage));
+    renderer.render(viewport.size(), {QPointF(0,0),QPointF(320,0),QPointF(320,240),QPointF(0,240)}, 1);
+    QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().persistentHDRSurfaceReady, 30000);
+    const auto actual = renderer.probePersistentHDRPixels();
+    // Compare equal sampling order: both endpoints are evaluated at full
+    // source resolution before downsampling. Gain maps and resampling do not commute.
+    const auto expected = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true, true);
+    QCOMPARE(actual.size(), 64*64*4);
+    QCOMPARE(expected.size(), actual.size());
+    double maximum = 0;
+    for (int i=0; i<actual.size(); ++i) {
+        QVERIFY(std::isfinite(actual[i]) && std::isfinite(expected[i]));
+        maximum = std::max(maximum, double(std::abs(actual[i]-expected[i])));
+    }
+    qInfo() << "HDR_CACHE_COLOR max_error=" << maximum;
+    QVERIFY2(maximum <= 0.01, "Materialized HDR layer changes decoded endpoint colors");
 }
 
 // TC-HDR-UNIT-FIRST-VISIBLE-FINAL
@@ -3415,20 +3607,18 @@ void HDRPolicyTests::testSDRDisplayForcesUnitHeadroom()
 }
 
 // TC-HDR-UNIT-EDR-BOOTSTRAP
-// Test purpose: verify a potential EDR display can accept the first EDR frame
-// even while NSScreen's dynamic current value still reports one.
+// Test purpose: verify potential capability never overrides current availability.
 // Preconditions: the pure rendering-headroom policy helper is available.
 // Input data: SDR-only, clean-start XDR with known/unknown content headroom,
 // and an already-active XDR current headroom.
 // Steps: evaluate displayHeadroomForRendering for all four states.
-// Expected result: SDR remains one; clean-start XDR uses bounded potential
-// capability; once current rises, the dynamic current value is preferred.
+// Expected result: current one remains SDR even on XDR; active current wins.
 // Postcondition: no display or process environment state changes.
 void HDRPolicyTests::testDisplayHeadroomBootstrapsFromPotentialCapability()
 {
     QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 1.0, 5.0), 1.0);
-    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 16.0, 4.9473), 4.9473);
-    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 4.0, 0.0), 4.0);
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 16.0, 4.9473), 1.0);
+    QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(1.0, 4.0, 0.0), 1.0);
     QCOMPARE(QVCocoaFunctions::displayHeadroomForRendering(3.5, 16.0, 5.0), 3.5);
 }
 
@@ -3713,6 +3903,48 @@ void HDRPolicyTests::testRequiredHDRFormatsAreAdvertised()
 // decodedToHDR and the native handle are true; content headroom exceeds 1;
 // the graph keeps full resolution while only its SDR fallback is bounded.
 // Postcondition: all native image graphs and fallback pixels are released.
+// CR-03: real multi-format image grids compared to decoded HDR, independently
+// of implementation formulas or render-ready flags. Sufficient headroom means
+// the final output must preserve the native endpoint's colors everywhere.
+void HDRSampleTests::testHDRColorFidelity_data()
+{
+    QTest::addColumn<QString>("path");
+    QTest::newRow("gain-map-jpeg") << qEnvironmentVariable("FOVELLE_HDR_JPEG_SAMPLE");
+    QTest::newRow("processed-dng") << qEnvironmentVariable("FOVELLE_HDR_RAW_SAMPLE");
+    QTest::newRow("plain-dng") << qEnvironmentVariable("FOVELLE_HDR_PLAIN_DNG_SAMPLE");
+    QTest::newRow("nef") << qEnvironmentVariable("FOVELLE_HDR_NEF_SAMPLE");
+}
+
+void HDRSampleTests::testHDRColorFidelity()
+{
+    QFETCH(QString, path);
+    QVERIFY2(QFileInfo::exists(path), qPrintable(path));
+    const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
+    QVERIFY(decoded.hdrImage);
+    const float headroom = std::max(16.0F, decoded.hdrMetadata.contentHeadroom);
+    const auto reference = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true);
+    const auto actual = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1);
+    QCOMPARE(reference.size(), 64*64*4);
+    QCOMPARE(actual.size(), reference.size());
+    double maximum = 0, sum = 0;
+    int mismatched = 0;
+    for (int pixel=0; pixel<64*64; ++pixel) {
+        bool differs = false;
+        for (int channel=0; channel<3; ++channel) {
+            const int index = pixel*4+channel;
+            QVERIFY(std::isfinite(actual[index]) && std::isfinite(reference[index]));
+            const double error = std::abs(actual[index]-reference[index]);
+            maximum = std::max(maximum, error);
+            sum += error;
+            differs |= error > 0.01;
+        }
+        mismatched += differs;
+    }
+    qInfo().noquote() << QString("HDR_COLOR max_error=%1 mean_error=%2 mismatched_pixels=%3/4096")
+            .arg(maximum,0,'g',8).arg(sum/(64*64*3),0,'g',8).arg(mismatched);
+    QVERIFY2(maximum <= 0.01, "Final rendered colors differ from decoded HDR endpoint");
+}
+
 void HDRSampleTests::testGainMapJPEGCreatesNativeHDRGraph()
 {
     const QString path = QString::fromUtf8(qgetenv("FOVELLE_HDR_JPEG_SAMPLE"));

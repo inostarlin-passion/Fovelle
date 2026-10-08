@@ -1,49 +1,69 @@
-# Fovelle 更新功能测试完成报告
+# HDR 局部偏色测试完成报告
 
-执行日期：2026-10-03（Asia/Shanghai）。环境：macOS 27.0.1、arm64、Qt 6.11.2、Sparkle 2.10.0。项目版本：1.2.7；安装夹具：1.0.0 → 2.0.0。
+日期：2026-10-08。结论：新增测试在修复前检出了端点颜色错误，修复后的颜色、实际缓存、亮度与选定完整回归门禁均通过。已修复的生产缺陷是按 RGB 峰值混用 SDR/HDR 端点；未获得用户原异常图片，未宣称已复现该文件的全部显示现场。
 
-## 结论
+## 修复前检出证据
 
-代码实现及本地验收通过：手动检查使用标准进度框；标准更新器完成应用内下载、验证、实际替换与重启。发布脚本生成的 appcast 签名经真实 `sign_update --verify` 验证，并拒绝与应用公钥不匹配的 seed。
+| 新用例 / 数据 | 修复前实际结果 | 判定 |
+|---|---|---|
+| 中间调最终端点 | 红通道 .45，参考 .90 | 失败 |
+| 近白点最终端点 | 红通道 .925，参考 1.05 | 失败 |
+| 中间调 50% 进度 | 红通道 .45，参考 .675 | 失败 |
+| 饱和高光对照 | 正确恢复 HDR | 通过；说明错误与空间门槛相关，并非所有像素统一偏差 |
+| 增益图 JPEG | 最大 RGB 误差 .55249023；3725/4096 像素至少一个通道误差>.01 | 失败 |
+| 处理后 DNG | 最大误差 .57983398；3794/4096 像素超阈值 | 失败 |
+| 普通 DNG | 最大误差 .061035156；106/4096 像素超阈值 | 失败 |
+| NEF | 最大误差 .09765625；1120/4096 像素超阈值 | 失败 |
 
-生产发布未执行。本地开发包没有生产更新地址/公钥，手动检查会提示配置缺失。线上启用需要 repository variable `SPARKLE_PUBLIC_ED_KEY`、secret `SPARKLE_PRIVATE_ED_KEY`、原有 Apple 发布 secrets，以及首次发布包含 appcast 的新版本。该外部配置与线上验证未被计为已通过。
+失败日志：[red-pixels.log](evidence/hdr_color_regression/red-pixels.log)、[red-images.log](evidence/hdr_color_regression/red-images.log)。新测试先在旧生产算法上执行失败，再修改算法，没有通过放宽容差来掩盖偏色。
 
-## 实际执行
+旧测试之所以漏检，是把非高光永久保持 SDR 作为正确结果，且真实原生测试只断言状态标志。修正后的测试以独立 HDR 端点、线性插值恒等性质及实际合成器缓存内容为参考，详见 [测试用例说明](test_case_specification.md)。
 
-| 验证 | 实际结果 | 证据 |
-| --- | --- | --- |
-| CMake 全部目标构建 | 通过 | `evidence/update/cmake-build.log` |
-| qmake 应用构建与框架/许可证嵌入 | 通过 | `evidence/update/bundle-checks.json` |
-| Python 更新验收 | 13/13 通过，24.776 秒（6 静态 + 7 动态） | `evidence/update/update_acceptance.log` |
-| CTest 更新与原生弹窗回归 | 4/4 test entries 通过 | `evidence/update/ctest.log` |
-| Qt FeatureTests 整组 | 输出 28 passed，0 failed，0 skipped | `evidence/update/feature-tests.log` |
-| appcast 生成、签名验证、错误 seed 拒绝及安装复验 | 通过 | `evidence/update/appcast-signature-verification.log`，最终更新验收日志 |
-| 生产 Sparkle rpath | 包内 `@executable_path/../Frameworks` | `evidence/update/rpaths.txt` |
-| shell 语法与 git diff 空白检查 | 通过 | 已执行 `bash -n` 与 `git diff --check` |
+## 修复后结果
 
-## 原子验收追踪
+| 验证 | 结果 | 证据 |
+|---|---|---|
+| 构建应用与测试程序 | 成功；已移除本次自定义 CIColorKernel 及其 deprecated 源码编译 API | [green-build.log](evidence/hdr_color_regression/green-build.log) |
+| 静态检查 | 12 项通过、0 失败 | [final-static.log](evidence/hdr_color_regression/final-static.log) |
+| 颜色单像素四个数据行 | 全部通过，容差 .003 | 最终 CTest ColorPixels 详细日志 |
+| 四类真实图像 | 全部通过；每图采样 4096 像素，0 像素超过 .01 阈值 | 最终 CTest ColorSamples 详细日志 |
+| 实际持久缓存读回 | 通过；全分辨率物化参考对比最大误差 0 | [cache-probe-materialized-detail.log](evidence/hdr_color_regression/cache-probe-materialized-detail.log) 及最终 ColorNative 日志 |
+| FovelleTests 八套 Qt suite | 256 通过，0 失败、0 跳过（含 suite init/cleanup） | [final-ctest-detail.log](evidence/hdr_color_regression/final-ctest-detail.log) |
+| 选定 CTest 汇总 | 7/7 通过，0 失败，共 178.79 s | [final-ctest.log](evidence/hdr_color_regression/final-ctest.log) |
+| 源码空白/差异检查 | `git diff --check` 通过 | 本地执行 |
 
-| 标准 | 静态证据 | 动态结果 |
-| --- | --- | --- |
-| AC1 检查进度 | 两个 Qt 入口接标准控制器；关于窗口非模态 | 慢速 feed 响应前已观察到原生进度组件 |
-| AC2 取消恢复 | KVO 状态接线与旧 Qt 回调删除 | 检查与下载取消后可用性恢复，应用摘要不变；重复手动检查只发出一次 feed 请求 |
-| AC3 版本与错误 | 标准驱动处理结果；没有第二套 Qt 结果提示 | 同版本不下载；XML 错误 1000、HTTP 503 错误 2001 均显示结果提示并恢复 |
-| AC4 下载安装重启 | 没有浏览器下载路径、没有手写替换器 | DOWNLOAD_FINISHED → INSTALL_STARTED → RELAUNCHED_NEW_VERSION，旧路径包版本实变 2.0.0 |
-| AC5 篡改拒绝 | 公钥、归档验证配置与固定依赖 | 签名不匹配错误 4005/底层 3002；无安装、无重启、旧包摘要不变 |
-| AC6 配置校验 | 发布参数失败门禁 | 生产校验函数覆盖 HTTPS/空地址/HTTP/认证地址/短密钥/非规范 base64；无配置更新器安全初始化/销毁 |
-| AC7 打包发布 | ditto、包内 rpath、深度优先签名、发布先验证后生成 feed | 两种构建均嵌入框架/许可证；真实脚本生成 feed，URL/版本/签名验证通过；错误 seed 被拒绝 |
-| AC8 频率设置 | Sparkle 调度器接线、禁用开关、避免重复背景检查 | 实际生产映射函数返回 0/86400/604800/2592000 秒；FeatureTests 回归通过 |
+早期修复后独立图片测试的最大误差：JPEG .00048828125，其余三类为 0；均在 .01 阈值内。最终重跑每一类样本与实际缓存，日志保留每个数据行的实际数值。该误差是线性 RGB 数值误差，不是 ΔE 或物理亮度测量。
 
-16 条用例说明（每条原子标准各 1 组静态与动态）全部有六项要素和测试代码映射；允许多个标准复用同一个端到端测试。元数据完整性与映射存在性本身也由测试检查。
+## 逆向证伪与执行中发现
 
-## 失败迭代与修正
+缓存读回测试第一次比较得到 .130859 的差异。没有据此修改生产缓存，也没有提高容差。分析发现两边计算顺序不同，控制实验将独立参考先全分辨率物化、再按相同方式采样，误差归零。保留 [cache-probe-initial.log](evidence/hdr_color_regression/cache-probe-initial.log) 和 [cache-probe-materialized-detail.log](evidence/hdr_color_regression/cache-probe-materialized-detail.log)。这是一处测试参考口径修正，不是额外已确认的生产缓存缺陷。
 
-初次隔离驱动只识别错误框的 OK 按钮，导致错误/签名失败场景超时。通过原生进程采样和 modal run-loop 中的按钮清单，确认实际标题是 Cancel Update；驱动补齐该按钮并在模态模式运行计时器，最终异常场景全部通过。另有早期断言把 Sparkle 的 didExtractUpdate 回调当作实际成功解压，改为明确的签名错误、安装未发生及旧包未变判据；SDK 错误详情确认验证在 unarchiving 前失败。
+第一次完整回归的所有颜色/HDR/视图测试通过，但 `WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles` 一次失败，并在失败后清理时 SIGSEGV。相同二进制单独重跑该测试通过；不修改代码、再重跑相同完整命令后全部通过。保留 [regression-initial.log](evidence/hdr_color_regression/regression-initial.log) 与 [navigation-isolated.log](evidence/hdr_color_regression/navigation-isolated.log)。这次偶发导航失败的具体根因未定位，不能宣称已修复，也不能仅据隔离通过断言它与本次改动必然无关。
 
-qmake 本机编译暴露出原有 VERSION 文件遮蔽 `<version>`、宏引号转义、缺失可选 qtbase 翻译的问题，修复后构建通过。qmake 有非阻断的 SDK 版本提示与重复 rpath 链接提示；没有将其视为编译错误或公证成功。
+## 验收追踪
 
-## 验证边界
+| 标准 | 测试与结果 |
+|---|---|
+| CR-01 端点色彩 | 3 类最终颜色数据行 + 全图四格式端点比较，通过 |
+| CR-02 中间插值 | 中间调独立反例、原五个进度点、相同暗部/中间调与 alpha，通过 |
+| CR-03 平台余量适配 | 共享适配路径静态检查、SDR 回退、当前余量、原生 3→1→3 重建，通过；未宣称已测量每一物理显示余量下的色差 |
+| CR-04 真实图像 | JPEG/处理后 DNG/普通 DNG/NEF，独立 HDR 网格参考，通过 |
+| CR-05 实际缓存 | 真实 presented 生命周期后的 CGImage 内容读回，公平采样参考，通过 |
+| CR-06 回归 | 时序、连续切图、无障碍策略、焦点、缩放、SDR 与完整八 suite，通过 |
 
-本次动态安装采用独立的 Cocoa 夹具、真实 Sparkle 标准 UI/Installer、临时 ad-hoc 签名与回环 HTTP。Qt 包装层以真实生产校验/生命周期/设置测试和源接线验证覆盖；没有声称在已签名线上 Fovelle 中完成了完整 UI 端到端测试。生产包装层仍强制 HTTPS。
+## 复现与证据范围
 
-未执行 Apple Developer ID 生产签名、公证、GitHub 远端发布或线上 HTTPS 更新；未覆盖未来 Sandbox、只读挂载与管理员权限安装路径。生产启用后仍需旧版本 → 新的公证版本端到端发布验证。测试 seed 不写入生产仓库或登录钥匙串；测试应用、defaults、缓存及遗留夹具已清理。
+```bash
+cmake --build build -j 6
+python3 tests/hdr_brightness_static.py
+FOVELLE_HDR_JPEG_SAMPLE='/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/1.JPG' \
+ctest --test-dir build \
+  -R 'FovelleTests$|FovelleHDRBrightness|FovelleHDRColor|FovelleHDRFocusTransitionEvidence' \
+  --output-on-failure
+```
+
+本地颜色门禁依赖 `1.JPG`、`2.DNG`、`3.dng`、`4.nef`，可在 CMake 中设置 `FOVELLE_HDR_COLOR_FIXTURE_DIR`。没有样本的环境不会注册本地样本 CTest；确定性颜色单像素测试仍可运行。此次本地样本齐全，所有最终注册门禁执行成功。
+
+代码指纹：[source-sha256.json](evidence/hdr_color_regression/source-sha256.json)。本轮修改前的源码与报告快照位于 `reports/evidence/hdr_color_regression/before/`。技术依据、候选根因与证伪过程见 [技术设计文档](technical_design_document.md)。
+
+没有改变用户真实显示器设置或无障碍设置，没有进行跨物理显示器观感实验。足够 headroom 的测试使用进程内测试余量输入，不等同于显示器真实可达亮度；验证的是图像管线数值与缓存内容。
