@@ -1,0 +1,9 @@
+********* Start testing of FeatureTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : FeatureTests::initTestCase()
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(normal-startup)
+FAIL!  : FeatureTests::testOpenWithWorkerTeardownContract(slow-startup) 'teardownTimer.elapsed() < 5000' returned FALSE. ()
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(5254)]
+PASS   : FeatureTests::cleanupTestCase()
+Totals: 3 passed, 1 failed, 0 skipped, 0 blacklisted, 6585ms
+********* Finished testing of FeatureTests *********

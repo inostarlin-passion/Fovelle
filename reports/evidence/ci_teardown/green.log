@@ -1,0 +1,10 @@
+********* Start testing of FeatureTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : FeatureTests::initTestCase()
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(normal-startup) OPENWITH_TEARDOWN setup_delay_ms= 0 teardown_ms= 820
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(normal-startup)
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(slow-startup) OPENWITH_TEARDOWN setup_delay_ms= 5100 teardown_ms= 12
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(slow-startup)
+PASS   : FeatureTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 6324ms
+********* Finished testing of FeatureTests *********

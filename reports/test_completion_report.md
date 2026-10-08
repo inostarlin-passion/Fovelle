@@ -67,3 +67,15 @@ ctest --test-dir build \
 代码指纹：[source-sha256.json](evidence/hdr_color_regression/source-sha256.json)。本轮修改前的源码与报告快照位于 `reports/evidence/hdr_color_regression/before/`。技术依据、候选根因与证伪过程见 [技术设计文档](technical_design_document.md)。
 
 没有改变用户真实显示器设置或无障碍设置，没有进行跨物理显示器观感实验。足够 headroom 的测试使用进程内测试余量输入，不等同于显示器真实可达亮度；验证的是图像管线数值与缓存内容。
+
+## 2026-10-08 Actions 修复验证
+
+原失败：Build Fovelle 37746276287，FovelleTests 内 Open With 关闭时间断言失败；其余 30 项 CTest 通过，同提交 Checks 成功。
+
+红灯：仅添加 slow-startup=5100 ms 数据行、保留旧计时起点，得到 3 passed / 1 failed；失败正是 teardownTimer.elapsed()<5000。绿灯：调整计时起点并加入作用域清理后，4 passed / 0 failed，正常行关闭耗时 820 ms，慢启动行 12 ms。日志位于本次本机 `/tmp/fovelle-ci-red.log` 与 `/tmp/fovelle-ci-green.log`（临时诊断文件，不作为仓库持久证据）。生产后台等待逻辑保持原样，因为未证实它发生超时。
+
+完整本地验证：CMake 编译成功；与 CI 相同命令 `QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90` 执行 34/34 项通过，用时 321.48 秒（本机额外注册了真实 HDR 样本专项）。`git diff --check` 通过。红灯、绿灯和完整 CTest 日志持久化到 `reports/evidence/ci_teardown/`。
+
+格式检查限制：仓库现有 `build.sh --format-check` 在大量原有格式诊断后仍返回 0，不能据此宣称格式全部符合；本次新增日志/断言已局部格式化，没有扩大修改范围。该历史脚本问题不是原失败原因。
+
+远端验收：本报告随修正推送，实际完成状态以该提交的 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/workflows/build.yml) 与 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/workflows/test.yml) 运行结论为准；推送后继续监控，最终运行链接在任务完成回复中交付。

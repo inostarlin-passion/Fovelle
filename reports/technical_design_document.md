@@ -66,3 +66,15 @@
 ## 风险与验证边界
 
 当前用户未提供发生偏色的具体文件或截图。本次已经复现并修复能导致局部颜色错误的生产缺陷，验证了本地四类真实样本；不能据此宣称已一比一复现用户那张照片的全部现场。数值容差用于 half-float 渲染误差，未宣称为视觉色差 ΔE 或亮度计测量结果。显示器 ICC、物理峰值和主观观感没有在多个物理显示器上验证。
+
+## 2026-10-08 GitHub Actions 关闭测试计时修正
+
+问题界定：提交 `1fffabb` 的 Build Fovelle [运行 37746276287](https://github.com/inostarlin-passion/Fovelle/actions/runs/37746276287) 编译成功，31 项 CTest 中仅 FovelleTests 失败；唯一 QtTest 失败为 Open With 关闭耗时断言。同一提交的 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/runs/37746276317) 全部通过。
+
+原子验收：A1 启动准备时间不占用关闭预算；A2 从请求 Open With 到窗口关闭及析构仍须小于 5000 ms，后台工作必须安全结束；A3 任意断言返回均恢复 quitOnLastWindowClosed；A4 推送后的两个工作流全部成功。
+
+根因：计时器在 MainWindow 构造前启动，实际测量包含菜单初始化、窗口显示和图片加载。源码与两个远端任务交叉验证表明原断言无法区分慢启动与慢关闭。加入 5100 ms 准备延迟后旧代码稳定失败；缩小计时范围后同一输入通过，构成反证检查。未发现需修改生产关闭逻辑的证据。
+
+设计：增加正常启动和慢启动数据行；就绪检查与准备延迟完成后、Open With 请求前启动单调计时器，作用域退出后读取耗时。保留五秒限制及真实 Cocoa 后台任务，用 qScopeGuard 恢复全局设置，并输出阶段耗时。
+
+联网核查路径：失败 Actions 日志 → 同提交成功工作流 → MainWindow 关闭源码 → Qt 官方 API/测试建议。Qt 文档确认 [QElapsedTimer](https://doc.qt.io/qt-6/qelapsedtimer.html) 测量显式起点以来的时间，[QFutureWatcher](https://doc.qt.io/qt-6/qfuturewatcher.html) 指出 QtConcurrent::run 返回的 future 不能取消，因此保留 waitForFinished；[Qt Test Best Practices](https://doc.qt.io/qt-6/qttest-best-practices.html) 支持修复前失败/修复后通过的回归验证及 RAII 设置恢复。证据已充分，无需扩展到无关 HDR 或生产逻辑。
