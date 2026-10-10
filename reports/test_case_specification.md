@@ -318,3 +318,17 @@ ctest --test-dir build \
 | 完整 CI | A4：修正兼容完整工程 | 编译成功、main 可推送 | 当前提交 | 完整 CTest；推送并读取两个工作流结果 | Build Fovelle 和 Checks 均成功 | 工作区干净 |
 
 动态用例固化于 `FeatureTests::testOpenWithWorkerTeardownContract_data/testOpenWithWorkerTeardownContract`，由现有 FovelleTests 自动执行。准备延迟专门覆盖旧五秒边界，不放宽关闭门槛。静态审查和 git diff --check 为补充检查。
+
+
+## 2026-10-10 CI Open With 回归用例修正
+
+代码：FeatureTests::testOpenWithWorkerTeardownContract_data/testOpenWithWorkerTeardownContract。
+
+- 测试目的：区分原生枚举耗时与窗口收尾开销，并确认析构完成前任务已经结束。
+- 前置条件：Cocoa QPA、临时目录可写、QApplication存活；作用域保存退出策略。
+- 输入数据：真实PNG与原生provider，准备延迟0/5100ms；另有不依赖系统冷热状态的5200ms可控provider。
+- 操作步骤：创建并加载窗口；准备完成后开始计时；分派Open With、close、析构；provider内部独立计时并设置原子完成标志；读取各阶段与总时长。
+- 预期结果：任务完成标志为真，provider区间包含于总区间；dispatch、close及增量收尾开销各低于5000ms；完整工作仍受QtTest看门狗约束。5200ms平台工作本身不应被误报为生命周期缺陷。
+- 后置条件：窗口、返回列表、线程池与临时图像释放，quitOnLastWindowClosed原值恢复；原生默认provider与其它功能不变。
+
+先在旧总耗时断言下运行可控5200ms数据行，观察5210ms失败，再修正阶段断言。同一个三行测试进入现有FeatureTests/CTest，无额外CI豁免或跳过条件。

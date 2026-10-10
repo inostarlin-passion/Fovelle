@@ -472,3 +472,16 @@ Qt 官方 API、Apple 原生偏好域说明、本地实际调用链、INI及Nati
 设计：增加正常启动和慢启动数据行；就绪检查与准备延迟完成后、Open With 请求前启动单调计时器，作用域退出后读取耗时。保留五秒限制及真实 Cocoa 后台任务，用 qScopeGuard 恢复全局设置，并输出阶段耗时。
 
 联网核查路径：失败 Actions 日志 → 同提交成功工作流 → MainWindow 关闭源码 → Qt 官方 API/测试建议。Qt 文档确认 [QElapsedTimer](https://doc.qt.io/qt-6/qelapsedtimer.html) 测量显式起点以来的时间，[QFutureWatcher](https://doc.qt.io/qt-6/qfuturewatcher.html) 指出 QtConcurrent::run 返回的 future 不能取消，因此保留 waitForFinished；[Qt Test Best Practices](https://doc.qt.io/qt-6/qttest-best-practices.html) 支持修复前失败/修复后通过的回归验证及 RAII 设置恢复。证据已充分，无需扩展到无关 HDR 或生产逻辑。
+
+
+## 2026-10-10 Actions：Open With 关闭计时契约修正
+
+原子验收：A1 默认原生应用枚举与图标加载继续执行；A2 关闭/析构返回时任务确已完成，GUI依赖仍存活期间排空；A3 请求分派、close事件及超出provider工作区间的关闭开销各保留5000ms预算；A4 0/5100ms启动准备与5200ms可控provider都覆盖；A5 推送后同一提交的Checks与Build Fovelle均成功。
+
+失败证据：[Checks 38049175144](https://github.com/inostarlin-passion/Fovelle/actions/runs/38049175144)只有Open With正常启动数据行失败，总耗时5080ms；慢启动行56ms。同SHA的[Build Fovelle 38049175130](https://github.com/inostarlin-passion/Fovelle/actions/runs/38049175130)全部通过。日志未记录原生调用内部阶段，因此冷枚举/图标查询是有源码和冷热差异支持的候选解释，不宣称已定位到某个系统内部调用。已确认的问题是五秒断言混合了窗口收尾与不可由应用承诺时限的原生工作。
+
+检索链：GitHub失败日志→同SHA另一工作流→MainWindow排空顺序→Qt future/thread pool文档→Apple实际调用的Launch Services接口。依据：[QFuture](https://doc.qt.io/qt-6.11/qfuture.html)、[QThreadPool](https://doc.qt.io/qt-6/qthreadpool.html)、[QElapsedTimer](https://doc.qt.io/qt-6/qelapsedtimer.html)、[LSCopyAllRoleHandlersForContentType](https://developer.apple.com/documentation/coreservices/1448020-lscopyallrolehandlersforcontentt)。Qt说明basic run不能强制取消、pool销毁会等待，Apple说明原生枚举功能但没有五秒时延保证。源码、两份CI结果、官方API及可控反例交叉验证充分，不继续以同义检索替代复现。
+
+实现为每窗口可传入按值保存的OpenWithProvider，默认仍为现有原生函数，空provider回退到默认函数。任务同时按值捕获路径与provider。排空的waitForFinished→clear→waitForDone顺序保留。测试以原子标志确认完成，分别测量dispatch、close、总时长T和provider区间W；要求W≤T+1ms（计时量化容差）且max(0,T−W)<5000ms，同时dispatch/close各<5000ms。QtTest整个函数看门狗继续约束包含系统等待在内的总运行。T−W是关键路径增量开销，不是所有CPU耗时之和，不承诺总关闭时长小于五秒。
+
+逆向证伪：保留旧总时长断言并注入5200ms provider，旧测试稳定以5210ms失败；纠正计时分类后该输入总5211ms、provider5203ms、开销8ms并通过，同时完成标志为真。原生正常/慢启动行仍调用真实函数，验证没有只测空任务或跳过平台路径。新的源码检查同步核验provider/path按值捕获，保留原生命周期策略。

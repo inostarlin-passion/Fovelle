@@ -213,3 +213,12 @@ ctest --test-dir build \
 格式检查限制：仓库现有 `build.sh --format-check` 在大量原有格式诊断后仍返回 0，不能据此宣称格式全部符合；本次新增日志/断言已局部格式化，没有扩大修改范围。该历史脚本问题不是原失败原因。
 
 远端验收：本报告随修正推送，实际完成状态以该提交的 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/workflows/build.yml) 与 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/workflows/test.yml) 运行结论为准；推送后继续监控，最终运行链接在任务完成回复中交付。
+
+
+## 2026-10-10 Actions 修复与推送验证
+
+基线提交566858058102a7081213de3609391aed158962bd：Checks失败，Build Fovelle成功；clang-tidy/clang-format均为成功状态，唯一Qt失败为Open With正常启动总耗时5080ms超过5000ms。
+
+先复现：5200ms可控provider在旧总时长断言下失败（实测5210ms）。修正后原生正常启动、5100ms慢准备和可控延迟三行均通过。一次本地测量分别为 total/worker/overhead=931/928/3、19/14/5、5211/5203/8ms；dispatch均0ms，close分别23/12/13ms。完成标志在每次窗口析构返回后为真，五秒预算保留给独立收尾阶段，完整函数看门狗保留。
+
+生产改动只增加默认不变的按值provider依赖，保留排空顺序；同步更新两份源码检查的捕获模式。证据位于reports/evidence/ci_openwith_20261010，包括原始失败/成功CI日志、红绿测试、构建与静态检查。Open With源码生命周期门禁ST-12通过；旧质量脚本其它既有问题不扩展为本轮修复。完整回归日志另存于同一证据目录；远端最终结果以对应提交的Actions状态及本次交付消息为准，不以本地通过替代远端验证。

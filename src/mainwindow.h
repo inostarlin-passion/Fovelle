@@ -12,6 +12,7 @@
 #include <QNetworkAccessManager>
 #include <QStack>
 #include <QThreadPool>
+#include <functional>
 
 namespace Ui {
 class MainWindow;
@@ -42,9 +43,12 @@ public:
         int obscuredHeight;
     };
 
+    using OpenWithProvider = std::function<QList<OpenWith::OpenWithItem>(const QString &)>;
+
     explicit MainWindow(QWidget *parent = nullptr,
                         const QJsonObject &windowSessionState = {},
-                        bool deferMenus = false);
+                        bool deferMenus = false,
+                        OpenWithProvider openWithProvider = OpenWith::getOpenWithItems);
     ~MainWindow() override;
 
     void shutdownBackgroundWork();
@@ -328,6 +332,7 @@ private:
     QStack<DeletedPaths> lastDeletedFiles;
 
     QMenuBar *mainMenuBar {nullptr};
+    OpenWithProvider openWithItemProvider;
     QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
     QList<QFutureWatcher<bool> *> saveFutureWatchers;
     QString openWithFutureFilePath;

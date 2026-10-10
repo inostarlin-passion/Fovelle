@@ -279,9 +279,12 @@ private:
 
 MainWindow::MainWindow(QWidget *parent,
                        const QJsonObject &windowSessionState,
-                       const bool deferMenus) :
+                       const bool deferMenus,
+                       OpenWithProvider openWithProvider) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow),
+    openWithItemProvider(openWithProvider ? std::move(openWithProvider)
+                                         : OpenWithProvider{OpenWith::getOpenWithItems})
 {
     QElapsedTimer constructionTimer;
     const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
@@ -1648,9 +1651,10 @@ void MainWindow::requestPopulateOpenWithMenu()
 
     openWithFutureFilePath = filePath;
     openWithFutureWatcher.setFuture(QtConcurrent::run(&backgroundThreadPool,
-        [filePath]() -> QList<OpenWith::OpenWithItem> {
+        // Copy the provider and path; queued work must not refer to this window.
+        [filePath, provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
             if (filePath.isEmpty()) return {};
-            return OpenWith::getOpenWithItems(filePath);
+            return provider(filePath);
         }
     ));
 }

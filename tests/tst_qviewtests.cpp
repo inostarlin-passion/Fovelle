@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <functional>
 #include <numeric>
@@ -5228,28 +5229,43 @@ void FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
 }
 
 // TC-ISSUE-864-OPENWITH-TEARDOWN
-// Test purpose: exercise Open With population while a window is closed, which
-// is the shutdown race described by GitHub issue #864.
-// Preconditions: Cocoa QPA is active; a visible MainWindow can load a PNG.
-// Input data: one deterministic PNG, an Open With request, and startup delays
-// of 0 / 5100 ms (the latter exceeds the teardown budget).
-// Steps: load the PNG, delay setup, start timing at the Open With request,
-// close the window, and let its
-// destructor run while the worker may still be active.
-// Expected result: the test process remains alive and teardown completes within
-// the bounded five-second window without a SIGABRT/QPixmap fatal error.
-// Postcondition: window/fixture are released and quit policy is restored even
-// if an assertion fails. Startup time does not consume the teardown budget.
+// Purpose: drain Open With work before the window's GUI dependencies disappear.
+// Preconditions: Cocoa QPA; writable temporary directory; live QApplication.
+// Inputs: native PNG handler lookup, setup delays 0/5100 ms, or a controlled
+// 5200 ms provider (longer than the application's five-second overhead budget).
+// Steps: show/load a window, request population, close and destroy it, measure
+// dispatch/close/total and the provider's own interval, then inspect completion.
+// Expected: the provider finishes before destruction returns; dispatch, close
+// and incremental drain overhead stay below 5 s. Platform lookup latency has
+// no five-second SLA and stays bounded by QtTest's whole-function watchdog.
+// Postconditions: fixture/window are destroyed and quit policy is restored.
 void FeatureTests::testOpenWithWorkerTeardownContract_data()
 {
     QTest::addColumn<int>("setupDelayMs");
-    QTest::newRow("normal-startup") << 0;
-    QTest::newRow("slow-startup") << 5100;
+    QTest::addColumn<int>("enumerationDelayMs");
+    QTest::newRow("normal-startup") << 0 << -1;
+    QTest::newRow("slow-startup") << 5100 << -1;
+    QTest::newRow("controlled-platform-latency") << 0 << 5200;
 }
 
 void FeatureTests::testOpenWithWorkerTeardownContract()
 {
     QFETCH(int, setupDelayMs);
+    QFETCH(int, enumerationDelayMs);
+    std::atomic<bool> workerFinished{ false };
+    std::atomic<qint64> workerMs{ 0 };
+    const MainWindow::OpenWithProvider provider = [&](const QString &path) {
+        QElapsedTimer timer;
+        timer.start();
+        QList<OpenWith::OpenWithItem> items;
+        if (enumerationDelayMs >= 0)
+            QThread::msleep(static_cast<unsigned long>(enumerationDelayMs));
+        else
+            items = OpenWith::getOpenWithItems(path);
+        workerMs.store(timer.elapsed());
+        workerFinished.store(true);
+        return items;
+    };
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -5261,9 +5277,11 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
     const QString imagePath = createTestImage(dir, "openwith-teardown", Qt::darkCyan);
     QVERIFY(!imagePath.isEmpty());
 
+    qint64 dispatchMs = 0;
+    qint64 closeMs = 0;
     QElapsedTimer teardownTimer;
     {
-        MainWindow window;
+        MainWindow window(nullptr, { }, false, provider);
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         window.resize(640, 480);
         window.show();
@@ -5276,13 +5294,26 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
         // initialization and image decoding have their own readiness checks.
         teardownTimer.start();
         window.requestPopulateOpenWithMenu();
+        dispatchMs = teardownTimer.elapsed();
         window.close();
+        closeMs = teardownTimer.elapsed() - dispatchMs;
     }
 
     const qint64 teardownMs = teardownTimer.elapsed();
-    qInfo() << "OPENWITH_TEARDOWN setup_delay_ms=" << setupDelayMs << "teardown_ms=" << teardownMs;
-    QVERIFY2(teardownMs < 5000,
-             qPrintable(QStringLiteral("Open With teardown took %1 ms").arg(teardownMs)));
+    const qint64 providerMs = workerMs.load();
+    const qint64 overheadMs = qMax<qint64>(0, teardownMs - providerMs);
+    qInfo() << "OPENWITH_TEARDOWN setup_delay_ms=" << setupDelayMs << "total_ms=" << teardownMs
+            << "worker_ms=" << providerMs << "dispatch_ms=" << dispatchMs << "close_ms=" << closeMs
+            << "overhead_ms=" << overheadMs;
+    // A quick return is not sufficient: it must not abandon a worker that
+    // may still own QIcon/QPixmap data when QApplication later shuts down.
+    QVERIFY2(workerFinished.load(), "Window destruction returned before Open With completed");
+    QVERIFY2(providerMs <= teardownMs + 1,
+             "The measured provider interval must be inside teardown");
+    QVERIFY2(dispatchMs < 5000, "Dispatch must not synchronously block on platform enumeration");
+    QVERIFY2(closeMs < 5000, "The window close event exceeded its five-second budget");
+    QVERIFY2(overheadMs < 5000,
+             qPrintable(QStringLiteral("Open With teardown overhead took %1 ms").arg(overheadMs)));
 }
 
 void GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()

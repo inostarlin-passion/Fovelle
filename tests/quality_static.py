@@ -673,7 +673,7 @@ def main() -> int:
             "openWithFutureWatcher.isRunning()",
             "openWithFutureWatcher.waitForFinished();",
             "openWithFutureFilePath",
-            "[filePath]()",
+            "[filePath, provider = openWithItemProvider]()",
             "openWithPopulationPending",
             "testOpenWithWorkerTeardownContract",
         ),
@@ -685,7 +685,7 @@ def main() -> int:
         {
             "lazy_menu_trigger": "aboutToShow" in actionmanager_cpp and "requestPopulateOpenWithMenu" in actionmanager_cpp,
             "future_waited_on_teardown": "openWithFutureWatcher.waitForFinished();" in window_cpp,
-            "path_captured_by_value": "[filePath]()" in window_cpp,
+            "path_captured_by_value": "[filePath, provider = openWithItemProvider]()" in window_cpp,
             "serial_refresh_guard": "openWithPopulationPending" in window_cpp,
             "regression_test": "testOpenWithWorkerTeardownContract" in test_source,
         },

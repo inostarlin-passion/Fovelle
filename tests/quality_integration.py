@@ -295,7 +295,7 @@ def main() -> int:
         (
             "openWithFutureWatcher.waitForFinished();",
             "openWithFutureFilePath",
-            "[filePath]()",
+            "[filePath, provider = openWithItemProvider]()",
             "openWithPopulationPending",
         ),
     ) and "aboutToShow" in actionmanager and "requestPopulateOpenWithMenu" in actionmanager
@@ -306,7 +306,7 @@ def main() -> int:
         {
             "lazy_menu_trigger": "aboutToShow" in actionmanager and "requestPopulateOpenWithMenu" in actionmanager,
             "future_waited": "openWithFutureWatcher.waitForFinished();" in mainwindow,
-            "path_value_capture": "[filePath]()" in mainwindow,
+            "path_value_capture": "[filePath, provider = openWithItemProvider]()" in mainwindow,
             "refresh_serialization": "openWithPopulationPending" in mainwindow,
         },
         "the Issue #864 Open With worker teardown contract is present in the integrated application sources",
