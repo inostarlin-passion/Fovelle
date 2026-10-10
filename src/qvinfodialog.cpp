@@ -7,6 +7,8 @@
 #include <QMimeDatabase>
 #include <QTimer>
 #include <QShowEvent>
+#include <QLabel>
+#include <QFormLayout>
 
 static int getGcd (int a, int b) {
     return (b == 0) ? a : getGcd(b, a % b);
@@ -17,8 +19,19 @@ QVInfoDialog::QVInfoDialog(QWidget *parent) :
     ui(new Ui::QVInfoDialog)
 {
     ui->setupUi(this);
+    // Word-wrapped color values must use the available value column. macOS's
+    // default FieldsStayAtSizeHint can allocate a narrow field but one row's
+    // height, clipping the second line after a translation or profile update.
+    ui->formLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
-    setFixedSize(0, 0);
+    colorRefreshTimer = new QTimer(this);
+    colorRefreshTimer->setInterval(100);
+    connect(colorRefreshTimer, &QTimer::timeout, this, [this]() {
+        if (isVisible())
+            updateColorInfo();
+        else
+            colorRefreshTimer->stop();
+    });
 }
 
 QVInfoDialog::~QVInfoDialog()
@@ -28,6 +41,8 @@ QVInfoDialog::~QVInfoDialog()
 
 void QVInfoDialog::showEvent(QShowEvent *event)
 {
+    updateColorInfo();
+    colorRefreshTimer->start();
     NativeDialogs::applyTheme(this);
     QDialog::showEvent(event);
 }
@@ -54,7 +69,9 @@ void QVInfoDialog::updateInfo()
 {
     const QLocale locale = QLocale::system();
     const QMimeDatabase mimeDb;
-    const QMimeType mime = mimeDb.mimeTypeForFile(fileInfo.absoluteFilePath(), QMimeDatabase::MatchContent);
+    const QMimeType mime = fileInfo.filePath().isEmpty()
+            ? QMimeType()
+            : mimeDb.mimeTypeForFile(fileInfo.absoluteFilePath(), QMimeDatabase::MatchContent);
     const int width = imageSize.width();
     const int height = imageSize.height();
     const qreal megapixels = (width * height) / 1000000.0;
@@ -80,7 +97,78 @@ void QVInfoDialog::updateInfo()
         ui->framesLabel2->hide();
         ui->framesLabel->hide();
     }
+    updateColorInfo();
     window()->adjustSize();
+}
+
+void QVInfoDialog::setColorInfoProvider(std::function<QvColor::Information()> provider)
+{
+    colorInfoProvider = std::move(provider);
+    updateColorInfo();
+}
+
+void QVInfoDialog::updateColorInfo()
+{
+    const auto info = colorInfoProvider ? colorInfoProvider() : QvColor::Information{ };
+    const auto &source = info.source;
+    QString space = tr("Unknown");
+    if (source.isRaw)
+        space = tr("RAW (camera color space)");
+    else if (source.isVector)
+        space = tr("Document-defined color spaces");
+    else if (source.conflictingDeclarations)
+        space = tr("Conflicting color declarations");
+    else if (!source.spaceName.isEmpty())
+        space = source.origin == QvColor::Origin::ICC ? tr("Embedded ICC: %1").arg(source.spaceName)
+                                                      : tr("Container: %1").arg(source.spaceName);
+    else if (!source.decoderSpace.isEmpty())
+        space = tr("Decoder: %1").arg(source.decoderSpace);
+    else if (info.hasOutput && source.iccState == QvColor::ICCState::Absent)
+        space = tr("Unspecified (assumed sRGB for display)");
+    QString icc;
+    switch (source.iccState) {
+    case QvColor::ICCState::Absent:
+        icc = tr("Not embedded");
+        break;
+    case QvColor::ICCState::Invalid:
+        icc = tr("Invalid profile");
+        break;
+    case QvColor::ICCState::Unsupported:
+        icc = tr("Unsupported profile");
+        break;
+    case QvColor::ICCState::Embedded: {
+        icc = tr("Embedded ICC (%1 bytes)").arg(source.iccData.size());
+        const auto description =
+                source.profileDescription.isEmpty() ? source.spaceName : source.profileDescription;
+        if (!description.isEmpty())
+            icc += QStringLiteral(" — ") + description;
+        break;
+    }
+    case QvColor::ICCState::Unknown:
+        icc = tr("Unknown");
+        break;
+    }
+    QString output = !info.hasOutput     ? tr("No output")
+            : info.outputSpace.isEmpty() ? tr("Unknown")
+                                         : info.outputSpace;
+    if (info.preview)
+        output = tr("Preview: %1").arg(output);
+    const bool changed = ui->sourceColorSpaceLabel->text() != space
+            || ui->iccProfileLabel->text() != icc || ui->outputColorSpaceLabel->text() != output;
+    ui->sourceColorSpaceLabel->setText(space);
+    ui->iccProfileLabel->setText(icc);
+    ui->outputColorSpaceLabel->setText(output);
+    if (changed)
+        adjustSize();
+}
+
+void QVInfoDialog::changeEvent(QEvent *event)
+{
+    QDialog::changeEvent(event);
+    if (event->type() == QEvent::LanguageChange) {
+        ui->retranslateUi(this);
+        updateInfo();
+    }
 }
 
 QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime,

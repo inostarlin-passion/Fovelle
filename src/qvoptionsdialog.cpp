@@ -677,10 +677,12 @@ void QVOptionsDialog::configureGeneralPage()
 
     auto *group4 = createSettingsGroup(generalContent, 4, &groupLayout);
     group4->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("reuseWindowCheckbox"),
-                                     QStringLiteral("smallImagesOneToOneCheckbox")});
+                        QStringList{ QStringLiteral("reuseWindowCheckbox"),
+                                     QStringLiteral("smallImagesOneToOneCheckbox"),
+                                     QStringLiteral("keepZoomCheckbox") });
     addValueOnlyRow(groupLayout, ui->reuseWindowCheckbox);
     addValueOnlyRow(groupLayout, ui->smallImagesOneToOneCheckbox);
+    addValueOnlyRow(groupLayout, ui->keepZoomCheckbox);
     contentLayout->addWidget(group4);
 
     auto *group5 = createSettingsGroup(generalContent, 5, &groupLayout);
@@ -1075,10 +1077,10 @@ void QVOptionsDialog::showEvent(QShowEvent *event)
 void QVOptionsDialog::changeEvent(QEvent *event)
 {
     QDialog::changeEvent(event);
-    if (event->type() == QEvent::PaletteChange
-        || event->type() == QEvent::StyleChange
-        || event->type() == QEvent::FontChange)
-    {
+    if (event->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+    if (event->type() == QEvent::LanguageChange || event->type() == QEvent::PaletteChange
+        || event->type() == QEvent::StyleChange || event->type() == QEvent::FontChange) {
         QTimer::singleShot(0, this, [this]() {
             if (!ui || !pageMetricsReady)
                 return;
@@ -1117,6 +1119,14 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     syncCheckbox(ui->menubarCheckbox, "menubarenabled", defaults, makeConnections);
     // reusewindow
     syncCheckbox(ui->reuseWindowCheckbox, "reusewindow", defaults, makeConnections);
+    // Preserve the historical inverse key and its default for existing users.
+    {
+        const QSignalBlocker blocker(ui->keepZoomCheckbox);
+        ui->keepZoomCheckbox->setChecked(!settingsManager.getBoolean("navresetszoom", defaults));
+    }
+    if (makeConnections)
+        connect(ui->keepZoomCheckbox, &QCheckBox::toggled, this,
+                [this](bool checked) { modifySetting(QStringLiteral("navresetszoom"), !checked); });
     // smoothscalingmode
     syncComboBox(ui->smoothScalingComboBox, "smoothscalingmode", defaults, makeConnections);
     // smallimageoneone

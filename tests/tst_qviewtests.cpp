@@ -63,6 +63,10 @@
 #include <QHeaderView>
 #include <QKeySequenceEdit>
 #include <QPointer>
+#include <QProcess>
+#include <QProcessEnvironment>
+#include <QUuid>
+#include <QTextStream>
 #include <QMenu>
 #include <QStackedWidget>
 #include <QTranslator>
@@ -82,6 +86,9 @@
 #include "scrollhelper.h"
 #include "settingsmanager.h"
 #include "qvinfodialog.h"
+#include "colorinformation.h"
+#include <QtEndian>
+#include <zlib.h>
 #include "qvaboutdialog.h"
 #include "nativedialogs.h"
 
@@ -184,6 +191,11 @@ class FeatureTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testKeepZoomSurvivesStartupMigration_data();
+    void testKeepZoomSurvivesStartupMigration();
+    void testKeepZoomPersistsAcrossProcesses_data();
+    void testKeepZoomPersistsAcrossProcesses();
+    void testKeepZoomPreferenceAndColorTranslations();
     void testApplicationVersionIsCurrent();
     void testWindowIconIsCleared();
     void testTitlebarDocumentProxyIsClearedForLoadedFile();
@@ -280,6 +292,10 @@ class GraphicsViewTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testKeepZoomAcrossNavigation_data();
+    void testKeepZoomAcrossNavigation();
+    void testKeepCalculatedZoomAndFailedNavigation();
+    void testKeepZoomWindowIsolationAndSession();
     void testMouseWheelUsesOneDiscreteStep();
     void testTouchpadWheelCanUseFractionalSteps();
     void testZoomAnchorProjectionIsNearestFeasible();
@@ -363,6 +379,9 @@ class ImageCoreAndMovieTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testSourceColorMetadata();
+    void testColorContainerBoundaries();
+    void testColorInformationFollowsPresentation();
     void testColorSpaceConversion();
     void testMovieSpeedAndSingleFrameRead();
     void testAnimatedPngPlaysBeyondFirstFrame();
@@ -5049,15 +5068,16 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QCOMPARE(generalLayout->count(), 9);
     QVERIFY(generalLayout->itemAt(8)->spacerItem());
 
-    const QList<QStringList> expectedItems {
-        {QStringLiteral("langComboBox")},
-        {QStringLiteral("themeComboBox"), QStringLiteral("checkerboardBackgroundCheckbox")},
-        {QStringLiteral("smoothScalingComboBox")},
-        {QStringLiteral("reuseWindowCheckbox"), QStringLiteral("smallImagesOneToOneCheckbox")},
-        {QStringLiteral("slideshowDirectionComboBox"), QStringLiteral("slideshowTimerSpinBox")},
-        {QStringLiteral("afterDeletionComboBox"), QStringLiteral("askDeleteCheckbox")},
-        {QStringLiteral("updateFrequencyComboBox")},
-        {QStringLiteral("associateFormatsButton")}
+    const QList<QStringList> expectedItems{
+        { QStringLiteral("langComboBox") },
+        { QStringLiteral("themeComboBox"), QStringLiteral("checkerboardBackgroundCheckbox") },
+        { QStringLiteral("smoothScalingComboBox") },
+        { QStringLiteral("reuseWindowCheckbox"), QStringLiteral("smallImagesOneToOneCheckbox"),
+          QStringLiteral("keepZoomCheckbox") },
+        { QStringLiteral("slideshowDirectionComboBox"), QStringLiteral("slideshowTimerSpinBox") },
+        { QStringLiteral("afterDeletionComboBox"), QStringLiteral("askDeleteCheckbox") },
+        { QStringLiteral("updateFrequencyComboBox") },
+        { QStringLiteral("associateFormatsButton") }
     };
 
     const auto groups = generalContent->findChildren<QWidget *>();
@@ -13379,12 +13399,11 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
     const Qt::Alignment expectedLabelContentAlignment =
         expectedLabelAlignment | Qt::AlignVCenter;
     const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignTop;
-    const QStringList valueOnlyNames {
-        QStringLiteral("checkerboardBackgroundCheckbox"),
-        QStringLiteral("reuseWindowCheckbox"),
-        QStringLiteral("smallImagesOneToOneCheckbox"),
-        QStringLiteral("askDeleteCheckbox")
-    };
+    const QStringList valueOnlyNames{ QStringLiteral("checkerboardBackgroundCheckbox"),
+                                      QStringLiteral("reuseWindowCheckbox"),
+                                      QStringLiteral("smallImagesOneToOneCheckbox"),
+                                      QStringLiteral("keepZoomCheckbox"),
+                                      QStringLiteral("askDeleteCheckbox") };
 
     const auto alignmentHas = [](const Qt::Alignment actual,
                                  const Qt::Alignment expected) {
@@ -16687,6 +16706,8 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
     informationWindow.close();
 }
 
+#include "zoom_color_acceptance.inc"
+
 int main(int argc, char *argv[])
 {
     QCoreApplication::setOrganizationName("Fovelle");
@@ -16694,7 +16715,50 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("Fovelle");
     QGuiApplication::setApplicationDisplayName("Fovelle");
     QCoreApplication::setApplicationVersion(QStringLiteral(VERSION_STRING));
+    // Test default construction must not inherit or mutate desktop preferences.
+    // Keep the temporary settings store alive through QApplication teardown.
+    QTemporaryDir settingsDirectory;
+    if (!settingsDirectory.isValid())
+        return 1;
+    const QString probePhase = qEnvironmentVariable("FOVELLE_KEEP_ZOOM_PROBE_PHASE");
+    if (!probePhase.isEmpty()) {
+        const QString probeDomain = qEnvironmentVariable("FOVELLE_KEEP_ZOOM_PROBE_DOMAIN");
+        if (!probeDomain.startsWith(QStringLiteral("org.fovelle.keepzoomtest.")))
+            return 2;
+        QCoreApplication::setOrganizationDomain(probeDomain);
+        QCoreApplication::setApplicationName(QStringLiteral("KeepZoomProbe"));
+        const bool native =
+                qEnvironmentVariable("FOVELLE_KEEP_ZOOM_PROBE_BACKEND") == QStringLiteral("native");
+        QSettings::setDefaultFormat(native ? QSettings::NativeFormat : QSettings::IniFormat);
+        if (!native) {
+            const QString root = qEnvironmentVariable("FOVELLE_KEEP_ZOOM_PROBE_ROOT");
+            if (root.isEmpty())
+                return 2;
+            QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, root);
+        }
+        QSettings seed;
+        seed.setFallbacksEnabled(false);
+        if (probePhase == QStringLiteral("cleanup")) {
+            seed.clear();
+            seed.sync();
+            return seed.status() == QSettings::NoError ? 0 : 3;
+        }
+        if (probePhase == QStringLiteral("seed")) {
+            seed.setValue(QStringLiteral("firstlaunch"), true);
+            seed.setValue(QStringLiteral("options/language"), QStringLiteral("en"));
+            seed.sync();
+            if (seed.status() != QSettings::NoError)
+                return 3;
+        }
+        // Match main.cpp: migration precedes SettingsManager/GUI construction.
+        SettingsManager::migrateOldSettings();
+    } else {
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDirectory.path());
+    }
     QVApplication app(argc, argv);
+    if (!probePhase.isEmpty())
+        return runKeepZoomPersistenceProbe(probePhase);
     qRegisterMetaType<QVImageLoader::Result>();
 
     ImageLoaderTests imageLoaderTests;

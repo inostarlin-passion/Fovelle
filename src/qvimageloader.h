@@ -2,6 +2,7 @@
 #define QVIMAGELOADER_H
 
 #include "qvcocoafunctions.h"
+#include "colorinformation.h"
 
 #include <optional>
 #include <memory>
@@ -25,6 +26,7 @@ public:
     struct Result
     {
         QImage image;
+        QvColor::SourceInfo sourceColor;
         Qv::VectorImageData vectorImage;
         QVCocoaFunctions::SDRImagePtr sdrImage;
         QVCocoaFunctions::HDRImagePtr hdrImage;

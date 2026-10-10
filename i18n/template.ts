@@ -629,6 +629,78 @@ No write permission or file is read-only.</source>
         <source>%1 x %2 (%3 MP)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Source color space:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Embedded ICC profile:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Current output color space:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not embedded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unsupported profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unspecified (assumed sRGB for display)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No output</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Decoder: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Embedded ICC: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RAW (camera color space)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Document-defined color spaces</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Container: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Embedded ICC (%1 bytes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unspecified</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conflicting color declarations</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>QVOpenWithDialog</name>
@@ -1236,6 +1308,10 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Navigate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep zoom level when switching images</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

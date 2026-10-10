@@ -207,6 +207,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
                                               const int largestDimension,
                                               const bool isPreload)
 {
+    const FileIdentity inputIdentity = getFileIdentity(absoluteFilePath);
     QElapsedTimer decodeTimer;
     decodeTimer.start();
 
@@ -321,14 +322,24 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
     const QFileInfo fileInfo(absoluteFilePath);
 
     Result result;
+    result.sourceColor = QvColor::readSource(absoluteFilePath);
+    result.sourceColor.decoderSpace = QvColor::spaceName(image.colorSpace());
+    result.sourceColor.isRaw = nativeResult.isRaw;
+    result.sourceColor.isVector = vectorImage.isValid();
+    // A multi-resolution reader can choose a nonzero image. Do not reuse
+    // container metadata for a different image index.
+    if (isMultiFrameImage)
+        result.sourceColor = { };
     result.image = std::move(image);
     result.vectorImage = std::move(vectorImage);
     result.sdrImage = nativeResult.sdrImage;
     result.hdrImage = nativeResult.hdrImage;
     result.hdrMetadata = nativeResult.hdrMetadata;
     result.absoluteFilePath = fileInfo.absoluteFilePath();
-    result.fileSize = fileInfo.size();
-    result.lastModified = fileInfo.lastModified();
+    // Preserve the identity from before both decode and metadata reads.
+    // jobFinished retries if the file changed during either operation.
+    result.fileSize = inputIdentity.fileSize;
+    result.lastModified = inputIdentity.lastModified;
     result.isMultiFrameImage = isMultiFrameImage;
     result.intrinsicSize = intrinsicSize;
     result.decodeMilliseconds = decodeTimer.nsecsElapsed() / 1000000.0;

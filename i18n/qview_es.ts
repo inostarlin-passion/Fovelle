@@ -662,6 +662,78 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
     </message>
+    <message>
+        <source>Source color space:</source>
+        <translation>Espacio de color de origen:</translation>
+    </message>
+    <message>
+        <source>Embedded ICC profile:</source>
+        <translation>Perfil ICC incrustado:</translation>
+    </message>
+    <message>
+        <source>Current output color space:</source>
+        <translation>Espacio de color de salida actual:</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconocido</translation>
+    </message>
+    <message>
+        <source>Not embedded</source>
+        <translation>No incrustado</translation>
+    </message>
+    <message>
+        <source>Invalid profile</source>
+        <translation>Perfil no válido</translation>
+    </message>
+    <message>
+        <source>Unsupported profile</source>
+        <translation>Perfil no compatible</translation>
+    </message>
+    <message>
+        <source>Unspecified (assumed sRGB for display)</source>
+        <translation>Sin especificar (se asume sRGB para la visualización)</translation>
+    </message>
+    <message>
+        <source>No output</source>
+        <translation>Sin salida</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>Vista previa: %1</translation>
+    </message>
+    <message>
+        <source>Decoder: %1</source>
+        <translation>Decodificador: %1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC: %1</source>
+        <translation>ICC incrustado: %1</translation>
+    </message>
+    <message>
+        <source>RAW (camera color space)</source>
+        <translation>RAW (espacio de color de la cámara)</translation>
+    </message>
+    <message>
+        <source>Document-defined color spaces</source>
+        <translation>Espacios de color definidos por el documento</translation>
+    </message>
+    <message>
+        <source>Container: %1</source>
+        <translation>Declarado en el archivo: %1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC (%1 bytes)</source>
+        <translation>ICC incrustado (%1 bytes)</translation>
+    </message>
+    <message>
+        <source>Unspecified</source>
+        <translation>Sin especificar</translation>
+    </message>
+    <message>
+        <source>Conflicting color declarations</source>
+        <translation>Declaraciones de color contradictorias</translation>
+    </message>
 </context>
 <context>
     <name>QVOpenWithDialog</name>
@@ -1314,6 +1386,10 @@ No se pudo asociar: %1.</translation>
     <message>
         <source>Monthly</source>
         <translation>Mensual</translation>
+    </message>
+    <message>
+        <source>Keep zoom level when switching images</source>
+        <translation>Mantener el nivel de zoom al cambiar de imagen</translation>
     </message>
 </context>
 <context>

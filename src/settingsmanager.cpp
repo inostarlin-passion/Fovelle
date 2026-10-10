@@ -221,6 +221,8 @@ void SettingsManager::migrateOldSettings()
     // Removed Preferences controls are now fixed policies. Reset values from
     // older installations so an obsolete, previously customized checkbox
     // cannot silently revive after the control disappears.
+    // navresetszoom is configurable again through Keep zoom level. Its default
+    // belongs in settingsLibrary; startup must preserve the user's saved choice.
     const QHash<QString, QVariant> removedPreferenceDefaults {
         { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
         { "aftermatchingsizemode", static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious) },
@@ -244,7 +246,6 @@ void SettingsManager::migrateOldSettings()
         { "fitzoomlimitenabled", false },
         { "fitzoomlimitpercent", 100 },
         { "fitoverscan", 0 },
-        { "navresetszoom", true },
         { "constrainimageposition", true },
         { "constraincentersmallimage", true },
         { "originalsizeastoggle", false },

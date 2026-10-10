@@ -1198,8 +1198,12 @@ void MainWindow::ensureContextMenu()
 
 void MainWindow::ensureInfoDialog()
 {
-    if (!info)
+    if (!info) {
         info = new QVInfoDialog(this);
+        const QPointer<QVGraphicsView> view(graphicsView);
+        info->setColorInfoProvider(
+                [view]() { return view ? view->colorInformation() : QvColor::Information{ }; });
+    }
 }
 
 void MainWindow::showEvent(QShowEvent *event)

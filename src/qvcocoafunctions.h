@@ -104,6 +104,7 @@ public:
 
     struct HDRRendererDiagnostics
     {
+        QString outputColorSpaceName;
         bool rendererAvailable{ false };
         bool imageActive{ false };
         bool sdrImageActive{ false };

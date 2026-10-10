@@ -15,6 +15,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/qvaboutdialog.cpp
     ../src/qvrenamedialog.cpp
     ../src/qvinfodialog.cpp
+    ../src/colorinformation.cpp
     ../src/qvimagecore.cpp
     ../src/qvimageloader.cpp
     ../src/qvmovie.cpp
@@ -44,6 +45,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/qvaboutdialog.h
     ../src/qvrenamedialog.h
     ../src/qvinfodialog.h
+    ../src/colorinformation.h
     ../src/qvimagecore.h
     ../src/qvimageloader.h
     ../src/qvmovie.h
@@ -78,6 +80,7 @@ fovelle_link_sparkle(fovelle_tests)
 target_include_directories(fovelle_tests PRIVATE ../src)
 target_link_libraries(fovelle_tests PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
+    ZLIB::ZLIB
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -400,7 +403,7 @@ add_test(NAME FovelleUpdateStatic
 add_test(NAME FovelleUpdateConfiguration COMMAND fovelle_tests
     testUpdateConfigurationValidation testUpdateCheckFrequencyPolicy -v1)
 set_tests_properties(FovelleUpdateConfiguration PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 30)
 option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
 if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
@@ -438,3 +441,38 @@ if(EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG" AND EXISTS "${FOVELLE_HDR_COL
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests;FOVELLE_HDR_JPEG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG"
         TIMEOUT 45 RUN_SERIAL TRUE LABELS "hdr;color;native;local-fixture;acceptance")
 endif()
+
+add_test(NAME FovelleZoomColorStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/zoom_color_acceptance_static.py)
+set_tests_properties(FovelleZoomColorStatic PROPERTIES TIMEOUT 30 LABELS "zoom;color;localization;static;acceptance")
+add_test(NAME FovelleKeepZoomDynamic COMMAND fovelle_tests
+    testKeepZoomAcrossNavigation testKeepCalculatedZoomAndFailedNavigation testKeepZoomWindowIsolationAndSession -v1)
+set_tests_properties(FovelleKeepZoomDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 90 LABELS "zoom;dynamic;acceptance")
+add_test(NAME FovelleColorInformationDynamic COMMAND fovelle_tests
+    testSourceColorMetadata testColorContainerBoundaries testColorInformationFollowsPresentation -v1)
+set_tests_properties(FovelleColorInformationDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 60 LABELS "color;dynamic;acceptance")
+add_test(NAME FovelleZoomColorLocalization COMMAND fovelle_tests
+    testKeepZoomPreferenceAndColorTranslations -v1)
+set_tests_properties(FovelleZoomColorLocalization PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 30 LABELS "zoom;color;localization;dynamic;acceptance")
+
+add_test(NAME FovelleKeepZoomHiDpi COMMAND fovelle_tests
+    testKeepZoomAcrossNavigation testKeepCalculatedZoomAndFailedNavigation testKeepZoomWindowIsolationAndSession -v1)
+set_tests_properties(FovelleKeepZoomHiDpi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=2;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 90 LABELS "zoom;hidpi;dynamic;acceptance")
+
+add_test(NAME FovelleKeepZoomPersistenceStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/keep_zoom_persistence_static.py)
+set_tests_properties(FovelleKeepZoomPersistenceStatic PROPERTIES
+    TIMEOUT 30 LABELS "zoom;settings;persistence;static;acceptance")
+add_test(NAME FovelleKeepZoomPersistenceDynamic COMMAND fovelle_tests
+    testKeepZoomSurvivesStartupMigration testKeepZoomPersistsAcrossProcesses -v1)
+set_tests_properties(FovelleKeepZoomPersistenceDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 90 LABELS "zoom;settings;persistence;restart;dynamic;acceptance")

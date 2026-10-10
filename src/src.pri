@@ -11,6 +11,7 @@ SOURCES += \
     $$PWD/qvaboutdialog.cpp \
     $$PWD/qvrenamedialog.cpp \
     $$PWD/qvinfodialog.cpp \
+    $$PWD/colorinformation.cpp \
     $$PWD/qvimagecore.cpp \
     $$PWD/qvimageloader.cpp \
     $$PWD/qvmovie.cpp \
@@ -40,6 +41,7 @@ HEADERS += \
     $$PWD/qvaboutdialog.h \
     $$PWD/qvrenamedialog.h \
     $$PWD/qvinfodialog.h \
+    $$PWD/colorinformation.h \
     $$PWD/qvimagecore.h \
     $$PWD/qvimageloader.h \
     $$PWD/qvmovie.h \
@@ -64,3 +66,5 @@ FORMS += \
     $$PWD/qvshortcutdialog.ui
 
 macx:include($$PWD/../dist/mac/sparkle.pri)
+
+LIBS += -lz

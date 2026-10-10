@@ -1,0 +1,122 @@
+[
+  {
+    "id": "Z1",
+    "criterion": "切图保持已提交数值且不复活适应模式",
+    "test": "GraphicsViewTests::testKeepZoomAcrossNavigation",
+    "type": "动态/数据驱动",
+    "purpose": "验证不同图像尺寸和渲染路径保持比例",
+    "preconditions": "临时目录，navresetszoom=false，窗口可显示",
+    "input": "PNG/XPM/SVG；640×400→220×700；1%、120%、6400%",
+    "steps": "打开A，绝对缩放，打开B，改变窗口大小，再打开缓存A",
+    "expected": "每次成功显示与resize后数值不变，计算模式为空",
+    "postconditions": "临时图、窗口销毁，选项恢复"
+  },
+  {
+    "id": "Z2",
+    "criterion": "设置可见、反向绑定及立即持久化",
+    "test": "FeatureTests::testKeepZoomPreferenceAndColorTranslations",
+    "type": "动态",
+    "purpose": "检查UI真正连接原设置键",
+    "preconditions": "保存原选项，navresetszoom=true",
+    "input": "保持缩放复选框",
+    "steps": "创建设置，勾选，查询QSettings和SettingsManager，重建设置",
+    "expected": "初始未勾选，点击后原键=false，新设置显示勾选",
+    "postconditions": "原选项恢复，无新设置键"
+  },
+  {
+    "id": "Z3",
+    "criterion": "计算模式、失败和快速请求有确定行为",
+    "test": "GraphicsViewTests::testKeepCalculatedZoomAndFailedNavigation",
+    "type": "动态",
+    "purpose": "证伪只关闭重置、错误占位覆盖与旧请求回滚",
+    "preconditions": "临时图片及损坏PNG，保持开启",
+    "input": "适应比例、120%、加载中150%；A/B/C/坏图",
+    "steps": "适应A后切B并resize；120%→坏图→C；快速请求并缩放；关闭再打开",
+    "expected": "保持适应所得数值，坏图不覆盖，最新请求为150%，关闭后恢复首张默认",
+    "postconditions": "窗口和所有选项恢复"
+  },
+  {
+    "id": "C1",
+    "criterion": "源空间与ICC在转换前采集且缓存携带",
+    "test": "ImageCoreAndMovieTests::testSourceColorMetadata",
+    "type": "动态",
+    "purpose": "区分文件内嵌ICC与Qt生成profile",
+    "preconditions": "Qt PNG写入器可用，临时目录",
+    "input": "Display P3 ICC PNG、无标记PNG、未知字节",
+    "steps": "读文件源元数据，经过异步loader，再查询无标记文件",
+    "expected": "P3原始ICC保留，无标记为Absent，未知为Unknown",
+    "postconditions": "临时文件销毁，无颜色设置变化"
+  },
+  {
+    "id": "C2",
+    "criterion": "损坏或不支持不能误报未内嵌",
+    "test": "ImageCoreAndMovieTests::testSourceColorMetadata / ImageCoreAndMovieTests::testColorContainerBoundaries",
+    "type": "动态/恶意输入",
+    "purpose": "检查完整性与读取边界",
+    "preconditions": "有效ICC PNG字节",
+    "input": "损坏iCCP名称/CRC、截断PNG、结构合法但不支持ICC、受限解压输入",
+    "steps": "分别写入临时文件并解析",
+    "expected": "损坏profile为Invalid，不支持为Unsupported，截断/超限为Unknown，无越界或无界分配",
+    "postconditions": "测试输入清理"
+  },
+  {
+    "id": "C3",
+    "criterion": "输出空间由当前可见渲染路径提供",
+    "test": "ImageCoreAndMovieTests::testColorInformationFollowsPresentation",
+    "type": "动态/集成",
+    "purpose": "证伪以Qt目标设置冒充原生Metal输出",
+    "preconditions": "macOS Metal可用，Qt目标sRGB",
+    "input": "P3 PNG→Qt XPM",
+    "steps": "加载P3等待实际呈现，读取输出；打开信息区再切Qt图",
+    "expected": "源仍为P3；Metal为Extended Linear Display P3；Qt为实际sRGB，源ICC不串图",
+    "postconditions": "选项与窗口清理"
+  },
+  {
+    "id": "C4",
+    "criterion": "信息区刷新并在无图时清除旧状态",
+    "test": "ImageCoreAndMovieTests::testColorInformationFollowsPresentation",
+    "type": "动态/UI",
+    "purpose": "检查可见信息区与当前快照一致",
+    "preconditions": "信息区可见且接入实时值提供器",
+    "input": "原生图、Qt图、关闭图片",
+    "steps": "跨分支切图并关闭",
+    "expected": "三行从同一快照更新，关闭显示No output且无旧ICC",
+    "postconditions": "对话框关闭，定时器随对象销毁"
+  },
+  {
+    "id": "L1",
+    "criterion": "入口、构建与四个翻译目录完整",
+    "test": "tests/zoom_color_acceptance_static.py",
+    "type": "静态",
+    "purpose": "防止遗漏UI、上下文、占位符或构建文件",
+    "preconditions": "源码目录可读",
+    "input": "UI XML、四份TS、CMake/qmake",
+    "steps": "解析入口与键集合并检查占位符",
+    "expected": "每个键译文非空且完成，英文使用源码，两套构建均登记新文件",
+    "postconditions": "源码不变"
+  },
+  {
+    "id": "L2",
+    "criterion": "五语言实际QM可用且对话框重翻译",
+    "test": "FeatureTests::testKeepZoomPreferenceAndColorTranslations",
+    "type": "动态/资源集成",
+    "purpose": "检查运行时真实翻译资源而非仅TS文字",
+    "preconditions": "已编译四份QM",
+    "input": "zh_Hans、zh_Hant、es、ja、英语回退",
+    "steps": "加载安装各翻译器，处理LanguageChange，检查设置及信息标签，移除翻译器；显示信息区并检查各颜色值标签heightForWidth，保存各语言截图；等待设置窗口终态，并检查新复选框的自然宽度及视口包含关系",
+    "expected": "标签与当前QM一致，切回英语无残留；颜色值列有足够高度显示全部换行文字",
+    "postconditions": "所有测试翻译器移除"
+  },
+  {
+    "id": "Z4",
+    "criterion": "窗口隔离、会话恢复与关闭选项保持旧行为",
+    "test": "GraphicsViewTests::testKeepZoomWindowIsolationAndSession",
+    "type": "动态/HiDPI",
+    "purpose": "检查比例不跨窗口传播且会话初次恢复有优先级",
+    "preconditions": "两个窗口，保持开启，临时PNG；另以QT_SCALE_FACTOR=2运行",
+    "input": "窗口1=120%，窗口2=70%；会话保存120%；关闭保持后切图",
+    "steps": "两窗口独立切图；窗口2清图并恢复窗口1会话；窗口2关闭保持再切图",
+    "expected": "各自比例保持；恢复120%而非70%；关闭后回默认计算模式；窗口1不受影响",
+    "postconditions": "两窗口关闭、选项与退出策略恢复"
+  }
+]

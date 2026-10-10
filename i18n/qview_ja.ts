@@ -662,6 +662,78 @@ No write permission or file is read-only.</source>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
     </message>
+    <message>
+        <source>Source color space:</source>
+        <translation>元の色空間：</translation>
+    </message>
+    <message>
+        <source>Embedded ICC profile:</source>
+        <translation>埋め込み ICC プロファイル：</translation>
+    </message>
+    <message>
+        <source>Current output color space:</source>
+        <translation>現在の出力色空間：</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>不明</translation>
+    </message>
+    <message>
+        <source>Not embedded</source>
+        <translation>埋め込みなし</translation>
+    </message>
+    <message>
+        <source>Invalid profile</source>
+        <translation>無効なプロファイル</translation>
+    </message>
+    <message>
+        <source>Unsupported profile</source>
+        <translation>未対応のプロファイル</translation>
+    </message>
+    <message>
+        <source>Unspecified (assumed sRGB for display)</source>
+        <translation>未指定（表示時は sRGB として解釈）</translation>
+    </message>
+    <message>
+        <source>No output</source>
+        <translation>出力なし</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>プレビュー：%1</translation>
+    </message>
+    <message>
+        <source>Decoder: %1</source>
+        <translation>デコーダー：%1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC: %1</source>
+        <translation>埋め込み ICC：%1</translation>
+    </message>
+    <message>
+        <source>RAW (camera color space)</source>
+        <translation>RAW（カメラの色空間）</translation>
+    </message>
+    <message>
+        <source>Document-defined color spaces</source>
+        <translation>文書で定義された色空間</translation>
+    </message>
+    <message>
+        <source>Container: %1</source>
+        <translation>ファイル内の宣言：%1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC (%1 bytes)</source>
+        <translation>埋め込み ICC（%1 バイト）</translation>
+    </message>
+    <message>
+        <source>Unspecified</source>
+        <translation>未指定</translation>
+    </message>
+    <message>
+        <source>Conflicting color declarations</source>
+        <translation>色の宣言が競合しています</translation>
+    </message>
 </context>
 <context>
     <name>QVOpenWithDialog</name>
@@ -1314,6 +1386,10 @@ Unable to associate: %1.</source>
     <message>
         <source>Monthly</source>
         <translation>毎月</translation>
+    </message>
+    <message>
+        <source>Keep zoom level when switching images</source>
+        <translation>画像の切り替え時にズーム倍率を維持</translation>
     </message>
 </context>
 <context>

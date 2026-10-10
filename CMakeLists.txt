@@ -56,6 +56,8 @@ else()
     set(QT_VERSION_MAJOR 5)
 endif()
 
+find_package(ZLIB REQUIRED)
+
 include(cmake/Sparkle.cmake)
 
 set(FOVELLE_SOURCES
@@ -71,6 +73,7 @@ set(FOVELLE_SOURCES
     src/qvaboutdialog.cpp
     src/qvrenamedialog.cpp
     src/qvinfodialog.cpp
+    src/colorinformation.cpp
     src/qvimagecore.cpp
     src/qvimageloader.cpp
     src/qvmovie.cpp
@@ -100,6 +103,7 @@ set(FOVELLE_HEADERS
     src/qvaboutdialog.h
     src/qvrenamedialog.h
     src/qvinfodialog.h
+    src/colorinformation.h
     src/qvimagecore.h
     src/qvimageloader.h
     src/qvmovie.h
@@ -139,6 +143,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
+    ZLIB::ZLIB
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Widgets

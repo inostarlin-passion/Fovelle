@@ -33,6 +33,8 @@ public:
         QSize baseImageSize;
         QSize loadedPixmapSize;
         QColorSpace targetColorSpace;
+        QColorSpace actualColorSpace;
+        QvColor::SourceInfo sourceColor;
         QVCocoaFunctions::HDRMetadata hdrMetadata;
         double decodeMilliseconds = 0.0;
         std::optional<ErrorData> errorData;

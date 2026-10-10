@@ -1,0 +1,50 @@
+[
+  {
+    "id": "KZ-P1",
+    "criterion": "恢复为可配置的保持缩放键不再被启动迁移强制重置",
+    "test": "tests/keep_zoom_persistence_static.py",
+    "type": "静态",
+    "purpose": "阻止恢复设置入口后仍残留在 removedPreferenceDefaults 的回归",
+    "preconditions": "可读源码树",
+    "input": "迁移表、默认注册、设置反向绑定、main 启动顺序",
+    "steps": "检查重置表不包含 navresetszoom；默认仍为true、绑定仍取反；确认迁移在生产应用构造前执行",
+    "expected": "活动设置不被迁移覆盖，保留原默认及真实启动路径",
+    "postconditions": "不修改文件或设置"
+  },
+  {
+    "id": "KZ-P2",
+    "criterion": "迁移保留已保存的开/关，并保持缺省及幂等性",
+    "test": "FeatureTests::testKeepZoomSurvivesStartupMigration",
+    "type": "动态/三行数据",
+    "purpose": "补上同进程重建对话框未覆盖的启动迁移阶段",
+    "preconditions": "隔离INI测试目录，firstlaunch=true，保存并作用域恢复原值",
+    "input": "navresetszoom=false、true、缺失；退役 navigationregionsenabled=true",
+    "steps": "写入输入并sync；连续运行两次真实迁移；各轮检查磁盘、全新SettingsManager、真实复选框；核对退役策略仍归一化",
+    "expected": "false/true原样保留；缺失不强行写入且默认保持关闭；复选框与反向值一致；退役策略仍为false",
+    "postconditions": "恢复原测试设置；不禁用或绕过迁移"
+  },
+  {
+    "id": "KZ-P3",
+    "criterion": "勾选保持缩放后跨独立进程启动仍保持勾选",
+    "test": "FeatureTests::testKeepZoomPersistsAcrossProcesses",
+    "type": "动态/INI及macOS NativeFormat",
+    "purpose": "检出启动前后被迁移覆盖，排除同进程缓存造成的假通过",
+    "preconditions": "临时共享INI目录或UUID专属原生偏好域；每个子进程按生产顺序先迁移再构造应用",
+    "input": "seed→enable→read→read",
+    "steps": "种子进程初始化标记；写进程点击真实复选框并正常退出；两个全新读进程分别执行启动迁移并读取UI、磁盘与manager",
+    "expected": "写入及两个重启均checked=true、storedReset=false、managerReset=false、status=NoError",
+    "postconditions": "独立子进程结束；作用域清理测试域键和临时目录，失败路径也执行清理"
+  },
+  {
+    "id": "KZ-P4",
+    "criterion": "取消勾选同样持久化且不改变新安装默认",
+    "test": "FeatureTests::testKeepZoomPersistsAcrossProcesses / FeatureTests::testKeepZoomSurvivesStartupMigration",
+    "type": "动态/双向回归",
+    "purpose": "防止修复以强制开启所有用户代替保存选择",
+    "preconditions": "前面已经成功跨进程保存勾选状态",
+    "input": "disable→read；无键默认输入",
+    "steps": "另起进程取消勾选并退出，再起进程迁移后读取；独立检查无键默认",
+    "expected": "取消后及重启均checked=false、storedReset=true；默认仍关闭保持",
+    "postconditions": "保持用户开/关语义及其它迁移策略，不写真实Fovelle偏好域"
+  }
+]

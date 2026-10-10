@@ -661,6 +661,78 @@ No write permission or file is read-only.</source>
         <source>%1 x %2 (%3 MP)</source>
         <translation>%1 x %2 (%3 MP)</translation>
     </message>
+    <message>
+        <source>Source color space:</source>
+        <translation>源色彩空间：</translation>
+    </message>
+    <message>
+        <source>Embedded ICC profile:</source>
+        <translation>内嵌 ICC 配置文件：</translation>
+    </message>
+    <message>
+        <source>Current output color space:</source>
+        <translation>当前输出色彩空间：</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <source>Not embedded</source>
+        <translation>未内嵌</translation>
+    </message>
+    <message>
+        <source>Invalid profile</source>
+        <translation>配置文件损坏</translation>
+    </message>
+    <message>
+        <source>Unsupported profile</source>
+        <translation>不支持的配置文件</translation>
+    </message>
+    <message>
+        <source>Unspecified (assumed sRGB for display)</source>
+        <translation>未指定（显示时按 sRGB 解释）</translation>
+    </message>
+    <message>
+        <source>No output</source>
+        <translation>无输出</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>预览：%1</translation>
+    </message>
+    <message>
+        <source>Decoder: %1</source>
+        <translation>解码器：%1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC: %1</source>
+        <translation>内嵌 ICC：%1</translation>
+    </message>
+    <message>
+        <source>RAW (camera color space)</source>
+        <translation>RAW（相机色彩空间）</translation>
+    </message>
+    <message>
+        <source>Document-defined color spaces</source>
+        <translation>文档定义的色彩空间</translation>
+    </message>
+    <message>
+        <source>Container: %1</source>
+        <translation>文件声明：%1</translation>
+    </message>
+    <message>
+        <source>Embedded ICC (%1 bytes)</source>
+        <translation>内嵌 ICC（%1 字节）</translation>
+    </message>
+    <message>
+        <source>Unspecified</source>
+        <translation>未指定</translation>
+    </message>
+    <message>
+        <source>Conflicting color declarations</source>
+        <translation>色彩声明冲突</translation>
+    </message>
 </context>
 <context>
     <name>QVOpenWithDialog</name>
@@ -1313,6 +1385,10 @@ Unable to associate: %1.</source>
     <message>
         <source>Monthly</source>
         <translation>每月</translation>
+    </message>
+    <message>
+        <source>Keep zoom level when switching images</source>
+        <translation>切换图片时保持缩放比例</translation>
     </message>
 </context>
 <context>

@@ -18,6 +18,7 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
     connect(&loadedMovie, &QVMovie::updated, this, [this](QRect rect){
         QImage movieImage = loadedMovie.currentImage();
         handleColorSpaceConversion(movieImage, currentFileDetails.targetColorSpace);
+        currentFileDetails.actualColorSpace = movieImage.colorSpace();
         loadedPixmap = QPixmap::fromImage(std::move(movieImage));
         emit animatedFrameChanged(rect);
     });
@@ -159,6 +160,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     const QColorSpace targetColorSpace = getTargetColorSpace();
     if (!readImage.isNull()) {
         handleColorSpaceConversion(readImage, targetColorSpace);
+        currentFileDetails.actualColorSpace = readImage.colorSpace();
         loadedPixmap = QPixmap::fromImage(std::move(readImage));
     } else {
         loadedPixmap = QPixmap();
@@ -188,6 +190,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
     currentFileDetails.hdrMetadata = readData.hdrMetadata;
+    currentFileDetails.sourceColor = readData.sourceColor;
     currentFileDetails.decodeMilliseconds = readData.decodeMilliseconds;
 
     // Animation detection

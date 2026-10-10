@@ -121,6 +121,7 @@ public:
     bool hasPreviousFile() { return imageCore.hasPreviousFile(); }
     bool hasNextFile() { return imageCore.hasNextFile(); }
     void refreshVerticalScrollBarGeometry();
+    QvColor::Information colorInformation() const;
     qreal getZoomLevel() const { return zoomLevel; }
     // Kept as a read-only compatibility name for callers that used to sample
     // the animated frame.  Zoom has one authoritative value now.
@@ -435,6 +436,8 @@ private:
     bool navigationResetsZoom {true};
     bool loadIsFromSessionRestore {false};
     qreal zoomLevel {1.0};
+    std::optional<qreal> lastSuccessfulZoom;
+    std::optional<qreal> preservedLoadZoom;
     qreal appliedDpiAdjustment {1.0};
     qreal appliedExpensiveScaleZoomLevel {0.0};
     bool isUpdatingSceneRect {false};

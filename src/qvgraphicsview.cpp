@@ -1428,6 +1428,15 @@ void QVGraphicsView::shutdownAsyncWork()
 
 void QVGraphicsView::beforeLoad()
 {
+    // fileChanging is delivered just before installing an accepted result,
+    // after request-id filtering, so this reads the latest user zoom even if
+    // the decode was in flight. Failed/obsolete requests cannot replace it.
+    if (getCurrentFileDetails().isPixmapLoaded)
+        lastSuccessfulZoom = zoomLevel;
+    preservedLoadZoom =
+            !navigationResetsZoom && !loadIsFromSessionRestore ? lastSuccessfulZoom : std::nullopt;
+    if (preservedLoadZoom.has_value())
+        calculatedZoomMode.reset();
     lastMouseViewportPosition.reset();
 
     // A native HDR presentation may have parked Qt viewport painting.  The
@@ -1454,6 +1463,26 @@ void QVGraphicsView::beforeLoad()
     // If a prior pixmap is still loaded, capture its content rect
     if (getCurrentFileDetails().isPixmapLoaded)
         lastImageContentRect = getContentRect();
+}
+
+QvColor::Information QVGraphicsView::colorInformation() const
+{
+    QvColor::Information info;
+    const auto &details = getCurrentFileDetails();
+    if (!details.isPixmapLoaded || details.errorData.has_value())
+        return info;
+    info.hasOutput = true;
+    info.source = details.sourceColor;
+    const auto state =
+            hdrRenderer ? hdrRenderer->diagnostics() : QVCocoaFunctions::HDRRendererDiagnostics{ };
+    // Use the same visible-handoff predicate as the viewport. A prepared but
+    // unpresented drawable must not replace the Qt proxy's color information.
+    info.nativeOutput =
+            hdrRendererActive && state.firstFramePresented && !loadedPixmapItem->isVisible();
+    info.preview = hdrRendererActive && !info.nativeOutput;
+    info.outputSpace = info.nativeOutput ? state.outputColorSpaceName
+                                         : QvColor::spaceName(details.actualColorSpace);
+    return info;
 }
 
 void QVGraphicsView::ensureHDRRenderer()
@@ -1534,10 +1563,30 @@ void QVGraphicsView::postLoad()
     if (!fileDetails.fileInfo.filePath().isEmpty() && !fileDetails.errorData.has_value())
         qvApp->getActionManager().addFileToRecentsList(fileDetails.fileInfo);
 
+    const bool closedImage = fileDetails.fileInfo.filePath().isEmpty();
+    if (closedImage) {
+        lastSuccessfulZoom.reset();
+        preservedLoadZoom.reset();
+        calculatedZoomMode = defaultCalculatedZoomMode;
+        emit calculatedZoomModeChanged();
+    }
+    if (preservedLoadZoom.has_value()) {
+        calculatedZoomMode.reset();
+        lastCalculatedZoomMode.reset();
+        lastCalculatedZoomLevel.reset();
+        if (fileDetails.isPixmapLoaded) {
+            // Do not call zoomAbsolute: equal values can early-return and
+            // remembered fit values can reactivate calculated zoom.
+            commitZoomImmediately(makeZoomPlan(*preservedLoadZoom, std::nullopt));
+            centerImage();
+        }
+        zoomLevel = *preservedLoadZoom;
+        emit calculatedZoomModeChanged();
+        emit zoomLevelChanged();
+    }
     emit fileChanged(loadIsFromSessionRestore);
 
-    if (!loadIsFromSessionRestore)
-    {
+    if (!loadIsFromSessionRestore && !preservedLoadZoom.has_value()) {
         if (navigationResetsZoom && calculatedZoomMode != defaultCalculatedZoomMode)
             setCalculatedZoomMode(defaultCalculatedZoomMode, true);
         else
@@ -1550,6 +1599,9 @@ void QVGraphicsView::postLoad()
     requestHDRRendererUpdate();
     QTimer::singleShot(0, this, [this]() { logViewportState("post-load-next-turn"); });
     loadIsFromSessionRestore = false;
+    preservedLoadZoom.reset();
+    if (fileDetails.isPixmapLoaded)
+        lastSuccessfulZoom = zoomLevel;
 
     expensiveScaleTimer->start();
 

@@ -2,9 +2,13 @@
 #define QVINFODIALOG_H
 
 #include <QDialog>
+#include <functional>
+#include "colorinformation.h"
 #include <QDateTime>
 #include <QFileInfo>
 #include <QLocale>
+
+class QTimer;
 
 namespace Ui {
 class QVInfoDialog;
@@ -21,14 +25,19 @@ public:
     void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount);
 
     void updateInfo();
+    void setColorInfoProvider(std::function<QvColor::Information()> provider);
 
     static QString formatModifiedDateTime(const QDateTime &dateTime,
                                           const QString &languageCode);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
+    void updateColorInfo();
+    std::function<QvColor::Information()> colorInfoProvider;
+    QTimer *colorRefreshTimer;
     Ui::QVInfoDialog *ui;
 
     QFileInfo fileInfo;

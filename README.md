@@ -25,6 +25,7 @@ macOS 15.0 or later.
 ## Additional Features
 
 - Displays small images at their actual size (1:1).
+- Supports keeping the same zoom level when switching between images.
 - Supports pressing Esc to close the window or quit the app.
 - Provides floating navigation buttons on the left and right sides of the window that automatically appear and disappear as needed.
 - Displays vertical and horizontal scrollbars only when needed.

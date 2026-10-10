@@ -1,3 +1,137 @@
+# 2026-10-10 持久化回归修正：Keep zoom level
+
+## 结论与根因
+
+已修复：启动迁移把活动偏好 `navresetszoom` 当作已退役选项，每次强制写成 true；UI 勾选保存的 false 因而在重启时被覆盖。生产改动仅从 `removedPreferenceDefaults` 删除这一项，保留原默认、反向绑定与其它旧设置迁移。
+
+此前测试只覆盖同进程重建设置对话框，普通测试启动也没执行生产启动迁移，无法证明重启持久化。之前“持久化通过”的结论超出了测试证据范围；本轮用迁移数据行及共享实际存储的独立进程测试补齐。
+
+## 验收与结果
+
+| 检查 | 修复前 | 修复后 |
+|---|---|---|
+| KZ-P1 静态：活动键不在退役重置表 | 失败，发现 navresetszoom | 通过 |
+| KZ-P2 已开启 false，经两次启动迁移 | 失败，false 被改为 true | 通过，磁盘/全新 manager/UI 一致 |
+| KZ-P2 已关闭 true | 通过 | 通过，未强制开启所有用户 |
+| KZ-P2 缺省键 | 失败，被迁移强行写入 | 通过，无键仍由默认true解释为不保持 |
+| KZ-P2 其它已退役策略 | 仍按既有逻辑重置 | 通过，navigationregionsenabled仍归一化为false |
+| KZ-P3 INI 独立进程勾选并重启读回两次 | 失败，写进程勾选成功，读进程取消 | 通过，checked=true/storedReset=false |
+| KZ-P3 macOS原生后端独立进程 | 同样失败 | 同样通过 |
+| KZ-P4 取消勾选并再次重启，两个后端 | 原流程在更早勾选保持断言已失败 | 完整序列通过，checked=false/storedReset=true |
+
+修复前两个新增 CTest 条目均失败：动态主体五行中四行失败、一行通过。修复后相关六项 CTest **6/6 通过**（17.97 秒）；完整 CTest **41/41 通过**（340.68 秒）。详细动态运行 **7 passed, 0 failed, 0 skipped**，其中包含两项 Qt 初始化/清理，实际数据行五行。最终格式整理后再构建并重跑两项持久化门禁；结果见 `final-tests.log`。
+
+双后端读写序列均为：`seed(取消) → enable(勾选、磁盘false) → read(仍勾选) → read(仍勾选) → disable(取消、磁盘true) → read(仍取消)`。每个阶段为独立进程，写入/读取均检查 NoError。子进程使用生产的 `migrateOldSettings` 和真实 `QVOptionsDialog`，按生产顺序先迁移再构造应用；不是直接写入一个期望值后假装重启，也不是以同进程QSettings新对象代替独立进程。
+
+## 复现、证据与范围
+
+环境同前一轮：arm64、macOS 27.0.1、Qt 6.11.2、Release、部署目标15.0。INI使用临时共享目录；原生后端使用UUID专属偏好域；scope guard在失败时也运行清理，不写真实Fovelle偏好。
+
+本地证据位于 `reports/evidence/keep_zoom_persistence/`：
+
+- `before-settingsmanager.cpp`：修复前生产迁移快照。
+- `before-static.log`、`before-build.log`、`before-tests.log`：先编译新增测试，后取得可读的静态/动态失败。
+- `after-build.log`、`after-tests.log`：生产修复与六项相关验收。
+- `after-dynamic-details.log`：五行数据与两个后端每阶段的实际勾选、磁盘和manager值。
+- `full-ctest.log`：完整41项通过。
+- `after-static.log`、`related-static.log`：新增持久化门禁及上一轮UI/语言静态门禁。
+- `final-build.log`、`final-tests.log`：最终构建与两项持久化重跑。
+- `before-technical_design_document.md`、`before-test_case_specification.md`、`before-test_completion_report.md`：本轮报告更新前完整快照。
+
+复现命令：
+
+```sh
+cmake --build build --target Fovelle fovelle_tests -j 6
+ctest --test-dir build -R FovelleKeepZoomPersistence --output-on-failure
+ctest --test-dir build --output-on-failure
+```
+
+联网检索路径、Qt/Apple依据、可能根因与反证、恒等迁移证明写在技术设计第10节；四条原子标准及六部分用例写在测试说明最新增补与 `tests/keep_zoom_persistence_cases.json`。未修改其它生产功能或关闭完整迁移来让测试通过。
+
+本次验证正常进程退出/重启，不证明断电写盘、磁盘权限异常或外部进程主动改写设置的行为。初始化标记已存在是UI保存后正常重启的前提；探针避免依赖机器上的旧qView导入数据。旧版已经覆盖掉的用户选择无法反推，故不擅自把所有已有true改成false；使用修复构建后用户重新选择的值会保留。前一轮报告中的历史静态工具及元数据识别边界仍保留，不将本轮41项CTest通过扩展成“所有历史工具均通过”。
+
+---
+
+# 2026-10-10 缩放保持与色彩信息：测试完成报告
+
+## 范围与结果
+
+本轮实现“切图保持缩放比例”和“文件信息区显示源色彩空间、内嵌 ICC、当前输出空间”，均提供英语、简体中文、繁体中文、西班牙语、日语。单实例需求不在本轮范围。
+
+已完成先固化用例/代码、再实现与运行验证；新增十条原子标准均有六部分用例、静态或动态代码映射。完整 CTest 39/39 通过（333.51 秒），后续边界修正的 Qt 主套件与功能验收重跑 6/6 通过（189.38 秒），最终布局/缓存修正的五项受影响验收 5/5 通过（15.05 秒）。最后的可见界面截图与宽高断言结果见下文视觉检查记录。
+
+环境：arm64，macOS 27.0.1，Qt 6.11.2，Apple LLVM 17，Release；部署目标 macOS 15.0。实际执行平台不等于已在 macOS 15.0 真机上验证。zlib 链接系统 `/usr/lib/libz.1.dylib`，未新增需要单独分发的 Homebrew 动态库。
+
+## 原子标准与实测映射
+
+| 标准 | 实测代码/输入 | 结果 |
+|---|---|---|
+| Z1 数值保持 | `testKeepZoomAcrossNavigation` 的 PNG/XPM/SVG × 1%/120%/6400%，不同宽高、resize、缓存返回 | 通过，保持数值且计算模式为空 |
+| Z2 设置入口 | `testKeepZoomPreferenceAndColorTranslations` 点击真实复选框，查询 QSettings/SettingsManager 并重建设置对话框 | 通过，原键反向绑定且立即持久化 |
+| Z3 状态边界 | `testKeepCalculatedZoomAndFailedNavigation` 适应模式切图、坏图、快速请求及加载中缩放 | 通过，无旧适应模式回滚；坏图后继承；最后输入 150% 生效 |
+| Z4 独立窗口/恢复 | `testKeepZoomWindowIsolationAndSession` 两窗口 120%/70%、恢复 120% 会话、关闭保持选项；另以 QT_SCALE_FACTOR=2 重跑整个缩放组 | 通过，不跨窗口污染；恢复优先；关闭后回到旧默认行为 |
+| C1 来源与缓存 | `testSourceColorMetadata`，独立 Qt 写入的 P3 ICC PNG、无标记 PNG、异步 loader | 通过，原始 ICC 保留；生成 Qt profile 不会把未内嵌误报为内嵌 |
+| C2 容器/错误/限额 | `testColorContainerBoundaries`，PNG sRGB/cICP、损坏/不支持 profile、16 MiB+1 解压数据、JPEG 乱序/缺失/重复分片、TIFF 越界、WebP 截断 | 通过，按证据区分状态并有界退出；小 profile 不保留 16 MiB 缓冲容量 |
+| C3 输出分支 | `testColorInformationFollowsPresentation`，Qt 目标为 sRGB，P3 PNG 走实际原生 SDR Metal，然后切到 XPM | 通过，原生为 Extended Linear Display P3，Qt 为实际 sRGB |
+| C4 刷新/清空 | 同一集成测试让信息区保持可见，跨分支切换后关闭图片 | 通过，源 ICC 不串图，无图为 No output |
+| L1 静态集成 | `zoom_color_acceptance_static.py` 检查 UI XML、四份 TS 的上下文/完成状态/占位符、构建登记及六部分用例的代码映射 | 通过，英语采用源码；CMake/qmake 均登记新模块 |
+| L2 实际语言资源 | 编译加载四份 QM，验证 LanguageChange、英语回退、纯文本与值列高度；各语言截图 | 通过，新增标签/状态与设置入口均使用对应译文；截图最终审阅另列 |
+
+测试程序使用独立临时 INI 目录，不继承或写入桌面设置；新测试的窗口关闭、菜单注销、翻译器移除与选项恢复均有作用域清理。初始测试清理顺序错误及空文件名警告已修复，未通过关闭 fatal warnings 掩盖。
+
+## 修复前证据与逆向证伪
+
+1. 入口静态测试在旧代码上因缺少 `keepZoomCheckbox` 失败。首次包含完整新接口的测试编译因旧生产代码没有 `colorinformation.h` 失败；这是未实现接口证据，不冒充功能运行失败。
+2. 为取得功能层反例，仅恢复原始 `qvgraphicsview.cpp` 的缩放实现，保留同一新测试与其安全清理。原测试期望继承 `0.5`，实际下一张为 `0.9028571428571428`，明确失败；恢复实现后通过。因此“关闭导航重置就足够”的假设已被同输入反证。
+3. 最初动态测试结束时出现 QMenu 崩溃。系统堆栈定位至 `ScopedOptionValues::~ScopedOptionValues → SettingsManager::loadSettings → ActionManager::settingsUpdated → QMenu::menuAction`；测试窗口已析构但未执行 closeEvent 注销菜单。调整测试清理顺序后取得上述可读断言失败，未把测试崩溃归因于缩放算法。
+4. 完整回归第一次出现空文件名警告，在 `QT_FATAL_WARNINGS=1` 下终止。原因是新信息对话框语言更新时尚无文件；增加空路径处理后警告消失。
+5. 首次完整运行亦出现多个旧几何断言失败；改为隔离测试设置后，原有适应、滚动条、标题栏、导航及完整 Qt 套件通过。该对照说明验收不能依赖桌面遗留偏好；没有为让测试通过去放宽几何容差或修改旧缩放公式。
+6. 截图发现 macOS 默认表单字段增长策略会裁掉色彩值；改用可用值列宽度，并固化 `heightForWidth` 断言。截图不是仅以标签文字存在代替布局检查。
+
+## 命令与本地证据
+
+所有证据位于 `reports/evidence/zoom_color_20261010/`；该目录按仓库既有规则被 Git 忽略，但本地保留，可供复查。
+
+| 文件 | 含义 |
+|---|---|
+| `before-static.log`、`before-build.log` | 未实现入口/接口时的失败 |
+| `baseline-zoom.log`、`baseline-build.log` | 原缩放实现同输入失败，数值期望与实际完整记录 |
+| `before-crash-stack.txt`、`before-lldb.log` | 测试清理崩溃定位 |
+| `verified-build.log`、`verified-ctest.log` | Release 构建及完整 39 项 CTest |
+| `delivery-build.log`、`delivery-ctest.log` | 边界修正后 Qt 主套件与五个功能条目，6/6 |
+| `ui-final-build.log`、`ui-final-ctest.log` | 最终信息布局与缓存容量修正，5/5 |
+| `visual-build.log`、`visual-ctest.log` | 可见设置窗口中的截图与字段完整性检查 |
+| `static-final.log` | 新增静态验收 |
+| `file-info-{en,zh_Hans,zh_Hant,es,ja}.png`、`settings-{en,zh_Hans,zh_Hant,es,ja}.png` | 五语言信息区与设置入口截图 |
+| `before-file-info-es.png` | 修正前西语值列截断证据 |
+| `quality-static.json`、`baseline-quality-static.json` | 旧静态检查器与原提交对照 |
+
+复现命令：
+
+```sh
+cmake --build build --target Fovelle fovelle_tests -j 6
+ctest --test-dir build --output-on-failure
+python3 tests/zoom_color_acceptance_static.py
+ctest --test-dir build -R 'Fovelle(ZoomColor|KeepZoom|ColorInformation)' --output-on-failure
+```
+
+## 最终视觉检查记录
+
+可见设置窗口的最终验证 1/1 通过（`visual-ctest.log`，0.89 秒）。新增断言验证复选框宽度不小于其自然宽度、整行位于 General 视口内，并等待实际布局终态；不能在 LanguageChange 只处理一个事件轮次后立即截取未完成的尺寸。信息区验证三个值标签高度覆盖各自的 heightForWidth。最终审阅英/简/繁/西/日截图：新增入口文字与三项色彩信息均完整显示。曾发现的色彩值列截断由生产布局修正；设置截图的早期裁切通过等待真实布局并显示原生窗口的正确测试流程消除，未缩短译文或放宽可见性断言。
+
+这些为 Qt widget 截图，用于文字和布局检查；并非物理显示色度测量。截图通过安装 QM 切换标签，既有选项列表、日期或字节格式仍可能遵循应用保存语言/系统区域设置，不表示全应用已完成即时语言切换。真实 Qt/Metal 输出描述另由 `testColorInformationFollowsPresentation` 验证。
+
+## 旧静态检查器与验证边界
+
+额外运行旧 `quality_static.py` 得到 24/29 通过，五项失败为 ST-01/06/09/11/16。将 HEAD 导出到独立目录再次运行，同五项仍失败：涉及既有全文件格式差异及过时源码字符串/测试名匹配。导出目录没有 `.git`，其额外 ST-03 失败只是归档测试条件，不是原仓库缺陷；实际工作区 `git diff --check` 通过。本次新增静态门禁通过，编译过程亦包含原有 clang-tidy 设置。没有改写旧检查器来掩盖失败，因此不能声称“所有历史静态工具均已通过”。
+
+未实现提取适配器的格式、BigTIFF、多页/多分辨率选择返回 Unknown；无声明文件不保证恢复真实创作空间。ICC 的 Invalid 是已检测到的结构/容器损坏，Unsupported 表示当前解析库无法解释，不是完整 ICC 规范认证。实际输出指应用表面编码，未进行多台物理显示器的色度测量。整体语言选择沿用应用既有重启约定；运行时重翻译测试不代表全部旧菜单已改为即时切换。
+
+
+---
+
+## 既有测试完成记录（完整保留）
+
 # HDR 局部偏色测试完成报告
 
 日期：2026-10-08。结论：新增测试在修复前检出了端点颜色错误，修复后的颜色、实际缓存、亮度与选定完整回归门禁均通过。已修复的生产缺陷是按 RGB 峰值混用 SDR/HDR 端点；未获得用户原异常图片，未宣称已复现该文件的全部显示现场。

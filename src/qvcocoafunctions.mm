@@ -2215,6 +2215,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // older macOS releases the native HDR overlay stays unavailable and
         // the existing SDR proxy remains the compatible presentation path.
         state.rendererAvailable = presentationState != nil && displayLink != nil;
+        state.outputColorSpaceName = CFEqual(metalLayer.colorspace, outputColorSpace)
+                ? QStringLiteral("Extended Linear Display P3")
+                : QString();
         state.usesRGBA16Float = true;
         state.usesExtendedLinearDisplayP3 = CGColorSpaceUsesExtendedRange(outputColorSpace);
         state.usesColorSync = true;
