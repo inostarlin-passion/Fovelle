@@ -1,0 +1,900 @@
+Compile Release artifact with macOS 15 SDK	Set up job	﻿2026-10-16T13:30:31.0451730Z Current runner version: '2.337.0'
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0490510Z ##[group]Runner Image Provisioner
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0492210Z Hosted Compute Agent
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0494100Z Version: 20260828.587
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0495210Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0497020Z Build Date: 2026-08-28T16:44:25Z
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0498500Z Worker ID: {8f9321a1-1c36-4cc5-96b1-bdb6337da4f8}
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0499970Z Azure Region: westus
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0501130Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0504460Z ##[group]Operating System
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0505680Z macOS
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0506850Z 15.7.9
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0507770Z 24G830
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0508760Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0509760Z ##[group]Runner Image
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0510790Z Image: macos-15-arm64
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0512010Z Version: 20260907.0337.1
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0514310Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0517930Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260907.0337
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0520120Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0521160Z ##[group]GITHUB_TOKEN Permissions
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0523050Z Contents: read
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0523500Z Metadata: read
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0523950Z Packages: read
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0524350Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0526250Z Secret source: Actions
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0526910Z Cache mode: write
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0527520Z Prepare workflow directory
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0814460Z Prepare all required actions
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.0881470Z Getting action download info
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.3658080Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:31.7776740Z Download action repository 'jurplel/install-qt-action@v4' (SHA:a9c63c7c123f3069cff414e7e482d95dfa9d8125)
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:34.5103670Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:34.7043010Z Getting action download info
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:34.8352270Z Download action repository 'actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1' (SHA:ece7cb06caefa5fff74198d8649806c4678c61a1)
+Compile Release artifact with macOS 15 SDK	Set up job	2026-10-16T13:30:34.9450070Z Complete job name: Compile Release artifact with macOS 15 SDK
+Compile Release artifact with macOS 15 SDK	Checkout	﻿2026-10-16T13:30:34.9894490Z ##[group]Run actions/checkout@v4
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9894920Z with:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9895110Z   repository: inostarlin-passion/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9897140Z   token: ***
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9897310Z   ssh-strict: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9897480Z   ssh-user: git
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9897660Z   persist-credentials: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9897860Z   clean: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9898040Z   sparse-checkout-cone-mode: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9898260Z   fetch-depth: 1
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9898430Z   fetch-tags: false
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9898620Z   show-progress: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9898790Z   lfs: false
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9899050Z   submodules: false
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9899230Z   set-safe-directory: true
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9899440Z   allow-unsafe-pr-checkout: false
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:34.9899750Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.3234750Z Syncing repository: inostarlin-passion/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.3236140Z ##[group]Getting Git version info
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.3236460Z Working directory is '/Users/runner/work/Fovelle/Fovelle'
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.3237170Z [command]/opt/homebrew/bin/git version
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4102790Z git version 2.55.0
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4119520Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4126390Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/a3a007f6-8c4f-4857-a672-1051b29ea583/.gitconfig'
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4132890Z Temporarily overriding HOME='/Users/runner/work/_temp/a3a007f6-8c4f-4857-a672-1051b29ea583' before making global git config changes
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4133750Z Adding repository directory to the temporary git global config as a safe directory
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4135180Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Fovelle/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4238430Z Deleting the contents of '/Users/runner/work/Fovelle/Fovelle'
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4241470Z ##[group]Initializing the repository
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4244890Z [command]/opt/homebrew/bin/git init /Users/runner/work/Fovelle/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4430570Z hint: Using 'master' as the name for the initial branch. This default branch name
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4438930Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4485800Z hint: to use in all of your new repositories, which will suppress this warning,
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4486430Z hint: call:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4486680Z hint:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4487060Z hint: 	git config --global init.defaultBranch <name>
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4487440Z hint:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4487800Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4505880Z hint: 'development'. The just-created branch can be renamed via this command:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4581920Z hint:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4617720Z hint: 	git branch -m <name>
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4635140Z hint:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4635640Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4636350Z Initialized empty Git repository in /Users/runner/work/Fovelle/Fovelle/.git/
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4640750Z [command]/opt/homebrew/bin/git remote add origin https://github.com/inostarlin-passion/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4643960Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4644420Z ##[group]Disabling automatic garbage collection
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4644850Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4646310Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4646750Z ##[group]Setting up auth
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4647400Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.4648670Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.5572460Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.5635240Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.6538550Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.6585070Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.7182660Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.7233330Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.7233830Z ##[group]Fetching the repository
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:35.7238570Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +aff31c3e5dfea7f5feb50623b20df8c1d3ff2142:refs/remotes/pull/4/merge
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7509040Z From https://github.com/inostarlin-passion/Fovelle
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7512700Z  * [new ref]         aff31c3e5dfea7f5feb50623b20df8c1d3ff2142 -> pull/4/merge
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7524540Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7593060Z ##[group]Determining the checkout info
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7594860Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7596050Z [command]/opt/homebrew/bin/git sparse-checkout disable
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7641120Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7721300Z ##[group]Checking out the ref
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.7723000Z [command]/opt/homebrew/bin/git checkout --progress --force refs/remotes/pull/4/merge
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.8932930Z HEAD is now at aff31c3 Merge 735b5734f5093df807b46290aedcac6c829bf575 into 20025902fb509268aeefeea25f0a8c14997a1330
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.8954610Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.9071960Z [command]/opt/homebrew/bin/git log -1 --format=%H
+Compile Release artifact with macOS 15 SDK	Checkout	2026-10-16T13:30:36.9196790Z aff31c3e5dfea7f5feb50623b20df8c1d3ff2142
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	﻿2026-10-16T13:30:36.9475910Z ##[group]Run XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9476730Z ^[[36;1mXCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9477200Z ^[[36;1mSDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9477550Z ^[[36;1mSDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9477840Z ^[[36;1mecho "Xcode ${XCODE_VERSION}"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9478200Z ^[[36;1mecho "macOS SDK ${SDK_VERSION}"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9478460Z ^[[36;1mecho "macOS SDK path ${SDK_PATH}"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9478710Z ^[[36;1mtest "${XCODE_VERSION%%.*}" -ge 16^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9478990Z ^[[36;1mtest "${SDK_VERSION%%.*}" -eq 15^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9479230Z ^[[36;1mtest -d "${SDK_PATH}"^[[0m
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9554880Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:36.9555310Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:39.1400520Z Xcode 16.4
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:39.1402760Z macOS SDK 15.5
+Compile Release artifact with macOS 15 SDK	Verify Xcode and macOS SDK	2026-10-16T13:30:39.1403750Z macOS SDK path /Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	﻿2026-10-16T13:30:39.1442390Z ##[group]Run python3 -m venv .venv
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:39.1442750Z ^[[36;1mpython3 -m venv .venv^[[0m
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:39.1443230Z ^[[36;1m.venv/bin/python -m pip install --disable-pip-version-check -r tests/requirements.txt^[[0m
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:39.1443710Z ^[[36;1mecho "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"^[[0m
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:39.1476450Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:39.1476720Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.2533540Z Collecting Pillow==12.3.0 (from -r tests/requirements.txt (line 1))
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.3238290Z   Downloading pillow-12.3.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (9.1 kB)
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.3469930Z Downloading pillow-12.3.0-cp314-cp314-macosx_11_0_arm64.whl (4.8 MB)
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.4371480Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.8/4.8 MB 72.0 MB/s  0:00:00
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.4682720Z Installing collected packages: Pillow
+Compile Release artifact with macOS 15 SDK	Set up Python test environment	2026-10-16T13:30:42.8470810Z Successfully installed Pillow-12.3.0
+Compile Release artifact with macOS 15 SDK	Install Qt	﻿2026-10-16T13:30:42.9417490Z ##[group]Run jurplel/install-qt-action@v4
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9417740Z with:
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9417870Z   version: 6.11.2
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418030Z   modules: qtimageformats
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418200Z   cache: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418340Z   target: desktop
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418510Z   install-deps: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418710Z   cache-key-prefix: install-qt-action
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9418920Z   setup-python: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419080Z   add-tools-to-path: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419250Z   set-env: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419400Z   no-qt-binaries: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419600Z   tools-only: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419750Z   aqtversion: ==3.3.*
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9419910Z   py7zrversion: ==1.1.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9420110Z   source: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9420290Z   documentation: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9420470Z   examples: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9420630Z   use-official: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9420770Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9465230Z ##[start-action display=Check the existence of built JavaScript action;id=__jurplel_install-qt-action.__run]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9498250Z ##[group]Run if [[ -f './action/lib/main.js' ]]; then
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9498590Z ^[[36;1mif [[ -f './action/lib/main.js' ]]; then^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9498890Z ^[[36;1m  exit 0^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9499040Z ^[[36;1mfi^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9499170Z ^[[36;1m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9499330Z ^[[36;1m# Workflow commands must be in one line.^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9499580Z ^[[36;1mprintf '%s' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9499810Z ^[[36;1m  '::error title=Action not built::' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9501950Z ^[[36;1m  'This TypeScript action cannot be used before building within Node.js environment. ' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9502440Z ^[[36;1m  'Maybe you are currently using non-tagging branches, for example, the "master" branch. ' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9502850Z ^[[36;1m  'Only v* branches have built JavaScript action file. ' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9503230Z ^[[36;1m  'If you would like to test unreleased changes, please refer to the CI workflows ' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9503670Z ^[[36;1m  'in our repository: https://github.com/jurplel/install-qt-action . ' \^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9503960Z ^[[36;1m  'Exiting... '^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9504110Z ^[[36;1m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9504230Z ^[[36;1mexit 1^[[0m
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9546400Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9546680Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9782660Z ##[end-action id=__jurplel_install-qt-action.__run;outcome=success;conclusion=success;duration_ms=31]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9784970Z ##[start-action display=Check Python version for potential bugs and notify users;id=__jurplel_install-qt-action.__run_2]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9841690Z ##[end-action id=__jurplel_install-qt-action.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9843310Z ##[start-action display=Setup Python;id=__jurplel_install-qt-action.__actions_setup-python]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9992190Z ##[group]Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9992540Z with:
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9992670Z   python-version: >=3.14.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9992860Z   check-latest: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9994590Z   token: ***
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9994760Z   update-environment: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9995000Z   allow-prereleases: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9995200Z   freethreaded: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:42.9995370Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.1877650Z ##[group]Installed versions
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2098980Z Successfully set up CPython (3.14.7)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2130780Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2186260Z ##[end-action id=__jurplel_install-qt-action.__actions_setup-python;outcome=success;conclusion=success;duration_ms=234]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2188750Z ##[start-action display=Setup and run aqtinstall;id=__jurplel_install-qt-action.__selfRepository]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2426570Z ##[group]Run jurplel/install-qt-action/action@v4
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2426820Z with:
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2427430Z   version: 6.11.2
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2427590Z   target: desktop
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2427760Z   install-deps: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2429420Z   modules: qtimageformats
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2429650Z   cache: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2429820Z   cache-key-prefix: install-qt-action
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2430060Z   add-tools-to-path: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2430230Z   set-env: true
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2430400Z   no-qt-binaries: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2431760Z   tools-only: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2431950Z   aqtversion: ==3.3.*
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432130Z   py7zrversion: ==1.1.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432320Z   source: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432490Z   documentation: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432660Z   examples: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432820Z   use-official: false
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2432970Z env:
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2433190Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2433600Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2434010Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2434380Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2434720Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.2435000Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:43.7241350Z [command]/Users/runner/hostedtoolcache/Python/3.14.7/arm64/bin/python3 -m pip install setuptools>=70.1.0 py7zr==1.1.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:44.9368040Z Collecting setuptools>=70.1.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:44.9825810Z   Downloading setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.1144910Z Collecting py7zr==1.1.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.1280360Z   Downloading py7zr-1.1.0-py3-none-any.whl.metadata (17 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.2327420Z Collecting texttable (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.2452250Z   Downloading texttable-1.7.1-py2.py3-none-any.whl.metadata (10 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.3152480Z Collecting pycryptodomex>=3.20.0 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.3287930Z   Downloading pycryptodomex-3.24.1-cp37-abi3-macosx_10_9_universal2.whl.metadata (3.4 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.3567950Z Collecting brotli>=1.2.0 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.3683850Z   Downloading brotli-1.2.0-cp314-cp314-macosx_10_15_universal2.whl.metadata (6.1 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.4082440Z Collecting psutil (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.4199910Z   Downloading psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl.metadata (22 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.4689590Z Collecting pyppmd>=1.3.1 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.4819240Z   Downloading pyppmd-1.3.1-cp314-cp314-macosx_11_0_arm64.whl.metadata (5.4 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.5191540Z Collecting pybcj>=1.0.6 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.5312210Z   Downloading pybcj-1.0.8-cp314-cp314-macosx_11_0_arm64.whl.metadata (3.8 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.5506200Z Collecting multivolumefile>=0.2.3 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.5621860Z   Downloading multivolumefile-0.2.3-py3-none-any.whl.metadata (6.3 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.5954220Z Collecting inflate64>=1.0.4 (from py7zr==1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.6070370Z   Downloading inflate64-1.0.4-cp314-cp314-macosx_11_0_arm64.whl.metadata (4.4 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.6234190Z Downloading py7zr-1.1.0-py3-none-any.whl (71 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.6472770Z Downloading setuptools-84.0.0-py3-none-any.whl (818 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.6806330Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 818.2/818.2 kB 29.9 MB/s  0:00:00
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.6972820Z Downloading brotli-1.2.0-cp314-cp314-macosx_10_15_universal2.whl (863 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7045160Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 863.1/863.1 kB 107.6 MB/s  0:00:00
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7169620Z Downloading inflate64-1.0.4-cp314-cp314-macosx_11_0_arm64.whl (36 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7313290Z Downloading multivolumefile-0.2.3-py3-none-any.whl (17 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7466530Z Downloading pybcj-1.0.8-cp314-cp314-macosx_11_0_arm64.whl (24 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7643960Z Downloading pycryptodomex-3.24.1-cp37-abi3-macosx_10_9_universal2.whl (2.5 MB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.7886500Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.5/2.5 MB 126.3 MB/s  0:00:00
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.8030080Z Downloading pyppmd-1.3.1-cp314-cp314-macosx_11_0_arm64.whl (48 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.8192930Z Downloading psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (129 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.8373310Z Downloading texttable-1.7.1-py2.py3-none-any.whl (10 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:45.8929890Z Installing collected packages: texttable, brotli, setuptools, pyppmd, pycryptodomex, pybcj, psutil, multivolumefile, inflate64, py7zr
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:46.8513640Z 
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:46.8523170Z Successfully installed brotli-1.2.0 inflate64-1.0.4 multivolumefile-0.2.3 psutil-7.2.2 py7zr-1.1.0 pybcj-1.0.8 pycryptodomex-3.24.1 pyppmd-1.3.1 setuptools-84.0.0 texttable-1.7.1
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:46.9199400Z [command]/Users/runner/hostedtoolcache/Python/3.14.7/arm64/bin/python3 -m pip install aqtinstall==3.3.*
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.2436090Z Collecting aqtinstall==3.3.*
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.2934090Z   Downloading aqtinstall-3.3.0-py3-none-any.whl.metadata (11 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.3169530Z Collecting bs4 (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.3323090Z   Downloading bs4-0.0.2-py2.py3-none-any.whl.metadata (411 bytes)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.3519720Z Collecting defusedxml (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.3656740Z   Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.3931620Z Collecting humanize (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4072310Z   Downloading humanize-4.16.0-py3-none-any.whl.metadata (8.0 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4267870Z Collecting patch-ng (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4411710Z   Downloading patch_ng-1.19.1-py3-none-any.whl.metadata (3.2 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4450100Z Requirement already satisfied: py7zr>=0.22.0 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from aqtinstall==3.3.*) (1.1.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4676250Z Collecting requests>=2.31.0 (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.4821900Z   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5040920Z Collecting semantic-version (from aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5195290Z   Downloading semantic_version-2.10.0-py2.py3-none-any.whl.metadata (9.7 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5277860Z Requirement already satisfied: texttable in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from aqtinstall==3.3.*) (1.7.1)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5287670Z Requirement already satisfied: pycryptodomex>=3.20.0 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (3.24.1)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5292520Z Requirement already satisfied: brotli>=1.2.0 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (1.2.0)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5297060Z Requirement already satisfied: psutil in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (7.2.2)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5301430Z Requirement already satisfied: pyppmd>=1.3.1 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (1.3.1)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5303910Z Requirement already satisfied: pybcj>=1.0.6 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (1.0.8)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5306380Z Requirement already satisfied: multivolumefile>=0.2.3 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (0.2.3)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.5309020Z Requirement already satisfied: inflate64>=1.0.4 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from py7zr>=0.22.0->aqtinstall==3.3.*) (1.0.4)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.6228570Z Collecting charset_normalizer<4,>=2 (from requests>=2.31.0->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.6369310Z   Downloading charset_normalizer-3.5.2-cp314-cp314-macosx_10_15_universal2.whl.metadata (46 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.6611020Z Collecting idna<4,>=2.5 (from requests>=2.31.0->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.6749650Z   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.6978270Z Collecting urllib3<3,>=1.26 (from requests>=2.31.0->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7116930Z   Downloading urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7154650Z Requirement already satisfied: certifi>=2023.5.7 in /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages (from requests>=2.31.0->aqtinstall==3.3.*) (2026.7.22)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7342200Z Collecting beautifulsoup4 (from bs4->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7490410Z   Downloading beautifulsoup4-4.15.0-py3-none-any.whl.metadata (3.8 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7693190Z Collecting soupsieve>=1.6.1 (from beautifulsoup4->bs4->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.7829930Z   Downloading soupsieve-3.0.3-py3-none-any.whl.metadata (4.4 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.8036750Z Collecting typing-extensions>=4.0.0 (from beautifulsoup4->bs4->aqtinstall==3.3.*)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.8178370Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.8383140Z Downloading aqtinstall-3.3.0-py3-none-any.whl (71 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.8598130Z Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.8786370Z Downloading charset_normalizer-3.5.2-cp314-cp314-macosx_10_15_universal2.whl (367 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.9111760Z Downloading idna-3.20-py3-none-any.whl (69 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.9300380Z Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.9476580Z Downloading bs4-0.0.2-py2.py3-none-any.whl (1.2 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.9647350Z Downloading beautifulsoup4-4.15.0-py3-none-any.whl (109 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:47.9843290Z Downloading soupsieve-3.0.3-py3-none-any.whl (41 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.0031110Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.0220690Z Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.0443810Z Downloading humanize-4.16.0-py3-none-any.whl (137 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.0661350Z Downloading patch_ng-1.19.1-py3-none-any.whl (17 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.0877600Z Downloading semantic_version-2.10.0-py2.py3-none-any.whl (15 kB)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.1306620Z Installing collected packages: urllib3, typing-extensions, soupsieve, semantic-version, patch-ng, idna, humanize, defusedxml, charset_normalizer, requests, beautifulsoup4, bs4, aqtinstall
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.4730110Z 
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.4746520Z Successfully installed aqtinstall-3.3.0 beautifulsoup4-4.15.0 bs4-0.0.2 charset_normalizer-3.5.2 defusedxml-0.7.1 humanize-4.16.0 idna-3.20 patch-ng-1.19.1 requests-2.34.2 semantic-version-2.10.0 soupsieve-3.0.3 typing-extensions-4.16.0 urllib3-2.8.0
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.5257110Z [command]/Users/runner/hostedtoolcache/Python/3.14.7/arm64/bin/python3 -m aqt version
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.7436370Z INFO    : aqtinstall(aqt) v3.3.0 on Python 3.14.7 [CPython Clang 21.0.0 (clang-2100.1.1.101)]
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.7774580Z Resolving Qt version "6.11.2" with host "mac" and target "desktop"...
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:48.7785490Z [command]/Users/runner/hostedtoolcache/Python/3.14.7/arm64/bin/python3 -m aqt list-qt mac desktop --spec 6.11.2 --latest-version
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:49.5619260Z 6.11.2
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:49.7860300Z Cache hit for: install-qt-action-mac-24.6.0-desktop-6.11.2-/Users/runner/work/Fovelle/Qt-==1.1.0-==3.3.*-qtimageformats
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:50.9549260Z Received 71303168 of 330051282 (21.6%), 67.5 MBs/sec
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:51.9564980Z Received 134217728 of 330051282 (40.7%), 63.5 MBs/sec
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:52.9564780Z Received 230686720 of 330051282 (69.9%), 72.9 MBs/sec
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:53.9581980Z Received 314572800 of 330051282 (95.3%), 74.7 MBs/sec
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:54.0486780Z Received 330051282 of 330051282 (100.0%), 76.6 MBs/sec
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:54.0570530Z Cache Size: ~315 MB (330051282 B)
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:54.0720600Z [command]/opt/homebrew/bin/gtar -xf /Users/runner/work/_temp/1a549ee2-d75b-403b-aeba-95c0d0c8db64/cache.tzst -P -C /Users/runner/work/Fovelle/Fovelle --delay-directory-restore --use-compress-program unzstd
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:58.4889980Z Cache restored successfully
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:58.5463520Z Automatic cache hit with key "install-qt-action-mac-24.6.0-desktop-6.11.2-/Users/runner/work/Fovelle/Qt-==1.1.0-==3.3.*-qtimageformats"
+Compile Release artifact with macOS 15 SDK	Install Qt	2026-10-16T13:30:58.6047020Z ##[end-action id=__jurplel_install-qt-action.__selfRepository;outcome=success;conclusion=success;duration_ms=15385]
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	﻿2026-10-16T13:30:58.6343500Z ##[group]Run brew install ghostscript
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6343970Z ^[[36;1mbrew install ghostscript^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6408510Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6409050Z env:
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6409340Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6409940Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6410510Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6410890Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6411260Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6411600Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6412110Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6433290Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:30:58.6433810Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.5137300Z ^[[32m==>^[[0m ^[[1mDownloading bottle manifests^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.5241740Z ✔︎ Bottle Manifest ghostscript (10.07.1)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.5243820Z ^[[34m==>^[[0m ^[[1mWould install 1 formula:^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.5244540Z ghostscript
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7958390Z ^[[34m==>^[[0m ^[[1mWould install 11 dependencies for ghostscript:^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7959370Z jbig2dec
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7959860Z openjpeg
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7960460Z leptonica
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7961190Z libb2
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7961650Z libarchive
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7962340Z libidn
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7962980Z fribidi
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7963550Z libdatrie
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7964010Z libthai
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7964640Z pango
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:01.7965220Z tesseract
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:02.5170250Z ^[[32m==>^[[0m ^[[1mFetching downloads for: ^[[32mghostscript^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.0773560Z ✔︎ Bottle Manifest jbig2dec (0.20)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.0774010Z ✔︎ Bottle Manifest openjpeg (2.5.4)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.1133260Z ✔︎ Bottle Manifest leptonica (1.87.0)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.1327780Z ✔︎ Bottle jbig2dec (0.20)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2367870Z ✔︎ Bottle Manifest libb2 (0.98.1)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2443300Z ✔︎ Bottle openjpeg (2.5.4)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2447640Z ✔︎ Bottle Manifest libarchive (3.8.9)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2513460Z ✔︎ Bottle libb2 (0.98.1)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2514300Z ✔︎ Bottle Manifest libidn (1.44)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2761450Z ✔︎ Bottle Manifest fribidi (1.0.16)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2843140Z ✔︎ Bottle libarchive (3.8.9)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.2856080Z ✔︎ Bottle Manifest libdatrie (0.2.14)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3029630Z ✔︎ Bottle leptonica (1.87.0)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3153110Z ✔︎ Bottle libidn (1.44)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3168510Z ✔︎ Bottle Manifest libthai (0.1.30)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3213380Z ✔︎ Bottle Manifest pango (1.58.2)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3391540Z ✔︎ Bottle fribidi (1.0.16)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3393050Z ✔︎ Bottle libdatrie (0.2.14)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3453910Z ✔︎ Bottle libthai (0.1.30)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3688400Z ✔︎ Bottle pango (1.58.2)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.3858250Z ✔︎ Bottle Manifest tesseract (5.5.3)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.6912200Z ✔︎ Bottle tesseract (5.5.3)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.7032470Z ✔︎ Bottle ghostscript (10.07.1)
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.8164710Z ^[[32m==>^[[0m ^[[1mInstalling dependencies for ghostscript:^[[0m ^[[32mjbig2dec^[[39m, ^[[32mopenjpeg^[[39m, ^[[32mleptonica^[[39m, ^[[32mlibb2^[[39m, ^[[32mlibarchive^[[39m, ^[[32mlibidn^[[39m, ^[[32mfribidi^[[39m, ^[[32mlibdatrie^[[39m, ^[[32mlibthai^[[39m, ^[[32mpango^[[39m and ^[[32mtesseract^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.8167550Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mjbig2dec^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.8188050Z ^[[34m==>^[[0m ^[[1mPouring jbig2dec--0.20.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.9642250Z 🍺  /opt/homebrew/Cellar/jbig2dec/0.20: 14 files, 398.4KB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:03.9647730Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mopenjpeg^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.0146680Z ^[[34m==>^[[0m ^[[1mPouring openjpeg--2.5.4.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.1375000Z 🍺  /opt/homebrew/Cellar/openjpeg/2.5.4: 512 files, 14.7MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.1378390Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mleptonica^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.1925470Z ^[[34m==>^[[0m ^[[1mPouring leptonica--1.87.0.arm64_sequoia.bottle.1.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3017450Z 🍺  /opt/homebrew/Cellar/leptonica/1.87.0: 55 files, 7MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3019360Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mlibb2^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3046250Z ^[[34m==>^[[0m ^[[1mPouring libb2--0.98.1.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3421170Z 🍺  /opt/homebrew/Cellar/libb2/0.98.1: 9 files, 112.8KB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3422800Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mlibarchive^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.3607960Z ^[[34m==>^[[0m ^[[1mPouring libarchive--3.8.9.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.4027900Z 🍺  /opt/homebrew/Cellar/libarchive/3.8.9: 65 files, 4MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.4029180Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mlibidn^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.4050880Z ^[[34m==>^[[0m ^[[1mPouring libidn--1.44.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.5846230Z 🍺  /opt/homebrew/Cellar/libidn/1.44: 74 files, 1MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.5847770Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mfribidi^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.5872640Z ^[[34m==>^[[0m ^[[1mPouring fribidi--1.0.16.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6301700Z 🍺  /opt/homebrew/Cellar/fribidi/1.0.16: 68 files, 544.2KB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6303230Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mlibdatrie^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6345110Z ^[[34m==>^[[0m ^[[1mPouring libdatrie--0.2.14.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6604060Z 🍺  /opt/homebrew/Cellar/libdatrie/0.2.14: 20 files, 276.1KB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6605360Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mlibthai^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6688200Z ^[[34m==>^[[0m ^[[1mPouring libthai--0.1.30.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6930330Z 🍺  /opt/homebrew/Cellar/libthai/0.1.30: 30 files, 955.0KB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.6935100Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mpango^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:04.8854190Z ^[[34m==>^[[0m ^[[1mPouring pango--1.58.2.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.0583210Z 🍺  /opt/homebrew/Cellar/pango/1.58.2: 69 files, 3.7MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.0585340Z ^[[32m==>^[[0m ^[[1mInstalling ghostscript dependency: ^[[32mtesseract^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.3370450Z ^[[34m==>^[[0m ^[[1mPouring tesseract--5.5.3.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.4744470Z 🍺  /opt/homebrew/Cellar/tesseract/5.5.3: 75 files, 34.6MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.4746980Z ^[[32m==>^[[0m ^[[1mInstalling ^[[32mghostscript^[[39m^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:05.4749660Z ^[[34m==>^[[0m ^[[1mPouring ghostscript--10.07.1.arm64_sequoia.bottle.tar.gz^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:06.4602320Z 🍺  /opt/homebrew/Cellar/ghostscript/10.07.1: 641 files, 134MB
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:06.4611540Z ^[[32m==>^[[0m ^[[1mCaveats^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:06.4612570Z ^[[34m==>^[[0m ^[[1mghostscript^[[0m
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:06.4617000Z Ghostscript is now built `--without-versioned-path`. Temporary backwards
+Compile Release artifact with macOS 15 SDK	Install Ghostscript for EPS rendering tests	2026-10-16T13:31:06.4617590Z compatibility symlinks exist but will be removed with 10.07.0 release.
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	﻿2026-10-16T13:31:06.4828410Z ##[group]Run cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_REQUIRE_PORTABLE_HDR=ON -DFOVELLE_BUILD_TRANSLATIONS=ON -DQV_DISABLE_ONLINE_VERSION_CHECK=ON -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python" -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4830870Z ^[[36;1mcmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_REQUIRE_PORTABLE_HDR=ON -DFOVELLE_BUILD_TRANSLATIONS=ON -DQV_DISABLE_ONLINE_VERSION_CHECK=ON -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python" -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"^[[0m
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4876370Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4876760Z env:
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4877090Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4877890Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4901030Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4901580Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4902170Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4902720Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4903340Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4903910Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:06.4907490Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:07.7929810Z -- The CXX compiler identification is AppleClang 17.0.0.17000013
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:08.3695320Z -- The OBJCXX compiler identification is AppleClang 17.0.0.17000013
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:08.4279700Z -- Detecting CXX compiler ABI info
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.2229130Z -- Detecting CXX compiler ABI info - done
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.2431660Z -- Check for working CXX compiler: /usr/bin/c++ - skipped
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.2437660Z -- Detecting CXX compile features
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.2447450Z -- Detecting CXX compile features - done
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.2557420Z -- Detecting OBJCXX compiler ABI info
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.4382760Z -- Detecting OBJCXX compiler ABI info - done
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.4556840Z -- Check for working OBJCXX compiler: /usr/bin/c++ - skipped
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:09.7724180Z -- Performing Test HAVE_STDATOMIC
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:10.4143140Z -- Performing Test HAVE_STDATOMIC - Success
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:10.7136090Z -- Found OpenGL: /Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/System/Library/Frameworks/OpenGL.framework
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:11.4004980Z -- Found ZLIB: /Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/lib/libz.tbd (found version "1.2.12")
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:13.2411440Z -- Found Python3: /Users/runner/work/Fovelle/Fovelle/.venv/bin/python (found version "3.14.7") found components: Interpreter
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:13.2832670Z -- Configuring done (6.7s)
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:13.5474840Z -- Generating done (0.3s)
+Compile Release artifact with macOS 15 SDK	Configure Release-compatible universal build	2026-10-16T13:31:13.5482470Z -- Build files have been written to: /Users/runner/work/Fovelle/Fovelle/build
+Compile Release artifact with macOS 15 SDK	Build	﻿2026-10-16T13:31:13.5594270Z ##[group]Run cmake --build build --parallel 2
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5594840Z ^[[36;1mcmake --build build --parallel 2^[[0m
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5637430Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5637700Z env:
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5638160Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5638930Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5639600Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5640130Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5640520Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5641000Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5641520Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5641960Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.5642490Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.6764040Z [  0%] Built target Fovelle_autogen_timestamp_deps
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.6769770Z [  1%] Generating qview_es.qm
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7067120Z [  1%] Built target fovelle_tests_autogen_timestamp_deps
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7530430Z [  1%] Built target fovelle_native_drag_helper_autogen_timestamp_deps
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7680190Z [  2%] Generating qview_ja.qm
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7871440Z Updating '/Users/runner/work/Fovelle/Fovelle/build/qview_es.qm'...
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7873440Z     Generated 462 translation(s) (462 finished and 0 unfinished)
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7948840Z Updating '/Users/runner/work/Fovelle/Fovelle/build/qview_ja.qm'...
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.7950870Z     Generated 462 translation(s) (462 finished and 0 unfinished)
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8098650Z [  3%] Generating qview_zh_Hans.qm
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8234610Z [  4%] Building OBJCXX object tests/CMakeFiles/fovelle_sparkle_probe.dir/sparkle_standard_ui_probe.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8350920Z Updating '/Users/runner/work/Fovelle/Fovelle/build/qview_zh_Hans.qm'...
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8353140Z     Generated 462 translation(s) (462 finished and 0 unfinished)
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8525470Z [  5%] Generating qview_zh_Hant.qm
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8786440Z Updating '/Users/runner/work/Fovelle/Fovelle/build/qview_zh_Hant.qm'...
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8789350Z     Generated 446 translation(s) (446 finished and 0 unfinished)
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.8963220Z [  5%] Built target Fovelle_lrelease
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:13.9301090Z [  6%] Automatic MOC and UIC for target Fovelle
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:16.9330220Z [  7%] Linking OBJCXX executable fovelle_sparkle_probe
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:17.2553300Z [  7%] Built target fovelle_sparkle_probe
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:17.2963520Z [  8%] Automatic MOC and UIC for target fovelle_tests
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.3570810Z [  8%] Built target Fovelle_autogen
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.3972990Z [ 10%] Automatic MOC and UIC for target fovelle_native_drag_helper
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.4787250Z [ 10%] Built target fovelle_native_drag_helper_autogen
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.4989360Z [ 11%] Running rcc for resource Fovelle_translations
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.5291250Z [ 12%] Automatic RCC for resources/resources.qrc
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:19.6945060Z [ 13%] Building CXX object CMakeFiles/Fovelle.dir/Fovelle_autogen/mocs_compilation.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:23.3699060Z [ 13%] Built target fovelle_tests_autogen
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:23.3962640Z [ 14%] Building CXX object CMakeFiles/Fovelle.dir/src/main.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:28.2862220Z [ 15%] Building CXX object CMakeFiles/Fovelle.dir/src/mainwindow.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:29.2718100Z [ 16%] Building CXX object CMakeFiles/Fovelle.dir/src/openwith.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:34.4429430Z [ 17%] Building CXX object CMakeFiles/Fovelle.dir/src/qvfileenumerator.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:36.2471700Z [ 18%] Building CXX object CMakeFiles/Fovelle.dir/src/qvgraphicsview.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:39.6472100Z [ 20%] Building CXX object CMakeFiles/Fovelle.dir/src/qvgraphicsimageitem.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:43.8936450Z [ 21%] Building CXX object CMakeFiles/Fovelle.dir/src/qvmenu.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:44.5086280Z [ 22%] Building CXX object CMakeFiles/Fovelle.dir/src/qvoptionsdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:46.9134580Z [ 23%] Building CXX object CMakeFiles/Fovelle.dir/src/qvapplication.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:56.3246190Z [ 24%] Building CXX object tests/CMakeFiles/fovelle_native_drag_helper.dir/fovelle_native_drag_helper_autogen/mocs_compilation.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:56.5088660Z [ 25%] Building OBJCXX object tests/CMakeFiles/fovelle_native_drag_helper.dir/native_drag_helper.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:31:57.6958280Z [ 26%] Building CXX object CMakeFiles/Fovelle.dir/src/qvaboutdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:04.6453530Z [ 27%] Linking CXX executable fovelle_native_drag_helper
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:05.4478610Z [ 28%] Built target fovelle_native_drag_helper
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:05.5069760Z [ 30%] Automatic RCC for ../resources/resources.qrc
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:05.8765850Z [ 31%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/fovelle_tests_autogen/mocs_compilation.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:06.9525380Z [ 32%] Building CXX object CMakeFiles/Fovelle.dir/src/qvrenamedialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:11.5106340Z [ 33%] Building CXX object CMakeFiles/Fovelle.dir/src/qvinfodialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:16.3319470Z [ 34%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/tst_qviewtests.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:19.7726130Z [ 35%] Building CXX object CMakeFiles/Fovelle.dir/src/colorinformation.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:23.4972390Z [ 36%] Building CXX object CMakeFiles/Fovelle.dir/src/qvimagecore.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:31.4503040Z [ 37%] Building CXX object CMakeFiles/Fovelle.dir/src/qvimageloader.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:36.3323480Z [ 38%] Building CXX object CMakeFiles/Fovelle.dir/src/urldownload.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:38.9119030Z [ 40%] Building CXX object CMakeFiles/Fovelle.dir/src/asyncwork.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:40.8207660Z [ 41%] Building CXX object CMakeFiles/Fovelle.dir/src/qvmovie.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:44.5612400Z [ 42%] Building CXX object CMakeFiles/Fovelle.dir/src/qvshortcutdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:32:50.5297660Z [ 43%] Building CXX object CMakeFiles/Fovelle.dir/src/actionmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:00.1066350Z [ 44%] Building CXX object CMakeFiles/Fovelle.dir/src/axislocker.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:01.7601470Z [ 45%] Building CXX object CMakeFiles/Fovelle.dir/src/logicalpixelfitter.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:03.0651430Z [ 46%] Building CXX object CMakeFiles/Fovelle.dir/src/scrollhelper.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:05.2929840Z [ 47%] Building CXX object CMakeFiles/Fovelle.dir/src/settingsmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:07.7972130Z [ 48%] Building OBJCXX object tests/CMakeFiles/fovelle_tests.dir/native_titlebar_probe.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:09.7436270Z [ 50%] Building CXX object CMakeFiles/Fovelle.dir/src/shortcutmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:12.2207840Z [ 51%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/mainwindow.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:17.0032760Z [ 52%] Building CXX object CMakeFiles/Fovelle.dir/src/simplefonticonengine.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:20.3371620Z [ 53%] Building CXX object CMakeFiles/Fovelle.dir/src/updatechecker.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:23.8942470Z [ 54%] Building CXX object CMakeFiles/Fovelle.dir/src/nativedialogs.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:25.1233430Z [ 55%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/openwith.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:33.5029600Z [ 56%] Building OBJCXX object CMakeFiles/Fovelle.dir/src/qvcocoafunctions.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:35.1222950Z [ 57%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvfileenumerator.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:43.9986510Z [ 58%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvgraphicsview.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:48.1757690Z [ 60%] Building OBJCXX object CMakeFiles/Fovelle.dir/src/updatechecker_sparkle.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:51.4578200Z [ 61%] Building CXX object CMakeFiles/Fovelle.dir/build/.qt/rcc/qrc_Fovelle_translations.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:51.7317180Z [ 62%] Building CXX object CMakeFiles/Fovelle.dir/Fovelle_autogen/3YJK5W5UP7/qrc_resources.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:52.9486930Z [ 63%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvgraphicsimageitem.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:54.9841850Z Copying OS X content Fovelle.app/Contents/Resources/qView.icns
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:55.0096950Z [ 64%] Linking CXX executable Fovelle.app/Contents/MacOS/Fovelle
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:55.7117080Z Staging the AGPL Ghostscript runtime for EPS support
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:58.2088950Z [ 65%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvmenu.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:58.9183250Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libjbig2dec.0.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:58.9770180Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libjbig2dec.0.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:58.9893000Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.0417100Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.0911820Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.1279750Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebp.7.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.1829190Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebp.7.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.2643990Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libsharpyuv.0.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.3152580Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libsharpyuv.0.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.3413650Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebp.7.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.3657690Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.4111270Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libzstd.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.4742050Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libzstd.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.4913940Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.5432510Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblzma.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.6112820Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblzma.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.6546780Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.7059850Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libjpeg.8.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.7571520Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libjpeg.8.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.7734150Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtiff.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.7910100Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.8483820Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libpng16.16.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.8898770Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libpng16.16.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.9103980Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:33:59.9776140Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.1102750Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblcms2.2.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.1617680Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblcms2.2.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.1819010Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.2414650Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libidn.12.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.2960100Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libidn.12.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.3176650Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.3926690Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfontconfig.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.4386200Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfontconfig.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.4777170Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfreetype.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.5349690Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfreetype.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.5592610Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfreetype.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.5815990Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfontconfig.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.6215250Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libintl.8.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.6639250Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libintl.8.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.6775080Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libfontconfig.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.6964050Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.7521150Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.7999090Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libopenjp2.7.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.8509470Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libopenjp2.7.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.8738150Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:00.9619200Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtesseract.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.0417680Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtesseract.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.1072780Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.1772490Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.2101640Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.2440430Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.2661210Z [ 66%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvoptionsdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.2862530Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libgif.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.3512460Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libgif.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.3745900Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.4178380Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.4648280Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.5039330Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebpmux.3.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.5625630Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebpmux.3.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.6062170Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebpmux.3.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.6546470Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libwebpmux.3.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.6761600Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.7128240Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libleptonica.6.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.7582030Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtesseract.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.8021700Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.8690720Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.9017760Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.9268680Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:01.9631530Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblz4.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.0354270Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/liblz4.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.0859200Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.1325490Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libb2.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.2043830Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libb2.1.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.2166560Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libarchive.13.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.2463320Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/lib/libtesseract.5.dylib
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.2892220Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.4096080Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.4961250Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/install_name_tool: warning: changes being made to the file will invalidate the code signature in: /var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T//fovelle-ghostscript.aEL7UY/stage/bin/gs
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.6163960Z [ 72%] Built target Fovelle
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:02.6313040Z [ 73%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvapplication.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:09.6809130Z [ 74%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvaboutdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:10.0489080Z [ 75%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvrenamedialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:12.7825100Z [ 76%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvinfodialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:15.1339240Z [ 77%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/colorinformation.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:18.6725790Z [ 78%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvimagecore.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:19.3302820Z [ 80%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvimageloader.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:24.2173040Z [ 81%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/urldownload.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:25.1664360Z [ 82%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/asyncwork.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:26.9987900Z [ 83%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvmovie.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:27.4369380Z [ 84%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvshortcutdialog.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:30.6337560Z [ 85%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/actionmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:33.0902770Z [ 86%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/axislocker.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:35.3779840Z [ 87%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/logicalpixelfitter.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:36.9836680Z [ 88%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/scrollhelper.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:39.6535620Z [ 90%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/settingsmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:40.3901440Z [ 91%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/shortcutmanager.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:44.3430560Z [ 92%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/simplefonticonengine.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:46.8996410Z [ 93%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/updatechecker.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:47.2023140Z [ 94%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/nativedialogs.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:49.1984900Z [ 95%] Building OBJCXX object tests/CMakeFiles/fovelle_tests.dir/__/src/qvcocoafunctions.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:52.8402900Z [ 96%] Building OBJCXX object tests/CMakeFiles/fovelle_tests.dir/__/src/updatechecker_sparkle.mm.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:34:55.9554250Z [ 97%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/fovelle_tests_autogen/7BV4YJK25R/qrc_resources.cpp.o
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:35:00.7371600Z [ 98%] Linking CXX executable fovelle_tests
+Compile Release artifact with macOS 15 SDK	Build	2026-10-16T13:35:01.3083950Z [100%] Built target fovelle_tests
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	﻿2026-10-16T13:35:01.3672320Z ##[group]Run defaults write com.apple.dock orientation -string left
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3673210Z ^[[36;1mdefaults write com.apple.dock orientation -string left^[[0m
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3673910Z ^[[36;1mdefaults write com.apple.dock autohide -bool true^[[0m
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3674430Z ^[[36;1mkillall Dock || true^[[0m
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3992120Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3992430Z env:
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3992860Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3993560Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3994360Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3994850Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3995340Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3995760Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3996280Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3996690Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Move Dock away from bottom display capture tests	2026-10-16T13:35:01.3997060Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Test	﻿2026-10-16T13:35:01.5699930Z ##[group]Run QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5700830Z ^[[36;1mQT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90^[[0m
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5747570Z shell: /bin/bash -e {0}
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5748100Z env:
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5748480Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5749160Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5749870Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5750360Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5750780Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5751260Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5751790Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5752330Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.5752730Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.6624490Z Test project /Users/runner/work/Fovelle/Fovelle/build
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:35:01.6662880Z       Start  1: FovelleTests
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:49.2515590Z  1/44 Test  #1: FovelleTests .................................   Passed  167.57 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:49.2834250Z       Start  2: FovelleNativeAlertsStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:50.0555420Z  2/44 Test  #2: FovelleNativeAlertsStatic ....................   Passed    0.78 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:50.0656990Z       Start  3: FovelleNativeAlertsDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:54.9620170Z  3/44 Test  #3: FovelleNativeAlertsDynamic ...................   Passed    4.89 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:54.9622980Z       Start  4: FovelleNavigationBoundaryHintStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:55.0580830Z  4/44 Test  #4: FovelleNavigationBoundaryHintStatic ..........   Passed    0.10 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:55.0582880Z       Start  5: FovelleHDRFocusTransitionEvidence
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:55.2725310Z  5/44 Test  #5: FovelleHDRFocusTransitionEvidence ............   Passed    0.21 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:55.2727110Z       Start  6: FovelleNavigationBoundaryHintDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:56.9640320Z  6/44 Test  #6: FovelleNavigationBoundaryHintDynamic .........   Passed    1.69 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:56.9686750Z       Start  7: FovelleToggleFitStabilitySourceContract
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:57.0362730Z  7/44 Test  #7: FovelleToggleFitStabilitySourceContract ......   Passed    0.07 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:57.0363870Z       Start  8: FovelleToggleFitStabilityAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:58.5921850Z  8/44 Test  #8: FovelleToggleFitStabilityAcceptance ..........   Passed    1.55 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:58.5954010Z       Start  9: FovelleZoomScrollbarDurationSourceContract
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:58.6702730Z  9/44 Test  #9: FovelleZoomScrollbarDurationSourceContract ...   Passed    0.08 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:37:58.6704250Z       Start 10: FovelleScrollbarZoomDurationAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:01.6590140Z 10/44 Test #10: FovelleScrollbarZoomDurationAcceptance .......   Passed    2.99 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:01.6691750Z       Start 11: FovelleToggleFitAnchorAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:02.8185630Z 11/44 Test #11: FovelleToggleFitAnchorAcceptance .............   Passed    1.16 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:02.8284060Z       Start 12: FovelleToggleFitTrajectoryAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:04.2660380Z 12/44 Test #12: FovelleToggleFitTrajectoryAcceptance .........   Passed    1.45 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:04.2670300Z       Start 13: FovelleFiveIssueZoomAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:06.9297700Z 13/44 Test #13: FovelleFiveIssueZoomAcceptance ...............   Passed    2.66 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:06.9352680Z       Start 14: FovelleFourIssueZoomAcceptance
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:10.3223340Z 14/44 Test #14: FovelleFourIssueZoomAcceptance ...............   Passed    3.39 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:10.3247260Z       Start 15: FovelleShortcutSettingsTests
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:11.5606050Z 15/44 Test #15: FovelleShortcutSettingsTests .................   Passed    1.24 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:11.5708730Z       Start 16: FovelleZoomScrollbarTrajectory
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:14.2752580Z 16/44 Test #16: FovelleZoomScrollbarTrajectory ...............   Passed    2.71 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:14.2855250Z       Start 17: FovelleZoomScrollbarTrajectoryHiDpi
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:17.6226790Z 17/44 Test #17: FovelleZoomScrollbarTrajectoryHiDpi ..........   Passed    3.34 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:17.6233700Z       Start 18: FovelleZoomScrollbarExpensiveRefinement
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:18.4711560Z 18/44 Test #18: FovelleZoomScrollbarExpensiveRefinement ......   Passed    0.86 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:18.4737650Z       Start 19: FovelleZoomScrollbarVerticalTopology
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:19.0582800Z 19/44 Test #19: FovelleZoomScrollbarVerticalTopology .........   Passed    0.59 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:19.0686700Z       Start 20: FovelleHiddenTitlebarFullScreen
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:34.6131550Z 20/44 Test #20: FovelleHiddenTitlebarFullScreen ..............   Passed   15.54 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:34.6227080Z       Start 21: FovelleFullScreenMetricsGate
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:34.7587220Z 21/44 Test #21: FovelleFullScreenMetricsGate .................   Passed    0.14 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:34.7588790Z       Start 22: FovelleFullScreenRefinement
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:37.5984890Z 22/44 Test #22: FovelleFullScreenRefinement ..................   Passed    2.83 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:38:37.5993220Z       Start 23: FovelleNativeFullScreenRoundTrip
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:06.2203740Z 23/44 Test #23: FovelleNativeFullScreenRoundTrip .............   Passed   28.62 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:06.2396920Z       Start 24: FovelleFullScreenVisualContinuity
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:25.7999740Z 24/44 Test #24: FovelleFullScreenVisualContinuity ............   Passed   19.57 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:25.8002370Z       Start 25: FovelleHDRFullScreenVisualContinuity
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:26.1038630Z 25/44 Test #25: FovelleHDRFullScreenVisualContinuity .........   Passed    0.32 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:26.1041540Z       Start 26: FovelleFullScreenBottomBackgroundHandoff
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:31.8770190Z 26/44 Test #26: FovelleFullScreenBottomBackgroundHandoff .....   Passed    5.77 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:31.8864470Z       Start 27: FovelleUpdateStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.1016270Z 27/44 Test #27: FovelleUpdateStatic ..........................   Passed    0.22 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.1049040Z       Start 28: FovelleUpdateConfiguration
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.1896750Z 28/44 Test #28: FovelleUpdateConfiguration ...................   Passed    0.09 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.1905850Z       Start 29: FovelleHDRBrightnessStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.2528340Z 29/44 Test #29: FovelleHDRBrightnessStatic ...................   Passed    0.06 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.2529860Z       Start 30: FovelleHDRBrightnessDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.7794450Z 30/44 Test #30: FovelleHDRBrightnessDynamic ..................   Passed    0.52 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.7799370Z       Start 31: FovelleHDRColorPixels
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.9898800Z 31/44 Test #31: FovelleHDRColorPixels ........................   Passed    0.21 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:32.9959620Z       Start 32: FovelleZoomColorStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:33.0466390Z 32/44 Test #32: FovelleZoomColorStatic .......................   Passed    0.05 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:33.0467260Z       Start 33: FovelleKeepZoomDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:36.3053490Z 33/44 Test #33: FovelleKeepZoomDynamic .......................   Passed    3.26 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:36.3126620Z       Start 34: FovelleColorInformationDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:37.0765500Z 34/44 Test #34: FovelleColorInformationDynamic ...............   Passed    0.77 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:37.0777350Z       Start 35: FovelleZoomColorLocalization
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:37.6967400Z 35/44 Test #35: FovelleZoomColorLocalization .................   Passed    0.61 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:37.6990640Z       Start 36: FovelleKeepZoomHiDpi
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:41.6358520Z 36/44 Test #36: FovelleKeepZoomHiDpi .........................   Passed    3.95 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:41.6396750Z       Start 37: FovelleKeepZoomPersistenceStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:41.6902530Z 37/44 Test #37: FovelleKeepZoomPersistenceStatic .............   Passed    0.05 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:41.6908670Z       Start 38: FovelleKeepZoomPersistenceDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.1455990Z 38/44 Test #38: FovelleKeepZoomPersistenceDynamic ............   Passed    3.45 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.1464860Z       Start 39: FovelleRemediationStatic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.2156960Z 39/44 Test #39: FovelleRemediationStatic .....................   Passed    0.07 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.2158250Z       Start 40: FovelleRemediationGateTests
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.2995740Z 40/44 Test #40: FovelleRemediationGateTests ..................   Passed    0.08 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:45.2996970Z       Start 41: FovelleRemediationDynamic
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:59.3560470Z 41/44 Test #41: FovelleRemediationDynamic ....................   Passed   14.06 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:39:59.3718680Z       Start 42: FovellePortableHDR
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:40:33.7339070Z 42/44 Test #42: FovellePortableHDR ...........................   Passed   34.37 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:40:33.7341730Z       Start 43: FovelleDeploymentArtifact
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:10.2889020Z 43/44 Test #43: FovelleDeploymentArtifact ....................   Passed   36.55 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:10.3080570Z       Start 44: FovelleActionsRegressionContracts
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1756530Z 44/44 Test #44: FovelleActionsRegressionContracts ............   Passed    5.87 sec
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1763210Z 
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1763500Z 100% tests passed out of 44
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1764050Z 
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1764190Z Label Time Summary:
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1764880Z acceptance            = 102.28 sec*proc (30 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1765330Z anchor                =   1.16 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1765960Z appearance            =   5.67 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1770090Z artifact              =  36.55 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1770840Z background-handoff    =   5.77 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1771480Z brightness            =   0.58 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1771800Z bundle                =  36.55 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1772380Z ci                    =   5.87 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1772670Z color                 =   1.64 sec*proc (4 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1772990Z continuity            =  19.88 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1773540Z contracts             =   5.87 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1774160Z deployment            =  36.55 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1888830Z display-capture       =   5.77 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1890120Z duration              =   3.07 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1905640Z dynamic               = 100.88 sec*proc (22 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1906230Z dynamic-evidence      =   0.21 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1907090Z focus                 =   1.90 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1907980Z four-issues           =   3.39 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1908540Z fullscreen            =  72.79 sec*proc (7 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1909090Z hdr                   =  35.69 sec*proc (6 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1909680Z hidpi                 =   7.29 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1910170Z hint                  =   1.79 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1910650Z localization          =   0.76 sec*proc (3 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1911270Z macos                 =  78.32 sec*proc (8 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1911930Z metrics               =   0.14 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1912330Z native                =  28.62 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1912720Z native-dialog         =   5.67 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1913160Z native-ui             =  34.37 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1913600Z navigation            =   1.79 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1913960Z persistence           =   3.51 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1914330Z raw                   =  34.37 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1914680Z real-fixtures         =  34.37 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1915050Z refinement            =   3.69 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1918960Z regression            =   5.87 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1919250Z required              =  34.37 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1919610Z requires-desktop      =   5.77 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1919970Z restart               =   3.45 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1920210Z scrollbar             =  10.56 sec*proc (6 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1920540Z settings              =   3.51 sec*proc (2 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1920830Z smoke                 =  36.55 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1921160Z source-contract       =   1.02 sec*proc (4 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1921500Z static                =   0.17 sec*proc (3 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1921820Z titlebar              =  15.54 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1922100Z toggle-fit            =   4.23 sec*proc (4 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1922420Z trajectory            =   7.50 sec*proc (3 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1922730Z transition            =   0.21 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1923000Z unit                  =   0.14 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1923300Z vertical-topology     =   0.59 sec*proc (1 test)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1923620Z zoom                  =  32.22 sec*proc (18 tests)
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1923910Z 
+Compile Release artifact with macOS 15 SDK	Test	2026-10-16T13:41:16.1924030Z Total Test time (real) = 374.51 sec
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	﻿2026-10-16T13:41:16.2012290Z ##[group]Run actions/upload-artifact@v4
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2012580Z with:
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2012850Z   name: portable-hdr-execution
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2013260Z   path: build/test-results/portable-hdr/
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	build/Testing/Temporary/LastTest.log
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2013620Z   if-no-files-found: error
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2013880Z   compression-level: 6
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2014090Z   overwrite: false
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2014400Z   include-hidden-files: false
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2014650Z env:
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2014900Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2015530Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2016130Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2016900Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2017610Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2018040Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2018390Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2018810Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.2019130Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7835460Z (node:17597) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7836300Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7916310Z Multiple search paths detected. Calculating the least common ancestor of all paths
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7918970Z The least common ancestor is /Users/runner/work/Fovelle/Fovelle/build. This will be the root directory of the artifact
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7920550Z With the provided path, there will be 10 files uploaded
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7921850Z Artifact name is valid!
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:16.7922590Z Root directory input is valid!
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.1041190Z Beginning upload of artifact content to blob storage
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.1304080Z (node:17597) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.3058680Z Uploaded bytes 23510
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.3444730Z Finished uploading artifact content to blob storage!
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.3445570Z SHA256 digest of uploaded artifact zip is 5a432faf214d3403e96cdaf36c9a4810d87430137ef0a832a3e42fe42908d12a
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.3447120Z Finalizing artifact upload
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.6253470Z Artifact portable-hdr-execution.zip successfully finalized. Artifact ID 12048859145
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.6254300Z Artifact portable-hdr-execution has been successfully uploaded! Final size is 23510 bytes. Artifact ID is 12048859145
+Compile Release artifact with macOS 15 SDK	Upload portable HDR execution evidence	2026-10-16T13:41:17.6261370Z Artifact download URL: https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356249/artifacts/12048859145
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	﻿2026-10-16T13:41:17.6355690Z ##[group]Run macdeployqt build/Fovelle.app -always-overwrite
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6356530Z ^[[36;1mmacdeployqt build/Fovelle.app -always-overwrite^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6357020Z ^[[36;1mRELEASE_ZIP_PATH="${RUNNER_TEMP}/Fovelle-macos15-compatibility.zip"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6357630Z ^[[36;1mditto -c -k --sequesterRsrc --keepParent build/Fovelle.app "${RELEASE_ZIP_PATH}"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6358180Z ^[[36;1mVERIFY_ROOT="${RUNNER_TEMP}/fovelle-macos15-verified"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6358580Z ^[[36;1mmkdir -p "${VERIFY_ROOT}"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6358900Z ^[[36;1mditto -x -k "${RELEASE_ZIP_PATH}" "${VERIFY_ROOT}"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6359290Z ^[[36;1mVERIFIED_APP="${VERIFY_ROOT}/Fovelle.app"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6359700Z ^[[36;1mMAIN_BINARY="${VERIFIED_APP}/Contents/MacOS/Fovelle"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6360420Z ^[[36;1mMAIN_MIN_OS="$(otool -l "${MAIN_BINARY}" | awk '$1 == "minos" { print $2; exit }')"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6360980Z ^[[36;1mMAIN_SDK="$(otool -l "${MAIN_BINARY}" | awk '$1 == "sdk" { print $2; exit }')"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6361740Z ^[[36;1mPLIST_MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "${VERIFIED_APP}/Contents/Info.plist")"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6362430Z ^[[36;1mecho "main minos=${MAIN_MIN_OS} sdk=${MAIN_SDK} plist=${PLIST_MIN_OS}"^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6362840Z ^[[36;1mtest "${MAIN_MIN_OS}" = 15.0^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6363140Z ^[[36;1mtest "${MAIN_SDK%%.*}" -eq 15^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6363430Z ^[[36;1mtest "${PLIST_MIN_OS}" = 15.0^[[0m
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6524200Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6524520Z env:
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6524780Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6525400Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.14.7/arm64/lib/pkgconfig:/Users/runner/work/Fovelle/Qt/6.11.2/macos/lib/pkgconfig
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6526060Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6526450Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6526880Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.14.7/arm64
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6527260Z   QT_ROOT_DIR: /Users/runner/work/Fovelle/Qt/6.11.2/macos
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6527630Z   QT_PLUGIN_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/plugins
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6528050Z   QML2_IMPORT_PATH: /Users/runner/work/Fovelle/Qt/6.11.2/macos/qml
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:17.6528370Z ##[endgroup]
+Compile Release artifact with macOS 15 SDK	Deploy Qt and verify installable zip contract	2026-10-16T13:41:36.8763220Z main minos=15.0 sdk=15.5 plist=15.0
+Compile Release artifact with macOS 15 SDK	Post Install Qt	﻿2026-10-16T13:41:36.8917010Z Post job cleanup.
+Compile Release artifact with macOS 15 SDK	Post Install Qt	2026-10-16T13:41:36.8919980Z ##[start-action display=Setup Python;id=__8b7d2eb4-cc0d-4b84-83dd-f73c7052e478.__actions_setup-python]
+Compile Release artifact with macOS 15 SDK	Post Install Qt	2026-10-16T13:41:36.8960790Z Post job cleanup.
+Compile Release artifact with macOS 15 SDK	Post Install Qt	2026-10-16T13:41:37.0404590Z ##[end-action id=__8b7d2eb4-cc0d-4b84-83dd-f73c7052e478.__actions_setup-python;outcome=success;conclusion=success;duration_ms=148]
+Compile Release artifact with macOS 15 SDK	Post Checkout	﻿2026-10-16T13:41:37.0478730Z Post job cleanup.
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1265280Z [command]/opt/homebrew/bin/git version
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1461510Z git version 2.55.0
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1478990Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/5d1b5850-64e7-4473-acfe-d6c9f016514d/.gitconfig'
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1487780Z Temporarily overriding HOME='/Users/runner/work/_temp/5d1b5850-64e7-4473-acfe-d6c9f016514d' before making global git config changes
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1488820Z Adding repository directory to the temporary git global config as a safe directory
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1490870Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Fovelle/Fovelle
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1584870Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.1635510Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.2356680Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.2402870Z http.https://github.com/.extraheader
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.2408260Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.2466170Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.3102070Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Compile Release artifact with macOS 15 SDK	Post Checkout	2026-10-16T13:41:37.3155060Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Compile Release artifact with macOS 15 SDK	Complete job	﻿2026-10-16T13:41:37.3889770Z Cleaning up orphan processes
+Compile Release artifact with macOS 15 SDK	Complete job	2026-10-16T13:41:39.2405310Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

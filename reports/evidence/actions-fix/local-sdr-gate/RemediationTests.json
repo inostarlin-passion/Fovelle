@@ -1,0 +1,12 @@
+{
+  "suite": "RemediationTests",
+  "functions": [
+    "testPortableHDR"
+  ],
+  "status": "passed",
+  "returncode": 0,
+  "error": null,
+  "xml": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.xml",
+  "log": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.log",
+  "elapsed_seconds": 0.403
+}

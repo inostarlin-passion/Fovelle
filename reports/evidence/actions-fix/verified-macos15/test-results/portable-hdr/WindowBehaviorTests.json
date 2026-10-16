@@ -1,0 +1,12 @@
+{
+  "suite": "WindowBehaviorTests",
+  "functions": [
+    "testHDRFullScreenVisualContinuity"
+  ],
+  "status": "passed",
+  "returncode": 0,
+  "error": null,
+  "xml": "/Users/runner/work/Fovelle/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.xml",
+  "log": "/Users/runner/work/Fovelle/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.log",
+  "elapsed_seconds": 32.129
+}

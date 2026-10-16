@@ -66,7 +66,7 @@ jobs:
         with:
           name: portable-hdr-execution
           path: |
-            build/test-results/portable-hdr/*.xml
+            build/test-results/portable-hdr/
             build/Testing/Temporary/LastTest.log
           if-no-files-found: error
 

@@ -1,0 +1,3 @@
+# Preserve raw CI transcripts, including upstream line endings and trailing
+# blanks. Code whitespace rules remain enabled outside this evidence directory.
+reports/evidence/actions-fix/** -whitespace
