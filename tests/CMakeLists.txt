@@ -497,3 +497,7 @@ set_tests_properties(FovelleDeploymentArtifact PROPERTIES TIMEOUT 300 RUN_SERIAL
 add_test(NAME FovelleActionsRegressionContracts
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_regression_tests.py)
 set_tests_properties(FovelleActionsRegressionContracts PROPERTIES TIMEOUT 30 LABELS "ci;regression;contracts")
+
+add_test(NAME FovelleStaplerRetryContracts
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/stapler_retry_tests.py)
+set_tests_properties(FovelleStaplerRetryContracts PROPERTIES TIMEOUT 30 LABELS "ci;release;regression")

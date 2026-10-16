@@ -1,3 +1,47 @@
+# GitHub Actions 修复测试完成报告
+
+日期：2026-10-17（Asia/Shanghai）。基线提交：c19fb14。结论：本地发布脚本网络重试修复及相关验收通过；修复后的 GitHub 发布流程尚未执行。
+
+## 故障与修复
+
+[Release 38928329345](https://github.com/inostarlin-passion/Fovelle/actions/runs/38928329345) 已通过编译、测试、签名、公证及原包验证，解压包验证时 Apple CloudKit 连接丢失（NSURLErrorDomain -1005），stapler 返回 68。新增受限重试包装器，并接入三个 staple/validate 调用点；最多五次，10/20/40/60 秒等待，单次 120 秒超时。未知 68、缺失/无效/撤销票据及权限错误不会进入重试。
+
+## 验收追踪
+
+| 原子标准 | 固化用例 | 结果 |
+|---|---|---|
+| R1 | D1、D7 | 通过；参数与包含空格路径保持，成功只执行一次 |
+| R2 | D2 | 通过；两次连接中断后恢复 |
+| R3 | D3、D5 | 通过；五次上限、等待序列和超时均验证 |
+| R4 | D4、D5、D6、D8 | 通过；永久错误即时失败，后续错误重新分类 |
+| R5 | S1；发布契约回归 | 通过；三处接入，门禁/顺序保留，CTest 注册成功 |
+| R6 | D7；D3 | 通过；诊断日志、次数及失败返回保留 |
+
+## 实际执行
+
+- 修复前 `python3 tests/stapler_retry_tests.py`：9 个方法执行，FAILED（7 failures、11 errors，含 subTest）。包装器尚不存在且调用尚未接入，证明新增测试能检出缺失行为；并非声称真实网络故障可在离线环境自动复现。
+- 修复后同命令：9/9 通过；包含六组真实 Python CLI 子进程测试、受控故障与等待注入。
+- `cmake -S . -B build`：配置成功。
+- `ctest --test-dir build -R 'Fovelle(StaplerRetryContracts|ActionsRegressionContracts)$' --output-on-failure`：2/2 目标通过（内部新增 9 项、原有 Actions 10 项），总计 5.95 秒。
+- `python3 tests/quality_release.py --output .../release-contract.json`：11/11 发布契约通过，含无凭证 dry-run。
+- `python3 tests/update_acceptance.py`：13/13 通过，含真实 Sparkle 更新探针及篡改归档拒绝。
+- `bash -n dist/scripts/package-macos-release.sh` 与 `git diff --check`：通过。
+
+## 扩展审计及限制
+
+`quality_static.py` 全仓历史审计 29 项中 24 项通过，失败 ST-01、ST-06、ST-09、ST-11、ST-16；涉及旧格式、解码/测试/其他源码契约，不能据此宣称全仓静态通过。本次发布相关 ST-19、ST-20 通过。另以 HEAD 原版审计器在当前源码上交叉运行，同五项仍失败，另有 ST-19 因只认识直接 stapler 调用失败；新版仅同步发布调用标记，没有更改上述五项判定。本次未修改 C++ 应用源码，不以扩大格式化或重写历史审计来掩盖这些结果。
+
+未执行全套 GUI/HDR CTest；改动局限于发布工具、测试及文档，已针对相关路径验证。受控 xcrun 不证明真实 Apple 服务可用；无 CI 签名凭证，未执行真实公证、推送、移动 v1.3.1 标签或发布新版本。已有远端 Checks/Build 成功为基线证据，不能当作本次修改的远端验证。
+
+## 证据
+
+本地目录 `reports/evidence/actions_release_20261017/`：remote-failure.log（远端失败日志）、run.json（运行/步骤状态）、stapler-man.txt（本机工具手册）、red.log、green.log、configure.log、ctest.log、existing-actions.log、release-contract.json、update-acceptance.log、static-contract.json、prior-audit-current-tree.json。此目录沿用仓库证据忽略规则，仅作为本地留存；测试代码与三份报告可随修复提交。此前报告原文在下方完整保留，快照另存 prior_reports/。
+
+---
+
+<details>
+<summary>此前任务测试记录（完整保留，非本次结论）</summary>
+
 # GitHub Actions 失败修复：测试完成报告
 
 日期：2026-10-16（Asia/Shanghai）。基线：2002590。本轮只修改 CI 测试基础设施和工作流，不修改产品的下载时限或 SDR/HDR 呈现策略。
@@ -168,3 +212,5 @@ ctest --test-dir build --output-on-failure -R 'Fovelle(Remediation|Portable|Depl
 ```
 
 当前状态：1–10 的修复与验收已闭环；无待确认权限、未执行的关键本轮用例或后台开发任务。
+
+</details>

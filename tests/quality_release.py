@@ -200,8 +200,8 @@ def main() -> int:
             "--password",
             "--team-id",
             "--wait",
-            "xcrun stapler staple",
-            "xcrun stapler validate",
+            'python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" staple',
+            'python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" validate',
         )
     )
     add_check(
@@ -211,7 +211,7 @@ def main() -> int:
         {
             "notarytool_wait": "xcrun notarytool submit" in script and "--wait" in script,
             "apple_credentials": all(marker in script for marker in ("--apple-id", "--password", "--team-id")),
-            "staple_and_validate": "xcrun stapler staple" in script and "xcrun stapler validate" in script,
+            "staple_and_validate": 'python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" staple' in script and 'python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" validate' in script,
         },
         "the signed app is submitted to Apple, waits for approval, staples the ticket, and validates it",
     )

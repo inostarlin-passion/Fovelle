@@ -1,3 +1,50 @@
+# GitHub Actions 发布网络故障修复设计
+
+日期：2026-10-17（Asia/Shanghai）。范围：发布脚本的 stapler 外部服务调用。
+
+## 问题界定与证据
+
+[Release 38928329345](https://github.com/inostarlin-passion/Fovelle/actions/runs/38928329345) 在提交 c19fb14 / v1.3.1 失败。同提交 [Checks 38926447523](https://github.com/inostarlin-passion/Fovelle/actions/runs/38926447523) 与 [Build 38926447520](https://github.com/inostarlin-passion/Fovelle/actions/runs/38926447520) 成功。失败日志保存于 evidence/actions_release_20261017/remote-failure.log。
+
+日志因果链：notarytool Accepted → 原应用 staple 成功 → 原应用 validate 成功 → spctl 显示 Notarized Developer ID → ZIP 解压及 codesign 验证成功 → 解压应用 validate 请求 Apple CloudKit 时 NSURLErrorDomain Code=-1005 → stapler Error 68 → set -e 中止，未发布。
+
+## 多跳检索与逆向证伪
+
+第一跳读取 GitHub 实际失败日志及同 SHA 成功任务；第二跳沿 package-macos-release.sh 调用链核对 Apple [定制公证流程](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)、[分发打包](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution)；第三跳核对 [networkConnectionLost](https://developer.apple.com/documentation/foundation/urlerror/networkconnectionlost) 及本机 Xcode 自带 man stapler 的退出码说明。man 原文摘要保存为 stapler-man.txt。
+
+Apple 说明票据应附加于分发软件；stapler 手册说明 0 表示成功，EX_NOHOST 也可能表示从未公证或服务异常。因此仅凭 68 不足以认定网络问题，必须同时看到本次明确的 NSURLErrorDomain -1005。Apple 网页 Markdown 链接抓取失败，已记录该检索限制；网页摘要、本机工具手册、实际日志和源码共同支持本次局部结论。
+
+反证排查：编译、测试及签名已通过，排除它们是本次退出的直接原因；原应用已被接受且验证成功，未发现需要重新签名或重新公证的证据；日志明确报告连接丢失，不能把解压损坏当作已证实根因。永久 68、无效票据、权限错误必须仍失败。检索已充分定位故障，不扩大到无关 UI/HDR 改动。
+
+## 原子验收及实现
+
+| 标准 | 保证 |
+|---|---|
+| R1 | 成功调用执行一次，完整保留 action 和包含空格的路径参数。 |
+| R2 | 仅 68 且输出匹配 NSURLErrorDomain Code=-1005 时重试；短暂中断后成功可继续。 |
+| R3 | 最多五次，等待 10/20/40/60 秒，每次子进程超时 120 秒；耗尽返回原失败码。 |
+| R4 | 永久错误、其他 68、未知网络码立即失败；命令超时和缺失工具也失败。 |
+| R5 | 原应用 staple/validate 和解压应用 validate 都使用包装器；codesign、spctl、公证及 appcast 发布顺序保留；CTest 自动运行回归。 |
+| R6 | 每次输出和尝试次数可诊断；失败不会被视为验证成功。 |
+
+新增 dist/scripts/stapler-with-retry.py，仅允许 staple/validate 两种 action，固定重试策略，无凭证输入。Python 使用参数数组调用 xcrun，捕获并重新输出日志。三个调用点改用 python3 包装器；其余发布逻辑保留。已有 quality_release.py 与 quality_static.py 的源码契约同步识别包装器调用；新静态测试继续确认实际调用、失败门禁和 CTest 注册，避免只改旧标记就宣称具备运行保证。
+
+## 正确性论证
+
+令第 i 次退出码为 c_i，输出为 o_i，谓词 N=(c_i=68 且 o_i 含 NSURLErrorDomain Code=-1005)。仅 c_i=0 才返回成功；若非 N 则返回 c_i；若 N 且 i<5 则有限等待后进入 i+1；否则返回 c_i。因此所有成功路径均包含真实命令的零退出码；无效票据不会因重试直接变成通过。循环变量 5-i 严格递减，子进程执行也有超时，等待总计 130 秒，命令等待预算总计 600 秒（另有系统调度/输出开销）。一次包装器预算约 730 秒，仍受 workflow 45 分钟步骤上限约束。
+
+staple 在同一 bundle 上重复附加相同已公证票据，validate 为检查操作；不重新提交公证，不更改签名。set -e 继续阻止失败后的 spctl/appcast/发布。实际 Apple 长期不可用时仍失败，这是保留发布门禁的预期结果。
+
+## 验证边界
+
+使用真实 Python 子进程和受控 xcrun 替身验证重试控制流，使用 mock 验证等待及超时边界。替身不证明 Apple 实际签名/公证通过；本机无 CI 凭证，不发布版本、不移动标签。远端修复后成功需推送并由相应发布运行验证，报告必须区分本地通过与远端未执行。旧报告完整快照保留在 prior_reports/。
+
+
+---
+
+<details>
+<summary>此前任务记录（完整保留，非本次结论）</summary>
+
 # GitHub Actions 失败修复：设计与正确性论证
 
 日期：2026-10-16（Asia/Shanghai）。基线：20025902fb509268aeefeea25f0a8c14997a1330。以下为本轮权威设计；旧文档作为历史记录保留。
@@ -692,3 +739,5 @@ Qt 官方 API、Apple 原生偏好域说明、本地实际调用链、INI及Nati
 实现为每窗口可传入按值保存的OpenWithProvider，默认仍为现有原生函数，空provider回退到默认函数。任务同时按值捕获路径与provider。排空的waitForFinished→clear→waitForDone顺序保留。测试以原子标志确认完成，分别测量dispatch、close、总时长T和provider区间W；要求W≤T+1ms（计时量化容差）且max(0,T−W)<5000ms，同时dispatch/close各<5000ms。QtTest整个函数看门狗继续约束包含系统等待在内的总运行。T−W是关键路径增量开销，不是所有CPU耗时之和，不承诺总关闭时长小于五秒。
 
 逆向证伪：保留旧总时长断言并注入5200ms provider，旧测试稳定以5210ms失败；纠正计时分类后该输入总5211ms、provider5203ms、开销8ms并通过，同时完成标志为真。原生正常/慢启动行仍调用真实函数，验证没有只测空任务或跳过平台路径。新的源码检查同步核验provider/path按值捕获，保留原生命周期策略。
+
+</details>

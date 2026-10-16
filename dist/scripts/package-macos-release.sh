@@ -292,8 +292,8 @@ if ! xcrun notarytool submit "$NOTARIZATION_ZIP_PATH" \
     --verbose; then
     fail "Apple notarization failed or exceeded timeout ($NOTARIZATION_TIMEOUT); no release artifact was created. Inspect the submission ID above with notarytool info/log."
 fi
-xcrun stapler staple "$APP_PATH"
-xcrun stapler validate "$APP_PATH"
+python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" staple "$APP_PATH"
+python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" validate "$APP_PATH"
 spctl --assess --type execute --verbose=4 --ignore-cache "$APP_PATH"
 
 rm -f "$RELEASE_ZIP_PATH"
@@ -306,7 +306,7 @@ VERIFIED_APP="$VERIFY_ROOT/$(basename "$APP_PATH")"
 assert_universal_app "$VERIFIED_APP"
 assert_macos_deployment_target "$VERIFIED_APP"
 codesign --verify --deep --strict --verbose=2 "$VERIFIED_APP"
-xcrun stapler validate "$VERIFIED_APP"
+python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" validate "$VERIFIED_APP"
 spctl --assess --type execute --verbose=4 --ignore-cache "$VERIFIED_APP"
 
 # The enclosing app is signed only after Sparkle helpers/XPC bundles and framework.
