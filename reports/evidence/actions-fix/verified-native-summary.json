@@ -1,0 +1,62 @@
+{
+  "verified-checks": {
+    "RemediationTests": {
+      "status": "passed",
+      "elapsed_seconds": 0.975,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "HDRPolicyTests": {
+      "status": "passed",
+      "elapsed_seconds": 1.262,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "WindowBehaviorTests": {
+      "status": "passed",
+      "elapsed_seconds": 33.054,
+      "pass_incidents": 12,
+      "non_pass": 0
+    }
+  },
+  "verified-macos15": {
+    "RemediationTests": {
+      "status": "passed",
+      "elapsed_seconds": 1.171,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "HDRPolicyTests": {
+      "status": "passed",
+      "elapsed_seconds": 0.972,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "WindowBehaviorTests": {
+      "status": "passed",
+      "elapsed_seconds": 32.129,
+      "pass_incidents": 12,
+      "non_pass": 0
+    }
+  },
+  "verified-build": {
+    "RemediationTests": {
+      "status": "passed",
+      "elapsed_seconds": 1.645,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "HDRPolicyTests": {
+      "status": "passed",
+      "elapsed_seconds": 1.791,
+      "pass_incidents": 3,
+      "non_pass": 0
+    },
+    "WindowBehaviorTests": {
+      "status": "passed",
+      "elapsed_seconds": 39.245,
+      "pass_incidents": 12,
+      "non_pass": 0
+    }
+  }
+}

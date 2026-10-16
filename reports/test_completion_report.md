@@ -2,6 +2,18 @@
 
 日期：2026-10-16（Asia/Shanghai）。基线：2002590。本轮只修改 CI 测试基础设施和工作流，不修改产品的下载时限或 SDR/HDR 呈现策略。
 
+## 最终验收（真实 Actions）
+
+修复提交 **735b5734f5093df807b46290aedcac6c829bf575** 的 [草稿 PR #4](https://github.com/inostarlin-passion/Fovelle/pull/4) **5/5 检查全部成功**。
+
+| 真实工作流 | 结果 | 证据 |
+|---|---|---|
+| Build Fovelle | success；44/44 CTest；部署、打包、解压验证完成 | [38908356067](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356067) |
+| Checks | success；44/44 CTest；clang-tidy 与格式作业完成 | [38908356341](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356341) |
+| macOS 15 Release Compatibility | success；SDK15 构建、44/44 CTest 与部署验证完成 | [38908356249](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356249) |
+
+三套运行上传的原生 XML/JSON/log 已下载并用正式验证函数再次核验：所有 suite 返回 0，颜色像素及十个全屏数据行完整，非 pass 数为 0。API headSha 与 PR 头提交一致，未用旧运行冒充本次成功。最终远端补记及下载产物保存在本地报告/证据目录，修复源码位于已验证的 PR 提交。
+
 ## 1. 已确认的失败
 
 - [Build Fovelle 38898648389](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898648389) 与 [Checks 38898647755](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898647755) 在同一 SHA 的相同两项测试失败。
@@ -15,7 +27,7 @@
 | 设计／验收 | 设计含五组条件证明，CI1–CI8 原子验收及每例六要素，另含环境/旧结果反例 |
 | 红证据 | 新接口未实现时 Python 导入失败、QtTest 缺头文件；SDR headroom=1 真实原生失败；后续补充反例继续在旧实现失败 |
 | 构建 | 本地 Qt 6.11.2 Release 目标构建成功 |
-| 新契约及执行器测试 | 9/9 通过；成功、非零退出、超时、缺输出、旧结果、缺/重/错数据行及 workflow 证据契约均覆盖 |
+| 新契约及执行器测试 | 最终 10/10 通过；成功、非零退出、超时、缺输出、旧结果、缺/重/错数据行及 workflow 证据契约均覆盖 |
 | 原有门禁单测 | 3/3 通过，原有静态契约 6/6 通过 |
 | 强制 SDR 环境回归 | 两个 headroom 通道均为 1 时，HDR 亮度控制、RemediationDynamic、PortableHDR、ActionsRegressionContracts 四个 CTest 项 4/4 通过（39.60s） |
 | 真图门禁 | 三个原生阶段 JSON 为 passed；HDR 全屏十个数据行精确匹配，零失败/跳过 |
@@ -34,7 +46,7 @@
 | CI5 | suite/函数/十个 DataTag/所有 Incident 必须满足条件，缺失/重复/错误/skip 反例拒绝；通过 |
 | CI6 | 非零退出及挂起进程均失败；XML、log、JSON 保留；共享 270s/子进程 180s/清理 5s 预算不靠延长外层 300s 掩盖失败；通过 |
 | CI7 | 旧 XML 在启动前删除，未开始的后续阶段为 not-run，退出 0 但无新 XML 仍失败；通过 |
-| CI8 | Build、Checks unit、兼容与发布工作流必开门禁并 always 上传完整结果目录和 CTest 日志；本地契约通过，远端结果由 PR Actions 复核 |
+| CI8 | Build、Checks unit、兼容与发布工作流必开门禁并 always 上传完整结果目录和 CTest 日志；本地契约通过，远端三套 Actions 上传与复核均通过 |
 
 ## 3.1 真实 PR 复核与第二轮修正
 
@@ -42,7 +54,7 @@
 
 保留本轮失败日志，不修改正式 runner 的失败分类：单测加入 350ms 受控启动延迟，非零退出／挂起用例分别使用 5s 守卫；移除伪子进程不需要的 unittest.mock 导入。图像功能测试按实际 ImageIO/Qt SVG 调用链采用 15s/5s 有界守卫并记录格式、预算和解码耗时，全部结果断言保留，组上限仍为 90s。旧日志没有具体格式，报告不把单一格式的冷启动原因写为已证实事实。
 
-第一轮本地完整回归 47/47 通过（430.00s）。扩展后的十个契约／执行器单测通过，受影响 RemediationDynamic 与 ActionsRegressionContracts 两项复核通过。下一次真实 Actions 将核对新预算前提，不预填成功。
+第一轮本地完整回归 47/47 通过（430.00s）。扩展后的十个契约／执行器单测通过，受影响 RemediationDynamic 与 ActionsRegressionContracts 两项复核通过。最新真实 Actions 已完成新预算前提复核，三套工作流均成功；运行链接见最终验收。
 
 ## 4. 证据与边界
 
@@ -50,7 +62,7 @@
 
 本机为 macOS 27.0.1/arm64；原失败 runner 为 macOS 26.6.2。测试 headroom 注入验证真实原生缓冲/像素/几何支路，不把虚拟屏幕描述为物理 HDR 显示器。错误与 skip 保持硬失败，不采用自动重试洗白。
 
-远端真实复核将在独立修复分支的草稿 PR 中执行，报告不预填未知的远端通过结果。
+最终状态：CI1–CI10 验收完成，真实 PR 检查全部成功。没有修改产品参数、放宽像素/几何结果阈值或将失败改为 skip。
 
 ---
 

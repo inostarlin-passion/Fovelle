@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCase name="WindowBehaviorTests">
+  <Environment>
+    <QtVersion>6.11.2</QtVersion>
+    <QtBuild>Qt 6.11.2 (arm64&#x002D;little_endian&#x002D;lp64 shared (dynamic) release build; by Apple LLVM 16.0.0 (clang&#x002D;1600.0.26.3))</QtBuild>
+    <QTestVersion>6.11.2</QTestVersion>
+  </Environment>
+  <TestFunction name="initTestCase">
+    <Incident type="pass" file="" line="0" />
+    <Duration msecs="0.020458"/>
+  </TestFunction>
+  <TestFunction name="testHDRFullScreenVisualContinuity">
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-visible]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-visible]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-bottom-visible QRectF(110,28 500x500) QRectF(110,28 500x500) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-visible]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-bottom-visible","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-bottom-visible]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-visible]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-visible]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE enter-size-visible QRectF(128,0 768x768) QRectF(128,0 768x768) QRectF(0,0 1024x768) QRectF(0,0 1024x768)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-visible]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-size-visible","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[enter-size-visible]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-visible]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-visible]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE enter-position-visible QRectF(128,0 768x768) QRectF(128,0 768x768) QRectF(0,0 1024x768) QRectF(0,0 1024x768)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-visible]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-position-visible","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[enter-position-visible]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-visible]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-visible]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-size-visible QRectF(110,28 500x500) QRectF(110,28 500x500) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-visible]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-size-visible","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-size-visible]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-visible]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-visible]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-position-visible QRectF(110,28 500x500) QRectF(110,28 500x500) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-visible]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-position-visible","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-position-visible]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-hidden]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-hidden]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-bottom-hidden QRectF(96,0 528x528) QRectF(96,0 528x528) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-bottom-hidden]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-bottom-hidden","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-bottom-hidden]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-hidden]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-hidden]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE enter-size-hidden QRectF(128,0 768x768) QRectF(128,0 768x768) QRectF(0,0 1024x768) QRectF(0,0 1024x768)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-size-hidden]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-size-hidden","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[enter-size-hidden]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-hidden]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-hidden]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE enter-position-hidden QRectF(128,0 768x768) QRectF(128,0 768x768) QRectF(0,0 1024x768) QRectF(0,0 1024x768)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[enter-position-hidden]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-position-hidden","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[enter-position-hidden]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-hidden]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-hidden]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-size-hidden QRectF(96,0 528x528) QRectF(96,0 528x528) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-size-hidden]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-size-hidden","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-size-hidden]]></DataTag>
+    </Incident>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-hidden]]></DataTag>
+    <Description><![CDATA[HDR_CONTINUITY_CAPABILITY 1 1 false]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-hidden]]></DataTag>
+    <Description><![CDATA[CONTINUITY_SAMPLE exit-position-hidden QRectF(96,0 528x528) QRectF(96,0 528x528) QRectF(0,0 720x528) QRectF(0,0 720x528)]]></Description>
+  </Message>
+  <Message type="qinfo" file="" line="0">
+    <DataTag><![CDATA[exit-position-hidden]]></DataTag>
+    <Description><![CDATA[HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-position-hidden","samples":1,"size_error":0}]]></Description>
+  </Message>
+    <Incident type="pass" file="" line="0">
+      <DataTag><![CDATA[exit-position-hidden]]></DataTag>
+    </Incident>
+    <Duration msecs="31942.7"/>
+  </TestFunction>
+  <TestFunction name="cleanupTestCase">
+    <Incident type="pass" file="" line="0" />
+    <Duration msecs="0.018625"/>
+  </TestFunction>
+  <Duration msecs="31943.5"/>
+</TestCase>
