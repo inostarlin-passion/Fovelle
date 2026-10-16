@@ -1,0 +1,90 @@
+Run 1/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1448ms
+********* Finished testing of RemediationTests *********
+Run 2/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1447ms
+********* Finished testing of RemediationTests *********
+Run 3/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1452ms
+********* Finished testing of RemediationTests *********
+Run 4/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1394ms
+********* Finished testing of RemediationTests *********
+Run 5/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1404ms
+********* Finished testing of RemediationTests *********
+Run 6/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1444ms
+********* Finished testing of RemediationTests *********
+Run 7/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1447ms
+********* Finished testing of RemediationTests *********
+Run 8/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1447ms
+********* Finished testing of RemediationTests *********
+Run 9/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1445ms
+********* Finished testing of RemediationTests *********
+Run 10/10
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadProgressKeepsIdleAlive()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1450ms
+********* Finished testing of RemediationTests *********

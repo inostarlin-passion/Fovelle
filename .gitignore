@@ -60,3 +60,6 @@ build/*
 !reports/evidence/update/
 
 !reports/evidence/remediation/
+
+!reports/evidence/actions-fix/
+!reports/evidence/actions-fix/**

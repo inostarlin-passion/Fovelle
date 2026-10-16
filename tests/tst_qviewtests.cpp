@@ -94,6 +94,7 @@
 #include "nativedialogs.h"
 
 #include "native_titlebar_probe.h"
+#include "scoped_hdr_test_display.h"
 
 namespace
 {
@@ -3539,14 +3540,8 @@ void HDRPolicyTests::testHDRBrightnessNativeColorFidelity()
     if (!QFileInfo::exists(path)) QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
     const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
     QVERIFY(decoded.hdrImage);
-    const bool had = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM");
-    const QByteArray previous = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
-    const auto restore = qScopeGuard([&]() {
-        if (had) qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", previous);
-        else qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
-    });
     const float headroom = std::max(16.0F, decoded.hdrMetadata.contentHeadroom);
-    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", QByteArray::number(headroom));
+    ScopedHDRTestDisplay display(headroom);
     QWidget viewport;
     viewport.resize(320,240);
     viewport.show();
@@ -14857,6 +14852,7 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
         {"onetoonepixelsizing", false}, {"checkerboardbackground", false}});
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
+    ScopedHDRTestDisplay display;
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
@@ -14887,7 +14883,12 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     QVERIFY(view);
     QVERIFY(view->getCurrentFileDetails().isNativeHDRLoaded);
     QVERIFY(view->getCurrentFileDetails().hdrMetadata.contentHeadroom > 1.0F);
+    qInfo() << "HDR_CONTINUITY_CAPABILITY"
+            << view->nativeMetalRendererDiagnostics().displayCurrentHeadroom
+            << view->nativeMetalRendererDiagnostics().displayPotentialHeadroom
+            << view->nativeMetalRendererDiagnostics().displayHeadroomOverridden;
     QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 15000);
+    QVERIFY(view->nativeMetalRendererDiagnostics().displayHeadroomOverridden);
     const QSize sourceSize = view->getCurrentFileDetails().loadedPixmapSize;
     QTest::qWait(200);
     if (!entering) {

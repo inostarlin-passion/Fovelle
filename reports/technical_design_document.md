@@ -1,3 +1,87 @@
+# GitHub Actions 失败修复：设计与正确性论证
+
+日期：2026-10-16（Asia/Shanghai）。基线：20025902fb509268aeefeea25f0a8c14997a1330。以下为本轮权威设计；旧文档作为历史记录保留。
+
+## 1. 问题界定与多源核验
+
+GitHub API、失败 job 日志、下载的原始 XML 与本地代码一致确认：最新 Build Fovelle（38898648389）与 Checks（38898647755）均在测试步骤失败；编译、clang-tidy、格式检查成功。失败为 FovelleRemediationDynamic 的 testDownloadTotalTimeout 和 FovellePortableHDR 的 HDR 全屏子进程。没有依据将失败归因为编译器、打包或配置超时。
+
+| 证据 | 事实与设计影响 |
+|---|---|
+| [Build run](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898648389)、[Checks run](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898647755) | 相同 SHA、相同两项失败；远端 timeout 测试只记录英文子串断言失败，不能由此断言唯一 TCP 根因。 |
+| 下载的 WindowBehaviorTests.xml | 已执行前三个数据行均等不到 persistentHDRSurfaceReady，180s 子进程截止后 XML 未闭合。不是 XML 校验器拒绝完整通过结果。 |
+| 本地 headroom=1 反证 | 同一原始全屏数据行复现相同 persistentHDRSurfaceReady 失败，46.7s 后退出 1。原生颜色测试已显式使用 headroom override，因此远端它通过而全屏失败。 |
+| [Qt QAbstractSocket](https://doc.qt.io/qt-6.11/qabstractsocket.html) | write 可缓冲；flush 推送缓冲；LowDelayOption 关闭 Nagle。30ms 写一次不证明客户端在 150ms 内收到。 |
+| [Qt QTimer](https://doc.qt.io/qt-6.11/qtimer.html) | 忙碌时计时器可延后；测试不应把紧邻的两个网络/时钟截止时间作为无条件保证。 |
+| [Apple NSScreen EDR](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)、生产渲染分支 | 显示 headroom 依赖屏幕；SDR headroom=1 的正常分支不应被强制产品开启 HDR。测试采用现有测试注入点建立所需能力前提，不能宣称物理显示器具有 HDR。 |
+
+检索闭环：从失败 job → 对应代码/子进程 → 原始 XML → 官方 API → 本地 SDR 反证；对于 TCP 的具体包级根因，已有资料不足以唯一证明 Nagle 触发，但足以证明旧测试未建立所断言的接收/时限前提。设计消除此不成立推导，保留真实收包验证和独立空闲重置验证。
+
+## 2. 方案
+
+### 2.1 下载时限测试
+
+测试服务器使用 LowDelayOption、flush 和显式块发送；记录真实 progress。总时限测试采用 T=600ms、I=2000ms，要求多个进度事件、有限退出及精确的本地化总超时消息。另设空闲重置测试：在流量持续时生存超过 2I，随后取消；原停滞测试继续断言空闲超时。产品默认 15s/120s、限额与安全策略不改。
+
+### 2.2 HDR 前提
+
+新增仅测试使用的 ScopedHDRTestDisplay，保存两个测试环境键的“存在性+原字节”，作用域内把潜在和当前测试 headroom 设为 4（颜色像素用例保留原 16 或更高参考值），在窗口创建前生效，窗口销毁后恢复。使用真实原生解码/Metal/半浮点像素/窗口全屏；不改生产 SDR 策略，不跳过，不降低误差阈值。独立环境恢复测试与父环境 headroom=1 的原生连续性测试覆盖这一边界。
+
+### 2.3 门禁执行与证据
+
+run_portable_hdr.py 保留校验和、失败/skip 拒绝条件，并要求 suite 名称、函数和十个精确全屏 DataTag。每个子进程保留 XML、合并 stdout/stderr 日志与状态 JSON；超时终止自己的进程组，回收后返回失败。共享 270s 门禁预算、每子进程最多 180s、清理最多 5s，保持 CTest 的 300s 外层预算。错误输出给出日志/XML 路径。Build、Checks unit、兼容与发布链路上传全部门禁证据；不删除检查或盲目增加 timeout。
+
+### 2.4 反证扩展记录
+
+强制两个 headroom 通道为 1 的第一次本地复测进一步暴露：旧颜色测试仅覆盖一个通道，会被 current-headroom 的高优先级覆盖。因此颜色用例也采用同一作用域夹具，保留原参考 headroom 和 0.01 像素阈值。修复后两个通道均为 1 的真实门禁全部通过。
+
+另一反例是门禁在颜色阶段失败、却遗留上一轮全屏 XML。现在在任一阶段开始之前清理所有计划 suite 的 XML/log/JSON，将未来阶段显式标记为 not-run；子阶段再次清理自己的 XML。新增无输出但退出 0 的伪进程与残留成功 XML 检验，防止旧结果冒充本轮执行。
+
+### 2.5 真实 Actions 反证后的预算分离
+
+修复提交 3c86f4e 的三个远端工作流均通过了原先失败的总超时及 portable HDR，但执行器自测的 200ms 截止包含 Python 解释器冷启动，导致本应退出 7 的进程先被正确判超时。这是新单测的不成立前提，不能修改正式 runner 把超时伪装成退出失败。单测对非零退出与挂起分别给予 5s 启动/执行预算，保留精确退出码/timeout 分类，并加入 350ms 受控启动延迟反例；移除伪子进程不需要的 unittest.mock 导入。
+
+Checks 另有一次图像首次解码在 6.25s 完成，原功能测试 5s 守卫先失败。该用例验证原容器与解码能力，并非 5s 性能 SLA。远端旧日志没有打印具体格式，不能唯一指定某一容器。按实际调用链，ImageIO 光栅容器使用 15s 冷解码守卫，Qt SVG 保持 5s，整组 CTest 的 90s 上限保留；记录格式/字节/预算及实测 decodeMilliseconds，不修改产品加载实现和结果断言。
+
+## 3. 条件正确性证明
+
+### P1 总时限与空闲时限可区分
+
+总截止 d_T=t0+T，不随接收重置；空闲截止 d_I=t_last+I，且 t_last≥t0。取 I>T，得 d_I≥t0+I>t0+T=d_T。因此在正常调度前提下，空闲截止不先于总截止；实际测试还要求多次接收，排除“没有流量也碰巧通过”。这不证明任意 OS 调度下的硬实时上界。
+
+### P2 空闲重置不被 P1 掩盖
+
+独立测试观测 t>t0+2I 时仍未失败且有持续进度。如果空闲计时器从未重置，则首截止为 t0+I，正常调度下应早已失败，与观测矛盾。停滞控制组检验空闲保护仍存在。两项与总时限试验共同区分“未重置空闲”“总时限被进度重置”“未接收数据”等反实现。
+
+### P3 测试能力与环境恢复
+
+对每个环境键保存状态 E=(exists,bytes)。进入作用域设置有效值 h=4>1，生产现有测试能力入口进入 HDR 支路；离开时若 exists 则恢复 bytes，否则 unset。逐键构造逆变换，restore(set(E))=E；嵌套窗口生命周期位于作用域内，不把覆盖值泄露到后续 SDR 测试。此证明为程序环境及渲染路径，不等同物理屏幕亮度能力证明。
+
+### P4 完整门禁谓词
+
+通过 iff 校验和正确 ∧ suite 正确 ∧ 必需函数存在 ∧ 实际 DataTag 多重集恰等于期望集合 ∧ 所有 Incident 为 pass ∧ 子进程正常退出 0。删除一行、复制一行、添加未知行或任何 skip/fail 均使谓词 false。部分/空 XML 无法满足完整解析和函数条件，因此超时不可能以未执行冒充成功。
+
+### P5 有限等待与失败证据
+
+令全局 deadline=start+270s，每次子进程等待上限 min(180s,deadline−now)。成功阶段耗时从剩余预算扣除；第一次超时即停止后续阶段，kill 自己创建的进程组并最多等待 5s，故程序主动等待预算不超过 275s，留出 CTest 300s 的管理余量（不声称磁盘/OS 硬实时）。每个终态先写日志/诊断，再抛出失败；远端异常结果可追溯，不能被重试或 skip 自动洗白。
+
+## 4. 原子验收
+
+| ID | 验收 | 测试代码入口 |
+|---|---|---|
+| CI1 | 滴流总截止时间语义 | testDownloadTotalTimeout |
+| CI2 | 进度重置空闲计时 | testDownloadProgressKeepsIdleAlive |
+| CI3 | HDR 测试环境可移植且无泄漏 | testScopedHDRDisplayRestoresEnvironment |
+| CI4 | SDR runner 执行真实 HDR 连续性 | FovellePortableHDR |
+| CI5 | 缺失、重复或错误数据行不通过 | test_required_rows_are_exact |
+| CI6 | 子进程失败、超时可诊断且有限退出 | test_run_suite_failure_and_timeout |
+| CI7 | 成功门禁要求精确执行集合 | test_run_suite_success |
+| CI8 | 两个失败工作流及发布链路保存证据 | test_workflow_gate_contract |
+
+---
+
+# 历史记录：本轮之前
+
 # Fovelle 问题 1–10 修复：技术设计与正确性论证
 
 日期：2026-10-16（Asia/Shanghai）。基线：609d554。本文为本轮权威设计；末尾保留先前设计记录。
