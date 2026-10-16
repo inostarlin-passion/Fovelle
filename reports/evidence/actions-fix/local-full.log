@@ -1,0 +1,152 @@
+Test project /Users/inostarlin/code/Fovelle/build
+      Start  1: FovelleTests
+ 1/47 Test  #1: FovelleTests .................................   Passed  178.72 sec
+      Start  2: FovelleNativeAlertsStatic
+ 2/47 Test  #2: FovelleNativeAlertsStatic ....................   Passed    0.22 sec
+      Start  3: FovelleNativeAlertsDynamic
+ 3/47 Test  #3: FovelleNativeAlertsDynamic ...................   Passed    3.63 sec
+      Start  4: FovelleNavigationBoundaryHintStatic
+ 4/47 Test  #4: FovelleNavigationBoundaryHintStatic ..........   Passed    0.05 sec
+      Start  5: FovelleHDRFocusTransitionEvidence
+ 5/47 Test  #5: FovelleHDRFocusTransitionEvidence ............   Passed    0.10 sec
+      Start  6: FovelleNavigationBoundaryHintDynamic
+ 6/47 Test  #6: FovelleNavigationBoundaryHintDynamic .........   Passed    1.76 sec
+      Start  7: FovelleSDRFullScreenPresentation
+ 7/47 Test  #7: FovelleSDRFullScreenPresentation .............   Passed    4.73 sec
+      Start  8: FovelleToggleFitStabilitySourceContract
+ 8/47 Test  #8: FovelleToggleFitStabilitySourceContract ......   Passed    0.06 sec
+      Start  9: FovelleToggleFitStabilityAcceptance
+ 9/47 Test  #9: FovelleToggleFitStabilityAcceptance ..........   Passed    2.38 sec
+      Start 10: FovelleZoomScrollbarDurationSourceContract
+10/47 Test #10: FovelleZoomScrollbarDurationSourceContract ...   Passed    0.05 sec
+      Start 11: FovelleScrollbarZoomDurationAcceptance
+11/47 Test #11: FovelleScrollbarZoomDurationAcceptance .......   Passed    1.92 sec
+      Start 12: FovelleToggleFitAnchorAcceptance
+12/47 Test #12: FovelleToggleFitAnchorAcceptance .............   Passed    0.73 sec
+      Start 13: FovelleToggleFitTrajectoryAcceptance
+13/47 Test #13: FovelleToggleFitTrajectoryAcceptance .........   Passed    0.58 sec
+      Start 14: FovelleFiveIssueZoomAcceptance
+14/47 Test #14: FovelleFiveIssueZoomAcceptance ...............   Passed    2.24 sec
+      Start 15: FovelleFourIssueZoomAcceptance
+15/47 Test #15: FovelleFourIssueZoomAcceptance ...............   Passed    2.95 sec
+      Start 16: FovelleShortcutSettingsTests
+16/47 Test #16: FovelleShortcutSettingsTests .................   Passed    2.74 sec
+      Start 17: FovelleZoomScrollbarTrajectory
+17/47 Test #17: FovelleZoomScrollbarTrajectory ...............   Passed    2.07 sec
+      Start 18: FovelleZoomScrollbarTrajectoryHiDpi
+18/47 Test #18: FovelleZoomScrollbarTrajectoryHiDpi ..........   Passed    6.99 sec
+      Start 19: FovelleZoomScrollbarExpensiveRefinement
+19/47 Test #19: FovelleZoomScrollbarExpensiveRefinement ......   Passed    0.52 sec
+      Start 20: FovelleZoomScrollbarVerticalTopology
+20/47 Test #20: FovelleZoomScrollbarVerticalTopology .........   Passed    0.41 sec
+      Start 21: FovelleHiddenTitlebarFullScreen
+21/47 Test #21: FovelleHiddenTitlebarFullScreen ..............   Passed   14.22 sec
+      Start 22: FovelleFullScreenMetricsGate
+22/47 Test #22: FovelleFullScreenMetricsGate .................   Passed    0.09 sec
+      Start 23: FovelleFullScreenRefinement
+23/47 Test #23: FovelleFullScreenRefinement ..................   Passed    2.39 sec
+      Start 24: FovelleNativeFullScreenRoundTrip
+24/47 Test #24: FovelleNativeFullScreenRoundTrip .............   Passed   26.47 sec
+      Start 25: FovelleFullScreenVisualContinuity
+25/47 Test #25: FovelleFullScreenVisualContinuity ............   Passed   18.37 sec
+      Start 26: FovelleHDRFullScreenVisualContinuity
+26/47 Test #26: FovelleHDRFullScreenVisualContinuity .........   Passed   30.60 sec
+      Start 27: FovelleFullScreenBottomBackgroundHandoff
+27/47 Test #27: FovelleFullScreenBottomBackgroundHandoff .....   Passed   14.60 sec
+      Start 28: FovelleUpdateStatic
+28/47 Test #28: FovelleUpdateStatic ..........................   Passed    0.14 sec
+      Start 29: FovelleUpdateConfiguration
+29/47 Test #29: FovelleUpdateConfiguration ...................   Passed    0.10 sec
+      Start 30: FovelleHDRBrightnessStatic
+30/47 Test #30: FovelleHDRBrightnessStatic ...................   Passed    0.05 sec
+      Start 31: FovelleHDRBrightnessDynamic
+31/47 Test #31: FovelleHDRBrightnessDynamic ..................   Passed    0.31 sec
+      Start 32: FovelleHDRColorPixels
+32/47 Test #32: FovelleHDRColorPixels ........................   Passed    0.14 sec
+      Start 33: FovelleHDRColorSamples
+33/47 Test #33: FovelleHDRColorSamples .......................   Passed    1.84 sec
+      Start 34: FovelleHDRColorNative
+34/47 Test #34: FovelleHDRColorNative ........................   Passed    1.66 sec
+      Start 35: FovelleZoomColorStatic
+35/47 Test #35: FovelleZoomColorStatic .......................   Passed    0.05 sec
+      Start 36: FovelleKeepZoomDynamic
+36/47 Test #36: FovelleKeepZoomDynamic .......................   Passed    3.32 sec
+      Start 37: FovelleColorInformationDynamic
+37/47 Test #37: FovelleColorInformationDynamic ...............   Passed    0.69 sec
+      Start 38: FovelleZoomColorLocalization
+38/47 Test #38: FovelleZoomColorLocalization .................   Passed    0.62 sec
+      Start 39: FovelleKeepZoomHiDpi
+39/47 Test #39: FovelleKeepZoomHiDpi .........................   Passed   10.82 sec
+      Start 40: FovelleKeepZoomPersistenceStatic
+40/47 Test #40: FovelleKeepZoomPersistenceStatic .............   Passed    0.05 sec
+      Start 41: FovelleKeepZoomPersistenceDynamic
+41/47 Test #41: FovelleKeepZoomPersistenceDynamic ............   Passed    2.99 sec
+      Start 42: FovelleRemediationStatic
+42/47 Test #42: FovelleRemediationStatic .....................   Passed    0.05 sec
+      Start 43: FovelleRemediationGateTests
+43/47 Test #43: FovelleRemediationGateTests ..................   Passed    0.06 sec
+      Start 44: FovelleRemediationDynamic
+44/47 Test #44: FovelleRemediationDynamic ....................   Passed   10.09 sec
+      Start 45: FovellePortableHDR
+45/47 Test #45: FovellePortableHDR ...........................   Passed   28.84 sec
+      Start 46: FovelleDeploymentArtifact
+46/47 Test #46: FovelleDeploymentArtifact ....................   Passed   48.07 sec
+      Start 47: FovelleActionsRegressionContracts
+47/47 Test #47: FovelleActionsRegressionContracts ............   Passed    0.52 sec
+
+100% tests passed out of 47
+
+Label Time Summary:
+acceptance            = 132.18 sec*proc (32 tests)
+anchor                =   0.73 sec*proc (1 test)
+appearance            =   3.85 sec*proc (2 tests)
+artifact              =  48.07 sec*proc (1 test)
+background-handoff    =  14.60 sec*proc (1 test)
+brightness            =   0.36 sec*proc (2 tests)
+bundle                =  48.07 sec*proc (1 test)
+ci                    =   0.52 sec*proc (1 test)
+color                 =   5.00 sec*proc (6 tests)
+continuity            =  48.97 sec*proc (2 tests)
+contracts             =   0.52 sec*proc (1 test)
+deployment            =  48.07 sec*proc (1 test)
+display-capture       =  14.60 sec*proc (1 test)
+duration              =   1.97 sec*proc (2 tests)
+dynamic               = 129.90 sec*proc (23 tests)
+dynamic-evidence      =   0.10 sec*proc (1 test)
+focus                 =   1.86 sec*proc (2 tests)
+four-issues           =   2.95 sec*proc (1 test)
+fullscreen            = 111.47 sec*proc (8 tests)
+hdr                   =  63.53 sec*proc (8 tests)
+hidpi                 =  17.81 sec*proc (2 tests)
+hint                  =   1.81 sec*proc (2 tests)
+local-fixture         =   3.50 sec*proc (2 tests)
+localization          =   0.72 sec*proc (3 tests)
+macos                 = 110.51 sec*proc (8 tests)
+metrics               =   0.09 sec*proc (1 test)
+native                =  28.13 sec*proc (2 tests)
+native-dialog         =   3.85 sec*proc (2 tests)
+native-ui             =  33.57 sec*proc (2 tests)
+navigation            =   1.81 sec*proc (2 tests)
+persistence           =   3.03 sec*proc (2 tests)
+raw                   =  28.84 sec*proc (1 test)
+real-fixtures         =  28.84 sec*proc (1 test)
+refinement            =   2.90 sec*proc (2 tests)
+regression            =   0.52 sec*proc (1 test)
+required              =  28.84 sec*proc (1 test)
+requires-desktop      =  14.60 sec*proc (1 test)
+restart               =   2.99 sec*proc (1 test)
+scrollbar             =  11.97 sec*proc (6 tests)
+sdr                   =   4.73 sec*proc (1 test)
+settings              =   3.03 sec*proc (2 tests)
+smoke                 =  48.07 sec*proc (1 test)
+source-contract       =   0.38 sec*proc (4 tests)
+static                =   0.14 sec*proc (3 tests)
+titlebar              =  14.22 sec*proc (1 test)
+toggle-fit            =   3.75 sec*proc (4 tests)
+trajectory            =   9.64 sec*proc (3 tests)
+transition            =   0.10 sec*proc (1 test)
+unit                  =   0.09 sec*proc (1 test)
+vertical-topology     =   0.41 sec*proc (1 test)
+zoom                  =  38.75 sec*proc (18 tests)
+
+Total Test time (real) = 430.00 sec

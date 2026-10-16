@@ -120,9 +120,19 @@ private slots:
             QCOMPARE(file.readAll(), source.first);
             QVImageLoader loader;
             QSignalSpy loaded(&loader, &QVImageLoader::imageReady);
+            // This is a format-preservation check, not a cold-start benchmark.
+            // ImageIO/Core Image can initialize codecs and kernels on first use.
+            const int decodeTimeout = source.second == "svg" ? 5000 : 15000;
+            QElapsedTimer decodeTimer;
+            decodeTimer.start();
+            qInfo() << "URL_SOURCE_DECODE" << source.second << "bytes=" << source.first.size()
+                    << "budget_ms=" << decodeTimeout;
             loader.requestImage(artifact.path);
-            QTRY_COMPARE_WITH_TIMEOUT(loaded.count(), 1, 5000);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.count(), 1, decodeTimeout);
             const auto result = qvariant_cast<QVImageLoader::Result>(loaded.at(0).at(1));
+            qInfo() << "URL_SOURCE_DECODE_COMPLETE" << source.second
+                    << "wait_ms=" << decodeTimer.elapsed()
+                    << "decode_ms=" << result.decodeMilliseconds;
             QVERIFY(!result.errorData);
             if (source.second == "svg")
                 QVERIFY(result.vectorImage.isValid());

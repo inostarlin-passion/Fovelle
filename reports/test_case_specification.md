@@ -84,6 +84,24 @@
 | 阶段提前失败不得遗留后续成功 | 临时目录预置后续 suite 的旧 XML/log/JSON | LaterSuite 三个旧文件 | 调用正式 prepare_output | 旧 XML/log 删除，JSON 为 not-run | 删除目录；test_prepare_output_rejects_stale_later_suite |
 | 预算耗尽不启动子进程 | 对 Popen 设置 mock 观测 | timeout=0 | 调用正式 run_suite | 抛出失败、写 timeout JSON、未调用 Popen | 删除目录；test_expired_budget_does_not_launch |
 
+## CI9：执行器单测包含解释器冷启动
+
+1. **测试目的**：区分正常非零退出和真正超时，避免 200ms 启动假设。
+2. **前置条件**：临时伪进程、父进程有可写证据目录。
+3. **输入数据**：启动先等待 350ms；随后退出 7 或挂起 10s；分别使用 5s 守卫。
+4. **操作步骤**：调用正式 run_suite，核对分类、退出码、部分 XML 与日志；与旧 200ms 守卫对照。
+5. **预期结果**：非零退出保持 failed/7；挂起保持 timeout；两者均不得通过；有限退出预算保留。
+6. **后置条件**：回收进程/进程组，清理单测目录；代码 test_run_suite_failure_and_timeout。
+
+## CI10：功能性原生解码守卫
+
+1. **测试目的**：原字节/原生解码能力不被未声明的 5s 冷启动 SLA 误判。
+2. **前置条件**：真实 loopback 下载、提交的 gain-map JPEG/DNG 与其他原格式控制。
+3. **输入数据**：原有五类容器；ImageIO 光栅容器 15s，Qt SVG 5s，组上限 90s。
+4. **操作步骤**：静态核对按格式预算；动态实际解码，记录类型/字节/预算/耗时并继续所有像素/元数据/帧数/矢量断言。
+5. **预期结果**：按实际解码调用链采用冷启动预算，结果不变；超预算仍失败。
+6. **后置条件**：释放 loader/临时容器；代码 test_native_decode_budget_contract 与 testDownloadPreservesSources。
+
 ---
 
 # 历史记录：本轮之前

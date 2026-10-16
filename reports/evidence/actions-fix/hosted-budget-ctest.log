@@ -1,0 +1,14 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 44: FovelleRemediationDynamic
+1/2 Test #44: FovelleRemediationDynamic ...........   Passed   10.19 sec
+    Start 47: FovelleActionsRegressionContracts
+2/2 Test #47: FovelleActionsRegressionContracts ...   Passed    5.63 sec
+
+100% tests passed out of 2
+
+Label Time Summary:
+ci            =   5.63 sec*proc (1 test)
+contracts     =   5.63 sec*proc (1 test)
+regression    =   5.63 sec*proc (1 test)
+
+Total Test time (real) =  15.82 sec

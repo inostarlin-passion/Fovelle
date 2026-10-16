@@ -36,6 +36,14 @@
 | CI7 | 旧 XML 在启动前删除，未开始的后续阶段为 not-run，退出 0 但无新 XML 仍失败；通过 |
 | CI8 | Build、Checks unit、兼容与发布工作流必开门禁并 always 上传完整结果目录和 CTest 日志；本地契约通过，远端结果由 PR Actions 复核 |
 
+## 3.1 真实 PR 复核与第二轮修正
+
+[草稿 PR #4](https://github.com/inostarlin-passion/Fovelle/pull/4) 的提交 3c86f4e 已在 macOS 26 Build、Checks 及 macOS 15 兼容工作流执行。三者的 portable HDR 均通过，原始总超时失败也消失；新执行器单测却因 Python 冷启动超过 200ms，将预期退出 7 的模拟进程正确判为 timeout。另一次 Checks 原容器功能测试在 6.25s 完成解码，超出旧 5s 守卫。
+
+保留本轮失败日志，不修改正式 runner 的失败分类：单测加入 350ms 受控启动延迟，非零退出／挂起用例分别使用 5s 守卫；移除伪子进程不需要的 unittest.mock 导入。图像功能测试按实际 ImageIO/Qt SVG 调用链采用 15s/5s 有界守卫并记录格式、预算和解码耗时，全部结果断言保留，组上限仍为 90s。旧日志没有具体格式，报告不把单一格式的冷启动原因写为已证实事实。
+
+第一轮本地完整回归 47/47 通过（430.00s）。扩展后的十个契约／执行器单测通过，受影响 RemediationDynamic 与 ActionsRegressionContracts 两项复核通过。下一次真实 Actions 将核对新预算前提，不预填成功。
+
 ## 4. 证据与边界
 
 证据目录：reports/evidence/actions-fix/。包含远端失败 job 日志与下载 XML、本地 SDR 红 XML、扩展契约红/绿日志、local-sdr-gate 的原生 XML/JSON/log、网络十轮日志与格式观察。

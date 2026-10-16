@@ -48,8 +48,8 @@ class ActionsRegressionTests(unittest.TestCase):
 import os,sys,time
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from unittest.mock import patch
 mode=os.environ.get('CI_GATE_STUB','pass')
+time.sleep(float(os.environ.get('CI_GATE_STARTUP_DELAY','0')))
 xml=Path(sys.argv[sys.argv.index('-o')+1].split(',')[0])
 print('fixture diagnostic',flush=True)
 print('fixture stderr',file=sys.stderr,flush=True)
@@ -80,14 +80,15 @@ ET.ElementTree(root).write(xml)
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);script=self.make_stub(root)
             for mode in ('fail','hang'):
-                env=os.environ.copy();env['CI_GATE_STUB']=mode
+                env=os.environ.copy();env['CI_GATE_STUB']=mode;env['CI_GATE_STARTUP_DELAY']='0.35'
                 started=time.monotonic()
                 with self.assertRaises(RuntimeError):
-                    run_suite(str(script),'FixtureSuite',['required'],env,root,timeout=.2)
-                self.assertLess(time.monotonic()-started,3)
+                    run_suite(str(script),'FixtureSuite',['required'],env,root,timeout=5)
+                self.assertLess(time.monotonic()-started,10.5)
                 record=json.loads((root/'FixtureSuite.json').read_text())
                 self.assertEqual(record['status'],'timeout' if mode=='hang' else 'failed')
                 self.assertIsNotNone(record['error'])
+                if mode=='fail':self.assertEqual(record['returncode'],7)
                 self.assertIn('fixture stderr',(root/'FixtureSuite.log').read_text())
                 self.assertEqual((root/'FixtureSuite.xml').read_text(),'<TestCase>')
 
@@ -118,6 +119,13 @@ ET.ElementTree(root).write(xml)
             self.assertFalse((root/'LaterSuite.xml').exists())
             self.assertFalse((root/'LaterSuite.log').exists())
             self.assertEqual(json.loads((root/'LaterSuite.json').read_text())['status'],'not-run')
+
+    def test_native_decode_budget_contract(self):
+        source=(ROOT/'tests/remediation_tests.h').read_text()
+        case=source.split('void testDownloadPreservesSources()')[1].split('void testWindowUrlAnimationAndArtifactLifetime()')[0]
+        self.assertIn('decodeTimeout',case)
+        self.assertIn('15000',case)
+        self.assertIn('URL_SOURCE_DECODE',case)
 
     def test_download_fixture_contract(self):
         source=(ROOT/'tests/remediation_tests.h').read_text()
