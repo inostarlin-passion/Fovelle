@@ -22,6 +22,7 @@ public:
         connect(this, &QTcpServer::newConnection, this, [this] {
             while (hasPendingConnections()) {
                 auto *socket = nextPendingConnection();
+                socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
                 connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
                     socket->readAll();
                     if (socket->property("answered").toBool())
@@ -34,8 +35,14 @@ public:
                                              : QByteArray())
                                   + "\r\n");
                     if (dripping) {
+                        socket->write("x");
+                        socket->flush();
                         auto *timer = new QTimer(socket);
-                        connect(timer, &QTimer::timeout, socket, [socket] { socket->write("x"); });
+                        timer->setTimerType(Qt::PreciseTimer);
+                        connect(timer, &QTimer::timeout, socket, [socket] {
+                            socket->write("x");
+                            socket->flush();
+                        });
                         timer->start(30);
                     } else {
                         socket->write(chunked ? QByteArray::number(body.size(), 16) + "\r\n" + body
@@ -240,21 +247,86 @@ private slots:
                  QString("Download idle timeout"));
 #endif
     }
+    void testScopedHDRDisplayRestoresEnvironment()
+    {
+        const bool had = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM");
+        const QByteArray original = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+        const bool hadCurrent = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+        const QByteArray originalCurrent = qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+        const auto restore = qScopeGuard([&] {
+            if (had)
+                qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", original);
+            else
+                qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+            if (hadCurrent)
+                qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", originalCurrent);
+            else
+                qunsetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+        });
+        const QList<QPair<bool, QByteArray>> values{
+            { false, { } }, { true, { } }, { true, "1" }, { true, "2.75" }
+        };
+        for (const auto &potentialBefore : values)
+            for (const auto &currentBefore : values) {
+                if (potentialBefore.first)
+                    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", potentialBefore.second);
+                else
+                    qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+                if (currentBefore.first)
+                    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", currentBefore.second);
+                else
+                    qunsetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+                {
+                    ScopedHDRTestDisplay display;
+                    QCOMPARE(qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM"), QByteArray("4"));
+                    QCOMPARE(qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM"), QByteArray("4"));
+                }
+                QCOMPARE(qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM"),
+                         potentialBefore.first);
+                QCOMPARE(qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM"), potentialBefore.second);
+                QCOMPARE(qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM"),
+                         currentBefore.first);
+                QCOMPARE(qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM"), currentBefore.second);
+            }
+    }
+    void testDownloadProgressKeepsIdleAlive()
+    {
+        RemediationHttpServer server;
+        server.dripping = true;
+        UrlDownload::Policy policy;
+        policy.idleTimeoutMs = 350;
+        policy.totalTimeoutMs = 3000;
+        UrlDownload download(policy);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        QSignalSpy progress(&download, &UrlDownload::progress);
+        download.start(server.url());
+        QTRY_VERIFY_WITH_TIMEOUT(progress.count() >= 2, 1500);
+        QTest::qWait(policy.idleTimeoutMs * 2);
+        QCOMPARE(failed.count(), 0);
+        QVERIFY(progress.count() >= 3);
+        download.cancel();
+    }
     void testDownloadTotalTimeout()
     {
         RemediationHttpServer server;
         server.dripping = true;
         UrlDownload::Policy policy;
-        policy.idleTimeoutMs = 150;
-        policy.totalTimeoutMs = 220;
+        policy.idleTimeoutMs = 2000;
+        policy.totalTimeoutMs = 600;
+        QVERIFY(policy.totalTimeoutMs < policy.idleTimeoutMs);
         UrlDownload download(policy);
         QSignalSpy failed(&download, &UrlDownload::failed);
+        QSignalSpy progress(&download, &UrlDownload::progress);
         QElapsedTimer timer;
         timer.start();
         download.start(server.url());
-        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 1500);
-        QVERIFY(timer.elapsed() < 900);
-        QVERIFY(failed.at(0).at(0).toString().contains("total", Qt::CaseInsensitive));
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 3000);
+        QVERIFY2(progress.count() >= 2,
+                 "The total-deadline case must observe actual streaming progress");
+        QVERIFY(download.receivedBytes() > 0);
+        QVERIFY(timer.elapsed() < 2000);
+        QCOMPARE(failed.at(0).at(0).toString(),
+                 QCoreApplication::translate("UrlDownload", "Download total timeout"));
     }
     void testDownloadLimits()
     {

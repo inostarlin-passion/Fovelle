@@ -493,3 +493,7 @@ endif()
 
 add_test(NAME FovelleDeploymentArtifact COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_delivery.py $<TARGET_BUNDLE_DIR:Fovelle>)
 set_tests_properties(FovelleDeploymentArtifact PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE LABELS "deployment;bundle;artifact;smoke")
+
+add_test(NAME FovelleActionsRegressionContracts
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_regression_tests.py)
+set_tests_properties(FovelleActionsRegressionContracts PROPERTIES TIMEOUT 30 LABELS "ci;regression;contracts")

@@ -1,0 +1,51 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 31: FovelleHDRBrightnessDynamic
+1/4 Test #31: FovelleHDRBrightnessDynamic .........   Passed    0.29 sec
+    Start 44: FovelleRemediationDynamic
+2/4 Test #44: FovelleRemediationDynamic ...........   Passed   10.17 sec
+    Start 45: FovellePortableHDR
+3/4 Test #45: FovellePortableHDR ..................***Failed   93.24 sec
+RemediationTests: actual HDR tests executed; zero failures/skips
+Traceback (most recent call last):
+  File "/Users/inostarlin/code/Fovelle/tests/run_portable_hdr.py", line 89, in run_suite
+    raise ValueError(f'{suite} exited with status {record["returncode"]}')
+ValueError: HDRPolicyTests exited with status 1
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/inostarlin/code/Fovelle/tests/run_portable_hdr.py", line 128, in <module>
+    main()
+    ~~~~^^
+  File "/Users/inostarlin/code/Fovelle/tests/run_portable_hdr.py", line 122, in main
+    run_suite(args.executable, suite, functions, env, output,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              timeout=min(180, deadline - time.monotonic()), required_rows=rows)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/inostarlin/code/Fovelle/tests/run_portable_hdr.py", line 95, in run_suite
+    raise RuntimeError(f'{error}; inspect {xml} and {log}') from error
+RuntimeError: HDRPolicyTests exited with status 1; inspect /Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.xml and /Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.log
+
+    Start 47: FovelleActionsRegressionContracts
+4/4 Test #47: FovelleActionsRegressionContracts ...   Passed    0.60 sec
+
+75% tests passed, 1 tests failed out of 4
+
+Label Time Summary:
+acceptance       =   0.29 sec*proc (1 test)
+brightness       =   0.29 sec*proc (1 test)
+ci               =   0.60 sec*proc (1 test)
+contracts        =   0.60 sec*proc (1 test)
+dynamic          =   0.29 sec*proc (1 test)
+hdr              =  93.53 sec*proc (2 tests)
+native-ui        =  93.24 sec*proc (1 test)
+raw              =  93.24 sec*proc (1 test)
+real-fixtures    =  93.24 sec*proc (1 test)
+regression       =   0.60 sec*proc (1 test)
+required         =  93.24 sec*proc (1 test)
+
+Total Test time (real) = 104.30 sec
+
+The following tests FAILED:
+	 45 - FovellePortableHDR (Failed)                       hdr native-ui raw real-fixtures required
+Errors while running CTest
