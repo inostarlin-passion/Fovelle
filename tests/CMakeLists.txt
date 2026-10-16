@@ -18,6 +18,8 @@ set(FOVELLE_TEST_SOURCES
     ../src/colorinformation.cpp
     ../src/qvimagecore.cpp
     ../src/qvimageloader.cpp
+    ../src/urldownload.cpp
+    ../src/asyncwork.cpp
     ../src/qvmovie.cpp
     ../src/qvshortcutdialog.cpp
     ../src/actionmanager.cpp
@@ -48,6 +50,8 @@ set(FOVELLE_TEST_HEADERS
     ../src/colorinformation.h
     ../src/qvimagecore.h
     ../src/qvimageloader.h
+    ../src/urldownload.h
+    ../src/asyncwork.h
     ../src/qvmovie.h
     ../src/qvshortcutdialog.h
     ../src/actionmanager.h
@@ -476,3 +480,16 @@ add_test(NAME FovelleKeepZoomPersistenceDynamic COMMAND fovelle_tests
 set_tests_properties(FovelleKeepZoomPersistenceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 90 LABELS "zoom;settings;persistence;restart;dynamic;acceptance")
+
+option(FOVELLE_REQUIRE_PORTABLE_HDR "Require real portable HDR regressions (no skips)" ON)
+add_test(NAME FovelleRemediationStatic COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_contract.py)
+add_test(NAME FovelleRemediationGateTests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_gate_tests.py)
+add_test(NAME FovelleRemediationDynamic COMMAND fovelle_tests)
+set_tests_properties(FovelleRemediationDynamic PROPERTIES ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1" TIMEOUT 90 RUN_SERIAL TRUE)
+if(FOVELLE_REQUIRE_PORTABLE_HDR)
+    add_test(NAME FovellePortableHDR COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_portable_hdr.py $<TARGET_FILE:fovelle_tests> --output ${CMAKE_BINARY_DIR}/test-results/portable-hdr)
+    set_tests_properties(FovellePortableHDR PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE LABELS "hdr;raw;real-fixtures;required;native-ui")
+endif()
+
+add_test(NAME FovelleDeploymentArtifact COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_delivery.py $<TARGET_BUNDLE_DIR:Fovelle>)
+set_tests_properties(FovelleDeploymentArtifact PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE LABELS "deployment;bundle;artifact;smoke")

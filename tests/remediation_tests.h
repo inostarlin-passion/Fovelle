@@ -1,0 +1,535 @@
+#pragma once
+// R1-R20 behavioral regressions. Included in the isolated Qt test executable.
+#include "urldownload.h"
+#include "asyncwork.h"
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QNetworkReply>
+#include <QCryptographicHash>
+#include <QSemaphore>
+
+class RemediationHttpServer : public QTcpServer
+{
+public:
+    QByteArray body;
+    QByteArray status = "200 OK";
+    QByteArray headers;
+    bool stalled = false;
+    bool dripping = false;
+    bool chunked = false;
+    explicit RemediationHttpServer(QObject *parent = nullptr) : QTcpServer(parent)
+    {
+        connect(this, &QTcpServer::newConnection, this, [this] {
+            while (hasPendingConnections()) {
+                auto *socket = nextPendingConnection();
+                connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+                    socket->readAll();
+                    if (socket->property("answered").toBool())
+                        return;
+                    socket->setProperty("answered", true);
+                    if (stalled)
+                        return;
+                    socket->write("HTTP/1.1 " + status + "\r\nConnection: close\r\n" + headers
+                                  + (chunked ? QByteArray("Transfer-Encoding: chunked\r\n")
+                                             : QByteArray())
+                                  + "\r\n");
+                    if (dripping) {
+                        auto *timer = new QTimer(socket);
+                        connect(timer, &QTimer::timeout, socket, [socket] { socket->write("x"); });
+                        timer->start(30);
+                    } else {
+                        socket->write(chunked ? QByteArray::number(body.size(), 16) + "\r\n" + body
+                                                      + "\r\n0\r\n\r\n"
+                                              : body);
+                        socket->disconnectFromHost();
+                    }
+                });
+                connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+            }
+        });
+        if (!listen(QHostAddress::LocalHost))
+            qFatal("Cannot start loopback HTTP fixture");
+    }
+    QUrl url(const QString &suffix = "png") const
+    {
+        return QUrl(QString("http://127.0.0.1:%1/image.%2").arg(serverPort()).arg(suffix));
+    }
+};
+
+class RemediationTests : public QObject
+{
+    Q_OBJECT
+private slots:
+    void testDownloadThreadAffinity()
+    {
+        RemediationHttpServer server;
+        server.body = "original bytes";
+        UrlDownload download;
+        QSignalSpy done(&download, &UrlDownload::succeeded);
+        connect(&download, &UrlDownload::progress, &download, [&] {
+            QCOMPARE(QThread::currentThread(), download.thread());
+            for (auto *reply : download.findChildren<QNetworkReply *>())
+                QCOMPARE(reply->thread(), download.thread());
+        });
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 2000);
+        const auto artifact = qvariant_cast<UrlDownload::Artifact>(done.at(0).at(0));
+        QFile file(artifact.path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), server.body);
+    }
+    void testDownloadPreservesSources()
+    {
+        QImage tagged(4, 4, QImage::Format_ARGB32);
+        tagged.fill(Qt::red);
+        tagged.setColorSpace(QColorSpace::DisplayP3);
+        tagged.setText("Author", "Fovelle regression");
+        QByteArray taggedBytes;
+        QBuffer taggedBuffer(&taggedBytes);
+        taggedBuffer.open(QIODevice::WriteOnly);
+        QVERIFY(tagged.save(&taggedBuffer, "png"));
+        QList<QPair<QByteArray, QString>> sources{
+            { taggedBytes, "png" },
+            { QByteArray::fromBase64(tinyAnimatedPngBase64), "png" },
+            { "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"10\"><rect "
+              "width=\"20\" height=\"10\" fill=\"red\"/></svg>",
+              "svg" }
+        };
+        for (const QString &name : { QString("gain-map.jpg"), QString("bayer.dng") }) {
+            QFile fixture(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + name);
+            QVERIFY(fixture.open(QIODevice::ReadOnly));
+            sources.append({ fixture.readAll(), name.section('.', -1) });
+        }
+        for (const auto &source : sources) {
+            RemediationHttpServer server;
+            server.body = source.first;
+            UrlDownload download;
+            QSignalSpy done(&download, &UrlDownload::succeeded);
+            download.start(server.url(source.second));
+            QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 2000);
+            auto artifact = qvariant_cast<UrlDownload::Artifact>(done.at(0).at(0));
+            QFile file(artifact.path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), source.first);
+            QVImageLoader loader;
+            QSignalSpy loaded(&loader, &QVImageLoader::imageReady);
+            loader.requestImage(artifact.path);
+            QTRY_COMPARE_WITH_TIMEOUT(loaded.count(), 1, 5000);
+            const auto result = qvariant_cast<QVImageLoader::Result>(loaded.at(0).at(1));
+            QVERIFY(!result.errorData);
+            if (source.second == "svg")
+                QVERIFY(result.vectorImage.isValid());
+            else if (source.first == QByteArray::fromBase64(tinyAnimatedPngBase64)) {
+                QVMovie movie(artifact.path);
+                QCOMPARE(movie.frameCount(), 2);
+            } else if (source.second == "png") {
+                const QImage image(artifact.path);
+                QCOMPARE(image.colorSpace(), QColorSpace(QColorSpace::DisplayP3));
+                QCOMPARE(image.text("Author"), QString("Fovelle regression"));
+            } else {
+                QVERIFY(result.hdrImage);
+                QCOMPARE(result.sourceColor.isRaw, source.second == "dng");
+            }
+        }
+    }
+    void testWindowUrlAnimationAndArtifactLifetime()
+    {
+        RemediationHttpServer server;
+        server.body = QByteArray::fromBase64(tinyAnimatedPngBase64);
+        QString downloadedPath;
+        {
+            MainWindow window;
+            window.setAttribute(Qt::WA_DeleteOnClose, false);
+            window.resize(640, 480);
+            window.show();
+            window.openUrl(server.url());
+            QTRY_VERIFY_WITH_TIMEOUT(window.getIsMovieLoaded(), 4000);
+            auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+            QVERIFY(view);
+            auto *core = view->findChild<QVImageCore *>();
+            QVERIFY(core);
+            QCOMPARE(core->getLoadedMovie().frameCount(), 2);
+            downloadedPath = window.getCurrentFileDetails().fileInfo.absoluteFilePath();
+            QVERIFY(QFile::exists(downloadedPath));
+            QFile original(downloadedPath);
+            QVERIFY(original.open(QIODevice::ReadOnly));
+            QCOMPARE(original.readAll(), server.body);
+            window.close();
+        }
+        QVERIFY(!QFile::exists(downloadedPath));
+    }
+    void testDownloadCleanup()
+    {
+        QString path;
+        for (int i = 0; i < 10; ++i) {
+            RemediationHttpServer server;
+            server.body = "bytes";
+            UrlDownload download;
+            QSignalSpy done(&download, &UrlDownload::succeeded);
+            download.start(server.url());
+            QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 2000);
+            path = qvariant_cast<UrlDownload::Artifact>(done.at(0).at(0)).path;
+            QVERIFY(QFile::exists(path));
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QCOMPARE(download.findChildren<QNetworkReply *>().size(), 0);
+            done.clear();
+        }
+        QVERIFY(!QFile::exists(path));
+        RemediationHttpServer server;
+        server.stalled = true;
+        UrlDownload download;
+        QSignalSpy canceled(&download, &UrlDownload::canceled);
+        download.start(server.url());
+        download.cancel();
+        QCOMPARE(canceled.count(), 1);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(download.findChildren<QNetworkReply *>().size(), 0);
+    }
+    void testDownloadHttpFailureCleanup()
+    {
+        const auto directories = [] {
+            return QDir(QDir::tempPath())
+                    .entryList({ "FovelleDownload-*" }, QDir::Dirs | QDir::NoDotAndDotDot);
+        };
+        const auto baseline = directories();
+        RemediationHttpServer server;
+        server.status = "404 Not Found";
+        server.body = "error body";
+        UrlDownload download;
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 2000);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(download.findChildren<QNetworkReply *>().size(), 0);
+        QCOMPARE(directories(), baseline);
+    }
+    void testDownloadIdleTimeout()
+    {
+        RemediationHttpServer server;
+        server.stalled = true;
+        UrlDownload::Policy policy;
+        policy.idleTimeoutMs = 100;
+        policy.totalTimeoutMs = 1000;
+        UrlDownload download(policy);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        QElapsedTimer timer;
+        timer.start();
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 1500);
+        QVERIFY(timer.elapsed() < 800);
+        QVERIFY(failed.at(0).at(0).toString().contains("idle", Qt::CaseInsensitive));
+    }
+    void testDownloadTranslatedFailure()
+    {
+#ifdef FOVELLE_TRANSLATIONS_DIR
+        QTranslator translator;
+        QVERIFY(translator.load(QString::fromUtf8(FOVELLE_TRANSLATIONS_DIR) + "/qview_zh_Hans.qm"));
+        QCoreApplication::installTranslator(&translator);
+        const auto restore = qScopeGuard([&] { QCoreApplication::removeTranslator(&translator); });
+        RemediationHttpServer server;
+        server.stalled = true;
+        UrlDownload::Policy policy;
+        policy.idleTimeoutMs = 50;
+        UrlDownload download(policy);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 1000);
+        QCOMPARE(failed.at(0).at(0).toString(), QString::fromUtf8("下载等待数据超时"));
+#else
+        QCOMPARE(QCoreApplication::translate("UrlDownload", "Download idle timeout"),
+                 QString("Download idle timeout"));
+#endif
+    }
+    void testDownloadTotalTimeout()
+    {
+        RemediationHttpServer server;
+        server.dripping = true;
+        UrlDownload::Policy policy;
+        policy.idleTimeoutMs = 150;
+        policy.totalTimeoutMs = 220;
+        UrlDownload download(policy);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        QElapsedTimer timer;
+        timer.start();
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 1500);
+        QVERIFY(timer.elapsed() < 900);
+        QVERIFY(failed.at(0).at(0).toString().contains("total", Qt::CaseInsensitive));
+    }
+    void testDownloadLimits()
+    {
+        for (bool chunked : { false, true })
+            for (int length : { 1024, 1025 }) {
+                RemediationHttpServer server;
+                server.body = QByteArray(length, 'x');
+                server.chunked = chunked;
+                UrlDownload::Policy policy;
+                policy.maxBytes = 1024;
+                UrlDownload download(policy);
+                QSignalSpy done(&download, &UrlDownload::succeeded);
+                QSignalSpy failed(&download, &UrlDownload::failed);
+                download.start(server.url());
+                QTRY_VERIFY_WITH_TIMEOUT(done.count() + failed.count() == 1, 2000);
+                QCOMPARE(done.count(), length == 1024 ? 1 : 0);
+                QCOMPARE(failed.count(), length == 1025 ? 1 : 0);
+                QVERIFY(download.receivedBytes() <= 1024);
+            }
+        RemediationHttpServer server;
+        server.headers = "Content-Length: 1025\r\n";
+        UrlDownload::Policy policy;
+        policy.maxBytes = 1024;
+        UrlDownload download(policy);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        download.start(server.url());
+        QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 2000);
+        QCOMPARE(download.receivedBytes(), 0);
+    }
+    void testDownloadProgressAndCancel()
+    {
+        RemediationHttpServer server;
+        server.dripping = true;
+        UrlDownload download;
+        QSignalSpy done(&download, &UrlDownload::succeeded);
+        QSignalSpy failed(&download, &UrlDownload::failed);
+        QSignalSpy canceled(&download, &UrlDownload::canceled);
+        download.start(server.url());
+        QTest::qWait(80);
+        download.cancel();
+        download.cancel();
+        QTest::qWait(100);
+        QCOMPARE(canceled.count(), 1);
+        QCOMPARE(done.count(), 0);
+        QCOMPARE(failed.count(), 0);
+        // Exercise the actual MainWindow route; cancel must not open a native error dialog.
+        MainWindow window;
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.openUrl(server.url());
+        auto *job = window.findChild<UrlDownload *>();
+        QVERIFY(job);
+        job->cancel();
+        QTest::qWait(30);
+        QVERIFY(!QApplication::activeModalWidget());
+    }
+    void testFolderScanAsync()
+    {
+        QTemporaryDir directory;
+        for (const QString &name : { "10.png", "2.png", "1.png" })
+            QVERIFY(QImage(2, 2, QImage::Format_ARGB32).save(directory.filePath(name)));
+        QVFileEnumerator enumerator;
+        bool finished = false;
+        enumerator.scanAsync(directory.path(), this, [&](auto files) {
+            QCOMPARE(QThread::currentThread(), thread());
+            QCOMPARE(files.size(), 3);
+            QCOMPARE(QFileInfo(files.at(0).absoluteFilePath).fileName(), QString("1.png"));
+            QCOMPARE(QFileInfo(files.at(1).absoluteFilePath).fileName(), QString("2.png"));
+            finished = true;
+        });
+        QVERIFY(!finished);
+        QTRY_VERIFY_WITH_TIMEOUT(finished, 3000);
+    }
+    void testFolderScanGeneration()
+    {
+        QTemporaryDir a, b;
+        QVERIFY(QImage(2, 2, QImage::Format_ARGB32).save(a.filePath("a.png")));
+        QVERIFY(QImage(2, 2, QImage::Format_ARGB32).save(b.filePath("b.png")));
+        QVImageCore core;
+        core.loadFile(a.path());
+        core.loadFile(b.path());
+        QTRY_COMPARE_WITH_TIMEOUT(core.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  b.filePath("b.png"), 4000);
+        QTest::qWait(100);
+        QCOMPARE(core.getCurrentFileDetails().folderFileInfoList.getBaseDir(), b.path());
+        core.closeImage();
+        QTest::qWait(50);
+        QVERIFY(!core.hasFileOrPendingLoad());
+    }
+    void testDirectoryOpenAndNavigation()
+    {
+        QTemporaryDir directory;
+        QVERIFY(QImage(2, 2, QImage::Format_ARGB32).save(directory.filePath("1.png")));
+        QVERIFY(QImage(2, 2, QImage::Format_ARGB32).save(directory.filePath("2.png")));
+        QVImageCore core;
+        core.loadFile(directory.path());
+        QTRY_VERIFY_WITH_TIMEOUT(core.getCurrentFileDetails().isPixmapLoaded, 4000);
+        QTRY_COMPARE_WITH_TIMEOUT(core.getCurrentFileDetails().folderFileInfoList.size(), 2, 4000);
+        core.goToFile(Qv::GoToFileMode::Next);
+        QTRY_COMPARE_WITH_TIMEOUT(core.getCurrentFileDetails().fileInfo.fileName(),
+                                  QString("2.png"), 4000);
+    }
+    void testMovieBoundedCache()
+    {
+        QTemporaryDir dir;
+        const auto path = createBase64Image(dir, "movie", "png", tinyAnimatedPngBase64);
+        QVMovie movie(path);
+        movie.setCacheMode(QVMovie::CacheAll);
+        movie.setCacheByteLimit(16);
+        QVERIFY(movie.jumpToFrame(0));
+        const auto first = movie.currentImage();
+        QVERIFY(movie.jumpToFrame(1));
+        QVERIFY(movie.cachedBytes() <= 16);
+        QVERIFY(movie.jumpToFrame(0));
+        QCOMPARE(movie.currentImage(), first);
+        QVERIFY(movie.cachedBytes() <= 16);
+        movie.setCacheByteLimit(1);
+        QVERIFY(movie.jumpToFrame(1));
+        QCOMPARE(movie.cachedBytes(), quint64(0));
+        QVMovie gif(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif");
+        gif.setCacheMode(QVMovie::CacheAll);
+        gif.setCacheByteLimit(1024);
+        QCOMPARE(gif.frameCount(), 4);
+        QVERIFY(gif.jumpToFrame(0));
+        const auto initial = gif.currentImage();
+        QVERIFY(gif.jumpToFrame(3));
+        QVERIFY(gif.cachedBytes() <= 1024);
+        QVERIFY(gif.jumpToFrame(0));
+        QCOMPARE(gif.currentImage(), initial);
+    }
+    void testMovieAsyncPlayback()
+    {
+        QTemporaryDir dir;
+        const auto path = createBase64Image(dir, "movie", "png", tinyAnimatedPngBase64);
+        QVMovie movie(path);
+        movie.setAsyncPlayback(true);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        movie.start();
+        QCOMPARE(frames.count(), 0);
+        QTRY_VERIFY_WITH_TIMEOUT(frames.count() >= 2, 2000);
+        movie.stop();
+        const int count = frames.count();
+        QTest::qWait(250);
+        QCOMPARE(frames.count(), count);
+        movie.setFileName(path);
+        movie.start();
+        QTRY_VERIFY_WITH_TIMEOUT(frames.count() > count, 2000);
+    }
+    void testMovieAsyncPlaybackSpeed()
+    {
+        const auto measure = [](int speed) {
+            QVMovie movie(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif");
+            movie.setAsyncPlayback(true);
+            movie.setSpeed(speed);
+            QSignalSpy frames(&movie, &QVMovie::frameChanged);
+            QElapsedTimer timer;
+            timer.start();
+            movie.start();
+            while (frames.count() < 20 && timer.elapsed() < 3000)
+                QTest::qWait(5);
+            movie.stop();
+            return qMakePair(frames.count() >= 20, timer.elapsed());
+        };
+        const auto normal = measure(100);
+        const auto fast = measure(200);
+        QVERIFY(normal.first);
+        QVERIFY(fast.first);
+        QVERIFY(normal.second >= 500);
+        QVERIFY2(fast.second < normal.second * 0.85,
+                 "Async decoding must retain playback-speed scaling");
+    }
+    void testMovieAsyncInvalidInput()
+    {
+        QTemporaryDir dir;
+        QVMovie movie(dir.filePath("absent.gif"));
+        movie.setAsyncPlayback(true);
+        QSignalSpy failed(&movie, &QVMovie::error);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        movie.start();
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::NotRunning, 1000);
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(frames.count(), 0);
+        QCOMPARE(movie.cachedBytes(), quint64(0));
+    }
+    void testMovieQueuedSourceReplacement()
+    {
+        auto entered = std::make_shared<QSemaphore>();
+        auto release = std::make_shared<QSemaphore>();
+        const auto unblock = qScopeGuard([release] { release->release(4); });
+        for (int i = 0; i < 4; ++i)
+            QvAsync::schedule([entered, release] {
+                entered->release();
+                release->acquire();
+            });
+        QTRY_COMPARE_WITH_TIMEOUT(entered->available(), 4, 2000);
+        QTemporaryDir dir;
+        const auto oldPath = createBase64Image(dir, "old", "png", tinyAnimatedPngBase64);
+        QImage replacement(3, 3, QImage::Format_ARGB32);
+        replacement.fill(Qt::cyan);
+        const auto newPath = dir.filePath("new.png");
+        QVERIFY(replacement.save(newPath));
+        QVMovie movie(oldPath);
+        movie.setAsyncPlayback(true);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        movie.start();
+        movie.setFileName(newPath);
+        movie.start();
+        bool heartbeat = false;
+        QTimer::singleShot(0, this, [&] { heartbeat = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(heartbeat, 500);
+        QCOMPARE(frames.count(), 0);
+        release->release(4);
+        QTRY_VERIFY_WITH_TIMEOUT(frames.count() > 0, 2000);
+        QCOMPARE(movie.currentImage().pixelColor(1, 1), QColor(Qt::cyan));
+        movie.stop();
+    }
+    void testLoaderNonblockingShutdown()
+    {
+        auto release = std::make_shared<std::atomic<bool>>(false);
+        auto entered = std::make_shared<std::atomic<bool>>(false);
+        int deliveries = 0;
+        auto *loader =
+                new QVImageLoader(nullptr, [release, entered](const QString &path, int, bool) {
+                    entered->store(true);
+                    while (!release->load())
+                        QThread::msleep(5);
+                    QVImageLoader::Result result;
+                    result.absoluteFilePath = path;
+                    return result;
+                });
+        connect(loader, &QVImageLoader::imageReady, this, [&] { ++deliveries; });
+        loader->requestImage("/nonexistent/test.png");
+        QTRY_VERIFY_WITH_TIMEOUT(entered->load(), 1000);
+        QElapsedTimer timer;
+        timer.start();
+        delete loader;
+        const auto elapsed = timer.elapsed();
+        release->store(true);
+        QVERIFY(elapsed < 100);
+        QTest::qWait(100);
+        QCOMPARE(deliveries, 0);
+    }
+    void testPortableHDR()
+    {
+        const QString root = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/";
+        for (const QString &name : { QString("gain-map.jpg"), QString("bayer.dng") }) {
+            const auto result = QVCocoaFunctions::readImageWithImageIO(root + name, 128);
+            QVERIFY2(result.errorString.isEmpty(), qPrintable(result.errorString));
+            QVERIFY2(result.hdrImage != nullptr, qPrintable(name));
+            QCOMPARE(result.isRaw, name.endsWith("dng"));
+            if (name.endsWith("jpg"))
+                QVERIFY(result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap);
+            const auto pixels = QVCocoaFunctions::probeHDRBrightnessImage(result.hdrImage, 8, 1);
+            QCOMPARE(pixels.size(), 64 * 64 * 4);
+            for (float value : pixels)
+                QVERIFY(std::isfinite(value));
+        }
+    }
+    void testShutdownProcess()
+    {
+        QTemporaryDir dir;
+        for (const int delay : { 30, 10000 }) {
+            QProcess child;
+            auto environment = QProcessEnvironment::systemEnvironment();
+            environment.insert("FOVELLE_READ_SHUTDOWN_PROBE", dir.path());
+            environment.insert("FOVELLE_READ_SHUTDOWN_DELAY_MS", QString::number(delay));
+            child.setProcessEnvironment(environment);
+            QElapsedTimer timer;
+            timer.start();
+            child.start(QCoreApplication::applicationFilePath(), { });
+            QVERIFY(child.waitForFinished(5000));
+            QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+            QCOMPARE(child.exitCode(), delay > 1500 ? 75 : 0);
+            QVERIFY(timer.elapsed() < 4000);
+            QSettings settings(dir.filePath("saved.ini"), QSettings::IniFormat);
+            QCOMPARE(settings.value("saved").toBool(), true);
+        }
+    }
+};

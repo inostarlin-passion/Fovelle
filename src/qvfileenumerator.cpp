@@ -11,14 +11,50 @@ QVFileEnumerator::QVFileEnumerator(QObject *parent)
     loadSettings(true);
 }
 
+QVFileEnumerator::ScanOptions QVFileEnumerator::scanOptions() const
+{
+    ScanOptions options;
+    options.extensions = qvApp->getFileExtensionSet();
+    options.mimeTypes = qvApp->getMimeTypeNameSet();
+    options.sortMode = sortMode;
+    options.sortDescending = sortDescending;
+    options.allowMimeContentDetection = allowMimeContentDetection;
+    options.skipHiddenFiles = skipHiddenFiles;
+    options.randomSeed = baseRandomSortSeed;
+    options.collator = collator;
+    return options;
+}
+
 QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const QString &dirPath) const
+{
+    return scan(dirPath, scanOptions());
+}
+
+QvAsync::Ticket
+QVFileEnumerator::scanAsync(const QString &dirPath, QObject *receiver,
+                            std::function<void(CompatibleFileList)> completion) const
+{
+    const ScanOptions options = scanOptions();
+    const auto ticket = QvAsync::run([dirPath, options] { return scan(dirPath, options); },
+                                     std::move(completion));
+    QObject::connect(receiver, &QObject::destroyed, [ticket] { QvAsync::cancel(ticket); });
+    return ticket;
+}
+
+QVFileEnumerator::CompatibleFileList QVFileEnumerator::scan(const QString &dirPath,
+                                                            const ScanOptions &options)
 {
     const bool recurse = QFile::exists(QDir(dirPath).filePath("qv-recurse.txt"));
     CompatibleFileList fileList(dirPath, recurse);
 
     const QMimeDatabase mimeDb;
-    const auto &extensions = qvApp->getFileExtensionSet();
-    const auto &mimeTypes = qvApp->getMimeTypeNameSet();
+    const auto &extensions = options.extensions;
+    const auto &mimeTypes = options.mimeTypes;
+    const auto sortMode = options.sortMode;
+    const auto sortDescending = options.sortDescending;
+    const auto allowMimeContentDetection = options.allowMimeContentDetection;
+    const auto skipHiddenFiles = options.skipHiddenFiles;
+    QCollator collator = options.collator;
     const QMimeDatabase::MatchMode mimeMatchMode = allowMimeContentDetection ? QMimeDatabase::MatchDefault : QMimeDatabase::MatchExtension;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
@@ -40,6 +76,8 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const 
         it.next();
         const QFileInfo entry = it.fileInfo();
 #endif
+        if (QvAsync::isCanceled())
+            return fileList;
         const QString absoluteFilePath = entry.absoluteFilePath();
         const QString fileName = entry.fileName();
         const QString suffix = entry.suffix().toLower();
@@ -77,7 +115,14 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const 
                 stringSortKey = mimeType;
                 break;
             case Qv::SortMode::Random:
-                numericSortKey = getRandomSortKey(absoluteFilePath);
+                numericSortKey = static_cast<qint64>(
+                        QCryptographicHash::hash(
+                                (QString::number(options.randomSeed, 16) + absoluteFilePath)
+                                        .toUtf8(),
+                                QCryptographicHash::Md5)
+                                .toHex()
+                                .left(16)
+                                .toULongLong(nullptr, 16));
                 break;
             default:
                 stringSortKey = fileName;
@@ -109,12 +154,14 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const 
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-qint64 QVFileEnumerator::getFileTimeSortKey(const QDirListing::DirEntry &dirEntry, const QFileDevice::FileTime type) const
+qint64 QVFileEnumerator::getFileTimeSortKey(const QDirListing::DirEntry &dirEntry,
+                                            const QFileDevice::FileTime type)
 {
     return dirEntry.fileTime(type, QTimeZone::UTC).toMSecsSinceEpoch();
 }
 #else
-qint64 QVFileEnumerator::getFileTimeSortKey(const QFileInfo &fileInfo, const QFileDevice::FileTime type) const
+qint64 QVFileEnumerator::getFileTimeSortKey(const QFileInfo &fileInfo,
+                                            const QFileDevice::FileTime type)
 {
     return fileInfo.fileTime(type, QTimeZone::UTC).toMSecsSinceEpoch();
 }

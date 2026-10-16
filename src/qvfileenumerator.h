@@ -2,6 +2,8 @@
 #define QVFILEENUMERATOR_H
 
 #include "qvnamespace.h"
+#include "asyncwork.h"
+#include <QSet>
 #include <QCollator>
 #include <QList>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
@@ -42,7 +44,22 @@ public:
 
     explicit QVFileEnumerator(QObject *parent = nullptr);
 
+    struct ScanOptions
+    {
+        QSet<QString> extensions;
+        QSet<QString> mimeTypes;
+        Qv::SortMode sortMode = Qv::SortMode::Name;
+        bool sortDescending = false;
+        bool allowMimeContentDetection = false;
+        bool skipHiddenFiles = false;
+        quint32 randomSeed = 0;
+        QCollator collator;
+    };
+    ScanOptions scanOptions() const;
+    static CompatibleFileList scan(const QString &dirPath, const ScanOptions &options);
     CompatibleFileList getCompatibleFiles(const QString &dirPath) const;
+    QvAsync::Ticket scanAsync(const QString &dirPath, QObject *receiver,
+                              std::function<void(CompatibleFileList)> completion) const;
     bool getIsLoopFoldersEnabled() const { return isLoopFoldersEnabled; }
     Qv::SortMode getSortMode() const { return sortMode; }
     void setSortMode(const Qv::SortMode mode);
@@ -55,9 +72,10 @@ signals:
 
 protected:
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-    qint64 getFileTimeSortKey(const QDirListing::DirEntry &dirEntry, const QFileDevice::FileTime type) const;
+    static qint64 getFileTimeSortKey(const QDirListing::DirEntry &dirEntry,
+                                     const QFileDevice::FileTime type);
 #else
-    qint64 getFileTimeSortKey(const QFileInfo &fileInfo, const QFileDevice::FileTime type) const;
+    static qint64 getFileTimeSortKey(const QFileInfo &fileInfo, const QFileDevice::FileTime type);
 #endif
     qint64 getRandomSortKey(const QString &filePath) const;
 

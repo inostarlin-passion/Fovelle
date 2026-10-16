@@ -2,6 +2,9 @@
 #include "qvapplication.h"
 #include <QCheckBox>
 #include <QCommandLineParser>
+#include <QTemporaryDir>
+#include <QSettings>
+#include <memory>
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QHeaderView>
@@ -47,6 +50,16 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion(QStringLiteral(VERSION_STRING));
     startupTrace.mark("application-identity");
 
+    // Deployment smoke tests start the real executable without touching the
+    // desktop user's native preferences. The lifetime includes QApplication.
+    std::unique_ptr<QTemporaryDir> deploymentSettings;
+    if (qEnvironmentVariableIsSet("FOVELLE_DEPLOYMENT_PROBE")) {
+        deploymentSettings = std::make_unique<QTemporaryDir>();
+        if (!deploymentSettings->isValid())
+            return 1;
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, deploymentSettings->path());
+    }
     SettingsManager::migrateOldSettings();
     startupTrace.mark("settings-migrated");
 

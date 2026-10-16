@@ -1,3 +1,120 @@
+# Fovelle 问题 1–10 修复：技术设计与正确性论证
+
+日期：2026-10-16（Asia/Shanghai）。基线：609d554。本文为本轮权威设计；末尾保留先前设计记录。
+
+## 1. 问题界定与事实核验
+
+上一轮编号 1–5 属于 URL 获取事务；6 属于交付；7 属于目录索引；8 属于动画资源与调度；9 属于只读工作生命周期；10 属于可移植真实样本及发布门禁。第 11 项模块拆分不在本轮范围。
+
+检索路径：先核对仓库调用链，再检索 Qt 6.11 文档，跟随类型/线程/生命周期链接，与 Apple Core Image 和本地 SDK 头文件及行为探针交叉核验。外部文档证明 API 契约，仓库与动态测试证明本项目是否遵循契约，二者不互相替代。
+
+|来源|核验事实与设计后果|
+|---|---|
+|[Qt 线程与 QObject](https://doc.qt.io/qt-6.11/threads-qobject.html)|事件驱动对象按线程归属使用；网络读取留主线程，工作线程只收值快照。|
+|[QNetworkReply](https://doc.qt.io/qt-6.11/qnetworkreply.html)|未知总量为 -1；读取后不保留；deleteLater 释放；缓冲上限不能作为精确字节限额。|
+|[QNetworkRequest](https://doc.qt.io/qt-6.11/qnetworkrequest.html#setTransferTimeout)|传输超时默认关闭，且属于无数据时限；额外总计时器覆盖持续滴流。|
+|[QThreadPool](https://doc.qt.io/qt-6.11/qthreadpool.html#clear)|clear 不停止运行任务，析构仍等待；仅移除 waitForDone 不能解决销毁阻塞。|
+|[QImageReader](https://doc.qt.io/qt-6.11/qimagereader.html)|实例可在独立线程使用；逐帧解码有状态；不能同时跨线程共享 reader。|
+|[Apple CIImage](https://developer.apple.com/documentation/coreimage/ciimage)|CIImage 是惰性图；Qt 单张 PNG 重编码无法保留 gain-map/RAW 图及原始容器。|
+|[Qt macOS 部署](https://doc.qt.io/qt-6.11/macos-deployment.html)|CMake bundle 不自动等于可独立运行的 Qt 部署包；需部署并检查动态库/平台插件。|
+
+反证：已有 APNG 本地播放通过不证明 URL 播放；优先级不等于解码可取消；CacheNone 不足以保证所有格式回退；设置 TIMEOUT 不等于缺失样本真正运行；静态字符串检查不证明真实像素。采用对应动态测试逐一排除。对于依赖 OS 调度/磁盘的时间，证明只提供程序等待预算，不声称实时系统绝对墙钟上界。
+
+## 2. 设计
+
+### 2.1 URL 事务
+
+新增可测试的 UrlDownload 对象，拥有 manager、reply、临时目录/文件、空闲与总计时器。HTTP/HTTPS 请求流式按最多 64KiB 读取，默认限额 128MiB、空闲 15s、总计 120s。Content-Length 仅早拒绝，不作为实际累计上限；对解压后的读取字节同样计量。原始字节落盘，安全保留 URL 后缀；成功路径把临时目录共享所有权交给窗口，调用原有 openFile。失败/取消删除部分文件，所有终态统一结束一次并 deleteLater reply。窗口关闭取消全部事务。未知长度显示不定进度，取消不显示错误。
+
+### 2.2 目录索引
+
+QVFileEnumerator 提供复制的 ScanOptions（扩展名/MIME/隐藏与排序策略），扫描函数只依赖值，不读 qvApp。异步服务执行枚举与排序；QVImageCore 使用 generation 和路径双重核对提交快照。目录打开首图在最新扫描完成后进行；单文件打开不等待目录。导航按钮及预加载在快照到达后刷新。关闭和换目录使旧 generation 失效，保持递归 baseDir 语义。
+
+### 2.3 动画
+
+将缓存内容改为 QImage，主线程创建 QPixmap。缓存总预算 64MiB，单帧不符合预算则不缓存；按访问顺序淘汰。淘汰后的随机访问通过独立 reader/native decoder 重建，不能把 greatestFrameNumber 当作缓存存在证明。生产 start/定时推进使用异步帧读取；一次只执行一个帧请求，换源/暂停/stop 使代次失效。同步 jumpToFrame 保留给逐帧操作，必须能重新获取被淘汰帧；它不与工作 reader 共享可变状态。
+
+### 2.4 只读工作与退出
+
+共享读任务服务持有池，窗口/加载器只持取消票据，取消不析构池、不等待；工作不捕获窗口/加载器所有权，回调在主线程检查票据。服务在线程工作完成前维持 QApplication 生命周期。应用退出先保存并同步设置、取消窗口读任务，再最多等待 1500ms；正常完成走普通析构。不可取消的同步原生解码超时，则在 GUI 析构之前 std::_Exit，避免让仍运行的解码访问已析构 Qt。此为只读任务的进程级退出兜底，不在窗口关闭触发，不强杀 C++ 线程。EPS 子进程采用轮询取消并登记 PID，极端兜底前终止已登记子进程。OS 调度、同步设置存储和非本轮 GUI/OpenWith 工作不属于读任务等待上界。
+
+### 2.5 交付与真图门禁
+
+普通构建打包前 macdeployqt，验证 Qt frameworks、Cocoa 平台插件、所有架构依赖路径，解压后再次验证。生成原创确定性 gain-map JPEG 与合成 Bayer RAW DNG，提供生成源码/许可/内容哈希；真实相机 NEF 和特定处理后 DNG 仍可作为额外本地回归，但关键 CI 门禁用可移植样本无条件注册。独立 XML 门禁拒绝失败、跳过、缺少用例或未执行测试。
+
+### 2.6 实现核验与反证迭代
+
+- 同步等待还存在于矢量 tile 细化任务；已一并迁入共享读任务服务，避免只修 loader 而遗留窗口销毁等待。Open With 的图标工作有已有独立生命周期约束，不冒充为本轮读解码等待上界。
+- 动态目录测试暴露 `detectDisplayColorSpace()` 对 QWidget 父对象和窗口句柄的隐式假设；使用安全类型检查，无窗口返回未知 profile，避免用虚构配置填充。
+- 第一版合成 DNG 未被 Apple 识别为 RAW；加入 NewSubfileType=0 等 RAW IFD 信息，并使用 512×512 信号，经 CGImageSource、CIRAWFilter 和生产加载器三方核验。参考 [Apple DNG 属性](https://developer.apple.com/documentation/imageio/dng-image-properties) 与 [Adobe DNG 发布说明及规范入口](https://helpx.adobe.com/ca/camera-raw/desktop/dng-and-file-formats/digital-negative.html)。最终测试不接受 public.tiff 伪装 RAW。
+- 原生 HDR 文件由 Core Image 公共 HDRImage 导出选项生成；SDK 头文件与生产解码后的 gain-map 标记、扩展线性像素一致。
+- 部署探针证明 macdeployqt 可遗留第三方 LC_ID_DYLIB 与 LC_RPATH。LC_ID_DYLIB 是自身身份，不误判为加载依赖；在部署副本内规范化自身标识及开发机 rpath，然后重新签名。所有实际加载依赖必须可在包内或系统位置解析。fat Mach-O 的重复 rpath 只删一次。校验后压缩、解压并再校验与启动。
+- 共享工作池最多四个工作线程；票据在 worker 阶段与主线程提交阶段均检查取消。缓存按实际 QImage 字节且按访问顺序淘汰；默认 64MiB，不承诺总 RSS 等于缓存预算。GIF 走 Qt reader，APNG 走 ImageIO，二者均测试淘汰后回退。
+- 超时退出以 75 明确标识异常退出；在独立子进程中通过真实 QVApplication 析构验证 30ms 正常工作与 10s 不可取消工作，不仅测试孤立帮助函数。窗口关闭清理下载临时目录，成功下载在窗口存活期间保留原始容器。
+
+### 2.7 GUI 前置条件与完整交付表面
+
+最终全量回归的两次运行中，一次原有键盘轨迹用例未收到快捷键事件，另一次外置 RAW HDR 稳态探针无法分类；相同二进制单独重跑均通过。不能据此声称唯一根因已被数学证明。代码核查发现两项均未严格等待原生窗口处于 active 状态，故补充明确激活等待作为测试前置条件，保留原输入路线、断言和误差阈值。依据 [Qt qWaitForWindowActive](https://doc.qt.io/qt-6.11/qtest.html#qWaitForWindowActive)。原始失败与补充条件后的复测分别保留，禁止用跳过替代失败。
+
+部署校验覆盖整个 bundle 的 Mach-O，包括 Resources/ghostscript 的可执行文件与库。通过 Mach-O magic 预筛选避免逐个启动 file 检查字体等资源。普通 CI 的 ad-hoc 签名显式重签资源目录中的代码，再签 nested bundles 和根 app；正式 Developer ID 发布仍由原发布脚本处理。解压启动除 Fovelle --version 外还验证捆绑 Ghostscript --version。真实启动探针通过独立 IniFormat 临时设置隔离用户偏好。CI 保存 portable HDR XML 和 CTest 详细日志，构建/测试作业预算调整为 30 分钟。
+
+## 3. 形式化正确性证明（在 API 契约与明确前提下）
+
+### P1 原字节与资源上限
+令输入流 S=c1||…||cn，累计 b0=0。每次写入前检查 |ci|≤B−bi−1，只在成立时完整写入并令 bi=bi−1+|ci|。归纳得 0≤bi≤B，且文件内容总是 S 的前缀；成功终态要求所有已收到数据耗尽且写入成功，故文件等于 S。读取临时块≤C，网络 read buffer≈C；Qt 不保证精确缓冲上界，因此不声称进程 RSS≤2C。文件限额 B 是精确程序不变量。
+
+### P2 终态与生命周期
+状态 Active→{Succeeded,Failed,Cancelled}，任何非 Active 输入不产生转移。每条终态先置状态、停计时器、断开/终止 reply，再发一次信号。因此 abort 同步重入 finished 也不能二次完成。失败不转交临时目录，引用归零删除；成功把共享引用交给消费者，在其最后引用释放后删除。所有 QObject 方法由同一线程调用，无跨线程对象共享。
+
+### P3 时限
+令 t0 为开始，tl 为最后成功读取时刻。空闲计时器在读取后重启，截止 tl+I；总时限固定 t0+T 不重启。故无论滴流与否，事件循环及时调度时终态最迟在 min(tl+I,t0+T)+调度误差。取消遵守 P2。
+
+### P4 最新目录与帧结果
+每次源/目录变更递增 g。结果携带启动代次 r；提交条件为 r=g 且票据未取消。假设旧结果覆盖新状态，则旧 r<g 又须 r=g，矛盾。销毁先取消票据，因此迟到结果不能调用对象。
+
+### P5 缓存预算与可回退
+缓存集 K 总费用 M=ΣsizeInBytes(frame)。插入前淘汰至 M+s≤L，若 s>L 不插入。基础 M=0，归纳得 M≤L。当前显示帧与在途帧额外内存另计，不能把缓存预算宣称为总 RSS。缓存命中与已解码最大编号独立；未命中重建源并读至目标，有限合法帧的确定性解码给出相同像素，故淘汰不破坏回退正确性。
+
+### P6 有限退出与无析构竞态
+窗口取消仅设置票据，时间与解码耗时无关。全局服务在 QApplication 存活时等待 D；成功表示所有读任务完成，可析构；超时分支 _Exit 不执行 Qt/C++ 析构，由 OS 终止进程所有线程，因此不存在“仍运行任务访问已析构 GUI”的中间状态。程序引入的等待≤D，不能推导 OS 硬实时保证；先同步持久状态，禁止此服务接受写入用户文件的工作。
+
+### P7 门禁完整性
+门禁接受当且仅当样本哈希集合完整、测试 XML 存在、预期函数集合包含于执行集合且 fail=skip=0。缺样本、缺执行、跳过任一条件均使谓词 false；因此不会因测试未注册或跳过而把缺验证解释为通过。真实相机覆盖与合成格式覆盖在报告中分别陈述。
+
+### P8 异步播放时间轴与失败终态
+
+令源帧延迟为 d_i，播放速度百分比为 s>0，目标下一帧时间 τ_(n+1)=τ_n+⌊100d_n/s⌋。定时器等待 max(0,τ_(n+1)−now)，因此解码消耗已从等待时间扣除，不会每帧累加“解码时间+帧延迟”。延迟超过 1s 时显式重新建立时间基准，防止长时间追帧。暂停、换源、停止使 generation 变化并清空时间基准。源首帧不可读或已知帧解码失败时发出错误并转入 NotRunning，失败不能当作有效空帧缓存。20 个真实 GIF 帧在 100% 与 200% 速度的实测时间比较验证速度缩放。
+
+## 4. 原子验收映射
+
+|ID|原问题|验收|测试函数|
+|---|---|---|---|
+|R1|1|网络对象、计时器、下载文件仅由所属主线程访问|testDownloadThreadAffinity|
+|R2|2|下载原字节不变，后缀仅提示解码，不重编码|testDownloadPreservesSources|
+|R3|3|成功、失败、取消后 reply 和部分文件全部释放|testDownloadCleanup|
+|R4|4|无数据超过空闲时限终止|testDownloadIdleTimeout|
+|R5|4|持续滴流也受总时限约束|testDownloadTotalTimeout|
+|R6|5|已知长度超过预算在下载前拒绝|testDownloadLimits|
+|R7|5|无长度/分块响应累计超过预算终止，恰好预算成功|testDownloadLimits|
+|R8|5|未知/零长度进度无除零、取消不弹错误框|testDownloadProgressAndCancel|
+|R9|6|普通 CI 打包前部署 Qt，打包后验证库和平台插件|test_delivery_contract / remediation_delivery.py|
+|R10|7|目录扫描采用无 QObject 跨线程访问的值快照|testFolderScanAsync|
+|R11|7|旧目录扫描结果不能覆盖新目录，关闭后不能回调|testFolderScanGeneration|
+|R12|7|目录作为输入可异步打开首图，首图先于整目录扫描也可呈现|testDirectoryOpenAndNavigation|
+|R13|8|动画缓存按实际 QImage 字节计量且不超过预算|testMovieBoundedCache|
+|R14|8|被淘汰的帧仍可逐帧回退且像素一致|testMovieBoundedCache|
+|R15|8|生产动画帧在工作线程解码，主线程只呈现|testMovieAsyncPlayback|
+|R16|9|加载器销毁/取消不阻塞等待工作线程，不产生迟到回调|testLoaderNonblockingShutdown|
+|R17|9|应用只有限等待读任务；正常路径排空，卡死路径保存设置后退出|testShutdownProcess|
+|R18|10|可移植 HDR gain-map 与 RAW DNG 样本可重复生成、登记哈希|test_real_fixture_manifest / test_absent_and_corrupt_fixture_fail|
+|R19|10|发布门禁真图测试必须执行、禁止缺样本跳过|testPortableHDR|
+|R20|1–10|现有图片加载、动画、窗口及导航行为不回归|existingQtSuites|
+
+
+---
+
+# 历史记录（本轮之前）
+
 # Fovelle：缩放保持、单实例与色彩信息技术设计
 
 日期：2026-10-10（Asia/Shanghai）。源码基线：`9c9d7657cf8427ec237aa2fe14c133955ab23064`。

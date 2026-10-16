@@ -47,6 +47,7 @@ jobs:
         run: >-
           cmake -S . -B build
           -DBUILD_TESTS=ON
+          -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
           -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python"
@@ -68,6 +69,16 @@ jobs:
 
       - name: Test
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
+
+      - name: Upload portable HDR execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-hdr-execution
+          path: |
+            build/test-results/portable-hdr/*.xml
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
 
       - name: Deploy Qt and verify installable zip contract
         shell: bash

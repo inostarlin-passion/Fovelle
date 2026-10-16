@@ -3,6 +3,9 @@
 // Qt-Security score:critical reason:data-parser
 
 #include "qvmovie.h"
+#include "asyncwork.h"
+#include <list>
+#include <QThread>
 #include "qvcocoafunctions.h"
 
 #include "qelapsedtimer.h"
@@ -27,24 +30,21 @@ QT_BEGIN_NAMESPACE
 class QFrameInfo
 {
 public:
-    QPixmap pixmap;
+    QImage image;
     int delay;
     bool endMark;
-    inline QFrameInfo(bool endMark)
-        : pixmap(QPixmap()), delay(QMOVIE_INVALID_DELAY), endMark(endMark)
+    inline QFrameInfo(bool endMark) : image(QImage()), delay(QMOVIE_INVALID_DELAY), endMark(endMark)
     { }
 
-    inline QFrameInfo()
-        : pixmap(QPixmap()), delay(QMOVIE_INVALID_DELAY), endMark(false)
+    inline QFrameInfo() : image(QImage()), delay(QMOVIE_INVALID_DELAY), endMark(false) { }
+
+    inline QFrameInfo(QImage image, int delay)
+        : image(std::move(image)), delay(delay), endMark(false)
     { }
 
-    inline QFrameInfo(QPixmap &&pixmap, int delay)
-        : pixmap(std::move(pixmap)), delay(delay), endMark(false)
-    { }
-
-    inline bool isValid()
+    inline bool isValid() const
     {
-        return endMark || !(pixmap.isNull() && (delay == QMOVIE_INVALID_DELAY));
+        return endMark || !(image.isNull() && (delay == QMOVIE_INVALID_DELAY));
     }
 
     inline bool isEndMarker()
@@ -54,6 +54,61 @@ public:
     { return QFrameInfo(true); }
 };
 Q_DECLARE_TYPEINFO(QFrameInfo, Q_RELOCATABLE_TYPE);
+
+// This decoder is only touched by one read job at a time. It owns no GUI
+// object and never borrows the synchronous reader used by manual frame jumps.
+struct AsyncMovieDecoder
+{
+    QString path;
+    QByteArray format;
+    std::unique_ptr<QImageReader> reader;
+    std::unique_ptr<QVCocoaFunctions::AnimatedImage> native;
+    int lastFrame = -1;
+    QFrameInfo read(int target)
+    {
+        Q_ASSERT(QThread::currentThread() != QCoreApplication::instance()->thread());
+        if (!reader) {
+            reader = std::make_unique<QImageReader>(path, format);
+            reader->setAutoTransform(true);
+            native = QVCocoaFunctions::createAnimatedImage(path);
+        }
+        if (native) {
+            if (target >= native->frameCount())
+                return QFrameInfo::endMarker();
+            QImage image = native->frame(target);
+            if (image.isNull())
+                return { };
+            return QFrameInfo(std::move(image), native->frameDelay(target));
+        }
+        const int count = reader->imageCount();
+        if (count > 0 && target >= count)
+            return QFrameInfo::endMarker();
+        if (!reader->supportsAnimation()) {
+            if (!reader->jumpToImage(target) && target != 0)
+                return { };
+            QImage image = reader->read();
+            return image.isNull() ? QFrameInfo{ } : QFrameInfo(std::move(image), 1000);
+        }
+        if (target != lastFrame + 1) {
+            reader = std::make_unique<QImageReader>(path, format);
+            reader->setAutoTransform(true);
+            lastFrame = -1;
+        }
+        while (lastFrame < target) {
+            if (QvAsync::isCanceled())
+                return { };
+            if (!reader->canRead())
+                return QFrameInfo::endMarker();
+            QImage image = reader->read();
+            if (image.isNull())
+                return { };
+            ++lastFrame;
+            if (lastFrame == target)
+                return QFrameInfo(std::move(image), reader->nextImageDelay());
+        }
+        return { };
+    }
+};
 
 class QVMoviePrivate
 {
@@ -75,6 +130,10 @@ public:
     void reset();
     void cancelNextLoad();
     void configureNativeAnimation();
+    void cacheFrame(int number, const QFrameInfo &info);
+    void loadAsyncFrame();
+    void publishFrame(const QFrameInfo &info);
+    void finishPlayback();
 
     inline void enterState(QVMovie::MovieState newState) {
         movieState = newState;
@@ -103,6 +162,13 @@ public:
     bool haveReadAll = false;
     bool isFirstIteration = true;
     std::map<int, QFrameInfo> frameMap;
+    std::list<int> cacheOrder;
+    quint64 cacheByteLimit = 64ULL * 1024 * 1024;
+    quint64 cachedBytes = 0;
+    bool asyncPlayback = false;
+    quint64 playbackGeneration = 0;
+    QvAsync::Ticket frameTicket;
+    std::shared_ptr<AsyncMovieDecoder> asyncDecoder;
     QString absoluteFilePath;
 
     QTimer *nextImageTimer = nullptr;
@@ -137,6 +203,9 @@ void QVMoviePrivate::reset()
     haveReadAll = false;
     isFirstIteration = true;
     frameMap.clear();
+    cacheOrder.clear();
+    cachedBytes = 0;
+    asyncDecoder.reset();
 }
 
 void QVMoviePrivate::configureNativeAnimation()
@@ -148,6 +217,10 @@ void QVMoviePrivate::configureNativeAnimation()
 
 void QVMoviePrivate::cancelNextLoad()
 {
+    ++playbackGeneration;
+    QvAsync::cancel(frameTicket);
+    frameTicket.reset();
+    asyncDecoder.reset();
     nextLoadTime = std::nullopt;
     nextImageTimer->stop();
 }
@@ -186,19 +259,22 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         if (cacheMode == QVMovie::CacheAll)
         {
             const auto cached = frameMap.find(frameNumber);
-            if (cached != frameMap.end())
+            if (cached != frameMap.end()) {
+                cacheOrder.remove(frameNumber);
+                cacheOrder.push_back(frameNumber);
                 return cached->second;
+            }
         }
 
         QImage image = nativeAnimation->frame(frameNumber);
         if (image.isNull())
             return QFrameInfo();
 
-        QFrameInfo info(QPixmap::fromImage(std::move(image)), nativeAnimation->frameDelay(frameNumber));
+        QFrameInfo info(std::move(image), nativeAnimation->frameDelay(frameNumber));
         if (frameNumber > greatestFrameNumber)
             greatestFrameNumber = frameNumber;
         if (cacheMode == QVMovie::CacheAll)
-            frameMap[frameNumber] = info;
+            cacheFrame(frameNumber, info);
         return info;
     }
 
@@ -255,7 +331,7 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
             }
             if (frameNumber > greatestFrameNumber)
                 greatestFrameNumber = frameNumber;
-            return QFrameInfo(QPixmap::fromImage(std::move(anImage)), nextFrameDelay());
+            return QFrameInfo(std::move(anImage), nextFrameDelay());
         } else if (frameNumber != 0) {
             // We've read all frames now. Return an end marker
             haveReadAll = true;
@@ -267,7 +343,15 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         }
     }
 
-    // CacheMode == CacheAll
+    // Eviction is independent of how far decoding has progressed. Rewind a
+    // seekable file reader for an evicted target; do not fabricate a cache hit.
+    if (frameMap.find(frameNumber) == frameMap.end() && frameNumber <= greatestFrameNumber) {
+        reader = std::make_unique<QImageReader>(absoluteFilePath, reader->format());
+        reader->setAutoTransform(true);
+        greatestFrameNumber = -1;
+        haveReadAll = false;
+    }
+    // CacheMode == CacheAll (bounded by actual decoded bytes).
     if (frameNumber > greatestFrameNumber) {
         // Frame hasn't been read from file yet. Try to do it
         for (int i = greatestFrameNumber + 1; i <= frameNumber; ++i) {
@@ -282,11 +366,11 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
                     return QFrameInfo(); // Invalid
                 }
                 greatestFrameNumber = i;
-                QFrameInfo info(QPixmap::fromImage(std::move(anImage)), nextFrameDelay());
+                QFrameInfo info(std::move(anImage), nextFrameDelay());
                 // Cache it!
-                auto &e = frameMap[i] = std::move(info);
+                cacheFrame(i, info);
                 if (i == frameNumber) {
-                    return e;
+                    return info;
                 }
             } else {
                 // We've read all frames now. Return an end marker
@@ -297,7 +381,11 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
     }
     // Return info for requested (cached) frame
     const auto it = frameMap.find(frameNumber);
-    return it == frameMap.cend() ? QFrameInfo() : it->second;
+    if (it == frameMap.cend())
+        return QFrameInfo();
+    cacheOrder.remove(frameNumber);
+    cacheOrder.push_back(frameNumber);
+    return it->second;
 }
 
 bool QVMoviePrivate::next()
@@ -328,7 +416,7 @@ bool QVMoviePrivate::next()
     }
     // Image and delay OK, update internal state
     currentFrameNumber = nextFrameNumber++;
-    currentPixmap = info.pixmap;
+    currentPixmap = QPixmap::fromImage(info.image);
 
     if (!speed)
         return true;
@@ -342,9 +430,142 @@ void QVMoviePrivate::_q_loadNextFrame()
     _q_loadNextFrame(false);
 }
 
+void QVMoviePrivate::cacheFrame(int number, const QFrameInfo &info)
+{
+    if (cacheMode != QVMovie::CacheAll || !info.isValid() || info.endMark)
+        return;
+    auto existing = frameMap.find(number);
+    if (existing != frameMap.end()) {
+        cachedBytes -= quint64(existing->second.image.sizeInBytes());
+        frameMap.erase(existing);
+        cacheOrder.remove(number);
+    }
+    const quint64 bytes = quint64(info.image.sizeInBytes());
+    if (bytes > cacheByteLimit)
+        return;
+    while (cachedBytes > cacheByteLimit - bytes && !cacheOrder.empty()) {
+        const int victim = cacheOrder.front();
+        cacheOrder.pop_front();
+        cachedBytes -= quint64(frameMap.at(victim).image.sizeInBytes());
+        frameMap.erase(victim);
+    }
+    frameMap[number] = info;
+    cacheOrder.push_back(number);
+    cachedBytes += bytes;
+}
+
+void QVMoviePrivate::finishPlayback()
+{
+    Q_Q(QVMovie);
+    nextFrameNumber = 0;
+    nextLoadTime.reset();
+    isFirstIteration = true;
+    playCounter = -1;
+    enterState(QVMovie::NotRunning);
+    emit q->finished();
+}
+
+void QVMoviePrivate::publishFrame(const QFrameInfo &info)
+{
+    Q_Q(QVMovie);
+    const quint64 generation = playbackGeneration;
+    currentFrameNumber = nextFrameNumber++;
+    currentPixmap = QPixmap::fromImage(info.image);
+    nextDelay = speed ? speedAdjustedDelay(qMax(1, info.delay)) : 0;
+    if (frameRect.size() != currentPixmap.rect().size()) {
+        frameRect = currentPixmap.rect();
+        emit q->resized(frameRect.size());
+    }
+    if (generation != playbackGeneration)
+        return;
+    emit q->updated(frameRect);
+    if (generation != playbackGeneration)
+        return;
+    emit q->frameChanged(currentFrameNumber);
+    if (generation == playbackGeneration && speed && movieState == QVMovie::Running) {
+        const auto now = std::chrono::steady_clock::now();
+        nextLoadTime = nextLoadTime.value_or(now) + std::chrono::milliseconds(nextDelay);
+        int remaining = int(
+                std::chrono::duration_cast<std::chrono::milliseconds>(*nextLoadTime - now).count());
+        if (remaining < -1000) {
+            nextLoadTime.reset();
+            remaining = 0;
+        }
+        nextImageTimer->start(qMax(0, remaining));
+    }
+}
+
+void QVMoviePrivate::loadAsyncFrame()
+{
+    Q_Q(QVMovie);
+    if (frameTicket)
+        return;
+    if (!nextLoadTime)
+        nextLoadTime = std::chrono::steady_clock::now();
+    if (!asyncDecoder) {
+        asyncDecoder = std::make_shared<AsyncMovieDecoder>();
+        asyncDecoder->path = absoluteFilePath;
+        asyncDecoder->format = reader->format();
+    }
+    const int target = nextFrameNumber;
+    const quint64 generation = playbackGeneration;
+    const auto decoder = asyncDecoder;
+    const auto found = frameMap.find(target);
+    const std::optional<QFrameInfo> cached =
+            found == frameMap.end() ? std::nullopt : std::optional<QFrameInfo>(found->second);
+    if (cached) {
+        cacheOrder.remove(target);
+        cacheOrder.push_back(target);
+    }
+    frameTicket = QvAsync::run(
+            [decoder, target, cached] { return cached ? *cached : decoder->read(target); },
+            [this, generation, target, q](QFrameInfo info) {
+                if (generation != playbackGeneration || movieState != QVMovie::Running)
+                    return;
+                frameTicket.reset();
+                if (info.endMark) {
+                    if (target == 0) {
+                        emit q->error(QImageReader::InvalidDataError);
+                        if (generation == playbackGeneration)
+                            finishPlayback();
+                        return;
+                    }
+                    if (isFirstIteration) {
+                        playCounter = q->loopCount();
+                        isFirstIteration = false;
+                    }
+                    if (playCounter == 0) {
+                        finishPlayback();
+                        return;
+                    }
+                    if (playCounter > 0)
+                        --playCounter;
+                    nextFrameNumber = 0;
+                    loadAsyncFrame();
+                    return;
+                }
+                if (!info.isValid()) {
+                    emit q->error(QImageReader::InvalidDataError);
+                    if (generation == playbackGeneration)
+                        finishPlayback();
+                    return;
+                }
+                cacheFrame(target, info);
+                publishFrame(info);
+            });
+}
+
 void QVMoviePrivate::_q_loadNextFrame(bool starting)
 {
     Q_Q(QVMovie);
+    if (asyncPlayback) {
+        if (starting && movieState == QVMovie::NotRunning) {
+            enterState(QVMovie::Running);
+            emit q->started();
+        }
+        loadAsyncFrame();
+        return;
+    }
     const auto loadStartTime = std::chrono::steady_clock::now();
     if (next()) {
         if (starting && movieState == QVMovie::NotRunning) {
@@ -414,7 +635,11 @@ bool QVMoviePrivate::jumpToFrame(int frameNumber)
     nextFrameNumber = frameNumber;
     if (movieState == QVMovie::Running)
         cancelNextLoad();
+    // Explicit frame jumps remain synchronous and use an independent reader.
+    const bool wasAsync = asyncPlayback;
+    asyncPlayback = false;
     _q_loadNextFrame();
+    asyncPlayback = wasAsync;
     return (nextFrameNumber == currentFrameNumber+1);
 }
 
@@ -462,11 +687,13 @@ QVMovie::QVMovie(const QString &fileName, const QByteArray &format, QObject *par
 QVMovie::~QVMovie()
 {
     Q_D(QVMovie);
+    d->cancelNextLoad();
     d->reader.reset();
 }
 
 void QVMovie::setDevice(QIODevice *device)
 {
+    stop();
     Q_D(QVMovie);
     d->nativeAnimation.reset();
     d->reader->setDevice(device);
@@ -481,6 +708,7 @@ QIODevice *QVMovie::device() const
 
 void QVMovie::setFileName(const QString &fileName)
 {
+    stop();
     Q_D(QVMovie);
     d->absoluteFilePath = QDir(fileName).absolutePath();
     d->reader->setFileName(fileName);
@@ -652,10 +880,10 @@ void QVMovie::start()
 void QVMovie::stop()
 {
     Q_D(QVMovie);
+    d->cancelNextLoad();
     if (d->movieState == NotRunning)
         return;
     d->enterState(NotRunning);
-    d->cancelNextLoad();
     d->nextFrameNumber = 0;
 }
 
@@ -697,6 +925,35 @@ void QVMovie::setCacheMode(CacheMode cacheMode)
 {
     Q_D(QVMovie);
     d->cacheMode = cacheMode;
+    if (cacheMode == CacheNone) {
+        d->frameMap.clear();
+        d->cacheOrder.clear();
+        d->cachedBytes = 0;
+    }
 }
 
+void QVMovie::setCacheByteLimit(quint64 bytes)
+{
+    Q_D(QVMovie);
+    d->cacheByteLimit = bytes;
+    while (d->cachedBytes > bytes && !d->cacheOrder.empty()) {
+        const int victim = d->cacheOrder.front();
+        d->cacheOrder.pop_front();
+        d->cachedBytes -= quint64(d->frameMap.at(victim).image.sizeInBytes());
+        d->frameMap.erase(victim);
+    }
+}
+quint64 QVMovie::cachedBytes() const
+{
+    Q_D(const QVMovie);
+    return d->cachedBytes;
+}
+void QVMovie::setAsyncPlayback(bool enabled)
+{
+    Q_D(QVMovie);
+    if (d->asyncPlayback == enabled)
+        return;
+    d->cancelNextLoad();
+    d->asyncPlayback = enabled;
+}
 QT_END_NAMESPACE

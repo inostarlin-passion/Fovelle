@@ -1,224 +1,100 @@
-# 2026-10-10 持久化回归修正：Keep zoom level
+# Fovelle 问题 1–10：测试完成报告
 
-## 结论与根因
+日期：2026-10-16（Asia/Shanghai）。源码基线：`609d554`，修复保留在当前工作区，未创建提交或发布版本。
 
-已修复：启动迁移把活动偏好 `navresetszoom` 当作已退役选项，每次强制写成 true；UI 勾选保存的 false 因而在重启时被覆盖。生产改动仅从 `removedPreferenceDefaults` 删除这一项，保留原默认、反向绑定与其它旧设置迁移。
+## 1. 结论与结果口径
 
-此前测试只覆盖同进程重建设置对话框，普通测试启动也没执行生产启动迁移，无法证明重启持久化。之前“持久化通过”的结论超出了测试证据范围；本轮用迁移数据行及共享实际存储的独立进程测试补齐。
+上一轮问题 1–10 的生产修复、设计证明、20 条原子验收、静态与动态测试均已完成。新增行为测试 21 个，连同初始化/清理为 **23 passed、0 failed、0 skipped**；最终窗口 URL 成功链路也已实际执行。
 
-## 验收与结果
+必须区分全量记录与最终复核：核心修复阶段全量 **45/45 通过**；增加交付启动门禁后的全量为 **44/46 通过**，其中原有键盘轨迹与外置 RAW HDR 稳态探针各出现一次失败。相同二进制单独复核 **3/3 通过**；随后补充明确窗口激活前置条件，受影响标准 DPI、2× DPI、HDR 全屏和 portable HDR 门禁 **4/4 通过**。最后补充的窗口 URL 生命周期测试所在新增集合再次通过。没有把失败删掉或改为跳过，也没有声称最后一次全量运行是一次全绿。
 
-| 检查 | 修复前 | 修复后 |
-|---|---|---|
-| KZ-P1 静态：活动键不在退役重置表 | 失败，发现 navresetszoom | 通过 |
-| KZ-P2 已开启 false，经两次启动迁移 | 失败，false 被改为 true | 通过，磁盘/全新 manager/UI 一致 |
-| KZ-P2 已关闭 true | 通过 | 通过，未强制开启所有用户 |
-| KZ-P2 缺省键 | 失败，被迁移强行写入 | 通过，无键仍由默认true解释为不保持 |
-| KZ-P2 其它已退役策略 | 仍按既有逻辑重置 | 通过，navigationregionsenabled仍归一化为false |
-| KZ-P3 INI 独立进程勾选并重启读回两次 | 失败，写进程勾选成功，读进程取消 | 通过，checked=true/storedReset=false |
-| KZ-P3 macOS原生后端独立进程 | 同样失败 | 同样通过 |
-| KZ-P4 取消勾选并再次重启，两个后端 | 原流程在更早勾选保持断言已失败 | 完整序列通过，checked=false/storedReset=true |
+全部 46 个已注册 CTest 项目均有通过记录；最终复核修复了测试前置条件的缺失，仍不把一次复测当作所有桌面焦点交错下绝无波动的证明。
 
-修复前两个新增 CTest 条目均失败：动态主体五行中四行失败、一行通过。修复后相关六项 CTest **6/6 通过**（17.97 秒）；完整 CTest **41/41 通过**（340.68 秒）。详细动态运行 **7 passed, 0 failed, 0 skipped**，其中包含两项 Qt 初始化/清理，实际数据行五行。最终格式整理后再构建并重跑两项持久化门禁；结果见 `final-tests.log`。
+## 2. 环境与实际执行
 
-双后端读写序列均为：`seed(取消) → enable(勾选、磁盘false) → read(仍勾选) → read(仍勾选) → disable(取消、磁盘true) → read(仍取消)`。每个阶段为独立进程，写入/读取均检查 NoError。子进程使用生产的 `migrateOldSettings` 和真实 `QVOptionsDialog`，按生产顺序先迁移再构造应用；不是直接写入一个期望值后假装重启，也不是以同进程QSettings新对象代替独立进程。
+| 项目 | 实测环境／结果 |
+|---|---|
+| 系统与架构 | macOS 27.0.1，arm64 |
+| 编译器／SDK | Apple LLVM 17.0.0，macOS SDK 27.0 |
+| Qt／配置 | Qt 6.11.2，Release；macOS deployment target 15.0；BUILD_TESTS=ON |
+| 构建 | 生产 app、QtTest、辅助目标均成功构建 |
+| 静态契约 | 6 个检查组通过，覆盖 URL、目录快照、缓存/异步边界、退出、交付及门禁注册 |
+| 门禁反例 | 3 个 unittest 通过；缺失/损坏样本、缺函数、空执行、skip/fail/xfail 均被拒绝 |
+| 新增动态行为 | 21 个函数，含初始化/清理合计 23 通过，零失败/跳过 |
+| portable HDR | gain-map JPEG 与 Bayer DNG 真正解码；原生颜色像素、10 个全屏数据行执行；XML 汇总非 pass 为 0 |
+| 交付 | 部署、整个 bundle Mach-O 校验、重签、压缩、解压、真实 Fovelle --version 和 Ghostscript --version 成功；移除 Cocoa 插件后校验失败 |
+| DNG 可重复生成 | 生成器再次输出与提交样本逐字节相同 |
+| clang-tidy | urldownload、asyncwork、qvfileenumerator、qvmovie 四个生产源文件完成检查，无诊断错误 |
+| 差异检查 | git diff --check 通过；新增 C++ 文件与改动行按仓库 clang-format 规则格式化 |
 
-## 复现、证据与范围
+本地没有执行远端 GitHub Actions，也没有把 SDK 27 本机运行称为 macOS 15 实机验证。macOS 15 兼容 CI、发布门禁和 XML 证据上传已配置。
 
-环境同前一轮：arm64、macOS 27.0.1、Qt 6.11.2、Release、部署目标15.0。INI使用临时共享目录；原生后端使用UUID专属偏好域；scope guard在失败时也运行清理，不写真实Fovelle偏好。
+## 3. 原子验收闭环
 
-本地证据位于 `reports/evidence/keep_zoom_persistence/`：
+| ID | 原问题 | 生产行为与动态证据 | 结果 |
+|---|---|---|---|
+| R1 | 1 | UrlDownload 负责全部网络/文件/定时器操作，回调与 reply 线程归属检查；MainWindow URL 路径无 QtConcurrent 网络读取 | 通过 |
+| R2 | 2 | 带 ICC/作者 PNG、APNG、SVG、gain-map JPEG、Bayer DNG 下载原字节比较；统一 loader 保留矢量、动画及 HDR/RAW；真实窗口 APNG 保留两帧 | 通过 |
+| R3 | 3 | 十次成功事务、取消和 404；reply 归零，失败目录回到基线，成功容器在窗口销毁后删除 | 通过 |
+| R4 | 4 | 停滞 HTTP 在缩短的空闲时限触发失败；实际简体中文错误信号验证，四份 TS 同步 | 通过 |
+| R5 | 4 | 每 30ms 滴流响应仍被总时限终止，不会不断延长截止时间 | 通过 |
+| R6 | 5 | Content-Length=1025、预算 1024 时，零正文落盘即拒绝 | 通过 |
+| R7 | 5 | 无长度与 chunked 的 1024/1025 字节边界分别成功/失败，累计写入不超过预算 | 通过 |
+| R8 | 5 | 未知总量采用不定进度；重复取消只有一个取消终态，真实 MainWindow 路径不弹错误框 | 通过 |
+| R9 | 6 | 普通 CI 部署后打包/解压复检；独立动态交付测试实际启动解压 app 与捆绑 Ghostscript，缺插件反例失败 | 通过 |
+| R10 | 7 | 无 QObject 跨线程访问的 ScanOptions 值快照，自然排序结果异步返回主线程 | 通过 |
+| R11 | 7 | A→B 快速换目录只提交最新结果；关闭使旧代次失效 | 通过 |
+| R12 | 7 | 目录首图异步打开、目录快照到达、下一张导航与窗口信息更新 | 通过 |
+| R13 | 8 | QImage 缓存实际字节计量、64MiB 默认预算；16/1/1024 字节测试策略不超预算 | 通过 |
+| R14 | 8 | APNG 和 Qt GIF 两条解码路径均验证淘汰后回退像素一致，大于预算的帧不缓存 | 通过 |
+| R15 | 8 | 异步 start/stop、占满工作池后的换源与主线程 heartbeat、100%/200% 速度比较、非法输入错误终态 | 通过 |
+| R16 | 9 | 注入慢读取，加载器销毁小于 100ms；工作结束后没有迟到业务回调；矢量 tile 同样迁入读任务服务 | 通过 |
+| R17 | 9 | 子进程通过真实 QVApplication 析构验证：30ms 工作正常退出 0，10s 工作超时退出 75，已保存设置可读 | 通过 |
+| R18 | 10 | 原创可移植编码样本、生成源码、CC0 声明、SHA-256 清单；缺失/篡改拒绝，DNG 重生成一致 | 通过 |
+| R19 | 10 | 无条件注册关键 portable HDR 门禁；真实原生像素/全屏执行；XML 禁止缺执行、失败或跳过，CI 上传执行证据 | 通过 |
+| R20 | 1–10 | 原有完整回归与失败项复核；激活前置条件补充后的四项回归通过，所有原结果阈值保留 | 通过，GUI 环境边界见第 5 节 |
 
-- `before-settingsmanager.cpp`：修复前生产迁移快照。
-- `before-static.log`、`before-build.log`、`before-tests.log`：先编译新增测试，后取得可读的静态/动态失败。
-- `after-build.log`、`after-tests.log`：生产修复与六项相关验收。
-- `after-dynamic-details.log`：五行数据与两个后端每阶段的实际勾选、磁盘和manager值。
-- `full-ctest.log`：完整41项通过。
-- `after-static.log`、`related-static.log`：新增持久化门禁及上一轮UI/语言静态门禁。
-- `final-build.log`、`final-tests.log`：最终构建与两项持久化重跑。
-- `before-technical_design_document.md`、`before-test_case_specification.md`、`before-test_completion_report.md`：本轮报告更新前完整快照。
+## 4. 红阶段、反证与修复记录
 
-复现命令：
+| 观察／反例 | 实际处理及证据 |
+|---|---|
+| 旧实现没有新接口，测试构建缺 urldownload.h；初始静态检查 5 failures、1 error | 保留 red-build.log、red-contract.log；不把编译失败冒充动态行为失败 |
+| 目录动态测试暴露无 QWidget 父对象／窗口句柄时的崩溃 | 对父对象安全转换并处理空句柄，独立 core 与实际窗口路径均通过 |
+| 第一版合成 DNG 被 ImageIO 识别为 TIFF，不能进入 RAW 链路 | 补齐 RAW IFD 标记等信息并核验 CGImageSource、CIRAWFilter 与生产 loader；最终是 com.adobe.raw-image |
+| 异步非法输入没有 error 信号 | 新用例实测失败后，修正首帧/帧解码失败的明确错误终态；最终通过，不缓存空白失败帧 |
+| macdeployqt 后第三方库仍含开发机路径 | 区分 LC_ID_DYLIB 与真正依赖；规范化路径、检查整个 bundle、重签并解压启动；包含 Resources/ghostscript |
+| 全量运行出现键盘零动作与 HDR 稳态无法分类 | 原始失败保留在 ctest-final.log；相同二进制复核通过后补充 qWaitForWindowActive，受影响四项再次通过；不放宽像素/几何/动作断言 |
+| 缺样本／损坏 XML 可能被当作“未执行但成功” | 正式门禁验证函数的反例测试全部拒绝；新门禁非 pass 数为零 |
+
+## 5. 正确性与适用边界
+
+- 设计文件给出状态机不变量、归纳证明、代次反证、缓存字节预算证明与播放截止时间模型；这些证明以 Qt/Apple API 契约与事件循环可调度为前提，不声称验证了所有 OS/驱动实现。
+- 128MiB 是单个 URL 事务落盘字节上限；64MiB 是动画缓存的 QImage 数据预算，当前帧、在途帧、解码器、GPU 和容器开销另计，不能称为整个进程 RSS 上限。
+- 1500ms 是读任务池的等待预算，不是整个应用每一步退出的硬实时上界。不可中断解码仍未结束时，持久状态同步后以退出码 75 在 Qt 析构前结束进程；普通窗口关闭只取消票据，不触发此兜底。
+- 可移植样本验证真实编码容器、通用 RAW 与 gain-map 呈现，不替代所有相机型号。已有特定 NEF／处理后 DNG 本机回归继续保留，不把私人外置卷样本伪装成可分发资产。
+- 原生 GUI 测试要求可激活的桌面窗口；焦点前置条件现在明确检查，原始间歇性失败和复核均如实保存。
+
+## 6. 证据与复现
+
+主要证据位于 `reports/evidence/remediation/`：
+
+| 文件 | 内容 |
+|---|---|
+| ctest.log | 核心修复阶段 45/45 通过，383.00s |
+| ctest-final.log、ctest-final-details.log | 加入交付启动测试后的完整 46 项运行，44 通过、2 个原有 GUI 用例失败；原始记录不覆盖 |
+| recheck.log | 相同二进制失败项与交付项 3/3 复核通过 |
+| precondition-recheck.log | 明确激活前置条件后，标准 DPI、2× DPI、外置 RAW HDR 和 portable HDR 四项通过 |
+| integration-final.log、integration-final-details.log | 最新新增集合通过，23 passed、0 failed、0 skipped |
+| portable-hdr-final/*.xml、portable-hdr-summary.json | 必执行函数与真实数据行；非 pass 为 0 |
+| static-final.log、gates-final.log | 最新静态契约和门禁反例通过 |
+| clang-tidy-final.log | 四个生产源文件的静态诊断记录 |
+| source-manifest.json | 本轮生产源、测试、构建与样本的 SHA-256，用于核对审查版本 |
 
 ```sh
-cmake --build build --target Fovelle fovelle_tests -j 6
-ctest --test-dir build -R FovelleKeepZoomPersistence --output-on-failure
+cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
+cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure -R 'Fovelle(Remediation|Portable|Deployment)'
 ```
 
-联网检索路径、Qt/Apple依据、可能根因与反证、恒等迁移证明写在技术设计第10节；四条原子标准及六部分用例写在测试说明最新增补与 `tests/keep_zoom_persistence_cases.json`。未修改其它生产功能或关闭完整迁移来让测试通过。
-
-本次验证正常进程退出/重启，不证明断电写盘、磁盘权限异常或外部进程主动改写设置的行为。初始化标记已存在是UI保存后正常重启的前提；探针避免依赖机器上的旧qView导入数据。旧版已经覆盖掉的用户选择无法反推，故不擅自把所有已有true改成false；使用修复构建后用户重新选择的值会保留。前一轮报告中的历史静态工具及元数据识别边界仍保留，不将本轮41项CTest通过扩展成“所有历史工具均通过”。
-
----
-
-# 2026-10-10 缩放保持与色彩信息：测试完成报告
-
-## 范围与结果
-
-本轮实现“切图保持缩放比例”和“文件信息区显示源色彩空间、内嵌 ICC、当前输出空间”，均提供英语、简体中文、繁体中文、西班牙语、日语。单实例需求不在本轮范围。
-
-已完成先固化用例/代码、再实现与运行验证；新增十条原子标准均有六部分用例、静态或动态代码映射。完整 CTest 39/39 通过（333.51 秒），后续边界修正的 Qt 主套件与功能验收重跑 6/6 通过（189.38 秒），最终布局/缓存修正的五项受影响验收 5/5 通过（15.05 秒）。最后的可见界面截图与宽高断言结果见下文视觉检查记录。
-
-环境：arm64，macOS 27.0.1，Qt 6.11.2，Apple LLVM 17，Release；部署目标 macOS 15.0。实际执行平台不等于已在 macOS 15.0 真机上验证。zlib 链接系统 `/usr/lib/libz.1.dylib`，未新增需要单独分发的 Homebrew 动态库。
-
-## 原子标准与实测映射
-
-| 标准 | 实测代码/输入 | 结果 |
-|---|---|---|
-| Z1 数值保持 | `testKeepZoomAcrossNavigation` 的 PNG/XPM/SVG × 1%/120%/6400%，不同宽高、resize、缓存返回 | 通过，保持数值且计算模式为空 |
-| Z2 设置入口 | `testKeepZoomPreferenceAndColorTranslations` 点击真实复选框，查询 QSettings/SettingsManager 并重建设置对话框 | 通过，原键反向绑定且立即持久化 |
-| Z3 状态边界 | `testKeepCalculatedZoomAndFailedNavigation` 适应模式切图、坏图、快速请求及加载中缩放 | 通过，无旧适应模式回滚；坏图后继承；最后输入 150% 生效 |
-| Z4 独立窗口/恢复 | `testKeepZoomWindowIsolationAndSession` 两窗口 120%/70%、恢复 120% 会话、关闭保持选项；另以 QT_SCALE_FACTOR=2 重跑整个缩放组 | 通过，不跨窗口污染；恢复优先；关闭后回到旧默认行为 |
-| C1 来源与缓存 | `testSourceColorMetadata`，独立 Qt 写入的 P3 ICC PNG、无标记 PNG、异步 loader | 通过，原始 ICC 保留；生成 Qt profile 不会把未内嵌误报为内嵌 |
-| C2 容器/错误/限额 | `testColorContainerBoundaries`，PNG sRGB/cICP、损坏/不支持 profile、16 MiB+1 解压数据、JPEG 乱序/缺失/重复分片、TIFF 越界、WebP 截断 | 通过，按证据区分状态并有界退出；小 profile 不保留 16 MiB 缓冲容量 |
-| C3 输出分支 | `testColorInformationFollowsPresentation`，Qt 目标为 sRGB，P3 PNG 走实际原生 SDR Metal，然后切到 XPM | 通过，原生为 Extended Linear Display P3，Qt 为实际 sRGB |
-| C4 刷新/清空 | 同一集成测试让信息区保持可见，跨分支切换后关闭图片 | 通过，源 ICC 不串图，无图为 No output |
-| L1 静态集成 | `zoom_color_acceptance_static.py` 检查 UI XML、四份 TS 的上下文/完成状态/占位符、构建登记及六部分用例的代码映射 | 通过，英语采用源码；CMake/qmake 均登记新模块 |
-| L2 实际语言资源 | 编译加载四份 QM，验证 LanguageChange、英语回退、纯文本与值列高度；各语言截图 | 通过，新增标签/状态与设置入口均使用对应译文；截图最终审阅另列 |
-
-测试程序使用独立临时 INI 目录，不继承或写入桌面设置；新测试的窗口关闭、菜单注销、翻译器移除与选项恢复均有作用域清理。初始测试清理顺序错误及空文件名警告已修复，未通过关闭 fatal warnings 掩盖。
-
-## 修复前证据与逆向证伪
-
-1. 入口静态测试在旧代码上因缺少 `keepZoomCheckbox` 失败。首次包含完整新接口的测试编译因旧生产代码没有 `colorinformation.h` 失败；这是未实现接口证据，不冒充功能运行失败。
-2. 为取得功能层反例，仅恢复原始 `qvgraphicsview.cpp` 的缩放实现，保留同一新测试与其安全清理。原测试期望继承 `0.5`，实际下一张为 `0.9028571428571428`，明确失败；恢复实现后通过。因此“关闭导航重置就足够”的假设已被同输入反证。
-3. 最初动态测试结束时出现 QMenu 崩溃。系统堆栈定位至 `ScopedOptionValues::~ScopedOptionValues → SettingsManager::loadSettings → ActionManager::settingsUpdated → QMenu::menuAction`；测试窗口已析构但未执行 closeEvent 注销菜单。调整测试清理顺序后取得上述可读断言失败，未把测试崩溃归因于缩放算法。
-4. 完整回归第一次出现空文件名警告，在 `QT_FATAL_WARNINGS=1` 下终止。原因是新信息对话框语言更新时尚无文件；增加空路径处理后警告消失。
-5. 首次完整运行亦出现多个旧几何断言失败；改为隔离测试设置后，原有适应、滚动条、标题栏、导航及完整 Qt 套件通过。该对照说明验收不能依赖桌面遗留偏好；没有为让测试通过去放宽几何容差或修改旧缩放公式。
-6. 截图发现 macOS 默认表单字段增长策略会裁掉色彩值；改用可用值列宽度，并固化 `heightForWidth` 断言。截图不是仅以标签文字存在代替布局检查。
-
-## 命令与本地证据
-
-所有证据位于 `reports/evidence/zoom_color_20261010/`；该目录按仓库既有规则被 Git 忽略，但本地保留，可供复查。
-
-| 文件 | 含义 |
-|---|---|
-| `before-static.log`、`before-build.log` | 未实现入口/接口时的失败 |
-| `baseline-zoom.log`、`baseline-build.log` | 原缩放实现同输入失败，数值期望与实际完整记录 |
-| `before-crash-stack.txt`、`before-lldb.log` | 测试清理崩溃定位 |
-| `verified-build.log`、`verified-ctest.log` | Release 构建及完整 39 项 CTest |
-| `delivery-build.log`、`delivery-ctest.log` | 边界修正后 Qt 主套件与五个功能条目，6/6 |
-| `ui-final-build.log`、`ui-final-ctest.log` | 最终信息布局与缓存容量修正，5/5 |
-| `visual-build.log`、`visual-ctest.log` | 可见设置窗口中的截图与字段完整性检查 |
-| `static-final.log` | 新增静态验收 |
-| `file-info-{en,zh_Hans,zh_Hant,es,ja}.png`、`settings-{en,zh_Hans,zh_Hant,es,ja}.png` | 五语言信息区与设置入口截图 |
-| `before-file-info-es.png` | 修正前西语值列截断证据 |
-| `quality-static.json`、`baseline-quality-static.json` | 旧静态检查器与原提交对照 |
-
-复现命令：
-
-```sh
-cmake --build build --target Fovelle fovelle_tests -j 6
-ctest --test-dir build --output-on-failure
-python3 tests/zoom_color_acceptance_static.py
-ctest --test-dir build -R 'Fovelle(ZoomColor|KeepZoom|ColorInformation)' --output-on-failure
-```
-
-## 最终视觉检查记录
-
-可见设置窗口的最终验证 1/1 通过（`visual-ctest.log`，0.89 秒）。新增断言验证复选框宽度不小于其自然宽度、整行位于 General 视口内，并等待实际布局终态；不能在 LanguageChange 只处理一个事件轮次后立即截取未完成的尺寸。信息区验证三个值标签高度覆盖各自的 heightForWidth。最终审阅英/简/繁/西/日截图：新增入口文字与三项色彩信息均完整显示。曾发现的色彩值列截断由生产布局修正；设置截图的早期裁切通过等待真实布局并显示原生窗口的正确测试流程消除，未缩短译文或放宽可见性断言。
-
-这些为 Qt widget 截图，用于文字和布局检查；并非物理显示色度测量。截图通过安装 QM 切换标签，既有选项列表、日期或字节格式仍可能遵循应用保存语言/系统区域设置，不表示全应用已完成即时语言切换。真实 Qt/Metal 输出描述另由 `testColorInformationFollowsPresentation` 验证。
-
-## 旧静态检查器与验证边界
-
-额外运行旧 `quality_static.py` 得到 24/29 通过，五项失败为 ST-01/06/09/11/16。将 HEAD 导出到独立目录再次运行，同五项仍失败：涉及既有全文件格式差异及过时源码字符串/测试名匹配。导出目录没有 `.git`，其额外 ST-03 失败只是归档测试条件，不是原仓库缺陷；实际工作区 `git diff --check` 通过。本次新增静态门禁通过，编译过程亦包含原有 clang-tidy 设置。没有改写旧检查器来掩盖失败，因此不能声称“所有历史静态工具均已通过”。
-
-未实现提取适配器的格式、BigTIFF、多页/多分辨率选择返回 Unknown；无声明文件不保证恢复真实创作空间。ICC 的 Invalid 是已检测到的结构/容器损坏，Unsupported 表示当前解析库无法解释，不是完整 ICC 规范认证。实际输出指应用表面编码，未进行多台物理显示器的色度测量。整体语言选择沿用应用既有重启约定；运行时重翻译测试不代表全部旧菜单已改为即时切换。
-
-
----
-
-## 既有测试完成记录（完整保留）
-
-# HDR 局部偏色测试完成报告
-
-日期：2026-10-08。结论：新增测试在修复前检出了端点颜色错误，修复后的颜色、实际缓存、亮度与选定完整回归门禁均通过。已修复的生产缺陷是按 RGB 峰值混用 SDR/HDR 端点；未获得用户原异常图片，未宣称已复现该文件的全部显示现场。
-
-## 修复前检出证据
-
-| 新用例 / 数据 | 修复前实际结果 | 判定 |
-|---|---|---|
-| 中间调最终端点 | 红通道 .45，参考 .90 | 失败 |
-| 近白点最终端点 | 红通道 .925，参考 1.05 | 失败 |
-| 中间调 50% 进度 | 红通道 .45，参考 .675 | 失败 |
-| 饱和高光对照 | 正确恢复 HDR | 通过；说明错误与空间门槛相关，并非所有像素统一偏差 |
-| 增益图 JPEG | 最大 RGB 误差 .55249023；3725/4096 像素至少一个通道误差>.01 | 失败 |
-| 处理后 DNG | 最大误差 .57983398；3794/4096 像素超阈值 | 失败 |
-| 普通 DNG | 最大误差 .061035156；106/4096 像素超阈值 | 失败 |
-| NEF | 最大误差 .09765625；1120/4096 像素超阈值 | 失败 |
-
-失败日志：[red-pixels.log](evidence/hdr_color_regression/red-pixels.log)、[red-images.log](evidence/hdr_color_regression/red-images.log)。新测试先在旧生产算法上执行失败，再修改算法，没有通过放宽容差来掩盖偏色。
-
-旧测试之所以漏检，是把非高光永久保持 SDR 作为正确结果，且真实原生测试只断言状态标志。修正后的测试以独立 HDR 端点、线性插值恒等性质及实际合成器缓存内容为参考，详见 [测试用例说明](test_case_specification.md)。
-
-## 修复后结果
-
-| 验证 | 结果 | 证据 |
-|---|---|---|
-| 构建应用与测试程序 | 成功；已移除本次自定义 CIColorKernel 及其 deprecated 源码编译 API | [green-build.log](evidence/hdr_color_regression/green-build.log) |
-| 静态检查 | 12 项通过、0 失败 | [final-static.log](evidence/hdr_color_regression/final-static.log) |
-| 颜色单像素四个数据行 | 全部通过，容差 .003 | 最终 CTest ColorPixels 详细日志 |
-| 四类真实图像 | 全部通过；每图采样 4096 像素，0 像素超过 .01 阈值 | 最终 CTest ColorSamples 详细日志 |
-| 实际持久缓存读回 | 通过；全分辨率物化参考对比最大误差 0 | [cache-probe-materialized-detail.log](evidence/hdr_color_regression/cache-probe-materialized-detail.log) 及最终 ColorNative 日志 |
-| FovelleTests 八套 Qt suite | 256 通过，0 失败、0 跳过（含 suite init/cleanup） | [final-ctest-detail.log](evidence/hdr_color_regression/final-ctest-detail.log) |
-| 选定 CTest 汇总 | 7/7 通过，0 失败，共 178.79 s | [final-ctest.log](evidence/hdr_color_regression/final-ctest.log) |
-| 源码空白/差异检查 | `git diff --check` 通过 | 本地执行 |
-
-早期修复后独立图片测试的最大误差：JPEG .00048828125，其余三类为 0；均在 .01 阈值内。最终重跑每一类样本与实际缓存，日志保留每个数据行的实际数值。该误差是线性 RGB 数值误差，不是 ΔE 或物理亮度测量。
-
-## 逆向证伪与执行中发现
-
-缓存读回测试第一次比较得到 .130859 的差异。没有据此修改生产缓存，也没有提高容差。分析发现两边计算顺序不同，控制实验将独立参考先全分辨率物化、再按相同方式采样，误差归零。保留 [cache-probe-initial.log](evidence/hdr_color_regression/cache-probe-initial.log) 和 [cache-probe-materialized-detail.log](evidence/hdr_color_regression/cache-probe-materialized-detail.log)。这是一处测试参考口径修正，不是额外已确认的生产缓存缺陷。
-
-第一次完整回归的所有颜色/HDR/视图测试通过，但 `WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles` 一次失败，并在失败后清理时 SIGSEGV。相同二进制单独重跑该测试通过；不修改代码、再重跑相同完整命令后全部通过。保留 [regression-initial.log](evidence/hdr_color_regression/regression-initial.log) 与 [navigation-isolated.log](evidence/hdr_color_regression/navigation-isolated.log)。这次偶发导航失败的具体根因未定位，不能宣称已修复，也不能仅据隔离通过断言它与本次改动必然无关。
-
-## 验收追踪
-
-| 标准 | 测试与结果 |
-|---|---|
-| CR-01 端点色彩 | 3 类最终颜色数据行 + 全图四格式端点比较，通过 |
-| CR-02 中间插值 | 中间调独立反例、原五个进度点、相同暗部/中间调与 alpha，通过 |
-| CR-03 平台余量适配 | 共享适配路径静态检查、SDR 回退、当前余量、原生 3→1→3 重建，通过；未宣称已测量每一物理显示余量下的色差 |
-| CR-04 真实图像 | JPEG/处理后 DNG/普通 DNG/NEF，独立 HDR 网格参考，通过 |
-| CR-05 实际缓存 | 真实 presented 生命周期后的 CGImage 内容读回，公平采样参考，通过 |
-| CR-06 回归 | 时序、连续切图、无障碍策略、焦点、缩放、SDR 与完整八 suite，通过 |
-
-## 复现与证据范围
-
-```bash
-cmake --build build -j 6
-python3 tests/hdr_brightness_static.py
-FOVELLE_HDR_JPEG_SAMPLE='/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/1.JPG' \
-ctest --test-dir build \
-  -R 'FovelleTests$|FovelleHDRBrightness|FovelleHDRColor|FovelleHDRFocusTransitionEvidence' \
-  --output-on-failure
-```
-
-本地颜色门禁依赖 `1.JPG`、`2.DNG`、`3.dng`、`4.nef`，可在 CMake 中设置 `FOVELLE_HDR_COLOR_FIXTURE_DIR`。没有样本的环境不会注册本地样本 CTest；确定性颜色单像素测试仍可运行。此次本地样本齐全，所有最终注册门禁执行成功。
-
-代码指纹：[source-sha256.json](evidence/hdr_color_regression/source-sha256.json)。本轮修改前的源码与报告快照位于 `reports/evidence/hdr_color_regression/before/`。技术依据、候选根因与证伪过程见 [技术设计文档](technical_design_document.md)。
-
-没有改变用户真实显示器设置或无障碍设置，没有进行跨物理显示器观感实验。足够 headroom 的测试使用进程内测试余量输入，不等同于显示器真实可达亮度；验证的是图像管线数值与缓存内容。
-
-## 2026-10-08 Actions 修复验证
-
-原失败：Build Fovelle 37746276287，FovelleTests 内 Open With 关闭时间断言失败；其余 30 项 CTest 通过，同提交 Checks 成功。
-
-红灯：仅添加 slow-startup=5100 ms 数据行、保留旧计时起点，得到 3 passed / 1 failed；失败正是 teardownTimer.elapsed()<5000。绿灯：调整计时起点并加入作用域清理后，4 passed / 0 failed，正常行关闭耗时 820 ms，慢启动行 12 ms。日志位于本次本机 `/tmp/fovelle-ci-red.log` 与 `/tmp/fovelle-ci-green.log`（临时诊断文件，不作为仓库持久证据）。生产后台等待逻辑保持原样，因为未证实它发生超时。
-
-完整本地验证：CMake 编译成功；与 CI 相同命令 `QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90` 执行 34/34 项通过，用时 321.48 秒（本机额外注册了真实 HDR 样本专项）。`git diff --check` 通过。红灯、绿灯和完整 CTest 日志持久化到 `reports/evidence/ci_teardown/`。
-
-格式检查限制：仓库现有 `build.sh --format-check` 在大量原有格式诊断后仍返回 0，不能据此宣称格式全部符合；本次新增日志/断言已局部格式化，没有扩大修改范围。该历史脚本问题不是原失败原因。
-
-远端验收：本报告随修正推送，实际完成状态以该提交的 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/workflows/build.yml) 与 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/workflows/test.yml) 运行结论为准；推送后继续监控，最终运行链接在任务完成回复中交付。
-
-
-## 2026-10-10 Actions 修复与推送验证
-
-基线提交566858058102a7081213de3609391aed158962bd：Checks失败，Build Fovelle成功；clang-tidy/clang-format均为成功状态，唯一Qt失败为Open With正常启动总耗时5080ms超过5000ms。
-
-先复现：5200ms可控provider在旧总时长断言下失败（实测5210ms）。修正后原生正常启动、5100ms慢准备和可控延迟三行均通过。一次本地测量分别为 total/worker/overhead=931/928/3、19/14/5、5211/5203/8ms；dispatch均0ms，close分别23/12/13ms。完成标志在每次窗口析构返回后为真，五秒预算保留给独立收尾阶段，完整函数看门狗保留。
-
-生产改动只增加默认不变的按值provider依赖，保留排空顺序；同步更新两份源码检查的捕获模式。证据位于reports/evidence/ci_openwith_20261010，包括原始失败/成功CI日志、红绿测试、构建与静态检查。Open With源码生命周期门禁ST-12通过；旧质量脚本其它既有问题不扩展为本轮修复。完整回归日志另存于同一证据目录；远端最终结果以对应提交的Actions状态及本次交付消息为准，不以本地通过替代远端验证。
+当前状态：1–10 的修复与验收已闭环；无待确认权限、未执行的关键本轮用例或后台开发任务。

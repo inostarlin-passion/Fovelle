@@ -55,6 +55,7 @@ jobs:
         run: >-
           cmake -S . -B build
           -DBUILD_TESTS=ON
+          -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_UPDATE_FEED_URL="https://github.com/inostarlin-passion/Fovelle/releases/latest/download/appcast.xml"
           -DFOVELLE_UPDATE_PUBLIC_KEY="$FOVELLE_UPDATE_PUBLIC_KEY"
           -DFOVELLE_REQUIRE_UPDATE_CONFIG=${{ github.event_name == 'push' }}
@@ -82,6 +83,16 @@ jobs:
           FOVELLE_DISABLE_AUTO_UPDATE_CHECK: "1"
           FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE: ${{ runner.temp }}/fullscreen-bottom-evidence
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
+
+      - name: Upload portable HDR execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-hdr-execution
+          path: |
+            build/test-results/portable-hdr/*.xml
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
 
       - name: Upload failed fullscreen display evidence
         if: failure()

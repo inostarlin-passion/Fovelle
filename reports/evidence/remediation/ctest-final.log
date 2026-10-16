@@ -1,0 +1,213 @@
+Test project /Users/inostarlin/code/Fovelle/build
+      Start  1: FovelleTests
+ 1/46 Test  #1: FovelleTests .................................   Passed  181.89 sec
+      Start  2: FovelleNativeAlertsStatic
+ 2/46 Test  #2: FovelleNativeAlertsStatic ....................   Passed    0.23 sec
+      Start  3: FovelleNativeAlertsDynamic
+ 3/46 Test  #3: FovelleNativeAlertsDynamic ...................   Passed    3.87 sec
+      Start  4: FovelleNavigationBoundaryHintStatic
+ 4/46 Test  #4: FovelleNavigationBoundaryHintStatic ..........   Passed    0.05 sec
+      Start  5: FovelleHDRFocusTransitionEvidence
+ 5/46 Test  #5: FovelleHDRFocusTransitionEvidence ............   Passed    0.10 sec
+      Start  6: FovelleNavigationBoundaryHintDynamic
+ 6/46 Test  #6: FovelleNavigationBoundaryHintDynamic .........   Passed    1.65 sec
+      Start  7: FovelleSDRFullScreenPresentation
+ 7/46 Test  #7: FovelleSDRFullScreenPresentation .............   Passed    4.73 sec
+      Start  8: FovelleToggleFitStabilitySourceContract
+ 8/46 Test  #8: FovelleToggleFitStabilitySourceContract ......   Passed    0.06 sec
+      Start  9: FovelleToggleFitStabilityAcceptance
+ 9/46 Test  #9: FovelleToggleFitStabilityAcceptance ..........   Passed    2.41 sec
+      Start 10: FovelleZoomScrollbarDurationSourceContract
+10/46 Test #10: FovelleZoomScrollbarDurationSourceContract ...   Passed    0.05 sec
+      Start 11: FovelleScrollbarZoomDurationAcceptance
+11/46 Test #11: FovelleScrollbarZoomDurationAcceptance .......   Passed    1.94 sec
+      Start 12: FovelleToggleFitAnchorAcceptance
+12/46 Test #12: FovelleToggleFitAnchorAcceptance .............   Passed    0.72 sec
+      Start 13: FovelleToggleFitTrajectoryAcceptance
+13/46 Test #13: FovelleToggleFitTrajectoryAcceptance .........   Passed    0.62 sec
+      Start 14: FovelleFiveIssueZoomAcceptance
+14/46 Test #14: FovelleFiveIssueZoomAcceptance ...............   Passed    2.24 sec
+      Start 15: FovelleFourIssueZoomAcceptance
+15/46 Test #15: FovelleFourIssueZoomAcceptance ...............   Passed    3.08 sec
+      Start 16: FovelleShortcutSettingsTests
+16/46 Test #16: FovelleShortcutSettingsTests .................   Passed    2.86 sec
+      Start 17: FovelleZoomScrollbarTrajectory
+17/46 Test #17: FovelleZoomScrollbarTrajectory ...............***Failed    2.35 sec
+********* Start testing of GraphicsViewTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : GraphicsViewTests::initTestCase() entering
+PASS   : GraphicsViewTests::initTestCase()
+INFO   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable() entering
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(keyboard-zoom-in-disabled)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(keyboard-zoom-out-disabled)
+FAIL!  : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(keyboard-zoom-in-expensive) real input emitted 0 zoom changes, expected one
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(7749)]
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(keyboard-zoom-out-expensive)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(wheel-zoom-in-disabled)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(wheel-zoom-out-disabled)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(wheel-zoom-in-expensive)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(wheel-zoom-out-expensive)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(pinch-zoom-in-disabled)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(pinch-zoom-out-disabled)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(pinch-zoom-in-expensive)
+PASS   : GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable(pinch-zoom-out-expensive)
+INFO   : GraphicsViewTests::cleanupTestCase() entering
+PASS   : GraphicsViewTests::cleanupTestCase()
+Totals: 13 passed, 1 failed, 0 skipped, 0 blacklisted, 2177ms
+********* Finished testing of GraphicsViewTests *********
+
+      Start 18: FovelleZoomScrollbarTrajectoryHiDpi
+18/46 Test #18: FovelleZoomScrollbarTrajectoryHiDpi ..........   Passed    7.47 sec
+      Start 19: FovelleZoomScrollbarExpensiveRefinement
+19/46 Test #19: FovelleZoomScrollbarExpensiveRefinement ......   Passed    0.51 sec
+      Start 20: FovelleZoomScrollbarVerticalTopology
+20/46 Test #20: FovelleZoomScrollbarVerticalTopology .........   Passed    0.42 sec
+      Start 21: FovelleHiddenTitlebarFullScreen
+21/46 Test #21: FovelleHiddenTitlebarFullScreen ..............   Passed   14.31 sec
+      Start 22: FovelleFullScreenMetricsGate
+22/46 Test #22: FovelleFullScreenMetricsGate .................   Passed    0.09 sec
+      Start 23: FovelleFullScreenRefinement
+23/46 Test #23: FovelleFullScreenRefinement ..................   Passed    2.46 sec
+      Start 24: FovelleNativeFullScreenRoundTrip
+24/46 Test #24: FovelleNativeFullScreenRoundTrip .............   Passed   26.27 sec
+      Start 25: FovelleFullScreenVisualContinuity
+25/46 Test #25: FovelleFullScreenVisualContinuity ............   Passed   18.26 sec
+      Start 26: FovelleHDRFullScreenVisualContinuity
+26/46 Test #26: FovelleHDRFullScreenVisualContinuity .........***Failed   46.60 sec
+********* Start testing of WindowBehaviorTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : WindowBehaviorTests::initTestCase() entering
+PASS   : WindowBehaviorTests::initTestCase()
+INFO   : WindowBehaviorTests::testHDRFullScreenVisualContinuity() entering
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-visible) CONTINUITY_SAMPLE exit-bottom-visible QRectF(0,42 720x480) QRectF(0,42 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-visible) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-bottom-visible","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-visible)
+FAIL!  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-size-visible) 'stableControl()' returned FALSE. (Steady source controls failed: probe/fixture cannot classify this transition)
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(14920)]
+FAIL!  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-position-visible) 'stableControl()' returned FALSE. (Steady source controls failed: probe/fixture cannot classify this transition)
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(14920)]
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-visible) CONTINUITY_SAMPLE exit-size-visible QRectF(0,42 720x480) QRectF(0,42 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-visible) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-size-visible","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-visible)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-visible) CONTINUITY_SAMPLE exit-position-visible QRectF(0,42 720x480) QRectF(0,42 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-visible) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-position-visible","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-visible)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-hidden) CONTINUITY_SAMPLE exit-bottom-hidden QRectF(0,26 720x480) QRectF(0,26 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-hidden) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-bottom-hidden","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-bottom-hidden)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-size-hidden) CONTINUITY_SAMPLE enter-size-hidden QRectF(51,0 1626x1084) QRectF(51,0 1626x1084) QRectF(0,0 1728x1084) QRectF(0,0 1728x1084)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-size-hidden) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-size-hidden","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-size-hidden)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-position-hidden) CONTINUITY_SAMPLE enter-position-hidden QRectF(51,0 1626x1084) QRectF(51,0 1626x1084) QRectF(0,0 1728x1084) QRectF(0,0 1728x1084)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-position-hidden) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"enter-position-hidden","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(enter-position-hidden)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-hidden) CONTINUITY_SAMPLE exit-size-hidden QRectF(0,26 720x480) QRectF(0,26 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-hidden) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-size-hidden","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-size-hidden)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-hidden) CONTINUITY_SAMPLE exit-position-hidden QRectF(0,26 720x480) QRectF(0,26 720x480) QRectF(0,0 720x532) QRectF(0,0 720x532)
+QINFO  : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-hidden) HDR_FULLSCREEN_CONTINUITY {"bottom_error":0,"bottom_pixel_errors":0,"position_error":0,"row":"exit-position-hidden","samples":1,"size_error":0}
+PASS   : WindowBehaviorTests::testHDRFullScreenVisualContinuity(exit-position-hidden)
+INFO   : WindowBehaviorTests::cleanupTestCase() entering
+PASS   : WindowBehaviorTests::cleanupTestCase()
+Totals: 10 passed, 2 failed, 0 skipped, 0 blacklisted, 46464ms
+********* Finished testing of WindowBehaviorTests *********
+
+      Start 27: FovelleFullScreenBottomBackgroundHandoff
+27/46 Test #27: FovelleFullScreenBottomBackgroundHandoff .....   Passed   14.73 sec
+      Start 28: FovelleUpdateStatic
+28/46 Test #28: FovelleUpdateStatic ..........................   Passed    0.15 sec
+      Start 29: FovelleUpdateConfiguration
+29/46 Test #29: FovelleUpdateConfiguration ...................   Passed    0.10 sec
+      Start 30: FovelleHDRBrightnessStatic
+30/46 Test #30: FovelleHDRBrightnessStatic ...................   Passed    0.05 sec
+      Start 31: FovelleHDRBrightnessDynamic
+31/46 Test #31: FovelleHDRBrightnessDynamic ..................   Passed    0.30 sec
+      Start 32: FovelleHDRColorPixels
+32/46 Test #32: FovelleHDRColorPixels ........................   Passed    0.14 sec
+      Start 33: FovelleHDRColorSamples
+33/46 Test #33: FovelleHDRColorSamples .......................   Passed    1.90 sec
+      Start 34: FovelleHDRColorNative
+34/46 Test #34: FovelleHDRColorNative ........................   Passed    1.59 sec
+      Start 35: FovelleZoomColorStatic
+35/46 Test #35: FovelleZoomColorStatic .......................   Passed    0.05 sec
+      Start 36: FovelleKeepZoomDynamic
+36/46 Test #36: FovelleKeepZoomDynamic .......................   Passed    3.27 sec
+      Start 37: FovelleColorInformationDynamic
+37/46 Test #37: FovelleColorInformationDynamic ...............   Passed    0.71 sec
+      Start 38: FovelleZoomColorLocalization
+38/46 Test #38: FovelleZoomColorLocalization .................   Passed    0.63 sec
+      Start 39: FovelleKeepZoomHiDpi
+39/46 Test #39: FovelleKeepZoomHiDpi .........................   Passed   11.07 sec
+      Start 40: FovelleKeepZoomPersistenceStatic
+40/46 Test #40: FovelleKeepZoomPersistenceStatic .............   Passed    0.04 sec
+      Start 41: FovelleKeepZoomPersistenceDynamic
+41/46 Test #41: FovelleKeepZoomPersistenceDynamic ............   Passed    3.01 sec
+      Start 42: FovelleRemediationStatic
+42/46 Test #42: FovelleRemediationStatic .....................   Passed    0.05 sec
+      Start 43: FovelleRemediationGateTests
+43/46 Test #43: FovelleRemediationGateTests ..................   Passed    0.06 sec
+      Start 44: FovelleRemediationDynamic
+44/46 Test #44: FovelleRemediationDynamic ....................   Passed    8.33 sec
+      Start 45: FovellePortableHDR
+45/46 Test #45: FovellePortableHDR ...........................   Passed   28.75 sec
+      Start 46: FovelleDeploymentArtifact
+46/46 Test #46: FovelleDeploymentArtifact ....................   Passed   51.59 sec
+
+96% tests passed, 2 tests failed out of 46
+
+Label Time Summary:
+acceptance            = 148.63 sec*proc (32 tests)
+anchor                =   0.72 sec*proc (1 test)
+appearance            =   4.10 sec*proc (2 tests)
+artifact              =  51.59 sec*proc (1 test)
+background-handoff    =  14.73 sec*proc (1 test)
+brightness            =   0.35 sec*proc (2 tests)
+bundle                =  51.59 sec*proc (1 test)
+color                 =   5.03 sec*proc (6 tests)
+continuity            =  64.85 sec*proc (2 tests)
+deployment            =  51.59 sec*proc (1 test)
+display-capture       =  14.73 sec*proc (1 test)
+duration              =   1.99 sec*proc (2 tests)
+dynamic               = 146.42 sec*proc (23 tests)
+dynamic-evidence      =   0.10 sec*proc (1 test)
+focus                 =   1.75 sec*proc (2 tests)
+four-issues           =   3.08 sec*proc (1 test)
+fullscreen            = 127.43 sec*proc (8 tests)
+hdr                   =  79.44 sec*proc (8 tests)
+hidpi                 =  18.53 sec*proc (2 tests)
+hint                  =   1.70 sec*proc (2 tests)
+local-fixture         =   3.50 sec*proc (2 tests)
+localization          =   0.73 sec*proc (3 tests)
+macos                 = 126.72 sec*proc (8 tests)
+metrics               =   0.09 sec*proc (1 test)
+native                =  27.87 sec*proc (2 tests)
+native-dialog         =   4.10 sec*proc (2 tests)
+native-ui             =  33.48 sec*proc (2 tests)
+navigation            =   1.70 sec*proc (2 tests)
+persistence           =   3.05 sec*proc (2 tests)
+raw                   =  28.75 sec*proc (1 test)
+real-fixtures         =  28.75 sec*proc (1 test)
+refinement            =   2.97 sec*proc (2 tests)
+required              =  28.75 sec*proc (1 test)
+requires-desktop      =  14.73 sec*proc (1 test)
+restart               =   3.01 sec*proc (1 test)
+scrollbar             =  12.74 sec*proc (6 tests)
+sdr                   =   4.73 sec*proc (1 test)
+settings              =   3.05 sec*proc (2 tests)
+smoke                 =  51.59 sec*proc (1 test)
+source-contract       =   0.38 sec*proc (4 tests)
+static                =   0.14 sec*proc (3 tests)
+titlebar              =  14.31 sec*proc (1 test)
+toggle-fit            =   3.82 sec*proc (4 tests)
+trajectory            =  10.43 sec*proc (3 tests)
+transition            =   0.10 sec*proc (1 test)
+unit                  =   0.09 sec*proc (1 test)
+vertical-topology     =   0.42 sec*proc (1 test)
+zoom                  =  39.94 sec*proc (18 tests)
+
+Total Test time (real) = 451.78 sec
+
+The following tests FAILED:
+	 17 - FovelleZoomScrollbarTrajectory (Failed)           scrollbar trajectory zoom
+	 26 - FovelleHDRFullScreenVisualContinuity (Failed)     acceptance continuity dynamic fullscreen hdr macos
+Errors while running CTest

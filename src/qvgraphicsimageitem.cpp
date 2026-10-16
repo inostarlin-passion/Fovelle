@@ -134,23 +134,13 @@ QSvgRenderer *cachedWorkerSvgRenderer(const Qv::VectorImageData &image)
 }
 }
 
-QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent)
-    : QGraphicsObject(parent),
-      asyncTileWatcher(std::make_unique<QFutureWatcher<AsyncTileResult>>())
+QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent) : QGraphicsObject(parent)
 {
-    // Only the newest tile request can run at once. Keep that single worker
-    // alive so successive SVG requests reuse its parsed renderer instead of
-    // paying thread startup/teardown and parser allocation costs during a
-    // drag.
-    vectorThreadPool.setMaxThreadCount(1);
-    vectorThreadPool.setExpiryTimeout(-1);
     // Qt's built-in item caches rasterize the whole item.  NoCache plus the
     // extended option lets this item keep its own strictly bounded,
     // terminal-density tiles around the actual exposed region.
     setCacheMode(QGraphicsItem::NoCache);
     setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, true);
-    QObject::connect(asyncTileWatcher.get(), &QFutureWatcher<AsyncTileResult>::finished,
-                     this, [this]() { asyncVectorTileFinished(); });
 }
 
 QVGraphicsImageItem::~QVGraphicsImageItem()
@@ -165,15 +155,8 @@ void QVGraphicsImageItem::shutdownAsyncWork()
 
     asyncWorkShutDown = true;
     pendingAsyncRequest.reset();
-    if (asyncTileWatcher && asyncTileWatcher->isRunning())
-    {
-        asyncTileWatcher->disconnect(this);
-        asyncTileWatcher->cancel();
-        asyncTileWatcher->waitForFinished();
-    }
-
-    vectorThreadPool.clear();
-    vectorThreadPool.waitForDone();
+    QvAsync::cancel(asyncTileTicket);
+    asyncTileTicket.reset();
 }
 
 void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
@@ -432,108 +415,95 @@ void QVGraphicsImageItem::requestAsyncVectorTile(
 void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
 {
     activeAsyncRequest = request;
-    asyncTileWatcher->setFuture(QtConcurrent::run(&vectorThreadPool,
-        [request = std::move(request)]() mutable {
-            AsyncTileResult result;
-            result.generation = request.generation;
-            result.tile.sourceRect = request.sourceRect;
-            result.tile.deviceScaleX = request.deviceScaleX;
-            result.tile.deviceScaleY = request.deviceScaleY;
+    asyncTileTicket = QvAsync::run(
+            [request = std::move(request)]() mutable {
+                AsyncTileResult result;
+                result.generation = request.generation;
+                result.tile.sourceRect = request.sourceRect;
+                result.tile.deviceScaleX = request.deviceScaleX;
+                result.tile.deviceScaleY = request.deviceScaleY;
 
-            if (request.vectorImage.format == Qv::VectorImageFormat::Pdf)
-            {
-                // The GUI item constructs this immutable document once.  A
-                // tile request retains it so PDF parsing is not repeated for
-                // every pan exposure.  The fallback keeps this helper robust
-                // for any future request producer that omits the pointer.
-                const auto document = request.pdfDocument
-                    ? request.pdfDocument
-                    : QVCocoaFunctions::createPDFVectorDocument(
-                          request.vectorImage.encodedData,
-                          &result.errorString);
-                if (document)
-                {
-                    result.tile.image = document->renderTile(
-                        request.vectorImage.logicalSize, request.sourceRect,
-                        request.pixelSize, &result.errorString);
-                }
-            }
-            else if (request.vectorImage.format == Qv::VectorImageFormat::Svg)
-            {
-                QSvgRenderer *renderer = cachedWorkerSvgRenderer(
-                    request.vectorImage);
-                if (renderer)
-                {
-                    // The GUI-thread renderer owns the animation clock.  A
-                    // worker-local renderer is reentrant, and selecting the
-                    // captured frame keeps animated SVG refinement coherent.
-                    renderer->setCurrentFrame(request.svgFrame);
-                    result.tile.image = QImage(
-                        request.pixelSize, QImage::Format_ARGB32_Premultiplied);
-                    if (!result.tile.image.isNull())
-                    {
-                        result.tile.image.fill(Qt::transparent);
-                        QPainter tilePainter(&result.tile.image);
-                        tilePainter.setRenderHint(QPainter::Antialiasing, true);
-                        tilePainter.setRenderHint(QPainter::TextAntialiasing, true);
-                        // Crop in SVG user space before rasterization instead
-                        // of transforming the full document far outside this
-                        // bitmap. Qt's raster paint engine only guarantees
-                        // coordinates within roughly +/- 2^15; a 6400% view
-                        // of a large document can otherwise cross that range
-                        // even though the requested tile itself is bounded.
-                        // setViewBox() is mutable. Restore the source viewBox
-                        // captured when this worker-local renderer was parsed
-                        // before calculating every independent tile, or a
-                        // cached renderer would crop the next tile relative
-                        // to the previous tile.
-                        const QRectF declaredViewBox =
-                                svgWorkerRenderCache().originalViewBox;
-                        renderer->setViewBox(declaredViewBox);
-                        const QSizeF logicalSize = request.vectorImage.logicalSize;
-                        // Width/height-only SVG documents are valid as well.
-                        // Keep their historical full-document mapping instead
-                        // of publishing a transparent tile when no explicit
-                        // viewBox was declared.
-                        const QRectF originalViewBox =
-                            declaredViewBox.isValid() && !declaredViewBox.isEmpty()
-                                ? declaredViewBox
-                                : QRectF(QPointF(), logicalSize);
-                        const QRectF tileViewBox(
-                            originalViewBox.left()
-                                + request.sourceRect.left()
-                                    * originalViewBox.width() / logicalSize.width(),
-                            originalViewBox.top()
-                                + request.sourceRect.top()
-                                    * originalViewBox.height() / logicalSize.height(),
-                            request.sourceRect.width()
-                                * originalViewBox.width() / logicalSize.width(),
-                            request.sourceRect.height()
-                                * originalViewBox.height() / logicalSize.height());
-                        if (tileViewBox.isValid() && !tileViewBox.isEmpty())
-                        {
-                            renderer->setViewBox(tileViewBox);
-                            renderer->render(
-                                &tilePainter,
-                                QRectF(QPointF(), QSizeF(request.pixelSize)));
+                if (request.vectorImage.format == Qv::VectorImageFormat::Pdf) {
+                    // The GUI item constructs this immutable document once.  A
+                    // tile request retains it so PDF parsing is not repeated for
+                    // every pan exposure.  The fallback keeps this helper robust
+                    // for any future request producer that omits the pointer.
+                    const auto document = request.pdfDocument
+                            ? request.pdfDocument
+                            : QVCocoaFunctions::createPDFVectorDocument(
+                                      request.vectorImage.encodedData, &result.errorString);
+                    if (document) {
+                        result.tile.image = document->renderTile(
+                                request.vectorImage.logicalSize, request.sourceRect,
+                                request.pixelSize, &result.errorString);
+                    }
+                } else if (request.vectorImage.format == Qv::VectorImageFormat::Svg) {
+                    QSvgRenderer *renderer = cachedWorkerSvgRenderer(request.vectorImage);
+                    if (renderer) {
+                        // The GUI-thread renderer owns the animation clock.  A
+                        // worker-local renderer is reentrant, and selecting the
+                        // captured frame keeps animated SVG refinement coherent.
+                        renderer->setCurrentFrame(request.svgFrame);
+                        result.tile.image =
+                                QImage(request.pixelSize, QImage::Format_ARGB32_Premultiplied);
+                        if (!result.tile.image.isNull()) {
+                            result.tile.image.fill(Qt::transparent);
+                            QPainter tilePainter(&result.tile.image);
+                            tilePainter.setRenderHint(QPainter::Antialiasing, true);
+                            tilePainter.setRenderHint(QPainter::TextAntialiasing, true);
+                            // Crop in SVG user space before rasterization instead
+                            // of transforming the full document far outside this
+                            // bitmap. Qt's raster paint engine only guarantees
+                            // coordinates within roughly +/- 2^15; a 6400% view
+                            // of a large document can otherwise cross that range
+                            // even though the requested tile itself is bounded.
+                            // setViewBox() is mutable. Restore the source viewBox
+                            // captured when this worker-local renderer was parsed
+                            // before calculating every independent tile, or a
+                            // cached renderer would crop the next tile relative
+                            // to the previous tile.
+                            const QRectF declaredViewBox = svgWorkerRenderCache().originalViewBox;
+                            renderer->setViewBox(declaredViewBox);
+                            const QSizeF logicalSize = request.vectorImage.logicalSize;
+                            // Width/height-only SVG documents are valid as well.
+                            // Keep their historical full-document mapping instead
+                            // of publishing a transparent tile when no explicit
+                            // viewBox was declared.
+                            const QRectF originalViewBox =
+                                    declaredViewBox.isValid() && !declaredViewBox.isEmpty()
+                                    ? declaredViewBox
+                                    : QRectF(QPointF(), logicalSize);
+                            const QRectF tileViewBox(
+                                    originalViewBox.left()
+                                            + request.sourceRect.left() * originalViewBox.width()
+                                                    / logicalSize.width(),
+                                    originalViewBox.top()
+                                            + request.sourceRect.top() * originalViewBox.height()
+                                                    / logicalSize.height(),
+                                    request.sourceRect.width() * originalViewBox.width()
+                                            / logicalSize.width(),
+                                    request.sourceRect.height() * originalViewBox.height()
+                                            / logicalSize.height());
+                            if (tileViewBox.isValid() && !tileViewBox.isEmpty()) {
+                                renderer->setViewBox(tileViewBox);
+                                renderer->render(&tilePainter,
+                                                 QRectF(QPointF(), QSizeF(request.pixelSize)));
+                            }
+                            tilePainter.end();
+                            result.tile.image.setColorSpace(QColorSpace::SRgb);
                         }
-                        tilePainter.end();
-                        result.tile.image.setColorSpace(QColorSpace::SRgb);
+                    } else {
+                        result.errorString =
+                                QStringLiteral("The asynchronous SVG document is invalid");
                     }
                 }
-                else
-                {
-                    result.errorString = QStringLiteral(
-                        "The asynchronous SVG document is invalid");
-                }
-            }
-            return result;
-        }));
+                return result;
+            },
+            [this](AsyncTileResult result) { asyncVectorTileFinished(result); });
 }
 
-void QVGraphicsImageItem::asyncVectorTileFinished()
+void QVGraphicsImageItem::asyncVectorTileFinished(const AsyncTileResult &result)
 {
-    const AsyncTileResult result = asyncTileWatcher->result();
     activeAsyncRequest.reset();
     if (result.generation == vectorSourceGeneration
         && !result.tile.image.isNull())

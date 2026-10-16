@@ -1,0 +1,19 @@
+[  0%] Built target Fovelle_autogen_timestamp_deps
+[  4%] Built target Fovelle_lrelease
+[  4%] Built target fovelle_tests_autogen_timestamp_deps
+[  4%] Built target fovelle_native_drag_helper_autogen_timestamp_deps
+[  6%] Built target fovelle_sparkle_probe
+[  8%] Automatic MOC and UIC for target fovelle_tests
+[  8%] Automatic MOC and UIC for target Fovelle
+[  8%] Built target Fovelle_autogen
+[  8%] Built target fovelle_tests_autogen
+[ 10%] Built target fovelle_native_drag_helper_autogen
+[ 11%] Building CXX object CMakeFiles/Fovelle.dir/src/mainwindow.cpp.o
+[ 12%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/mainwindow.cpp.o
+[ 13%] Building CXX object CMakeFiles/Fovelle.dir/src/urldownload.cpp.o
+[ 14%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/__/src/urldownload.cpp.o
+[ 15%] Linking CXX executable Fovelle.app/Contents/MacOS/Fovelle
+[ 16%] Linking CXX executable fovelle_tests
+[ 53%] Built target fovelle_tests
+[ 95%] Built target Fovelle
+[100%] Built target fovelle_native_drag_helper

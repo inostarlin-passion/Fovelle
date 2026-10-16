@@ -7577,6 +7577,8 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
             // of the committed baseline, not a false zoom sample.
             window.raise();
             window.activateWindow();
+            if (!QTest::qWaitForWindowActive(&window, 5000))
+                return QStringLiteral("keyboard trajectory requires an active native window");
             view->viewport()->setFocus(Qt::OtherFocusReason);
             QCoreApplication::processEvents(QEventLoop::AllEvents);
             QTest::qWait(50);
@@ -14875,6 +14877,10 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     window.setWindowState(Qt::WindowNoState);
     window.setGeometry(210, 160, 720, 500);
     window.show();
+    window.raise();
+    window.activateWindow();
+    QVERIFY2(QTest::qWaitForWindowActive(&window, 5000),
+             "HDR continuity requires an active native window");
     window.openFile(path);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
@@ -16739,6 +16745,9 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
 
 #include "zoom_color_acceptance.inc"
 
+#include "remediation_tests.h"
+#include "moc_remediation_tests.cpp"
+
 int main(int argc, char *argv[])
 {
     QCoreApplication::setOrganizationName("Fovelle");
@@ -16790,8 +16799,23 @@ int main(int argc, char *argv[])
     QVApplication app(argc, argv);
     if (!probePhase.isEmpty())
         return runKeepZoomPersistenceProbe(probePhase);
+    const QString shutdownProbe = qEnvironmentVariable("FOVELLE_READ_SHUTDOWN_PROBE");
+    if (!shutdownProbe.isEmpty()) {
+        QSettings saved(shutdownProbe + "/saved.ini", QSettings::IniFormat);
+        saved.setValue("saved", true);
+        saved.sync();
+        auto started = std::make_shared<QSemaphore>();
+        const int delay = qEnvironmentVariableIntValue("FOVELLE_READ_SHUTDOWN_DELAY_MS");
+        QvAsync::schedule([started, delay] {
+            started->release();
+            QThread::msleep(static_cast<unsigned long>(delay));
+        });
+        started->acquire();
+        return 0; // Exercise the real QVApplication destructor/drain boundary.
+    }
     qRegisterMetaType<QVImageLoader::Result>();
 
+    RemediationTests remediationTests;
     ImageLoaderTests imageLoaderTests;
     FeatureTests featureTests;
     HDRPolicyTests hdrPolicyTests;
@@ -16807,6 +16831,8 @@ int main(int argc, char *argv[])
     const auto runSuite = [&](const QByteArray &suiteName, QObject *suite) {
         return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;
     };
+    if (selectedSuite == "RemediationTests")
+        return QTest::qExec(&remediationTests, argc, argv);
     int result = runSuite("ImageLoaderTests", &imageLoaderTests);
     result |= runSuite("FeatureTests", &featureTests);
     result |= runSuite("HDRPolicyTests", &hdrPolicyTests);

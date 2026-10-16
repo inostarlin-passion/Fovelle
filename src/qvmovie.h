@@ -87,6 +87,9 @@ public:
 
     CacheMode cacheMode() const;
     void setCacheMode(CacheMode mode);
+    void setCacheByteLimit(quint64 bytes);
+    quint64 cachedBytes() const;
+    void setAsyncPlayback(bool enabled);
 
 Q_SIGNALS:
     void started();

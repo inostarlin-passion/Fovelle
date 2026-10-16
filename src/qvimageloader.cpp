@@ -24,8 +24,8 @@ constexpr qint64 MaxPreloadSourceBytes = 128LL * 1024LL * 1024LL;
 constexpr quint64 MaxPreloadDecodedBytes = 128ULL * 1024ULL * 1024ULL;
 }
 
-QVImageLoader::QVImageLoader(QObject *parent)
-    : QObject(parent), imageThreadPool(this)
+QVImageLoader::QVImageLoader(QObject *parent, ReadFunction read)
+    : QObject(parent), readFunction(read ? std::move(read) : ReadFunction(readFile))
 {
 }
 
@@ -43,11 +43,9 @@ void QVImageLoader::shutdownAsyncWork()
     pendingRequest.reset();
     lifetimeToken.reset();
 
-    // Image-loader jobs are raw QRunnables, not QFuture-backed work. Isolate
-    // them from QtConcurrent's global pool so queued speculative preloads can
-    // be discarded here without leaving another component's future pending.
-    imageThreadPool.clear();
-    imageThreadPool.waitForDone();
+    for (const auto &ticket : std::as_const(workTickets))
+        QvAsync::cancel(ticket);
+    workTickets.clear();
 }
 
 void QVImageLoader::setLargestDimension(const int value)
@@ -530,39 +528,16 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     const int targetLargestDimension = largestDimension;
     emit loadStarted(absoluteFilePath, priority);
 
-    QVImageLoader *loader = this;
-    const std::weak_ptr<int> weakLifetime = lifetimeToken;
-    QObject *dispatchContext = QCoreApplication::instance();
-    imageThreadPool.start(
-        [
-            loader,
-            weakLifetime,
-            dispatchContext,
-            absoluteFilePath,
-            generation,
-            targetLargestDimension,
-            isPreload
-        ]() {
-            Result result = readFile(
-                absoluteFilePath, targetLargestDimension, isPreload);
-            QMetaObject::invokeMethod(
-                dispatchContext,
-                [
-                    loader,
-                    weakLifetime,
-                    absoluteFilePath,
-                    generation,
-                    result = std::move(result)
-                ]() mutable {
-                    if (!weakLifetime.lock())
-                        return;
-                    loader->jobFinished(absoluteFilePath, generation, std::move(result));
-                },
-                Qt::QueuedConnection
-            );
-        },
-        -priority
-    );
+    const auto read = readFunction;
+    workTickets.removeIf([](const QvAsync::Ticket &ticket) { return ticket.use_count() == 1; });
+    workTickets.append(QvAsync::run(
+            [read, absoluteFilePath, targetLargestDimension, isPreload] {
+                return read(absoluteFilePath, targetLargestDimension, isPreload);
+            },
+            [this, absoluteFilePath, generation](Result result) {
+                jobFinished(absoluteFilePath, generation, std::move(result));
+            },
+            -priority));
 }
 
 void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 generation, Result result)

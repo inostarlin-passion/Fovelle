@@ -68,3 +68,6 @@ FORMS += \
 macx:include($$PWD/../dist/mac/sparkle.pri)
 
 LIBS += -lz
+
+SOURCES += $$PWD/urldownload.cpp $$PWD/asyncwork.cpp
+HEADERS += $$PWD/urldownload.h $$PWD/asyncwork.h

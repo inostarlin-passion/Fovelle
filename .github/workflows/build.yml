@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +45,7 @@ jobs:
         run: >-
           cmake -S . -B build
           -DBUILD_TESTS=ON
+          -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
           -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python"
@@ -59,8 +60,29 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure --timeout 90
 
+      - name: Upload portable HDR execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-hdr-execution
+          path: |
+            build/test-results/portable-hdr/*.xml
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+
+      - name: Deploy and validate Qt bundle
+        run: |
+          macdeployqt build/Fovelle.app -always-overwrite
+          python3 dist/scripts/verify-macos-bundle.py build/Fovelle.app --sanitize --sign-adhoc
+          python3 dist/scripts/verify-macos-bundle.py build/Fovelle.app
+
       - name: Package Fovelle
         run: ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app Fovelle-macOS.zip
+
+      - name: Validate extracted artifact
+        run: |
+          ditto -x -k Fovelle-macOS.zip "$RUNNER_TEMP/fovelle-verified"
+          python3 dist/scripts/verify-macos-bundle.py "$RUNNER_TEMP/fovelle-verified/Fovelle.app"
 
       - name: Upload Fovelle artifact
         uses: actions/upload-artifact@v4

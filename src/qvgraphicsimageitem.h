@@ -2,6 +2,7 @@
 #define QVGRAPHICSIMAGEITEM_H
 
 #include "qvnamespace.h"
+#include "asyncwork.h"
 #include "qvcocoafunctions.h"
 
 #include <QGraphicsObject>
@@ -100,7 +101,7 @@ private:
     void retainVectorTile(VectorTile tile) const;
     void requestAsyncVectorTile(const AsyncTileRequest &request);
     void startAsyncVectorTile(AsyncTileRequest request);
-    void asyncVectorTileFinished();
+    void asyncVectorTileFinished(const AsyncTileResult &result);
     static bool sameAsyncRequest(const AsyncTileRequest &lhs,
                                  const AsyncTileRequest &rhs);
     static QSize boundedTileSize(const QSizeF &requestedSize);
@@ -113,8 +114,7 @@ private:
     QVCocoaFunctions::PDFVectorDocumentPtr pdfDocument;
     bool vectorInteractionActive {false};
     quint64 vectorSourceGeneration {0};
-    std::unique_ptr<QFutureWatcher<AsyncTileResult>> asyncTileWatcher;
-    QThreadPool vectorThreadPool;
+    QvAsync::Ticket asyncTileTicket;
     std::optional<AsyncTileRequest> activeAsyncRequest;
     std::optional<AsyncTileRequest> pendingAsyncRequest;
     bool asyncWorkShutDown {false};

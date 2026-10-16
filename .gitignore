@@ -58,3 +58,5 @@ bin/*
 build/*
 
 !reports/evidence/update/
+
+!reports/evidence/remediation/

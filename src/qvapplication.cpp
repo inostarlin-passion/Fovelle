@@ -4,6 +4,7 @@
 #include "simplefonticonengine.h"
 #include "updatechecker.h"
 #include "nativedialogs.h"
+#include "asyncwork.h"
 
 #include <QFileOpenEvent>
 #include <QSettings>
@@ -92,6 +93,14 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
 QVApplication::~QVApplication()
 {
+    // Also cover hosts/tests which destroy the application without exec().
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+        if (auto *window = qobject_cast<MainWindow *>(widget))
+            window->shutdownBackgroundWork();
+    }
+    // Drain read-only jobs before QApplication and its plugins are destroyed.
+    QSettings().sync();
+    QvAsync::finishOrExit();
     if (dockMenu)
     {
         actionManager.untrackClonedActions(dockMenu);

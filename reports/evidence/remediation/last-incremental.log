@@ -1,0 +1,55 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 44: FovelleRemediationDynamic
+1/3 Test #44: FovelleRemediationDynamic ........***Failed    7.32 sec
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadThreadAffinity()
+PASS   : RemediationTests::testDownloadPreservesSources()
+PASS   : RemediationTests::testDownloadCleanup()
+PASS   : RemediationTests::testDownloadHttpFailureCleanup()
+PASS   : RemediationTests::testDownloadIdleTimeout()
+PASS   : RemediationTests::testDownloadTranslatedFailure()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadLimits()
+PASS   : RemediationTests::testDownloadProgressAndCancel()
+PASS   : RemediationTests::testFolderScanAsync()
+PASS   : RemediationTests::testFolderScanGeneration()
+PASS   : RemediationTests::testDirectoryOpenAndNavigation()
+PASS   : RemediationTests::testMovieBoundedCache()
+PASS   : RemediationTests::testMovieAsyncPlayback()
+FAIL!  : RemediationTests::testMovieAsyncInvalidInput() Compared values are not the same
+   Actual   (failed.count()): 0
+   Expected (1)             : 1
+   Loc: [/Users/inostarlin/code/Fovelle/tests/remediation_tests.h(388)]
+PASS   : RemediationTests::testMovieQueuedSourceReplacement()
+PASS   : RemediationTests::testLoaderNonblockingShutdown()
+PASS   : RemediationTests::testPortableHDR()
+PASS   : RemediationTests::testShutdownProcess()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 20 passed, 1 failed, 0 skipped, 0 blacklisted, 7211ms
+********* Finished testing of RemediationTests *********
+
+    Start 45: FovellePortableHDR
+2/3 Test #45: FovellePortableHDR ...............   Passed   28.59 sec
+    Start 46: FovelleDeploymentArtifact
+3/3 Test #46: FovelleDeploymentArtifact ........   Passed   50.03 sec
+
+67% tests passed, 1 tests failed out of 3
+
+Label Time Summary:
+artifact         =  50.03 sec*proc (1 test)
+bundle           =  50.03 sec*proc (1 test)
+deployment       =  50.03 sec*proc (1 test)
+hdr              =  28.59 sec*proc (1 test)
+native-ui        =  28.59 sec*proc (1 test)
+raw              =  28.59 sec*proc (1 test)
+real-fixtures    =  28.59 sec*proc (1 test)
+required         =  28.59 sec*proc (1 test)
+smoke            =  50.03 sec*proc (1 test)
+
+Total Test time (real) =  85.95 sec
+
+The following tests FAILED:
+	 44 - FovelleRemediationDynamic (Failed)
+Errors while running CTest

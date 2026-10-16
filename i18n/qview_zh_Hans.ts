@@ -492,6 +492,10 @@ No write permission or file is read-only.</source>
         <source>No next image</source>
         <translation>没有下一张图片</translation>
     </message>
+    <message>
+        <source>Error: %1</source>
+        <translation>错误：%1</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -1914,6 +1918,30 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Cycle Through Windows</source>
         <translation>循环显示窗口</translation>
+    </message>
+</context>
+
+<context>
+    <name>UrlDownload</name>
+    <message>
+        <source>Download idle timeout</source>
+        <translation>下载等待数据超时</translation>
+    </message>
+    <message>
+        <source>Download total timeout</source>
+        <translation>下载超过总时限</translation>
+    </message>
+    <message>
+        <source>Invalid download URL or policy</source>
+        <translation>下载网址或策略无效</translation>
+    </message>
+    <message>
+        <source>Cannot create download file</source>
+        <translation>无法创建下载文件</translation>
+    </message>
+    <message>
+        <source>Download exceeds byte limit</source>
+        <translation>下载超过大小限制</translation>
     </message>
 </context>
 </TS>

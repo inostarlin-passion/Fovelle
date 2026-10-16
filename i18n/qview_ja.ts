@@ -493,6 +493,10 @@ No write permission or file is read-only.</source>
         <source>No next image</source>
         <translation>次の画像はありません</translation>
     </message>
+    <message>
+        <source>Error: %1</source>
+        <translation>エラー：%1</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -1915,6 +1919,30 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Cycle Through Windows</source>
         <translation>ウインドウを巡回</translation>
+    </message>
+</context>
+
+<context>
+    <name>UrlDownload</name>
+    <message>
+        <source>Download idle timeout</source>
+        <translation>ダウンロードのデータ待機がタイムアウトしました</translation>
+    </message>
+    <message>
+        <source>Download total timeout</source>
+        <translation>ダウンロードの制限時間を超えました</translation>
+    </message>
+    <message>
+        <source>Invalid download URL or policy</source>
+        <translation>ダウンロードURLまたは設定が無効です</translation>
+    </message>
+    <message>
+        <source>Cannot create download file</source>
+        <translation>ダウンロードファイルを作成できません</translation>
+    </message>
+    <message>
+        <source>Download exceeds byte limit</source>
+        <translation>ダウンロードのサイズ制限を超えました</translation>
     </message>
 </context>
 </TS>

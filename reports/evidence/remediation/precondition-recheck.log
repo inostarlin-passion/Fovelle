@@ -1,0 +1,29 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 17: FovelleZoomScrollbarTrajectory
+1/4 Test #17: FovelleZoomScrollbarTrajectory .........   Passed    2.12 sec
+    Start 18: FovelleZoomScrollbarTrajectoryHiDpi
+2/4 Test #18: FovelleZoomScrollbarTrajectoryHiDpi ....   Passed    7.47 sec
+    Start 26: FovelleHDRFullScreenVisualContinuity
+3/4 Test #26: FovelleHDRFullScreenVisualContinuity ...   Passed   30.92 sec
+    Start 45: FovellePortableHDR
+4/4 Test #45: FovellePortableHDR .....................   Passed   28.49 sec
+
+100% tests passed out of 4
+
+Label Time Summary:
+acceptance       =  30.92 sec*proc (1 test)
+continuity       =  30.92 sec*proc (1 test)
+dynamic          =  30.92 sec*proc (1 test)
+fullscreen       =  30.92 sec*proc (1 test)
+hdr              =  59.41 sec*proc (2 tests)
+hidpi            =   7.47 sec*proc (1 test)
+macos            =  30.92 sec*proc (1 test)
+native-ui        =  28.49 sec*proc (1 test)
+raw              =  28.49 sec*proc (1 test)
+real-fixtures    =  28.49 sec*proc (1 test)
+required         =  28.49 sec*proc (1 test)
+scrollbar        =   9.58 sec*proc (2 tests)
+trajectory       =   9.58 sec*proc (2 tests)
+zoom             =   9.58 sec*proc (2 tests)
+
+Total Test time (real) =  69.00 sec

@@ -384,6 +384,12 @@ MainWindow::MainWindow(QWidget *parent,
 
     // Connect graphicsview signals
     connect(graphicsView, &QVGraphicsView::fileChanged, this, &MainWindow::fileChanged);
+    connect(graphicsView, &QVGraphicsView::folderInfoChanged, this, [this] {
+        buildWindowTitle();
+        disableActions();
+        updateNavigationButtonAppearance();
+        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
+    });
     connect(graphicsView, &QVGraphicsView::fileChanged, this, [this]() {
         if (!qEnvironmentVariableIsSet("FOVELLE_HDR_TEST_NAVIGATION"))
             return;
@@ -580,12 +586,10 @@ void MainWindow::shutdownBackgroundWork()
     if (openWithFutureWatcher.isRunning())
         openWithFutureWatcher.waitForFinished();
 
-    const auto saveWatchers = saveFutureWatchers;
-    for (auto *watcher : saveWatchers)
-    {
-        if (watcher && watcher->isRunning())
-            watcher->waitForFinished();
-    }
+    const auto activeDownloads = downloads;
+    for (auto *download : activeDownloads)
+        download->cancel();
+    downloads.clear();
 
     // Discard speculative owner-local work that has not started.
     backgroundThreadPool.clear();
@@ -593,6 +597,7 @@ void MainWindow::shutdownBackgroundWork()
 
     if (graphicsView)
         graphicsView->shutdownAsyncWork();
+    downloadedArtifacts.clear();
 }
 
 void MainWindow::ensureMenus()
@@ -2050,79 +2055,49 @@ void MainWindow::openUrl(const QUrl &url)
     if (backgroundWorkShutDown)
         return;
 
-    if (!url.isValid()) {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Error: URL is invalid"), {}, QMessageBox::Ok, this);
-        return;
-    }
-
-    auto request = QNetworkRequest(url);
-    auto *reply = networkAccessManager.get(request);
-    auto *progressDialog = new QProgressDialog(tr("Downloading image..."), tr("Cancel"), 0, 100);
+    auto *download = new UrlDownload(this);
+    auto *progressDialog =
+            new QProgressDialog(tr("Downloading image..."), tr("Cancel"), 0, 0, this);
     progressDialog->setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     progressDialog->setAutoClose(false);
     progressDialog->setAutoReset(false);
     progressDialog->setWindowTitle(tr("Open URL..."));
     NativeDialogs::applyTheme(progressDialog);
-    progressDialog->open();
-
-    connect(progressDialog, &QProgressDialog::canceled, reply, [reply]{
-        reply->abort();
-    });
-
-    connect(reply, &QNetworkReply::downloadProgress, progressDialog, [progressDialog](qreal bytesReceived, qreal bytesTotal){
-        auto percent = (bytesReceived/bytesTotal)*100;
-        progressDialog->setValue(qRound(percent));
-    });
-
-    connect(reply, &QNetworkReply::finished, progressDialog, [progressDialog, reply, this]{
-        if (reply->error())
-        {
-            progressDialog->close();
-            NativeDialogs::showMessage(QMessageBox::Critical,
-                                       tr("Error ") + QString::number(reply->error())
-                                           + ": " + reply->errorString(),
-                                       {}, QMessageBox::Ok, this);
-
-            progressDialog->deleteLater();
-            return;
-        }
-
-        progressDialog->setMaximum(0);
-
-        auto *tempFile = new QTemporaryFile(this);
-        tempFile->setFileTemplate(QDir::tempPath() + "/" + qvApp->applicationName() + ".XXXXXX.png");
-
-        auto *saveFutureWatcher = new QFutureWatcher<bool>(this);
-        saveFutureWatchers.append(saveFutureWatcher);
-        connect(saveFutureWatcher, &QFutureWatcher<bool>::finished, this, [progressDialog, tempFile, saveFutureWatcher, this](){
-            saveFutureWatchers.removeOne(saveFutureWatcher);
-            progressDialog->close();
-            if (backgroundWorkShutDown)
-            {
-                progressDialog->deleteLater();
-                saveFutureWatcher->deleteLater();
-                return;
-            }
-            if (saveFutureWatcher->result())
-            {
-                if (tempFile->open())
-                {
-                    openFile(tempFile->fileName());
+    downloads.append(download);
+    const auto cleanup = [this, download, progressDialog] {
+        downloads.removeOne(download);
+        progressDialog->close();
+        progressDialog->deleteLater();
+        download->deleteLater();
+    };
+    connect(progressDialog, &QProgressDialog::canceled, download, &UrlDownload::cancel);
+    connect(download, &UrlDownload::progress, progressDialog,
+            [progressDialog](qint64 received, qint64 total) {
+                if (total > 0) {
+                    progressDialog->setRange(0, 100);
+                    progressDialog->setValue(
+                            int(qBound(0.0, 100.0 * double(received) / double(total), 100.0)));
+                } else {
+                    progressDialog->setRange(0, 0);
                 }
-            }
-            else
-            {
-                NativeDialogs::showMessage(QMessageBox::Critical, tr("Error: Invalid image"), {}, QMessageBox::Ok, this);
-                tempFile->deleteLater();
-            }
-            progressDialog->deleteLater();
-            saveFutureWatcher->deleteLater();
-        });
-
-        saveFutureWatcher->setFuture(QtConcurrent::run(&backgroundThreadPool, [reply, tempFile]{
-            return QImage::fromData(reply->readAll()).save(tempFile, "png");
-        }));
+            });
+    connect(download, &UrlDownload::succeeded, this,
+            [this, cleanup](const UrlDownload::Artifact &artifact) {
+                if (!backgroundWorkShutDown) {
+                    downloadedArtifacts.append(artifact);
+                    openFile(artifact.path);
+                }
+                cleanup();
+            });
+    connect(download, &UrlDownload::failed, this, [this, cleanup](const QString &message) {
+        cleanup();
+        if (!backgroundWorkShutDown)
+            NativeDialogs::showMessage(QMessageBox::Critical, tr("Error: %1").arg(message), { },
+                                       QMessageBox::Ok, this);
     });
+    connect(download, &UrlDownload::canceled, this, cleanup);
+    progressDialog->open();
+    download->start(url);
 }
 
 void MainWindow::pickUrl()

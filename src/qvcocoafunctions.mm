@@ -1,3 +1,5 @@
+#include "asyncwork.h"
+#include <QScopeGuard>
 #include "actionmanager.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
@@ -1221,14 +1223,21 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
                           .arg(process.errorString());
         return false;
     }
-    if (!process.waitForFinished(EPSRendererTimeoutMs))
-    {
-        process.kill();
-        process.waitForFinished();
-        errorString = QStringLiteral("Ghostscript exceeded the 30 second EPS rendering limit");
-        return false;
+    const qint64 childPid = process.processId();
+    QvAsync::registerChild(childPid);
+    const auto unregisterChild = qScopeGuard([childPid] { QvAsync::unregisterChild(childPid); });
+    QElapsedTimer processTimer;
+    processTimer.start();
+    while (!process.waitForFinished(50)) {
+        if (QvAsync::isCanceled() || processTimer.elapsed() >= EPSRendererTimeoutMs) {
+            process.kill();
+            process.waitForFinished(500);
+            errorString = QStringLiteral("EPS renderer canceled or timed out");
+            return false;
+        }
     }
 
+    QvAsync::unregisterChild(childPid);
     const QString diagnostic = boundedProcessError(process);
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
     {

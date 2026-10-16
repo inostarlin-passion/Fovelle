@@ -1,0 +1,22 @@
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+PASS   : RemediationTests::initTestCase()
+PASS   : RemediationTests::testDownloadThreadAffinity()
+PASS   : RemediationTests::testDownloadPreservesSources()
+PASS   : RemediationTests::testDownloadCleanup()
+PASS   : RemediationTests::testDownloadIdleTimeout()
+PASS   : RemediationTests::testDownloadTotalTimeout()
+PASS   : RemediationTests::testDownloadLimits()
+PASS   : RemediationTests::testDownloadProgressAndCancel()
+PASS   : RemediationTests::testFolderScanAsync()
+PASS   : RemediationTests::testFolderScanGeneration()
+PASS   : RemediationTests::testDirectoryOpenAndNavigation()
+PASS   : RemediationTests::testMovieBoundedCache()
+PASS   : RemediationTests::testMovieAsyncPlayback()
+PASS   : RemediationTests::testMovieQueuedSourceReplacement()
+PASS   : RemediationTests::testLoaderNonblockingShutdown()
+PASS   : RemediationTests::testPortableHDR()
+PASS   : RemediationTests::testShutdownProcess()
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 18 passed, 0 failed, 0 skipped, 0 blacklisted, 4991ms
+********* Finished testing of RemediationTests *********

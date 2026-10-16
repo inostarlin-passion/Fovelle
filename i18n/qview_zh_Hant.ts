@@ -621,6 +621,10 @@ No write permission or file is read-only.</source>
         <source>No next image</source>
         <translation>沒有下一張圖片</translation>
     </message>
+    <message>
+        <source>Error: %1</source>
+        <translation>錯誤：%1</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -2158,6 +2162,30 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Cycle Through Windows</source>
         <translation>循環檢視視窗</translation>
+    </message>
+</context>
+
+<context>
+    <name>UrlDownload</name>
+    <message>
+        <source>Download idle timeout</source>
+        <translation>下載等待資料逾時</translation>
+    </message>
+    <message>
+        <source>Download total timeout</source>
+        <translation>下載超過總時限</translation>
+    </message>
+    <message>
+        <source>Invalid download URL or policy</source>
+        <translation>下載網址或策略無效</translation>
+    </message>
+    <message>
+        <source>Cannot create download file</source>
+        <translation>無法建立下載檔案</translation>
+    </message>
+    <message>
+        <source>Download exceeds byte limit</source>
+        <translation>下載超過大小限制</translation>
     </message>
 </context>
 </TS>

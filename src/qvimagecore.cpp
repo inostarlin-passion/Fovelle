@@ -73,6 +73,11 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
     settingsUpdated();
 }
 
+QVImageCore::~QVImageCore()
+{
+    shutdownAsyncWork();
+}
+
 void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir, const bool debouncePreloading)
 {
     if (asyncWorkShutDown)
@@ -90,18 +95,28 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
 
     if (fileInfo.isDir())
     {
+        setPaused(true);
+        // Invalidate any previous image delivery while resolving a directory.
+        imageLoader.clear();
+        pendingLoadRequestId = 0;
+        loadInProgress = false;
+        fileOrLoadPending = true;
+        openDirectoryAfterScan = true;
         updateFolderInfo(absolutePath);
-        if (currentFileDetails.folderFileInfoList.isEmpty())
-            closeImage(true);
-        else
-            loadFile(currentFileDetails.folderFileInfoList.at(0).absoluteFilePath);
         return;
     }
 
-    if (!baseDir.isEmpty())
-    {
-        updateFolderInfo(baseDir);
-    }
+    openDirectoryAfterScan = false;
+    const QString directory = baseDir.isEmpty() ? fileInfo.absolutePath() : baseDir;
+    const auto &listing = currentFileDetails.folderFileInfoList;
+    const bool inCurrentListing =
+            std::any_of(listing.cbegin(), listing.cend(),
+                        [&absolutePath](const QVFileEnumerator::CompatibleFile &file) {
+                            return file.absoluteFilePath == absolutePath;
+                        });
+    // Preserve the base directory when navigating a recursive listing.
+    if (!baseDir.isEmpty() || (!inCurrentListing && listing.getBaseDir() != directory))
+        updateFolderInfo(directory);
 
     // Pause playing movie because it feels better that way
     setPaused(true);
@@ -121,6 +136,9 @@ void QVImageCore::shutdownAsyncWork()
     asyncWorkShutDown = true;
     pendingLoadDebouncesPreloading = false;
     preloadDebounceTimer.stop();
+    ++folderScanGeneration;
+    QvAsync::cancel(folderScanTicket);
+    loadedMovie.stop();
     imageLoader.shutdownAsyncWork();
 }
 
@@ -147,7 +165,8 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     if (currentFileDetails.loadedIndexInFolder == -1)
     {
         // If the current list of files doesn't contain this one, assume we're switching folders now
-        updateFolderInfo(currentFileDetails.fileInfo.path());
+        if (pendingFolderPath != currentFileDetails.fileInfo.path())
+            updateFolderInfo(currentFileDetails.fileInfo.path());
     }
 
     if (currentFileDetails.errorData.has_value())
@@ -197,6 +216,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     loadedMovie.stop();
     loadedMovie.setFormat("");
     loadedMovie.setCacheMode(QVMovie::CacheAll);
+    loadedMovie.setAsyncPlayback(true);
     // Vector documents own their repaint lifecycle. In particular, do not
     // probe a DOS EPS through QImageReader after the native loader has already
     // supplied the authoritative PDF result.
@@ -228,6 +248,10 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 
 void QVImageCore::closeImage(const bool stayInDir)
 {
+    ++folderScanGeneration;
+    QvAsync::cancel(folderScanTicket);
+    pendingFolderPath.clear();
+    openDirectoryAfterScan = false;
     preloadDebounceTimer.stop();
     imageLoader.clear();
     pendingLoadRequestId = 0;
@@ -398,12 +422,37 @@ void QVImageCore::updateFolderInfo(QString dirPath)
             return;
     }
 
-    // Get file listing
-    currentFileDetails.folderFileInfoList = fileEnumerator.getCompatibleFiles(dirPath);
+    if (asyncWorkShutDown)
+        return;
+    QvAsync::cancel(folderScanTicket);
+    const quint64 generation = ++folderScanGeneration;
+    pendingFolderPath = dirPath;
     folderInfoDirty = false;
-
-    // Set current file index variable
-    currentFileDetails.updateLoadedIndexInFolder();
+    if (currentFileDetails.folderFileInfoList.getBaseDir() != dirPath) {
+        currentFileDetails.folderFileInfoList =
+                QVFileEnumerator::CompatibleFileList(dirPath, false);
+        currentFileDetails.loadedIndexInFolder = -1;
+    }
+    folderScanTicket = fileEnumerator.scanAsync(
+            dirPath, this, [this, generation, dirPath](QVFileEnumerator::CompatibleFileList files) {
+                if (asyncWorkShutDown || generation != folderScanGeneration
+                    || pendingFolderPath != dirPath)
+                    return;
+                pendingFolderPath.clear();
+                currentFileDetails.folderFileInfoList = std::move(files);
+                currentFileDetails.updateLoadedIndexInFolder();
+                if (openDirectoryAfterScan) {
+                    openDirectoryAfterScan = false;
+                    if (currentFileDetails.folderFileInfoList.isEmpty())
+                        closeImage(true);
+                    else
+                        loadFile(currentFileDetails.folderFileInfoList.constFirst()
+                                         .absoluteFilePath);
+                } else {
+                    refreshDesiredImages(!preloadDebounceTimer.isActive());
+                }
+                emit folderInfoChanged();
+            });
 }
 
 QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool includePreloads) const
@@ -471,7 +520,10 @@ QColorSpace QVImageCore::getTargetColorSpace() const
 
 QColorSpace QVImageCore::detectDisplayColorSpace() const
 {
-    QWindow *window = static_cast<QWidget*>(parent())->window()->windowHandle();
+    const auto *widget = qobject_cast<QWidget *>(parent());
+    QWindow *window = widget ? widget->window()->windowHandle() : nullptr;
+    if (!window)
+        return { };
 
     const QByteArray profileData = QVCocoaFunctions::getIccProfileForWindow(window);
 

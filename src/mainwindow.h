@@ -5,6 +5,7 @@
 #include "qvimagecore.h"
 #include "qvgraphicsview.h"
 #include "openwith.h"
+#include "urldownload.h"
 
 #include <QMainWindow>
 #include <QFutureWatcher>
@@ -323,7 +324,8 @@ private:
     QRect normalGeometryBeforeFullScreen;
     QElapsedTimer lastActivated;
 
-    QNetworkAccessManager networkAccessManager;
+    QList<UrlDownload *> downloads;
+    QList<UrlDownload::Artifact> downloadedArtifacts;
 
     // Keep window-owned asynchronous work independent from the application's
     // global pool so application shutdown never waits for unrelated jobs.
@@ -334,7 +336,6 @@ private:
     QMenuBar *mainMenuBar {nullptr};
     OpenWithProvider openWithItemProvider;
     QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
-    QList<QFutureWatcher<bool> *> saveFutureWatchers;
     QString openWithFutureFilePath;
     QString openWithPopulatedFilePath;
     bool openWithPopulationPending {false};

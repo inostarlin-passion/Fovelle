@@ -220,6 +220,7 @@ signals:
     void navigationResetsZoomChanged();
 
     void sortParametersChanged();
+    void folderInfoChanged();
 
     void navigationBoundaryReached(Qv::GoToFileMode mode);
 

@@ -117,6 +117,7 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
     connect(&imageCore, &QVImageCore::animatedFrameChanged, this, &QVGraphicsView::animatedFrameChanged);
     connect(&imageCore, &QVImageCore::fileChanging, this, &QVGraphicsView::beforeLoad);
     connect(&imageCore, &QVImageCore::fileChanged, this, &QVGraphicsView::postLoad);
+    connect(&imageCore, &QVImageCore::folderInfoChanged, this, &QVGraphicsView::folderInfoChanged);
     connect(&imageCore, &QVImageCore::sortParametersChanged, this, [this]{emit sortParametersChanged();});
 
     expensiveScaleTimer = new QTimer(this);

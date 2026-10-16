@@ -3,6 +3,8 @@
 
 #include "qvcocoafunctions.h"
 #include "colorinformation.h"
+#include "asyncwork.h"
+#include <functional>
 
 #include <optional>
 #include <memory>
@@ -58,7 +60,8 @@ public:
         int priority = 0;
     };
 
-    explicit QVImageLoader(QObject *parent = nullptr);
+    using ReadFunction = std::function<Result(const QString &, int, bool)>;
+    explicit QVImageLoader(QObject *parent = nullptr, ReadFunction read = { });
     ~QVImageLoader() override;
 
     void setLargestDimension(int value);
@@ -131,7 +134,8 @@ private:
     QHash<QString, Entry> entries;
     std::optional<PendingRequest> pendingRequest;
     std::shared_ptr<int> lifetimeToken = std::make_shared<int>(0);
-    QThreadPool imageThreadPool;
+    QList<QvAsync::Ticket> workTickets;
+    ReadFunction readFunction;
     bool asyncWorkShutDown {false};
 
     quint64 nextRequestId = 0;

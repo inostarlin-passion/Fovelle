@@ -76,6 +76,8 @@ set(FOVELLE_SOURCES
     src/colorinformation.cpp
     src/qvimagecore.cpp
     src/qvimageloader.cpp
+    src/urldownload.cpp
+    src/asyncwork.cpp
     src/qvmovie.cpp
     src/qvshortcutdialog.cpp
     src/actionmanager.cpp
@@ -106,6 +108,8 @@ set(FOVELLE_HEADERS
     src/colorinformation.h
     src/qvimagecore.h
     src/qvimageloader.h
+    src/urldownload.h
+    src/asyncwork.h
     src/qvmovie.h
     src/qvshortcutdialog.h
     src/actionmanager.h

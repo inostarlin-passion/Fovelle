@@ -493,6 +493,10 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>No next image</source>
         <translation>No hay imagen siguiente</translation>
     </message>
+    <message>
+        <source>Error: %1</source>
+        <translation>Error: %1</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>
@@ -1915,6 +1919,30 @@ Puedes volver a activarla en Configuración.</translation>
     <message>
         <source>Cycle Through Windows</source>
         <translation>Recorrer ventanas</translation>
+    </message>
+</context>
+
+<context>
+    <name>UrlDownload</name>
+    <message>
+        <source>Download idle timeout</source>
+        <translation>Tiempo de espera de descarga agotado</translation>
+    </message>
+    <message>
+        <source>Download total timeout</source>
+        <translation>La descarga superó el tiempo máximo</translation>
+    </message>
+    <message>
+        <source>Invalid download URL or policy</source>
+        <translation>URL o política de descarga no válida</translation>
+    </message>
+    <message>
+        <source>Cannot create download file</source>
+        <translation>No se puede crear el archivo de descarga</translation>
+    </message>
+    <message>
+        <source>Download exceeds byte limit</source>
+        <translation>La descarga supera el límite de tamaño</translation>
     </message>
 </context>
 </TS>

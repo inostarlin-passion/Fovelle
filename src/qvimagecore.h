@@ -48,6 +48,7 @@ public:
     };
 
     explicit QVImageCore(QObject *parent = nullptr);
+    ~QVImageCore() override;
 
     void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "", bool debouncePreloading = false);
     void closeImage(const bool stayInDir = false);
@@ -88,6 +89,7 @@ signals:
     void fileChanged();
 
     void sortParametersChanged();
+    void folderInfoChanged();
 
 protected:
     void loadPixmap(const ReadData &readData);
@@ -121,6 +123,10 @@ private:
     bool pendingLoadDebouncesPreloading {false};
     bool fileOrLoadPending {false};
     bool folderInfoDirty {false};
+    quint64 folderScanGeneration = 0;
+    QvAsync::Ticket folderScanTicket;
+    QString pendingFolderPath;
+    bool openDirectoryAfterScan = false;
     bool asyncWorkShutDown {false};
 };
 
