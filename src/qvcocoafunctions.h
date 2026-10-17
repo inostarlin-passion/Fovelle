@@ -88,6 +88,7 @@ public:
 
     struct NativeImageReadResult
     {
+        QString cameraModel;
         QImage image;
         Qv::VectorImageData vectorImage;
         SDRImagePtr sdrImage;

@@ -22,7 +22,8 @@ public:
     explicit QVInfoDialog(QWidget *parent = nullptr);
     ~QVInfoDialog();
 
-    void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount);
+    void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount,
+                 const QString &cameraModel = {});
 
     void updateInfo();
     void setColorInfoProvider(std::function<QvColor::Information()> provider);
@@ -43,6 +44,7 @@ private:
     QFileInfo fileInfo;
     QSize imageSize;
     int frameCount {0};
+    QString cameraModel;
 
 public:
     static QString formatBytes(qint64 bytes)

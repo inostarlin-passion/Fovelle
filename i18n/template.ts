@@ -578,6 +578,10 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVInfoDialog</name>
     <message>
+        <source>Camera model:</source>
+        <translation></translation>
+    </message>
+    <message>
         <source>File Info</source>
         <translation type="unfinished"></translation>
     </message>

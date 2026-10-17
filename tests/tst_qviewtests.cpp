@@ -71,6 +71,7 @@
 #include <QMenu>
 #include <QStackedWidget>
 #include <QTranslator>
+#include <QDataStream>
 #include <QScopeGuard>
 
 #include "mainwindow.h"
@@ -212,6 +213,11 @@ private slots:
     void testSettingsLanguageCatalogIsFixed();
     void testSettingsLanguageDefaultsToSystem();
     void testSystemLanguageMappingFallsBackToEnglish();
+    void testCameraModelMetadata_data();
+    void testCameraModelMetadata();
+    void testCameraModelNavigation();
+    void testCameraModelPresentation();
+    void testCameraModelTranslations();
     void testFileInfoModifiedUsesUiLanguageFormats();
     void testAutoUpdateCheckLabelIsRenamed();
     void testSettingsRenamedLabelsAndRemovedMouseOptions();
@@ -383,6 +389,9 @@ class ImageCoreAndMovieTests : public QObject
 private slots:
     void testSourceColorMetadata();
     void testColorContainerBoundaries();
+    void testFileInfoColorFallback();
+    void testHDRInfoUsesNormalOutput_data();
+    void testHDRInfoUsesNormalOutput();
     void testColorInformationFollowsPresentation();
     void testColorSpaceConversion();
     void testMovieSpeedAndSingleFrameRead();
@@ -4771,6 +4780,190 @@ void FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
 // and Japanese each produce the exact reference string and the dialog uses the
 // same formatter for its Modified field.
 // Postcondition: the temporary language setting, dialog, and file are released.
+// Independent EXIF fixture writer: JPEG APP1 + little-endian TIFF IFD.
+// Does not call the production metadata extraction code.
+static QString createCameraModelJpeg(const QTemporaryDir &dir, const QString &name,
+                                    const QByteArray &model, quint16 tag = 0x0110,
+                                    bool wrongType = false)
+{
+    const QString path = dir.filePath(name + ".jpg");
+    QImage image(16, 16, QImage::Format_RGB32);
+    image.fill(Qt::green);
+    if (!image.save(path, "JPEG"))
+        return {};
+    if (tag == 0)
+        return path;
+    QByteArray tiff;
+    QDataStream stream(&tiff, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    stream.writeRawData("II", 2);
+    stream << quint16(42) << quint32(8) << quint16(1);
+    const QByteArray value = model + '\0';
+    stream << tag << quint16(wrongType ? 3 : 2) << quint32(wrongType ? 1 : value.size());
+    if (wrongType)
+        stream << quint32(42);
+    else if (value.size() <= 4) {
+        QByteArray inlineValue = value;
+        inlineValue.resize(4, '\0');
+        stream.writeRawData(inlineValue.constData(), 4);
+    } else
+        stream << quint32(26);
+    stream << quint32(0);
+    if (!wrongType && value.size() > 4)
+        stream.writeRawData(value.constData(), value.size());
+    QByteArray payload("Exif\0\0", 6);
+    payload += tiff;
+    const int length = payload.size() + 2;
+    QByteArray app1 = QByteArray::fromHex("ffe1");
+    app1 += char(length >> 8);
+    app1 += char(length & 255);
+    app1 += payload;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QByteArray jpeg = file.readAll();
+    file.close();
+    jpeg.insert(2, app1);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+        || file.write(jpeg) != jpeg.size())
+        return {};
+    return path;
+}
+
+void FeatureTests::testCameraModelMetadata_data()
+{
+    QTest::addColumn<QByteArray>("model");
+    QTest::addColumn<int>("tag");
+    QTest::addColumn<bool>("wrongType");
+    QTest::addColumn<QString>("expected");
+    QTest::newRow("model") << QByteArray("  EOS R5  ") << 0x0110 << false << QString("EOS R5");
+    QTest::newRow("blank") << QByteArray("   ") << 0x0110 << false << QString();
+    QTest::newRow("make-only") << QByteArray("Canon") << 0x010f << false << QString();
+    QTest::newRow("no-exif") << QByteArray() << 0 << false << QString();
+    QTest::newRow("wrong-type") << QByteArray() << 0x0110 << true << QString();
+}
+
+void FeatureTests::testCameraModelMetadata()
+{
+    QFETCH(QByteArray, model);
+    QFETCH(int, tag);
+    QFETCH(bool, wrongType);
+    QFETCH(QString, expected);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const auto path = createCameraModelJpeg(dir, "camera", model, quint16(tag), wrongType);
+    QVERIFY(!path.isEmpty());
+    const auto result = loadImage(path);
+    QVERIFY(result);
+    QVERIFY(!result->errorData);
+    QCOMPARE(result->cameraModel, expected);
+    QCOMPARE(result->intrinsicSize, QSize(16, 16));
+    const auto missing = loadImage(dir.filePath("missing.jpg"));
+    QVERIFY(missing);
+    QVERIFY(missing->errorData);
+    QVERIFY(missing->cameraModel.isEmpty());
+}
+
+void FeatureTests::testCameraModelNavigation()
+{
+    SourceLanguageTranslator english;
+    QCoreApplication::installTranslator(&english);
+    const auto restore = qScopeGuard([&] { QCoreApplication::removeTranslator(&english); });
+    QTemporaryDir dir;
+    const auto first = createCameraModelJpeg(dir, "first", "EOS R5");
+    const auto second = createTestImage(dir, "no-model", Qt::red);
+    const auto third = createCameraModelJpeg(dir, "third", "ILCE-7M4");
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); });
+    window.show();
+    const QList<QPair<QString, QString>> inputs {{first, "EOS R5"}, {second, "Unknown"},
+                                                {third, "ILCE-7M4"}, {first, "EOS R5"}};
+    for (const auto &input : inputs) {
+        QVERIFY(!input.first.isEmpty());
+        window.openFile(input.first);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), input.first, 5000);
+        window.showFileInfo();
+        auto *dialog = window.findChild<QVInfoDialog *>();
+        QVERIFY(dialog);
+        auto *label = dialog->findChild<QLabel *>("cameraModelLabel");
+        QVERIFY(label);
+        QTRY_COMPARE_WITH_TIMEOUT(label->text(), input.second, 1000);
+        QCOMPARE(window.getCurrentFileDetails().cameraModel,
+                 input.second == "Unknown" ? QString() : input.second);
+        dialog->close();
+        window.showFileInfo();
+        QTRY_COMPARE_WITH_TIMEOUT(label->text(), input.second, 1000);
+    }
+}
+
+void FeatureTests::testCameraModelPresentation()
+{
+    SourceLanguageTranslator english;
+    QCoreApplication::installTranslator(&english);
+    const auto restore = qScopeGuard([&] { QCoreApplication::removeTranslator(&english); });
+    QVInfoDialog dialog;
+    const QString literal = "<b>Camera & Model</b>";
+    dialog.setInfo({}, QSize(16, 16), 0, literal);
+    auto *label = dialog.findChild<QLabel *>("cameraModelLabel");
+    QVERIFY(label);
+    QCOMPARE(label->text(), literal);
+    QCOMPARE(label->textFormat(), Qt::PlainText);
+    QVERIFY(label->textInteractionFlags().testFlag(Qt::TextSelectableByMouse));
+    label->setSelection(0, label->text().size());
+    QCOMPARE(label->selectedText(), literal);
+    QVERIFY(label->wordWrap());
+    dialog.setInfo({}, QSize(16, 16), 0, QString("Long Camera Model ").repeated(20));
+    dialog.show();
+    QTest::qWait(50);
+    QVERIFY(label->width() <= 420);
+    QVERIFY2(label->height() >= label->heightForWidth(label->width()), "Camera model text is clipped");
+    QVERIFY(dialog.rect().contains(QRect(label->mapTo(&dialog, QPoint(0, 0)), label->size())));
+    const auto evidence = qEnvironmentVariable("FOVELLE_CAMERA_EVIDENCE_DIR");
+    if (!evidence.isEmpty())
+        QVERIFY(dialog.grab().save(QDir(evidence).filePath("camera-model-long.png")));
+    dialog.setInfo({}, QSize(16, 16), 0);
+    QTRY_COMPARE(label->text(), QString("Unknown"));
+}
+
+void FeatureTests::testCameraModelTranslations()
+{
+#ifndef FOVELLE_TRANSLATIONS_DIR
+    QFAIL("Camera model acceptance requires compiled translation catalogs");
+#else
+    const QList<QStringList> languages {
+        {"en", "Camera model:", "Unknown"},
+        {"zh_Hans", QString::fromUtf8("拍摄机型:"), QString::fromUtf8("未知")},
+        {"zh_Hant", QString::fromUtf8("拍攝機型:"), QString::fromUtf8("未知")},
+        {"es", QString::fromUtf8("Modelo de cámara:"), "Desconocido"},
+        {"ja", QString::fromUtf8("撮影機種:"), QString::fromUtf8("不明")}
+    };
+    QVInfoDialog dialog;
+    for (const auto &language : languages) {
+        SourceLanguageTranslator english;
+        QTranslator catalog;
+        QTranslator *translator = &english;
+        if (language[0] != "en") {
+            QVERIFY(catalog.load(QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language[0])));
+            translator = &catalog;
+        }
+        QVERIFY(QCoreApplication::installTranslator(translator));
+        const auto restore = qScopeGuard([&] { QCoreApplication::removeTranslator(translator); });
+        QEvent changed(QEvent::LanguageChange);
+        QCoreApplication::sendEvent(&dialog, &changed);
+        auto *caption = dialog.findChild<QLabel *>("cameraModelCaption");
+        auto *label = dialog.findChild<QLabel *>("cameraModelLabel");
+        QVERIFY(caption);
+        QVERIFY(label);
+        QCOMPARE(caption->text(), language[1]);
+        dialog.setInfo({}, QSize(16, 16), 0, "EOS R5");
+        QCOMPARE(label->text(), QString("EOS R5"));
+        dialog.setInfo({}, QSize(16, 16), 0);
+        QCOMPARE(label->text(), language[2]);
+    }
+#endif
+}
+
 void FeatureTests::testFileInfoModifiedUsesUiLanguageFormats()
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)

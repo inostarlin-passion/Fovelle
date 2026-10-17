@@ -320,6 +320,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
     const QFileInfo fileInfo(absoluteFilePath);
 
     Result result;
+    result.cameraModel = nativeResult.cameraModel;
     result.sourceColor = QvColor::readSource(absoluteFilePath);
     result.sourceColor.decoderSpace = QvColor::spaceName(image.colorSpace());
     result.sourceColor.isRaw = nativeResult.isRaw;

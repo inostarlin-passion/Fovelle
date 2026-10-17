@@ -210,6 +210,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     currentFileDetails.targetColorSpace = targetColorSpace;
     currentFileDetails.hdrMetadata = readData.hdrMetadata;
     currentFileDetails.sourceColor = readData.sourceColor;
+    currentFileDetails.cameraModel = readData.cameraModel;
     currentFileDetails.decodeMilliseconds = readData.decodeMilliseconds;
 
     // Animation detection

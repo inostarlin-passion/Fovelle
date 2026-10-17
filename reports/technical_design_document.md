@@ -1,46 +1,38 @@
-# 动图暂停恢复延迟修复设计
+# HDR信息页正常输出色彩空间修复设计
 
-日期：2026-10-17（Asia/Shanghai）。范围：QVMovie 异步播放的暂停/恢复生命周期。
+日期：2026-10-17（Asia/Shanghai）。保留工作区已有拍摄机型修改。
 
-## 问题界定及原子拆解
+## 问题界定与检索核验
 
-调用链为 MainWindow::pause → QVGraphicsView::setPaused → QVImageCore::setPaused → QVMovie::setPaused。正常浏览启用 setAsyncPlayback(true)。旧实现暂停调用 cancelNextLoad，销毁 asyncDecoder；恢复创建新 AsyncMovieDecoder。GIF 的 read(target) 从 lastFrame=-1 顺序读取直到 target，因而恢复成本包含已播放前缀的重复解码，缓存关闭或目标帧尚未缓存时尤为明显。
+MainWindow::showFileInfo→show/activateWindow令主图窗口失活；setHDRPresentationActive(false)显示SDR代理；colorInformation()以firstFramePresented且代理不可见为nativeOutput依据。QVInfoDialog的100ms timer读取该实时值，因而正常HDR输出变成Preview: sRGB。像素退化策略本身不在本次变更范围。
 
-拆解为：确认解码器生命周期；保留暂停中的单个任务与结果；恢复下一帧；重置时钟；验证停止/换源/跳帧仍隔离旧结果；固化静态和动态回归。原有三份同名发布故障报告已备份到 evidence/movie_resume_20261017/previous_*。
+原子拆解：区分正常HDR输出与临时可见输出 → 读取当前图片renderer已呈现证据 → 信息页provider接线 → 验证失活及跨多次timer稳定 → 验证换图/关闭清理 → 邻接回归。
 
-## 多跳检索与交叉核验
+多跳联网及多源核验：
 
-1. [Qt QMovie 文档](https://doc.qt.io/qt-6/qmovie.html)：暂停保留当前帧，恢复后继续下一帧；与本仓库暂停入口核对。
-2. 沿帧读取链核对 [QImageReader 文档](https://doc.qt.io/qt-6/qimagereader.html)：动画逐帧 read，单个 reader 独占设备。与 AsyncMovieDecoder::read 的 lastFrame 和顺序读取循环交叉核验。
-3. [Qt GIF 原始实现镜像](https://codebrowser.dev/qt6/qtbase/src/plugins/imageformats/gif/qgifhandler.cpp.html)展示增量解码、前帧 disposal 与 backingstore；与上述文档及本地顺序读取代码相符。官方 code.qt.io 源码入口本次抓取 Internal Error，镜像仅用于阅读 Qt 原始实现，不作为独立发行行为保证。
-4. [QTimer 文档](https://doc.qt.io/qt-6/qtimer.html)及 [QElapsedTimer 文档](https://doc.qt.io/qt-6/qelapsedtimer.html)核验事件循环计时与单调时钟；暂停必须停止 timer，恢复使用新的时间基准。
-5. [Qt Concurrent Run](https://doc.qt.io/qt-6/qtconcurrentrun.html)核验后台工作与异步结果交付模型；实际取消语义以仓库 asyncwork.h 的 ticket 检查为准。
+1. [Qt QWidget::activateWindow](https://doc.qt.io/qt-6/qwidget.html#activateWindow)及[QDialog](https://doc.qt.io/qt-6/qdialog.html)说明对话框激活为顶层窗口；与showFileInfo及本地激活/失活事件链核对。
+2. [Apple CAMetalLayer.colorspace](https://developer.apple.com/documentation/quartzcore/cametallayer/colorspace)及[EDR显示说明](https://developer.apple.com/videos/play/wwdc2022/10114/)核对输出色彩空间与EDR显示能力是不同概念。renderer构造实际设置extendedLinearDisplayP3，diagnostics.outputColorSpaceName由实际metalLayer.colorspace与outputColorSpace比较产生；不从HDR文件后缀推断。
+3. [Apple NSScreen EDR能力](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)说明显示EDR能力相关接口；Apple网页正文需JavaScript，本次以官方页面入口、既有实现及本机SDK头文件交叉核验，未声称硬件当前headroom等于色域名称。
+4. 本地renderer的setImage/resetForImage/clearImage将firstFramePresented清零；syncPresentationDiagnostics读取当前图片的呈现状态。与已有testColorInformationFollowsPresentation运行测试交叉验证实时API语义。
 
-逆向证伪：旧 cancelNextLoad 已清除 nextLoadTime，因此本次不能归因为“没有清理旧时钟”。恢复入口已经立即请求下一帧，因此不能通过简单缩短 timer 修复。不能只保留 decoder 同时取消任务，因为原生同步读可能仍在运行，会让恢复任务并发访问同一 reader。不能取消后复用已读过但未发布的 decoder，否则同一 target 可能触发重新读取。不得取消内存上限来掩盖问题。资料与源码充分支持上述局部原因，停止扩大检索；尚未对用户原始 GIF 做物理显示测量。
+逆向证伪：暂停信息页timer只会冻结旧图片信息；show前快照会在首次HDR准备未完成、对话框已打开后换图等场景过期；只认isNativeHDRLoaded会将未成功呈现或无renderer的图像误报HDR；硬编码Extended Linear Display P3无法反映实际renderer配置；修改colorInformation默认行为会破坏实时诊断。资料与代码证据充分支持下述局部实现，检索停止。
 
-## 设计与原子验收标准
+## 原子验收与方案
 
 | ID | 原子验收标准 |
 |---|---|
-| A1 | 暂停期间保留异步解码器，未缓存 GIF 恢复不创建第二个解码器。 |
-| A2 | Paused 状态不发布帧；已提交任务可完成，但至多暂存一份结果，不持续解码。 |
-| A3 | 任务未完成时快速恢复复用同一个任务；任务已完成时消费暂存结果；无重复或跳帧。 |
-| A4 | 恢复清除旧截止时间，按当前速度继续；反复暂停/恢复幂等，不积累 timer。 |
-| A5 | stop、换源、销毁、手动跳帧仍取消并隔离旧任务，暂存结果不能污染后续播放。 |
-| A6 | 同步 GIF、异步 APNG、缓存上限和播放速度回归通过。 |
+| A1 | 已成功呈现的当前HDR图，信息页显示正常HDR输出色彩空间，失活不改为Preview |
+| A2 | 多次100ms刷新、失活动画完成及反复开关信息页后仍准确 |
+| A3 | 首帧未呈现、无HDR原生renderer、非HDR时保留实时值，不能凭源格式虚报 |
+| A4 | 换SDR/其他图或关闭当前图后不残留先前HDR输出或源信息 |
+| A5 | 实时colorInformation及HDR失活/恢复行为保持原有语义；机型、时间、颜色邻接功能通过 |
 
-暂停只 stop timer、清除 nextLoadTime、进入 Paused，不调用 cancelNextLoad。保留 frameTicket，所以恢复期间 loadAsyncFrame 的单任务守卫仍有效。completion 先核对 generation，清除 ticket；如果 Paused，就保存 pendingFrame（包括终止/错误结果），不发布；恢复用 pendingFrame 作为读帧结果，走同一处理路径。cancelNextLoad 继续取消 ticket、释放 decoder，并额外清空 pendingFrame。重复 setPaused(true) 直接返回。测试构建独有宏统计 decoderCreations，生产构建不暴露遥测接口。
+新增QVGraphicsView::fileInfoColorInformation()，先读取实时colorInformation；仅当hasOutput、当前FileDetails.isNativeHDRLoaded、hdrRendererActive、renderer存在、diagnostics.imageActive、firstFramePresented且outputColorSpaceName非空时，将输出替换为该renderer实际色彩空间并设置nativeOutput=true、preview=false。其他状态返回实时值。MainWindow信息页provider调用新方法；原timer和实时方法保持不变。不缓存上一张图或show前快照，不新增硬编码色彩空间名。
 
 ## 正确性论证
 
-不变量 I1：仅 frameTicket 为空才提交任务；暂停不清空 ticket。故每个 decoder 同时至多一个任务，不存在暂停恢复造成的 reader 并发访问。
+令L为实时信息，H为上述完整HDR就绪谓词，N为当前renderer输出名。定义F=L；若H，令F.outputSpace=N、F.nativeOutput=true、F.preview=false。H不依赖临时代理可见性，因此打开信息页和失活动画不能将正常HDR输出改为SDR预览，A1/A2成立。
 
-I2：nextFrameNumber 仅在发布或合法循环时递增/重置。Paused completion 只暂存，不改变序号；恢复消费同一 target 的结果，故恢复帧是暂停帧的后继。pendingFrame 只有一槽，且 Paused completion 不调度后继任务，额外持有内存至多一帧（不计 decoder 原有 backingstore）。
+若未加载、错误、非HDR、无renderer或未呈现，H为假且F=L，A3成立。换图时既有setImage清理呈现标志，关闭时hasOutput=false；H同时依赖当前FileDetails，因此不会跨图沿用旧名，A4成立。source字段由L复制，没有改变原始ICC和源元数据。
 
-I3：所有破坏性状态变化沿 cancelNextLoad 增加 generation，取消 ticket、清空 decoder/pending。旧任务只持有自身 shared_ptr；异步交付受 ticket 和 generation 双重约束，不接触新源。
-
-I4：暂停及恢复均清空截止时间；下一帧基于新 steady_clock 时间累加正常帧时长，暂停时长不参与追赶。恢复成本由已提交任务剩余时间或下一帧解码决定，不再包含从 0 到当前位置的前缀重放；这是工作量保证，不是所有磁盘/CPU负载下的绝对延迟保证。
-
-验证边界：使用真实 Qt GIF/APNG 解码、工作池排队、帧序号与像素比对、timer 和创建次数断言；有限墙钟阈值仅作为本机回归门槛。异步 GIF 循环回到 0、任意手动跳帧仍可能需要从头读，此修复仅消除普通暂停恢复的重复读取。
-
-补充测试可观测性：测试宏还记录 readCompletions，用于确定后台结果已在 GUI 线程交付后才执行 pending-* 状态变化；避免仅凭固定 sleep 推断暂存分支已被覆盖。该统计与 decoderCreations 一样仅存在于 fovelle_tests 构建。
+该方法只读取状态，未改变渲染/激活/失活逻辑或原colorInformation；实时API仍可观测SDR代理，A5成立。这里“正常输出”指当前HDR图已成功呈现所使用的输出色彩空间，不代表当前物理屏幕亮度或EDR headroom。正常呈现尚未得到证实时，信息页仍显示现有预览信息，直到真实首帧完成后由timer更新。

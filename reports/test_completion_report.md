@@ -1,52 +1,54 @@
-# 动图暂停恢复测试完成报告
+# HDR信息页输出色彩空间测试完成报告
 
-日期：2026-10-17（Asia/Shanghai）。基础提交：623e39a；验证对象为本工作区未提交修改。
+日期：2026-10-17（Asia/Shanghai）。本次修改保留工作区已有“拍摄机型”功能；前一任务三份报告备份见evidence/hdr_info_output_20261017/previous_*。
 
-## 完成结论
+## 结论
 
-A1–A6 全部满足本次自动化验收。暂停保留 decoder 和唯一在途任务；后台结果可暂存，恢复继续下一帧；停止、换源、跳帧及销毁隔离旧结果。生产应用及测试程序编译成功。
+A1–A5通过本次自动化验收。图片信息页对已成功呈现的当前HDR图，显示其正常HDR输出色彩空间，不再被打开对话框引起的临时SDR预览覆盖。实时诊断API及HDR失活/恢复策略保留；换图和关闭后信息继续刷新。
 
-环境：macOS 27.0.1 / arm64，Qt 6.11.2，Apple LLVM 17.0.0，CMake Release，QT_QPA_PLATFORM=cocoa；测试设置使用独立临时目录。
+生产改动：QVGraphicsView新增只读fileInfoColorInformation查询，MainWindow信息页provider改用该查询。未缓存旧图信息，未硬编码色彩空间名，未暂停信息页timer。
 
-## 执行结果与证据
+环境：macOS 27.0.1 / arm64、Qt 6.11.2、Apple LLVM 17、CMake Release、QT_QPA_PLATFORM=cocoa。
 
-| 检查 | 结果 | 证据（本目录相对路径） |
+## 红→绿证据
+
+先完成设计、规格及D1/D2测试，再运行旧实现：before.log中gain-map.jpg和bayer.dng均失败，实际为“Preview: Display P3”，预期为正常呈现时记录的“Extended Linear Display P3”；静态门禁也因缺少独立信息页查询失败。之后补齐D3测试并实施生产修复。
+
+修复后重新编译生产/测试目标，两个HDR素材及全部新增回退断言通过；日志保留真实原始失败，没有将预览文字改成测试预期。
+
+## 测试结果
+
+| 项目 | 结果 | 证据 |
 |---|---|---|
-| S1静态门禁 | 1项通过 | evidence/movie_resume_20261017/restored-ctest.log |
-| D1 GIF/APNG、同步/异步、无缓存/1字节预算 | 8组通过；每组两轮暂停恢复 | 同上 |
-| D2 排队/暂存后的恢复与破坏性状态变更 | 10组通过 | 同上 |
-| 专项QtTest总计 | 20 passed，0 failed，0 skipped（含init/cleanup） | 同上 |
-| 完整RemediationTests | 43 passed，0 failed，0 skipped（包含专项，不重复计数） | evidence/movie_resume_20261017/final-remediation.log |
-| 完整ImageCoreAndMovieTests | 8 passed，0 failed，0 skipped | evidence/movie_resume_20261017/final-image-core.log |
-| 生产及测试构建 | Fovelle、fovelle_tests成功 | evidence/movie_resume_20261017/build-final.log |
-| 恢复证伪实验后的测试构建 | 成功 | evidence/movie_resume_20261017/restored-build.log |
-| diff空白检查 | git diff --check通过 | 命令退出0 |
+| S1静态门禁 | 1通过 | evidence/hdr_info_output_20261017/after.log |
+| D1/D2真实HDR场景 | JPEG增益图、RAW两组通过；每组两轮开关/700ms刷新及换图/关闭 | 同上 |
+| D3回退边界 | 空状态、Qt栅格、原生SDR及关闭状态通过 | 同上 |
+| HDR专项QtTest | 5 passed、0 failed、0 skipped，含init/cleanup | 同上 |
+| 拍摄机型静态/动态专项（含时间格式） | 通过；动态11 passed、0 failed、0 skipped | 同上 |
+| CTest目标合计 | 4/4通过，0失败 | 同上 |
+| 完整ImageCoreAndMovieTests | 11 passed、0 failed、0 skipped；含HDR专项、实时颜色/ICC、APNG及原有测试 | evidence/hdr_info_output_20261017/image-core.log |
+| 生产及测试构建 | Fovelle、fovelle_tests成功 | evidence/hdr_info_output_20261017/build-after.log |
+| 空白错误检查 | git diff --check退出0 | 执行命令结果 |
 
-## 红→绿与逆向证伪
+专项与完整套件包含重复用例，未把两次执行加总为额外覆盖。
 
-第一轮旧实现测试见 before.log：静态门禁失败；APNG和排队任务的创建次数明确从1变2。该轮同时暴露测试自身的GIF参考读帧问题（CacheNone不支持这里假设的任意跳帧），已将参考reader及跳帧测试设为CacheAll；这部分失败不作为产品故障证据。
+## 原子验收与逆向证伪
 
-为排除测试修正造成假绿，追加隔离变异实验：只把暂停时 cancelNextLoad 放回正确实现，保持最终测试及其他生产代码不变。mutation-red.log 显示同步4组通过、异步GIF/APNG四组全部因decoderCreations=2而失败，退出4。随即恢复源码、重新构建、重新运行专项门禁，全部通过。该实验直接证明测试能检出本次恢复重建decoder的问题。
-
-## 原子标准验收
-
-- A1：异步D1四组及D2完成前/完成后恢复均保持decoderCreations=1，且GIF测试预算不足以缓存一帧；修复不依赖扩大缓存。
-- A2：暂停120ms画面/信号不变；暂存分支通过readCompletions确定已交付；没有继续发布帧。
-- A3：序号为精确后继，像素等于独立同步解码；快速恢复复用唯一任务。
-- A4：重复pause/resume不新增任务；恢复后的timer保持正常帧时长附近，下一帧在测试1000ms门槛内到达。
-- A5：排队和结果暂存两种阶段的stop/换源/跳帧/销毁均通过；停止后等待120ms没有帧泄漏。
-- A6：同步GIF、APNG、已有速度比例、bounded cache、错误输入、旧源隔离回归全部通过。
+- A1：两个不同类型HDR图均先记录实际native输出，再打开真实信息页；label保持正常输出名。
+- A2：每组执行两轮700ms等待，超过450ms失活动画和多轮100ms刷新；关闭重开不被预览替换。
+- A3：静态门禁检查首帧呈现、当前HDR身份、原生renderer与非空实际输出名条件；动态D3验证无图、非HDR、原生SDR采用实时查询。未呈现首帧分支由静态门禁覆盖，不冒称已穷举全部GPU失败条件。
+- A4：信息页保持打开时换Qt栅格，输出跟随新图且源ICC清空；closeImage后显示No output与Unknown source，证伪固定快照方案。
+- A5：HDR信息页稳定时实时colorInformation仍报告preview，证明没有通过关闭退化行为使测试通过；完整实时颜色测试、机型与时间格式测试通过。测试中的setHDRPresentationActive(false)调用同一生产失活入口，避免CI桌面焦点不确定性。
 
 ## 复现命令
 
 ```sh
 cmake --build build --target fovelle_tests Fovelle -j 6
-ctest --test-dir build -R '^FovelleMovieResume' -V
-FOVELLE_TEST_SUITE=RemediationTests QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 build/tests/fovelle_tests -v1
+ctest --test-dir build -R '^Fovelle(HDRInfoOutput|CameraModel)' -V
 FOVELLE_TEST_SUITE=ImageCoreAndMovieTests QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 build/tests/fovelle_tests -v1
 git diff --check
 ```
 
 ## 范围与限制
 
-没有未解决的本次测试失败。未获得用户原始大GIF，因此没有宣称特定素材的物理显示延迟或绝对性能倍数；测试证明恢复不再重建decoder，并验证真实GIF/APNG帧序和像素。磁盘读取、线程池占用及单帧解码仍影响实际时间。未执行与此变更无关的全部UI/HDR系统测试，也未进行发布、安装或远程推送。上一任务三份同名报告备份见 evidence/movie_resume_20261017/previous_*。
+本次验证的是输出色彩空间信息的语义和真实原生呈现生命周期，不是物理亮度、EDR headroom或屏幕HDR峰值测量。没有原生HDR成功呈现证据时继续报告现有实时/预览信息。没有执行无关完整UI/HDR系统测试、发布或远程推送。没有未解决的本次自动化测试失败。

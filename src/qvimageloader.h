@@ -33,6 +33,7 @@ public:
         QVCocoaFunctions::SDRImagePtr sdrImage;
         QVCocoaFunctions::HDRImagePtr hdrImage;
         QVCocoaFunctions::HDRMetadata hdrMetadata;
+        QString cameraModel;
         QString absoluteFilePath;
         qint64 fileSize = 0;
         QDateTime lastModified;

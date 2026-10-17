@@ -34,6 +34,7 @@ public:
         QSize loadedPixmapSize;
         QColorSpace targetColorSpace;
         QColorSpace actualColorSpace;
+        QString cameraModel;
         QvColor::SourceInfo sourceColor;
         QVCocoaFunctions::HDRMetadata hdrMetadata;
         double decodeMilliseconds = 0.0;

@@ -122,6 +122,7 @@ public:
     bool hasNextFile() { return imageCore.hasNextFile(); }
     void refreshVerticalScrollBarGeometry();
     QvColor::Information colorInformation() const;
+    QvColor::Information fileInfoColorInformation() const;
     qreal getZoomLevel() const { return zoomLevel; }
     // Kept as a read-only compatibility name for callers that used to sample
     // the animated frame.  Zoom has one authoritative value now.

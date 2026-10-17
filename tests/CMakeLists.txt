@@ -510,3 +510,19 @@ add_test(NAME FovelleMovieResumeDynamic
 set_tests_properties(FovelleMovieResumeDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 60 RUN_SERIAL TRUE LABELS "movie;pause;regression")
+
+add_test(NAME FovelleCameraModelStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/camera_model_static.py)
+add_test(NAME FovelleCameraModelDynamic COMMAND fovelle_tests
+    testCameraModelMetadata testCameraModelNavigation testCameraModelPresentation
+    testCameraModelTranslations testFileInfoModifiedUsesUiLanguageFormats -v1)
+set_tests_properties(FovelleCameraModelDynamic PROPERTIES
+    ENVIRONMENT "FOVELLE_TEST_SUITE=FeatureTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 60 RUN_SERIAL TRUE LABELS "metadata;info;camera;regression")
+
+add_test(NAME FovelleHDRInfoOutputStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_info_output_static.py)
+add_test(NAME FovelleHDRInfoOutputDynamic COMMAND fovelle_tests testHDRInfoUsesNormalOutput testFileInfoColorFallback -v1)
+set_tests_properties(FovelleHDRInfoOutputDynamic PROPERTIES
+    ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;info;color;regression")

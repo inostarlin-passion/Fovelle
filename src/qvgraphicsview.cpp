@@ -1486,6 +1486,26 @@ QvColor::Information QVGraphicsView::colorInformation() const
     return info;
 }
 
+QvColor::Information QVGraphicsView::fileInfoColorInformation() const
+{
+    auto info = colorInformation();
+    if (!info.hasOutput || !getCurrentFileDetails().isNativeHDRLoaded
+        || !hdrRendererActive || !hdrRenderer)
+        return info;
+
+    const auto state = hdrRenderer->diagnostics();
+    // Opening File Info deactivates the image window and reveals its SDR
+    // proxy. Report the current image's proven normal HDR output instead of
+    // that temporary focus fallback. Never promote an unpresented image.
+    if (state.imageActive && state.firstFramePresented
+        && !state.outputColorSpaceName.isEmpty()) {
+        info.outputSpace = state.outputColorSpaceName;
+        info.nativeOutput = true;
+        info.preview = false;
+    }
+    return info;
+}
+
 void QVGraphicsView::ensureHDRRenderer()
 {
     if (hdrRenderer)

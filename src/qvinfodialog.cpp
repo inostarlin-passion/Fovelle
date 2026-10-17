@@ -47,11 +47,13 @@ void QVInfoDialog::showEvent(QShowEvent *event)
     QDialog::showEvent(event);
 }
 
-void QVInfoDialog::setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount)
+void QVInfoDialog::setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount,
+                           const QString &cameraModel)
 {
     this->fileInfo = fileInfo;
     this->imageSize = imageSize;
     this->frameCount = frameCount;
+    this->cameraModel = cameraModel.trimmed();
 
     // If the dialog is visible, defer updateInfo through the event queue so the font is ready before
     // first use and the main window can repaint first, giving the appearance of better
@@ -76,6 +78,7 @@ void QVInfoDialog::updateInfo()
     const int height = imageSize.height();
     const qreal megapixels = (width * height) / 1000000.0;
     const int gcd = getGcd(width, height);
+    ui->cameraModelLabel->setText(cameraModel.isEmpty() ? tr("Unknown") : cameraModel);
     ui->nameLabel->setText(fileInfo.fileName());
     ui->typeLabel->setText(mime.name());
     ui->locationLabel->setText(fileInfo.path());

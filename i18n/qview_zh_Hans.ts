@@ -614,6 +614,10 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVInfoDialog</name>
     <message>
+        <source>Camera model:</source>
+        <translation>拍摄机型:</translation>
+    </message>
+    <message>
         <source>File Info</source>
         <translation>文件信息</translation>
     </message>

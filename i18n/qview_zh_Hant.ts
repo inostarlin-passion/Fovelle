@@ -779,6 +779,10 @@ No write permission or file is read-only.</source>
 <context>
     <name>QVInfoDialog</name>
     <message>
+        <source>Camera model:</source>
+        <translation>拍攝機型:</translation>
+    </message>
+    <message>
         <location filename="../src/qvinfodialog.ui" line="20"/>
         <source>File Info</source>
         <translation>檔案資訊</translation>

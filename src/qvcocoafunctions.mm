@@ -629,6 +629,23 @@ QColorSpace qColorSpaceFromCGColorSpace(CGColorSpaceRef colorSpace)
     return result;
 }
 
+QString sourceCameraModel(CGImageSourceRef source)
+{
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    if (!properties)
+        return {};
+    QString model;
+    const CFTypeRef tiff = CFDictionaryGetValue(properties, kCGImagePropertyTIFFDictionary);
+    if (tiff && CFGetTypeID(tiff) == CFDictionaryGetTypeID()) {
+        const CFTypeRef value = CFDictionaryGetValue(
+                static_cast<CFDictionaryRef>(tiff), kCGImagePropertyTIFFModel);
+        if (value && CFGetTypeID(value) == CFStringGetTypeID())
+            model = QStringFromCFString(static_cast<CFStringRef>(value)).trimmed();
+    }
+    CFRelease(properties);
+    return model;
+}
+
 QSize sourcePixelSize(CGImageSourceRef source)
 {
     int width = 0;
@@ -5562,6 +5579,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         result.typeIdentifier = QStringFromCFString(sourceType);
         result.isImageIOType = sourceType != nullptr;
         result.isRaw = isRawImageType(sourceType);
+        result.cameraModel = sourceCameraModel(source);
         const CGImagePropertyOrientation orientation = sourceOrientation(source);
         const QSize sourceSize = sourcePixelSize(source);
         result.intrinsicSize = orientedPixelSize(sourceSize, orientation);

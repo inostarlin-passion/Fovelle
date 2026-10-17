@@ -1210,7 +1210,7 @@ void MainWindow::ensureInfoDialog()
         info = new QVInfoDialog(this);
         const QPointer<QVGraphicsView> view(graphicsView);
         info->setColorInfoProvider(
-                [view]() { return view ? view->colorInformation() : QvColor::Information{ }; });
+                [view]() { return view ? view->fileInfoColorInformation() : QvColor::Information{ }; });
     }
 }
 
@@ -1707,7 +1707,8 @@ void MainWindow::refreshProperties()
     info->setInfo(
         fileDetails.fileInfo,
         fileDetails.baseImageSize,
-        fileDetails.isMovieLoaded ? graphicsView->getLoadedMovie().frameCount() : 0
+        fileDetails.isMovieLoaded ? graphicsView->getLoadedMovie().frameCount() : 0,
+        fileDetails.cameraModel
     );
 }
 

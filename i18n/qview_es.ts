@@ -615,6 +615,10 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
 <context>
     <name>QVInfoDialog</name>
     <message>
+        <source>Camera model:</source>
+        <translation>Modelo de cámara:</translation>
+    </message>
+    <message>
         <source>File Info</source>
         <translation>Información del archivo</translation>
     </message>

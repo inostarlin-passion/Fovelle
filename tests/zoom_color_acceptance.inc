@@ -397,6 +397,115 @@ void ImageCoreAndMovieTests::testColorContainerBoundaries()
     QVERIFY(check("truncated.webp", webp.left(webp.size() - 1), QvColor::ICCState::Unknown));
 }
 
+void ImageCoreAndMovieTests::testFileInfoColorFallback()
+{
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); });
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    const auto matchesLive = [&] {
+        const auto live = view->colorInformation();
+        const auto normal = view->fileInfoColorInformation();
+        return normal.hasOutput == live.hasOutput && normal.nativeOutput == live.nativeOutput
+                && normal.preview == live.preview && normal.outputSpace == live.outputSpace
+                && normal.source.iccData == live.source.iccData;
+    };
+    QVERIFY(matchesLive());
+    QVERIFY(!view->fileInfoColorInformation().hasOutput);
+    window.show();
+    QTemporaryDir dir;
+    const auto path = createQtRasterTestImage(dir, "fallback", Qt::red, QSize(20, 20));
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QVERIFY(!window.getCurrentFileDetails().isNativeHDRLoaded);
+    QVERIFY(matchesLive());
+    // Native SDR also uses the real current presentation, not HDR policy.
+    QImage p3(30, 20, QImage::Format_RGB32);
+    p3.fill(Qt::blue);
+    p3.setColorSpace(QColorSpace::DisplayP3);
+    const auto p3Path = dir.filePath("native-sdr.png");
+    QVERIFY(p3.save(p3Path));
+    window.openFile(p3Path);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), p3Path, 5000);
+    QVERIFY(window.getCurrentFileDetails().isNativeSDRLoaded);
+    QVERIFY(matchesLive());
+    view->setHDRPresentationActive(false);
+    QTest::qWait(150);
+    QVERIFY(matchesLive());
+    view->closeImage();
+    QVERIFY(matchesLive());
+    QVERIFY(!view->fileInfoColorInformation().hasOutput);
+}
+
+void ImageCoreAndMovieTests::testHDRInfoUsesNormalOutput_data()
+{
+    QTest::addColumn<QString>("fixture");
+    QTest::newRow("gain-map") << QString("gain-map.jpg");
+    QTest::newRow("raw") << QString("bayer.dng");
+}
+
+void ImageCoreAndMovieTests::testHDRInfoUsesNormalOutput()
+{
+    QFETCH(QString, fixture);
+    SourceLanguageTranslator english;
+    QVERIFY(QCoreApplication::installTranslator(&english));
+    const auto translateGuard = qScopeGuard([&] { QCoreApplication::removeTranslator(&english); });
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const bool quitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto closeWindow = qScopeGuard([&] {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(quitPolicy);
+    });
+    window.resize(640, 480);
+    window.show();
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    const auto path = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture;
+    QVERIFY(QFileInfo::exists(path));
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QVERIFY(window.getCurrentFileDetails().isNativeHDRLoaded);
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 5000);
+    const auto normal = view->colorInformation();
+    QVERIFY(!normal.outputSpace.isEmpty());
+    QVERIFY(!normal.preview);
+    window.showFileInfo();
+    auto *dialog = window.findChild<QVInfoDialog *>();
+    QVERIFY(dialog);
+    auto *output = dialog->findChild<QLabel *>("outputColorSpaceLabel");
+    QVERIFY(output);
+    for (int round = 0; round < 2; ++round) {
+        // Use the production loss-of-key-window entry point, independent of
+        // which window a CI desktop happens to leave focused.
+        view->setHDRPresentationActive(false);
+        QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().preview, 2000);
+        QTest::qWait(700); // beyond fade and at least six information refreshes
+        QCOMPARE(output->text(), normal.outputSpace);
+        QVERIFY(!view->colorInformation().nativeOutput);
+        QCOMPARE(view->colorInformation().source.iccData, normal.source.iccData);
+        dialog->close();
+        view->setHDRPresentationActive(true);
+        QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 5000);
+        window.showFileInfo();
+    }
+    // Do not freeze the dialog at the original HDR image.
+    QTemporaryDir dir;
+    const auto qtPath = createQtRasterTestImage(dir, "replacement", Qt::blue, QSize(20, 20));
+    window.openFile(qtPath);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), qtPath, 5000);
+    QVERIFY(!window.getCurrentFileDetails().isNativeHDRLoaded);
+    QTRY_COMPARE_WITH_TIMEOUT(output->text(), view->colorInformation().outputSpace, 2000);
+    QVERIFY(!view->colorInformation().preview);
+    QVERIFY(view->colorInformation().source.iccData.isEmpty());
+    view->closeImage();
+    QTRY_COMPARE_WITH_TIMEOUT(output->text(), QString("No output"), 2000);
+    QCOMPARE(view->colorInformation().source.iccState, QvColor::ICCState::Unknown);
+}
+
 void ImageCoreAndMovieTests::testColorInformationFollowsPresentation()
 {
     ScopedOptionValues options(
