@@ -507,7 +507,8 @@ set_tests_properties(FovelleStaplerRetryContracts PROPERTIES TIMEOUT 30 LABELS "
 add_test(NAME FovelleMovieResumeStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/movie_resume_static.py)
 add_test(NAME FovelleMovieResumeDynamic
-    COMMAND fovelle_tests testMoviePauseResume testMoviePauseQueuedRead -v1)
+    COMMAND fovelle_tests testMoviePauseResume testMoviePauseQueuedRead
+    testMovieResumeDelayedDispatch -v1)
 set_tests_properties(FovelleMovieResumeDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 60 RUN_SERIAL TRUE LABELS "movie;pause;regression")

@@ -63,6 +63,38 @@ public:
     }
 };
 
+// Observe the same frame's timer before its single-shot event is consumed.
+// Polling isActive() can instead observe an overdue timer or a later frame.
+class MovieTimerObservation : public QObject
+{
+public:
+    QVMovie &movie;
+    bool &pauseOnFrame;
+    int deliveries = 0;
+    int interval = -1;
+    int remaining = -1;
+    bool valid = true;
+
+    MovieTimerObservation(QVMovie &movie, bool &pauseOnFrame)
+        : movie(movie), pauseOnFrame(pauseOnFrame)
+    {
+    }
+
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        if (event->type() == QEvent::Timer) {
+            auto *timer = qobject_cast<QTimer *>(object);
+            interval = timer->interval();
+            remaining = timer->remainingTime();
+            valid = valid && timer->isActive() && remaining >= 0 && remaining <= interval
+                    && interval <= movie.nextFrameDelay();
+            ++deliveries;
+            pauseOnFrame = true;
+        }
+        return false;
+    }
+};
+
 class RemediationTests : public QObject
 {
     Q_OBJECT
@@ -524,18 +556,97 @@ private slots:
             QCOMPARE(movie.property("decoderCreations").toInt(), async ? 1 : 0);
             QVERIFY(movie.cachedBytes() <= 1);
         }
+        auto *timer = movie.findChild<QTimer *>();
+        QVERIFY(timer);
+        MovieTimerObservation observation(movie, pauseOnFrame);
+        timer->installEventFilter(&observation);
+        const int count = frames.count();
+        const int previous = movie.currentFrameNumber();
         pauseOnFrame = false;
         movie.setPaused(false);
         movie.setPaused(false); // repeated resume must not enqueue duplicate work
-        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Running, 1000);
-        auto *timer = movie.findChild<QTimer *>();
-        QVERIFY(timer);
-        QTRY_VERIFY_WITH_TIMEOUT(timer->isActive(), 1000);
-        QVERIFY(timer->remainingTime() > 0);
-        QVERIFY(timer->interval() <= movie.nextFrameDelay());
-        QVERIFY(timer->interval() >= movie.nextFrameDelay() - 50);
+        QTRY_COMPARE_WITH_TIMEOUT(observation.deliveries, 1, 1000);
+        QVERIFY(observation.valid);
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Paused, 1000);
+        QCOMPARE(frames.count(), count + 2);
+        const int expected = (previous + 2) % movie.frameCount();
+        QCOMPARE(movie.currentFrameNumber(), expected);
+        QVERIFY(reference.jumpToFrame(expected));
+        QCOMPARE(movie.currentImage(), reference.currentImage());
+        QCOMPARE(movie.property("decoderCreations").toInt(), async ? 1 : 0);
+        QVERIFY(movie.cachedBytes() <= 1);
         movie.stop();
         QCOMPARE(errors.count(), 0);
+    }
+    void testMovieResumeDelayedDispatch_data()
+    {
+        QTest::addColumn<bool>("async");
+        QTest::newRow("async-queue") << true;
+        QTest::newRow("gui-dispatch") << false;
+    }
+    void testMovieResumeDelayedDispatch()
+    {
+        QFETCH(bool, async);
+        const auto path = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+        QVMovie movie(path);
+        movie.setAsyncPlayback(async);
+        movie.setSpeed(50);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        QSignalSpy errors(&movie, &QVMovie::error);
+        bool pauseOnFrame = true;
+        connect(&movie, &QVMovie::frameChanged, &movie, [&](int) {
+            if (pauseOnFrame)
+                movie.setPaused(true);
+        });
+        movie.start();
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Paused, 1000);
+        const int previous = movie.currentFrameNumber();
+        const int count = frames.count();
+        auto *timer = movie.findChild<QTimer *>();
+        QVERIFY(timer);
+        MovieTimerObservation observation(movie, pauseOnFrame);
+        timer->installEventFilter(&observation);
+        auto entered = std::make_shared<QSemaphore>();
+        auto release = std::make_shared<QSemaphore>();
+        const auto unblock = qScopeGuard([release] { release->release(4); });
+        if (async) {
+            for (int i = 0; i < 4; ++i)
+                QvAsync::schedule([entered, release] {
+                    entered->release();
+                    release->acquire();
+                });
+            QTRY_COMPARE_WITH_TIMEOUT(entered->available(), 4, 2000);
+        }
+        pauseOnFrame = false;
+        movie.setPaused(false);
+        // Intentionally do not pump events: reproduce queue latency or an
+        // overdue GUI timer independently of the hosted runner's speed.
+        QThread::msleep(static_cast<unsigned long>(movie.nextFrameDelay() + 80));
+        if (async) {
+            QCOMPARE(frames.count(), count);
+            release->release(4);
+        } else {
+            QVERIFY(timer->isActive());
+            QCOMPARE(timer->remainingTime(), 0);
+        }
+        QTRY_COMPARE_WITH_TIMEOUT(observation.deliveries, 1, 2000);
+        QVERIFY(observation.valid);
+        if (async) {
+            QCOMPARE(observation.remaining, 0);
+            QCOMPARE(observation.interval, 0);
+        }
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Paused, 1000);
+        QCOMPARE(frames.count(), count + 2);
+        const int expected = (previous + 2) % movie.frameCount();
+        QCOMPARE(movie.currentFrameNumber(), expected);
+        QVMovie reference(path);
+        reference.setCacheMode(QVMovie::CacheAll);
+        QVERIFY(reference.jumpToFrame(expected));
+        QCOMPARE(movie.currentImage(), reference.currentImage());
+        QCOMPARE(errors.count(), 0);
+        qInfo() << "DELAYED_RESUME" << "async=" << async << "interval=" << observation.interval
+                << "remaining=" << observation.remaining;
+        movie.stop();
     }
     void testMoviePauseQueuedRead_data()
     {

@@ -1,35 +1,53 @@
-# 完整HDR源缓存测试规格
+# GitHub Actions 动画时序测试用例
 
-## S1（A1、A3、A4）：映射所有权静态检查
-1. 测试目的：现代persistent使用完整源，任务标签按值捕获，旧Metal/current与取消/预算路径保留。
-2. 前置条件：源码可读。
-3. 输入数据：qvcocoafunctions.mm及CTest配置。
-4. 操作步骤：运行hdr_surface_metadata_static.py与既有hdr_headroom_restore_static.py，检查preparedHDRImage源、CGImage标签复制、macOS可用性保护、serial及安装读取自身标签。
-5. 预期结果：不从完成时全局目标推断标签；现代monitor不随current重建源缓存；旧策略仍存在。
-6. 后置条件：无修改。
+日期：2026-10-17。按 technical_design_document.md 的 A1–A6 验收。所有用例固化到 movie_resume_static.py、remediation_tests.h 和 CTest 注册中；证据目录 reports/evidence/actions_movie_timing_20261017/。
 
-## D1（A1、A2、A5）：返回后实际完整HDR缓存
-1. 测试目的：捕获“像素被current预先压缩”的旧路径，覆盖用户真实文件。
-2. 前置条件：macOS15+原生renderer，仓库素材；用户文件通过FOVELLE_HDR_REPRO_IMAGE指定。
-3. 输入数据：gain-map.jpg、bayer.dng、用户1.JPG；current从16到后台1，返回(源内容余量+1)/2。
-4. 操作步骤：testHDRPersistentSurfaceMetadata建立正常缓存字节/身份基线；打开信息页并走生产失活入口，低余量停留；回到真实窗口并关闭信息页；读取CALayer.contents的CGImage及layer标签。
-5. 预期结果：完整源字节、对象身份不变，CGImage标签等于source内容余量，layer标签与其一致或合法未覆盖值0；真实native输出恢复。旧应用预先映射的缓存会改变像素或较低标签，不能通过。
-6. 后置条件：关闭窗口，恢复所有环境变量，释放CF数据。
+## S1（A1，静态）：拒绝错误时间假设
+1. 测试目的：防止严格正余量和 50ms 隐含上界复发。
+2. 前置条件：可读取仓库源文件，Python3。
+3. 输入数据：testMoviePauseResume 函数体及事件观察器。
+4. 操作步骤：运行 movie_resume_static.py；检查旧表达式不存在，派发前边界和帧观察仍存在。
+5. 预期结果：原始代码失败，修复后通过；没有通过删除所有时序/帧断言绕过问题。
+6. 后置条件：源文件不变。
 
-## D2（A2、A3、A4）：current降额及稳定缓存
-1. 测试目的：确认current不再被烘焙进现代persistent，系统仍可根据完整HDR信号自适应。
-2. 前置条件：D1已加载。
-3. 输入数据：current再降到1，再回16；既有headroom测试的JPEG/RAW。
-4. 操作步骤：D1后半段核对完整内容标签及缓存身份保持，回16核对字节基线；testHDRHeadroomSurfaceRestores现代分支验证失活、current变化、恢复、缓存稳定和换图清理。旧系统保留原应用侧降额交错断言。
-5. 预期结果：现代完整源缓存不因current变化重建；换图后无旧HDR缓存；Metal政策仍由当前余量控制。不能把“缓存字节保持完整HDR”误称为物理屏幕无视低余量强行增亮。
-6. 后置条件：释放窗口、设置及资源。
+## S2（A6，静态）：标准 CI 门禁保留
+1. 测试目的：证明新用例注册到失败的 CTest，原有真实 HDR 门禁保留。
+2. 前置条件：Python3，可读 CMake/workflow。
+3. 输入数据：FovelleMovieResumeDynamic、四个 workflow。
+4. 操作步骤：运行 movie_resume_static.py 和 actions_regression_tests.py。
+5. 预期结果：延迟用例在 CTest 命令中；现有 required HDR、always 上传等契约全部通过。
+6. 后置条件：无外部变更。
 
-## D3（A3、A5）：端点与界面回归
-1. 测试目的：保留真实完整源颜色、焦点恢复和正常输出信息。
-2. 前置条件：已构建两组完整套件，HDRPolicy配置仓库JPEG样本。
-3. 输入数据：ImageCoreAndMovieTests、HDRPolicyTests及机型门禁。
-4. 操作步骤：完整运行两组套件，含probePersistentHDRPixels与直接解码源端点的独立比较；执行CameraModel及信息页静态门禁。
-5. 预期结果：全部通过；current/potential政策、真实像素保真、关闭恢复和机型正确。
-6. 后置条件：资源清理。
+## D1（A2、A5，动态）：暂停恢复八行矩阵
+1. 测试目的：验证实际定时器派发并保留暂停/帧顺序/像素/复用/预算要求。
+2. 前置条件：已构建 fovelle_tests，macOS Cocoa，真实 GIF/APNG fixture。
+3. 输入数据：async={false,true} × apng={false,true} × boundedCache={false,true}；speed=50，缓存预算=1。
+4. 操作步骤：执行 testMoviePauseResume；publication 时暂停，两轮恢复；最后安装 timer 事件观察器，重复恢复并等待一次派发及下一帧暂停。
+5. 预期结果：暂停期间像素和帧数不变；前两轮每次恢复仅前进一帧且匹配参考图；decoderCreations=async?1:0；缓存≤1；观察 active 且 0≤remaining≤interval≤nextFrameDelay；恢复先发布一帧，随后经一次 timer 派发再发布一帧并暂停，合计增加两帧；无 error。
+6. 后置条件：stop 并销毁电影/临时文件。
 
-映射：A1→S1/D1；A2→D1/D2；A3→S1/D2/D3；A4→S1/D2；A5→D1用户行/D3。current覆盖是确定性模拟，不冒称真实跨应用物理亮度计测量。旧OS运行保护仅静态核验。
+## D2（A3，动态）：异步工作队列受控延迟
+1. 测试目的：真实复现耗时超过帧长，零间隔仍正常播放。
+2. 前置条件：Qt 测试程序，四线程 QvAsync 池。
+3. 输入数据：remediation.gif，async=true，speed=50，四个信号量阻塞作业。
+4. 操作步骤：首帧暂停；等四个工作线程阻塞；恢复后不处理 GUI 事件地等待超过帧时长；释放工作线程；观察定时器事件；在第二个后续帧暂停。
+5. 预期结果：观察 interval=0、remaining=0、active；实际增加两帧且顺序正确，像素匹配参考图；无 error。
+6. 后置条件：作用域保护释放线程，stop 并销毁对象。
+
+## D3（A4，动态）：GUI 延后派发
+1. 测试目的：验证已到期但尚未派发的 active 定时器。
+2. 前置条件：Qt 测试程序，Cocoa GUI 线程。
+3. 输入数据：remediation.gif，async=false，speed=50。
+4. 操作步骤：首帧暂停；恢复；不泵事件地等待 interval+80ms；读取 remainingTime；之后派发并在下一帧暂停。
+5. 预期结果：等待后 active=true、remaining=0；派发前观察合法边界；帧数增加两帧，顺序/像素正确，无 error。
+6. 后置条件：stop、对象清理，无遗留定时器。
+
+## D4（A5，动态）：异步生命周期回归
+1. 测试目的：防止修复时引入重复读取、失效结果发布及销毁悬挂。
+2. 前置条件：Qt 测试程序与既有 semaphore fixture。
+3. 输入数据：testMoviePauseQueuedRead 的 completed/inflight/stop/replace/jump/destroy 及四个 pending-* 行。
+4. 操作步骤：执行既有十行，并执行完整 FovelleRemediationDynamic。
+5. 预期结果：保留所有既有帧/复用/取消断言，全部通过，无错误信号和停播后帧发布。
+6. 后置条件：全部工作线程释放、临时资源清理。
+
+完整回归执行标准 ctest --test-dir build --output-on-failure --timeout 90；不得用过滤/重试的成功代替完整结果。新增延迟矩阵应和八行暂停矩阵重复执行，用于检查稳定性。首次与最终执行日志分别保存。

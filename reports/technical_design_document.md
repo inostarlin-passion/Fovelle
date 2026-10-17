@@ -1,43 +1,43 @@
-# HDR信息页跨应用返回后的亮度：完整源端点与单一动态映射
+# GitHub Actions 动画时序回归修复设计
 
-日期：2026-10-17。用户复现图：/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/1.JPG，内建屏幕，macOS27。保留之前焦点、timer和旧任务身份修复。
+日期：2026-10-17（Asia/Shanghai）。基线：a839a581882ae9eb668c0122316cf22fe5c0979a。
 
-## 问题界定与迭代证伪
+## 问题界定与证据
 
-以前的测试只证明相同余量时缓存像素相同，没有覆盖系统余量在退化期间降低、返回后仍受当前内容需求影响的闭环。持久化CGImage先经应用按瞬时current headroom压缩，再由Automatic CALayer适配，存在双重适配：临时低余量会被烘焙进缓存，缓存又不能声明完整源HDR的需求。
+最新 [Checks](https://github.com/inostarlin-passion/Fovelle/actions/runs/39027871692) 和 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/runs/39027871694) 各有 56/57 个 CTest 通过，唯一失败均为 FovelleMovieResumeDynamic。前者在异步 GIF 无缓存行的 `remainingTime() > 0` 失败；后者在异步 APNG 无缓存行的 `interval() >= nextFrameDelay() - 50` 失败。同次运行的完整 RemediationDynamic 及 HDR 测试通过；Checks 的 format、clang-tidy 作业成功。原始日志和运行元数据保存在 reports/evidence/actions_movie_timing_20261017/。
 
-真实1.JPG为8064×6048（方向变换后6048×8064），内容余量4.9473，半浮点缓存约390MiB，在既有512MiB预算内。诊断user-app.log观察到显示余量从5.52降至1.2、potential仍16；因此“potential大于1”和“图层opacity=1”不足以证明亮度恢复。
+原子拆解：核对失败提交及作业 → 追踪暂停/恢复、异步队列、发布时间与定时器 → 核验 Qt 时序语义 → 构造受控繁忙情况 → 修复测试观察点和不变量 → 回归与完成报告。
 
-原子拆解：复核正常/降额像素与CGImage元数据 → 验证用户文件实际路径 → 区分Metal与persistent映射所有权 → 完整HDR源缓存 → 验证跨余量稳定性与真实源端点 → 旧路径回归。
+## 多跳检索与交叉核验
 
-## 多跳联网与多源交叉核验
+1. GitHub 实际运行及失败日志，定位到 tests/remediation_tests.h 的两条断言，排除安装、编译、格式与 HDR 为本次失败原因。
+2. [Qt QTimer 官方文档](https://doc.qt.io/qt-6/qtimer.html)：active 定时器可以已到期，remainingTime 为 0；繁忙时允许延后派发，PreciseTimer 不保证绝对准点。
+3. [Qt QMovie 官方文档](https://doc.qt.io/qt-6/qmovie.html)：nextFrameDelay 是帧显示时长，恢复继续后续帧；不能将其等同于任意时刻的定时器剩余时间。
+4. [Qt QTest 官方文档](https://doc.qt.io/qt-6/qtest.html)：QTRY 通过处理事件和等待反复检查条件；轮询观察点不保证刚好位于定时器启动时。
+5. [Qt 6.11.2 定时器源码](https://github.com/qt/qtbase/blob/v6.11.2/src/corelib/kernel/qtimerinfo_unix.cpp)：activateTimers 在 sendEvent 之前计算下一截止时间；事件过滤器内 remaining 也可能重新为正，不应要求派发观察值恒为 0。GUI 场景在不泵事件的等待之后、重新派发之前直接验证过期余量为 0。
+6. 仓库 src/qvmovie.cpp 实现交叉核验：异步 loadAsyncFrame 在入队前设定时间基线，publishFrame 以绝对时间线扣除耗时并将非正剩余间隔钳制为 0；暂停清空时间线但保留解码器/在途结果。src/asyncwork.cpp 固定四个工作线程，允许用信号量确定性延迟帧工作。
 
-[Apple当前EDR余量](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)说明值随屏幕上的EDR需求改变；[potential说明](https://developer.apple.com/documentation/appkit/nsscreen/maximumpotentialextendeddynamicrangecolorcomponentvalue)明确它不是当前可用余量。[WWDC EDR](https://developer.apple.com/videos/play/wwdc2022/10113/)核对动态余量与系统映射的关系。
+反向排查：不能由 remainingTime=0 推断定时器未启动；不能由调度间隔比帧长少 50ms 推断恢复错误。旧断言隐含队列/解码延迟上界，本仓库没有此保证。若真正未恢复、重复提交、跳帧、帧内容错误或复用失效，现有语义断言仍应失败。最新 HDR 改动没有修改动画实现；时间相邻不构成因果关系。以实际执行的受控队列/GUI延迟验证上述判断后结束检索，不为绿色构建修改产品行为。
 
-[Apple HDR图像渲染](https://developer.apple.com/documentation/coregraphics/adopting-advancements-in-hdr-image-rendering)说明CGImage内容余量和preferredDynamicRange；[CALayer.contentsHeadroom](https://developer.apple.com/documentation/quartzcore/calayer/contentsheadroom)与SDK CALayer.h互证：图像本身的内容标签可供系统解释，preferredDynamicRange=High针对有HDR内容标签的图像。实际余量不应被误当成源图像的内容上限。
+## 原子验收与设计
 
-[CIImage.contentHeadroom](https://developer.apple.com/documentation/coreimage/ciimage/contentheadroom)及[CGImage.contentHeadroom](https://developer.apple.com/documentation/coregraphics/cgimage/contentheadroom)核对滤镜标签传播与不可变图像元数据复制。SDK CGImage.h提供macOS15+的CGImageCreateCopyWithContentHeadroom。部分网页正文依赖JS，使用官方搜索正文、SDK注释和实际CALayer.contents读取交叉核验。
+| ID | 原子标准 | 验证 |
+|---|---|---|
+| A1 | 回归用例不再要求剩余时间严格正或固定 50ms 耗时上界 | S1 静态 |
+| A2 | 恢复后实际派发下一帧定时器；在派发前检查 active、0≤remaining≤interval≤帧长 | D1 八行矩阵 |
+| A3 | 异步队列延迟超过帧时长时，零间隔合法且仍按顺序继续 | D2 受控四线程信号量 |
+| A4 | GUI 暂停派发使定时器过期后，剩余 0 合法；派发能继续播放 | D3 阻塞线程不泵事件 |
+| A5 | 暂停不推进、恢复恰好下一帧/像素正确、解码器复用、缓存有界、重复恢复无副作用及破坏性转换保持 | D1/D4 既有语义断言与 queued-read 十行 |
+| A6 | 修复及新增回归随标准 CTest 执行，既有 workflow 门禁保留 | S2 静态、完整 CTest |
 
-反证结果：正常仓库JPEG/RAW及用户1.JPG的HDR标签并非都缺失；layer.contentsHeadroom=0在CGImage已有正确标签时合法，最初该断言已撤回。部分降额端点也会正确标为较低值，例如用户图从4.9473变为2.97365；这恰好证明亮度已经被烘焙成低余量版本。RAW的SDR边界还会丢失明确的1标签，但只补标签仍不能解决映射所有权问题。不使用potential强行增亮、不修改屏幕亮度、不停用系统自适应、不把AX截图当作物理HDR亮度测量。
+设计：使用仅在测试中的 QObject 事件过滤器，在电影子 QTimer 的 QEvent::Timer 派发前捕获状态。此时定时器尚未消耗单次事件，同步/异步路径的 movie.nextFrameDelay 仍属于本次待派发的同一帧。验证 active 与非负边界，不设置外部机器耗时上界。收到该事件后让下一帧发布再次暂停，继续验证实际帧数/顺序，避免仅观察活跃定时器而遗漏真正的恢复错误。
 
-## 原子验收与方案
+新增延迟矩阵：async-queue 用四个工作线程信号量占满队列，恢复后阻塞超过目标帧长，再释放队列；gui-dispatch 先等待同步路径定时器活跃，再不处理事件地等待超过间隔，然后派发。均要求实际观察到 interval=0 或 remaining=0，并验证下一帧与错误信号。信号量采用作用域清理，断言提前失败也释放线程。
 
-| ID | 标准 |
-|---|---|
-| A1 | macOS15+ persistent缓存保持完整HDR源像素，并明确标记source内容余量 |
-| A2 | 信息页失活及返回时current变低，不能将该临时余量烘焙进persistent缓存；同一图的缓存像素/身份保持稳定 |
-| A3 | persistent图层采用系统Automatic映射；Metal/旧系统回退仍执行现有current余量策略，不以potential冒充current |
-| A4 | 元数据随任务捕获，serial/generation、预算、换图清理保持；无期望外反复重建 |
-| A5 | 用户1.JPG及仓库JPEG/RAW通过，既有真实端点保真、焦点/信息页/机型回归通过 |
+## 正确性论证与范围
 
-macOS15+：准备persistent surface时直接物化preparedHDRImage完整源端点，不再物化按瞬时current压缩的hdrBrightnessDisplayImage结果；捕获已解析的source contentHeadroom，CGImageCreateCopyWithContentHeadroom显式标记。macOS26+安装时从该surface自身同步layer.contentsHeadroom。Automatic与preferredDynamicRange High保留，系统依据真实显示条件负责最终映射。
+令 D 为帧时长，L 为从基线到发布时间的耗时。当前生产调度 I=max(0,D−L)，因此 L>D 或 L>50 时，旧条件 I>0 或 I≥D−50 并非不变量。在尚未处理事件时实际余量 R=max(0,I−E)，其中 E 是等待时间，故 R=0 合法。底层派发器可能在送达 QTimer 事件前先更新截止时间，此时过滤器内的 R 可以再次为正，但不超过 I。正确边界为 active 且 0≤R≤I≤D，事件过滤器在相同调度周期内读取这些值，避免跨帧读值造成伪矛盾。
 
-monitor遇到有效persistent缓存/任务时只更新当前余量诊断，不因current波动销毁重建完整源缓存。没有persistent缓存的Metal路径，以及较旧系统，保留应用侧current适配和此前旧任务身份修复。已完成图层安装时诊断target/contents headroom改为实际surface内容标签，避免继续显示旧Metal目标。
+事件观察后必须发生下一次 publication，且断言帧序/像素/暂停，故不会把未恢复误判为成功；遗漏调度会在观察或后续帧等待时失败。四线程屏障确保队列延迟真实发生，GUI 阻塞确保已到期但未处理事件真实存在。它们构成旧假设的反例，而非放宽产品行为要求。保留既有 1s/2s 完成上界防死锁，不用重试掩盖失败、不跳过用例、不修改工作流。
 
-## 正确性论证
-
-令S为完整源HDR端点、Hs为解析后的source内容余量。现代persistent任务产生P=materialize(S)，标记H(P)=Hs；P不含当前显示余量C。隐藏/恢复只改变呈现范围和opacity，C变化不会改写P或H(P)，因此不会把临时后台低余量固化为新的图像内容上限，A1/A2成立。系统Automatic映射以完整内容和实际显示条件适配；没有要求输出超出屏幕当前能力，A3成立。
-
-Hs在提交时按值捕获，元数据复制不修改像素；安装仍核对serial及图片generation，因此异步回调不能取其他帧的全局目标来标记像素。预算和CF所有权保留，换图清理不变，A4成立。monitor不为C变化重建同一个S；测试应核对缓存身份稳定，而不是沿用旧“current降低必须改写缓存像素”的错误抽象。实际tone mapping结果由系统负责，应用提供完整HDR信号与准确标签。
-
-A5以原生图层、完整字节对比、源端点保真测试及用户文件回归验证。没有亮度计，不能宣称已测得用户屏幕恢复后的绝对nits或完全排除所有系统电源/亮度策略。
+本次实施步骤 4 的修复对象是已定位的测试基础设施代码；没有证据表明生产播放逻辑有误，因此不修改 src/。本地 SDK/Qt 与托管机可能不同；本地通过不等于新 GitHub run 已通过，报告区分两者。
