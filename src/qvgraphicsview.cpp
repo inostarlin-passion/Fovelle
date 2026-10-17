@@ -1245,8 +1245,11 @@ QVGraphicsView::nativeMetalRendererDiagnostics() const
 
 void QVGraphicsView::setHDRPresentationActive(const bool active)
 {
-    if (hdrPresentationActive == active)
+    if (hdrPresentationActive == active) {
+        if (active && hdrRendererActive && hdrRenderer)
+            hdrPresentationTimer->start();
         return;
+    }
     hdrPresentationActive = active;
     const quint64 requestGeneration = ++hdrPresentationRequestGeneration;
     if (!hdrRendererActive || !hdrRenderer)
@@ -1279,6 +1282,10 @@ void QVGraphicsView::setHDRPresentationActive(const bool active)
         // on activation it remains the crisp base while the HDR brightness
         // rises. Both directions use the renderer's same 450 ms opacity curve.
         hdrRenderer->setPresentationActive(active, true);
+        // A timer tick before this queued handoff can observe the previous
+        // inactive renderer and stop polling. Wake it after applying the
+        // target so the HDR reveal can always finish.
+        hdrPresentationTimer->start();
         logHDRState(active ? "window-activated" : "window-deactivated");
     });
 }

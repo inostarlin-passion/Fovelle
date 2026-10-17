@@ -317,3 +317,38 @@ void nativeSetContentHidden(QWindow *window, bool hidden)
     reinterpret_cast<NSView *>(window->winId()).window.contentView.hidden = hidden;
     [CATransaction flush];
 }
+
+NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    CALayer *surfaceLayer = nil;
+    const auto find = [&surfaceLayer](auto &&self, CALayer *layer) -> CGImageRef {
+        if (layer.contents && CFGetTypeID((CFTypeRef)layer.contents) == CGImageGetTypeID()) {
+            CGImageRef image = (CGImageRef)layer.contents;
+            if (CGImageGetBitsPerComponent(image) == 16
+                && (CGImageGetBitmapInfo(image) & kCGBitmapFloatComponents)) {
+                surfaceLayer = layer;
+                return image;
+            }
+        }
+        for (CALayer *child in layer.sublayers)
+            if (CGImageRef image = self(self, child)) return image;
+        return nullptr;
+    };
+    CGImageRef image = find(find, view.layer);
+    if (!image) return {};
+    CFDataRef bytes = CGDataProviderCopyData(CGImageGetDataProvider(image));
+    if (!bytes) return {};
+    NativeHDRSurfaceData result;
+    result.identity = reinterpret_cast<quintptr>(image);
+    if (@available(macOS 15.0, *))
+        result.contentHeadroom = CGImageGetContentHeadroom(image);
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+    if (@available(macOS 26.0, *))
+        result.layerHeadroom = surfaceLayer.contentsHeadroom;
+#endif
+    result.pixels = QByteArray(reinterpret_cast<const char *>(CFDataGetBytePtr(bytes)),
+                              CFDataGetLength(bytes));
+    CFRelease(bytes);
+    return result;
+}

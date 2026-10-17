@@ -102,6 +102,7 @@ target_link_libraries(fovelle_tests PRIVATE
     "-framework UniformTypeIdentifiers"
 )
 target_compile_definitions(fovelle_tests PRIVATE
+    FOVELLE_HDR_SURFACE_TESTING
     FOVELLE_MOVIE_TEST_METRICS
     "VERSION=${PROJECT_VERSION}"
     "VERSION_STRING=\"${PROJECT_VERSION}\""
@@ -526,3 +527,25 @@ add_test(NAME FovelleHDRInfoOutputDynamic COMMAND fovelle_tests testHDRInfoUsesN
 set_tests_properties(FovelleHDRInfoOutputDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;info;color;regression")
+
+add_test(NAME FovelleHDRInfoRestoreStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_info_restore_static.py)
+add_test(NAME FovelleHDRInfoRestoreDynamic COMMAND fovelle_tests
+    testHDRInfoCloseRestores testHDRInfoCloseGuards -v1)
+set_tests_properties(FovelleHDRInfoRestoreDynamic PROPERTIES
+    ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 90 RUN_SERIAL TRUE LABELS "hdr;info;focus;regression")
+
+add_test(NAME FovelleHDRHeadroomRestoreStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_headroom_restore_static.py)
+add_test(NAME FovelleHDRHeadroomRestoreDynamic COMMAND fovelle_tests testHDRHeadroomSurfaceRestores -v1)
+set_tests_properties(FovelleHDRHeadroomRestoreDynamic PROPERTIES
+    ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 90 RUN_SERIAL TRUE LABELS "hdr;headroom;pixels;regression")
+
+add_test(NAME FovelleHDRSurfaceMetadataStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_surface_metadata_static.py)
+add_test(NAME FovelleHDRSurfaceMetadataDynamic COMMAND fovelle_tests testHDRPersistentSurfaceMetadata -v1)
+set_tests_properties(FovelleHDRSurfaceMetadataDynamic PROPERTIES
+    ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;metadata;brightness;regression")

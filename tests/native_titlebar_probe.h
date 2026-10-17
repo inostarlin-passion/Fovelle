@@ -62,3 +62,12 @@ NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &exp
 QColor nativeWindowBackground(QWindow *window);
 
 void nativeSetContentHidden(QWindow *window, bool hidden);
+
+struct NativeHDRSurfaceData
+{
+    quintptr identity {0};
+    float contentHeadroom {0};
+    float layerHeadroom {0};
+    QByteArray pixels;
+};
+NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window);

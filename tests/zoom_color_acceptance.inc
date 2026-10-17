@@ -397,6 +397,316 @@ void ImageCoreAndMovieTests::testColorContainerBoundaries()
     QVERIFY(check("truncated.webp", webp.left(webp.size() - 1), QvColor::ICCState::Unknown));
 }
 
+void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata_data()
+{
+    QTest::addColumn<QString>("fixture");
+    QTest::newRow("gain-map") << QString("gain-map.jpg");
+    QTest::newRow("raw") << QString("bayer.dng");
+    const auto external = qEnvironmentVariable("FOVELLE_HDR_REPRO_IMAGE");
+    if (!external.isEmpty()) QTest::newRow("user-image") << external;
+}
+
+void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata()
+{
+    QFETCH(QString, fixture);
+    ScopedEnvironmentValue potential("FOVELLE_TEST_DISPLAY_HEADROOM");
+    ScopedEnvironmentValue current("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "16");
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "16");
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const bool quitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); qvApp->setQuitOnLastWindowClosed(quitPolicy); });
+    window.resize(640, 480);
+    window.show();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.openFile(QDir::isAbsolutePath(fixture) ? fixture
+            : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 30000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);
+    const auto baseline = nativeHDRSurfaceData(window.windowHandle());
+    QVERIFY(!baseline.pixels.isEmpty());
+    const float content = window.getCurrentFileDetails().hdrMetadata.contentHeadroom;
+    QVERIFY(content > 1.0F && content < 15.0F);
+    window.showFileInfo();
+    auto *dialog = window.findChild<QVInfoDialog *>();
+    QVERIFY(dialog);
+    view->setHDRPresentationActive(false);
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "1");
+    QTest::qWait(700);
+    // A partially recovered display requires a tone-mapped endpoint whose
+    // metadata must describe those actual pixels, including the SDR boundary.
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", QByteArray::number((content + 1.0F) / 2.0F));
+    dialog->close();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 5000);
+    QTest::qWait(300);
+    const auto restored = nativeHDRSurfaceData(window.windowHandle());
+    qInfo() << "HDR_SURFACE_TAG" << fixture << "source" << content
+            << "normal_tag" << baseline.contentHeadroom << "restored_tag" << restored.contentHeadroom;
+    QVERIFY2(qAbs(restored.contentHeadroom - content) < 0.001F,
+             "Materialized HDR CGImage has missing or incorrect headroom metadata");
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+    QVERIFY(restored.layerHeadroom == 0.0F || qAbs(restored.layerHeadroom - restored.contentHeadroom) < 0.001F);
+#endif
+    QCOMPARE(restored.pixels, baseline.pixels);
+    QCOMPARE(restored.identity, baseline.identity);
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "1");
+    QTest::qWait(500);
+    QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).contentHeadroom, content);
+    QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).identity, baseline.identity);
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "16");
+    QTRY_VERIFY_WITH_TIMEOUT(qAbs(nativeHDRSurfaceData(window.windowHandle()).contentHeadroom - content) < 0.001F, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeHDRSurfaceData(window.windowHandle()).pixels, baseline.pixels, 5000);
+}
+
+void ImageCoreAndMovieTests::testHDRHeadroomSurfaceRestores_data()
+{
+    QTest::addColumn<QString>("fixture");
+    QTest::newRow("gain-map") << QString("gain-map.jpg");
+    QTest::newRow("raw") << QString("bayer.dng");
+}
+
+void ImageCoreAndMovieTests::testHDRHeadroomSurfaceRestores()
+{
+    QFETCH(QString, fixture);
+    ScopedEnvironmentValue potential("FOVELLE_TEST_DISPLAY_HEADROOM");
+    qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "4");
+    ScopedEnvironmentValue current("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "4");
+    ScopedEnvironmentValue delay("FOVELLE_TEST_PERSISTENT_SURFACE_DELAY_MS");
+    qputenv("FOVELLE_TEST_PERSISTENT_SURFACE_DELAY_MS", "1500");
+    ScopedEnvironmentValue pausedMonitor("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR");
+    qunsetenv("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR");
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const bool quitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); qvApp->setQuitOnLastWindowClosed(quitPolicy); });
+    window.resize(640, 480);
+    window.show();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.openFile(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 8000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);
+    const auto baseline = nativeHDRSurfaceData(window.windowHandle());
+    QVERIFY(!baseline.pixels.isEmpty());
+    if (QOperatingSystemVersion::current() >= QOperatingSystemVersion::MacOSBigSur) {
+        // On macOS 15+, the compositor owns dynamic adaptation of the full
+        // tagged endpoint. Current-headroom changes must not rewrite pixels.
+        if (QOperatingSystemVersion::current().majorVersion() >= 15) {
+            window.showFileInfo();
+            auto *info = window.findChild<QVInfoDialog *>();
+            QVERIFY(info);
+            view->setHDRPresentationActive(false);
+            qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "1");
+            QTest::qWait(700);
+            info->close();
+            window.activateWindow();
+            QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
+            view->setHDRPresentationActive(true);
+            QTest::qWait(700);
+            QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).pixels, baseline.pixels);
+            QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).identity, baseline.identity);
+            qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "4");
+            QTest::qWait(500);
+            QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).identity, baseline.identity);
+            QTemporaryDir dir;
+            window.openFile(createQtRasterTestImage(dir, "replacement", Qt::red, QSize(20, 20)));
+            QTRY_VERIFY_WITH_TIMEOUT(!window.getCurrentFileDetails().isNativeHDRLoaded, 5000);
+            QVERIFY(!view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady);
+            return;
+        }
+    }
+    window.showFileInfo();
+    auto *dialog = window.findChild<QVInfoDialog *>();
+    QVERIFY(dialog);
+    view->setHDRPresentationActive(false);
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "1");
+    QTest::qWait(700); // background dwell with EDR no longer requested
+    view->setHDRPresentationActive(true); // return while File Info is still visible
+    QTRY_VERIFY_WITH_TIMEOUT(!view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 1500);
+    qputenv("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR", "1");
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "4");
+    window.resize(720, 540); // front render writes current=4 while old surface job is in flight
+    QTRY_COMPARE_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().displayRenderingHeadroom, 4.0F, 3000);
+    dialog->close();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
+    view->setHDRPresentationActive(true);
+    QTest::qWait(1800);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 5000);
+    qunsetenv("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR");
+    QTRY_COMPARE_WITH_TIMEOUT(nativeHDRSurfaceData(window.windowHandle()).pixels, baseline.pixels, 4000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);
+    QVERIFY(view->nativeMetalRendererDiagnostics().wantsExtendedDynamicRangeContent);
+    // Real reductions must still reduce the materialized pixels.
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "1");
+    QTRY_VERIFY_WITH_TIMEOUT(nativeHDRSurfaceData(window.windowHandle()).pixels != baseline.pixels, 5000);
+    qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "4");
+    QTRY_COMPARE_WITH_TIMEOUT(nativeHDRSurfaceData(window.windowHandle()).pixels, baseline.pixels, 5000);
+    const auto stable = nativeHDRSurfaceData(window.windowHandle()).identity;
+    QTest::qWait(500);
+    QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).identity, stable);
+    QTemporaryDir dir;
+    window.openFile(createQtRasterTestImage(dir, "replacement", Qt::red, QSize(20, 20)));
+    QTRY_VERIFY_WITH_TIMEOUT(!window.getCurrentFileDetails().isNativeHDRLoaded, 5000);
+    QVERIFY(!view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady);
+    view->closeImage();
+}
+
+void ImageCoreAndMovieTests::testHDRInfoCloseRestores_data()
+{
+    QTest::addColumn<QString>("fixture");
+    QTest::addColumn<QString>("closePath");
+    QTest::addColumn<bool>("dropActivation");
+    for (const auto *path : {"close", "reject", "escape", "shortcut", "hide"})
+        QTest::newRow(path) << QString("gain-map.jpg") << QString(path) << true;
+    QTest::newRow("raw-close") << QString("bayer.dng") << QString("close") << true;
+    QTest::newRow("native-close") << QString("gain-map.jpg") << QString("close") << false;
+}
+
+void ImageCoreAndMovieTests::testHDRInfoCloseRestores()
+{
+    QFETCH(QString, fixture);
+    QFETCH(QString, closePath);
+    QFETCH(bool, dropActivation);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const bool quitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto closeWindow = qScopeGuard([&] {
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(quitPolicy);
+    });
+    window.resize(640, 480);
+    window.show();
+    window.activateWindow();
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    window.openFile(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 5000);
+    window.showFileInfo();
+    auto *dialog = window.findChild<QVInfoDialog *>();
+    QVERIFY(dialog);
+    // Model the missed-activation case: Qt already considers the owner active,
+    // but the native presentation has a late/stale inactive request.
+    if (dropActivation && closePath != "escape" && closePath != "shortcut") {
+        QApplication::setActiveWindow(&window);
+        QVERIFY(window.isActiveWindow());
+    } else
+        QVERIFY(QTest::qWaitForWindowActive(dialog, 3000));
+    QTRY_COMPARE_WITH_TIMEOUT(qvApp->applicationState(), Qt::ApplicationActive, 2000);
+    class DropActivationNotifications final : public QObject
+    {
+        bool eventFilter(QObject *, QEvent *event) override
+        {
+            return event->type() == QEvent::WindowActivate
+                    || event->type() == QEvent::ActivationChange;
+        }
+    } activationFilter;
+    if (dropActivation)
+        window.installEventFilter(&activationFilter);
+    view->setHDRPresentationActive(false);
+    QTest::qWait(700);
+    QVERIFY(view->colorInformation().preview);
+    QVERIFY(!view->nativeMetalRendererDiagnostics().presentationActiveRequested);
+    if (closePath == "close") dialog->close();
+    else if (closePath == "reject") dialog->reject();
+    else if (closePath == "escape" || closePath == "shortcut") {
+        QKeyEvent key(QEvent::KeyPress,
+                      closePath == "escape" ? Qt::Key_Escape : Qt::Key_I,
+                      Qt::NoModifier);
+        QCoreApplication::sendEvent(dialog, &key);
+    } else dialog->hide();
+    QVERIFY(!dialog->isVisible());
+    QTest::qWait(150);
+    qInfo() << "HDR_INFO_CLOSE_STATE" << closePath << "app" << qvApp->applicationState()
+            << "owner_active" << window.isActiveWindow() << "active" << QApplication::activeWindow()
+            << "owner" << &window << "dialog" << dialog
+            << "requested" << view->nativeMetalRendererDiagnostics().presentationActiveRequested;
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);
+    QTest::qWait(700);
+    const auto state = view->nativeMetalRendererDiagnostics();
+    QVERIFY(state.presentationActiveRequested);
+    QVERIFY(state.layerOpacity > 0.99);
+    QVERIFY(state.wantsExtendedDynamicRangeContent);
+    QVERIFY(!state.presentationAnimationInFlight);
+    QVERIFY(view->colorInformation().nativeOutput);
+    QVERIFY(!view->colorInformation().preview);
+}
+
+void ImageCoreAndMovieTests::testHDRInfoCloseGuards_data()
+{
+    QTest::addColumn<QString>("scenario");
+    for (const auto *name : {"another-window", "reopen", "hidden-owner", "closing-owner"})
+        QTest::newRow(name) << QString(name);
+}
+
+void ImageCoreAndMovieTests::testHDRInfoCloseGuards()
+{
+    QFETCH(QString, scenario);
+    const bool quitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto quitGuard = qScopeGuard([&] { qvApp->setQuitOnLastWindowClosed(quitPolicy); });
+    auto owner = std::make_unique<MainWindow>();
+    owner->setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto closeOwner = qScopeGuard([&] { if (owner) owner->close(); });
+    owner->resize(640, 480);
+    owner->show();
+    auto *view = owner->findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    owner->openFile(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/gain-map.jpg");
+    QTRY_VERIFY_WITH_TIMEOUT(owner->getIsPixmapLoaded(), 5000);
+    view->setHDRPresentationActive(true);
+    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 5000);
+    owner->showFileInfo();
+    auto *dialog = owner->findChild<QVInfoDialog *>();
+    QVERIFY(dialog);
+    QApplication::setActiveWindow(owner.get());
+    view->setHDRPresentationActive(false);
+    QTest::qWait(700);
+    QWidget other;
+    dialog->hide();
+    if (scenario == "another-window") {
+        other.show();
+        other.activateWindow();
+        QApplication::setActiveWindow(&other);
+    } else if (scenario == "reopen")
+        owner->showFileInfo();
+    else if (scenario == "hidden-owner")
+        owner->hide();
+    else
+        owner->close();
+    QTest::qWait(700);
+    if (scenario == "another-window")
+        QVERIFY(other.isActiveWindow());
+    else if (scenario == "reopen")
+        QVERIFY(dialog->isVisible());
+    else
+        QVERIFY(!owner->isVisible());
+    QVERIFY(!view->nativeMetalRendererDiagnostics().presentationActiveRequested);
+    owner->close();
+    owner.reset();
+    QTest::qWait(50); // context-bound recovery callbacks must not outlive owner
+}
+
 void ImageCoreAndMovieTests::testFileInfoColorFallback()
 {
     MainWindow window;

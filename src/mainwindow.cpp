@@ -671,6 +671,9 @@ bool MainWindow::event(QEvent *event)
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched == info && event->type() == QEvent::Hide)
+        QTimer::singleShot(0, this, &MainWindow::restoreImageFocusAfterInfo);
+
     const bool isNavigationWidget =
         watched == graphicsView ||
         watched == graphicsView->viewport() ||
@@ -1208,10 +1211,35 @@ void MainWindow::ensureInfoDialog()
 {
     if (!info) {
         info = new QVInfoDialog(this);
+        info->installEventFilter(this);
         const QPointer<QVGraphicsView> view(graphicsView);
         info->setColorInfoProvider(
                 [view]() { return view ? view->fileInfoColorInformation() : QvColor::Information{ }; });
     }
+}
+
+void MainWindow::restoreImageFocusAfterInfo()
+{
+    const auto canRestore = [this]() {
+        if (isClosing || qvApp->getIsApplicationQuitting()
+            || !isVisible() || isMinimized()
+            || qvApp->applicationState() != Qt::ApplicationActive
+            || !info || info->isVisible())
+            return false;
+        const auto *active = QApplication::activeWindow();
+        return !(active && active != this && active != info);
+    };
+    if (!canRestore())
+        return;
+
+    activateWindow();
+    // Closing a modeless dialog need not deliver another WindowActivate if
+    // Qt already considers its owner active. Reconcile the HDR state after
+    // the focus handoff, using current eligibility rather than a saved flag.
+    QTimer::singleShot(0, this, [this, canRestore]() {
+        if (canRestore() && isActiveWindow() && graphicsView)
+            graphicsView->setHDRPresentationActive(true);
+    });
 }
 
 void MainWindow::showEvent(QShowEvent *event)

@@ -1,38 +1,43 @@
-# HDR信息页正常输出色彩空间修复设计
+# HDR信息页跨应用返回后的亮度：完整源端点与单一动态映射
 
-日期：2026-10-17（Asia/Shanghai）。保留工作区已有拍摄机型修改。
+日期：2026-10-17。用户复现图：/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/1.JPG，内建屏幕，macOS27。保留之前焦点、timer和旧任务身份修复。
 
-## 问题界定与检索核验
+## 问题界定与迭代证伪
 
-MainWindow::showFileInfo→show/activateWindow令主图窗口失活；setHDRPresentationActive(false)显示SDR代理；colorInformation()以firstFramePresented且代理不可见为nativeOutput依据。QVInfoDialog的100ms timer读取该实时值，因而正常HDR输出变成Preview: sRGB。像素退化策略本身不在本次变更范围。
+以前的测试只证明相同余量时缓存像素相同，没有覆盖系统余量在退化期间降低、返回后仍受当前内容需求影响的闭环。持久化CGImage先经应用按瞬时current headroom压缩，再由Automatic CALayer适配，存在双重适配：临时低余量会被烘焙进缓存，缓存又不能声明完整源HDR的需求。
 
-原子拆解：区分正常HDR输出与临时可见输出 → 读取当前图片renderer已呈现证据 → 信息页provider接线 → 验证失活及跨多次timer稳定 → 验证换图/关闭清理 → 邻接回归。
+真实1.JPG为8064×6048（方向变换后6048×8064），内容余量4.9473，半浮点缓存约390MiB，在既有512MiB预算内。诊断user-app.log观察到显示余量从5.52降至1.2、potential仍16；因此“potential大于1”和“图层opacity=1”不足以证明亮度恢复。
 
-多跳联网及多源核验：
+原子拆解：复核正常/降额像素与CGImage元数据 → 验证用户文件实际路径 → 区分Metal与persistent映射所有权 → 完整HDR源缓存 → 验证跨余量稳定性与真实源端点 → 旧路径回归。
 
-1. [Qt QWidget::activateWindow](https://doc.qt.io/qt-6/qwidget.html#activateWindow)及[QDialog](https://doc.qt.io/qt-6/qdialog.html)说明对话框激活为顶层窗口；与showFileInfo及本地激活/失活事件链核对。
-2. [Apple CAMetalLayer.colorspace](https://developer.apple.com/documentation/quartzcore/cametallayer/colorspace)及[EDR显示说明](https://developer.apple.com/videos/play/wwdc2022/10114/)核对输出色彩空间与EDR显示能力是不同概念。renderer构造实际设置extendedLinearDisplayP3，diagnostics.outputColorSpaceName由实际metalLayer.colorspace与outputColorSpace比较产生；不从HDR文件后缀推断。
-3. [Apple NSScreen EDR能力](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)说明显示EDR能力相关接口；Apple网页正文需JavaScript，本次以官方页面入口、既有实现及本机SDK头文件交叉核验，未声称硬件当前headroom等于色域名称。
-4. 本地renderer的setImage/resetForImage/clearImage将firstFramePresented清零；syncPresentationDiagnostics读取当前图片的呈现状态。与已有testColorInformationFollowsPresentation运行测试交叉验证实时API语义。
+## 多跳联网与多源交叉核验
 
-逆向证伪：暂停信息页timer只会冻结旧图片信息；show前快照会在首次HDR准备未完成、对话框已打开后换图等场景过期；只认isNativeHDRLoaded会将未成功呈现或无renderer的图像误报HDR；硬编码Extended Linear Display P3无法反映实际renderer配置；修改colorInformation默认行为会破坏实时诊断。资料与代码证据充分支持下述局部实现，检索停止。
+[Apple当前EDR余量](https://developer.apple.com/documentation/appkit/nsscreen/maximumextendeddynamicrangecolorcomponentvalue)说明值随屏幕上的EDR需求改变；[potential说明](https://developer.apple.com/documentation/appkit/nsscreen/maximumpotentialextendeddynamicrangecolorcomponentvalue)明确它不是当前可用余量。[WWDC EDR](https://developer.apple.com/videos/play/wwdc2022/10113/)核对动态余量与系统映射的关系。
+
+[Apple HDR图像渲染](https://developer.apple.com/documentation/coregraphics/adopting-advancements-in-hdr-image-rendering)说明CGImage内容余量和preferredDynamicRange；[CALayer.contentsHeadroom](https://developer.apple.com/documentation/quartzcore/calayer/contentsheadroom)与SDK CALayer.h互证：图像本身的内容标签可供系统解释，preferredDynamicRange=High针对有HDR内容标签的图像。实际余量不应被误当成源图像的内容上限。
+
+[CIImage.contentHeadroom](https://developer.apple.com/documentation/coreimage/ciimage/contentheadroom)及[CGImage.contentHeadroom](https://developer.apple.com/documentation/coregraphics/cgimage/contentheadroom)核对滤镜标签传播与不可变图像元数据复制。SDK CGImage.h提供macOS15+的CGImageCreateCopyWithContentHeadroom。部分网页正文依赖JS，使用官方搜索正文、SDK注释和实际CALayer.contents读取交叉核验。
+
+反证结果：正常仓库JPEG/RAW及用户1.JPG的HDR标签并非都缺失；layer.contentsHeadroom=0在CGImage已有正确标签时合法，最初该断言已撤回。部分降额端点也会正确标为较低值，例如用户图从4.9473变为2.97365；这恰好证明亮度已经被烘焙成低余量版本。RAW的SDR边界还会丢失明确的1标签，但只补标签仍不能解决映射所有权问题。不使用potential强行增亮、不修改屏幕亮度、不停用系统自适应、不把AX截图当作物理HDR亮度测量。
 
 ## 原子验收与方案
 
-| ID | 原子验收标准 |
+| ID | 标准 |
 |---|---|
-| A1 | 已成功呈现的当前HDR图，信息页显示正常HDR输出色彩空间，失活不改为Preview |
-| A2 | 多次100ms刷新、失活动画完成及反复开关信息页后仍准确 |
-| A3 | 首帧未呈现、无HDR原生renderer、非HDR时保留实时值，不能凭源格式虚报 |
-| A4 | 换SDR/其他图或关闭当前图后不残留先前HDR输出或源信息 |
-| A5 | 实时colorInformation及HDR失活/恢复行为保持原有语义；机型、时间、颜色邻接功能通过 |
+| A1 | macOS15+ persistent缓存保持完整HDR源像素，并明确标记source内容余量 |
+| A2 | 信息页失活及返回时current变低，不能将该临时余量烘焙进persistent缓存；同一图的缓存像素/身份保持稳定 |
+| A3 | persistent图层采用系统Automatic映射；Metal/旧系统回退仍执行现有current余量策略，不以potential冒充current |
+| A4 | 元数据随任务捕获，serial/generation、预算、换图清理保持；无期望外反复重建 |
+| A5 | 用户1.JPG及仓库JPEG/RAW通过，既有真实端点保真、焦点/信息页/机型回归通过 |
 
-新增QVGraphicsView::fileInfoColorInformation()，先读取实时colorInformation；仅当hasOutput、当前FileDetails.isNativeHDRLoaded、hdrRendererActive、renderer存在、diagnostics.imageActive、firstFramePresented且outputColorSpaceName非空时，将输出替换为该renderer实际色彩空间并设置nativeOutput=true、preview=false。其他状态返回实时值。MainWindow信息页provider调用新方法；原timer和实时方法保持不变。不缓存上一张图或show前快照，不新增硬编码色彩空间名。
+macOS15+：准备persistent surface时直接物化preparedHDRImage完整源端点，不再物化按瞬时current压缩的hdrBrightnessDisplayImage结果；捕获已解析的source contentHeadroom，CGImageCreateCopyWithContentHeadroom显式标记。macOS26+安装时从该surface自身同步layer.contentsHeadroom。Automatic与preferredDynamicRange High保留，系统依据真实显示条件负责最终映射。
+
+monitor遇到有效persistent缓存/任务时只更新当前余量诊断，不因current波动销毁重建完整源缓存。没有persistent缓存的Metal路径，以及较旧系统，保留应用侧current适配和此前旧任务身份修复。已完成图层安装时诊断target/contents headroom改为实际surface内容标签，避免继续显示旧Metal目标。
 
 ## 正确性论证
 
-令L为实时信息，H为上述完整HDR就绪谓词，N为当前renderer输出名。定义F=L；若H，令F.outputSpace=N、F.nativeOutput=true、F.preview=false。H不依赖临时代理可见性，因此打开信息页和失活动画不能将正常HDR输出改为SDR预览，A1/A2成立。
+令S为完整源HDR端点、Hs为解析后的source内容余量。现代persistent任务产生P=materialize(S)，标记H(P)=Hs；P不含当前显示余量C。隐藏/恢复只改变呈现范围和opacity，C变化不会改写P或H(P)，因此不会把临时后台低余量固化为新的图像内容上限，A1/A2成立。系统Automatic映射以完整内容和实际显示条件适配；没有要求输出超出屏幕当前能力，A3成立。
 
-若未加载、错误、非HDR、无renderer或未呈现，H为假且F=L，A3成立。换图时既有setImage清理呈现标志，关闭时hasOutput=false；H同时依赖当前FileDetails，因此不会跨图沿用旧名，A4成立。source字段由L复制，没有改变原始ICC和源元数据。
+Hs在提交时按值捕获，元数据复制不修改像素；安装仍核对serial及图片generation，因此异步回调不能取其他帧的全局目标来标记像素。预算和CF所有权保留，换图清理不变，A4成立。monitor不为C变化重建同一个S；测试应核对缓存身份稳定，而不是沿用旧“current降低必须改写缓存像素”的错误抽象。实际tone mapping结果由系统负责，应用提供完整HDR信号与准确标签。
 
-该方法只读取状态，未改变渲染/激活/失活逻辑或原colorInformation；实时API仍可观测SDR代理，A5成立。这里“正常输出”指当前HDR图已成功呈现所使用的输出色彩空间，不代表当前物理屏幕亮度或EDR headroom。正常呈现尚未得到证实时，信息页仍显示现有预览信息，直到真实首帧完成后由timer更新。
+A5以原生图层、完整字节对比、源端点保真测试及用户文件回归验证。没有亮度计，不能宣称已测得用户屏幕恢复后的绝对nits或完全排除所有系统电源/亮度策略。

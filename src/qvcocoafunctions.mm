@@ -5,6 +5,7 @@
 #include "qvcocoafunctions.h"
 
 #include <QUrl>
+#include <QThread>
 #include <QDebug>
 #include <QFile>
 #include <QFileIconProvider>
@@ -2259,6 +2260,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         headroomMonitor = new QTimer();
         headroomMonitor->setInterval(100);
         QObject::connect(headroomMonitor, &QTimer::timeout, [this]() {
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+            if (qEnvironmentVariableIsSet("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR")) return;
+#endif
             if (!imageIsHDR || !presentationActiveRequested) return;
             NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
             float current = screen ? screen.maximumExtendedDynamicRangeColorComponentValue : 1.0F;
@@ -2267,7 +2271,23 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (valid) current = std::max(1.0F, override);
             const float currentOverride = qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM").toFloat(&valid);
             if (valid) current = std::max(1.0F, currentOverride);
-            if (std::abs(current - state.displayRenderingHeadroom) < 0.001F) return;
+            if (@available(macOS 15.0, *)) {
+                if (persistentSurfaceReady || persistentSurfacePreparationInFlight) {
+                    // The compositor adapts the tagged full-HDR CGImage.
+                    // Baking transient display headroom into these pixels
+                    // would limit the very EDR content that restores headroom.
+                    state.displayCurrentHeadroom = std::max(1.0F, current);
+                    state.displayRenderingHeadroom = state.displayCurrentHeadroom;
+                    return;
+                }
+            }
+            // Drawables can update diagnostics while an older persistent
+            // surface is still being prepared. Compare the cached/job pixels'
+            // headroom, not a value that another render can overwrite.
+            const float surfaceHeadroom =
+                    persistentSurfaceReady || persistentSurfacePreparationInFlight
+                    ? persistentSurfaceHeadroom : state.displayRenderingHeadroom;
+            if (std::abs(current - surfaceHeadroom) < 0.001F) return;
             if (persistentSurfaceReady || persistentSurfacePreparationInFlight) {
                 discardPersistentSurface(true);
                 state.displayRenderingHeadroom = std::max(1.0F, current);
@@ -3012,6 +3032,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         persistentImageLayer.contents = reinterpret_cast<id>(surface);
+        if (@available(macOS 15.0, *)) {
+            state.targetHeadroom = CGImageGetContentHeadroom(surface);
+            state.layerContentsHeadroom = state.targetHeadroom;
+        }
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+        if (@available(macOS 26.0, *))
+            persistentImageLayer.contentsHeadroom = CGImageGetContentHeadroom(surface);
+#endif
         persistentImageLayer.contentsScale = 1.0;
         persistentImageLayer.hidden = NO;
         persistentImageLayer.opacity = 1.0F;
@@ -3048,16 +3076,32 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         persistentSurfacePreparationInFlight = true;
+        persistentSurfaceHeadroom = state.displayRenderingHeadroom;
         persistentSurfacePreparationGeneration = presentationState->generation;
         const NSUInteger generation = persistentSurfacePreparationGeneration;
         const quint64 surfaceSerial = ++persistentSurfaceSerial;
+        float surfaceContentHeadroom = static_cast<float>(
+                QVCocoaFunctions::effectiveHDRHeadroom(
+                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
         CIImage *source = [hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage,
                                                      state.displayRenderingHeadroom, 1.0F) retain];
+        if (@available(macOS 15.0, *)) {
+            [source release];
+            source = [preparedHDRImage retain];
+            surfaceContentHeadroom = std::max(1.0F, state.contentHeadroom);
+        }
         CIContext *surfaceContext = [persistentContext retain];
         CGColorSpaceRef surfaceColorSpace = CGColorSpaceRetain(outputColorSpace);
         const auto gate = persistentSurfaceGate;
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+        const int testDelay = qBound(0, qEnvironmentVariableIntValue(
+                "FOVELLE_TEST_PERSISTENT_SURFACE_DELAY_MS"), 2000);
+#endif
         dispatch_async(persistentSurfaceQueue, ^{
             @autoreleasepool {
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+                QThread::msleep(static_cast<unsigned long>(testDelay));
+#endif
                 const CFTimeInterval started = CACurrentMediaTime();
                 CGImageRef surface = [surfaceContext
                         createCGImage:source
@@ -3065,6 +3109,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                                format:kCIFormatRGBAh
                            colorSpace:surfaceColorSpace
                              deferred:NO];
+                if (@available(macOS 15.0, *)) {
+                    CGImageRef tagged = surface
+                            ? CGImageCreateCopyWithContentHeadroom(surfaceContentHeadroom, surface)
+                            : nullptr;
+                    if (surface)
+                        CGImageRelease(surface);
+                    surface = tagged;
+                }
                 // The CGImage is fully materialized (`deferred:NO`), so the
                 // one-shot CI evaluation cache can be released immediately.
                 // Retaining it would duplicate a substantial fraction of an
@@ -4308,6 +4360,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CIImage *preparedHDRImage{ nil };
     std::shared_ptr<const NativeMetalImageGraph> image;
     QTimer *headroomMonitor{ nullptr };
+    float persistentSurfaceHeadroom{ 1.0F };
     quint64 persistentSurfaceSerial{ 0 };
     bool imageIsHDR{ false };
     bool brightnessRapidSwitch{ false };

@@ -1,37 +1,35 @@
-# HDR信息页输出测试规格
+# 完整HDR源缓存测试规格
 
-日期：2026-10-17。动态测试加入ImageCoreAndMovieTests，静态测试tests/hdr_info_output_static.py。每项用例均自动执行，失败不跳过本机HDR能力。
-
-## S1（A1、A3、A5）：只读信息页路径静态检查
-1. 测试目的：核验独立正常HDR查询、真实就绪条件、provider接线，防止硬编码或更改实时语义。
+## S1（A1、A3、A4）：映射所有权静态检查
+1. 测试目的：现代persistent使用完整源，任务标签按值捕获，旧Metal/current与取消/预算路径保留。
 2. 前置条件：源码可读。
-3. 输入数据：graphicsview header/cpp、MainWindow、CMake。
-4. 操作步骤：执行hdr_info_output_static.py。
-5. 预期结果：查询包含hasOutput、isNativeHDRLoaded、rendererActive、imageActive、firstFramePresented、非空输出；只读、使用renderer输出名；MainWindow调用新查询；原实时谓词保留；CTest已注册。
-6. 后置条件：无文件或窗口变更。
+3. 输入数据：qvcocoafunctions.mm及CTest配置。
+4. 操作步骤：运行hdr_surface_metadata_static.py与既有hdr_headroom_restore_static.py，检查preparedHDRImage源、CGImage标签复制、macOS可用性保护、serial及安装读取自身标签。
+5. 预期结果：不从完成时全局目标推断标签；现代monitor不随current重建源缓存；旧策略仍存在。
+6. 后置条件：无修改。
 
-## D1（A1、A2、A5）：真实HDR信息页退化场景
-1. 测试目的：复现正常HDR图打开信息页后临时SDR代理覆盖信息的问题。
-2. 前置条件：macOS原生renderer可用，GUI事件循环；工作区两个portable-hdr素材存在。
-3. 输入数据：gain-map.jpg、bayer.dng两个独立数据行。
-4. 操作步骤：testHDRInfoUsesNormalOutput加载并等待真正nativeOutput，记录正常输出名与源信息；打开真实信息页并调用相同生产失活入口；等待实时API报告preview；等待700ms跨越450ms动画与多轮timer；关闭/重开信息页，重复两轮。
-5. 预期结果：信息页输出持续等于正常HDR输出名且无Preview前缀；实时API仍报告预览；源ICC不变。
-6. 后置条件：scope guard关闭窗口，恢复退出策略，释放临时素材。
+## D1（A1、A2、A5）：返回后实际完整HDR缓存
+1. 测试目的：捕获“像素被current预先压缩”的旧路径，覆盖用户真实文件。
+2. 前置条件：macOS15+原生renderer，仓库素材；用户文件通过FOVELLE_HDR_REPRO_IMAGE指定。
+3. 输入数据：gain-map.jpg、bayer.dng、用户1.JPG；current从16到后台1，返回(源内容余量+1)/2。
+4. 操作步骤：testHDRPersistentSurfaceMetadata建立正常缓存字节/身份基线；打开信息页并走生产失活入口，低余量停留；回到真实窗口并关闭信息页；读取CALayer.contents的CGImage及layer标签。
+5. 预期结果：完整源字节、对象身份不变，CGImage标签等于source内容余量，layer标签与其一致或合法未覆盖值0；真实native输出恢复。旧应用预先映射的缓存会改变像素或较低标签，不能通过。
+6. 后置条件：关闭窗口，恢复所有环境变量，释放CF数据。
 
-## D2（A3、A4）：换图与关闭
-1. 测试目的：证明不冻结整张旧图的信息。
-2. 前置条件：D1中HDR信息页已打开并经历退化。
-3. 输入数据：临时Qt栅格XPM（非原生HDR）及空状态。
-4. 操作步骤：D1后半段保持信息页打开、切换XPM，再关闭当前图片；比较新方法与实时值；检查label和source。
-5. 预期结果：XPM不带旧HDR输出、不标预览、显示真实Qt色彩空间；关闭后No output及Unknown source。
-6. 后置条件：与D1一起清理；两种HDR数据均执行本组断言。
+## D2（A2、A3、A4）：current降额及稳定缓存
+1. 测试目的：确认current不再被烘焙进现代persistent，系统仍可根据完整HDR信号自适应。
+2. 前置条件：D1已加载。
+3. 输入数据：current再降到1，再回16；既有headroom测试的JPEG/RAW。
+4. 操作步骤：D1后半段核对完整内容标签及缓存身份保持，回16核对字节基线；testHDRHeadroomSurfaceRestores现代分支验证失活、current变化、恢复、缓存稳定和换图清理。旧系统保留原应用侧降额交错断言。
+5. 预期结果：现代完整源缓存不因current变化重建；换图后无旧HDR缓存；Metal政策仍由当前余量控制。不能把“缓存字节保持完整HDR”误称为物理屏幕无视低余量强行增亮。
+6. 后置条件：释放窗口、设置及资源。
 
-## D3（A3、A5）：实时与正常查询的回退边界及回归
-1. 测试目的：验证非HDR/空图/原生SDR采用实时语义，原来实时色彩信息测试不失效。
-2. 前置条件：既有ImageCoreAndMovieTests和机型专项可运行。
-3. 输入数据：空视图、Qt栅格、DisplayP3 PNG以及既有颜色/机型/时间素材。
-4. 操作步骤：testFileInfoColorFallback检查加载前、Qt栅格、关闭后新旧查询字段一致；完整ImageCoreAndMovieTests及FovelleCameraModel运行现有真实原生SDR、颜色、信息页用例。
-5. 预期结果：无HDR时新旧值一致；source与output分离；已有测试通过。
-6. 后置条件：关闭测试窗口、释放loader和临时资源。
+## D3（A3、A5）：端点与界面回归
+1. 测试目的：保留真实完整源颜色、焦点恢复和正常输出信息。
+2. 前置条件：已构建两组完整套件，HDRPolicy配置仓库JPEG样本。
+3. 输入数据：ImageCoreAndMovieTests、HDRPolicyTests及机型门禁。
+4. 操作步骤：完整运行两组套件，含probePersistentHDRPixels与直接解码源端点的独立比较；执行CameraModel及信息页静态门禁。
+5. 预期结果：全部通过；current/potential政策、真实像素保真、关闭恢复和机型正确。
+6. 后置条件：资源清理。
 
-映射：A1→S1/D1；A2→D1；A3→S1/D3；A4→D2/D3；A5→S1/D1/D3。D1/D2共享相同端到端生命周期，每条断言实际执行；没有只写规格而不实现的测试用例。先运行旧provider验证D1失败，再接入生产修复并复测。
+映射：A1→S1/D1；A2→D1/D2；A3→S1/D2/D3；A4→S1/D2；A5→D1用户行/D3。current覆盖是确定性模拟，不冒称真实跨应用物理亮度计测量。旧OS运行保护仅静态核验。

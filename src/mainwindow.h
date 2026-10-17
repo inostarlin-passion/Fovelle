@@ -259,6 +259,7 @@ private:
     void ensureContextMenu();
 
     void ensureInfoDialog();
+    void restoreImageFocusAfterInfo();
 
     void exitFullScreen();
 

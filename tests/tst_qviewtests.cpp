@@ -71,6 +71,7 @@
 #include <QMenu>
 #include <QStackedWidget>
 #include <QTranslator>
+#include <QOperatingSystemVersion>
 #include <QDataStream>
 #include <QScopeGuard>
 
@@ -390,6 +391,14 @@ private slots:
     void testSourceColorMetadata();
     void testColorContainerBoundaries();
     void testFileInfoColorFallback();
+    void testHDRPersistentSurfaceMetadata_data();
+    void testHDRPersistentSurfaceMetadata();
+    void testHDRHeadroomSurfaceRestores_data();
+    void testHDRHeadroomSurfaceRestores();
+    void testHDRInfoCloseRestores_data();
+    void testHDRInfoCloseRestores();
+    void testHDRInfoCloseGuards_data();
+    void testHDRInfoCloseGuards();
     void testHDRInfoUsesNormalOutput_data();
     void testHDRInfoUsesNormalOutput();
     void testColorInformationFollowsPresentation();
