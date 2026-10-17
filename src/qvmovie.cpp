@@ -169,6 +169,7 @@ public:
     quint64 playbackGeneration = 0;
     QvAsync::Ticket frameTicket;
     std::shared_ptr<AsyncMovieDecoder> asyncDecoder;
+    std::optional<QFrameInfo> pendingFrame;
     QString absoluteFilePath;
 
     QTimer *nextImageTimer = nullptr;
@@ -221,6 +222,7 @@ void QVMoviePrivate::cancelNextLoad()
     QvAsync::cancel(frameTicket);
     frameTicket.reset();
     asyncDecoder.reset();
+    pendingFrame.reset();
     nextLoadTime = std::nullopt;
     nextImageTimer->stop();
 }
@@ -503,6 +505,9 @@ void QVMoviePrivate::loadAsyncFrame()
     if (!nextLoadTime)
         nextLoadTime = std::chrono::steady_clock::now();
     if (!asyncDecoder) {
+#ifdef FOVELLE_MOVIE_TEST_METRICS
+        q->setProperty("decoderCreations", q->property("decoderCreations").toInt() + 1);
+#endif
         asyncDecoder = std::make_shared<AsyncMovieDecoder>();
         asyncDecoder->path = absoluteFilePath;
         asyncDecoder->format = reader->format();
@@ -511,18 +516,33 @@ void QVMoviePrivate::loadAsyncFrame()
     const quint64 generation = playbackGeneration;
     const auto decoder = asyncDecoder;
     const auto found = frameMap.find(target);
-    const std::optional<QFrameInfo> cached =
+    std::optional<QFrameInfo> cached =
             found == frameMap.end() ? std::nullopt : std::optional<QFrameInfo>(found->second);
-    if (cached) {
+    if (found != frameMap.end()) {
         cacheOrder.remove(target);
         cacheOrder.push_back(target);
+    }
+    // A read may finish while paused. Consume that exact result without
+    // asking the sequential decoder to read the same target a second time.
+    if (pendingFrame) {
+        cached = std::move(pendingFrame);
+        pendingFrame.reset();
     }
     frameTicket = QvAsync::run(
             [decoder, target, cached] { return cached ? *cached : decoder->read(target); },
             [this, generation, target, q](QFrameInfo info) {
-                if (generation != playbackGeneration || movieState != QVMovie::Running)
+                if (generation != playbackGeneration)
                     return;
+#ifdef FOVELLE_MOVIE_TEST_METRICS
+                q->setProperty("readCompletions", q->property("readCompletions").toInt() + 1);
+#endif
                 frameTicket.reset();
+                if (movieState == QVMovie::Paused) {
+                    pendingFrame = std::move(info);
+                    return;
+                }
+                if (movieState != QVMovie::Running)
+                    return;
                 if (info.endMark) {
                     if (target == 0) {
                         emit q->error(QImageReader::InvalidDataError);
@@ -633,8 +653,8 @@ bool QVMoviePrivate::jumpToFrame(int frameNumber)
     if (currentFrameNumber == frameNumber)
         return true;
     nextFrameNumber = frameNumber;
-    if (movieState == QVMovie::Running)
-        cancelNextLoad();
+    // A paused movie can still own an in-flight read or a pending result.
+    cancelNextLoad();
     // Explicit frame jumps remain synchronous and use an independent reader.
     const bool wasAsync = asyncPlayback;
     asyncPlayback = false;
@@ -834,13 +854,17 @@ void QVMovie::setPaused(bool paused)
 {
     Q_D(QVMovie);
     if (paused) {
-        if (d->movieState == NotRunning)
+        if (d->movieState == NotRunning || d->movieState == Paused)
             return;
+        // Keep the decoder and its single in-flight read alive. Recreating a
+        // GIF reader would replay every preceding frame on resume.
+        d->nextImageTimer->stop();
+        d->nextLoadTime.reset();
         d->enterState(Paused);
-        d->cancelNextLoad();
     } else {
         if (d->movieState == Running)
             return;
+        d->nextLoadTime.reset();
         d->enterState(Running);
         d->_q_loadNextFrame();
     }

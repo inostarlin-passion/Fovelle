@@ -466,6 +466,170 @@ private slots:
         QVERIFY(gif.jumpToFrame(0));
         QCOMPARE(gif.currentImage(), initial);
     }
+    void testMoviePauseResume_data()
+    {
+        QTest::addColumn<bool>("async");
+        QTest::addColumn<bool>("apng");
+        QTest::addColumn<bool>("boundedCache");
+        for (bool async : {false, true})
+            for (bool apng : {false, true})
+                for (bool cache : {false, true})
+                    QTest::newRow(qPrintable(QString("async=%1-apng=%2-cache=%3")
+                            .arg(async).arg(apng).arg(cache))) << async << apng << cache;
+    }
+    void testMoviePauseResume()
+    {
+        QFETCH(bool, async);
+        QFETCH(bool, apng);
+        QFETCH(bool, boundedCache);
+        QTemporaryDir dir;
+        const auto path = apng
+            ? createBase64Image(dir, "resume", "png", tinyAnimatedPngBase64)
+            : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+        QVMovie reference(path);
+        reference.setCacheMode(QVMovie::CacheAll);
+        QVMovie movie(path);
+        movie.setAsyncPlayback(async);
+        movie.setSpeed(50);
+        movie.setCacheMode(boundedCache ? QVMovie::CacheAll : QVMovie::CacheNone);
+        movie.setCacheByteLimit(1);
+        QSignalSpy errors(&movie, &QVMovie::error);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        // Pause from publication, before the next timer can be armed.
+        bool pauseOnFrame = true;
+        connect(&movie, &QVMovie::frameChanged, &movie, [&](int) {
+            if (pauseOnFrame)
+                movie.setPaused(true);
+        });
+        movie.start();
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Paused, 1000);
+        for (int round = 0; round < 2; ++round) {
+            const int previous = movie.currentFrameNumber();
+            const int count = frames.count();
+            const QImage image = movie.currentImage();
+            movie.setPaused(true);
+            QTest::qWait(120);
+            QCOMPARE(frames.count(), count);
+            QCOMPARE(movie.currentImage(), image);
+            QElapsedTimer elapsed;
+            elapsed.start();
+            movie.setPaused(false);
+            // The next publication pauses again: detect exact frame order.
+            QTRY_COMPARE_WITH_TIMEOUT(frames.count(), count + 1, 1000);
+            QVERIFY(elapsed.elapsed() < 1000);
+            const int expected = (previous + 1) % movie.frameCount();
+            QCOMPARE(movie.currentFrameNumber(), expected);
+            QVERIFY(reference.jumpToFrame(expected));
+            QCOMPARE(movie.currentImage(), reference.currentImage());
+            QCOMPARE(movie.property("decoderCreations").toInt(), async ? 1 : 0);
+            QVERIFY(movie.cachedBytes() <= 1);
+        }
+        pauseOnFrame = false;
+        movie.setPaused(false);
+        movie.setPaused(false); // repeated resume must not enqueue duplicate work
+        QTRY_COMPARE_WITH_TIMEOUT(movie.state(), QVMovie::Running, 1000);
+        auto *timer = movie.findChild<QTimer *>();
+        QVERIFY(timer);
+        QTRY_VERIFY_WITH_TIMEOUT(timer->isActive(), 1000);
+        QVERIFY(timer->remainingTime() > 0);
+        QVERIFY(timer->interval() <= movie.nextFrameDelay());
+        QVERIFY(timer->interval() >= movie.nextFrameDelay() - 50);
+        movie.stop();
+        QCOMPARE(errors.count(), 0);
+    }
+    void testMoviePauseQueuedRead_data()
+    {
+        QTest::addColumn<QString>("action");
+        for (const auto &action : {"completed", "inflight", "stop", "replace", "jump", "destroy",
+                                   "pending-stop", "pending-replace", "pending-jump", "pending-destroy"})
+            QTest::newRow(action) << QString::fromLatin1(action);
+    }
+    void testMoviePauseQueuedRead()
+    {
+        QFETCH(QString, action);
+        auto entered = std::make_shared<QSemaphore>();
+        auto release = std::make_shared<QSemaphore>();
+        const auto unblock = qScopeGuard([release] { release->release(4); });
+        for (int i = 0; i < 4; ++i)
+            QvAsync::schedule([entered, release] {
+                entered->release();
+                release->acquire();
+            });
+        QTRY_COMPARE_WITH_TIMEOUT(entered->available(), 4, 2000);
+        QTemporaryDir dir;
+        const auto gif = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+        auto movie = std::make_unique<QVMovie>(gif);
+        movie->setCacheMode(QVMovie::CacheAll);
+        movie->setAsyncPlayback(true);
+        movie->setSpeed(50);
+        QSignalSpy frames(movie.get(), &QVMovie::frameChanged);
+        QSignalSpy errors(movie.get(), &QVMovie::error);
+        movie->start();
+        movie->setPaused(true);
+        QCOMPARE(movie->currentFrameNumber(), -1);
+        if (action == "inflight")
+            movie->setPaused(false);
+        else if (action == "stop")
+            movie->stop();
+        else if (action == "replace") {
+            const auto path = createBase64Image(dir, "new", "png", tinyAnimatedPngBase64);
+            movie->setFileName(path);
+        } else if (action == "jump")
+            QVERIFY(movie->jumpToFrame(2));
+        else if (action == "destroy")
+            movie.reset();
+        release->release(4);
+        // Sentinel verifies that the pool can progress after being released.
+        auto completed = std::make_shared<std::atomic<bool>>(false);
+        QvAsync::schedule([completed] { completed->store(true); });
+        QTRY_VERIFY_WITH_TIMEOUT(completed->load(), 2000);
+        QTest::qWait(120);
+        if (action == "completed" || action.startsWith("pending-")) {
+            QTRY_COMPARE_WITH_TIMEOUT(movie->property("readCompletions").toInt(), 1, 1000);
+            QCOMPARE(movie->state(), QVMovie::Paused);
+            QCOMPARE(frames.count(), 0);
+            if (action == "pending-stop")
+                movie->stop();
+            else if (action == "pending-replace")
+                movie->setFileName(createBase64Image(dir, "new", "png", tinyAnimatedPngBase64));
+            else if (action == "pending-jump")
+                QVERIFY(movie->jumpToFrame(2));
+            else if (action == "pending-destroy")
+                movie.reset();
+        }
+        if (action.endsWith("destroy")) {
+            QCOMPARE(frames.count(), 0);
+            return;
+        }
+        if (action == "completed") {
+            QCOMPARE(movie->state(), QVMovie::Paused);
+            QCOMPARE(frames.count(), 0);
+            QCOMPARE(movie->currentFrameNumber(), -1);
+        }
+        if (action == "stop" || action == "replace")
+            QCOMPARE(frames.count(), 0);
+        if (action != "inflight") {
+            const int count = frames.count();
+            connect(movie.get(), &QVMovie::frameChanged, movie.get(), [&](int) {
+                movie->setPaused(true);
+            });
+            movie->start();
+            QTRY_COMPARE_WITH_TIMEOUT(frames.count(), count + 1, 1000);
+            const int expected = action.endsWith("jump") ? 3 : 0;
+            QCOMPARE(movie->currentFrameNumber(), expected);
+            QVMovie reference(movie->fileName());
+            reference.setCacheMode(QVMovie::CacheAll);
+            QVERIFY(reference.jumpToFrame(expected));
+            QCOMPARE(movie->currentImage(), reference.currentImage());
+        }
+        if (action == "completed" || action == "inflight")
+            QCOMPARE(movie->property("decoderCreations").toInt(), 1);
+        movie->stop();
+        const int count = frames.count();
+        QTest::qWait(120);
+        QCOMPARE(frames.count(), count);
+        QCOMPARE(errors.count(), 0);
+    }
     void testMovieAsyncPlayback()
     {
         QTemporaryDir dir;

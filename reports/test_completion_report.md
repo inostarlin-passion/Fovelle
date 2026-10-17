@@ -1,216 +1,52 @@
-# GitHub Actions 修复测试完成报告
+# 动图暂停恢复测试完成报告
 
-日期：2026-10-17（Asia/Shanghai）。基线提交：c19fb14。结论：本地发布脚本网络重试修复及相关验收通过；修复后的 GitHub 发布流程尚未执行。
+日期：2026-10-17（Asia/Shanghai）。基础提交：623e39a；验证对象为本工作区未提交修改。
 
-## 故障与修复
+## 完成结论
 
-[Release 38928329345](https://github.com/inostarlin-passion/Fovelle/actions/runs/38928329345) 已通过编译、测试、签名、公证及原包验证，解压包验证时 Apple CloudKit 连接丢失（NSURLErrorDomain -1005），stapler 返回 68。新增受限重试包装器，并接入三个 staple/validate 调用点；最多五次，10/20/40/60 秒等待，单次 120 秒超时。未知 68、缺失/无效/撤销票据及权限错误不会进入重试。
+A1–A6 全部满足本次自动化验收。暂停保留 decoder 和唯一在途任务；后台结果可暂存，恢复继续下一帧；停止、换源、跳帧及销毁隔离旧结果。生产应用及测试程序编译成功。
 
-## 验收追踪
+环境：macOS 27.0.1 / arm64，Qt 6.11.2，Apple LLVM 17.0.0，CMake Release，QT_QPA_PLATFORM=cocoa；测试设置使用独立临时目录。
 
-| 原子标准 | 固化用例 | 结果 |
+## 执行结果与证据
+
+| 检查 | 结果 | 证据（本目录相对路径） |
 |---|---|---|
-| R1 | D1、D7 | 通过；参数与包含空格路径保持，成功只执行一次 |
-| R2 | D2 | 通过；两次连接中断后恢复 |
-| R3 | D3、D5 | 通过；五次上限、等待序列和超时均验证 |
-| R4 | D4、D5、D6、D8 | 通过；永久错误即时失败，后续错误重新分类 |
-| R5 | S1；发布契约回归 | 通过；三处接入，门禁/顺序保留，CTest 注册成功 |
-| R6 | D7；D3 | 通过；诊断日志、次数及失败返回保留 |
+| S1静态门禁 | 1项通过 | evidence/movie_resume_20261017/restored-ctest.log |
+| D1 GIF/APNG、同步/异步、无缓存/1字节预算 | 8组通过；每组两轮暂停恢复 | 同上 |
+| D2 排队/暂存后的恢复与破坏性状态变更 | 10组通过 | 同上 |
+| 专项QtTest总计 | 20 passed，0 failed，0 skipped（含init/cleanup） | 同上 |
+| 完整RemediationTests | 43 passed，0 failed，0 skipped（包含专项，不重复计数） | evidence/movie_resume_20261017/final-remediation.log |
+| 完整ImageCoreAndMovieTests | 8 passed，0 failed，0 skipped | evidence/movie_resume_20261017/final-image-core.log |
+| 生产及测试构建 | Fovelle、fovelle_tests成功 | evidence/movie_resume_20261017/build-final.log |
+| 恢复证伪实验后的测试构建 | 成功 | evidence/movie_resume_20261017/restored-build.log |
+| diff空白检查 | git diff --check通过 | 命令退出0 |
 
-## 实际执行
+## 红→绿与逆向证伪
 
-- 修复前 `python3 tests/stapler_retry_tests.py`：9 个方法执行，FAILED（7 failures、11 errors，含 subTest）。包装器尚不存在且调用尚未接入，证明新增测试能检出缺失行为；并非声称真实网络故障可在离线环境自动复现。
-- 修复后同命令：9/9 通过；包含六组真实 Python CLI 子进程测试、受控故障与等待注入。
-- `cmake -S . -B build`：配置成功。
-- `ctest --test-dir build -R 'Fovelle(StaplerRetryContracts|ActionsRegressionContracts)$' --output-on-failure`：2/2 目标通过（内部新增 9 项、原有 Actions 10 项），总计 5.95 秒。
-- `python3 tests/quality_release.py --output .../release-contract.json`：11/11 发布契约通过，含无凭证 dry-run。
-- `python3 tests/update_acceptance.py`：13/13 通过，含真实 Sparkle 更新探针及篡改归档拒绝。
-- `bash -n dist/scripts/package-macos-release.sh` 与 `git diff --check`：通过。
+第一轮旧实现测试见 before.log：静态门禁失败；APNG和排队任务的创建次数明确从1变2。该轮同时暴露测试自身的GIF参考读帧问题（CacheNone不支持这里假设的任意跳帧），已将参考reader及跳帧测试设为CacheAll；这部分失败不作为产品故障证据。
 
-## 扩展审计及限制
+为排除测试修正造成假绿，追加隔离变异实验：只把暂停时 cancelNextLoad 放回正确实现，保持最终测试及其他生产代码不变。mutation-red.log 显示同步4组通过、异步GIF/APNG四组全部因decoderCreations=2而失败，退出4。随即恢复源码、重新构建、重新运行专项门禁，全部通过。该实验直接证明测试能检出本次恢复重建decoder的问题。
 
-`quality_static.py` 全仓历史审计 29 项中 24 项通过，失败 ST-01、ST-06、ST-09、ST-11、ST-16；涉及旧格式、解码/测试/其他源码契约，不能据此宣称全仓静态通过。本次发布相关 ST-19、ST-20 通过。另以 HEAD 原版审计器在当前源码上交叉运行，同五项仍失败，另有 ST-19 因只认识直接 stapler 调用失败；新版仅同步发布调用标记，没有更改上述五项判定。本次未修改 C++ 应用源码，不以扩大格式化或重写历史审计来掩盖这些结果。
+## 原子标准验收
 
-未执行全套 GUI/HDR CTest；改动局限于发布工具、测试及文档，已针对相关路径验证。受控 xcrun 不证明真实 Apple 服务可用；无 CI 签名凭证，未执行真实公证、推送、移动 v1.3.1 标签或发布新版本。已有远端 Checks/Build 成功为基线证据，不能当作本次修改的远端验证。
+- A1：异步D1四组及D2完成前/完成后恢复均保持decoderCreations=1，且GIF测试预算不足以缓存一帧；修复不依赖扩大缓存。
+- A2：暂停120ms画面/信号不变；暂存分支通过readCompletions确定已交付；没有继续发布帧。
+- A3：序号为精确后继，像素等于独立同步解码；快速恢复复用唯一任务。
+- A4：重复pause/resume不新增任务；恢复后的timer保持正常帧时长附近，下一帧在测试1000ms门槛内到达。
+- A5：排队和结果暂存两种阶段的stop/换源/跳帧/销毁均通过；停止后等待120ms没有帧泄漏。
+- A6：同步GIF、APNG、已有速度比例、bounded cache、错误输入、旧源隔离回归全部通过。
 
-## 证据
-
-本地目录 `reports/evidence/actions_release_20261017/`：remote-failure.log（远端失败日志）、run.json（运行/步骤状态）、stapler-man.txt（本机工具手册）、red.log、green.log、configure.log、ctest.log、existing-actions.log、release-contract.json、update-acceptance.log、static-contract.json、prior-audit-current-tree.json。此目录沿用仓库证据忽略规则，仅作为本地留存；测试代码与三份报告可随修复提交。此前报告原文在下方完整保留，快照另存 prior_reports/。
-
----
-
-<details>
-<summary>此前任务测试记录（完整保留，非本次结论）</summary>
-
-# GitHub Actions 失败修复：测试完成报告
-
-日期：2026-10-16（Asia/Shanghai）。基线：2002590。本轮只修改 CI 测试基础设施和工作流，不修改产品的下载时限或 SDR/HDR 呈现策略。
-
-## 最终验收（真实 Actions）
-
-修复提交 **735b5734f5093df807b46290aedcac6c829bf575** 的 [草稿 PR #4](https://github.com/inostarlin-passion/Fovelle/pull/4) **5/5 检查全部成功**。
-
-| 真实工作流 | 结果 | 证据 |
-|---|---|---|
-| Build Fovelle | success；44/44 CTest；部署、打包、解压验证完成 | [38908356067](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356067) |
-| Checks | success；44/44 CTest；clang-tidy 与格式作业完成 | [38908356341](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356341) |
-| macOS 15 Release Compatibility | success；SDK15 构建、44/44 CTest 与部署验证完成 | [38908356249](https://github.com/inostarlin-passion/Fovelle/actions/runs/38908356249) |
-
-三套运行上传的原生 XML/JSON/log 已下载并用正式验证函数再次核验：所有 suite 返回 0，颜色像素及十个全屏数据行完整，非 pass 数为 0。API headSha 与 PR 头提交一致，未用旧运行冒充本次成功。最终远端补记及下载产物保存在本地报告/证据目录，修复源码位于已验证的 PR 提交。
-
-## 1. 已确认的失败
-
-- [Build Fovelle 38898648389](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898648389) 与 [Checks 38898647755](https://github.com/inostarlin-passion/Fovelle/actions/runs/38898647755) 在同一 SHA 的相同两项测试失败。
-- testDownloadTotalTimeout 的旧输入不能保证客户端在 150ms 内接收滴流，而断言只接受总超时。Qt 的写缓冲和计时器契约不支持该推导；未把 Nagle 的具体触发声称为已唯一证明的包级根因。
-- 原始 HDR XML 的前三行均等不到 persistentHDRSurfaceReady，随后整个子进程超过 180s。headroom=1 在本地复现同一失败（46.7s），确认为显示能力前提缺失。
-
-## 2. 实现与验证结果
-
-| 项目 | 实际结果 |
-|---|---|
-| 设计／验收 | 设计含五组条件证明，CI1–CI8 原子验收及每例六要素，另含环境/旧结果反例 |
-| 红证据 | 新接口未实现时 Python 导入失败、QtTest 缺头文件；SDR headroom=1 真实原生失败；后续补充反例继续在旧实现失败 |
-| 构建 | 本地 Qt 6.11.2 Release 目标构建成功 |
-| 新契约及执行器测试 | 最终 10/10 通过；成功、非零退出、超时、缺输出、旧结果、缺/重/错数据行及 workflow 证据契约均覆盖 |
-| 原有门禁单测 | 3/3 通过，原有静态契约 6/6 通过 |
-| 强制 SDR 环境回归 | 两个 headroom 通道均为 1 时，HDR 亮度控制、RemediationDynamic、PortableHDR、ActionsRegressionContracts 四个 CTest 项 4/4 通过（39.60s） |
-| 真图门禁 | 三个原生阶段 JSON 为 passed；HDR 全屏十个数据行精确匹配，零失败/跳过 |
-| 网络稳定性 | 总超时与空闲重置两个真实 loopback 用例重复十轮，10/10 通过 |
-| 资源与环境 | 16 种双环境键存在性/字节组合精确恢复；子进程超时终止自己的进程组并回收，原 XML/日志/JSON 保留 |
-| 格式／差异 | 改动头文件和 C++ 改动范围格式校验通过，源码 git diff --check 通过；原始证据日志保留上游空白并采用目录级数据属性。原有 build.sh 格式脚本即使有诊断仍返回 0，未将它算作合规证明，也未批量重排无关历史源文件 |
-
-## 3. 验收映射
-
-| 验收 | 测试与结果 |
-|---|---|
-| CI1 | LowDelayOption+flush，多个真实 progress，总时限 600ms 小于空闲 2000ms，精确本地化原因；通过 |
-| CI2 | 流量持续超过两倍空闲时限仍不失败；停滞控制继续触发空闲保护；通过 |
-| CI3 | ScopedHDRTestDisplay 保存并恢复潜在/当前两个键；默认 4，颜色保留原 16 或更高参考值；16 个组合通过 |
-| CI4 | 父环境双 headroom=1，真实 DNG/gain-map JPEG、float 像素、十个全屏行均执行；通过 |
-| CI5 | suite/函数/十个 DataTag/所有 Incident 必须满足条件，缺失/重复/错误/skip 反例拒绝；通过 |
-| CI6 | 非零退出及挂起进程均失败；XML、log、JSON 保留；共享 270s/子进程 180s/清理 5s 预算不靠延长外层 300s 掩盖失败；通过 |
-| CI7 | 旧 XML 在启动前删除，未开始的后续阶段为 not-run，退出 0 但无新 XML 仍失败；通过 |
-| CI8 | Build、Checks unit、兼容与发布工作流必开门禁并 always 上传完整结果目录和 CTest 日志；本地契约通过，远端三套 Actions 上传与复核均通过 |
-
-## 3.1 真实 PR 复核与第二轮修正
-
-[草稿 PR #4](https://github.com/inostarlin-passion/Fovelle/pull/4) 的提交 3c86f4e 已在 macOS 26 Build、Checks 及 macOS 15 兼容工作流执行。三者的 portable HDR 均通过，原始总超时失败也消失；新执行器单测却因 Python 冷启动超过 200ms，将预期退出 7 的模拟进程正确判为 timeout。另一次 Checks 原容器功能测试在 6.25s 完成解码，超出旧 5s 守卫。
-
-保留本轮失败日志，不修改正式 runner 的失败分类：单测加入 350ms 受控启动延迟，非零退出／挂起用例分别使用 5s 守卫；移除伪子进程不需要的 unittest.mock 导入。图像功能测试按实际 ImageIO/Qt SVG 调用链采用 15s/5s 有界守卫并记录格式、预算和解码耗时，全部结果断言保留，组上限仍为 90s。旧日志没有具体格式，报告不把单一格式的冷启动原因写为已证实事实。
-
-第一轮本地完整回归 47/47 通过（430.00s）。扩展后的十个契约／执行器单测通过，受影响 RemediationDynamic 与 ActionsRegressionContracts 两项复核通过。最新真实 Actions 已完成新预算前提复核，三套工作流均成功；运行链接见最终验收。
-
-## 4. 证据与边界
-
-证据目录：reports/evidence/actions-fix/。包含远端失败 job 日志与下载 XML、本地 SDR 红 XML、扩展契约红/绿日志、local-sdr-gate 的原生 XML/JSON/log、网络十轮日志与格式观察。
-
-本机为 macOS 27.0.1/arm64；原失败 runner 为 macOS 26.6.2。测试 headroom 注入验证真实原生缓冲/像素/几何支路，不把虚拟屏幕描述为物理 HDR 显示器。错误与 skip 保持硬失败，不采用自动重试洗白。
-
-最终状态：CI1–CI10 验收完成，真实 PR 检查全部成功。没有修改产品参数、放宽像素/几何结果阈值或将失败改为 skip。
-
----
-
-# 历史完成报告
-
-# Fovelle 问题 1–10：测试完成报告
-
-日期：2026-10-16（Asia/Shanghai）。源码基线：`609d554`，修复保留在当前工作区，未创建提交或发布版本。
-
-## 1. 结论与结果口径
-
-上一轮问题 1–10 的生产修复、设计证明、20 条原子验收、静态与动态测试均已完成。新增行为测试 21 个，连同初始化/清理为 **23 passed、0 failed、0 skipped**；最终窗口 URL 成功链路也已实际执行。
-
-必须区分全量记录与最终复核：核心修复阶段全量 **45/45 通过**；增加交付启动门禁后的全量为 **44/46 通过**，其中原有键盘轨迹与外置 RAW HDR 稳态探针各出现一次失败。相同二进制单独复核 **3/3 通过**；随后补充明确窗口激活前置条件，受影响标准 DPI、2× DPI、HDR 全屏和 portable HDR 门禁 **4/4 通过**。最后补充的窗口 URL 生命周期测试所在新增集合再次通过。没有把失败删掉或改为跳过，也没有声称最后一次全量运行是一次全绿。
-
-全部 46 个已注册 CTest 项目均有通过记录；最终复核修复了测试前置条件的缺失，仍不把一次复测当作所有桌面焦点交错下绝无波动的证明。
-
-## 2. 环境与实际执行
-
-| 项目 | 实测环境／结果 |
-|---|---|
-| 系统与架构 | macOS 27.0.1，arm64 |
-| 编译器／SDK | Apple LLVM 17.0.0，macOS SDK 27.0 |
-| Qt／配置 | Qt 6.11.2，Release；macOS deployment target 15.0；BUILD_TESTS=ON |
-| 构建 | 生产 app、QtTest、辅助目标均成功构建 |
-| 静态契约 | 6 个检查组通过，覆盖 URL、目录快照、缓存/异步边界、退出、交付及门禁注册 |
-| 门禁反例 | 3 个 unittest 通过；缺失/损坏样本、缺函数、空执行、skip/fail/xfail 均被拒绝 |
-| 新增动态行为 | 21 个函数，含初始化/清理合计 23 通过，零失败/跳过 |
-| portable HDR | gain-map JPEG 与 Bayer DNG 真正解码；原生颜色像素、10 个全屏数据行执行；XML 汇总非 pass 为 0 |
-| 交付 | 部署、整个 bundle Mach-O 校验、重签、压缩、解压、真实 Fovelle --version 和 Ghostscript --version 成功；移除 Cocoa 插件后校验失败 |
-| DNG 可重复生成 | 生成器再次输出与提交样本逐字节相同 |
-| clang-tidy | urldownload、asyncwork、qvfileenumerator、qvmovie 四个生产源文件完成检查，无诊断错误 |
-| 差异检查 | git diff --check 通过；新增 C++ 文件与改动行按仓库 clang-format 规则格式化 |
-
-本地没有执行远端 GitHub Actions，也没有把 SDK 27 本机运行称为 macOS 15 实机验证。macOS 15 兼容 CI、发布门禁和 XML 证据上传已配置。
-
-## 3. 原子验收闭环
-
-| ID | 原问题 | 生产行为与动态证据 | 结果 |
-|---|---|---|---|
-| R1 | 1 | UrlDownload 负责全部网络/文件/定时器操作，回调与 reply 线程归属检查；MainWindow URL 路径无 QtConcurrent 网络读取 | 通过 |
-| R2 | 2 | 带 ICC/作者 PNG、APNG、SVG、gain-map JPEG、Bayer DNG 下载原字节比较；统一 loader 保留矢量、动画及 HDR/RAW；真实窗口 APNG 保留两帧 | 通过 |
-| R3 | 3 | 十次成功事务、取消和 404；reply 归零，失败目录回到基线，成功容器在窗口销毁后删除 | 通过 |
-| R4 | 4 | 停滞 HTTP 在缩短的空闲时限触发失败；实际简体中文错误信号验证，四份 TS 同步 | 通过 |
-| R5 | 4 | 每 30ms 滴流响应仍被总时限终止，不会不断延长截止时间 | 通过 |
-| R6 | 5 | Content-Length=1025、预算 1024 时，零正文落盘即拒绝 | 通过 |
-| R7 | 5 | 无长度与 chunked 的 1024/1025 字节边界分别成功/失败，累计写入不超过预算 | 通过 |
-| R8 | 5 | 未知总量采用不定进度；重复取消只有一个取消终态，真实 MainWindow 路径不弹错误框 | 通过 |
-| R9 | 6 | 普通 CI 部署后打包/解压复检；独立动态交付测试实际启动解压 app 与捆绑 Ghostscript，缺插件反例失败 | 通过 |
-| R10 | 7 | 无 QObject 跨线程访问的 ScanOptions 值快照，自然排序结果异步返回主线程 | 通过 |
-| R11 | 7 | A→B 快速换目录只提交最新结果；关闭使旧代次失效 | 通过 |
-| R12 | 7 | 目录首图异步打开、目录快照到达、下一张导航与窗口信息更新 | 通过 |
-| R13 | 8 | QImage 缓存实际字节计量、64MiB 默认预算；16/1/1024 字节测试策略不超预算 | 通过 |
-| R14 | 8 | APNG 和 Qt GIF 两条解码路径均验证淘汰后回退像素一致，大于预算的帧不缓存 | 通过 |
-| R15 | 8 | 异步 start/stop、占满工作池后的换源与主线程 heartbeat、100%/200% 速度比较、非法输入错误终态 | 通过 |
-| R16 | 9 | 注入慢读取，加载器销毁小于 100ms；工作结束后没有迟到业务回调；矢量 tile 同样迁入读任务服务 | 通过 |
-| R17 | 9 | 子进程通过真实 QVApplication 析构验证：30ms 工作正常退出 0，10s 工作超时退出 75，已保存设置可读 | 通过 |
-| R18 | 10 | 原创可移植编码样本、生成源码、CC0 声明、SHA-256 清单；缺失/篡改拒绝，DNG 重生成一致 | 通过 |
-| R19 | 10 | 无条件注册关键 portable HDR 门禁；真实原生像素/全屏执行；XML 禁止缺执行、失败或跳过，CI 上传执行证据 | 通过 |
-| R20 | 1–10 | 原有完整回归与失败项复核；激活前置条件补充后的四项回归通过，所有原结果阈值保留 | 通过，GUI 环境边界见第 5 节 |
-
-## 4. 红阶段、反证与修复记录
-
-| 观察／反例 | 实际处理及证据 |
-|---|---|
-| 旧实现没有新接口，测试构建缺 urldownload.h；初始静态检查 5 failures、1 error | 保留 red-build.log、red-contract.log；不把编译失败冒充动态行为失败 |
-| 目录动态测试暴露无 QWidget 父对象／窗口句柄时的崩溃 | 对父对象安全转换并处理空句柄，独立 core 与实际窗口路径均通过 |
-| 第一版合成 DNG 被 ImageIO 识别为 TIFF，不能进入 RAW 链路 | 补齐 RAW IFD 标记等信息并核验 CGImageSource、CIRAWFilter 与生产 loader；最终是 com.adobe.raw-image |
-| 异步非法输入没有 error 信号 | 新用例实测失败后，修正首帧/帧解码失败的明确错误终态；最终通过，不缓存空白失败帧 |
-| macdeployqt 后第三方库仍含开发机路径 | 区分 LC_ID_DYLIB 与真正依赖；规范化路径、检查整个 bundle、重签并解压启动；包含 Resources/ghostscript |
-| 全量运行出现键盘零动作与 HDR 稳态无法分类 | 原始失败保留在 ctest-final.log；相同二进制复核通过后补充 qWaitForWindowActive，受影响四项再次通过；不放宽像素/几何/动作断言 |
-| 缺样本／损坏 XML 可能被当作“未执行但成功” | 正式门禁验证函数的反例测试全部拒绝；新门禁非 pass 数为零 |
-
-## 5. 正确性与适用边界
-
-- 设计文件给出状态机不变量、归纳证明、代次反证、缓存字节预算证明与播放截止时间模型；这些证明以 Qt/Apple API 契约与事件循环可调度为前提，不声称验证了所有 OS/驱动实现。
-- 128MiB 是单个 URL 事务落盘字节上限；64MiB 是动画缓存的 QImage 数据预算，当前帧、在途帧、解码器、GPU 和容器开销另计，不能称为整个进程 RSS 上限。
-- 1500ms 是读任务池的等待预算，不是整个应用每一步退出的硬实时上界。不可中断解码仍未结束时，持久状态同步后以退出码 75 在 Qt 析构前结束进程；普通窗口关闭只取消票据，不触发此兜底。
-- 可移植样本验证真实编码容器、通用 RAW 与 gain-map 呈现，不替代所有相机型号。已有特定 NEF／处理后 DNG 本机回归继续保留，不把私人外置卷样本伪装成可分发资产。
-- 原生 GUI 测试要求可激活的桌面窗口；焦点前置条件现在明确检查，原始间歇性失败和复核均如实保存。
-
-## 6. 证据与复现
-
-主要证据位于 `reports/evidence/remediation/`：
-
-| 文件 | 内容 |
-|---|---|
-| ctest.log | 核心修复阶段 45/45 通过，383.00s |
-| ctest-final.log、ctest-final-details.log | 加入交付启动测试后的完整 46 项运行，44 通过、2 个原有 GUI 用例失败；原始记录不覆盖 |
-| recheck.log | 相同二进制失败项与交付项 3/3 复核通过 |
-| precondition-recheck.log | 明确激活前置条件后，标准 DPI、2× DPI、外置 RAW HDR 和 portable HDR 四项通过 |
-| integration-final.log、integration-final-details.log | 最新新增集合通过，23 passed、0 failed、0 skipped |
-| portable-hdr-final/*.xml、portable-hdr-summary.json | 必执行函数与真实数据行；非 pass 为 0 |
-| static-final.log、gates-final.log | 最新静态契约和门禁反例通过 |
-| clang-tidy-final.log | 四个生产源文件的静态诊断记录 |
-| source-manifest.json | 本轮生产源、测试、构建与样本的 SHA-256，用于核对审查版本 |
+## 复现命令
 
 ```sh
-cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
-ctest --test-dir build --output-on-failure -R 'Fovelle(Remediation|Portable|Deployment)'
+cmake --build build --target fovelle_tests Fovelle -j 6
+ctest --test-dir build -R '^FovelleMovieResume' -V
+FOVELLE_TEST_SUITE=RemediationTests QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 build/tests/fovelle_tests -v1
+FOVELLE_TEST_SUITE=ImageCoreAndMovieTests QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 build/tests/fovelle_tests -v1
+git diff --check
 ```
 
-当前状态：1–10 的修复与验收已闭环；无待确认权限、未执行的关键本轮用例或后台开发任务。
+## 范围与限制
 
-</details>
+没有未解决的本次测试失败。未获得用户原始大GIF，因此没有宣称特定素材的物理显示延迟或绝对性能倍数；测试证明恢复不再重建decoder，并验证真实GIF/APNG帧序和像素。磁盘读取、线程池占用及单帧解码仍影响实际时间。未执行与此变更无关的全部UI/HDR系统测试，也未进行发布、安装或远程推送。上一任务三份同名报告备份见 evidence/movie_resume_20261017/previous_*。
