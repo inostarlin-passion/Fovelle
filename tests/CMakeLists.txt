@@ -575,7 +575,7 @@ set_tests_properties(FovelleLegacyBt709Backend PROPERTIES TIMEOUT 30 LABELS "col
 add_test(NAME FovelleVectorPerformanceStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/vector_performance_static.py)
 add_test(NAME FovelleVectorPerformanceDynamic COMMAND fovelle_tests
-    testVectorPresentationFrameBudget testVectorDisplayTargetSwitch testVectorRequestBurstAndDestruction)
+    testVectorPaintTimingClockIsolation testVectorPresentationFrameBudget testVectorDisplayTargetSwitch testVectorRequestBurstAndDestruction)
 set_tests_properties(FovelleVectorPerformanceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
     TIMEOUT 90 RUN_SERIAL TRUE LABELS "vector;performance;pixels")

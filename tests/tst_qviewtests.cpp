@@ -173,6 +173,7 @@ private slots:
     void testVectorDisplayTargetSwitch_data();
     void testVectorDisplayTargetSwitch();
     void testVectorRequestBurstAndDestruction();
+    void testVectorPaintTimingClockIsolation();
     void testVectorPresentationFrameBudget_data();
     void testVectorPresentationFrameBudget();
     void testColorSvgWideGamut_data();
