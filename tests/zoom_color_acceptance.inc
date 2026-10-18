@@ -1,3 +1,6 @@
+#include "asyncwork.h"
+#include <QSemaphore>
+
 // Detailed six-part cases and criteria are recorded in zoom_color_cases.json.
 // All fixtures/settings are scoped and restored even on an assertion return.
 void GraphicsViewTests::testKeepZoomAcrossNavigation_data()
@@ -400,15 +403,19 @@ void ImageCoreAndMovieTests::testColorContainerBoundaries()
 void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata_data()
 {
     QTest::addColumn<QString>("fixture");
-    QTest::newRow("gain-map") << QString("gain-map.jpg");
-    QTest::newRow("raw") << QString("bayer.dng");
+    QTest::addColumn<int>("loadDelayMs");
+    QTest::newRow("gain-map") << QString("gain-map.jpg") << 0;
+    QTest::newRow("raw") << QString("bayer.dng") << 0;
+    QTest::newRow("raw-delayed") << QString("bayer.dng") << 5500;
     const auto external = qEnvironmentVariable("FOVELLE_HDR_REPRO_IMAGE");
-    if (!external.isEmpty()) QTest::newRow("user-image") << external;
+    if (!external.isEmpty())
+        QTest::newRow("user-image") << external << 0;
 }
 
 void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata()
 {
     QFETCH(QString, fixture);
+    QFETCH(int, loadDelayMs);
     ScopedEnvironmentValue potential("FOVELLE_TEST_DISPLAY_HEADROOM");
     ScopedEnvironmentValue current("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
     qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "16");
@@ -424,9 +431,30 @@ void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata()
     QVERIFY(QTest::qWaitForWindowActive(&window, 3000));
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
+    auto entered = std::make_shared<QSemaphore>();
+    auto release = std::make_shared<QSemaphore>();
+    const auto unblock = qScopeGuard([release] { release->release(4); });
+    if (loadDelayMs > 0) {
+        for (int worker = 0; worker < 4; ++worker)
+            QvAsync::schedule([entered, release] {
+                entered->release();
+                release->acquire();
+            });
+        QVERIFY(entered->tryAcquire(4, 10000));
+    }
+    QElapsedTimer loadTimer;
+    loadTimer.start();
+    if (loadDelayMs > 0)
+        QTimer::singleShot(loadDelayMs, Qt::PreciseTimer, &window,
+                           [release] { release->release(4); });
     window.openFile(QDir::isAbsolutePath(fixture) ? fixture
             : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    // Functional fixture readiness shares the existing 15 s native decode budget.
+    // Pixel identity and metadata below remain the acceptance criteria.
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 15000);
+    qInfo() << "HDR_FIXTURE_READY" << fixture << "load_delay_ms=" << loadDelayMs
+            << "wait_ms=" << loadTimer.elapsed() << "budget_ms=" << 15000;
+    QVERIFY(loadTimer.elapsed() >= loadDelayMs);
     view->setHDRPresentationActive(true);
     QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 30000);
     QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);

@@ -1,13 +1,16 @@
-# 测试用例规格：Actions 绘制计时
+# 原子验收与测试用例
 
-统一前置：macOS、Qt 6.11.2、Ghostscript、已配置 BUILD_TESTS=ON；工作树以 a2a6300 为基线。每条用例均固化为代码。
+统一环境：macOS、Qt6.11.2、BUILD_TESTS=ON、portable-hdr/bayer.dng及remediation.gif可读。所有用例均固化为测试代码。
 
-|原子验收标准 / 用例|测试目的|前置条件|输入数据|操作步骤|预期结果|后置条件|
+|标准 / 用例|测试目的|前置条件|输入数据|操作步骤|预期结果|后置条件|
 |---|---|---|---|---|---|---|
-|AC1 / S1 静态计时契约|阻止 CPU 与墙钟混用、阈值放宽或漏注册|源码可读|性能测试与 CMake|运行 vector_performance_static.py 的 timing contract|同一测量器接入 paint/reference，预算仍 16.67 与4倍，cold与全量 CPU p95 均判断，墙钟日志保留，回归用例已注册|文件不变|
-|AC2 / D1 暂停隔离|复现旧指标误报|线程 CPU 时钟可用|5次40 ms暂停；参考4 ms|testVectorPaintTimingClockIsolation 内测量暂停，计算同一预算|wall p95 >预算；CPU p95 <=预算，所有样本有效|不遗留线程/定时器|
-|AC3 / D2 真实 CPU 退化检出|反证修复没有屏蔽性能退化|同上|5次至少30 ms线程CPU忙循环；参考4 ms|同一回归用例测量忙循环并判断预算|CPU p95 >=30 ms且 >16.67预算；计量器与D1相同|无异步任务|
-|AC4 / D3 真实绘制门禁|验证生产路径、分辨率与线程约束|窗口已显示，EPS解码器可用|SVG/EPS ×1x/2x；12次变焦，每次8次拖动|testVectorPresentationFrameBudget 四行，等待新tile后测首绘；40次参考绘制|cold与总CPU p95均<=原预算；GUI转色0、worker>0、ICC不在连续paint内查询、ARGB32格式；CPU和墙钟诊断均完整|临时文件及窗口销毁|
-|AC5 / S2+D4 集成保持|检验修复未破坏颜色与异步行为|完整构建|已有静态契约、颜色切换/突发销毁/真实窗口与其他测试|运行性能静态和动态 CTest，再全量 CTest|已有验收继续通过；不绕过CI、不删除断言|恢复测试设置，进程正常退出|
+|AC1 / S1 静态|固定准备期限和可诊断性|源码可读|HDR用例源码|运行 actions_followup_static.py|15秒仅用于目标用例准备、5500ms延迟行、等待耗时日志、全部像素/标签断言存在|源码不变|
+|AC2 / D1 正常HDR|确保功能不变|真实窗口/原生renderer可用|gain-map.jpg、bayer.dng，无延迟|testHDRPersistentSurfaceMetadata原两行|15秒内加载且原有像素、对象身份、headroom及恢复断言通过|窗口关闭、环境恢复|
+|AC3 / D2 迟到RAW|复现并修复5秒准备误报|四线程队列可控|bayer.dng，5500ms队列阻塞|raw-delayed行占用线程池→openFile→GUI释放→执行完整HDR验收|旧5秒期限失败；新15秒内成功，实测准备>=5500ms，全部HDR断言通过|信号量作用域释放，无遗留阻塞|
+|AC4 / S2 静态|防止返回墙钟比例误判|源码可读|动画用例与注册|运行 actions_followup_static.py|独立源帧延时、真实timer、逐帧像素、单侧最早时间边界、受控延迟和CTest注册存在；无fast/normal比例上界|源码不变|
+|AC5 / D3 动画倍率|验证真实速度、帧序和停止|GIF独立解码成功|50%、100%、200%，20帧|testMovieAsyncPlaybackSpeed数据行，观察frameChanged及timer事件|每帧像素/顺序正确；逻辑延时精确缩放；timer区间合法；累计时间不早于理论下界；10秒内完成，stop后不多发|movie停止、无悬挂任务|
+|AC6 / D4 动画延迟反证|合法调度晚到不误报|同上|200%，第5帧阻塞GUI1000ms|gui-delayed行执行同样全部断言|受控阻塞确实发生，逐帧和timer断言仍通过|恢复事件循环|
+|AC7 / D5 故障检出反证|证明没有掩盖真正倍率错误|临时突变可恢复|将speedAdjustedDelay临时改为原始delay|重建并执行200%数据行，再恢复生产文件并重建|逻辑delay断言明确失败，恢复后通过|生产源码与基线完全一致|
+|AC8 / D6 集成|保证其他功能及上一轮修复|完整构建|全部CTest|先专项再全量ctest|所有测试通过；完整记录失败而非只记录重跑结果|正常退出|
 
-执行顺序：先添加静态与动态回归，记录红灯；再修复测量实现，记录绿灯；最后集成回归。无可用CPU时钟时应失败，禁止skip或回退墙钟。D1和D2合并在一个QtTest方法中以确保使用同一个测量器。
+静态测试在CMake注册；动画数据由QtTest自动注册于RemediationTests，HDR数据由现有独立门禁及主套件执行。D5为可重复的反向突变执行脚本，脚本必须finally恢复生产源码。

@@ -1,36 +1,37 @@
-# GitHub Actions 修复测试完成报告
+# Actions 检查修复测试报告
 
-## 已确认的问题与修改
+## 结论和修复范围
 
-基线 a2a6300 的 [Build Fovelle](https://github.com/inostarlin-passion/Fovelle/actions/runs/39138261320) 唯一失败是 EPS 4K 首绘性能断言：墙钟 p95=65.580416 ms，预算45.400336 ms。同提交 Checks 和同次独立性能 CTest 通过。确认性能测试声明的 CPU 指标实际以墙钟测量；原日志不能分离实际执行与调度/等待耗时。
+基线4a8dac8的[Checks失败](https://github.com/inostarlin-passion/Fovelle/actions/runs/39140631482)包含RAW功能用例准备等待5秒超时（Qt诊断5200ms即可成功）和动画播放墙钟比例断言失败。[同提交Build Fovelle成功](https://github.com/inostarlin-passion/Fovelle/actions/runs/39140631516)，上一轮矢量绘制门禁已通过。
 
-修复 `tests/vector_performance_acceptance.inc` 的执行计量：paint 与参考 drawImage 统一采用线程 CPU 时钟，同时保存墙钟指标。增加受控暂停/CPU 忙循环反证、静态契约与 CTest 注册。阈值、测试像素、首帧判断、线程/颜色约束继续保留。问题属于 CI 测量代码，App 生产绘制路径没有需要修改的已证实缺陷。
+本次修复实际执行的CI验收代码：目标HDR用例采用现有15秒原生解码准备预算，新增5500ms真实队列阻塞数据行；动画改为独立源延时、逐帧像素/顺序、逻辑倍速、真实定时器、最早播放时间下界和有界完成检查。删除两次独立运行之间的墙钟比例上界，添加1秒GUI阻塞反证。保留HDR全部功能断言与原有CTest超时，未新增skip或删去功能断言。生产算法经源码和反向突变核验，无已证实缺陷，不作无依据修改。
 
-## 环境与可复查证据
+## 原子标准执行结果
 
-本地 macOS 27.0.1 arm64、Qt 6.11.2、Apple Clang17；远端 macOS26.6.2、Qt6.11.2、Apple Clang16。硬件与系统版本不同，不能以本地成功宣称远端已绿。
-
-可提交的[精简证据与源码哈希](evidence/actions-fix/vector-timing-20261018.json)保存远端链接、失败数据和本地测量。完整原始日志在本工作区 `reports/evidence/actions_vector_timing_20261018/`（沿用仓库忽略规则，未作为发布文件）。此前三份报告备份在该目录的 previous_*.md。
-
-## 红灯与专项绿灯
-
-|验收标准|执行结果|
+|标准|证据与结果|
 |---|---|
-|AC1 / S1|新增静态契约修复前5项中1项失败，修复后5/5通过。|
-|AC2 / D1|旧墙钟实现睡眠“CPU”p95=41.03 ms，明确失败；修复后CPU p95=0.019833 ms、墙钟p95=41.0309 ms，正确区分暂停。|
-|AC3 / D2|忙循环CPU p95=30.0007 ms，高于原16.67 ms预算，超预算识别断言通过。|
-|AC4 / D3|四组真实生产绘制数据均通过，见下表；GUI转色0、worker转色12。|
-|AC5 / S2+D4|专项CTest 2/2通过，QtTest 10 passed、0 failed、0 skipped；全量CTest 65/65通过，0失败，用时574.80秒；此前失败的FovelleTests通过（238.72秒），独立性能门禁通过（4.40秒）。|
+|AC1/S1、AC4/S2静态|新增2项静态检查修复前失败，修复后2/2通过；既有movie_resume_static 3/3及HDR元数据静态1/1也通过。|
+|AC2/D1正常HDR|gain-map、RAW两行完整功能断言通过。|
+|AC3/D2延迟RAW|旧5秒预算在raw-delayed行稳定报错，Qt诊断5600ms可成功；新15秒预算下受控延迟行通过，且验证等待>=5500ms。|
+|AC5/D3逐帧倍速|50%、100%、200%四轮以上循环共20帧，帧序、源像素及精确逻辑延时全部通过；实际19次定时器事件合法、无error，stop后无多发。|
+|AC6/D4 GUI迟到|1000ms受控GUI阻塞行通过：200%播放1300ms，正常播放821ms；虽墙钟比例会误判，逐帧20ms逻辑延时、像素和19个timer事件全部正确。|
+|AC7/D5反向突变|执行tests/actions_speed_mutation.py，临时去除生产speedAdjustedDelay的缩放后，200%行立即失败：实际40ms、期望20ms；脚本finally恢复原文件并重建，git diff确认生产源码无差异。|
+|AC8/D6集成|专项CTest 3/3通过（34.90秒），最终动画数据行6/6（含初始化/清理）通过；全量CTest 66/66通过，0失败，用时589.28秒；FovelleTests 246.18秒、Remediation 20.73秒、HDR元数据14.85秒均通过。|
 
-|格式/密度|首绘CPU p95 ms|整体CPU p95 ms|首绘墙钟p95 ms|CPU预算ms|
-|---|---:|---:|---:|---:|
-|SVG 1x|1.684291|1.604292|1.685250|16.67|
-|EPS 1x|1.442625|1.420459|1.444709|16.67|
-|SVG 2x|6.034958|6.021667|6.037167|16.67|
-|EPS 2x|5.565083|5.542458|5.570000|16.67|
+## 可重复命令和证据
 
-执行命令：`cmake --build build --parallel 2`；`python3 tests/vector_performance_static.py`；`QT_QPA_PLATFORM=cocoa ctest --test-dir build -R 'FovelleVectorPerformance(Static|Dynamic)' --output-on-failure -V`；全量使用 `QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90`。
+- 构建：`cmake --build build --parallel 2`。
+- 静态：`python3 tests/actions_followup_static.py`。
+- 反向突变（须独占构建与测试）：`python3 tests/actions_speed_mutation.py --build-dir build`。脚本固化输入、故障检出条件和finally恢复。
+- 专项：`QT_QPA_PLATFORM=cocoa ctest --test-dir build -R 'Fovelle(ActionsFollowupStatic|HDRSurfaceMetadataDynamic|RemediationDynamic)' --output-on-failure -V`。
+- 全量：`QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90`。
 
-`git diff --check`、修改的 inc 文件 clang-format dry-run、Python编译检查均通过。未提高预算、禁用测试或重试取最佳结果。性能数据是CPU绘制开销，不是物理显示FPS；阻塞、GPU/显示延迟需结合保留的墙钟数据评估。修复尚未推送，远端新提交验证待 GitHub Actions 实际执行。
+本地macOS27.0.1 arm64、Qt6.11.2、Apple Clang17；远端macOS26.6.2、Qt6.11.2、Apple Clang16。完整日志与前一轮报告备份位于本工作区reports/evidence/actions_followup_20261018/（沿用忽略规则）。精简可提交证据保存于[evidence/actions-fix/followup-20261018.json](evidence/actions-fix/followup-20261018.json)。
 
-全量结果包括 Portable HDR 必需执行、发布包验证、颜色/画质/终端密度、原生全屏、动画与异步生命周期；执行一次全量验证即通过，无失败后重跑。原始 QtTest 输出另存 ctest-qt-output.log，其 SHA-256 与全量性能数据已写入精简证据。
+限制：原动画失败日志未输出两次实际墙钟值，不能声称已证明其具体调度来源。新测试验证功能契约及合法迟到，不能承诺任意系统负载下的显示FPS。15秒仍是有界准备预算，加载死锁或像素/标签错误仍会失败。尚未推送，远端新提交状态须由GitHub实际执行确认。
+
+## 最终全量结论
+
+执行跨2026-10-18至2026-10-19（Asia/Shanghai）。本次最终代码一次全量运行即66/66通过，无全量失败后重跑取绿。全量包括既有矢量CPU性能、颜色、动画生命周期、原生全屏、Portable HDR必需执行与发布产物验证。源码差异检查、修改行clang-format检查和新增Python编译检查通过。原始全量QtTest输出另存ctest-qt-output.log，其哈希与逐帧/RAW诊断已写入精简证据。
+
+设计与测试规格均已按本次最终实现更新；所有AC均有对应自动化实现及执行结果。新增测试脚本与测试注册需要和修复一起提交，当前没有推送或远端新提交运行结果。

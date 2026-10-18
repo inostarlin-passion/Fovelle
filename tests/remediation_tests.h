@@ -95,6 +95,28 @@ public:
     }
 };
 
+// Observe actual delivery without assuming a lower bound on remainingTime.
+// A decoder or GUI delay may legally leave the frame deadline overdue.
+class MovieSpeedTimerObservation : public QObject
+{
+public:
+    QVMovie &movie;
+    int deliveries = 0;
+    bool valid = true;
+    explicit MovieSpeedTimerObservation(QVMovie &movie) : movie(movie) { }
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        if (event->type() == QEvent::Timer) {
+            auto *timer = qobject_cast<QTimer *>(object);
+            valid = valid && timer && timer->isActive() && timer->interval() >= 0
+                    && timer->interval() <= movie.nextFrameDelay() && timer->remainingTime() >= 0
+                    && timer->remainingTime() <= timer->interval();
+            ++deliveries;
+        }
+        return false;
+    }
+};
+
 class RemediationTests : public QObject
 {
     Q_OBJECT
@@ -759,28 +781,76 @@ private slots:
         movie.start();
         QTRY_VERIFY_WITH_TIMEOUT(frames.count() > count, 2000);
     }
+    void testMovieAsyncPlaybackSpeed_data()
+    {
+        QTest::addColumn<int>("speed");
+        QTest::addColumn<int>("guiDelayMs");
+        QTest::newRow("slow") << 50 << 0;
+        QTest::newRow("normal") << 100 << 0;
+        QTest::newRow("fast") << 200 << 0;
+        QTest::newRow("gui-delayed") << 200 << 1000;
+    }
     void testMovieAsyncPlaybackSpeed()
     {
-        const auto measure = [](int speed) {
-            QVMovie movie(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif");
-            movie.setAsyncPlayback(true);
-            movie.setSpeed(speed);
-            QSignalSpy frames(&movie, &QVMovie::frameChanged);
-            QElapsedTimer timer;
-            timer.start();
-            movie.start();
-            while (frames.count() < 20 && timer.elapsed() < 3000)
-                QTest::qWait(5);
-            movie.stop();
-            return qMakePair(frames.count() >= 20, timer.elapsed());
-        };
-        const auto normal = measure(100);
-        const auto fast = measure(200);
-        QVERIFY(normal.first);
-        QVERIFY(fast.first);
-        QVERIFY(normal.second >= 500);
-        QVERIFY2(fast.second < normal.second * 0.85,
-                 "Async decoding must retain playback-speed scaling");
+        QFETCH(int, speed);
+        QFETCH(int, guiDelayMs);
+        const QString path = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+        QImageReader reader(path);
+        QVector<QImage> sourceFrames;
+        QVector<int> sourceDelays;
+        const int frameCount = reader.imageCount();
+        QVERIFY(frameCount > 1);
+        for (int frame = 0; frame < frameCount; ++frame) {
+            const QImage image = reader.read();
+            QVERIFY(!image.isNull());
+            sourceFrames.append(image);
+            sourceDelays.append(reader.nextImageDelay());
+            QVERIFY(sourceDelays.last() > 0);
+        }
+        QVMovie movie(path);
+        movie.setAsyncPlayback(true);
+        movie.setSpeed(speed);
+        auto *timer = movie.findChild<QTimer *>();
+        QVERIFY(timer);
+        MovieSpeedTimerObservation observation(movie);
+        timer->installEventFilter(&observation);
+        QSignalSpy frames(&movie, &QVMovie::frameChanged);
+        QSignalSpy errors(&movie, &QVMovie::error);
+        qint64 expectedElapsed = 0;
+        bool injected = false;
+        connect(&movie, &QVMovie::frameChanged, &movie, [&](int frame) {
+            const int publication = frames.count();
+            QCOMPARE(frame, (publication - 1) % frameCount);
+            QCOMPARE(movie.currentImage(), sourceFrames.at(frame));
+            const int expectedDelay = qMax(1, sourceDelays.at(frame)) * 100 / speed;
+            QCOMPARE(movie.nextFrameDelay(), expectedDelay);
+            if (publication < 20)
+                expectedElapsed += expectedDelay;
+            if (publication == 5 && guiDelayMs > 0) {
+                injected = true;
+                QThread::msleep(guiDelayMs);
+            }
+            if (publication == 20)
+                movie.stop();
+        });
+        QElapsedTimer elapsed;
+        elapsed.start();
+        movie.start();
+        QTRY_COMPARE_WITH_TIMEOUT(frames.count(), 20, 10000);
+        const qint64 completedMs = elapsed.elapsed();
+        QCOMPARE(movie.state(), QVMovie::NotRunning);
+        QCOMPARE(errors.count(), 0);
+        QCOMPARE(injected, guiDelayMs > 0);
+        QVERIFY(observation.deliveries >= 19);
+        QVERIFY(observation.valid);
+        // Integer deadline rounding may lose <1 ms per scheduled frame.
+        // Scheduler delays can increase this duration, never invalidate its lower bound.
+        QVERIFY2(completedMs >= expectedElapsed - 20, "Playback skipped required frame holds");
+        qInfo() << "MOVIE_SPEED_CONTRACT speed=" << speed << "gui_delay_ms=" << guiDelayMs
+                << "elapsed_ms=" << completedMs << "minimum_ms=" << expectedElapsed - 20
+                << "timer_events=" << observation.deliveries;
+        QTest::qWait(100);
+        QCOMPARE(frames.count(), 20);
     }
     void testMovieAsyncInvalidInput()
     {

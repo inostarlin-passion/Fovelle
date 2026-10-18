@@ -1,0 +1,101 @@
+{
+  "baseline_commit": "4a8dac8ca3b7b8cf95fc572f34fbd3b664f98472",
+  "remote_failed_checks": "https://github.com/inostarlin-passion/Fovelle/actions/runs/39140631482",
+  "same_commit_successful_build": "https://github.com/inostarlin-passion/Fovelle/actions/runs/39140631516",
+  "remote_failure_details": {
+    "hdr_raw_readiness_timeout_ms": 5000,
+    "qt_reported_sufficient_ms": 5200,
+    "movie_assertion": "fast.second < normal.second * 0.85",
+    "ctest_total": 62,
+    "ctest_failed": 2
+  },
+  "local_platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "evidence": {
+    "raw-red.log": [
+      "FAIL!  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) QTestLib: This test case check (\"window.getIsPixmapLoaded()\") failed because the requested timeout (5000 ms) was too short, 5600 ms would have been sufficient this time.",
+      "Totals: 2 passed, 1 failed, 0 skipped, 0 blacklisted, 5979ms"
+    ],
+    "speed-final.log": [
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(slow) MOVIE_SPEED_CONTRACT speed= 50 gui_delay_ms= 0 elapsed_ms= 1567 minimum_ms= 1500 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(normal) MOVIE_SPEED_CONTRACT speed= 100 gui_delay_ms= 0 elapsed_ms= 821 minimum_ms= 740 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(fast) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 0 elapsed_ms= 410 minimum_ms= 360 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(gui-delayed) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 1000 elapsed_ms= 1300 minimum_ms= 360 timer_events= 19",
+      "Totals: 6 passed, 0 failed, 0 skipped, 0 blacklisted, 4507ms"
+    ],
+    "mutation.log": [
+      "FAIL!  : RemediationTests::testMovieAsyncPlaybackSpeed(fast) Compared values are not the same",
+      "   Actual   (movie.nextFrameDelay()): 40",
+      "   Expected (expectedDelay)         : 20",
+      "FAIL!  : RemediationTests::testMovieAsyncPlaybackSpeed(fast) Compared values are not the same",
+      "   Actual   (frames.count()): 1",
+      "   Expected (20)            : 20",
+      "Totals: 2 passed, 1 failed, 0 skipped, 0 blacklisted, 32ms",
+      "MUTATION_DETECTED: missing production speed scaling rejected",
+      "PRODUCTION_SOURCE_RESTORED"
+    ],
+    "focused.log": [
+      "44: QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(slow) MOVIE_SPEED_CONTRACT speed= 50 gui_delay_ms= 0 elapsed_ms= 1587 minimum_ms= 1500 timer_events= 19",
+      "44: QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(normal) MOVIE_SPEED_CONTRACT speed= 100 gui_delay_ms= 0 elapsed_ms= 822 minimum_ms= 740 timer_events= 19",
+      "44: QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(fast) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 0 elapsed_ms= 459 minimum_ms= 360 timer_events= 19",
+      "44: QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(gui-delayed) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 300 elapsed_ms= 549 minimum_ms= 360 timer_events= 19",
+      "44: Totals: 48 passed, 0 failed, 0 skipped, 0 blacklisted, 19736ms",
+      "60: QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(gain-map) HDR_FIXTURE_READY \"gain-map.jpg\" load_delay_ms= 0 wait_ms= 86 budget_ms= 15000",
+      "60: QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 0 wait_ms= 114 budget_ms= 15000",
+      "60: QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 5500 wait_ms= 5654 budget_ms= 15000",
+      "60: Totals: 5 passed, 0 failed, 0 skipped, 0 blacklisted, 14834ms",
+      "66: Ran 2 tests in 0.000s",
+      "100% tests passed out of 3"
+    ],
+    "static-red.log": [
+      "AssertionError: 'window.getIsPixmapLoaded(), 15000' not found in '\\n{\\n    QFETCH(QString, fixture);\\n    QFETCH(int, loadDelayMs);\\n    ScopedEnvironmentValue potential(\"FOVELLE_TEST_DISPLAY_HEADROOM\");\\n    ScopedEnvironmentValue current(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\");\\n    qputenv(\"FOVELLE_TEST_DISPLAY_HEADROOM\", \"16\");\\n    qputenv(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\", \"16\");\\n    MainWindow window;\\n    window.setAttribute(Qt::WA_DeleteOnClose, false);\\n    const bool quitPolicy = qvApp->quitOnLastWindowClosed();\\n    qvApp->setQuitOnLastWindowClosed(false);\\n    const auto closeWindow = qScopeGuard([&] { window.close(); qvApp->setQuitOnLastWindowClosed(quitPolicy); });\\n    window.resize(640, 480);\\n    window.show();\\n    window.activateWindow();\\n    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));\\n    auto *view = window.findChild<QVGraphicsView *>();\\n    QVERIFY(view);\\n    auto entered = std::make_shared<QSemaphore>();\\n    auto release = std::make_shared<QSemaphore>();\\n    const auto unblock = qScopeGuard([release] { release->release(4); });\\n    if (loadDelayMs > 0) {\\n        for (int worker = 0; worker < 4; ++worker)\\n            QvAsync::schedule([entered, release] {\\n                entered->release();\\n                release->acquire();\\n            });\\n        QVERIFY(entered->tryAcquire(4, 10000));\\n        QTimer::singleShot(loadDelayMs, Qt::PreciseTimer, &window,\\n                           [release] { release->release(4); });\\n    }\\n    QElapsedTimer loadTimer;\\n    loadTimer.start();\\n    window.openFile(QDir::isAbsolutePath(fixture) ? fixture\\n            : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + \"/portable-hdr/\" + fixture);\\n    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);\\n    qInfo() << \"HDR_FIXTURE_READY\" << fixture << \"load_delay_ms=\" << loadDelayMs\\n            << \"wait_ms=\" << loadTimer.elapsed();\\n    QVERIFY(loadTimer.elapsed() >= loadDelayMs);\\n    view->setHDRPresentationActive(true);\\n    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 30000);\\n    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);\\n    const auto baseline = nativeHDRSurfaceData(window.windowHandle());\\n    QVERIFY(!baseline.pixels.isEmpty());\\n    const float content = window.getCurrentFileDetails().hdrMetadata.contentHeadroom;\\n    QVERIFY(content > 1.0F && content < 15.0F);\\n    window.showFileInfo();\\n    auto *dialog = window.findChild<QVInfoDialog *>();\\n    QVERIFY(dialog);\\n    view->setHDRPresentationActive(false);\\n    qputenv(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\", \"1\");\\n    QTest::qWait(700);\\n    // A partially recovered display requires a tone-mapped endpoint whose\\n    // metadata must describe those actual pixels, including the SDR boundary.\\n    qputenv(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\", QByteArray::number((content + 1.0F) / 2.0F));\\n    dialog->close();\\n    window.activateWindow();\\n    QVERIFY(QTest::qWaitForWindowActive(&window, 3000));\\n    view->setHDRPresentationActive(true);\\n    QTRY_VERIFY_WITH_TIMEOUT(view->colorInformation().nativeOutput, 3000);\\n    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 5000);\\n    QTest::qWait(300);\\n    const auto restored = nativeHDRSurfaceData(window.windowHandle());\\n    qInfo() << \"HDR_SURFACE_TAG\" << fixture << \"source\" << content\\n            << \"normal_tag\" << baseline.contentHeadroom << \"restored_tag\" << restored.contentHeadroom;\\n    QVERIFY2(qAbs(restored.contentHeadroom - content) < 0.001F,\\n             \"Materialized HDR CGImage has missing or incorrect headroom metadata\");\\n#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000\\n    QVERIFY(restored.layerHeadroom == 0.0F || qAbs(restored.layerHeadroom - restored.contentHeadroom) < 0.001F);\\n#endif\\n    QCOMPARE(restored.pixels, baseline.pixels);\\n    QCOMPARE(restored.identity, baseline.identity);\\n    qputenv(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\", \"1\");\\n    QTest::qWait(500);\\n    QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).contentHeadroom, content);\\n    QCOMPARE(nativeHDRSurfaceData(window.windowHandle()).identity, baseline.identity);\\n    qputenv(\"FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM\", \"16\");\\n    QTRY_VERIFY_WITH_TIMEOUT(qAbs(nativeHDRSurfaceData(window.windowHandle()).contentHeadroom - content) < 0.001F, 5000);\\n    QTRY_COMPARE_WITH_TIMEOUT(nativeHDRSurfaceData(window.windowHandle()).pixels, baseline.pixels, 5000);\\n}\\n'",
+      "Ran 2 tests in 0.001s"
+    ],
+    "static-green.log": [
+      "Ran 2 tests in 0.000s"
+    ]
+  },
+  "source_sha256": {
+    "tests/remediation_tests.h": "561d35ac8a464deacdaab1cc8ec1bd264cbeaf91543ede3a68c715821ab89656",
+    "tests/zoom_color_acceptance.inc": "53c1a58241baca0f88d258e45f43a959563009c3b70f36910e1a3e24541ccd0c",
+    "tests/actions_followup_static.py": "6d38e92f370dbdd055b2072df71be738c382314e94301d34363d1cbe81655ab5",
+    "tests/actions_speed_mutation.py": "fe515cc775b522fcd6a9231e33d9834f99f513bf563eec18c544d07d5866a24c",
+    "tests/CMakeLists.txt": "8419f693cad885f3562cc6a3bc2888a2681f8ca0beada3ca430d2e25b3b8d966"
+  },
+  "production_source_restored": true,
+  "production_source_sha256": "8a7b9522ad72a59869929f705925bc8a213831ac2c3aff69d020cb86bdf1cade",
+  "full_suite": {
+    "passed": 66,
+    "failed": 0,
+    "seconds": 589.28,
+    "main_suite_seconds": 246.18,
+    "remediation_seconds": 20.73,
+    "hdr_metadata_seconds": 14.85,
+    "command": "QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90",
+    "diagnostics": [
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(gain-map) HDR_FIXTURE_READY \"gain-map.jpg\" load_delay_ms= 0 wait_ms= 62 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(gain-map) HDR_SURFACE_TAG \"gain-map.jpg\" source 3.03516 normal_tag 3.03516 restored_tag 3.03516",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 0 wait_ms= 123 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw) HDR_SURFACE_TAG \"bayer.dng\" source 1.96484 normal_tag 1.96484 restored_tag 1.96484",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 5500 wait_ms= 5654 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) HDR_SURFACE_TAG \"bayer.dng\" source 1.96484 normal_tag 1.96484 restored_tag 1.96484",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(slow) MOVIE_SPEED_CONTRACT speed= 50 gui_delay_ms= 0 elapsed_ms= 1588 minimum_ms= 1500 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(normal) MOVIE_SPEED_CONTRACT speed= 100 gui_delay_ms= 0 elapsed_ms= 819 minimum_ms= 740 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(fast) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 0 elapsed_ms= 409 minimum_ms= 360 timer_events= 19",
+      "QINFO  : RemediationTests::testMovieAsyncPlaybackSpeed(gui-delayed) MOVIE_SPEED_CONTRACT speed= 200 gui_delay_ms= 1000 elapsed_ms= 1411 minimum_ms= 360 timer_events= 19",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(gain-map) HDR_FIXTURE_READY \"gain-map.jpg\" load_delay_ms= 0 wait_ms= 85 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(gain-map) HDR_SURFACE_TAG \"gain-map.jpg\" source 3.03516 normal_tag 3.03516 restored_tag 3.03516",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 0 wait_ms= 113 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw) HDR_SURFACE_TAG \"bayer.dng\" source 1.96484 normal_tag 1.96484 restored_tag 1.96484",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) HDR_FIXTURE_READY \"bayer.dng\" load_delay_ms= 5500 wait_ms= 5612 budget_ms= 15000",
+      "QINFO  : ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata(raw-delayed) HDR_SURFACE_TAG \"bayer.dng\" source 1.96484 normal_tag 1.96484 restored_tag 1.96484"
+    ],
+    "raw_log_sha256": "5a90d9767663b6b1fc6405731fb738bf236094d7b52153ba9b45f1fe98fbd4b0"
+  },
+  "new_remote_run": "not pushed; unverified",
+  "execution_dates_local": "2026-10-18 to 2026-10-19, Asia/Shanghai",
+  "remote_jobs": {
+    "Run clang-tidy": "success",
+    "Run clang-format": "success",
+    "Run Unit Tests": "failure (baseline)"
+  }
+}

@@ -579,3 +579,7 @@ add_test(NAME FovelleVectorPerformanceDynamic COMMAND fovelle_tests
 set_tests_properties(FovelleVectorPerformanceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
     TIMEOUT 90 RUN_SERIAL TRUE LABELS "vector;performance;pixels")
+
+add_test(NAME FovelleActionsFollowupStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_followup_static.py)
+set_tests_properties(FovelleActionsFollowupStatic PROPERTIES TIMEOUT 30 LABELS "ci;static;regression")
