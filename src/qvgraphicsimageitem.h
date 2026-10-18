@@ -9,6 +9,8 @@
 #include <QBrush>
 #include <QImage>
 #include <QPixmap>
+#include <QPointer>
+#include <QTimer>
 #include <QThreadPool>
 #include <QVector>
 
@@ -58,6 +60,24 @@ public:
     quint64 vectorTileGenerationCount() const
         { return completedVectorTileGenerationCount; }
 
+    void setDisplayColorSpace(const QColorSpace &space);
+    quint64 vectorGuiColorConversions() const { return guiColorConversions; }
+    quint64 vectorWorkerColorConversions() const { return workerColorConversions; }
+    quint64 vectorProfileQueries() const { return profileQueries; }
+    QImage::Format vectorDisplayFormat() const { return displayFormat; }
+    QColorSpace vectorDisplaySpace() const { return lastDisplaySpace; }
+    qsizetype vectorRetainedRasterBytes() const
+    {
+        qsizetype bytes = 0;
+        for (const auto &tile : vectorTiles)
+            bytes += tile.image.sizeInBytes() + tile.outputImage.sizeInBytes();
+        return bytes;
+    }
+    int vectorRequestDepth() const
+    {
+        return int(activeAsyncRequest.has_value()) + int(pendingAsyncRequest.has_value());
+    }
+
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
                QWidget *widget = nullptr) override;
@@ -84,6 +104,7 @@ private:
         qreal deviceScaleY {0.0};
         int svgFrame {0};
         quint64 generation {0};
+        QColorSpace targetColorSpace;
     };
 
     struct AsyncTileResult
@@ -91,8 +112,11 @@ private:
         VectorTile tile;
         QString errorString;
         quint64 generation {0};
+        bool preparedOnGuiThread{ false };
     };
 
+    void bindDisplayWidget(QWidget *widget);
+    void refreshDisplayColorSpace();
     void paintRasterFallback(QPainter *painter) const;
     void clearVectorTiles();
     int matchingVectorTile(const QRectF &sourceRect, qreal deviceScaleX,
@@ -108,6 +132,13 @@ private:
                                  const AsyncTileRequest &rhs);
     static QSize boundedTileSize(const QSizeF &requestedSize);
 
+    QPointer<QWidget> displayWidget;
+    QPointer<QWindow> displayWindow;
+    QMetaObject::Connection displayScreenConnection;
+    QTimer profileRefreshTimer{ this };
+    QColorSpace displayColorSpace{ QColorSpace::SRgb };
+    QByteArray displayProfileBytes;
+    bool displayProfileKnown{ false };
     QPixmap rasterPixmap;
     Qt::TransformationMode rasterTransformationMode {Qt::FastTransformation};
     QBrush vectorBackgroundBrush {Qt::black};
@@ -121,6 +152,11 @@ private:
     std::optional<AsyncTileRequest> pendingAsyncRequest;
     bool asyncWorkShutDown {false};
 
+    quint64 guiColorConversions{ 0 };
+    quint64 workerColorConversions{ 0 };
+    quint64 profileQueries{ 0 };
+    QImage::Format displayFormat{ QImage::Format_Invalid };
+    QColorSpace lastDisplaySpace;
     mutable QVector<VectorTile> vectorTiles;
     mutable quint64 vectorTileUseSerial {0};
     mutable QSize lastVectorTilePixelSize;

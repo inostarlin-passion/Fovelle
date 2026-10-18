@@ -9,6 +9,7 @@
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QSvgRenderer>
+#include <QThread>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
@@ -91,6 +92,19 @@ bool canUseNearestVectorTileSampling(const QTransform &deviceTransform,
             && devicePixelAligned(tilePixelRect.bottom());
 }
 
+QImage prepareVectorDisplay(const QImage &source, const QColorSpace &target, bool *onGuiThread)
+{
+    *onGuiThread = QThread::currentThread() == QCoreApplication::instance()->thread();
+    if (source.isNull() || !target.isValid())
+        return { };
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    return source.convertedToColorSpace(target, QImage::Format_ARGB32_Premultiplied);
+#else
+    return source.convertedToColorSpace(target).convertToFormat(
+            QImage::Format_ARGB32_Premultiplied);
+#endif
+}
+
 struct SvgWorkerRenderCache
 {
     QString sourcePath;
@@ -139,6 +153,9 @@ QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent) : QGraphicsObjec
     // terminal-density tiles around the actual exposed region.
     setCacheMode(QGraphicsItem::NoCache);
     setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, true);
+    profileRefreshTimer.setInterval(500);
+    connect(&profileRefreshTimer, &QTimer::timeout, this,
+            &QVGraphicsImageItem::refreshDisplayColorSpace);
 }
 
 QVGraphicsImageItem::~QVGraphicsImageItem()
@@ -152,15 +169,70 @@ void QVGraphicsImageItem::shutdownAsyncWork()
         return;
 
     asyncWorkShutDown = true;
+    profileRefreshTimer.stop();
+    disconnect(displayScreenConnection);
     pendingAsyncRequest.reset();
     QvAsync::cancel(asyncTileTicket);
     asyncTileTicket.reset();
+}
+
+void QVGraphicsImageItem::setDisplayColorSpace(const QColorSpace &space)
+{
+    const QColorSpace target = space.isValid() ? space : QColorSpace(QColorSpace::SRgb);
+    if (target == displayColorSpace)
+        return;
+    displayColorSpace = target;
+    ++vectorSourceGeneration;
+    pendingAsyncRequest.reset();
+    clearVectorTiles();
+    displayFormat = QImage::Format_Invalid;
+    lastDisplaySpace = { };
+    update();
+}
+
+void QVGraphicsImageItem::bindDisplayWidget(QWidget *widget)
+{
+    if (!widget || displayWidget.data() == widget || asyncWorkShutDown)
+        return;
+    displayWidget = widget;
+    // Binding is cheap; system profile access runs after this paint returns.
+    QTimer::singleShot(0, this, &QVGraphicsImageItem::refreshDisplayColorSpace);
+    profileRefreshTimer.start();
+}
+
+void QVGraphicsImageItem::refreshDisplayColorSpace()
+{
+    if (asyncWorkShutDown || !vectorImage.isValid() || !displayWidget) {
+        profileRefreshTimer.stop();
+        return;
+    }
+    QWindow *window = displayWidget->window()->windowHandle();
+    if (!window)
+        return;
+    if (displayWindow != window) {
+        disconnect(displayScreenConnection);
+        displayWindow = window;
+        displayProfileKnown = false;
+        displayScreenConnection = connect(window, &QWindow::screenChanged, this,
+                                          [this] { refreshDisplayColorSpace(); });
+    }
+    ++profileQueries;
+    const QByteArray profile = QVCocoaFunctions::getIccProfileForWindow(window);
+    if (displayProfileKnown && profile == displayProfileBytes)
+        return;
+    displayProfileBytes = profile;
+    displayProfileKnown = true;
+    setDisplayColorSpace(QColorSpace::fromIccProfile(profile));
 }
 
 void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
 {
     prepareGeometryChange();
     vectorImage = {};
+    profileRefreshTimer.stop();
+    disconnect(displayScreenConnection);
+    displayWindow.clear();
+    displayWidget.clear();
     svgRenderer.reset();
     pdfDocument.reset();
     rasterPixmap = pixmap;
@@ -310,13 +382,13 @@ int QVGraphicsImageItem::matchingVectorTile(
     for (int index = 0; index < vectorTiles.size(); ++index)
     {
         const VectorTile &tile = vectorTiles.at(index);
-        if (scaleEquivalent(tile.deviceScaleX, deviceScaleX)
+        if (tile.outputSpace == displayColorSpace && !tile.outputImage.isNull()
+            && scaleEquivalent(tile.deviceScaleX, deviceScaleX)
             && scaleEquivalent(tile.deviceScaleY, deviceScaleY)
-            && tile.sourceRect.adjusted(-CoordinateTolerance,
-                                        -CoordinateTolerance,
-                                        CoordinateTolerance,
-                                        CoordinateTolerance).contains(sourceRect))
-        {
+            && tile.sourceRect
+                       .adjusted(-CoordinateTolerance, -CoordinateTolerance, CoordinateTolerance,
+                                 CoordinateTolerance)
+                       .contains(sourceRect)) {
             return index;
         }
     }
@@ -332,6 +404,8 @@ int QVGraphicsImageItem::bestReusableVectorTile(
     for (int index = 0; index < vectorTiles.size(); ++index)
     {
         const VectorTile &tile = vectorTiles.at(index);
+        if (tile.outputSpace != displayColorSpace || tile.outputImage.isNull())
+            continue;
         const QRectF overlap = tile.sourceRect.intersected(sourceRect);
         if (overlap.isEmpty())
             continue;
@@ -380,11 +454,9 @@ void QVGraphicsImageItem::retainVectorTile(VectorTile tile) const
 bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs,
                                            const AsyncTileRequest &rhs)
 {
-    return lhs.generation == rhs.generation
-            && lhs.pixelSize == rhs.pixelSize
-            && scaleEquivalent(lhs.deviceScaleX, rhs.deviceScaleX)
-            && scaleEquivalent(lhs.deviceScaleY, rhs.deviceScaleY)
-            && lhs.svgFrame == rhs.svgFrame
+    return lhs.generation == rhs.generation && lhs.targetColorSpace == rhs.targetColorSpace
+            && lhs.pixelSize == rhs.pixelSize && scaleEquivalent(lhs.deviceScaleX, rhs.deviceScaleX)
+            && scaleEquivalent(lhs.deviceScaleY, rhs.deviceScaleY) && lhs.svgFrame == rhs.svgFrame
             && lhs.sourceRect == rhs.sourceRect;
 }
 
@@ -494,6 +566,19 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                                 QStringLiteral("The asynchronous SVG document is invalid");
                     }
                 }
+                if (!result.tile.image.isNull()) {
+                    result.tile.outputImage =
+                            prepareVectorDisplay(result.tile.image, request.targetColorSpace,
+                                                 &result.preparedOnGuiThread);
+                    result.tile.outputSpace = request.targetColorSpace;
+                    // The immutable vector document remains authoritative. Free
+                    // the large high-depth temporary on this worker, rather than
+                    // retaining/freeing it during a GUI cache eviction.
+                    result.tile.image = { };
+                    if (result.tile.outputImage.isNull())
+                        result.errorString =
+                                QStringLiteral("Vector display color conversion failed");
+                }
                 return result;
             },
             [this](AsyncTileResult result) { asyncVectorTileFinished(result); });
@@ -502,19 +587,20 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
 void QVGraphicsImageItem::asyncVectorTileFinished(const AsyncTileResult &result)
 {
     activeAsyncRequest.reset();
-    if (result.generation == vectorSourceGeneration
-        && !result.tile.image.isNull())
-    {
+    if (result.generation == vectorSourceGeneration && result.tile.outputSpace == displayColorSpace
+        && !result.tile.outputImage.isNull()) {
         // Retain both transient interaction tiles and the exact tile requested
         // after the gesture becomes idle.  Vector parsing/rasterization never
         // needs to fall back to the GUI thread.
         retainVectorTile(result.tile);
+        if (result.preparedOnGuiThread)
+            ++guiColorConversions;
+        else
+            ++workerColorConversions;
         ++completedVectorTileGenerationCount;
         update();
-    }
-    else if (!result.errorString.isEmpty()
-             && qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG"))
-    {
+    } else if (!result.errorString.isEmpty()
+               && qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG")) {
         qWarning().noquote() << "FOVELLE_VECTOR_RENDER async_error="
                              << result.errorString;
     }
@@ -579,6 +665,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         return;
     }
 
+    bindDisplayWidget(widget);
     QRectF exposedRect = option ? option->exposedRect : boundingRect();
     exposedRect = exposedRect.intersected(boundingRect());
     if (exposedRect.isEmpty())
@@ -639,12 +726,15 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         const QSize tileSize = boundedTileSize(QSizeF(
             renderedSourceRect.width() * requestedScaleX,
             renderedSourceRect.height() * requestedScaleY));
-        return AsyncTileRequest {
-            vectorImage, pdfDocument, renderedSourceRect, tileSize,
-            requestedScaleX, requestedScaleY,
-            svgRenderer ? svgRenderer->currentFrame() : 0,
-            vectorSourceGeneration
-        };
+        return AsyncTileRequest{ vectorImage,
+                                 pdfDocument,
+                                 renderedSourceRect,
+                                 tileSize,
+                                 requestedScaleX,
+                                 requestedScaleY,
+                                 svgRenderer ? svgRenderer->currentFrame() : 0,
+                                 vectorSourceGeneration,
+                                 displayColorSpace };
     };
     const auto retainedTileCoversRequest = [this](const AsyncTileRequest &request) {
         for (const VectorTile &tile : vectorTiles)
@@ -714,10 +804,8 @@ void QVGraphicsImageItem::paint(QPainter *painter,
         if (drawnSourceRect.isEmpty())
             return;
     }
-    const qreal sourcePixelScaleX = tile.image.width()
-            / tile.sourceRect.width();
-    const qreal sourcePixelScaleY = tile.image.height()
-            / tile.sourceRect.height();
+    const qreal sourcePixelScaleX = tile.outputImage.width() / tile.sourceRect.width();
+    const qreal sourcePixelScaleY = tile.outputImage.height() / tile.sourceRect.height();
     const QRectF tilePixelRect(
         (drawnSourceRect.left() - tile.sourceRect.left()) * sourcePixelScaleX,
         (drawnSourceRect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
@@ -728,47 +816,32 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     // vector output and a nearest copy avoids a second interpolation pass.
     // Fractional scrolls, reused tiles, and transformed mappings retain
     // filtering so their edges stay clear.
-    const bool nearestSampling =
-            !qEnvironmentVariableIsSet("FOVELLE_VECTOR_FORCE_SMOOTH")
+    const bool nearestSampling = !qEnvironmentVariableIsSet("FOVELLE_VECTOR_FORCE_SMOOTH")
             && !reusedVectorTile
-            && canUseNearestVectorTileSampling(
-                deviceTransform, drawnSourceRect, tilePixelRect, tile.image.size(),
-                tile.sourceRect, tile.deviceScaleX, tile.deviceScaleY,
-                deviceScaleX, deviceScaleY);
+            && canUseNearestVectorTileSampling(deviceTransform, drawnSourceRect, tilePixelRect,
+                                               tile.outputImage.size(), tile.sourceRect,
+                                               tile.deviceScaleX, tile.deviceScaleY, deviceScaleX,
+                                               deviceScaleY);
     painter->setRenderHint(QPainter::SmoothPixmapTransform, !nearestSampling);
-    // QPainter does not transform image color spaces. Cache a display copy,
-    // keyed by the current window ICC, while retaining the high-precision source.
-    QColorSpace target = QColorSpace::SRgb;
-    if (widget && widget->window()->windowHandle()) {
-        const auto profile =
-                QVCocoaFunctions::getIccProfileForWindow(widget->window()->windowHandle());
-        const QColorSpace display = QColorSpace::fromIccProfile(profile);
-        if (display.isValid())
-            target = display;
-    }
-    if (tile.outputSpace != target || tile.outputImage.isNull()) {
-        tile.outputImage = tile.image.convertedToColorSpace(target);
-        tile.outputSpace = target;
-    }
-    painter->drawImage(drawnSourceRect, tile.outputImage.isNull() ? tile.image : tile.outputImage,
-                       tilePixelRect);
-    lastVectorTilePixelSize = tile.image.size();
+    // The worker has already converted and quantized for this display. Paint
+    // only the raster-engine fast format, never the retained 64/128-bit source.
+    displayFormat = tile.outputImage.format();
+    lastDisplaySpace = tile.outputSpace;
+    painter->drawImage(drawnSourceRect, tile.outputImage, tilePixelRect);
+    lastVectorTilePixelSize = tile.outputImage.size();
     lastVectorTileSourceRect = tile.sourceRect;
     ++completedVectorRenderCount;
     if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG"))
     {
-        qInfo().noquote() << QStringLiteral(
-            "FOVELLE_VECTOR_RENDER format=%1 source=vector cache=%2")
-            .arg(isPdf ? QStringLiteral("pdf") : QStringLiteral("svg"),
-                 cacheHit ? QStringLiteral("hit")
-                         : reusedVectorTile ? QStringLiteral("reused")
-                                                  : QStringLiteral("miss"))
-                         << "sampling="
-                         << (nearestSampling ? QStringLiteral("nearest")
-                                              : QStringLiteral("smooth"))
-                         << "deviceScale=" << deviceScaleX << deviceScaleY
-                         << "exposedRect=" << exposedRect
-                         << "sourceRect=" << tile.sourceRect
-                         << "tilePixels=" << tile.image.size();
+        qInfo().noquote()
+                << QStringLiteral("FOVELLE_VECTOR_RENDER format=%1 source=vector cache=%2")
+                           .arg(isPdf ? QStringLiteral("pdf") : QStringLiteral("svg"),
+                                cacheHit                   ? QStringLiteral("hit")
+                                        : reusedVectorTile ? QStringLiteral("reused")
+                                                           : QStringLiteral("miss"))
+                << "sampling="
+                << (nearestSampling ? QStringLiteral("nearest") : QStringLiteral("smooth"))
+                << "deviceScale=" << deviceScaleX << deviceScaleY << "exposedRect=" << exposedRect
+                << "sourceRect=" << tile.sourceRect << "tilePixels=" << tile.outputImage.size();
     }
 }

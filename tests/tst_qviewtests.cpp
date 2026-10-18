@@ -170,6 +170,11 @@ private slots:
     void testVectorInteractionPreservesTerminalDensity();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
     void testImageLoaderPreservesSourceResolutionForZoom();
+    void testVectorDisplayTargetSwitch_data();
+    void testVectorDisplayTargetSwitch();
+    void testVectorRequestBurstAndDestruction();
+    void testVectorPresentationFrameBudget_data();
+    void testVectorPresentationFrameBudget();
     void testColorSvgWideGamut_data();
     void testColorSvgWideGamut();
     void testColorSvgMixedPaints();
@@ -16958,6 +16963,8 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
 
 #include "zoom_color_acceptance.inc"
 #include "color_rendering_acceptance.inc"
+#include "vector_performance_acceptance.inc"
+#include "vector_pipeline_acceptance.inc"
 
 #include "remediation_tests.h"
 #include "moc_remediation_tests.cpp"

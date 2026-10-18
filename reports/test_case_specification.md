@@ -1,123 +1,67 @@
-# 图片色彩修复测试规范
+# EPS/SVG交互性能测试规范
 
-日期：2026-10-18。标准A1–A9见technical_design_document.md。每个用例均固化为代码；静态用例tests/color_rendering_static.py，动态用例tests/color_rendering_acceptance.inc及native_color_fixtures.mm。日志位于reports/evidence/color_rendering_20261018/。
+日期：2026-10-18。每条标准与设计文档P1–P9对应；代码固化在vector_performance_static.py与vector_performance_acceptance.inc。证据目录reports/evidence/vector_performance_20261018/。
 
-## S1：SVG规范化唯一源（A1/A2）
-1. 测试目的：防止SVG规范化唯一源被后续改动绕开；像素正确性由对应动态用例独立验证。
-2. 前置条件：Python3，可读取仓库源文件。
-3. 输入数据：loader、GUI与worker的SVG入口。
-4. 操作步骤：执行python3 tests/color_rendering_static.py ColorContracts.test_svg_has_one_normalized_source。
-5. 预期结果：规范化后以encodedData优先，tile沿用源色彩空间；修复前的相关契约失败，修复后通过。
-6. 后置条件：代码及用户偏好不变。
+## S1（P1）：paint没有ICC系统查询
+1. 测试目的：拒绝每帧解析窗口profile的回归。
+2. 前置条件：Python3、可读源文件。
+3. 输入数据：QVGraphicsImageItem::paint函数体。
+4. 操作步骤：运行vector_performance_static.py的对应unittest，检查系统查询和ICC解析不在paint中。
+5. 预期结果：基线失败，修复后通过；非paint刷新逻辑仍存在。
+6. 后置条件：文件不变。
 
-## S2：Netpbm与多图像原生路径（A3/A4）
-1. 测试目的：防止Netpbm与多图像原生路径被后续改动绕开；像素正确性由对应动态用例独立验证。
-2. 前置条件：Python3，可读取仓库源文件。
-3. 输入数据：Netpbm magic分支、selectedImageIndex与loader静态多图像标志。
-4. 操作步骤：执行python3 tests/color_rendering_static.py ColorContracts.test_netpbm_and_multi_image。
-5. 预期结果：三个入口契约均存在且不依赖Qt插件；修复前的相关契约失败，修复后通过。
-6. 后置条件：代码及用户偏好不变。
+## S2（P2/P3）：显示准备属于worker
+1. 测试目的：防止把颜色/格式转换重新放进GUI，或直接绘制高位深源。
+2. 前置条件：Python3、可读源文件。
+3. 输入数据：paint、startAsyncVectorTile和prepared显示数据。
+4. 操作步骤：静态检查paint无转换，worker准备ARGB32 premultiplied、目标空间和输出副本；动态D1再次验证实际计数及格式。
+5. 预期结果：静态契约成立，保留高精度源。
+6. 后置条件：无外部变更。
 
-## S3：矢量与provider精度（A5/A6）
-1. 测试目的：防止矢量与provider精度被后续改动绕开；像素正确性由对应动态用例独立验证。
-2. 前置条件：Python3，可读取仓库源文件。
-3. 输入数据：PDF/分块颜色空间与位深代码、矢量显示转换。
-4. 操作步骤：执行python3 tests/color_rendering_static.py ColorContracts.test_vector_and_provider_precision。
-5. 预期结果：16位路径与真实组件位数、输出空间转换均保留；修复前的相关契约失败，修复后通过。
-6. 后置条件：代码及用户偏好不变。
+## S3（P5/P6）：目标/generation与有界队列
+1. 测试目的：拒绝过期显示结果和无界排队。
+2. 前置条件：Python3。
+3. 输入数据：请求比较、显示空间更新和回调条件。
+4. 操作步骤：检查目标空间进入请求key，目标变化使generation失效，结果发布检查目标；保留active/pending槽位。
+5. 预期结果：旧结果不进入新目标cache；队列仍有界。
+6. 后置条件：代码不变。
 
-## S4：动画状态与源证据（A7/A8）
-1. 测试目的：防止动画状态与源证据被后续改动绕开；像素正确性由对应动态用例独立验证。
-2. 前置条件：Python3，可读取仓库源文件。
-3. 输入数据：movie启动后的清理代码及文件信息状态分支。
-4. 操作步骤：执行python3 tests/color_rendering_static.py ColorContracts.test_animation_and_source_evidence。
-5. 预期结果：HDR引用与标志清除，源ICC状态判断保留；修复前的相关契约失败，修复后通过。
-6. 后置条件：代码及用户偏好不变。
+## S4（P9）：测试进入标准CTest
+1. 测试目的：让性能与颜色契约持续回归。
+2. 前置条件：Python3、CMake源可读。
+3. 输入数据：新静态/动态CTest和既有矢量门禁。
+4. 操作步骤：检查新用例注册且旧测试未删除。
+5. 预期结果：新门禁注册，旧密度/拖影/色彩门禁保留。
+6. 后置条件：不修改构建。
 
-## S5：CTest及构建入口注册（A9）
-1. 测试目的：防止CTest及构建入口注册被后续改动绕开；像素正确性由对应动态用例独立验证。
-2. 前置条件：Python3，可读取仓库源文件。
-3. 输入数据：tests/CMakeLists.txt、native fixture与Qt slot注册。
-4. 操作步骤：执行python3 tests/color_rendering_static.py ColorContracts.test_ctest_registration。
-5. 预期结果：新静态/动态用例注册，原门禁保留；修复前的相关契约失败，修复后通过。
-6. 后置条件：代码及用户偏好不变。
+## D1（P1/P2/P3/P7）：EPS/SVG固定像素交互与基线对照
+1. 测试目的：测量缩放/拖动的冷tile首绘与缓存复用耗时，并验证GUI不承担颜色准备。
+2. 前置条件：Release、Qt Cocoa、Ghostscript、可见测试widget；临时设置隔离。
+3. 输入数据：自生成EPS和SVG，1920×1200及3840×2400像素画布，固定缩放序列与128px overscan内拖动序列；同机ARGB32绘制参考。
+4. 操作步骤：生产loader读取文档；等待异步tile真实发布；记录request paint、首个完成tile paint和连续缓存paint耗时；输出JSON p50/p95/max、格式、颜色准备/ICC查询计数。修复前后执行同一测试。
+5. 预期结果：两格式p95≤max(16.67ms,同机ARGB参考p95×4)；GUI转换=0，命中重绘不增加profile查询，显示格式ARGB32 premultiplied，worker转换>0。实际时间与环境如实报告。
+6. 后置条件：关闭widget，释放worker和临时文件，恢复quit策略，不保留用户设置。
 
-## D1：SVG广色域与压缩输入（A1）
-1. 测试目的：捕获P3红被画黑及压缩SVG绕开规范化。
-2. 前置条件：Qt/Cocoa，临时目录，真实SVG和gzip字节。
-3. 输入数据：color(display-p3 1 0 0)，同内容svg/svgz × UTF-8/UTF-16，透明度1及0.5。
-4. 操作步骤：通过生产载入器读文件；以规范化源绘制16位图；按颜色空间转换到参考空间比较像素；检查vector尺寸。
-5. 预期结果：P3标签与红色分量正确，非黑，alpha在量化容差内，压缩和未压缩一致。
-6. 后置条件：销毁渲染器和临时文件。
+## D2（P4/P5）：色彩与目标切换
+1. 测试目的：验证优化没有退回8位sRGB源，也没有发布旧显示空间的结果。
+2. 前置条件：同D1；可控制item的目标色彩空间。
+3. 输入数据：含P3颜色的PDF（EPS归一化后的共用绘制层）及SVG；sRGB→DisplayP3→AdobeRGB目标，含任务在途切换。
+4. 操作步骤：请求tile，切换目标，等待最终发布；采样显示像素与高精度源到目标转换参考比较；检查呈现空间和任务generation。
+5. 预期结果：最终副本属于最后目标且像素误差≤1个8位量化级加渲染容差；旧目标不覆盖新目标，已有高精度源测试继续通过。
+6. 后置条件：销毁item，取消上下文回调，恢复测试状态。
 
-## D2：SVG颜色混用与负例（A2）
-1. 测试目的：防止修P3时把普通sRGB颜色重新解释为P3；验证无效输入不静默变黑。
-2. 前置条件：同D1。
-3. 输入数据：P3色块、普通red/#hex/rgb、CSS规则、渐变端点、透明度、嵌入PNG；不支持/无效color()；普通SVG。
-4. 操作步骤：规范化并渲染；与QColorSpace独立转换参考比较；检查普通源字节不变、无效输入错误。
-5. 预期结果：各色块对应原始声明，alpha不变；普通源不改；不支持颜色给出可操作错误。
-6. 后置条件：无残留资源。
+## D3（P6）：连续输入和销毁
+1. 测试目的：验证交互burst不创建无界任务或悬挂回调。
+2. 前置条件：Qt事件循环和生产异步池。
+3. 输入数据：连续100次位置/缩放变化，最后一个目标；在途销毁。
+4. 操作步骤：不断调用生产paint并读取active+pending深度，随后停止输入等待最后tile；另一次请求立即销毁item。
+5. 预期结果：深度始终≤2，最终精确tile就绪，销毁后无崩溃/失效对象访问。
+6. 后置条件：线程作业完成并释放临时资源。
 
-## D3：Netpbm数学参考（A3）
-1. 测试目的：真实像素验证BT.709，排除仅改元数据。
-2. 前置条件：Qt测试程序。
-3. 输入数据：P2/P3/P5/P6黑、灰128、白、彩色，16位梯度；PBM/PFM反例；改错扩展名。
-4. 操作步骤：写最小样本，经生产载入；转换sRGB，逐像素与独立逆709/正sRGB公式比较；检查源描述。
-5. 预期结果：128约140，黑白不变，RGB各通道独立，16位有低位差异；PBM/PFM不错误覆盖为709，magic优先。
-6. 后置条件：临时目录清理。
-
-## D3-L：旧Qt的ICC采样曲线后端（A3/A9）
-1. 测试目的：防止引入旧Qt缺少的采样曲线构造器/描述API，并验证兼容ICC后端的真实像素。
-2. 前置条件：CMake测试构建；当前Qt运行FOVELLE_TEST_LEGACY_BT709分支，不等同于安装旧Qt的完整构建。
-3. 输入数据：P2/P3/P5/P6 × Maxval255/65535；黑、线性toe、分段边界、中灰、白及16位低位；RGB通道错位排列。
-4. 操作步骤：构建fovelle_legacy_bt709_tests，执行ctest -R '^FovelleLegacyBt709Backend$'；原有D3也以替换对象的方式验证同一后端进入完整App加载器。
-5. 预期结果：8个数据行通过，逐通道匹配独立BT.709逆曲线与sRGB正曲线，容差0.004；原始16位值精确保留。正常Qt6分支的预处理token与兼容守卫前完全相同。
-6. 后置条件：临时信号清理；不改用户设置、不访问桌面窗口。
-
-## D4：多图像原生解码（A4）
-1. 测试目的：证明系统能读而App不能读的反例被消除，且图标选取正确。
-2. 前置条件：ImageIO生成器，不依赖外部相机或系统应用路径。
-3. 输入数据：两页不同色TIFF；不同尺寸、不同色ICNS/ICO；单图TIFF对照。
-4. 操作步骤：先直接ImageIO验证count与每个index可读，再通过App加载，检查选中尺寸/像素/多图像静态标志。
-5. 预期结果：TIFF显示首图、图标显示最大有效表示；不依赖Qt TIFF/ICNS插件；不误播放静态表示。
-6. 后置条件：关闭source/destination，清除临时文件。
-
-## D5：EPS/PDF颜色精度（A5）
-1. 测试目的：覆盖预览与最终tile，识别内部先裁到sRGB的问题。
-2. 前置条件：CoreGraphics PDF生成器，EPS分支需仓库捆绑Ghostscript。
-3. 输入数据：含ICC P3颜色的PDF、超出P3的AdobeRGB绿色PDF、常规EPS、透明/非透明色块。
-4. 操作步骤：生成PDF，调用生产renderPDFVectorTile；加载EPS检查预览；与ColorSync P3参考比较像素与位深。
-5. 预期结果：Qt6浮点premultiplied、线性P3标签，P3端点保留且AdobeRGB绿保留负红分量；普通EPS几何、透明度及缩放回归通过。
-6. 后置条件：释放CG与临时资源。
-
-## D6：真实高精度provider（A6）
-1. 测试目的：用小图覆盖超大图同一工厂，检查低位真实保存而非仅标记16位。
-2. 前置条件：生产分块工厂及仅测试构建的像素采样接口。
-3. 输入数据：RGBA64相邻值0x8080/0x8081及alpha；Qt6浮点信号；P3 ICC；带RGB及Gray模型ICC的Grayscale16；8/16/32位虚拟尺寸provider阈值。
-4. 操作步骤：构造真实分块，采样CIImage像素，与源值比较；验证组件位数、分块范围与无效输入。
-5. 预期结果：保留低位差异与alpha/ICC，不统一降8位；空输入安全失败。
-6. 后置条件：工厂和provider释放，无多GB分配。
-
-## D7：动画清理（A7）
-1. 测试目的：静态HDR状态不能遮盖后续播放帧。
-2. 前置条件：真实电影fixture、可注入loader结果的生产core测试接口。
-3. 输入数据：包含静态HDR表示并可播放的APNG/GIF加载结果。
-4. 操作步骤：经loadPixmap实际启动电影；观察HDR/SDR标志和引用、后续帧。
-5. 预期结果：电影运行，两个静态表示均清空，HDR标志和元数据不残留，帧推进。
-6. 后置条件：stop、关闭core，恢复设置。
-
-## D8：无声明/错误ICC边界（A8）
-1. 测试目的：源空间未知不能误报成已知，已有ICC不应覆盖。
-2. 前置条件：现有信息对话框测试设施。
-3. 输入数据：无ICC普通PNG、有效P3 ICC、损坏/截断ICC，PNM容器声明。
-4. 操作步骤：调用源元数据读取和真实对话框刷新；转换无标签像素与有效ICC像素。
-5. 预期结果：明确默认假设，不声称恢复原空间；有效ICC和容器声明保持；错误/未知不伪装成嵌入。
-6. 后置条件：对话框与设置恢复。
-
-## D9：完整回归（A9）
-1. 测试目的：确保新修复不破坏原生HDR、电影生命周期、EPS/SVG矢量缩放与部署。
-2. 前置条件：Release构建、BUILD_TESTS=ON，portable HDR fixtures。
-3. 输入数据：完整CTest及定向色彩测试。
-4. 操作步骤：先运行新增测试取得失败证据，再实现；构建并执行定向测试和完整ctest --test-dir build --output-on-failure。
-5. 预期结果：新增验收通过，原门禁保持；失败与跳过必须如实披露，不以重试成功替换失败。
-6. 后置条件：记录日志与最终报告，不提交/推送或修改用户偏好。
+## D4（P8/P9）：现有完整回归
+1. 测试目的：防止用降密度、部分重绘或去掉色彩转换获得虚假性能。
+2. 前置条件：完整测试构建、portable HDR信号。
+3. 输入数据：现有矢量密度、拖影、EPS/SVG拖动、色彩、窗口及完整CTest。
+4. 操作步骤：定向运行相关用例，再执行完整ctest --test-dir build --output-on-failure。
+5. 预期结果：原断言保持并通过；失败记录保留，不通过提高阈值或跳过取得绿色。
+6. 后置条件：保存日志及完成报告。
