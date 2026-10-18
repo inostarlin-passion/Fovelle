@@ -2,6 +2,7 @@
 """Mandatory real-file HDR gate with exact coverage and persistent diagnostics."""
 from pathlib import Path
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -30,7 +31,7 @@ def validate_fixtures(root=FIXTURES):
             raise ValueError('Fixture checksum mismatch: ' + name)
 
 
-def validate_xml(path, expected, *, suite=None, required_rows=None):
+def validate_xml(path, expected, *, suite=None, required_rows=None, invocations=None):
     root = ET.parse(path).getroot()
     if root.tag != 'TestCase' or (suite is not None and root.get('name') != suite):
         raise ValueError('Unexpected test suite')
@@ -38,7 +39,10 @@ def validate_xml(path, expected, *, suite=None, required_rows=None):
     names = [function.get('name') for function in functions]
     if suite is not None and set(names) - (set(expected) | {'initTestCase', 'cleanupTestCase'}):
         raise ValueError('Unexpected executed test functions')
-    if not set(expected) <= set(names) or len(names) != len(set(names)):
+    counts = Counter(names)
+    expected_counts = invocations or {name: 1 for name in names}
+    if (not set(expected) <= set(names)
+            or any(count != expected_counts.get(name, 1) for name, count in counts.items())):
         raise ValueError('Missing or duplicate executed test functions')
     for function in functions:
         incidents = function.findall('Incident')
@@ -47,8 +51,9 @@ def validate_xml(path, expected, *, suite=None, required_rows=None):
     for name, required in (required_rows or {}).items():
         if name not in names:
             raise ValueError('Missing data-driven function: ' + name)
-        function = functions[names.index(name)]
-        tags = [incident.findtext('DataTag') for incident in function.findall('Incident')]
+        matching = [function for function in functions if function.get('name') == name]
+        tags = [incident.findtext('DataTag') for function in matching
+                for incident in function.findall('Incident')]
         if len(tags) != len(required) or set(tags) != set(required):
             raise ValueError('Missing, duplicate or unexpected data rows: ' + name)
 
@@ -100,7 +105,9 @@ def run_suite(executable, suite, functions, environment, output, *, timeout=180,
                 raise TimeoutError(f'{suite} exceeded its {timeout:.1f}s execution budget')
         if record['returncode'] != 0:
             raise ValueError(f'{suite} exited with status {record["returncode"]}')
-        validate_xml(xml, functions, suite=suite, required_rows=required_rows)
+        invocations = Counter(function.split(":", 1)[0] for function in functions)
+        validate_xml(xml, set(invocations), suite=suite, required_rows=required_rows,
+                     invocations=invocations)
         record['status'] = 'passed'
     except (OSError, ValueError, TimeoutError, subprocess.SubprocessError, ET.ParseError) as error:
         record['status'] = 'timeout' if isinstance(error, TimeoutError) else 'failed'

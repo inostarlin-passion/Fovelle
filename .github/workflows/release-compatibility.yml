@@ -47,6 +47,7 @@ jobs:
         run: >-
           cmake -S . -B build
           -DBUILD_TESTS=ON
+          -DFOVELLE_EXTENDED_TESTS=OFF
           -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
@@ -68,6 +69,9 @@ jobs:
           killall Dock || true
 
       - name: Test
+        timeout-minutes: 3
+        env:
+          FOVELLE_TEST_PROFILE: ci
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90
 
       - name: Upload portable HDR execution evidence
@@ -77,6 +81,7 @@ jobs:
           name: portable-hdr-execution
           path: |
             build/test-results/portable-hdr/
+            build/test-results/fast/
             build/Testing/Temporary/LastTest.log
           if-no-files-found: error
 

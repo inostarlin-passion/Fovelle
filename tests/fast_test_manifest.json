@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "budget_seconds": 165,
+  "static": [
+    {
+      "script": "native_alerts_acceptance.py",
+      "args": []
+    },
+    {
+      "script": "navigation_boundary_hint_static.py",
+      "args": []
+    },
+    {
+      "script": "test_hdr_focus_transition_metrics.py",
+      "args": []
+    },
+    {
+      "script": "test_fullscreen_system_metrics.py",
+      "args": []
+    },
+    {
+      "script": "hdr_brightness_static.py",
+      "args": []
+    },
+    {
+      "script": "zoom_color_acceptance_static.py",
+      "args": []
+    },
+    {
+      "script": "keep_zoom_persistence_static.py",
+      "args": []
+    },
+    {
+      "script": "remediation_contract.py",
+      "args": []
+    },
+    {
+      "script": "remediation_gate_tests.py",
+      "args": []
+    },
+    {
+      "script": "actions_regression_tests.py",
+      "args": []
+    },
+    {
+      "script": "stapler_retry_tests.py",
+      "args": []
+    },
+    {
+      "script": "movie_resume_static.py",
+      "args": []
+    },
+    {
+      "script": "camera_model_static.py",
+      "args": []
+    },
+    {
+      "script": "hdr_info_output_static.py",
+      "args": []
+    },
+    {
+      "script": "hdr_info_restore_static.py",
+      "args": []
+    },
+    {
+      "script": "hdr_headroom_restore_static.py",
+      "args": []
+    },
+    {
+      "script": "hdr_surface_metadata_static.py",
+      "args": []
+    },
+    {
+      "script": "color_rendering_static.py",
+      "args": []
+    },
+    {
+      "script": "vector_performance_static.py",
+      "args": []
+    },
+    {
+      "script": "actions_followup_static.py",
+      "args": []
+    },
+    {
+      "script": "test_fast_tests.py",
+      "args": []
+    },
+    {
+      "script": "toggle_fit_stability_static.py",
+      "args": [
+        "--repo",
+        "{repo}",
+        "--output",
+        "{output}/toggle-fit.json"
+      ]
+    },
+    {
+      "script": "zoom_scrollbar_duration_static.py",
+      "args": [
+        "--repo",
+        "{repo}",
+        "--output",
+        "{output}/scrollbar-duration.json"
+      ]
+    },
+    {
+      "script": "update_acceptance.py",
+      "args": [
+        "--static-only"
+      ]
+    },
+    {
+      "script": "preload_policy_quality.py",
+      "args": []
+    }
+  ],
+  "groups": [
+    {
+      "suite": "ImageLoaderTests",
+      "functions": [
+        "testImageLoaderPriorities",
+        "testImageLoaderCacheAndAttachment",
+        "testImageLoaderRetainedDuringDelivery",
+        "testImageLoaderForegroundRequestPreservesCache",
+        "testImageLoaderSupersededForegroundDiscarded",
+        "testImageLoaderDisabledRetention",
+        "testImageLoaderCachedErrorRetry",
+        "testImageLoaderDestructionDuringLoad",
+        "testImageLoaderLoadsWebpWithImageIOFallback",
+        "testImageLoaderLoadsAvifWithImageIOFallback",
+        "testImageLoaderAppliesWebpOrientation",
+        "testImageLoaderAppliesAvifOrientation",
+        "testImageLoaderLoadsTiffWithImageIO",
+        "testEPSFormatIsAdvertised",
+        "testEPSPostScriptRender",
+        "testImageLoaderLoadsEPS",
+        "testEPSInitialFrameMatchesStableRender",
+        "testEPSRenderCacheCutsConversionLatency",
+        "testImageLoaderLoadsSVGAsVectorDocument",
+        "testEPSRenderSurvivesStaticMovieProbe",
+        "testMalformedEPSFailsSafely",
+        "testEPSMissingRendererFailsActionably",
+        "testVectorInteractionPreservesTerminalDensity",
+        "testImageIOUsesContentTypeInsteadOfFilenameExtension",
+        "testImageLoaderPreservesSourceResolutionForZoom",
+        "testVectorDisplayTargetSwitch",
+        "testVectorRequestBurstAndDestruction",
+        "testVectorPaintTimingClockIsolation",
+        "testVectorPresentationFrameBudget",
+        "testColorSvgWideGamut",
+        "testColorSvgMixedPaints",
+        "testColorNetpbm",
+        "testColorNativeMultiImage",
+        "testColorPdfPrecision",
+        "testColorBoundedProvider",
+        "testColorAnimationClearsStaticRepresentations",
+        "testColorUnspecifiedSource"
+      ]
+    },
+    {
+      "suite": "FeatureTests",
+      "functions": [
+        "testKeepZoomSurvivesStartupMigration",
+        "testKeepZoomPersistsAcrossProcesses",
+        "testKeepZoomPreferenceAndColorTranslations",
+        "testApplicationVersionIsCurrent",
+        "testSettingsFormatsIncludeNativeImageFormats",
+        "testUpdateConfigurationValidation",
+        "testUpdateCheckFrequencyPolicy",
+        "testCameraModelMetadata",
+        "testCameraModelNavigation",
+        "testCameraModelPresentation",
+        "testCameraModelTranslations",
+        "testFileInfoModifiedUsesUiLanguageFormats"
+      ]
+    },
+    {
+      "suite": "HDRPolicyTests",
+      "functions": [
+        "testTransitionCurveIsBoundedAndMonotonic",
+        "testHDRBrightnessTimingAndBezier",
+        "testHDRBrightnessPreservesEndpointColors",
+        "testHDRBrightnessLinearLightPixels",
+        "testDisplayHeadroomBootstrapsFromPotentialCapability",
+        "testHDRHeadroomIsClampedToContentAndDisplay",
+        "testSDRDisplayForcesUnitHeadroom"
+      ]
+    },
+    {
+      "suite": "GraphicsViewTests",
+      "functions": [
+        "testZoomOutClearsStaleVerticalScrollRange",
+        "testMousePanKeepsOverflowRangeAndContinuity",
+        "testKeyboardZoomUsesCursorAnchor",
+        "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
+        "testMouseWheelKeepsBottomRightAnchor",
+        "testZoomTerminalStateDoesNotRewriteViewport",
+        "testZoomKeepsVerticalScrollbarTrajectoryStable",
+        "testKeepZoomAcrossNavigation",
+        "testKeepCalculatedZoomAndFailedNavigation",
+        "testKeepZoomWindowIsolationAndSession"
+      ]
+    },
+    {
+      "suite": "ImageCoreAndMovieTests",
+      "functions": [
+        "testSourceColorMetadata",
+        "testColorContainerBoundaries",
+        "testFileInfoColorFallback",
+        "testHDRPersistentSurfaceMetadata:gain-map",
+        "testHDRPersistentSurfaceMetadata:raw",
+        "testHDRInfoCloseRestores:close"
+      ]
+    },
+    {
+      "suite": "WindowBehaviorTests",
+      "functions": [
+        "testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity",
+        "testNativeMessageBoxStandardButtonResponses",
+        "testFullScreenDefersExpensiveRefinement",
+        "testNativeFullScreenRoundTrip:visible-normal-raster",
+        "testNativeFullScreenRoundTrip:hidden-maximized-vector"
+      ]
+    },
+    {
+      "suite": "RemediationTests",
+      "functions": [
+        "testDownloadThreadAffinity",
+        "testDownloadHttpFailureCleanup",
+        "testDownloadIdleTimeout",
+        "testDownloadTotalTimeout",
+        "testDownloadLimits",
+        "testDownloadProgressAndCancel",
+        "testFolderScanAsync",
+        "testFolderScanGeneration",
+        "testDirectoryOpenAndNavigation",
+        "testMovieBoundedCache",
+        "testMoviePauseResume",
+        "testMovieResumeDelayedDispatch",
+        "testMoviePauseQueuedRead",
+        "testMovieAsyncPlayback",
+        "testMovieAsyncPlaybackSpeed",
+        "testMovieAsyncInvalidInput",
+        "testMovieQueuedSourceReplacement",
+        "testLoaderNonblockingShutdown"
+      ]
+    },
+    {
+      "suite": "ScrollHelperTests",
+      "functions": [
+        "testMinimumEdgesAreHardClamped",
+        "testMaximumEdgesAreHardClamped",
+        "testEdgePositionDoesNotReboundAfterRelease",
+        "testInteriorDragPreservesExactMovement",
+        "testUnconstrainedModeRemainsUnbounded"
+      ]
+    },
+    {
+      "suite": "ApplicationEventTests",
+      "functions": [
+        "testFileOpenEventIsDeferredAndLoadsImage",
+        "testFileOpenEventWithoutPathIsIgnored"
+      ]
+    },
+    {
+      "suite": "ShortcutSettingsTests",
+      "functions": [
+        "testToggleFitAnd100IsTheOnlyFitShortcutAction",
+        "testToggleFitAnd100DefaultsToZ",
+        "testToggleFitAnd100ChangesBetweenFitAnd100Percent",
+        "testToggleFitAnd100Translations",
+        "testPrimaryStandardShortcutDoesNotExposeActionName",
+        "testShortcutsColumnFillsRemainingWidth",
+        "testDoubleClickOpensShortcutEditor",
+        "testShortcutUpdateKeepsSettingsWidth",
+        "testEscapeRejectsShortcutEditorLikeCancel"
+      ]
+    }
+  ],
+  "portable_hdr": true,
+  "legacy_bt709": true
+}

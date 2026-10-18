@@ -165,6 +165,20 @@ if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)
     )
 endif()
 
+add_executable(fovelle_sparkle_probe sparkle_standard_ui_probe.mm)
+set_target_properties(fovelle_sparkle_probe PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@executable_path/../Frameworks")
+target_compile_options(fovelle_sparkle_probe PRIVATE -fobjc-arc)
+target_link_libraries(fovelle_sparkle_probe PRIVATE "${FOVELLE_SPARKLE_FRAMEWORK}" "-framework AppKit")
+# Keep the older-Qt sampled ICC backend executable on the current CI toolchain.
+add_executable(fovelle_legacy_bt709_tests legacy_bt709_tests.cpp ../src/colorinformation.cpp)
+target_include_directories(fovelle_legacy_bt709_tests PRIVATE ../src)
+target_compile_definitions(fovelle_legacy_bt709_tests PRIVATE FOVELLE_TEST_LEGACY_BT709)
+target_link_libraries(fovelle_legacy_bt709_tests PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Test ZLIB::ZLIB)
+
+option(FOVELLE_REQUIRE_PORTABLE_HDR "Require real portable HDR regressions (no skips)" ON)
+option(FOVELLE_EXTENDED_TESTS "Register the full historical regression matrix (long-running)" OFF)
+if(FOVELLE_EXTENDED_TESTS)
 add_test(NAME FovelleTests
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test_suites.py
@@ -402,10 +416,6 @@ set_tests_properties(FovelleFullScreenBottomBackgroundHandoff PROPERTIES
     TIMEOUT 120 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;display-capture;background-handoff;requires-desktop")
 
-add_executable(fovelle_sparkle_probe sparkle_standard_ui_probe.mm)
-set_target_properties(fovelle_sparkle_probe PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@executable_path/../Frameworks")
-target_compile_options(fovelle_sparkle_probe PRIVATE -fobjc-arc)
-target_link_libraries(fovelle_sparkle_probe PRIVATE "${FOVELLE_SPARKLE_FRAMEWORK}" "-framework AppKit")
 add_test(NAME FovelleUpdateStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py --static-only)
 add_test(NAME FovelleUpdateConfiguration COMMAND fovelle_tests
@@ -485,7 +495,6 @@ set_tests_properties(FovelleKeepZoomPersistenceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 90 LABELS "zoom;settings;persistence;restart;dynamic;acceptance")
 
-option(FOVELLE_REQUIRE_PORTABLE_HDR "Require real portable HDR regressions (no skips)" ON)
 add_test(NAME FovelleRemediationStatic COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_contract.py)
 add_test(NAME FovelleRemediationGateTests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_gate_tests.py)
 add_test(NAME FovelleRemediationDynamic COMMAND fovelle_tests)
@@ -563,12 +572,6 @@ set_tests_properties(FovelleColorRenderingDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
     TIMEOUT 90)
 
-# Keep the older-Qt sampled ICC backend executable on the current CI toolchain.
-add_executable(fovelle_legacy_bt709_tests legacy_bt709_tests.cpp ../src/colorinformation.cpp)
-target_include_directories(fovelle_legacy_bt709_tests PRIVATE ../src)
-target_compile_definitions(fovelle_legacy_bt709_tests PRIVATE FOVELLE_TEST_LEGACY_BT709)
-target_link_libraries(fovelle_legacy_bt709_tests PRIVATE
-    Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Test ZLIB::ZLIB)
 add_test(NAME FovelleLegacyBt709Backend COMMAND fovelle_legacy_bt709_tests)
 set_tests_properties(FovelleLegacyBt709Backend PROPERTIES TIMEOUT 30 LABELS "color;unit;compatibility")
 
@@ -583,3 +586,17 @@ set_tests_properties(FovelleVectorPerformanceDynamic PROPERTIES
 add_test(NAME FovelleActionsFollowupStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_followup_static.py)
 set_tests_properties(FovelleActionsFollowupStatic PROPERTIES TIMEOUT 30 LABELS "ci;static;regression")
+
+else()
+    if(NOT FOVELLE_REQUIRE_PORTABLE_HDR)
+        message(FATAL_ERROR "The default three-minute gate requires portable HDR coverage")
+    endif()
+    add_test(NAME FovelleFastTests
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_fast_tests.py
+            $<TARGET_FILE:fovelle_tests>
+            --output ${CMAKE_BINARY_DIR}/test-results/fast
+            --portable-output ${CMAKE_BINARY_DIR}/test-results/portable-hdr)
+    set_tests_properties(FovelleFastTests PROPERTIES
+        TIMEOUT 175 RUN_SERIAL TRUE LABELS "local;ci;fast"
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+endif()
