@@ -1,4 +1,5 @@
 #include "qvimageloader.h"
+#include "svgcolor.h"
 #include "qvcocoafunctions.h"
 
 #include <QCoreApplication>
@@ -234,6 +235,7 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
     bool isMultiFrameImage = false;
     const QVCocoaFunctions::NativeImageReadResult nativeResult =
             QVCocoaFunctions::readImageWithImageIO(absoluteFilePath, qMin(largestDimension, 2048));
+    isMultiFrameImage = nativeResult.isMultiFrameImage;
     const bool useNativeImageIO = nativeResult.isImageIOType;
     const bool useQtFallback =
             nativeResult.allowsQtFallback && nativeResult.image.isNull()
@@ -258,19 +260,23 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
         }
         else
         {
-            const QByteArray svgData = vectorFile.readAll();
+            QColorSpace svgSpace;
+            const QByteArray svgData = QvColor::prepareSvg(vectorFile.readAll(), absoluteFilePath,
+                                                           &svgSpace, &errorString);
             QSvgRenderer svgRenderer;
-            const bool valid = svgRenderer.load(absoluteFilePath);
+            const bool valid = !svgData.isEmpty() && svgRenderer.load(svgData);
             QSize svgSize = svgRenderer.defaultSize();
             if (svgSize.isEmpty() && svgRenderer.viewBoxF().isValid())
                 svgSize = svgRenderer.viewBoxF().size().toSize();
             if (!valid || svgSize.isEmpty())
             {
-                errorString = QStringLiteral("SVG document is invalid or has no drawable size");
+                if (errorString.isEmpty())
+                    errorString = QStringLiteral("SVG document is invalid or has no drawable size");
             }
             else
             {
                 intrinsicSize = svgSize;
+                vectorImage.colorSpace = svgSpace;
                 vectorImage.format = Qv::VectorImageFormat::Svg;
                 vectorImage.encodedData = svgData;
                 vectorImage.sourcePath = vectorFileInfo.absoluteFilePath();
@@ -280,7 +286,8 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
                                                        VectorPreviewLargestDimension));
                 const QSize previewSize = intrinsicSize.scaled(
                     previewLimit, previewLimit, Qt::KeepAspectRatio);
-                image = QImage(previewSize, QImage::Format_ARGB32_Premultiplied);
+                image = QImage(previewSize, QImage::Format_RGBA64_Premultiplied);
+                image.setColorSpace(svgSpace);
                 if (!image.isNull())
                 {
                     image.fill(Qt::transparent);

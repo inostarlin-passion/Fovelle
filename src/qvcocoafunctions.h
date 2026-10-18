@@ -99,6 +99,7 @@ public:
         QString errorString;
         bool isImageIOType {false};
         bool allowsQtFallback {true};
+        bool isMultiFrameImage{ false };
         bool isRaw {false};
         bool usedRawPreview {false};
     };
@@ -438,6 +439,12 @@ public:
     // CGImage or NSImage.
     static HDRPixelStatistics probeHDRPixelStatistics(const HDRImagePtr &image);
 
+    static bool requiresBoundedSDRProvider(const QSize &size, int bitsPerComponent);
+    static SDRImagePtr createSDRImage(QImage image, bool hasAlpha);
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+    static QVector<float> probeSDRImagePixels(const SDRImagePtr &image,
+                                              const QColorSpace &space = QColorSpace::DisplayP3);
+#endif
     static QImage readAdditionalImage(const QString &filePath, QString *errorString = nullptr);
 
     static std::unique_ptr<AnimatedImage> createAnimatedImage(const QString &filePath);

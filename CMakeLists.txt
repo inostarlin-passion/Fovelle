@@ -74,6 +74,7 @@ set(FOVELLE_SOURCES
     src/qvrenamedialog.cpp
     src/qvinfodialog.cpp
     src/colorinformation.cpp
+    src/svgcolor.cpp
     src/qvimagecore.cpp
     src/qvimageloader.cpp
     src/urldownload.cpp

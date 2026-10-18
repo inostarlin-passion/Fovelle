@@ -4,6 +4,9 @@
 #include <QMap>
 #include <QtEndian>
 #include <zlib.h>
+#include <cmath>
+#include <QImageReader>
+#include <limits>
 
 namespace QvColor {
 namespace {
@@ -367,12 +370,172 @@ QString spaceName(const QColorSpace &space)
     return QStringLiteral("ICC");
 #endif
 }
+bool isStandardNetpbm(const QByteArray &header)
+{
+    return header.size() >= 3 && header[0] == 'P'
+            && (header[1] == '2' || header[1] == '3' || header[1] == '5' || header[1] == '6')
+            && (header[2] == ' ' || header[2] == '\n' || header[2] == '\r' || header[2] == '\t');
+}
+QColorSpace bt709ColorSpace()
+{
+    static const QColorSpace space = [] {
+        QList<uint16_t> curve;
+        curve.reserve(4096);
+        for (int i = 0; i < 4096; ++i) {
+            const double v = i / 4095.0;
+            const double linear = v < .081 ? v / 4.5 : std::pow((v + .099) / 1.099, 1.0 / .45);
+            curve.append(uint16_t(qRound(linear * 65535.0)));
+        }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 1, 0) && !defined(FOVELLE_TEST_LEGACY_BT709)
+        QColorSpace result(QColorSpace::Primaries::SRgb, curve);
+#else
+        // Older Qt accepts matrix/TRC ICC profiles but cannot construct a
+        // sampled transfer function directly. Retain Qt's sRGB primaries and
+        // replace its three TRC tags with one shared ICC curveType payload.
+        QByteArray icc = QColorSpace(QColorSpace::SRgb).iccProfile();
+        if (icc.size() < 132)
+            return QColorSpace();
+        const quint32 tags = be32(icc.constData() + 128);
+        if (tags > quint32((icc.size() - 132) / 12))
+            return QColorSpace();
+        QByteArray samples(12 + 2 * curve.size(), '\0');
+        samples.replace(0, 4, "curv");
+        qToBigEndian<quint32>(quint32(curve.size()), samples.data() + 8);
+        for (int i = 0; i < curve.size(); ++i)
+            qToBigEndian<quint16>(curve[i], samples.data() + 12 + 2 * i);
+        icc.append((4 - icc.size() % 4) % 4, '\0');
+        const quint32 curveOffset = quint32(icc.size());
+        icc.append(samples);
+        int replaced = 0;
+        for (quint32 i = 0; i < tags; ++i) {
+            const qsizetype entry = 132 + 12 * qsizetype(i);
+            const QByteArray tag = icc.mid(entry, 4);
+            if (tag == "rTRC" || tag == "gTRC" || tag == "bTRC") {
+                qToBigEndian<quint32>(curveOffset, icc.data() + entry + 4);
+                qToBigEndian<quint32>(quint32(samples.size()), icc.data() + entry + 8);
+                ++replaced;
+            }
+        }
+        if (replaced != 3)
+            return QColorSpace();
+        qToBigEndian<quint32>(quint32(icc.size()), icc.data());
+        icc.replace(84, 16, QByteArray(16, '\0')); // Do not retain the old profile ID.
+        QColorSpace result = QColorSpace::fromIccProfile(icc);
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+        result.setDescription(QStringLiteral("BT.709 (Netpbm)"));
+#endif
+        return result;
+    }();
+    return space;
+}
+QImage readStandardNetpbm(const QString &path, QString *error)
+{
+    error->clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        *error = file.errorString();
+        return { };
+    }
+    char delimiter = 0;
+    const auto token = [&]() -> QByteArray {
+        QByteArray value;
+        char c;
+        while (file.getChar(&c)) {
+            if (c == '#') {
+                while (file.getChar(&c) && c != '\n' && c != '\r') { }
+                continue;
+            }
+            if (!QChar::fromLatin1(c).isSpace()) {
+                value += c;
+                break;
+            }
+        }
+        while (file.getChar(&c)) {
+            if (QChar::fromLatin1(c).isSpace()) {
+                delimiter = c;
+                break;
+            }
+            if (value.size() >= 32)
+                return { };
+            value += c;
+        }
+        return value;
+    };
+    const QByteArray magic = token();
+    bool widthOk = false, heightOk = false, maxOk = false;
+    const int width = token().toInt(&widthOk), height = token().toInt(&heightOk),
+              maximum = token().toInt(&maxOk);
+    const bool rgb = magic == "P3" || magic == "P6";
+    const bool binary = magic == "P5" || magic == "P6";
+    const quint64 limit = QImageReader::allocationLimit() > 0
+            ? quint64(QImageReader::allocationLimit()) * 1024 * 1024
+            : 8ULL * 1024 * 1024 * 1024;
+    if (!isStandardNetpbm(magic + '\n') || !widthOk || !heightOk || !maxOk || width <= 0
+        || height <= 0 || maximum <= 0 || maximum > 65535
+        || quint64(width) > limit / quint64(height) / 8
+        || quint64(width) * 8 > std::numeric_limits<int>::max()) {
+        *error = QStringLiteral("Invalid or oversized Netpbm image");
+        return { };
+    }
+    if (binary && delimiter == '\r' && file.peek(1) == "\n")
+        file.getChar(&delimiter);
+    QImage image(width, height, QImage::Format_RGBX64);
+    if (image.isNull()) {
+        *error = QStringLiteral("Netpbm pixels could not be allocated");
+        return { };
+    }
+    const int channels = rgb ? 3 : 1, bytes = maximum > 255 ? 2 : 1;
+    for (int y = 0; y < height; ++y) {
+        QByteArray row;
+        if (binary) {
+            const qint64 size = qint64(width) * channels * bytes;
+            row = file.read(size);
+            if (row.size() != size) {
+                *error = QStringLiteral("Truncated Netpbm raster");
+                return { };
+            }
+        }
+        auto *pixels = reinterpret_cast<QRgba64 *>(image.scanLine(y));
+        qsizetype offset = 0;
+        for (int x = 0; x < width; ++x) {
+            uint16_t components[3]{ };
+            for (int c = 0; c < channels; ++c) {
+                bool ok = true;
+                int value;
+                if (binary) {
+                    value = uchar(row[offset++]);
+                    if (bytes == 2)
+                        value = (value << 8) | uchar(row[offset++]);
+                } else
+                    value = token().toInt(&ok);
+                if (!ok || value < 0 || value > maximum) {
+                    *error = QStringLiteral("Invalid Netpbm sample");
+                    return { };
+                }
+                components[c] = uint16_t((quint64(value) * 65535 + maximum / 2) / maximum);
+            }
+            if (!rgb)
+                components[1] = components[2] = components[0];
+            pixels[x] = QRgba64::fromRgba64(components[0], components[1], components[2], 65535);
+        }
+    }
+    image.setColorSpace(bt709ColorSpace());
+    return image;
+}
 SourceInfo readSource(const QString &path)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
         return { };
     const auto header = file.peek(16);
+    if (isStandardNetpbm(header)) {
+        SourceInfo info;
+        info.iccState = ICCState::Absent;
+        info.origin = Origin::Container;
+        info.spaceName = QStringLiteral("BT.709 (Netpbm)");
+        return info;
+    }
     if (header.startsWith(QByteArray::fromHex("89504e470d0a1a0a")))
         return png(file);
     if (header.startsWith(QByteArray::fromHex("ffd8")))

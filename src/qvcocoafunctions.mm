@@ -3,6 +3,7 @@
 #include "actionmanager.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
+#include "colorinformation.h"
 
 #include <QUrl>
 #include <QThread>
@@ -647,11 +648,11 @@ QString sourceCameraModel(CGImageSourceRef source)
     return model;
 }
 
-QSize sourcePixelSize(CGImageSourceRef source)
+QSize sourcePixelSize(CGImageSourceRef source, size_t index = 0)
 {
     int width = 0;
     int height = 0;
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
     if (properties)
     {
         if (const auto widthNumber = static_cast<CFNumberRef>(CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth)))
@@ -664,11 +665,10 @@ QSize sourcePixelSize(CGImageSourceRef source)
     return QSize(width, height);
 }
 
-bool sourceHasAlpha(CGImageSourceRef source)
+bool sourceHasAlpha(CGImageSourceRef source, size_t index = 0)
 {
     bool hasAlpha = false;
-    CFDictionaryRef properties =
-            CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
     if (!properties)
         return false;
 
@@ -696,17 +696,17 @@ QSize orientedPixelSize(const QSize &size, const CGImagePropertyOrientation orie
     return size;
 }
 
-int sourceMaxPixelSize(CGImageSourceRef source)
+int sourceMaxPixelSize(CGImageSourceRef source, size_t index = 0)
 {
-    const QSize size = sourcePixelSize(source);
+    const QSize size = sourcePixelSize(source, index);
     const int maxDimension = std::max(size.width(), size.height());
     return maxDimension > 0 ? maxDimension : std::numeric_limits<int>::max();
 }
 
-CGImagePropertyOrientation sourceOrientation(CGImageSourceRef source)
+CGImagePropertyOrientation sourceOrientation(CGImageSourceRef source, size_t index = 0)
 {
     CGImagePropertyOrientation orientation = kCGImagePropertyOrientationUp;
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
     if (!properties)
         return orientation;
 
@@ -832,11 +832,10 @@ QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outp
     return result;
 }
 
-CFMutableDictionaryRef thumbnailOptions(CGImageSourceRef source,
-                                        const int largestDimension,
-                                        const bool decodeToHDR)
+CFMutableDictionaryRef thumbnailOptions(CGImageSourceRef source, const int largestDimension,
+                                        const bool decodeToHDR, size_t index = 0)
 {
-    const int sourceDimension = sourceMaxPixelSize(source);
+    const int sourceDimension = sourceMaxPixelSize(source, index);
     const int maxDimension =
             largestDimension > 0 ? std::min(sourceDimension, largestDimension) : sourceDimension;
     CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
@@ -1279,6 +1278,46 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
     return true;
 }
 
+// Keep PDF colors outside P3 until the final display conversion. A 16-bit
+// integer P3 buffer still clips Adobe RGB greens despite its higher precision.
+QImage::Format pdfRasterFormat()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    return QImage::Format_RGBA32FPx4_Premultiplied;
+#else
+    return QImage::Format_RGBA64_Premultiplied;
+#endif
+}
+QColorSpace pdfRasterQColorSpace()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    return QColorSpace(QColorSpace::Primaries::DciP3D65, QColorSpace::TransferFunction::Linear);
+#else
+    return QColorSpace::DisplayP3;
+#endif
+}
+CGColorSpaceRef pdfRasterColorSpace()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    return colorSyncDisplayP3ColorSpace(true);
+#else
+    return colorSyncDisplayP3ColorSpace(false);
+#endif
+}
+CGBitmapInfo pdfRasterBitmapInfo()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    return static_cast<CGBitmapInfo>(kCGBitmapFloatComponents | kCGImageAlphaPremultipliedLast
+                                     | kCGBitmapByteOrder32Host);
+#else
+    return static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder16Host);
+#endif
+}
+int pdfRasterComponentBits()
+{
+    return pdfRasterFormat() == QImage::Format_RGBA64_Premultiplied ? 16 : 32;
+}
+
 QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimension,
                         QSize &intrinsicSize, QString &errorString)
 {
@@ -1338,7 +1377,7 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
         return {};
     }
 
-    QImage image(targetWidth, targetHeight, QImage::Format_RGBA8888_Premultiplied);
+    QImage image(targetWidth, targetHeight, pdfRasterFormat());
     if (image.isNull())
     {
         CGPDFDocumentRelease(document);
@@ -1347,15 +1386,11 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
     }
     image.fill(Qt::transparent);
 
-    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
+    CGColorSpaceRef colorSpace = pdfRasterColorSpace();
     CGContextRef context = CGBitmapContextCreate(
-        image.bits(),
-        static_cast<size_t>(targetWidth),
-        static_cast<size_t>(targetHeight),
-        8,
-        static_cast<size_t>(image.bytesPerLine()),
-        colorSpace,
-        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+            image.bits(), static_cast<size_t>(targetWidth), static_cast<size_t>(targetHeight),
+            pdfRasterComponentBits(), static_cast<size_t>(image.bytesPerLine()), colorSpace,
+            pdfRasterBitmapInfo());
     CGColorSpaceRelease(colorSpace);
     if (!context)
     {
@@ -1378,7 +1413,7 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
     CGContextDrawPDFPage(context, page);
     CGContextRelease(context);
     CGPDFDocumentRelease(document);
-    image.setColorSpace(QColorSpace::SRgb);
+    image.setColorSpace(pdfRasterQColorSpace());
     return image;
 }
 
@@ -1564,18 +1599,45 @@ public:
           sourceSize(backingImage.size()),
           sourceHasAlpha(alpha)
     {
-        if (!supportsDirectQImageFormat(backingImage.format()))
-        {
-            backingImage = backingImage.convertToFormat(
-                    sourceHasAlpha
-                            ? QImage::Format_ARGB32_Premultiplied
-                            : QImage::Format_RGB32);
+        bool grayProfile = false;
+        bool cmykProfile = false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+        const QColorSpace source = backingImage.colorSpace();
+        grayProfile = source.isValid() && source.colorModel() == QColorSpace::ColorModel::Gray;
+        cmykProfile = source.isValid() && source.colorModel() == QColorSpace::ColorModel::Cmyk;
+#endif
+        const bool expandGray = !grayProfile
+                && (backingImage.format() == QImage::Format_Grayscale8
+                    || backingImage.format() == QImage::Format_Grayscale16);
+        bool expandCmyk = false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+        expandCmyk = !cmykProfile && backingImage.format() == QImage::Format_CMYK8888;
+#else
+        Q_UNUSED(cmykProfile)
+#endif
+        if (backingImage.isNull())
+            return;
+        if (!supportsDirectQImageFormat(backingImage.format()) || expandGray || expandCmyk) {
+            const QPixelFormat pixels = backingImage.pixelFormat();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+            if (pixels.typeInterpretation() == QPixelFormat::FloatingPoint)
+                backingImage =
+                        backingImage.convertToFormat(QImage::Format_RGBA32FPx4_Premultiplied);
+            else
+#endif
+                backingImage = backingImage.convertToFormat(
+                        pixels.redSize() > 8 || pixels.greenSize() > 8 || pixels.blueSize() > 8
+                                        || pixels.alphaSize() > 8
+                                ? QImage::Format_RGBA64_Premultiplied
+                                : sourceHasAlpha ? QImage::Format_ARGB32_Premultiplied
+                                                 : QImage::Format_RGB32);
             sourceSize = backingImage.size();
         }
         imageMetadata.sourceKind = QStringLiteral("sdr-bounded-provider");
         imageMetadata.pixelSize = sourceSize;
         imageMetadata.contentHeadroom = 1.0F;
-        imageMetadata.bitsPerComponent = backingImage.isNull() ? 0 : 8;
+        imageMetadata.bitsPerComponent =
+                backingImage.isNull() ? 0 : componentBitsForQImage(backingImage.format());
         materializedByteCount = static_cast<quint64>(
                 qMax<qsizetype>(0, backingImage.sizeInBytes()));
         buildQImageTiles();
@@ -1609,19 +1671,66 @@ public:
 private:
     static bool supportsDirectQImageFormat(const QImage::Format format)
     {
-        return format == QImage::Format_RGB32
-                || format == QImage::Format_ARGB32
-                || format == QImage::Format_ARGB32_Premultiplied
-                || format == QImage::Format_RGB888
-                || format == QImage::Format_RGBX8888
-                || format == QImage::Format_RGBA8888
-                || format == QImage::Format_RGBA8888_Premultiplied;
+        return format == QImage::Format_RGB32 || format == QImage::Format_ARGB32
+                || format == QImage::Format_ARGB32_Premultiplied || format == QImage::Format_RGB888
+                || format == QImage::Format_RGBX8888 || format == QImage::Format_RGBA8888
+                || format == QImage::Format_RGBA8888_Premultiplied
+                || format == QImage::Format_RGBX64 || format == QImage::Format_RGBA64
+                || format == QImage::Format_RGBA64_Premultiplied
+                || format == QImage::Format_Grayscale8 || format == QImage::Format_Grayscale16
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+                || format == QImage::Format_CMYK8888
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+                || format == QImage::Format_RGBX32FPx4 || format == QImage::Format_RGBA32FPx4
+                || format == QImage::Format_RGBA32FPx4_Premultiplied
+#endif
+                ;
     }
 
+    static int componentBitsForQImage(const QImage::Format format)
+    {
+        if (format == QImage::Format_RGBX64 || format == QImage::Format_RGBA64
+            || format == QImage::Format_RGBA64_Premultiplied
+            || format == QImage::Format_Grayscale16)
+            return 16;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+        if (format == QImage::Format_RGBX32FPx4 || format == QImage::Format_RGBA32FPx4
+            || format == QImage::Format_RGBA32FPx4_Premultiplied)
+            return 32;
+#endif
+        return 8;
+    }
     static CGBitmapInfo bitmapInfoForQImage(const QImage::Format format)
     {
         switch (format)
         {
+        case QImage::Format_Grayscale8:
+            return static_cast<CGBitmapInfo>(kCGImageAlphaNone);
+        case QImage::Format_Grayscale16:
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host | kCGImageAlphaNone);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+        case QImage::Format_CMYK8888:
+            return static_cast<CGBitmapInfo>(kCGImageAlphaNone);
+#endif
+        case QImage::Format_RGBX64:
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host | kCGImageAlphaNoneSkipLast);
+        case QImage::Format_RGBA64:
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host | kCGImageAlphaLast);
+        case QImage::Format_RGBA64_Premultiplied:
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host
+                                             | kCGImageAlphaPremultipliedLast);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+        case QImage::Format_RGBX32FPx4:
+            return static_cast<CGBitmapInfo>(kCGBitmapFloatComponents | kCGBitmapByteOrder32Host
+                                             | kCGImageAlphaNoneSkipLast);
+        case QImage::Format_RGBA32FPx4:
+            return static_cast<CGBitmapInfo>(kCGBitmapFloatComponents | kCGBitmapByteOrder32Host
+                                             | kCGImageAlphaLast);
+        case QImage::Format_RGBA32FPx4_Premultiplied:
+            return static_cast<CGBitmapInfo>(kCGBitmapFloatComponents | kCGBitmapByteOrder32Host
+                                             | kCGImageAlphaPremultipliedLast);
+#endif
         case QImage::Format_RGB32:
             return static_cast<CGBitmapInfo>(
                     kCGBitmapByteOrder32Host | kCGImageAlphaNoneSkipFirst);
@@ -1696,18 +1805,13 @@ private:
         CGColorSpaceRef colorSpace = colorSpaceForQImage(*retainedImage);
         const size_t bitsPerPixel = static_cast<size_t>(
                 retainedImage->depth());
-        CGImageRef band = colorSpace ? CGImageCreate(
-                static_cast<size_t>(retainedImage->width()),
-                static_cast<size_t>(height),
-                8,
-                bitsPerPixel,
-                bytesPerRow,
-                colorSpace,
-                bitmapInfoForQImage(retainedImage->format()),
-                provider,
-                nullptr,
-                false,
-                kCGRenderingIntentDefault) : nullptr;
+        CGImageRef band = colorSpace
+                ? CGImageCreate(
+                          static_cast<size_t>(retainedImage->width()), static_cast<size_t>(height),
+                          componentBitsForQImage(retainedImage->format()), bitsPerPixel,
+                          bytesPerRow, colorSpace, bitmapInfoForQImage(retainedImage->format()),
+                          provider, nullptr, false, kCGRenderingIntentDefault)
+                : nullptr;
         if (colorSpace)
             CGColorSpaceRelease(colorSpace);
         CGDataProviderRelease(provider);
@@ -1814,10 +1918,13 @@ private:
         constexpr int SamplingBorder = 2;
         const int width = sourceSize.width();
         const int height = sourceSize.height();
-        for (int coreY = 0; coreY < height; coreY += TileSize)
-        {
-            const QRect rowCore(0, coreY, width,
-                                std::min(TileSize, height - coreY));
+        const qsizetype stride = backingImage.bytesPerLine();
+        const int safeRows = int(qMin<qsizetype>(
+                TileSize, std::numeric_limits<qint32>::max() / stride - 2 * SamplingBorder));
+        if (safeRows <= 0)
+            return;
+        for (int coreY = 0; coreY < height; coreY += safeRows) {
+            const QRect rowCore(0, coreY, width, std::min(safeRows, height - coreY));
             const QRect rowData = rowCore.adjusted(
                     0, -SamplingBorder, 0, SamplingBorder)
                     .intersected(QRect(0, 0, width, height));
@@ -5500,20 +5607,16 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
     const std::lock_guard<std::mutex> lock(impl->renderMutex);
     CGPDFPageRef page = CGPDFDocumentGetPage(impl->document, 1);
 
-    QImage tile(pixelSize, QImage::Format_RGBA8888_Premultiplied);
+    QImage tile(pixelSize, pdfRasterFormat());
     if (tile.isNull())
         return fail(QStringLiteral("The vector PDF tile could not be allocated"));
     tile.fill(Qt::transparent);
 
-    CGColorSpaceRef colorSpace = colorSyncSrgbColorSpace();
+    CGColorSpaceRef colorSpace = pdfRasterColorSpace();
     CGContextRef context = CGBitmapContextCreate(
-        tile.bits(),
-        static_cast<size_t>(pixelSize.width()),
-        static_cast<size_t>(pixelSize.height()),
-        8,
-        static_cast<size_t>(tile.bytesPerLine()),
-        colorSpace,
-        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+            tile.bits(), static_cast<size_t>(pixelSize.width()),
+            static_cast<size_t>(pixelSize.height()), pdfRasterComponentBits(),
+            static_cast<size_t>(tile.bytesPerLine()), colorSpace, pdfRasterBitmapInfo());
     CGColorSpaceRelease(colorSpace);
     if (!context)
         return fail(QStringLiteral("The vector PDF tile context could not be created"));
@@ -5539,7 +5642,7 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
         page, impl->drawingBox, logicalDestination, 0, true));
     CGContextDrawPDFPage(context, page);
     CGContextRelease(context);
-    tile.setColorSpace(QColorSpace::SRgb);
+    tile.setColorSpace(pdfRasterQColorSpace());
     return tile;
 }
 
@@ -5578,6 +5681,56 @@ QImage QVCocoaFunctions::renderPDFVectorTile(const QByteArray &pdfData,
                                             pixelSize, errorString)
                     : QImage();
 }
+
+bool QVCocoaFunctions::requiresBoundedSDRProvider(const QSize &size, int bitsPerComponent)
+{
+    if (!size.isValid() || size.isEmpty())
+        return false;
+    const quint64 componentBytes = bitsPerComponent > 16 ? 4 : bitsPerComponent > 8 ? 2 : 1;
+    const quint64 pixels = quint64(size.width()) * quint64(size.height());
+    return pixels > quint64(std::numeric_limits<qint32>::max()) / (4 * componentBytes);
+}
+
+QVCocoaFunctions::SDRImagePtr QVCocoaFunctions::createSDRImage(QImage image, const bool hasAlpha)
+{
+    if (image.isNull())
+        return { };
+    auto native = std::make_shared<NativeSDRImage>(std::move(image), hasAlpha);
+    return native->sourceTiles().isEmpty() ? SDRImagePtr{ } : native;
+}
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+QVector<float> QVCocoaFunctions::probeSDRImagePixels(const SDRImagePtr &opaque,
+                                                     const QColorSpace &space)
+{
+    const auto image = std::dynamic_pointer_cast<const NativeSDRImage>(opaque);
+    if (!image || image->sourceTiles().size() != 1)
+        return { };
+    const auto &tile = image->sourceTiles().first();
+    const QSize size = image->pixelSize();
+    QVector<float> pixels(size.width() * size.height() * 4);
+    const QByteArray icc = space.iccProfile();
+    CFDataRef data =
+            CFDataCreate(nullptr, reinterpret_cast<const UInt8 *>(icc.constData()), icc.size());
+    CGColorSpaceRef output = CGColorSpaceCreateWithICCData(data);
+    CFRelease(data);
+    if (!output)
+        return { };
+    @autoreleasepool {
+        CIContext *context = [CIContext contextWithOptions:@{
+            (id)kCIContextWorkingFormat : @(kCIFormatRGBAf),
+            (id)kCIContextUseSoftwareRenderer : @NO
+        }];
+        [context render:tile.image
+                  toBitmap:pixels.data()
+                  rowBytes:size.width() * 4 * sizeof(float)
+                    bounds:tile.image.extent
+                    format:kCIFormatRGBAf
+                colorSpace:output];
+    }
+    CGColorSpaceRelease(output);
+    return pixels;
+}
+#endif
 
 QSize QVCocoaFunctions::imagePixelSize(const QString &filePath)
 {
@@ -5620,6 +5773,21 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             return result;
         }
 
+        QFile pnmFile(filePath);
+        if (pnmFile.open(QIODevice::ReadOnly) && QvColor::isStandardNetpbm(pnmFile.peek(16))) {
+            QImage decoded = QvColor::readStandardNetpbm(filePath, &result.errorString);
+            result.isImageIOType = true;
+            result.allowsQtFallback = false;
+            result.typeIdentifier = QStringLiteral("public.pbm");
+            if (!decoded.isNull()) {
+                decoded.setColorSpace(QvColor::bt709ColorSpace());
+                result.intrinsicSize = decoded.size();
+                result.sdrImage = createSDRImage(decoded, false);
+                result.image = std::move(decoded);
+            }
+            return result;
+        }
+
         const QUrl fileUrl = QUrl::fromLocalFile(filePath);
         CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)fileUrl.toNSURL(), nullptr);
         if (!source)
@@ -5633,8 +5801,32 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
         result.isImageIOType = sourceType != nullptr;
         result.isRaw = isRawImageType(sourceType);
         result.cameraModel = sourceCameraModel(source);
-        const CGImagePropertyOrientation orientation = sourceOrientation(source);
-        const QSize sourceSize = sourcePixelSize(source);
+        size_t selectedImageIndex = 0;
+        const size_t imageCount = CGImageSourceGetCount(source);
+        const bool icon = sourceType
+                && (CFEqual(sourceType, CFSTR("com.apple.icns"))
+                    || CFEqual(sourceType, CFSTR("com.microsoft.ico")));
+        if (icon) {
+            quint64 largestArea = 0;
+            for (size_t i = 0; i < imageCount; ++i) {
+                const QSize size = sourcePixelSize(source, i);
+                const quint64 area =
+                        size.isValid() ? quint64(size.width()) * quint64(size.height()) : 0;
+                if (area > largestArea) {
+                    largestArea = area;
+                    selectedImageIndex = i;
+                }
+            }
+        }
+        result.isMultiFrameImage = imageCount > 1
+                && (icon
+                    || (sourceType
+                        && (CFEqual(sourceType, CFSTR("public.tiff"))
+                            || CFEqual(sourceType, CFSTR("public.mpo-image"))
+                            || CFEqual(sourceType, CFSTR("public.jpeg-2000")))));
+        const CGImagePropertyOrientation orientation =
+                sourceOrientation(source, selectedImageIndex);
+        const QSize sourceSize = sourcePixelSize(source, selectedImageIndex);
         result.intrinsicSize = orientedPixelSize(sourceSize, orientation);
         result.hdrMetadata.typeIdentifier = result.typeIdentifier;
         result.hdrMetadata.isRaw = result.isRaw;
@@ -6038,15 +6230,18 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             }
 
             std::shared_ptr<NativeSDRImage> nativeSDRImage;
-            if (!result.hdrImage && CGImageSourceGetCount(source) == 1) {
-                const quint64 pixelCount = result.intrinsicSize.isValid()
-                        ? static_cast<quint64>(result.intrinsicSize.width())
-                                * static_cast<quint64>(result.intrinsicSize.height())
-                        : 0;
-                const bool exceedsSignedProviderRange = pixelCount > 0
-                        && pixelCount
-                                > static_cast<quint64>(
-                                          std::numeric_limits<qint32>::max()) / 4ULL;
+            if (!result.hdrImage) {
+                int componentBits = 8;
+                if (CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(
+                            source, selectedImageIndex, nullptr)) {
+                    const CFTypeRef depth = CFDictionaryGetValue(properties, kCGImagePropertyDepth);
+                    if (depth && CFGetTypeID(depth) == CFNumberGetTypeID())
+                        CFNumberGetValue(static_cast<CFNumberRef>(depth), kCFNumberIntType,
+                                         &componentBits);
+                    CFRelease(properties);
+                }
+                const bool exceedsSignedProviderRange =
+                        requiresBoundedSDRProvider(result.intrinsicSize, componentBits);
 
                 if (exceedsSignedProviderRange) {
                     // A monolithic 32-bit provider above 2 GiB is observably
@@ -6066,7 +6261,8 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                                 proxyLimit, proxyLimit, Qt::KeepAspectRatio,
                                 Qt::SmoothTransformation);
                         nativeSDRImage = std::make_shared<NativeSDRImage>(
-                                std::move(decodedImage), sourceHasAlpha(source));
+                                std::move(decodedImage),
+                                sourceHasAlpha(source, selectedImageIndex));
                         if (!nativeSDRImage->sourceTiles().isEmpty()) {
                             result.sdrImage = nativeSDRImage;
                         } else {
@@ -6095,13 +6291,13 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     // decode to open time and removes it from first zoom/pan.
                     CGImageRef decodedImage = nullptr;
                     if (CFMutableDictionaryRef options =
-                                thumbnailOptions(source, 0, false)) {
+                                thumbnailOptions(source, 0, false, selectedImageIndex)) {
                         CFDictionarySetValue(
                                 options,
                                 kCGImageSourceShouldCacheImmediately,
                                 kCFBooleanTrue);
                         decodedImage = CGImageSourceCreateThumbnailAtIndex(
-                                source, 0, options);
+                                source, selectedImageIndex, options);
                         CFRelease(options);
                     }
                     if (decodedImage) {
@@ -6109,7 +6305,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                                 static_cast<int>(CGImageGetWidth(decodedImage)),
                                 static_cast<int>(CGImageGetHeight(decodedImage)));
                         nativeSDRImage = std::make_shared<NativeSDRImage>(
-                                decodedImage, sourceHasAlpha(source));
+                                decodedImage, sourceHasAlpha(source, selectedImageIndex));
                         if (!nativeSDRImage->sourceTiles().isEmpty()) {
                             result.sdrImage = nativeSDRImage;
                             // Reuse the already decoded provider for the bounded

@@ -1,45 +1,60 @@
-# GitHub Actions 动画时序修复测试完成报告
+# 图片色彩路径修复测试完成报告
 
-日期：2026-10-17（Asia/Shanghai）。基线提交 a839a581882ae9eb668c0122316cf22fe5c0979a。
+日期：2026-10-18（Asia/Shanghai）。基线：658ce8c，Fovelle 1.3.2。
 
-## 根因与修复
+已完成问题界定、设计与正确性论证、原子验收及六要素测试规范、测试代码、生产实现和执行验证。对应文件：[设计文档](/Users/inostarlin/code/Fovelle/reports/technical_design_document.md)、[测试规范](/Users/inostarlin/code/Fovelle/reports/test_case_specification.md)。旧报告已备份至本次证据目录。
 
-已从 GitHub 读取同一提交的 [Checks 39027871692](https://github.com/inostarlin-passion/Fovelle/actions/runs/39027871692) 和 [Build 39027871694](https://github.com/inostarlin-passion/Fovelle/actions/runs/39027871694) 的原始失败日志及作业元数据。两次均仅 FovelleMovieResumeDynamic 失败，其余 56/57 CTest 成功；失败分别是异步 GIF 的剩余时间严格正断言、异步 APNG 的固定 50ms 调度耗时上界断言。
+## 修复结果
 
-[Qt QTimer 文档](https://doc.qt.io/qt-6/qtimer.html)、[QMovie 文档](https://doc.qt.io/qt-6/qmovie.html)、[Qt 6.11.2 定时器派发源码](https://github.com/qt/qtbase/blob/v6.11.2/src/corelib/kernel/qtimerinfo_unix.cpp) 与仓库的绝对时间线调度互证：过期余量 0 及解码/排队耗时导致间隔缩短都是允许行为。修复测试观察点和合法不变量，不改动生产播放实现或 workflow，不移除已有帧序、像素、解码器复用、缓存预算及生命周期断言。
-
-改动：
-- tests/remediation_tests.h：MovieTimerObservation 事件过滤器；八行暂停恢复矩阵继续验证实际定时器派发后的下一帧；新增异步队列延迟和 GUI 过期派发场景。
-- tests/movie_resume_static.py：新增 S1/S2，禁止旧断言复发并确保新增动态用例进入标准 CTest。
-- tests/CMakeLists.txt：将延迟矩阵加入原失败的 FovelleMovieResumeDynamic。完整 RemediationTests 也自动执行新增 Qt slots。
-- 指定的设计、用例和完成报告已更新；旧版本先备份到本地证据目录。
-
-## 环境与执行证据
-
-本地 macOS 27.0.1、arm64、Qt/QtTest 6.11.2、Apple LLVM 17.0.0，CMake Release，部署目标 15.0，BUILD_TESTS=ON，FOVELLE_REQUIRE_PORTABLE_HDR=ON。托管工作流使用 macos-26，因此下列本地结果不等同于新托管运行结果。
-
-证据目录：reports/evidence/actions_movie_timing_20261017/（仓库现有 ignore 规则忽略此目录；日志实际保存在本地，未修改 ignore 规则）。
-
-| 验收项 | 测试及证据 | 结果 |
+| 问题 | 实现结果 | 像素/状态证据 |
 |---|---|---|
-| A1 | movie_resume_static.py，static-red.log → static-green.log | 新增测试在修复前 2 失败、既有生命周期测试通过；修复后 3/3 通过 |
-| A2 | testMoviePauseResume，focused.log | 八行矩阵全部通过，事件观察后真实帧序和像素通过 |
-| A3 | testMovieResumeDelayedDispatch(async-queue)，focused.log | 真正阻塞四线程工作池后 interval=0、remaining=0，后续帧顺序及像素正确 |
-| A4 | testMovieResumeDelayedDispatch(gui-dispatch)，focused.log | 不处理事件的等待后直接断言 active 且 remaining=0；事件过滤器内仍验证边界，后续帧继续 |
-| A5 | testMoviePauseQueuedRead，focused.log | 十行全部通过；定向 Qt 总计 22 passed、0 failed、0 skipped（含初始化/清理） |
-| A6 | movie_resume_static.py、actions_regression_tests.py | 静态注册契约及既有 Actions 门禁契约全部通过；Actions 回归 10/10 |
-| 既有相邻预加载策略 | preload_policy_quality.py，preload.log | 11/11 通过 |
-| 稳定性 | ctest -R '^FovelleMovieResume' --repeat until-fail:3，repeated.log | 两个 CTest 各连续三次通过，约 21.26 秒；不是失败后重试取成功 |
-| 构建 | cmake --build build --parallel 2，build-final.log | 成功；存在既有 Qt 弃用警告 |
-| 完整回归 | QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90，ctest-full.log | **60/60 全部通过，0 失败，总耗时 559.31 秒**；含真实 HDR、部署包、全量修复套件及专项回归 |
-| 补丁完整性 | git diff --check | 通过 |
+| C1 SVG/SVGZ广色域变黑 | 规范化display-p3/srgb/srgb-linear，属性、CSS、嵌入图片及各renderer共用源；P3工作空间和显示ICC转换；透明度使用solidColor | UTF-8/UTF-16 × SVG/SVGZ四行通过；P3红、普通sRGB红、CSS、渐变端点、alpha、嵌入PNG符合独立参考 |
+| C2 PGM/PPM传递函数错误 | 按magic独立读取P2/P3/P5/P6到RGBX64，赋BT.709曲线，源信息标记容器规定空间 | 中灰128转换sRGB约140；黑白和16位原样值通过；不误覆盖PBM/PFM；超大尺寸、截断、越界样本安全失败 |
+| C3 多图像容器打不开 | TIFF显示首图，ICNS选最大表示；向loader传递静态多图像标志 | 自生成双页TIFF和双尺寸ICNS，先验证系统每个index可读，再验证App尺寸、像素与不误播放 |
+| C4 EPS内部色域与精度限制 | Qt6预览与最终PDF tile均用32位浮点扩展线性P3，最后按显示ICC转换 | P3红保留；AdobeRGB绿保留负红分量，证明未先裁到整数P3；EPS预览及原有缩放回归通过 |
+| C5 分块高位深丢失 | 16位RGB、Gray及浮点保持真实组件格式；ICC模型与provider匹配；阈值计入组件字节数、band计入实际stride | 0x8080/0x8081可区分，Gray ICC、浮点小数、alpha和8/16/32位虚拟尺寸阈值通过；不分配数GB测试图 |
+| C6 动画残留静态HDR表示 | 播放启动时同时清除静态SDR/HDR引用、标志与HDR元数据 | 真正启动GIF，注入HDR表示后确认全部清除，并观察后续帧推进 |
+| C7 无色彩声明的原始空间不可恢复 | 保留默认解释但明确显示假设，保护有效ICC与容器声明 | 无ICC/错误ICC/P3声明的信息及原有源元数据回归通过；不声称可自动推断丢失空间 |
 
-新增测试首次执行发现两处 fixture 问题，原始记录保留在 fixture-correction.log：随机跳帧参考电影需要 CacheAll；Qt 底层在送达事件前更新截止时间，不能要求过滤器内剩余值总为 0。修正参考 fixture，GUI 场景改为在未处理事件时验证过期 0，派发时验证合法区间；异步零间隔仍必须为 0。此后定向及重复执行通过。
+生产改动主要位于svgcolor、colorinformation、qvcocoafunctions、qvimageloader、qvgraphicsimageitem、qvimagecore和qvinfodialog；CMake及qmake源注册同步更新。测试固化到color_rendering_acceptance.inc、native_color_fixtures.mm、color_rendering_static.py和legacy_bt709_tests.cpp；原有测试文件仅新增slots/include，没有修改旧桌面断言或阈值。
 
-附加格式审查：执行 build.sh --format-check 发现大量既有格式诊断，而且脚本无条件 exit 0，不能据其退出码宣称格式全量通过。单独比较此次修改的头文件：HEAD 基线 19 条、最终也是同样的 19 条既有诊断；新增代码未增加诊断。保留 format-baseline-header.log、format-final-header.log、format.log。本次远端 format 作业本就成功；未扩大任务去格式化整个仓库或修改该脚本。未单独重跑 clang-tidy，生产代码未改、失败提交的该作业已成功。
+## 环境和执行结果
 
-全量运行中 FovelleMovieResumeDynamic 用时 7.07 秒并通过，FovelleRemediationDynamic 用时 17.07 秒并通过；真实 HDR 门禁 28.61 秒、部署包 49.31 秒。完整日志和最终源文件 SHA-256 清单保存在证据目录。A1–A6 均有对应已执行的通过证据。
+本地macOS 27.0.1、arm64、Qt/QtTest 6.11.2、Release，当前编译器Apple Clang 21.0.0；Qt库本身的构建说明为Apple LLVM 17。部署目标15.0，BUILD_TESTS和FOVELLE_REQUIRE_PORTABLE_HDR开启。
+
+证据目录：[color_rendering_20261018](/Users/inostarlin/code/Fovelle/reports/evidence/color_rendering_20261018)。该目录沿用仓库ignore规则，原始日志在本地保留。
+
+| 验收 | 实际执行 | 结果 |
+|---|---|---|
+| A1/A2 | testColorSvgWideGamut、testColorSvgMixedPaints；S1 | 通过，含压缩与UTF-16反例、普通红独立W3C数值参考 |
+| A3 | testColorNetpbm；S2；LegacyBt709Tests::transferCurve | 通过；兼容后端额外覆盖toe、分段边界及各RGB通道 |
+| A4 | testColorNativeMultiImage；S2 | TIFF、ICNS通过，静态多图像未被当电影 |
+| A5 | testColorPdfPrecision；S3；既有EPS/矢量回归 | 通过，预览和最终tile均验证；额外CoreGraphics探针得到AdobeRGB绿约(-0.150082,0.953588,0.0264872) |
+| A6 | testColorBoundedProvider；S3 | 实际CG/CI provider保留低位、Gray ICC、浮点与alpha；边界阈值通过 |
+| A7 | testColorAnimationClearsStaticRepresentations；S4；原有电影生命周期/恢复 | 通过 |
+| A8 | testColorUnspecifiedSource；S4；原有源ICC/容器信息测试 | 通过 |
+| A9 | 完整CTest及新增兼容门禁 | 原登记的62项完整回归全过；随后兼容分支门禁单独通过并注册为第63项 |
+| 构建 | cmake --build build --parallel 3 | 成功；有既有Qt弃用警告 |
+| 静态专项 | color_rendering_static.py | 5/5通过；对HEAD运行同组契约为5失败，保留红色证据 |
+| 色彩动态专项 | FovelleColorRenderingDynamic | 16 passed、0 failed、0 skipped，包含初始化/清理；14个实际数据行 |
+| 兼容后端专项 | FovelleLegacyBt709Backend | 10 passed、0 failed、0 skipped，包含初始化/清理；8个实际数据行 |
+| 差异与格式 | git diff --check；新C++/ObjC++文件及inc的clang-format检查 | 通过；既有文件只格式化修改范围 |
+
+完整回归命令为`QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 120`，最终为**62/62通过，555.11秒**，含主套件、真实信号HDR/RAW、部署包、窗口/缩放/动画及本次色彩测试。详见[完整最终日志](/Users/inostarlin/code/Fovelle/reports/evidence/color_rendering_20261018/ctest-full-final.log)。
+
+完整运行结束后，补核发现旧Qt缺少采样曲线构造器及描述API，增加条件编译的ICC曲线后端，并固化新的兼容CTest。正常Qt6生产分支在守卫前后预处理token完全相同，SHA-256均为`3baafe9d6487a0f758bdf633af9575d7d036f5122e12632184dcccb6b194ec5a`；它未改变上述完整回归覆盖的Qt6逻辑。重新构建后，色彩静态、色彩动态和新增兼容门禁**3/3通过，0.48秒**，见[交付验证](/Users/inostarlin/code/Fovelle/reports/evidence/color_rendering_20261018/ctest-delivery.log)及[Qt逐行结果](/Users/inostarlin/code/Fovelle/reports/evidence/color_rendering_20261018/delivery-qt-cases.log)。没有把两次结果伪称为同一次完整63项运行。
+
+## 首次失败与证伪记录
+
+- 首轮实现的动态测试为7失败：Qt SVG也不接受rgba()，Qt PNM会丢弃16位输入。分别修为solidColor及独立RGBX64解码后通过。后续Gray ICC反例暴露跨模型扩展失效与Qt转换低位合并，改为保留原组件模型的provider后通过。保留focused-first.log、focused-complete.log、gray-provider-before.log等原始记录。
+- 首次完整CTest为59/62通过、581.08秒。失败分别为失焦透明背景截图、HDR全屏端点控制、HDR信息窗口reject恢复；详见ctest-full-first.log，首次portable HDR XML另行备份。它们没有被删除、放宽阈值或跳过。
+- 用未修改HEAD的独立归档构建做对照：两个HDR用例独立通过；导航测试首次因仅构建test目标未生成QM资源失败，不能作为产品缺陷证据。生成原有Fovelle_lrelease资源后，导航用例独立通过。最终本分支完整整轮的三项也均通过。没有足够证据把首次桌面状态异常断言为本次色彩修改引入的确定根因，也不因一次绿色结果宣称系统时序永远稳定。
 
 ## 验证边界
 
-未提交或推送代码，也未触发包含本地修改的新 GitHub Actions run；远端修复后的状态仍待代码发布后确认。静态契约、受控动态反例和三次重复验证已覆盖本次时序误报路径，但有限次数执行不构成所有机器时序永不失败的证明。实际业务正确性仍由保留的帧/像素/状态/生命周期断言约束。
+- 这里修复已定位的渲染/读取问题，不表示所有相机、纹理子格式、任意ICC或每种显示器都已完成色度仪验收。portable DNG是合成信号，不替代厂商相机样本。
+- SVG仍受Qt SVG能力与颜色输入精度限制；支持本次列出的现代颜色，其他现代空间明确报错。渐变验证覆盖端点，不承诺完整CSS4插值/滤镜实现。
+- 动画清理修复静态HDR遮盖播放帧；当前动画继续使用既有SDR帧路径，没有新增逐帧原生HDR播放。
+- 无声明图片的原始色彩空间无法可靠恢复。标准PGM/PPM按BT.709解释，采用sRGB/线性样本的非标准变体需先转换。
+- 本次没有真实Qt5全量构建、qmake全量构建或macOS15整机测试。兼容后端是在当前Qt上验证旧构造分支；Qt5 EPS兼容分支保持16位P3，不等同Qt6的扩展浮点输出。
+- 未提交、推送或触发远端CI。最终源文件SHA-256见source-manifest.json。

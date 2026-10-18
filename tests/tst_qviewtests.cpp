@@ -170,6 +170,16 @@ private slots:
     void testVectorInteractionPreservesTerminalDensity();
     void testImageIOUsesContentTypeInsteadOfFilenameExtension();
     void testImageLoaderPreservesSourceResolutionForZoom();
+    void testColorSvgWideGamut_data();
+    void testColorSvgWideGamut();
+    void testColorSvgMixedPaints();
+    void testColorNetpbm_data();
+    void testColorNetpbm();
+    void testColorNativeMultiImage();
+    void testColorPdfPrecision();
+    void testColorBoundedProvider();
+    void testColorAnimationClearsStaticRepresentations();
+    void testColorUnspecifiedSource();
 };
 
 class ActionManagerTests : public QObject
@@ -16947,6 +16957,7 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
 }
 
 #include "zoom_color_acceptance.inc"
+#include "color_rendering_acceptance.inc"
 
 #include "remediation_tests.h"
 #include "moc_remediation_tests.cpp"

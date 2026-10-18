@@ -12,6 +12,7 @@ SOURCES += \
     $$PWD/qvrenamedialog.cpp \
     $$PWD/qvinfodialog.cpp \
     $$PWD/colorinformation.cpp \
+    $$PWD/svgcolor.cpp \
     $$PWD/qvimagecore.cpp \
     $$PWD/qvimageloader.cpp \
     $$PWD/qvmovie.cpp \
@@ -42,6 +43,7 @@ HEADERS += \
     $$PWD/qvrenamedialog.h \
     $$PWD/qvinfodialog.h \
     $$PWD/colorinformation.h \
+    $$PWD/svgcolor.h \
     $$PWD/qvimagecore.h \
     $$PWD/qvimageloader.h \
     $$PWD/qvmovie.h \

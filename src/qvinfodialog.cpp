@@ -124,10 +124,11 @@ void QVInfoDialog::updateColorInfo()
     else if (!source.spaceName.isEmpty())
         space = source.origin == QvColor::Origin::ICC ? tr("Embedded ICC: %1").arg(source.spaceName)
                                                       : tr("Container: %1").arg(source.spaceName);
+    else if (info.hasOutput && source.iccState == QvColor::ICCState::Absent
+             && (source.decoderSpace.isEmpty() || source.decoderSpace == QStringLiteral("sRGB")))
+        space = tr("Unspecified (assumed sRGB for display)");
     else if (!source.decoderSpace.isEmpty())
         space = tr("Decoder: %1").arg(source.decoderSpace);
-    else if (info.hasOutput && source.iccState == QvColor::ICCState::Absent)
-        space = tr("Unspecified (assumed sRGB for display)");
     QString icc;
     switch (source.iccState) {
     case QvColor::ICCState::Absent:

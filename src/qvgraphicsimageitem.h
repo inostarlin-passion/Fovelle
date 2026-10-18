@@ -66,6 +66,8 @@ private:
     struct VectorTile
     {
         QImage image;
+        QImage outputImage;
+        QColorSpace outputSpace;
         QRectF sourceRect;
         qreal deviceScaleX {0.0};
         qreal deviceScaleY {0.0};

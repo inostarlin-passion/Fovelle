@@ -237,7 +237,10 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     if (currentFileDetails.isMovieLoaded)
     {
         loadedSDRImage.reset();
+        loadedHDRImage.reset();
         currentFileDetails.isNativeSDRLoaded = false;
+        currentFileDetails.isNativeHDRLoaded = false;
+        currentFileDetails.hdrMetadata = { };
     }
 
     if (!currentFileDetails.isMovieLoaded)

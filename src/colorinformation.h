@@ -3,6 +3,7 @@
 
 #include <QByteArray>
 #include <QColorSpace>
+#include <QImage>
 #include <QString>
 
 namespace QvColor {
@@ -29,6 +30,9 @@ struct Information
     bool preview{ false };
 };
 // Container evidence only: never infer embedding from a generated QColorSpace.
+bool isStandardNetpbm(const QByteArray &header);
+QColorSpace bt709ColorSpace();
+QImage readStandardNetpbm(const QString &path, QString *error);
 SourceInfo readSource(const QString &path);
 QString spaceName(const QColorSpace &space);
 } // namespace QvColor

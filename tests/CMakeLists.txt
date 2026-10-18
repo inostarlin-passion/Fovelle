@@ -4,6 +4,7 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 set(FOVELLE_TEST_SOURCES
     tst_qviewtests.cpp
     native_titlebar_probe.mm
+    native_color_fixtures.mm
     ../src/mainwindow.cpp
     ../src/openwith.cpp
     ../src/qvfileenumerator.cpp
@@ -16,6 +17,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/qvrenamedialog.cpp
     ../src/qvinfodialog.cpp
     ../src/colorinformation.cpp
+    ../src/svgcolor.cpp
     ../src/qvimagecore.cpp
     ../src/qvimageloader.cpp
     ../src/urldownload.cpp
@@ -550,3 +552,22 @@ add_test(NAME FovelleHDRSurfaceMetadataDynamic COMMAND fovelle_tests testHDRPers
 set_tests_properties(FovelleHDRSurfaceMetadataDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;metadata;brightness;regression")
+
+add_test(NAME FovelleColorRenderingStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/color_rendering_static.py)
+add_test(NAME FovelleColorRenderingDynamic COMMAND fovelle_tests
+    testColorSvgWideGamut testColorSvgMixedPaints testColorNetpbm
+    testColorNativeMultiImage testColorPdfPrecision testColorBoundedProvider
+    testColorAnimationClearsStaticRepresentations testColorUnspecifiedSource)
+set_tests_properties(FovelleColorRenderingDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
+    TIMEOUT 90)
+
+# Keep the older-Qt sampled ICC backend executable on the current CI toolchain.
+add_executable(fovelle_legacy_bt709_tests legacy_bt709_tests.cpp ../src/colorinformation.cpp)
+target_include_directories(fovelle_legacy_bt709_tests PRIVATE ../src)
+target_compile_definitions(fovelle_legacy_bt709_tests PRIVATE FOVELLE_TEST_LEGACY_BT709)
+target_link_libraries(fovelle_legacy_bt709_tests PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Test ZLIB::ZLIB)
+add_test(NAME FovelleLegacyBt709Backend COMMAND fovelle_legacy_bt709_tests)
+set_tests_properties(FovelleLegacyBt709Backend PROPERTIES TIMEOUT 30 LABELS "color;unit;compatibility")

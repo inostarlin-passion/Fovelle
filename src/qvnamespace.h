@@ -1,5 +1,6 @@
 #ifndef QVNAMESPACE_H
 #define QVNAMESPACE_H
+#include <QColorSpace>
 
 #include <QByteArray>
 #include <QColor>
@@ -159,6 +160,7 @@ namespace Qv
     // conversion directory is intentionally short-lived.
     struct VectorImageData
     {
+        QColorSpace colorSpace{ QColorSpace::SRgb };
         VectorImageFormat format {VectorImageFormat::None};
         QByteArray encodedData;
         QString sourcePath;

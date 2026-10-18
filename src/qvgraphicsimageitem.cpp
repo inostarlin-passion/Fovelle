@@ -122,10 +122,8 @@ QSvgRenderer *cachedWorkerSvgRenderer(const Qv::VectorImageData &image)
     cache.encodedData = image.encodedData;
     cache.originalViewBox = {};
     auto renderer = std::make_unique<QSvgRenderer>();
-    bool loaded = !image.sourcePath.isEmpty()
-            && renderer->load(image.sourcePath);
-    if (!loaded && !image.encodedData.isEmpty())
-        loaded = renderer->load(image.encodedData);
+    const bool loaded = !image.encodedData.isEmpty() ? renderer->load(image.encodedData)
+                                                     : renderer->load(image.sourcePath);
     if (!loaded || !renderer->isValid())
         return nullptr;
     cache.originalViewBox = renderer->viewBoxF();
@@ -204,10 +202,9 @@ bool QVGraphicsImageItem::setVectorImage(const Qv::VectorImageData &image)
     if (image.format == Qv::VectorImageFormat::Svg)
     {
         candidateRenderer = std::make_unique<QSvgRenderer>();
-        bool loaded = !image.sourcePath.isEmpty()
-                && candidateRenderer->load(image.sourcePath);
-        if (!loaded && !image.encodedData.isEmpty())
-            loaded = candidateRenderer->load(image.encodedData);
+        const bool loaded = !image.encodedData.isEmpty()
+                ? candidateRenderer->load(image.encodedData)
+                : candidateRenderer->load(image.sourcePath);
         if (!loaded || !candidateRenderer->isValid())
             return false;
     }
@@ -360,7 +357,7 @@ void QVGraphicsImageItem::retainVectorTile(VectorTile tile) const
     const auto retainedBytes = [this]() {
         qsizetype total = 0;
         for (const VectorTile &candidate : vectorTiles)
-            total += candidate.image.sizeInBytes();
+            total += candidate.image.sizeInBytes() + candidate.outputImage.sizeInBytes();
         return total;
     };
     while (vectorTiles.size() > MaxRetainedVectorTiles
@@ -445,7 +442,7 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                         // captured frame keeps animated SVG refinement coherent.
                         renderer->setCurrentFrame(request.svgFrame);
                         result.tile.image =
-                                QImage(request.pixelSize, QImage::Format_ARGB32_Premultiplied);
+                                QImage(request.pixelSize, QImage::Format_RGBA64_Premultiplied);
                         if (!result.tile.image.isNull()) {
                             result.tile.image.fill(Qt::transparent);
                             QPainter tilePainter(&result.tile.image);
@@ -490,7 +487,7 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                                                  QRectF(QPointF(), QSizeF(request.pixelSize)));
                             }
                             tilePainter.end();
-                            result.tile.image.setColorSpace(QColorSpace::SRgb);
+                            result.tile.image.setColorSpace(request.vectorImage.colorSpace);
                         }
                     } else {
                         result.errorString =
@@ -574,7 +571,6 @@ void QVGraphicsImageItem::paint(QPainter *painter,
                                 const QStyleOptionGraphicsItem *option,
                                 QWidget *widget)
 {
-    Q_UNUSED(widget)
     if (!painter)
         return;
     if (!vectorImage.isValid())
@@ -740,7 +736,22 @@ void QVGraphicsImageItem::paint(QPainter *painter,
                 tile.sourceRect, tile.deviceScaleX, tile.deviceScaleY,
                 deviceScaleX, deviceScaleY);
     painter->setRenderHint(QPainter::SmoothPixmapTransform, !nearestSampling);
-    painter->drawImage(drawnSourceRect, tile.image, tilePixelRect);
+    // QPainter does not transform image color spaces. Cache a display copy,
+    // keyed by the current window ICC, while retaining the high-precision source.
+    QColorSpace target = QColorSpace::SRgb;
+    if (widget && widget->window()->windowHandle()) {
+        const auto profile =
+                QVCocoaFunctions::getIccProfileForWindow(widget->window()->windowHandle());
+        const QColorSpace display = QColorSpace::fromIccProfile(profile);
+        if (display.isValid())
+            target = display;
+    }
+    if (tile.outputSpace != target || tile.outputImage.isNull()) {
+        tile.outputImage = tile.image.convertedToColorSpace(target);
+        tile.outputSpace = target;
+    }
+    painter->drawImage(drawnSourceRect, tile.outputImage.isNull() ? tile.image : tile.outputImage,
+                       tilePixelRect);
     lastVectorTilePixelSize = tile.image.size();
     lastVectorTileSourceRect = tile.sourceRect;
     ++completedVectorRenderCount;
