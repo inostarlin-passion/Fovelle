@@ -1,0 +1,51 @@
+{
+  "fovelle_commit": "d95ce141c6b51e031aaaec81e36ae56386f0bc05",
+  "fovelle_status_before_benchmark": "clean before adding comparison evidence",
+  "qview_tag": "7.1",
+  "qview_commit": "0ec246b78c310d5c842836a91566db24037c75c2",
+  "qview_changes": "main.cpp only: temporary INI, suppress first-launch welcome, readiness/quit markers, 300ms automatic Qt quit; optional pre-show maximization",
+  "flags": "both Release -O3 -DNDEBUG, C++17, arm64, deployment target 15.0",
+  "paths": {
+    "qview": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qview-current-ybwm15hk/bin/qView.app/Contents/MacOS/qView",
+    "fovelle": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle"
+  },
+  "links": {
+    "qview": "/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qview-current-ybwm15hk/bin/qView.app/Contents/MacOS/qView:\n\t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)\n\t/opt/homebrew/opt/qtbase/lib/QtWidgets.framework/Versions/A/QtWidgets (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtsvg/lib/QtSvg.framework/Versions/A/QtSvg (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtbase/lib/QtGui.framework/Versions/A/QtGui (compatibility version 6.0.0, current version 6.11.2)\n\t/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (compatibility version 45.0.0, current version 2775.10.103)\n\t/System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO (compatibility version 1.0.0, current version 1.0.0)\n\t/System/Library/Frameworks/Metal.framework/Versions/A/Metal (compatibility version 1.0.0, current version 382.5.3)\n\t/opt/homebrew/opt/qtbase/lib/QtNetwork.framework/Versions/A/QtNetwork (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtbase/lib/QtCore.framework/Versions/A/QtCore (compatibility version 6.0.0, current version 6.11.2)\n\t/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit (compatibility version 1.0.0, current version 275.0.0)\n\t/System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration (compatibility version 1.0.0, current version 1.0.0)\n\t/System/Library/Frameworks/UniformTypeIdentifiers.framework/Versions/A/UniformTypeIdentifiers (compatibility version 1.0.0, current version 709.0.0)\n\t/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL (compatibility version 1.0.0, current version 1.0.0)\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.27.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5027.0.69)\n\t/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)\n\t/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 5027.0.69)\n\t/usr/lib/libobjc.A.dylib (compatibility version 1.0.0, current version 228.0.0)\n",
+    "fovelle": "/Users/inostarlin/code/Fovelle/build/Fovelle.app/Contents/MacOS/Fovelle:\n\t@rpath/Sparkle.framework/Versions/B/Sparkle (compatibility version 1.6.0, current version 2.10.0)\n\t/usr/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.12)\n\t/opt/homebrew/opt/qtbase/lib/QtNetwork.framework/Versions/A/QtNetwork (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtbase/lib/QtWidgets.framework/Versions/A/QtWidgets (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtsvg/lib/QtSvg.framework/Versions/A/QtSvg (compatibility version 6.0.0, current version 6.11.2)\n\t/opt/homebrew/opt/qtbase/lib/QtConcurrent.framework/Versions/A/QtConcurrent (compatibility version 6.0.0, current version 6.11.2)\n\t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)\n\t/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics (compatibility version 64.0.0, current version 2050.0.0)\n\t/System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO (compatibility version 1.0.0, current version 1.0.0)\n\t/System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage (compatibility version 1.0.1, current version 7.0.0)\n\t/System/Library/Frameworks/Metal.framework/Versions/A/Metal (compatibility version 1.0.0, current version 382.5.3)\n\t/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore (compatibility version 1.2.0, current version 1223.2.2)\n\t/System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync (compatibility version 1.0.0, current version 3929.0.0)\n\t/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)\n\t/System/Library/Frameworks/UniformTypeIdentifiers.framework/Versions/A/UniformTypeIdentifiers (compatibility version 1.0.0, current version 709.0.0)\n\t/opt/homebrew/opt/qtbase/lib/QtGui.framework/Versions/A/QtGui (compatibility version 6.0.0, current version 6.11.2)\n\t/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (compatibility version 45.0.0, current version 2775.10.103)\n\t/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL (compatibility version 1.0.0, current version 1.0.0)\n\t/opt/homebrew/opt/qtbase/lib/QtCore.framework/Versions/A/QtCore (compatibility version 6.0.0, current version 6.11.2)\n\t/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit (compatibility version 1.0.0, current version 275.0.0)\n\t/System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration (compatibility version 1.0.0, current version 1.0.0)\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.27.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5027.0.69)\n\t/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 5027.0.69)\n\t/usr/lib/libobjc.A.dylib (compatibility version 1.0.0, current version 228.0.0)\n"
+  },
+  "compilers": {
+    "/usr/bin/c++": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n"
+  },
+  "sources": [
+    "https://github.com/jurplel/qView/releases/tag/7.1",
+    "https://raw.githubusercontent.com/jurplel/qView/7.1/src/main.cpp",
+    "https://raw.githubusercontent.com/jurplel/qView/7.1/src/mainwindow.cpp",
+    "https://raw.githubusercontent.com/jurplel/qView/7.1/src/qvapplication.cpp",
+    "https://doc.qt.io/qt-6.11/qtimer.html",
+    "https://doc.qt.io/qt-6.11/qcoreapplication.html#quit"
+  ],
+  "qview_source_audit_changed_src_files": [
+    "src/main.cpp"
+  ],
+  "measurement_validity": {
+    "batches": 2,
+    "measured_processes": 80,
+    "warmup_processes": 4,
+    "all_returned_zero": true,
+    "all_readiness_and_quit_markers_present": true,
+    "matched_maximized_state_checked": true,
+    "app_default_state_checked": true,
+    "bootstrap": "10,000 matched-pair index resamples, seeded 20261020, percentile 95% interval for Fovelle median minus qView median; conditional on these samples"
+  },
+  "interpretation_limits": [
+    "Warm-cache empty-window process restart; no optical first-frame or Finder request timing",
+    "qView 7.1 is latest stable verified by release page, API and remote git tag; nightly is not tested",
+    "Controlled source builds with qView main.cpp instrumentation; official distributed installers are not benchmarked",
+    "Fovelle probe sets system-quit/session flags then calls quit; qView probe directly calls quit; normal application cleanup retained",
+    "Neither image decode, session restoration, pending platform queries nor genuinely cold filesystem cache is included",
+    "A positive median startup difference remains in both matched-window and default-window batches; window geometry alone does not explain it",
+    "Both exit bootstrap intervals cross zero; observed small exit differences do not establish a reproducible performance advantage",
+    "Endpoint timings cannot attribute the remaining startup difference to specific library, decoder or feature; further stage profiling would be needed"
+  ]
+}
