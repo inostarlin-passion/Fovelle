@@ -27,15 +27,18 @@ void ActionManagerTests::testClonedActionsUntracked()
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
-    const int fullscreenCount = qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length();
+    const int fullscreenCount =
+            qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length();
     const int openCount = qvApp->getActionManager().getAllInstancesOfAction("open").length();
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     window.show();
-    QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length() != fullscreenCount);
+    QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length()
+            != fullscreenCount);
     QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("open").length() != openCount);
     window.close();
-    QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length(), fullscreenCount);
+    QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length(),
+             fullscreenCount);
     QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("open").length(), openCount);
 
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -61,8 +64,7 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(),
-             QStringLiteral("version ") + QStringLiteral(VERSION_STRING));
+    QCOMPARE(subtitleLabel->text(), QStringLiteral("version ") + QStringLiteral(VERSION_STRING));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     QCOMPARE(visibleText,
@@ -103,7 +105,8 @@ void ActionManagerTests::testFinderFileOpenEvent()
     QVERIFY(QCoreApplication::sendEvent(qvApp, &openEvent));
     QVERIFY(!window->getCurrentFileDetails().isLoadRequested);
     QTRY_VERIFY_WITH_TIMEOUT(window->getCurrentFileDetails().isPixmapLoaded, 2000);
-    QCOMPARE(window->getCurrentFileDetails().fileInfo.absoluteFilePath(), QFileInfo(imagePath).absoluteFilePath());
+    QCOMPARE(window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
+             QFileInfo(imagePath).absoluteFilePath());
 
     window->close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);

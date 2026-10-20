@@ -28,18 +28,16 @@
 #include <QLabel>
 #include <QGroupBox>
 
-namespace
-{
-constexpr Qt::Alignment SettingsLabelAlignment =
-    Qt::AlignRight | Qt::AlignTrailing;
+namespace {
+constexpr Qt::Alignment SettingsLabelAlignment = Qt::AlignRight | Qt::AlignTrailing;
 constexpr Qt::Alignment SettingsValueAlignment = Qt::AlignLeft | Qt::AlignTop;
 constexpr Qt::Alignment SettingsLabelContentAlignment =
-    Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
+        Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter;
 
 struct SettingsLayoutMetrics
 {
-    int maximumIntraGroupSpacing {0};
-    int groupSpacing {0};
+    int maximumIntraGroupSpacing{ 0 };
+    int groupSpacing{ 0 };
 };
 
 bool layoutItemIsVisible(QLayoutItem *item)
@@ -48,10 +46,8 @@ bool layoutItemIsVisible(QLayoutItem *item)
         return false;
     if (auto *widget = item->widget())
         return !widget->isHidden();
-    if (auto *layout = item->layout())
-    {
-        for (int index = 0; index < layout->count(); ++index)
-        {
+    if (auto *layout = item->layout()) {
+        for (int index = 0; index < layout->count(); ++index) {
             if (layoutItemIsVisible(layout->itemAt(index)))
                 return true;
         }
@@ -71,10 +67,8 @@ QSizePolicy::ControlTypes layoutItemControlTypes(QLayoutItem *item)
 QList<QLayoutItem *> visibleRowItems(QFormLayout *layout, const int row)
 {
     QList<QLayoutItem *> items;
-    for (const auto role : {QFormLayout::LabelRole,
-                            QFormLayout::FieldRole,
-                            QFormLayout::SpanningRole})
-    {
+    for (const auto role :
+         { QFormLayout::LabelRole, QFormLayout::FieldRole, QFormLayout::SpanningRole }) {
         auto *item = layout->itemAt(row, role);
         if (layoutItemIsVisible(item))
             items.append(item);
@@ -82,18 +76,16 @@ QList<QLayoutItem *> visibleRowItems(QFormLayout *layout, const int row)
     return items;
 }
 
-int resolvedStyleSpacing(QWidget *context,
-                         const QSizePolicy::ControlTypes first,
+int resolvedStyleSpacing(QWidget *context, const QSizePolicy::ControlTypes first,
                          const QSizePolicy::ControlTypes second)
 {
     if (!context || !context->style())
         return 0;
 
-    int spacing = context->style()->combinedLayoutSpacing(
-        first, second, Qt::Vertical, nullptr, context);
+    int spacing =
+            context->style()->combinedLayoutSpacing(first, second, Qt::Vertical, nullptr, context);
     if (spacing < 0)
-        spacing = context->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing,
-                                                nullptr, context);
+        spacing = context->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, context);
     return qMax(0, spacing);
 }
 
@@ -103,24 +95,19 @@ int maximumIntraGroupSpacing(QWidget *page)
         return 0;
 
     int maximumSpacing = 0;
-    for (auto *layout : page->findChildren<QFormLayout *>())
-    {
+    for (auto *layout : page->findChildren<QFormLayout *>()) {
         QList<QLayoutItem *> previousItems;
-        for (int row = 0; row < layout->rowCount(); ++row)
-        {
+        for (int row = 0; row < layout->rowCount(); ++row) {
             const QList<QLayoutItem *> currentItems = visibleRowItems(layout, row);
             if (currentItems.isEmpty())
                 continue;
 
-            for (auto *previous : previousItems)
-            {
-                for (auto *current : currentItems)
-                {
-                    maximumSpacing = qMax(
-                        maximumSpacing,
-                        resolvedStyleSpacing(
-                            page, layoutItemControlTypes(previous),
-                            layoutItemControlTypes(current)));
+            for (auto *previous : previousItems) {
+                for (auto *current : currentItems) {
+                    maximumSpacing =
+                            qMax(maximumSpacing,
+                                 resolvedStyleSpacing(page, layoutItemControlTypes(previous),
+                                                      layoutItemControlTypes(current)));
                 }
             }
             previousItems = currentItems;
@@ -129,19 +116,16 @@ int maximumIntraGroupSpacing(QWidget *page)
     return maximumSpacing;
 }
 
-SettingsLayoutMetrics settingsLayoutMetrics(QWidget *generalPage,
-                                             QWidget *mousePage)
+SettingsLayoutMetrics settingsLayoutMetrics(QWidget *generalPage, QWidget *mousePage)
 {
     SettingsLayoutMetrics metrics;
-    metrics.maximumIntraGroupSpacing = qMax(
-        maximumIntraGroupSpacing(generalPage),
-        maximumIntraGroupSpacing(mousePage));
+    metrics.maximumIntraGroupSpacing =
+            qMax(maximumIntraGroupSpacing(generalPage), maximumIntraGroupSpacing(mousePage));
 
     QWidget *styleContext = generalPage ? generalPage : mousePage;
-    const int nativeGroupSpacing = resolvedStyleSpacing(
-        styleContext, QSizePolicy::GroupBox, QSizePolicy::GroupBox);
-    metrics.groupSpacing = qMax(nativeGroupSpacing,
-                                metrics.maximumIntraGroupSpacing + 1);
+    const int nativeGroupSpacing =
+            resolvedStyleSpacing(styleContext, QSizePolicy::GroupBox, QSizePolicy::GroupBox);
+    metrics.groupSpacing = qMax(nativeGroupSpacing, metrics.maximumIntraGroupSpacing + 1);
     return metrics;
 }
 
@@ -193,10 +177,8 @@ int formLabelColumnWidth(QWidget *page)
 
     const auto layouts = page->findChildren<QFormLayout *>();
     int labelColumnWidth = 0;
-    for (auto *layout : layouts)
-    {
-        for (int row = 0; row < layout->rowCount(); ++row)
-        {
+    for (auto *layout : layouts) {
+        for (int row = 0; row < layout->rowCount(); ++row) {
             auto *item = layout->itemAt(row, QFormLayout::LabelRole);
             if (item && item->widget())
                 labelColumnWidth = qMax(labelColumnWidth, item->widget()->sizeHint().width());
@@ -211,13 +193,10 @@ void clearFormLabelColumnWidths(QWidget *page)
         return;
 
     const auto layouts = page->findChildren<QFormLayout *>();
-    for (auto *layout : layouts)
-    {
-        for (int row = 0; row < layout->rowCount(); ++row)
-        {
+    for (auto *layout : layouts) {
+        for (int row = 0; row < layout->rowCount(); ++row) {
             auto *item = layout->itemAt(row, QFormLayout::LabelRole);
-            if (item && item->widget())
-            {
+            if (item && item->widget()) {
                 item->widget()->setMinimumWidth(0);
                 item->widget()->setMinimumHeight(0);
                 item->widget()->setMaximumWidth(QWIDGETSIZE_MAX);
@@ -232,8 +211,7 @@ int naturalFieldOnlyFormWidth(QFormLayout *layout)
         return 0;
 
     int widestValue = 0;
-    for (int row = 0; row < layout->rowCount(); ++row)
-    {
+    for (int row = 0; row < layout->rowCount(); ++row) {
         auto *item = layout->itemAt(row, QFormLayout::FieldRole);
         if (!item)
             continue;
@@ -243,18 +221,16 @@ int naturalFieldOnlyFormWidth(QFormLayout *layout)
             widestValue = qMax(widestValue, item->sizeHint().width());
     }
     const QMargins margins = layout->contentsMargins();
-    return margins.left() + layout->horizontalSpacing()
-        + widestValue + margins.right();
+    return margins.left() + layout->horizontalSpacing() + widestValue + margins.right();
 }
 
 QSize naturalLayoutSize(QWidget *widget)
 {
     if (!widget)
-        return {};
+        return { };
 
     widget->setMinimumSize(0, 0);
-    if (auto *layout = widget->layout())
-    {
+    if (auto *layout = widget->layout()) {
         layout->invalidate();
         layout->activate();
         return layout->sizeHint().expandedTo(layout->minimumSize());
@@ -268,8 +244,7 @@ int naturalTableColumnWidth(QTableWidget *table, const int column)
     int width = qMax(header->minimumSectionSize(), header->sectionSizeHint(column));
     QStyleOptionViewItem option;
     option.initFrom(table->viewport());
-    for (int row = 0; row < table->rowCount(); ++row)
-    {
+    for (int row = 0; row < table->rowCount(); ++row) {
         const QModelIndex index = table->model()->index(row, column);
         width = qMax(width, table->itemDelegate()->sizeHint(option, index).width());
     }
@@ -283,8 +258,7 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
 
     const auto layouts = page->findChildren<QFormLayout *>();
 
-    for (auto *layout : layouts)
-    {
+    for (auto *layout : layouts) {
         // Each translated form used to center its own size hint.  That made
         // every group choose a different field-column origin as label widths
         // changed between languages. A shared label column and left-aligned
@@ -292,8 +266,7 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
         layout->setLabelAlignment(SettingsLabelAlignment);
         layout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
         layout->setRowWrapPolicy(QFormLayout::DontWrapRows);
-        if (layout->objectName() == QStringLiteral("settingsGroup4Layout"))
-        {
+        if (layout->objectName() == QStringLiteral("settingsGroup4Layout")) {
             // Group 4 contains only value-only rows, so QFormLayout has no
             // label item from which to derive the shared field-column origin.
             // Reserve that column explicitly as the form's left inset.
@@ -301,19 +274,16 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
             margins.setLeft(labelColumnWidth);
             layout->setContentsMargins(margins);
         }
-        for (int row = 0; row < layout->rowCount(); ++row)
-        {
+        for (int row = 0; row < layout->rowCount(); ++row) {
             auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
             auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
             auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
-            if (labelItem && labelItem->widget())
-            {
+            if (labelItem && labelItem->widget()) {
                 // A fixed shared label width makes the right edge of the
                 // translated label column an invariant of the page rather
                 // than an emergent result of each form's size hint.
                 labelItem->widget()->setFixedWidth(labelColumnWidth);
-                if (auto *label = qobject_cast<QLabel *>(labelItem->widget()))
-                {
+                if (auto *label = qobject_cast<QLabel *>(labelItem->widget())) {
                     label->setAlignment(SettingsLabelContentAlignment);
                     layout->setAlignment(label, Qt::AlignTop);
                 }
@@ -321,8 +291,7 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
 
             const auto isAssociationButton = [](QLayoutItem *item) {
                 return item && item->widget()
-                    && item->widget()->objectName()
-                        == QStringLiteral("associateFormatsButton");
+                        && item->widget()->objectName() == QStringLiteral("associateFormatsButton");
             };
             auto alignValueItem = [layout](QLayoutItem *item) {
                 if (!item)
@@ -332,32 +301,23 @@ void alignFormLayouts(QWidget *page, const int labelColumnWidth)
                 else if (item->layout())
                     layout->setAlignment(item->layout(), SettingsValueAlignment);
             };
-            if (isAssociationButton(fieldItem))
-            {
-                layout->setAlignment(fieldItem->widget(),
-                                     Qt::AlignHCenter | Qt::AlignVCenter);
-            }
-            else
-            {
+            if (isAssociationButton(fieldItem)) {
+                layout->setAlignment(fieldItem->widget(), Qt::AlignHCenter | Qt::AlignVCenter);
+            } else {
                 alignValueItem(fieldItem);
             }
 
             // A spanning row without a label is itself the value/control. The
             // association button is deliberately centered as an action, while
             // ordinary value-only rows belong to the field column.
-            if (isAssociationButton(spanningItem))
-            {
-                layout->setAlignment(spanningItem->widget(),
-                                     Qt::AlignHCenter | Qt::AlignVCenter);
-            }
-            else
-            {
+            if (isAssociationButton(spanningItem)) {
+                layout->setAlignment(spanningItem->widget(), Qt::AlignHCenter | Qt::AlignVCenter);
+            } else {
                 alignValueItem(spanningItem);
             }
         }
 
-        if (layout->objectName() == QStringLiteral("settingsGroup4Layout"))
-        {
+        if (layout->objectName() == QStringLiteral("settingsGroup4Layout")) {
             if (auto *group = layout->parentWidget())
                 group->setMinimumWidth(naturalFieldOnlyFormWidth(layout));
         }
@@ -375,10 +335,8 @@ void normalizeNamedRows(QWidget *page)
     if (!page)
         return;
 
-    for (auto *layout : page->findChildren<QFormLayout *>())
-    {
-        for (int row = 0; row < layout->rowCount(); ++row)
-        {
+    for (auto *layout : page->findChildren<QFormLayout *>()) {
+        for (int row = 0; row < layout->rowCount(); ++row) {
             auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
             auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
             auto *label = labelItem ? qobject_cast<QLabel *>(labelItem->widget()) : nullptr;
@@ -386,8 +344,7 @@ void normalizeNamedRows(QWidget *page)
             if (!valueHost)
                 continue;
 
-            if (!label)
-            {
+            if (!label) {
                 valueHost->setMinimumHeight(0);
                 valueHost->setMaximumHeight(QWIDGETSIZE_MAX);
                 valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
@@ -407,8 +364,7 @@ void normalizeNamedRows(QWidget *page)
             valueHost->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
             label->setAlignment(SettingsLabelContentAlignment);
 
-            const int rowHeight = qMax(label->sizeHint().height(),
-                                       valueHost->sizeHint().height());
+            const int rowHeight = qMax(label->sizeHint().height(), valueHost->sizeHint().height());
             label->setFixedHeight(rowHeight);
             valueHost->setFixedHeight(rowHeight);
             layout->setAlignment(label, Qt::AlignTop);
@@ -417,8 +373,7 @@ void normalizeNamedRows(QWidget *page)
     }
 }
 
-QWidget *createSettingsGroup(QWidget *parent, const int groupIndex,
-                             QFormLayout **formLayout)
+QWidget *createSettingsGroup(QWidget *parent, const int groupIndex, QFormLayout **formLayout)
 {
     auto *group = new QWidget(parent);
     group->setObjectName(QStringLiteral("settingsGroup%1").arg(groupIndex));
@@ -439,8 +394,7 @@ void discardLayoutItems(QLayout *layout)
     if (!layout)
         return;
 
-    while (layout->count() > 0)
-    {
+    while (layout->count() > 0) {
         QLayoutItem *item = layout->takeAt(layout->count() - 1);
         if (!item)
             break;
@@ -457,13 +411,11 @@ void setNaturalControlWidths(QWidget *page)
         return;
 
     const auto controls = page->findChildren<QWidget *>();
-    for (auto *control : controls)
-    {
+    for (auto *control : controls) {
         if (control->objectName() == QStringLiteral("menubarCheckbox"))
             continue;
 
-        if (control->objectName() == QStringLiteral("associateFormatsButton"))
-        {
+        if (control->objectName() == QStringLiteral("associateFormatsButton")) {
             // The association action intentionally keeps the exact native
             // QPushButton size hint; do not turn its width into a second
             // sizing source while measuring the page.
@@ -471,15 +423,13 @@ void setNaturalControlWidths(QWidget *page)
             continue;
         }
 
-        if (!qobject_cast<QAbstractButton *>(control)
-            && !qobject_cast<QComboBox *>(control)
+        if (!qobject_cast<QAbstractButton *>(control) && !qobject_cast<QComboBox *>(control)
             && !qobject_cast<QAbstractSpinBox *>(control))
             continue;
 
         if (auto *comboBox = qobject_cast<QComboBox *>(control))
             comboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-        control->setMinimumWidth(qMax(control->minimumWidth(),
-                                      control->sizeHint().width()));
+        control->setMinimumWidth(qMax(control->minimumWidth(), control->sizeHint().width()));
         auto sizePolicy = control->sizePolicy();
         sizePolicy.setHorizontalPolicy(QSizePolicy::Fixed);
         control->setSizePolicy(sizePolicy);
@@ -503,19 +453,16 @@ int naturalControlWidth(QWidget *page)
         return 0;
 
     int width = 0;
-    for (auto *control : page->findChildren<QWidget *>())
-    {
+    for (auto *control : page->findChildren<QWidget *>()) {
         if (control->objectName() == QStringLiteral("menubarCheckbox"))
             continue;
 
-        if (qobject_cast<QAbstractButton *>(control)
-            || qobject_cast<QComboBox *>(control)
+        if (qobject_cast<QAbstractButton *>(control) || qobject_cast<QComboBox *>(control)
             || qobject_cast<QAbstractSpinBox *>(control))
             width = qMax(width, control->sizeHint().width());
     }
 
-    for (auto *layout : page->findChildren<QFormLayout *>())
-    {
+    for (auto *layout : page->findChildren<QFormLayout *>()) {
         if (layout->objectName() != QStringLiteral("settingsGroup4Layout"))
             continue;
 
@@ -523,11 +470,9 @@ int naturalControlWidth(QWidget *page)
     }
     return width;
 }
-}
+} // namespace
 
-QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::QVOptionsDialog)
+QVOptionsDialog::QVOptionsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::QVOptionsDialog)
 {
     ui->setupUi(this);
 
@@ -566,22 +511,23 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
         // toolbar is the navigation control, so a pane change must not make
         // General's Appearance combo look selected or steal keyboard input.
         QTimer::singleShot(0, this, [this]() {
-            if (auto *focused = QApplication::focusWidget(); focused
-                && focused->window() == this)
+            if (auto *focused = QApplication::focusWidget(); focused && focused->window() == this)
                 focused->clearFocus();
         });
     });
-    connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this, &QVOptionsDialog::shortcutCellDoubleClicked);
-    connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
-    connect(ui->associateFormatsButton, &QPushButton::clicked, this, &QVOptionsDialog::associateSupportedFormats);
+    connect(ui->shortcutsTable, &QTableWidget::cellDoubleClicked, this,
+            &QVOptionsDialog::shortcutCellDoubleClicked);
+    connect(ui->langComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &QVOptionsDialog::languageComboBoxCurrentIndexChanged);
+    connect(ui->associateFormatsButton, &QPushButton::clicked, this,
+            &QVOptionsDialog::associateSupportedFormats);
 
     QSettings settings;
 
     // The former Display and Miscellaneous tabs occupied indexes 0 and 1.
     // Map both to General, and shift Shortcuts/Mouse down by one.
     int selectedTab = settings.value("optionstab", 0).toInt();
-    if (settings.value("optionstabversion", 0).toInt() < 2)
-    {
+    if (settings.value("optionstabversion", 0).toInt() < 2) {
         selectedTab = selectedTab <= 1 ? 0 : selectedTab - 1;
         settings.setValue("optionstab", selectedTab);
         settings.setValue("optionstabversion", 2);
@@ -591,12 +537,15 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
     populateComboBoxes();
     populateLanguages();
 
-    if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13))
+    if (QOperatingSystemVersion::current()
+        < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13))
         setWindowTitle(tr("Preferences"));
 
     ui->menubarCheckbox->hide();
 
-    QString ctrlKeyName = QKeySequence(Qt::CTRL).toString(QKeySequence::NativeText).replace(QRegularExpression("\\+$"), "");
+    QString ctrlKeyName = QKeySequence(Qt::CTRL)
+                                  .toString(QKeySequence::NativeText)
+                                  .replace(QRegularExpression("\\+$"), "");
     ui->altDoubleClickLabel->setText(tr("%1 + Double Click:").arg(ctrlKeyName));
     ui->altDragLabel->setText(tr("%1 + Drag:").arg(ctrlKeyName));
     ui->altMiddleClickLabel->setText(tr("%1 + Middle Click:").arg(ctrlKeyName));
@@ -610,8 +559,7 @@ QVOptionsDialog::QVOptionsDialog(QWidget *parent) :
 
     connect(qvApp, &QVApplication::windowOnTopChanged, this, [this]() {
         if (windowHandle())
-            windowHandle()->setFlag(Qt::WindowStaysOnTopHint,
-                                    qvApp->foundOnTopWindow());
+            windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     });
 
     isInitialLoad = false;
@@ -642,10 +590,9 @@ void QVOptionsDialog::configureGeneralPage()
     contentLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *mouseContent = ui->mouseScrollArea->widget();
-    auto *mouseLayout = mouseContent
-        ? qobject_cast<QVBoxLayout *>(mouseContent->layout()) : nullptr;
-    if (mouseLayout)
-    {
+    auto *mouseLayout =
+            mouseContent ? qobject_cast<QVBoxLayout *>(mouseContent->layout()) : nullptr;
+    if (mouseLayout) {
         mouseLayout->setSpacing(0);
         for (auto *form : mouseContent->findChildren<QFormLayout *>())
             configureSettingsForm(form);
@@ -656,22 +603,21 @@ void QVOptionsDialog::configureGeneralPage()
 
     QFormLayout *groupLayout = nullptr;
     auto *group1 = createSettingsGroup(generalContent, 1, &groupLayout);
-    group1->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("langComboBox")});
+    group1->setProperty("settingsItemObjectNames", QStringList{ QStringLiteral("langComboBox") });
     groupLayout->addRow(ui->langComboLabel, ui->langComboBox);
     contentLayout->addWidget(group1);
 
     auto *group2 = createSettingsGroup(generalContent, 2, &groupLayout);
     group2->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("themeComboBox"),
-                                     QStringLiteral("checkerboardBackgroundCheckbox")});
+                        QStringList{ QStringLiteral("themeComboBox"),
+                                     QStringLiteral("checkerboardBackgroundCheckbox") });
     groupLayout->addRow(ui->appearanceLabel, ui->themeComboBox);
     addValueOnlyRow(groupLayout, ui->checkerboardBackgroundCheckbox);
     contentLayout->addWidget(group2);
 
     auto *group3 = createSettingsGroup(generalContent, 3, &groupLayout);
     group3->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("smoothScalingComboBox")});
+                        QStringList{ QStringLiteral("smoothScalingComboBox") });
     groupLayout->addRow(ui->label_2, ui->smoothScalingComboBox);
     contentLayout->addWidget(group3);
 
@@ -687,29 +633,29 @@ void QVOptionsDialog::configureGeneralPage()
 
     auto *group5 = createSettingsGroup(generalContent, 5, &groupLayout);
     group5->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("slideshowDirectionComboBox"),
-                                     QStringLiteral("slideshowTimerSpinBox")});
+                        QStringList{ QStringLiteral("slideshowDirectionComboBox"),
+                                     QStringLiteral("slideshowTimerSpinBox") });
     groupLayout->addRow(ui->label_4, ui->slideshowDirectionComboBox);
     groupLayout->addRow(ui->label_5, ui->slideshowTimerSpinBox);
     contentLayout->addWidget(group5);
 
     auto *group6 = createSettingsGroup(generalContent, 6, &groupLayout);
     group6->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("afterDeletionComboBox"),
-                                     QStringLiteral("askDeleteCheckbox")});
+                        QStringList{ QStringLiteral("afterDeletionComboBox"),
+                                     QStringLiteral("askDeleteCheckbox") });
     groupLayout->addRow(ui->label_10, ui->afterDeletionComboBox);
     addValueOnlyRow(groupLayout, ui->askDeleteCheckbox);
     contentLayout->addWidget(group6);
 
     auto *group7 = createSettingsGroup(generalContent, 7, &groupLayout);
     group7->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("updateFrequencyComboBox")});
+                        QStringList{ QStringLiteral("updateFrequencyComboBox") });
     groupLayout->addRow(ui->updateFrequencyLabel, ui->updateFrequencyComboBox);
     contentLayout->addWidget(group7);
 
     auto *group8 = createSettingsGroup(generalContent, 8, &groupLayout);
     group8->setProperty("settingsItemObjectNames",
-                        QStringList {QStringLiteral("associateFormatsButton")});
+                        QStringList{ QStringLiteral("associateFormatsButton") });
     // Keep the command as a direct native action row. Restoring the dialog's
     // native default state also restores the pre-regression QMacStyle paint
     // path and Return-key behavior.
@@ -719,8 +665,7 @@ void QVOptionsDialog::configureGeneralPage()
     ui->associateFormatsButton->setDefault(true);
     ui->associateFormatsButton->setMinimumSize(0, 0);
     ui->associateFormatsButton->setAttribute(Qt::WA_LayoutUsesWidgetRect, true);
-    groupLayout->setWidget(0, QFormLayout::SpanningRole,
-                           ui->associateFormatsButton);
+    groupLayout->setWidget(0, QFormLayout::SpanningRole, ui->associateFormatsButton);
     contentLayout->addWidget(group8);
     contentLayout->addStretch(1);
 
@@ -729,8 +674,7 @@ void QVOptionsDialog::configureGeneralPage()
     ui->menubarCheckbox->setParent(generalContent);
     ui->menubarCheckbox->hide();
 
-    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent,
-                                                                 mouseContent);
+    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent, mouseContent);
     configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
                                   metrics.maximumIntraGroupSpacing);
     configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
@@ -781,15 +725,14 @@ void QVOptionsDialog::updateNaturalPageSizes()
     normalizeNamedRows(generalContent);
     normalizeNamedRows(mouseContent);
 
-    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent,
-                                                                 mouseContent);
+    const SettingsLayoutMetrics metrics = settingsLayoutMetrics(generalContent, mouseContent);
     configureSettingsGroupsLayout(generalContent, metrics.groupSpacing,
                                   metrics.maximumIntraGroupSpacing);
     configureSettingsGroupsLayout(mouseContent, metrics.groupSpacing,
                                   metrics.maximumIntraGroupSpacing);
 
-    const int labelColumnWidth = qMax(formLabelColumnWidth(generalContent),
-                                      formLabelColumnWidth(mouseContent));
+    const int labelColumnWidth =
+            qMax(formLabelColumnWidth(generalContent), formLabelColumnWidth(mouseContent));
     alignFormLayouts(generalContent, labelColumnWidth);
     alignFormLayouts(mouseContent, labelColumnWidth);
 
@@ -799,12 +742,11 @@ void QVOptionsDialog::updateNaturalPageSizes()
     const int selectedPage = ui->stackedWidget->currentIndex();
     ui->stackedWidget->setCurrentIndex(0);
     QSize generalNaturalSize = naturalLayoutSize(generalContent);
-    generalNaturalSize.setWidth(qMax(generalNaturalSize.width(),
-                                     naturalControlWidth(generalContent)));
+    generalNaturalSize.setWidth(
+            qMax(generalNaturalSize.width(), naturalControlWidth(generalContent)));
     ui->stackedWidget->setCurrentIndex(2);
     QSize mouseNaturalSize = naturalLayoutSize(mouseContent);
-    mouseNaturalSize.setWidth(qMax(mouseNaturalSize.width(),
-                                   naturalControlWidth(mouseContent)));
+    mouseNaturalSize.setWidth(qMax(mouseNaturalSize.width(), naturalControlWidth(mouseContent)));
     generalContent->setMinimumSize(generalNaturalSize);
     mouseContent->setMinimumSize(mouseNaturalSize);
     generalContent->setProperty("settingsNaturalContentSize", generalNaturalSize);
@@ -825,8 +767,7 @@ void QVOptionsDialog::updateNaturalPageSizes()
     header->setSectionResizeMode(QHeaderView::Fixed);
     const int actionColumnWidth = naturalTableColumnWidth(table, 0);
     const int shortcutsColumnWidth = naturalTableColumnWidth(table, 1);
-    const int equalShortcutColumnWidth = qMax(actionColumnWidth,
-                                               shortcutsColumnWidth);
+    const int equalShortcutColumnWidth = qMax(actionColumnWidth, shortcutsColumnWidth);
     header->resizeSection(0, equalShortcutColumnWidth);
     header->resizeSection(1, equalShortcutColumnWidth);
     table->resizeRowsToContents();
@@ -837,8 +778,8 @@ void QVOptionsDialog::updateNaturalPageSizes()
     const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
     for (int row = 0; row < visibleRows; ++row)
         visibleRowsHeight += qMax(1, table->rowHeight(row));
-    const int tableHeight = table->horizontalHeader()->height()
-            + visibleRowsHeight + 2 * table->frameWidth();
+    const int tableHeight =
+            table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
     table->setFixedHeight(qMax(1, tableHeight));
 
     // At the 16-row height, the remaining rows require the vertical scrollbar.
@@ -850,33 +791,29 @@ void QVOptionsDialog::updateNaturalPageSizes()
     // sections.
     const int headerWidth = 2 * equalShortcutColumnWidth;
     const int tableChromeWidth = 2 * table->frameWidth()
-            + (table->rowCount() > visibleRows
-               ? table->verticalScrollBar()->sizeHint().width() : 0);
+            + (table->rowCount() > visibleRows ? table->verticalScrollBar()->sizeHint().width()
+                                               : 0);
     const QMargins shortcutMargins = ui->shortcutsLayout->contentsMargins();
-    const int measuredShortcutsWidth = shortcutMargins.left() + headerWidth
-            + tableChromeWidth + shortcutMargins.right();
+    const int measuredShortcutsWidth =
+            shortcutMargins.left() + headerWidth + tableChromeWidth + shortcutMargins.right();
     // QHeaderView distributes an odd viewport remainder between Stretch
     // sections. Normalize the page width to minimize that remainder on Cocoa
     // styles whose scrollbar metrics differ by one pixel between the hidden
     // measurement pass and the visible table; the runtime contract accepts
     // the resulting one-pixel integer rounding.
-    const int shortcutsNaturalWidth = measuredShortcutsWidth
-            + measuredShortcutsWidth % 2;
+    const int shortcutsNaturalWidth = measuredShortcutsWidth + measuredShortcutsWidth % 2;
 
-    const int generalNaturalWidth = generalNaturalSize.width()
-            + 2 * ui->generalScrollArea->frameWidth();
-    const int mouseNaturalWidth = mouseNaturalSize.width()
-            + 2 * ui->mouseScrollArea->frameWidth();
-    settingsTabWidths = {generalNaturalWidth, shortcutsNaturalWidth,
-                         mouseNaturalWidth};
+    const int generalNaturalWidth =
+            generalNaturalSize.width() + 2 * ui->generalScrollArea->frameWidth();
+    const int mouseNaturalWidth = mouseNaturalSize.width() + 2 * ui->mouseScrollArea->frameWidth();
+    settingsTabWidths = { generalNaturalWidth, shortcutsNaturalWidth, mouseNaturalWidth };
 
     QVariantList tabWidths;
     for (const int width : settingsTabWidths)
         tabWidths.append(width);
 
     const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
-    const int selectedCategory = qBound(0, selectedPage,
-                                        settingsTabWidths.size() - 1);
+    const int selectedCategory = qBound(0, selectedPage, settingsTabWidths.size() - 1);
     const int selectedPageWidth = settingsTabWidths.value(selectedCategory);
     ui->stackedWidget->setFixedWidth(selectedPageWidth);
 
@@ -888,8 +825,7 @@ void QVOptionsDialog::updateNaturalPageSizes()
     header->setStretchLastSection(false);
     setMinimumSize(0, 0);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    settingsDialogWidth = qMax(1, selectedPageWidth
-                               + dialogMargins.left() + dialogMargins.right());
+    settingsDialogWidth = qMax(1, selectedPageWidth + dialogMargins.left() + dialogMargins.right());
     setProperty("settingsFixedWidth", settingsDialogWidth);
     setProperty("settingsNaturalPageWidth", selectedPageWidth);
     setProperty("settingsTabWidths", tabWidths);
@@ -900,8 +836,7 @@ void QVOptionsDialog::updateNaturalPageSizes()
     setProperty("settingsShortcutHeaderWidth", headerWidth);
     setProperty("settingsShortcutColumnWidth", equalShortcutColumnWidth);
     setProperty("settingsMaximumNaturalPageWidth",
-                qMax(generalNaturalWidth,
-                     qMax(mouseNaturalWidth, shortcutsNaturalWidth)));
+                qMax(generalNaturalWidth, qMax(mouseNaturalWidth, shortcutsNaturalWidth)));
     ui->stackedWidget->setCurrentIndex(selectedPage);
     // Exact content dimensions above make scrolling unnecessary. Keeping the
     // bars off also avoids a transient overlay flash while Cocoa swaps panes.
@@ -928,28 +863,21 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     ui->stackedWidget->setFixedWidth(pageWidth);
 
     int pageHeight = 0;
-    if (categoryIndex == 0)
-    {
+    if (categoryIndex == 0) {
         auto *content = ui->generalScrollArea->widget();
-        pageHeight = content->minimumHeight()
-                + 2 * ui->generalScrollArea->frameWidth();
-    }
-    else if (categoryIndex == 1)
-    {
+        pageHeight = content->minimumHeight() + 2 * ui->generalScrollArea->frameWidth();
+    } else if (categoryIndex == 1) {
         auto *table = ui->shortcutsTable;
         int visibleRowsHeight = 0;
         const int visibleRows = qMin(ShortcutsVisibleRows, table->rowCount());
         for (int row = 0; row < visibleRows; ++row)
             visibleRowsHeight += qMax(1, table->rowHeight(row));
-        const int tableHeight = table->horizontalHeader()->height()
-                + visibleRowsHeight
-                + 2 * table->frameWidth();
+        const int tableHeight =
+                table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
         table->setFixedHeight(tableHeight);
         const QMargins margins = ui->shortcutsLayout->contentsMargins();
         pageHeight = margins.top() + tableHeight + margins.bottom();
-    }
-    else
-    {
+    } else {
         auto *scrollArea = ui->mouseScrollArea;
         auto *content = scrollArea->widget();
         pageHeight = content->minimumHeight() + 2 * scrollArea->frameWidth();
@@ -960,27 +888,22 @@ void QVOptionsDialog::resizeForCategory(const int categoryIndex)
     pageHeight = qMax(1, pageHeight);
     ui->stackedWidget->setFixedHeight(pageHeight);
     const QMargins dialogMargins = ui->verticalLayout->contentsMargins();
-    const int targetWidth = qMax(1, pageWidth
-                                  + dialogMargins.left() + dialogMargins.right());
-    const int targetHeight = qMax(1, pageHeight
-                                  + dialogMargins.top() + dialogMargins.bottom());
+    const int targetWidth = qMax(1, pageWidth + dialogMargins.left() + dialogMargins.right());
+    const int targetHeight = qMax(1, pageHeight + dialogMargins.top() + dialogMargins.bottom());
     categoryTargetWidth = targetWidth;
     categoryTargetHeight = targetHeight;
     settingsDialogWidth = targetWidth;
 
     const bool shouldAnimate = isVisible()
-        && (currentWidth != targetWidth || currentHeight != targetHeight)
-        && categorySizeAnimation;
-    if (shouldAnimate)
-    {
+            && (currentWidth != targetWidth || currentHeight != targetHeight)
+            && categorySizeAnimation;
+    if (shouldAnimate) {
         categorySizeAnimation->stop();
         setProperty("settingsCategoryTransitionActive", true);
         categorySizeAnimation->setStartValue(QSize(currentWidth, currentHeight));
         categorySizeAnimation->setEndValue(QSize(targetWidth, targetHeight));
         categorySizeAnimation->start();
-    }
-    else
-    {
+    } else {
         if (categorySizeAnimation)
             categorySizeAnimation->stop();
         setFixedSize(targetWidth, targetHeight);
@@ -1022,8 +945,7 @@ void QVOptionsDialog::prepareForDisplay()
     // The toolbar therefore contributes to frameGeometry before centering.
     (void)winId();
     if (windowHandle())
-        windowHandle()->setFlag(Qt::WindowStaysOnTopHint,
-                                qvApp->foundOnTopWindow());
+        windowHandle()->setFlag(Qt::WindowStaysOnTopHint, qvApp->foundOnTopWindow());
     NativeDialogs::applyTheme(this);
     QVCocoaFunctions::configureSettingsToolbar(windowHandle(), ui->categoryTabs);
     // The native toolbar changes the available content width. Re-measure once
@@ -1100,8 +1022,7 @@ void QVOptionsDialog::modifySetting(QString key, QVariant value)
     settings.endGroup();
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
-    if (key == QStringLiteral("theme"))
-    {
+    if (key == QStringLiteral("theme")) {
         NativeDialogs::applyTheme(this);
     }
 }
@@ -1114,7 +1035,8 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
     // theme
     syncComboBox(ui->themeComboBox, "theme", defaults, makeConnections);
     // checkerboardbackground
-    syncCheckbox(ui->checkerboardBackgroundCheckbox, "checkerboardbackground", defaults, makeConnections);
+    syncCheckbox(ui->checkerboardBackgroundCheckbox, "checkerboardbackground", defaults,
+                 makeConnections);
     // menubarenabled
     syncCheckbox(ui->menubarCheckbox, "menubarenabled", defaults, makeConnections);
     // reusewindow
@@ -1146,32 +1068,39 @@ void QVOptionsDialog::syncSettings(bool defaults, bool makeConnections)
 
     // mouse actions
     syncComboBox(ui->doubleClickComboBox, "viewportdoubleclickaction", defaults, makeConnections);
-    syncComboBox(ui->altDoubleClickComboBox, "viewportaltdoubleclickaction", defaults, makeConnections);
+    syncComboBox(ui->altDoubleClickComboBox, "viewportaltdoubleclickaction", defaults,
+                 makeConnections);
     syncComboBox(ui->dragComboBox, "viewportdragaction", defaults, makeConnections);
     syncComboBox(ui->altDragComboBox, "viewportaltdragaction", defaults, makeConnections);
     syncComboBox(ui->middleClickComboBox, "viewportmiddleclickaction", defaults, makeConnections);
-    syncComboBox(ui->altMiddleClickComboBox, "viewportaltmiddleclickaction", defaults, makeConnections);
-    syncComboBox(ui->verticalScrollComboBox, "viewportverticalscrollaction", defaults, makeConnections);
-    syncComboBox(ui->horizontalScrollComboBox, "viewporthorizontalscrollaction", defaults, makeConnections);
-    syncComboBox(ui->altVerticalScrollComboBox, "viewportaltverticalscrollaction", defaults, makeConnections);
-    syncComboBox(ui->altHorizontalScrollComboBox, "viewportalthorizontalscrollaction", defaults, makeConnections);
+    syncComboBox(ui->altMiddleClickComboBox, "viewportaltmiddleclickaction", defaults,
+                 makeConnections);
+    syncComboBox(ui->verticalScrollComboBox, "viewportverticalscrollaction", defaults,
+                 makeConnections);
+    syncComboBox(ui->horizontalScrollComboBox, "viewporthorizontalscrollaction", defaults,
+                 makeConnections);
+    syncComboBox(ui->altVerticalScrollComboBox, "viewportaltverticalscrollaction", defaults,
+                 makeConnections);
+    syncComboBox(ui->altHorizontalScrollComboBox, "viewportalthorizontalscrollaction", defaults,
+                 makeConnections);
 }
 
-void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults, bool makeConnection)
+void QVOptionsDialog::syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults,
+                                   bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getBoolean(key, defaults);
     const QSignalBlocker blocker(checkbox);
     checkbox->setChecked(val);
 
-    if (makeConnection)
-    {
+    if (makeConnection) {
         connect(checkbox, &QCheckBox::checkStateChanged, this, [this, key](Qt::CheckState state) {
             modifySetting(key, static_cast<bool>(state));
         });
     }
 }
 
-void QVOptionsDialog::syncComboBox(QComboBox *comboBox, const QString &key, bool defaults, bool makeConnection)
+void QVOptionsDialog::syncComboBox(QComboBox *comboBox, const QString &key, bool defaults,
+                                   bool makeConnection)
 {
     const QVariant val = qvApp->getSettingsManager().getSetting(key, defaults);
     const QSignalBlocker blocker(comboBox);
@@ -1180,40 +1109,38 @@ void QVOptionsDialog::syncComboBox(QComboBox *comboBox, const QString &key, bool
         index = comboBox->findData(val.toInt());
     comboBox->setCurrentIndex(index);
 
-    if (makeConnection)
-    {
-        connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, key, comboBox](int index) {
-            Q_UNUSED(index)
-            modifySetting(key, comboBox->currentData());
-        });
+    if (makeConnection) {
+        connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this, key, comboBox](int index) {
+                    Q_UNUSED(index)
+                    modifySetting(key, comboBox->currentData());
+                });
     }
 }
 
-void QVOptionsDialog::syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults, bool makeConnection)
+void QVOptionsDialog::syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults,
+                                  bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getInteger(key, defaults);
     const QSignalBlocker blocker(spinBox);
     spinBox->setValue(val);
 
-    if (makeConnection)
-    {
-        connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, key](int i) {
-            modifySetting(key, i);
-        });
+    if (makeConnection) {
+        connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+                [this, key](int i) { modifySetting(key, i); });
     }
 }
 
-void QVOptionsDialog::syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults, bool makeConnection)
+void QVOptionsDialog::syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key,
+                                        bool defaults, bool makeConnection)
 {
     auto val = qvApp->getSettingsManager().getDouble(key, defaults);
     const QSignalBlocker blocker(doubleSpinBox);
     doubleSpinBox->setValue(val);
 
-    if (makeConnection)
-    {
-        connect(doubleSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, key](double d) {
-            modifySetting(key, d);
-        });
+    if (makeConnection) {
+        connect(doubleSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+                [this, key](double d) { modifySetting(key, d); });
     }
 }
 
@@ -1225,8 +1152,7 @@ void QVOptionsDialog::syncShortcuts(bool defaults)
     const auto &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
     ui->shortcutsTable->setRowCount(shortcutsList.length());
 
-    for (int i = 0; i < shortcutsList.length(); i++)
-    {
+    for (int i = 0; i < shortcutsList.length(); i++) {
         const ShortcutManager::SShortcut &shortcut = shortcutsList.value(i);
 
         // Add shortcut to transient shortcut list
@@ -1241,8 +1167,8 @@ void QVOptionsDialog::syncShortcuts(bool defaults)
         ui->shortcutsTable->setItem(i, 0, nameItem);
 
         auto *shortcutsItem = new QTableWidgetItem();
-        shortcutsItem->setText(ShortcutManager::stringListToReadableString(
-                                   transientShortcuts.value(i)));
+        shortcutsItem->setText(
+                ShortcutManager::stringListToReadableString(transientShortcuts.value(i)));
         ui->shortcutsTable->setItem(i, 1, shortcutsItem);
     }
     updateShortcutsTable();
@@ -1250,10 +1176,10 @@ void QVOptionsDialog::syncShortcuts(bool defaults)
 
 void QVOptionsDialog::updateShortcutsTable()
 {
-    for (int i = 0; i < transientShortcuts.length(); i++)
-    {
+    for (int i = 0; i < transientShortcuts.length(); i++) {
         const QStringList &shortcuts = transientShortcuts.value(i);
-        ui->shortcutsTable->item(i, 1)->setText(ShortcutManager::stringListToReadableString(shortcuts));
+        ui->shortcutsTable->item(i, 1)->setText(
+                ShortcutManager::stringListToReadableString(shortcuts));
     }
 
     // Page metrics are content-derived only during initial presentation. A
@@ -1269,15 +1195,17 @@ void QVOptionsDialog::shortcutCellDoubleClicked(int row, int column)
         return transientShortcuts.value(index);
     };
     auto *shortcutDialog = new QVShortcutDialog(row, getTransientShortcutCallback, this);
-    connect(shortcutDialog, &QVShortcutDialog::shortcutsListChanged, this, [this](int index, const QStringList &stringListShortcuts) {
-        transientShortcuts.replace(index, stringListShortcuts);
-        const auto &shortcut = qvApp->getShortcutManager().getShortcutsList().value(index);
-        QSettings settings;
-        settings.setValue(QStringLiteral("shortcuts/") + shortcut.name, stringListShortcuts);
-        settings.sync();
-        qvApp->getShortcutManager().updateShortcuts();
-        updateShortcutsTable();
-    });
+    connect(shortcutDialog, &QVShortcutDialog::shortcutsListChanged, this,
+            [this](int index, const QStringList &stringListShortcuts) {
+                transientShortcuts.replace(index, stringListShortcuts);
+                const auto &shortcut = qvApp->getShortcutManager().getShortcutsList().value(index);
+                QSettings settings;
+                settings.setValue(QStringLiteral("shortcuts/") + shortcut.name,
+                                  stringListShortcuts);
+                settings.sync();
+                qvApp->getShortcutManager().updateShortcuts();
+                updateShortcutsTable();
+            });
     shortcutDialog->open();
 }
 
@@ -1314,11 +1242,11 @@ void QVOptionsDialog::populateLanguages()
 void QVOptionsDialog::languageComboBoxCurrentIndexChanged(int index)
 {
     Q_UNUSED(index)
-    if (!isInitialLoad && !languageRestartMessageShown)
-    {
-        NativeDialogs::showMessage(QMessageBox::Information, tr("Restart Required"),
-                                   tr("You must restart Fovelle for the language change to take effect."),
-                                   QMessageBox::Ok, this);
+    if (!isInitialLoad && !languageRestartMessageShown) {
+        NativeDialogs::showMessage(
+                QMessageBox::Information, tr("Restart Required"),
+                tr("You must restart Fovelle for the language change to take effect."),
+                QMessageBox::Ok, this);
         languageRestartMessageShown = true;
     }
 }
@@ -1328,93 +1256,82 @@ void QVOptionsDialog::associateSupportedFormats()
     const auto extensions = Qv::setToSortedList(qvApp->getAllFileExtensionList());
     const auto result = QVCocoaFunctions::associateAllSupportedFormats(extensions);
 
-    const QMessageBox::Icon icon = result.failedExtensions.isEmpty()
-            ? QMessageBox::Information : QMessageBox::Warning;
-    QString message = tr("Associated %1 supported formats with Fovelle.")
-            .arg(result.associatedCount);
+    const QMessageBox::Icon icon =
+            result.failedExtensions.isEmpty() ? QMessageBox::Information : QMessageBox::Warning;
+    QString message =
+            tr("Associated %1 supported formats with Fovelle.").arg(result.associatedCount);
     if (!result.failedExtensions.isEmpty())
-        message += tr("\nUnable to associate: %1.")
-                .arg(result.failedExtensions.join(", "));
-    NativeDialogs::showMessage(icon, tr("File Associations"), message,
-                               QMessageBox::Ok, this);
+        message += tr("\nUnable to associate: %1.").arg(result.failedExtensions.join(", "));
+    NativeDialogs::showMessage(icon, tr("File Associations"), message, QMessageBox::Ok, this);
 }
 
-const Ui::ComboBoxItems<Qv::AfterDelete> QVOptionsDialog::mapAfterDelete() {
-    return {
-        { Qv::AfterDelete::MoveBack, tr("Move Back") },
-        { Qv::AfterDelete::DoNothing, tr("No Action") },
-        { Qv::AfterDelete::MoveForward, tr("Move Forward") }
-    };
+const Ui::ComboBoxItems<Qv::AfterDelete> QVOptionsDialog::mapAfterDelete()
+{
+    return { { Qv::AfterDelete::MoveBack, tr("Move Back") },
+             { Qv::AfterDelete::DoNothing, tr("No Action") },
+             { Qv::AfterDelete::MoveForward, tr("Move Forward") } };
 }
 
-const Ui::ComboBoxItems<Qv::SlideshowDirection> QVOptionsDialog::mapSlideshowDirection() {
-    return {
-        { Qv::SlideshowDirection::Forward, tr("Forward") },
-        { Qv::SlideshowDirection::Backward, tr("Backward") },
-        { Qv::SlideshowDirection::Random, tr("Random") }
-    };
+const Ui::ComboBoxItems<Qv::SlideshowDirection> QVOptionsDialog::mapSlideshowDirection()
+{
+    return { { Qv::SlideshowDirection::Forward, tr("Forward") },
+             { Qv::SlideshowDirection::Backward, tr("Backward") },
+             { Qv::SlideshowDirection::Random, tr("Random") } };
 }
 
-const Ui::ComboBoxItems<Qv::SmoothScalingMode> QVOptionsDialog::mapSmoothScalingMode() {
-    return {
-        { Qv::SmoothScalingMode::Disabled, tr("Disabled") },
-        { Qv::SmoothScalingMode::Bilinear, tr("Bilinear") },
-        { Qv::SmoothScalingMode::Expensive, tr("Expensive") }
-    };
+const Ui::ComboBoxItems<Qv::SmoothScalingMode> QVOptionsDialog::mapSmoothScalingMode()
+{
+    return { { Qv::SmoothScalingMode::Disabled, tr("Disabled") },
+             { Qv::SmoothScalingMode::Bilinear, tr("Bilinear") },
+             { Qv::SmoothScalingMode::Expensive, tr("Expensive") } };
 }
 
-const Ui::ComboBoxItems<Qv::Theme> QVOptionsDialog::mapTheme() {
-    return {
-        { Qv::Theme::Light, tr("Light") },
-        { Qv::Theme::Dark, tr("Dark") },
-        { Qv::Theme::System, tr("System") }
-    };
+const Ui::ComboBoxItems<Qv::Theme> QVOptionsDialog::mapTheme()
+{
+    return { { Qv::Theme::Light, tr("Light") },
+             { Qv::Theme::Dark, tr("Dark") },
+             { Qv::Theme::System, tr("System") } };
 }
 
-const Ui::ComboBoxItems<Qv::UpdateCheckFrequency> QVOptionsDialog::mapUpdateCheckFrequency() {
-    return {
-        { Qv::UpdateCheckFrequency::Never, tr("Never") },
-        { Qv::UpdateCheckFrequency::Daily, tr("Daily") },
-        { Qv::UpdateCheckFrequency::Weekly, tr("Weekly") },
-        { Qv::UpdateCheckFrequency::Monthly, tr("Monthly") }
-    };
+const Ui::ComboBoxItems<Qv::UpdateCheckFrequency> QVOptionsDialog::mapUpdateCheckFrequency()
+{
+    return { { Qv::UpdateCheckFrequency::Never, tr("Never") },
+             { Qv::UpdateCheckFrequency::Daily, tr("Daily") },
+             { Qv::UpdateCheckFrequency::Weekly, tr("Weekly") },
+             { Qv::UpdateCheckFrequency::Monthly, tr("Monthly") } };
 }
 
-const Ui::ComboBoxItems<Qv::ViewportClickAction> QVOptionsDialog::mapViewportClickAction() {
-    return {
-        { Qv::ViewportClickAction::None, tr("None") },
-        { Qv::ViewportClickAction::ZoomToFit, tr("Zoom to Fit") },
-        { Qv::ViewportClickAction::FillWindow, tr("Fill Window") },
-        { Qv::ViewportClickAction::OriginalSize, tr("Original Size") },
-        { Qv::ViewportClickAction::CenterImage, tr("Center Image") },
-        { Qv::ViewportClickAction::ToggleFullScreen, tr("Toggle Full Screen") },
-        { Qv::ViewportClickAction::ToggleTitlebarHidden, tr("Toggle Titlebar Hidden") }
-    };
+const Ui::ComboBoxItems<Qv::ViewportClickAction> QVOptionsDialog::mapViewportClickAction()
+{
+    return { { Qv::ViewportClickAction::None, tr("None") },
+             { Qv::ViewportClickAction::ZoomToFit, tr("Zoom to Fit") },
+             { Qv::ViewportClickAction::FillWindow, tr("Fill Window") },
+             { Qv::ViewportClickAction::OriginalSize, tr("Original Size") },
+             { Qv::ViewportClickAction::CenterImage, tr("Center Image") },
+             { Qv::ViewportClickAction::ToggleFullScreen, tr("Toggle Full Screen") },
+             { Qv::ViewportClickAction::ToggleTitlebarHidden, tr("Toggle Titlebar Hidden") } };
 }
 
-const Ui::ComboBoxItems<Qv::ViewportDragAction> QVOptionsDialog::mapViewportDragAction() {
-    return {
-        { Qv::ViewportDragAction::None, tr("None") },
-        { Qv::ViewportDragAction::Pan, tr("Pan") },
-        { Qv::ViewportDragAction::MoveWindow, tr("Move Window") }
-    };
+const Ui::ComboBoxItems<Qv::ViewportDragAction> QVOptionsDialog::mapViewportDragAction()
+{
+    return { { Qv::ViewportDragAction::None, tr("None") },
+             { Qv::ViewportDragAction::Pan, tr("Pan") },
+             { Qv::ViewportDragAction::MoveWindow, tr("Move Window") } };
 }
 
-const Ui::ComboBoxItems<Qv::ViewportScrollAction> QVOptionsDialog::mapViewportScrollAction() {
-    return {
-        { Qv::ViewportScrollAction::None, tr("None") },
-        { Qv::ViewportScrollAction::Zoom, tr("Zoom") },
-        { Qv::ViewportScrollAction::Navigate, tr("Navigate") },
-        { Qv::ViewportScrollAction::Pan, tr("Pan") }
-    };
+const Ui::ComboBoxItems<Qv::ViewportScrollAction> QVOptionsDialog::mapViewportScrollAction()
+{
+    return { { Qv::ViewportScrollAction::None, tr("None") },
+             { Qv::ViewportScrollAction::Zoom, tr("Zoom") },
+             { Qv::ViewportScrollAction::Navigate, tr("Navigate") },
+             { Qv::ViewportScrollAction::Pan, tr("Pan") } };
 }
 
 template <typename TEnum>
 static void populateComboBox(QComboBox *comboBox, const Ui::ComboBoxItems<TEnum> &items)
 {
     comboBox->clear();
-    for (const auto &item : items)
-    {
+    for (const auto &item : items) {
         comboBox->addItem(item.second, static_cast<int>(item.first));
     }
 }

@@ -7,38 +7,27 @@
 
 class QWidget;
 
-namespace NativeDialogs
-{
-    // The setting is deliberately read at the point a dialog is created. This
-    // keeps dialogs opened after a live settings change in the same appearance
-    // as the main window without introducing a second theme store.
-    Qv::Theme currentTheme();
+namespace NativeDialogs {
+// The setting is deliberately read at the point a dialog is created. This
+// keeps dialogs opened after a live settings change in the same appearance
+// as the main window without introducing a second theme store.
+Qv::Theme currentTheme();
 
-    // Apply the selected AppKit appearance to a Qt dialog. The native window
-    // may not exist until show()/open()/exec(), so the helper never forces an
-    // early winId(); it applies to an existing handle and on the next turn.
-    void applyTheme(QWidget *dialog);
+// Apply the selected AppKit appearance to a Qt dialog. The native window
+// may not exist until show()/open()/exec(), so the helper never forces an
+// early winId(); it applies to an existing handle and on the next turn.
+void applyTheme(QWidget *dialog);
 
-    QMessageBox *createMessageBox(QMessageBox::Icon severity,
-                                  const QString &messageText,
-                                  const QString &informativeText,
-                                  QMessageBox::StandardButtons buttons,
-                                  QWidget *parent = nullptr);
+QMessageBox *createMessageBox(QMessageBox::Icon severity, const QString &messageText,
+                              const QString &informativeText, QMessageBox::StandardButtons buttons,
+                              QWidget *parent = nullptr);
 
-    void showMessage(QMessageBox::Icon severity,
-                     const QString &messageText,
-                     const QString &informativeText = {},
-                     QMessageBox::StandardButtons buttons = QMessageBox::Ok,
-                     QWidget *parent = nullptr);
+void showMessage(QMessageBox::Icon severity, const QString &messageText,
+                 const QString &informativeText = { },
+                 QMessageBox::StandardButtons buttons = QMessageBox::Ok, QWidget *parent = nullptr);
 
-    double getDouble(QWidget *parent,
-                     const QString &title,
-                     const QString &label,
-                     double value,
-                     double minimum,
-                     double maximum,
-                     int decimals,
-                     bool *ok);
-}
+double getDouble(QWidget *parent, const QString &title, const QString &label, double value,
+                 double minimum, double maximum, int decimals, bool *ok);
+} // namespace NativeDialogs
 
 #endif // FOVELLE_NATIVEDIALOGS_H

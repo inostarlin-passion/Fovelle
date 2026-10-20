@@ -7,31 +7,28 @@ AxisLocker::AxisLocker()
     autoResetDuration = 125;
 }
 
-QPoint AxisLocker::filterMovement(const QPoint delta, const Qt::ScrollPhase phase, const bool isUniAxis)
+QPoint AxisLocker::filterMovement(const QPoint delta, const Qt::ScrollPhase phase,
+                                  const bool isUniAxis)
 {
     const bool isRealMovement = phase == Qt::NoScrollPhase || phase == Qt::ScrollUpdate;
 
-    if (!lastEvent.isValid() || (isRealMovement && lastEvent.elapsed() >= autoResetDuration))
-    {
-        swallowedDelta = {};
+    if (!lastEvent.isValid() || (isRealMovement && lastEvent.elapsed() >= autoResetDuration)) {
+        swallowedDelta = { };
         horizontalLock = false;
         verticalLock = false;
-        customData = {};
+        customData = { };
     }
 
-    if (isRealMovement)
-    {
+    if (isRealMovement) {
         lastEvent.restart();
     }
 
-    if (horizontalLock)
-    {
-        return {delta.x(), 0};
+    if (horizontalLock) {
+        return { delta.x(), 0 };
     }
 
-    if (verticalLock)
-    {
-        return {0, delta.y()};
+    if (verticalLock) {
+        return { 0, delta.y() };
     }
 
     swallowedDelta += delta;
@@ -40,19 +37,17 @@ QPoint AxisLocker::filterMovement(const QPoint delta, const Qt::ScrollPhase phas
     const int absY = qAbs(swallowedDelta.y());
     const int threshold = isUniAxis ? 1 : lockMovementDistance;
 
-    if (absX >= threshold && absX > absY)
-    {
+    if (absX >= threshold && absX > absY) {
         horizontalLock = true;
-        return {swallowedDelta.x(), 0};
+        return { swallowedDelta.x(), 0 };
     }
 
-    if (absY >= threshold && absY > absX)
-    {
+    if (absY >= threshold && absY > absX) {
         verticalLock = true;
-        return {0, swallowedDelta.y()};
+        return { 0, swallowedDelta.y() };
     }
 
-    return {};
+    return { };
 }
 
 void AxisLocker::reset()

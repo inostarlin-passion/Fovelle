@@ -89,8 +89,8 @@ def main() -> int:
         "PRELOAD-STATIC-005",
         "testPreloadingIgnoresDisabledUserSetting" in tests
         and "testPreloadingIgnoresExtendedUserSetting" in tests
-        and '{"preloadingmode", 0}' in tests
-        and '{"preloadingmode", 2}' in tests,
+        and bool(re.search(r'\{\s*"preloadingmode"\s*,\s*0\s*\}', tests))
+        and bool(re.search(r'\{\s*"preloadingmode"\s*,\s*2\s*\}', tests)),
         "runtime tests cover both legacy values that must be overridden",
     )
     check(

@@ -20,8 +20,8 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent)
     const auto markConstruction = [&](const char *phase) {
         if (traceConstruction)
             qInfo().noquote() << QStringLiteral("FOVELLE_SETTINGS_MANAGER phase=%1 elapsed_ms=%2")
-                                     .arg(QString::fromLatin1(phase))
-                                     .arg(constructionTimer.elapsed());
+                                         .arg(QString::fromLatin1(phase))
+                                         .arg(constructionTimer.elapsed());
     };
     markConstruction("constructor-start");
 
@@ -41,8 +41,7 @@ QString SettingsManager::getSystemLanguage() const
 QString SettingsManager::languageCodeForLocale(const QLocale &locale)
 {
     const auto languages = locale.uiLanguages();
-    for (auto language : languages)
-    {
+    for (auto language : languages) {
         language.replace('-', '_');
         const QString lowerLanguage = language.toLower();
         if (lowerLanguage.startsWith(QStringLiteral("zh_tw"))
@@ -84,8 +83,7 @@ void SettingsManager::loadSettings()
     bool changed = false;
 
     const auto keys = settingsLibrary.keys();
-    for (const auto &key : keys)
-    {
+    for (const auto &key : keys) {
         auto &setting = settingsLibrary[key];
         if (setting.value != settings.value(key, setting.defaultValue))
             changed = true;
@@ -163,8 +161,7 @@ bool SettingsManager::isDefault(const QString &key) const
 void SettingsManager::migrateOldSettings()
 {
     QSettings migrationMarker;
-    if (!migrationMarker.contains("firstlaunch"))
-    {
+    if (!migrationMarker.contains("firstlaunch")) {
         copyFromOfficial();
         // The legacy import is a one-time operation. Without this marker a
         // clean Fovelle profile re-scans and copies the old qView store on
@@ -175,12 +172,11 @@ void SettingsManager::migrateOldSettings()
     QSettings settings;
     settings.beginGroup("options");
 
-    if (!settings.contains("smoothscalingmode") && settings.contains("filteringenabled"))
-    {
-        const auto value =
-            settings.value("scalingenabled").toBool() ? Qv::SmoothScalingMode::Expensive :
-            settings.value("filteringenabled").toBool() ? Qv::SmoothScalingMode::Bilinear :
-            Qv::SmoothScalingMode::Disabled;
+    if (!settings.contains("smoothscalingmode") && settings.contains("filteringenabled")) {
+        const auto value = settings.value("scalingenabled").toBool()
+                ? Qv::SmoothScalingMode::Expensive
+                : settings.value("filteringenabled").toBool() ? Qv::SmoothScalingMode::Bilinear
+                                                              : Qv::SmoothScalingMode::Disabled;
         settings.setValue("smoothscalingmode", static_cast<int>(value));
     }
 
@@ -188,32 +184,35 @@ void SettingsManager::migrateOldSettings()
     // deterministic theme. Existing users who explicitly chose the old dark
     // titlebar or the former default dark background keep the dark appearance;
     // new installations use the dark theme by default.
-    if (!settings.contains("theme") &&
-        (settings.contains("titlebaralwaysdark") || settings.contains("bgcolorenabled") || settings.contains("bgcolor")))
-    {
+    if (!settings.contains("theme")
+        && (settings.contains("titlebaralwaysdark") || settings.contains("bgcolorenabled")
+            || settings.contains("bgcolor"))) {
         const bool oldDarkTitlebar = settings.value("titlebaralwaysdark", false).toBool();
-        const bool oldDarkBackground = settings.value("bgcolorenabled", false).toBool() &&
-            QColor(settings.value("bgcolor").toString()).name().compare(QStringLiteral("#212121"), Qt::CaseInsensitive) == 0;
-        settings.setValue("theme", static_cast<int>(oldDarkTitlebar || oldDarkBackground ? Qv::Theme::Dark : Qv::Theme::Light));
+        const bool oldDarkBackground = settings.value("bgcolorenabled", false).toBool()
+                && QColor(settings.value("bgcolor").toString())
+                                .name()
+                                .compare(QStringLiteral("#212121"), Qt::CaseInsensitive)
+                        == 0;
+        settings.setValue("theme",
+                          static_cast<int>(oldDarkTitlebar || oldDarkBackground
+                                                   ? Qv::Theme::Dark
+                                                   : Qv::Theme::Light));
     }
 
     // The old startup-notification switch was replaced by an explicit
     // frequency.  Keep the new installation default deterministic and remove
     // the obsolete format-disable store now that the Formats pane is gone.
     if (!settings.contains("updatecheckfrequency"))
-        settings.setValue("updatecheckfrequency", static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
+        settings.setValue("updatecheckfrequency",
+                          static_cast<int>(Qv::UpdateCheckFrequency::Weekly));
     const QString language = settings.value("language", QStringLiteral("system")).toString();
-    if (language != QStringLiteral("system")
-        && language != QStringLiteral("en")
-        && language != QStringLiteral("zh_Hans")
-        && language != QStringLiteral("zh_Hant")
-        && language != QStringLiteral("es")
-        && language != QStringLiteral("ja"))
+    if (language != QStringLiteral("system") && language != QStringLiteral("en")
+        && language != QStringLiteral("zh_Hans") && language != QStringLiteral("zh_Hant")
+        && language != QStringLiteral("es") && language != QStringLiteral("ja"))
         settings.setValue("language", QStringLiteral("system"));
-    for (const QString &key : {QStringLiteral("updatenotifications"),
-                               QStringLiteral("disabledfileextensions"),
-                               QStringLiteral("slideshowkeepswindowontop")})
-    {
+    for (const QString &key :
+         { QStringLiteral("updatenotifications"), QStringLiteral("disabledfileextensions"),
+           QStringLiteral("slideshowkeepswindowontop") }) {
         if (settings.contains(key))
             settings.remove(key);
     }
@@ -223,7 +222,7 @@ void SettingsManager::migrateOldSettings()
     // cannot silently revive after the control disappears.
     // navresetszoom is configurable again through Keep zoom level. Its default
     // belongs in settingsLibrary; startup must preserve the user's saved choice.
-    const QHash<QString, QVariant> removedPreferenceDefaults {
+    const QHash<QString, QVariant> removedPreferenceDefaults{
         { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
         { "aftermatchingsizemode", static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious) },
         { "minwindowresizedpercentage", 20 },
@@ -261,8 +260,8 @@ void SettingsManager::migrateOldSettings()
         { "navspeed", 50 },
         { "loopfoldersenabled", false },
     };
-    for (auto it = removedPreferenceDefaults.cbegin(); it != removedPreferenceDefaults.cend(); ++it)
-    {
+    for (auto it = removedPreferenceDefaults.cbegin(); it != removedPreferenceDefaults.cend();
+         ++it) {
         if (settings.value(it.key()) != it.value())
             settings.setValue(it.key(), it.value());
     }
@@ -271,17 +270,16 @@ void SettingsManager::migrateOldSettings()
 void SettingsManager::copyFromOfficial()
 {
     // Migrate settings from the legacy qView organization once; runtime identity is Fovelle.
-    const QSet<QString> keysToSkip = []()
-    {
-        QList<QString> systemDefaultKeys = QSettings{"qView", "NonExistent"}.allKeys();
-        return QSet<QString>{systemDefaultKeys.begin(), systemDefaultKeys.end()};
+    const QSet<QString> keysToSkip = []() {
+        QList<QString> systemDefaultKeys = QSettings{ "qView", "NonExistent" }.allKeys();
+        return QSet<QString>{ systemDefaultKeys.begin(), systemDefaultKeys.end() };
     }();
-    QSettings src{"qView", "qView"};
-    QSettings dst{};
+    QSettings src{ "qView", "qView" };
+    QSettings dst{ };
 
-    for (const QString &key : src.allKeys())
-    {
-        if (keysToSkip.contains(key)) continue;
+    for (const QString &key : src.allKeys()) {
+        if (keysToSkip.contains(key))
+            continue;
         dst.setValue(key, src.value(key));
     }
 }
@@ -289,78 +287,99 @@ void SettingsManager::copyFromOfficial()
 void SettingsManager::initializeSettingsLibrary()
 {
     // Window
-    settingsLibrary.insert("theme", {static_cast<int>(Qv::Theme::Dark), {}});
-    settingsLibrary.insert("checkerboardbackground", {false, {}});
-    settingsLibrary.insert("titlebarmode", {static_cast<int>(Qv::TitleBarText::Practical), {}});
-    settingsLibrary.insert("customtitlebartext", {"%z - %n", {}});
-    settingsLibrary.insert("windowresizemode", {static_cast<int>(Qv::WindowResizeMode::WhenLaunching), {}});
-    settingsLibrary.insert("aftermatchingsizemode", {static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious), {}});
-    settingsLibrary.insert("minwindowresizedpercentage", {20, {}});
-    settingsLibrary.insert("maxwindowresizedpercentage", {70, {}});
-    settingsLibrary.insert("menubarenabled", {false, {}});
-    settingsLibrary.insert("fullscreendetails", {false, {}});
-    settingsLibrary.insert("mainmenuicons", {false, {}});
-    settingsLibrary.insert("contextmenuicons", {true, {}});
-    settingsLibrary.insert("submenuicons", {true, {}});
+    settingsLibrary.insert("theme", { static_cast<int>(Qv::Theme::Dark), { } });
+    settingsLibrary.insert("checkerboardbackground", { false, { } });
+    settingsLibrary.insert("titlebarmode", { static_cast<int>(Qv::TitleBarText::Practical), { } });
+    settingsLibrary.insert("customtitlebartext", { "%z - %n", { } });
+    settingsLibrary.insert("windowresizemode",
+                           { static_cast<int>(Qv::WindowResizeMode::WhenLaunching), { } });
+    settingsLibrary.insert("aftermatchingsizemode",
+                           { static_cast<int>(Qv::AfterMatchingSize::CenterOnPrevious), { } });
+    settingsLibrary.insert("minwindowresizedpercentage", { 20, { } });
+    settingsLibrary.insert("maxwindowresizedpercentage", { 70, { } });
+    settingsLibrary.insert("menubarenabled", { false, { } });
+    settingsLibrary.insert("fullscreendetails", { false, { } });
+    settingsLibrary.insert("mainmenuicons", { false, { } });
+    settingsLibrary.insert("contextmenuicons", { true, { } });
+    settingsLibrary.insert("submenuicons", { true, { } });
     // Compatibility value retained as a fixed false policy after the
     // Preferences control was removed.
-    settingsLibrary.insert("slideshowkeepswindowontop", {false, {}});
-    settingsLibrary.insert("reusewindow", {false, {}});
-    settingsLibrary.insert("persistsession", {false, {}});
+    settingsLibrary.insert("slideshowkeepswindowontop", { false, { } });
+    settingsLibrary.insert("reusewindow", { false, { } });
+    settingsLibrary.insert("persistsession", { false, { } });
     // Image
-    settingsLibrary.insert("smoothscalingmode", {static_cast<int>(Qv::SmoothScalingMode::Bilinear), {}});
-    settingsLibrary.insert("scalingtwoenabled", {true, {}});
-    settingsLibrary.insert("smoothscalinglimitenabled", {false, {}});
-    settingsLibrary.insert("smoothscalinglimitpercent", {400, {}});
-    settingsLibrary.insert("scalefactor", {25, {}});
-    settingsLibrary.insert("cursorzoom", {true, {}});
-    settingsLibrary.insert("navresetszoom", {true, {}});
+    settingsLibrary.insert("smoothscalingmode",
+                           { static_cast<int>(Qv::SmoothScalingMode::Bilinear), { } });
+    settingsLibrary.insert("scalingtwoenabled", { true, { } });
+    settingsLibrary.insert("smoothscalinglimitenabled", { false, { } });
+    settingsLibrary.insert("smoothscalinglimitpercent", { 400, { } });
+    settingsLibrary.insert("scalefactor", { 25, { } });
+    settingsLibrary.insert("cursorzoom", { true, { } });
+    settingsLibrary.insert("navresetszoom", { true, { } });
     // Usually not desired due to the way macOS does DPI scaling
-    settingsLibrary.insert("onetoonepixelsizing", {false, {}});
-    settingsLibrary.insert("smallimageoneone", {false, {}});
-    settingsLibrary.insert("calculatedzoommode", {static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit), {}});
-    settingsLibrary.insert("fitzoomlimitenabled", {false, {}});
-    settingsLibrary.insert("fitzoomlimitpercent", {100, {}});
-    settingsLibrary.insert("fitoverscan", {0, {}});
-    settingsLibrary.insert("constrainimageposition", {true, {}});
-    settingsLibrary.insert("constraincentersmallimage", {true, {}});
-    settingsLibrary.insert("disabledelayedconstraint", {false, {}});
-    settingsLibrary.insert("originalsizeastoggle", {false, {}});
-    settingsLibrary.insert("colorspaceconversion", {static_cast<int>(Qv::ColorSpaceConversion::AutoDetect), {}});
+    settingsLibrary.insert("onetoonepixelsizing", { false, { } });
+    settingsLibrary.insert("smallimageoneone", { false, { } });
+    settingsLibrary.insert("calculatedzoommode",
+                           { static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit), { } });
+    settingsLibrary.insert("fitzoomlimitenabled", { false, { } });
+    settingsLibrary.insert("fitzoomlimitpercent", { 100, { } });
+    settingsLibrary.insert("fitoverscan", { 0, { } });
+    settingsLibrary.insert("constrainimageposition", { true, { } });
+    settingsLibrary.insert("constraincentersmallimage", { true, { } });
+    settingsLibrary.insert("disabledelayedconstraint", { false, { } });
+    settingsLibrary.insert("originalsizeastoggle", { false, { } });
+    settingsLibrary.insert("colorspaceconversion",
+                           { static_cast<int>(Qv::ColorSpaceConversion::AutoDetect), { } });
     // Miscellaneous
-    settingsLibrary.insert("language", {"system", {}});
+    settingsLibrary.insert("language", { "system", { } });
     // Retain the legacy key for profile compatibility and migration tooling;
     // QVImageCore deliberately ignores its persisted value and always uses
     // Qv::AdjacentPreloadDistance.
-    settingsLibrary.insert("preloadingmode", {Qv::AdjacentPreloadDistance, {}});
-    settingsLibrary.insert("navspeed", {50, {}});
-    settingsLibrary.insert("loopfoldersenabled", {false, {}});
-    settingsLibrary.insert("slideshowdirection", {static_cast<int>(Qv::SlideshowDirection::Forward), {}});
-    settingsLibrary.insert("slideshowtimer", {5, {}});
-    settingsLibrary.insert("afterdelete", {static_cast<int>(Qv::AfterDelete::MoveForward), {}});
-    settingsLibrary.insert("askdelete", {true, {}});
-    settingsLibrary.insert("allowmimecontentdetection", {true, {}});
-    settingsLibrary.insert("skiphidden", {true, {}});
-    settingsLibrary.insert("saverecents", {true, {}});
-    settingsLibrary.insert("updatecheckfrequency", {static_cast<int>(Qv::UpdateCheckFrequency::Weekly), {}});
+    settingsLibrary.insert("preloadingmode", { Qv::AdjacentPreloadDistance, { } });
+    settingsLibrary.insert("navspeed", { 50, { } });
+    settingsLibrary.insert("loopfoldersenabled", { false, { } });
+    settingsLibrary.insert("slideshowdirection",
+                           { static_cast<int>(Qv::SlideshowDirection::Forward), { } });
+    settingsLibrary.insert("slideshowtimer", { 5, { } });
+    settingsLibrary.insert("afterdelete", { static_cast<int>(Qv::AfterDelete::MoveForward), { } });
+    settingsLibrary.insert("askdelete", { true, { } });
+    settingsLibrary.insert("allowmimecontentdetection", { true, { } });
+    settingsLibrary.insert("skiphidden", { true, { } });
+    settingsLibrary.insert("saverecents", { true, { } });
+    settingsLibrary.insert("updatecheckfrequency",
+                           { static_cast<int>(Qv::UpdateCheckFrequency::Weekly), { } });
     // Mouse
-    settingsLibrary.insert("navigationregionsenabled", {false, {}});
-    settingsLibrary.insert("viewportdoubleclickaction", {static_cast<int>(Qv::ViewportClickAction::ToggleFullScreen), {}});
-    settingsLibrary.insert("viewportaltdoubleclickaction", {static_cast<int>(Qv::ViewportClickAction::ToggleTitlebarHidden), {}});
-    settingsLibrary.insert("viewportdragaction", {static_cast<int>(Qv::ViewportDragAction::Pan), {}});
-    settingsLibrary.insert("viewportaltdragaction", {static_cast<int>(Qv::ViewportDragAction::MoveWindow), {}});
-    settingsLibrary.insert("viewportmiddlebuttonmode", {static_cast<int>(Qv::ClickOrDrag::Click), {}});
-    settingsLibrary.insert("viewportmiddleclickaction", {static_cast<int>(Qv::ViewportClickAction::ZoomToFit), {}});
-    settingsLibrary.insert("viewportaltmiddleclickaction", {static_cast<int>(Qv::ViewportClickAction::OriginalSize), {}});
-    settingsLibrary.insert("viewportmiddledragaction", {static_cast<int>(Qv::ViewportDragAction::Pan), {}});
-    settingsLibrary.insert("viewportaltmiddledragaction", {static_cast<int>(Qv::ViewportDragAction::MoveWindow), {}});
-    settingsLibrary.insert("viewportverticalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Zoom), {}});
-    settingsLibrary.insert("viewporthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Navigate), {}});
-    settingsLibrary.insert("viewportaltverticalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
-    settingsLibrary.insert("viewportalthorizontalscrollaction", {static_cast<int>(Qv::ViewportScrollAction::Pan), {}});
+    settingsLibrary.insert("navigationregionsenabled", { false, { } });
+    settingsLibrary.insert("viewportdoubleclickaction",
+                           { static_cast<int>(Qv::ViewportClickAction::ToggleFullScreen), { } });
+    settingsLibrary.insert(
+            "viewportaltdoubleclickaction",
+            { static_cast<int>(Qv::ViewportClickAction::ToggleTitlebarHidden), { } });
+    settingsLibrary.insert("viewportdragaction",
+                           { static_cast<int>(Qv::ViewportDragAction::Pan), { } });
+    settingsLibrary.insert("viewportaltdragaction",
+                           { static_cast<int>(Qv::ViewportDragAction::MoveWindow), { } });
+    settingsLibrary.insert("viewportmiddlebuttonmode",
+                           { static_cast<int>(Qv::ClickOrDrag::Click), { } });
+    settingsLibrary.insert("viewportmiddleclickaction",
+                           { static_cast<int>(Qv::ViewportClickAction::ZoomToFit), { } });
+    settingsLibrary.insert("viewportaltmiddleclickaction",
+                           { static_cast<int>(Qv::ViewportClickAction::OriginalSize), { } });
+    settingsLibrary.insert("viewportmiddledragaction",
+                           { static_cast<int>(Qv::ViewportDragAction::Pan), { } });
+    settingsLibrary.insert("viewportaltmiddledragaction",
+                           { static_cast<int>(Qv::ViewportDragAction::MoveWindow), { } });
+    settingsLibrary.insert("viewportverticalscrollaction",
+                           { static_cast<int>(Qv::ViewportScrollAction::Zoom), { } });
+    settingsLibrary.insert("viewporthorizontalscrollaction",
+                           { static_cast<int>(Qv::ViewportScrollAction::Navigate), { } });
+    settingsLibrary.insert("viewportaltverticalscrollaction",
+                           { static_cast<int>(Qv::ViewportScrollAction::Pan), { } });
+    settingsLibrary.insert("viewportalthorizontalscrollaction",
+                           { static_cast<int>(Qv::ViewportScrollAction::Pan), { } });
     // Keep this compatibility setting enabled by default after removing its
     // user-facing checkbox; existing profiles may still contain the key.
-    settingsLibrary.insert("scrollactioncooldown", {true, {}});
-    settingsLibrary.insert("cursorautohidefullscreenenabled", {true, {}});
-    settingsLibrary.insert("cursorautohidefullscreendelay", {2, {}});
+    settingsLibrary.insert("scrollactioncooldown", { true, { } });
+    settingsLibrary.insert("cursorautohidefullscreenenabled", { true, { } });
+    settingsLibrary.insert("cursorautohidefullscreendelay", { 2, { } });
 }

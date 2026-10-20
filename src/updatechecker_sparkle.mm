@@ -5,11 +5,13 @@
 #import <Sparkle/Sparkle.h>
 
 @interface FovelleUpdaterObserver : NSObject
-@property(nonatomic, assign) UpdateChecker *owner;
+@property (nonatomic, assign) UpdateChecker *owner;
 @end
 @implementation FovelleUpdaterObserver
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
-                       change:(NSDictionary *)change context:(void *)context
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary *)change
+                       context:(void *)context
 {
     if ([keyPath isEqualToString:@"canCheckForUpdates"])
         emit self.owner->stateChanged();
@@ -28,7 +30,7 @@ struct UpdateChecker::Impl
     bool started = false;
 };
 
-UpdateChecker::UpdateChecker(QObject *parent) : QObject(parent), impl(std::make_unique<Impl>()) {}
+UpdateChecker::UpdateChecker(QObject *parent) : QObject(parent), impl(std::make_unique<Impl>()) { }
 UpdateChecker::~UpdateChecker()
 {
     if (impl->observer)
@@ -45,12 +47,15 @@ void UpdateChecker::initialize(Qv::UpdateCheckFrequency frequency)
         NSBundle *bundle = NSBundle.mainBundle;
         NSString *feed = [bundle objectForInfoDictionaryKey:@"SUFeedURL"];
         NSString *key = [bundle objectForInfoDictionaryKey:@"SUPublicEDKey"];
-        if (!isConfigurationValid(QString::fromUtf8(feed.UTF8String), QString::fromUtf8(key.UTF8String))) {
-            impl->error = tr("Updates are not configured. A valid HTTPS update feed and Ed25519 public key are required.");
+        if (!isConfigurationValid(QString::fromUtf8(feed.UTF8String),
+                                  QString::fromUtf8(key.UTF8String))) {
+            impl->error = tr("Updates are not configured. A valid HTTPS update feed and Ed25519 "
+                             "public key are required.");
             return;
         }
-        impl->controller = [[SPUStandardUpdaterController alloc]
-            initWithStartingUpdater:NO updaterDelegate:nil userDriverDelegate:nil];
+        impl->controller = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:NO
+                                                                         updaterDelegate:nil
+                                                                      userDriverDelegate:nil];
         NSError *error = nil;
         if (![impl->controller.updater startUpdater:&error]) {
             impl->error = QString::fromUtf8(error.localizedDescription.UTF8String);
@@ -59,8 +64,11 @@ void UpdateChecker::initialize(Qv::UpdateCheckFrequency frequency)
         impl->started = true;
         impl->observer = [[FovelleUpdaterObserver alloc] init];
         impl->observer.owner = this;
-        [impl->controller.updater addObserver:impl->observer forKeyPath:@"canCheckForUpdates"
-            options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:nullptr];
+        [impl->controller.updater
+                addObserver:impl->observer
+                 forKeyPath:@"canCheckForUpdates"
+                    options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
+                    context:nullptr];
         setFrequency(frequency);
     }
 }
@@ -95,7 +103,7 @@ void UpdateChecker::check(bool isManualCheck)
         return; // Sparkle owns the automatic scheduler, skipped versions, and last-check time.
     if (!impl->started) {
         NativeDialogs::showMessage(QMessageBox::Warning, tr("Unable to check for updates"),
-            impl->error, QMessageBox::Ok, QApplication::activeWindow());
+                                   impl->error, QMessageBox::Ok, QApplication::activeWindow());
         return;
     }
     // This standard entry point shows checking progress and manages download,
@@ -107,4 +115,7 @@ bool UpdateChecker::getIsChecking() const
 {
     return impl->started && !impl->controller.updater.canCheckForUpdates;
 }
-QString UpdateChecker::configurationError() const { return impl->error; }
+QString UpdateChecker::configurationError() const
+{
+    return impl->error;
+}

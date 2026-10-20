@@ -27,8 +27,8 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
     const auto markConstruction = [&](const char *phase) {
         if (traceConstruction)
             qInfo().noquote() << QStringLiteral("FOVELLE_APPLICATION phase=%1 elapsed_ms=%2")
-                                     .arg(QString::fromLatin1(phase))
-                                     .arg(constructionTimer.elapsed());
+                                         .arg(QString::fromLatin1(phase))
+                                         .arg(constructionTimer.elapsed());
     };
     markConstruction("constructor-start");
 
@@ -41,10 +41,13 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 #endif
 
     // Connections
-    connect(this, &QGuiApplication::commitDataRequest, this, &QVApplication::onCommitDataRequest, Qt::DirectConnection);
+    connect(this, &QGuiApplication::commitDataRequest, this, &QVApplication::onCommitDataRequest,
+            Qt::DirectConnection);
     connect(this, &QCoreApplication::aboutToQuit, this, &QVApplication::onAboutToQuit);
-    connect(&settingsManager, &SettingsManager::settingsUpdated, this, &QVApplication::settingsUpdated);
-    connect(&actionManager, &ActionManager::recentsMenuUpdated, this, &QVApplication::recentsMenuUpdated);
+    connect(&settingsManager, &SettingsManager::settingsUpdated, this,
+            &QVApplication::settingsUpdated);
+    connect(&actionManager, &ActionManager::recentsMenuUpdated, this,
+            &QVApplication::recentsMenuUpdated);
     connect(&updateChecker, &UpdateChecker::stateChanged, this, [this]() {
         if (aboutDialog)
             aboutDialog->updateCheckForUpdatesButtonState();
@@ -55,7 +58,8 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
     // Sparkle must start after Qt has finished launching Cocoa and the app identity is ready.
     QTimer::singleShot(0, this, [this]() {
-        updateChecker.initialize(getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
+        updateChecker.initialize(
+                getSettingsManager().getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
     });
 
     // Menu icon policy is intentionally fixed.  The former checkboxes were
@@ -69,9 +73,8 @@ QVApplication::QVApplication(int &argc, char **argv) : QApplication(argc, argv)
 
     // Setup macOS dock menu
     dockMenu = new QMenu();
-    connect(dockMenu, &QMenu::triggered, this, [](QAction *triggeredAction){
-        ActionManager::actionTriggered(triggeredAction);
-    });
+    connect(dockMenu, &QMenu::triggered, this,
+            [](QAction *triggeredAction) { ActionManager::actionTriggered(triggeredAction); });
 
     actionManager.addCloneOfAction(dockMenu, "newwindow");
     actionManager.addCloneOfAction(dockMenu, "open");
@@ -101,14 +104,12 @@ QVApplication::~QVApplication()
     // Drain read-only jobs before QApplication and its plugins are destroyed.
     QSettings().sync();
     QvAsync::finishOrExit();
-    if (dockMenu)
-    {
+    if (dockMenu) {
         actionManager.untrackClonedActions(dockMenu);
         delete dockMenu;
         dockMenu = nullptr;
     }
-    if (menuBar)
-    {
+    if (menuBar) {
         actionManager.untrackClonedActions(menuBar);
         delete menuBar;
         menuBar = nullptr;
@@ -122,10 +123,9 @@ void QVApplication::ensureMenuBar() const
 
     auto *application = const_cast<QVApplication *>(this);
     application->menuBar = application->actionManager.buildMenuBar();
-    QObject::connect(application->menuBar, &QMenuBar::triggered, application,
-                     [](QAction *triggeredAction){
-                         ActionManager::actionTriggered(triggeredAction);
-                     });
+    QObject::connect(
+            application->menuBar, &QMenuBar::triggered, application,
+            [](QAction *triggeredAction) { ActionManager::actionTriggered(triggeredAction); });
 }
 
 QMenuBar *QVApplication::getMenuBar() const
@@ -136,8 +136,7 @@ QMenuBar *QVApplication::getMenuBar() const
 
 bool QVApplication::event(QEvent *event)
 {
-    if (event->type() == QEvent::FileOpen)
-    {
+    if (event->type() == QEvent::FileOpen) {
         const auto *openEvent = static_cast<const QFileOpenEvent *>(event);
         const QUrl url = openEvent->url();
         const QString file = url.isLocalFile() ? url.toLocalFile() : openEvent->file();
@@ -148,21 +147,16 @@ bool QVApplication::event(QEvent *event)
             queueFileOpen(file);
 
         return true;
-    }
-    else if (event->type() == QEvent::ApplicationStateChange)
-    {
-        auto *stateEvent = static_cast<QApplicationStateChangeEvent*>(event);
+    } else if (event->type() == QEvent::ApplicationStateChange) {
+        auto *stateEvent = static_cast<QApplicationStateChangeEvent *>(event);
         if (stateEvent->applicationState() == Qt::ApplicationActive)
             settingsManager.loadSettings();
         else if (stateEvent->applicationState() == Qt::ApplicationInactive)
             invalidateFolderListings();
-    }
-    else if (event->type() == QEvent::Quit)
-    {
+    } else if (event->type() == QEvent::Quit) {
         isApplicationQuitting = true;
         SessionSaveDecision result = getSessionSaveDecision();
-        if (result == SessionSaveDecision::Cancel)
-        {
+        if (result == SessionSaveDecision::Cancel) {
             isApplicationQuitting = false;
             event->ignore();
             return true;
@@ -220,23 +214,23 @@ void QVApplication::pickFile(MainWindow *parent)
         fileDialog->setWindowModality(Qt::WindowModal);
     NativeDialogs::applyTheme(fileDialog);
 
-    connect(fileDialog, &QFileDialog::filesSelected, fileDialog, [parent](const QStringList &selected){
-        bool isFirstLoop = true;
-        for (const auto &file : selected)
-        {
-            if (isFirstLoop && parent)
-                parent->openFile(file);
-            else
-                QVApplication::openFile(file);
+    connect(fileDialog, &QFileDialog::filesSelected, fileDialog,
+            [parent](const QStringList &selected) {
+                bool isFirstLoop = true;
+                for (const auto &file : selected) {
+                    if (isFirstLoop && parent)
+                        parent->openFile(file);
+                    else
+                        QVApplication::openFile(file);
 
-            isFirstLoop = false;
-        }
+                    isFirstLoop = false;
+                }
 
-        // Set lastFileDialogDir
-        QSettings settings;
-        settings.beginGroup("recents");
-        settings.setValue("lastFileDialogDir", QFileInfo(selected.constFirst()).path());
-    });
+                // Set lastFileDialogDir
+                QSettings settings;
+                settings.beginGroup("recents");
+                settings.setValue("lastFileDialogDir", QFileInfo(selected.constFirst()).path());
+            });
     fileDialog->show();
 }
 
@@ -258,13 +252,13 @@ MainWindow *QVApplication::getMainWindow(bool shouldBeEmpty)
 {
     MainWindow *foundWindow = nullptr;
 
-    for (MainWindow *window : std::as_const(activeWindows))
-    {
+    for (MainWindow *window : std::as_const(activeWindows)) {
         // Don't reuse a window that is displaying a file or waiting for one to load.
         if (shouldBeEmpty && window->hasFileOrPendingLoad())
             continue;
 
-        if (foundWindow && foundWindow->getLastActivatedTimestamp() >= window->getLastActivatedTimestamp())
+        if (foundWindow
+            && foundWindow->getLastActivatedTimestamp() >= window->getLastActivatedTimestamp())
             continue;
 
         foundWindow = window;
@@ -276,8 +270,7 @@ MainWindow *QVApplication::getMainWindow(bool shouldBeEmpty)
 void QVApplication::recentsMenuUpdated()
 {
     QStringList recentsPathList;
-    for (const auto &recent : actionManager.getRecentsList())
-    {
+    for (const auto &recent : actionManager.getRecentsList()) {
         recentsPathList << recent.filePath;
     }
     QVCocoaFunctions::setDockRecents(recentsPathList);
@@ -301,8 +294,7 @@ void QVApplication::deleteFromActiveWindows(MainWindow *window)
 
 bool QVApplication::foundLoadedImage() const
 {
-    for (const MainWindow *window : activeWindows)
-    {
+    for (const MainWindow *window : activeWindows) {
         if (window->getIsPixmapLoaded())
             return true;
     }
@@ -311,8 +303,7 @@ bool QVApplication::foundLoadedImage() const
 
 bool QVApplication::foundOnTopWindow() const
 {
-    for (const MainWindow *window : activeWindows)
-    {
+    for (const MainWindow *window : activeWindows) {
         if (window->getWindowOnTop())
             return true;
     }
@@ -340,23 +331,19 @@ void QVApplication::openOptionsDialog(QWidget *parent)
     const auto attachDialog = [this, guardedAnchor]() {
         if (!optionsDialog || !guardedAnchor)
             return false;
-        const bool attached = QVCocoaFunctions::attachWindowAbove(
-            optionsDialog->windowHandle(), guardedAnchor->windowHandle());
+        const bool attached = QVCocoaFunctions::attachWindowAbove(optionsDialog->windowHandle(),
+                                                                  guardedAnchor->windowHandle());
         optionsDialog->setProperty("settingsAttachedToMainWindow", attached);
         return attached;
     };
 
-    if (optionsDialog)
-    {
-        if (!optionsDialog->isVisible())
-        {
+    if (optionsDialog) {
+        if (!optionsDialog->isVisible()) {
             optionsDialog->prepareForDisplay();
             attachDialog();
             centerDialog();
             optionsDialog->show();
-        }
-        else
-        {
+        } else {
             // Re-resolve the native relationship if Preferences is reopened
             // from another main window while the modeless dialog is visible.
             attachDialog();
@@ -383,8 +370,7 @@ void QVApplication::openAboutDialog(QWidget *parent)
 {
     parent = nullptr;
 
-    if (aboutDialog)
-    {
+    if (aboutDialog) {
         aboutDialog->raise();
         aboutDialog->activateWindow();
         return;
@@ -394,15 +380,14 @@ void QVApplication::openAboutDialog(QWidget *parent)
     aboutDialog->show();
 }
 
-void QVApplication::hideIncompatibleActions()
-{
-}
+void QVApplication::hideIncompatibleActions() { }
 
 void QVApplication::settingsUpdated()
 {
     auto &settingsManager = getSettingsManager();
 
-    updateChecker.setFrequency(settingsManager.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
+    updateChecker.setFrequency(
+            settingsManager.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency"));
 
     // Theme is an application-wide preference.  Apply it before any new
     // window or dialog asks Qt's Cocoa platform theme for its palette.
@@ -440,8 +425,7 @@ void QVApplication::defineFilterLists()
 
     // Build extension list
     const auto &byteArrayFormats = QImageReader::supportedImageFormats();
-    for (const auto &byteArray : byteArrayFormats)
-    {
+    for (const auto &byteArray : byteArrayFormats) {
         const auto fileExtension = "." + QString::fromUtf8(byteArray);
 
         // Qt 5.15 seems to have added PDF support for QImageReader, but it is unreliable here.
@@ -451,31 +435,23 @@ void QVApplication::defineFilterLists()
         addExtension(fileExtension);
 
         // Register additional file extensions that decoders support but don't advertise
-        if (fileExtension == ".jpg")
-        {
+        if (fileExtension == ".jpg") {
             addExtension(".jpe");
             addExtension(".jfi");
             addExtension(".jfif");
-        }
-        else if (fileExtension == ".heic")
-        {
+        } else if (fileExtension == ".heic") {
             addExtension(".heics");
-        }
-        else if (fileExtension == ".heif")
-        {
+        } else if (fileExtension == ".heif") {
             addExtension(".heifs");
             addExtension(".hif");
-        }
-        else if (fileExtension == ".j2k")
-        {
+        } else if (fileExtension == ".j2k") {
             addExtension(".j2c");
         }
     }
 
     // Qt plugins are optional at runtime. On macOS, Image I/O supplies WebP
     // and AVIF when the Qt image-format plugins are absent.
-    for (const auto &format : QVCocoaFunctions::getAdditionalImageFormats())
-    {
+    for (const auto &format : QVCocoaFunctions::getAdditionalImageFormats()) {
         const QString fileExtension = "." + QString::fromUtf8(format);
         addExtension(fileExtension);
         if (format == "avif")
@@ -485,17 +461,15 @@ void QVApplication::defineFilterLists()
     // Image I/O exposes TIFF under both conventional filename tags. Keep both
     // aliases visible in Settings even when a system UTI only reports one
     // preferred tag.
-    if (QVCocoaFunctions::supportsAdditionalImageFormat("tif") ||
-        QVCocoaFunctions::supportsAdditionalImageFormat("tiff"))
-    {
+    if (QVCocoaFunctions::supportsAdditionalImageFormat("tif")
+        || QVCocoaFunctions::supportsAdditionalImageFormat("tiff")) {
         addExtension(".tif");
         addExtension(".tiff");
     }
 
     // Build mime type list
     const auto &byteArrayMimeTypes = QImageReader::supportedMimeTypes();
-    for (const auto &byteArray : byteArrayMimeTypes)
-    {
+    for (const auto &byteArray : byteArrayMimeTypes) {
         const QString mimeType = QString::fromUtf8(byteArray);
 
         // Qt 5.15 seems to have added PDF support for QImageReader, but it is unreliable here.
@@ -510,8 +484,7 @@ void QVApplication::defineFilterLists()
     // Build name filter list for file dialogs
     const auto extensions = Qv::setToSortedList(fileExtensionSet);
     auto filterString = tr("Supported Images") + " (";
-    for (const auto &extension : extensions)
-    {
+    for (const auto &extension : extensions) {
         filterString += "*" + extension + " ";
     }
     filterString.chop(1);
@@ -535,12 +508,12 @@ void QVApplication::ensureFontLoaded(const QString &path)
 QIcon QVApplication::iconFromFont(const Qv::MaterialIcon iconName)
 {
     static std::optional<QFont> materialIconFont;
-    if (!materialIconFont.has_value())
-    {
+    if (!materialIconFont.has_value()) {
         materialIconFont = QFont("Material Icons Outlined");
         materialIconFont->setStyleStrategy(QFont::NoFontMerging);
     }
-    return QIcon(new SimpleFontIconEngine(QChar(static_cast<quint16>(iconName)), materialIconFont.value()));
+    return QIcon(new SimpleFontIconEngine(QChar(static_cast<quint16>(iconName)),
+                                          materialIconFont.value()));
 }
 
 qreal QVApplication::keyboardAutoRepeatInterval()
@@ -574,8 +547,7 @@ bool QVApplication::tryRestoreLastSession()
         return false;
 
     const QJsonArray windowArray = sessionState["windows"].toArray();
-    for (const QJsonValue &item : windowArray)
-    {
+    for (const QJsonValue &item : windowArray) {
         QVApplication::newWindow(item.toObject());
     }
 
@@ -600,10 +572,9 @@ QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
         return SessionSaveDecision::No;
 
     auto *msgBox = NativeDialogs::createMessageBox(
-        QMessageBox::Question,
-        tr("Remember Session?"),
-        tr("Would you like to remember your opened images and re-open them at next launch?"),
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+            QMessageBox::Question, tr("Remember Session?"),
+            tr("Would you like to remember your opened images and re-open them at next launch?"),
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
     msgBox->setAttribute(Qt::WA_DeleteOnClose, false);
     msgBox->setDefaultButton(QMessageBox::Save);
     msgBox->setEscapeButton(QMessageBox::Cancel);
@@ -612,13 +583,13 @@ QVApplication::SessionSaveDecision QVApplication::getSessionSaveDecision() const
     delete msgBox;
     if (clickedButton == QMessageBox::Cancel)
         return SessionSaveDecision::Cancel;
-    return clickedButton == QMessageBox::Save
-        ? SessionSaveDecision::Yes : SessionSaveDecision::No;
+    return clickedButton == QMessageBox::Save ? SessionSaveDecision::Yes : SessionSaveDecision::No;
 }
 
-void QVApplication::addClosedWindowSessionState(const QJsonObject &state, const qint64 lastActivatedTimestamp)
+void QVApplication::addClosedWindowSessionState(const QJsonObject &state,
+                                                const qint64 lastActivatedTimestamp)
 {
-    closedWindowData.append({state, lastActivatedTimestamp});
+    closedWindowData.append({ state, lastActivatedTimestamp });
 }
 
 void QVApplication::onCommitDataRequest(QSessionManager &manager)
@@ -636,37 +607,31 @@ void QVApplication::onAboutToQuit()
     if (traceQuit)
         quitTimer.start();
 
-    if (isSessionStateSaveRequested)
-    {
+    if (isSessionStateSaveRequested) {
         QSettings settings;
-        if (!closedWindowData.isEmpty())
-        {
+        if (!closedWindowData.isEmpty()) {
             QJsonObject state;
 
             state["version"] = Qv::SessionStateVersion;
 
-            std::sort(
-                closedWindowData.begin(), closedWindowData.end(),
-                [](const ClosedWindowData& a, const ClosedWindowData& b) {
-                    return a.lastActivatedTimestamp < b.lastActivatedTimestamp;
-                });
+            std::sort(closedWindowData.begin(), closedWindowData.end(),
+                      [](const ClosedWindowData &a, const ClosedWindowData &b) {
+                          return a.lastActivatedTimestamp < b.lastActivatedTimestamp;
+                      });
             QJsonArray windows;
-            for (const ClosedWindowData& item : std::as_const(closedWindowData))
+            for (const ClosedWindowData &item : std::as_const(closedWindowData))
                 windows.append(item.sessionState);
             state["windows"] = windows;
 
             settings.setValue("sessionstate", state);
-        }
-        else
-        {
+        } else {
             settings.remove("sessionstate");
         }
     }
 
     // Cancel window delivery while GUI dependencies exist. Owner-independent
     // work is drained at the bounded QvAsync boundary in the destructor.
-    for (QWidget *widget : QApplication::topLevelWidgets())
-    {
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
         if (auto *window = qobject_cast<MainWindow *>(widget))
             window->shutdownBackgroundWork();
     }
@@ -680,7 +645,8 @@ void QVApplication::onAboutToQuit()
         threadPool->waitForDone();
 
     if (traceQuit)
-        qInfo().noquote() << QStringLiteral("FOVELLE_EXIT phase=about-to-quit-complete active_threads=%1 elapsed_ms=%2")
-                                 .arg(activeThreadsBeforeDrain)
-                                 .arg(quitTimer.elapsed());
+        qInfo().noquote() << QStringLiteral("FOVELLE_EXIT phase=about-to-quit-complete "
+                                            "active_threads=%1 elapsed_ms=%2")
+                                     .arg(activeThreadsBeforeDrain)
+                                     .arg(quitTimer.elapsed());
 }

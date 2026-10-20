@@ -525,11 +525,12 @@ private slots:
         QTest::addColumn<bool>("async");
         QTest::addColumn<bool>("apng");
         QTest::addColumn<bool>("boundedCache");
-        for (bool async : {false, true})
-            for (bool apng : {false, true})
-                for (bool cache : {false, true})
-                    QTest::newRow(qPrintable(QString("async=%1-apng=%2-cache=%3")
-                            .arg(async).arg(apng).arg(cache))) << async << apng << cache;
+        for (bool async : { false, true })
+            for (bool apng : { false, true })
+                for (bool cache : { false, true })
+                    QTest::newRow(qPrintable(
+                            QString("async=%1-apng=%2-cache=%3").arg(async).arg(apng).arg(cache)))
+                            << async << apng << cache;
     }
     void testMoviePauseResume()
     {
@@ -537,9 +538,8 @@ private slots:
         QFETCH(bool, apng);
         QFETCH(bool, boundedCache);
         QTemporaryDir dir;
-        const auto path = apng
-            ? createBase64Image(dir, "resume", "png", tinyAnimatedPngBase64)
-            : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+        const auto path = apng ? createBase64Image(dir, "resume", "png", tinyAnimatedPngBase64)
+                               : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
         QVMovie reference(path);
         reference.setCacheMode(QVMovie::CacheAll);
         QVMovie movie(path);
@@ -673,8 +673,9 @@ private slots:
     void testMoviePauseQueuedRead_data()
     {
         QTest::addColumn<QString>("action");
-        for (const auto &action : {"completed", "inflight", "stop", "replace", "jump", "destroy",
-                                   "pending-stop", "pending-replace", "pending-jump", "pending-destroy"})
+        for (const auto &action :
+             { "completed", "inflight", "stop", "replace", "jump", "destroy", "pending-stop",
+               "pending-replace", "pending-jump", "pending-destroy" })
             QTest::newRow(action) << QString::fromLatin1(action);
     }
     void testMoviePauseQueuedRead()
@@ -743,9 +744,8 @@ private slots:
             QCOMPARE(frames.count(), 0);
         if (action != "inflight") {
             const int count = frames.count();
-            connect(movie.get(), &QVMovie::frameChanged, movie.get(), [&](int) {
-                movie->setPaused(true);
-            });
+            connect(movie.get(), &QVMovie::frameChanged, movie.get(),
+                    [&](int) { movie->setPaused(true); });
             movie->start();
             QTRY_COMPARE_WITH_TIMEOUT(frames.count(), count + 1, 1000);
             const int expected = action.endsWith("jump") ? 3 : 0;

@@ -15,7 +15,7 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
 {
     QImageReader::setAllocationLimit(8192); // 8 GiB
 
-    connect(&loadedMovie, &QVMovie::updated, this, [this](QRect rect){
+    connect(&loadedMovie, &QVMovie::updated, this, [this](QRect rect) {
         QImage movieImage = loadedMovie.currentImage();
         handleColorSpaceConversion(movieImage, currentFileDetails.targetColorSpace);
         currentFileDetails.actualColorSpace = movieImage.colorSpace();
@@ -24,42 +24,39 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
     });
 
     connect(&imageLoader, &QVImageLoader::imageReady, this,
-        [this](const quint64 requestId, const ReadData &readData) {
-            if (requestId != pendingLoadRequestId)
-                return;
+            [this](const quint64 requestId, const ReadData &readData) {
+                if (requestId != pendingLoadRequestId)
+                    return;
 
-            const bool debouncePreloading = pendingLoadDebouncesPreloading;
-            pendingLoadRequestId = 0;
-            loadInProgress = false;
-            pendingLoadDebouncesPreloading = false;
-            loadPixmap(readData);
+                const bool debouncePreloading = pendingLoadDebouncesPreloading;
+                pendingLoadRequestId = 0;
+                loadInProgress = false;
+                pendingLoadDebouncesPreloading = false;
+                loadPixmap(readData);
 
-            // A fileChanged handler may have synchronously requested another image.
-            if (loadInProgress ||
-                currentFileDetails.fileInfo.absoluteFilePath() != readData.absoluteFilePath)
-            {
-                return;
-            }
+                // A fileChanged handler may have synchronously requested another image.
+                if (loadInProgress
+                    || currentFileDetails.fileInfo.absoluteFilePath()
+                            != readData.absoluteFilePath) {
+                    return;
+                }
 
-            refreshDesiredImages(!debouncePreloading);
-            if (debouncePreloading)
-                preloadDebounceTimer.start();
-        });
+                refreshDesiredImages(!debouncePreloading);
+                if (debouncePreloading)
+                    preloadDebounceTimer.start();
+            });
 
     preloadDebounceTimer.setSingleShot(true);
     preloadDebounceTimer.setInterval(500);
-    connect(&preloadDebounceTimer, &QTimer::timeout, this, [this]() {
-        refreshDesiredImages();
-    });
+    connect(&preloadDebounceTimer, &QTimer::timeout, this, [this]() { refreshDesiredImages(); });
 
-    connect(&fileEnumerator, &QVFileEnumerator::sortParametersChanged, this, [this](){
+    connect(&fileEnumerator, &QVFileEnumerator::sortParametersChanged, this, [this]() {
         updateFolderInfo();
         refreshDesiredImages();
         emit sortParametersChanged();
     });
 
-    for (auto const &screen : QGuiApplication::screens())
-    {
+    for (auto const &screen : QGuiApplication::screens()) {
         const QSize adjustedSize = screen->size() * screen->devicePixelRatio();
         const int largerDimension = qMax(adjustedSize.width(), adjustedSize.height());
         if (largerDimension > largestDimension)
@@ -68,8 +65,10 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
     imageLoader.setLargestDimension(largestDimension);
 
     // Connect to settings signal
-    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &QVImageCore::settingsUpdated);
-    connect(qvApp, &QVApplication::folderListingsInvalidated, this, &QVImageCore::markFolderInfoDirty);
+    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this,
+            &QVImageCore::settingsUpdated);
+    connect(qvApp, &QVApplication::folderListingsInvalidated, this,
+            &QVImageCore::markFolderInfoDirty);
     settingsUpdated();
 }
 
@@ -78,14 +77,15 @@ QVImageCore::~QVImageCore()
     shutdownAsyncWork();
 }
 
-void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir, const bool debouncePreloading)
+void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir,
+                           const bool debouncePreloading)
 {
     if (asyncWorkShutDown)
         return;
 
     QString adjustedFileName = fileName;
 
-    //sanitize file name if necessary
+    // sanitize file name if necessary
     QUrl fileUrl = QUrl(adjustedFileName);
     if (fileUrl.isLocalFile())
         adjustedFileName = fileUrl.toLocalFile();
@@ -93,8 +93,7 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     QFileInfo fileInfo(adjustedFileName);
     QString absolutePath = fileInfo.absoluteFilePath();
 
-    if (fileInfo.isDir())
-    {
+    if (fileInfo.isDir()) {
         setPaused(true);
         // Invalidate any previous image delivery while resolving a directory.
         imageLoader.clear();
@@ -146,31 +145,26 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 {
     emit fileChanging();
 
-    if (readData.errorData.has_value())
-    {
+    if (readData.errorData.has_value()) {
         FileDetails emptyDetails;
         emptyDetails.folderFileInfoList = currentFileDetails.folderFileInfoList;
         emptyDetails.loadedIndexInFolder = currentFileDetails.loadedIndexInFolder;
         emptyDetails.errorData = readData.errorData;
         currentFileDetails = emptyDetails;
-    }
-    else
-    {
-        currentFileDetails.errorData = {};
+    } else {
+        currentFileDetails.errorData = { };
     }
 
     // Do this first so we can keep folder info even when loading errored files
     currentFileDetails.fileInfo = QFileInfo(readData.absoluteFilePath);
     currentFileDetails.updateLoadedIndexInFolder();
-    if (currentFileDetails.loadedIndexInFolder == -1)
-    {
+    if (currentFileDetails.loadedIndexInFolder == -1) {
         // If the current list of files doesn't contain this one, assume we're switching folders now
         if (pendingFolderPath != currentFileDetails.fileInfo.path())
             updateFolderInfo(currentFileDetails.fileInfo.path());
     }
 
-    if (currentFileDetails.errorData.has_value())
-    {
+    if (currentFileDetails.errorData.has_value()) {
         loadEmptyPixmap();
         return;
     }
@@ -189,9 +183,8 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     loadedHDRImage = readData.hdrImage;
 
     // Set file details
-    currentFileDetails.isPixmapLoaded = !loadedPixmap.isNull()
-            || loadedVectorImage.isValid() || loadedSDRImage != nullptr
-            || loadedHDRImage != nullptr;
+    currentFileDetails.isPixmapLoaded = !loadedPixmap.isNull() || loadedVectorImage.isValid()
+            || loadedSDRImage != nullptr || loadedHDRImage != nullptr;
     currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
     currentFileDetails.isNativeSDRLoaded = loadedSDRImage != nullptr;
     currentFileDetails.isVectorLoaded = loadedVectorImage.isValid();
@@ -204,7 +197,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     else
         currentFileDetails.baseImageSize = loadedPixmap.size();
     currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
-            || currentFileDetails.isNativeSDRLoaded || currentFileDetails.isVectorLoaded
+                    || currentFileDetails.isNativeSDRLoaded || currentFileDetails.isVectorLoaded
             ? currentFileDetails.baseImageSize
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
@@ -222,20 +215,18 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     // probe a DOS EPS through QImageReader after the native loader has already
     // supplied the authoritative PDF result.
     const bool isVectorDocument = loadedVectorImage.isValid();
-    loadedMovie.setFileName(isVectorDocument
-            ? QString()
-            : currentFileDetails.fileInfo.absoluteFilePath());
+    loadedMovie.setFileName(isVectorDocument ? QString()
+                                             : currentFileDetails.fileInfo.absoluteFilePath());
 
-    if (!isVectorDocument && !readData.isMultiFrameImage
-        && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
+    if (!isVectorDocument && !readData.isMultiFrameImage && loadedMovie.isValid()
+        && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 
     currentFileDetails.isMovieLoaded = loadedMovie.state() == QVMovie::Running;
 
     // A static native SDR graph cannot follow an animated source's frame
     // lifecycle. Keep those formats on QMovie/QGraphicsView.
-    if (currentFileDetails.isMovieLoaded)
-    {
+    if (currentFileDetails.isMovieLoaded) {
         loadedSDRImage.reset();
         loadedHDRImage.reset();
         currentFileDetails.isNativeSDRLoaded = false;
@@ -265,8 +256,7 @@ void QVImageCore::closeImage(const bool stayInDir)
 
     emit fileChanging();
     FileDetails emptyDetails;
-    if (stayInDir)
-    {
+    if (stayInDir) {
         emptyDetails.folderFileInfoList = currentFileDetails.folderFileInfoList;
         emptyDetails.loadedIndexInFolder = currentFileDetails.loadedIndexInFolder;
     }
@@ -277,7 +267,7 @@ void QVImageCore::closeImage(const bool stayInDir)
 void QVImageCore::loadEmptyPixmap()
 {
     loadedPixmap = QPixmap();
-    loadedVectorImage = {};
+    loadedVectorImage = { };
     loadedSDRImage.reset();
     loadedHDRImage.reset();
     loadedMovie.stop();
@@ -294,8 +284,7 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
 
     bool shouldRetryFolderInfoUpdate = false;
 
-    if (folderInfoDirty)
-    {
+    if (folderInfoDirty) {
         // Make sure the file still exists because if it disappears from the file listing we'll lose
         // track of our index within the folder. Use the static 'exists' method to avoid caching.
         // If we skip updating now, flag it for retry later once we locate a new file.
@@ -313,56 +302,45 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
     int searchDirection = 0;
 
     switch (mode) {
-    case Qv::GoToFileMode::Constant:
-    {
+    case Qv::GoToFileMode::Constant: {
         newIndex = index;
         break;
     }
-    case Qv::GoToFileMode::First:
-    {
+    case Qv::GoToFileMode::First: {
         newIndex = 0;
         searchDirection = 1;
         break;
     }
-    case Qv::GoToFileMode::Previous:
-    {
-        if (newIndex == 0)
-        {
+    case Qv::GoToFileMode::Previous: {
+        if (newIndex == 0) {
             if (fileEnumerator.getIsLoopFoldersEnabled())
-                newIndex = fileList.size()-1;
+                newIndex = fileList.size() - 1;
             else
                 result.reachedEnd = true;
-        }
-        else
+        } else
             newIndex--;
         searchDirection = -1;
         break;
     }
-    case Qv::GoToFileMode::Next:
-    {
-        if (fileList.size()-1 == newIndex)
-        {
+    case Qv::GoToFileMode::Next: {
+        if (fileList.size() - 1 == newIndex) {
             if (fileEnumerator.getIsLoopFoldersEnabled())
                 newIndex = 0;
             else
                 result.reachedEnd = true;
-        }
-        else
+        } else
             newIndex++;
         searchDirection = 1;
         break;
     }
-    case Qv::GoToFileMode::Last:
-    {
-        newIndex = fileList.size()-1;
+    case Qv::GoToFileMode::Last: {
+        newIndex = fileList.size() - 1;
         searchDirection = -1;
         break;
     }
-    case Qv::GoToFileMode::Random:
-    {
-        if (fileList.size() > 1)
-        {
-            int randomIndex = QRandomGenerator::global()->bounded(fileList.size()-1);
+    case Qv::GoToFileMode::Random: {
+        if (fileList.size() > 1) {
+            int randomIndex = QRandomGenerator::global()->bounded(fileList.size() - 1);
             newIndex = randomIndex + (randomIndex >= newIndex ? 1 : 0);
         }
         searchDirection = 1;
@@ -370,20 +348,23 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
     }
     }
 
-    while (searchDirection == 1 && newIndex < fileList.size()-1 && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
+    while (searchDirection == 1 && newIndex < fileList.size() - 1
+           && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
         newIndex++;
-    while (searchDirection == -1 && newIndex > 0 && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
+    while (searchDirection == -1 && newIndex > 0
+           && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
         newIndex--;
 
     const QString nextImageFilePath = fileList.value(newIndex).absoluteFilePath;
 
-    if (!QFile::exists(nextImageFilePath) || nextImageFilePath == currentFileDetails.fileInfo.absoluteFilePath())
+    if (!QFile::exists(nextImageFilePath)
+        || nextImageFilePath == currentFileDetails.fileInfo.absoluteFilePath())
         return result;
 
     if (shouldRetryFolderInfoUpdate)
         updateFolderInfo();
 
-    loadFile(nextImageFilePath, false, {}, mode == Qv::GoToFileMode::Random);
+    loadFile(nextImageFilePath, false, { }, mode == Qv::GoToFileMode::Random);
 
     return result;
 }
@@ -416,8 +397,7 @@ bool QVImageCore::hasNextFile()
 
 void QVImageCore::updateFolderInfo(QString dirPath)
 {
-    if (dirPath.isEmpty())
-    {
+    if (dirPath.isEmpty()) {
         // No directory specified; we are refreshing the currently loaded directory
         dirPath = currentFileDetails.folderFileInfoList.getBaseDir();
 
@@ -462,7 +442,7 @@ void QVImageCore::updateFolderInfo(QString dirPath)
 QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool includePreloads) const
 {
     const QString absoluteTargetPath = currentFileDetails.fileInfo.absoluteFilePath();
-    QList<QVImageLoader::DesiredImage> desiredImages {{absoluteTargetPath, 0}};
+    QList<QVImageLoader::DesiredImage> desiredImages{ { absoluteTargetPath, 0 } };
 
     const auto &fileList = currentFileDetails.folderFileInfoList;
     if (!includePreloads || fileList.isEmpty())
@@ -474,17 +454,15 @@ QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool incl
 
     const int preloadDistance = Qv::AdjacentPreloadDistance;
     const bool loopFolders = fileEnumerator.getIsLoopFoldersEnabled();
-    for (int distance = 1; distance <= preloadDistance; ++distance)
-    {
-        for (const int direction : {-1, 1})
-        {
+    for (int distance = 1; distance <= preloadDistance; ++distance) {
+        for (const int direction : { -1, 1 }) {
             int index = loadedIndex + (distance * direction);
             if (loopFolders)
                 index = (index % fileList.size() + fileList.size()) % fileList.size();
             else if (index < 0 || index >= fileList.size())
                 continue;
 
-            desiredImages.append({fileList.at(index).absoluteFilePath, distance});
+            desiredImages.append({ fileList.at(index).absoluteFilePath, distance });
         }
     }
 
@@ -496,17 +474,15 @@ void QVImageCore::refreshDesiredImages(const bool includePreloads)
     if (asyncWorkShutDown)
         return;
 
-    if (loadInProgress)
-    {
+    if (loadInProgress) {
         // Reconcile the fixed adjacent policy after the foreground load
         // finishes; do not disturb the in-flight foreground request.
         return;
     }
 
     const QString targetFilePath = currentFileDetails.fileInfo.absoluteFilePath();
-    if (targetFilePath.isEmpty())
-    {
-        imageLoader.setDesiredImages({});
+    if (targetFilePath.isEmpty()) {
+        imageLoader.setDesiredImages({ });
         return;
     }
 
@@ -515,11 +491,10 @@ void QVImageCore::refreshDesiredImages(const bool includePreloads)
 
 QColorSpace QVImageCore::getTargetColorSpace() const
 {
-    return
-        colorSpaceConversion == Qv::ColorSpaceConversion::AutoDetect ? detectDisplayColorSpace() :
-        colorSpaceConversion == Qv::ColorSpaceConversion::SRgb ? QColorSpace::SRgb :
-        colorSpaceConversion == Qv::ColorSpaceConversion::DisplayP3 ? QColorSpace::DisplayP3 :
-        QColorSpace();
+    return colorSpaceConversion == Qv::ColorSpaceConversion::AutoDetect ? detectDisplayColorSpace()
+            : colorSpaceConversion == Qv::ColorSpaceConversion::SRgb    ? QColorSpace::SRgb
+            : colorSpaceConversion == Qv::ColorSpaceConversion::DisplayP3 ? QColorSpace::DisplayP3
+                                                                          : QColorSpace();
 }
 
 QColorSpace QVImageCore::detectDisplayColorSpace() const
@@ -531,12 +506,11 @@ QColorSpace QVImageCore::detectDisplayColorSpace() const
 
     const QByteArray profileData = QVCocoaFunctions::getIccProfileForWindow(window);
 
-    if (!profileData.isEmpty())
-    {
+    if (!profileData.isEmpty()) {
         return QColorSpace::fromIccProfile(profileData);
     }
 
-    return {};
+    return { };
 }
 
 void QVImageCore::handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace)
@@ -588,16 +562,14 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
     if (!currentFileDetails.isPixmapLoaded)
         return QPixmap();
 
-    static const bool logSDRPerformance =
-            qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
+    static const bool logSDRPerformance = qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
     QElapsedTimer scaleTimer;
     if (logSDRPerformance)
         scaleTimer.start();
 
     // If we are really close to the original size, just return the original
-    if (abs(desiredSize.width() - loadedPixmap.width()) < 1 &&
-        abs(desiredSize.height() - loadedPixmap.height()) < 1)
-    {
+    if (abs(desiredSize.width() - loadedPixmap.width()) < 1
+        && abs(desiredSize.height() - loadedPixmap.height()) < 1) {
         return loadedPixmap;
     }
 
@@ -605,20 +577,17 @@ QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)
     size.rwidth() = qMax(size.width(), 1);
     size.rheight() = qMax(size.height(), 1);
 
-    QPixmap result = loadedPixmap.scaled(
-            size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    if (logSDRPerformance)
-    {
+    QPixmap result = loadedPixmap.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    if (logSDRPerformance) {
         qInfo().noquote() << "FOVELLE_SDR_SCALE"
                           << "duration_ms=" << scaleTimer.nsecsElapsed() / 1000000.0
-                          << "source_size=" << loadedPixmap.size()
-                          << "target_size=" << size
+                          << "source_size=" << loadedPixmap.size() << "target_size=" << size
                           << "source_bytes="
-                          << static_cast<qint64>(loadedPixmap.width())
-                                  * loadedPixmap.height() * loadedPixmap.depth() / 8
+                          << static_cast<qint64>(loadedPixmap.width()) * loadedPixmap.height()
+                        * loadedPixmap.depth() / 8
                           << "target_bytes="
-                          << static_cast<qint64>(result.width())
-                                  * result.height() * result.depth() / 8;
+                          << static_cast<qint64>(result.width()) * result.height() * result.depth()
+                        / 8;
     }
     return result;
 }
@@ -627,15 +596,17 @@ void QVImageCore::settingsUpdated()
 {
     auto &settingsManager = qvApp->getSettingsManager();
 
-    //update folder info to reflect new settings (e.g. sort order)
+    // update folder info to reflect new settings (e.g. sort order)
     fileEnumerator.loadSettings(false);
     updateFolderInfo();
 
-    //color space conversion
+    // color space conversion
     Qv::ColorSpaceConversion oldColorSpaceConversion = colorSpaceConversion;
-    colorSpaceConversion = settingsManager.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion");
+    colorSpaceConversion =
+            settingsManager.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion");
 
-    if (colorSpaceConversion != oldColorSpaceConversion && currentFileDetails.isPixmapLoaded && !loadInProgress)
+    if (colorSpaceConversion != oldColorSpaceConversion && currentFileDetails.isPixmapLoaded
+        && !loadInProgress)
         loadFile(currentFileDetails.fileInfo.absoluteFilePath());
     else
         refreshDesiredImages(!preloadDebounceTimer.isActive());
@@ -644,14 +615,13 @@ void QVImageCore::settingsUpdated()
 void QVImageCore::FileDetails::updateLoadedIndexInFolder()
 {
     const QString targetPath = fileInfo.absoluteFilePath().normalized(QString::NormalizationForm_D);
-    for (int i = 0; i < folderFileInfoList.length(); i++)
-    {
+    for (int i = 0; i < folderFileInfoList.length(); i++) {
         // Compare absoluteFilePath first because it's way faster, but double-check with
         // QFileInfo::operator== because it respects file system case sensitivity rules
-        QString candidatePath = folderFileInfoList[i].absoluteFilePath.normalized(QString::NormalizationForm_D);
-        if (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0 &&
-            QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo)
-        {
+        QString candidatePath =
+                folderFileInfoList[i].absoluteFilePath.normalized(QString::NormalizationForm_D);
+        if (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0
+            && QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo) {
             loadedIndexInFolder = i;
             return;
         }

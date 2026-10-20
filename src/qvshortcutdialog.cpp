@@ -10,9 +10,10 @@
 
 #include <QDebug>
 
-QVShortcutDialog::QVShortcutDialog(int index, GetTransientShortcutCallback getTransientShortcutCallback, QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::QVShortcutDialog)
+QVShortcutDialog::QVShortcutDialog(int index,
+                                   GetTransientShortcutCallback getTransientShortcutCallback,
+                                   QWidget *parent)
+    : QDialog(parent), ui(new Ui::QVShortcutDialog)
 {
     ui->setupUi(this);
 
@@ -45,14 +46,11 @@ QVShortcutDialog::~QVShortcutDialog()
 
 bool QVShortcutDialog::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() == QEvent::KeyPress && isVisible())
-    {
+    if (event->type() == QEvent::KeyPress && isVisible()) {
         auto *widget = qobject_cast<QWidget *>(watched);
         auto *keyEvent = static_cast<QKeyEvent *>(event);
-        if (widget && widget->window() == this
-            && keyEvent->key() == Qt::Key_Escape
-            && keyEvent->modifiers() == Qt::NoModifier)
-        {
+        if (widget && widget->window() == this && keyEvent->key() == Qt::Key_Escape
+            && keyEvent->modifiers() == Qt::NoModifier) {
             reject();
             return true;
         }
@@ -62,8 +60,7 @@ bool QVShortcutDialog::eventFilter(QObject *watched, QEvent *event)
 
 void QVShortcutDialog::done(int r)
 {
-    if (r == QDialog::Accepted)
-    {
+    if (r == QDialog::Accepted) {
         return;
     }
 
@@ -72,19 +69,17 @@ void QVShortcutDialog::done(int r)
 
 void QVShortcutDialog::buttonBoxClicked(QAbstractButton *button)
 {
-    if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::AcceptRole)
-    {
+    if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::AcceptRole) {
         QStringList shortcutsStringList = ui->keySequenceEdit->keySequence().toString().split(", ");
         const auto sequenceList = ShortcutManager::stringListToKeySequenceList(shortcutsStringList);
 
-        for (const auto &sequence : sequenceList)
-        {
+        for (const auto &sequence : sequenceList) {
             auto conflictingShortcut = shortcutAlreadyBound(sequence, shortcutObject.name);
-            if (!conflictingShortcut.isEmpty())
-            {
+            if (!conflictingShortcut.isEmpty()) {
                 QString nativeShortcutString = sequence.toString(QKeySequence::NativeText);
                 NativeDialogs::showMessage(QMessageBox::Warning, tr("Shortcut Already Used"),
-                                           tr("\"%1\" is already bound to \"%2\"").arg(nativeShortcutString, conflictingShortcut),
+                                           tr("\"%1\" is already bound to \"%2\"")
+                                                   .arg(nativeShortcutString, conflictingShortcut),
                                            QMessageBox::Ok, this);
                 return;
             }
@@ -93,14 +88,13 @@ void QVShortcutDialog::buttonBoxClicked(QAbstractButton *button)
         acceptValidated();
 
         emit shortcutsListChanged(index, shortcutsStringList);
-    }
-    else if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::ResetRole)
-    {
+    } else if (ui->buttonBox->buttonRole(button) == QDialogButtonBox::ResetRole) {
         ui->keySequenceEdit->setKeySequence(shortcutObject.defaultShortcuts.join(", "));
     }
 }
 
-QString QVShortcutDialog::shortcutAlreadyBound(const QKeySequence &chosenSequence, const QString &exemptShortcut)
+QString QVShortcutDialog::shortcutAlreadyBound(const QKeySequence &chosenSequence,
+                                               const QString &exemptShortcut)
 {
     if (chosenSequence.isEmpty())
         return "";
@@ -109,10 +103,10 @@ QString QVShortcutDialog::shortcutAlreadyBound(const QKeySequence &chosenSequenc
         return QCoreApplication::translate("ShortcutManager", "Close Window");
 
     const auto &shortcutsList = qvApp->getShortcutManager().getShortcutsList();
-    for (int i = 0; i < shortcutsList.length(); i++)
-    {
+    for (int i = 0; i < shortcutsList.length(); i++) {
         const auto &shortcut = shortcutsList.value(i);
-        const auto sequenceList = ShortcutManager::stringListToKeySequenceList(getTransientShortcutCallback(i));
+        const auto sequenceList =
+                ShortcutManager::stringListToKeySequenceList(getTransientShortcutCallback(i));
 
         if (sequenceList.contains(chosenSequence) && shortcut.name != exemptShortcut)
             return shortcut.readableName;

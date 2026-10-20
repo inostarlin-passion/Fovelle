@@ -7,7 +7,7 @@
 #include <QCollator>
 #include <QList>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-#include <QDirListing>
+#  include <QDirListing>
 #endif
 #include <QFileInfo>
 #include <QObject>
@@ -28,10 +28,10 @@ public:
     public:
         CompatibleFileList() = default;
 
-        explicit CompatibleFileList(const QString &baseDir, const bool isRecursive) :
-            baseDir(baseDir),
-            isRecursive(isRecursive)
-        {}
+        explicit CompatibleFileList(const QString &baseDir, const bool isRecursive)
+            : baseDir(baseDir), isRecursive(isRecursive)
+        {
+        }
 
         QString getBaseDir() const { return baseDir; }
 
@@ -39,7 +39,7 @@ public:
 
     private:
         QString baseDir;
-        bool isRecursive {false};
+        bool isRecursive{ false };
     };
 
     explicit QVFileEnumerator(QObject *parent = nullptr);
@@ -80,15 +80,16 @@ protected:
     qint64 getRandomSortKey(const QString &filePath) const;
 
 private:
-    const quint32 baseRandomSortSeed {static_cast<quint32>(std::chrono::system_clock::now().time_since_epoch().count())};
+    const quint32 baseRandomSortSeed{ static_cast<quint32>(
+            std::chrono::system_clock::now().time_since_epoch().count()) };
 
     QCollator collator;
 
-    bool isLoopFoldersEnabled {true};
-    Qv::SortMode sortMode {Qv::SortMode::Name};
-    bool sortDescending {false};
-    bool allowMimeContentDetection {false};
-    bool skipHiddenFiles {false};
+    bool isLoopFoldersEnabled{ true };
+    Qv::SortMode sortMode{ Qv::SortMode::Name };
+    bool sortDescending{ false };
+    bool allowMimeContentDetection{ false };
+    bool skipHiddenFiles{ false };
 };
 
 #endif // QVFILEENUMERATOR_H

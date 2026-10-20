@@ -35,10 +35,8 @@ public:
         PDFVectorDocument &operator=(const PDFVectorDocument &) = delete;
 
         bool isValid() const;
-        QImage renderTile(const QSizeF &logicalPageSize,
-                          const QRectF &sourceRect,
-                          const QSize &pixelSize,
-                          QString *errorString = nullptr) const;
+        QImage renderTile(const QSizeF &logicalPageSize, const QRectF &sourceRect,
+                          const QSize &pixelSize, QString *errorString = nullptr) const;
 
     private:
         friend class QVCocoaFunctions;
@@ -97,11 +95,11 @@ public:
         QSize intrinsicSize;
         QString typeIdentifier;
         QString errorString;
-        bool isImageIOType {false};
-        bool allowsQtFallback {true};
+        bool isImageIOType{ false };
+        bool allowsQtFallback{ true };
         bool isMultiFrameImage{ false };
-        bool isRaw {false};
-        bool usedRawPreview {false};
+        bool isRaw{ false };
+        bool usedRawPreview{ false };
     };
 
     struct HDRRendererDiagnostics
@@ -237,10 +235,9 @@ public:
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
                     qreal transitionProgress, bool interactive = false);
-        void setNavigationOverlay(int index, const QRectF &viewportRect,
-                                  qreal opacity, bool previous,
-                                  bool darkBackground, bool hovered,
-                                  bool pressed, bool enabled);
+        void setNavigationOverlay(int index, const QRectF &viewportRect, qreal opacity,
+                                  bool previous, bool darkBackground, bool hovered, bool pressed,
+                                  bool enabled);
         void clearNavigationOverlays();
         void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
         void setBoundaryHintOpacity(qreal opacity);
@@ -324,19 +321,19 @@ public:
     // Resolve an AppKit Window-menu command using Fovelle's selected
     // application language rather than the macOS login language. The public
     // helper also gives localization tests the same path used by NSMenu.
-    static QString localizedWindowMenuTitle(const QString &sourceTitle,
-                                            bool submenuTitle = false);
+    static QString localizedWindowMenuTitle(const QString &sourceTitle, bool submenuTitle = false);
 
     static void setAlternate(QMenu *menu, int index);
 
     static void setDockRecents(const QStringList &recentPathsList);
 
-    static QList<OpenWith::OpenWithItem> getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
+    static QList<OpenWith::OpenWithItem>
+    getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix);
 
     struct FileAssociationResult
     {
-        int requestedCount {0};
-        int associatedCount {0};
+        int requestedCount{ 0 };
+        int associatedCount{ 0 };
         QStringList failedExtensions;
     };
 
@@ -361,14 +358,12 @@ public:
     // while Core Image and standalone Core Animation tile placement use a
     // bottom-left working space. Convert only placement; cropping stays
     // top-first.
-    static QRect coreImageTileRect(const QRect &topLeftPixelRect,
-                                   int sourceHeight);
+    static QRect coreImageTileRect(const QRect &topLeftPixelRect, int sourceHeight);
 
     // A display below 180 Hz is a physical presentation limit, not a renderer
     // tuning problem. Cap it at its actual maximum; capable displays request a
     // sustainable 180...240 Hz interactive range.
-    static SDRFrameRatePolicy sdrFrameRatePolicy(
-        qreal displayMaximumFramesPerSecond);
+    static SDRFrameRatePolicy sdrFrameRatePolicy(qreal displayMaximumFramesPerSecond);
 
     // Image I/O identifies the file from its contents. The caller must not use
     // a filename extension to decide whether this is a RAW image. Native SDR
@@ -380,14 +375,12 @@ public:
     // Rasterize only the requested PDF page region at the final device-pixel
     // size.  EPS uses this after its PostScript program has been normalized to
     // a vector PDF; callers never need a zoom-sized whole-document bitmap.
-    static QImage renderPDFVectorTile(const QByteArray &pdfData,
-                                      const QSizeF &logicalPageSize,
-                                      const QRectF &sourceRect,
-                                      const QSize &pixelSize,
+    static QImage renderPDFVectorTile(const QByteArray &pdfData, const QSizeF &logicalPageSize,
+                                      const QRectF &sourceRect, const QSize &pixelSize,
                                       QString *errorString = nullptr);
 
-    static PDFVectorDocumentPtr createPDFVectorDocument(
-        const QByteArray &pdfData, QString *errorString = nullptr);
+    static PDFVectorDocumentPtr createPDFVectorDocument(const QByteArray &pdfData,
+                                                        QString *errorString = nullptr);
 
     // Pure headroom policy helpers are exposed so endpoint behavior can be
     // verified without depending on a particular physical display. Production
@@ -396,15 +389,15 @@ public:
     static qreal hdrBrightnessProgress(qreal elapsedMilliseconds, bool rapidSwitch,
                                        bool reduceMotion, qreal totalMilliseconds = 600.0);
     // Runs the production linear-light kernel on one float pixel for verification.
-    static std::array<float, 4> probeHDRBrightnessPixel(
-            const std::array<float, 4> &sdr, const std::array<float, 4> &hdr,
-            float headroom, float easedProgress);
+    static std::array<float, 4> probeHDRBrightnessPixel(const std::array<float, 4> &sdr,
+                                                        const std::array<float, 4> &hdr,
+                                                        float headroom, float easedProgress);
 
     // 64x64 linear float sample grid; sourceEndpoint bypasses display processing
     // and supplies an independent decoded HDR oracle when headroom is sufficient.
-    static QVector<float> probeHDRBrightnessImage(const HDRImagePtr &image,
-            float headroom, float easedProgress, bool sourceEndpoint = false,
-            bool materializeBeforeSampling = false);
+    static QVector<float> probeHDRBrightnessImage(const HDRImagePtr &image, float headroom,
+                                                  float easedProgress, bool sourceEndpoint = false,
+                                                  bool materializeBeforeSampling = false);
 
     static qreal effectiveHDRHeadroom(qreal contentHeadroom, qreal displayHeadroom,
                                       qreal transitionProgress);
@@ -412,13 +405,11 @@ public:
     // Some filter graphs (notably CIRAWFilter) report zero when their content
     // headroom is unknown. A measured float peak is then the correct tag for
     // Core Animation; it must never be replaced by display capability.
-    static qreal resolvedHDRContentHeadroom(qreal reportedHeadroom,
-                                            qreal measuredMaximumComponent);
+    static qreal resolvedHDRContentHeadroom(qreal reportedHeadroom, qreal measuredMaximumComponent);
 
     // Potential capability is not an available luminance budget. Rendering
     // always uses the current dynamic value (one means SDR).
-    static qreal displayHeadroomForRendering(qreal currentHeadroom,
-                                             qreal potentialHeadroom,
+    static qreal displayHeadroomForRendering(qreal currentHeadroom, qreal potentialHeadroom,
                                              qreal contentHeadroom);
 
     // Legacy endpoint predicate for explicit callers. The renderer instead

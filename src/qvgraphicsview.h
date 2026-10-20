@@ -34,7 +34,7 @@ public:
         bool triggeredAction;
     };
 
-    QMimeData* getMimeData() const;
+    QMimeData *getMimeData() const;
     void loadMimeData(const QMimeData *mimeData);
     void loadFile(const QString &fileName, const QString &baseDir = "");
 
@@ -46,14 +46,15 @@ public:
 
     void zoomOut();
 
-    void zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos = {});
+    void zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos = { });
 
-    void zoomAbsolute(const qreal absoluteLevel,
-                      const std::optional<QPoint> &targetPos = {},
+    void zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos = { },
                       const bool isApplyingCalculation = false);
 
     const std::optional<Qv::CalculatedZoomMode> &getCalculatedZoomMode() const;
-    void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value, const bool isNavigating = false, const std::optional<QPoint> &mousePos = {});
+    void setCalculatedZoomMode(const std::optional<Qv::CalculatedZoomMode> &value,
+                               const bool isNavigating = false,
+                               const std::optional<QPoint> &mousePos = { });
 
     bool getNavigationResetsZoom() const { return navigationResetsZoom; }
     void setNavigationResetsZoom(const bool value);
@@ -66,7 +67,7 @@ public:
     void applyExpensiveScaling();
     void removeExpensiveScaling();
 
-    void recalculateZoom(const std::optional<QPoint> &zoomAnchor = {});
+    void recalculateZoom(const std::optional<QPoint> &zoomAnchor = { });
 
     // Toggle is a view operation because its decision depends on the
     // displayed frame and on the cursor in the view, not merely on the
@@ -115,8 +116,11 @@ public:
 
     LogicalPixelFitter getPixelFitter() const;
 
-    const QVImageCore::FileDetails& getCurrentFileDetails() const { return imageCore.getCurrentFileDetails(); }
-    const QVMovie& getLoadedMovie() const { return imageCore.getLoadedMovie(); }
+    const QVImageCore::FileDetails &getCurrentFileDetails() const
+    {
+        return imageCore.getCurrentFileDetails();
+    }
+    const QVMovie &getLoadedMovie() const { return imageCore.getLoadedMovie(); }
     bool hasFileOrPendingLoad() const { return imageCore.hasFileOrPendingLoad(); }
     bool hasPreviousFile() { return imageCore.hasPreviousFile(); }
     bool hasNextFile() { return imageCore.hasNextFile(); }
@@ -160,33 +164,29 @@ public:
     // the image afterwards.  The target image origin is projected onto the
     // feasible interval on each axis; a smaller image uses the alignment
     // fixed point as its only feasible origin.
-    static QPointF projectZoomAnchorForTarget(
-        const QRectF &currentImageViewportRect,
-        const QSizeF &targetImageSize,
-        const QRectF &targetUsableViewportRect,
-        const QPointF &requestedViewportPoint,
-        bool centerSmallerImage = true);
+    static QPointF projectZoomAnchorForTarget(const QRectF &currentImageViewportRect,
+                                              const QSizeF &targetImageSize,
+                                              const QRectF &targetUsableViewportRect,
+                                              const QPointF &requestedViewportPoint,
+                                              bool centerSmallerImage = true);
 
     // Keep the Theme-to-scrollbar contract observable without rendering.
     static QString scrollBarStyleSheet(Qv::Theme theme);
 
     // Keep the small-image policy independent from widget state so its boundary
     // conditions can be tested deterministically.
-    static bool shouldDisplaySmallImageAtOneToOne(
-        const QSizeF &imageSize,
-        const QSize &viewportSize,
-        bool settingEnabled,
-        Qv::WindowResizeMode windowResizeMode);
+    static bool shouldDisplaySmallImageAtOneToOne(const QSizeF &imageSize,
+                                                  const QSize &viewportSize, bool settingEnabled,
+                                                  Qv::WindowResizeMode windowResizeMode);
 
     // Compare the complete viewport contract used by the independent Metal
     // layer. A zoom value alone is insufficient because scroll offsets,
     // viewport resize and titlebar layout can change while zoom stays fixed.
-    static bool hdrViewportGeometryEquivalent(
-        const QSize &lhsViewportSize,
-        const QPolygonF &lhsImageCorners,
-        const QSize &rhsViewportSize,
-        const QPolygonF &rhsImageCorners,
-        qreal tolerance = 0.01);
+    static bool hdrViewportGeometryEquivalent(const QSize &lhsViewportSize,
+                                              const QPolygonF &lhsImageCorners,
+                                              const QSize &rhsViewportSize,
+                                              const QPolygonF &rhsImageCorners,
+                                              qreal tolerance = 0.01);
 
     // Once a prepared Metal frame is visible, geometry changes must reuse it
     // instead of falling back to SDR and restarting the opening transition.
@@ -198,10 +198,9 @@ public:
     QVCocoaFunctions::HDRRendererDiagnostics nativeMetalRendererDiagnostics() const;
     bool usesNativeHDRNavigationOverlay() const;
     void setHDRPresentationActive(bool active);
-    void setHDRNavigationOverlay(int index, const QRectF &viewportRect,
-                                 qreal opacity, bool previous,
-                                 bool darkBackground, bool hovered,
-                                 bool pressed, bool enabled);
+    void setHDRNavigationOverlay(int index, const QRectF &viewportRect, qreal opacity,
+                                 bool previous, bool darkBackground, bool hovered, bool pressed,
+                                 bool enabled);
     void clearHDRNavigationOverlays();
     void setHDRBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
     void setHDRBoundaryHintOpacity(qreal opacity);
@@ -272,9 +271,12 @@ protected:
 
     void resetDragState();
 
-    void executeDragAction(const Qv::ViewportDragAction action, const QPoint delta, bool &isMovingWindow);
+    void executeDragAction(const Qv::ViewportDragAction action, const QPoint delta,
+                           bool &isMovingWindow);
 
-    void executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta, const QPoint mousePos, const bool hasShiftModifier, const bool useFractionalZoom);
+    void executeScrollAction(const Qv::ViewportScrollAction action, const QPoint delta,
+                             const QPoint mousePos, const bool hasShiftModifier,
+                             const bool useFractionalZoom);
 
     bool isSmoothScalingRequested() const;
 
@@ -340,11 +342,11 @@ protected:
 
     void cancelTurboNav();
 
-    MainWindow* getMainWindow() const;
+    MainWindow *getMainWindow() const;
 
     bool handleNativeGestureEvent(QNativeGestureEvent *event);
 
-    void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = {},
+    void updateSceneRect(const std::optional<QPoint> &restoreScrollPosition = { },
                          bool preserveScrollEdges = false);
 
     QRectF getSceneRectForViewport() const;
@@ -374,95 +376,93 @@ private:
 
     struct ZoomPlan
     {
-        qreal targetZoom {1.0};
+        qreal targetZoom{ 1.0 };
         std::optional<QPoint> requestedViewport;
         QRectF oldImageViewportRect;
         QRectF oldImageSceneRect;
         QPointF plannedAnchorViewport;
         QTransform oldViewportTransform;
-        bool hasAnchor {false};
+        bool hasAnchor{ false };
     };
 
-    ZoomPlan makeZoomPlan(qreal targetZoom,
-                          const std::optional<QPoint> &targetPos) const;
+    ZoomPlan makeZoomPlan(qreal targetZoom, const std::optional<QPoint> &targetPos) const;
     void commitZoomImmediately(const ZoomPlan &plan);
     void settleTargetScrollAreaLayout();
     QRectF imageViewportRect() const;
     QPointF mapViewportPointToScene(const QTransform &viewportTransform,
                                     const QPointF &viewportPoint) const;
-    void applyZoomAnchor(const QPointF &scenePoint,
-                         const QPointF &viewportPoint);
+    void applyZoomAnchor(const QPointF &scenePoint, const QPointF &viewportPoint);
     void restorePostLayoutZoomAnchor();
     void cancelPostLayoutZoomAnchor();
 
-    QVGraphicsImageItem *loadedPixmapItem {nullptr};
+    QVGraphicsImageItem *loadedPixmapItem{ nullptr };
     std::unique_ptr<QVCocoaFunctions::HDRRenderer> hdrRenderer;
 
-    Qv::SmoothScalingMode smoothScalingMode {Qv::SmoothScalingMode::Disabled};
+    Qv::SmoothScalingMode smoothScalingMode{ Qv::SmoothScalingMode::Disabled };
     std::optional<qreal> smoothScalingLimit;
-    bool expensiveScalingAboveWindowSize {false};
+    bool expensiveScalingAboveWindowSize{ false };
     std::optional<qreal> fitZoomLimit;
-    int fitOverscan {0};
-    bool zoomToCursor {true};
-    bool useOneToOnePixelSizing {true};
-    bool showSmallImagesAtOneToOne {false};
-    bool constrainImagePosition {true};
-    bool constrainToCenterWhenSmaller {true};
-    bool disableDelayedConstraint {false};
-    bool checkerboardBackground {false};
+    int fitOverscan{ 0 };
+    bool zoomToCursor{ true };
+    bool useOneToOnePixelSizing{ true };
+    bool showSmallImagesAtOneToOne{ false };
+    bool constrainImagePosition{ true };
+    bool constrainToCenterWhenSmaller{ true };
+    bool disableDelayedConstraint{ false };
+    bool checkerboardBackground{ false };
     QBrush viewportBackgroundBrush;
     QBrush checkerboardBackgroundBrush;
-    Qv::CalculatedZoomMode defaultCalculatedZoomMode {Qv::CalculatedZoomMode::ZoomToFit};
-    qreal zoomMultiplier {1.25};
+    Qv::CalculatedZoomMode defaultCalculatedZoomMode{ Qv::CalculatedZoomMode::ZoomToFit };
+    qreal zoomMultiplier{ 1.25 };
 
-    bool enableNavigationRegions {false};
-    Qv::ViewportClickAction doubleClickAction {Qv::ViewportClickAction::None};
-    Qv::ViewportClickAction altDoubleClickAction {Qv::ViewportClickAction::None};
-    Qv::ViewportDragAction dragAction {Qv::ViewportDragAction::None};
-    Qv::ViewportDragAction altDragAction {Qv::ViewportDragAction::None};
-    Qv::ViewportClickAction middleClickAction {Qv::ViewportClickAction::None};
-    Qv::ViewportClickAction altMiddleClickAction {Qv::ViewportClickAction::None};
-    Qv::ClickOrDrag middleButtonMode {Qv::ClickOrDrag::Click};
-    Qv::ViewportDragAction middleDragAction {Qv::ViewportDragAction::None};
-    Qv::ViewportDragAction altMiddleDragAction {Qv::ViewportDragAction::None};
-    Qv::ViewportScrollAction verticalScrollAction {Qv::ViewportScrollAction::None};
-    Qv::ViewportScrollAction horizontalScrollAction {Qv::ViewportScrollAction::None};
-    Qv::ViewportScrollAction altVerticalScrollAction {Qv::ViewportScrollAction::None};
-    Qv::ViewportScrollAction altHorizontalScrollAction {Qv::ViewportScrollAction::None};
-    bool scrollActionCooldown {false};
+    bool enableNavigationRegions{ false };
+    Qv::ViewportClickAction doubleClickAction{ Qv::ViewportClickAction::None };
+    Qv::ViewportClickAction altDoubleClickAction{ Qv::ViewportClickAction::None };
+    Qv::ViewportDragAction dragAction{ Qv::ViewportDragAction::None };
+    Qv::ViewportDragAction altDragAction{ Qv::ViewportDragAction::None };
+    Qv::ViewportClickAction middleClickAction{ Qv::ViewportClickAction::None };
+    Qv::ViewportClickAction altMiddleClickAction{ Qv::ViewportClickAction::None };
+    Qv::ClickOrDrag middleButtonMode{ Qv::ClickOrDrag::Click };
+    Qv::ViewportDragAction middleDragAction{ Qv::ViewportDragAction::None };
+    Qv::ViewportDragAction altMiddleDragAction{ Qv::ViewportDragAction::None };
+    Qv::ViewportScrollAction verticalScrollAction{ Qv::ViewportScrollAction::None };
+    Qv::ViewportScrollAction horizontalScrollAction{ Qv::ViewportScrollAction::None };
+    Qv::ViewportScrollAction altVerticalScrollAction{ Qv::ViewportScrollAction::None };
+    Qv::ViewportScrollAction altHorizontalScrollAction{ Qv::ViewportScrollAction::None };
+    bool scrollActionCooldown{ false };
 
     std::optional<Qv::CalculatedZoomMode> calculatedZoomMode;
     std::optional<Qv::CalculatedZoomMode> lastCalculatedZoomMode;
     std::optional<qreal> lastCalculatedZoomLevel;
-    bool globalNavigationResetsZoom {true};
-    bool navigationResetsZoom {true};
-    bool loadIsFromSessionRestore {false};
-    qreal zoomLevel {1.0};
+    bool globalNavigationResetsZoom{ true };
+    bool navigationResetsZoom{ true };
+    bool loadIsFromSessionRestore{ false };
+    qreal zoomLevel{ 1.0 };
     std::optional<qreal> lastSuccessfulZoom;
     std::optional<qreal> preservedLoadZoom;
-    qreal appliedDpiAdjustment {1.0};
-    qreal appliedExpensiveScaleZoomLevel {0.0};
-    bool isUpdatingSceneRect {false};
-    bool zoomCommitInProgress {false};
-    bool verticalScrollBarGeometryUpdatePending {false};
-    bool isUpdatingVerticalScrollBarGeometry {false};
+    qreal appliedDpiAdjustment{ 1.0 };
+    qreal appliedExpensiveScaleZoomLevel{ 0.0 };
+    bool isUpdatingSceneRect{ false };
+    bool zoomCommitInProgress{ false };
+    bool verticalScrollBarGeometryUpdatePending{ false };
+    bool isUpdatingVerticalScrollBarGeometry{ false };
     std::optional<QPointF> postLayoutZoomAnchorScene;
     std::optional<QPointF> postLayoutZoomAnchorViewport;
-    bool postLayoutZoomAnchorNeedsRestore {false};
-    bool isRestoringPostLayoutZoomAnchor {false};
-    bool fullScreenPanInternalUpdate {false};
-    bool fullScreenPanPreservationActive {false};
-    ScrollEdge fullScreenHorizontalPanEdge {ScrollEdge::None};
-    ScrollEdge fullScreenVerticalPanEdge {ScrollEdge::None};
+    bool postLayoutZoomAnchorNeedsRestore{ false };
+    bool isRestoringPostLayoutZoomAnchor{ false };
+    bool fullScreenPanInternalUpdate{ false };
+    bool fullScreenPanPreservationActive{ false };
+    ScrollEdge fullScreenHorizontalPanEdge{ ScrollEdge::None };
+    ScrollEdge fullScreenVerticalPanEdge{ ScrollEdge::None };
     std::optional<QPointF> fullScreenPanAnchorScene;
-    bool isCursorAutoHideFullscreenEnabled {true};
-    bool isCursorVisible {true};
+    bool isCursorAutoHideFullscreenEnabled{ true };
+    bool isCursorVisible{ true };
     QRect lastImageContentRect;
 
     // One immutable, oriented RGBA snapshot shared with native transition
     // providers. Source content and orientation, not viewport geometry, key it.
 
-    QVImageCore imageCore {this};
+    QVImageCore imageCore{ this };
 
     QTimer *expensiveScaleTimer;
     QTimer *vectorRefineTimer;
@@ -492,12 +492,12 @@ private:
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;
-    Qt::MouseButton pressedMouseButton {Qt::MouseButton::NoButton};
-    Qt::KeyboardModifiers mousePressModifiers {Qt::KeyboardModifier::NoModifier};
-    bool isDelayingDrag {false};
-    bool isLastMousePosDubious {false};
-    bool isSystemWindowDragActive {false};
-    bool isVectorMousePanActive {false};
+    Qt::MouseButton pressedMouseButton{ Qt::MouseButton::NoButton };
+    Qt::KeyboardModifiers mousePressModifiers{ Qt::KeyboardModifier::NoModifier };
+    bool isDelayingDrag{ false };
+    bool isLastMousePosDubious{ false };
+    bool isSystemWindowDragActive{ false };
+    bool isVectorMousePanActive{ false };
     QPoint lastMousePos;
     // QAction::triggered() does not carry a viewport position.  Keep the last
     // delivered mouse position so keyboard/menu zooms use the same anchor as
@@ -511,9 +511,9 @@ private:
     QList<QKeySequence> navRandomShortcuts;
     QElapsedTimer lastTurboNav;
     QElapsedTimer lastTurboNavKeyPress;
-    int turboNavInterval {0};
+    int turboNavInterval{ 0 };
 
-    const int startDragDistance {3};
+    const int startDragDistance{ 3 };
 };
 Q_DECLARE_METATYPE(QVGraphicsView::SwipeData)
 #endif // QVGRAPHICSVIEW_H

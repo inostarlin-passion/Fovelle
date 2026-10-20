@@ -98,13 +98,11 @@
 #include "native_titlebar_probe.h"
 #include "scoped_hdr_test_display.h"
 
-namespace
-{
+namespace {
 QStringList *capturedNativeDialogMessages = nullptr;
 QtMessageHandler previousNativeDialogHandler = nullptr;
 
-void captureNativeDialogMessages(QtMsgType type,
-                                 const QMessageLogContext &context,
+void captureNativeDialogMessages(QtMsgType type, const QMessageLogContext &context,
                                  const QString &message)
 {
     if (capturedNativeDialogMessages && context.category
@@ -117,9 +115,9 @@ void captureNativeDialogMessages(QtMsgType type,
 class ScopedNativeDialogLogCapture
 {
 public:
-    explicit ScopedNativeDialogLogCapture(QStringList *messages) :
-        previousRules(qgetenv("QT_LOGGING_RULES")),
-        previousHandler(qInstallMessageHandler(captureNativeDialogMessages))
+    explicit ScopedNativeDialogLogCapture(QStringList *messages)
+        : previousRules(qgetenv("QT_LOGGING_RULES")),
+          previousHandler(qInstallMessageHandler(captureNativeDialogMessages))
     {
         capturedNativeDialogMessages = messages;
         previousNativeDialogHandler = previousHandler;
@@ -138,7 +136,7 @@ private:
     QByteArray previousRules;
     QtMessageHandler previousHandler;
 };
-}
+} // namespace
 
 class ImageLoaderTests : public QObject
 {
@@ -520,9 +518,9 @@ private slots:
 class TestableImageCore : public QVImageCore
 {
 public:
-    using QVImageCore::QVImageCore;
     using QVImageCore::handleColorSpaceConversion;
     using QVImageCore::loadPixmap;
+    using QVImageCore::QVImageCore;
 };
 
 class PaintRegionRecorder : public QObject
@@ -535,8 +533,7 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override
     {
         Q_UNUSED(watched)
-        if (event->type() == QEvent::Paint)
-        {
+        if (event->type() == QEvent::Paint) {
             const auto *paintEvent = static_cast<QPaintEvent *>(event);
             qint64 area = 0;
             for (const QRect &rect : paintEvent->region())
@@ -564,23 +561,20 @@ protected:
         if (!dialog)
             return false;
 
-        if (event->type() == QEvent::Show && !shown)
-        {
+        if (event->type() == QEvent::Show && !shown) {
             shown = true;
             shownFrame = dialog->frameGeometry();
             qInfo() << "OPTIONS_FIRST_SHOW_FRAME" << shownFrame;
-        }
-        else if (event->type() == QEvent::Move && shown)
-        {
+        } else if (event->type() == QEvent::Move && shown) {
             ++movesAfterShow;
         }
         return false;
     }
 
 private:
-    bool shown {false};
+    bool shown{ false };
     QRect shownFrame;
-    int movesAfterShow {0};
+    int movesAfterShow{ 0 };
 };
 
 class FullScreenExitGeometryRecorder : public QObject
@@ -601,41 +595,36 @@ protected:
         if (!window)
             return false;
 
-        if (event->type() == QEvent::WindowStateChange)
-        {
+        if (event->type() == QEvent::WindowStateChange) {
             const auto *stateEvent = static_cast<QWindowStateChangeEvent *>(event);
             if (stateEvent->oldState().testFlag(Qt::WindowFullScreen)
                 && !window->windowState().testFlag(Qt::WindowFullScreen))
                 exitObserved = true;
-        }
-        else if (exitObserved
-                 && (event->type() == QEvent::Move
-                     || event->type() == QEvent::Resize))
-        {
+        } else if (exitObserved
+                   && (event->type() == QEvent::Move || event->type() == QEvent::Resize)) {
             ++postExitGeometryEvents;
         }
         return false;
     }
 
 private:
-    bool exitObserved {false};
-    int postExitGeometryEvents {0};
+    bool exitObserved{ false };
+    int postExitGeometryEvents{ 0 };
 };
 
-static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color, const QSize size = QSize(32, 32))
+static QString createTestImage(const QTemporaryDir &dir, const QString &name, const QColor color,
+                               const QSize size = QSize(32, 32))
 {
     const QString path = dir.filePath(name + ".png");
     QImage image(size, QImage::Format_RGB32);
     image.fill(color);
     if (!image.save(path))
-        return {};
+        return { };
     return path;
 }
 
-static QString createQtRasterTestImage(const QTemporaryDir &dir,
-                                       const QString &name,
-                                       const QColor color,
-                                       const QSize size)
+static QString createQtRasterTestImage(const QTemporaryDir &dir, const QString &name,
+                                       const QColor color, const QSize size)
 {
     // XPM is intentionally outside the macOS Image I/O native-SDR path.  It
     // keeps this trajectory on QGraphicsView/QPixmap so the production
@@ -645,7 +634,7 @@ static QString createQtRasterTestImage(const QTemporaryDir &dir,
     QImage image(size, QImage::Format_RGB32);
     image.fill(color);
     if (!image.save(path, "XPM"))
-        return {};
+        return { };
     return path;
 }
 
@@ -654,8 +643,7 @@ static bool waitForTestCondition(Predicate predicate, const int timeoutMs)
 {
     QElapsedTimer timer;
     timer.start();
-    while (true)
-    {
+    while (true) {
         if (predicate())
             return true;
         if (timer.elapsed() >= timeoutMs)
@@ -664,53 +652,60 @@ static bool waitForTestCondition(Predicate predicate, const int timeoutMs)
     }
 }
 
-static QString createTransparentImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(1, 1))
+static QString createTransparentImage(const QTemporaryDir &dir, const QString &name,
+                                      const QSize size = QSize(1, 1))
 {
     const QString path = dir.filePath(name + ".png");
     QImage image(size, QImage::Format_ARGB32);
     image.fill(Qt::transparent);
     if (!image.save(path))
-        return {};
+        return { };
     return path;
 }
 
-static QString createSplitImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(1600, 1000))
+static QString createSplitImage(const QTemporaryDir &dir, const QString &name,
+                                const QSize size = QSize(1600, 1000))
 {
     const QString path = dir.filePath(name + ".png");
     QImage image(size, QImage::Format_RGB32);
     QPainter painter(&image);
     painter.fillRect(QRect(0, 0, size.width() / 2, size.height()), QColorConstants::White);
-    painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()), QColorConstants::Black);
+    painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()),
+                     QColorConstants::Black);
     painter.end();
     if (!image.save(path))
-        return {};
+        return { };
     return path;
 }
 
-static QString createHighResolutionDetailImage(const QTemporaryDir &dir, const QString &name, const QSize size = QSize(2400, 1600))
+static QString createHighResolutionDetailImage(const QTemporaryDir &dir, const QString &name,
+                                               const QSize size = QSize(2400, 1600))
 {
     const QString path = dir.filePath(name + ".png");
     QImage image(size, QImage::Format_RGB32);
-    for (int y = 0; y < size.height(); ++y)
-    {
+    for (int y = 0; y < size.height(); ++y) {
         for (int x = 0; x < size.width(); ++x)
-            image.setPixelColor(x, y, ((x + y) % 2 == 0) ? QColorConstants::White : QColorConstants::Black);
+            image.setPixelColor(
+                    x, y, ((x + y) % 2 == 0) ? QColorConstants::White : QColorConstants::Black);
     }
     if (!image.save(path))
-        return {};
+        return { };
     return path;
 }
 
-static QString createTiffImage(const QTemporaryDir &dir, const QString &name, const QString &extension = QStringLiteral("tiff"))
+static QString createTiffImage(const QTemporaryDir &dir, const QString &name,
+                               const QString &extension = QStringLiteral("tiff"))
 {
     const QString path = dir.filePath(name + "." + extension);
     // Keep this fixture independent of Qt image plugins. Image I/O is the
     // subject under test, so the test must not require a TIFF writer plugin.
     static const QByteArray tinyTiffBase64 =
-        "SUkqAAgAAAAKAAABAwABAAAABAAAAAEBAwABAAAAAwAAAAIBAwADAAAAhgAAAAMBAwABAAAAAQAAAAYBAwABAAAAAgAAABEBBAABAAAAjAAAABUBAwABAAAAAwAAABYBBAABAAAAAwAAABcBBAABAAAAJAAAABwBAwABAAAAAQAAAAAAAAAIAAgACAAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIA=";
+            "SUkqAAgAAAAKAAABAwABAAAABAAAAAEBAwABAAAAAwAAAAIBAwADAAAAhgAAAAMBAwABAAAAAQAAAAYBAwABAA"
+            "AAAgAAABEBBAABAAAAjAAAABUBAwABAAAAAwAAABYBBAABAAAAAwAAABcBBAABAAAAJAAAABwBAwABAAAAAQAA"
+            "AAAAAAAIAAgACAAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIAAgIA=";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray::fromBase64(tinyTiffBase64)) <= 0)
-        return {};
+        return { };
     return path;
 }
 
@@ -718,78 +713,75 @@ static QString createEPSVectorImage(const QTemporaryDir &dir, const QString &nam
 {
     const QString path = dir.filePath(name + ".eps");
     const QByteArray content =
-        "%!PS-Adobe-3.0 EPSF-3.0\n"
-        "%%BoundingBox: 0 0 8 4\n"
-        "%%HiResBoundingBox: 0 0 8 4\n"
-        "%%Pages: 1\n"
-        "%%EndComments\n"
-        "0 setgray\n"
-        "newpath 0 0 moveto 8 0 lineto 8 4 lineto 0 4 lineto closepath fill\n"
-        "1 setgray\n"
-        "newpath 1 1 moveto 3 1 lineto 3 3 lineto 1 3 lineto closepath fill\n"
-        "newpath 5 1 moveto 7 1 lineto 7 3 lineto 5 3 lineto closepath fill\n"
-        "showpage\n"
-        "%%EOF\n";
+            "%!PS-Adobe-3.0 EPSF-3.0\n"
+            "%%BoundingBox: 0 0 8 4\n"
+            "%%HiResBoundingBox: 0 0 8 4\n"
+            "%%Pages: 1\n"
+            "%%EndComments\n"
+            "0 setgray\n"
+            "newpath 0 0 moveto 8 0 lineto 8 4 lineto 0 4 lineto closepath fill\n"
+            "1 setgray\n"
+            "newpath 1 1 moveto 3 1 lineto 3 3 lineto 1 3 lineto closepath fill\n"
+            "newpath 5 1 moveto 7 1 lineto 7 3 lineto 5 3 lineto closepath fill\n"
+            "showpage\n"
+            "%%EOF\n";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
-        return {};
+        return { };
     return path;
 }
 
-static QString createTransparentEPSVectorImage(const QTemporaryDir &dir,
-                                               const QString &name)
+static QString createTransparentEPSVectorImage(const QTemporaryDir &dir, const QString &name)
 {
     const QString path = dir.filePath(name + ".eps");
     const QByteArray content =
-        "%!PS-Adobe-3.0 EPSF-3.0\n"
-        "%%BoundingBox: 0 0 120 40\n"
-        "%%HiResBoundingBox: 0 0 120 40\n"
-        "%%Pages: 1\n"
-        "%%EndComments\n"
-        "1 setgray\n"
-        "newpath 48 12 moveto 72 12 lineto 72 28 lineto 48 28 lineto closepath fill\n"
-        "showpage\n"
-        "%%EOF\n";
+            "%!PS-Adobe-3.0 EPSF-3.0\n"
+            "%%BoundingBox: 0 0 120 40\n"
+            "%%HiResBoundingBox: 0 0 120 40\n"
+            "%%Pages: 1\n"
+            "%%EndComments\n"
+            "1 setgray\n"
+            "newpath 48 12 moveto 72 12 lineto 72 28 lineto 48 28 lineto closepath fill\n"
+            "showpage\n"
+            "%%EOF\n";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
-        return {};
+        return { };
     return path;
 }
 
-static QString createTransparentSVGVectorImage(const QTemporaryDir &dir,
-                                               const QString &name)
+static QString createTransparentSVGVectorImage(const QTemporaryDir &dir, const QString &name)
 {
     const QString path = dir.filePath(name + ".svg");
     const QByteArray content =
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" "
-        "viewBox=\"0 0 120 40\"><rect x=\"48\" y=\"12\" width=\"24\" "
-        "height=\"16\" fill=\"#fff\"/></svg>";
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" "
+            "viewBox=\"0 0 120 40\"><rect x=\"48\" y=\"12\" width=\"24\" "
+            "height=\"16\" fill=\"#fff\"/></svg>";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
-        return {};
+        return { };
     return path;
 }
 
-static QString createLargeEPSVectorImage(const QTemporaryDir &dir,
-                                         const QString &name)
+static QString createLargeEPSVectorImage(const QTemporaryDir &dir, const QString &name)
 {
     const QString path = dir.filePath(name + ".eps");
     const QByteArray content =
-        "%!PS-Adobe-3.0 EPSF-3.0\n"
-        "%%BoundingBox: 0 0 16 12\n"
-        "%%HiResBoundingBox: 0 0 16 12\n"
-        "%%Pages: 1\n"
-        "%%EndComments\n"
-        "0 setgray\n"
-        "newpath 0 0 moveto 16 0 lineto 16 12 lineto 0 12 lineto closepath fill\n"
-        "1 setgray\n"
-        "newpath 2 2 moveto 6 2 lineto 6 10 lineto 2 10 lineto closepath fill\n"
-        "newpath 10 2 moveto 14 2 lineto 14 10 lineto 10 10 lineto closepath fill\n"
-        "showpage\n"
-        "%%EOF\n";
+            "%!PS-Adobe-3.0 EPSF-3.0\n"
+            "%%BoundingBox: 0 0 16 12\n"
+            "%%HiResBoundingBox: 0 0 16 12\n"
+            "%%Pages: 1\n"
+            "%%EndComments\n"
+            "0 setgray\n"
+            "newpath 0 0 moveto 16 0 lineto 16 12 lineto 0 12 lineto closepath fill\n"
+            "1 setgray\n"
+            "newpath 2 2 moveto 6 2 lineto 6 10 lineto 2 10 lineto closepath fill\n"
+            "newpath 10 2 moveto 14 2 lineto 14 10 lineto 10 10 lineto closepath fill\n"
+            "showpage\n"
+            "%%EOF\n";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
-        return {};
+        return { };
     return path;
 }
 
@@ -797,25 +789,28 @@ static QString createSVGVectorImage(const QTemporaryDir &dir, const QString &nam
 {
     const QString path = dir.filePath(name + ".svg");
     const QByteArray content =
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" viewBox=\"0 0 120 40\">"
-        "<rect width=\"120\" height=\"40\" rx=\"8\" fill=\"#000\"/>"
-        "<path d=\"M12 8 L32 20 L12 32 Z M108 8 L88 20 L108 32 Z\" fill=\"#fff\"/>"
-        "<circle cx=\"60\" cy=\"20\" r=\"10\" fill=\"#fff\"/>"
-        "</svg>";
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"40\" viewBox=\"0 0 "
+            "120 40\">"
+            "<rect width=\"120\" height=\"40\" rx=\"8\" fill=\"#000\"/>"
+            "<path d=\"M12 8 L32 20 L12 32 Z M108 8 L88 20 L108 32 Z\" fill=\"#fff\"/>"
+            "<circle cx=\"60\" cy=\"20\" r=\"10\" fill=\"#fff\"/>"
+            "</svg>";
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size())
-        return {};
+        return { };
     return path;
 }
 
-static QString epsSamplePath(const QTemporaryDir &fallbackDirectory, bool *usesExternalSample = nullptr)
+static QString epsSamplePath(const QTemporaryDir &fallbackDirectory,
+                             bool *usesExternalSample = nullptr)
 {
     const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_EPS_SAMPLE"));
     const QString suppliedPath = configuredPath.isEmpty()
-        ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/EPS/Download_on_the_App_Store_Badge_US-UK_blk_092917.eps")
-        : configuredPath;
-    if (QFileInfo::exists(suppliedPath))
-    {
+            ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/"
+                             "Download_on_App_Store/Black_lockup/EPS/"
+                             "Download_on_the_App_Store_Badge_US-UK_blk_092917.eps")
+            : configuredPath;
+    if (QFileInfo::exists(suppliedPath)) {
         if (usesExternalSample)
             *usesExternalSample = true;
         return suppliedPath;
@@ -831,10 +826,11 @@ static QString svgSamplePath(const QTemporaryDir &fallbackDirectory,
 {
     const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_SVG_SAMPLE"));
     const QString suppliedPath = configuredPath.isEmpty()
-        ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/Download_on_App_Store/Black_lockup/SVG/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg")
-        : configuredPath;
-    if (QFileInfo::exists(suppliedPath))
-    {
+            ? QStringLiteral("/Users/inostarlin/Downloads/Download-on-the-App-Store/US/"
+                             "Download_on_App_Store/Black_lockup/SVG/"
+                             "Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg")
+            : configuredPath;
+    if (QFileInfo::exists(suppliedPath)) {
         if (usesExternalSample)
             *usesExternalSample = true;
         return suppliedPath;
@@ -849,32 +845,19 @@ static void sendMouseMove(QWidget *widget, const QPoint &position,
                           const Qt::MouseButtons buttons = Qt::NoButton)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    QMouseEvent event(
-        QEvent::MouseMove,
-        QPointF(position),
-        QPointF(position),
-        QPointF(widget->mapToGlobal(position)),
-        Qt::NoButton,
-        buttons,
-        Qt::NoModifier);
+    QMouseEvent event(QEvent::MouseMove, QPointF(position), QPointF(position),
+                      QPointF(widget->mapToGlobal(position)), Qt::NoButton, buttons,
+                      Qt::NoModifier);
 #else
-    QMouseEvent event(
-        QEvent::MouseMove,
-        position,
-        widget->mapToGlobal(position),
-        Qt::NoButton,
-        buttons,
-        Qt::NoModifier);
+    QMouseEvent event(QEvent::MouseMove, position, widget->mapToGlobal(position), Qt::NoButton,
+                      buttons, Qt::NoModifier);
 #endif
     QCoreApplication::sendEvent(widget, &event);
 }
 
-static bool sendNativeGesture(
-    QVGraphicsView *view,
-    const Qt::NativeGestureType type,
-    const QPoint &position,
-    const qreal value = 0.0,
-    const QPointF &delta = {})
+static bool sendNativeGesture(QVGraphicsView *view, const Qt::NativeGestureType type,
+                              const QPoint &position, const qreal value = 0.0,
+                              const QPointF &delta = { })
 {
     QWidget *receiver = view->viewport();
     const QPointF localPosition(position);
@@ -884,66 +867,45 @@ static bool sendNativeGesture(
     const QPointF scenePosition(position);
     const QPointF globalPosition(receiver->mapToGlobal(position));
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    QNativeGestureEvent event(
-        type,
-        QPointingDevice::primaryPointingDevice(),
-        2,
-        localPosition,
-        scenePosition,
-        globalPosition,
-        value,
-        delta);
+    QNativeGestureEvent event(type, QPointingDevice::primaryPointingDevice(), 2, localPosition,
+                              scenePosition, globalPosition, value, delta);
 #else
-    QNativeGestureEvent event(
-        type,
-        nullptr,
-        localPosition,
-        scenePosition,
-        globalPosition,
-        value,
-        0,
-        0);
+    QNativeGestureEvent event(type, nullptr, localPosition, scenePosition, globalPosition, value, 0,
+                              0);
 #endif
     const bool delivered = QCoreApplication::sendEvent(receiver, &event);
     return delivered && event.isAccepted();
 }
 
-static bool sendDiscreteZoomWheel(QVGraphicsView *view,
-                                  const QPoint &position,
-                                  const int delta)
+static bool sendDiscreteZoomWheel(QVGraphicsView *view, const QPoint &position, const int delta)
 {
     const QPointingDevice wheelDevice(
-        QStringLiteral("zoom acceptance mouse"), 91,
-        QInputDevice::DeviceType::Mouse,
-        QPointingDevice::PointerType::Generic,
-        QInputDevice::Capability::Scroll, 3, 0);
-    QWheelEvent event(
-        QPointF(position),
-        QPointF(view->viewport()->mapToGlobal(position)),
-        QPoint(0, delta), QPoint(0, delta), Qt::NoButton,
-        Qt::NoModifier, Qt::NoScrollPhase, false,
-        Qt::MouseEventNotSynthesized, &wheelDevice);
-    const bool delivered = QCoreApplication::sendEvent(
-        view->viewport(), &event);
+            QStringLiteral("zoom acceptance mouse"), 91, QInputDevice::DeviceType::Mouse,
+            QPointingDevice::PointerType::Generic, QInputDevice::Capability::Scroll, 3, 0);
+    QWheelEvent event(QPointF(position), QPointF(view->viewport()->mapToGlobal(position)),
+                      QPoint(0, delta), QPoint(0, delta), Qt::NoButton, Qt::NoModifier,
+                      Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
+    const bool delivered = QCoreApplication::sendEvent(view->viewport(), &event);
     return delivered && event.isAccepted();
 }
 
-static bool waitForZoomTerminal(QVGraphicsView *view,
-                                const int timeoutMs = 2000)
+static bool waitForZoomTerminal(QVGraphicsView *view, const int timeoutMs = 2000)
 {
-    return waitForTestCondition([view]() {
-        QCoreApplication::sendPostedEvents();
-        const auto timerIsActive = [view](const QString &name) {
-            const auto *timer = view->findChild<QTimer *>(name);
-            return timer && timer->isActive();
-        };
-        return !view->isZoomTransitionRunning()
-            && !timerIsActive(QStringLiteral("zoomAnchorSettleTimer"))
-            && !timerIsActive(QStringLiteral("zoomAnchorPostLayoutTimer"))
-            && !timerIsActive(QStringLiteral("constrainBoundsTimer"))
-            && !timerIsActive(QStringLiteral("expensiveScaleTimer"))
-            && !timerIsActive(QStringLiteral("verticalScrollBarGeometryTimer"));
-    }, timeoutMs);
+    return waitForTestCondition(
+            [view]() {
+                QCoreApplication::sendPostedEvents();
+                const auto timerIsActive = [view](const QString &name) {
+                    const auto *timer = view->findChild<QTimer *>(name);
+                    return timer && timer->isActive();
+                };
+                return !view->isZoomTransitionRunning()
+                        && !timerIsActive(QStringLiteral("zoomAnchorSettleTimer"))
+                        && !timerIsActive(QStringLiteral("zoomAnchorPostLayoutTimer"))
+                        && !timerIsActive(QStringLiteral("constrainBoundsTimer"))
+                        && !timerIsActive(QStringLiteral("expensiveScaleTimer"))
+                        && !timerIsActive(QStringLiteral("verticalScrollBarGeometryTimer"));
+            },
+            timeoutMs);
 }
 
 static void stopZoomIssueWriters(QVGraphicsView *view)
@@ -951,16 +913,15 @@ static void stopZoomIssueWriters(QVGraphicsView *view)
     if (!view)
         return;
 
-    if (auto *animation = view->findChild<QPropertyAnimation *>(
-            QStringLiteral("zoomTransitionAnimation")))
+    if (auto *animation =
+                view->findChild<QPropertyAnimation *>(QStringLiteral("zoomTransitionAnimation")))
         animation->stop();
-    for (QTimer *timer : {
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
-             view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
-             view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
-             view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))})
-    {
+    for (QTimer *timer :
+         { view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+           view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
+           view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+           view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
+           view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer")) }) {
         if (timer)
             timer->stop();
     }
@@ -969,10 +930,8 @@ static void stopZoomIssueWriters(QVGraphicsView *view)
 static bool containsColor(const QImage &image, const QRect &area, const QColor &color)
 {
     const QRect clippedArea = area.intersected(image.rect());
-    for (int y = clippedArea.top(); y <= clippedArea.bottom(); ++y)
-    {
-        for (int x = clippedArea.left(); x <= clippedArea.right(); ++x)
-        {
+    for (int y = clippedArea.top(); y <= clippedArea.bottom(); ++y) {
+        for (int x = clippedArea.left(); x <= clippedArea.right(); ++x) {
             if (image.pixelColor(x, y) == color)
                 return true;
         }
@@ -980,38 +939,33 @@ static bool containsColor(const QImage &image, const QRect &area, const QColor &
     return false;
 }
 
-static double sampledChannelDifference(const QImage &actual,
-                                       const QImage &expected)
+static double sampledChannelDifference(const QImage &actual, const QImage &expected)
 {
     if (actual.size() != expected.size() || actual.isNull())
         return std::numeric_limits<double>::infinity();
 
     qint64 difference = 0;
     qint64 channelSamples = 0;
-    for (int y = 0; y < actual.height(); y += 8)
-    {
-        for (int x = 0; x < actual.width(); x += 8)
-        {
+    for (int y = 0; y < actual.height(); y += 8) {
+        for (int x = 0; x < actual.width(); x += 8) {
             const QColor lhs = actual.pixelColor(x, y);
             const QColor rhs = expected.pixelColor(x, y);
-            difference += qAbs(lhs.red() - rhs.red())
-                    + qAbs(lhs.green() - rhs.green())
-                    + qAbs(lhs.blue() - rhs.blue())
-                    + qAbs(lhs.alpha() - rhs.alpha());
+            difference += qAbs(lhs.red() - rhs.red()) + qAbs(lhs.green() - rhs.green())
+                    + qAbs(lhs.blue() - rhs.blue()) + qAbs(lhs.alpha() - rhs.alpha());
             channelSamples += 4;
         }
     }
-    return channelSamples > 0
-            ? static_cast<double>(difference) / channelSamples
-            : std::numeric_limits<double>::infinity();
+    return channelSamples > 0 ? static_cast<double>(difference) / channelSamples
+                              : std::numeric_limits<double>::infinity();
 }
 
-static QString createBase64Image(const QTemporaryDir &dir, const QString &name, const QString &extension, const QByteArray &base64)
+static QString createBase64Image(const QTemporaryDir &dir, const QString &name,
+                                 const QString &extension, const QByteArray &base64)
 {
     const QString path = dir.filePath(name + "." + extension);
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray::fromBase64(base64)) <= 0)
-        return {};
+        return { };
     return path;
 }
 
@@ -1021,10 +975,9 @@ public:
     explicit ScopedOptionValues(const QHash<QString, QVariant> &values)
     {
         QSettings settings;
-        for (auto it = values.cbegin(); it != values.cend(); ++it)
-        {
+        for (auto it = values.cbegin(); it != values.cend(); ++it) {
             const QString fullKey = QStringLiteral("options/") + it.key();
-            savedValues.insert(it.key(), {settings.contains(fullKey), settings.value(fullKey)});
+            savedValues.insert(it.key(), { settings.contains(fullKey), settings.value(fullKey) });
             settings.setValue(fullKey, it.value());
         }
         settings.sync();
@@ -1034,8 +987,7 @@ public:
     ~ScopedOptionValues()
     {
         QSettings settings;
-        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it)
-        {
+        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it) {
             const QString fullKey = QStringLiteral("options/") + it.key();
             if (it.value().first)
                 settings.setValue(fullKey, it.value().second);
@@ -1058,27 +1010,19 @@ public:
     QUrl receivedUrl;
 
 public slots:
-    void capture(const QUrl &url)
-    {
-        receivedUrl = url;
-    }
+    void capture(const QUrl &url) { receivedUrl = url; }
 };
 
 class ScrollHelperTestHarness
 {
 public:
-    ScrollHelper::Parameters parameters{
-        QRect(0, 0, 1600, 900),
-        QRect(0, 0, 600, 400),
-        true,
-        true};
+    ScrollHelper::Parameters parameters{ QRect(0, 0, 1600, 900), QRect(0, 0, 600, 400), true,
+                                         true };
     QScrollArea scrollArea;
     ScrollHelper helper;
 
     ScrollHelperTestHarness()
-        : helper(&scrollArea, [this](ScrollHelper::Parameters &output) {
-              output = parameters;
-          })
+        : helper(&scrollArea, [this](ScrollHelper::Parameters &output) { output = parameters; })
     {
         // Keep the widget ranges wider than the image's valid ranges. This
         // makes any helper-level overshoot observable instead of letting
@@ -1097,14 +1041,10 @@ public:
 class SourceLanguageTranslator final : public QTranslator
 {
 public:
-    bool isEmpty() const override
-    {
-        return false;
-    }
+    bool isEmpty() const override { return false; }
 
     QString translate(const char *context, const char *sourceText,
-                      const char *disambiguation = nullptr,
-                      int n = -1) const override
+                      const char *disambiguation = nullptr, int n = -1) const override
     {
         Q_UNUSED(context)
         Q_UNUSED(disambiguation)
@@ -1121,8 +1061,7 @@ static QString settingsLabelColumnFailure(QWidget *page)
     int expectedRight = -1;
     QChar expectedPunctuation;
     int visibleLabelCount = 0;
-    for (auto *label : page->findChildren<QLabel *>())
-    {
+    for (auto *label : page->findChildren<QLabel *>()) {
         if (!label->isVisible())
             continue;
 
@@ -1130,47 +1069,48 @@ static QString settingsLabelColumnFailure(QWidget *page)
         if (text.isEmpty())
             continue;
 
-        if (!text.endsWith(QLatin1Char(':'))
-            && !text.endsWith(QChar(0xFF1A)))
+        if (!text.endsWith(QLatin1Char(':')) && !text.endsWith(QChar(0xFF1A)))
             continue;
 
         ++visibleLabelCount;
         const QChar punctuation = text.back();
         if (punctuation != QLatin1Char(':'))
             return QStringLiteral("label %1 does not use the English ASCII U+003A colon")
-                .arg(label->objectName());
+                    .arg(label->objectName());
         if (expectedPunctuation.isNull())
             expectedPunctuation = punctuation;
         else if (punctuation != expectedPunctuation)
             return QStringLiteral("labels use mixed terminal punctuation: %1 and %2")
-                .arg(QString::number(expectedPunctuation.unicode(), 16))
-                .arg(QString::number(punctuation.unicode(), 16));
+                    .arg(QString::number(expectedPunctuation.unicode(), 16))
+                    .arg(QString::number(punctuation.unicode(), 16));
 
         const int right = label->mapTo(page, QPoint(label->width(), 0)).x();
         if (expectedRight < 0)
             expectedRight = right;
         else if (right != expectedRight)
             return QStringLiteral("label %1 ends at x=%2, expected x=%3")
-                .arg(label->objectName())
-                .arg(right)
-                .arg(expectedRight);
+                    .arg(label->objectName())
+                    .arg(right)
+                    .arg(expectedRight);
 
         const Qt::Alignment alignment = label->alignment();
         if (!(alignment & Qt::AlignRight) || !(alignment & Qt::AlignTrailing))
             return QStringLiteral("label %1 is not right/trailing aligned")
-                .arg(label->objectName());
+                    .arg(label->objectName());
     }
 
     return visibleLabelCount > 0
-        ? QString()
-        : QStringLiteral("no visible colon-terminated settings labels found");
+            ? QString()
+            : QStringLiteral("no visible colon-terminated settings labels found");
 }
 
 class ScopedEnvironmentValue
 {
 public:
     explicit ScopedEnvironmentValue(const QByteArray &name)
-        : variableName(name), existed(qEnvironmentVariableIsSet(name.constData())), value(qgetenv(name.constData()))
+        : variableName(name),
+          existed(qEnvironmentVariableIsSet(name.constData())),
+          value(qgetenv(name.constData()))
     {
     }
 
@@ -1191,8 +1131,7 @@ private:
 class ScopedSettingPreserver
 {
 public:
-    explicit ScopedSettingPreserver(QString key)
-        : settingKey(std::move(key))
+    explicit ScopedSettingPreserver(QString key) : settingKey(std::move(key))
     {
         QSettings settings;
         existed = settings.contains(settingKey);
@@ -1212,7 +1151,7 @@ public:
 private:
     QString settingKey;
     QVariant savedValue;
-    bool existed {false};
+    bool existed{ false };
 };
 
 // MainWindow restores its last geometry before show() and writes it again on
@@ -1243,7 +1182,7 @@ public:
 
 private:
     QVariant savedValue;
-    bool existed {false};
+    bool existed{ false };
 };
 
 class ScopedShortcutValues
@@ -1252,10 +1191,9 @@ public:
     explicit ScopedShortcutValues(const QHash<QString, QVariant> &values)
     {
         QSettings settings;
-        for (auto it = values.cbegin(); it != values.cend(); ++it)
-        {
+        for (auto it = values.cbegin(); it != values.cend(); ++it) {
             const QString fullKey = QStringLiteral("shortcuts/") + it.key();
-            savedValues.insert(it.key(), {settings.contains(fullKey), settings.value(fullKey)});
+            savedValues.insert(it.key(), { settings.contains(fullKey), settings.value(fullKey) });
             settings.setValue(fullKey, it.value());
         }
         settings.sync();
@@ -1265,8 +1203,7 @@ public:
     ~ScopedShortcutValues()
     {
         QSettings settings;
-        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it)
-        {
+        for (auto it = savedValues.cbegin(); it != savedValues.cend(); ++it) {
             const QString fullKey = QStringLiteral("shortcuts/") + it.key();
             if (it.value().first)
                 settings.setValue(fullKey, it.value().second);
@@ -1283,46 +1220,46 @@ private:
 
 static QJsonArray zoomTraceRect(const QRect &rect)
 {
-    return QJsonArray{rect.x(), rect.y(), rect.width(), rect.height()};
+    return QJsonArray{ rect.x(), rect.y(), rect.width(), rect.height() };
 }
 
 static QJsonArray zoomTraceRectF(const QRectF &rect)
 {
-    return QJsonArray{rect.x(), rect.y(), rect.width(), rect.height()};
+    return QJsonArray{ rect.x(), rect.y(), rect.width(), rect.height() };
 }
 
 static QJsonArray zoomTracePoint(const QPointF &point)
 {
-    return QJsonArray{point.x(), point.y()};
+    return QJsonArray{ point.x(), point.y() };
 }
 
 struct ZoomTraceSample
 {
     QString phase;
     QString eventObject;
-    bool checkable {false};
-    qint64 monotonicNs {0};
-    int animationTime {-1};
-    qreal logicalZoom {0.0};
-    qreal displayedZoom {0.0};
+    bool checkable{ false };
+    qint64 monotonicNs{ 0 };
+    int animationTime{ -1 };
+    qreal logicalZoom{ 0.0 };
+    qreal displayedZoom{ 0.0 };
     QTransform transform;
     QRectF sceneRect;
     QRectF imageRect;
     QRect viewportRect;
     QRect viewportGlobalRect;
     QRect usableViewportRect;
-    qreal devicePixelRatio {1.0};
-    bool horizontalVisible {false};
-    int horizontalMinimum {0};
-    int horizontalMaximum {0};
-    int horizontalValue {0};
-    int horizontalPageStep {0};
-    bool verticalVisible {false};
-    int verticalMinimum {0};
-    int verticalMaximum {0};
-    int verticalValue {0};
-    int verticalExpected {0};
-    int verticalPageStep {0};
+    qreal devicePixelRatio{ 1.0 };
+    bool horizontalVisible{ false };
+    int horizontalMinimum{ 0 };
+    int horizontalMaximum{ 0 };
+    int horizontalValue{ 0 };
+    int horizontalPageStep{ 0 };
+    bool verticalVisible{ false };
+    int verticalMinimum{ 0 };
+    int verticalMaximum{ 0 };
+    int verticalValue{ 0 };
+    int verticalExpected{ 0 };
+    int verticalPageStep{ 0 };
     QRect verticalBarGlobalRect;
     QRect verticalBarContainerGlobalRect;
     QRect verticalThumbActualRect;
@@ -1331,71 +1268,62 @@ struct ZoomTraceSample
     QPointF anchorScene;
     QPointF anchorViewportTarget;
     QPointF anchorViewportActual;
-    qreal anchorErrorX {0.0};
-    qreal anchorErrorY {0.0};
+    qreal anchorErrorX{ 0.0 };
+    qreal anchorErrorY{ 0.0 };
 
     QJsonObject toJson() const
     {
         return QJsonObject{
-            {QStringLiteral("phase"), phase},
-            {QStringLiteral("event_object"), eventObject},
-            {QStringLiteral("checkable"), checkable},
-            {QStringLiteral("monotonic_ns"), monotonicNs},
-            {QStringLiteral("animation_time"), animationTime},
-            {QStringLiteral("logical_zoom"), logicalZoom},
-            {QStringLiteral("displayed_zoom"), displayedZoom},
-            {QStringLiteral("transform"), QJsonArray{
-                transform.m11(), transform.m12(), transform.m21(),
-                transform.m22(), transform.dx(), transform.dy()}},
-            {QStringLiteral("scene_rect"), zoomTraceRectF(sceneRect)},
-            {QStringLiteral("image_rect"), zoomTraceRectF(imageRect)},
-            {QStringLiteral("viewport_rect"), zoomTraceRect(viewportRect)},
-            {QStringLiteral("viewport_global_rect"),
-             zoomTraceRect(viewportGlobalRect)},
-            {QStringLiteral("usable_viewport_rect"),
-             zoomTraceRect(usableViewportRect)},
-            {QStringLiteral("device_pixel_ratio"), devicePixelRatio},
-            {QStringLiteral("h_visible"), horizontalVisible},
-            {QStringLiteral("h_min"), horizontalMinimum},
-            {QStringLiteral("h_max"), horizontalMaximum},
-            {QStringLiteral("h_value"), horizontalValue},
-            {QStringLiteral("h_page_step"), horizontalPageStep},
-            {QStringLiteral("v_visible"), verticalVisible},
-            {QStringLiteral("v_min"), verticalMinimum},
-            {QStringLiteral("v_max"), verticalMaximum},
-            {QStringLiteral("v_value"), verticalValue},
-            {QStringLiteral("v_expected"), verticalExpected},
-            {QStringLiteral("v_page_step"), verticalPageStep},
-            {QStringLiteral("v_bar_global_rect"),
-             zoomTraceRect(verticalBarGlobalRect)},
-            {QStringLiteral("v_bar_container_global_rect"),
-             zoomTraceRect(verticalBarContainerGlobalRect)},
-            {QStringLiteral("v_thumb_actual_rect"),
-             zoomTraceRect(verticalThumbActualRect)},
-            {QStringLiteral("v_thumb_expected_rect"),
-             zoomTraceRect(verticalThumbExpectedRect)},
-            {QStringLiteral("anchor_uv"), zoomTracePoint(anchorUV)},
-            {QStringLiteral("anchor_scene"), zoomTracePoint(anchorScene)},
-            {QStringLiteral("anchor_viewport_target"),
-             zoomTracePoint(anchorViewportTarget)},
-            {QStringLiteral("anchor_viewport_actual"),
-             zoomTracePoint(anchorViewportActual)},
-            {QStringLiteral("anchor_error_x"), anchorErrorX},
-            {QStringLiteral("anchor_error_y"), anchorErrorY},
+            { QStringLiteral("phase"), phase },
+            { QStringLiteral("event_object"), eventObject },
+            { QStringLiteral("checkable"), checkable },
+            { QStringLiteral("monotonic_ns"), monotonicNs },
+            { QStringLiteral("animation_time"), animationTime },
+            { QStringLiteral("logical_zoom"), logicalZoom },
+            { QStringLiteral("displayed_zoom"), displayedZoom },
+            { QStringLiteral("transform"),
+              QJsonArray{ transform.m11(), transform.m12(), transform.m21(), transform.m22(),
+                          transform.dx(), transform.dy() } },
+            { QStringLiteral("scene_rect"), zoomTraceRectF(sceneRect) },
+            { QStringLiteral("image_rect"), zoomTraceRectF(imageRect) },
+            { QStringLiteral("viewport_rect"), zoomTraceRect(viewportRect) },
+            { QStringLiteral("viewport_global_rect"), zoomTraceRect(viewportGlobalRect) },
+            { QStringLiteral("usable_viewport_rect"), zoomTraceRect(usableViewportRect) },
+            { QStringLiteral("device_pixel_ratio"), devicePixelRatio },
+            { QStringLiteral("h_visible"), horizontalVisible },
+            { QStringLiteral("h_min"), horizontalMinimum },
+            { QStringLiteral("h_max"), horizontalMaximum },
+            { QStringLiteral("h_value"), horizontalValue },
+            { QStringLiteral("h_page_step"), horizontalPageStep },
+            { QStringLiteral("v_visible"), verticalVisible },
+            { QStringLiteral("v_min"), verticalMinimum },
+            { QStringLiteral("v_max"), verticalMaximum },
+            { QStringLiteral("v_value"), verticalValue },
+            { QStringLiteral("v_expected"), verticalExpected },
+            { QStringLiteral("v_page_step"), verticalPageStep },
+            { QStringLiteral("v_bar_global_rect"), zoomTraceRect(verticalBarGlobalRect) },
+            { QStringLiteral("v_bar_container_global_rect"),
+              zoomTraceRect(verticalBarContainerGlobalRect) },
+            { QStringLiteral("v_thumb_actual_rect"), zoomTraceRect(verticalThumbActualRect) },
+            { QStringLiteral("v_thumb_expected_rect"), zoomTraceRect(verticalThumbExpectedRect) },
+            { QStringLiteral("anchor_uv"), zoomTracePoint(anchorUV) },
+            { QStringLiteral("anchor_scene"), zoomTracePoint(anchorScene) },
+            { QStringLiteral("anchor_viewport_target"), zoomTracePoint(anchorViewportTarget) },
+            { QStringLiteral("anchor_viewport_actual"), zoomTracePoint(anchorViewportActual) },
+            { QStringLiteral("anchor_error_x"), anchorErrorX },
+            { QStringLiteral("anchor_error_y"), anchorErrorY },
         };
     }
 };
 
-enum class ZoomAnchorPolicy
-{
+enum class ZoomAnchorPolicy {
     ViewportCenter,
     FixedImagePoint,
 };
 
 static QString zoomTraceSampleError(const ZoomTraceSample &sample);
 
-static QRect zoomScrollBarThumbRect(QScrollBar *scrollBar,
-                                    const int sliderPosition)
+static QRect zoomScrollBarThumbRect(QScrollBar *scrollBar, const int sliderPosition)
 {
     QStyleOptionSlider option;
     option.initFrom(scrollBar);
@@ -1406,22 +1334,22 @@ static QRect zoomScrollBarThumbRect(QScrollBar *scrollBar,
     option.pageStep = scrollBar->pageStep();
     option.sliderPosition = sliderPosition;
     option.sliderValue = sliderPosition;
-    option.upsideDown = scrollBar->orientation() == Qt::Horizontal
-        ? scrollBar->invertedAppearance() : false;
-    return scrollBar->style()->subControlRect(
-        QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider,
-        scrollBar);
+    option.upsideDown =
+            scrollBar->orientation() == Qt::Horizontal ? scrollBar->invertedAppearance() : false;
+    return scrollBar->style()->subControlRect(QStyle::CC_ScrollBar, &option,
+                                              QStyle::SC_ScrollBarSlider, scrollBar);
 }
 
 class ZoomTraceProbe final : public QObject
 {
 public:
-    ZoomTraceProbe(MainWindow *window, QVGraphicsView *view,
-                   const ZoomAnchorPolicy anchorPolicy,
-                   const QPoint fixedAnchor,
-                   const QPointF anchorUV)
-        : window(window), view(view), anchorPolicy(anchorPolicy),
-          fixedAnchor(fixedAnchor), anchorUV(anchorUV)
+    ZoomTraceProbe(MainWindow *window, QVGraphicsView *view, const ZoomAnchorPolicy anchorPolicy,
+                   const QPoint fixedAnchor, const QPointF anchorUV)
+        : window(window),
+          view(view),
+          anchorPolicy(anchorPolicy),
+          fixedAnchor(fixedAnchor),
+          anchorUV(anchorUV)
     {
         clock.start();
 
@@ -1438,25 +1366,19 @@ public:
         addWatchedObject(view->horizontalScrollBar()->parentWidget());
         addWatchedObject(view->verticalScrollBar()->parentWidget());
 
-        auto *animation = view->findChild<QPropertyAnimation *>(
-            QStringLiteral("zoomTransitionAnimation"));
-        if (animation)
-        {
+        auto *animation =
+                view->findChild<QPropertyAnimation *>(QStringLiteral("zoomTransitionAnimation"));
+        if (animation) {
             connect(animation, &QPropertyAnimation::valueChanged, this,
                     [this, animation](const QVariant &) {
-                record(QStringLiteral("animation-value"), false,
-                       animation->currentTime());
-            });
+                        record(QStringLiteral("animation-value"), false, animation->currentTime());
+                    });
             connect(animation, &QPropertyAnimation::stateChanged, this,
-                    [this, animation](QAbstractAnimation::State,
-                                      QAbstractAnimation::State) {
-                record(QStringLiteral("animation-state"), false,
-                       animation->currentTime());
-            });
-            connect(animation, &QPropertyAnimation::finished, this,
-                    [this, animation]() {
-                record(QStringLiteral("animation-finished"), true,
-                       animation->currentTime());
+                    [this, animation](QAbstractAnimation::State, QAbstractAnimation::State) {
+                        record(QStringLiteral("animation-state"), false, animation->currentTime());
+                    });
+            connect(animation, &QPropertyAnimation::finished, this, [this, animation]() {
+                record(QStringLiteral("animation-finished"), true, animation->currentTime());
             });
         }
 
@@ -1475,12 +1397,11 @@ public:
         connect(vertical, &QScrollBar::actionTriggered, this,
                 [this](int) { record(QStringLiteral("v-action"), false); });
 
-        for (QTimer *timer : {
-                 view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))})
-        {
+        for (QTimer *timer :
+             { view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+               view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+               view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
+               view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer")) }) {
             if (!timer)
                 continue;
             connect(timer, &QTimer::timeout, this, [this, timer]() {
@@ -1500,9 +1421,9 @@ public:
     {
         samples.clear();
         firstImmediateError.clear();
-        firstBadFrame = {};
-        worstFrame = {};
-        terminalFrame = {};
+        firstBadFrame = { };
+        worstFrame = { };
+        terminalFrame = { };
         pendingFrameCaptureIndexes.clear();
         worstDeviation = -1;
         firstBadSampleIndex = -1;
@@ -1517,10 +1438,7 @@ public:
 
     const QVector<ZoomTraceSample> &getSamples() const { return samples; }
 
-    const QString &firstImmediateErrorMessage() const
-    {
-        return firstImmediateError;
-    }
+    const QString &firstImmediateErrorMessage() const { return firstImmediateError; }
 
     void saveFailureFrames(const QString &path, QWidget *fallbackWindow)
     {
@@ -1529,12 +1447,9 @@ public:
         const auto choose = [&fallback](const QImage &preferred) {
             return preferred.isNull() ? fallback : preferred;
         };
-        choose(firstBadFrame).save(
-            QDir(path).filePath(QStringLiteral("first-bad-frame.png")));
-        choose(worstFrame).save(
-            QDir(path).filePath(QStringLiteral("worst-frame.png")));
-        choose(terminalFrame).save(
-            QDir(path).filePath(QStringLiteral("terminal-frame.png")));
+        choose(firstBadFrame).save(QDir(path).filePath(QStringLiteral("first-bad-frame.png")));
+        choose(worstFrame).save(QDir(path).filePath(QStringLiteral("worst-frame.png")));
+        choose(terminalFrame).save(QDir(path).filePath(QStringLiteral("terminal-frame.png")));
     }
 
     // QWidget::grab() can synchronously request a repaint.  Capture only
@@ -1542,19 +1457,16 @@ public:
     // from an event filter or a signal callback would re-enter paintEvent.
     void capturePendingFrames()
     {
-        if (samples.isEmpty() || (pendingFrameCaptureIndexes.isEmpty()
-                                  && samples.constLast().phase
-                                      != QStringLiteral("manual-terminal")
-                                  && samples.constLast().phase
-                                      != QStringLiteral("live-terminal")))
+        if (samples.isEmpty()
+            || (pendingFrameCaptureIndexes.isEmpty()
+                && samples.constLast().phase != QStringLiteral("manual-terminal")
+                && samples.constLast().phase != QStringLiteral("live-terminal")))
             return;
 
         const QImage frame = captureFrame();
         if (frame.isNull())
             return;
-        for (const qsizetype sampleIndex : std::as_const(
-                 pendingFrameCaptureIndexes))
-        {
+        for (const qsizetype sampleIndex : std::as_const(pendingFrameCaptureIndexes)) {
             if (sampleIndex == firstBadSampleIndex && firstBadFrame.isNull())
                 firstBadFrame = frame;
             if (sampleIndex == worstSampleIndex)
@@ -1568,15 +1480,13 @@ public:
 
     bool hasPhase(const QString &phase) const
     {
-        return std::any_of(samples.cbegin(), samples.cend(),
-                           [&phase](const ZoomTraceSample &sample) {
-            return sample.phase == phase;
-        });
+        return std::any_of(
+                samples.cbegin(), samples.cend(),
+                [&phase](const ZoomTraceSample &sample) { return sample.phase == phase; });
     }
 
-    void record(const QString &phase, const bool checkable,
-                const int animationTime = -1,
-                const QString &eventObject = {})
+    void record(const QString &phase, const bool checkable, const int animationTime = -1,
+                const QString &eventObject = { })
     {
         ++eventRevision;
         ZoomTraceSample sample;
@@ -1584,20 +1494,17 @@ public:
         sample.eventObject = eventObject;
         sample.checkable = checkable;
         sample.monotonicNs = clock.nsecsElapsed();
-        sample.animationTime = animationTime >= 0
-            ? animationTime : currentAnimationTime();
+        sample.animationTime = animationTime >= 0 ? animationTime : currentAnimationTime();
         sample.logicalZoom = view->getZoomLevel();
         sample.displayedZoom = view->animatedZoomLevel();
         sample.transform = view->transform();
         sample.sceneRect = view->sceneRect();
         sample.imageRect = view->scene()->itemsBoundingRect();
         sample.viewportRect = view->viewport()->rect();
-        sample.viewportGlobalRect = QRect(
-            view->viewport()->mapToGlobal(QPoint(0, 0)),
-            view->viewport()->size());
+        sample.viewportGlobalRect =
+                QRect(view->viewport()->mapToGlobal(QPoint(0, 0)), view->viewport()->size());
         sample.usableViewportRect = sample.viewportRect;
-        sample.usableViewportRect.setTop(
-            window->getViewportPosition().obscuredHeight);
+        sample.usableViewportRect.setTop(window->getViewportPosition().obscuredHeight);
         sample.devicePixelRatio = view->devicePixelRatioF();
 
         auto *horizontal = view->horizontalScrollBar();
@@ -1606,8 +1513,7 @@ public:
         // is already available (for example when another native window is
         // active).  The scrollability transition is the deterministic oracle
         // for this regression; retain the field name for the JSON contract.
-        sample.horizontalVisible = horizontal->maximum()
-                > horizontal->minimum();
+        sample.horizontalVisible = horizontal->maximum() > horizontal->minimum();
         sample.horizontalMinimum = horizontal->minimum();
         sample.horizontalMaximum = horizontal->maximum();
         sample.horizontalValue = horizontal->value();
@@ -1617,117 +1523,91 @@ public:
         sample.verticalMaximum = vertical->maximum();
         sample.verticalValue = vertical->value();
         sample.verticalPageStep = vertical->pageStep();
-        sample.verticalBarGlobalRect = QRect(
-            vertical->mapToGlobal(QPoint(0, 0)), vertical->size());
+        sample.verticalBarGlobalRect = QRect(vertical->mapToGlobal(QPoint(0, 0)), vertical->size());
         QWidget *verticalBarContainer = vertical->parentWidget();
         if (!verticalBarContainer || verticalBarContainer == view
             || verticalBarContainer == view->viewport())
             verticalBarContainer = vertical;
         sample.verticalBarContainerGlobalRect = QRect(
-            verticalBarContainer->mapToGlobal(QPoint(0, 0)),
-            verticalBarContainer->size());
+                verticalBarContainer->mapToGlobal(QPoint(0, 0)), verticalBarContainer->size());
 
-        if (sample.verticalVisible)
-        {
-            const QRect actualThumb = zoomScrollBarThumbRect(
-                vertical, vertical->sliderPosition());
-            sample.verticalThumbActualRect = QRect(
-                vertical->mapToGlobal(actualThumb.topLeft()), actualThumb.size());
+        if (sample.verticalVisible) {
+            const QRect actualThumb = zoomScrollBarThumbRect(vertical, vertical->sliderPosition());
+            sample.verticalThumbActualRect =
+                    QRect(vertical->mapToGlobal(actualThumb.topLeft()), actualThumb.size());
         }
 
-        if (!sample.imageRect.isEmpty())
-        {
-            sample.anchorScene = QPointF(
-                sample.imageRect.left() + anchorUV.x() * sample.imageRect.width(),
-                sample.imageRect.top() + anchorUV.y() * sample.imageRect.height());
+        if (!sample.imageRect.isEmpty()) {
+            sample.anchorScene =
+                    QPointF(sample.imageRect.left() + anchorUV.x() * sample.imageRect.width(),
+                            sample.imageRect.top() + anchorUV.y() * sample.imageRect.height());
         }
         sample.anchorUV = anchorUV;
         sample.anchorViewportTarget = anchorPolicy == ZoomAnchorPolicy::ViewportCenter
-            ? QPointF(sample.usableViewportRect.center())
-            : QPointF(fixedAnchor);
+                ? QPointF(sample.usableViewportRect.center())
+                : QPointF(fixedAnchor);
         sample.anchorViewportActual = view->mapFromScene(sample.anchorScene);
         // AC-ZOOM-VBAR-ANCHOR: the same normalized image point must remain at
         // the input target throughout the transaction.
-        sample.anchorErrorX = sample.anchorViewportActual.x()
-            - sample.anchorViewportTarget.x();
-        sample.anchorErrorY = sample.anchorViewportActual.y()
-            - sample.anchorViewportTarget.y();
+        sample.anchorErrorX = sample.anchorViewportActual.x() - sample.anchorViewportTarget.x();
+        sample.anchorErrorY = sample.anchorViewportActual.y() - sample.anchorViewportTarget.y();
         // In the overflowing vertical axis, QGraphicsView's integer value is
         // the transformed image-point ordinate relative to the target
         // viewport ordinate.  Derive this independently from the actual bar
         // value; using value + anchorError would make the check tautological.
-        sample.verticalExpected = qRound(
-            sample.transform.map(sample.anchorScene).y()
-            - sample.anchorViewportTarget.y());
+        sample.verticalExpected = qRound(sample.transform.map(sample.anchorScene).y()
+                                         - sample.anchorViewportTarget.y());
 
-        if (sample.verticalVisible)
-        {
-            const int expectedPosition = qBound(
-                sample.verticalMinimum, sample.verticalExpected,
-                sample.verticalMaximum);
-            const QRect expectedThumb = zoomScrollBarThumbRect(
-                vertical, expectedPosition);
-            sample.verticalThumbExpectedRect = QRect(
-                vertical->mapToGlobal(expectedThumb.topLeft()),
-                expectedThumb.size());
+        if (sample.verticalVisible) {
+            const int expectedPosition =
+                    qBound(sample.verticalMinimum, sample.verticalExpected, sample.verticalMaximum);
+            const QRect expectedThumb = zoomScrollBarThumbRect(vertical, expectedPosition);
+            sample.verticalThumbExpectedRect =
+                    QRect(vertical->mapToGlobal(expectedThumb.topLeft()), expectedThumb.size());
         }
 
         samples.append(std::move(sample));
 
         const ZoomTraceSample &storedSample = samples.constLast();
-        if (storedSample.checkable)
-        {
+        if (storedSample.checkable) {
             const QString sampleError = zoomTraceSampleError(storedSample);
             if (firstImmediateError.isEmpty() && !sampleError.isEmpty())
                 firstImmediateError = sampleError;
 
             // AC-ZOOM-VBAR-GEOMETRY: value equality cannot detect a moved
             // scrollbar container; compare its physical global geometry.
-            if (!firstCheckableBarGeometry.has_value())
-            {
+            if (!firstCheckableBarGeometry.has_value()) {
                 firstCheckableBarGeometry = storedSample.verticalBarGlobalRect;
-                firstCheckableBarContainerGeometry =
-                    storedSample.verticalBarContainerGlobalRect;
-            }
-            else
-            {
+                firstCheckableBarContainerGeometry = storedSample.verticalBarContainerGlobalRect;
+            } else {
                 const QRect &baselineBar = firstCheckableBarGeometry.value();
-                const QRect &baselineContainer =
-                    firstCheckableBarContainerGeometry.value();
-                const bool barMoved =
-                    storedSample.verticalBarGlobalRect.x() != baselineBar.x()
-                    || storedSample.verticalBarGlobalRect.y() != baselineBar.y()
-                    || storedSample.verticalBarGlobalRect.width()
-                        != baselineBar.width();
+                const QRect &baselineContainer = firstCheckableBarContainerGeometry.value();
+                const bool barMoved = storedSample.verticalBarGlobalRect.x() != baselineBar.x()
+                        || storedSample.verticalBarGlobalRect.y() != baselineBar.y()
+                        || storedSample.verticalBarGlobalRect.width() != baselineBar.width();
                 const bool containerMoved =
-                    storedSample.verticalBarContainerGlobalRect.x()
-                        != baselineContainer.x()
-                    || storedSample.verticalBarContainerGlobalRect.y()
-                        != baselineContainer.y()
-                    || storedSample.verticalBarContainerGlobalRect.width()
-                        != baselineContainer.width();
-                if (firstImmediateError.isEmpty()
-                    && (barMoved || containerMoved))
-                {
+                        storedSample.verticalBarContainerGlobalRect.x() != baselineContainer.x()
+                        || storedSample.verticalBarContainerGlobalRect.y() != baselineContainer.y()
+                        || storedSample.verticalBarContainerGlobalRect.width()
+                                != baselineContainer.width();
+                if (firstImmediateError.isEmpty() && (barMoved || containerMoved)) {
                     firstImmediateError = QStringLiteral(
-                        "vertical scrollbar/container geometry moved during trajectory");
+                            "vertical scrollbar/container geometry moved during trajectory");
                     if (firstBadSampleIndex < 0)
                         firstBadSampleIndex = samples.size() - 1;
                     pendingFrameCaptureIndexes.insert(samples.size() - 1);
                 }
             }
 
-            const int deviation = qMax(
-                qAbs(storedSample.verticalValue - storedSample.verticalExpected),
-                qRound(qAbs(storedSample.anchorErrorY)));
-            if (deviation > worstDeviation)
-            {
+            const int deviation =
+                    qMax(qAbs(storedSample.verticalValue - storedSample.verticalExpected),
+                         qRound(qAbs(storedSample.anchorErrorY)));
+            if (deviation > worstDeviation) {
                 worstDeviation = deviation;
                 worstSampleIndex = samples.size() - 1;
                 pendingFrameCaptureIndexes.insert(samples.size() - 1);
             }
-            if (!sampleError.isEmpty() && firstBadSampleIndex < 0)
-            {
+            if (!sampleError.isEmpty() && firstBadSampleIndex < 0) {
                 firstBadSampleIndex = samples.size() - 1;
                 pendingFrameCaptureIndexes.insert(samples.size() - 1);
             }
@@ -1743,8 +1623,7 @@ protected:
             return false;
 
         QString phase;
-        switch (event->type())
-        {
+        switch (event->type()) {
         case QEvent::Paint:
             phase = QStringLiteral("paint");
             break;
@@ -1767,11 +1646,10 @@ protected:
             break;
         }
         if (!phase.isEmpty())
-            record(phase, event->type() == QEvent::Paint,
-                   currentAnimationTime(),
-                   QStringLiteral("%1:%2")
-                       .arg(QString::fromLatin1(watched->metaObject()->className()),
-                            watched->objectName()));
+            record(phase, event->type() == QEvent::Paint, currentAnimationTime(),
+                   QStringLiteral("%1:%2").arg(
+                           QString::fromLatin1(watched->metaObject()->className()),
+                           watched->objectName()));
         return false;
     }
 
@@ -1779,15 +1657,15 @@ private:
     QImage captureFrame()
     {
         if (capturingFrame || !window)
-            return {};
+            return { };
         QScopedValueRollback<bool> captureGuard(capturingFrame, true);
         return window->grab().toImage();
     }
 
     int currentAnimationTime() const
     {
-        const auto *animation = view->findChild<QPropertyAnimation *>(
-            QStringLiteral("zoomTransitionAnimation"));
+        const auto *animation =
+                view->findChild<QPropertyAnimation *>(QStringLiteral("zoomTransitionAnimation"));
         return animation ? animation->currentTime() : -1;
     }
 
@@ -1803,14 +1681,14 @@ private:
     QImage firstBadFrame;
     QImage worstFrame;
     QImage terminalFrame;
-    int worstDeviation {-1};
-    qsizetype firstBadSampleIndex {-1};
-    qsizetype worstSampleIndex {-1};
+    int worstDeviation{ -1 };
+    qsizetype firstBadSampleIndex{ -1 };
+    qsizetype worstSampleIndex{ -1 };
     std::optional<QRect> firstCheckableBarGeometry;
     std::optional<QRect> firstCheckableBarContainerGeometry;
     QSet<qsizetype> pendingFrameCaptureIndexes;
-    bool capturingFrame {false};
-    int eventRevision {0};
+    bool capturingFrame{ false };
+    int eventRevision{ 0 };
 };
 
 struct ZoomIssueSample
@@ -1818,12 +1696,12 @@ struct ZoomIssueSample
     QString phase;
     QRect imageRect;
     QRect usableViewportRect;
-    int horizontalMinimum {0};
-    int horizontalMaximum {0};
-    int horizontalValue {0};
-    int verticalMinimum {0};
-    int verticalMaximum {0};
-    int verticalValue {0};
+    int horizontalMinimum{ 0 };
+    int horizontalMaximum{ 0 };
+    int horizontalValue{ 0 };
+    int verticalMinimum{ 0 };
+    int verticalMaximum{ 0 };
+    int verticalValue{ 0 };
     std::optional<qreal> anchorError;
     std::optional<QPointF> anchorDelta;
 };
@@ -1835,8 +1713,7 @@ struct ZoomIssueSample
 class ZoomIssueProbe final : public QObject
 {
 public:
-    ZoomIssueProbe(MainWindow *window, QVGraphicsView *view)
-        : window(window), view(view)
+    ZoomIssueProbe(MainWindow *window, QVGraphicsView *view) : window(window), view(view)
     {
         const auto watch = [this](QObject *object) {
             if (!object || watchedObjects.contains(object))
@@ -1851,48 +1728,33 @@ public:
         watch(view->horizontalScrollBar()->parentWidget());
         watch(view->verticalScrollBar()->parentWidget());
 
-        connect(view->horizontalScrollBar(), &QScrollBar::rangeChanged,
-                this, [this](int, int) {
-            record(QStringLiteral("horizontal-range"));
-        });
-        connect(view->verticalScrollBar(), &QScrollBar::rangeChanged,
-                this, [this](int, int) {
-            record(QStringLiteral("vertical-range"));
-        });
-        connect(view->horizontalScrollBar(), &QScrollBar::valueChanged,
-                this, [this](int) {
-            record(QStringLiteral("horizontal-value"));
-        });
-        connect(view->verticalScrollBar(), &QScrollBar::valueChanged,
-                this, [this](int) {
-            record(QStringLiteral("vertical-value"));
-        });
+        connect(view->horizontalScrollBar(), &QScrollBar::rangeChanged, this,
+                [this](int, int) { record(QStringLiteral("horizontal-range")); });
+        connect(view->verticalScrollBar(), &QScrollBar::rangeChanged, this,
+                [this](int, int) { record(QStringLiteral("vertical-range")); });
+        connect(view->horizontalScrollBar(), &QScrollBar::valueChanged, this,
+                [this](int) { record(QStringLiteral("horizontal-value")); });
+        connect(view->verticalScrollBar(), &QScrollBar::valueChanged, this,
+                [this](int) { record(QStringLiteral("vertical-value")); });
 
         if (auto *animation = view->findChild<QPropertyAnimation *>(
-                QStringLiteral("zoomTransitionAnimation")))
-        {
+                    QStringLiteral("zoomTransitionAnimation"))) {
             connect(animation, &QPropertyAnimation::valueChanged, this,
-                    [this](const QVariant &) {
-                record(QStringLiteral("animation-value"));
-            });
+                    [this](const QVariant &) { record(QStringLiteral("animation-value")); });
             connect(animation, &QPropertyAnimation::finished, this,
-                    [this]() {
-                record(QStringLiteral("animation-finished"));
-            });
+                    [this]() { record(QStringLiteral("animation-finished")); });
         }
 
-        for (QTimer *timer : {
-                 view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
-                 view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))})
-        {
+        for (QTimer *timer :
+             { view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+               view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
+               view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+               view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
+               view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer")) }) {
             if (!timer)
                 continue;
-            connect(timer, &QTimer::timeout, this, [this, timer]() {
-                record(timer->objectName() + QStringLiteral("-timeout"));
-            });
+            connect(timer, &QTimer::timeout, this,
+                    [this, timer]() { record(timer->objectName() + QStringLiteral("-timeout")); });
         }
     }
 
@@ -1910,23 +1772,16 @@ public:
         anchorFollowsUsableViewportCenter = followsUsableViewportCenter;
     }
 
-    void setNoTransientScrollbars(const bool enabled)
-    {
-        checkNoTransientScrollbars = enabled;
-    }
+    void setNoTransientScrollbars(const bool enabled) { checkNoTransientScrollbars = enabled; }
 
-    void setNoAvoidableBlankSpace(const bool enabled)
-    {
-        checkNoAvoidableBlankSpace = enabled;
-    }
+    void setNoAvoidableBlankSpace(const bool enabled) { checkNoAvoidableBlankSpace = enabled; }
 
     void setFixedAnchorTolerance(const qreal tolerance)
     {
         fixedAnchorTolerance = qMax<qreal>(0.0, tolerance);
     }
 
-    void setFixedAnchorTolerances(const qreal horizontalTolerance,
-                                  const qreal verticalTolerance)
+    void setFixedAnchorTolerances(const qreal horizontalTolerance, const qreal verticalTolerance)
     {
         fixedAnchorToleranceX = qMax<qreal>(0.0, horizontalTolerance);
         fixedAnchorToleranceY = qMax<qreal>(0.0, verticalTolerance);
@@ -1939,11 +1794,9 @@ public:
 
         ZoomIssueSample sample;
         sample.phase = phase;
-        sample.imageRect = view->mapFromScene(
-            view->scene()->itemsBoundingRect()).boundingRect();
+        sample.imageRect = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
         sample.usableViewportRect = view->viewport()->rect();
-        sample.usableViewportRect.setTop(
-            window->getViewportPosition().obscuredHeight);
+        sample.usableViewportRect.setTop(window->getViewportPosition().obscuredHeight);
 
         auto *horizontal = view->horizontalScrollBar();
         auto *vertical = view->verticalScrollBar();
@@ -1954,13 +1807,11 @@ public:
         sample.verticalMaximum = vertical->maximum();
         sample.verticalValue = vertical->value();
 
-        if (anchorScene.has_value() && anchorViewport.has_value())
-        {
+        if (anchorScene.has_value() && anchorViewport.has_value()) {
             const QPointF expectedAnchor = anchorFollowsUsableViewportCenter
-                ? QPointF(sample.usableViewportRect.center())
-                : QPointF(anchorViewport.value());
-            const QPointF anchorDelta =
-                view->mapFromScene(anchorScene.value()) - expectedAnchor;
+                    ? QPointF(sample.usableViewportRect.center())
+                    : QPointF(anchorViewport.value());
+            const QPointF anchorDelta = view->mapFromScene(anchorScene.value()) - expectedAnchor;
             sample.anchorError = QLineF(anchorDelta, QPointF()).length();
             sample.anchorDelta = anchorDelta;
         }
@@ -1971,88 +1822,93 @@ public:
             return;
 
         const bool renderedFrame = observableFrame
-            && (phase == QStringLiteral("paint")
-                || phase == QStringLiteral("initial")
-                || phase == QStringLiteral("initial-fit")
-                || phase == QStringLiteral("terminal"));
+                && (phase == QStringLiteral("paint") || phase == QStringLiteral("initial")
+                    || phase == QStringLiteral("initial-fit")
+                    || phase == QStringLiteral("terminal"));
         const bool scrollbarVisibilityFrame = observableFrame
-            && (renderedFrame || phase == QStringLiteral("show")
-                || phase == QStringLiteral("hide"));
+                && (renderedFrame || phase == QStringLiteral("show")
+                    || phase == QStringLiteral("hide"));
 
-        const bool horizontalHasRange = sample.horizontalMaximum
-            > sample.horizontalMinimum;
-        const bool verticalHasRange = sample.verticalMaximum
-            > sample.verticalMinimum;
+        const bool horizontalHasRange = sample.horizontalMaximum > sample.horizontalMinimum;
+        const bool verticalHasRange = sample.verticalMaximum > sample.verticalMinimum;
         if (checkNoTransientScrollbars && scrollbarVisibilityFrame
-            && sample.imageRect.width()
-                <= sample.usableViewportRect.width() + 1
-            && horizontalHasRange)
-        {
-            firstError = QStringLiteral(
-                "%1: horizontal range %2..%3 while image width %4 fits usable width %5")
-                .arg(phase).arg(sample.horizontalMinimum)
-                .arg(sample.horizontalMaximum).arg(sample.imageRect.width())
-                .arg(sample.usableViewportRect.width());
+            && sample.imageRect.width() <= sample.usableViewportRect.width() + 1
+            && horizontalHasRange) {
+            firstError =
+                    QStringLiteral(
+                            "%1: horizontal range %2..%3 while image width %4 fits usable width %5")
+                            .arg(phase)
+                            .arg(sample.horizontalMinimum)
+                            .arg(sample.horizontalMaximum)
+                            .arg(sample.imageRect.width())
+                            .arg(sample.usableViewportRect.width());
             return;
         }
         if (checkNoTransientScrollbars && scrollbarVisibilityFrame
-            && sample.imageRect.height()
-                <= sample.usableViewportRect.height() + 1
-            && verticalHasRange)
-        {
-            firstError = QStringLiteral(
-                "%1: vertical range %2..%3 while image height %4 fits usable height %5")
-                .arg(phase).arg(sample.verticalMinimum)
-                .arg(sample.verticalMaximum).arg(sample.imageRect.height())
-                .arg(sample.usableViewportRect.height());
+            && sample.imageRect.height() <= sample.usableViewportRect.height() + 1
+            && verticalHasRange) {
+            firstError =
+                    QStringLiteral(
+                            "%1: vertical range %2..%3 while image height %4 fits usable height %5")
+                            .arg(phase)
+                            .arg(sample.verticalMinimum)
+                            .arg(sample.verticalMaximum)
+                            .arg(sample.imageRect.height())
+                            .arg(sample.usableViewportRect.height());
             return;
         }
 
-        if (checkNoAvoidableBlankSpace && renderedFrame)
-        {
+        if (checkNoAvoidableBlankSpace && renderedFrame) {
             const QRect &image = sample.imageRect;
             const QRect &usable = sample.usableViewportRect;
             constexpr int EdgeTolerance = 2;
             if (image.width() > usable.width() + 1
                 && (image.left() > usable.left() + EdgeTolerance
-                    || image.right() < usable.right() - EdgeTolerance))
-            {
-                firstError = QStringLiteral(
-                    "%1: overflowing image does not cover usable horizontal interval; image=%2,%3,%4,%5 usable=%6,%7,%8,%9")
-                    .arg(phase).arg(image.left()).arg(image.right())
-                    .arg(image.width()).arg(image.height()).arg(usable.left())
-                    .arg(usable.right()).arg(usable.width()).arg(usable.height());
+                    || image.right() < usable.right() - EdgeTolerance)) {
+                firstError =
+                        QStringLiteral("%1: overflowing image does not cover usable horizontal "
+                                       "interval; image=%2,%3,%4,%5 usable=%6,%7,%8,%9")
+                                .arg(phase)
+                                .arg(image.left())
+                                .arg(image.right())
+                                .arg(image.width())
+                                .arg(image.height())
+                                .arg(usable.left())
+                                .arg(usable.right())
+                                .arg(usable.width())
+                                .arg(usable.height());
                 return;
             }
             if (image.height() > usable.height() + 1
                 && (image.top() > usable.top() + EdgeTolerance
-                    || image.bottom() < usable.bottom() - EdgeTolerance))
-            {
-                firstError = QStringLiteral(
-                    "%1: overflowing image does not cover usable vertical interval; image=%2,%3,%4,%5 usable=%6,%7,%8,%9")
-                    .arg(phase).arg(image.left()).arg(image.top())
-                    .arg(image.width()).arg(image.height()).arg(usable.left())
-                    .arg(usable.top()).arg(usable.width()).arg(usable.height());
+                    || image.bottom() < usable.bottom() - EdgeTolerance)) {
+                firstError = QStringLiteral("%1: overflowing image does not cover usable vertical "
+                                            "interval; image=%2,%3,%4,%5 usable=%6,%7,%8,%9")
+                                     .arg(phase)
+                                     .arg(image.left())
+                                     .arg(image.top())
+                                     .arg(image.width())
+                                     .arg(image.height())
+                                     .arg(usable.left())
+                                     .arg(usable.top())
+                                     .arg(usable.width())
+                                     .arg(usable.height());
                 return;
             }
         }
 
-        const qreal renderedAnchorToleranceX =
-            anchorFollowsUsableViewportCenter ? 8.0
-                : phase == QStringLiteral("resize")
-                    ? fixedAnchorTolerance : fixedAnchorToleranceX;
-        const qreal renderedAnchorToleranceY =
-            anchorFollowsUsableViewportCenter ? 8.0
-                : phase == QStringLiteral("resize")
-                    ? fixedAnchorTolerance : fixedAnchorToleranceY;
-        if (sample.anchorError.has_value() && sample.anchorDelta.has_value()
-            && renderedFrame
+        const qreal renderedAnchorToleranceX = anchorFollowsUsableViewportCenter ? 8.0
+                : phase == QStringLiteral("resize") ? fixedAnchorTolerance
+                                                    : fixedAnchorToleranceX;
+        const qreal renderedAnchorToleranceY = anchorFollowsUsableViewportCenter ? 8.0
+                : phase == QStringLiteral("resize") ? fixedAnchorTolerance
+                                                    : fixedAnchorToleranceY;
+        if (sample.anchorError.has_value() && sample.anchorDelta.has_value() && renderedFrame
             && (qAbs(sample.anchorDelta->x()) > renderedAnchorToleranceX
-                || qAbs(sample.anchorDelta->y()) > renderedAnchorToleranceY))
-        {
-            firstError = QStringLiteral(
-                "%1: fixed scene anchor moved %2 DIP from its input point")
-                .arg(phase).arg(sample.anchorError.value());
+                || qAbs(sample.anchorDelta->y()) > renderedAnchorToleranceY)) {
+            firstError = QStringLiteral("%1: fixed scene anchor moved %2 DIP from its input point")
+                                 .arg(phase)
+                                 .arg(sample.anchorError.value());
         }
     }
 
@@ -2062,16 +1918,14 @@ public:
 
     bool sawHorizontalRange() const
     {
-        return std::any_of(samples.cbegin(), samples.cend(),
-                           [](const ZoomIssueSample &sample) {
+        return std::any_of(samples.cbegin(), samples.cend(), [](const ZoomIssueSample &sample) {
             return sample.horizontalMaximum > sample.horizontalMinimum;
         });
     }
 
     bool sawVerticalRange() const
     {
-        return std::any_of(samples.cbegin(), samples.cend(),
-                           [](const ZoomIssueSample &sample) {
+        return std::any_of(samples.cbegin(), samples.cend(), [](const ZoomIssueSample &sample) {
             return sample.verticalMaximum > sample.verticalMinimum;
         });
     }
@@ -2082,8 +1936,7 @@ protected:
         if (!watchedObjects.contains(watched))
             return false;
 
-        switch (event->type())
-        {
+        switch (event->type()) {
         case QEvent::Paint:
             record(QStringLiteral("paint"), true);
             break;
@@ -2113,19 +1966,18 @@ private:
     QString firstError;
     std::optional<QPointF> anchorScene;
     std::optional<QPoint> anchorViewport;
-    bool anchorFollowsUsableViewportCenter {false};
-    qreal fixedAnchorTolerance {2.0};
-    qreal fixedAnchorToleranceX {2.0};
-    qreal fixedAnchorToleranceY {2.0};
-    bool checkNoTransientScrollbars {false};
-    bool checkNoAvoidableBlankSpace {false};
+    bool anchorFollowsUsableViewportCenter{ false };
+    qreal fixedAnchorTolerance{ 2.0 };
+    qreal fixedAnchorToleranceX{ 2.0 };
+    qreal fixedAnchorToleranceY{ 2.0 };
+    bool checkNoTransientScrollbars{ false };
+    bool checkNoAvoidableBlankSpace{ false };
 };
 
 static bool zoomTraceIsQuiet(ZoomTraceProbe &probe, const int maxTurns = 10)
 {
     int quietTurns = 0;
-    for (int turn = 0; turn < maxTurns; ++turn)
-    {
+    for (int turn = 0; turn < maxTurns; ++turn) {
         const int before = probe.eventRevisionValue();
         QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
         QCoreApplication::sendPostedEvents();
@@ -2142,12 +1994,10 @@ static bool zoomTraceIsQuiet(ZoomTraceProbe &probe, const int maxTurns = 10)
 
 static void stopZoomTraceTimers(QVGraphicsView *view)
 {
-    for (QTimer *timer : {
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
-             view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
-             view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"))})
-    {
+    for (QTimer *timer : { view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+                           view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
+                           view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+                           view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")) }) {
         if (timer)
             timer->stop();
     }
@@ -2155,13 +2005,12 @@ static void stopZoomTraceTimers(QVGraphicsView *view)
 
 static bool zoomTraceTimersAreInactive(QVGraphicsView *view)
 {
-    for (QTimer *timer : {
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
-             view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
-             view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
-             view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
-             view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer"))})
-    {
+    for (QTimer *timer :
+         { view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")),
+           view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")),
+           view->findChild<QTimer *>(QStringLiteral("constrainBoundsTimer")),
+           view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer")),
+           view->findChild<QTimer *>(QStringLiteral("verticalScrollBarGeometryTimer")) }) {
         if (timer && timer->isActive())
             return false;
     }
@@ -2171,9 +2020,8 @@ static bool zoomTraceTimersAreInactive(QVGraphicsView *view)
 static QString zoomTraceSampleError(const ZoomTraceSample &sample)
 {
     const auto rectDistance = [](const QRect &lhs, const QRect &rhs) {
-        return std::max({qAbs(lhs.top() - rhs.top()),
-                         qAbs(lhs.center().y() - rhs.center().y()),
-                         qAbs(lhs.bottom() - rhs.bottom())});
+        return std::max({ qAbs(lhs.top() - rhs.top()), qAbs(lhs.center().y() - rhs.center().y()),
+                          qAbs(lhs.bottom() - rhs.bottom()) });
     };
     // AC-ZOOM-VBAR-VALUE: derive the expected value from the current
     // transform and image anchor, never from the actual value.
@@ -2182,32 +2030,33 @@ static QString zoomTraceSampleError(const ZoomTraceSample &sample)
     if (sample.verticalExpected < sample.verticalMinimum + 2
         || sample.verticalExpected > sample.verticalMaximum - 2)
         return QStringLiteral("expected vertical value %1 is too close to range [%2,%3]")
-            .arg(sample.verticalExpected)
-            .arg(sample.verticalMinimum)
-            .arg(sample.verticalMaximum);
+                .arg(sample.verticalExpected)
+                .arg(sample.verticalMinimum)
+                .arg(sample.verticalMaximum);
     if (qAbs(sample.verticalValue - sample.verticalExpected) > 1)
         return QStringLiteral("vertical value %1 differs from expected %2")
-            .arg(sample.verticalValue).arg(sample.verticalExpected);
+                .arg(sample.verticalValue)
+                .arg(sample.verticalExpected);
     if (qAbs(sample.anchorErrorY) > 2.0)
         return QStringLiteral("vertical anchor error is (%1,%2) DIP")
-            .arg(sample.anchorErrorX).arg(sample.anchorErrorY);
+                .arg(sample.anchorErrorX)
+                .arg(sample.anchorErrorY);
     // AC-ZOOM-VBAR-THUMB: compare against the current platform style geometry.
-    if (rectDistance(sample.verticalThumbActualRect,
-                     sample.verticalThumbExpectedRect) > 1)
-        return QStringLiteral("vertical thumb differs from style oracle: actual=%1,%2,%3,%4 expected=%5,%6,%7,%8")
-            .arg(sample.verticalThumbActualRect.x())
-            .arg(sample.verticalThumbActualRect.y())
-            .arg(sample.verticalThumbActualRect.width())
-            .arg(sample.verticalThumbActualRect.height())
-            .arg(sample.verticalThumbExpectedRect.x())
-            .arg(sample.verticalThumbExpectedRect.y())
-            .arg(sample.verticalThumbExpectedRect.width())
-            .arg(sample.verticalThumbExpectedRect.height());
-    return {};
+    if (rectDistance(sample.verticalThumbActualRect, sample.verticalThumbExpectedRect) > 1)
+        return QStringLiteral("vertical thumb differs from style oracle: actual=%1,%2,%3,%4 "
+                              "expected=%5,%6,%7,%8")
+                .arg(sample.verticalThumbActualRect.x())
+                .arg(sample.verticalThumbActualRect.y())
+                .arg(sample.verticalThumbActualRect.width())
+                .arg(sample.verticalThumbActualRect.height())
+                .arg(sample.verticalThumbExpectedRect.x())
+                .arg(sample.verticalThumbExpectedRect.y())
+                .arg(sample.verticalThumbExpectedRect.width())
+                .arg(sample.verticalThumbExpectedRect.height());
+    return { };
 }
 
-static QString validateZoomTrace(const QVector<ZoomTraceSample> &samples,
-                                 const bool zoomIn,
+static QString validateZoomTrace(const QVector<ZoomTraceSample> &samples, const bool zoomIn,
                                  const bool requireHorizontalToggle)
 {
     bool hasCheckableSample = false;
@@ -2222,88 +2071,72 @@ static QString validateZoomTrace(const QVector<ZoomTraceSample> &samples,
     std::optional<QRect> firstVerticalBarGeometry;
     std::optional<QRect> firstVerticalBarContainerGeometry;
 
-    for (qsizetype index = 0; index < samples.size(); ++index)
-    {
+    for (qsizetype index = 0; index < samples.size(); ++index) {
         const ZoomTraceSample &sample = samples.at(index);
         if (!sample.checkable)
             continue;
 
         hasCheckableSample = true;
-        if (!hasPreviousHorizontal)
-        {
+        if (!hasPreviousHorizontal) {
             previousHorizontalVisible = sample.horizontalVisible;
             hasPreviousHorizontal = true;
             hasHorizontalStart = sample.horizontalVisible == !zoomIn;
-        }
-        else
-        {
-            if (zoomIn && previousHorizontalVisible && !sample.horizontalVisible)
-            {
-                if (firstBadIndex < 0)
-                {
+        } else {
+            if (zoomIn && previousHorizontalVisible && !sample.horizontalVisible) {
+                if (firstBadIndex < 0) {
                     firstBadIndex = static_cast<int>(index);
-                    firstBad = QStringLiteral("horizontal scrollbar toggled in the wrong direction");
+                    firstBad =
+                            QStringLiteral("horizontal scrollbar toggled in the wrong direction");
                 }
             }
-            if (!zoomIn && !previousHorizontalVisible && sample.horizontalVisible)
-            {
-                if (firstBadIndex < 0)
-                {
+            if (!zoomIn && !previousHorizontalVisible && sample.horizontalVisible) {
+                if (firstBadIndex < 0) {
                     firstBadIndex = static_cast<int>(index);
-                    firstBad = QStringLiteral("horizontal scrollbar toggled in the wrong direction");
+                    firstBad =
+                            QStringLiteral("horizontal scrollbar toggled in the wrong direction");
                 }
             }
             previousHorizontalVisible = sample.horizontalVisible;
         }
         hasHorizontalTarget |= sample.horizontalVisible == zoomIn;
 
-        if (!firstVerticalBarGeometry.has_value())
-        {
+        if (!firstVerticalBarGeometry.has_value()) {
             firstVerticalBarGeometry = sample.verticalBarGlobalRect;
-            firstVerticalBarContainerGeometry =
-                sample.verticalBarContainerGlobalRect;
-        }
-        else
-        {
+            firstVerticalBarContainerGeometry = sample.verticalBarContainerGlobalRect;
+        } else {
             const QRect &baselineBar = firstVerticalBarGeometry.value();
-            const QRect &baselineContainer =
-                firstVerticalBarContainerGeometry.value();
-            const bool barGeometryMoved =
-                sample.verticalBarGlobalRect.x() != baselineBar.x()
-                || sample.verticalBarGlobalRect.y() != baselineBar.y()
-                || sample.verticalBarGlobalRect.width() != baselineBar.width();
+            const QRect &baselineContainer = firstVerticalBarContainerGeometry.value();
+            const bool barGeometryMoved = sample.verticalBarGlobalRect.x() != baselineBar.x()
+                    || sample.verticalBarGlobalRect.y() != baselineBar.y()
+                    || sample.verticalBarGlobalRect.width() != baselineBar.width();
             const bool containerGeometryMoved =
-                sample.verticalBarContainerGlobalRect.x() != baselineContainer.x()
-                || sample.verticalBarContainerGlobalRect.y() != baselineContainer.y()
-                || sample.verticalBarContainerGlobalRect.width()
-                    != baselineContainer.width();
-            if (firstBadIndex < 0
-                && (barGeometryMoved || containerGeometryMoved))
-            {
+                    sample.verticalBarContainerGlobalRect.x() != baselineContainer.x()
+                    || sample.verticalBarContainerGlobalRect.y() != baselineContainer.y()
+                    || sample.verticalBarContainerGlobalRect.width() != baselineContainer.width();
+            if (firstBadIndex < 0 && (barGeometryMoved || containerGeometryMoved)) {
                 firstBadIndex = static_cast<int>(index);
-                firstBad = QStringLiteral(
-                    "vertical scrollbar/container moved: baseline bar=%1,%2,%3,%4 current=%5,%6,%7,%8")
-                    .arg(baselineBar.x()).arg(baselineBar.y())
-                    .arg(baselineBar.width()).arg(baselineBar.height())
-                    .arg(sample.verticalBarGlobalRect.x())
-                    .arg(sample.verticalBarGlobalRect.y())
-                    .arg(sample.verticalBarGlobalRect.width())
-                    .arg(sample.verticalBarGlobalRect.height());
+                firstBad = QStringLiteral("vertical scrollbar/container moved: baseline "
+                                          "bar=%1,%2,%3,%4 current=%5,%6,%7,%8")
+                                   .arg(baselineBar.x())
+                                   .arg(baselineBar.y())
+                                   .arg(baselineBar.width())
+                                   .arg(baselineBar.height())
+                                   .arg(sample.verticalBarGlobalRect.x())
+                                   .arg(sample.verticalBarGlobalRect.y())
+                                   .arg(sample.verticalBarGlobalRect.width())
+                                   .arg(sample.verticalBarGlobalRect.height());
             }
         }
 
-        const int deviation = qMax(
-            qAbs(sample.verticalValue - sample.verticalExpected),
-            qRound(qAbs(sample.anchorErrorY)));
-        if (deviation > maximumDeviation)
-        {
+        const int deviation = qMax(qAbs(sample.verticalValue - sample.verticalExpected),
+                                   qRound(qAbs(sample.anchorErrorY)));
+        if (deviation > maximumDeviation) {
             maximumDeviation = deviation;
             maximumDeviationIndex = static_cast<int>(index);
         }
 
         const QString sampleError = zoomTraceSampleError(sample);
-        if (firstBadIndex < 0 && !sampleError.isEmpty())
-        {
+        if (firstBadIndex < 0 && !sampleError.isEmpty()) {
             firstBadIndex = static_cast<int>(index);
             firstBad = sampleError;
         }
@@ -2317,34 +2150,32 @@ static QString validateZoomTrace(const QVector<ZoomTraceSample> &samples,
         return QStringLiteral("the horizontal scrollbar never reached its target visibility");
     if (firstBadIndex >= 0)
         return QStringLiteral("first bad sample %1: %2; maximum deviation=%3 at sample %4")
-            .arg(firstBadIndex).arg(firstBad).arg(maximumDeviation)
-            .arg(maximumDeviationIndex);
-    return {};
+                .arg(firstBadIndex)
+                .arg(firstBad)
+                .arg(maximumDeviation)
+                .arg(maximumDeviationIndex);
+    return { };
 }
 
-static void writeZoomTraceFailure(const QString &caseId,
-                                  const QString &stage,
-                                  const QVector<ZoomTraceSample> &samples,
-                                  ZoomTraceProbe *probe,
-                                  QWidget *window,
-                                  const QString &error)
+static void writeZoomTraceFailure(const QString &caseId, const QString &stage,
+                                  const QVector<ZoomTraceSample> &samples, ZoomTraceProbe *probe,
+                                  QWidget *window, const QString &error)
 {
-    const QString path = QDir(QCoreApplication::applicationDirPath())
-        .filePath(QStringLiteral("../test-results/zoom-vbar/%1/%2")
-                      .arg(caseId, stage));
+    const QString path =
+            QDir(QCoreApplication::applicationDirPath())
+                    .filePath(QStringLiteral("../test-results/zoom-vbar/%1/%2").arg(caseId, stage));
     QDir().mkpath(path);
 
     QJsonArray trace;
     for (const ZoomTraceSample &sample : samples)
         trace.append(sample.toJson());
     QJsonObject report{
-        {QStringLiteral("error"), error},
-        {QStringLiteral("sample_count"), samples.size()},
-        {QStringLiteral("trace"), trace},
+        { QStringLiteral("error"), error },
+        { QStringLiteral("sample_count"), samples.size() },
+        { QStringLiteral("trace"), trace },
     };
     QFile traceFile(QDir(path).filePath(QStringLiteral("trace.json")));
-    if (traceFile.open(QIODevice::WriteOnly | QIODevice::Truncate))
-    {
+    if (traceFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         traceFile.write(QJsonDocument(report).toJson(QJsonDocument::Indented));
         traceFile.close();
     }
@@ -2352,8 +2183,7 @@ static void writeZoomTraceFailure(const QString &caseId,
     if (probe)
         probe->saveFailureFrames(path, window);
     else if (window)
-        window->grab().toImage().save(
-            QDir(path).filePath(QStringLiteral("terminal-frame.png")));
+        window->grab().toImage().save(QDir(path).filePath(QStringLiteral("terminal-frame.png")));
 }
 
 static std::optional<QVImageLoader::Result> loadImage(const QString &path)
@@ -2361,36 +2191,52 @@ static std::optional<QVImageLoader::Result> loadImage(const QString &path)
     QVImageLoader loader;
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
     const quint64 requestId = loader.requestImage(path);
-    loader.setDesiredImages({{path, 0}});
+    loader.setDesiredImages({ { path, 0 } });
     QElapsedTimer timeout;
     timeout.start();
-    while (timeout.elapsed() < 5000)
-    {
-        for (const auto &signal : readySpy)
-        {
+    while (timeout.elapsed() < 5000) {
+        for (const auto &signal : readySpy) {
             if (signal.at(0).toULongLong() != requestId)
                 continue;
             return qvariant_cast<QVImageLoader::Result>(signal.at(1));
         }
         readySpy.wait(qMax(1, 5000 - static_cast<int>(timeout.elapsed())));
     }
-    return {};
+    return { };
 }
 
 static const QByteArray tinyWebpBase64 =
-    "UklGRlIAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAArlZQOCAqAAAAkAEAnQEqAQABAAIANCWgAnS6AAOYAP7wumv/BBbUemHHh/c1FbFtAAAA";
+        "UklGRlIAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAArlZQOCAqAAAAkAEAnQEqAQABAAIANCWgAnS6AA"
+        "OYAP7wumv/BBbUemHHh/c1FbFtAAAA";
 
 static const QByteArray tinyAvifBase64 =
-    "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAASAAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAAIAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAOY2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQWGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGgAwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg==";
+        "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAG7bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAA"
+        "AAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAADppbG9jAAAAAEQAAAMAAQAAAAEAAAI9AAAAHwACAAAAAQAAAisAAAAS"
+        "AAMAAAABAAAB4wAAAEgAAABbaWluZgAAAAAAAwAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAGmluZmUCAAAAAA"
+        "IAAGF2MDFBbHBoYQAAAAAZaW5mZQIAAAAAAwAARXhpZkV4aWYAAAAAKGlyZWYAAAAAAAAADmF1eGwAAgABAAEAAAAO"
+        "Y2RzYwADAAEAAQAAAMNpcHJwAAAAnWlwY28AAAAUaXNwZQAAAAAAAAABAAAAAQAAABBwaXhpAAAAAAMICAgAAAAMYX"
+        "YxQ4EgAAAAAAATY29scm5jbHgAAQANAAaAAAAADnBpeGkAAAAAAQgAAAAMYXYxQ4EAHAAAAAA4YXV4QwAAAAB1cm46"
+        "bXBlZzptcGVnQjpjaWNwOnN5c3RlbXM6YXV4aWxpYXJ5OmFscGhhAAAAAB5pcG1hAAAAAAAAAAIAAQQBAoMEAAIEAQ"
+        "WGBwAAAIFtZGF0AAAAAE1NACoAAAAIAAGHaQAEAAAAAQAAABoAAAAAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAAGg"
+        "AwAEAAAAAQAAAAEAAAAAEgAKBBgABhUyCBAATiImmSrQEgAKBzgABhAQ0GkyEhAAAE4dz4eZAFvClYOQUfU8Kg==";
 
 static const QByteArray tinyAnimatedPngBase64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAACAAAAAgAAAAAAAAAAAAEACgAA6FTcAAAAABFJREFUeJxj+P+fgQGEGWAMAE/CB/njowPaAAAAGmZjVEwAAAABAAAAAgAAAAIAAAAAAAAAAAABAAoAAHMnNtQAAAAVZmRBVAAAAAJ4nGP4z8DwH4QZYAwAR8oH+YqD/xkAAAAASUVORK5CYII=";
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAA"
+        "ACAAAAAgAAAAAAAAAAAAEACgAA6FTcAAAAABFJREFUeJxj+P+fgQGEGWAMAE/CB/"
+        "njowPaAAAAGmZjVEwAAAABAAAAAgAAAAIAAAAAAAAAAAABAAoAAHMnNtQAAAAVZmRBVAAAAAJ4nGP4z8DwH4QZYAwA"
+        "R8oH+YqD/xkAAAAASUVORK5CYII=";
 
 static const QByteArray orientedWebpBase64 =
-    "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA=";
+        "UklGRmYAAABXRUJQVlA4WAoAAAAIAAAAAQAAAgAAVlA4TCUAAAAvAYAAAC8gEEjaH3qN+RcQFPk/"
+        "2vwHH0QCg0AgDVFkMMAR/Y8GAEVYSUYaAAAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAA=";
 
 static const QByteArray orientedAvifBase64 =
-    "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAEdAAAAYwAAAChpaW5mAAAAAAABAAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAAB0aXBycAAAAFRpcGNvAAAAFGlzcGUAAAAAAAAAAgAAAAMAAAAQcGl4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAAgAAAAAlpcm90AQAAABhpcG1hAAAAAAAAAAEAAQUBAoMEhQAAAGttZGF0EgAKBzgAcwgIaAEyVhAAAIu7FZVujlR7Yotii5zIf////////81uz4UZYgX13041615VbWdWdWb15VbWdWezuZv/////73qwfKnW17zgsHyp1tesH216wfKnW16wfKnSp2tA";
+        "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAA"
+        "AAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAEdAAAAYwAAAChpaW5mAAAAAAAB"
+        "AAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAAB0aXBycAAAAFRpcGNvAAAAFGlzcGUAAAAAAAAAAgAAAAMAAAAQcG"
+        "l4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAAgAAAAAlpcm90AQAAABhpcG1hAAAAAAAAAAEA"
+        "AQUBAoMEhQAAAGttZGF0EgAKBzgAcwgIaAEyVhAAAIu7FZVujlR7Yotii5zIf////////"
+        "81uz4UZYgX13041615VbWdWdWb15VbWdWezuZv/////73qwfKnW17zgsHyp1tesH216wfKnW16wfKnSp2tA";
 
 static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
 {
@@ -2400,7 +2246,7 @@ static void reportFullscreenMetric(const QString &phase, qint64 elapsedMs)
 static std::optional<qint64> currentThreadCpuTimeNanoseconds()
 {
 #ifdef CLOCK_THREAD_CPUTIME_ID
-    timespec value{};
+    timespec value{ };
     if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value) != 0)
         return std::nullopt;
     return static_cast<qint64>(value.tv_sec) * 1000000000LL + static_cast<qint64>(value.tv_nsec);
@@ -2432,13 +2278,11 @@ void ImageLoaderTests::testImageLoaderPriorities()
     QVERIFY(readySpy.isValid());
 
     const quint64 requestId = loader.requestImage(target);
-    loader.setDesiredImages({
-        {target, 0},
-        {adjacentBefore, 1},
-        {adjacentAfter, 1},
-        {extendedBefore, 2},
-        {extendedAfter, 2}
-    });
+    loader.setDesiredImages({ { target, 0 },
+                              { adjacentBefore, 1 },
+                              { adjacentAfter, 1 },
+                              { extendedBefore, 2 },
+                              { extendedAfter, 2 } });
 
     QCOMPARE(startedSpy.size(), 1);
     QCOMPARE(startedSpy.at(0).at(0).toString(), target);
@@ -2451,7 +2295,7 @@ void ImageLoaderTests::testImageLoaderPriorities()
     QVERIFY(!result.image.isNull());
 
     QTRY_COMPARE_WITH_TIMEOUT(startedSpy.size(), 5, 5000);
-    const QList<int> expectedPriorities {0, 1, 1, 2, 2};
+    const QList<int> expectedPriorities{ 0, 1, 1, 2, 2 };
     for (int i = 0; i < expectedPriorities.size(); ++i)
         QCOMPARE(startedSpy.at(i).at(1).toInt(), expectedPriorities.at(i));
 }
@@ -2466,7 +2310,7 @@ void ImageLoaderTests::testImageLoaderCacheAndAttachment()
     QVImageLoader loader;
     QSignalSpy startedSpy(&loader, &QVImageLoader::loadStarted);
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
-    const QList<QVImageLoader::DesiredImage> desiredImages {{path, 0}};
+    const QList<QVImageLoader::DesiredImage> desiredImages{ { path, 0 } };
 
     loader.requestImage(path);
     loader.setDesiredImages(desiredImages);
@@ -2479,7 +2323,7 @@ void ImageLoaderTests::testImageLoaderCacheAndAttachment()
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.size(), 2, 5000);
     QCOMPARE(startedSpy.size(), 1);
 
-    loader.setDesiredImages({});
+    loader.setDesiredImages({ });
     loader.requestImage(path);
     loader.setDesiredImages(desiredImages);
     QCOMPARE(startedSpy.size(), 2);
@@ -2497,9 +2341,9 @@ void ImageLoaderTests::testImageLoaderRetainedDuringDelivery()
     QSignalSpy startedSpy(&loader, &QVImageLoader::loadStarted);
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
     connect(&loader, &QVImageLoader::imageReady, this,
-        [&loader, path](quint64, const QVImageLoader::Result &) {
-            loader.setDesiredImages({{path, 0}});
-        });
+            [&loader, path](quint64, const QVImageLoader::Result &) {
+                loader.setDesiredImages({ { path, 0 } });
+            });
 
     loader.requestImage(path);
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.size(), 1, 5000);
@@ -2523,7 +2367,7 @@ void ImageLoaderTests::testImageLoaderForegroundRequestPreservesCache()
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
 
     loader.requestImage(cachedPath);
-    loader.setDesiredImages({{cachedPath, 0}});
+    loader.setDesiredImages({ { cachedPath, 0 } });
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.size(), 1, 5000);
 
     loader.requestImage(foregroundPath);
@@ -2571,12 +2415,12 @@ void ImageLoaderTests::testImageLoaderDisabledRetention()
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
 
     loader.requestImage(path);
-    loader.setDesiredImages({});
+    loader.setDesiredImages({ });
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.size(), 1, 5000);
     QCOMPARE(startedSpy.size(), 1);
 
     loader.requestImage(path);
-    loader.setDesiredImages({});
+    loader.setDesiredImages({ });
     QCOMPARE(startedSpy.size(), 2);
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.size(), 2, 5000);
 }
@@ -2595,7 +2439,7 @@ void ImageLoaderTests::testImageLoaderCachedErrorRetry()
     QVImageLoader loader;
     QSignalSpy startedSpy(&loader, &QVImageLoader::loadStarted);
     QSignalSpy readySpy(&loader, &QVImageLoader::imageReady);
-    const QList<QVImageLoader::DesiredImage> desiredImages {{path, 0}};
+    const QList<QVImageLoader::DesiredImage> desiredImages{ { path, 0 } };
 
     loader.requestImage(path);
     loader.setDesiredImages(desiredImages);
@@ -2623,20 +2467,17 @@ void ImageLoaderTests::testImageLoaderDestructionDuringLoad()
     QStringList startedPaths;
     auto *loader = new QVImageLoader;
     connect(loader, &QVImageLoader::loadStarted, this,
-        [&startedPaths](const QString &path, int) { startedPaths.append(path); });
+            [&startedPaths](const QString &path, int) { startedPaths.append(path); });
 
     loader->requestImage(target);
-    loader->setDesiredImages({
-        {target, 0},
-        {queuedPreload, 1}
-    });
-    QCOMPARE(startedPaths, QStringList {target});
+    loader->setDesiredImages({ { target, 0 }, { queuedPreload, 1 } });
+    QCOMPARE(startedPaths, QStringList{ target });
 
     delete loader;
     QThreadPool::globalInstance()->waitForDone();
     QCoreApplication::processEvents();
 
-    QCOMPARE(startedPaths, QStringList {target});
+    QCOMPARE(startedPaths, QStringList{ target });
 }
 
 void ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()
@@ -2655,10 +2496,10 @@ void ImageLoaderTests::testImageLoaderLoadsWebpWithImageIOFallback()
 }
 
 // TC-ORI-WEBP
-// Test purpose: verify that a WebP EXIF orientation is applied by both the native decoder and the loader.
-// Preconditions: macOS Image I/O advertises WebP support and a temporary directory is writable.
-// Input data: a lossless 2x3 WebP whose EXIF orientation is RightTop (90-degree clockwise display).
-// Steps: decode through QVCocoaFunctions, then open the same file through QVImageLoader.
+// Test purpose: verify that a WebP EXIF orientation is applied by both the native decoder and the
+// loader. Preconditions: macOS Image I/O advertises WebP support and a temporary directory is
+// writable. Input data: a lossless 2x3 WebP whose EXIF orientation is RightTop (90-degree clockwise
+// display). Steps: decode through QVCocoaFunctions, then open the same file through QVImageLoader.
 // Expected result: both paths produce a 3x2 image with the rotated corner colors and no error data.
 // Postcondition: the temporary fixture and all loader resources are released.
 void ImageLoaderTests::testImageLoaderAppliesWebpOrientation()
@@ -2685,12 +2526,13 @@ void ImageLoaderTests::testImageLoaderAppliesWebpOrientation()
 }
 
 // TC-ORI-AVIF
-// Test purpose: verify that an AVIF rotation item is applied by both the native decoder and the loader.
-// Preconditions: macOS Image I/O advertises AVIF support and a temporary directory is writable.
-// Input data: a lossless 2x3 AVIF carrying an irot rotation item, encoded from the same color fixture.
-// Steps: decode through QVCocoaFunctions, then open the same file through QVImageLoader.
-// Expected result: both paths produce the rotated 3x2 image without an unsupported-format error.
-// Postcondition: the temporary fixture and all loader resources are released.
+// Test purpose: verify that an AVIF rotation item is applied by both the native decoder and the
+// loader. Preconditions: macOS Image I/O advertises AVIF support and a temporary directory is
+// writable. Input data: a lossless 2x3 AVIF carrying an irot rotation item, encoded from the same
+// color fixture. Steps: decode through QVCocoaFunctions, then open the same file through
+// QVImageLoader. Expected result: both paths produce the rotated 3x2 image without an
+// unsupported-format error. Postcondition: the temporary fixture and all loader resources are
+// released.
 void ImageLoaderTests::testImageLoaderAppliesAvifOrientation()
 {
     QTemporaryDir dir;
@@ -2769,8 +2611,7 @@ void ImageLoaderTests::testEPSFormatIsAdvertised()
 {
     const QList<QByteArray> formats{ "eps", "epsf", "epsi" };
     const auto advertisedFormats = QVCocoaFunctions::getAdditionalImageFormats();
-    for (const QByteArray &format : formats)
-    {
+    for (const QByteArray &format : formats) {
         QVERIFY(advertisedFormats.contains(format));
         QVERIFY(QVCocoaFunctions::supportsAdditionalImageFormat(format));
         QVERIFY(qvApp->getAllFileExtensionList().contains("." + QString::fromUtf8(format)));
@@ -2811,15 +2652,13 @@ void ImageLoaderTests::testEPSPostScriptRender()
     QVERIFY(result.image.size() != result.intrinsicSize);
 
     QString pdfError;
-    const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
-        result.vectorImage.encodedData, &pdfError);
+    const auto pdfDocument =
+            QVCocoaFunctions::createPDFVectorDocument(result.vectorImage.encodedData, &pdfError);
     QVERIFY2(pdfDocument, qPrintable(pdfError));
-    const QSize renderedSize = result.intrinsicSize.scaled(
-        2048, 2048, Qt::KeepAspectRatio);
+    const QSize renderedSize = result.intrinsicSize.scaled(2048, 2048, Qt::KeepAspectRatio);
     const QImage renderedImage = pdfDocument->renderTile(
-        result.vectorImage.logicalSize,
-        QRectF(QPointF(), result.vectorImage.logicalSize),
-        renderedSize, &pdfError);
+            result.vectorImage.logicalSize, QRectF(QPointF(), result.vectorImage.logicalSize),
+            renderedSize, &pdfError);
     QVERIFY2(!renderedImage.isNull(), qPrintable(pdfError));
     QCOMPARE(qMax(renderedImage.width(), renderedImage.height()), 2048);
 
@@ -2832,16 +2671,14 @@ void ImageLoaderTests::testEPSPostScriptRender()
     const auto paintSceneItem = [&]() {
         sceneRender.fill(Qt::transparent);
         QPainter scenePainter(&sceneRender);
-        scenePainter.scale(
-            renderedImage.width() / result.vectorImage.logicalSize.width(),
-            renderedImage.height() / result.vectorImage.logicalSize.height());
+        scenePainter.scale(renderedImage.width() / result.vectorImage.logicalSize.width(),
+                           renderedImage.height() / result.vectorImage.logicalSize.height());
         sceneItem.paint(&scenePainter, &sceneOption);
     };
     paintSceneItem();
     QElapsedTimer exactTileTimer;
     exactTileTimer.start();
-    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000)
-    {
+    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         QTest::qWait(5);
         paintSceneItem();
@@ -2849,27 +2686,23 @@ void ImageLoaderTests::testEPSPostScriptRender()
     QVERIFY2(sceneItem.vectorRenderCount() > 0,
              "the asynchronous exact PDF tile did not become paintable");
     QVERIFY(sampledChannelDifference(sceneRender, renderedImage) < 3.0);
-    const quint64 pdfTileGenerationCount =
-            sceneItem.vectorTileGenerationCount();
+    const quint64 pdfTileGenerationCount = sceneItem.vectorTileGenerationCount();
     for (int repaint = 0; repaint < 8; ++repaint)
         paintSceneItem();
     QTest::qWait(50);
     QCoreApplication::processEvents();
     QCOMPARE(sceneItem.vectorTileGenerationCount(), pdfTileGenerationCount);
 
-    const QRectF upperSourceRect(
-        0, 0, result.vectorImage.logicalSize.width(),
-        result.vectorImage.logicalSize.height() / 2.0);
+    const QRectF upperSourceRect(0, 0, result.vectorImage.logicalSize.width(),
+                                 result.vectorImage.logicalSize.height() / 2.0);
     const QImage upperTile = pdfDocument->renderTile(
-        result.vectorImage.logicalSize, upperSourceRect,
-        QSize(renderedImage.width(), renderedImage.height() / 2), &pdfError);
+            result.vectorImage.logicalSize, upperSourceRect,
+            QSize(renderedImage.width(), renderedImage.height() / 2), &pdfError);
     QVERIFY2(!upperTile.isNull(), qPrintable(pdfError));
     qint64 upperTileDifference = 0;
     qint64 upperTileSamples = 0;
-    for (int y = 0; y < upperTile.height(); y += 8)
-    {
-        for (int x = 0; x < upperTile.width(); x += 8)
-        {
+    for (int y = 0; y < upperTile.height(); y += 8) {
+        for (int x = 0; x < upperTile.width(); x += 8) {
             const QColor actual = upperTile.pixelColor(x, y);
             const QColor expected = renderedImage.pixelColor(x, y);
             upperTileDifference += qAbs(actual.red() - expected.red())
@@ -2882,45 +2715,37 @@ void ImageLoaderTests::testEPSPostScriptRender()
     QVERIFY(upperTileSamples > 0);
     QVERIFY(static_cast<double>(upperTileDifference) / upperTileSamples < 3.0);
 
-    if (usesExternalSample)
-    {
+    if (usesExternalSample) {
         QCOMPARE(result.intrinsicSize, QSize(120, 40));
         QVERIFY(renderedImage.width() >= 2000);
 
         qint64 upperLightPixels = 0;
         qint64 lowerLightPixels = 0;
         qint64 opaqueDarkPixels = 0;
-        for (int y = 0; y < renderedImage.height(); y += 2)
-        {
-            for (int x = 0; x < renderedImage.width(); x += 2)
-            {
+        for (int y = 0; y < renderedImage.height(); y += 2) {
+            for (int x = 0; x < renderedImage.width(); x += 2) {
                 const QColor pixel = renderedImage.pixelColor(x, y);
                 if (pixel.alpha() < 220)
                     continue;
                 const int luminance = pixel.lightness();
-                if (luminance >= 220)
-                {
+                if (luminance >= 220) {
                     if (y < renderedImage.height() / 2)
                         ++upperLightPixels;
                     else
                         ++lowerLightPixels;
-                }
-                else if (luminance <= 32)
-                {
+                } else if (luminance <= 32) {
                     ++opaqueDarkPixels;
                 }
             }
         }
         QVERIFY(opaqueDarkPixels > renderedImage.width() * renderedImage.height() / 16);
         QVERIFY(lowerLightPixels > upperLightPixels);
-    }
-    else
-    {
+    } else {
         QCOMPARE(result.intrinsicSize, QSize(8, 4));
-        const QColor background = renderedImage.pixelColor(renderedImage.width() / 2,
-                                                            renderedImage.height() / 8);
-        const QColor square = renderedImage.pixelColor(renderedImage.width() / 4,
-                                                        renderedImage.height() / 2);
+        const QColor background =
+                renderedImage.pixelColor(renderedImage.width() / 2, renderedImage.height() / 8);
+        const QColor square =
+                renderedImage.pixelColor(renderedImage.width() / 4, renderedImage.height() / 2);
         QVERIFY(background.lightness() < 32);
         QVERIFY(square.lightness() > 220);
     }
@@ -2975,8 +2800,7 @@ void ImageLoaderTests::testEPSInitialFrameMatchesStableRender()
     bool usesExternalSample = false;
     const QString sourcePath = epsSamplePath(dir, &usesExternalSample);
     QString path = sourcePath;
-    if (usesExternalSample)
-    {
+    if (usesExternalSample) {
         path = dir.filePath(QStringLiteral("placement-preview.eps"));
         QVERIFY(QFile::copy(sourcePath, path));
     }
@@ -2987,7 +2811,7 @@ void ImageLoaderTests::testEPSInitialFrameMatchesStableRender()
     QElapsedTimer requestTimer;
     requestTimer.start();
     const quint64 requestId = loader.requestImage(path);
-    loader.setDesiredImages({{path, 0}});
+    loader.setDesiredImages({ { path, 0 } });
     QTRY_VERIFY_WITH_TIMEOUT(readySpy.count() > 0, 1000);
     const qint64 initialMilliseconds = requestTimer.elapsed();
     const auto first = qvariant_cast<QVImageLoader::Result>(readySpy.at(0).at(1));
@@ -2998,23 +2822,23 @@ void ImageLoaderTests::testEPSInitialFrameMatchesStableRender()
     QVERIFY(!first.errorData.has_value());
 
     QString pdfError;
-    const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
-        first.vectorImage.encodedData, &pdfError);
+    const auto pdfDocument =
+            QVCocoaFunctions::createPDFVectorDocument(first.vectorImage.encodedData, &pdfError);
     QVERIFY2(pdfDocument, qPrintable(pdfError));
     const QImage stableRender = pdfDocument->renderTile(
-        first.vectorImage.logicalSize,
-        QRectF(QPointF(), first.vectorImage.logicalSize),
-        first.image.size(), &pdfError);
+            first.vectorImage.logicalSize, QRectF(QPointF(), first.vectorImage.logicalSize),
+            first.image.size(), &pdfError);
     QVERIFY2(!stableRender.isNull(), qPrintable(pdfError));
     QVERIFY2(sampledChannelDifference(first.image, stableRender) < 3.0,
              "the first EPS fallback does not match the stable authoritative PDF render");
-    qInfo().noquote() << QStringLiteral(
-        "EPS_INITIAL_STABLE initial_ms=%1 fallback=%2x%3 decode_ms=%4 diff=%5")
-        .arg(initialMilliseconds)
-        .arg(first.image.width())
-        .arg(first.image.height())
-        .arg(first.decodeMilliseconds, 0, 'f', 3)
-        .arg(sampledChannelDifference(first.image, stableRender), 0, 'f', 4);
+    qInfo().noquote()
+            << QStringLiteral(
+                       "EPS_INITIAL_STABLE initial_ms=%1 fallback=%2x%3 decode_ms=%4 diff=%5")
+                       .arg(initialMilliseconds)
+                       .arg(first.image.width())
+                       .arg(first.image.height())
+                       .arg(first.decodeMilliseconds, 0, 'f', 3)
+                       .arg(sampledChannelDifference(first.image, stableRender), 0, 'f', 4);
 }
 
 // TC-EPS-PERF-CACHE
@@ -3033,8 +2857,7 @@ void ImageLoaderTests::testEPSRenderCacheCutsConversionLatency()
     bool usesExternalSample = false;
     const QString sourcePath = epsSamplePath(dir, &usesExternalSample);
     QString path = sourcePath;
-    if (usesExternalSample)
-    {
+    if (usesExternalSample) {
         path = dir.filePath(QStringLiteral("cache-latency.eps"));
         QVERIFY(QFile::copy(sourcePath, path));
     }
@@ -3055,13 +2878,13 @@ void ImageLoaderTests::testEPSRenderCacheCutsConversionLatency()
     QVERIFY(hit.vectorImage.isValid());
     QCOMPARE(hit.vectorImage.encodedData, miss.vectorImage.encodedData);
     QCOMPARE(hit.intrinsicSize, miss.intrinsicSize);
-    qInfo().noquote() << QStringLiteral(
-        "EPS_CONVERSION_CACHE miss_ms=%1 hit_ms=%2 ratio=%3")
-        .arg(missMilliseconds)
-        .arg(hitMilliseconds)
-        .arg(missMilliseconds > 0
-                 ? static_cast<double>(hitMilliseconds) / missMilliseconds
-                 : 0.0, 0, 'f', 4);
+    qInfo().noquote() << QStringLiteral("EPS_CONVERSION_CACHE miss_ms=%1 hit_ms=%2 ratio=%3")
+                                 .arg(missMilliseconds)
+                                 .arg(hitMilliseconds)
+                                 .arg(missMilliseconds > 0 ? static_cast<double>(hitMilliseconds)
+                                                      / missMilliseconds
+                                                           : 0.0,
+                                      0, 'f', 4);
     QVERIFY2(missMilliseconds >= 2 && hitMilliseconds * 2 < missMilliseconds,
              "the identity-matching EPS cache did not reduce conversion latency by 50%");
 }
@@ -3113,8 +2936,7 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     const auto result = loadImage(path);
     QVERIFY(result.has_value());
     QVERIFY2(!result->errorData.has_value(),
-             result->errorData.has_value()
-                ? qPrintable(result->errorData->errorString) : "");
+             result->errorData.has_value() ? qPrintable(result->errorData->errorString) : "");
     QVERIFY(result->vectorImage.isValid());
     QCOMPARE(result->vectorImage.format, Qv::VectorImageFormat::Svg);
     QCOMPARE(result->vectorImage.sourcePath, QFileInfo(path).absoluteFilePath());
@@ -3122,15 +2944,13 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     QVERIFY(!result->image.isNull());
     QVERIFY(qMax(result->image.width(), result->image.height()) <= 512);
 
-    const QSize renderedSize = result->intrinsicSize.scaled(
-        2048, 2048, Qt::KeepAspectRatio);
+    const QSize renderedSize = result->intrinsicSize.scaled(2048, 2048, Qt::KeepAspectRatio);
     QImage reference(renderedSize, QImage::Format_ARGB32_Premultiplied);
     reference.fill(Qt::transparent);
     QSvgRenderer referenceRenderer(path);
     QVERIFY(referenceRenderer.isValid());
     QPainter referencePainter(&reference);
-    referenceRenderer.render(
-        &referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
+    referenceRenderer.render(&referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
     referencePainter.end();
 
     QVGraphicsImageItem sceneItem;
@@ -3142,16 +2962,14 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     const auto paintSceneItem = [&]() {
         sceneRender.fill(Qt::transparent);
         QPainter scenePainter(&sceneRender);
-        scenePainter.scale(
-            renderedSize.width() / result->vectorImage.logicalSize.width(),
-            renderedSize.height() / result->vectorImage.logicalSize.height());
+        scenePainter.scale(renderedSize.width() / result->vectorImage.logicalSize.width(),
+                           renderedSize.height() / result->vectorImage.logicalSize.height());
         sceneItem.paint(&scenePainter, &sceneOption);
     };
     paintSceneItem();
     QElapsedTimer exactTileTimer;
     exactTileTimer.start();
-    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000)
-    {
+    while (sceneItem.vectorRenderCount() == 0 && exactTileTimer.elapsed() < 5000) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         QTest::qWait(5);
         paintSceneItem();
@@ -3159,8 +2977,7 @@ void ImageLoaderTests::testImageLoaderLoadsSVGAsVectorDocument()
     QVERIFY2(sceneItem.vectorRenderCount() > 0,
              "the asynchronous exact SVG tile did not become paintable");
     QVERIFY(sampledChannelDifference(sceneRender, reference) < 3.0);
-    const quint64 svgTileGenerationCount =
-            sceneItem.vectorTileGenerationCount();
+    const quint64 svgTileGenerationCount = sceneItem.vectorTileGenerationCount();
     for (int repaint = 0; repaint < 8; ++repaint)
         paintSceneItem();
     QTest::qWait(50);
@@ -3184,45 +3001,36 @@ void ImageLoaderTests::testVectorInteractionPreservesTerminalDensity()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QList<QPair<QString, QString>> documents {
-        {QStringLiteral("eps"), epsSamplePath(dir)},
-        {QStringLiteral("svg"), svgSamplePath(dir)}
-    };
-    for (const auto &document : documents)
-    {
+    const QList<QPair<QString, QString>> documents{ { QStringLiteral("eps"), epsSamplePath(dir) },
+                                                    { QStringLiteral("svg"), svgSamplePath(dir) } };
+    for (const auto &document : documents) {
         QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
         const auto result = loadImage(document.second);
         QVERIFY2(result.has_value(), qPrintable(document.first));
         QVERIFY2(result->vectorImage.isValid(), qPrintable(document.first));
 
-        const QSize renderedSize = result->intrinsicSize.scaled(
-            2048, 2048, Qt::KeepAspectRatio);
+        const QSize renderedSize = result->intrinsicSize.scaled(2048, 2048, Qt::KeepAspectRatio);
         QVERIFY(!renderedSize.isEmpty());
 
         QImage reference(renderedSize, QImage::Format_ARGB32_Premultiplied);
         reference.fill(Qt::transparent);
-        if (result->vectorImage.format == Qv::VectorImageFormat::Pdf)
-        {
+        if (result->vectorImage.format == Qv::VectorImageFormat::Pdf) {
             QString pdfError;
             const auto pdfDocument = QVCocoaFunctions::createPDFVectorDocument(
-                result->vectorImage.encodedData, &pdfError);
+                    result->vectorImage.encodedData, &pdfError);
             QVERIFY2(pdfDocument, qPrintable(pdfError));
             const QImage renderedReference = pdfDocument->renderTile(
-                result->vectorImage.logicalSize,
-                QRectF(QPointF(), result->vectorImage.logicalSize),
-                renderedSize, &pdfError);
+                    result->vectorImage.logicalSize,
+                    QRectF(QPointF(), result->vectorImage.logicalSize), renderedSize, &pdfError);
             QVERIFY2(!renderedReference.isNull(), qPrintable(pdfError));
             reference = renderedReference;
-        }
-        else
-        {
+        } else {
             QSvgRenderer referenceRenderer(document.second);
             QVERIFY(referenceRenderer.isValid());
             QPainter referencePainter(&reference);
             referencePainter.setRenderHint(QPainter::Antialiasing, true);
             referencePainter.setRenderHint(QPainter::TextAntialiasing, true);
-            referenceRenderer.render(
-                &referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
+            referenceRenderer.render(&referencePainter, QRectF(QPointF(), QSizeF(renderedSize)));
         }
 
         QVGraphicsImageItem sceneItem;
@@ -3237,33 +3045,27 @@ void ImageLoaderTests::testVectorInteractionPreservesTerminalDensity()
             actual.fill(Qt::transparent);
             QPainter scenePainter(&actual);
             scenePainter.scale(
-                static_cast<qreal>(renderedSize.width())
-                    / sceneItem.boundingRect().width(),
-                static_cast<qreal>(renderedSize.height())
-                    / sceneItem.boundingRect().height());
+                    static_cast<qreal>(renderedSize.width()) / sceneItem.boundingRect().width(),
+                    static_cast<qreal>(renderedSize.height()) / sceneItem.boundingRect().height());
             sceneItem.paint(&scenePainter, &sceneOption);
         };
 
         paintSceneItem();
         QElapsedTimer renderTimer;
         renderTimer.start();
-        while (sceneItem.vectorRenderCount() == 0
-               && renderTimer.elapsed() < 5000)
-        {
+        while (sceneItem.vectorRenderCount() == 0 && renderTimer.elapsed() < 5000) {
             QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
             QTest::qWait(5);
             paintSceneItem();
         }
         QVERIFY2(sceneItem.vectorRenderCount() > 0,
-                 qPrintable(document.first
-                            + QStringLiteral(" interaction tile did not render")));
+                 qPrintable(document.first + QStringLiteral(" interaction tile did not render")));
         QVERIFY2(sceneItem.lastVectorRasterSize().width() >= renderedSize.width()
-                     && sceneItem.lastVectorRasterSize().height() >= renderedSize.height(),
-                 qPrintable(document.first
-                            + QStringLiteral(" interaction tile is undersampled: ")
+                         && sceneItem.lastVectorRasterSize().height() >= renderedSize.height(),
+                 qPrintable(document.first + QStringLiteral(" interaction tile is undersampled: ")
                             + QStringLiteral("%1x%2")
-                                  .arg(sceneItem.lastVectorRasterSize().width())
-                                  .arg(sceneItem.lastVectorRasterSize().height())));
+                                      .arg(sceneItem.lastVectorRasterSize().width())
+                                      .arg(sceneItem.lastVectorRasterSize().height())));
         QVERIFY2(sampledChannelDifference(actual, reference) < 3.0,
                  qPrintable(document.first
                             + QStringLiteral(" interaction tile differs from reference")));
@@ -3442,14 +3244,14 @@ void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors_data()
     QTest::addColumn<QVector<float>>("base");
     QTest::addColumn<QVector<float>>("endpoint");
     QTest::addColumn<float>("amount");
-    QTest::newRow("colored-midtone-endpoint") << QVector<float>{0.45F,0.4F,0.35F,1}
-            << QVector<float>{0.9F,0.6F,0.3F,1} << 1.0F;
-    QTest::newRow("near-white-endpoint") << QVector<float>{0.8F,0.75F,0.7F,1}
-            << QVector<float>{1.05F,0.9F,0.6F,1} << 1.0F;
-    QTest::newRow("colored-midtone-midpoint") << QVector<float>{0.45F,0.4F,0.35F,1}
-            << QVector<float>{0.9F,0.6F,0.3F,1} << 0.5F;
-    QTest::newRow("saturated-highlight") << QVector<float>{0.8F,0.25F,0.1F,1}
-            << QVector<float>{4.0F,0.7F,0.2F,1} << 1.0F;
+    QTest::newRow("colored-midtone-endpoint") << QVector<float>{ 0.45F, 0.4F, 0.35F, 1 }
+                                              << QVector<float>{ 0.9F, 0.6F, 0.3F, 1 } << 1.0F;
+    QTest::newRow("near-white-endpoint") << QVector<float>{ 0.8F, 0.75F, 0.7F, 1 }
+                                         << QVector<float>{ 1.05F, 0.9F, 0.6F, 1 } << 1.0F;
+    QTest::newRow("colored-midtone-midpoint") << QVector<float>{ 0.45F, 0.4F, 0.35F, 1 }
+                                              << QVector<float>{ 0.9F, 0.6F, 0.3F, 1 } << 0.5F;
+    QTest::newRow("saturated-highlight") << QVector<float>{ 0.8F, 0.25F, 0.1F, 1 }
+                                         << QVector<float>{ 4.0F, 0.7F, 0.2F, 1 } << 1.0F;
 }
 
 void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors()
@@ -3457,15 +3259,17 @@ void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors()
     QFETCH(QVector<float>, base);
     QFETCH(QVector<float>, endpoint);
     QFETCH(float, amount);
-    std::array<float,4> s{}, h{};
+    std::array<float, 4> s{ }, h{ };
     std::copy(base.cbegin(), base.cend(), s.begin());
     std::copy(endpoint.cbegin(), endpoint.cend(), h.begin());
     const auto actual = QVCocoaFunctions::probeHDRBrightnessPixel(s, h, 8.0F, amount);
-    for (int channel=0; channel<4; ++channel) {
-        const float expected = s[channel] + (h[channel]-s[channel])*amount;
-        QVERIFY2(std::abs(actual[channel]-expected) < 0.003F,
-                qPrintable(QString("channel=%1 actual=%2 expected=%3")
-                           .arg(channel).arg(actual[channel]).arg(expected)));
+    for (int channel = 0; channel < 4; ++channel) {
+        const float expected = s[channel] + (h[channel] - s[channel]) * amount;
+        QVERIFY2(std::abs(actual[channel] - expected) < 0.003F,
+                 qPrintable(QString("channel=%1 actual=%2 expected=%3")
+                                    .arg(channel)
+                                    .arg(actual[channel])
+                                    .arg(expected)));
     }
 }
 
@@ -3475,27 +3279,27 @@ void HDRPolicyTests::testHDRBrightnessPreservesEndpointColors()
 void HDRPolicyTests::testHDRBrightnessLinearLightPixels()
 {
     using C = QVCocoaFunctions;
-    const std::array<float, 4> base{0.8F, 0.4F, 0.2F, 1.0F};
-    const std::array<float, 4> high{3.0F, 1.5F, 0.75F, 1.0F};
-    const auto close = [](float a, float b) { return std::abs(a-b) < 0.003F; };
-    for (float amount : {0.0F, 0.25F, 0.5F, 0.75F, 1.0F}) {
+    const std::array<float, 4> base{ 0.8F, 0.4F, 0.2F, 1.0F };
+    const std::array<float, 4> high{ 3.0F, 1.5F, 0.75F, 1.0F };
+    const auto close = [](float a, float b) { return std::abs(a - b) < 0.003F; };
+    for (float amount : { 0.0F, 0.25F, 0.5F, 0.75F, 1.0F }) {
         auto pixel = C::probeHDRBrightnessPixel(base, high, 3.0F, amount);
-        QVERIFY(close(pixel[0], 0.8F + (3.0F-0.8F)*amount));
-        QVERIFY(close(pixel[1], 0.4F + (1.5F-0.4F)*amount));
-        QVERIFY(close(pixel[2], 0.2F + (0.75F-0.2F)*amount));
+        QVERIFY(close(pixel[0], 0.8F + (3.0F - 0.8F) * amount));
+        QVERIFY(close(pixel[1], 0.4F + (1.5F - 0.4F) * amount));
+        QVERIFY(close(pixel[2], 0.2F + (0.75F - 0.2F) * amount));
         QVERIFY(close(pixel[3], 1.0F));
         pixel = C::probeHDRBrightnessPixel(base, high, 1.0F, amount);
         QVERIFY(close(pixel[0], base[0]));
-        for (float level : {0.01F, 0.18F, 0.5F, 1.0F}) {
-            pixel = C::probeHDRBrightnessPixel({level,level,level,1},
-                                               {level,level,level,1}, 4, amount);
+        for (float level : { 0.01F, 0.18F, 0.5F, 1.0F }) {
+            pixel = C::probeHDRBrightnessPixel({ level, level, level, 1 },
+                                               { level, level, level, 1 }, 4, amount);
             QVERIFY(close(pixel[0], level));
         }
     }
-    auto pixel = C::probeHDRBrightnessPixel(base, {2.0F,1.0F,0.5F,1.0F}, 2.0F, 1.0F);
+    auto pixel = C::probeHDRBrightnessPixel(base, { 2.0F, 1.0F, 0.5F, 1.0F }, 2.0F, 1.0F);
     QVERIFY(close(pixel[0], 2.0F));
-    pixel = C::probeHDRBrightnessPixel({0.4F,0.2F,0.1F,0.5F},
-                                       {1.5F,0.75F,0.375F,0.5F}, 3, 1);
+    pixel = C::probeHDRBrightnessPixel({ 0.4F, 0.2F, 0.1F, 0.5F }, { 1.5F, 0.75F, 0.375F, 0.5F }, 3,
+                                       1);
     QVERIFY(close(pixel[0], 1.5F));
     QVERIFY(close(pixel[3], 0.5F));
 }
@@ -3521,7 +3325,8 @@ void HDRPolicyTests::testTransitionCurveIsBoundedAndMonotonic()
 void HDRPolicyTests::testHDRBrightnessNativePresentation()
 {
     const QString path = qEnvironmentVariable("FOVELLE_HDR_JPEG_SAMPLE");
-    if (!QFileInfo::exists(path)) QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
+    if (!QFileInfo::exists(path))
+        QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
     const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
     QVERIFY(decoded.hdrImage);
     QWidget viewport;
@@ -3532,7 +3337,7 @@ void HDRPolicyTests::testHDRBrightnessNativePresentation()
     QVERIFY(renderer.isAvailable());
     QVERIFY(renderer.setImage(decoded.hdrImage));
     QCOMPARE(renderer.diagnostics().layerOpacity, 0.0F);
-    const QPolygonF corners{QPointF(0,0),QPointF(320,0),QPointF(320,240),QPointF(0,240)};
+    const QPolygonF corners{ QPointF(0, 0), QPointF(320, 0), QPointF(320, 240), QPointF(0, 240) };
     renderer.render(viewport.size(), corners, 1.0);
     QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().firstFramePresented, 30000);
     QVERIFY(renderer.diagnostics().transitionProgress < 0.5F);
@@ -3542,7 +3347,7 @@ void HDRPolicyTests::testHDRBrightnessNativePresentation()
     const auto partial = renderer.diagnostics();
     QVERIFY(partial.transitionProgress > 0.0F && partial.transitionProgress < 1.0F);
     QPolygonF moved = corners;
-    moved.translate(1,1);
+    moved.translate(1, 1);
     renderer.render(viewport.size(), moved, 1.0, true);
     QTest::qWait(30);
     QVERIFY(renderer.diagnostics().transitionProgress >= partial.transitionProgress);
@@ -3551,8 +3356,10 @@ void HDRPolicyTests::testHDRBrightnessNativePresentation()
     const QByteArray priorHeadroom = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
     const bool hadHeadroom = qEnvironmentVariableIsSet("FOVELLE_TEST_DISPLAY_HEADROOM");
     const auto restoreHeadroom = qScopeGuard([&]() {
-        if (hadHeadroom) qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", priorHeadroom);
-        else qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
+        if (hadHeadroom)
+            qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", priorHeadroom);
+        else
+            qunsetenv("FOVELLE_TEST_DISPLAY_HEADROOM");
     });
     qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "1");
     QTRY_COMPARE_WITH_TIMEOUT(renderer.diagnostics().displayRenderingHeadroom, 1.0F, 3000);
@@ -3568,7 +3375,7 @@ void HDRPolicyTests::testHDRBrightnessNativePresentation()
     QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().firstFramePresented, 30000);
     QTest::qWait(350);
     QVERIFY(renderer.diagnostics().transitionProgress >= 0.999F);
-    QVERIFY(renderer.setImage({}) == false);
+    QVERIFY(renderer.setImage({ }) == false);
     QTest::qWait(100);
     QVERIFY(!renderer.diagnostics().imageActive);
 }
@@ -3578,29 +3385,32 @@ void HDRPolicyTests::testHDRBrightnessNativePresentation()
 void HDRPolicyTests::testHDRBrightnessNativeColorFidelity()
 {
     const QString path = qEnvironmentVariable("FOVELLE_HDR_JPEG_SAMPLE");
-    if (!QFileInfo::exists(path)) QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
+    if (!QFileInfo::exists(path))
+        QSKIP("Set FOVELLE_HDR_JPEG_SAMPLE to a gain-map JPEG");
     const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
     QVERIFY(decoded.hdrImage);
     const float headroom = std::max(16.0F, decoded.hdrMetadata.contentHeadroom);
     ScopedHDRTestDisplay display(headroom);
     QWidget viewport;
-    viewport.resize(320,240);
+    viewport.resize(320, 240);
     viewport.show();
     QVERIFY(QTest::qWaitForWindowExposed(&viewport));
     QVCocoaFunctions::HDRRenderer renderer(&viewport);
     QVERIFY(renderer.setImage(decoded.hdrImage));
-    renderer.render(viewport.size(), {QPointF(0,0),QPointF(320,0),QPointF(320,240),QPointF(0,240)}, 1);
+    renderer.render(viewport.size(),
+                    { QPointF(0, 0), QPointF(320, 0), QPointF(320, 240), QPointF(0, 240) }, 1);
     QTRY_VERIFY_WITH_TIMEOUT(renderer.diagnostics().persistentHDRSurfaceReady, 30000);
     const auto actual = renderer.probePersistentHDRPixels();
     // Compare equal sampling order: both endpoints are evaluated at full
     // source resolution before downsampling. Gain maps and resampling do not commute.
-    const auto expected = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true, true);
-    QCOMPARE(actual.size(), 64*64*4);
+    const auto expected =
+            QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true, true);
+    QCOMPARE(actual.size(), 64 * 64 * 4);
     QCOMPARE(expected.size(), actual.size());
     double maximum = 0;
-    for (int i=0; i<actual.size(); ++i) {
+    for (int i = 0; i < actual.size(); ++i) {
         QVERIFY(std::isfinite(actual[i]) && std::isfinite(expected[i]));
-        maximum = std::max(maximum, double(std::abs(actual[i]-expected[i])));
+        maximum = std::max(maximum, double(std::abs(actual[i] - expected[i])));
     }
     qInfo() << "HDR_CACHE_COLOR max_error=" << maximum;
     QVERIFY2(maximum <= 0.01, "Materialized HDR layer changes decoded endpoint colors");
@@ -3707,8 +3517,8 @@ void HDRPolicyTests::testFinalFrameRevealRequiresMatchedGeometry()
 void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
 {
     const QSize viewport(1200, 775);
-    const QPolygonF reference{ QPointF(100.0, 20.0), QPointF(900.0, 20.0),
-                               QPointF(900.0, 740.0), QPointF(100.0, 740.0) };
+    const QPolygonF reference{ QPointF(100.0, 20.0), QPointF(900.0, 20.0), QPointF(900.0, 740.0),
+                               QPointF(100.0, 740.0) };
     QPolygonF withinTolerance = reference;
     withinTolerance[2] += QPointF(0.005, -0.005);
     QPolygonF outsideTolerance = reference;
@@ -3716,16 +3526,16 @@ void HDRPolicyTests::testHDRViewportGeometryEquivalenceUsesCompleteContract()
     QPolygonF missingCorner = reference;
     missingCorner.removeLast();
 
-    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(
-            viewport, reference, viewport, reference));
-    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(
-            viewport, reference, viewport, withinTolerance));
-    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
-            viewport, reference, viewport, outsideTolerance));
-    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
-            viewport, reference, QSize(1199, 775), reference));
-    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(
-            viewport, reference, viewport, missingCorner));
+    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(viewport, reference, viewport,
+                                                          reference));
+    QVERIFY(QVGraphicsView::hdrViewportGeometryEquivalent(viewport, reference, viewport,
+                                                          withinTolerance));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(viewport, reference, viewport,
+                                                           outsideTolerance));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(viewport, reference, QSize(1199, 775),
+                                                           reference));
+    QVERIFY(!QVGraphicsView::hdrViewportGeometryEquivalent(viewport, reference, viewport,
+                                                           missingCorner));
 }
 
 // TC-HDR-UNIT-PERSISTENT-LAYER-COORDINATES
@@ -3745,40 +3555,33 @@ void HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()
     const QSizeF sourceSize(6048.0, 8064.0);
     QVERIFY(!QVCocoaFunctions::persistentHDRLayerGeometryFlipped());
     const auto verifyCornerMapping = [&](const QPolygonF &corners) {
-        const QTransform transform = QVCocoaFunctions::persistentHDRLayerTransform(
-                sourceSize, corners);
-        const QPolygonF sourceCorners{
-            QPointF(0.0, 0.0),
-            QPointF(sourceSize.width(), 0.0),
-            QPointF(sourceSize.width(), sourceSize.height()),
-            QPointF(0.0, sourceSize.height())
-        };
+        const QTransform transform =
+                QVCocoaFunctions::persistentHDRLayerTransform(sourceSize, corners);
+        const QPolygonF sourceCorners{ QPointF(0.0, 0.0), QPointF(sourceSize.width(), 0.0),
+                                       QPointF(sourceSize.width(), sourceSize.height()),
+                                       QPointF(0.0, sourceSize.height()) };
         for (qsizetype index = 0; index < sourceCorners.size(); ++index)
-            QVERIFY(QLineF(transform.map(sourceCorners.at(index)),
-                           corners.at(index)).length() < 1e-9);
+            QVERIFY(QLineF(transform.map(sourceCorners.at(index)), corners.at(index)).length()
+                    < 1e-9);
     };
 
-    const QPolygonF fitted{
-        QPointF(505.0, 27.0), QPointF(1222.75, 27.0),
-        QPointF(1222.75, 984.0), QPointF(505.0, 984.0)
-    };
+    const QPolygonF fitted{ QPointF(505.0, 27.0), QPointF(1222.75, 27.0), QPointF(1222.75, 984.0),
+                            QPointF(505.0, 984.0) };
     verifyCornerMapping(fitted);
 
     QPolygonF translated = fitted;
     for (QPointF &corner : translated)
         corner += QPointF(0.0, 37.0);
-    const QTransform fittedTransform = QVCocoaFunctions::persistentHDRLayerTransform(
-            sourceSize, fitted);
-    const QTransform translatedTransform = QVCocoaFunctions::persistentHDRLayerTransform(
-            sourceSize, translated);
+    const QTransform fittedTransform =
+            QVCocoaFunctions::persistentHDRLayerTransform(sourceSize, fitted);
+    const QTransform translatedTransform =
+            QVCocoaFunctions::persistentHDRLayerTransform(sourceSize, translated);
     QCOMPARE(translatedTransform.map(QPointF(0.0, 0.0)).y()
                      - fittedTransform.map(QPointF(0.0, 0.0)).y(),
              37.0);
 
-    const QPolygonF rotated{
-        QPointF(140.0, 80.0), QPointF(940.0, 280.0),
-        QPointF(760.0, 1000.0), QPointF(-40.0, 800.0)
-    };
+    const QPolygonF rotated{ QPointF(140.0, 80.0), QPointF(940.0, 280.0), QPointF(760.0, 1000.0),
+                             QPointF(-40.0, 800.0) };
     verifyCornerMapping(rotated);
 }
 
@@ -3788,17 +3591,14 @@ void HDRPolicyTests::testPersistentHDRLayerUsesStableQtViewportCoordinates()
 void HDRPolicyTests::testSDRTilePlacementConvertsTopRowsToCoreImageCoordinates()
 {
     constexpr int sourceHeight = 17646;
-    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
-                     QRect(0, 0, 2048, 2048), sourceHeight),
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(QRect(0, 0, 2048, 2048), sourceHeight),
              QRect(0, 15598, 2048, 2048));
-    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
-                     QRect(2048, 16384, 2048, 1262), sourceHeight),
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(QRect(2048, 16384, 2048, 1262), sourceHeight),
              QRect(2048, 0, 2048, 1262));
-    QCOMPARE(QVCocoaFunctions::coreImageTileRect(
-                     QRect(2046, 2046, 2052, 2052), sourceHeight),
+    QCOMPARE(QVCocoaFunctions::coreImageTileRect(QRect(2046, 2046, 2052, 2052), sourceHeight),
              QRect(2046, 13548, 2052, 2052));
-    QVERIFY(QVCocoaFunctions::coreImageTileRect(
-                    QRect(0, sourceHeight, 1, 1), sourceHeight).isEmpty());
+    QVERIFY(QVCocoaFunctions::coreImageTileRect(QRect(0, sourceHeight, 1, 1), sourceHeight)
+                    .isEmpty());
 }
 
 // TC-SDR-180FPS-POLICY
@@ -3979,18 +3779,19 @@ void HDRSampleTests::testHDRColorFidelity()
     const auto decoded = QVCocoaFunctions::readImageWithImageIO(path, 512);
     QVERIFY(decoded.hdrImage);
     const float headroom = std::max(16.0F, decoded.hdrMetadata.contentHeadroom);
-    const auto reference = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true);
+    const auto reference =
+            QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1, true);
     const auto actual = QVCocoaFunctions::probeHDRBrightnessImage(decoded.hdrImage, headroom, 1);
-    QCOMPARE(reference.size(), 64*64*4);
+    QCOMPARE(reference.size(), 64 * 64 * 4);
     QCOMPARE(actual.size(), reference.size());
     double maximum = 0, sum = 0;
     int mismatched = 0;
-    for (int pixel=0; pixel<64*64; ++pixel) {
+    for (int pixel = 0; pixel < 64 * 64; ++pixel) {
         bool differs = false;
-        for (int channel=0; channel<3; ++channel) {
-            const int index = pixel*4+channel;
+        for (int channel = 0; channel < 3; ++channel) {
+            const int index = pixel * 4 + channel;
             QVERIFY(std::isfinite(actual[index]) && std::isfinite(reference[index]));
-            const double error = std::abs(actual[index]-reference[index]);
+            const double error = std::abs(actual[index] - reference[index]);
             maximum = std::max(maximum, error);
             sum += error;
             differs |= error > 0.01;
@@ -3998,7 +3799,9 @@ void HDRSampleTests::testHDRColorFidelity()
         mismatched += differs;
     }
     qInfo().noquote() << QString("HDR_COLOR max_error=%1 mean_error=%2 mismatched_pixels=%3/4096")
-            .arg(maximum,0,'g',8).arg(sum/(64*64*3),0,'g',8).arg(mismatched);
+                                 .arg(maximum, 0, 'g', 8)
+                                 .arg(sum / (64 * 64 * 3), 0, 'g', 8)
+                                 .arg(mismatched);
     QVERIFY2(maximum <= 0.01, "Final rendered colors differ from decoded HDR endpoint");
 }
 
@@ -4074,8 +3877,7 @@ void HDRSampleTests::testDNGCreatesProcessedGainMapHDRGraph()
     QVERIFY(result.hdrMetadata.usesProcessedRawPreview);
     QVERIFY(result.usedRawPreview);
     QVERIFY(result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap);
-    QCOMPARE(result.hdrMetadata.sourceKind,
-             QStringLiteral("camera-raw-processed-gain-map"));
+    QCOMPARE(result.hdrMetadata.sourceKind, QStringLiteral("camera-raw-processed-gain-map"));
     QCOMPARE(result.hdrMetadata.bitsPerComponent, 16);
     QVERIFY(result.intrinsicSize.width() > 2048 || result.intrinsicSize.height() > 2048);
     QVERIFY(!result.image.isNull());
@@ -4130,10 +3932,8 @@ void HDRSampleTests::testDNGGainMapHeadroomMatchesMetadataContract()
           static_cast<double>(statistics.hdrMaximumComponent));
     QVERIFY(statistics.valid);
     QVERIFY(result.hdrMetadata.contentHeadroom > 1.5F);
-    QVERIFY(result.hdrMetadata.contentHeadroom + 0.001F
-            >= statistics.hdrMaximumComponent);
-    QVERIFY(qAbs(result.hdrMetadata.contentHeadroom
-                 - statistics.hdrMaximumComponent) <= 0.05F);
+    QVERIFY(result.hdrMetadata.contentHeadroom + 0.001F >= statistics.hdrMaximumComponent);
+    QVERIFY(qAbs(result.hdrMetadata.contentHeadroom - statistics.hdrMaximumComponent) <= 0.05F);
 }
 
 // TC-HDR-INT-RAW-DNG-REPEATABILITY
@@ -4275,14 +4075,12 @@ void HDRSampleTests::testNEFProxyOrientationMatchesNativeGraph()
     QVERIFY(result.intrinsicSize.height() > 0);
 
     const bool proxyPortrait = result.image.height() > result.image.width();
-    const bool nativePortrait = result.intrinsicSize.height()
-            > result.intrinsicSize.width();
+    const bool nativePortrait = result.intrinsicSize.height() > result.intrinsicSize.width();
     QCOMPARE(proxyPortrait, nativePortrait);
 
-    const double proxyAspect = static_cast<double>(result.image.width())
-            / result.image.height();
-    const double nativeAspect = static_cast<double>(result.intrinsicSize.width())
-            / result.intrinsicSize.height();
+    const double proxyAspect = static_cast<double>(result.image.width()) / result.image.height();
+    const double nativeAspect =
+            static_cast<double>(result.intrinsicSize.width()) / result.intrinsicSize.height();
     QVERIFY2(qAbs(proxyAspect - nativeAspect) < 0.02,
              qPrintable(QStringLiteral("proxy=%1 native=%2")
                                 .arg(proxyAspect, 0, 'f', 6)
@@ -4303,13 +4101,15 @@ void ActionManagerTests::testClonedActionsUntracked()
     MainWindow window;
     window.show();
     // Make sure they were cloned
-    QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length() != fullscreenCount);
+    QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length()
+            != fullscreenCount);
     QVERIFY(qvApp->getActionManager().getAllInstancesOfAction("open").length() != openCount);
     // Untrack them
     window.close();
 
     // Make sure the count has not changed from the initial
-    QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length(), fullscreenCount);
+    QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("fullscreen").length(),
+             fullscreenCount);
     QCOMPARE(qvApp->getActionManager().getAllInstancesOfAction("open").length(), openCount);
 
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -4355,12 +4155,13 @@ void FeatureTests::testWindowIconIsCleared()
 }
 
 // TC-TITLEBAR-DOCUMENT-ICON
-// Test purpose: verify that opening an image does not associate a document path with the native window.
-// Preconditions: Cocoa is available, a visible MainWindow can load a temporary PNG, and quit-on-last-window is disabled.
-// Input data: one valid 32x32 PNG file.
-// Steps: show the window, open the PNG, wait for the pixmap, then inspect QWidget and QWindow path state.
-// Expected result: the image loads and the QWidget/QWindow file paths remain empty; the title still contains the filename.
-// Postcondition: the temporary file and test window are released and the original quit policy is restored.
+// Test purpose: verify that opening an image does not associate a document path with the native
+// window. Preconditions: Cocoa is available, a visible MainWindow can load a temporary PNG, and
+// quit-on-last-window is disabled. Input data: one valid 32x32 PNG file. Steps: show the window,
+// open the PNG, wait for the pixmap, then inspect QWidget and QWindow path state. Expected result:
+// the image loads and the QWidget/QWindow file paths remain empty; the title still contains the
+// filename. Postcondition: the temporary file and test window are released and the original quit
+// policy is restored.
 void FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -4390,12 +4191,13 @@ void FeatureTests::testTitlebarDocumentProxyIsClearedForLoadedFile()
 }
 
 // TC-TITLEBAR-IDEMPOTENCE
-// Test purpose: verify that repeated document transitions and titlebar state changes cannot restore either icon.
-// Preconditions: Cocoa is available, a visible MainWindow can load two temporary PNG files, and quit-on-last-window is disabled.
-// Input data: two valid PNG files and repeated titlebar hidden/visible transitions.
-// Steps: load each file, toggle the titlebar state, and inspect the window icon and native file path after every transition.
-// Expected result: every observation has a null window icon and an empty native file path.
-// Postcondition: the window is closed and the original quit policy is restored.
+// Test purpose: verify that repeated document transitions and titlebar state changes cannot restore
+// either icon. Preconditions: Cocoa is available, a visible MainWindow can load two temporary PNG
+// files, and quit-on-last-window is disabled. Input data: two valid PNG files and repeated titlebar
+// hidden/visible transitions. Steps: load each file, toggle the titlebar state, and inspect the
+// window icon and native file path after every transition. Expected result: every observation has a
+// null window icon and an empty native file path. Postcondition: the window is closed and the
+// original quit policy is restored.
 void FeatureTests::testTitlebarIconClearingIsIdempotent()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -4454,14 +4256,12 @@ void FeatureTests::testViewMenuRemovesLegacyActions()
     const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu("view");
     QVERIFY(!viewMenus.isEmpty());
 
-    for (const auto *viewMenu : viewMenus)
-    {
+    for (const auto *viewMenu : viewMenus) {
         if (viewMenu->property("isContextMenu").toBool())
             continue;
 
         foundMainMenu = true;
-        for (const auto *action : viewMenu->actions())
-        {
+        for (const auto *action : viewMenu->actions()) {
             const QString key = action->data().toStringList().value(0);
             QVERIFY(key != QStringLiteral("originalsize"));
             QVERIFY(key != QStringLiteral("zoomtofit"));
@@ -4514,8 +4314,9 @@ void FeatureTests::testSettingsFormatsPaneIsRemoved()
     QStringList categoryTexts;
     for (int index = 0; index < tabs->count(); ++index)
         categoryTexts.append(tabs->tabText(index));
-    QCOMPARE(categoryTexts, QStringList({QStringLiteral("General"), QStringLiteral("Shortcuts"),
-                                         QStringLiteral("Mouse")}));
+    QCOMPARE(categoryTexts,
+             QStringList({ QStringLiteral("General"), QStringLiteral("Shortcuts"),
+                           QStringLiteral("Mouse") }));
     QVERIFY(!categoryTexts.contains(QStringLiteral("Formats")));
     QVERIFY(!dialog.findChild<QWidget *>("formats"));
     QVERIFY(!dialog.findChild<QTableWidget *>("formatsTable"));
@@ -4564,10 +4365,7 @@ void FeatureTests::testSettingsGeneralLanguageAndRemovedOptions()
 // Postcondition: the window closes and the original setting is restored.
 void FeatureTests::testPreloadingIgnoresDisabledUserSetting()
 {
-    ScopedOptionValues options({
-        {"preloadingmode", 0},
-        {"loopfoldersenabled", false}
-    });
+    ScopedOptionValues options({ { "preloadingmode", 0 }, { "loopfoldersenabled", false } });
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString currentPath = createTestImage(directory, "01-current", Qt::red);
@@ -4594,30 +4392,29 @@ void FeatureTests::testPreloadingIgnoresDisabledUserSetting()
     QVERIFY(startedSpy.isValid());
 
     window.openFile(currentPath);
-    QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            QFileInfo(currentPath).absoluteFilePath(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              QFileInfo(currentPath).absoluteFilePath(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT([&]() {
-        for (const auto &record : startedSpy)
-        {
-            if (record.at(0).toString() == QFileInfo(adjacentPath).absoluteFilePath()
-                && record.at(1).toInt() == 1)
-                return true;
-        }
-        return false;
-    }(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            [&]() {
+                for (const auto &record : startedSpy) {
+                    if (record.at(0).toString() == QFileInfo(adjacentPath).absoluteFilePath()
+                        && record.at(1).toInt() == 1)
+                        return true;
+                }
+                return false;
+            }(),
+            5000);
 
     bool sawForeground = false;
     bool sawAdjacent = false;
-    for (const auto &record : startedSpy)
-    {
+    for (const auto &record : startedSpy) {
         const QString path = record.at(0).toString();
         const int priority = record.at(1).toInt();
-        sawForeground = sawForeground || (path == QFileInfo(currentPath).absoluteFilePath()
-                                          && priority == 0);
-        sawAdjacent = sawAdjacent || (path == QFileInfo(adjacentPath).absoluteFilePath()
-                                      && priority == 1);
+        sawForeground = sawForeground
+                || (path == QFileInfo(currentPath).absoluteFilePath() && priority == 0);
+        sawAdjacent = sawAdjacent
+                || (path == QFileInfo(adjacentPath).absoluteFilePath() && priority == 1);
         QVERIFY(priority <= 1);
         QVERIFY(path != QFileInfo(distantPath).absoluteFilePath());
         QVERIFY(path != QFileInfo(lastPath).absoluteFilePath());
@@ -4642,10 +4439,7 @@ void FeatureTests::testPreloadingIgnoresDisabledUserSetting()
 // Postcondition: the window closes and the original setting is restored.
 void FeatureTests::testPreloadingIgnoresExtendedUserSetting()
 {
-    ScopedOptionValues options({
-        {"preloadingmode", 2},
-        {"loopfoldersenabled", false}
-    });
+    ScopedOptionValues options({ { "preloadingmode", 2 }, { "loopfoldersenabled", false } });
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString firstPath = createTestImage(directory, "01-first", Qt::red);
@@ -4672,36 +4466,33 @@ void FeatureTests::testPreloadingIgnoresExtendedUserSetting()
     QVERIFY(startedSpy.isValid());
 
     window.openFile(currentPath);
-    QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            QFileInfo(currentPath).absoluteFilePath(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              QFileInfo(currentPath).absoluteFilePath(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT([&]() {
-        bool sawFirst = false;
-        bool sawNext = false;
-        for (const auto &record : startedSpy)
-        {
-            sawFirst = sawFirst || record.at(0).toString()
-                    == QFileInfo(firstPath).absoluteFilePath();
-            sawNext = sawNext || record.at(0).toString()
-                    == QFileInfo(nextPath).absoluteFilePath();
-        }
-        return sawFirst && sawNext;
-    }(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            [&]() {
+                bool sawFirst = false;
+                bool sawNext = false;
+                for (const auto &record : startedSpy) {
+                    sawFirst = sawFirst
+                            || record.at(0).toString() == QFileInfo(firstPath).absoluteFilePath();
+                    sawNext = sawNext
+                            || record.at(0).toString() == QFileInfo(nextPath).absoluteFilePath();
+                }
+                return sawFirst && sawNext;
+            }(),
+            5000);
 
     bool sawForeground = false;
     bool sawFirst = false;
     bool sawNext = false;
-    for (const auto &record : startedSpy)
-    {
+    for (const auto &record : startedSpy) {
         const QString path = record.at(0).toString();
         const int priority = record.at(1).toInt();
-        sawForeground = sawForeground || (path == QFileInfo(currentPath).absoluteFilePath()
-                                          && priority == 0);
-        sawFirst = sawFirst || (path == QFileInfo(firstPath).absoluteFilePath()
-                                && priority == 1);
-        sawNext = sawNext || (path == QFileInfo(nextPath).absoluteFilePath()
-                              && priority == 1);
+        sawForeground = sawForeground
+                || (path == QFileInfo(currentPath).absoluteFilePath() && priority == 0);
+        sawFirst = sawFirst || (path == QFileInfo(firstPath).absoluteFilePath() && priority == 1);
+        sawNext = sawNext || (path == QFileInfo(nextPath).absoluteFilePath() && priority == 1);
         QVERIFY(priority <= 1);
         QVERIFY(path != QFileInfo(distantPath).absoluteFilePath());
     }
@@ -4729,7 +4520,8 @@ void FeatureTests::testSettingsMouseCursorPanelIsRemoved()
     QVERIFY(!dialog.findChild<QGroupBox *>(QStringLiteral("cursorGroup")));
     QVERIFY(!dialog.findChild<QFormLayout *>(QStringLiteral("cursorLayout")));
     QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("cursorAutoHideFullscreenCheckbox")));
-    QVERIFY(!dialog.findChild<QDoubleSpinBox *>(QStringLiteral("cursorAutoHideFullscreenDelaySpinBox")));
+    QVERIFY(!dialog.findChild<QDoubleSpinBox *>(
+            QStringLiteral("cursorAutoHideFullscreenDelaySpinBox")));
 }
 
 // TC-SETTINGS-LANGUAGE-CATALOG
@@ -4743,17 +4535,14 @@ void FeatureTests::testSettingsMouseCursorPanelIsRemoved()
 // Postcondition: no settings are changed.
 void FeatureTests::testSettingsLanguageCatalogIsFixed()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("system")}});
+    ScopedOptionValues options({ { "language", QStringLiteral("system") } });
     QVOptionsDialog dialog;
     auto *language = dialog.findChild<QComboBox *>("langComboBox");
     QVERIFY(language);
     QCOMPARE(language->count(), 6);
-    const QStringList expectedLabels {QStringLiteral("System Language"),
-                                      QStringLiteral("English"),
-                                      QStringLiteral("简体中文"),
-                                      QStringLiteral("繁體中文"),
-                                      QStringLiteral("Español"),
-                                      QStringLiteral("日本語")};
+    const QStringList expectedLabels{ QStringLiteral("System Language"), QStringLiteral("English"),
+                                      QStringLiteral("简体中文"),        QStringLiteral("繁體中文"),
+                                      QStringLiteral("Español"),         QStringLiteral("日本語") };
     for (int index = 0; index < expectedLabels.size(); ++index)
         QCOMPARE(language->itemText(index), expectedLabels.value(index));
     QCOMPARE(language->itemData(0).toString(), QStringLiteral("system"));
@@ -4791,12 +4580,18 @@ void FeatureTests::testSettingsLanguageDefaultsToSystem()
 // Postcondition: no process locale or persistent setting is changed.
 void FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
 {
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("en-US"))), QStringLiteral("en"));
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-CN"))), QStringLiteral("zh_Hans"));
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-TW"))), QStringLiteral("zh_Hant"));
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("es-ES"))), QStringLiteral("es"));
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("ja-JP"))), QStringLiteral("ja"));
-    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("de-DE"))), QStringLiteral("en"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("en-US"))),
+             QStringLiteral("en"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-CN"))),
+             QStringLiteral("zh_Hans"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("zh-TW"))),
+             QStringLiteral("zh_Hant"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("es-ES"))),
+             QStringLiteral("es"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("ja-JP"))),
+             QStringLiteral("ja"));
+    QCOMPARE(SettingsManager::languageCodeForLocale(QLocale(QStringLiteral("de-DE"))),
+             QStringLiteral("en"));
 }
 
 // AC-FILEINFO-MODIFIED-FORMAT
@@ -4815,14 +4610,14 @@ void FeatureTests::testSystemLanguageMappingFallsBackToEnglish()
 // Independent EXIF fixture writer: JPEG APP1 + little-endian TIFF IFD.
 // Does not call the production metadata extraction code.
 static QString createCameraModelJpeg(const QTemporaryDir &dir, const QString &name,
-                                    const QByteArray &model, quint16 tag = 0x0110,
-                                    bool wrongType = false)
+                                     const QByteArray &model, quint16 tag = 0x0110,
+                                     bool wrongType = false)
 {
     const QString path = dir.filePath(name + ".jpg");
     QImage image(16, 16, QImage::Format_RGB32);
     image.fill(Qt::green);
     if (!image.save(path, "JPEG"))
-        return {};
+        return { };
     if (tag == 0)
         return path;
     QByteArray tiff;
@@ -4852,13 +4647,12 @@ static QString createCameraModelJpeg(const QTemporaryDir &dir, const QString &na
     app1 += payload;
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
-        return {};
+        return { };
     QByteArray jpeg = file.readAll();
     file.close();
     jpeg.insert(2, app1);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
-        || file.write(jpeg) != jpeg.size())
-        return {};
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(jpeg) != jpeg.size())
+        return { };
     return path;
 }
 
@@ -4909,12 +4703,14 @@ void FeatureTests::testCameraModelNavigation()
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     const auto closeWindow = qScopeGuard([&] { window.close(); });
     window.show();
-    const QList<QPair<QString, QString>> inputs {{first, "EOS R5"}, {second, "Unknown"},
-                                                {third, "ILCE-7M4"}, {first, "EOS R5"}};
+    const QList<QPair<QString, QString>> inputs{
+        { first, "EOS R5" }, { second, "Unknown" }, { third, "ILCE-7M4" }, { first, "EOS R5" }
+    };
     for (const auto &input : inputs) {
         QVERIFY(!input.first.isEmpty());
         window.openFile(input.first);
-        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), input.first, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  input.first, 5000);
         window.showFileInfo();
         auto *dialog = window.findChild<QVInfoDialog *>();
         QVERIFY(dialog);
@@ -4936,7 +4732,7 @@ void FeatureTests::testCameraModelPresentation()
     const auto restore = qScopeGuard([&] { QCoreApplication::removeTranslator(&english); });
     QVInfoDialog dialog;
     const QString literal = "<b>Camera & Model</b>";
-    dialog.setInfo({}, QSize(16, 16), 0, literal);
+    dialog.setInfo({ }, QSize(16, 16), 0, literal);
     auto *label = dialog.findChild<QLabel *>("cameraModelLabel");
     QVERIFY(label);
     QCOMPARE(label->text(), literal);
@@ -4945,16 +4741,17 @@ void FeatureTests::testCameraModelPresentation()
     label->setSelection(0, label->text().size());
     QCOMPARE(label->selectedText(), literal);
     QVERIFY(label->wordWrap());
-    dialog.setInfo({}, QSize(16, 16), 0, QString("Long Camera Model ").repeated(20));
+    dialog.setInfo({ }, QSize(16, 16), 0, QString("Long Camera Model ").repeated(20));
     dialog.show();
     QTest::qWait(50);
     QVERIFY(label->width() <= 420);
-    QVERIFY2(label->height() >= label->heightForWidth(label->width()), "Camera model text is clipped");
+    QVERIFY2(label->height() >= label->heightForWidth(label->width()),
+             "Camera model text is clipped");
     QVERIFY(dialog.rect().contains(QRect(label->mapTo(&dialog, QPoint(0, 0)), label->size())));
     const auto evidence = qEnvironmentVariable("FOVELLE_CAMERA_EVIDENCE_DIR");
     if (!evidence.isEmpty())
         QVERIFY(dialog.grab().save(QDir(evidence).filePath("camera-model-long.png")));
-    dialog.setInfo({}, QSize(16, 16), 0);
+    dialog.setInfo({ }, QSize(16, 16), 0);
     QTRY_COMPARE(label->text(), QString("Unknown"));
 }
 
@@ -4963,12 +4760,12 @@ void FeatureTests::testCameraModelTranslations()
 #ifndef FOVELLE_TRANSLATIONS_DIR
     QFAIL("Camera model acceptance requires compiled translation catalogs");
 #else
-    const QList<QStringList> languages {
-        {"en", "Camera model:", "Unknown"},
-        {"zh_Hans", QString::fromUtf8("拍摄机型:"), QString::fromUtf8("未知")},
-        {"zh_Hant", QString::fromUtf8("拍攝機型:"), QString::fromUtf8("未知")},
-        {"es", QString::fromUtf8("Modelo de cámara:"), "Desconocido"},
-        {"ja", QString::fromUtf8("撮影機種:"), QString::fromUtf8("不明")}
+    const QList<QStringList> languages{
+        { "en", "Camera model:", "Unknown" },
+        { "zh_Hans", QString::fromUtf8("拍摄机型:"), QString::fromUtf8("未知") },
+        { "zh_Hant", QString::fromUtf8("拍攝機型:"), QString::fromUtf8("未知") },
+        { "es", QString::fromUtf8("Modelo de cámara:"), "Desconocido" },
+        { "ja", QString::fromUtf8("撮影機種:"), QString::fromUtf8("不明") }
     };
     QVInfoDialog dialog;
     for (const auto &language : languages) {
@@ -4976,7 +4773,8 @@ void FeatureTests::testCameraModelTranslations()
         QTranslator catalog;
         QTranslator *translator = &english;
         if (language[0] != "en") {
-            QVERIFY(catalog.load(QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language[0])));
+            QVERIFY(catalog.load(
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language[0])));
             translator = &catalog;
         }
         QVERIFY(QCoreApplication::installTranslator(translator));
@@ -4988,9 +4786,9 @@ void FeatureTests::testCameraModelTranslations()
         QVERIFY(caption);
         QVERIFY(label);
         QCOMPARE(caption->text(), language[1]);
-        dialog.setInfo({}, QSize(16, 16), 0, "EOS R5");
+        dialog.setInfo({ }, QSize(16, 16), 0, "EOS R5");
         QCOMPARE(label->text(), QString("EOS R5"));
-        dialog.setInfo({}, QSize(16, 16), 0);
+        dialog.setInfo({ }, QSize(16, 16), 0);
         QCOMPARE(label->text(), language[2]);
     }
 #endif
@@ -4999,31 +4797,29 @@ void FeatureTests::testCameraModelTranslations()
 void FeatureTests::testFileInfoModifiedUsesUiLanguageFormats()
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    const QDateTime referenceDateTime(
-        QDate(2026, 9, 1), QTime(13, 55), QTimeZone::systemTimeZone());
+    const QDateTime referenceDateTime(QDate(2026, 9, 1), QTime(13, 55),
+                                      QTimeZone::systemTimeZone());
 #else
-    const QDateTime referenceDateTime(
-        QDate(2026, 9, 1), QTime(13, 55), Qt::LocalTime);
+    const QDateTime referenceDateTime(QDate(2026, 9, 1), QTime(13, 55), Qt::LocalTime);
 #endif
-    const QList<QPair<QString, QString>> expectedFormats {
-        {QStringLiteral("en"), QStringLiteral("Sep 1, 2026, 1:55 PM")},
-        {QStringLiteral("zh_Hans"), QStringLiteral("2026年9月1日 13:55")},
-        {QStringLiteral("zh_Hant"), QStringLiteral("2026年9月1日 下午1:55")},
-        {QStringLiteral("es"), QStringLiteral("1 sept 2026, 13:55")},
-        {QStringLiteral("ja"), QStringLiteral("2026年9月1日 13:55")},
+    const QList<QPair<QString, QString>> expectedFormats{
+        { QStringLiteral("en"), QStringLiteral("Sep 1, 2026, 1:55 PM") },
+        { QStringLiteral("zh_Hans"), QStringLiteral("2026年9月1日 13:55") },
+        { QStringLiteral("zh_Hant"), QStringLiteral("2026年9月1日 下午1:55") },
+        { QStringLiteral("es"), QStringLiteral("1 sept 2026, 13:55") },
+        { QStringLiteral("ja"), QStringLiteral("2026年9月1日 13:55") },
     };
     for (const auto &[language, expected] : expectedFormats)
         QCOMPARE(QVInfoDialog::formatModifiedDateTime(referenceDateTime, language), expected);
 
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    const QString imagePath = createTestImage(
-        directory, QStringLiteral("modified-format"), Qt::darkGray);
+    const QString imagePath =
+            createTestImage(directory, QStringLiteral("modified-format"), Qt::darkGray);
     QVERIFY(!imagePath.isEmpty());
     const QFileInfo fileInfo(imagePath);
-    for (const auto &[language, expected] : expectedFormats)
-    {
-        ScopedOptionValues options({{QStringLiteral("language"), language}});
+    for (const auto &[language, expected] : expectedFormats) {
+        ScopedOptionValues options({ { QStringLiteral("language"), language } });
         QVInfoDialog dialog;
         dialog.setInfo(fileInfo, QSize(32, 32), 0);
         auto *modifiedLabel = dialog.findChild<QLabel *>(QStringLiteral("modifiedLabel"));
@@ -5044,7 +4840,7 @@ void FeatureTests::testFileInfoModifiedUsesUiLanguageFormats()
 // Postcondition: the dialog is destroyed without changing update settings.
 void FeatureTests::testAutoUpdateCheckLabelIsRenamed()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
     QVOptionsDialog dialog;
     auto *label = dialog.findChild<QLabel *>(QStringLiteral("updateFrequencyLabel"));
     QVERIFY(label);
@@ -5066,12 +4862,13 @@ void FeatureTests::testAutoUpdateCheckLabelIsRenamed()
 // Postcondition: the dialog and temporary language setting are restored.
 void FeatureTests::testSettingsRenamedLabelsAndRemovedMouseOptions()
 {
-    ScopedOptionValues options({{QStringLiteral("language"), QStringLiteral("en")}});
+    ScopedOptionValues options({ { QStringLiteral("language"), QStringLiteral("en") } });
     SourceLanguageTranslator sourceTranslator;
     QVERIFY(QCoreApplication::installTranslator(&sourceTranslator));
 
     QVOptionsDialog dialog;
-    auto *checkerboard = dialog.findChild<QCheckBox *>(QStringLiteral("checkerboardBackgroundCheckbox"));
+    auto *checkerboard =
+            dialog.findChild<QCheckBox *>(QStringLiteral("checkerboardBackgroundCheckbox"));
     auto *reuseWindow = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
     auto *afterDeleteLabel = dialog.findChild<QLabel *>(QStringLiteral("label_10"));
     auto *afterDelete = dialog.findChild<QComboBox *>(QStringLiteral("afterDeletionComboBox"));
@@ -5120,11 +4917,10 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
     ScopedSettingPreserver firstLaunch(QStringLiteral("firstlaunch"));
     QSettings settings;
     settings.setValue(QStringLiteral("firstlaunch"), true);
-    ScopedOptionValues options({
-        {QStringLiteral("navigationregionsenabled"), true},
-        {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Drag)},
-        {QStringLiteral("preloadingmode"), 0}
-    });
+    ScopedOptionValues options({ { QStringLiteral("navigationregionsenabled"), true },
+                                 { QStringLiteral("viewportmiddlebuttonmode"),
+                                   static_cast<int>(Qv::ClickOrDrag::Drag) },
+                                 { QStringLiteral("preloadingmode"), 0 } });
 
     SettingsManager::migrateOldSettings();
     settings.sync();
@@ -5134,9 +4930,11 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
     QCOMPARE(settings.value(QStringLiteral("options/preloadingmode")).toInt(),
              Qv::AdjacentPreloadDistance);
     qvApp->getSettingsManager().loadSettings();
-    QCOMPARE(qvApp->getSettingsManager().getBoolean(QStringLiteral("navigationregionsenabled")), false);
+    QCOMPARE(qvApp->getSettingsManager().getBoolean(QStringLiteral("navigationregionsenabled")),
+             false);
     QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::ClickOrDrag>(
-                 QStringLiteral("viewportmiddlebuttonmode")), Qv::ClickOrDrag::Click);
+                     QStringLiteral("viewportmiddlebuttonmode")),
+             Qv::ClickOrDrag::Click);
     QCOMPARE(qvApp->getSettingsManager().getInteger(QStringLiteral("preloadingmode")),
              Qv::AdjacentPreloadDistance);
 }
@@ -5156,8 +4954,9 @@ void FeatureTests::testRemovedMouseSettingsMigrateToFixedDefaults()
 void FeatureTests::testAssociateAllSupportedFormatsDryRun()
 {
     const auto result = QVCocoaFunctions::associateAllSupportedFormats(
-        {QStringLiteral(".JPG"), QStringLiteral("jpg"), QStringLiteral("PNG"),
-         QStringLiteral(""), QStringLiteral(".")}, true);
+            { QStringLiteral(".JPG"), QStringLiteral("jpg"), QStringLiteral("PNG"),
+              QStringLiteral(""), QStringLiteral(".") },
+            true);
     QCOMPARE(result.requestedCount, 2);
     QCOMPARE(result.associatedCount, 2);
     QVERIFY(result.failedExtensions.isEmpty());
@@ -5189,44 +4988,63 @@ void FeatureTests::testPreferencesDefaultsAndRemovedControls()
     QCOMPARE(settings.getBoolean("smoothscalinglimitenabled", true), false);
     QCOMPARE(settings.getBoolean("cursorzoom", true), true);
     QCOMPARE(settings.getBoolean("onetoonepixelsizing", true), false);
-    QCOMPARE(settings.getEnum<Qv::CalculatedZoomMode>("calculatedzoommode", true), Qv::CalculatedZoomMode::ZoomToFit);
+    QCOMPARE(settings.getEnum<Qv::CalculatedZoomMode>("calculatedzoommode", true),
+             Qv::CalculatedZoomMode::ZoomToFit);
     QCOMPARE(settings.getBoolean("fitzoomlimitenabled", true), false);
     QCOMPARE(settings.getBoolean("navresetszoom", true), true);
     QCOMPARE(settings.getBoolean("constrainimageposition", true), true);
     QCOMPARE(settings.getBoolean("constraincentersmallimage", true), true);
     QCOMPARE(settings.getBoolean("originalsizeastoggle", true), false);
-    QCOMPARE(settings.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion", true), Qv::ColorSpaceConversion::AutoDetect);
+    QCOMPARE(settings.getEnum<Qv::ColorSpaceConversion>("colorspaceconversion", true),
+             Qv::ColorSpaceConversion::AutoDetect);
     QCOMPARE(settings.getBoolean("navigationregionsenabled", true), false);
-    QCOMPARE(settings.getEnum<Qv::ClickOrDrag>("viewportmiddlebuttonmode", true), Qv::ClickOrDrag::Click);
+    QCOMPARE(settings.getEnum<Qv::ClickOrDrag>("viewportmiddlebuttonmode", true),
+             Qv::ClickOrDrag::Click);
     QCOMPARE(settings.getInteger("navspeed", true), 50);
     QCOMPARE(settings.getBoolean("loopfoldersenabled", true), false);
-    QCOMPARE(settings.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency", true), Qv::UpdateCheckFrequency::Weekly);
+    QCOMPARE(settings.getEnum<Qv::UpdateCheckFrequency>("updatecheckfrequency", true),
+             Qv::UpdateCheckFrequency::Weekly);
 
     QVOptionsDialog dialog;
-    const QStringList removedObjects {
-        QStringLiteral("windowResizeComboBox"), QStringLiteral("afterMatchingSizeComboBox"),
-        QStringLiteral("minWindowResizeSpinBox"), QStringLiteral("maxWindowResizeSpinBox"),
-        QStringLiteral("detailsInFullscreen"), QStringLiteral("mainMenuIconsCheckbox"),
-        QStringLiteral("contextMenuIconsCheckbox"), QStringLiteral("submenuIconsCheckbox"),
-        QStringLiteral("persistSessionCheckbox"), QStringLiteral("slideshowKeepsWindowOnTopCheckbox"),
-        QStringLiteral("mimeContentDetectionCheckbox"), QStringLiteral("skipHiddenCheckbox"),
-        QStringLiteral("saveRecentsCheckbox"), QStringLiteral("scalingTwoCheckbox"),
-        QStringLiteral("smoothScalingLimitCheckbox"), QStringLiteral("scaleFactorSpinBox"),
-        QStringLiteral("cursorZoomCheckbox"), QStringLiteral("oneToOnePixelSizingCheckbox"),
-        QStringLiteral("zoomDefaultComboBox"), QStringLiteral("fitZoomLimitCheckbox"),
-        QStringLiteral("fitOverscanSpinBox"), QStringLiteral("navResetsZoomCheckbox"),
-        QStringLiteral("constrainImagePositionCheckbox"),
-        QStringLiteral("constrainCentersSmallImageCheckbox"),
-        QStringLiteral("originalSizeAsToggleCheckbox"),
-        QStringLiteral("colorSpaceConversionComboBox"), QStringLiteral("navSpeedSpinBox"),
-        QStringLiteral("loopFoldersCheckbox"), QStringLiteral("updateCheckbox"),
-        QStringLiteral("formatsTable"), QStringLiteral("navigationRegionsCheckbox"),
-        QStringLiteral("middleButtonModeLabel"), QStringLiteral("middleButtonModeHost"),
-        QStringLiteral("middleButtonModeClickRadioButton"),
-        QStringLiteral("middleButtonModeDragRadioButton"),
-        QStringLiteral("middleDragLabel"), QStringLiteral("middleDragComboBox"),
-        QStringLiteral("altMiddleDragLabel"), QStringLiteral("altMiddleDragComboBox")
-    };
+    const QStringList removedObjects{ QStringLiteral("windowResizeComboBox"),
+                                      QStringLiteral("afterMatchingSizeComboBox"),
+                                      QStringLiteral("minWindowResizeSpinBox"),
+                                      QStringLiteral("maxWindowResizeSpinBox"),
+                                      QStringLiteral("detailsInFullscreen"),
+                                      QStringLiteral("mainMenuIconsCheckbox"),
+                                      QStringLiteral("contextMenuIconsCheckbox"),
+                                      QStringLiteral("submenuIconsCheckbox"),
+                                      QStringLiteral("persistSessionCheckbox"),
+                                      QStringLiteral("slideshowKeepsWindowOnTopCheckbox"),
+                                      QStringLiteral("mimeContentDetectionCheckbox"),
+                                      QStringLiteral("skipHiddenCheckbox"),
+                                      QStringLiteral("saveRecentsCheckbox"),
+                                      QStringLiteral("scalingTwoCheckbox"),
+                                      QStringLiteral("smoothScalingLimitCheckbox"),
+                                      QStringLiteral("scaleFactorSpinBox"),
+                                      QStringLiteral("cursorZoomCheckbox"),
+                                      QStringLiteral("oneToOnePixelSizingCheckbox"),
+                                      QStringLiteral("zoomDefaultComboBox"),
+                                      QStringLiteral("fitZoomLimitCheckbox"),
+                                      QStringLiteral("fitOverscanSpinBox"),
+                                      QStringLiteral("navResetsZoomCheckbox"),
+                                      QStringLiteral("constrainImagePositionCheckbox"),
+                                      QStringLiteral("constrainCentersSmallImageCheckbox"),
+                                      QStringLiteral("originalSizeAsToggleCheckbox"),
+                                      QStringLiteral("colorSpaceConversionComboBox"),
+                                      QStringLiteral("navSpeedSpinBox"),
+                                      QStringLiteral("loopFoldersCheckbox"),
+                                      QStringLiteral("updateCheckbox"),
+                                      QStringLiteral("formatsTable"),
+                                      QStringLiteral("navigationRegionsCheckbox"),
+                                      QStringLiteral("middleButtonModeLabel"),
+                                      QStringLiteral("middleButtonModeHost"),
+                                      QStringLiteral("middleButtonModeClickRadioButton"),
+                                      QStringLiteral("middleButtonModeDragRadioButton"),
+                                      QStringLiteral("middleDragLabel"),
+                                      QStringLiteral("middleDragComboBox"),
+                                      QStringLiteral("altMiddleDragLabel"),
+                                      QStringLiteral("altMiddleDragComboBox") };
     for (const auto &objectName : removedObjects)
         QVERIFY2(!dialog.findChild<QWidget *>(objectName), qPrintable(objectName));
 
@@ -5270,10 +5088,9 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QCOMPARE(settings.getEnum<Qv::SmoothScalingMode>(QStringLiteral("smoothscalingmode"), true),
              Qv::SmoothScalingMode::Bilinear);
 
-    ScopedOptionValues options({
-        {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Bilinear)}
-    });
+    ScopedOptionValues options({ { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) },
+                                 { QStringLiteral("smoothscalingmode"),
+                                   static_cast<int>(Qv::SmoothScalingMode::Bilinear) } });
 
     QVOptionsDialog dialog;
     auto *generalContent = dialog.findChild<QWidget *>(QStringLiteral("generalContent"));
@@ -5303,23 +5120,22 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
 
     const auto groups = generalContent->findChildren<QWidget *>();
     QList<QWidget *> orderedGroups;
-    for (auto *widget : groups)
-    {
+    for (auto *widget : groups) {
         if (widget->property("settingsGroupIndex").isValid())
             orderedGroups.append(widget);
     }
     std::sort(orderedGroups.begin(), orderedGroups.end(), [](QWidget *left, QWidget *right) {
         return left->property("settingsGroupIndex").toInt()
-            < right->property("settingsGroupIndex").toInt();
+                < right->property("settingsGroupIndex").toInt();
     });
-        QCOMPARE(orderedGroups.size(), expectedItems.size());
+    QCOMPARE(orderedGroups.size(), expectedItems.size());
 
-    for (int index = 0; index < expectedItems.size(); ++index)
-    {
+    for (int index = 0; index < expectedItems.size(); ++index) {
         QWidget *group = orderedGroups.at(index);
         QCOMPARE(generalLayout->itemAt(index)->widget(), group);
         QCOMPARE(group->property("settingsGroupIndex").toInt(), index + 1);
-        QCOMPARE(group->property("settingsItemObjectNames").toStringList(), expectedItems.at(index));
+        QCOMPARE(group->property("settingsItemObjectNames").toStringList(),
+                 expectedItems.at(index));
         QCOMPARE(group->parentWidget(), generalContent);
         QCOMPARE(group->sizePolicy().verticalPolicy(), QSizePolicy::Fixed);
         auto *layout = qobject_cast<QFormLayout *>(group->layout());
@@ -5330,20 +5146,18 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
         QCOMPARE(margins.right(), 0);
         QCOMPARE(margins.bottom(), 0);
         if (index == 3)
-            QCOMPARE(margins.left(), generalContent->property(
-                         "settingsAlignedLabelColumnWidth").toInt());
+            QCOMPARE(margins.left(),
+                     generalContent->property("settingsAlignedLabelColumnWidth").toInt());
         else
             QCOMPARE(margins.left(), 0);
 
-        for (const QString &objectName : expectedItems.at(index))
-        {
+        for (const QString &objectName : expectedItems.at(index)) {
             auto *option = dialog.findChild<QWidget *>(objectName);
             QVERIFY(option);
             bool belongsToGroup = false;
-            for (QWidget *ancestor = option->parentWidget(); ancestor; ancestor = ancestor->parentWidget())
-            {
-                if (ancestor == group)
-                {
+            for (QWidget *ancestor = option->parentWidget(); ancestor;
+                 ancestor = ancestor->parentWidget()) {
+                if (ancestor == group) {
                     belongsToGroup = true;
                     break;
                 }
@@ -5357,7 +5171,8 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
     QVERIFY(theme);
     QVERIFY(smoothScaling);
     QCOMPARE(theme->currentData().toInt(), static_cast<int>(Qv::Theme::Dark));
-    QCOMPARE(smoothScaling->currentData().toInt(), static_cast<int>(Qv::SmoothScalingMode::Bilinear));
+    QCOMPARE(smoothScaling->currentData().toInt(),
+             static_cast<int>(Qv::SmoothScalingMode::Bilinear));
 }
 
 // TC-SETTINGS-COOLDOWN-REMOVED
@@ -5373,17 +5188,15 @@ void FeatureTests::testSettingsGeneralGroupsAndDefaults()
 // Postcondition: the dialog is destroyed without changing persistent settings.
 void FeatureTests::testSettingsCooldownOptionIsRemovedAndDefaultEnabled()
 {
-    const auto setting = qvApp->getSettingsManager().getSettings().value(
-        QStringLiteral("scrollactioncooldown"));
+    const auto setting =
+            qvApp->getSettingsManager().getSettings().value(QStringLiteral("scrollactioncooldown"));
     QVERIFY(setting.defaultValue.isValid());
     QVERIFY(setting.defaultValue.toBool());
 
     QVOptionsDialog dialog;
-    QVERIFY(!dialog.findChild<QCheckBox *>(
-        QStringLiteral("scrollActionCooldownCheckbox")));
+    QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("scrollActionCooldownCheckbox")));
     for (auto *checkBox : dialog.findChildren<QCheckBox *>())
-        QVERIFY(!checkBox->text().contains(QStringLiteral("Cooldown"),
-                                           Qt::CaseInsensitive));
+        QVERIFY(!checkBox->text().contains(QStringLiteral("Cooldown"), Qt::CaseInsensitive));
 }
 
 // TC-UPDATE-FREQUENCY-POLICY
@@ -5411,11 +5224,11 @@ void FeatureTests::testUpdateConfigurationValidation()
 {
     const QString key = QString::fromLatin1(QByteArray(32, 'x').toBase64());
     QVERIFY(UpdateChecker::isConfigurationValid("https://example.com/appcast.xml", key));
-    for (const QString &feed : {QString(), QString("http://example.com/appcast.xml"),
-         QString("file:///tmp/feed.xml"), QString("https:///feed.xml"),
-         QString("https://user:password@example.com/feed.xml")})
+    for (const QString &feed :
+         { QString(), QString("http://example.com/appcast.xml"), QString("file:///tmp/feed.xml"),
+           QString("https:///feed.xml"), QString("https://user:password@example.com/feed.xml") })
         QVERIFY(!UpdateChecker::isConfigurationValid(feed, key));
-    for (const QString &invalid : {QString(), key.left(40), key + "!", QString(44, 'x')})
+    for (const QString &invalid : { QString(), key.left(40), key + "!", QString(44, 'x') })
         QVERIFY(!UpdateChecker::isConfigurationValid("https://example.com/appcast.xml", invalid));
     UpdateChecker checker;
     checker.initialize(Qv::UpdateCheckFrequency::Never);
@@ -5436,7 +5249,7 @@ void FeatureTests::testUpdateConfigurationValidation()
 // Postcondition: ScopedOptionValues restores the user's original setting.
 void FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
 {
-    ScopedOptionValues options({{"smallimageoneone", false}});
+    ScopedOptionValues options({ { "smallimageoneone", false } });
 
     QVOptionsDialog dialog;
     auto *checkbox = dialog.findChild<QCheckBox *>("smallImagesOneToOneCheckbox");
@@ -5468,12 +5281,15 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
     auto gate = std::make_shared<QSemaphore>();
     auto entered = std::make_shared<std::atomic<bool>>(false);
     auto finished = std::make_shared<std::atomic<bool>>(false);
-    const auto release = qScopeGuard([gate] { gate->release(); QvAsync::drain(5000); });
+    const auto release = qScopeGuard([gate] {
+        gate->release();
+        QvAsync::drain(5000);
+    });
     const MainWindow::OpenWithProvider provider = [=](const QString &path) {
         entered->store(true);
         gate->acquire();
         const auto items = enumerationDelayMs < 0 ? OpenWith::getOpenWithItems(path)
-                                                 : QList<OpenWith::OpenWithItem>{};
+                                                  : QList<OpenWith::OpenWithItem>{ };
         finished->store(true);
         return items;
     };
@@ -5484,7 +5300,7 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
     const QString path = createTestImage(dir, "openwith-teardown", Qt::darkCyan);
     QElapsedTimer timer;
     {
-        MainWindow window(nullptr, {}, false, provider);
+        MainWindow window(nullptr, { }, false, provider);
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         window.show();
         window.openFile(path);
@@ -5494,7 +5310,10 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
         QTRY_VERIFY_WITH_TIMEOUT(entered->load(), 1000);
         timer.start();
         // A timed fallback lets the pre-fix red test finish without deadlock.
-        QvAsync::schedule([gate] { QThread::msleep(1000); gate->release(); });
+        QvAsync::schedule([gate] {
+            QThread::msleep(1000);
+            gate->release();
+        });
         window.close();
         window.shutdownBackgroundWork();
         window.shutdownBackgroundWork();
@@ -5536,13 +5355,13 @@ void GraphicsViewTests::testTouchpadWheelCanUseFractionalSteps()
 void GraphicsViewTests::testZoomAnchorProjectionIsNearestFeasible()
 {
     const QPointF projected = QVGraphicsView::projectZoomAnchorForTarget(
-        QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(800.0, 600.0),
-        QRectF(0.0, 0.0, 640.0, 480.0), QPointF(640.0, 400.0));
+            QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(800.0, 600.0),
+            QRectF(0.0, 0.0, 640.0, 480.0), QPointF(640.0, 400.0));
     QVERIFY(projected.x() < 640.0);
     QVERIFY(projected.y() < 400.0);
     QCOMPARE(QVGraphicsView::projectZoomAnchorForTarget(
-                 QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(400.0, 300.0),
-                 QRectF(0.0, 0.0, 640.0, 480.0), QPointF(250.0, 200.0)),
+                     QRectF(100.0, 100.0, 400.0, 300.0), QSizeF(400.0, 300.0),
+                     QRectF(0.0, 0.0, 640.0, 480.0), QPointF(250.0, 200.0)),
              QPointF(250.0, 200.0));
 }
 
@@ -5566,42 +5385,40 @@ void GraphicsViewTests::testZoomAnchorProjectionIsNearestFeasible()
 void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString configuredSample = QString::fromUtf8(
-        qgetenv("FOVELLE_SCROLLBAR_ZOOM_SAMPLE"));
+    const QString configuredSample = QString::fromUtf8(qgetenv("FOVELLE_SCROLLBAR_ZOOM_SAMPLE"));
     const QString providedSample = configuredSample.isEmpty()
-        ? QStringLiteral("/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg")
-        : configuredSample;
-    const bool usesProvidedSample = QFileInfo(providedSample).isFile()
-        && QFileInfo(providedSample).isReadable();
+            ? QStringLiteral("/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 "
+                             "2019.jpeg")
+            : configuredSample;
+    const bool usesProvidedSample =
+            QFileInfo(providedSample).isFile() && QFileInfo(providedSample).isReadable();
     const QString imagePath = usesProvidedSample
-        ? providedSample
-        : createQtRasterTestImage(
-              dir, QStringLiteral("hbar-four-in-one-out"), Qt::darkCyan,
-              QSize(3840, 4407));
+            ? providedSample
+            : createQtRasterTestImage(dir, QStringLiteral("hbar-four-in-one-out"), Qt::darkCyan,
+                                      QSize(3840, 4407));
     QVERIFY(!imagePath.isEmpty());
     qInfo().noquote() << "FOVELLE_SCROLLBAR_ZOOM_SAMPLE"
-                      << (usesProvidedSample ? "provided" : "synthetic")
-                      << imagePath;
+                      << (usesProvidedSample ? "provided" : "synthetic") << imagePath;
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -5610,12 +5427,10 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     if (usesProvidedSample)
-        QCOMPARE(view->getCurrentFileDetails().loadedPixmapSize,
-                 QSize(3840, 4407));
+        QCOMPARE(view->getCurrentFileDetails().loadedPixmapSize, QSize(3840, 4407));
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
         window.close();
@@ -5625,8 +5440,7 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
 
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(fitImage.width() < usable.width());
 
     // The first three detents establish the same intermediate state as the
@@ -5634,32 +5448,26 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
     // still fits horizontally. The probe starts immediately before the
     // fourth detent so its samples isolate the H-bar topology change.
     const QPoint warmupTarget = usable.center();
-    for (int step = 0; step < 3; ++step)
-    {
+    for (int step = 0; step < 3; ++step) {
         QVERIFY(sendDiscreteZoomWheel(view, warmupTarget, 120));
         QVERIFY(waitForZoomTerminal(view));
     }
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            > view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum());
 
     usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect preBoundaryImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect preBoundaryImage =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     // Choose a deliberately non-central point near the right side of the
     // fitted image.  At the first overflowing frame the native H range is
     // only a few DIP wide; this point lies inside that feasible placement
     // interval instead of asking the scrollbar to preserve an impossible
     // centered placement while the viewport is one pixel too small.
-    QPoint target(preBoundaryImage.left()
-                      + (preBoundaryImage.width() * 65) / 100,
+    QPoint target(preBoundaryImage.left() + (preBoundaryImage.width() * 65) / 100,
                   usable.center().y() + 20);
-    target.setX(qBound(preBoundaryImage.left() + 8, target.x(),
-                       preBoundaryImage.right() - 8));
-    target.setY(qBound(preBoundaryImage.top() + 8, target.y(),
-                       preBoundaryImage.bottom() - 8));
+    target.setX(qBound(preBoundaryImage.left() + 8, target.x(), preBoundaryImage.right() - 8));
+    target.setY(qBound(preBoundaryImage.top() + 8, target.y(), preBoundaryImage.bottom() - 8));
     QVERIFY(usable.contains(target));
     QVERIFY(preBoundaryImage.contains(target));
     QVERIFY(target != preBoundaryImage.center());
@@ -5675,8 +5483,7 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
     // A Resize event is observed before QGraphicsView finishes its native
     // viewport relayout. Permit only the half-extent of the bar plus one DIP
     // of integer/layout rounding; paint samples remain the strict oracle.
-    probe.setFixedAnchorTolerance(
-        view->horizontalScrollBar()->sizeHint().height() / 2.0 + 1.0);
+    probe.setFixedAnchorTolerance(view->horizontalScrollBar()->sizeHint().height() / 2.0 + 1.0);
     // When the image fits horizontally Qt intentionally switches back to
     // alignment indentation, so an arbitrary non-central X anchor is not a
     // feasible invariant until a horizontal range exists again.  Keep the
@@ -5688,23 +5495,19 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
     QVERIFY(sendDiscreteZoomWheel(view, target, 120));
     QVERIFY(waitForZoomTerminal(view));
     probe.record(QStringLiteral("four-forward-terminal"), true);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
 
     QVERIFY(sendDiscreteZoomWheel(view, target, -120));
     QVERIFY(waitForZoomTerminal(view));
     probe.record(QStringLiteral("one-reverse-terminal"), true);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
 
     bool sawHorizontalOverflow = false;
     bool sawZeroAfterOverflow = false;
     qreal worstVisibleAnchorErrorY = 0.0;
     qreal worstOverflowAnchorErrorX = 0.0;
-    for (const ZoomIssueSample &sample : probe.getSamples())
-    {
-        const bool hasHorizontalRange = sample.horizontalMaximum
-            > sample.horizontalMinimum;
+    for (const ZoomIssueSample &sample : probe.getSamples()) {
+        const bool hasHorizontalRange = sample.horizontalMaximum > sample.horizontalMinimum;
         if (hasHorizontalRange)
             sawHorizontalOverflow = true;
         else if (sawHorizontalOverflow)
@@ -5712,14 +5515,12 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
         if (sample.anchorError.has_value() && sample.anchorDelta.has_value()
             && (sample.phase == QStringLiteral("paint")
                 || sample.phase == QStringLiteral("four-forward-terminal")
-                || sample.phase == QStringLiteral("one-reverse-terminal")))
-        {
-            worstVisibleAnchorErrorY = qMax(worstVisibleAnchorErrorY,
-                                            qAbs(sample.anchorDelta->y()));
+                || sample.phase == QStringLiteral("one-reverse-terminal"))) {
+            worstVisibleAnchorErrorY =
+                    qMax(worstVisibleAnchorErrorY, qAbs(sample.anchorDelta->y()));
             if (hasHorizontalRange)
-                worstOverflowAnchorErrorX = qMax(
-                    worstOverflowAnchorErrorX,
-                    qAbs(sample.anchorDelta->x()));
+                worstOverflowAnchorErrorX =
+                        qMax(worstOverflowAnchorErrorX, qAbs(sample.anchorDelta->x()));
         }
     }
     QVERIFY(sawHorizontalOverflow);
@@ -5728,14 +5529,13 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
     // fitting axis legitimately falls back to QGraphicsView alignment, so
     // X is strict only while H has a real range; Y remains strict throughout
     // because it is the cross-axis affected by the H-bar geometry.
-    QVERIFY2(worstVisibleAnchorErrorY <= 2.0,
-             qPrintable(QStringLiteral("worst anchor error: %1 DIP")
-                            .arg(worstVisibleAnchorErrorY)));
+    QVERIFY2(
+            worstVisibleAnchorErrorY <= 2.0,
+            qPrintable(QStringLiteral("worst anchor error: %1 DIP").arg(worstVisibleAnchorErrorY)));
     QVERIFY2(worstOverflowAnchorErrorX <= 2.0,
              qPrintable(QStringLiteral("worst overflowing-X anchor error: %1 DIP")
-                            .arg(worstOverflowAnchorErrorX)));
-    QVERIFY2(probe.firstErrorMessage().isEmpty(),
-             qPrintable(probe.firstErrorMessage()));
+                                .arg(worstOverflowAnchorErrorX)));
+    QVERIFY2(probe.firstErrorMessage().isEmpty(), qPrintable(probe.firstErrorMessage()));
 }
 
 // AC-ZOOM-NO-ANIMATION-STATIC
@@ -5758,31 +5558,30 @@ void GraphicsViewTests::testWheelZoomCrossesHorizontalScrollbarWithoutPositionJu
 void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("togglefitand100"), QStringList{
-            QKeySequence(Qt::Key_Z).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("viewportverticalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { QStringLiteral("viewporthorizontalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::None) } });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("togglefitand100"),
+                                       QStringList{ QKeySequence(Qt::Key_Z).toString() } } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("zoom-transition-entry-points"), Qt::darkCyan,
-        QSize(1200, 900));
+    const QString imagePath = createTestImage(dir, QStringLiteral("zoom-transition-entry-points"),
+                                              Qt::darkCyan, QSize(1200, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -5796,15 +5595,13 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(!view->findChild<QObject *>(
-        QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->findChild<QObject *>(QStringLiteral("zoomTransitionAnimation")));
 
     const auto actionKey = [](const QAction *action) {
         return action ? action->data().toStringList().value(0) : QString();
     };
     const auto findAction = [&actionKey](QMenu *menu, const QString &key) {
-        for (QAction *action : ActionManager::getAllNestedActions(menu->actions()))
-        {
+        for (QAction *action : ActionManager::getAllNestedActions(menu->actions())) {
             if (actionKey(action) == key)
                 return action;
         }
@@ -5813,17 +5610,15 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
 
     QMenu *contextMenu = window.getContextMenuForTesting();
     QVERIFY(contextMenu);
-    const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu(
-        QStringLiteral("view"), &window);
+    const auto viewMenus =
+            qvApp->getActionManager().getAllClonesOfMenu(QStringLiteral("view"), &window);
     QVERIFY(viewMenus.size() >= 2);
     QAction *titleBarZoomIn = nullptr;
     QAction *contextZoomIn = nullptr;
-    for (QMenu *menu : viewMenus)
-    {
+    for (QMenu *menu : viewMenus) {
         QAction *zoomAction = findAction(menu, QStringLiteral("zoomin"));
         QVERIFY(zoomAction);
-        if (menu->parentWidget() == contextMenu
-            || menu->property("isContextMenu").toBool())
+        if (menu->parentWidget() == contextMenu || menu->property("isContextMenu").toBool())
             contextZoomIn = zoomAction;
         else
             titleBarZoomIn = zoomAction;
@@ -5838,15 +5633,14 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     const auto assertImmediate = [view, &settle](const QString &source) {
         Q_UNUSED(source);
         QVERIFY(!view->isZoomTransitionRunning());
-        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-            view->animatedZoomLevel(), view->getZoomLevel()));
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->animatedZoomLevel(),
+                                                     view->getZoomLevel()));
         const qreal committedZoom = view->getZoomLevel();
         const int hValue = view->horizontalScrollBar()->value();
         const int vValue = view->verticalScrollBar()->value();
         QTest::qWait(250);
         settle();
-        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-            view->getZoomLevel(), committedZoom));
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), committedZoom));
         QCOMPARE(view->horizontalScrollBar()->value(), hValue);
         QCOMPARE(view->verticalScrollBar()->value(), vValue);
     };
@@ -5856,14 +5650,12 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     settle();
     const QPoint wheelPosition = view->viewport()->rect().center();
     const QPointingDevice wheelDevice(
-        QStringLiteral("zoom transition mouse"), 41,
-        QInputDevice::DeviceType::Mouse, QPointingDevice::PointerType::Generic,
-        QInputDevice::Capability::Scroll, 3, 0);
-    QWheelEvent wheelEvent(
-        QPointF(wheelPosition),
-        QPointF(view->viewport()->mapToGlobal(wheelPosition)),
-        QPoint(0, 120), QPoint(0, 120), Qt::NoButton, Qt::NoModifier,
-        Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
+            QStringLiteral("zoom transition mouse"), 41, QInputDevice::DeviceType::Mouse,
+            QPointingDevice::PointerType::Generic, QInputDevice::Capability::Scroll, 3, 0);
+    QWheelEvent wheelEvent(QPointF(wheelPosition),
+                           QPointF(view->viewport()->mapToGlobal(wheelPosition)), QPoint(0, 120),
+                           QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false,
+                           Qt::MouseEventNotSynthesized, &wheelDevice);
     QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
     QVERIFY(wheelEvent.isAccepted());
     assertImmediate(QStringLiteral("wheel"));
@@ -5884,8 +5676,7 @@ void GraphicsViewTests::testZoomTransitionCoversWheelKeyboardAndMenus()
     // QWidget shortcut machinery, rather than invoking QAction::trigger().
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     settle();
-    QAction *toggleAction = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggleAction = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggleAction);
     view->viewport()->setFocus(Qt::OtherFocusReason);
     QVERIFY(!toggleAction->shortcuts().isEmpty());
@@ -5922,24 +5713,23 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
     QCOMPARE(QVGraphicsView::projectZoomAnchor(imageRect, QPointF(20.0, 360.0)),
              QPointF(100.0, 300.0));
 
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("zoom-anchor-projection"), Qt::darkYellow,
-        QSize(400, 300));
+    const QString imagePath = createTestImage(dir, QStringLiteral("zoom-anchor-projection"),
+                                              Qt::darkYellow, QSize(400, 300));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -5954,27 +5744,26 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
     QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     QTRY_VERIFY_WITH_TIMEOUT(!view->horizontalScrollBar()->isVisible()
-                             && !view->verticalScrollBar()->isVisible(), 1500);
+                                     && !view->verticalScrollBar()->isVisible(),
+                             1500);
 
-    const QRect imageViewportRect = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageViewportRect =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QRect viewportRect = view->viewport()->rect();
-    const QPoint requested(
-        qMax(viewportRect.left(), imageViewportRect.left() - 20),
-        imageViewportRect.center().y());
+    const QPoint requested(qMax(viewportRect.left(), imageViewportRect.left() - 20),
+                           imageViewportRect.center().y());
     QVERIFY2(requested.x() < imageViewportRect.left(),
              "The small-image fixture did not leave a left blank-space anchor");
-    const QPoint projected = QVGraphicsView::projectZoomAnchor(
-        QRectF(imageViewportRect), requested).toPoint();
+    const QPoint projected =
+            QVGraphicsView::projectZoomAnchor(QRectF(imageViewportRect), requested).toPoint();
 
-    const qreal targetZoom = qMax<qreal>(
-        2.0,
-        qMax((viewportRect.width() + 20.0) / imageViewportRect.width(),
-             (viewportRect.height() + 20.0) / imageViewportRect.height()));
+    const qreal targetZoom =
+            qMax<qreal>(2.0,
+                        qMax((viewportRect.width() + 20.0) / imageViewportRect.width(),
+                             (viewportRect.height() + 20.0) / imageViewportRect.height()));
     view->zoomAbsolute(targetZoom, requested);
     QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
-    const QRect imageAfter = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageAfter = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QRect viewportAfter = view->viewport()->rect();
     QVERIFY2(imageAfter.left() <= viewportAfter.left() + 2,
              "The outside-image anchor created a left blank region");
@@ -6006,28 +5795,27 @@ void GraphicsViewTests::testZoomAnchorProjectsInsideAndOutsideImage()
 // released.
 void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("zoom-out-stale-range"), Qt::darkCyan,
-        QSize(1600, 900));
+    const QString imagePath = createTestImage(dir, QStringLiteral("zoom-out-stale-range"),
+                                              Qt::darkCyan, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6038,25 +5826,21 @@ void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
 
-    const QRect imageAtFit = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageAtFit = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QRect usable = [&]() {
         QRect result = view->viewport()->rect();
         result.setTop(window.getViewportPosition().obscuredHeight);
         return result;
     }();
-    const QPoint outside(
-        view->viewport()->rect().right() - 2,
-        view->viewport()->rect().bottom() - 2);
-    QVERIFY2(outside.x() > imageAtFit.right()
-                 || outside.y() > imageAtFit.bottom(),
+    const QPoint outside(view->viewport()->rect().right() - 2,
+                         view->viewport()->rect().bottom() - 2);
+    QVERIFY2(outside.x() > imageAtFit.right() || outside.y() > imageAtFit.bottom(),
              "fixture did not leave lower-right blank space at fit");
     QVERIFY(usable.contains(outside));
     QCursor::setPos(view->viewport()->mapToGlobal(outside));
@@ -6064,16 +5848,14 @@ void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
     for (int step = 0; step < 3; ++step)
         QVERIFY(sendDiscreteZoomWheel(view, outside, 120));
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(view->verticalScrollBar()->maximum()
-            > view->verticalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum());
 
     for (int step = 0; step < 3; ++step)
         QVERIFY(sendDiscreteZoomWheel(view, outside, -120));
     QVERIFY(waitForZoomTerminal(view));
     QCoreApplication::processEvents();
 
-    const QRect finalImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect finalImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QRect finalUsable = [&]() {
         QRect result = view->viewport()->rect();
         result.setTop(window.getViewportPosition().obscuredHeight);
@@ -6083,19 +5865,16 @@ void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
              "final image width still exceeds the usable viewport");
     QVERIFY2(finalImage.height() <= finalUsable.height() + 1,
              "final image height still exceeds the usable viewport");
-    QVERIFY2(view->verticalScrollBar()->maximum()
-                 <= view->verticalScrollBar()->minimum(),
+    QVERIFY2(view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum(),
              "vertical range retained a stale zoom-anchor margin");
-    QVERIFY2(view->horizontalScrollBar()->maximum()
-                 <= view->horizontalScrollBar()->minimum(),
+    QVERIFY2(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum(),
              "horizontal range retained a stale zoom-anchor margin");
 
     const auto rangeTuple = [&]() {
-        return QVector<int>{
-            view->horizontalScrollBar()->minimum(),
-            view->horizontalScrollBar()->maximum(),
-            view->verticalScrollBar()->minimum(),
-            view->verticalScrollBar()->maximum()};
+        return QVector<int>{ view->horizontalScrollBar()->minimum(),
+                             view->horizontalScrollBar()->maximum(),
+                             view->verticalScrollBar()->minimum(),
+                             view->verticalScrollBar()->maximum() };
     };
     const QVector<int> settledRanges = rangeTuple();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
@@ -6125,28 +5904,28 @@ void GraphicsViewTests::testZoomOutClearsStaleVerticalScrollRange()
 // Postcondition: all input state is released and scoped settings are restored.
 void GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("viewportdragaction"), static_cast<int>(Qv::ViewportDragAction::Pan)},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("viewportdragaction"),
+                static_cast<int>(Qv::ViewportDragAction::Pan) },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("drag-after-zoom"), Qt::darkMagenta,
-        QSize(1600, 900));
+    const QString imagePath = createTestImage(dir, QStringLiteral("drag-after-zoom"),
+                                              Qt::darkMagenta, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6156,24 +5935,20 @@ void GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
 
-    const QPoint wheelAnchor(
-        view->viewport()->rect().right() - 2,
-        view->viewport()->rect().bottom() - 2);
+    const QPoint wheelAnchor(view->viewport()->rect().right() - 2,
+                             view->viewport()->rect().bottom() - 2);
     QCursor::setPos(view->viewport()->mapToGlobal(wheelAnchor));
     for (int step = 0; step < 3; ++step)
         QVERIFY(sendDiscreteZoomWheel(view, wheelAnchor, 120));
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            > view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum());
 
     const QPoint dragStart = view->viewport()->rect().center();
     const QPoint dragDelta(32, 24);
@@ -6184,34 +5959,25 @@ void GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity()
     const int vMaximumBefore = view->verticalScrollBar()->maximum();
 
     QTest::mouseMove(view->viewport(), dragStart);
-    QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier,
-                      dragStart);
+    QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier, dragStart);
     QTest::mouseMove(view->viewport(), dragEnd, 10);
-    QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier,
-                        dragEnd);
+    QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier, dragEnd);
     QCoreApplication::processEvents();
 
     const QPointF trackedAfter = view->mapFromScene(trackedScene);
-    QVERIFY2(QLineF(trackedBefore, trackedAfter - QPointF(dragDelta)).length()
-                 <= 2.0,
+    QVERIFY2(QLineF(trackedBefore, trackedAfter - QPointF(dragDelta)).length() <= 2.0,
              "image position did not follow the mouse delta continuously");
-    QVERIFY2(view->horizontalScrollBar()->maximum()
-                 > view->horizontalScrollBar()->minimum(),
+    QVERIFY2(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(),
              "horizontal overflow range disappeared at drag start");
-    QVERIFY2(view->verticalScrollBar()->maximum()
-                 > view->verticalScrollBar()->minimum(),
+    QVERIFY2(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(),
              "vertical overflow range disappeared at drag start");
-    QVERIFY(qAbs(view->horizontalScrollBar()->maximum() - hMaximumBefore)
-            <= 2);
-    QVERIFY(qAbs(view->verticalScrollBar()->maximum() - vMaximumBefore)
-            <= 2);
+    QVERIFY(qAbs(view->horizontalScrollBar()->maximum() - hMaximumBefore) <= 2);
+    QVERIFY(qAbs(view->verticalScrollBar()->maximum() - vMaximumBefore) <= 2);
 
     const QPointF releasedPosition = view->mapFromScene(trackedScene);
     QVERIFY(waitForZoomTerminal(view));
-    QCOMPARE(view->horizontalScrollBar()->maximum()
-                 > view->horizontalScrollBar()->minimum(), true);
-    QCOMPARE(view->verticalScrollBar()->maximum()
-                 > view->verticalScrollBar()->minimum(), true);
+    QCOMPARE(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(), true);
+    QCOMPARE(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(), true);
     const QPointF quietPosition = view->mapFromScene(trackedScene);
     QVERIFY(QLineF(releasedPosition, quietPosition).length() <= 1.0);
 
@@ -6235,33 +6001,31 @@ void GraphicsViewTests::testMousePanKeepsOverflowRangeAndContinuity()
 // Postcondition: temporary shortcuts, cursor, image, and window are released.
 void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("zoomin"), QStringList{
-            QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()}},
-        {QStringLiteral("zoomout"), QStringList{
-            QKeySequence(Qt::CTRL | Qt::Key_Minus).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false } });
+    ScopedShortcutValues shortcuts(
+            { { QStringLiteral("zoomin"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_Equal).toString() } },
+              { QStringLiteral("zoomout"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_Minus).toString() } } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("keyboard-cursor-anchor"), Qt::darkGreen,
-        QSize(2400, 1600));
+    const QString imagePath = createTestImage(dir, QStringLiteral("keyboard-cursor-anchor"),
+                                              Qt::darkGreen, QSize(2400, 1600));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6271,16 +6035,15 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
 
     auto chooseNonCentralImagePoint = [view]() {
-        const QRect imageRect = view->mapFromScene(
-            view->scene()->itemsBoundingRect()).boundingRect();
+        const QRect imageRect =
+                view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
         QPoint result = imageRect.center() + QPoint(70, 35);
         result.setY(imageRect.center().y());
         result.setX(qBound(imageRect.left() + 8, result.x(), imageRect.right() - 8));
@@ -6299,10 +6062,8 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
     const QPoint cursorTargetIn = cursorPoint;
     const QPointF anchorSceneIn = view->mapToScene(cursorTargetIn);
 
-    QAction *zoomInAction = qvApp->getActionManager().getAction(
-        QStringLiteral("zoomin"));
-    QAction *zoomOutAction = qvApp->getActionManager().getAction(
-        QStringLiteral("zoomout"));
+    QAction *zoomInAction = qvApp->getActionManager().getAction(QStringLiteral("zoomin"));
+    QAction *zoomOutAction = qvApp->getActionManager().getAction(QStringLiteral("zoomout"));
     QVERIFY(zoomInAction);
     QVERIFY(zoomOutAction);
     QVERIFY(!zoomInAction->shortcuts().isEmpty());
@@ -6310,8 +6071,7 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
 
     QTest::keySequence(&window, zoomInAction->shortcuts().constFirst());
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(QLineF(view->mapFromScene(anchorSceneIn), cursorTargetIn).length()
-            <= 2.0);
+    QVERIFY(QLineF(view->mapFromScene(anchorSceneIn), cursorTargetIn).length() <= 2.0);
     QVERIFY(view->getZoomLevel() > 0.0);
 
     // Return to a known overflowing frame and exercise the opposite keyboard
@@ -6323,8 +6083,7 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
     const QPointF anchorSceneOut = view->mapToScene(cursorTargetOut);
     QTest::keySequence(&window, zoomOutAction->shortcuts().constFirst());
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(QLineF(view->mapFromScene(anchorSceneOut), cursorTargetOut).length()
-            <= 2.0);
+    QVERIFY(QLineF(view->mapFromScene(anchorSceneOut), cursorTargetOut).length() <= 2.0);
 
     window.close();
 }
@@ -6350,28 +6109,27 @@ void GraphicsViewTests::testKeyboardZoomUsesCursorAnchor()
 void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("toggle-directional-anchor"), Qt::darkBlue,
-        QSize(1600, 900));
+    const QString imagePath = createTestImage(dir, QStringLiteral("toggle-directional-anchor"),
+                                              Qt::darkBlue, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6381,18 +6139,15 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAncho
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
 
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPoint cursorPoint = fitImage.center() + QPoint(65, 28);
     QVERIFY(view->viewport()->rect().contains(cursorPoint));
     sendMouseMove(view->viewport(), cursorPoint);
@@ -6403,10 +6158,8 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAncho
 
     ActionManager::actionTriggered(toggle, &window);
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->getZoomLevel(), 1.0));
-    QVERIFY(QLineF(view->mapFromScene(cursorAnchorScene), cursorTarget).length()
-            <= 2.0);
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
+    QVERIFY(QLineF(view->mapFromScene(cursorAnchorScene), cursorTarget).length() <= 2.0);
 
     // Establish the content center first.  The shrink half of Toggle uses
     // the viewport center, while the cursor is deliberately moved elsewhere
@@ -6426,12 +6179,9 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAncho
     QRect finalUsable = view->viewport()->rect();
     finalUsable.setTop(window.getViewportPosition().obscuredHeight);
     const QPoint centerAfterResize = finalUsable.center();
-    QVERIFY(QLineF(view->mapFromScene(centerAnchorScene), centerAfterResize).length()
-            <= 2.0);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            <= view->verticalScrollBar()->minimum());
+    QVERIFY(QLineF(view->mapFromScene(centerAnchorScene), centerAfterResize).length() <= 2.0);
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum());
 
     window.close();
 }
@@ -6455,28 +6205,27 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedStateAndDirectionalAncho
 void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("toggle-frozen-center-anchor"), Qt::darkMagenta,
-        QSize(1600, 2200));
+    const QString imagePath = createTestImage(dir, QStringLiteral("toggle-frozen-center-anchor"),
+                                              Qt::darkMagenta, QSize(1600, 2200));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6488,8 +6237,7 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -6498,10 +6246,8 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
 
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            > view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum());
     view->centerImage();
     QCoreApplication::processEvents(QEventLoop::AllEvents);
 
@@ -6509,24 +6255,18 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
     usable.setTop(window.getViewportPosition().obscuredHeight);
     const QPoint anchorViewport = usable.center();
     const QPointF anchorScene = view->mapToScene(anchorViewport);
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
 
     ActionManager::actionTriggered(toggle, &window);
     QVERIFY(!view->isZoomTransitionRunning());
-    QVERIFY(!view->findChild<QObject *>(
-        QStringLiteral("zoomTransitionAnimation")));
-    QVERIFY(!view->findChild<QTimer *>(
-        QStringLiteral("zoomAnchorSettleTimer")));
-    QVERIFY(!view->findChild<QTimer *>(
-        QStringLiteral("zoomAnchorPostLayoutTimer")));
+    QVERIFY(!view->findChild<QObject *>(QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("zoomAnchorSettleTimer")));
+    QVERIFY(!view->findChild<QTimer *>(QStringLiteral("zoomAnchorPostLayoutTimer")));
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            <= view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum());
 
     window.close();
 }
@@ -6551,47 +6291,42 @@ void GraphicsViewTests::testToggleFitAnd100FreezesViewportCenterDuringScrollbarT
 void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("togglefitand100"), QStringList{
-            QKeySequence(Qt::Key_Z).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("togglefitand100"),
+                                       QStringList{ QKeySequence(Qt::Key_Z).toString() } } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString configuredSample = QString::fromUtf8(
-        qgetenv("FOVELLE_TOGGLE_FIT_SAMPLE"));
+    const QString configuredSample = QString::fromUtf8(qgetenv("FOVELLE_TOGGLE_FIT_SAMPLE"));
     const QString providedSample = configuredSample.isEmpty()
-        ? QStringLiteral(
-            "/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg")
-        : configuredSample;
-    const bool usesProvidedSample = QFileInfo(providedSample).isFile()
-        && QFileInfo(providedSample).isReadable();
+            ? QStringLiteral("/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 "
+                             "2019.jpeg")
+            : configuredSample;
+    const bool usesProvidedSample =
+            QFileInfo(providedSample).isFile() && QFileInfo(providedSample).isReadable();
     const QString imagePath = usesProvidedSample
-        ? providedSample
-        : createQtRasterTestImage(
-              dir, QStringLiteral("toggle-linear-center-trajectory"),
-              Qt::darkYellow, QSize(3840, 4407));
+            ? providedSample
+            : createQtRasterTestImage(dir, QStringLiteral("toggle-linear-center-trajectory"),
+                                      Qt::darkYellow, QSize(3840, 4407));
     QVERIFY(!imagePath.isEmpty());
     qInfo().noquote() << "FOVELLE_TOGGLE_LINEAR_SAMPLE"
-                      << (usesProvidedSample ? "provided" : "synthetic")
-                      << imagePath;
+                      << (usesProvidedSample ? "provided" : "synthetic") << imagePath;
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -6601,11 +6336,9 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     if (usesProvidedSample)
-        QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize,
-                 QSize(3840, 4407));
+        QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize, QSize(3840, 4407));
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -6616,21 +6349,17 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(usable.contains(fitImage.center()));
     QPoint cursorPoint = fitImage.center() + QPoint(70, 30);
-    cursorPoint.setX(qBound(fitImage.left() + 8, cursorPoint.x(),
-                            fitImage.right() - 8));
-    cursorPoint.setY(qBound(fitImage.top() + 8, cursorPoint.y(),
-                            fitImage.bottom() - 8));
+    cursorPoint.setX(qBound(fitImage.left() + 8, cursorPoint.x(), fitImage.right() - 8));
+    cursorPoint.setY(qBound(fitImage.top() + 8, cursorPoint.y(), fitImage.bottom() - 8));
     QVERIFY(usable.contains(cursorPoint));
     QVERIFY(cursorPoint != usable.center());
     sendMouseMove(view->viewport(), cursorPoint);
     QCursor::setPos(view->viewport()->mapToGlobal(cursorPoint));
 
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
     QVERIFY(!toggle->shortcuts().isEmpty());
     window.raise();
@@ -6640,20 +6369,15 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
 
-    QVERIFY(!view->findChild<QObject *>(
-        QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->findChild<QObject *>(QStringLiteral("zoomTransitionAnimation")));
     QVERIFY(!view->isZoomTransitionRunning());
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->animatedZoomLevel(), view->getZoomLevel()));
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->animatedZoomLevel(), view->getZoomLevel()));
     QVERIFY(waitForZoomTerminal(view));
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->getZoomLevel(), 1.0));
-    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->maximum()
-                                 > view->horizontalScrollBar()->minimum(),
-                             1000);
-    QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->maximum()
-                                 > view->verticalScrollBar()->minimum(),
-                             1000);
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(), 1000);
 }
 
 // AC-TOGGLE-VISUAL-STATE
@@ -6672,28 +6396,27 @@ void GraphicsViewTests::testToggleFitAnd100CenterTrajectoryIsLinear()
 void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("toggle-displayed-state"), Qt::darkGray,
-        QSize(1600, 1000));
+    const QString imagePath = createTestImage(dir, QStringLiteral("toggle-displayed-state"),
+                                              Qt::darkGray, QSize(1600, 1000));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6704,11 +6427,9 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
 
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
@@ -6717,11 +6438,10 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
     QVERIFY(view->getZoomLevel() > 1.5);
 
     ActionManager::actionTriggered(toggle, &window);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value()
-            && view->getCalculatedZoomMode().value()
-                == Qv::CalculatedZoomMode::ZoomToFit,
-        1000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             1000);
     QVERIFY(!view->isZoomTransitionRunning());
     QVERIFY(view->isImageAtFit());
     QVERIFY(view->getZoomLevel() < 1.0);
@@ -6731,8 +6451,7 @@ void GraphicsViewTests::testToggleFitAnd100UsesDisplayedState()
     ActionManager::actionTriggered(toggle, &window);
     QVERIFY(waitForZoomTerminal(view));
     QVERIFY(!view->getCalculatedZoomMode().has_value());
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->getZoomLevel(), 1.0));
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
 
     window.close();
 }
@@ -6757,24 +6476,19 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize_data()
     // TC-FIT-06-CROSS-FIXTURE
     QTest::addColumn<QString>("providedImagePath");
     QTest::addColumn<QSize>("expectedSourceSize");
-    QTest::newRow("synthetic-same-aspect-ratio")
-        << QString() << QSize(2560, 2938);
+    QTest::newRow("synthetic-same-aspect-ratio") << QString() << QSize(2560, 2938);
 
-    const QString configuredPath = QString::fromUtf8(
-        qgetenv("FOVELLE_TOGGLE_FIT_SAMPLE"));
+    const QString configuredPath = QString::fromUtf8(qgetenv("FOVELLE_TOGGLE_FIT_SAMPLE"));
     const QString providedPath = configuredPath.isEmpty()
-        ? QStringLiteral(
-            "/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 2019.jpeg")
-        : configuredPath;
+            ? QStringLiteral("/Volumes/CRYSTAL/画作/GALLERY/153 Poolside - Yellow Towel - 永井博 "
+                             "2019.jpeg")
+            : configuredPath;
     const QFileInfo providedInfo(providedPath);
-    if (providedInfo.isFile() && providedInfo.isReadable())
-    {
+    if (providedInfo.isFile() && providedInfo.isReadable()) {
         // TC-SYSTEM-PROVIDED-JPEG
-        const QSize expectedSourceSize = configuredPath.isEmpty()
-            ? QSize(3840, 4407)
-            : QImageReader(providedPath).size();
-        QTest::newRow("provided-3840x4407-jpeg")
-            << providedPath << expectedSourceSize;
+        const QSize expectedSourceSize =
+                configuredPath.isEmpty() ? QSize(3840, 4407) : QImageReader(providedPath).size();
+        QTest::newRow("provided-3840x4407-jpeg") << providedPath << expectedSourceSize;
     }
 }
 
@@ -6783,34 +6497,31 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
     ScopedWindowGeometry windowGeometry;
     QFETCH(QString, providedImagePath);
     QFETCH(QSize, expectedSourceSize);
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("togglefitand100"), QStringList{
-            QKeySequence(Qt::Key_Z).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("togglefitand100"),
+                                       QStringList{ QKeySequence(Qt::Key_Z).toString() } } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString imagePath = providedImagePath.isEmpty()
-        ? createQtRasterTestImage(
-            dir, QStringLiteral("toggle-fit-terminal-stability"),
-            Qt::darkYellow, QSize(2560, 2938))
-        : providedImagePath;
+            ? createQtRasterTestImage(dir, QStringLiteral("toggle-fit-terminal-stability"),
+                                      Qt::darkYellow, QSize(2560, 2938))
+            : providedImagePath;
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6820,10 +6531,8 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize,
-             expectedSourceSize);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize, expectedSourceSize);
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -6833,11 +6542,10 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
     const qreal referenceFitLevel = view->getZoomLevel();
-    const QSize referenceFitSize = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect().size();
+    const QSize referenceFitSize =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect().size();
 
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
     QVERIFY(!toggle->shortcuts().isEmpty());
     window.raise();
@@ -6848,69 +6556,76 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
     // AC-ZOOM-NO-ANIMATION-SHORTCUT
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
     QVERIFY(!view->isZoomTransitionRunning());
-    QVERIFY(!view->findChild<QObject *>(
-        QStringLiteral("zoomTransitionAnimation")));
+    QVERIFY(!view->findChild<QObject *>(QStringLiteral("zoomTransitionAnimation")));
     QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
-    const QRect oneHundredImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
-    const bool hasHorizontalRange = view->horizontalScrollBar()->maximum()
-        > view->horizontalScrollBar()->minimum();
-    const bool hasVerticalRange = view->verticalScrollBar()->maximum()
-        > view->verticalScrollBar()->minimum();
+    const QRect oneHundredImage =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
+    const bool hasHorizontalRange =
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum();
+    const bool hasVerticalRange =
+            view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum();
     QVERIFY2(hasHorizontalRange && hasVerticalRange,
-             qPrintable(QStringLiteral(
-                 "100%% fixture needs both ranges: window=%1x%2 viewport=%3x%4 image=%5x%6 h=%7 v=%8")
-                 .arg(window.width()).arg(window.height())
-                 .arg(view->viewport()->width()).arg(view->viewport()->height())
-                 .arg(oneHundredImage.width()).arg(oneHundredImage.height())
-                 .arg(hasHorizontalRange).arg(hasVerticalRange)));
+             qPrintable(QStringLiteral("100%% fixture needs both ranges: window=%1x%2 "
+                                       "viewport=%3x%4 image=%5x%6 h=%7 v=%8")
+                                .arg(window.width())
+                                .arg(window.height())
+                                .arg(view->viewport()->width())
+                                .arg(view->viewport()->height())
+                                .arg(oneHundredImage.width())
+                                .arg(oneHundredImage.height())
+                                .arg(hasHorizontalRange)
+                                .arg(hasVerticalRange)));
 
     QSignalSpy fitZoomChangeSpy(view, &QVGraphicsView::zoomLevelChanged);
     // AC-TOGGLE-MONOTONIC-TERMINAL
     QTest::keySequence(view->viewport(), toggle->shortcuts().constFirst());
     QVERIFY(!view->isZoomTransitionRunning());
-    QVERIFY2(QVGraphicsView::zoomLevelsEquivalent(
-                 view->getZoomLevel(), referenceFitLevel),
+    QVERIFY2(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), referenceFitLevel),
              "fit target changed because the 100% frame had scrollbars");
     QVERIFY(view->isImageAtFit());
-    const QSize terminalSize = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect().size();
+    const QSize terminalSize =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect().size();
     const int terminalHorizontalValue = view->horizontalScrollBar()->value();
     const int terminalVerticalValue = view->verticalScrollBar()->value();
     QTest::qWait(650);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
-    const QSize quietSize = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect().size();
+    const QSize quietSize =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect().size();
 
     // With no geometric animation, the transaction has only one visible
     // terminal size. The quiet-window sample proves that no delayed writer
     // performs a post-commit rescale or position correction.
-    QVERIFY2(terminalSize == quietSize,
-             qPrintable(QStringLiteral(
-                 "fit-return changed during quiet window: terminal=%1x%2 quiet=%3x%4")
-                 .arg(terminalSize.width()).arg(terminalSize.height())
-                 .arg(quietSize.width()).arg(quietSize.height())));
+    QVERIFY2(
+            terminalSize == quietSize,
+            qPrintable(QStringLiteral(
+                               "fit-return changed during quiet window: terminal=%1x%2 quiet=%3x%4")
+                               .arg(terminalSize.width())
+                               .arg(terminalSize.height())
+                               .arg(quietSize.width())
+                               .arg(quietSize.height())));
     QVERIFY2(referenceFitSize == terminalSize,
-             qPrintable(QStringLiteral(
-                 "returning to fit did not recover the original stable fit size: reference=%1x%2 terminal=%3x%4")
-                 .arg(referenceFitSize.width()).arg(referenceFitSize.height())
-                 .arg(terminalSize.width()).arg(terminalSize.height())));
+             qPrintable(QStringLiteral("returning to fit did not recover the original stable fit "
+                                       "size: reference=%1x%2 terminal=%3x%4")
+                                .arg(referenceFitSize.width())
+                                .arg(referenceFitSize.height())
+                                .arg(terminalSize.width())
+                                .arg(terminalSize.height())));
     QCOMPARE(fitZoomChangeSpy.count(), 1);
     QCOMPARE(view->horizontalScrollBar()->value(), terminalHorizontalValue);
     QCOMPARE(view->verticalScrollBar()->value(), terminalVerticalValue);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY(view->verticalScrollBar()->maximum()
-            <= view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum());
 
-    qInfo().noquote()
-        << QStringLiteral(
-               "TOGGLE_FIT_STABILITY row=%1 start=%2x%3 terminal=%4x%5 quiet=%6x%7 reversals=0 zoom_writes=%8")
-               .arg(QString::fromUtf8(QTest::currentDataTag()))
-               .arg(oneHundredImage.width()).arg(oneHundredImage.height())
-               .arg(terminalSize.width()).arg(terminalSize.height())
-               .arg(quietSize.width()).arg(quietSize.height())
-               .arg(fitZoomChangeSpy.count());
+    qInfo().noquote() << QStringLiteral("TOGGLE_FIT_STABILITY row=%1 start=%2x%3 terminal=%4x%5 "
+                                        "quiet=%6x%7 reversals=0 zoom_writes=%8")
+                                 .arg(QString::fromUtf8(QTest::currentDataTag()))
+                                 .arg(oneHundredImage.width())
+                                 .arg(oneHundredImage.height())
+                                 .arg(terminalSize.width())
+                                 .arg(terminalSize.height())
+                                 .arg(quietSize.width())
+                                 .arg(quietSize.height())
+                                 .arg(fitZoomChangeSpy.count());
 }
 
 // AC-WHEEL-CONTENT-ANCHOR
@@ -6929,28 +6644,29 @@ void GraphicsViewTests::testToggleFitReturnHasMonotonicStableTerminalSize()
 void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)},
-        {QStringLiteral("fitoverscan"), 0}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("viewportverticalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { QStringLiteral("viewporthorizontalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::None) },
+              { QStringLiteral("fitoverscan"), 0 } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("wheel-bottom-right"), Qt::darkRed,
-        QSize(1200, 900));
+    const QString imagePath = createTestImage(dir, QStringLiteral("wheel-bottom-right"),
+                                              Qt::darkRed, QSize(1200, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -6960,15 +6676,13 @@ void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2000);
 
-    const QRect imageRect = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageRect = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPoint target(imageRect.right() - 5, imageRect.bottom() - 5);
     QVERIFY(view->viewport()->rect().contains(target));
     QCursor::setPos(view->viewport()->mapToGlobal(target));
@@ -6980,8 +6694,7 @@ void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
     const QPointF mappedAnchor = view->mapFromScene(anchorScene);
     QVERIFY2(QLineF(mappedAnchor, target).length() <= 2.0,
              "real wheel zoom moved the lower-right image anchor");
-    const QRect mappedImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect mappedImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(mappedImage.right() >= target.x() - 2);
     QVERIFY(mappedImage.bottom() >= target.y() - 2);
 
@@ -7003,29 +6716,30 @@ void GraphicsViewTests::testMouseWheelKeepsBottomRightAnchor()
 // Postcondition: the window and temporary image close with no active writer.
 void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {QStringLiteral("scalingtwoenabled"), true},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)},
-        {QStringLiteral("fitoverscan"), 0}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { QStringLiteral("scalingtwoenabled"), true },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("viewportverticalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { QStringLiteral("viewporthorizontalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::None) },
+              { QStringLiteral("fitoverscan"), 0 } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("zoom-terminal-quiet"), Qt::darkYellow,
-        QSize(1200, 900));
+    const QString imagePath = createQtRasterTestImage(dir, QStringLiteral("zoom-terminal-quiet"),
+                                                      Qt::darkYellow, QSize(1200, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7035,14 +6749,12 @@ void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
-    const QRect image = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect image = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPoint target(image.right() - 5, image.bottom() - 5);
     QCursor::setPos(view->viewport()->mapToGlobal(target));
     QTest::mouseMove(view->viewport(), target);
@@ -7051,17 +6763,19 @@ void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
 
     const auto state = [&]() {
         return QJsonObject{
-            {QStringLiteral("logical_zoom"), view->getZoomLevel()},
-            {QStringLiteral("displayed_zoom"), view->animatedZoomLevel()},
-            {QStringLiteral("transform_m11"), view->transform().m11()},
-            {QStringLiteral("transform_m22"), view->transform().m22()},
-            {QStringLiteral("image_rect"), zoomTraceRectF(
-                view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect())},
-            {QStringLiteral("viewport_rect"), zoomTraceRect(view->viewport()->rect())},
-            {QStringLiteral("h_value"), view->horizontalScrollBar()->value()},
-            {QStringLiteral("h_max"), view->horizontalScrollBar()->maximum()},
-            {QStringLiteral("v_value"), view->verticalScrollBar()->value()},
-            {QStringLiteral("v_max"), view->verticalScrollBar()->maximum()}};
+            { QStringLiteral("logical_zoom"), view->getZoomLevel() },
+            { QStringLiteral("displayed_zoom"), view->animatedZoomLevel() },
+            { QStringLiteral("transform_m11"), view->transform().m11() },
+            { QStringLiteral("transform_m22"), view->transform().m22() },
+            { QStringLiteral("image_rect"),
+              zoomTraceRectF(
+                      view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect()) },
+            { QStringLiteral("viewport_rect"), zoomTraceRect(view->viewport()->rect()) },
+            { QStringLiteral("h_value"), view->horizontalScrollBar()->value() },
+            { QStringLiteral("h_max"), view->horizontalScrollBar()->maximum() },
+            { QStringLiteral("v_value"), view->verticalScrollBar()->value() },
+            { QStringLiteral("v_max"), view->verticalScrollBar()->maximum() }
+        };
     };
     const QJsonObject terminal = state();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
@@ -7094,33 +6808,30 @@ void GraphicsViewTests::testZoomTerminalStateDoesNotRewriteViewport()
 void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("togglefitand100"), QStringList{
-            QKeySequence(Qt::Key_Z).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("togglefitand100"),
+                                       QStringList{ QKeySequence(Qt::Key_Z).toString() } } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("toggle-outside-image-no-blank"), Qt::darkBlue,
-        QSize(1280, 1469));
+            dir, QStringLiteral("toggle-outside-image-no-blank"), Qt::darkBlue, QSize(1280, 1469));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7131,8 +6842,7 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -7144,8 +6854,7 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
 
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(fitImage.width() < usable.width());
     QVERIFY(fitImage.height() <= usable.height() + 1);
 
@@ -7154,20 +6863,13 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
     QVERIFY2(outside.x() > fitImage.right(),
              "the portrait fixture did not leave right-side fit blank space");
     QVERIFY(usable.contains(outside));
-    const QPointF projectedFitAnchor = QVGraphicsView::projectZoomAnchor(
-        QRectF(fitImage), outside);
+    const QPointF projectedFitAnchor = QVGraphicsView::projectZoomAnchor(QRectF(fitImage), outside);
     const qreal anchorU = fitImage.width() > 0
-        ? qBound<qreal>(0.0,
-                        (projectedFitAnchor.x() - fitImage.left())
-                            / fitImage.width(),
-                        1.0)
-        : 0.5;
+            ? qBound<qreal>(0.0, (projectedFitAnchor.x() - fitImage.left()) / fitImage.width(), 1.0)
+            : 0.5;
     const qreal anchorV = fitImage.height() > 0
-        ? qBound<qreal>(0.0,
-                        (projectedFitAnchor.y() - fitImage.top())
-                            / fitImage.height(),
-                        1.0)
-        : 0.5;
+            ? qBound<qreal>(0.0, (projectedFitAnchor.y() - fitImage.top()) / fitImage.height(), 1.0)
+            : 0.5;
     sendMouseMove(view->viewport(), outside);
     QCursor::setPos(view->viewport()->mapToGlobal(outside));
 
@@ -7176,12 +6878,11 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
     probe.setNoAvoidableBlankSpace(true);
     probe.record(QStringLiteral("initial-fit"), true);
 
-    QAction *toggle = qvApp->getActionManager().getAction(
-        QStringLiteral("togglefitand100"));
+    QAction *toggle = qvApp->getActionManager().getAction(QStringLiteral("togglefitand100"));
     QVERIFY(toggle);
     QVERIFY(!toggle->shortcuts().isEmpty());
     const auto toggleClones = qvApp->getActionManager().getAllClonesOfAction(
-        QStringLiteral("togglefitand100"), &window);
+            QStringLiteral("togglefitand100"), &window);
     QVERIFY(toggleClones.size() >= 2);
     QSignalSpy cloneSpy0(toggleClones.at(0), &QAction::triggered);
     QSignalSpy cloneSpy1(toggleClones.at(1), &QAction::triggered);
@@ -7193,17 +6894,14 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
     QTRY_VERIFY_WITH_TIMEOUT(cloneSpy0.count() + cloneSpy1.count() == 1, 500);
     QVERIFY(waitForZoomTerminal(view));
 
-    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(
-        view->getZoomLevel(), 1.0));
+    QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0));
     QTest::qWait(250);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     probe.record(QStringLiteral("terminal"), true);
-    const QRect image = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect image = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    QVERIFY2(image.width() > usable.width()
-                 && image.height() > usable.height(),
+    QVERIFY2(image.width() > usable.width() && image.height() > usable.height(),
              "the fixture did not overflow at 100 percent");
     QVERIFY2(image.left() <= usable.left() + 2,
              "100 percent toggle left an avoidable left blank region");
@@ -7220,21 +6918,16 @@ void GraphicsViewTests::testToggleFitTo100HasNoAvoidableBlankSpace()
     const qreal preferredLeft = outside.x() - anchorU * image.width();
     const qreal feasibleLeftMin = usable.right() - image.width() + 1.0;
     const qreal feasibleLeftMax = usable.left();
-    const qreal expectedLeft = qBound(feasibleLeftMin,
-                                      preferredLeft,
-                                      feasibleLeftMax);
+    const qreal expectedLeft = qBound(feasibleLeftMin, preferredLeft, feasibleLeftMax);
     const qreal preferredTop = outside.y() - anchorV * image.height();
     const qreal feasibleTopMin = usable.bottom() - image.height() + 1.0;
     const qreal feasibleTopMax = usable.top();
-    const qreal expectedTop = qBound(feasibleTopMin,
-                                     preferredTop,
-                                     feasibleTopMax);
+    const qreal expectedTop = qBound(feasibleTopMin, preferredTop, feasibleTopMax);
     QVERIFY2(qAbs(image.left() - expectedLeft) <= 2.0,
              "100 percent toggle did not choose the nearest feasible horizontal origin");
     QVERIFY2(qAbs(image.top() - expectedTop) <= 2.0,
              "100 percent toggle did not choose the nearest feasible vertical origin");
-    QVERIFY2(probe.firstErrorMessage().isEmpty(),
-             qPrintable(probe.firstErrorMessage()));
+    QVERIFY2(probe.firstErrorMessage().isEmpty(), qPrintable(probe.firstErrorMessage()));
 }
 
 void GraphicsViewTests::testWheelZoomHasNoPositionJumpTrajectory()
@@ -7252,28 +6945,27 @@ void GraphicsViewTests::testWheelZoomHasNoPositionJumpTrajectory()
     // Expected result: the tracked point stays within two DIP of the original
     // mouse position; no later callback changes that terminal position.
     // Postcondition: all zoom writers stop and scoped settings are restored.
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("wheel-no-position-jump"), Qt::darkCyan,
-        QSize(1200, 1200));
+    const QString imagePath = createQtRasterTestImage(dir, QStringLiteral("wheel-no-position-jump"),
+                                                      Qt::darkCyan, QSize(1200, 1200));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7283,8 +6975,7 @@ void GraphicsViewTests::testWheelZoomHasNoPositionJumpTrajectory()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -7318,10 +7009,8 @@ void GraphicsViewTests::testWheelZoomHasNoPositionJumpTrajectory()
              "a delayed writer moved the wheel-zoom terminal anchor");
     probe.record(QStringLiteral("terminal"), true);
 
-    QVERIFY2(!probe.getSamples().isEmpty(),
-             "the wheel transaction produced no observable samples");
-    QVERIFY2(probe.firstErrorMessage().isEmpty(),
-             qPrintable(probe.firstErrorMessage()));
+    QVERIFY2(!probe.getSamples().isEmpty(), "the wheel transaction produced no observable samples");
+    QVERIFY2(probe.firstErrorMessage().isEmpty(), qPrintable(probe.firstErrorMessage()));
     QVERIFY(view->getZoomLevel() > 0.0);
 }
 
@@ -7340,28 +7029,27 @@ void GraphicsViewTests::testZoomOutHasNoTransientVerticalScrollBar()
     // sample whose image fits has a zero vertical range; the terminal state
     // has no horizontal or vertical range.
     // Postcondition: all timers stop and temporary state is released.
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("zoomout-no-transient-vbar"), Qt::darkGreen,
-        QSize(1600, 900));
+            dir, QStringLiteral("zoomout-no-transient-vbar"), Qt::darkGreen, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7371,8 +7059,7 @@ void GraphicsViewTests::testZoomOutHasNoTransientVerticalScrollBar()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -7384,8 +7071,7 @@ void GraphicsViewTests::testZoomOutHasNoTransientVerticalScrollBar()
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPoint target(view->viewport()->rect().right() - 2,
                         view->viewport()->rect().bottom() - 2);
     QVERIFY(usable.contains(target));
@@ -7401,8 +7087,7 @@ void GraphicsViewTests::testZoomOutHasNoTransientVerticalScrollBar()
     QVERIFY(waitForZoomTerminal(view));
     QTRY_VERIFY_WITH_TIMEOUT(probe.sawVerticalRange(), 1000);
 
-    for (int step = 0; step < 3; ++step)
-    {
+    for (int step = 0; step < 3; ++step) {
         QVERIFY(sendDiscreteZoomWheel(view, target, -120));
         QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
         QTest::qWait(15);
@@ -7412,17 +7097,13 @@ void GraphicsViewTests::testZoomOutHasNoTransientVerticalScrollBar()
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     probe.record(QStringLiteral("terminal"), true);
 
-    const QRect finalImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect finalImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
     QVERIFY(finalImage.height() <= usable.height() + 1);
-    QVERIFY(view->verticalScrollBar()->maximum()
-            <= view->verticalScrollBar()->minimum());
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY2(probe.firstErrorMessage().isEmpty(),
-             qPrintable(probe.firstErrorMessage()));
+    QVERIFY(view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum());
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY2(probe.firstErrorMessage().isEmpty(), qPrintable(probe.firstErrorMessage()));
 }
 
 void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollBar()
@@ -7443,28 +7124,28 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
     // sample whose width fits the current usable viewport has zero horizontal
     // range; no horizontal bar show/paint event occurs in that interval.
     // Postcondition: all zoom writers stop and settings are restored.
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0},
-        {QStringLiteral("fitzoomlimitenabled"), false},
-        {QStringLiteral("smallimageoneone"), false}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 },
+              { QStringLiteral("fitzoomlimitenabled"), false },
+              { QStringLiteral("smallimageoneone"), false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("right-outside-no-transient-hbar"), Qt::darkBlue,
-        QSize(1280, 1469));
+    const QString imagePath =
+            createQtRasterTestImage(dir, QStringLiteral("right-outside-no-transient-hbar"),
+                                    Qt::darkBlue, QSize(1280, 1469));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7474,8 +7155,7 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -7487,8 +7167,7 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
     QTRY_VERIFY_WITH_TIMEOUT(view->isImageAtFit(), 2500);
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect fitImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect fitImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(fitImage.width() < usable.width());
     const int outsideX = qMin(usable.right() - 8, fitImage.right() + 40);
     const QPoint target(outsideX, fitImage.center().y());
@@ -7501,8 +7180,7 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
     ZoomIssueProbe probe(&window, view);
     probe.setNoTransientScrollbars(true);
     probe.record(QStringLiteral("initial-fit"), true);
-    for (int step = 0; step < 3; ++step)
-    {
+    for (int step = 0; step < 3; ++step) {
         QVERIFY(sendDiscreteZoomWheel(view, target, 120));
         QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
         QTest::qWait(15);
@@ -7512,15 +7190,12 @@ void GraphicsViewTests::testRightOutsideWheelZoomHasNoTransientHorizontalScrollB
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     probe.record(QStringLiteral("terminal"), true);
 
-    const QRect finalImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect finalImage = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
     QVERIFY(finalImage.width() <= usable.width() + 1);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            <= view->horizontalScrollBar()->minimum());
-    QVERIFY2(probe.firstErrorMessage().isEmpty(),
-             qPrintable(probe.firstErrorMessage()));
+    QVERIFY(view->horizontalScrollBar()->maximum() <= view->horizontalScrollBar()->minimum());
+    QVERIFY2(probe.firstErrorMessage().isEmpty(), qPrintable(probe.firstErrorMessage()));
 }
 
 // AC-ZOOM-VBAR-TRANSIENT
@@ -7555,18 +7230,15 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable_data()
     const auto expensive = static_cast<int>(Qv::SmoothScalingMode::Expensive);
     const auto viewportCenter = static_cast<int>(ZoomAnchorPolicy::ViewportCenter);
     const auto fixedImagePoint = static_cast<int>(ZoomAnchorPolicy::FixedImagePoint);
-    const auto addRows = [viewportCenter, fixedImagePoint](
-                             const QString &source,
-                             const int mode,
-                             const int policy) {
+    const auto addRows = [viewportCenter, fixedImagePoint](const QString &source, const int mode,
+                                                           const int policy) {
         const QString modeName = mode == static_cast<int>(Qv::SmoothScalingMode::Expensive)
-            ? QStringLiteral("expensive") : QStringLiteral("disabled");
-        QTest::newRow(qPrintable(
-            QStringLiteral("%1-zoom-in-%2").arg(source, modeName)))
-            << source << true << mode << policy;
-        QTest::newRow(qPrintable(
-            QStringLiteral("%1-zoom-out-%2").arg(source, modeName)))
-            << source << false << mode << policy;
+                ? QStringLiteral("expensive")
+                : QStringLiteral("disabled");
+        QTest::newRow(qPrintable(QStringLiteral("%1-zoom-in-%2").arg(source, modeName)))
+                << source << true << mode << policy;
+        QTest::newRow(qPrintable(QStringLiteral("%1-zoom-out-%2").arg(source, modeName)))
+                << source << false << mode << policy;
     };
     // Keyboard QAction has no QPoint argument (QAction::triggered carries
     // only its checked state), so the production view samples the actual
@@ -7587,42 +7259,40 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
     QFETCH(int, anchorPolicy);
     const auto anchorPolicyKind = static_cast<ZoomAnchorPolicy>(anchorPolicy);
 
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), scalingMode},
-        {QStringLiteral("scalingtwoenabled"), true},
-        {QStringLiteral("smoothscalinglimitenabled"), false},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("disabledelayedconstraint"), false},
-        {QStringLiteral("viewportverticalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {QStringLiteral("viewporthorizontalscrollaction"), static_cast<int>(Qv::ViewportScrollAction::None)}
-    });
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("zoomin"), QStringList{
-            QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()}},
-        {QStringLiteral("zoomout"), QStringList{
-            QKeySequence(Qt::CTRL | Qt::Key_Minus).toString()}}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"), scalingMode },
+              { QStringLiteral("scalingtwoenabled"), true },
+              { QStringLiteral("smoothscalinglimitenabled"), false },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("disabledelayedconstraint"), false },
+              { QStringLiteral("viewportverticalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { QStringLiteral("viewporthorizontalscrollaction"),
+                static_cast<int>(Qv::ViewportScrollAction::None) } });
+    ScopedShortcutValues shortcuts(
+            { { QStringLiteral("zoomin"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_Equal).toString() } },
+              { QStringLiteral("zoomout"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_Minus).toString() } } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString probePath = createQtRasterTestImage(
-        dir, QStringLiteral("zoom-vbar-geometry-probe"), Qt::darkGreen,
-        QSize(1, 4096));
+            dir, QStringLiteral("zoom-vbar-geometry-probe"), Qt::darkGreen, QSize(1, 4096));
     QVERIFY(!probePath.isEmpty());
     QString scenarioPath;
 
-    const auto usableViewportRect = [](const MainWindow &window,
-                                        const QVGraphicsView &view) {
+    const auto usableViewportRect = [](const MainWindow &window, const QVGraphicsView &view) {
         QRect rect = view.viewport()->rect();
         rect.setTop(window.getViewportPosition().obscuredHeight);
         return rect;
@@ -7633,13 +7303,10 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         // newly shown test window is nevertheless the QWidget event target.
         // QTest::keySequence() dispatches to the supplied widget directly, so
         // visibility is the stable prerequisite for this gray-box test.
-        return waitForTestCondition(
-            [&window]() { return window.isVisible(); }, 1500);
+        return waitForTestCondition([&window]() { return window.isVisible(); }, 1500);
     };
 
-    const auto stopDelayedTimers = [](QVGraphicsView *view) {
-        stopZoomTraceTimers(view);
-    };
+    const auto stopDelayedTimers = [](QVGraphicsView *view) { stopZoomTraceTimers(view); };
 
     const auto runStage = [&](const QString &stage) -> QString {
         MainWindow window;
@@ -7657,53 +7324,48 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
             return QStringLiteral("window did not become active");
 
         QVGraphicsView *view = nullptr;
-        if (scenarioPath.isEmpty())
-        {
+        if (scenarioPath.isEmpty()) {
             window.openFile(probePath);
-            if (!waitForTestCondition([&window]() {
-                    return window.getIsPixmapLoaded();
-                }, 5000))
+            if (!waitForTestCondition([&window]() { return window.getIsPixmapLoaded(); }, 5000))
                 return QStringLiteral("geometry probe did not load");
-            view = window.findChild<QVGraphicsView *>(
-                QStringLiteral("graphicsView"));
+            view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
             if (!view)
                 return QStringLiteral("graphics view is missing");
-            if (!waitForTestCondition([view]() {
-                    return view->verticalScrollBar()->maximum()
-                            > view->verticalScrollBar()->minimum()
-                        && view->horizontalScrollBar()->maximum()
-                            <= view->horizontalScrollBar()->minimum();
-                }, 2000))
+            if (!waitForTestCondition(
+                        [view]() {
+                            return view->verticalScrollBar()->maximum()
+                                    > view->verticalScrollBar()->minimum()
+                                    && view->horizontalScrollBar()->maximum()
+                                    <= view->horizontalScrollBar()->minimum();
+                        },
+                        2000))
                 return QStringLiteral("geometry probe did not establish V-only layout");
 
             const QSize measuredViewport = view->viewport()->size();
             const QSize scenarioSize(
-                qMax(64, static_cast<int>(std::floor(measuredViewport.width() * 0.90))),
-                qMax(256, static_cast<int>(std::ceil(measuredViewport.height() * 2.20))));
-            scenarioPath = createQtRasterTestImage(
-                dir, QStringLiteral("zoom-vbar-dynamic-fixture"), Qt::darkMagenta,
-                scenarioSize);
+                    qMax(64, static_cast<int>(std::floor(measuredViewport.width() * 0.90))),
+                    qMax(256, static_cast<int>(std::ceil(measuredViewport.height() * 2.20))));
+            scenarioPath = createQtRasterTestImage(dir, QStringLiteral("zoom-vbar-dynamic-fixture"),
+                                                   Qt::darkMagenta, scenarioSize);
             if (scenarioPath.isEmpty())
                 return QStringLiteral("dynamic fixture could not be created");
         }
 
-        const QString expectedScenarioPath =
-            QFileInfo(scenarioPath).absoluteFilePath();
+        const QString expectedScenarioPath = QFileInfo(scenarioPath).absoluteFilePath();
         window.openFile(scenarioPath);
-        if (!waitForTestCondition([&window]() {
-                return window.getIsPixmapLoaded();
-            }, 5000))
+        if (!waitForTestCondition([&window]() { return window.getIsPixmapLoaded(); }, 5000))
             return QStringLiteral("dynamic fixture did not load");
         if (!view)
-            view = window.findChild<QVGraphicsView *>(
-                QStringLiteral("graphicsView"));
+            view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
         if (!view)
             return QStringLiteral("graphics view is missing after fixture load");
-        if (!waitForTestCondition([&window, &expectedScenarioPath]() {
-                return window.getIsPixmapLoaded()
-                    && window.getCurrentFileDetails().fileInfo.absoluteFilePath()
-                        == expectedScenarioPath;
-            }, 5000))
+        if (!waitForTestCondition(
+                    [&window, &expectedScenarioPath]() {
+                        return window.getIsPixmapLoaded()
+                                && window.getCurrentFileDetails().fileInfo.absoluteFilePath()
+                                == expectedScenarioPath;
+                    },
+                    5000))
             return QStringLiteral("dynamic fixture path was not committed");
 
         const qreal startLevel = zoomIn ? 1.0 : 1.25;
@@ -7712,8 +7374,7 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         view->fitOrConstrainImage();
         view->centerImage();
         stopDelayedTimers(view);
-        if (scalingMode == static_cast<int>(Qv::SmoothScalingMode::Expensive))
-        {
+        if (scalingMode == static_cast<int>(Qv::SmoothScalingMode::Expensive)) {
             // Re-arm the production 50 ms backing-pixmap path immediately
             // before the probe is installed.  No event loop turn occurs here,
             // so the timer is guaranteed to belong to this scenario.
@@ -7721,49 +7382,48 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
             view->centerImage();
         }
 
-        if (!waitForTestCondition([&]() {
-                return view->verticalScrollBar()->maximum()
-                        > view->verticalScrollBar()->minimum()
-                    && (view->horizontalScrollBar()->maximum()
-                            > view->horizontalScrollBar()->minimum())
-                        == expectedInitialHorizontalVisibility;
-            }, 2000))
-            return QStringLiteral("dynamic fixture did not establish the requested starting layout");
+        if (!waitForTestCondition(
+                    [&]() {
+                        return view->verticalScrollBar()->maximum()
+                                > view->verticalScrollBar()->minimum()
+                                && (view->horizontalScrollBar()->maximum()
+                                    > view->horizontalScrollBar()->minimum())
+                                == expectedInitialHorizontalVisibility;
+                    },
+                    2000))
+            return QStringLiteral(
+                    "dynamic fixture did not establish the requested starting layout");
 
         // The first visible QWidget geometry can be a platform-created
         // placeholder (for example 100x30 at 0,0) even after the ranges have
         // settled.  Do not use that placeholder as the trajectory baseline;
         // wait until the bar has its style extent and the safe-area-adjusted
         // global position that can actually be painted.
-        if (!waitForTestCondition([&window, view]() {
-                QScrollBar *bar = view->verticalScrollBar();
-                QWidget *container = bar ? bar->parentWidget() : nullptr;
-                if (!bar || !container || bar->width() <= 0
-                    || bar->height() <= 0 || container->width() <= 0
-                    || container->height() <= 0)
-                    return false;
-                const int extent = bar->style()->pixelMetric(
-                    QStyle::PM_ScrollBarExtent, nullptr, bar);
-                if (extent > 0 && qAbs(bar->width() - extent) > 1)
-                    return false;
-                if (container->width() != bar->width())
-                    return false;
-                const QRect viewportGlobal(
-                    view->viewport()->mapToGlobal(QPoint(0, 0)),
-                    view->viewport()->size());
-                const QRect barGlobal(
-                    bar->mapToGlobal(QPoint(0, 0)), bar->size());
-                return barGlobal.top()
-                        >= viewportGlobal.top()
-                            + window.getViewportPosition().obscuredHeight
-                    && barGlobal.bottom() <= viewportGlobal.bottom()
-                    && container->mapToGlobal(QPoint(0, 0)).y()
-                        == barGlobal.top();
-            }, 2000))
+        if (!waitForTestCondition(
+                    [&window, view]() {
+                        QScrollBar *bar = view->verticalScrollBar();
+                        QWidget *container = bar ? bar->parentWidget() : nullptr;
+                        if (!bar || !container || bar->width() <= 0 || bar->height() <= 0
+                            || container->width() <= 0 || container->height() <= 0)
+                            return false;
+                        const int extent =
+                                bar->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, bar);
+                        if (extent > 0 && qAbs(bar->width() - extent) > 1)
+                            return false;
+                        if (container->width() != bar->width())
+                            return false;
+                        const QRect viewportGlobal(view->viewport()->mapToGlobal(QPoint(0, 0)),
+                                                   view->viewport()->size());
+                        const QRect barGlobal(bar->mapToGlobal(QPoint(0, 0)), bar->size());
+                        return barGlobal.top() >= viewportGlobal.top()
+                                        + window.getViewportPosition().obscuredHeight
+                                && barGlobal.bottom() <= viewportGlobal.bottom()
+                                && container->mapToGlobal(QPoint(0, 0)).y() == barGlobal.top();
+                    },
+                    2000))
             return QStringLiteral("vertical scrollbar geometry did not settle before baseline");
 
-        if (inputSource == QStringLiteral("keyboard"))
-        {
+        if (inputSource == QStringLiteral("keyboard")) {
             // Activating a Cocoa window can materialize an already non-zero
             // scrollbar range and resize the viewport.  Establish that native
             // geometry before installing the trajectory probe so it is part
@@ -7786,54 +7446,51 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         // Every zoom input family uses a fixed, non-center image point. The
         // keyboard rows additionally move the system cursor there because the
         // QAction route has no event-position argument to pass through.
-        const QPoint fixedImageAnchor = view->mapFromScene(QPointF(
-            imageScene.left() + imageScene.width() * 0.40,
-            imageScene.top() + imageScene.height() * 0.35));
+        const QPoint fixedImageAnchor =
+                view->mapFromScene(QPointF(imageScene.left() + imageScene.width() * 0.40,
+                                           imageScene.top() + imageScene.height() * 0.35));
         const QPoint inputAnchor = anchorPolicyKind == ZoomAnchorPolicy::ViewportCenter
-            ? keyboardAnchor : fixedImageAnchor;
+                ? keyboardAnchor
+                : fixedImageAnchor;
         const QPointF anchorScene = view->mapToScene(inputAnchor);
-        const QPointF anchorUV(
-            (anchorScene.x() - imageScene.left()) / imageScene.width(),
-            (anchorScene.y() - imageScene.top()) / imageScene.height());
+        const QPointF anchorUV((anchorScene.x() - imageScene.left()) / imageScene.width(),
+                               (anchorScene.y() - imageScene.top()) / imageScene.height());
         const QRect imageViewport = view->mapFromScene(imageScene).boundingRect();
         if (!usable.contains(inputAnchor) || !imageViewport.contains(inputAnchor)
-            || anchorUV.x() < 0.0 || anchorUV.x() > 1.0
-            || anchorUV.y() < 0.0 || anchorUV.y() > 1.0)
-            return QStringLiteral("dynamic fixture did not put the input anchor inside the usable image");
-        if (anchorPolicyKind == ZoomAnchorPolicy::FixedImagePoint
-            && inputAnchor == keyboardAnchor)
+            || anchorUV.x() < 0.0 || anchorUV.x() > 1.0 || anchorUV.y() < 0.0 || anchorUV.y() > 1.0)
+            return QStringLiteral(
+                    "dynamic fixture did not put the input anchor inside the usable image");
+        if (anchorPolicyKind == ZoomAnchorPolicy::FixedImagePoint && inputAnchor == keyboardAnchor)
             return QStringLiteral("fixed image anchor unexpectedly equals viewport center");
 
         if (inputSource == QStringLiteral("keyboard"))
             sendMouseMove(view->viewport(), inputAnchor);
 
-        auto probe = std::make_unique<ZoomTraceProbe>(
-            &window, view, anchorPolicyKind, inputAnchor, anchorUV);
+        auto probe = std::make_unique<ZoomTraceProbe>(&window, view, anchorPolicyKind, inputAnchor,
+                                                      anchorUV);
         probe->clearTrace();
-        auto *animation = view->findChild<QObject *>(
-            QStringLiteral("zoomTransitionAnimation"));
+        auto *animation = view->findChild<QObject *>(QStringLiteral("zoomTransitionAnimation"));
         if (animation)
             return QStringLiteral("zoom transition animation still exists");
         // The immediate commit is the baseline for this matrix.  The dedicated
         // vertical-topology case observes the post-layout semantic-anchor path.
-        probe->record(QStringLiteral("pre-input"), true,
-                      -1);
+        probe->record(QStringLiteral("pre-input"), true, -1);
 
         const auto failure = [&](const QString &reason) {
             writeZoomTraceFailure(
-                QStringLiteral("%1-%2-%3-%4")
-                    .arg(inputSource)
-                    .arg(zoomIn ? QStringLiteral("in") : QStringLiteral("out"))
-                    .arg(scalingMode)
-                    .arg(stage),
-                stage, probe->getSamples(), probe.get(), &window, reason);
+                    QStringLiteral("%1-%2-%3-%4")
+                            .arg(inputSource)
+                            .arg(zoomIn ? QStringLiteral("in") : QStringLiteral("out"))
+                            .arg(scalingMode)
+                            .arg(stage),
+                    stage, probe->getSamples(), probe.get(), &window, reason);
             return reason;
         };
         const auto checkImmediateSamples = [&]() -> QString {
             if (probe->firstImmediateErrorMessage().isEmpty())
-                return {};
+                return { };
             return QStringLiteral("immediate sample check failed: %1")
-                .arg(probe->firstImmediateErrorMessage());
+                    .arg(probe->firstImmediateErrorMessage());
         };
 
         const QString preInputError = checkImmediateSamples();
@@ -7846,66 +7503,48 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
             return failure(QStringLiteral("zoomLevelChanged spy is invalid"));
 
         bool inputDelivered = true;
-        if (inputSource == QStringLiteral("keyboard"))
-        {
-            const QString actionKey = zoomIn
-                ? QStringLiteral("zoomin") : QStringLiteral("zoomout");
+        if (inputSource == QStringLiteral("keyboard")) {
+            const QString actionKey = zoomIn ? QStringLiteral("zoomin") : QStringLiteral("zoomout");
             QAction *action = qvApp->getActionManager().getAction(actionKey);
             if (!action || action->shortcuts().isEmpty())
                 return failure(QStringLiteral("configured keyboard zoom shortcut is missing"));
             // This sends the configured QKeySequence through QWidget/QShortcut
             // dispatch; it deliberately does not invoke QAction::trigger().
             QTest::keySequence(&window, action->shortcuts().constFirst());
-        }
-        else if (inputSource == QStringLiteral("wheel"))
-        {
+        } else if (inputSource == QStringLiteral("wheel")) {
             const int delta = zoomIn ? 120 : -120;
             const QPointingDevice wheelDevice(
-                QStringLiteral("zoom trajectory mouse"), 61,
-                QInputDevice::DeviceType::Mouse,
-                QPointingDevice::PointerType::Generic,
-                QInputDevice::Capability::Scroll, 3, 0);
+                    QStringLiteral("zoom trajectory mouse"), 61, QInputDevice::DeviceType::Mouse,
+                    QPointingDevice::PointerType::Generic, QInputDevice::Capability::Scroll, 3, 0);
             QWheelEvent wheelEvent(
-                QPointF(inputAnchor),
-                QPointF(view->viewport()->mapToGlobal(inputAnchor)),
-                QPoint(0, delta), QPoint(0, delta), Qt::NoButton,
-                Qt::NoModifier, Qt::NoScrollPhase, false,
-                Qt::MouseEventNotSynthesized, &wheelDevice);
-            inputDelivered = QCoreApplication::sendEvent(
-                view->viewport(), &wheelEvent) && wheelEvent.isAccepted();
-        }
-        else if (inputSource == QStringLiteral("pinch"))
-        {
+                    QPointF(inputAnchor), QPointF(view->viewport()->mapToGlobal(inputAnchor)),
+                    QPoint(0, delta), QPoint(0, delta), Qt::NoButton, Qt::NoModifier,
+                    Qt::NoScrollPhase, false, Qt::MouseEventNotSynthesized, &wheelDevice);
+            inputDelivered = QCoreApplication::sendEvent(view->viewport(), &wheelEvent)
+                    && wheelEvent.isAccepted();
+        } else if (inputSource == QStringLiteral("pinch")) {
             const qreal gestureValue = zoomIn ? 0.25 : -0.20;
-            inputDelivered = sendNativeGesture(
-                view, Qt::BeginNativeGesture, inputAnchor)
-                && sendNativeGesture(
-                    view, Qt::ZoomNativeGesture, inputAnchor, gestureValue)
-                && sendNativeGesture(
-                    view, Qt::EndNativeGesture, inputAnchor);
-        }
-        else
-        {
+            inputDelivered = sendNativeGesture(view, Qt::BeginNativeGesture, inputAnchor)
+                    && sendNativeGesture(view, Qt::ZoomNativeGesture, inputAnchor, gestureValue)
+                    && sendNativeGesture(view, Qt::EndNativeGesture, inputAnchor);
+        } else {
             inputDelivered = false;
         }
         if (!inputDelivered)
-            return failure(QStringLiteral("the real %1 input was not accepted")
-                               .arg(inputSource));
+            return failure(QStringLiteral("the real %1 input was not accepted").arg(inputSource));
         if (zoomChangedSpy.count() != 1)
             return failure(QStringLiteral("real input emitted %1 zoom changes, expected one")
-                               .arg(zoomChangedSpy.count()));
+                                   .arg(zoomChangedSpy.count()));
         const qreal expectedTarget = zoomIn ? 1.25 : 1.0;
-        if (!QVGraphicsView::zoomLevelsEquivalent(
-                view->getZoomLevel(), expectedTarget))
+        if (!QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), expectedTarget))
             return failure(QStringLiteral("real input selected logical zoom %1, expected %2")
-                               .arg(view->getZoomLevel()).arg(expectedTarget));
+                                   .arg(view->getZoomLevel())
+                                   .arg(expectedTarget));
         if (view->isZoomTransitionRunning())
             return failure(QStringLiteral("real input started a zoom transition"));
-        if (!QVGraphicsView::zoomLevelsEquivalent(
-                view->animatedZoomLevel(), view->getZoomLevel()))
+        if (!QVGraphicsView::zoomLevelsEquivalent(view->animatedZoomLevel(), view->getZoomLevel()))
             return failure(QStringLiteral("immediate and logical zoom values differ"));
-        probe->record(QStringLiteral("input-dispatched"), false,
-                      -1);
+        probe->record(QStringLiteral("input-dispatched"), false, -1);
 
         stopDelayedTimers(view);
         QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
@@ -7924,19 +7563,17 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
         const QString immediateError = checkImmediateSamples();
         if (!immediateError.isEmpty())
             return failure(immediateError);
-        const bool horizontalRange = view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum();
+        const bool horizontalRange =
+                view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum();
         if (horizontalRange != zoomIn)
-            return failure(QStringLiteral(
-                "immediate target horizontal range=%1, expected=%2")
-                               .arg(horizontalRange).arg(zoomIn));
-        const QString immediateTraceError = validateZoomTrace(
-            probe->getSamples(), zoomIn, false);
+            return failure(QStringLiteral("immediate target horizontal range=%1, expected=%2")
+                                   .arg(horizontalRange)
+                                   .arg(zoomIn));
+        const QString immediateTraceError = validateZoomTrace(probe->getSamples(), zoomIn, false);
         if (!immediateTraceError.isEmpty())
             return failure(immediateTraceError);
         window.close();
-        return {};
-
+        return { };
     };
 
     const QString committedError = runStage(QStringLiteral("committed"));
@@ -7961,29 +7598,29 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarTrajectoryStable()
 void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {QStringLiteral("scalingtwoenabled"), true},
-        {QStringLiteral("smoothscalinglimitenabled"), false},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { QStringLiteral("scalingtwoenabled"), true },
+              { QStringLiteral("smoothscalinglimitenabled"), false },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("zoom-expensive-refinement-vbar"), Qt::darkMagenta,
-        QSize(1201, 899));
+    const QString imagePath =
+            createQtRasterTestImage(dir, QStringLiteral("zoom-expensive-refinement-vbar"),
+                                    Qt::darkMagenta, QSize(1201, 899));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -7995,16 +7632,14 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
 
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
         window.close();
     });
 
-    auto *refinementTimer = view->findChild<QTimer *>(
-        QStringLiteral("expensiveScaleTimer"));
+    auto *refinementTimer = view->findChild<QTimer *>(QStringLiteral("expensiveScaleTimer"));
     QVERIFY(refinementTimer);
     QVERIFY(waitForZoomTerminal(view));
     view->removeExpensiveScaling();
@@ -8012,19 +7647,16 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     view->centerImage();
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->maximum()
-                > view->horizontalScrollBar()->minimum()
-            && view->verticalScrollBar()->maximum()
-                > view->verticalScrollBar()->minimum(),
-        2000);
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum()
+                    && view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(),
+            2000);
 
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect initialImage = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
-    const QPoint target(
-        initialImage.left() + initialImage.width() * 0.40,
-        usable.top() + usable.height() * 0.62);
+    const QRect initialImage =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
+    const QPoint target(initialImage.left() + initialImage.width() * 0.40,
+                        usable.top() + usable.height() * 0.62);
     QVERIFY(usable.contains(target));
     QVERIFY(initialImage.contains(target));
     sendMouseMove(view->viewport(), target);
@@ -8033,11 +7665,9 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     view->zoomAbsolute(1.25, target);
     QTRY_VERIFY_WITH_TIMEOUT(refinementTimer->isActive(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->maximum()
-                > view->horizontalScrollBar()->minimum()
-            && view->verticalScrollBar()->maximum()
-                > view->verticalScrollBar()->minimum(),
-        1000);
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum()
+                    && view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(),
+            1000);
 
     // The timer is the production callback's scheduler. Stop it only while
     // capturing the exact pre-callback state, then restart the same timer so
@@ -8048,22 +7678,19 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     const QRectF imageBefore = view->scene()->itemsBoundingRect();
     QVERIFY(!imageBefore.isEmpty());
     const QPointF anchorSceneBefore = view->mapToScene(target);
-    const QPointF anchorUV(
-        (anchorSceneBefore.x() - imageBefore.left()) / imageBefore.width(),
-        (anchorSceneBefore.y() - imageBefore.top()) / imageBefore.height());
+    const QPointF anchorUV((anchorSceneBefore.x() - imageBefore.left()) / imageBefore.width(),
+                           (anchorSceneBefore.y() - imageBefore.top()) / imageBefore.height());
     QVERIFY(anchorUV.x() >= 0.0 && anchorUV.x() <= 1.0);
     QVERIFY(anchorUV.y() >= 0.0 && anchorUV.y() <= 1.0);
 
     const auto semanticAnchorViewport = [&]() {
         const QRectF image = view->scene()->itemsBoundingRect();
-        const QPointF scenePoint(
-            image.left() + anchorUV.x() * image.width(),
-            image.top() + anchorUV.y() * image.height());
+        const QPointF scenePoint(image.left() + anchorUV.x() * image.width(),
+                                 image.top() + anchorUV.y() * image.height());
         return view->mapFromScene(scenePoint);
     };
     const auto thumbGlobalRect = [](QScrollBar *bar) {
-        return QRect(bar->mapToGlobal(
-                         zoomScrollBarThumbRect(bar, bar->sliderPosition()).topLeft()),
+        return QRect(bar->mapToGlobal(zoomScrollBarThumbRect(bar, bar->sliderPosition()).topLeft()),
                      zoomScrollBarThumbRect(bar, bar->sliderPosition()).size());
     };
 
@@ -8075,8 +7702,7 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     QSignalSpy refinementSpy(refinementTimer, &QTimer::timeout);
     QVERIFY(refinementSpy.isValid());
     refinementTimer->start();
-    QVERIFY2(refinementSpy.wait(2000),
-             "the real expensiveScaleTimer callback did not run");
+    QVERIFY2(refinementSpy.wait(2000), "the real expensiveScaleTimer callback did not run");
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     QCOMPARE(refinementSpy.count(), 1);
 
@@ -8088,12 +7714,16 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
     const QRect hThumbAfter = thumbGlobalRect(view->horizontalScrollBar());
     const QRect vThumbAfter = thumbGlobalRect(view->verticalScrollBar());
     qInfo().noquote()
-        << QStringLiteral(
-               "FOVELLE_EXPENSIVE_REFINEMENT anchor=(%1,%2)->(%3,%4) h=%5->%6 v=%7->%8")
-               .arg(anchorBefore.x()).arg(anchorBefore.y())
-               .arg(anchorAfter.x()).arg(anchorAfter.y())
-               .arg(hValueBefore).arg(hValueAfter)
-               .arg(vValueBefore).arg(vValueAfter);
+            << QStringLiteral(
+                       "FOVELLE_EXPENSIVE_REFINEMENT anchor=(%1,%2)->(%3,%4) h=%5->%6 v=%7->%8")
+                       .arg(anchorBefore.x())
+                       .arg(anchorBefore.y())
+                       .arg(anchorAfter.x())
+                       .arg(anchorAfter.y())
+                       .arg(hValueBefore)
+                       .arg(hValueAfter)
+                       .arg(vValueBefore)
+                       .arg(vValueAfter);
 
     QVERIFY2(qAbs(anchorAfter.x() - anchorBefore.x()) <= 1.0,
              "horizontal image position jumped during expensive refinement");
@@ -8124,26 +7754,25 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionDuringExpensiveRef
 void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("cursorzoom"), true},
-        {QStringLiteral("fitoverscan"), 0}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("cursorzoom"), true },
+              { QStringLiteral("fitoverscan"), 0 } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createQtRasterTestImage(
-        dir, QStringLiteral("zoom-vertical-topology"), Qt::darkGreen,
-        QSize(900, 400));
+    const QString imagePath = createQtRasterTestImage(dir, QStringLiteral("zoom-vertical-topology"),
+                                                      Qt::darkGreen, QSize(900, 400));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -8154,8 +7783,7 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeA
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>(
-        QStringLiteral("graphicsView"));
+    auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     const auto cleanup = qScopeGuard([&window, view]() {
         stopZoomIssueWriters(view);
@@ -8164,16 +7792,13 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeA
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     view->centerImage();
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->maximum()
-                > view->horizontalScrollBar()->minimum()
-            && view->verticalScrollBar()->maximum()
-                <= view->verticalScrollBar()->minimum(),
-        2000);
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum()
+                    && view->verticalScrollBar()->maximum() <= view->verticalScrollBar()->minimum(),
+            2000);
 
     QRect usable = view->viewport()->rect();
     usable.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect imageBefore = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageBefore = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPoint target(imageBefore.left() + imageBefore.width() * 0.35,
                         imageBefore.top() + imageBefore.height() * 0.72);
     QVERIFY(usable.contains(target));
@@ -8184,11 +7809,8 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeA
     view->zoomAbsolute(1.25, target);
     const QPointF returnedFromCommit = view->mapFromScene(anchorScene);
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->verticalScrollBar()->maximum()
-                > view->verticalScrollBar()->minimum(),
-        2000);
-    QVERIFY(view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum());
+            view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum(), 2000);
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
     const QPointF immediate = view->mapFromScene(anchorScene);
     const int immediateValue = view->verticalScrollBar()->value();
 
@@ -8200,45 +7822,55 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeA
     int previousHorizontalValue = 0;
     int previousVerticalValue = 0;
     int stableTurns = 0;
-    QVERIFY(waitForTestCondition([&]() {
-        const QScrollBar *horizontal = view->horizontalScrollBar();
-        const QScrollBar *vertical = view->verticalScrollBar();
-        const bool unchanged = previousViewport == view->viewport()->geometry()
-            && previousHorizontalMinimum == horizontal->minimum()
-            && previousHorizontalMaximum == horizontal->maximum()
-            && previousVerticalMinimum == vertical->minimum()
-            && previousVerticalMaximum == vertical->maximum()
-            && previousHorizontalValue == horizontal->value()
-            && previousVerticalValue == vertical->value();
-        previousViewport = view->viewport()->geometry();
-        previousHorizontalMinimum = horizontal->minimum();
-        previousHorizontalMaximum = horizontal->maximum();
-        previousVerticalMinimum = vertical->minimum();
-        previousVerticalMaximum = vertical->maximum();
-        previousHorizontalValue = horizontal->value();
-        previousVerticalValue = vertical->value();
-        stableTurns = unchanged ? stableTurns + 1 : 0;
-        return stableTurns >= 2;
-    }, 2000));
+    QVERIFY(waitForTestCondition(
+            [&]() {
+                const QScrollBar *horizontal = view->horizontalScrollBar();
+                const QScrollBar *vertical = view->verticalScrollBar();
+                const bool unchanged = previousViewport == view->viewport()->geometry()
+                        && previousHorizontalMinimum == horizontal->minimum()
+                        && previousHorizontalMaximum == horizontal->maximum()
+                        && previousVerticalMinimum == vertical->minimum()
+                        && previousVerticalMaximum == vertical->maximum()
+                        && previousHorizontalValue == horizontal->value()
+                        && previousVerticalValue == vertical->value();
+                previousViewport = view->viewport()->geometry();
+                previousHorizontalMinimum = horizontal->minimum();
+                previousHorizontalMaximum = horizontal->maximum();
+                previousVerticalMinimum = vertical->minimum();
+                previousVerticalMaximum = vertical->maximum();
+                previousHorizontalValue = horizontal->value();
+                previousVerticalValue = vertical->value();
+                stableTurns = unchanged ? stableTurns + 1 : 0;
+                return stableTurns >= 2;
+            },
+            2000));
 
     const QPointF settled = view->mapFromScene(anchorScene);
     const int immediateHorizontalValue = view->horizontalScrollBar()->value();
     const int settledValue = view->verticalScrollBar()->value();
     const int settledHorizontalValue = view->horizontalScrollBar()->value();
-    const int expectedValue = qBound(
-        view->verticalScrollBar()->minimum(),
-        qRound(view->transform().map(anchorScene).y() - target.y()),
-        view->verticalScrollBar()->maximum());
+    const int expectedValue = qBound(view->verticalScrollBar()->minimum(),
+                                     qRound(view->transform().map(anchorScene).y() - target.y()),
+                                     view->verticalScrollBar()->maximum());
     qInfo().noquote()
-        << QStringLiteral("FOVELLE_VERTICAL_TOPOLOGY commit=(%1,%2) immediate=(%3,%4) settled=(%5,%6) target=(%7,%8) h=%9->%10 v=%11->%12 expectedV=%13 range=%14..%15")
-               .arg(returnedFromCommit.x()).arg(returnedFromCommit.y())
-               .arg(immediate.x()).arg(immediate.y())
-               .arg(settled.x()).arg(settled.y())
-               .arg(target.x()).arg(target.y())
-               .arg(immediateHorizontalValue).arg(settledHorizontalValue)
-               .arg(immediateValue).arg(settledValue).arg(expectedValue)
-               .arg(view->verticalScrollBar()->minimum())
-               .arg(view->verticalScrollBar()->maximum());
+            << QStringLiteral(
+                       "FOVELLE_VERTICAL_TOPOLOGY commit=(%1,%2) immediate=(%3,%4) settled=(%5,%6) "
+                       "target=(%7,%8) h=%9->%10 v=%11->%12 expectedV=%13 range=%14..%15")
+                       .arg(returnedFromCommit.x())
+                       .arg(returnedFromCommit.y())
+                       .arg(immediate.x())
+                       .arg(immediate.y())
+                       .arg(settled.x())
+                       .arg(settled.y())
+                       .arg(target.x())
+                       .arg(target.y())
+                       .arg(immediateHorizontalValue)
+                       .arg(settledHorizontalValue)
+                       .arg(immediateValue)
+                       .arg(settledValue)
+                       .arg(expectedValue)
+                       .arg(view->verticalScrollBar()->minimum())
+                       .arg(view->verticalScrollBar()->maximum());
     QVERIFY2(topologyProbe.firstErrorMessage().isEmpty(),
              qPrintable(topologyProbe.firstErrorMessage()));
     QVERIFY2(qAbs(immediate.y() - target.y()) <= 1.0,
@@ -8268,20 +7900,20 @@ void GraphicsViewTests::testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeA
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {"scalingtwoenabled", true}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "scalingtwoenabled", true } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "image-center-scrollbars", Qt::darkCyan, QSize(1200, 900));
+    const QString imagePath =
+            createTestImage(dir, "image-center-scrollbars", Qt::darkCyan, QSize(1200, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -8296,13 +7928,12 @@ void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
-        2000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !view->scene()->itemsBoundingRect().isEmpty() &&
-            view->scene()->itemsBoundingRect().width() >= 1200,
-        3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->scene()->itemsBoundingRect().isEmpty()
+                                     && view->scene()->itemsBoundingRect().width() >= 1200,
+                             3000);
     QCoreApplication::processEvents();
 
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
@@ -8338,22 +7969,23 @@ void GraphicsViewTests::testImageIsCenteredAfterOpeningWithScrollBars()
 // Postcondition: the window, settings, temporary device, and image are released.
 void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {"scalingtwoenabled", true},
-        {"viewportverticalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {"viewporthorizontalscrollaction", static_cast<int>(Qv::ViewportScrollAction::None)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "scalingtwoenabled", true },
+              { "viewportverticalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { "viewporthorizontalscrollaction",
+                static_cast<int>(Qv::ViewportScrollAction::None) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "wheel-zoom-scrollbars", Qt::darkCyan, QSize(1200, 900));
+    const QString imagePath =
+            createTestImage(dir, "wheel-zoom-scrollbars", Qt::darkCyan, QSize(1200, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -8368,40 +8000,26 @@ void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
-        2000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !view->scene()->itemsBoundingRect().isEmpty() &&
-            view->scene()->itemsBoundingRect().width() >= 1200,
-        3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->scene()->itemsBoundingRect().isEmpty()
+                                     && view->scene()->itemsBoundingRect().width() >= 1200,
+                             3000);
     view->horizontalScrollBar()->setValue(
-        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+            (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
     view->verticalScrollBar()->setValue(
-        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+            (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
     QCoreApplication::processEvents();
 
     const QPoint wheelPosition = view->viewport()->rect().center();
     const QPoint globalWheelPosition = view->viewport()->mapToGlobal(wheelPosition);
     QPointingDevice touchpad(
-        QStringLiteral("discrete wheel device"),
-        2,
-        QInputDevice::DeviceType::TouchPad,
-        QPointingDevice::PointerType::Finger,
-        QInputDevice::Capability::Scroll,
-        5,
-        0);
-    QWheelEvent wheelEvent(
-        QPointF(wheelPosition),
-        QPointF(globalWheelPosition),
-        QPoint(0, 120),
-        QPoint(0, 120),
-        Qt::NoButton,
-        Qt::NoModifier,
-        Qt::NoScrollPhase,
-        false,
-        Qt::MouseEventNotSynthesized,
-        &touchpad);
+            QStringLiteral("discrete wheel device"), 2, QInputDevice::DeviceType::TouchPad,
+            QPointingDevice::PointerType::Finger, QInputDevice::Capability::Scroll, 5, 0);
+    QWheelEvent wheelEvent(QPointF(wheelPosition), QPointF(globalWheelPosition), QPoint(0, 120),
+                           QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false,
+                           Qt::MouseEventNotSynthesized, &touchpad);
 
     QVERIFY(QCoreApplication::sendEvent(view->viewport(), &wheelEvent));
     QVERIFY(wheelEvent.isAccepted());
@@ -8429,13 +8047,12 @@ void GraphicsViewTests::testTouchpadWheelRespectsConfiguredZoomWithScrollBars()
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {"scalingtwoenabled", true},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "scalingtwoenabled", true },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -8456,10 +8073,10 @@ void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveS
 
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             2000);
     QTest::qWait(150);
     QCoreApplication::processEvents();
 
@@ -8496,12 +8113,11 @@ void GraphicsViewTests::testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveS
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -8525,13 +8141,14 @@ void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
     view->rotateImage(90);
     view->fitOrConstrainImage();
     QCoreApplication::processEvents();
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !view->horizontalScrollBar()->isVisible() && !view->verticalScrollBar()->isVisible(),
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->horizontalScrollBar()->isVisible()
+                                     && !view->verticalScrollBar()->isVisible(),
+                             2000);
 
     QRect usableViewport = view->viewport()->rect();
     usableViewport.setTop(window.getViewportPosition().obscuredHeight);
-    const QRect imageRectInViewport = view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageRectInViewport =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     QVERIFY(imageRectInViewport.top() >= usableViewport.top() - 2);
     QVERIFY(imageRectInViewport.bottom() <= usableViewport.bottom() + 2);
     QVERIFY(QLineF(imageRectInViewport.center(), usableViewport.center()).length() <= 2.0);
@@ -8558,13 +8175,12 @@ void GraphicsViewTests::testRotatedZoomToFitUsesUnobscuredViewport()
 void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStable()
 {
     ScopedWindowGeometry windowGeometry;
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {"scalingtwoenabled", true},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "scalingtwoenabled", true },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -8581,23 +8197,23 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
 
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
-    QTRY_VERIFY_WITH_TIMEOUT(view->viewport()->width() >= 200 && view->viewport()->height() >= 200, 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->viewport()->width() >= 200 && view->viewport()->height() >= 200,
+                             1000);
     QRect usableViewport = view->viewport()->rect();
     usableViewport.setTop(window.getViewportPosition().obscuredHeight);
-    if (usableViewport.width() < 200 || usableViewport.height() < 200)
-    {
+    if (usableViewport.width() < 200 || usableViewport.height() < 200) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
     }
 
     const QSize imageSize(usableViewport.width() * 9 / 10, usableViewport.height() * 9 / 10);
-    const QString imagePath = createTestImage(dir, "zoom-scrollbar-threshold", Qt::darkYellow, imageSize);
+    const QString imagePath =
+            createTestImage(dir, "zoom-scrollbar-threshold", Qt::darkYellow, imageSize);
     QVERIFY(!imagePath.isEmpty());
     window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    if (!window.getIsPixmapLoaded())
-    {
+    if (!window.getIsPixmapLoaded()) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
@@ -8607,11 +8223,8 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
     const auto noScrollBars = [view]() {
         return !view->horizontalScrollBar()->isVisible() && !view->verticalScrollBar()->isVisible();
     };
-    QTRY_VERIFY_WITH_TIMEOUT(
-        noScrollBars(),
-        2000);
-    if (!noScrollBars())
-    {
+    QTRY_VERIFY_WITH_TIMEOUT(noScrollBars(), 2000);
+    if (!noScrollBars()) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
@@ -8629,11 +8242,8 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
     const auto bothScrollBars = [view]() {
         return view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible();
     };
-    QTRY_VERIFY_WITH_TIMEOUT(
-        bothScrollBars(),
-        2000);
-    if (!bothScrollBars())
-    {
+    QTRY_VERIFY_WITH_TIMEOUT(bothScrollBars(), 2000);
+    if (!bothScrollBars()) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
@@ -8644,26 +8254,23 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
     // shortens the usable vertical interval. The center therefore moves by
     // at most half of the native bar extent; the dedicated 4-in/1-out test
     // covers the stricter fixed-wheel-point contract on the H-only boundary.
-    const qreal topologyTolerance =
-        view->horizontalScrollBar()->sizeHint().height() / 2.0 + 1.0;
-    const qreal anchorErrorAfterLayout = QLineF(
-        view->mapFromScene(anchorScene), anchorViewport).length();
+    const qreal topologyTolerance = view->horizontalScrollBar()->sizeHint().height() / 2.0 + 1.0;
+    const qreal anchorErrorAfterLayout =
+            QLineF(view->mapFromScene(anchorScene), anchorViewport).length();
     const bool layoutStable = anchorErrorAfterLayout <= topologyTolerance;
     QVERIFY(layoutStable);
-    if (!layoutStable)
-    {
+    if (!layoutStable) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
     }
     QTest::qWait(150);
     QCoreApplication::processEvents();
-    const qreal anchorErrorAfterScaling = QLineF(
-        view->mapFromScene(anchorScene), anchorViewport).length();
+    const qreal anchorErrorAfterScaling =
+            QLineF(view->mapFromScene(anchorScene), anchorViewport).length();
     const bool scalingStable = anchorErrorAfterScaling <= topologyTolerance;
     QVERIFY(scalingStable);
-    if (!scalingStable)
-    {
+    if (!scalingStable) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         return;
@@ -8687,14 +8294,14 @@ void GraphicsViewTests::testZoomAcrossScrollbarThresholdKeepsViewportCenterStabl
 // Postcondition: the window, settings, device, image, and temporary directory are released.
 void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"onetoonepixelsizing", false},
-        {"viewportverticalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom)},
-        {"viewporthorizontalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "onetoonepixelsizing", false },
+              { "viewportverticalscrollaction", static_cast<int>(Qv::ViewportScrollAction::Zoom) },
+              { "viewporthorizontalscrollaction",
+                static_cast<int>(Qv::ViewportScrollAction::Zoom) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -8716,46 +8323,34 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible() && view->verticalScrollBar()->isVisible(),
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
     view->horizontalScrollBar()->setValue(
-        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+            (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
     view->verticalScrollBar()->setValue(
-        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+            (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
     QCoreApplication::processEvents();
 
     const QPoint position = view->viewport()->rect().center();
     const QPoint globalPosition = view->viewport()->mapToGlobal(position);
     QPointingDevice touchpad(
-        QStringLiteral("phased touchpad"),
-        3,
-        QInputDevice::DeviceType::TouchPad,
-        QPointingDevice::PointerType::Finger,
-        QInputDevice::Capability::Scroll,
-        5,
-        0);
-    const auto sendWheel = [&](const Qt::ScrollPhase phase, const QPoint pixelDelta, const QPoint angleDelta) {
-        QWheelEvent event(
-            QPointF(position),
-            QPointF(globalPosition),
-            pixelDelta,
-            angleDelta,
-            Qt::NoButton,
-            Qt::NoModifier,
-            phase,
-            false,
-            Qt::MouseEventNotSynthesized,
-            &touchpad);
+            QStringLiteral("phased touchpad"), 3, QInputDevice::DeviceType::TouchPad,
+            QPointingDevice::PointerType::Finger, QInputDevice::Capability::Scroll, 5, 0);
+    const auto sendWheel = [&](const Qt::ScrollPhase phase, const QPoint pixelDelta,
+                               const QPoint angleDelta) {
+        QWheelEvent event(QPointF(position), QPointF(globalPosition), pixelDelta, angleDelta,
+                          Qt::NoButton, Qt::NoModifier, phase, false, Qt::MouseEventNotSynthesized,
+                          &touchpad);
         return QCoreApplication::sendEvent(view->viewport(), &event) && event.isAccepted();
     };
 
     const int horizontalBefore = view->horizontalScrollBar()->value();
     const int verticalBefore = view->verticalScrollBar()->value();
     const qreal zoomBefore = view->getZoomLevel();
-    QVERIFY(sendWheel(Qt::ScrollBegin, {}, {}));
+    QVERIFY(sendWheel(Qt::ScrollBegin, { }, { }));
     QVERIFY(sendWheel(Qt::ScrollUpdate, QPoint(80, 60), QPoint(80, 60)));
-    QVERIFY(sendWheel(Qt::ScrollEnd, {}, {}));
+    QVERIFY(sendWheel(Qt::ScrollEnd, { }, { }));
 
     QVERIFY(view->horizontalScrollBar()->value() != horizontalBefore);
     QVERIFY(view->verticalScrollBar()->value() != verticalBefore);
@@ -8773,25 +8368,27 @@ void GraphicsViewTests::testTouchpadPanUsesPixelsWithoutChangingZoom()
 // Test purpose: verify that returning to the fit ratio restores fit intent and
 // that displayed image geometry returns after a native fullscreen resize.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
-// Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit transition.
-// Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps, and toggle fullscreen once.
-// Expected result: ZoomToFit remains active; a changed fullscreen viewport
-// receives a recalculated zoom level; the image keeps the source aspect
-// ratio; after exit, both the fit mode and original image rectangle return.
-// Postcondition: the window closes and the application quit policy is restored.
+// Input data: one discrete zoom-in step, one inverse zoom-out step, then a fullscreen enter/exit
+// transition. Steps: load the fixture, force ZoomToFit, apply the inverse wheel-equivalent steps,
+// and toggle fullscreen once. Expected result: ZoomToFit remains active; a changed fullscreen
+// viewport receives a recalculated zoom level; the image keeps the source aspect ratio; after exit,
+// both the fit mode and original image rectangle return. Postcondition: the window closes and the
+// application quit policy is restored.
 void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize()
 {
     ScopedEnvironmentValue diagnosticEnvironment("FOVELLE_DIAGNOSTIC_LOG");
     qputenv("FOVELLE_DIAGNOSTIC_LOG", "1");
-    ScopedOptionValues options({{"titlebarhidden", false},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"onetoonepixelsizing", false}});
+    ScopedOptionValues options(
+            { { "titlebarhidden", false },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "fullscreen-fit", Qt::darkBlue, QSize(1600, 900));
+    const QString imagePath =
+            createTestImage(dir, "fullscreen-fit", Qt::darkBlue, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -8800,9 +8397,9 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
         if (window.isFullScreen()) {
             const int exits = nativeTitlebarSnapshot(window.windowHandle()).exits;
             window.toggleFullScreen();
-            waitForTestCondition([&] {
-                return nativeTitlebarSnapshot(window.windowHandle()).exits > exits;
-            }, 5000);
+            waitForTestCondition(
+                    [&] { return nativeTitlebarSnapshot(window.windowHandle()).exits > exits; },
+                    5000);
         }
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -8843,30 +8440,22 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     };
     const QRect normalTransitionRect = displayedImageRect();
     QVERIFY(!normalTransitionRect.isEmpty());
-    qInfo() << "FIT_FULLSCREEN_BASELINE" << normalTransitionRect
-            << view->viewport()->size() << window.geometry()
-            << window.getViewportPosition().obscuredHeight << view->sceneRect()
+    qInfo() << "FIT_FULLSCREEN_BASELINE" << normalTransitionRect << view->viewport()->size()
+            << window.geometry() << window.getViewportPosition().obscuredHeight << view->sceneRect()
             << window.normalGeometry();
     const int normalContentTop = window.getViewportPosition().obscuredHeight;
     const QRect normalUsableViewport = view->viewport()->rect().adjusted(0, normalContentTop, 0, 0);
     QVERIFY2(qAbs(normalTransitionRect.center().y() - normalUsableViewport.center().y()) <= 1,
-        "The initial fit must be centered below the native titlebar");
-    QCOMPARE(normalTransitionRect.width() * 9,
-             normalTransitionRect.height() * 16);
+             "The initial fit must be centered below the native titlebar");
+    QCOMPARE(normalTransitionRect.width() * 9, normalTransitionRect.height() * 16);
 
     const qreal fitZoomBeforeWheel = view->getZoomLevel();
     const QPoint wheelPos = view->viewport()->rect().center();
     const QPoint globalWheelPos = view->viewport()->mapToGlobal(wheelPos);
     const auto sendMouseWheel = [&](const int delta) {
-        QWheelEvent wheelEvent(
-            QPointF(wheelPos),
-            QPointF(globalWheelPos),
-            QPoint(),
-            QPoint(0, delta),
-            Qt::NoButton,
-            Qt::NoModifier,
-            Qt::NoScrollPhase,
-            false);
+        QWheelEvent wheelEvent(QPointF(wheelPos), QPointF(globalWheelPos), QPoint(),
+                               QPoint(0, delta), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase,
+                               false);
         QApplication::sendEvent(view->viewport(), &wheelEvent);
     };
     sendMouseWheel(120);
@@ -8881,18 +8470,17 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
     transitionTimer.start();
     const auto before = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries,
+                             5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
     reportFullscreenMetric("enter", transitionTimer.elapsed());
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
-        5000);
-    const QRect fullscreenTransitionRect =
-        displayedImageRect();
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             5000);
+    const QRect fullscreenTransitionRect = displayedImageRect();
     QVERIFY(!fullscreenTransitionRect.isEmpty());
-    QCOMPARE(fullscreenTransitionRect.width() * 9,
-             fullscreenTransitionRect.height() * 16);
+    QCOMPARE(fullscreenTransitionRect.width() * 9, fullscreenTransitionRect.height() * 16);
 
     const QSize fullscreenViewport = view->viewport()->size();
     if (fullscreenViewport != normalViewport)
@@ -8900,21 +8488,20 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 
     transitionTimer.restart();
     window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits,
+                             5000);
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
     reportFullscreenMetric("exit", transitionTimer.elapsed());
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
-        5000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             5000);
     QTRY_COMPARE_WITH_TIMEOUT(window.size(), QSize(640, 480), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(nativeWindowContentSize(window.windowHandle()), window.size(), 5000);
-    qInfo() << "FIT_FULLSCREEN_RESTORED" << displayedImageRect()
-            << view->viewport()->size() << window.geometry()
-            << window.getViewportPosition().obscuredHeight << view->sceneRect()
+    qInfo() << "FIT_FULLSCREEN_RESTORED" << displayedImageRect() << view->viewport()->size()
+            << window.geometry() << window.getViewportPosition().obscuredHeight << view->sceneRect()
             << window.normalGeometry();
-    QTRY_COMPARE_WITH_TIMEOUT(
-        displayedImageRect(), normalTransitionRect, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(displayedImageRect(), normalTransitionRect, 5000);
 }
 
 // AC-ZOOM-MANUAL-PAN-OVERRIDES-ANCHOR
@@ -8936,20 +8523,19 @@ void GraphicsViewTests::testFitZoomSurvivesInverseWheelStepsAndFullscreenResize(
 // Postcondition: the window, settings, image, and temporary directory are released.
 void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, "fullscreen-pan-bottom", Qt::darkMagenta, QSize(2048, 1536));
+    const QString imagePath =
+            createTestImage(dir, "fullscreen-pan-bottom", Qt::darkMagenta, QSize(2048, 1536));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -8965,12 +8551,11 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
     QVERIFY(view);
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
     const bool scrollBarsReady = waitForTestCondition(
-        [&view]() {
-            return view->verticalScrollBar()->maximum()
-                > view->verticalScrollBar()->minimum();
-        }, 1500);
-    if (!scrollBarsReady)
-    {
+            [&view]() {
+                return view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum();
+            },
+            1500);
+    if (!scrollBarsReady) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         QVERIFY2(scrollBarsReady, "The zoomed image did not overflow the vertical viewport");
@@ -8992,23 +8577,24 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
         constexpr qreal ImageEdgeTolerance = 4.0;
         const QRectF imageRect = view->scene()->itemsBoundingRect();
         const QRect viewport = view->viewport()->rect();
-        const QPointF imageBottom = view->mapFromScene(
-            QPointF(imageRect.center().x(), imageRect.bottom()));
+        const QPointF imageBottom =
+                view->mapFromScene(QPointF(imageRect.center().x(), imageRect.bottom()));
         return qAbs(imageBottom.y() - viewport.bottom()) <= ImageEdgeTolerance;
     };
     const bool normalBottomReadyBeforeEntry = waitForTestCondition(
-        [&window, &view, &imageBottomAtViewportEdge]() {
-            return !window.isFullScreen()
-                && qAbs(view->verticalScrollBar()->value()
-                        - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomAtViewportEdge();
-        }, 3000);
+            [&window, &view, &imageBottomAtViewportEdge]() {
+                return !window.isFullScreen()
+                        && qAbs(view->verticalScrollBar()->value()
+                                - view->verticalScrollBar()->maximum())
+                        <= 1
+                        && imageBottomAtViewportEdge();
+            },
+            3000);
     const QSize normalViewportSize = view->viewport()->size();
     window.toggleFullScreen();
-    const bool enteredFullScreen = waitForTestCondition(
-        [&window]() { return window.isFullScreen(); }, 4000);
-    if (!enteredFullScreen)
-    {
+    const bool enteredFullScreen =
+            waitForTestCondition([&window]() { return window.isFullScreen(); }, 4000);
+    if (!enteredFullScreen) {
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
         QVERIFY2(enteredFullScreen, "The window did not enter full screen");
@@ -9020,50 +8606,51 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
     // have reached full-screen geometry, so it observes the end of that
     // handoff without an arbitrary sleep.
     const bool fullScreenBottomPreservedOnEntry = waitForTestCondition(
-        [&window, &view, &normalViewportSize, &imageBottomAtViewportEdge]() {
-            return window.isFullScreen()
-                && view->viewport()->size() != normalViewportSize
-                && window.getViewportPosition().obscuredHeight == 0
-                && qAbs(view->verticalScrollBar()->value()
-                        - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomAtViewportEdge();
-        }, 4500);
+            [&window, &view, &normalViewportSize, &imageBottomAtViewportEdge]() {
+                return window.isFullScreen() && view->viewport()->size() != normalViewportSize
+                        && window.getViewportPosition().obscuredHeight == 0
+                        && qAbs(view->verticalScrollBar()->value()
+                                - view->verticalScrollBar()->maximum())
+                        <= 1
+                        && imageBottomAtViewportEdge();
+            },
+            4500);
 
     // This is the manual recovery from the reported symptom. It must not be
     // required for the pre-existing bottom selection to survive entry, but it
     // also must not lose the vertical edge before the exit transition.
-    view->verticalScrollBar()->setValue(
-        view->verticalScrollBar()->maximum()
-        - view->verticalScrollBar()->pageStep() / 2);
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum()
+                                        - view->verticalScrollBar()->pageStep() / 2);
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
     const bool fullScreenBottomReadyAfterManualRecovery = waitForTestCondition(
-        [&window, &view, &imageBottomAtViewportEdge]() {
-            return window.isFullScreen()
-                && qAbs(view->verticalScrollBar()->value()
-                        - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomAtViewportEdge();
-        }, 1000);
+            [&window, &view, &imageBottomAtViewportEdge]() {
+                return window.isFullScreen()
+                        && qAbs(view->verticalScrollBar()->value()
+                                - view->verticalScrollBar()->maximum())
+                        <= 1
+                        && imageBottomAtViewportEdge();
+            },
+            1000);
 
     const QSize fullScreenViewportSize = view->viewport()->size();
     window.toggleFullScreen();
     const bool normalBottomReadyAfterExit = waitForTestCondition(
-        [&window, &view, &fullScreenViewportSize, &imageBottomAtViewportEdge]() {
-            return !window.isFullScreen()
-                && view->viewport()->size() != fullScreenViewportSize
-                && qAbs(view->verticalScrollBar()->value()
-                        - view->verticalScrollBar()->maximum()) <= 1
-                && imageBottomAtViewportEdge();
-        }, 5000);
-    const bool exitedFullScreen = !window.isFullScreen()
-        && view->viewport()->size() != fullScreenViewportSize;
+            [&window, &view, &fullScreenViewportSize, &imageBottomAtViewportEdge]() {
+                return !window.isFullScreen() && view->viewport()->size() != fullScreenViewportSize
+                        && qAbs(view->verticalScrollBar()->value()
+                                - view->verticalScrollBar()->maximum())
+                        <= 1
+                        && imageBottomAtViewportEdge();
+            },
+            5000);
+    const bool exitedFullScreen =
+            !window.isFullScreen() && view->viewport()->size() != fullScreenViewportSize;
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 
-    QVERIFY2(normalBottomReadyBeforeEntry,
-             "The zoomed image did not reach the normal bottom edge");
-    QVERIFY2(scrollBarsReady,
-             "The zoomed image did not overflow the vertical viewport");
+    QVERIFY2(normalBottomReadyBeforeEntry, "The zoomed image did not reach the normal bottom edge");
+    QVERIFY2(scrollBarsReady, "The zoomed image did not overflow the vertical viewport");
     QVERIFY2(fullScreenBottomPreservedOnEntry,
              "The bottom edge was not preserved on full-screen entry");
     QVERIFY2(fullScreenBottomReadyAfterManualRecovery,
@@ -9087,12 +8674,11 @@ void GraphicsViewTests::testFullscreenExitPreservesVerticalPan()
 // Postcondition: both windows exit full screen and all settings are restored.
 void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
     ScopedSettingPreserver titlebarSetting(QStringLiteral("options/titlebarhidden"));
     QSettings settings;
     settings.setValue(QStringLiteral("options/titlebarhidden"), false);
@@ -9102,8 +8688,8 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, "fullscreen-scroll-top", Qt::darkBlue, QSize(1200, 2400));
+    const QString imagePath =
+            createTestImage(dir, "fullscreen-scroll-top", Qt::darkBlue, QSize(1200, 2400));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -9135,7 +8721,7 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     const auto normalNative = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
     QTRY_VERIFY_WITH_TIMEOUT(
-        nativeTitlebarSnapshot(window.windowHandle()).entries > normalNative.entries, 5000);
+            nativeTitlebarSnapshot(window.windowHandle()).entries > normalNative.entries, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight, 0, 3000);
     QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
@@ -9147,7 +8733,7 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
 
     window.toggleFullScreen();
     QTRY_VERIFY_WITH_TIMEOUT(
-        nativeTitlebarSnapshot(window.windowHandle()).exits > normalNative.exits, 5000);
+            nativeTitlebarSnapshot(window.windowHandle()).exits > normalNative.exits, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
     window.close();
 
@@ -9166,35 +8752,32 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
     QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.isVisible(), 1000);
     fullScreenFirstWindow.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.getIsPixmapLoaded(), 5000);
-    auto *fullScreenFirstView =
-        fullScreenFirstWindow.findChild<QVGraphicsView *>();
+    auto *fullScreenFirstView = fullScreenFirstWindow.findChild<QVGraphicsView *>();
     QVERIFY(fullScreenFirstView);
 
     const auto secondNative = nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle());
     fullScreenFirstWindow.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(
-        nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).entries > secondNative.entries, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).entries
+                                     > secondNative.entries,
+                             5000);
     QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstWindow.isFullScreen(), 5000);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        fullScreenFirstWindow.getViewportPosition().obscuredHeight, 0, 3000);
+    QTRY_COMPARE_WITH_TIMEOUT(fullScreenFirstWindow.getViewportPosition().obscuredHeight, 0, 3000);
     fullScreenFirstView->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     QTRY_VERIFY_WITH_TIMEOUT(!fullScreenFirstView->isZoomTransitionRunning(), 1500);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        fullScreenFirstView->verticalScrollBar()->isVisible(), 2000);
-    const QRectF fullScreenFirstImageRect =
-        fullScreenFirstView->scene()->itemsBoundingRect();
+    QTRY_VERIFY_WITH_TIMEOUT(fullScreenFirstView->verticalScrollBar()->isVisible(), 2000);
+    const QRectF fullScreenFirstImageRect = fullScreenFirstView->scene()->itemsBoundingRect();
     fullScreenFirstView->verticalScrollBar()->setValue(
-        fullScreenFirstView->verticalScrollBar()->minimum());
+            fullScreenFirstView->verticalScrollBar()->minimum());
     QCoreApplication::processEvents();
     const qreal fullScreenFirstSceneTop = fullScreenFirstView->sceneRect().top();
     const int fullScreenFirstImageTop =
-        fullScreenFirstView->mapFromScene(fullScreenFirstImageRect.topLeft()).y();
-    const int fullScreenFirstViewportTop =
-        fullScreenFirstView->viewport()->rect().top();
+            fullScreenFirstView->mapFromScene(fullScreenFirstImageRect.topLeft()).y();
+    const int fullScreenFirstViewportTop = fullScreenFirstView->viewport()->rect().top();
 
     fullScreenFirstWindow.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(
-        nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).exits > secondNative.exits, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(fullScreenFirstWindow.windowHandle()).exits
+                                     > secondNative.exits,
+                             5000);
     QTRY_VERIFY_WITH_TIMEOUT(!fullScreenFirstWindow.isFullScreen(), 5000);
     fullScreenFirstWindow.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -9209,9 +8792,9 @@ void GraphicsViewTests::testFullscreenAfterOverflowRemovesTitlebarScenePadding()
 // Test purpose: verify that a genuine manual zoom remains manual when the viewport is resized.
 // Preconditions: a visible non-fullscreen MainWindow can load a writable 1600x900 PNG fixture.
 // Input data: one zoom-in step followed by a non-fullscreen window resize.
-// Steps: load the fixture, establish ZoomToFit, zoom in once, resize the window, and inspect mode/level.
-// Expected result: the calculated zoom mode stays unset and the manually selected level is preserved.
-// Postcondition: the window closes and the application quit policy is restored.
+// Steps: load the fixture, establish ZoomToFit, zoom in once, resize the window, and inspect
+// mode/level. Expected result: the calculated zoom mode stays unset and the manually selected level
+// is preserved. Postcondition: the window closes and the application quit policy is restored.
 void GraphicsViewTests::testManualZoomRemainsManualAcrossResize()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
@@ -9265,18 +8848,18 @@ void GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()
     const QSizeF smallImage(100, 80);
     const QSize fittingViewport(120, 100);
 
-    QVERIFY(QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        smallImage, fittingViewport, true, Qv::WindowResizeMode::Never));
+    QVERIFY(QVGraphicsView::shouldDisplaySmallImageAtOneToOne(smallImage, fittingViewport, true,
+                                                              Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(smallImage, QSize(100, 100), true,
+                                                               Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(smallImage, QSize(99, 100), true,
+                                                               Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(QSizeF(121, 80), fittingViewport,
+                                                               true, Qv::WindowResizeMode::Never));
+    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(smallImage, fittingViewport, false,
+                                                               Qv::WindowResizeMode::Never));
     QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        smallImage, QSize(100, 100), true, Qv::WindowResizeMode::Never));
-    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        smallImage, QSize(99, 100), true, Qv::WindowResizeMode::Never));
-    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        QSizeF(121, 80), fittingViewport, true, Qv::WindowResizeMode::Never));
-    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        smallImage, fittingViewport, false, Qv::WindowResizeMode::Never));
-    QVERIFY(!QVGraphicsView::shouldDisplaySmallImageAtOneToOne(
-        smallImage, fittingViewport, true, Qv::WindowResizeMode::WhenLaunching));
+            smallImage, fittingViewport, true, Qv::WindowResizeMode::WhenLaunching));
 }
 
 // TC-IMG-SMALL-OPEN-BROWSE
@@ -9292,19 +8875,20 @@ void GraphicsViewTests::testSmallImageOneToOnePolicyUsesViewportAndWindowMode()
 // Postcondition: the window closes and ScopedOptionValues restores settings.
 void GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages()
 {
-    ScopedOptionValues options({
-        {"smallimageoneone", true},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)}
-    });
+    ScopedOptionValues options(
+            { { "smallimageoneone", true },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString openedImagePath = createTestImage(dir, "01-open-small", Qt::darkYellow, QSize(32, 24));
-    const QString browsedImagePath = createTestImage(dir, "02-browse-small", Qt::darkMagenta, QSize(48, 36));
+    const QString openedImagePath =
+            createTestImage(dir, "01-open-small", Qt::darkYellow, QSize(32, 24));
+    const QString browsedImagePath =
+            createTestImage(dir, "02-browse-small", Qt::darkMagenta, QSize(48, 36));
     QVERIFY(!openedImagePath.isEmpty());
     QVERIFY(!browsedImagePath.isEmpty());
 
@@ -9319,17 +8903,18 @@ void GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImage
     auto *view = window.findChild<QVGraphicsView *>();
     QVERIFY(view);
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit &&
-            QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0),
-        5000);
-    QCOMPARE(window.getCurrentFileDetails().fileInfo.absoluteFilePath(), QFileInfo(openedImagePath).absoluteFilePath());
+            view->getCalculatedZoomMode().has_value()
+                    && view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit
+                    && QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0),
+            5000);
+    QCOMPARE(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+             QFileInfo(openedImagePath).absoluteFilePath());
 
     view->goToFile(Qv::GoToFileMode::Next);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        window.getCurrentFileDetails().fileInfo.absoluteFilePath() == QFileInfo(browsedImagePath).absoluteFilePath() &&
-            window.getIsPixmapLoaded(),
-        5000);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath()
+                                             == QFileInfo(browsedImagePath).absoluteFilePath()
+                                     && window.getIsPixmapLoaded(),
+                             5000);
     QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 1.0), 5000);
 
     view->setCalculatedZoomMode(Qv::CalculatedZoomMode::FillWindow);
@@ -9353,11 +8938,10 @@ void GraphicsViewTests::testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImage
 // Postcondition: the window and temporary image are released.
 void GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -9409,11 +8993,10 @@ void GraphicsViewTests::testNativePinchZoomChangesScaleAtGesturePosition()
 // Postcondition: the window and temporary image are released.
 void GraphicsViewTests::testNativePanChangesViewport()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -9435,9 +9018,9 @@ void GraphicsViewTests::testNativePanChangesViewport()
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
     view->horizontalScrollBar()->setValue(
-        (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
+            (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
     view->verticalScrollBar()->setValue(
-        (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
+            (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
     QCoreApplication::processEvents();
 
     const QPoint gesturePosition = view->viewport()->rect().center();
@@ -9445,7 +9028,8 @@ void GraphicsViewTests::testNativePanChangesViewport()
     const int verticalBefore = view->verticalScrollBar()->value();
     const qreal zoomBefore = view->getZoomLevel();
     QVERIFY(sendNativeGesture(view, Qt::BeginNativeGesture, gesturePosition));
-    QVERIFY(sendNativeGesture(view, Qt::PanNativeGesture, gesturePosition, 0.0, QPointF(80.0, 60.0)));
+    QVERIFY(sendNativeGesture(view, Qt::PanNativeGesture, gesturePosition, 0.0,
+                              QPointF(80.0, 60.0)));
     QVERIFY(sendNativeGesture(view, Qt::EndNativeGesture, gesturePosition));
 
     QVERIFY(view->horizontalScrollBar()->value() != horizontalBefore);
@@ -9529,10 +9113,9 @@ void ScrollHelperTests::testEdgePositionDoesNotReboundAfterRelease()
 {
     ScrollHelperTestHarness harness;
     harness.setPosition(0, 0);
-    QSignalSpy horizontalChanges(
-        harness.scrollArea.horizontalScrollBar(), &QScrollBar::valueChanged);
-    QSignalSpy verticalChanges(
-        harness.scrollArea.verticalScrollBar(), &QScrollBar::valueChanged);
+    QSignalSpy horizontalChanges(harness.scrollArea.horizontalScrollBar(),
+                                 &QScrollBar::valueChanged);
+    QSignalSpy verticalChanges(harness.scrollArea.verticalScrollBar(), &QScrollBar::valueChanged);
 
     harness.helper.move(QPointF(-120.0, -80.0));
     harness.helper.constrain();
@@ -9612,18 +9195,18 @@ void ScrollHelperTests::testUnconstrainedModeRemainsUnbounded()
 // Postcondition: every window and fixture is released.
 void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
 
-    const auto checkCase = [&](const QString &name, const QSize imageSize, const bool horizontal, const bool vertical) {
+    const auto checkCase = [&](const QString &name, const QSize imageSize, const bool horizontal,
+                               const bool vertical) {
         const QString imagePath = createTestImage(dir, name, Qt::darkBlue, imageSize);
         QVERIFY(!imagePath.isEmpty());
 
@@ -9638,28 +9221,25 @@ void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
         auto *view = window.findChild<QVGraphicsView *>();
         QVERIFY(view);
         view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-        QTRY_VERIFY_WITH_TIMEOUT(
-            view->horizontalScrollBar()->isVisible() == horizontal &&
-                view->verticalScrollBar()->isVisible() == vertical,
-            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible() == horizontal
+                                         && view->verticalScrollBar()->isVisible() == vertical,
+                                 2000);
         QCOMPARE(view->horizontalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
         QCOMPARE(view->verticalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
 
-        if (horizontal)
-        {
-            const QPoint barBottomRight = view->mapFromGlobal(
-                view->horizontalScrollBar()->mapToGlobal(view->horizontalScrollBar()->rect().bottomRight()));
+        if (horizontal) {
+            const QPoint barBottomRight =
+                    view->mapFromGlobal(view->horizontalScrollBar()->mapToGlobal(
+                            view->horizontalScrollBar()->rect().bottomRight()));
             QCOMPARE(barBottomRight.y(), view->rect().bottom());
-        }
-        else
+        } else
             QVERIFY(!view->horizontalScrollBar()->isVisible());
-        if (vertical)
-        {
-            const QPoint barBottomRight = view->mapFromGlobal(
-                view->verticalScrollBar()->mapToGlobal(view->verticalScrollBar()->rect().bottomRight()));
+        if (vertical) {
+            const QPoint barBottomRight =
+                    view->mapFromGlobal(view->verticalScrollBar()->mapToGlobal(
+                            view->verticalScrollBar()->rect().bottomRight()));
             QCOMPARE(barBottomRight.x(), view->rect().right());
-        }
-        else
+        } else
             QVERIFY(!view->verticalScrollBar()->isVisible());
 
         window.close();
@@ -9687,19 +9267,18 @@ void GraphicsViewTests::testScrollBarsFollowImageOverflowAxes()
 // Postcondition: the window, scrollbars, and temporary image are released.
 void GraphicsViewTests::testScrollBarsReachImageEdges()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("scrollbar-image-edges"), Qt::darkCyan, QSize(1600, 1600));
+    const QString imagePath = createTestImage(dir, QStringLiteral("scrollbar-image-edges"),
+                                              Qt::darkCyan, QSize(1600, 1600));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -9712,9 +9291,9 @@ void GraphicsViewTests::testScrollBarsReachImageEdges()
     auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible()
-            && view->verticalScrollBar()->isVisible(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
 
     const QRectF imageSceneRect = view->scene()->itemsBoundingRect();
     QVERIFY(!imageSceneRect.isEmpty());
@@ -9744,10 +9323,12 @@ void GraphicsViewTests::testScrollBarsReachImageEdges()
     QVERIFY2(qAbs(maxMappedImageRect.bottom() - maxViewportRect.bottom()) <= EdgeTolerance,
              "The vertical maximum did not expose the image's bottom edge");
 
-    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light).contains(
-        QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
-    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light).contains(
-        QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
+    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light)
+                    .contains(QStringLiteral(
+                            "QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
+    QVERIFY(QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light)
+                    .contains(QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; "
+                                             "margin: 1px 0px; }")));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -9771,19 +9352,18 @@ void GraphicsViewTests::testScrollBarsReachImageEdges()
 // Postcondition: the window, scrollbars, settings, and temporary image are released.
 void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("scrollbar-native-extent"), Qt::darkRed, QSize(1200, 1085));
+    const QString imagePath = createTestImage(dir, QStringLiteral("scrollbar-native-extent"),
+                                              Qt::darkRed, QSize(1200, 1085));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -9798,23 +9378,20 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
     QVERIFY(view);
 
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible()
-            && view->verticalScrollBar()->isVisible(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
 
-    const int nativeExtent = view->style()->pixelMetric(
-        QStyle::PM_ScrollBarExtent, nullptr, view);
+    const int nativeExtent = view->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, view);
     QCOMPARE(view->verticalScrollBar()->sizeHint().width(), nativeExtent);
     QCOMPARE(view->horizontalScrollBar()->sizeHint().height(), nativeExtent);
 
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
     QVERIFY(waitForZoomTerminal(view));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->isVisible()
-            && view->verticalScrollBar()->isVisible(), 2000);
-    const QPoint target(
-        view->viewport()->rect().right(),
-        view->viewport()->rect().bottom());
+    QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible()
+                                     && view->verticalScrollBar()->isVisible(),
+                             2000);
+    const QPoint target(view->viewport()->rect().right(), view->viewport()->rect().bottom());
     view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
     QCoreApplication::processEvents();
@@ -9828,7 +9405,7 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
         const QRect viewport = viewportRect();
         constexpr int EdgeTolerance = 2;
         return qAbs(image.right() - viewport.right()) <= EdgeTolerance
-            && qAbs(image.bottom() - viewport.bottom()) <= EdgeTolerance;
+                && qAbs(image.bottom() - viewport.bottom()) <= EdgeTolerance;
     };
     QVERIFY2(edgesReachViewport(), "The initial maximums did not expose both image edges");
 
@@ -9839,10 +9416,9 @@ void GraphicsViewTests::testScrollBarGeometryMatchesViewMetricAndDoesNotRebound(
     const int immediateVerticalValue = view->verticalScrollBar()->value();
     const QRect immediateImageRect = mappedImageRect();
     const QRect immediateViewportRect = viewportRect();
-    QVERIFY2(
-        qAbs(immediateHorizontalValue - view->horizontalScrollBar()->maximum()) <= 1
-            && qAbs(immediateVerticalValue - view->verticalScrollBar()->maximum()) <= 1,
-        "Zoom-out did not preserve the lower-right endpoint at transition end");
+    QVERIFY2(qAbs(immediateHorizontalValue - view->horizontalScrollBar()->maximum()) <= 1
+                     && qAbs(immediateVerticalValue - view->verticalScrollBar()->maximum()) <= 1,
+             "Zoom-out did not preserve the lower-right endpoint at transition end");
     QVERIFY2(edgesReachViewport(), "Zoom-out exposed a right or bottom blank region");
 
     QTest::qWait(700);
@@ -9873,9 +9449,9 @@ void GraphicsViewTests::testScrollBarHandleTrackEndpoints()
 {
     const QString style = QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Light);
     QVERIFY(style.contains(
-        QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
+            QStringLiteral("QScrollBar::handle:vertical { min-height: 24px; margin: 0px 1px; }")));
     QVERIFY(style.contains(
-        QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
+            QStringLiteral("QScrollBar::handle:horizontal { min-width: 24px; margin: 1px 0px; }")));
     QVERIFY(!style.contains(QStringLiteral("margin: 2px 1px")));
     QVERIFY(!style.contains(QStringLiteral("margin: 1px 2px")));
 }
@@ -9900,19 +9476,18 @@ void GraphicsViewTests::testScrollBarHandleTrackEndpoints()
 // Postcondition: the window, scrollbars, and temporary image are released.
 void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollbar()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("zoom-bottom-right-scrollbar"), Qt::darkYellow, QSize(620, 420));
+    const QString imagePath = createTestImage(dir, QStringLiteral("zoom-bottom-right-scrollbar"),
+                                              Qt::darkYellow, QSize(620, 420));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -9925,15 +9500,13 @@ void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollba
     auto *view = window.findChild<QVGraphicsView *>(QStringLiteral("graphicsView"));
     QVERIFY(view);
     view->zoomAbsolute(1.0, Qv::CalculateViewportCenterPos);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !view->horizontalScrollBar()->isVisible()
-            && !view->verticalScrollBar()->isVisible(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!view->horizontalScrollBar()->isVisible()
+                                     && !view->verticalScrollBar()->isVisible(),
+                             2000);
 
     QRect usableViewport = view->viewport()->rect();
     usableViewport.setTop(window.getViewportPosition().obscuredHeight);
-    const QPoint target(
-        usableViewport.right() - 40,
-        usableViewport.bottom() - 100);
+    const QPoint target(usableViewport.right() - 40, usableViewport.bottom() - 100);
     const QPointF anchorScene = view->mapToScene(target);
     qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
             << "before=" << view->mapFromScene(anchorScene)
@@ -9947,59 +9520,49 @@ void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollba
         QRect usable = view->viewport()->rect();
         usable.setTop(window.getViewportPosition().obscuredHeight);
         const qreal anchorU = imageScene.width() > 0.0
-            ? qBound<qreal>(0.0,
-                            (anchorScene.x() - imageScene.left())
-                                / imageScene.width(),
-                            1.0)
-            : 0.5;
+                ? qBound<qreal>(0.0, (anchorScene.x() - imageScene.left()) / imageScene.width(),
+                                1.0)
+                : 0.5;
         const qreal anchorV = imageScene.height() > 0.0
-            ? qBound<qreal>(0.0,
-                            (anchorScene.y() - imageScene.top())
-                                / imageScene.height(),
-                            1.0)
-            : 0.5;
+                ? qBound<qreal>(0.0, (anchorScene.y() - imageScene.top()) / imageScene.height(),
+                                1.0)
+                : 0.5;
         const qreal preferredLeft = target.x() - anchorU * image.width();
         const qreal preferredTop = target.y() - anchorV * image.height();
         const qreal expectedLeft = image.width() > usable.width() + 1
-            ? qBound<qreal>(usable.right() - image.width() + 1.0,
-                            preferredLeft, usable.left())
-            : usable.left() + (usable.width() - image.width()) / 2.0;
+                ? qBound<qreal>(usable.right() - image.width() + 1.0, preferredLeft, usable.left())
+                : usable.left() + (usable.width() - image.width()) / 2.0;
         const qreal expectedTop = image.height() > usable.height() + 1
-            ? qBound<qreal>(usable.bottom() - image.height() + 1.0,
-                            preferredTop, usable.top())
-            : usable.top() + (usable.height() - image.height()) / 2.0;
+                ? qBound<qreal>(usable.bottom() - image.height() + 1.0, preferredTop, usable.top())
+                : usable.top() + (usable.height() - image.height()) / 2.0;
         return QPointF(expectedLeft, expectedTop);
     };
 
     QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->isVisible(), 2000);
     QVERIFY(view->verticalScrollBar()->isVisible());
     QCoreApplication::processEvents();
-    const QRect imageAfterLayout = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageAfterLayout =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPointF expectedAfterLayout = expectedNearestCoveredOrigin();
     qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
-            << "target=" << target
-            << "after_layout=" << view->mapFromScene(anchorScene)
-            << "image=" << imageAfterLayout
-            << "viewport=" << view->viewport()->rect()
+            << "target=" << target << "after_layout=" << view->mapFromScene(anchorScene)
+            << "image=" << imageAfterLayout << "viewport=" << view->viewport()->rect()
             << "hbar=" << view->horizontalScrollBar()->geometry();
     QVERIFY2(qAbs(imageAfterLayout.left() - expectedAfterLayout.x()) <= 2.0
-                 && qAbs(imageAfterLayout.top() - expectedAfterLayout.y()) <= 2.0,
+                     && qAbs(imageAfterLayout.top() - expectedAfterLayout.y()) <= 2.0,
              "The automatic scrollbars did not choose the nearest covered image origin");
 
     QTest::qWait(150);
     QCoreApplication::processEvents();
-    const QRect imageAfterSettling = view->mapFromScene(
-        view->scene()->itemsBoundingRect()).boundingRect();
+    const QRect imageAfterSettling =
+            view->mapFromScene(view->scene()->itemsBoundingRect()).boundingRect();
     const QPointF expectedAfterSettling = expectedNearestCoveredOrigin();
     const QPointF anchorAfterSettling = view->mapFromScene(anchorScene);
     qInfo() << "FOVELLE_BOTTOM_RIGHT_ANCHOR"
-            << "target=" << target
-            << "after_settling=" << anchorAfterSettling
-            << "image=" << imageAfterSettling
-            << "hbar=" << view->horizontalScrollBar()->geometry();
+            << "target=" << target << "after_settling=" << anchorAfterSettling
+            << "image=" << imageAfterSettling << "hbar=" << view->horizontalScrollBar()->geometry();
     QVERIFY2(qAbs(imageAfterSettling.left() - expectedAfterSettling.x()) <= 2.0
-                 && qAbs(imageAfterSettling.top() - expectedAfterSettling.y()) <= 2.0,
+                     && qAbs(imageAfterSettling.top() - expectedAfterSettling.y()) <= 2.0,
              "The delayed zoom/layout phase did not preserve the nearest covered image origin");
 
     window.close();
@@ -10020,24 +9583,21 @@ void GraphicsViewTests::testZoomAtBottomRightKeepsAnchorAcrossHorizontalScrollba
 // Postcondition: the window, scrollbar, temporary image, and test settings are released.
 void GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    const auto restoreQuitPolicy = qScopeGuard(
-        [originalQuitOnLastWindowClosed]() {
-            qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-        });
+    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("manual-pan-cancels-zoom-anchor"), Qt::darkMagenta,
-        QSize(2048, 1536));
+    const QString imagePath = createTestImage(dir, QStringLiteral("manual-pan-cancels-zoom-anchor"),
+                                              Qt::darkMagenta, QSize(2048, 1536));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -10053,9 +9613,8 @@ void GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor()
 
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
     auto *verticalScrollBar = view->verticalScrollBar();
-    QVERIFY2(
-        verticalScrollBar->maximum() > verticalScrollBar->minimum(),
-        "The zoomed image did not expose a vertical scrollbar range synchronously");
+    QVERIFY2(verticalScrollBar->maximum() > verticalScrollBar->minimum(),
+             "The zoomed image did not expose a vertical scrollbar range synchronously");
 
     // Drive the same QAbstractSlider semantic signals as a thumb drag without
     // handing a native Cocoa mouse grab to the next test in this process. A
@@ -10066,20 +9625,18 @@ void GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor()
     verticalScrollBar->triggerAction(QAbstractSlider::SliderMove);
     QCoreApplication::processEvents();
     const int selectedMaximum = verticalScrollBar->maximum();
-    QVERIFY2(
-        qAbs(verticalScrollBar->value() - selectedMaximum) <= 1,
-        "The vertical scrollbar did not reach its selected maximum");
+    QVERIFY2(qAbs(verticalScrollBar->value() - selectedMaximum) <= 1,
+             "The vertical scrollbar did not reach its selected maximum");
 
     QTest::qWait(250);
     QCoreApplication::processEvents();
     const int settledMaximum = verticalScrollBar->maximum();
-    QVERIFY2(
-        qAbs(verticalScrollBar->value() - settledMaximum) <= 1,
-        "The delayed zoom anchor moved the scrollbar away from the current maximum");
+    QVERIFY2(qAbs(verticalScrollBar->value() - settledMaximum) <= 1,
+             "The delayed zoom anchor moved the scrollbar away from the current maximum");
 
     const QRectF imageRect = view->scene()->itemsBoundingRect();
-    const QPointF imageBottom = view->mapFromScene(
-        QPointF(imageRect.center().x(), imageRect.bottom()));
+    const QPointF imageBottom =
+            view->mapFromScene(QPointF(imageRect.center().x(), imageRect.bottom()));
     QVERIFY2(qAbs(imageBottom.y() - view->viewport()->rect().bottom()) <= 2.0,
              "The delayed zoom anchor moved the manually selected bottom edge");
 
@@ -10099,18 +9656,17 @@ void GraphicsViewTests::testManualScrollCancelsPendingZoomAnchor()
 // Postcondition: the window, scrollbar, and temporary image are released.
 void GraphicsViewTests::testVerticalScrollBarAvoidsTitlebarOverlap()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("scrollbar-titlebar"), Qt::darkCyan, QSize(1600, 1600));
+    const QString imagePath = createTestImage(dir, QStringLiteral("scrollbar-titlebar"),
+                                              Qt::darkCyan, QSize(1600, 1600));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -10125,15 +9681,13 @@ void GraphicsViewTests::testVerticalScrollBarAvoidsTitlebarOverlap()
     QVERIFY(view);
     QTRY_VERIFY_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight > 0, 3000);
     QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->isVisible(), 2000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->verticalScrollBar()->mapTo(view, QPoint()).y()
-            >= window.getViewportPosition().obscuredHeight,
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->verticalScrollBar()->mapTo(view, QPoint()).y()
+                                     >= window.getViewportPosition().obscuredHeight,
+                             2000);
 
     const int barTop = view->verticalScrollBar()->mapTo(view, QPoint()).y();
     const int obscuredHeight = window.getViewportPosition().obscuredHeight;
-    qInfo("FOVELLE_SCROLLBAR_SAFE_AREA bar_top=%d obscured_height=%d",
-          barTop, obscuredHeight);
+    qInfo("FOVELLE_SCROLLBAR_SAFE_AREA bar_top=%d obscured_height=%d", barTop, obscuredHeight);
     QVERIFY(barTop >= obscuredHeight);
 
     window.close();
@@ -10153,12 +9707,11 @@ void GraphicsViewTests::testVerticalScrollBarAvoidsTitlebarOverlap()
 // Postcondition: the original Theme setting and window are restored.
 void GraphicsViewTests::testScrollBarsMatchTheme()
 {
-    ScopedOptionValues options({
-        {"theme", static_cast<int>(Qv::Theme::Light)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Light) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -10191,8 +9744,10 @@ void GraphicsViewTests::testScrollBarsMatchTheme()
     settings.setValue("options/theme", static_cast<int>(Qv::Theme::Dark));
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
-    QTRY_COMPARE_WITH_TIMEOUT(horizontal->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
-    QTRY_COMPARE_WITH_TIMEOUT(vertical->styleSheet(), QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(horizontal->styleSheet(),
+                              QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(vertical->styleSheet(),
+                              QVGraphicsView::scrollBarStyleSheet(Qv::Theme::Dark), 2000);
     QCOMPARE(horizontal->property("scrollBarTheme").toInt(), static_cast<int>(Qv::Theme::Dark));
     QVERIFY(horizontal->styleSheet().contains("#2f2f2f"));
     QVERIFY(horizontal->styleSheet().contains("#6b6b6b"));
@@ -10215,17 +9770,17 @@ void GraphicsViewTests::testScrollBarsMatchTheme()
 // Postcondition: the window, fixture, and temporary event state are released.
 void GraphicsViewTests::testNativeGestureResponsePerformance()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "native-gesture-performance", Qt::darkMagenta, QSize(1600, 900));
+    const QString imagePath =
+            createTestImage(dir, "native-gesture-performance", Qt::darkMagenta, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -10247,34 +9802,30 @@ void GraphicsViewTests::testNativeGestureResponsePerformance()
     QVERIFY(sendNativeGesture(view, Qt::BeginNativeGesture, gesturePosition));
     QElapsedTimer streamTimer;
     streamTimer.start();
-    for (int i = 0; i < eventCount; ++i)
-    {
+    for (int i = 0; i < eventCount; ++i) {
         QElapsedTimer eventTimer;
         eventTimer.start();
-        QVERIFY(sendNativeGesture(
-            view,
-            Qt::PanNativeGesture,
-            gesturePosition,
-            0.0,
-            QPointF(i % 2 == 0 ? 1.0 : -1.0, i % 3 == 0 ? 1.0 : -1.0)));
+        QVERIFY(sendNativeGesture(view, Qt::PanNativeGesture, gesturePosition, 0.0,
+                                  QPointF(i % 2 == 0 ? 1.0 : -1.0, i % 3 == 0 ? 1.0 : -1.0)));
         samples.append(eventTimer.nsecsElapsed() / 1000000.0);
     }
     const double streamMilliseconds = streamTimer.nsecsElapsed() / 1000000.0;
     QVERIFY(sendNativeGesture(view, Qt::EndNativeGesture, gesturePosition));
 
     std::sort(samples.begin(), samples.end());
-    const double averageMilliseconds = std::accumulate(samples.cbegin(), samples.cend(), 0.0) / samples.size();
+    const double averageMilliseconds =
+            std::accumulate(samples.cbegin(), samples.cend(), 0.0) / samples.size();
     const int p99Index = qMax(0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
     const double p99Milliseconds = samples.at(p99Index);
     const double maximumMilliseconds = samples.constLast();
     const double throughput = eventCount / (streamMilliseconds / 1000.0);
-    qInfo().noquote() << QStringLiteral(
-        "GESTURE_PERF average_ms=%1 p99_ms=%2 max_ms=%3 throughput_events_per_second=%4 count=%5")
-        .arg(averageMilliseconds, 0, 'f', 3)
-        .arg(p99Milliseconds, 0, 'f', 3)
-        .arg(maximumMilliseconds, 0, 'f', 3)
-        .arg(throughput, 0, 'f', 3)
-        .arg(eventCount);
+    qInfo().noquote() << QStringLiteral("GESTURE_PERF average_ms=%1 p99_ms=%2 max_ms=%3 "
+                                        "throughput_events_per_second=%4 count=%5")
+                                 .arg(averageMilliseconds, 0, 'f', 3)
+                                 .arg(p99Milliseconds, 0, 'f', 3)
+                                 .arg(maximumMilliseconds, 0, 'f', 3)
+                                 .arg(throughput, 0, 'f', 3)
+                                 .arg(eventCount);
     QVERIFY(averageMilliseconds <= 16.67);
     QVERIFY(p99Milliseconds <= 33.33);
     QVERIFY(maximumMilliseconds <= 50.0);
@@ -10300,20 +9851,19 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
 #ifndef Q_OS_MACOS
     QSKIP("The Cocoa backing-store presentation contract is macOS-specific.");
 #endif
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, "raster-pan-partial-repaint", Qt::darkCyan, QSize(1600, 900));
+    const QString imagePath =
+            createTestImage(dir, "raster-pan-partial-repaint", Qt::darkCyan, QSize(1600, 900));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -10331,23 +9881,18 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
     // timing of the initial calculated-zoom restoration.
     view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum(),
-        2000);
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(), 2000);
     QTRY_VERIFY_WITH_TIMEOUT(!view->isZoomTransitionRunning(), 1500);
     view->horizontalScrollBar()->setValue(
-        (view->horizontalScrollBar()->minimum()
-         + view->horizontalScrollBar()->maximum()) / 2);
+            (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum()) / 2);
     QCoreApplication::processEvents();
     view->viewport()->repaint();
     QCoreApplication::processEvents();
 
     QScrollBar *bar = view->horizontalScrollBar();
     QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().firstFramePresented, 5000);
-    QTRY_COMPARE_WITH_TIMEOUT(
-            view->viewportUpdateMode(), QGraphicsView::NoViewportUpdate, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(), QGraphicsView::NoViewportUpdate, 5000);
     const auto beforePan = view->nativeMetalRendererDiagnostics();
     QVERIFY(beforePan.usesPersistentSDRTileSurface);
     QVERIFY(!view->viewport()->testAttribute(Qt::WA_NativeWindow));
@@ -10356,17 +9901,16 @@ void GraphicsViewTests::testRasterPanUsesCompleteRepaintOnMacOS()
     PaintRegionRecorder productionRecorder;
     view->viewport()->installEventFilter(&productionRecorder);
     bar->setValue(bar->value() + 6);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
-                    > beforePan.compositorGeometryUpdateCount,
-            1000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
+                                     > beforePan.compositorGeometryUpdateCount,
+                             1000);
     QTest::qWait(50);
     view->viewport()->removeEventFilter(&productionRecorder);
-    qInfo().noquote() << QStringLiteral(
-        "SDR_PAN_PRESENTATION qt_paints=%1 compositor_updates=%2")
-        .arg(productionRecorder.recordedAreas().size())
-        .arg(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
-             - beforePan.compositorGeometryUpdateCount);
+    qInfo().noquote()
+            << QStringLiteral("SDR_PAN_PRESENTATION qt_paints=%1 compositor_updates=%2")
+                       .arg(productionRecorder.recordedAreas().size())
+                       .arg(view->nativeMetalRendererDiagnostics().compositorGeometryUpdateCount
+                            - beforePan.compositorGeometryUpdateCount);
     QVERIFY(productionRecorder.recordedAreas().isEmpty());
 
     window.close();
@@ -10391,22 +9935,18 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
 #ifndef Q_OS_MACOS
     QSKIP("The Cocoa backing-store presentation contract is macOS-specific.");
 #endif
-    const QString sampleDirectory =
-            QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
+    const QString sampleDirectory = QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
     const QDir directory(sampleDirectory);
-    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(),
-             qPrintable(sampleDirectory));
-    const QFileInfoList samples = directory.entryInfoList(
-            QDir::Files | QDir::Readable, QDir::Name);
+    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(), qPrintable(sampleDirectory));
+    const QFileInfoList samples = directory.entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
     QVERIFY2(!samples.isEmpty(), qPrintable(sampleDirectory));
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -10421,38 +9961,31 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
 
-    for (const QFileInfo &sample : samples)
-    {
+    for (const QFileInfo &sample : samples) {
         window.openFile(sample.absoluteFilePath());
-        QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            sample.absoluteFilePath(), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  sample.absoluteFilePath(), 10000);
         QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
         const auto &details = window.getCurrentFileDetails();
         QVERIFY2(!details.isNativeHDRLoaded, qPrintable(sample.fileName()));
         QVERIFY2(!details.loadedPixmapSize.isEmpty(), qPrintable(sample.fileName()));
-        QCOMPARE(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent),
-                 details.isVectorLoaded);
-        if (!details.isVectorLoaded)
-        {
+        QCOMPARE(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent), details.isVectorLoaded);
+        if (!details.isVectorLoaded) {
             QVERIFY2(details.isNativeSDRLoaded, qPrintable(sample.fileName()));
             QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                    view->nativeMetalRendererDiagnostics().firstFramePresented,
-                    30000);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                    view->viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
-                    3000);
+            QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented,
+                                     30000);
+            QTRY_VERIFY_WITH_TIMEOUT(view->viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+                                     3000);
         }
 
         // The supplied SVG logo and portrait EPS are much narrower than the
         // test viewport. 16:1 guarantees horizontal overflow for every sample
         // while remaining well below the common 64:1 zoom ceiling.
         view->zoomAbsolute(16.0, Qv::CalculateViewportCenterPos);
-        QTRY_VERIFY_WITH_TIMEOUT(
-            view->horizontalScrollBar()->maximum()
-                > view->horizontalScrollBar()->minimum(),
-            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->maximum()
+                                         > view->horizontalScrollBar()->minimum(),
+                                 2000);
         QScrollBar *bar = view->horizontalScrollBar();
         const int centerValue = (bar->minimum() + bar->maximum()) / 2;
         bar->setValue(centerValue);
@@ -10479,34 +10012,33 @@ void SDRSampleInteractionTests::testProvidedSamplesUseMacOSPanPresentationPolicy
         else
             QTRY_VERIFY_WITH_TIMEOUT(
                     view->nativeMetalRendererDiagnostics().requestedRenderGeneration
-                            > requestedBefore
-                    && view->nativeMetalRendererDiagnostics().presentedRenderGeneration
-                            >= view->nativeMetalRendererDiagnostics()
-                                       .requestedRenderGeneration,
+                                    > requestedBefore
+                            && view->nativeMetalRendererDiagnostics().presentedRenderGeneration
+                                    >= view->nativeMetalRendererDiagnostics()
+                                               .requestedRenderGeneration,
                     3000);
         const double elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
         view->viewport()->removeEventFilter(&recorder);
 
-        const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
-                * view->viewport()->height();
+        const qint64 viewportArea =
+                static_cast<qint64>(view->viewport()->width()) * view->viewport()->height();
         const qint64 maximumPaintArea = recorder.recordedAreas().isEmpty()
                 ? 0
                 : *std::max_element(recorder.recordedAreas().cbegin(),
                                     recorder.recordedAreas().cend());
         const qreal dirtyRatio = static_cast<qreal>(maximumPaintArea) / viewportArea;
         qInfo().noquote() << QStringLiteral(
-            "SDR_SAMPLE_PAN file=%1 size=%2x%3 decode_ms=%4 "
-            "pan_dispatch_and_present_ms=%5 dirty_ratio=%6 metal=%7")
-            .arg(sample.fileName())
-            .arg(details.loadedPixmapSize.width())
-            .arg(details.loadedPixmapSize.height())
-            .arg(details.decodeMilliseconds, 0, 'f', 3)
-            .arg(elapsedMilliseconds, 0, 'f', 3)
-            .arg(dirtyRatio, 0, 'f', 6)
-            .arg(details.isNativeSDRLoaded ? QStringLiteral("true")
-                                           : QStringLiteral("false"));
-        if (!details.isVectorLoaded)
-        {
+                                     "SDR_SAMPLE_PAN file=%1 size=%2x%3 decode_ms=%4 "
+                                     "pan_dispatch_and_present_ms=%5 dirty_ratio=%6 metal=%7")
+                                     .arg(sample.fileName())
+                                     .arg(details.loadedPixmapSize.width())
+                                     .arg(details.loadedPixmapSize.height())
+                                     .arg(details.decodeMilliseconds, 0, 'f', 3)
+                                     .arg(elapsedMilliseconds, 0, 'f', 3)
+                                     .arg(dirtyRatio, 0, 'f', 6)
+                                     .arg(details.isNativeSDRLoaded ? QStringLiteral("true")
+                                                                    : QStringLiteral("false"));
+        if (!details.isVectorLoaded) {
             QCOMPARE(maximumPaintArea, 0);
             QVERIFY(view->nativeMetalRendererDiagnostics().sdrImageActive);
         }
@@ -10535,17 +10067,16 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
     QSKIP("The native Cocoa full-screen transition is macOS-specific.");
 #endif
     const QString samplePath = qEnvironmentVariable(
-        "FOVELLE_FULLSCREEN_SDR_IMAGE",
-        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif"));
+            "FOVELLE_FULLSCREEN_SDR_IMAGE",
+            QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/1.avif"));
     QVERIFY2(QFileInfo(samplePath).isFile(), qPrintable(samplePath));
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -10554,9 +10085,8 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
     window.setWindowState(Qt::WindowNoState);
     QScreen *screen = QGuiApplication::primaryScreen();
     QVERIFY(screen);
-    window.setGeometry(QStyle::alignedRect(
-        Qt::LeftToRight, Qt::AlignCenter, QSize(1200, 800),
-        screen->availableGeometry()));
+    window.setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter, QSize(1200, 800),
+                                           screen->availableGeometry()));
     window.show();
     window.raise();
     window.activateWindow();
@@ -10574,10 +10104,8 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
     QVERIFY(window.getCurrentFileDetails().isNativeSDRLoaded);
     QVERIFY(view->usesNativeSDRMetalRenderer());
     view->zoomAbsolute(2.0, view->viewport()->rect().center());
-    QTRY_VERIFY_WITH_TIMEOUT(
-        QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0), 3000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->nativeMetalRendererDiagnostics().drawableGeometryMatches, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0), 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().drawableGeometryMatches, 3000);
     const auto usableViewportCenter = [&]() {
         QRect rect = view->viewport()->rect();
         rect.setTop(window.getViewportPosition().obscuredHeight);
@@ -10589,39 +10117,34 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         const QImage capture = screen->grabWindow(0).toImage();
         if (capture.isNull())
             return std::nullopt;
-        const QImage probe = capture.scaled(
-            QSize(360, 240), Qt::KeepAspectRatio, Qt::FastTransformation)
-                .convertToFormat(QImage::Format_RGB32);
+        const QImage probe =
+                capture.scaled(QSize(360, 240), Qt::KeepAspectRatio, Qt::FastTransformation)
+                        .convertToFormat(QImage::Format_RGB32);
         const int centerX = probe.width() / 2;
         const int centerY = probe.height() / 2;
         long double brightnessSum = 0.0;
         long double brightnessSquaredSum = 0.0;
         int centerSampleCount = 0;
-        for (int y = qMax(0, centerY - 8); y < qMin(probe.height(), centerY + 8); ++y)
-        {
+        for (int y = qMax(0, centerY - 8); y < qMin(probe.height(), centerY + 8); ++y) {
             const QRgb *line = reinterpret_cast<const QRgb *>(probe.constScanLine(y));
-            for (int x = qMax(0, centerX - 8); x < qMin(probe.width(), centerX + 8); ++x)
-            {
-                const qreal brightness = Qv::getPerceivedBrightness(
-                    QColor::fromRgb(line[x]));
+            for (int x = qMax(0, centerX - 8); x < qMin(probe.width(), centerX + 8); ++x) {
+                const qreal brightness = Qv::getPerceivedBrightness(QColor::fromRgb(line[x]));
                 brightnessSum += brightness;
                 brightnessSquaredSum += brightness * brightness;
                 ++centerSampleCount;
             }
         }
         const long double centerMean = brightnessSum / qMax(centerSampleCount, 1);
-        const long double centerVariance = brightnessSquaredSum
-                / qMax(centerSampleCount, 1) - centerMean * centerMean;
+        const long double centerVariance =
+                brightnessSquaredSum / qMax(centerSampleCount, 1) - centerMean * centerMean;
         if (centerVariance < 0.0004L)
             return std::nullopt;
         quint64 contentPixels = 0;
         long double weightedX = 0.0;
         long double weightedY = 0.0;
-        for (int y = 0; y < probe.height(); y += 2)
-        {
+        for (int y = 0; y < probe.height(); y += 2) {
             const QRgb *line = reinterpret_cast<const QRgb *>(probe.constScanLine(y));
-            for (int x = 0; x < probe.width(); x += 2)
-            {
+            for (int x = 0; x < probe.width(); x += 2) {
                 const QColor color = QColor::fromRgb(line[x]);
                 const int maximum = qMax(color.red(), qMax(color.green(), color.blue()));
                 const int minimum = qMin(color.red(), qMin(color.green(), color.blue()));
@@ -10632,22 +10155,19 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
                 weightedY += y;
             }
         }
-        const quint64 sampledPixels =
-            static_cast<quint64>((probe.width() + 1) / 2)
-            * static_cast<quint64>((probe.height() + 1) / 2);
+        const quint64 sampledPixels = static_cast<quint64>((probe.width() + 1) / 2)
+                * static_cast<quint64>((probe.height() + 1) / 2);
         if (contentPixels < sampledPixels / 30)
             return std::nullopt;
-        return QPointF(
-            static_cast<qreal>(weightedX / contentPixels) / probe.width(),
-            static_cast<qreal>(weightedY / contentPixels) / probe.height());
+        return QPointF(static_cast<qreal>(weightedX / contentPixels) / probe.width(),
+                       static_cast<qreal>(weightedY / contentPixels) / probe.height());
     };
     const auto sampleTransition = [&](const bool entering) {
         QVector<QPointF> centers;
         QElapsedTimer timer;
         timer.start();
         window.toggleFullScreen();
-        while (timer.elapsed() < 1200)
-        {
+        while (timer.elapsed() < 1200) {
             QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
             if (view->usesNativeSDRMetalRenderer()
                 && !view->nativeMetalRendererDiagnostics().drawableGeometryMatches)
@@ -10656,8 +10176,7 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
             if (!center.has_value())
                 return QVector<QPointF>();
             centers.append(*center);
-            if (entering ? window.isFullScreen() : !window.isFullScreen())
-            {
+            if (entering ? window.isFullScreen() : !window.isFullScreen()) {
                 // Continue sampling through AppKit's native handoff, not just
                 // until Qt publishes its requested window state.
                 if (timer.elapsed() > 650)
@@ -10674,21 +10193,20 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         return centers;
     };
 
-    const bool initialImagePresented = waitForTestCondition(
-        [&]() { return sampleDisplay().has_value(); }, 5000);
+    const bool initialImagePresented =
+            waitForTestCondition([&]() { return sampleDisplay().has_value(); }, 5000);
     QVERIFY2(initialImagePresented,
              "The source image center did not reach the display before the test transition");
     const auto before = sampleDisplay();
     QVERIFY2(before.has_value(), "The supplied SDR image was not visible before full screen");
-    for (int cycle = 0; cycle < 3; ++cycle)
-    {
+    for (int cycle = 0; cycle < 3; ++cycle) {
         const auto enterFrames = sampleTransition(true);
-        QVERIFY2(!enterFrames.isEmpty(), "The SDR image flashed or jumped during full-screen entry");
+        QVERIFY2(!enterFrames.isEmpty(),
+                 "The SDR image flashed or jumped during full-screen entry");
         QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 5000);
         const auto fullScreen = sampleDisplay();
         QVERIFY(fullScreen.has_value());
-        const QPointF fullscreenCenterScenePoint = view->mapToScene(
-            usableViewportCenter());
+        const QPointF fullscreenCenterScenePoint = view->mapToScene(usableViewportCenter());
         QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
         const auto exitFrames = sampleTransition(false);
         QVERIFY2(!exitFrames.isEmpty(), "The SDR image flashed or jumped during full-screen exit");
@@ -10696,8 +10214,7 @@ void SDRSampleInteractionTests::testProvidedRasterFullScreenTransitionKeepsImage
         const auto normal = sampleDisplay();
         QVERIFY(normal.has_value());
         QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
-        const QPointF restoredCenterScenePoint = view->mapToScene(
-            usableViewportCenter());
+        const QPointF restoredCenterScenePoint = view->mapToScene(usableViewportCenter());
         QVERIFY2(QLineF(fullscreenCenterScenePoint, restoredCenterScenePoint).length() <= 2.0,
                  "The viewport-center scene point jumped when full screen exited");
     }
@@ -10719,14 +10236,13 @@ void SDRSampleInteractionTests::testProvidedRasterStaysAuthoritativeDuringIntera
     const QString samplePath = directory.filePath(QStringLiteral("2.png"));
     QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", Qv::AdjacentPreloadDistance},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "preloadingmode", Qv::AdjacentPreloadDistance },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -10740,43 +10256,36 @@ void SDRSampleInteractionTests::testProvidedRasterStaysAuthoritativeDuringIntera
     window.openFile(samplePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
 
     const auto before = view->nativeMetalRendererDiagnostics();
     QVERIFY(before.usesMaterializedSDRTiles);
     QVERIFY(before.sdrTileCount > 0);
-    QCOMPARE(before.sdrAuthoritativePresentedFrameCount,
-             before.presentedFrameCount);
+    QCOMPARE(before.sdrAuthoritativePresentedFrameCount, before.presentedFrameCount);
     QElapsedTimer responseTimer;
     responseTimer.start();
     view->zoomAbsolute(16.0, Qv::CalculateViewportCenterPos);
-    while (view->nativeMetalRendererDiagnostics()
-                   .sdrAuthoritativePresentedFrameCount
+    while (view->nativeMetalRendererDiagnostics().sdrAuthoritativePresentedFrameCount
                    <= before.sdrAuthoritativePresentedFrameCount
            && responseTimer.elapsed() < 5000) {
         QCoreApplication::processEvents(QEventLoop::AllEvents);
         QTest::qWait(1);
     }
-    QVERIFY(view->nativeMetalRendererDiagnostics()
-                    .sdrAuthoritativePresentedFrameCount
+    QVERIFY(view->nativeMetalRendererDiagnostics().sdrAuthoritativePresentedFrameCount
             > before.sdrAuthoritativePresentedFrameCount);
-    const double responseMilliseconds =
-            responseTimer.nsecsElapsed() / 1000000.0;
+    const double responseMilliseconds = responseTimer.nsecsElapsed() / 1000000.0;
     const auto after = view->nativeMetalRendererDiagnostics();
-    QCOMPARE(after.sdrAuthoritativePresentedFrameCount,
-             after.presentedFrameCount);
+    QCOMPARE(after.sdrAuthoritativePresentedFrameCount, after.presentedFrameCount);
     QVERIFY(after.usesSDRFullSingleImage);
-    qInfo().noquote() << QStringLiteral(
-            "SDR_AUTHORITATIVE_INTERACTION {\"response_ms\":%1,"
-            "\"tiles_total\":%2,\"tiles_visible\":%3,"
-            "\"authoritative_frames\":%4,\"full_single_image\":%5}")
-            .arg(responseMilliseconds, 0, 'f', 3)
-            .arg(after.sdrTileCount)
-            .arg(after.sdrVisibleTileCount)
-            .arg(after.sdrAuthoritativePresentedFrameCount)
-            .arg(after.usesSDRFullSingleImage
-                         ? QStringLiteral("true") : QStringLiteral("false"));
+    qInfo().noquote() << QStringLiteral("SDR_AUTHORITATIVE_INTERACTION {\"response_ms\":%1,"
+                                        "\"tiles_total\":%2,\"tiles_visible\":%3,"
+                                        "\"authoritative_frames\":%4,\"full_single_image\":%5}")
+                                 .arg(responseMilliseconds, 0, 'f', 3)
+                                 .arg(after.sdrTileCount)
+                                 .arg(after.sdrVisibleTileCount)
+                                 .arg(after.sdrAuthoritativePresentedFrameCount)
+                                 .arg(after.usesSDRFullSingleImage ? QStringLiteral("true")
+                                                                   : QStringLiteral("false"));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -10793,25 +10302,22 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
 #ifndef Q_OS_MACOS
     QSKIP("The CAMetalDisplayLink cadence probe is macOS-specific.");
 #endif
-    ScopedEnvironmentValue interactionEnvironment(
-            "FOVELLE_HDR_TEST_120HZ_INTERACTION");
+    ScopedEnvironmentValue interactionEnvironment("FOVELLE_HDR_TEST_120HZ_INTERACTION");
     qputenv("FOVELLE_HDR_TEST_120HZ_INTERACTION", "1");
     const QDir directory(QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR")));
-    const QString requestedBudgetSample = QString::fromUtf8(
-            qgetenv("FOVELLE_SDR_BUDGET_SAMPLE"));
+    const QString requestedBudgetSample = QString::fromUtf8(qgetenv("FOVELLE_SDR_BUDGET_SAMPLE"));
     const QString samplePath = requestedBudgetSample.isEmpty()
             ? directory.filePath(QStringLiteral("2.png"))
             : requestedBudgetSample;
     QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", Qv::AdjacentPreloadDistance},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "preloadingmode", Qv::AdjacentPreloadDistance },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -10826,52 +10332,49 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
     QVERIFY(view);
     window.openFile(samplePath);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
     QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().firstFramePresented, 10000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics()
-                    .compositorInteractiveSubmissionCount >= 30,
+            view->nativeMetalRendererDiagnostics().compositorInteractiveSubmissionCount >= 30,
             7000);
     const auto diagnostics = view->nativeMetalRendererDiagnostics();
-    qInfo().noquote() << QStringLiteral(
-            "SDR_180FPS_BUDGET {\"interactive_submissions\":%1,"
-            "\"presented_frames\":%2,\"last_interval_ms\":%3,"
-            "\"missed_deadlines\":%4,\"callbacks\":%5,"
-            "\"deferred_callbacks\":%6,\"gpu_ms\":%7,"
-            "\"encode_ms\":%8,\"request_to_present_ms\":%9,"
-            "\"max_interactive_gpu_ms\":%10,"
-            "\"max_interactive_encode_ms\":%11,"
-            "\"display_max_fps\":%12,\"requested_min_fps\":%13,"
-            "\"requested_max_fps\":%14,\"display_can_present_180\":%15,"
-            "\"persistent_tiles\":%16,\"file\":\"%17\"}")
-            .arg(diagnostics.compositorInteractiveSubmissionCount)
-            .arg(diagnostics.presentedFrameCount)
-            .arg(diagnostics.lastPresentedIntervalMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.missedTargetDeadlineCount)
-            .arg(diagnostics.displayLinkCallbackCount)
-            .arg(diagnostics.deferredDisplayLinkCallbackCount)
-            .arg(diagnostics.lastGPUExecutionMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.lastRenderMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.lastRequestToPresentationMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.maximumInteractiveGPUExecutionMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.maximumInteractiveRenderMilliseconds, 0, 'f', 3)
-            .arg(diagnostics.displayMaximumFramesPerSecond)
-            .arg(diagnostics.requestedFrameRateMinimum, 0, 'f', 0)
-            .arg(diagnostics.requestedFrameRateMaximum, 0, 'f', 0)
-            .arg(diagnostics.displayCanPresent180FPS
-                         ? QStringLiteral("true") : QStringLiteral("false"))
-            .arg(diagnostics.usesPersistentSDRTileSurface
-                         ? QStringLiteral("true") : QStringLiteral("false"))
-            .arg(QFileInfo(samplePath).fileName());
+    qInfo().noquote() << QStringLiteral("SDR_180FPS_BUDGET {\"interactive_submissions\":%1,"
+                                        "\"presented_frames\":%2,\"last_interval_ms\":%3,"
+                                        "\"missed_deadlines\":%4,\"callbacks\":%5,"
+                                        "\"deferred_callbacks\":%6,\"gpu_ms\":%7,"
+                                        "\"encode_ms\":%8,\"request_to_present_ms\":%9,"
+                                        "\"max_interactive_gpu_ms\":%10,"
+                                        "\"max_interactive_encode_ms\":%11,"
+                                        "\"display_max_fps\":%12,\"requested_min_fps\":%13,"
+                                        "\"requested_max_fps\":%14,\"display_can_present_180\":%15,"
+                                        "\"persistent_tiles\":%16,\"file\":\"%17\"}")
+                                 .arg(diagnostics.compositorInteractiveSubmissionCount)
+                                 .arg(diagnostics.presentedFrameCount)
+                                 .arg(diagnostics.lastPresentedIntervalMilliseconds, 0, 'f', 3)
+                                 .arg(diagnostics.missedTargetDeadlineCount)
+                                 .arg(diagnostics.displayLinkCallbackCount)
+                                 .arg(diagnostics.deferredDisplayLinkCallbackCount)
+                                 .arg(diagnostics.lastGPUExecutionMilliseconds, 0, 'f', 3)
+                                 .arg(diagnostics.lastRenderMilliseconds, 0, 'f', 3)
+                                 .arg(diagnostics.lastRequestToPresentationMilliseconds, 0, 'f', 3)
+                                 .arg(diagnostics.maximumInteractiveGPUExecutionMilliseconds, 0,
+                                      'f', 3)
+                                 .arg(diagnostics.maximumInteractiveRenderMilliseconds, 0, 'f', 3)
+                                 .arg(diagnostics.displayMaximumFramesPerSecond)
+                                 .arg(diagnostics.requestedFrameRateMinimum, 0, 'f', 0)
+                                 .arg(diagnostics.requestedFrameRateMaximum, 0, 'f', 0)
+                                 .arg(diagnostics.displayCanPresent180FPS ? QStringLiteral("true")
+                                                                          : QStringLiteral("false"))
+                                 .arg(diagnostics.usesPersistentSDRTileSurface
+                                              ? QStringLiteral("true")
+                                              : QStringLiteral("false"))
+                                 .arg(QFileInfo(samplePath).fileName());
     QVERIFY(diagnostics.usesCAMetalDisplayLink);
     QVERIFY(diagnostics.sdrImageActive);
     QVERIFY(diagnostics.usesPersistentSDRTileSurface);
     QCOMPARE(diagnostics.deferredDisplayLinkCallbackCount, 0);
-    QCOMPARE(diagnostics.sdrAuthoritativePresentedFrameCount,
-             diagnostics.presentedFrameCount);
+    QCOMPARE(diagnostics.sdrAuthoritativePresentedFrameCount, diagnostics.presentedFrameCount);
     QVERIFY2(diagnostics.lastRenderMilliseconds < (1000.0 / 120.0),
-             qPrintable(QStringLiteral("encode=%1ms")
-                                .arg(diagnostics.lastRenderMilliseconds)));
+             qPrintable(QStringLiteral("encode=%1ms").arg(diagnostics.lastRenderMilliseconds)));
     // The application submits no per-interaction Metal/CI work after the tile
     // surface is installed; WindowServer composites the retained layer tree.
     QCOMPARE(diagnostics.lastGPUExecutionMilliseconds, 0.0);
@@ -10881,14 +10384,11 @@ void SDRSampleInteractionTests::testProvidedRaster120HzInteractionProbe()
              qPrintable(QStringLiteral("maximum interactive encode=%1ms")
                                 .arg(diagnostics.maximumInteractiveRenderMilliseconds)));
     QCOMPARE(diagnostics.maximumInteractiveGPUExecutionMilliseconds, 0.0);
-    const auto frameRatePolicy = QVCocoaFunctions::sdrFrameRatePolicy(
-            diagnostics.displayMaximumFramesPerSecond);
-    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMinimum),
-             frameRatePolicy.minimum);
-    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMaximum),
-             frameRatePolicy.maximum);
-    QCOMPARE(diagnostics.displayCanPresent180FPS,
-             frameRatePolicy.displayCanPresent180FPS);
+    const auto frameRatePolicy =
+            QVCocoaFunctions::sdrFrameRatePolicy(diagnostics.displayMaximumFramesPerSecond);
+    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMinimum), frameRatePolicy.minimum);
+    QCOMPARE(static_cast<qreal>(diagnostics.requestedFrameRateMaximum), frameRatePolicy.maximum);
+    QCOMPARE(diagnostics.displayCanPresent180FPS, frameRatePolicy.displayCanPresent180FPS);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -10913,28 +10413,23 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
 #ifndef Q_OS_MACOS
     QSKIP("The native Metal comparison is macOS-specific.");
 #endif
-    const QString sampleDirectory =
-            QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
+    const QString sampleDirectory = QString::fromUtf8(qgetenv("FOVELLE_SDR_SAMPLE_DIR"));
     const QDir directory(sampleDirectory);
-    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(),
-             qPrintable(sampleDirectory));
+    QVERIFY2(!sampleDirectory.isEmpty() && directory.exists(), qPrintable(sampleDirectory));
 
-    QFileInfoList samples = directory.entryInfoList(
-            QDir::Files | QDir::Readable, QDir::Name);
-    const QString largeSample =
-            QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
+    QFileInfoList samples = directory.entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+    const QString largeSample = QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
     if (!largeSample.isEmpty())
         samples.append(QFileInfo(largeSample));
     QVERIFY(!samples.isEmpty());
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", Qv::AdjacentPreloadDistance},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "preloadingmode", Qv::AdjacentPreloadDistance },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -10949,16 +10444,14 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
     const auto waitUntil = [](const auto &predicate, const int timeoutMilliseconds) {
         QElapsedTimer waitTimer;
         waitTimer.start();
-        while (!predicate() && waitTimer.elapsed() < timeoutMilliseconds)
-        {
+        while (!predicate() && waitTimer.elapsed() < timeoutMilliseconds) {
             QCoreApplication::processEvents(QEventLoop::AllEvents);
             QTest::qWait(1);
         }
         return predicate();
     };
 
-    for (const QFileInfo &sample : std::as_const(samples))
-    {
+    for (const QFileInfo &sample : std::as_const(samples)) {
         if (sample.fileName().startsWith("._"))
             continue;
 
@@ -10967,22 +10460,22 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
         QElapsedTimer coldTimer;
         coldTimer.start();
         window.openFile(sample.absoluteFilePath());
-        QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            sample.absoluteFilePath(), 180000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  sample.absoluteFilePath(), 180000);
         QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 180000);
 
         if (window.getCurrentFileDetails().isVectorLoaded)
             continue;
         QVERIFY2(window.getCurrentFileDetails().isNativeSDRLoaded,
                  qPrintable(sample.absoluteFilePath()));
-        QVERIFY2(waitUntil([&]() {
-                     return view->usesNativeSDRMetalRenderer()
-                             && view->nativeMetalRendererDiagnostics()
-                                        .firstFramePresented
-                             && view->viewportUpdateMode()
-                                        == QGraphicsView::NoViewportUpdate;
-                 }, 180000),
+        QVERIFY2(waitUntil(
+                         [&]() {
+                             return view->usesNativeSDRMetalRenderer()
+                                     && view->nativeMetalRendererDiagnostics().firstFramePresented
+                                     && view->viewportUpdateMode()
+                                     == QGraphicsView::NoViewportUpdate;
+                         },
+                         180000),
                  qPrintable(sample.absoluteFilePath()));
         const double coldMilliseconds = coldTimer.nsecsElapsed() / 1000000.0;
 
@@ -10992,16 +10485,15 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
         zoomTimer.start();
         view->zoomAbsolute(4.0, Qv::CalculateViewportCenterPos);
         QCoreApplication::processEvents(QEventLoop::AllEvents);
-        const double zoomDispatchMilliseconds =
-                zoomTimer.nsecsElapsed() / 1000000.0;
-        QVERIFY2(waitUntil([&]() {
-                     const auto diagnostics =
-                             view->nativeMetalRendererDiagnostics();
-                     return diagnostics.requestedRenderGeneration
-                                    > zoomRequestedBefore
-                             && diagnostics.presentedRenderGeneration
-                                    >= diagnostics.requestedRenderGeneration;
-                 }, 30000),
+        const double zoomDispatchMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
+        QVERIFY2(waitUntil(
+                         [&]() {
+                             const auto diagnostics = view->nativeMetalRendererDiagnostics();
+                             return diagnostics.requestedRenderGeneration > zoomRequestedBefore
+                                     && diagnostics.presentedRenderGeneration
+                                     >= diagnostics.requestedRenderGeneration;
+                         },
+                         30000),
                  qPrintable(sample.absoluteFilePath()));
         const double zoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
 
@@ -11016,49 +10508,47 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
                 view->nativeMetalRendererDiagnostics().requestedRenderGeneration;
         QElapsedTimer panTimer;
         panTimer.start();
-        for (int step = 0; step < 48; ++step)
-        {
+        for (int step = 0; step < 48; ++step) {
             horizontal->setValue(horizontal->value() + (step % 2 == 0 ? 7 : -5));
             vertical->setValue(vertical->value() + (step % 2 == 0 ? 5 : -3));
             QCoreApplication::processEvents(QEventLoop::AllEvents);
         }
-        const double panDispatchMilliseconds =
-                panTimer.nsecsElapsed() / 1000000.0;
+        const double panDispatchMilliseconds = panTimer.nsecsElapsed() / 1000000.0;
         QTest::qWait(40);
-        QVERIFY2(waitUntil([&]() {
-                     const auto diagnostics =
-                             view->nativeMetalRendererDiagnostics();
-                     return diagnostics.requestedRenderGeneration
-                                    > panRequestedBefore
-                             && diagnostics.presentedRenderGeneration
-                                    >= diagnostics.requestedRenderGeneration;
-                 }, 30000),
+        QVERIFY2(waitUntil(
+                         [&]() {
+                             const auto diagnostics = view->nativeMetalRendererDiagnostics();
+                             return diagnostics.requestedRenderGeneration > panRequestedBefore
+                                     && diagnostics.presentedRenderGeneration
+                                     >= diagnostics.requestedRenderGeneration;
+                         },
+                         30000),
                  qPrintable(sample.absoluteFilePath()));
         const double panMilliseconds = panTimer.nsecsElapsed() / 1000000.0;
 
         const auto &details = window.getCurrentFileDetails();
         const auto renderer = view->nativeMetalRendererDiagnostics();
         qInfo().noquote() << QStringLiteral(
-            "SDR_PERF {\"file\":\"%1\",\"width\":%2,\"height\":%3,"
-            "\"cold_ms\":%4,\"zoom_ms\":%5,\"zoom_dispatch_ms\":%6,"
-            "\"pan_48_ms\":%7,\"pan_dispatch_ms\":%8,\"decode_ms\":%9,"
-            "\"native_metal\":true,\"gpu_ms\":%10,\"encode_ms\":%11,"
-            "\"present_interval_ms\":%12,\"request_to_present_ms\":%13,"
-            "\"presented_frames\":%14}")
-            .arg(sample.fileName())
-            .arg(details.loadedPixmapSize.width())
-            .arg(details.loadedPixmapSize.height())
-            .arg(coldMilliseconds, 0, 'f', 3)
-            .arg(zoomMilliseconds, 0, 'f', 3)
-            .arg(zoomDispatchMilliseconds, 0, 'f', 3)
-            .arg(panMilliseconds, 0, 'f', 3)
-            .arg(panDispatchMilliseconds, 0, 'f', 3)
-            .arg(details.decodeMilliseconds, 0, 'f', 3)
-            .arg(renderer.lastGPUExecutionMilliseconds, 0, 'f', 3)
-            .arg(renderer.lastRenderMilliseconds, 0, 'f', 3)
-            .arg(renderer.lastPresentedIntervalMilliseconds, 0, 'f', 3)
-            .arg(renderer.lastRequestToPresentationMilliseconds, 0, 'f', 3)
-            .arg(renderer.presentedFrameCount);
+                                     "SDR_PERF {\"file\":\"%1\",\"width\":%2,\"height\":%3,"
+                                     "\"cold_ms\":%4,\"zoom_ms\":%5,\"zoom_dispatch_ms\":%6,"
+                                     "\"pan_48_ms\":%7,\"pan_dispatch_ms\":%8,\"decode_ms\":%9,"
+                                     "\"native_metal\":true,\"gpu_ms\":%10,\"encode_ms\":%11,"
+                                     "\"present_interval_ms\":%12,\"request_to_present_ms\":%13,"
+                                     "\"presented_frames\":%14}")
+                                     .arg(sample.fileName())
+                                     .arg(details.loadedPixmapSize.width())
+                                     .arg(details.loadedPixmapSize.height())
+                                     .arg(coldMilliseconds, 0, 'f', 3)
+                                     .arg(zoomMilliseconds, 0, 'f', 3)
+                                     .arg(zoomDispatchMilliseconds, 0, 'f', 3)
+                                     .arg(panMilliseconds, 0, 'f', 3)
+                                     .arg(panDispatchMilliseconds, 0, 'f', 3)
+                                     .arg(details.decodeMilliseconds, 0, 'f', 3)
+                                     .arg(renderer.lastGPUExecutionMilliseconds, 0, 'f', 3)
+                                     .arg(renderer.lastRenderMilliseconds, 0, 'f', 3)
+                                     .arg(renderer.lastPresentedIntervalMilliseconds, 0, 'f', 3)
+                                     .arg(renderer.lastRequestToPresentationMilliseconds, 0, 'f', 3)
+                                     .arg(renderer.presentedFrameCount);
     }
 
     window.close();
@@ -11078,8 +10568,7 @@ void SDRSampleInteractionTests::testProvidedSamplesPerformanceProbe()
 // Postcondition: all pool callbacks are drained and the temporary link is gone.
 void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
 {
-    const QString largeSample =
-            QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
+    const QString largeSample = QString::fromUtf8(qgetenv("FOVELLE_LARGE_SDR_SAMPLE"));
     QVERIFY2(QFileInfo::exists(largeSample), qPrintable(largeSample));
     const auto admission = QVImageLoader::preloadAdmissionForFile(largeSample);
     QVERIFY(!admission.allowed);
@@ -11087,16 +10576,14 @@ void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
 
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    const QString currentPath = createTestImage(
-            directory, "01-current", Qt::red, QSize(64, 64));
+    const QString currentPath = createTestImage(directory, "01-current", Qt::red, QSize(64, 64));
     const QString neighborPath = directory.filePath("02-large.png");
     QVERIFY(!currentPath.isEmpty());
     QVERIFY2(QFile::link(largeSample, neighborPath), qPrintable(neighborPath));
 
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"preloadingmode", Qv::AdjacentPreloadDistance}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "preloadingmode", Qv::AdjacentPreloadDistance } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -11106,13 +10593,11 @@ void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
     window->show();
     QTRY_VERIFY_WITH_TIMEOUT(window->isVisible(), 1000);
     window->openFile(currentPath);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
-        currentPath, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              currentPath, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(window->getIsPixmapLoaded(), 5000);
     QTest::qWait(750);
-    QTRY_COMPARE_WITH_TIMEOUT(
-            QThreadPool::globalInstance()->activeThreadCount(), 0, 3000);
+    QTRY_COMPARE_WITH_TIMEOUT(QThreadPool::globalInstance()->activeThreadCount(), 0, 3000);
 
     QElapsedTimer shutdownTimer;
     shutdownTimer.start();
@@ -11120,16 +10605,13 @@ void SDRSampleInteractionTests::testLargeNeighborPreloadShutdownProbe()
     window.reset();
     QThreadPool::globalInstance()->waitForDone();
     QCoreApplication::processEvents(QEventLoop::AllEvents);
-    const double shutdownMilliseconds =
-            shutdownTimer.nsecsElapsed() / 1000000.0;
-    qInfo().noquote() << QStringLiteral(
-        "PRELOAD_EXIT {\"file_bytes\":%1,\"shutdown_ms\":%2,"
-        "\"admission\":\"%3\"}")
-        .arg(QFileInfo(largeSample).size())
-        .arg(shutdownMilliseconds, 0, 'f', 3)
-        .arg(admission.reason);
-    QVERIFY2(shutdownMilliseconds < 1000.0,
-             qPrintable(QString::number(shutdownMilliseconds)));
+    const double shutdownMilliseconds = shutdownTimer.nsecsElapsed() / 1000000.0;
+    qInfo().noquote() << QStringLiteral("PRELOAD_EXIT {\"file_bytes\":%1,\"shutdown_ms\":%2,"
+                                        "\"admission\":\"%3\"}")
+                                 .arg(QFileInfo(largeSample).size())
+                                 .arg(shutdownMilliseconds, 0, 'f', 3)
+                                 .arg(admission.reason);
+    QVERIFY2(shutdownMilliseconds < 1000.0, qPrintable(QString::number(shutdownMilliseconds)));
 
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
@@ -11142,17 +10624,15 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
 #ifndef Q_OS_MACOS
     QSKIP("The native WindowServer/Metal capture contract is macOS-specific.");
 #endif
-    const QString samplePath = QString::fromUtf8(
-            qgetenv("FOVELLE_SDR_BLACK_BLOCK_SAMPLE"));
+    const QString samplePath = QString::fromUtf8(qgetenv("FOVELLE_SDR_BLACK_BLOCK_SAMPLE"));
     QVERIFY2(QFileInfo::exists(samplePath), qPrintable(samplePath));
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"preloadingmode", Qv::AdjacentPreloadDistance},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "preloadingmode", Qv::AdjacentPreloadDistance },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -11169,8 +10649,7 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
     openTimer.start();
     window.openFile(samplePath);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesNativeSDRMetalRenderer(), 120000);
-    QTRY_VERIFY_WITH_TIMEOUT(
-            view->nativeMetalRendererDiagnostics().firstFramePresented, 120000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().firstFramePresented, 120000);
     const double openMilliseconds = openTimer.nsecsElapsed() / 1000000.0;
     const auto beforeZoom = view->nativeMetalRendererDiagnostics();
     QVERIFY(beforeZoom.usesMaterializedSDRTiles);
@@ -11184,19 +10663,18 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
     const QPixmap fittedWindowPixmap = window.screen()->grabWindow(window.winId());
     const QImage fittedWindow = fittedWindowPixmap.toImage();
     QVERIFY(!fittedWindow.isNull());
-    QRect fittedContentRect = view->mapFromScene(
-            QRectF(QPointF(), QSizeF(window.getCurrentFileDetails().loadedPixmapSize)))
-            .boundingRect().intersected(view->viewport()->rect());
-    const QPoint fittedInWindow = view->viewport()->mapTo(
-            &window, fittedContentRect.topLeft());
+    QRect fittedContentRect =
+            view->mapFromScene(
+                        QRectF(QPointF(), QSizeF(window.getCurrentFileDetails().loadedPixmapSize)))
+                    .boundingRect()
+                    .intersected(view->viewport()->rect());
+    const QPoint fittedInWindow = view->viewport()->mapTo(&window, fittedContentRect.topLeft());
     const qreal fittedDpr = fittedWindowPixmap.devicePixelRatio();
-    QRect fittedPixelRect(
-            qRound(fittedInWindow.x() * fittedDpr),
-            qRound(fittedInWindow.y() * fittedDpr),
-            qRound(fittedContentRect.width() * fittedDpr),
-            qRound(fittedContentRect.height() * fittedDpr));
-    fittedPixelRect = fittedPixelRect.intersected(fittedWindow.rect()).adjusted(
-            4, 4, -4, -4);
+    QRect fittedPixelRect(qRound(fittedInWindow.x() * fittedDpr),
+                          qRound(fittedInWindow.y() * fittedDpr),
+                          qRound(fittedContentRect.width() * fittedDpr),
+                          qRound(fittedContentRect.height() * fittedDpr));
+    fittedPixelRect = fittedPixelRect.intersected(fittedWindow.rect()).adjusted(4, 4, -4, -4);
     QVERIFY(fittedPixelRect.width() > 400 && fittedPixelRect.height() > 300);
     const QImage fittedPresentation = fittedWindow.copy(fittedPixelRect);
     QVGraphicsImageItem *proxyItem = nullptr;
@@ -11209,12 +10687,15 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
     QVERIFY(proxyItem);
     QVERIFY(!proxyItem->pixmap().isNull());
     const QSize correlationSize(256, 192);
-    const QImage actualGray = fittedPresentation
-            .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
-            .convertToFormat(QImage::Format_Grayscale8);
-    const QImage expectedGray = proxyItem->pixmap().toImage()
-            .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
-            .convertToFormat(QImage::Format_Grayscale8);
+    const QImage actualGray =
+            fittedPresentation
+                    .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                    .convertToFormat(QImage::Format_Grayscale8);
+    const QImage expectedGray =
+            proxyItem->pixmap()
+                    .toImage()
+                    .scaled(correlationSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                    .convertToFormat(QImage::Format_Grayscale8);
     double actualMean = 0.0;
     double expectedMean = 0.0;
     const int correlationPixels = correlationSize.width() * correlationSize.height();
@@ -11242,69 +10723,56 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
             expectedVariance += expectedDelta * expectedDelta;
         }
     }
-    const double fittedCorrelation = covariance
-            / std::sqrt(actualVariance * expectedVariance);
+    const double fittedCorrelation = covariance / std::sqrt(actualVariance * expectedVariance);
     qInfo().noquote() << QStringLiteral(
-            "SDR_LARGE_FIT_FIDELITY {\"correlation\":%1,"
-            "\"tiles_total\":%2,\"display_width\":%3,\"display_height\":%4}")
-            .arg(fittedCorrelation, 0, 'f', 6)
-            .arg(beforeZoom.sdrTileCount)
-            .arg(fittedPresentation.width())
-            .arg(fittedPresentation.height());
-    QVERIFY2(fittedCorrelation > 0.90,
-             qPrintable(QString::number(fittedCorrelation)));
+                                 "SDR_LARGE_FIT_FIDELITY {\"correlation\":%1,"
+                                 "\"tiles_total\":%2,\"display_width\":%3,\"display_height\":%4}")
+                                 .arg(fittedCorrelation, 0, 'f', 6)
+                                 .arg(beforeZoom.sdrTileCount)
+                                 .arg(fittedPresentation.width())
+                                 .arg(fittedPresentation.height());
+    QVERIFY2(fittedCorrelation > 0.90, qPrintable(QString::number(fittedCorrelation)));
 
-    const quint64 fullBeforeZoom = beforeZoom
-            .sdrAuthoritativePresentedFrameCount;
+    const quint64 fullBeforeZoom = beforeZoom.sdrAuthoritativePresentedFrameCount;
     QElapsedTimer zoomTimer;
     zoomTimer.start();
     view->zoomAbsolute(4.0, Qv::CalculateViewportCenterPos);
-    while (view->nativeMetalRendererDiagnostics()
-                   .sdrAuthoritativePresentedFrameCount <= fullBeforeZoom
+    while (view->nativeMetalRendererDiagnostics().sdrAuthoritativePresentedFrameCount
+                   <= fullBeforeZoom
            && zoomTimer.elapsed() < 120000) {
         QCoreApplication::processEvents(QEventLoop::AllEvents);
         QTest::qWait(1);
     }
-    QVERIFY(view->nativeMetalRendererDiagnostics()
-                    .sdrAuthoritativePresentedFrameCount > fullBeforeZoom);
+    QVERIFY(view->nativeMetalRendererDiagnostics().sdrAuthoritativePresentedFrameCount
+            > fullBeforeZoom);
     const double zoomMilliseconds = zoomTimer.nsecsElapsed() / 1000000.0;
     QTest::qWait(150);
 
     const QPixmap capturedPixmap = window.screen()->grabWindow(window.winId());
-    const QImage capture = capturedPixmap.toImage().convertToFormat(
-            QImage::Format_RGBA8888);
+    const QImage capture = capturedPixmap.toImage().convertToFormat(QImage::Format_RGBA8888);
     QVERIFY(!capture.isNull());
     const qreal dpr = capturedPixmap.devicePixelRatio();
     const QSize sourceSize = window.getCurrentFileDetails().loadedPixmapSize;
-    QRect contentRect = view->mapFromScene(
-            QRectF(QPointF(), QSizeF(sourceSize))).boundingRect()
-            .intersected(view->viewport()->rect());
-    const QPoint inWindow = view->viewport()->mapTo(
-            &window, contentRect.topLeft());
-    QRect pixelRect(
-            qRound(inWindow.x() * dpr), qRound(inWindow.y() * dpr),
-            qRound(contentRect.width() * dpr),
-            qRound(contentRect.height() * dpr));
+    QRect contentRect = view->mapFromScene(QRectF(QPointF(), QSizeF(sourceSize)))
+                                .boundingRect()
+                                .intersected(view->viewport()->rect());
+    const QPoint inWindow = view->viewport()->mapTo(&window, contentRect.topLeft());
+    QRect pixelRect(qRound(inWindow.x() * dpr), qRound(inWindow.y() * dpr),
+                    qRound(contentRect.width() * dpr), qRound(contentRect.height() * dpr));
     pixelRect = pixelRect.intersected(capture.rect());
     QVERIFY(pixelRect.width() > 100 && pixelRect.height() > 100);
 
     constexpr int CellSize = 32;
     int blackCells = 0;
     int sampledCells = 0;
-    for (int y = pixelRect.top(); y + CellSize <= pixelRect.bottom(); y += CellSize)
-    {
-        for (int x = pixelRect.left(); x + CellSize <= pixelRect.right(); x += CellSize)
-        {
+    for (int y = pixelRect.top(); y + CellSize <= pixelRect.bottom(); y += CellSize) {
+        for (int x = pixelRect.left(); x + CellSize <= pixelRect.right(); x += CellSize) {
             int nearlyBlack = 0;
-            for (int py = y; py < y + CellSize; ++py)
-            {
-                const QRgb *row = reinterpret_cast<const QRgb *>(
-                        capture.constScanLine(py));
-                for (int px = x; px < x + CellSize; ++px)
-                {
+            for (int py = y; py < y + CellSize; ++py) {
+                const QRgb *row = reinterpret_cast<const QRgb *>(capture.constScanLine(py));
+                for (int px = x; px < x + CellSize; ++px) {
                     const QColor color = QColor::fromRgba(row[px]);
-                    if (color.red() <= 2 && color.green() <= 2
-                        && color.blue() <= 2)
+                    if (color.red() <= 2 && color.green() <= 2 && color.blue() <= 2)
                         ++nearlyBlack;
                 }
             }
@@ -11313,25 +10781,24 @@ void SDRSampleInteractionTests::testLargeRasterWindowCaptureHasNoBlackTileBlock(
                 ++blackCells;
         }
     }
-    const double blackCellRatio = sampledCells > 0
-            ? static_cast<double>(blackCells) / sampledCells : 1.0;
-    qInfo().noquote() << QStringLiteral(
-            "SDR_BLACK_TILE_CAPTURE {\"black_cell_ratio\":%1,"
-            "\"black_cells\":%2,\"sampled_cells\":%3,"
-            "\"capture_width\":%4,\"capture_height\":%5,"
-            "\"open_ms\":%6,\"first_zoom_ms\":%7,"
-            "\"tiles_total\":%8,\"tiles_visible\":%9,"
-            "\"materialized_bytes\":%10}")
-            .arg(blackCellRatio, 0, 'f', 6)
-            .arg(blackCells)
-            .arg(sampledCells)
-            .arg(capture.width())
-            .arg(capture.height())
-            .arg(openMilliseconds, 0, 'f', 3)
-            .arg(zoomMilliseconds, 0, 'f', 3)
-            .arg(view->nativeMetalRendererDiagnostics().sdrTileCount)
-            .arg(view->nativeMetalRendererDiagnostics().sdrVisibleTileCount)
-            .arg(view->nativeMetalRendererDiagnostics().sdrMaterializedBytes);
+    const double blackCellRatio =
+            sampledCells > 0 ? static_cast<double>(blackCells) / sampledCells : 1.0;
+    qInfo().noquote() << QStringLiteral("SDR_BLACK_TILE_CAPTURE {\"black_cell_ratio\":%1,"
+                                        "\"black_cells\":%2,\"sampled_cells\":%3,"
+                                        "\"capture_width\":%4,\"capture_height\":%5,"
+                                        "\"open_ms\":%6,\"first_zoom_ms\":%7,"
+                                        "\"tiles_total\":%8,\"tiles_visible\":%9,"
+                                        "\"materialized_bytes\":%10}")
+                                 .arg(blackCellRatio, 0, 'f', 6)
+                                 .arg(blackCells)
+                                 .arg(sampledCells)
+                                 .arg(capture.width())
+                                 .arg(capture.height())
+                                 .arg(openMilliseconds, 0, 'f', 3)
+                                 .arg(zoomMilliseconds, 0, 'f', 3)
+                                 .arg(view->nativeMetalRendererDiagnostics().sdrTileCount)
+                                 .arg(view->nativeMetalRendererDiagnostics().sdrVisibleTileCount)
+                                 .arg(view->nativeMetalRendererDiagnostics().sdrMaterializedBytes);
     QVERIFY2(blackCellRatio < 0.01, qPrintable(QString::number(blackCellRatio)));
 
     window.close();
@@ -11345,11 +10812,9 @@ void GraphicsViewTests::testZoomIsBoundedAt6400Percent()
     QCOMPARE(QVGraphicsView::boundedZoomLevel(64.0), 64.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(64.0001), 64.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(100.0), 64.0);
-    QCOMPARE(QVGraphicsView::boundedZoomLevel(
-        std::numeric_limits<qreal>::infinity()), 64.0);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(std::numeric_limits<qreal>::infinity()), 64.0);
     QCOMPARE(QVGraphicsView::boundedZoomLevel(-1.0), 0.01);
-    QCOMPARE(QVGraphicsView::boundedZoomLevel(
-        std::numeric_limits<qreal>::quiet_NaN()), 0.01);
+    QCOMPARE(QVGraphicsView::boundedZoomLevel(std::numeric_limits<qreal>::quiet_NaN()), 0.01);
 }
 
 void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
@@ -11357,13 +10822,12 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     // Keep the historical test name because older CI parsers use it. The
     // contract is now the opposite of the old assertion: vector interaction
     // must disable backing-store scroll reuse before the first drag frame.
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -11385,9 +10849,7 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
     view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
     QTRY_VERIFY_WITH_TIMEOUT(
-        view->horizontalScrollBar()->maximum()
-            > view->horizontalScrollBar()->minimum(),
-        2000);
+            view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum(), 2000);
     QTest::qWait(100);
     view->viewport()->repaint();
     QCoreApplication::processEvents();
@@ -11400,8 +10862,8 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     QCoreApplication::processEvents();
     QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->vectorRenderCount() > 0, 5000);
-    QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(),
-                              QGraphicsView::MinimalViewportUpdate, 1000);
+    QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(), QGraphicsView::MinimalViewportUpdate,
+                              1000);
     view->viewport()->repaint();
     QCoreApplication::processEvents();
 
@@ -11414,27 +10876,27 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
     QCoreApplication::processEvents();
     view->viewport()->removeEventFilter(&recorder);
 
-    const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
-            * view->viewport()->height();
+    const qint64 viewportArea =
+            static_cast<qint64>(view->viewport()->width()) * view->viewport()->height();
     // FullViewportUpdate must be selected before QGraphicsView can reuse the
     // platform backing store for the scrollbar move. A later worker update is
     // allowed, but the first frame itself must cover the complete viewport.
     const qint64 scrollPaintArea = recorder.recordedAreas().constFirst();
     const qreal dirtyRatio = static_cast<qreal>(scrollPaintArea) / viewportArea;
-    const qint64 maximumObservedPaintArea = *std::max_element(
-        recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
+    const qint64 maximumObservedPaintArea =
+            *std::max_element(recorder.recordedAreas().cbegin(), recorder.recordedAreas().cend());
     const qreal maximumObservedDirtyRatio =
             static_cast<qreal>(maximumObservedPaintArea) / viewportArea;
     qInfo().noquote() << QStringLiteral(
-        "VECTOR_PAN_REPAINT update_mode=full dirty_ratio=%1 "
-        "max_observed_dirty_ratio=%2 paint_events=%3 viewport_area=%4")
-        .arg(dirtyRatio, 0, 'f', 6)
-        .arg(maximumObservedDirtyRatio, 0, 'f', 6)
-        .arg(recorder.recordedAreas().size())
-        .arg(viewportArea);
+                                 "VECTOR_PAN_REPAINT update_mode=full dirty_ratio=%1 "
+                                 "max_observed_dirty_ratio=%2 paint_events=%3 viewport_area=%4")
+                                 .arg(dirtyRatio, 0, 'f', 6)
+                                 .arg(maximumObservedDirtyRatio, 0, 'f', 6)
+                                 .arg(recorder.recordedAreas().size())
+                                 .arg(viewportArea);
     QVERIFY2(dirtyRatio >= 0.90,
              qPrintable(QStringLiteral("vector pan did not request a full repaint ratio %1")
-                        .arg(dirtyRatio, 0, 'f', 6)));
+                                .arg(dirtyRatio, 0, 'f', 6)));
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -11453,21 +10915,20 @@ void GraphicsViewTests::testVectorPanRepaintsOnlyExposedStrip()
 // Postconditions: the window and temporary documents are released.
 void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {"checkerboardbackground", false},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { "checkerboardbackground", false },
+              { "onetoonepixelsizing", false } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QList<QPair<QString, QString>> documents {
-        {QStringLiteral("eps"), createLargeEPSVectorImage(dir, QStringLiteral("drag-eps"))},
-        {QStringLiteral("svg"), svgSamplePath(dir)}
+    const QList<QPair<QString, QString>> documents{
+        { QStringLiteral("eps"), createLargeEPSVectorImage(dir, QStringLiteral("drag-eps")) },
+        { QStringLiteral("svg"), svgSamplePath(dir) }
     };
     for (const auto &document : documents)
         QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
@@ -11483,23 +10944,19 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
 
-    for (const auto &document : documents)
-    {
+    for (const auto &document : documents) {
         window.openFile(document.second);
-        QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            QFileInfo(document.second).absoluteFilePath(), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  QFileInfo(document.second).absoluteFilePath(), 5000);
         QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 5000);
         view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
-        QTRY_VERIFY_WITH_TIMEOUT(
-            view->horizontalScrollBar()->maximum()
-                > view->horizontalScrollBar()->minimum(),
-            2000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->maximum()
+                                         > view->horizontalScrollBar()->minimum(),
+                                 2000);
 
         QElapsedTimer tileTimer;
         tileTimer.start();
-        while (view->vectorRenderCount() == 0 && tileTimer.elapsed() < 5000)
-        {
+        while (view->vectorRenderCount() == 0 && tileTimer.elapsed() < 5000) {
             view->viewport()->repaint();
             QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
             QTest::qWait(5);
@@ -11518,31 +10975,29 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
 
         const int initialScrollValue = bar->value();
-        const QPoint dragStart(view->viewport()->width() / 2,
-                               view->viewport()->height() / 2);
+        const QPoint dragStart(view->viewport()->width() / 2, view->viewport()->height() / 2);
         const QPoint firstDragPosition = dragStart - QPoint(18, 0);
         PaintRegionRecorder recorder;
         view->viewport()->installEventFilter(&recorder);
         bool dragButtonPressed = false;
         const auto releaseDragButton = qScopeGuard([&]() {
             if (dragButtonPressed)
-                QTest::mouseRelease(view->viewport(), Qt::LeftButton,
-                                    Qt::NoModifier, firstDragPosition);
+                QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+                                    firstDragPosition);
             view->viewport()->removeEventFilter(&recorder);
         });
-        QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier,
-                          dragStart);
+        QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier, dragStart);
         dragButtonPressed = true;
         sendMouseMove(view->viewport(), firstDragPosition, Qt::LeftButton);
         const bool fullUpdateOnFirstDragFrame =
                 view->viewportUpdateMode() == QGraphicsView::FullViewportUpdate;
         QTRY_VERIFY_WITH_TIMEOUT(bar->value() != initialScrollValue, 1000);
         QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
-        const qint64 viewportArea = static_cast<qint64>(view->viewport()->width())
-                * view->viewport()->height();
+        const qint64 viewportArea =
+                static_cast<qint64>(view->viewport()->width()) * view->viewport()->height();
         QVERIFY(viewportArea > 0);
-        const qreal firstFrameDirtyRatio = static_cast<qreal>(
-            recorder.recordedAreas().constFirst()) / viewportArea;
+        const qreal firstFrameDirtyRatio =
+                static_cast<qreal>(recorder.recordedAreas().constFirst()) / viewportArea;
         const quint64 vectorPaintCountBeforeDrag = view->vectorRenderCount();
 
         // The old code returned to MinimalViewportUpdate after this quiet
@@ -11554,15 +11009,13 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         QVector<qint64> firstPaintAreaForEachDragStep;
         // Cross the bounded interaction-tile overscan so the test exercises
         // tile replacement as well as the initial cached portion of the drag.
-        for (int step = 1; step <= 40; ++step)
-        {
+        for (int step = 1; step <= 40; ++step) {
             lastDragPosition -= QPoint(4, 0);
             recorder.clear();
             sendMouseMove(view->viewport(), lastDragPosition, Qt::LeftButton);
             QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
             QTRY_VERIFY_WITH_TIMEOUT(!recorder.recordedAreas().isEmpty(), 1000);
-            firstPaintAreaForEachDragStep.append(
-                recorder.recordedAreas().constFirst());
+            firstPaintAreaForEachDragStep.append(recorder.recordedAreas().constFirst());
             // Repaint the real viewport after each drag event. The graphics
             // item increments this counter only after drawing a vector tile;
             // unlike an offscreen widget capture, this observes the viewport
@@ -11573,44 +11026,41 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
         const bool fullUpdateAfterContinuedDrag =
                 view->viewportUpdateMode() == QGraphicsView::FullViewportUpdate;
         bool everyDragScrollPaintCoveredViewport = true;
-        for (const qint64 paintArea : firstPaintAreaForEachDragStep)
-        {
-            if (static_cast<qreal>(paintArea) / viewportArea < 0.90)
-            {
+        for (const qint64 paintArea : firstPaintAreaForEachDragStep) {
+            if (static_cast<qreal>(paintArea) / viewportArea < 0.90) {
                 everyDragScrollPaintCoveredViewport = false;
                 break;
             }
         }
         const bool vectorTilePaintedDuringDrag =
                 view->vectorRenderCount() > vectorPaintCountBeforeDrag;
-        QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier,
-                            lastDragPosition);
+        QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier, lastDragPosition);
         dragButtonPressed = false;
-        QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(),
-                                  QGraphicsView::MinimalViewportUpdate, 1000);
+        QTRY_COMPARE_WITH_TIMEOUT(view->viewportUpdateMode(), QGraphicsView::MinimalViewportUpdate,
+                                  1000);
         QTRY_VERIFY_WITH_TIMEOUT(!view->hasPendingVectorRefinement(), 5000);
         QCoreApplication::processEvents();
         view->viewport()->removeEventFilter(&recorder);
 
-        const bool dragPresentationContractPassed =
-                fullUpdateOnFirstDragFrame && fullUpdateAfterPause
-                && fullUpdateAfterContinuedDrag && firstFrameDirtyRatio >= 0.90
-                && everyDragScrollPaintCoveredViewport && vectorTilePaintedDuringDrag;
-        if (!dragPresentationContractPassed)
-        {
-            qInfo().noquote() << QStringLiteral(
-                "VECTOR_DRAG_FAILURE format=%1 first_full=%2 pause_full=%3 "
-                "continued_full=%4 first_dirty=%5 all_scroll_paints_full=%6 "
-                "vector_tile_painted=%7 vector_paints_before=%8 vector_paints_after=%9")
-                .arg(document.first)
-                .arg(fullUpdateOnFirstDragFrame)
-                .arg(fullUpdateAfterPause)
-                .arg(fullUpdateAfterContinuedDrag)
-                .arg(firstFrameDirtyRatio, 0, 'f', 3)
-                .arg(everyDragScrollPaintCoveredViewport)
-                .arg(vectorTilePaintedDuringDrag)
-                .arg(vectorPaintCountBeforeDrag)
-                .arg(view->vectorRenderCount());
+        const bool dragPresentationContractPassed = fullUpdateOnFirstDragFrame
+                && fullUpdateAfterPause && fullUpdateAfterContinuedDrag
+                && firstFrameDirtyRatio >= 0.90 && everyDragScrollPaintCoveredViewport
+                && vectorTilePaintedDuringDrag;
+        if (!dragPresentationContractPassed) {
+            qInfo().noquote()
+                    << QStringLiteral("VECTOR_DRAG_FAILURE format=%1 first_full=%2 pause_full=%3 "
+                                      "continued_full=%4 first_dirty=%5 all_scroll_paints_full=%6 "
+                                      "vector_tile_painted=%7 vector_paints_before=%8 "
+                                      "vector_paints_after=%9")
+                               .arg(document.first)
+                               .arg(fullUpdateOnFirstDragFrame)
+                               .arg(fullUpdateAfterPause)
+                               .arg(fullUpdateAfterContinuedDrag)
+                               .arg(firstFrameDirtyRatio, 0, 'f', 3)
+                               .arg(everyDragScrollPaintCoveredViewport)
+                               .arg(vectorTilePaintedDuringDrag)
+                               .arg(vectorPaintCountBeforeDrag)
+                               .arg(view->vectorRenderCount());
             window.close();
             qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
             QVERIFY2(dragPresentationContractPassed,
@@ -11618,16 +11068,17 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
                                 + QStringLiteral(" drag lost full viewport repainting")));
         }
 
-        qInfo().noquote() << QStringLiteral(
-            "VECTOR_DRAG_PRESENTATION format=%1 first_frame_dirty_ratio=%2 "
-            "vector_tile_painted=%3 vector_paints_before=%4 vector_paints_after=%5 "
-            "pause_ms=120 release_update_mode=minimal viewport_area=%6")
-            .arg(document.first)
-            .arg(firstFrameDirtyRatio, 0, 'f', 6)
-            .arg(vectorTilePaintedDuringDrag)
-            .arg(vectorPaintCountBeforeDrag)
-            .arg(view->vectorRenderCount())
-            .arg(viewportArea);
+        qInfo().noquote()
+                << QStringLiteral(
+                           "VECTOR_DRAG_PRESENTATION format=%1 first_frame_dirty_ratio=%2 "
+                           "vector_tile_painted=%3 vector_paints_before=%4 vector_paints_after=%5 "
+                           "pause_ms=120 release_update_mode=minimal viewport_area=%6")
+                           .arg(document.first)
+                           .arg(firstFrameDirtyRatio, 0, 'f', 6)
+                           .arg(vectorTilePaintedDuringDrag)
+                           .arg(vectorPaintCountBeforeDrag)
+                           .arg(view->vectorRenderCount())
+                           .arg(viewportArea);
     }
 
     window.close();
@@ -11638,14 +11089,14 @@ void GraphicsViewTests::testVectorPaintClearsStalePixelsBeforeTileReady()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QList<QPair<QString, QString>> documents {
-        {QStringLiteral("eps"), createTransparentEPSVectorImage(dir, QStringLiteral("ghost-eps"))},
-        {QStringLiteral("svg"), createTransparentSVGVectorImage(dir, QStringLiteral("ghost-svg"))}
+    const QList<QPair<QString, QString>> documents{
+        { QStringLiteral("eps"),
+          createTransparentEPSVectorImage(dir, QStringLiteral("ghost-eps")) },
+        { QStringLiteral("svg"), createTransparentSVGVectorImage(dir, QStringLiteral("ghost-svg")) }
     };
 
     constexpr QRgb sentinel = qRgb(255, 0, 255);
-    for (const auto &document : documents)
-    {
+    for (const auto &document : documents) {
         QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
         const auto result = loadImage(document.second);
         QVERIFY2(result.has_value(), qPrintable(document.first));
@@ -11653,7 +11104,7 @@ void GraphicsViewTests::testVectorPaintClearsStalePixelsBeforeTileReady()
 
         QVGraphicsImageItem item;
         QImage transparentFallback(result->vectorImage.logicalSize.toSize(),
-                                    QImage::Format_ARGB32_Premultiplied);
+                                   QImage::Format_ARGB32_Premultiplied);
         QVERIFY(!transparentFallback.isNull());
         transparentFallback.fill(Qt::transparent);
         item.setPixmap(QPixmap::fromImage(transparentFallback));
@@ -11669,30 +11120,28 @@ void GraphicsViewTests::testVectorPaintClearsStalePixelsBeforeTileReady()
         painter.end();
 
         qint64 stalePixels = 0;
-        for (int y = 0; y < canvas.height(); ++y)
-        {
+        for (int y = 0; y < canvas.height(); ++y) {
             const QRgb *row = reinterpret_cast<const QRgb *>(canvas.constScanLine(y));
             for (int x = 0; x < canvas.width(); ++x)
                 stalePixels += row[x] == sentinel;
         }
         const qint64 totalPixels = static_cast<qint64>(canvas.width()) * canvas.height();
-        qInfo().noquote() << QStringLiteral(
-            "VECTOR_GHOST_PIXELS format=%1 stale_pixels=%2 total_pixels=%3")
-            .arg(document.first)
-            .arg(stalePixels)
-            .arg(totalPixels);
+        qInfo().noquote()
+                << QStringLiteral("VECTOR_GHOST_PIXELS format=%1 stale_pixels=%2 total_pixels=%3")
+                           .arg(document.first)
+                           .arg(stalePixels)
+                           .arg(totalPixels);
         QCOMPARE(stalePixels, qint64(0));
     }
 }
 
 void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
@@ -11721,16 +11170,14 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
         timer.start();
         while (timer.elapsed() < 5000) {
             view->viewport()->repaint();
-            if (view->vectorRenderCount() > 0
-                && !view->lastVectorRasterSize().isEmpty())
+            if (view->vectorRenderCount() > 0 && !view->lastVectorRasterSize().isEmpty())
                 return true;
             QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
             QTest::qWait(5);
         }
         view->viewport()->repaint();
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
-        return view->vectorRenderCount() > 0
-                && !view->lastVectorRasterSize().isEmpty();
+        return view->vectorRenderCount() > 0 && !view->lastVectorRasterSize().isEmpty();
     };
 
     window.openFile(epsPath);
@@ -11755,15 +11202,14 @@ void GraphicsViewTests::testVectorFormatsUseDocumentSceneItem()
     // A scrollbar can appear after the first high-zoom request and shrink the
     // viewport while that exact tile is already in flight. Allow the bounded
     // pre-scroll tile plus a small exposure-rounding margin.
-    const QSize maximumVisibleTile = view->viewport()->size()
-            * view->viewport()->devicePixelRatioF() + QSize(296, 296);
+    const QSize maximumVisibleTile =
+            view->viewport()->size() * view->viewport()->devicePixelRatioF() + QSize(296, 296);
     QVERIFY(view->lastVectorRasterSize().width() <= maximumVisibleTile.width());
     QVERIFY(view->lastVectorRasterSize().height() <= maximumVisibleTile.height());
 
     window.openFile(svgPath);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-        QFileInfo(svgPath).absoluteFilePath(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              QFileInfo(svgPath).absoluteFilePath(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
     QVERIFY(view->viewport()->testAttribute(Qt::WA_OpaquePaintEvent));
     QCOMPARE(view->vectorImageFormat(), Qv::VectorImageFormat::Svg);
@@ -11792,21 +11238,18 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
     // synchronous QWidget::repaint() cannot observe WindowServer submission,
     // VSync pacing, or photons on the panel, so no presented-FPS claim is made.
     ScopedSettingPreserver geometrySetting(QStringLiteral("geometry"));
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QList<QPair<QString, QString>> documents {
-        {QStringLiteral("eps"), epsSamplePath(dir)},
-        {QStringLiteral("svg"), svgSamplePath(dir)}
-    };
+    const QList<QPair<QString, QString>> documents{ { QStringLiteral("eps"), epsSamplePath(dir) },
+                                                    { QStringLiteral("svg"), svgSamplePath(dir) } };
     for (const auto &document : documents)
         QVERIFY2(!document.second.isEmpty(), qPrintable(document.first));
 
@@ -11818,74 +11261,62 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
     QVERIFY(QTest::qWaitForWindowExposed(&window));
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
-    qInfo().noquote() << QStringLiteral(
-        "VECTOR_120HZ_DISPLAY refresh_hz=%1 viewport=%2x%3 dpr=%4")
-        .arg(window.screen() ? window.screen()->refreshRate() : 0.0, 0, 'f', 1)
-        .arg(view->viewport()->width())
-        .arg(view->viewport()->height())
-        .arg(view->viewport()->devicePixelRatioF(), 0, 'f', 1);
+    qInfo().noquote() << QStringLiteral("VECTOR_120HZ_DISPLAY refresh_hz=%1 viewport=%2x%3 dpr=%4")
+                                 .arg(window.screen() ? window.screen()->refreshRate() : 0.0, 0,
+                                      'f', 1)
+                                 .arg(view->viewport()->width())
+                                 .arg(view->viewport()->height())
+                                 .arg(view->viewport()->devicePixelRatioF(), 0, 'f', 1);
 
     constexpr int FrameCount = 120;
     constexpr double FrameBudgetMilliseconds = 1000.0 / 120.0;
     QVERIFY(currentThreadCpuTimeNanoseconds().has_value());
-    const auto verifySamples = [&](QVector<double> samples,
-                                   const QString &format,
+    const auto verifySamples = [&](QVector<double> samples, const QString &format,
                                    const QString &interaction) {
         std::sort(samples.begin(), samples.end());
-        const double average = std::accumulate(
-            samples.cbegin(), samples.cend(), 0.0) / samples.size();
-        const int p99Index = qMax(
-            0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
+        const double average =
+                std::accumulate(samples.cbegin(), samples.cend(), 0.0) / samples.size();
+        const int p99Index = qMax(0, static_cast<int>(qCeil(samples.size() * 0.99)) - 1);
         const double p99 = samples.at(p99Index);
         const double maximum = samples.constLast();
         const double cpuCapacity = 1000.0 / p99;
         qInfo().noquote() << QStringLiteral(
-            "VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu "
-            "format=%1 interaction=%2 average_cpu_ms=%3 "
-            "p99_cpu_ms=%4 max_cpu_ms=%5 cpu_capacity_fps=%6 count=%7")
-            .arg(format, interaction)
-            .arg(average, 0, 'f', 3)
-            .arg(p99, 0, 'f', 3)
-            .arg(maximum, 0, 'f', 3)
-            .arg(cpuCapacity, 0, 'f', 3)
-            .arg(samples.size());
+                                     "VECTOR_120HZ_CPU_BUDGET measurement=thread_cpu "
+                                     "format=%1 interaction=%2 average_cpu_ms=%3 "
+                                     "p99_cpu_ms=%4 max_cpu_ms=%5 cpu_capacity_fps=%6 count=%7")
+                                     .arg(format, interaction)
+                                     .arg(average, 0, 'f', 3)
+                                     .arg(p99, 0, 'f', 3)
+                                     .arg(maximum, 0, 'f', 3)
+                                     .arg(cpuCapacity, 0, 'f', 3)
+                                     .arg(samples.size());
         QVERIFY2(average <= FrameBudgetMilliseconds,
                  qPrintable(format + " " + interaction + " average"));
-        QVERIFY2(p99 <= FrameBudgetMilliseconds,
-                 qPrintable(format + " " + interaction + " p99"));
+        QVERIFY2(p99 <= FrameBudgetMilliseconds, qPrintable(format + " " + interaction + " p99"));
         // A synchronous repaint includes scheduler and WindowServer jitter;
         // retain the single-sample maximum as evidence without treating one
         // unrelated scheduling spike as a renderer regression.
-        QVERIFY2(cpuCapacity >= 120.0,
-                 qPrintable(format + " " + interaction + " CPU capacity"));
+        QVERIFY2(cpuCapacity >= 120.0, qPrintable(format + " " + interaction + " CPU capacity"));
     };
 
-    for (const auto &document : documents)
-    {
+    for (const auto &document : documents) {
         window.openFile(document.second);
-        QTRY_COMPARE_WITH_TIMEOUT(
-            window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-            QFileInfo(document.second).absoluteFilePath(), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                                  QFileInfo(document.second).absoluteFilePath(), 5000);
         QTRY_VERIFY_WITH_TIMEOUT(view->usesVectorRendering(), 2000);
 
-        for (int i = 0; i < 12; ++i)
-        {
-            view->zoomAbsolute(i % 2 == 0 ? 48.0 : 64.0,
-                               Qv::CalculateViewportCenterPos);
+        for (int i = 0; i < 12; ++i) {
+            view->zoomAbsolute(i % 2 == 0 ? 48.0 : 64.0, Qv::CalculateViewportCenterPos);
             view->viewport()->repaint();
         }
         QVector<double> zoomSamples;
         zoomSamples.reserve(FrameCount);
-        for (int i = 0; i < FrameCount; ++i)
-        {
+        for (int i = 0; i < FrameCount; ++i) {
             const auto cpuStart = currentThreadCpuTimeNanoseconds();
             QVERIFY(cpuStart.has_value());
-            const int triangularStep = i < FrameCount / 2
-                    ? i : FrameCount - 1 - i;
-            const qreal continuousZoom = 48.0
-                    + triangularStep * 16.0 / (FrameCount / 2 - 1);
-            view->zoomAbsolute(continuousZoom,
-                               Qv::CalculateViewportCenterPos);
+            const int triangularStep = i < FrameCount / 2 ? i : FrameCount - 1 - i;
+            const qreal continuousZoom = 48.0 + triangularStep * 16.0 / (FrameCount / 2 - 1);
+            view->zoomAbsolute(continuousZoom, Qv::CalculateViewportCenterPos);
             view->viewport()->repaint();
             const auto cpuEnd = currentThreadCpuTimeNanoseconds();
             QVERIFY(cpuEnd.has_value());
@@ -11896,22 +11327,20 @@ void GraphicsViewTests::testVectorInteractionPaintCpuBudgetFor120Hz()
 
         view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
         view->horizontalScrollBar()->setValue(
-            (view->horizontalScrollBar()->minimum()
-             + view->horizontalScrollBar()->maximum()) / 2);
+                (view->horizontalScrollBar()->minimum() + view->horizontalScrollBar()->maximum())
+                / 2);
         view->verticalScrollBar()->setValue(
-            (view->verticalScrollBar()->minimum()
-             + view->verticalScrollBar()->maximum()) / 2);
+                (view->verticalScrollBar()->minimum() + view->verticalScrollBar()->maximum()) / 2);
         view->viewport()->repaint();
         QVector<double> panSamples;
         panSamples.reserve(FrameCount);
-        for (int i = 0; i < FrameCount; ++i)
-        {
+        for (int i = 0; i < FrameCount; ++i) {
             const auto cpuStart = currentThreadCpuTimeNanoseconds();
             QVERIFY(cpuStart.has_value());
-            view->horizontalScrollBar()->setValue(
-                view->horizontalScrollBar()->value() + (i % 2 == 0 ? 2 : -2));
-            view->verticalScrollBar()->setValue(
-                view->verticalScrollBar()->value() + (i % 3 == 0 ? 1 : -1));
+            view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->value()
+                                                  + (i % 2 == 0 ? 2 : -2));
+            view->verticalScrollBar()->setValue(view->verticalScrollBar()->value()
+                                                + (i % 3 == 0 ? 1 : -1));
             view->viewport()->repaint();
             const auto cpuEnd = currentThreadCpuTimeNanoseconds();
             QVERIFY(cpuEnd.has_value());
@@ -11937,16 +11366,15 @@ void ActionManagerTests::testAboutDialogIdentity()
     QVERIFY(infoLabel);
     QCOMPARE(dialog.windowTitle(), QString("About Fovelle"));
     QCOMPARE(logoLabel->text(), QString("Fovelle"));
-    QCOMPARE(subtitleLabel->text(),
-             QStringLiteral("version ") + QStringLiteral(VERSION_STRING));
+    QCOMPARE(subtitleLabel->text(), QStringLiteral("version ") + QStringLiteral(VERSION_STRING));
 
     const QString visibleText = QTextDocumentFragment::fromHtml(infoLabel->text()).toPlainText();
     const QString expectedText =
-        "Based on qView\n"
-        "Copyright © 2018–2025 jurplel and qView contributors\n"
-        "Fovelle modifications © 2026 Fovelle contributors\n"
-        "Includes portions of commits from jdpurcell/qView by jdpurcell\n\n"
-        "Licensed under GPLv3";
+            "Based on qView\n"
+            "Copyright © 2018–2025 jurplel and qView contributors\n"
+            "Fovelle modifications © 2026 Fovelle contributors\n"
+            "Includes portions of commits from jdpurcell/qView by jdpurcell\n\n"
+            "Licensed under GPLv3";
     QCOMPARE(visibleText, expectedText);
     QVERIFY(infoLabel->text().contains("https://github.com/inostarlin-passion/Fovelle"));
     QVERIFY(infoLabel->text().contains("https://github.com/jdpurcell/qView"));
@@ -12235,7 +11663,8 @@ void ApplicationEventTests::testFileOpenEventIsDeferredAndLoadsImage()
 
     QTRY_VERIFY_WITH_TIMEOUT(!qvApp->hasPendingFileOpenEvents(), 2000);
     QTRY_VERIFY_WITH_TIMEOUT(window->getIsPixmapLoaded(), 5000);
-    QCOMPARE(window->getCurrentFileDetails().fileInfo.absoluteFilePath(), QFileInfo(path).absoluteFilePath());
+    QCOMPARE(window->getCurrentFileDetails().fileInfo.absoluteFilePath(),
+             QFileInfo(path).absoluteFilePath());
 
     window->close();
     if (hadFirstLaunch)
@@ -12249,7 +11678,7 @@ void ApplicationEventTests::testFileOpenEventWithoutPathIsIgnored()
 {
     QVERIFY(!qvApp->hasPendingFileOpenEvents());
 
-    QFileOpenEvent openEvent(QString{});
+    QFileOpenEvent openEvent(QString{ });
     QVERIFY(qvApp->event(&openEvent));
     QVERIFY(!qvApp->hasPendingFileOpenEvents());
 }
@@ -12300,13 +11729,15 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
     QTemporaryDir fallbackDirectory;
     QString path = configuredPath;
     const bool usingEmbeddedFixture = path.isEmpty();
-    if (path.isEmpty())
-    {
+    if (path.isEmpty()) {
         QVERIFY(fallbackDirectory.isValid());
-        path = createBase64Image(fallbackDirectory, "embedded-animated", "png", tinyAnimatedPngBase64);
+        path = createBase64Image(fallbackDirectory, "embedded-animated", "png",
+                                 tinyAnimatedPngBase64);
     }
-    QVERIFY2(QFileInfo::exists(path), qPrintable(QStringLiteral("APNG fixture is missing: %1").arg(path)));
-    const bool isReferenceSample = QFileInfo(path).fileName() == QStringLiteral("587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png");
+    QVERIFY2(QFileInfo::exists(path),
+             qPrintable(QStringLiteral("APNG fixture is missing: %1").arg(path)));
+    const bool isReferenceSample = QFileInfo(path).fileName()
+            == QStringLiteral("587991672-4ed6af9e-f29e-44d2-ba55-07423ba5b91b.png");
 
     QVMovie movie(path);
     movie.setCacheMode(QVMovie::CacheAll);
@@ -12328,12 +11759,10 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
 
     int differingFrame = -1;
     QImage secondFrame;
-    for (int frameNumber = 1; frameNumber < movie.frameCount(); ++frameNumber)
-    {
+    for (int frameNumber = 1; frameNumber < movie.frameCount(); ++frameNumber) {
         QVERIFY(movie.jumpToFrame(frameNumber));
         secondFrame = movie.currentImage();
-        if (firstFrame != secondFrame)
-        {
+        if (firstFrame != secondFrame) {
             differingFrame = frameNumber;
             break;
         }
@@ -12354,10 +11783,8 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
     playbackMovie.start();
     QTRY_VERIFY_WITH_TIMEOUT(frameChangedSpy.count() >= 2, 1000);
     bool observedLaterFrame = false;
-    for (const auto &arguments : frameChangedSpy)
-    {
-        if (!arguments.isEmpty() && arguments.at(0).toInt() > 0)
-        {
+    for (const auto &arguments : frameChangedSpy) {
+        if (!arguments.isEmpty() && arguments.at(0).toInt() > 0) {
             observedLaterFrame = true;
             break;
         }
@@ -12375,9 +11802,8 @@ void ImageCoreAndMovieTests::testAnimatedPngPlaysBeyondFirstFrame()
 // Postcondition: no setting or window state is changed.
 void WindowBehaviorTests::testDefaultTitlebarTextIsPractical()
 {
-    QCOMPARE(
-        qvApp->getSettingsManager().getEnum<Qv::TitleBarText>("titlebarmode", true),
-        Qv::TitleBarText::Practical);
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::TitleBarText>("titlebarmode", true),
+             Qv::TitleBarText::Practical);
 }
 
 // TC-FS-DEFAULT
@@ -12393,16 +11819,14 @@ void WindowBehaviorTests::testDefaultTitlebarTextIsPractical()
 void WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()
 {
     const QString returnKey = QKeySequence(Qt::Key_Return).toString();
-    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {returnKey}}});
+    ScopedShortcutValues shortcuts({ { "fullscreen", QStringList{ returnKey } } });
 
     bool foundFullscreenShortcut = false;
-    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
-    {
-        if (shortcut.name == QStringLiteral("fullscreen"))
-        {
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList()) {
+        if (shortcut.name == QStringLiteral("fullscreen")) {
             foundFullscreenShortcut = true;
-            QCOMPARE(shortcut.defaultShortcuts, QStringList {returnKey});
-            QCOMPARE(shortcut.shortcuts, QStringList {returnKey});
+            QCOMPARE(shortcut.defaultShortcuts, QStringList{ returnKey });
+            QCOMPARE(shortcut.shortcuts, QStringList{ returnKey });
             break;
         }
     }
@@ -12410,7 +11834,7 @@ void WindowBehaviorTests::testFullscreenDefaultShortcutIsEnterAndConfigurable()
 
     const QAction *fullscreenAction = qvApp->getActionManager().getAction("fullscreen");
     QVERIFY(fullscreenAction);
-    const QList<QKeySequence> expectedShortcuts {QKeySequence(Qt::Key_Return)};
+    const QList<QKeySequence> expectedShortcuts{ QKeySequence(Qt::Key_Return) };
     QCOMPARE(fullscreenAction->shortcuts(), expectedShortcuts);
 }
 
@@ -12428,7 +11852,7 @@ void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {}}});
+    ScopedShortcutValues shortcuts({ { "fullscreen", QStringList{ } } });
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -12441,8 +11865,7 @@ void WindowBehaviorTests::testEnterDoesNotBypassClearedFullscreenShortcut()
     // test process steal foreground ownership from the test runner.
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
 
-    for (const auto *shortcut : window.findChildren<QShortcut *>())
-    {
+    for (const auto *shortcut : window.findChildren<QShortcut *>()) {
         QVERIFY(shortcut->key() != QKeySequence(Qt::Key_Return));
         QVERIFY(shortcut->key() != QKeySequence(Qt::Key_Enter));
     }
@@ -12470,7 +11893,8 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
 {
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-    ScopedShortcutValues shortcuts({{"fullscreen", QStringList {QKeySequence(Qt::Key_Space).toString()}}});
+    ScopedShortcutValues shortcuts(
+            { { "fullscreen", QStringList{ QKeySequence(Qt::Key_Space).toString() } } });
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -12489,11 +11913,12 @@ void WindowBehaviorTests::testConfiguredFullscreenShortcutStillWorks()
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 1000);
 
-    const auto fullscreenActions = qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window);
+    const auto fullscreenActions =
+            qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window);
     QVERIFY(!fullscreenActions.isEmpty());
     QAction *fullscreenAction = fullscreenActions.constFirst();
     QVERIFY(fullscreenAction);
-    QCOMPARE(fullscreenAction->shortcuts(), QList<QKeySequence> {QKeySequence(Qt::Key_Space)});
+    QCOMPARE(fullscreenAction->shortcuts(), QList<QKeySequence>{ QKeySequence(Qt::Key_Space) });
     // Trigger the configured QAction directly. Qt's macOS test backend can
     // deliver synthetic Space key events to the application-wide menu rather
     // than the active QWidget, even after QApplication::setActiveWindow().
@@ -12530,30 +11955,26 @@ void WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     const QString escape = QKeySequence(Qt::Key_Escape).toString();
-    ScopedShortcutValues shortcuts({{"togglefitand100", QStringList {escape}}});
+    ScopedShortcutValues shortcuts({ { "togglefitand100", QStringList{ escape } } });
 
-    QVERIFY(ShortcutManager::beginsWithReservedEscape(
-        QKeySequence(Qt::Key_Escape)));
-    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
-    {
+    QVERIFY(ShortcutManager::beginsWithReservedEscape(QKeySequence(Qt::Key_Escape)));
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList()) {
         for (const QKeySequence &sequence :
              ShortcutManager::stringListToKeySequenceList(shortcut.shortcuts))
             QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
     }
-    const QAction *toggleFitAnd100Action =
-        qvApp->getActionManager().getAction("togglefitand100");
+    const QAction *toggleFitAnd100Action = qvApp->getActionManager().getAction("togglefitand100");
     QVERIFY(toggleFitAnd100Action);
     for (const QKeySequence &sequence : toggleFitAnd100Action->shortcuts())
         QVERIFY(!ShortcutManager::beginsWithReservedEscape(sequence));
     QSettings settings;
-    QCOMPARE(
-        settings.value(QStringLiteral("shortcuts/togglefitand100")).toStringList(),
-        QStringList {});
+    QCOMPARE(settings.value(QStringLiteral("shortcuts/togglefitand100")).toStringList(),
+             QStringList{ });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, "reserved-escape", Qt::darkMagenta, QSize(1600, 1000));
+    const QString imagePath =
+            createTestImage(dir, "reserved-escape", Qt::darkMagenta, QSize(1600, 1000));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -12591,13 +12012,12 @@ void WindowBehaviorTests::testEscapeIsReservedForWindowLifecycle()
 // Postcondition: the window and temporary image files are released.
 void WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()
 {
-    ScopedOptionValues options({
-        {"titlebarmode", static_cast<int>(Qv::TitleBarText::Practical)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
-        {"sortdescending", false}
-    });
+    ScopedOptionValues options(
+            { { "titlebarmode", static_cast<int>(Qv::TitleBarText::Practical) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "sortmode", static_cast<int>(Qv::SortMode::Name) },
+              { "sortdescending", false } });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -12629,13 +12049,12 @@ void WindowBehaviorTests::testPracticalTitlebarTextUsesFilenameAndSequence()
 // Postcondition: the window and temporary image files are released.
 void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
 {
-    ScopedOptionValues options({
-        {"titlebarmode", static_cast<int>(Qv::TitleBarText::Verbose)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
-        {"sortdescending", false}
-    });
+    ScopedOptionValues options(
+            { { "titlebarmode", static_cast<int>(Qv::TitleBarText::Verbose) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "sortmode", static_cast<int>(Qv::SortMode::Name) },
+              { "sortdescending", false } });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -12655,8 +12074,8 @@ void WindowBehaviorTests::testVerboseTitlebarTextUsesAllRequestedFields()
     view->zoomAbsolute(1.25, Qv::CalculateViewportCenterPos);
     window.buildWindowTitle();
 
-    const QString expected = QStringLiteral("01-verbose.png - 1/2 - 64x48 - ") +
-        QVInfoDialog::formatBytes(QFileInfo(targetPath).size()) + QStringLiteral(" - 125.0%");
+    const QString expected = QStringLiteral("01-verbose.png - 1/2 - 64x48 - ")
+            + QVInfoDialog::formatBytes(QFileInfo(targetPath).size()) + QStringLiteral(" - 125.0%");
     QCOMPARE(window.windowTitle(), expected);
     QVERIFY(!window.windowTitle().contains(QStringLiteral("Fovelle")));
     window.close();
@@ -12678,8 +12097,7 @@ void ShortcutSettingsTests::testToggleFitAnd100IsTheOnlyFitShortcutAction()
 {
     const auto &shortcuts = qvApp->getShortcutManager().getShortcutsList();
     const ShortcutManager::SShortcut *toggle = nullptr;
-    for (const auto &shortcut : shortcuts)
-    {
+    for (const auto &shortcut : shortcuts) {
         QVERIFY(shortcut.name != QStringLiteral("originalsize"));
         QVERIFY(shortcut.name != QStringLiteral("zoomtofit"));
         QVERIFY(shortcut.name != QStringLiteral("navresetszoom"));
@@ -12689,8 +12107,7 @@ void ShortcutSettingsTests::testToggleFitAnd100IsTheOnlyFitShortcutAction()
     QVERIFY(toggle);
     QCOMPARE(toggle->readableName,
              QCoreApplication::translate("ShortcutManager", "Toggle Fit and 100%"));
-    QCOMPARE(toggle->defaultShortcuts,
-             QStringList {QKeySequence(Qt::Key_Z).toString()});
+    QCOMPARE(toggle->defaultShortcuts, QStringList{ QKeySequence(Qt::Key_Z).toString() });
 
     QVERIFY(qvApp->getActionManager().getAction("togglefitand100"));
     QVERIFY(!qvApp->getActionManager().getAction("originalsize"));
@@ -12709,11 +12126,9 @@ void ShortcutSettingsTests::testToggleFitAnd100IsTheOnlyFitShortcutAction()
     QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
 
     bool foundTableRow = false;
-    for (int row = 0; row < table->rowCount(); ++row)
-    {
+    for (int row = 0; row < table->rowCount(); ++row) {
         auto *item = table->item(row, 0);
-        if (item && item->text() == toggle->readableName)
-        {
+        if (item && item->text() == toggle->readableName) {
             foundTableRow = true;
             QCOMPARE(table->item(row, 1)->text(),
                      ShortcutManager::stringListToReadableString(toggle->shortcuts));
@@ -12737,30 +12152,23 @@ void ShortcutSettingsTests::testToggleFitAnd100IsTheOnlyFitShortcutAction()
 // refreshed.
 void ShortcutSettingsTests::testToggleFitAnd100DefaultsToZ()
 {
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("togglefitand100"),
-         QStringList {QKeySequence(Qt::Key_Z).toString()}}
-    });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("togglefitand100"),
+                                       QStringList{ QKeySequence(Qt::Key_Z).toString() } } });
 
     const ShortcutManager::SShortcut *toggle = nullptr;
-    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList())
-    {
-        if (shortcut.name == QStringLiteral("togglefitand100"))
-        {
+    for (const auto &shortcut : qvApp->getShortcutManager().getShortcutsList()) {
+        if (shortcut.name == QStringLiteral("togglefitand100")) {
             toggle = &shortcut;
             break;
         }
     }
     QVERIFY(toggle);
-    QCOMPARE(toggle->defaultShortcuts,
-             QStringList {QKeySequence(Qt::Key_Z).toString()});
-    QCOMPARE(toggle->shortcuts,
-             QStringList {QKeySequence(Qt::Key_Z).toString()});
+    QCOMPARE(toggle->defaultShortcuts, QStringList{ QKeySequence(Qt::Key_Z).toString() });
+    QCOMPARE(toggle->shortcuts, QStringList{ QKeySequence(Qt::Key_Z).toString() });
 
     QAction *action = qvApp->getActionManager().getAction("togglefitand100");
     QVERIFY(action);
-    QCOMPARE(action->shortcuts(),
-             QList<QKeySequence> {QKeySequence(Qt::Key_Z)});
+    QCOMPARE(action->shortcuts(), QList<QKeySequence>{ QKeySequence(Qt::Key_Z) });
 }
 
 // AC-SHORTCUT-TOGGLE-BEHAVIOR
@@ -12776,21 +12184,22 @@ void ShortcutSettingsTests::testToggleFitAnd100DefaultsToZ()
 // Postcondition: the image window and temporary settings are restored.
 void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {QStringLiteral("smoothscalingmode"), static_cast<int>(Qv::SmoothScalingMode::Disabled)},
-        {QStringLiteral("onetoonepixelsizing"), false},
-        {QStringLiteral("originalsizeastoggle"), true}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never) },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { QStringLiteral("smoothscalingmode"),
+                static_cast<int>(Qv::SmoothScalingMode::Disabled) },
+              { QStringLiteral("onetoonepixelsizing"), false },
+              { QStringLiteral("originalsizeastoggle"), true } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(
-        dir, QStringLiteral("toggle-fit-100"), Qt::darkBlue, QSize(1600, 1000));
+    const QString imagePath =
+            createTestImage(dir, QStringLiteral("toggle-fit-100"), Qt::darkBlue, QSize(1600, 1000));
     QVERIFY(!imagePath.isEmpty());
 
     MainWindow window;
@@ -12812,10 +12221,10 @@ void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
     QVERIFY(view->getZoomLevel() > 1.5);
 
     ActionManager::actionTriggered(action, &window);
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             2000);
     QVERIFY(!view->isZoomTransitionRunning());
     QVERIFY(view->isImageAtFit());
     QVERIFY(view->getZoomLevel() < 1.0);
@@ -12830,10 +12239,10 @@ void ShortcutSettingsTests::testToggleFitAnd100ChangesBetweenFitAnd100Percent()
 
     ActionManager::actionTriggered(action, &window);
     QVERIFY(waitForZoomTerminal(view));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        view->getCalculatedZoomMode().has_value() &&
-            view->getCalculatedZoomMode().value() == Qv::CalculatedZoomMode::ZoomToFit,
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->getCalculatedZoomMode().has_value()
+                                     && view->getCalculatedZoomMode().value()
+                                             == Qv::CalculatedZoomMode::ZoomToFit,
+                             2000);
     QVERIFY(view->isImageAtFit());
 
     window.close();
@@ -12855,23 +12264,21 @@ void ShortcutSettingsTests::testToggleFitAnd100Translations()
 #ifndef FOVELLE_TRANSLATIONS_DIR
     QSKIP("Translation catalogs were disabled for this build");
 #else
-    const QList<QPair<QString, QString>> languages {
-        {QStringLiteral("en"), QStringLiteral("Toggle Fit and 100%")},
-        {QStringLiteral("zh_Hans"), QStringLiteral("切换适合窗口/100%")},
-        {QStringLiteral("zh_Hant"), QStringLiteral("切換符合視窗/100%")},
-        {QStringLiteral("es"), QStringLiteral("Alternar Ajustar/100 %")},
-        {QStringLiteral("ja"), QStringLiteral("合わせる/100%切り替え")}
+    const QList<QPair<QString, QString>> languages{
+        { QStringLiteral("en"), QStringLiteral("Toggle Fit and 100%") },
+        { QStringLiteral("zh_Hans"), QStringLiteral("切换适合窗口/100%") },
+        { QStringLiteral("zh_Hant"), QStringLiteral("切換符合視窗/100%") },
+        { QStringLiteral("es"), QStringLiteral("Alternar Ajustar/100 %") },
+        { QStringLiteral("ja"), QStringLiteral("合わせる/100%切り替え") }
     };
 
-    for (const auto &language : languages)
-    {
+    for (const auto &language : languages) {
         SourceLanguageTranslator sourceTranslator;
         QTranslator catalogTranslator;
         QTranslator *translator = &sourceTranslator;
-        if (language.first != QStringLiteral("en"))
-        {
-            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                    .arg(language.first);
+        if (language.first != QStringLiteral("en")) {
+            const QString path =
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language.first);
             QVERIFY2(catalogTranslator.load(path), qPrintable(path));
             translator = &catalogTranslator;
         }
@@ -12902,15 +12309,13 @@ void ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()
     const auto platformBindings = QKeySequence::keyBindings(QKeySequence::Open);
     QVERIFY(!platformBindings.isEmpty());
 
-    const QStringList storedBindings =
-        ShortcutManager::keyBindingsToStringList(QKeySequence::Open);
+    const QStringList storedBindings = ShortcutManager::keyBindingsToStringList(QKeySequence::Open);
     QCOMPARE(storedBindings.size(), 1);
     QCOMPARE(storedBindings.constFirst(),
              platformBindings.constFirst().toString(QKeySequence::PortableText));
 
     const QString displayed = ShortcutManager::stringListToReadableString(storedBindings);
-    QCOMPARE(displayed,
-             platformBindings.constFirst().toString(QKeySequence::NativeText));
+    QCOMPARE(displayed, platformBindings.constFirst().toString(QKeySequence::NativeText));
     QVERIFY(!displayed.contains(QStringLiteral("Open")));
 }
 
@@ -12929,7 +12334,7 @@ void ShortcutSettingsTests::testPrimaryStandardShortcutDoesNotExposeActionName()
 // Postcondition: the dialog is closed without changing settings.
 void ShortcutSettingsTests::testShortcutsColumnFillsRemainingWidth()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
 
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -12965,16 +12370,13 @@ static void sendShortcutCellDoubleClick(QTableWidget *table)
 
     QSignalSpy doubleClickSpy(table, &QTableWidget::cellDoubleClicked);
     QTest::mouseDClick(table->viewport(), Qt::LeftButton, Qt::NoModifier, cell.center());
-    if (doubleClickSpy.isEmpty())
-    {
+    if (doubleClickSpy.isEmpty()) {
         // Cocoa's headless QTest backend can fail to deliver the native mouse
         // double-click to a visible table viewport. Invoke the signal produced
         // by that gesture so the test remains deterministic while exercising
         // the production signal-to-dialog connection.
-        QVERIFY(QMetaObject::invokeMethod(table, "cellDoubleClicked",
-                                          Qt::DirectConnection,
-                                          Q_ARG(int, index.row()),
-                                          Q_ARG(int, index.column())));
+        QVERIFY(QMetaObject::invokeMethod(table, "cellDoubleClicked", Qt::DirectConnection,
+                                          Q_ARG(int, index.row()), Q_ARG(int, index.column())));
     }
 }
 
@@ -12992,12 +12394,10 @@ static void sendShortcutCellDoubleClick(QTableWidget *table)
 // without accepting a shortcut change.
 void ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("open"), QStringList {
-            QKeySequence(Qt::CTRL | Qt::Key_O).toString()
-        }}
-    });
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
+    ScopedShortcutValues shortcuts(
+            { { QStringLiteral("open"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_O).toString() } } });
 
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -13035,12 +12435,10 @@ void ShortcutSettingsTests::testDoubleClickOpensShortcutEditor()
 // original shortcut setting.
 void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("open"), QStringList {
-            QKeySequence(Qt::CTRL | Qt::Key_O).toString()
-        }}
-    });
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
+    ScopedShortcutValues shortcuts(
+            { { QStringLiteral("open"),
+                QStringList{ QKeySequence(Qt::CTRL | Qt::Key_O).toString() } } });
 
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -13067,8 +12465,8 @@ void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
     QPointer<QVShortcutDialog> editor = dialog.findChild<QVShortcutDialog *>();
     QVERIFY(editor);
-    auto *keySequenceEdit = editor->findChild<QKeySequenceEdit *>
-        (QStringLiteral("keySequenceEdit"));
+    auto *keySequenceEdit =
+            editor->findChild<QKeySequenceEdit *>(QStringLiteral("keySequenceEdit"));
     auto *buttonBox = editor->findChild<QDialogButtonBox *>(QStringLiteral("buttonBox"));
     QVERIFY(keySequenceEdit);
     QVERIFY(buttonBox);
@@ -13082,7 +12480,7 @@ void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
     QCOMPARE(dialog.property("settingsFixedWidth").toInt(), fixedWidthBefore);
     QCOMPARE(table->item(0, 1)->text(), replacement.toString(QKeySequence::NativeText));
     QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
-             QStringList {replacement.toString(QKeySequence::PortableText)});
+             QStringList{ replacement.toString(QKeySequence::PortableText) });
 
     dialog.close();
 }
@@ -13100,11 +12498,9 @@ void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
 // Postcondition: all dialogs close and ScopedShortcutValues restores state.
 void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
     const QString originalShortcut = QKeySequence(Qt::CTRL | Qt::Key_O).toString();
-    ScopedShortcutValues shortcuts({
-        {QStringLiteral("open"), QStringList {originalShortcut}}
-    });
+    ScopedShortcutValues shortcuts({ { QStringLiteral("open"), QStringList{ originalShortcut } } });
 
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -13122,14 +12518,13 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
     QTRY_VERIFY_WITH_TIMEOUT(!dialog.findChildren<QVShortcutDialog *>().isEmpty(), 1000);
     QPointer<QVShortcutDialog> editor = dialog.findChild<QVShortcutDialog *>();
     QVERIFY(editor);
-    auto *keySequenceEdit = editor->findChild<QKeySequenceEdit *>
-        (QStringLiteral("keySequenceEdit"));
+    auto *keySequenceEdit =
+            editor->findChild<QKeySequenceEdit *>(QStringLiteral("keySequenceEdit"));
     QVERIFY(keySequenceEdit);
     QSignalSpy changedSpy(editor, &QVShortcutDialog::shortcutsListChanged);
     QSignalSpy rejectedSpy(editor, &QDialog::rejected);
 
-    keySequenceEdit->setKeySequence(
-        QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F12));
+    keySequenceEdit->setKeySequence(QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F12));
     keySequenceEdit->setFocus();
     QTest::keyClick(keySequenceEdit, Qt::Key_Escape);
 
@@ -13138,7 +12533,7 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
     QCOMPARE(changedSpy.count(), 0);
     QCOMPARE(table->item(0, 1)->text(), originalCell);
     QCOMPARE(QSettings().value(QStringLiteral("shortcuts/open")).toStringList(),
-             QStringList {originalShortcut});
+             QStringList{ originalShortcut });
 
     dialog.close();
 }
@@ -13156,7 +12551,7 @@ void ShortcutSettingsTests::testEscapeRejectsShortcutEditorLikeCancel()
 // Postcondition: the original theme setting is restored.
 void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 {
-    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}});
+    ScopedOptionValues options({ { "theme", static_cast<int>(Qv::Theme::Light) } });
 
     QVOptionsDialog dialog;
     auto *themeComboBox = dialog.findChild<QComboBox *>("themeComboBox");
@@ -13183,12 +12578,12 @@ void WindowBehaviorTests::testThemeSettingsReplaceRemovedColorControls()
 // Preconditions: SettingsManager is initialized and Theme is Light.
 // Input data: the Settings dialog and the Theme combo-box selection Dark.
 // Steps: inspect the tab bar and removed controls, then change Theme.
-// Expected result: General replaces Display/Miscellaneous, tabs are horizontal, Settings has no global action button
-// box or Titlebar text controls, and the manager immediately reports Dark.
+// Expected result: General replaces Display/Miscellaneous, tabs are horizontal, Settings has no
+// global action button box or Titlebar text controls, and the manager immediately reports Dark.
 // Postcondition: ScopedOptionValues restores the original Theme.
 void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePersistence()
 {
-    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}});
+    ScopedOptionValues options({ { "theme", static_cast<int>(Qv::Theme::Light) } });
 
     QVOptionsDialog dialog;
     auto *tabs = dialog.findChild<QTabBar *>("categoryTabs");
@@ -13205,20 +12600,15 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
     QVERIFY(themeComboBox);
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
     dialog.show();
-    QTRY_VERIFY_WITH_TIMEOUT(
-        QVCocoaFunctions::hasNativeSettingsToolbar(dialog.windowHandle()),
-        2000);
+    QTRY_VERIFY_WITH_TIMEOUT(QVCocoaFunctions::hasNativeSettingsToolbar(dialog.windowHandle()),
+                             2000);
     QTRY_COMPARE_WITH_TIMEOUT(dialog.windowTitle(), tabs->tabText(tabs->currentIndex()), 2000);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
-        QStringLiteral("Aqua"),
-        2000);
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
+                              QStringLiteral("Aqua"), 2000);
     themeComboBox->setCurrentIndex(themeComboBox->findData(static_cast<int>(Qv::Theme::Dark)));
     QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), Qv::Theme::Dark);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
-        QStringLiteral("DarkAqua"),
-        2000);
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(dialog.windowHandle()),
+                              QStringLiteral("DarkAqua"), 2000);
     dialog.close();
 }
 
@@ -13237,7 +12627,7 @@ void WindowBehaviorTests::testSettingsDialogUsesNativeTabContractAndImmediatePer
 // Postcondition: the dialog is closed and no settings are modified.
 void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
 {
-    ScopedOptionValues options({{"language", QStringLiteral("en")}});
+    ScopedOptionValues options({ { "language", QStringLiteral("en") } });
 
     QVOptionsDialog dialog;
     dialog.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -13271,8 +12661,7 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     tabWidths = dialog.property("settingsTabWidths").toList();
     QCOMPARE(tabWidths.size(), tabs->count());
     const auto dialogWidthForTab = [&](const int index) {
-        return tabWidths.at(index).toInt()
-            + dialogMargins.left() + dialogMargins.right();
+        return tabWidths.at(index).toInt() + dialogMargins.left() + dialogMargins.right();
     };
     QCOMPARE(dialog.width(), dialogWidthForTab(0));
     QCOMPARE(dialog.minimumWidth(), dialog.width());
@@ -13281,10 +12670,8 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QCOMPARE(generalScrollArea->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(generalScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!generalScrollArea->verticalScrollBar()->isVisible());
-    QCOMPARE(generalScrollArea->widget()->minimumHeight(),
-             generalScrollArea->viewport()->height());
-    QCOMPARE(generalScrollArea->widget()->minimumWidth(),
-             generalScrollArea->viewport()->width());
+    QCOMPARE(generalScrollArea->widget()->minimumHeight(), generalScrollArea->viewport()->height());
+    QCOMPARE(generalScrollArea->widget()->minimumWidth(), generalScrollArea->viewport()->width());
     const int generalHeight = dialog.height();
     QVERIFY(generalHeight > 0);
 
@@ -13295,14 +12682,15 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     int visibleRowsHeight = 0;
     for (int row = 0; row < 16; ++row)
         visibleRowsHeight += table->rowHeight(row);
-    const int expectedTableHeight = table->horizontalHeader()->height()
-            + visibleRowsHeight + 2 * table->frameWidth();
+    const int expectedTableHeight =
+            table->horizontalHeader()->height() + visibleRowsHeight + 2 * table->frameWidth();
     QCOMPARE(table->height(), expectedTableHeight);
     QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(table->viewport()->height(), visibleRowsHeight);
     QCOMPARE(table->viewport()->width(), table->horizontalHeader()->length());
     QVERIFY(qAbs(table->horizontalHeader()->sectionSize(0)
-                 - table->horizontalHeader()->sectionSize(1)) <= 1);
+                 - table->horizontalHeader()->sectionSize(1))
+            <= 1);
     QVERIFY(table->visualItemRect(table->item(15, 0)).bottom()
             <= table->viewport()->rect().bottom());
     if (table->rowCount() > 16)
@@ -13318,10 +12706,8 @@ void WindowBehaviorTests::testSettingsDialogUsesFixedWidthAndTabHeights()
     QCOMPARE(mouseScrollArea->horizontalScrollBar()->maximum(), 0);
     QCOMPARE(mouseScrollArea->verticalScrollBar()->maximum(), 0);
     QVERIFY(!mouseScrollArea->verticalScrollBar()->isVisible());
-    QCOMPARE(mouseScrollArea->widget()->minimumHeight(),
-             mouseScrollArea->viewport()->height());
-    QCOMPARE(mouseScrollArea->widget()->minimumWidth(),
-             mouseScrollArea->viewport()->width());
+    QCOMPARE(mouseScrollArea->widget()->minimumHeight(), mouseScrollArea->viewport()->height());
+    QCOMPARE(mouseScrollArea->widget()->minimumWidth(), mouseScrollArea->viewport()->width());
     QVERIFY(dialog.height() > 0);
     QVERIFY(dialog.height() != shortcutsHeight || dialog.height() != generalHeight);
 
@@ -13350,7 +12736,8 @@ void WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()
         QVOptionsDialog dialog;
         dialog.setAttribute(Qt::WA_DeleteOnClose, false);
         auto *tabs = dialog.findChild<QTabBar *>(QStringLiteral("categoryTabs"));
-        auto *animation = dialog.findChild<QPropertyAnimation *>(QStringLiteral("settingsCategorySizeAnimation"));
+        auto *animation = dialog.findChild<QPropertyAnimation *>(
+                QStringLiteral("settingsCategorySizeAnimation"));
         QVERIFY(tabs);
         QVERIFY(animation);
         QCOMPARE(animation->duration(), 180);
@@ -13358,12 +12745,14 @@ void WindowBehaviorTests::testSettingsTabTransitionAndMouseReopen()
         dialog.show();
         QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
         tabs->setCurrentIndex(0);
-        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                 1000);
         const int generalHeight = dialog.height();
 
         tabs->setCurrentIndex(2);
         QVERIFY(dialog.property("settingsCategoryTransitionActive").toBool());
-        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                 1000);
         mouseSize = dialog.size();
         QVERIFY(mouseSize.height() > 0);
         QVERIFY(mouseSize.height() != generalHeight);
@@ -13458,12 +12847,10 @@ void WindowBehaviorTests::testLocalizedSettingsFormsUseSharedLabelColumns()
         QVERIFY(!layouts.isEmpty());
         const int expectedWidth = page->property("settingsAlignedLabelColumnWidth").toInt();
         QVERIFY(expectedWidth > 0);
-        for (auto *layout : layouts)
-        {
+        for (auto *layout : layouts) {
             QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
             QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
-            for (int row = 0; row < layout->rowCount(); ++row)
-            {
+            for (int row = 0; row < layout->rowCount(); ++row) {
                 auto *item = layout->itemAt(row, QFormLayout::LabelRole);
                 if (item && item->widget())
                     QCOMPARE(item->widget()->minimumWidth(), expectedWidth);
@@ -13488,21 +12875,18 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
     ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
     ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
     ScopedSettingPreserver geometrySetting(QStringLiteral("optionsgeometry"));
-    const QList<QString> languages {
-        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
-        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
-    };
+    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
+                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
+                                    QStringLiteral("zh_Hant") };
     QHash<QString, QList<QSize>> sizesByLanguage;
 
-    for (const QString &language : languages)
-    {
+    for (const QString &language : languages) {
         SourceLanguageTranslator sourceTranslator;
         QTranslator catalogTranslator;
         QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en"))
-        {
-            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                    .arg(language);
+        if (language != QStringLiteral("en")) {
+            const QString path =
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
             QVERIFY2(catalogTranslator.load(path), qPrintable(path));
             QVERIFY(!catalogTranslator.translate("ShortcutManager", "Random File").isNull());
             translator = &catalogTranslator;
@@ -13510,7 +12894,7 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
         QVERIFY(QCoreApplication::installTranslator(translator));
 
         {
-            ScopedOptionValues options({{"language", language}});
+            ScopedOptionValues options({ { "language", language } });
             QSettings settings;
             settings.setValue(QStringLiteral("optionstab"), 0);
             settings.setValue(QStringLiteral("optionstabversion"), 2);
@@ -13532,11 +12916,10 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
             // those startup-owned readable names before the dialog's final
             // native-toolbar measurement pass.
             const auto &shortcutSources = qvApp->getShortcutManager().getShortcutsList();
-            for (int row = 0; row < table->rowCount() && row < shortcutSources.size(); ++row)
-            {
+            for (int row = 0; row < table->rowCount() && row < shortcutSources.size(); ++row) {
                 const QByteArray source = shortcutSources.at(row).readableName.toUtf8();
                 table->item(row, 0)->setText(
-                    QCoreApplication::translate("ShortcutManager", source.constData()));
+                        QCoreApplication::translate("ShortcutManager", source.constData()));
             }
             dialog.prepareForDisplay();
 
@@ -13547,15 +12930,16 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
             const QMargins dialogMargins = dialog.layout()->contentsMargins();
             const QVariantList tabWidths = dialog.property("settingsTabWidths").toList();
             QCOMPARE(tabWidths.size(), tabs->count());
-            for (int category = 0; category < tabs->count(); ++category)
-            {
+            for (int category = 0; category < tabs->count(); ++category) {
                 tabs->setCurrentIndex(category);
                 QTRY_VERIFY_WITH_TIMEOUT(
-                    !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+                        !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
                 categorySizes.append(dialog.size());
-                QCOMPARE(dialog.width(), tabWidths.at(category).toInt()
-                         + dialogMargins.left() + dialogMargins.right());
-                QCOMPARE(dialog.findChild<QStackedWidget *>(QStringLiteral("stackedWidget"))->width(),
+                QCOMPARE(dialog.width(),
+                         tabWidths.at(category).toInt() + dialogMargins.left()
+                                 + dialogMargins.right());
+                QCOMPARE(dialog.findChild<QStackedWidget *>(QStringLiteral("stackedWidget"))
+                                 ->width(),
                          tabWidths.at(category).toInt());
             }
 
@@ -13566,14 +12950,14 @@ void WindowBehaviorTests::testSettingsDialogSizesFollowTranslations()
             QCOMPARE(categorySizes.at(2).width(),
                      tabWidths.at(2).toInt() + dialogMargins.left() + dialogMargins.right());
             tabs->setCurrentIndex(0);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             QCOMPARE(general->horizontalScrollBar()->maximum(), 0);
             QCOMPARE(general->verticalScrollBar()->maximum(), 0);
             QCOMPARE(general->viewport()->height(), general->widget()->minimumHeight());
             tabs->setCurrentIndex(2);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             QCOMPARE(mouse->horizontalScrollBar()->maximum(), 0);
             QCOMPARE(mouse->verticalScrollBar()->maximum(), 0);
             QCOMPARE(mouse->viewport()->height(), mouse->widget()->minimumHeight());
@@ -13622,14 +13006,11 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
 #else
     ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
     ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    const QList<QString> languages {
-        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
-        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
-    };
-    const Qt::Alignment expectedLabelAlignment =
-        Qt::AlignRight | Qt::AlignTrailing;
-    const Qt::Alignment expectedLabelContentAlignment =
-        expectedLabelAlignment | Qt::AlignVCenter;
+    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
+                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
+                                    QStringLiteral("zh_Hant") };
+    const Qt::Alignment expectedLabelAlignment = Qt::AlignRight | Qt::AlignTrailing;
+    const Qt::Alignment expectedLabelContentAlignment = expectedLabelAlignment | Qt::AlignVCenter;
     const Qt::Alignment expectedValueAlignment = Qt::AlignLeft | Qt::AlignTop;
     const QStringList valueOnlyNames{ QStringLiteral("checkerboardBackgroundCheckbox"),
                                       QStringLiteral("reuseWindowCheckbox"),
@@ -13637,31 +13018,28 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                                       QStringLiteral("keepZoomCheckbox"),
                                       QStringLiteral("askDeleteCheckbox") };
 
-    const auto alignmentHas = [](const Qt::Alignment actual,
-                                 const Qt::Alignment expected) {
+    const auto alignmentHas = [](const Qt::Alignment actual, const Qt::Alignment expected) {
         return (actual & expected) == expected;
     };
 
-    for (const QString &language : languages)
-    {
+    for (const QString &language : languages) {
         SourceLanguageTranslator sourceTranslator;
         QTranslator catalogTranslator;
         QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en"))
-        {
-            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                    .arg(language);
+        if (language != QStringLiteral("en")) {
+            const QString path =
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
             QVERIFY2(catalogTranslator.load(path), qPrintable(path));
             translator = &catalogTranslator;
         }
         QVERIFY(QCoreApplication::installTranslator(translator));
 
         {
-            ScopedOptionValues options({
-                {QStringLiteral("language"), language},
-                {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
-                {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Click)}
-            });
+            ScopedOptionValues options(
+                    { { QStringLiteral("language"), language },
+                      { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) },
+                      { QStringLiteral("viewportmiddlebuttonmode"),
+                        static_cast<int>(Qv::ClickOrDrag::Click) } });
             QSettings settings;
             settings.setValue(QStringLiteral("optionstab"), 0);
             settings.setValue(QStringLiteral("optionstabversion"), 2);
@@ -13683,7 +13061,7 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                 QWidget *page = scrollArea->widget();
                 QVERIFY(page);
                 const int expectedLabelWidth =
-                    page->property("settingsAlignedLabelColumnWidth").toInt();
+                        page->property("settingsAlignedLabelColumnWidth").toInt();
                 QVERIFY(expectedLabelWidth > 0);
                 QCOMPARE(page->property("settingsLabelAlignment").toInt(),
                          int(expectedLabelAlignment));
@@ -13697,10 +13075,8 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                         return false;
                     if (item->widget())
                         return item->widget()->isVisible();
-                    if (item->layout())
-                    {
-                        for (int index = 0; index < item->layout()->count(); ++index)
-                        {
+                    if (item->layout()) {
+                        for (int index = 0; index < item->layout()->count(); ++index) {
                             auto *child = item->layout()->itemAt(index);
                             if (child && child->widget() && child->widget()->isVisible())
                                 return true;
@@ -13708,40 +13084,38 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                     }
                     return false;
                 };
-                for (auto *layout : layouts)
-                {
+                for (auto *layout : layouts) {
                     QCOMPARE(layout->labelAlignment(), expectedLabelAlignment);
-                    QVERIFY(alignmentHas(layout->formAlignment(),
-                                         Qt::AlignLeft | Qt::AlignTop));
+                    QVERIFY(alignmentHas(layout->formAlignment(), Qt::AlignLeft | Qt::AlignTop));
                     QVERIFY(!(layout->formAlignment() & Qt::AlignHCenter));
                     QCOMPARE(layout->rowWrapPolicy(), QFormLayout::DontWrapRows);
 
                     int labelColumnRight = -1;
                     int fieldColumnLeft = -1;
-                    for (int row = 0; row < layout->rowCount(); ++row)
-                    {
+                    for (int row = 0; row < layout->rowCount(); ++row) {
                         auto *labelItem = layout->itemAt(row, QFormLayout::LabelRole);
                         auto *fieldItem = layout->itemAt(row, QFormLayout::FieldRole);
                         auto *spanningItem = layout->itemAt(row, QFormLayout::SpanningRole);
-                        if (spanningItem && spanningItem->widget())
-                        {
+                        if (spanningItem && spanningItem->widget()) {
                             QVERIFY2(!valueOnlyNames.contains(spanningItem->widget()->objectName()),
-                                     qPrintable(language + QStringLiteral(": value-only option must not span ")
-                                                + spanningItem->widget()->objectName()));
+                                     qPrintable(
+                                             language
+                                             + QStringLiteral(": value-only option must not span ")
+                                             + spanningItem->widget()->objectName()));
                         }
                         if (fieldItem && fieldItem->widget()
-                            && valueOnlyNames.contains(fieldItem->widget()->objectName()))
-                        {
+                            && valueOnlyNames.contains(fieldItem->widget()->objectName())) {
                             QVERIFY2(!spanningItem,
-                                     qPrintable(language + QStringLiteral(": value-only option has both roles ")
-                                                + fieldItem->widget()->objectName()));
+                                     qPrintable(
+                                             language
+                                             + QStringLiteral(": value-only option has both roles ")
+                                             + fieldItem->widget()->objectName()));
                         }
                         if (!itemIsVisible(labelItem) && !itemIsVisible(fieldItem)
                             && !itemIsVisible(spanningItem))
                             continue;
 
-                        if (labelItem && labelItem->widget())
-                        {
+                        if (labelItem && labelItem->widget()) {
                             auto *label = qobject_cast<QLabel *>(labelItem->widget());
                             QVERIFY(label);
                             if (!label->isVisible())
@@ -13750,8 +13124,7 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                             const int thisLabelRight = label->geometry().x() + label->width();
                             if (labelColumnRight < 0)
                                 labelColumnRight = thisLabelRight;
-                            else
-                            {
+                            else {
                                 QVERIFY2(thisLabelRight == labelColumnRight,
                                          qPrintable(language + QStringLiteral(": label column ")
                                                     + layout->objectName() + QStringLiteral("/")
@@ -13760,24 +13133,21 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                             QCOMPARE(label->alignment(), expectedLabelContentAlignment);
                         }
 
-                        if (fieldItem)
-                        {
+                        if (fieldItem) {
                             if (!itemIsVisible(fieldItem))
                                 continue;
                             const QString fieldName = fieldItem->widget()
-                                ? fieldItem->widget()->objectName()
-                                : fieldItem->layout() ? fieldItem->layout()->objectName()
-                                                       : QStringLiteral("anonymous");
+                                    ? fieldItem->widget()->objectName()
+                                    : fieldItem->layout() ? fieldItem->layout()->objectName()
+                                                          : QStringLiteral("anonymous");
                             const bool isAssociationButton =
-                                fieldName == QStringLiteral("associateFormatsButton");
-                            if (isAssociationButton)
-                            {
+                                    fieldName == QStringLiteral("associateFormatsButton");
+                            if (isAssociationButton) {
                                 QVERIFY2(alignmentHas(fieldItem->alignment(),
                                                       Qt::AlignHCenter | Qt::AlignVCenter),
-                                         qPrintable(language + QStringLiteral(": association alignment")));
-                            }
-                            else
-                            {
+                                         qPrintable(language
+                                                    + QStringLiteral(": association alignment")));
+                            } else {
                                 QVERIFY2(alignmentHas(fieldItem->alignment(),
                                                       expectedValueAlignment),
                                          qPrintable(language + QStringLiteral(": value alignment ")
@@ -13787,29 +13157,31 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
                             QVERIFY(fieldWidget);
                             const QRect fieldGeometry = fieldItem->geometry();
                             QVERIFY(fieldGeometry.isValid());
-                            if (!isAssociationButton)
-                            {
+                            if (!isAssociationButton) {
                                 if (fieldColumnLeft < 0)
                                     fieldColumnLeft = fieldGeometry.x();
                                 else
                                     QCOMPARE(fieldGeometry.x(), fieldColumnLeft);
 
-                                if (labelItem && labelItem->widget())
-                                {
+                                if (labelItem && labelItem->widget()) {
                                     auto *label = qobject_cast<QLabel *>(labelItem->widget());
                                     QVERIFY(label);
                                     const QRect labelGeometry = labelItem->geometry();
                                     const int expectedFieldX = labelGeometry.x()
-                                        + labelGeometry.width() + layout->horizontalSpacing();
+                                            + labelGeometry.width() + layout->horizontalSpacing();
                                     QVERIFY2(fieldGeometry.x() >= expectedFieldX,
-                                             qPrintable(language + QStringLiteral(": label/value horizontal gap ")
+                                             qPrintable(language
+                                                        + QStringLiteral(
+                                                                ": label/value horizontal gap ")
                                                         + layout->objectName() + QStringLiteral("/")
                                                         + label->objectName() + QStringLiteral("/")
                                                         + fieldName + QStringLiteral(" label=")
-                                                        + QString::number(labelGeometry.x()) + QStringLiteral(",")
+                                                        + QString::number(labelGeometry.x())
+                                                        + QStringLiteral(",")
                                                         + QString::number(labelGeometry.width())
                                                         + QStringLiteral(" field=")
-                                                        + QString::number(fieldGeometry.x()) + QStringLiteral(",")
+                                                        + QString::number(fieldGeometry.x())
+                                                        + QStringLiteral(",")
                                                         + QString::number(fieldGeometry.width())
                                                         + QStringLiteral(" expectedX=")
                                                         + QString::number(expectedFieldX)));
@@ -13821,13 +13193,10 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
 
                         if (spanningItem && spanningItem->widget()
                             && spanningItem->widget()->objectName()
-                                == QStringLiteral("associateFormatsButton"))
-                        {
+                                    == QStringLiteral("associateFormatsButton")) {
                             QVERIFY(alignmentHas(spanningItem->alignment(),
                                                  Qt::AlignHCenter | Qt::AlignVCenter));
-                        }
-                        else if (spanningItem)
-                        {
+                        } else if (spanningItem) {
                             QVERIFY(alignmentHas(spanningItem->alignment(),
                                                  expectedValueAlignment));
                             const QRect spanningGeometry = spanningItem->geometry();
@@ -13842,14 +13211,18 @@ void WindowBehaviorTests::testSettingsFormsAlignLabelsAndValues()
             };
 
             tabs->setCurrentIndex(0);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             verifyPage(general);
             tabs->setCurrentIndex(2);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             verifyPage(mouse);
             QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(
+                    QStringLiteral("middleButtonModeClickRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(
+                    QStringLiteral("middleButtonModeDragRadioButton")));
             dialog.close();
         }
 
@@ -13879,27 +13252,24 @@ void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
 #else
     ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
     ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    const QList<QString> languages {
-        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
-        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
-    };
+    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
+                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
+                                    QStringLiteral("zh_Hant") };
 
-    for (const QString &language : languages)
-    {
+    for (const QString &language : languages) {
         SourceLanguageTranslator sourceTranslator;
         QTranslator catalogTranslator;
         QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en"))
-        {
-            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                    .arg(language);
+        if (language != QStringLiteral("en")) {
+            const QString path =
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
             QVERIFY2(catalogTranslator.load(path), qPrintable(path));
             translator = &catalogTranslator;
         }
         QVERIFY(QCoreApplication::installTranslator(translator));
 
         {
-            ScopedOptionValues options({{QStringLiteral("language"), language}});
+            ScopedOptionValues options({ { QStringLiteral("language"), language } });
             QSettings settings;
             settings.setValue(QStringLiteral("optionstab"), 0);
             settings.setValue(QStringLiteral("optionstabversion"), 2);
@@ -13921,13 +13291,12 @@ void WindowBehaviorTests::testSettingsColonAlignmentSurvivesTranslations()
             const auto verifyPage = [&](QScrollArea *scrollArea, const int tabIndex) {
                 tabs->setCurrentIndex(tabIndex);
                 QTRY_VERIFY_WITH_TIMEOUT(
-                    !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+                        !dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
                 QCoreApplication::processEvents();
                 const QString failure = settingsLabelColumnFailure(scrollArea->widget());
                 QVERIFY2(failure.isEmpty(),
-                         qPrintable(language + QStringLiteral(" tab=")
-                                    + QString::number(tabIndex) + QStringLiteral(": ")
-                                    + failure));
+                         qPrintable(language + QStringLiteral(" tab=") + QString::number(tabIndex)
+                                    + QStringLiteral(": ") + failure));
             };
 
             verifyPage(general, 0);
@@ -13980,19 +13349,17 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
     const auto verifyForms = [&](QWidget *page) {
         const auto forms = page->findChildren<QFormLayout *>();
         QVERIFY(!forms.isEmpty());
-        for (auto *form : forms)
-        {
+        for (auto *form : forms) {
             QCOMPARE(form->verticalSpacing(), -1);
-            for (int row = 1; row < form->rowCount(); ++row)
-            {
+            for (int row = 1; row < form->rowCount(); ++row) {
                 auto *previous = form->itemAt(row - 1, QFormLayout::FieldRole);
                 auto *current = form->itemAt(row, QFormLayout::FieldRole);
                 if (!previous || !current || !previous->widget() || !current->widget()
                     || previous->widget()->isHidden() || current->widget()->isHidden())
                     continue;
                 const int gap = current->widget()->geometry().top()
-                    - (previous->widget()->geometry().top()
-                       + previous->widget()->geometry().height());
+                        - (previous->widget()->geometry().top()
+                           + previous->widget()->geometry().height());
                 QVERIFY2(gap < groupSpacing,
                          qPrintable(form->objectName() + QStringLiteral(" gap=")
                                     + QString::number(gap)));
@@ -14006,14 +13373,12 @@ void WindowBehaviorTests::testSettingsSpacingUsesNativeStyle()
         QVERIFY(layout->count() >= expectedCount + 1);
         QVERIFY(layout->itemAt(layout->count() - 1)->spacerItem());
         QList<QLayoutItem *> groups;
-        for (int index = 0; index < layout->count(); ++index)
-        {
+        for (int index = 0; index < layout->count(); ++index) {
             if (layout->itemAt(index)->widget())
                 groups.append(layout->itemAt(index));
         }
         QCOMPARE(groups.size(), expectedCount);
-        for (int index = 1; index < groups.size(); ++index)
-        {
+        for (int index = 1; index < groups.size(); ++index) {
             const QRect previous = groups.at(index - 1)->geometry();
             const QRect current = groups.at(index)->geometry();
             const int gap = current.top() - (previous.top() + previous.height());
@@ -14070,23 +13435,20 @@ void WindowBehaviorTests::testSettingsAssociateButtonUsesNativeStyle()
     QCOMPARE(button->minimumWidth(), 0);
     QVERIFY(button->minimumHeight() <= button->sizeHint().height());
 
-    QVERIFY(item->geometry().size().expandedTo(item->sizeHint())
-            == item->geometry().size());
+    QVERIFY(item->geometry().size().expandedTo(item->sizeHint()) == item->geometry().size());
 
     const QImage rendered = button->grab().toImage();
     QVERIFY(!rendered.isNull());
     if (button->style()->objectName().contains(QStringLiteral("mac"), Qt::CaseInsensitive)
-        && rendered.height() > 2)
-    {
+        && rendered.height() > 2) {
         int maximumVerticalDelta = 0;
-        for (int y = 1; y < rendered.height(); ++y)
-        {
+        for (int y = 1; y < rendered.height(); ++y) {
             const QColor above = rendered.pixelColor(rendered.width() / 2, y - 1);
             const QColor current = rendered.pixelColor(rendered.width() / 2, y);
-            maximumVerticalDelta = qMax(maximumVerticalDelta,
-                                        qAbs(above.red() - current.red())
-                                        + qAbs(above.green() - current.green())
-                                        + qAbs(above.blue() - current.blue()));
+            maximumVerticalDelta =
+                    qMax(maximumVerticalDelta,
+                         qAbs(above.red() - current.red()) + qAbs(above.green() - current.green())
+                                 + qAbs(above.blue() - current.blue()));
         }
         QVERIFY(maximumVerticalDelta > 0);
     }
@@ -14115,38 +13477,30 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
 #else
     ScopedSettingPreserver tabSetting(QStringLiteral("optionstab"));
     ScopedSettingPreserver tabVersionSetting(QStringLiteral("optionstabversion"));
-    const QList<QString> languages {
-        QStringLiteral("en"), QStringLiteral("es"), QStringLiteral("ja"),
-        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
-    };
+    const QList<QString> languages{ QStringLiteral("en"), QStringLiteral("es"),
+                                    QStringLiteral("ja"), QStringLiteral("zh_Hans"),
+                                    QStringLiteral("zh_Hant") };
 
     const auto isInspectable = [](QWidget *widget) {
-        return qobject_cast<QLabel *>(widget)
-            || qobject_cast<QAbstractButton *>(widget)
-            || qobject_cast<QComboBox *>(widget)
-            || qobject_cast<QAbstractSpinBox *>(widget);
+        return qobject_cast<QLabel *>(widget) || qobject_cast<QAbstractButton *>(widget)
+                || qobject_cast<QComboBox *>(widget) || qobject_cast<QAbstractSpinBox *>(widget);
     };
-    const auto findLayoutItemForWidget = [](QLayout *layout,
-                                            QWidget *target,
+    const auto findLayoutItemForWidget = [](QLayout *layout, QWidget *target,
                                             const auto &self) -> QLayoutItem * {
         if (!layout)
             return nullptr;
-        for (int index = 0; index < layout->count(); ++index)
-        {
+        for (int index = 0; index < layout->count(); ++index) {
             auto *item = layout->itemAt(index);
             if (!item)
                 continue;
             if (item->widget() == target)
                 return item;
-            if (auto *nestedLayout = item->layout())
-            {
+            if (auto *nestedLayout = item->layout()) {
                 if (auto *nestedItem = self(nestedLayout, target, self))
                     return nestedItem;
             }
-            if (auto *nestedWidget = item->widget())
-            {
-                if (auto *nestedLayout = nestedWidget->layout())
-                {
+            if (auto *nestedWidget = item->widget()) {
+                if (auto *nestedLayout = nestedWidget->layout()) {
                     if (auto *nestedItem = self(nestedLayout, target, self))
                         return nestedItem;
                 }
@@ -14160,8 +13514,7 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
         auto *viewport = scrollArea->viewport();
         auto *pageLayout = scrollArea->widget()->layout();
         QVERIFY2(pageLayout, qPrintable(language + QStringLiteral(": page layout")));
-        for (auto *widget : scrollArea->widget()->findChildren<QWidget *>())
-        {
+        for (auto *widget : scrollArea->widget()->findChildren<QWidget *>()) {
             if (widget->objectName().isEmpty() || widget->isHidden() || !isInspectable(widget))
                 continue;
 
@@ -14169,38 +13522,39 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             QVERIFY2(viewport->rect().contains(mapped),
                      qPrintable(language + QStringLiteral(": ") + widget->objectName()));
             auto *item = findLayoutItemForWidget(pageLayout, widget, findLayoutItemForWidget);
-            QVERIFY2(item, qPrintable(language + QStringLiteral(": layout item ")
-                                      + widget->objectName()));
+            QVERIFY2(
+                    item,
+                    qPrintable(language + QStringLiteral(": layout item ") + widget->objectName()));
             QVERIFY2(item->geometry().width() >= item->sizeHint().width(),
-                     qPrintable(language + QStringLiteral(": natural width ") + widget->objectName()));
+                     qPrintable(language + QStringLiteral(": natural width ")
+                                + widget->objectName()));
             QVERIFY2(widget->size().expandedTo(widget->minimumSizeHint()) == widget->size(),
-                     qPrintable(language + QStringLiteral(": minimum height ") + widget->objectName()
-                                + QStringLiteral(" actual=") + QString::number(widget->height())
-                                + QStringLiteral(" hint=") + QString::number(widget->minimumSizeHint().height())));
+                     qPrintable(language + QStringLiteral(": minimum height ")
+                                + widget->objectName() + QStringLiteral(" actual=")
+                                + QString::number(widget->height()) + QStringLiteral(" hint=")
+                                + QString::number(widget->minimumSizeHint().height())));
         }
     };
 
-    for (const QString &language : languages)
-    {
+    for (const QString &language : languages) {
         SourceLanguageTranslator sourceTranslator;
         QTranslator catalogTranslator;
         QTranslator *translator = &sourceTranslator;
-        if (language != QStringLiteral("en"))
-        {
-            const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                    .arg(language);
+        if (language != QStringLiteral("en")) {
+            const QString path =
+                    QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
             QVERIFY2(catalogTranslator.load(path), qPrintable(path));
             translator = &catalogTranslator;
         }
         QVERIFY(QCoreApplication::installTranslator(translator));
 
         {
-            ScopedOptionValues options({
-                {QStringLiteral("language"), language},
-                {QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark)},
-                {QStringLiteral("checkerboardbackground"), false},
-                {QStringLiteral("viewportmiddlebuttonmode"), static_cast<int>(Qv::ClickOrDrag::Click)}
-            });
+            ScopedOptionValues options(
+                    { { QStringLiteral("language"), language },
+                      { QStringLiteral("theme"), static_cast<int>(Qv::Theme::Dark) },
+                      { QStringLiteral("checkerboardbackground"), false },
+                      { QStringLiteral("viewportmiddlebuttonmode"),
+                        static_cast<int>(Qv::ClickOrDrag::Click) } });
             QSettings settings;
             settings.setValue(QStringLiteral("optionstab"), 0);
             settings.setValue(QStringLiteral("optionstabversion"), 2);
@@ -14218,38 +13572,39 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             QVERIFY(table);
             QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("navigationRegionsCheckbox")));
             QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("middleButtonModeLabel")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeClickRadioButton")));
-            QVERIFY(!dialog.findChild<QRadioButton *>(QStringLiteral("middleButtonModeDragRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(
+                    QStringLiteral("middleButtonModeClickRadioButton")));
+            QVERIFY(!dialog.findChild<QRadioButton *>(
+                    QStringLiteral("middleButtonModeDragRadioButton")));
 
             dialog.prepareForDisplay();
             dialog.show();
             QTRY_VERIFY_WITH_TIMEOUT(dialog.isVisible(), 1000);
             tabs->setCurrentIndex(0);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             verifyScrollPage(general, language);
             auto *reuse = dialog.findChild<QCheckBox *>(QStringLiteral("reuseWindowCheckbox"));
             QVERIFY(reuse);
-            QVERIFY(reuse->text().contains(QStringLiteral("Open images")) || language != QStringLiteral("en"));
-            auto *reuseItem = findLayoutItemForWidget(general->widget()->layout(),
-                                                      reuse,
+            QVERIFY(reuse->text().contains(QStringLiteral("Open images"))
+                    || language != QStringLiteral("en"));
+            auto *reuseItem = findLayoutItemForWidget(general->widget()->layout(), reuse,
                                                       findLayoutItemForWidget);
             QVERIFY(reuseItem);
             QVERIFY(reuse->size().expandedTo(reuse->minimumSizeHint()) == reuse->size());
 
             tabs->setCurrentIndex(1);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             QCOMPARE(table->horizontalScrollBar()->maximum(), 0);
             QVERIFY(!table->horizontalHeader()->stretchLastSection());
-            QCOMPARE(table->horizontalHeader()->sectionResizeMode(0),
-                     QHeaderView::Stretch);
-            QCOMPARE(table->horizontalHeader()->sectionResizeMode(1),
-                     QHeaderView::Stretch);
+            QCOMPARE(table->horizontalHeader()->sectionResizeMode(0), QHeaderView::Stretch);
+            QCOMPARE(table->horizontalHeader()->sectionResizeMode(1), QHeaderView::Stretch);
             QVERIFY(qAbs(table->horizontalHeader()->sectionSize(0)
-                         - table->horizontalHeader()->sectionSize(1)) <= 1);
-            for (int row = 0; row < table->rowCount(); ++row)
-            {
-                for (int column = 0; column < table->columnCount(); ++column)
-                {
+                         - table->horizontalHeader()->sectionSize(1))
+                    <= 1);
+            for (int row = 0; row < table->rowCount(); ++row) {
+                for (int column = 0; column < table->columnCount(); ++column) {
                     auto *item = table->item(row, column);
                     QVERIFY(item);
                     const QRect itemRect = table->visualItemRect(item);
@@ -14260,7 +13615,8 @@ void WindowBehaviorTests::testSettingsEveryTabFitsEveryLanguage()
             }
 
             tabs->setCurrentIndex(2);
-            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+            QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(),
+                                     1000);
             verifyScrollPage(mouse, language);
 
             dialog.close();
@@ -14278,60 +13634,82 @@ void WindowBehaviorTests::testMacMenuTranslationCatalogsAreComplete()
 #ifndef FOVELLE_TRANSLATIONS_DIR
     QSKIP("Translation catalogs were disabled for this build");
 #else
-    const QList<QByteArray> applicationSources {
-        "About %1", "Preferences...", "Services", "Hide %1",
-        "Hide Others", "Show All", "Quit %1"
-    };
-    const QList<QByteArray> windowSources {
-        "Minimize", "Minimize All", "Zoom", "Zoom All", "Fill", "Center",
-        "Move & Resize", "Full Screen Tile", "Remove Window from Set", "Halves",
-        "Left", "Right", "Top", "Bottom", "Quarters", "Top Left", "Top Right",
-        "Bottom Left", "Bottom Right", "Arrange", "Left & Right",
-        "Left & Quarters", "Right & Left", "Right & Quarters", "Top & Bottom",
-        "Top & Quarters", "Bottom & Top", "Bottom & Quarters",
-        "Return to Previous Size", "Left of Screen", "Right of Screen",
-        "Bring All to Front", "Arrange in Front", "Enter Full Screen",
-        "Exit Full Screen", "Make Window Full Screen",
-        "Tile Window to Left of Screen", "Tile Window to Right of Screen",
-        "Move Window to Left Side of Screen", "Move Window to Right Side of Screen",
-        "Cycle Through Windows"
-    };
-    const QList<QString> languages {
-        QStringLiteral("es"), QStringLiteral("ja"),
-        QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant")
-    };
+    const QList<QByteArray> applicationSources{ "About %1", "Preferences...", "Services",
+                                                "Hide %1",  "Hide Others",    "Show All",
+                                                "Quit %1" };
+    const QList<QByteArray> windowSources{ "Minimize",
+                                           "Minimize All",
+                                           "Zoom",
+                                           "Zoom All",
+                                           "Fill",
+                                           "Center",
+                                           "Move & Resize",
+                                           "Full Screen Tile",
+                                           "Remove Window from Set",
+                                           "Halves",
+                                           "Left",
+                                           "Right",
+                                           "Top",
+                                           "Bottom",
+                                           "Quarters",
+                                           "Top Left",
+                                           "Top Right",
+                                           "Bottom Left",
+                                           "Bottom Right",
+                                           "Arrange",
+                                           "Left & Right",
+                                           "Left & Quarters",
+                                           "Right & Left",
+                                           "Right & Quarters",
+                                           "Top & Bottom",
+                                           "Top & Quarters",
+                                           "Bottom & Top",
+                                           "Bottom & Quarters",
+                                           "Return to Previous Size",
+                                           "Left of Screen",
+                                           "Right of Screen",
+                                           "Bring All to Front",
+                                           "Arrange in Front",
+                                           "Enter Full Screen",
+                                           "Exit Full Screen",
+                                           "Make Window Full Screen",
+                                           "Tile Window to Left of Screen",
+                                           "Tile Window to Right of Screen",
+                                           "Move Window to Left Side of Screen",
+                                           "Move Window to Right Side of Screen",
+                                           "Cycle Through Windows" };
+    const QList<QString> languages{ QStringLiteral("es"), QStringLiteral("ja"),
+                                    QStringLiteral("zh_Hans"), QStringLiteral("zh_Hant") };
 
-    for (const QString &language : languages)
-    {
+    for (const QString &language : languages) {
         QTranslator translator;
-        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                .arg(language);
+        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(language);
         QVERIFY2(translator.load(path), qPrintable(path));
-        for (const QByteArray &source : applicationSources)
-        {
+        for (const QByteArray &source : applicationSources) {
             QVERIFY2(!translator.translate("MAC_APPLICATION_MENU", source.constData()).isNull(),
                      qPrintable(language + QStringLiteral(": ") + QString::fromUtf8(source)));
         }
-        for (const QByteArray &source : windowSources)
-        {
+        for (const QByteArray &source : windowSources) {
             QVERIFY2(!translator.translate("MAC_WINDOW_MENU", source.constData()).isNull(),
                      qPrintable(language + QStringLiteral(": ") + QString::fromUtf8(source)));
         }
 
         QVERIFY(QCoreApplication::installTranslator(&translator));
         {
-            ScopedOptionValues options({{"language", language}});
+            ScopedOptionValues options({ { "language", language } });
             QCOMPARE(QCoreApplication::translate("MAC_APPLICATION_MENU", "Services"),
                      translator.translate("MAC_APPLICATION_MENU", "Services"));
             QCOMPARE(QCoreApplication::translate("MAC_APPLICATION_MENU", "Quit %1"),
                      translator.translate("MAC_APPLICATION_MENU", "Quit %1"));
             QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Minimize")),
                      translator.translate("MAC_WINDOW_MENU", "Minimize"));
-            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Move & Resize"), true),
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Move & Resize"),
+                                                                true),
                      translator.translate("MAC_WINDOW_MENU", "Move & Resize"));
             QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("Quarters"), true),
                      translator.translate("MAC_WINDOW_MENU", "Quarters"));
-            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(QStringLiteral("A Dynamic Window Title")),
+            QCOMPARE(QVCocoaFunctions::localizedWindowMenuTitle(
+                             QStringLiteral("A Dynamic Window Title")),
                      QStringLiteral("A Dynamic Window Title"));
         }
         QVERIFY(QCoreApplication::removeTranslator(&translator));
@@ -14363,12 +13741,10 @@ void WindowBehaviorTests::testFullscreenMenuIconsRespectMainMenuPolicy()
 
     const auto findMainFullscreenAction = [&]() -> QAction * {
         const auto viewMenus = qvApp->getActionManager().getAllClonesOfMenu("view");
-        for (auto *viewMenu : viewMenus)
-        {
+        for (auto *viewMenu : viewMenus) {
             if (viewMenu->property("isContextMenu").toBool())
                 continue;
-            for (auto *action : viewMenu->actions())
-            {
+            for (auto *action : viewMenu->actions()) {
                 if (action->data().toStringList().value(0) == QStringLiteral("fullscreen"))
                     return action;
             }
@@ -14420,7 +13796,7 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
     window.setGeometry(QRect(220, 180, 720, 500));
     QSettings settings;
     const QVariant originalTitlebarPreference =
-        settings.value(QStringLiteral("options/titlebarhidden"));
+            settings.value(QStringLiteral("options/titlebarhidden"));
     settings.setValue(QStringLiteral("options/titlebarhidden"), false);
     settings.sync();
     window.show();
@@ -14440,10 +13816,8 @@ void WindowBehaviorTests::testExitFullscreenActionUsesEscapePath()
     QTRY_VERIFY_WITH_TIMEOUT(window.isFullScreen(), 2000);
 
     QAction *exitAction = nullptr;
-    for (auto *action : qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window))
-    {
-        if (action->text().contains(QStringLiteral("Exit")))
-        {
+    for (auto *action : qvApp->getActionManager().getAllClonesOfAction("fullscreen", &window)) {
+        if (action->text().contains(QStringLiteral("Exit"))) {
             exitAction = action;
             break;
         }
@@ -14522,17 +13896,16 @@ void WindowBehaviorTests::testOptionsDialogCentersOnMainWindow()
     qvApp->openOptionsDialog(&mainWindow);
     QVOptionsDialog *dialog = nullptr;
     const auto findVisibleOptionsDialog = []() -> QVOptionsDialog * {
-        for (QWidget *widget : QApplication::topLevelWidgets())
-        {
-            if (auto *candidate = qobject_cast<QVOptionsDialog *>(widget); candidate && candidate->isVisible())
+        for (QWidget *widget : QApplication::topLevelWidgets()) {
+            if (auto *candidate = qobject_cast<QVOptionsDialog *>(widget);
+                candidate && candidate->isVisible())
                 return candidate;
         }
         return nullptr;
     };
     QTRY_VERIFY_WITH_TIMEOUT((dialog = findVisibleOptionsDialog()) != nullptr, 3000);
     QTRY_VERIFY_WITH_TIMEOUT(presentationRecorder.wasShown(), 1000);
-    QCOMPARE(presentationRecorder.firstShownFrame().center(),
-             mainWindow.frameGeometry().center());
+    QCOMPARE(presentationRecorder.firstShownFrame().center(), mainWindow.frameGeometry().center());
     QTest::qWait(250);
     // A tall fixed Settings frame receives one AppKit placement normalization
     // after ordering when the native preference toolbar is attached. It must
@@ -14576,8 +13949,7 @@ void WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()
     qvApp->openOptionsDialog(&mainWindow);
     QVOptionsDialog *dialog = nullptr;
     const auto findVisibleOptionsDialog = []() -> QVOptionsDialog * {
-        for (QWidget *widget : QApplication::topLevelWidgets())
-        {
+        for (QWidget *widget : QApplication::topLevelWidgets()) {
             if (auto *candidate = qobject_cast<QVOptionsDialog *>(widget);
                 candidate && candidate->isVisible())
                 return candidate;
@@ -14591,9 +13963,8 @@ void WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()
     QCOMPARE(dialog->windowModality(), Qt::NonModal);
     QVERIFY(!dialog->windowHandle()->flags().testFlag(Qt::WindowStaysOnTopHint));
     QTRY_VERIFY_WITH_TIMEOUT(
-        QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(),
-                                           mainWindow.windowHandle()),
-        2000);
+            QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(), mainWindow.windowHandle()),
+            2000);
     QVERIFY(dialog->property("settingsAttachedToMainWindow").toBool());
 
     QDialog externalPreviewPanel;
@@ -14606,9 +13977,8 @@ void WindowBehaviorTests::testSettingsDialogIsNativeChildAboveMainWindow()
 
     qvApp->openOptionsDialog(&mainWindow);
     QTRY_VERIFY_WITH_TIMEOUT(
-        QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(),
-                                           mainWindow.windowHandle()),
-        2000);
+            QVCocoaFunctions::isWindowChildOf(dialog->windowHandle(), mainWindow.windowHandle()),
+            2000);
     QVERIFY(dialog->property("settingsAttachedToMainWindow").toBool());
 
     externalPreviewPanel.close();
@@ -14645,8 +14015,9 @@ void WindowBehaviorTests::testAssociateFormatsButtonIsCentered()
     QTRY_VERIFY_WITH_TIMEOUT(button->width() > 0 && generalContent->width() > 0, 1000);
 
     const int buttonCenterX = button->mapToGlobal(button->rect().center()).x();
-    const int pageCenterX = generalScrollArea->viewport()->mapToGlobal(
-        generalScrollArea->viewport()->rect().center()).x();
+    const int pageCenterX = generalScrollArea->viewport()
+                                    ->mapToGlobal(generalScrollArea->viewport()->rect().center())
+                                    .x();
     QVERIFY(qAbs(buttonCenterX - pageCenterX) <= 1);
 
     dialog.close();
@@ -14667,7 +14038,8 @@ void WindowBehaviorTests::testTitlebarHiddenPersistsToNewWindow()
     qvApp->setQuitOnLastWindowClosed(false);
 
     QSettings settings;
-    const bool originalPreference = settings.value(QStringLiteral("options/titlebarhidden"), false).toBool();
+    const bool originalPreference =
+            settings.value(QStringLiteral("options/titlebarhidden"), false).toBool();
     settings.setValue(QStringLiteral("options/titlebarhidden"), false);
     settings.sync();
 
@@ -14707,12 +14079,11 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
     QFETCH(bool, hidden);
     QFETCH(bool, vectorImage);
     QCOMPARE(QGuiApplication::platformName(), QStringLiteral("cocoa"));
-    ScopedOptionValues options({
-        {"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}
-    });
+    ScopedOptionValues options(
+            { { "titlebarhidden", hidden },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false } });
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
@@ -14731,7 +14102,8 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
     if (vectorImage) {
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect width=\"800\" height=\"1600\" fill=\"red\"/></svg>");
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"1600\"><rect "
+                   "width=\"800\" height=\"1600\" fill=\"red\"/></svg>");
     } else {
         QImage image(800, 1600, QImage::Format_RGB32);
         image.fill(Qt::red);
@@ -14763,10 +14135,12 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
             maximumInset = qMax(maximumInset, window.getViewportPosition().obscuredHeight);
             minimumZoom = qMin(minimumZoom, view->getZoomLevel());
         };
-        class Recorder final : public QObject {
+        class Recorder final : public QObject
+        {
         public:
             std::function<void()> sample;
-            bool eventFilter(QObject *, QEvent *event) override {
+            bool eventFilter(QObject *, QEvent *event) override
+            {
                 if (event->type() == QEvent::Resize || event->type() == QEvent::Paint
                     || event->type() == QEvent::WindowStateChange)
                     sample();
@@ -14783,10 +14157,12 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
         window.toggleFullScreen();
         sample();
         // Qt may publish fullscreen before the native animation completes.
-        const bool nativeEntryCompleted = waitForTestCondition([&] {
-            return nativeTitlebarSnapshot(window.windowHandle()).entries
-                > initialNativeState.entries;
-        }, 5000);
+        const bool nativeEntryCompleted = waitForTestCondition(
+                [&] {
+                    return nativeTitlebarSnapshot(window.windowHandle()).entries
+                            > initialNativeState.entries;
+                },
+                5000);
         QTest::qWait(200);
         sample();
         timer.stop();
@@ -14795,9 +14171,9 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
         QVERIFY2(nativeEntryCompleted, "AppKit did-enter notification was not observed");
         QVERIFY(window.isFullScreen());
         QVERIFY(samples > 20);
-        qInfo() << "TITLEBAR_ENTRY" << cycle << "samples" << samples
-                << "exposed" << exposedTitlebar << "maximumInset" << maximumInset
-                << "minimumZoom" << minimumZoom << "initialZoom" << initialZoom;
+        qInfo() << "TITLEBAR_ENTRY" << cycle << "samples" << samples << "exposed" << exposedTitlebar
+                << "maximumInset" << maximumInset << "minimumZoom" << minimumZoom << "initialZoom"
+                << initialZoom;
         if (hidden) {
             QVERIFY2(!exposedTitlebar, "Hidden native titlebar became visible during entry");
             QCOMPARE(maximumInset, 0);
@@ -14805,8 +14181,9 @@ void WindowBehaviorTests::testTitlebarPresentationDuringFullScreen()
                      "Titlebar restoration compressed the fitted image during entry");
         }
         window.toggleFullScreen();
-        QTRY_VERIFY_WITH_TIMEOUT(
-            nativeTitlebarSnapshot(window.windowHandle()).exits > initialNativeState.exits, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits
+                                         > initialNativeState.exits,
+                                 5000);
         QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
         QTest::qWait(200);
         QCOMPARE(nativeTitlebarSnapshot(window.windowHandle()).hidden, hidden);
@@ -14827,14 +14204,13 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement_data()
 void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
 {
     QFETCH(bool, entering);
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive)},
-        {"smoothscalinglimitenabled", false},
-        {"scalingtwoenabled", true}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "smoothscalinglimitenabled", false },
+              { "scalingtwoenabled", true } });
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
@@ -14845,8 +14221,8 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
         qvApp->setQuitOnLastWindowClosed(originalQuit);
     });
     QTemporaryDir directory;
-    const QString path = createQtRasterTestImage(
-        directory, "fullscreen-refinement", Qt::darkCyan, QSize(2401, 1799));
+    const QString path = createQtRasterTestImage(directory, "fullscreen-refinement", Qt::darkCyan,
+                                                 QSize(2401, 1799));
     QVERIFY(!path.isEmpty());
     window.resize(640, 480);
     window.show();
@@ -14900,12 +14276,13 @@ void WindowBehaviorTests::testFullScreenDefersExpensiveRefinement()
         QTRY_VERIFY_WITH_TIMEOUT(item->pixmap().cacheKey() != finalKey, 2000);
         QCOMPARE(resumed.count(), 1);
         const QSize expected = (QSizeF(view->getCurrentFileDetails().loadedPixmapSize)
-            * view->getZoomLevel() * view->devicePixelRatioF()).toSize();
+                                * view->getZoomLevel() * view->devicePixelRatioF())
+                                       .toSize();
         QCOMPARE(item->pixmap().size(), expected);
         QTest::qWait(100);
         QCOMPARE(resumed.count(), 1);
-        qInfo() << "FULLSCREEN_REFINEMENT" << entering << cycle
-                << "final_size" << item->pixmap().size();
+        qInfo() << "FULLSCREEN_REFINEMENT" << entering << cycle << "final_size"
+                << item->pixmap().size();
     }
     QVERIFY2(failures.isEmpty(), qPrintable(failures.join(';')));
 }
@@ -14917,13 +14294,15 @@ void WindowBehaviorTests::testFullScreenVisualContinuity_data()
     QTest::addColumn<bool>("entering");
     QTest::addColumn<QString>("metric");
     QTest::addColumn<bool>("hidden");
-    for (bool hidden : {false, true}) {
+    for (bool hidden : { false, true }) {
         const QByteArray suffix = hidden ? "-hidden" : "-visible";
-        QTest::newRow(("exit-bottom"+suffix).constData()) << false << QString("bottom") << hidden;
-        QTest::newRow(("enter-size"+suffix).constData()) << true << QString("size") << hidden;
-        QTest::newRow(("enter-position"+suffix).constData()) << true << QString("position") << hidden;
-        QTest::newRow(("exit-size"+suffix).constData()) << false << QString("size") << hidden;
-        QTest::newRow(("exit-position"+suffix).constData()) << false << QString("position") << hidden;
+        QTest::newRow(("exit-bottom" + suffix).constData()) << false << QString("bottom") << hidden;
+        QTest::newRow(("enter-size" + suffix).constData()) << true << QString("size") << hidden;
+        QTest::newRow(("enter-position" + suffix).constData())
+                << true << QString("position") << hidden;
+        QTest::newRow(("exit-size" + suffix).constData()) << false << QString("size") << hidden;
+        QTest::newRow(("exit-position" + suffix).constData())
+                << false << QString("position") << hidden;
     }
 }
 
@@ -14932,16 +14311,18 @@ void WindowBehaviorTests::testFullScreenVisualContinuity()
     QFETCH(bool, entering);
     QFETCH(QString, metric);
     QFETCH(bool, hidden);
-    ScopedOptionValues options({{"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}, {"checkerboardbackground", false}});
+    ScopedOptionValues options(
+            { { "titlebarhidden", hidden },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "checkerboardbackground", false } });
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
-        nativeSetResizeProbe(window.windowHandle(), {});
+        nativeSetResizeProbe(window.windowHandle(), { });
         if (window.isFullScreen()) {
             window.toggleFullScreen();
             waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
@@ -14964,7 +14345,8 @@ void WindowBehaviorTests::testFullScreenVisualContinuity()
     if (!entering) {
         const int entries = nativeTitlebarSnapshot(window.windowHandle()).entries;
         window.toggleFullScreen();
-        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries,
+                                 5000);
         QTest::qWait(200);
     }
     int samples = 0;
@@ -14973,13 +14355,16 @@ void WindowBehaviorTests::testFullScreenVisualContinuity()
     const auto bottomMismatch = [](const NativeSDRLayerGeometry &native,
                                    const QRectF &expectedViewport, const QRectF &expectedImage) {
         int mismatches = 0;
-        for (int y = 1; y < native.bottomBand.height()-1; ++y)
-            for (int x = 1; x < native.bottomBand.width()-1; ++x) {
-                const QPointF qtPoint(expectedViewport.left()+x+0.5, expectedViewport.bottom()-y-0.5);
+        for (int y = 1; y < native.bottomBand.height() - 1; ++y)
+            for (int x = 1; x < native.bottomBand.width() - 1; ++x) {
+                const QPointF qtPoint(expectedViewport.left() + x + 0.5,
+                                      expectedViewport.bottom() - y - 0.5);
                 const QColor pixel = native.bottomBand.pixelColor(x, y);
-                const bool actualRed = pixel.red() > 150 && pixel.green() < 100 && pixel.blue() < 100;
+                const bool actualRed =
+                        pixel.red() > 150 && pixel.green() < 100 && pixel.blue() < 100;
                 const bool expectedRed = expectedImage.contains(qtPoint);
-                if (actualRed != expectedRed) ++mismatches;
+                if (actualRed != expectedRed)
+                    ++mismatches;
             }
         return mismatches;
     };
@@ -14987,46 +14372,68 @@ void WindowBehaviorTests::testFullScreenVisualContinuity()
         const auto native = nativeSDRLayerGeometry(window.windowHandle());
         const QPoint origin = view->viewport()->mapTo(&window, QPoint());
         const QRectF expectedViewport(origin, view->viewport()->size());
-        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(0, 0, 800, 1600)).translated(origin);
+        const QRectF expectedImage =
+                view->viewportTransform().mapRect(QRectF(0, 0, 800, 1600)).translated(origin);
         return native.active && bottomMismatch(native, expectedViewport, expectedImage) <= 2
-            && qAbs(native.image.width()-expectedImage.width()) <= 2
-            && qAbs(native.image.height()-expectedImage.height()) <= 2
-            && QLineF(native.image.center(), expectedImage.center()).length() <= 2;
+                && qAbs(native.image.width() - expectedImage.width()) <= 2
+                && qAbs(native.image.height() - expectedImage.height()) <= 2
+                && QLineF(native.image.center(), expectedImage.center()).length() <= 2;
     };
-    QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady source controls failed: probe/fixture cannot classify this transition", 3000);
+    QTRY_VERIFY2_WITH_TIMEOUT(
+            stableControl(),
+            "Steady source controls failed: probe/fixture cannot classify this transition", 3000);
     nativeSetResizeProbe(window.windowHandle(), [&] {
         const auto native = nativeSDRLayerGeometry(window.windowHandle());
-        if (!native.active) return;
+        if (!native.active)
+            return;
         const QPoint origin = view->viewport()->mapTo(&window, QPoint());
         const QRectF expectedViewport(origin, view->viewport()->size());
-        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(0, 0, 800, 1600)).translated(origin);
+        const QRectF expectedImage =
+                view->viewportTransform().mapRect(QRectF(0, 0, 800, 1600)).translated(origin);
         ++samples;
-        sizeError = qMax(sizeError, qMax(qAbs(native.image.width()-expectedImage.width()), qAbs(native.image.height()-expectedImage.height())));
-        positionError = qMax(positionError, QLineF(native.image.center(), expectedImage.center()).length());
-        bottomError = qMax(bottomError, qMax(qAbs(native.viewport.bottom()-expectedViewport.bottom()), qAbs(native.background.bottom()-expectedViewport.bottom())));
+        sizeError = qMax(sizeError,
+                         qMax(qAbs(native.image.width() - expectedImage.width()),
+                              qAbs(native.image.height() - expectedImage.height())));
+        positionError =
+                qMax(positionError, QLineF(native.image.center(), expectedImage.center()).length());
+        bottomError = qMax(bottomError,
+                           qMax(qAbs(native.viewport.bottom() - expectedViewport.bottom()),
+                                qAbs(native.background.bottom() - expectedViewport.bottom())));
         const int mismatches = bottomMismatch(native, expectedViewport, expectedImage);
         bottomPixelErrors = qMax(bottomPixelErrors, mismatches);
-        qInfo() << "CONTINUITY_SAMPLE" << QTest::currentDataTag() << native.image << expectedImage << native.viewport << expectedViewport;
+        qInfo() << "CONTINUITY_SAMPLE" << QTest::currentDataTag() << native.image << expectedImage
+                << native.viewport << expectedViewport;
     });
     const auto before = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(entering
-        ? nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries
-        : nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            entering ? nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries
+                     : nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits,
+            5000);
     QTest::qWait(150);
-    nativeSetResizeProbe(window.windowHandle(), {});
-    qInfo().noquote() << "FULLSCREEN_CONTINUITY" << QJsonDocument(QJsonObject{
-        {"row", QString::fromLatin1(QTest::currentDataTag())}, {"samples", samples},
-        {"size_error", sizeError}, {"position_error", positionError}, {"bottom_error", bottomError}, {"bottom_pixel_errors", bottomPixelErrors}
-    }).toJson(QJsonDocument::Compact);
+    nativeSetResizeProbe(window.windowHandle(), { });
+    qInfo().noquote()
+            << "FULLSCREEN_CONTINUITY"
+            << QJsonDocument(QJsonObject{ { "row", QString::fromLatin1(QTest::currentDataTag()) },
+                                          { "samples", samples },
+                                          { "size_error", sizeError },
+                                          { "position_error", positionError },
+                                          { "bottom_error", bottomError },
+                                          { "bottom_pixel_errors", bottomPixelErrors } })
+                       .toJson(QJsonDocument::Compact);
     QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady endpoint controls failed", 3000);
     QVERIFY(samples > 0);
     if (metric == "bottom") {
         QVERIFY2(bottomError <= 2.0 && bottomPixelErrors <= 2,
-            qPrintable(QString("Bottom strip: geometry error=%1 points, wrong pixels=%2").arg(bottomError).arg(bottomPixelErrors)));
+                 qPrintable(QString("Bottom strip: geometry error=%1 points, wrong pixels=%2")
+                                    .arg(bottomError)
+                                    .arg(bottomPixelErrors)));
     } else {
         const qreal error = metric == "size" ? sizeError : positionError;
-        QVERIFY2(error <= 2.0, qPrintable(QString("%1 transient native geometry error: %2 points").arg(metric).arg(error)));
+        QVERIFY2(error <= 2.0,
+                 qPrintable(QString("%1 transient native geometry error: %2 points")
+                                    .arg(metric)
+                                    .arg(error)));
     }
 }
 
@@ -15035,13 +14442,15 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity_data()
     QTest::addColumn<bool>("entering");
     QTest::addColumn<QString>("metric");
     QTest::addColumn<bool>("hidden");
-    for (bool hidden : {false, true}) {
+    for (bool hidden : { false, true }) {
         const QByteArray suffix = hidden ? "-hidden" : "-visible";
-        QTest::newRow(("exit-bottom"+suffix).constData()) << false << QString("bottom") << hidden;
-        QTest::newRow(("enter-size"+suffix).constData()) << true << QString("size") << hidden;
-        QTest::newRow(("enter-position"+suffix).constData()) << true << QString("position") << hidden;
-        QTest::newRow(("exit-size"+suffix).constData()) << false << QString("size") << hidden;
-        QTest::newRow(("exit-position"+suffix).constData()) << false << QString("position") << hidden;
+        QTest::newRow(("exit-bottom" + suffix).constData()) << false << QString("bottom") << hidden;
+        QTest::newRow(("enter-size" + suffix).constData()) << true << QString("size") << hidden;
+        QTest::newRow(("enter-position" + suffix).constData())
+                << true << QString("position") << hidden;
+        QTest::newRow(("exit-size" + suffix).constData()) << false << QString("size") << hidden;
+        QTest::newRow(("exit-position" + suffix).constData())
+                << false << QString("position") << hidden;
     }
 }
 
@@ -15050,10 +14459,12 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     QFETCH(bool, entering);
     QFETCH(QString, metric);
     QFETCH(bool, hidden);
-    ScopedOptionValues options({{"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"onetoonepixelsizing", false}, {"checkerboardbackground", false}});
+    ScopedOptionValues options(
+            { { "titlebarhidden", hidden },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "checkerboardbackground", false } });
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     ScopedHDRTestDisplay display;
@@ -15062,7 +14473,7 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
-        nativeSetResizeProbe(window.windowHandle(), {});
+        nativeSetResizeProbe(window.windowHandle(), { });
         if (window.isFullScreen()) {
             window.toggleFullScreen();
             waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
@@ -15070,10 +14481,10 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
         window.close();
         qvApp->setQuitOnLastWindowClosed(originalQuit);
     });
-    const QString path = qEnvironmentVariable("FOVELLE_HDR_FULLSCREEN_IMAGE",
-        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
-    if (qEnvironmentVariableIsEmpty("FOVELLE_HDR_FULLSCREEN_IMAGE")
-        && !QFileInfo(path).isFile())
+    const QString path = qEnvironmentVariable(
+            "FOVELLE_HDR_FULLSCREEN_IMAGE",
+            QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
+    if (qEnvironmentVariableIsEmpty("FOVELLE_HDR_FULLSCREEN_IMAGE") && !QFileInfo(path).isFile())
         QSKIP("Set FOVELLE_HDR_FULLSCREEN_IMAGE to a readable HDR DNG");
     QVERIFY2(QFileInfo(path).isFile() && QFileInfo(path).isReadable(), qPrintable(path));
     window.setWindowState(Qt::WindowNoState);
@@ -15097,14 +14508,16 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
             << view->nativeMetalRendererDiagnostics().displayCurrentHeadroom
             << view->nativeMetalRendererDiagnostics().displayPotentialHeadroom
             << view->nativeMetalRendererDiagnostics().displayHeadroomOverridden;
-    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 15000);
+    QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady,
+                             15000);
     QVERIFY(view->nativeMetalRendererDiagnostics().displayHeadroomOverridden);
     const QSize sourceSize = view->getCurrentFileDetails().loadedPixmapSize;
     QTest::qWait(200);
     if (!entering) {
         const int entries = nativeTitlebarSnapshot(window.windowHandle()).entries;
         window.toggleFullScreen();
-        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > entries,
+                                 5000);
         QTest::qWait(200);
     }
     int samples = 0;
@@ -15112,74 +14525,97 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     int bottomPixelErrors = 0;
     const auto bottomMismatch = [](const NativeHDRLayerGeometry &native) {
         if (native.bottomBand.isNull() || native.expectedBottomBand.isNull()
-            || native.bottomBand.size() != native.expectedBottomBand.size()) return 1000000;
+            || native.bottomBand.size() != native.expectedBottomBand.size())
+            return 1000000;
         int errors = 0;
-        for (int y = 1; y < native.bottomBand.height()-1; ++y)
-            for (int x = 1; x < native.bottomBand.width()-1; ++x) {
+        for (int y = 1; y < native.bottomBand.height() - 1; ++y)
+            for (int x = 1; x < native.bottomBand.width() - 1; ++x) {
                 const QColor actual = native.bottomBand.pixelColor(x, y);
                 const QColor expected = native.expectedBottomBand.pixelColor(x, y);
-                if (qAbs(actual.red()-expected.red()) > 8
-                    || qAbs(actual.green()-expected.green()) > 8
-                    || qAbs(actual.blue()-expected.blue()) > 8) ++errors;
+                if (qAbs(actual.red() - expected.red()) > 8
+                    || qAbs(actual.green() - expected.green()) > 8
+                    || qAbs(actual.blue() - expected.blue()) > 8)
+                    ++errors;
             }
         return errors;
     };
     const auto stableControl = [&] {
         const QPoint origin = view->viewport()->mapTo(&window, QPoint());
         const QRectF expectedViewport(origin, view->viewport()->size());
-        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
+        const QRectF expectedImage =
+                view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
         const auto native = nativeHDRLayerGeometry(window.windowHandle(), expectedImage);
         return native.active && bottomMismatch(native) <= 2
-            && qAbs(native.image.width()-expectedImage.width()) <= 2
-            && qAbs(native.image.height()-expectedImage.height()) <= 2
-            && QLineF(native.image.center(), expectedImage.center()).length() <= 2;
+                && qAbs(native.image.width() - expectedImage.width()) <= 2
+                && qAbs(native.image.height() - expectedImage.height()) <= 2
+                && QLineF(native.image.center(), expectedImage.center()).length() <= 2;
     };
-    QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady source controls failed: probe/fixture cannot classify this transition", 3000);
+    QTRY_VERIFY2_WITH_TIMEOUT(
+            stableControl(),
+            "Steady source controls failed: probe/fixture cannot classify this transition", 3000);
     nativeSetResizeProbe(window.windowHandle(), [&] {
         const QPoint origin = view->viewport()->mapTo(&window, QPoint());
         const QRectF expectedViewport(origin, view->viewport()->size());
-        const QRectF expectedImage = view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
+        const QRectF expectedImage =
+                view->viewportTransform().mapRect(QRectF(QPointF(), sourceSize)).translated(origin);
         const auto native = nativeHDRLayerGeometry(window.windowHandle(), expectedImage);
-        if (!native.active) return;
+        if (!native.active)
+            return;
         ++samples;
-        sizeError = qMax(sizeError, qMax(qAbs(native.image.width()-expectedImage.width()), qAbs(native.image.height()-expectedImage.height())));
-        positionError = qMax(positionError, QLineF(native.image.center(), expectedImage.center()).length());
-        bottomError = qMax(bottomError, qMax(qAbs(native.viewport.bottom()-expectedViewport.bottom()), qAbs(native.background.bottom()-expectedViewport.bottom())));
+        sizeError = qMax(sizeError,
+                         qMax(qAbs(native.image.width() - expectedImage.width()),
+                              qAbs(native.image.height() - expectedImage.height())));
+        positionError =
+                qMax(positionError, QLineF(native.image.center(), expectedImage.center()).length());
+        bottomError = qMax(bottomError,
+                           qMax(qAbs(native.viewport.bottom() - expectedViewport.bottom()),
+                                qAbs(native.background.bottom() - expectedViewport.bottom())));
         const int mismatches = bottomMismatch(native);
         bottomPixelErrors = qMax(bottomPixelErrors, mismatches);
-        qInfo() << "CONTINUITY_SAMPLE" << QTest::currentDataTag() << native.image << expectedImage << native.viewport << expectedViewport;
+        qInfo() << "CONTINUITY_SAMPLE" << QTest::currentDataTag() << native.image << expectedImage
+                << native.viewport << expectedViewport;
     });
     const auto before = nativeTitlebarSnapshot(window.windowHandle());
     window.toggleFullScreen();
-    QTRY_VERIFY_WITH_TIMEOUT(entering
-        ? nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries
-        : nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            entering ? nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries
+                     : nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits,
+            5000);
     QTest::qWait(150);
-    nativeSetResizeProbe(window.windowHandle(), {});
-    qInfo().noquote() << "HDR_FULLSCREEN_CONTINUITY" << QJsonDocument(QJsonObject{
-        {"row", QString::fromLatin1(QTest::currentDataTag())}, {"samples", samples},
-        {"size_error", sizeError}, {"position_error", positionError}, {"bottom_error", bottomError}, {"bottom_pixel_errors", bottomPixelErrors}
-    }).toJson(QJsonDocument::Compact);
+    nativeSetResizeProbe(window.windowHandle(), { });
+    qInfo().noquote()
+            << "HDR_FULLSCREEN_CONTINUITY"
+            << QJsonDocument(QJsonObject{ { "row", QString::fromLatin1(QTest::currentDataTag()) },
+                                          { "samples", samples },
+                                          { "size_error", sizeError },
+                                          { "position_error", positionError },
+                                          { "bottom_error", bottomError },
+                                          { "bottom_pixel_errors", bottomPixelErrors } })
+                       .toJson(QJsonDocument::Compact);
     QTRY_VERIFY2_WITH_TIMEOUT(stableControl(), "Steady endpoint controls failed", 3000);
     QVERIFY(samples > 0);
     if (metric == "bottom") {
         QVERIFY2(bottomError <= 2.0 && bottomPixelErrors <= 2,
-            qPrintable(QString("Bottom strip: geometry error=%1 points, wrong pixels=%2").arg(bottomError).arg(bottomPixelErrors)));
+                 qPrintable(QString("Bottom strip: geometry error=%1 points, wrong pixels=%2")
+                                    .arg(bottomError)
+                                    .arg(bottomPixelErrors)));
     } else {
         const qreal error = metric == "size" ? sizeError : positionError;
-        QVERIFY2(error <= 2.0, qPrintable(QString("%1 transient native geometry error: %2 points").arg(metric).arg(error)));
+        QVERIFY2(error <= 2.0,
+                 qPrintable(QString("%1 transient native geometry error: %2 points")
+                                    .arg(metric)
+                                    .arg(error)));
     }
 }
-
 
 void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff_data()
 {
     QTest::addColumn<bool>("hdr");
     QTest::addColumn<bool>("maximized");
-    for (bool hdr : {false, true})
-        for (bool maximized : {false, true}) {
-            const QByteArray row = QByteArray(hdr ? "hdr-" : "sdr-")
-                + (maximized ? "maximized" : "normal");
+    for (bool hdr : { false, true })
+        for (bool maximized : { false, true }) {
+            const QByteArray row =
+                    QByteArray(hdr ? "hdr-" : "sdr-") + (maximized ? "maximized" : "normal");
             QTest::newRow(row.constData()) << hdr << maximized;
         }
 }
@@ -15187,9 +14623,11 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
 {
     QFETCH(bool, hdr);
     QFETCH(bool, maximized);
-    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Dark)},
-        {"titlebarhidden", false}, {"checkerboardbackground", false},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}});
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Dark) },
+              { "titlebarhidden", false },
+              { "checkerboardbackground", false },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
     const bool quit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir directory;
@@ -15200,32 +14638,36 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
             window.toggleFullScreen();
             waitForTestCondition([&] { return !window.isFullScreen(); }, 5000);
         }
-        window.close(); qvApp->setQuitOnLastWindowClosed(quit);
+        window.close();
+        qvApp->setQuitOnLastWindowClosed(quit);
     });
     window.setGeometry(210, 160, 720, 500);
-    window.show(); window.raise(); window.activateWindow();
-    const QString hdrPath = qEnvironmentVariable("FOVELLE_HDR_FULLSCREEN_IMAGE",
-        QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
+    window.show();
+    window.raise();
+    window.activateWindow();
+    const QString hdrPath = qEnvironmentVariable(
+            "FOVELLE_HDR_FULLSCREEN_IMAGE",
+            QStringLiteral("/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/3.dng"));
     if (hdr && !QFileInfo::exists(hdrPath))
         QSKIP("Set FOVELLE_HDR_FULLSCREEN_IMAGE to a readable HDR DNG");
     window.openFile(hdr ? hdrPath
-        : createTestImage(directory, "bottom", Qt::red, QSize(800, 1600)));
+                        : createTestImage(directory, "bottom", Qt::red, QSize(800, 1600)));
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 10000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
     if (hdr) {
         QVERIFY(view->getCurrentFileDetails().isNativeHDRLoaded);
-        QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady, 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(view->nativeMetalRendererDiagnostics().persistentHDRSurfaceReady,
+                                 15000);
     }
     window.setWindowState(Qt::WindowNoState);
     window.setGeometry(210, 160, 720, 500);
-    if (maximized) window.showMaximized();
+    if (maximized)
+        window.showMaximized();
     // A display capture also sees the Dock and its shadow. Keep the pointer
     // inside the window so an auto-hidden Dock cannot be revealed at exit.
     const QPoint originalCursorPosition = QCursor::pos();
-    const auto restoreCursor = qScopeGuard([&] {
-        QCursor::setPos(originalCursorPosition);
-    });
+    const auto restoreCursor = qScopeGuard([&] { QCursor::setPos(originalCursorPosition); });
     QCursor::setPos(view->viewport()->mapToGlobal(QPoint(40, 80)));
     QTest::qWait(200);
     view->zoomAbsolute(0.05);
@@ -15235,84 +14677,102 @@ void WindowBehaviorTests::testFullScreenBottomBackgroundHandoff()
     QTest::qWait(300);
     const QColor expected = Qv::viewportBackgroundColor(Qv::Theme::Dark);
     const QString evidenceRoot = qEnvironmentVariable("FOVELLE_FULLSCREEN_BOTTOM_EVIDENCE");
-    const QString folder = evidenceRoot.isEmpty() ? QString()
-        : QDir(evidenceRoot).filePath(QString::fromLatin1(QTest::currentDataTag()));
-    if (!folder.isEmpty()) QVERIFY(QDir().mkpath(folder));
-    QElapsedTimer clock; clock.start();
+    const QString folder = evidenceRoot.isEmpty()
+            ? QString()
+            : QDir(evidenceRoot).filePath(QString::fromLatin1(QTest::currentDataTag()));
+    if (!folder.isEmpty())
+        QVERIFY(QDir().mkpath(folder));
+    QElapsedTimer clock;
+    clock.start();
     int sample = 0;
     QVector<QImage> images;
     const auto capture = [&] {
         const QPoint origin = view->viewport()->mapToGlobal(QPoint());
         QScreen *screen = window.screen();
         // Cocoa's grabWindow(0, ...) accepts virtual desktop coordinates.
-        const QPoint bottom = origin+QPoint(0, view->viewport()->height()-24);
-        QImage image = screen->grabWindow(0, bottom.x(), bottom.y(), view->viewport()->width(), 20).toImage();
+        const QPoint bottom = origin + QPoint(0, view->viewport()->height() - 24);
+        QImage image = screen->grabWindow(0, bottom.x(), bottom.y(), view->viewport()->width(), 20)
+                               .toImage();
         images.append(image);
         ++sample;
-        if (!folder.isEmpty()) qInfo() << "BOTTOM_DISPLAY" << sample-1 << clock.elapsed() << origin << view->viewport()->size()
-            << expected << nativeWindowBackground(window.windowHandle());
+        if (!folder.isEmpty())
+            qInfo() << "BOTTOM_DISPLAY" << sample - 1 << clock.elapsed() << origin
+                    << view->viewport()->size() << expected
+                    << nativeWindowBackground(window.windowHandle());
     };
     capture();
-    QTimer timer; QObject::connect(&timer, &QTimer::timeout, &window, capture);
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &window, capture);
     timer.start(16);
     const int exits = nativeTitlebarSnapshot(window.windowHandle()).exits;
     window.toggleFullScreen();
     QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > exits, 5000);
-    QTest::qWait(500); timer.stop(); capture();
+    QTest::qWait(500);
+    timer.stop();
+    capture();
     if (!folder.isEmpty())
-        for (int i=0; i<images.size(); ++i)
-            QVERIFY(images[i].save(folder+QString("/band-%1.png").arg(i, 3, 10, QLatin1Char('0'))));
+        for (int i = 0; i < images.size(); ++i)
+            QVERIFY(images[i].save(folder
+                                   + QString("/band-%1.png").arg(i, 3, 10, QLatin1Char('0'))));
     QVERIFY(sample >= 5);
     const QImage settled = images.constLast();
     QVERIFY(!settled.isNull());
     if (!folder.isEmpty()) {
-        QVERIFY(window.screen()->grabWindow(0).save(folder+"/desktop.png"));
-        QVERIFY(view->viewport()->grab().save(folder+"/qt-viewport.png"));
-        qInfo() << "BOTTOM_SETTLED_CONTROL" << QCursor::pos()
-                << window.isActiveWindow() << window.geometry()
-                << window.screen()->geometry() << window.screen()->availableGeometry();
+        QVERIFY(window.screen()->grabWindow(0).save(folder + "/desktop.png"));
+        QVERIFY(view->viewport()->grab().save(folder + "/qt-viewport.png"));
+        qInfo() << "BOTTOM_SETTLED_CONTROL" << QCursor::pos() << window.isActiveWindow()
+                << window.geometry() << window.screen()->geometry()
+                << window.screen()->availableGeometry();
     }
     // Only judge the settled app interior. Qt's target rectangle is not the
     // animated AppKit snapshot; red content crossing it during exit is valid.
-    for (int y=0; y<settled.height(); ++y)
-        for (int x=settled.width()/3; x<2*settled.width()/3; ++x) {
-            const QColor pixel = settled.pixelColor(x,y);
-            QVERIFY2(qAbs(pixel.red()-expected.red())<=2
-                && qAbs(pixel.green()-expected.green())<=2
-                && qAbs(pixel.blue()-expected.blue())<=2,
-                qPrintable(QString("Settled bottom pixel (%1,%2)=%3 expected=%4; viewport=%5x%6 origin=(%7,%8)")
-                    .arg(x).arg(y).arg(pixel.name()).arg(expected.name())
-                    .arg(view->viewport()->width()).arg(view->viewport()->height())
-                    .arg(view->viewport()->mapToGlobal(QPoint()).x())
-                    .arg(view->viewport()->mapToGlobal(QPoint()).y())));
+    for (int y = 0; y < settled.height(); ++y)
+        for (int x = settled.width() / 3; x < 2 * settled.width() / 3; ++x) {
+            const QColor pixel = settled.pixelColor(x, y);
+            QVERIFY2(qAbs(pixel.red() - expected.red()) <= 2
+                             && qAbs(pixel.green() - expected.green()) <= 2
+                             && qAbs(pixel.blue() - expected.blue()) <= 2,
+                     qPrintable(QString("Settled bottom pixel (%1,%2)=%3 expected=%4; "
+                                        "viewport=%5x%6 origin=(%7,%8)")
+                                        .arg(x)
+                                        .arg(y)
+                                        .arg(pixel.name())
+                                        .arg(expected.name())
+                                        .arg(view->viewport()->width())
+                                        .arg(view->viewport()->height())
+                                        .arg(view->viewport()->mapToGlobal(QPoint()).x())
+                                        .arg(view->viewport()->mapToGlobal(QPoint()).y())));
         }
 
     // Deliberately expose the independent AppKit fallback after the real exit.
     // This is a controlled content handoff, NOT a claim that a natural flash
     // occurred. Capture actual display pixels; layer-model rendering misses it.
     nativeSetContentHidden(window.windowHandle(), true);
-    const auto restoreContent = qScopeGuard([&] {
-        nativeSetContentHidden(window.windowHandle(), false);
-    });
+    const auto restoreContent =
+            qScopeGuard([&] { nativeSetContentHidden(window.windowHandle(), false); });
     QTest::qWait(150);
-    const QPoint bottom = view->viewport()->mapToGlobal(QPoint(
-        view->viewport()->width()/2 - 40, view->viewport()->height()-24));
+    const QPoint bottom = view->viewport()->mapToGlobal(
+            QPoint(view->viewport()->width() / 2 - 40, view->viewport()->height() - 24));
     QScreen *screen = window.screen();
     const QImage fallback = screen->grabWindow(0, bottom.x(), bottom.y(), 80, 12).toImage();
     QVERIFY2(!fallback.isNull(), "Actual display capture unavailable");
-    if (!folder.isEmpty()) QVERIFY(fallback.save(folder+"/fallback.png"));
+    if (!folder.isEmpty())
+        QVERIFY(fallback.save(folder + "/fallback.png"));
     int wrongPixels = 0;
-    for (int y=0; y<fallback.height(); ++y)
-        for (int x=0; x<fallback.width(); ++x) {
-            const QColor pixel = fallback.pixelColor(x,y);
-            if (qAbs(pixel.red()-expected.red())>2
-                || qAbs(pixel.green()-expected.green())>2
-                || qAbs(pixel.blue()-expected.blue())>2) ++wrongPixels;
+    for (int y = 0; y < fallback.height(); ++y)
+        for (int x = 0; x < fallback.width(); ++x) {
+            const QColor pixel = fallback.pixelColor(x, y);
+            if (qAbs(pixel.red() - expected.red()) > 2 || qAbs(pixel.green() - expected.green()) > 2
+                || qAbs(pixel.blue() - expected.blue()) > 2)
+                ++wrongPixels;
         }
-    QVERIFY2(wrongPixels == 0, qPrintable(QString(
-        "Exposed native bottom background differs from canvas: %1/%2 pixels; native=%3 expected=%4")
-        .arg(wrongPixels).arg(fallback.width()*fallback.height())
-        .arg(nativeWindowBackground(window.windowHandle()).name()).arg(expected.name())));
+    QVERIFY2(wrongPixels == 0,
+             qPrintable(QString("Exposed native bottom background differs from canvas: %1/%2 "
+                                "pixels; native=%3 expected=%4")
+                                .arg(wrongPixels)
+                                .arg(fallback.width() * fallback.height())
+                                .arg(nativeWindowBackground(window.windowHandle()).name())
+                                .arg(expected.name())));
     QCOMPARE(nativeWindowBackground(window.windowHandle()), expected);
 }
 
@@ -15322,12 +14782,12 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip_data()
     QTest::addColumn<bool>("hidden");
     QTest::addColumn<bool>("maximized");
     QTest::addColumn<bool>("vectorImage");
-    for (bool hidden : {false, true})
-        for (bool maximized : {false, true})
-            for (bool vectorImage : {false, true}) {
+    for (bool hidden : { false, true })
+        for (bool maximized : { false, true })
+            for (bool vectorImage : { false, true }) {
                 const QByteArray row = QByteArray(hidden ? "hidden-" : "visible-")
-                    + (maximized ? "maximized-" : "normal-")
-                    + (vectorImage ? "vector" : "raster");
+                        + (maximized ? "maximized-" : "normal-")
+                        + (vectorImage ? "vector" : "raster");
                 QTest::newRow(row.constData()) << hidden << maximized << vectorImage;
             }
 }
@@ -15337,9 +14797,10 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
     QFETCH(bool, hidden);
     QFETCH(bool, maximized);
     QFETCH(bool, vectorImage);
-    ScopedOptionValues options({{"titlebarhidden", hidden},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"onetoonepixelsizing", false}});
+    ScopedOptionValues options(
+            { { "titlebarhidden", hidden },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "onetoonepixelsizing", false } });
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     MainWindow window;
@@ -15358,7 +14819,8 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
     if (vectorImage) {
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2400\" height=\"1800\"><rect width=\"2400\" height=\"1800\" fill=\"red\"/></svg>");
+        file.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2400\" height=\"1800\"><rect "
+                   "width=\"2400\" height=\"1800\" fill=\"red\"/></svg>");
     } else {
         QImage image(2400, 1800, QImage::Format_RGB32);
         image.fill(Qt::red);
@@ -15368,7 +14830,10 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
     // Reset the restored state before selecting this data row's start state.
     window.setWindowState(Qt::WindowNoState);
     window.setGeometry(220, 180, 720, 500);
-    if (maximized) window.showMaximized(); else window.showNormal();
+    if (maximized)
+        window.showMaximized();
+    else
+        window.showNormal();
     window.openFile(path);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
@@ -15384,21 +14849,29 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
         // Hiding all titlebar buttons makes Qt mark the normal window
         // FullScreenAuxiliary, so direct native entry is unavailable there.
         // The app's Qt request handles that case; native exit remains valid.
-        if (cycle == 0 || hidden) window.toggleFullScreen();
-        else nativeToggleFullScreen(window.windowHandle());
-        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries, 5000);
+        if (cycle == 0 || hidden)
+            window.toggleFullScreen();
+        else
+            nativeToggleFullScreen(window.windowHandle());
+        QTRY_VERIFY_WITH_TIMEOUT(
+                nativeTitlebarSnapshot(window.windowHandle()).entries > before.entries, 5000);
         QVERIFY(window.isFullScreen());
         QVERIFY(!nativeFullScreenPresentation(window.windowHandle(), false).active);
         // Zoom AFTER actual entry, then pan to both trailing edges.
         view->zoomAbsolute(2.0, view->viewport()->rect().center());
-        QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0), 3000);
+        QTRY_VERIFY_WITH_TIMEOUT(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0),
+                                 3000);
         QTRY_VERIFY_WITH_TIMEOUT(view->horizontalScrollBar()->maximum() > 0
-            && view->verticalScrollBar()->maximum() > 0, 3000);
+                                         && view->verticalScrollBar()->maximum() > 0,
+                                 3000);
         view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->maximum());
         view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
-        if (cycle == 0) QTest::keyClick(&window, Qt::Key_Escape);
-        else nativeToggleFullScreen(window.windowHandle());
-        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits, 5000);
+        if (cycle == 0)
+            QTest::keyClick(&window, Qt::Key_Escape);
+        else
+            nativeToggleFullScreen(window.windowHandle());
+        QTRY_VERIFY_WITH_TIMEOUT(nativeTitlebarSnapshot(window.windowHandle()).exits > before.exits,
+                                 5000);
         QTRY_VERIFY_WITH_TIMEOUT(!window.isFullScreen(), 5000);
         QTRY_COMPARE_WITH_TIMEOUT(window.geometry(), originalGeometry, 3000);
         QCOMPARE(window.isMaximized(), originalMaximized);
@@ -15406,8 +14879,10 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
         QVERIFY(window.updatesEnabled());
         QVERIFY(view->viewport()->updatesEnabled());
         QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), 2.0));
-        QTRY_COMPARE_WITH_TIMEOUT(view->horizontalScrollBar()->value(), view->horizontalScrollBar()->maximum(), 2000);
-        QTRY_COMPARE_WITH_TIMEOUT(view->verticalScrollBar()->value(), view->verticalScrollBar()->maximum(), 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(view->horizontalScrollBar()->value(),
+                                  view->horizontalScrollBar()->maximum(), 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(view->verticalScrollBar()->value(),
+                                  view->verticalScrollBar()->maximum(), 2000);
         QVERIFY(nativeFullScreenUsesSystemAnimation(window.windowHandle()));
     }
 }
@@ -15421,9 +14896,8 @@ void WindowBehaviorTests::testNativeFullScreenRoundTrip()
 // Postcondition: no persistent setting is changed.
 void WindowBehaviorTests::testSmoothScalingDefaultIsBilinear()
 {
-    QCOMPARE(
-        qvApp->getSettingsManager().getEnum<Qv::SmoothScalingMode>("smoothscalingmode", true),
-        Qv::SmoothScalingMode::Bilinear);
+    QCOMPARE(qvApp->getSettingsManager().getEnum<Qv::SmoothScalingMode>("smoothscalingmode", true),
+             Qv::SmoothScalingMode::Bilinear);
 }
 
 // TC-WINDOW-MAXIMIZED
@@ -15482,10 +14956,8 @@ void WindowBehaviorTests::testSystemThemeResolvesFromControlledAppearance()
 void WindowBehaviorTests::testHelpMenuContract()
 {
     QMenu *helpMenu = nullptr;
-    for (QAction *menuAction : qvApp->getMenuBar()->actions())
-    {
-        if (menuAction->text().contains(QStringLiteral("Help"), Qt::CaseInsensitive))
-        {
+    for (QAction *menuAction : qvApp->getMenuBar()->actions()) {
+        if (menuAction->text().contains(QStringLiteral("Help"), Qt::CaseInsensitive)) {
             helpMenu = menuAction->menu();
             break;
         }
@@ -15496,12 +14968,12 @@ void WindowBehaviorTests::testHelpMenuContract()
     QVERIFY(qvApp->getActionManager().getAction("checkupdates"));
     QVERIFY(!qvApp->getActionManager().getAction("welcome"));
 
-    const QStringList actionTexts = std::accumulate(
-        helpMenu->actions().cbegin(), helpMenu->actions().cend(), QStringList {},
-        [](QStringList texts, QAction *action) {
-            texts.append(action->text());
-            return texts;
-        });
+    const QStringList actionTexts =
+            std::accumulate(helpMenu->actions().cbegin(), helpMenu->actions().cend(),
+                            QStringList{ }, [](QStringList texts, QAction *action) {
+                                texts.append(action->text());
+                                return texts;
+                            });
     QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Project Homepage")));
     QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Website")));
     QVERIFY(actionTexts.join(QStringLiteral("\n")).contains(QStringLiteral("Check for Updates")));
@@ -15541,10 +15013,8 @@ void WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract()
     QMenu *contextMenu = window.getContextMenuForTesting();
     QVERIFY(contextMenu);
     QMenu *contextHelp = nullptr;
-    for (QAction *action : contextMenu->actions())
-    {
-        if (action->data().toString() == QStringLiteral("help"))
-        {
+    for (QAction *action : contextMenu->actions()) {
+        if (action->data().toString() == QStringLiteral("help")) {
             contextHelp = action->menu();
             break;
         }
@@ -15552,12 +15022,12 @@ void WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract()
     QVERIFY(contextHelp);
 
     const auto websiteIndexInMenu = [](QMenu *menu) {
-        const QStringList texts = std::accumulate(
-            menu->actions().cbegin(), menu->actions().cend(), QStringList {},
-            [](QStringList values, QAction *action) {
-                values.append(action->text());
-                return values;
-            });
+        const QStringList texts =
+                std::accumulate(menu->actions().cbegin(), menu->actions().cend(), QStringList{ },
+                                [](QStringList values, QAction *action) {
+                                    values.append(action->text());
+                                    return values;
+                                });
         return texts;
     };
     const QStringList contextTexts = websiteIndexInMenu(contextHelp);
@@ -15569,32 +15039,25 @@ void WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract()
     QVERIFY(contextUpdatesIndex == contextWebsiteIndex + 1);
 
     UrlHandlerProbe probe;
-    QDesktopServices::setUrlHandler(
-        QStringLiteral("https"), &probe, "capture");
-    const auto unregisterUrlHandler = qScopeGuard([]() {
-        QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
-    });
-    QAction *websiteAction = qvApp->getActionManager().getAction(
-        QStringLiteral("website"));
+    QDesktopServices::setUrlHandler(QStringLiteral("https"), &probe, "capture");
+    const auto unregisterUrlHandler =
+            qScopeGuard([]() { QDesktopServices::unsetUrlHandler(QStringLiteral("https")); });
+    QAction *websiteAction = qvApp->getActionManager().getAction(QStringLiteral("website"));
     QVERIFY(websiteAction);
     ActionManager::actionTriggered(websiteAction, nullptr);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        probe.receivedUrl,
-        QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")),
-        1000);
+    QTRY_COMPARE_WITH_TIMEOUT(probe.receivedUrl,
+                              QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")), 1000);
 
 #ifdef FOVELLE_TRANSLATIONS_DIR
-    const QHash<QString, QString> expectedTranslations {
-        {QStringLiteral("es"), QStringLiteral("Sitio web")},
-        {QStringLiteral("ja"), QStringLiteral("公式サイト")},
-        {QStringLiteral("zh_Hans"), QStringLiteral("官方网站")},
-        {QStringLiteral("zh_Hant"), QStringLiteral("官方網站")}
+    const QHash<QString, QString> expectedTranslations{
+        { QStringLiteral("es"), QStringLiteral("Sitio web") },
+        { QStringLiteral("ja"), QStringLiteral("公式サイト") },
+        { QStringLiteral("zh_Hans"), QStringLiteral("官方网站") },
+        { QStringLiteral("zh_Hant"), QStringLiteral("官方網站") }
     };
-    for (auto it = expectedTranslations.cbegin(); it != expectedTranslations.cend(); ++it)
-    {
+    for (auto it = expectedTranslations.cbegin(); it != expectedTranslations.cend(); ++it) {
         QTranslator translator;
-        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm")
-                .arg(it.key());
+        const QString path = QStringLiteral(FOVELLE_TRANSLATIONS_DIR "/qview_%1.qm").arg(it.key());
         QVERIFY2(translator.load(path), qPrintable(path));
         const QString translation = translator.translate("ActionManager", "Website");
         QCOMPARE(translation, it.value());
@@ -15621,10 +15084,9 @@ void WindowBehaviorTests::testWebsiteHelpActionAndContextMenuContract()
 // Postcondition: the temporary settings, window, and menu are released.
 void WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortMenu()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Random)},
-        {QStringLiteral("sortdescending"), true}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Random) },
+              { QStringLiteral("sortdescending"), true } });
     QVERIFY(!qvApp->getSettingsManager().getSettings().contains(QStringLiteral("sortmode")));
     QVERIFY(!qvApp->getSettingsManager().getSettings().contains(QStringLiteral("sortdescending")));
 
@@ -15642,10 +15104,8 @@ void WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortM
     QCOMPARE(view->getSortDescending(), false);
 
     const auto actions = ActionManager::getAllNestedActions(contextMenu->actions());
-    for (const QAction *action : actions)
-    {
-        QVERIFY2(action->text().compare(QStringLiteral("Sort Files By"),
-                                        Qt::CaseInsensitive) != 0,
+    for (const QAction *action : actions) {
+        QVERIFY2(action->text().compare(QStringLiteral("Sort Files By"), Qt::CaseInsensitive) != 0,
                  qPrintable(action->text()));
         const QString key = action->data().toStringList().value(0);
         QVERIFY(key != QStringLiteral("sortmenu"));
@@ -15668,14 +15128,13 @@ void WindowBehaviorTests::testSortConfigurationIsIgnoredAndContextMenuHasNoSortM
 void WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()
 {
     const auto allActions = ActionManager::getAllNestedActions(qvApp->getMenuBar()->actions());
-    const QStringList forbidden {
-        QStringLiteral("AutoFill"), QStringLiteral("Start Dictation"),
-        QStringLiteral("Emoji & Symbols"), QStringLiteral("Emoji and Symbols")
-    };
-    for (const QAction *action : allActions)
-    {
+    const QStringList forbidden{ QStringLiteral("AutoFill"), QStringLiteral("Start Dictation"),
+                                 QStringLiteral("Emoji & Symbols"),
+                                 QStringLiteral("Emoji and Symbols") };
+    for (const QAction *action : allActions) {
         for (const QString &text : forbidden)
-            QVERIFY2(action->text().compare(text, Qt::CaseInsensitive) != 0, qPrintable(action->text()));
+            QVERIFY2(action->text().compare(text, Qt::CaseInsensitive) != 0,
+                     qPrintable(action->text()));
     }
 }
 
@@ -15690,29 +15149,24 @@ void WindowBehaviorTests::testEditMenuRemovesMacOSServiceItems()
 // Postcondition: dialogs are closed and the original theme is restored.
 void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
 {
-    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
-    {
-        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
-        const QString expectedAppearance = theme == Qv::Theme::Dark
-            ? QStringLiteral("DarkAqua")
-            : QStringLiteral("Aqua");
+    for (const auto theme : { Qv::Theme::Light, Qv::Theme::Dark }) {
+        ScopedOptionValues options({ { "theme", static_cast<int>(theme) } });
+        const QString expectedAppearance =
+                theme == Qv::Theme::Dark ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
         const bool expectsDarkPalette = theme == Qv::Theme::Dark;
 
         const auto assertAppearance = [&expectedAppearance, expectsDarkPalette](QWidget *dialog) {
             dialog->setAttribute(Qt::WA_DeleteOnClose, false);
             dialog->show();
             QTRY_COMPARE_WITH_TIMEOUT(
-                QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
-                expectedAppearance,
-                2000);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                (dialog->palette().color(QPalette::Window).lightness() < 128)
-                    == expectsDarkPalette,
-                2000);
-            QTRY_VERIFY_WITH_TIMEOUT(
-                (dialog->palette().color(QPalette::WindowText).lightness() > 128)
-                    == expectsDarkPalette,
-                2000);
+                    QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
+                    expectedAppearance, 2000);
+            QTRY_VERIFY_WITH_TIMEOUT((dialog->palette().color(QPalette::Window).lightness() < 128)
+                                             == expectsDarkPalette,
+                                     2000);
+            QTRY_VERIFY_WITH_TIMEOUT((dialog->palette().color(QPalette::WindowText).lightness()
+                                      > 128) == expectsDarkPalette,
+                                     2000);
             dialog->close();
             delete dialog;
         };
@@ -15722,10 +15176,8 @@ void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
         assertAppearance(new QVInfoDialog());
 
         QMessageBox *messageBox = NativeDialogs::createMessageBox(
-            QMessageBox::Information,
-            QStringLiteral("Theme test"),
-            QStringLiteral("Native dialog"),
-            QMessageBox::Ok);
+                QMessageBox::Information, QStringLiteral("Theme test"),
+                QStringLiteral("Native dialog"), QMessageBox::Ok);
         QCOMPARE(messageBox->windowModality(), Qt::ApplicationModal);
         QCOMPARE(messageBox->text(), QStringLiteral("Theme test"));
         QCOMPARE(messageBox->informativeText(), QStringLiteral("Native dialog"));
@@ -15747,28 +15199,26 @@ void WindowBehaviorTests::testNativeDialogsFollowSelectedTheme()
 // Postcondition: each alert closes, objects are deleted, and theme is restored.
 void WindowBehaviorTests::testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity()
 {
-    const QString longLocalizedText = QStringLiteral(
-        "画像を開けませんでした。詳細を確認してから、もう一度お試しください。 "
-        "La imagen no se pudo abrir. Comprueba los detalles e inténtalo de nuevo. ")
-        .repeated(8);
+    const QString longLocalizedText =
+            QStringLiteral(
+                    "画像を開けませんでした。詳細を確認してから、もう一度お試しください。 "
+                    "La imagen no se pudo abrir. Comprueba los detalles e inténtalo de nuevo. ")
+                    .repeated(8);
 
-    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
-    {
-        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
-        const QString expectedAppearance = theme == Qv::Theme::Dark
-            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+    for (const auto theme : { Qv::Theme::Light, Qv::Theme::Dark }) {
+        ScopedOptionValues options({ { "theme", static_cast<int>(theme) } });
+        const QString expectedAppearance =
+                theme == Qv::Theme::Dark ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
 
-        for (const auto severity : {QMessageBox::Information, QMessageBox::Warning,
-                                    QMessageBox::Critical, QMessageBox::Question})
-        {
+        for (const auto severity : { QMessageBox::Information, QMessageBox::Warning,
+                                     QMessageBox::Critical, QMessageBox::Question }) {
             QStringList nativeMessages;
             QString appearanceAtPresentation;
             ScopedNativeDialogLogCapture capture(&nativeMessages);
             auto *messageBox = NativeDialogs::createMessageBox(
-                severity,
-                QStringLiteral("Localized alert"),
-                QStringLiteral("<b>") + longLocalizedText + QStringLiteral("</b>"),
-                QMessageBox::Ok);
+                    severity, QStringLiteral("Localized alert"),
+                    QStringLiteral("<b>") + longLocalizedText + QStringLiteral("</b>"),
+                    QMessageBox::Ok);
             messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
             QCOMPARE(messageBox->windowModality(), Qt::ApplicationModal);
             QCOMPARE(messageBox->text(), QStringLiteral("Localized alert"));
@@ -15795,23 +15245,21 @@ void WindowBehaviorTests::testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAn
     }
 
     // System appearance resolves through NSApp and is inherited by NSAlert.
-    for (const auto systemTheme : {QByteArray("light"), QByteArray("dark")})
-    {
-        ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::System)}});
+    for (const auto systemTheme : { QByteArray("light"), QByteArray("dark") }) {
+        ScopedOptionValues options({ { "theme", static_cast<int>(Qv::Theme::System) } });
         ScopedEnvironmentValue environment("FOVELLE_SYSTEM_THEME");
         qputenv("FOVELLE_SYSTEM_THEME", systemTheme);
         QCOMPARE(NativeDialogs::currentTheme(), Qv::Theme::System);
         QVCocoaFunctions::setApplicationTheme(Qv::Theme::System);
-        const QString expectedAppearance = systemTheme == "dark"
-            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+        const QString expectedAppearance =
+                systemTheme == "dark" ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
         QStringList nativeMessages;
         QString appearanceAtPresentation;
         ScopedNativeDialogLogCapture capture(&nativeMessages);
         auto *messageBox = NativeDialogs::createMessageBox(
-            QMessageBox::Information,
-            QStringLiteral("System appearance"),
-            QStringLiteral("The native alert follows the current system appearance."),
-            QMessageBox::Ok);
+                QMessageBox::Information, QStringLiteral("System appearance"),
+                QStringLiteral("The native alert follows the current system appearance."),
+                QMessageBox::Ok);
         messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
         auto *okButton = messageBox->button(QMessageBox::Ok);
         QTimer::singleShot(250, messageBox, [messageBox, okButton, &appearanceAtPresentation] {
@@ -15837,16 +15285,14 @@ void WindowBehaviorTests::testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAn
 // Postcondition: each QMessageBox is closed and deleted.
 void WindowBehaviorTests::testNativeMessageBoxStandardButtonResponses()
 {
-    for (const auto expectedButton : {QMessageBox::Save, QMessageBox::Discard,
-                                      QMessageBox::Cancel})
-    {
+    for (const auto expectedButton :
+         { QMessageBox::Save, QMessageBox::Discard, QMessageBox::Cancel }) {
         QStringList nativeMessages;
         ScopedNativeDialogLogCapture capture(&nativeMessages);
         auto *messageBox = NativeDialogs::createMessageBox(
-            QMessageBox::Question,
-            QStringLiteral("Remember Session?"),
-            QStringLiteral("Would you like to remember the opened images for next time?"),
-            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+                QMessageBox::Question, QStringLiteral("Remember Session?"),
+                QStringLiteral("Would you like to remember the opened images for next time?"),
+                QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
         messageBox->setAttribute(Qt::WA_DeleteOnClose, false);
         QCOMPARE(messageBox->buttons().size(), 3);
         auto *button = messageBox->button(expectedButton);
@@ -15877,9 +15323,8 @@ void WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()
     QColor darkWindow;
     QColor darkBase;
 
-    for (const auto theme : {Qv::Theme::Light, Qv::Theme::Dark})
-    {
-        ScopedOptionValues options({{"theme", static_cast<int>(theme)}});
+    for (const auto theme : { Qv::Theme::Light, Qv::Theme::Dark }) {
+        ScopedOptionValues options({ { "theme", static_cast<int>(theme) } });
         MainWindow window;
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         window.resize(640, 480);
@@ -15893,29 +15338,21 @@ void WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()
         QVERIFY(lineEdit);
 
         const bool isDark = theme == Qv::Theme::Dark;
-        const QString expectedAppearance = isDark
-            ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
-        QTRY_COMPARE_WITH_TIMEOUT(
-            QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
-            expectedAppearance,
-            2000);
+        const QString expectedAppearance =
+                isDark ? QStringLiteral("DarkAqua") : QStringLiteral("Aqua");
+        QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(dialog->windowHandle()),
+                                  expectedAppearance, 2000);
         QTRY_VERIFY_WITH_TIMEOUT(
-            (dialog->palette().color(QPalette::Window).lightness() < 128) == isDark,
-            2000);
+                (dialog->palette().color(QPalette::Window).lightness() < 128) == isDark, 2000);
         QTRY_VERIFY_WITH_TIMEOUT(
-            (lineEdit->palette().color(QPalette::Base).lightness() < 128) == isDark,
-            2000);
+                (lineEdit->palette().color(QPalette::Base).lightness() < 128) == isDark, 2000);
         QTRY_VERIFY_WITH_TIMEOUT(
-            (lineEdit->palette().color(QPalette::Text).lightness() > 128) == isDark,
-            2000);
+                (lineEdit->palette().color(QPalette::Text).lightness() > 128) == isDark, 2000);
 
-        if (isDark)
-        {
+        if (isDark) {
             darkWindow = dialog->palette().color(QPalette::Window);
             darkBase = lineEdit->palette().color(QPalette::Base);
-        }
-        else
-        {
+        } else {
             lightWindow = dialog->palette().color(QPalette::Window);
             lightBase = lineEdit->palette().color(QPalette::Base);
         }
@@ -15942,11 +15379,10 @@ void WindowBehaviorTests::testOpenUrlDialogFollowsSelectedTheme()
 // Postcondition: the modal dialog and window are closed.
 void WindowBehaviorTests::testZoomCustomDialogStartsAtCurrentLevel()
 {
-    ScopedOptionValues options({
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled)}
-    });
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Disabled) } });
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString svgPath = createSVGVectorImage(dir, "zoom-dialog-current-value");
@@ -15958,9 +15394,8 @@ void WindowBehaviorTests::testZoomCustomDialogStartsAtCurrentLevel()
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
     window.openFile(svgPath);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-        QFileInfo(svgPath).absoluteFilePath(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              QFileInfo(svgPath).absoluteFilePath(), 5000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);
     view->zoomAbsolute(64.0, Qv::CalculateViewportCenterPos);
@@ -15996,7 +15431,8 @@ void WindowBehaviorTests::testZoomCustomDialogStartsAtCurrentLevel()
 // Postcondition: the original theme setting and window are restored.
 void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground()
 {
-    ScopedOptionValues options({{"theme", static_cast<int>(Qv::Theme::Light)}, {"checkerboardbackground", false}});
+    ScopedOptionValues options({ { "theme", static_cast<int>(Qv::Theme::Light) },
+                                 { "checkerboardbackground", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -16017,18 +15453,23 @@ void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground(
     };
     const auto viewportSnapshot = [&window]() { return window.grab().toImage(); };
 
-    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("Aqua"), 2000);
-    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#969696")), 2000);
-    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()), Qv::viewportBackgroundColor(Qv::Theme::Light), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()),
+                              QStringLiteral("Aqua"), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#969696")),
+                             2000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()),
+                              Qv::viewportBackgroundColor(Qv::Theme::Light), 2000);
 
     QSettings settings;
     settings.setValue("options/theme", static_cast<int>(Qv::Theme::Dark));
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
-    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()), QStringLiteral("DarkAqua"), 2000);
-    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#212121")), 2000);
-    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()), Qv::viewportBackgroundColor(Qv::Theme::Dark), 2000);
-
+    QTRY_COMPARE_WITH_TIMEOUT(QVCocoaFunctions::getWindowAppearanceName(window.windowHandle()),
+                              QStringLiteral("DarkAqua"), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(containsColor(viewportSnapshot(), viewportArea(), QColor("#212121")),
+                             2000);
+    QTRY_COMPARE_WITH_TIMEOUT(nativeWindowBackground(window.windowHandle()),
+                              Qv::viewportBackgroundColor(Qv::Theme::Dark), 2000);
 }
 
 // TC-THEME-CHECKERBOARD
@@ -16044,12 +15485,11 @@ void WindowBehaviorTests::testThemeAppliesNativeAppearanceAndViewportBackground(
 // Postcondition: the window, fixture, and settings are restored.
 void WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()
 {
-    ScopedOptionValues options({
-        {"theme", static_cast<int>(Qv::Theme::Dark)},
-        {"checkerboardbackground", true},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
-    });
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Dark) },
+              { "checkerboardbackground", true },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::OriginalSize) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -16070,15 +15510,16 @@ void WindowBehaviorTests::testCheckerboardOverridesThemeAndRestoresBackground()
     const QRect viewportArea(view->mapTo(&window, QPoint(0, 0)), view->size());
 
     QTRY_VERIFY_WITH_TIMEOUT(
-        containsColor(window.grab().toImage(), viewportArea, QColorConstants::White) &&
-            containsColor(window.grab().toImage(), viewportArea, QColor("#cccccc")),
-        2000);
+            containsColor(window.grab().toImage(), viewportArea, QColorConstants::White)
+                    && containsColor(window.grab().toImage(), viewportArea, QColor("#cccccc")),
+            2000);
 
     QSettings settings;
     settings.setValue("options/checkerboardbackground", false);
     settings.sync();
     qvApp->getSettingsManager().loadSettings();
-    QTRY_VERIFY_WITH_TIMEOUT(containsColor(window.grab().toImage(), viewportArea, QColor("#212121")), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+            containsColor(window.grab().toImage(), viewportArea, QColor("#212121")), 2000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -16101,11 +15542,15 @@ void WindowBehaviorTests::testNavigationEdgeActivationExcludesTitlebar()
     const int activationWidth = MainWindow::navigationEdgeWidth(contentRect.width());
     QCOMPARE(activationWidth, 72);
     QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(0, 200), contentRect));
-    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(activationWidth - 1, 200), contentRect, activationWidth));
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(activationWidth - 1, 200), contentRect,
+                                               activationWidth));
     QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(399, 200), contentRect));
-    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(activationWidth, 200), contentRect, activationWidth));
-    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth, 200), contentRect, activationWidth));
-    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth - 1, 200), contentRect, activationWidth));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(activationWidth, 200), contentRect,
+                                                activationWidth));
+    QVERIFY(MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth, 200), contentRect,
+                                               activationWidth));
+    QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(400 - activationWidth - 1, 200), contentRect,
+                                                activationWidth));
     QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(200, 200), contentRect));
     QVERIFY(!MainWindow::isNavigationEdgeActive(QPoint(20, 99), contentRect));
 }
@@ -16146,8 +15591,10 @@ void WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()
     QVERIFY(!nextButton->property("hideDelayMs").isValid());
     QVERIFY(!window.findChild<QObject *>("previousImageButtonVisibilityTimer"));
     QVERIFY(!window.findChild<QObject *>("nextImageButtonVisibilityTimer"));
-    QCOMPARE(previousButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
-    QCOMPARE(nextButton->property("transitionDurationMs").toInt(), MainWindow::NavigationButtonAnimationDuration);
+    QCOMPARE(previousButton->property("transitionDurationMs").toInt(),
+             MainWindow::NavigationButtonAnimationDuration);
+    QCOMPARE(nextButton->property("transitionDurationMs").toInt(),
+             MainWindow::NavigationButtonAnimationDuration);
     window.close();
 }
 
@@ -16165,15 +15612,14 @@ void WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 {
-    ScopedOptionValues options({
-        {"theme", static_cast<int>(Qv::Theme::Dark)},
-        {"checkerboardbackground", false},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"loopfoldersenabled", true},
-        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
-        {"sortdescending", false}
-    });
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Dark) },
+              { "checkerboardbackground", false },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "loopfoldersenabled", true },
+              { "sortmode", static_cast<int>(Qv::SortMode::Name) },
+              { "sortdescending", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -16209,13 +15655,10 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
 
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-            previousButton->property("navigationRequestedVisible").toBool(),
-            5000);
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("navigationRequestedVisible").toBool(), 5000);
     if (nativeOverlay)
         QTRY_VERIFY_WITH_TIMEOUT(
-                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0,
-                5000);
+                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0, 5000);
     else
         QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("sampledContentBrightness").isValid(), 1000);
@@ -16223,9 +15666,7 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     QVERIFY(previousButton->property("sampledContentBrightness").toDouble() > 0.5);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-            nextButton->property("navigationRequestedVisible").toBool(),
-            5000);
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("navigationRequestedVisible").toBool(), 5000);
     if (!nativeOverlay)
         QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
@@ -16255,14 +15696,12 @@ void WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons(
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
     QVERIFY(previousButton);
     QVERIFY(nextButton);
-    for (QPushButton *button : {previousButton, nextButton})
-    {
+    for (QPushButton *button : { previousButton, nextButton }) {
         QCOMPARE(button->property("artworkComposition").toString(),
                  QStringLiteral("single-composited-button"));
         QCOMPARE(button->property("lightArtwork").toString(),
                  QStringLiteral("transparent-chevron"));
-        QCOMPARE(button->property("darkArtwork").toString(),
-                 QStringLiteral("gray-tile-chevron"));
+        QCOMPARE(button->property("darkArtwork").toString(), QStringLiteral("gray-tile-chevron"));
         QVERIFY(button->graphicsEffect() == nullptr);
     }
     QVERIFY(buttons.size() >= 2);
@@ -16280,11 +15719,10 @@ void WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons(
 // Postcondition: the view geometry and renderer state remain unchanged.
 void WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()
 {
-    ScopedOptionValues options({
-        {"checkerboardbackground", false},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)}
-    });
+    ScopedOptionValues options(
+            { { "checkerboardbackground", false },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
@@ -16339,8 +15777,7 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
     auto *previousAnimation =
             window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
-    auto *nextAnimation =
-            window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
+    auto *nextAnimation = window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
     QVERIFY(previousButton);
     QVERIFY(nextButton);
     QVERIFY(previousAnimation);
@@ -16366,15 +15803,12 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
         QCOMPARE(half.pixelColor(0, 0).alpha(), 0);
         QCOMPARE(half.pixelColor(half.width() - 1, 0).alpha(), 0);
         QCOMPARE(half.pixelColor(0, half.height() - 1).alpha(), 0);
-        QCOMPARE(half.pixelColor(half.width() - 1,
-                                 half.height() - 1).alpha(), 0);
+        QCOMPARE(half.pixelColor(half.width() - 1, half.height() - 1).alpha(), 0);
 
         int artworkPixelCount = 0;
         int opaqueChevronPixelCount = 0;
-        for (int y = 0; y < full.height(); ++y)
-        {
-            for (int x = 0; x < full.width(); ++x)
-            {
+        for (int y = 0; y < full.height(); ++y) {
+            for (int x = 0; x < full.width(); ++x) {
                 const int fullAlpha = full.pixelColor(x, y).alpha();
                 const int halfAlpha = half.pixelColor(x, y).alpha();
                 if (fullAlpha == 0)
@@ -16383,7 +15817,10 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
                 opaqueChevronPixelCount += fullAlpha == 255;
                 QVERIFY2(qAbs(halfAlpha * 2 - fullAlpha) <= 3,
                          qPrintable(QStringLiteral("pixel=(%1,%2) full=%3 half=%4")
-                             .arg(x).arg(y).arg(fullAlpha).arg(halfAlpha)));
+                                            .arg(x)
+                                            .arg(y)
+                                            .arg(fullAlpha)
+                                            .arg(halfAlpha)));
             }
         }
         QVERIFY(artworkPixelCount > 0);
@@ -16411,15 +15848,14 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testNavigationButtonsFadeTransition()
 {
-    ScopedOptionValues options({
-        {"theme", static_cast<int>(Qv::Theme::Light)},
-        {"checkerboardbackground", false},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"loopfoldersenabled", true},
-        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
-        {"sortdescending", false}
-    });
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Light) },
+              { "checkerboardbackground", false },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "loopfoldersenabled", true },
+              { "sortmode", static_cast<int>(Qv::SortMode::Name) },
+              { "sortdescending", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -16443,7 +15879,8 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
-    auto *previousAnimation = window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
+    auto *previousAnimation =
+            window.findChild<QPropertyAnimation *>("previousImageButtonOpacityAnimation");
     auto *nextAnimation = window.findChild<QPropertyAnimation *>("nextImageButtonOpacityAnimation");
     QVERIFY(view);
     QVERIFY(previousButton);
@@ -16467,9 +15904,7 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
     // The immediate visibility assertion above is the deterministic
     // mid-transition contract. Do not assume that a wall-clock 100 ms wait
     // is shorter than the animation on every hosted macOS display backend.
-    QTRY_VERIFY_WITH_TIMEOUT(
-            previousButton->property("paintOpacity").toReal() <= 0.001,
-            1000);
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("paintOpacity").toReal() <= 0.001, 1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
     QCOMPARE(nextButton->isVisible(), !nativeOverlay);
@@ -16492,14 +15927,13 @@ void WindowBehaviorTests::testNavigationButtonsFadeTransition()
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
 {
-    ScopedOptionValues options({
-        {"theme", static_cast<int>(Qv::Theme::Light)},
-        {"checkerboardbackground", false},
-        {"calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {"windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never)},
-        {"sortmode", static_cast<int>(Qv::SortMode::Name)},
-        {"sortdescending", false}
-    });
+    ScopedOptionValues options(
+            { { "theme", static_cast<int>(Qv::Theme::Light) },
+              { "checkerboardbackground", false },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "sortmode", static_cast<int>(Qv::SortMode::Name) },
+              { "sortdescending", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
@@ -16525,27 +15959,20 @@ void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
     QVERIFY(view);
     QVERIFY(nextButton);
 
-    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, view->viewport()->height() / 2));
-    if (view->usesNativeHDRNavigationOverlay())
-    {
+    sendMouseMove(view->viewport(),
+                  QPoint(view->viewport()->width() - 1, view->viewport()->height() / 2));
+    if (view->usesNativeHDRNavigationOverlay()) {
         QTRY_VERIFY_WITH_TIMEOUT(
-                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0,
-                1000);
-        const QPoint nativeButtonCenter = view->viewport()->mapFrom(
-                view, nextButton->geometry().center());
-        QTest::mouseClick(
-                view->viewport(), Qt::LeftButton, Qt::NoModifier,
-                nativeButtonCenter);
-    }
-    else
-    {
+                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0, 1000);
+        const QPoint nativeButtonCenter =
+                view->viewport()->mapFrom(view, nextButton->geometry().center());
+        QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, nativeButtonCenter);
+    } else {
         QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 1000);
         QTest::mouseClick(nextButton, Qt::LeftButton);
     }
-    QTRY_COMPARE_WITH_TIMEOUT(
-        window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
-        QFileInfo(secondPath).absoluteFilePath(),
-        5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              QFileInfo(secondPath).absoluteFilePath(), 5000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -16564,13 +15991,14 @@ void WindowBehaviorTests::testNavigationButtonsClickSwitchesFiles()
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testPreviousNavigationButtonHiddenWithoutPreviousFile()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("loopfoldersenabled"), false},
-        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name)},
-        {QStringLiteral("sortdescending"), false},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("loopfoldersenabled"), false },
+              { QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name) },
+              { QStringLiteral("sortdescending"), false },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("windowresizemode"),
+                static_cast<int>(Qv::WindowResizeMode::Never) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
@@ -16600,12 +16028,11 @@ void WindowBehaviorTests::testPreviousNavigationButtonHiddenWithoutPreviousFile(
     QVERIFY(nextButton);
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !previousButton->property("navigationRequestedVisible").toBool(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(!previousButton->property("navigationRequestedVisible").toBool(),
+                             1000);
 
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        nextButton->property("navigationRequestedVisible").toBool(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("navigationRequestedVisible").toBool(), 1000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -16624,13 +16051,14 @@ void WindowBehaviorTests::testPreviousNavigationButtonHiddenWithoutPreviousFile(
 // Postcondition: the window and temporary files are released; settings restore.
 void WindowBehaviorTests::testNextNavigationButtonHiddenWithoutNextFile()
 {
-    ScopedOptionValues options({
-        {QStringLiteral("loopfoldersenabled"), false},
-        {QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name)},
-        {QStringLiteral("sortdescending"), false},
-        {QStringLiteral("calculatedzoommode"), static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit)},
-        {QStringLiteral("windowresizemode"), static_cast<int>(Qv::WindowResizeMode::Never)}
-    });
+    ScopedOptionValues options(
+            { { QStringLiteral("loopfoldersenabled"), false },
+              { QStringLiteral("sortmode"), static_cast<int>(Qv::SortMode::Name) },
+              { QStringLiteral("sortdescending"), false },
+              { QStringLiteral("calculatedzoommode"),
+                static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { QStringLiteral("windowresizemode"),
+                static_cast<int>(Qv::WindowResizeMode::Never) } });
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     QTemporaryDir dir;
@@ -16660,12 +16088,10 @@ void WindowBehaviorTests::testNextNavigationButtonHiddenWithoutNextFile()
     QVERIFY(nextButton);
     const int middleY = view->viewport()->height() / 2;
     sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        !nextButton->property("navigationRequestedVisible").toBool(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(!nextButton->property("navigationRequestedVisible").toBool(), 1000);
 
     sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(
-        previousButton->property("navigationRequestedVisible").toBool(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("navigationRequestedVisible").toBool(), 1000);
 
     window.close();
     qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
@@ -17022,13 +16448,14 @@ int main(int argc, char *argv[])
         const QString imagePath = openWithProbe + "/probe.png";
         QImage image(8, 8, QImage::Format_RGB32);
         image.fill(Qt::red);
-        if (!image.save(imagePath)) return 2;
+        if (!image.save(imagePath))
+            return 2;
         auto started = std::make_shared<QSemaphore>();
         const int delay = qEnvironmentVariableIntValue("FOVELLE_READ_SHUTDOWN_DELAY_MS");
-        MainWindow window(nullptr, {}, true, [started, delay](const QString &) {
+        MainWindow window(nullptr, { }, true, [started, delay](const QString &) {
             started->release();
             QThread::msleep(static_cast<unsigned long>(delay));
-            return QList<OpenWith::OpenWithItem>{};
+            return QList<OpenWith::OpenWithItem>{ };
         });
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         window.show();
@@ -17037,9 +16464,11 @@ int main(int argc, char *argv[])
         timer.start();
         while (!window.getIsPixmapLoaded() && timer.elapsed() < 2000)
             QCoreApplication::processEvents();
-        if (!window.getIsPixmapLoaded()) return 3;
+        if (!window.getIsPixmapLoaded())
+            return 3;
         window.requestPopulateOpenWithMenu();
-        if (!started->tryAcquire(1, 1000)) return 4;
+        if (!started->tryAcquire(1, 1000))
+            return 4;
         return 0;
     }
     const QString shutdownProbe = qEnvironmentVariable("FOVELLE_READ_SHUTDOWN_PROBE");
@@ -17072,7 +16501,9 @@ int main(int argc, char *argv[])
     ShortcutSettingsTests shortcutSettingsTests;
     const QByteArray selectedSuite = qgetenv("FOVELLE_TEST_SUITE");
     const auto runSuite = [&](const QByteArray &suiteName, QObject *suite) {
-        return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;
+        return selectedSuite.isEmpty() || selectedSuite == suiteName
+                ? QTest::qExec(suite, argc, argv)
+                : 0;
     };
     if (selectedSuite == "RemediationTests")
         return QTest::qExec(&remediationTests, argc, argv);
@@ -17094,8 +16525,8 @@ int main(int argc, char *argv[])
 }
 
 #include "tst_qviewtests.moc"
-        // The synchronous commit has no intermediate animation timeline.
-        // Its observable terminal state was validated immediately above.
+// The synchronous commit has no intermediate animation timeline.
+// Its observable terminal state was validated immediately above.
 
 #include "menu_lifecycle_acceptance.inc"
 

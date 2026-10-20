@@ -1,6 +1,7 @@
 """Static acceptance checks; six-part case descriptions live in reports/."""
 from pathlib import Path
 import unittest
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / 'src/qvcocoafunctions.mm').read_text()
@@ -12,20 +13,21 @@ class BrightnessSourceContracts(unittest.TestCase):
         self.assertIn('std::clamp(totalMilliseconds, 400.0, 800.0)', SOURCE)
         self.assertIn('FOVELLE_HDR_FADE_MS', SOURCE)
         self.assertIn('owner->brightnessStartTime = CACurrentMediaTime()', SOURCE)
-        self.assertIn('&& nativeImage && !nativeImage->isHDR()', SOURCE)
+        self.assertRegex(SOURCE, r'&&\s*nativeImage\s*&&\s*!nativeImage->isHDR\(\)')
     def test_BR02_bezier(self):
         body = SOURCE.split('qreal QVCocoaFunctions::easedHDRTransition')[1].split('qreal QVCocoaFunctions::hdrBrightnessProgress')[0]
         for token in ('0.42', '0.58', 'x < bounded', '48'):
             self.assertIn(token, body)
     def test_BR03_rapid(self):
         self.assertIn('changedAt - lastImageChangeTime < 1.0', SOURCE)
-        self.assertIn('rapidSwitch ? 250.0', SOURCE)
+        self.assertRegex(SOURCE, r'rapidSwitch\s*\?\s*250\.0')
     def test_BR04_accessibility(self):
-        self.assertIn('if (reduceMotion) return 1.0', SOURCE)
+        self.assertRegex(SOURCE, r'if\s*\(reduceMotion\)\s*return\s+1\.0')
         self.assertIn('NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion', SOURCE)
     def test_BR05_highlights(self):
         body = SOURCE.split('static CIImage *hdrBrightnessImage')[1].split('// Background full-resolution renders')[0]
-        for token in ('CIDissolveTransition', 'if (progress >= 1.0F) return hdr;',
+        self.assertRegex(body, r'if\s*\(progress\s*>=\s*1\.0F\)\s*return\s+hdr;')
+        for token in ('CIDissolveTransition',
                       'imageByApplyingGainMap', 'CIToneMapHeadroom'):
             self.assertIn(token, body)
         for token in ('smoothstep', 'ceiling /', 'max(high.r'):
@@ -52,7 +54,7 @@ class BrightnessSourceContracts(unittest.TestCase):
 class ColorRegressionSourceContracts(unittest.TestCase):
     def test_CR01_endpoint_identity(self):
         body = SOURCE.split('static CIImage *hdrBrightnessImage')[1].split('static CIImage *hdrDisplayEndpoint')[0]
-        self.assertIn('if (progress >= 1.0F) return hdr;', body)
+        self.assertRegex(body, r'if\s*\(progress\s*>=\s*1\.0F\)\s*return\s+hdr;')
         self.assertNotIn('smoothstep', body)
         self.assertNotIn('CIColorKernel', body)
     def test_CR02_platform_adaptation(self):
@@ -62,7 +64,7 @@ class ColorRegressionSourceContracts(unittest.TestCase):
             self.assertIn(value, body)
         # Opening preparation, viewport frames, cached surface and image probe
         # must share the same pipeline, rather than using a test-only formula.
-        self.assertGreaterEqual(SOURCE.count('hdrBrightnessDisplayImage(*image,'), 4)
+        self.assertGreaterEqual(len(re.findall(r'\bhdrBrightnessDisplayImage\s*\(\s*\*image\s*,', SOURCE)), 4)
     def test_CR03_real_image_oracle(self):
         tests = (ROOT / 'tests/tst_qviewtests.cpp').read_text()
         self.assertIn('testHDRColorFidelity_data()', tests)

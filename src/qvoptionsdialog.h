@@ -15,7 +15,7 @@ class QVOptionsDialog;
 
 template <typename TEnum>
 using ComboBoxItems = QVector<std::pair<TEnum, QString>>;
-}
+} // namespace Ui
 
 class QPropertyAnimation;
 
@@ -25,7 +25,6 @@ class QVOptionsDialog : public QDialog
     Q_PROPERTY(QSize settingsAnimatedSize READ settingsAnimatedSize WRITE setSettingsAnimatedSize)
 
 public:
-
     explicit QVOptionsDialog(QWidget *parent = nullptr);
     ~QVOptionsDialog() override;
 
@@ -45,10 +44,14 @@ protected:
 
     void modifySetting(QString key, QVariant value);
     void syncSettings(bool defaults = false, bool makeConnections = false);
-    void syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults = false, bool makeConnection = false);
-    void syncComboBox(QComboBox *comboBox, const QString &key, bool defaults = false, bool makeConnection = false);
-    void syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults = false, bool makeConnection = false);
-    void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false, bool makeConnection = false);
+    void syncCheckbox(QCheckBox *checkbox, const QString &key, bool defaults = false,
+                      bool makeConnection = false);
+    void syncComboBox(QComboBox *comboBox, const QString &key, bool defaults = false,
+                      bool makeConnection = false);
+    void syncSpinBox(QSpinBox *spinBox, const QString &key, bool defaults = false,
+                     bool makeConnection = false);
+    void syncDoubleSpinBox(QDoubleSpinBox *doubleSpinBox, const QString &key, bool defaults = false,
+                           bool makeConnection = false);
     void syncShortcuts(bool defaults = false);
     void updateShortcutsTable();
     void configureGeneralPage();
@@ -83,23 +86,23 @@ private:
 
     QList<QStringList> transientShortcuts;
 
-    bool isInitialLoad {true};
+    bool isInitialLoad{ true };
 
-    bool languageRestartMessageShown {false};
+    bool languageRestartMessageShown{ false };
 
-    bool displayPrepared {false};
+    bool displayPrepared{ false };
 
-    bool pageMetricsReady {false};
+    bool pageMetricsReady{ false };
 
-    QPropertyAnimation *categorySizeAnimation {nullptr};
+    QPropertyAnimation *categorySizeAnimation{ nullptr };
 
     QVector<int> settingsTabWidths;
 
-    int settingsDialogWidth {0};
+    int settingsDialogWidth{ 0 };
 
-    int categoryTargetWidth {0};
+    int categoryTargetWidth{ 0 };
 
-    int categoryTargetHeight {0};
+    int categoryTargetHeight{ 0 };
 };
 
 #endif // QVOPTIONSDIALOG_H

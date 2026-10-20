@@ -7,27 +7,27 @@
 #include <QJsonDocument>
 #include <QShowEvent>
 
-QVAboutDialog::QVAboutDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::QVAboutDialog)
+QVAboutDialog::QVAboutDialog(QWidget *parent) : QDialog(parent), ui(new Ui::QVAboutDialog)
 {
     ui->setupUi(this);
 
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
 
-    connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &QVAboutDialog::checkForUpdatesButtonClicked);
+    connect(ui->checkForUpdatesButton, &QPushButton::clicked, this,
+            &QVAboutDialog::checkForUpdatesButtonClicked);
 
     setWindowModality(Qt::ApplicationModal);
 
     const QString subtitleText = tr("version %1").arg(QCoreApplication::applicationVersion());
     ui->subtitleLabel->setText(subtitleText);
 
-    const QString labelText2 = tr("Based on qView<br>"
-                                  "Copyright © 2018–2025 jurplel and qView contributors<br>"
-                                  R"(Fovelle modifications © 2026 <a href="https://github.com/inostarlin-passion/Fovelle">Fovelle</a> contributors<br>)"
-                                  R"(Includes portions of commits from <a href="https://github.com/jdpurcell/qView">jdpurcell/qView</a> by jdpurcell<br><br>)"
-                                  "Licensed under GPLv3");
+    const QString labelText2 = tr(
+            "Based on qView<br>"
+            "Copyright © 2018–2025 jurplel and qView contributors<br>"
+            R"(Fovelle modifications © 2026 <a href="https://github.com/inostarlin-passion/Fovelle">Fovelle</a> contributors<br>)"
+            R"(Includes portions of commits from <a href="https://github.com/jdpurcell/qView">jdpurcell/qView</a> by jdpurcell<br><br>)"
+            "Licensed under GPLv3");
 
     ui->infoLabel2->setText(labelText2);
 

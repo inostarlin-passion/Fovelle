@@ -45,8 +45,7 @@ public:
 
     using OpenWithProvider = std::function<QList<OpenWith::OpenWithItem>(const QString &)>;
 
-    explicit MainWindow(QWidget *parent = nullptr,
-                        const QJsonObject &windowSessionState = {},
+    explicit MainWindow(QWidget *parent = nullptr, const QJsonObject &windowSessionState = { },
                         bool deferMenus = false,
                         OpenWithProvider openWithProvider = OpenWith::getOpenWithItems);
     ~MainWindow() override;
@@ -168,7 +167,10 @@ public:
 
     ViewportPosition getViewportPosition() const;
 
-    const QVImageCore::FileDetails& getCurrentFileDetails() const { return graphicsView->getCurrentFileDetails(); }
+    const QVImageCore::FileDetails &getCurrentFileDetails() const
+    {
+        return graphicsView->getCurrentFileDetails();
+    }
 
     bool hasFileOrPendingLoad() const { return graphicsView->hasFileOrPendingLoad(); }
 
@@ -193,7 +195,8 @@ public:
 
     static bool areNavigationButtonsSupported(int windowWidth);
 
-    static bool isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect, int edgeWidth = NavigationButtonActivationMinimumWidth);
+    static bool isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect,
+                                       int edgeWidth = NavigationButtonActivationMinimumWidth);
 
 public slots:
     void openFile(const QString &fileName, const QString &baseDir = "");
@@ -276,7 +279,8 @@ private:
 
     void updateNavigationButtonVisibility(const QPoint &windowPosition);
 
-    void setNavigationButtonVisible(QPushButton *button, QPropertyAnimation *animation, bool visible);
+    void setNavigationButtonVisible(QPushButton *button, QPropertyAnimation *animation,
+                                    bool visible);
 
     void hideNavigationButtonsImmediately();
 
@@ -296,37 +300,37 @@ private:
     QTimer *titlebarBubbleHideTimer;
     QPropertyAnimation *titlebarBubbleHideAnimation;
 
-    QPushButton *previousImageButton {nullptr};
-    QPushButton *nextImageButton {nullptr};
-    QPropertyAnimation *previousImageButtonAnimation {nullptr};
-    QPropertyAnimation *nextImageButtonAnimation {nullptr};
-    QWidget *navigationBoundaryHint {nullptr};
-    QPropertyAnimation *navigationBoundaryHintAnimation {nullptr};
-    QTimer *navigationBoundaryHintTimer {nullptr};
-    qreal currentBoundaryHintOpacity {0.0};
-    bool previousImageButtonRequestedVisible {false};
-    bool nextImageButtonRequestedVisible {false};
-    bool previousImageButtonHovered {false};
-    bool nextImageButtonHovered {false};
-    int pressedNavigationButton {-1};
+    QPushButton *previousImageButton{ nullptr };
+    QPushButton *nextImageButton{ nullptr };
+    QPropertyAnimation *previousImageButtonAnimation{ nullptr };
+    QPropertyAnimation *nextImageButtonAnimation{ nullptr };
+    QWidget *navigationBoundaryHint{ nullptr };
+    QPropertyAnimation *navigationBoundaryHintAnimation{ nullptr };
+    QTimer *navigationBoundaryHintTimer{ nullptr };
+    qreal currentBoundaryHintOpacity{ 0.0 };
+    bool previousImageButtonRequestedVisible{ false };
+    bool nextImageButtonRequestedVisible{ false };
+    bool previousImageButtonHovered{ false };
+    bool nextImageButtonHovered{ false };
+    int pressedNavigationButton{ -1 };
 
-    QMenu *contextMenu {nullptr};
-    QMenu *virtualMenu {nullptr};
+    QMenu *contextMenu{ nullptr };
+    QMenu *virtualMenu{ nullptr };
 
     QTimer *slideshowTimer;
     QTimer *zoomTitlebarUpdateTimer;
 
     QShortcut *escShortcut;
 
-    QVInfoDialog *info {nullptr};
+    QVInfoDialog *info{ nullptr };
 
     QColor customBackgroundColor;
-    bool checkerboardBackground {false};
-    bool menuBarEnabled {false};
+    bool checkerboardBackground{ false };
+    bool menuBarEnabled{ false };
 
     QJsonObject sessionStateToLoad;
-    bool justLaunchedWithImage {false};
-    bool isClosing {false};
+    bool justLaunchedWithImage{ false };
+    bool isClosing{ false };
     QRect normalGeometryBeforeFullScreen;
     QElapsedTimer lastActivated;
 
@@ -335,14 +339,14 @@ private:
 
     QStack<DeletedPaths> lastDeletedFiles;
 
-    QMenuBar *mainMenuBar {nullptr};
+    QMenuBar *mainMenuBar{ nullptr };
     OpenWithProvider openWithItemProvider;
     QvAsync::Ticket openWithTicket;
     QString openWithPopulatedFilePath;
-    bool openWithPopulationPending {false};
-    bool contextMenuInitialized {false};
-    bool menusInitialized {false};
-    bool backgroundWorkShutDown {false};
+    bool openWithPopulationPending{ false };
+    bool contextMenuInitialized{ false };
+    bool menusInitialized{ false };
+    bool backgroundWorkShutDown{ false };
 };
 
 #endif // MAINWINDOW_H

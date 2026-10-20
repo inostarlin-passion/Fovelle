@@ -10,13 +10,12 @@
 #include <QLabel>
 #include <QFormLayout>
 
-static int getGcd (int a, int b) {
+static int getGcd(int a, int b)
+{
     return (b == 0) ? a : getGcd(b, a % b);
 }
 
-QVInfoDialog::QVInfoDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::QVInfoDialog)
+QVInfoDialog::QVInfoDialog(QWidget *parent) : QDialog(parent), ui(new Ui::QVInfoDialog)
 {
     ui->setupUi(this);
     // Word-wrapped color values must use the available value column. macOS's
@@ -55,12 +54,12 @@ void QVInfoDialog::setInfo(const QFileInfo fileInfo, const QSize imageSize, cons
     this->frameCount = frameCount;
     this->cameraModel = cameraModel.trimmed();
 
-    // If the dialog is visible, defer updateInfo through the event queue so the font is ready before
-    // first use and the main window can repaint first, giving the appearance of better
-    // responsiveness. If the dialog is not visible, however, it means we're preparing to display for an
-    // image already opened. In this case there is no urgency to repaint the main window, and we need to
-    // process the updates here synchronously to avoid the caller showing the dialog before it's ready
-    // (i.e. to avoid showing outdated info or placeholder text).
+    // If the dialog is visible, defer updateInfo through the event queue so the font is ready
+    // before first use and the main window can repaint first, giving the appearance of better
+    // responsiveness. If the dialog is not visible, however, it means we're preparing to display
+    // for an image already opened. In this case there is no urgency to repaint the main window, and
+    // we need to process the updates here synchronously to avoid the caller showing the dialog
+    // before it's ready (i.e. to avoid showing outdated info or placeholder text).
     if (isVisible())
         QTimer::singleShot(0, this, &QVInfoDialog::updateInfo);
     else
@@ -82,21 +81,22 @@ void QVInfoDialog::updateInfo()
     ui->nameLabel->setText(fileInfo.fileName());
     ui->typeLabel->setText(mime.name());
     ui->locationLabel->setText(fileInfo.path());
-    ui->sizeLabel->setText(tr("%1 (%2 bytes)").arg(formatBytes(fileInfo.size()), locale.toString(fileInfo.size())));
+    ui->sizeLabel->setText(
+            tr("%1 (%2 bytes)")
+                    .arg(formatBytes(fileInfo.size()), locale.toString(fileInfo.size())));
     ui->modifiedLabel->setText(formatModifiedDateTime(
-        fileInfo.lastModified(),
-        qvApp->getSettingsManager().getString(QStringLiteral("language"))));
-    ui->dimensionsLabel->setText(tr("%1 x %2 (%3 MP)").arg(QString::number(width), QString::number(height), QString::number(megapixels, 'f', 1)));
+            fileInfo.lastModified(),
+            qvApp->getSettingsManager().getString(QStringLiteral("language"))));
+    ui->dimensionsLabel->setText(tr("%1 x %2 (%3 MP)")
+                                         .arg(QString::number(width), QString::number(height),
+                                              QString::number(megapixels, 'f', 1)));
     if (gcd != 0)
         ui->ratioLabel->setText(QString::number(width / gcd) + ":" + QString::number(height / gcd));
-    if (frameCount != 0)
-    {
+    if (frameCount != 0) {
         ui->framesLabel2->show();
         ui->framesLabel->show();
         ui->framesLabel->setText(QString::number(frameCount));
-    }
-    else
-    {
+    } else {
         ui->framesLabel2->hide();
         ui->framesLabel->hide();
     }
@@ -175,8 +175,7 @@ void QVInfoDialog::changeEvent(QEvent *event)
     }
 }
 
-QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime,
-                                             const QString &languageCode)
+QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime, const QString &languageCode)
 {
     QString resolvedLanguage = languageCode;
     if (resolvedLanguage == QStringLiteral("system"))
@@ -184,23 +183,16 @@ QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime,
 
     QLocale locale(QStringLiteral("en_US"));
     QString format = QStringLiteral("MMM d, yyyy, h:mm AP");
-    if (resolvedLanguage == QStringLiteral("zh_Hans"))
-    {
+    if (resolvedLanguage == QStringLiteral("zh_Hans")) {
         locale = QLocale(QStringLiteral("zh_CN"));
         format = QStringLiteral("yyyy年M月d日 HH:mm");
-    }
-    else if (resolvedLanguage == QStringLiteral("zh_Hant"))
-    {
+    } else if (resolvedLanguage == QStringLiteral("zh_Hant")) {
         locale = QLocale(QStringLiteral("zh_TW"));
         format = QStringLiteral("yyyy年M月d日 APh:mm");
-    }
-    else if (resolvedLanguage == QStringLiteral("es"))
-    {
+    } else if (resolvedLanguage == QStringLiteral("es")) {
         locale = QLocale(QStringLiteral("es_ES"));
         format = QStringLiteral("d MMM yyyy, HH:mm");
-    }
-    else if (resolvedLanguage == QStringLiteral("ja"))
-    {
+    } else if (resolvedLanguage == QStringLiteral("ja")) {
         locale = QLocale(QStringLiteral("ja_JP"));
         format = QStringLiteral("yyyy年M月d日 HH:mm");
     }
@@ -210,8 +202,7 @@ QString QVInfoDialog::formatModifiedDateTime(const QDateTime &dateTime,
 
 void QVInfoDialog::keyPressEvent(QKeyEvent *event)
 {
-    if (qvApp->getActionManager().wouldTriggerAction(event, "showfileinfo"))
-    {
+    if (qvApp->getActionManager().wouldTriggerAction(event, "showfileinfo")) {
         close();
         return;
     }

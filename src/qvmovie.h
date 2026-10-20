@@ -33,21 +33,16 @@ class QVMovie : public QObject
     Q_PROPERTY(int speed READ speed WRITE setSpeed)
     Q_PROPERTY(CacheMode cacheMode READ cacheMode WRITE setCacheMode)
 public:
-    enum MovieState {
-        NotRunning,
-        Paused,
-        Running
-    };
+    enum MovieState { NotRunning, Paused, Running };
     Q_ENUM(MovieState)
-    enum CacheMode {
-        CacheNone,
-        CacheAll
-    };
+    enum CacheMode { CacheNone, CacheAll };
     Q_ENUM(CacheMode)
 
     explicit QVMovie(QObject *parent = nullptr);
-    explicit QVMovie(QIODevice *device, const QByteArray &format = QByteArray(), QObject *parent = nullptr);
-    explicit QVMovie(const QString &fileName, const QByteArray &format = QByteArray(), QObject *parent = nullptr);
+    explicit QVMovie(QIODevice *device, const QByteArray &format = QByteArray(),
+                     QObject *parent = nullptr);
+    explicit QVMovie(const QString &fileName, const QByteArray &format = QByteArray(),
+                     QObject *parent = nullptr);
     ~QVMovie();
 
     static QList<QByteArray> supportedFormats();

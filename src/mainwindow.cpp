@@ -46,14 +46,12 @@
 #include <QAccessible>
 #include <QtMath>
 
-namespace
-{
+namespace {
 class ImageNavigationButton : public QPushButton
 {
 public:
-    ImageNavigationButton(const bool previous, QWidget *parent) :
-        QPushButton(parent),
-        previous(previous)
+    ImageNavigationButton(const bool previous, QWidget *parent)
+        : QPushButton(parent), previous(previous)
     {
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -62,7 +60,8 @@ public:
         setFocusPolicy(Qt::NoFocus);
         setCursor(Qt::PointingHandCursor);
         setFlat(true);
-        setStyleSheet(QStringLiteral("QPushButton { background: transparent; border: none; padding: 0; }"));
+        setStyleSheet(QStringLiteral(
+                "QPushButton { background: transparent; border: none; padding: 0; }"));
         setProperty("paintOpacity", 0.0);
         setProperty("artworkComposition", QStringLiteral("single-composited-button"));
         setProperty("lightArtwork", QStringLiteral("transparent-chevron"));
@@ -71,20 +70,21 @@ public:
 
     void setDarkBackground(const bool value)
     {
-        if (darkBackground == value)
-        {
-            setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
-            setProperty("navigationStyle", darkBackground
-                        ? QStringLiteral("dark-tinted")
-                        : QStringLiteral("light-transparent"));
+        if (darkBackground == value) {
+            setProperty("contrastStyle",
+                        darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+            setProperty("navigationStyle",
+                        darkBackground ? QStringLiteral("dark-tinted")
+                                       : QStringLiteral("light-transparent"));
             return;
         }
 
         darkBackground = value;
-        setProperty("contrastStyle", darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
-        setProperty("navigationStyle", darkBackground
-                    ? QStringLiteral("dark-tinted")
-                    : QStringLiteral("light-transparent"));
+        setProperty("contrastStyle",
+                    darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
+        setProperty("navigationStyle",
+                    darkBackground ? QStringLiteral("dark-tinted")
+                                   : QStringLiteral("light-transparent"));
         update();
     }
 
@@ -102,18 +102,15 @@ protected:
         // primitive separately makes their overlap accumulate alpha and gives
         // the two elements visibly different fade curves.
         const qreal dpr = devicePixelRatioF();
-        QImage artwork(
-            QSize(qMax(1, qCeil(width() * dpr)),
-                  qMax(1, qCeil(height() * dpr))),
-            QImage::Format_ARGB32_Premultiplied);
+        QImage artwork(QSize(qMax(1, qCeil(width() * dpr)), qMax(1, qCeil(height() * dpr))),
+                       QImage::Format_ARGB32_Premultiplied);
         artwork.setDevicePixelRatio(dpr);
         artwork.fill(Qt::transparent);
         QPainter artworkPainter(&artwork);
         artworkPainter.setRenderHint(QPainter::Antialiasing);
 
         const bool isHovered = underMouse() || isDown();
-        if (darkBackground)
-        {
+        if (darkBackground) {
             QColor background(128, 128, 128, isHovered ? 235 : 220);
             if (!isEnabled())
                 background.setAlpha(100);
@@ -152,17 +149,17 @@ protected:
 
 private:
     const bool previous;
-    bool darkBackground {false};
+    bool darkBackground{ false };
 };
 
-std::optional<qreal> sampledContentBrightness(const QVGraphicsView *graphicsView, const QPushButton *button)
+std::optional<qreal> sampledContentBrightness(const QVGraphicsView *graphicsView,
+                                              const QPushButton *button)
 {
     if (!graphicsView || !button || !graphicsView->isVisible())
-        return {};
+        return { };
 
-    const QPoint viewportCenter = graphicsView->viewport()->mapFrom(
-        graphicsView,
-        button->geometry().center());
+    const QPoint viewportCenter =
+            graphicsView->viewport()->mapFrom(graphicsView, button->geometry().center());
     // Sample the cached, bounded SDR proxy through the production view
     // transform. QWidget::grab() repaints the viewport, which used to submit
     // two additional full HDR frames on every edge entry.
@@ -207,20 +204,16 @@ public:
         update();
     }
 
-    void setMessageId(const QString &id)
-    {
-        setProperty("hintMessageId", id);
-    }
+    void setMessageId(const QString &id) { setProperty("hintMessageId", id); }
 
     void setAppearance(const Qv::Theme theme)
     {
         darkAppearance = theme == Qv::Theme::Dark;
-        setProperty("hintAppearance", darkAppearance ? QStringLiteral("dark")
-                                                       : QStringLiteral("light"));
-        setProperty("hintBackground", darkAppearance ? QColor(242, 242, 242, 238)
-                                                       : QColor(34, 34, 34, 232));
-        setProperty("hintForeground", darkAppearance ? QColor(28, 28, 28)
-                                                       : QColor(255, 255, 255));
+        setProperty("hintAppearance",
+                    darkAppearance ? QStringLiteral("dark") : QStringLiteral("light"));
+        setProperty("hintBackground",
+                    darkAppearance ? QColor(242, 242, 242, 238) : QColor(34, 34, 34, 232));
+        setProperty("hintForeground", darkAppearance ? QColor(28, 28, 28) : QColor(255, 255, 255));
         update();
     }
 
@@ -261,8 +254,7 @@ private:
     {
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setOpacity(opacity);
-        painter.setPen(QPen(darkAppearance ? QColor(0, 0, 0, 28)
-                                           : QColor(255, 255, 255, 36), 1.0));
+        painter.setPen(QPen(darkAppearance ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 36), 1.0));
         painter.setBrush(property("hintBackground").value<QColor>());
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 11.0, 11.0);
         painter.setPen(property("hintForeground").value<QColor>());
@@ -271,19 +263,17 @@ private:
     }
 
     QString text;
-    bool darkAppearance {false};
-    qreal paintOpacity {0.0};
+    bool darkAppearance{ false };
+    qreal paintOpacity{ 0.0 };
 };
-}
+} // namespace
 
-MainWindow::MainWindow(QWidget *parent,
-                       const QJsonObject &windowSessionState,
-                       const bool deferMenus,
-                       OpenWithProvider openWithProvider) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow),
-    openWithItemProvider(openWithProvider ? std::move(openWithProvider)
-                                         : OpenWithProvider{OpenWith::getOpenWithItems})
+MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
+                       const bool deferMenus, OpenWithProvider openWithProvider)
+    : QMainWindow(parent),
+      ui(new Ui::MainWindow),
+      openWithItemProvider(openWithProvider ? std::move(openWithProvider)
+                                            : OpenWithProvider{ OpenWith::getOpenWithItems })
 {
     QElapsedTimer constructionTimer;
     const bool traceConstruction = qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF");
@@ -292,8 +282,8 @@ MainWindow::MainWindow(QWidget *parent,
     const auto markConstruction = [&](const char *phase) {
         if (traceConstruction)
             qInfo().noquote() << QStringLiteral("FOVELLE_MAINWINDOW phase=%1 elapsed_ms=%2")
-                                     .arg(QString::fromLatin1(phase))
-                                     .arg(constructionTimer.elapsed());
+                                         .arg(QString::fromLatin1(phase))
+                                         .arg(constructionTimer.elapsed());
     };
     markConstruction("constructor-start");
 
@@ -329,13 +319,11 @@ MainWindow::MainWindow(QWidget *parent,
     navigationBoundaryHint = new NavigationBoundaryHint(graphicsView->viewport());
     navigationBoundaryHint->setProperty("transitionDurationMs",
                                         NavigationBoundaryHintAnimationDuration);
-    navigationBoundaryHint->setProperty("displayDurationMs",
-                                        NavigationBoundaryHintDisplayDuration);
+    navigationBoundaryHint->setProperty("displayDurationMs", NavigationBoundaryHintDisplayDuration);
     navigationBoundaryHint->hide();
-    navigationBoundaryHintAnimation = new QPropertyAnimation(
-        this, "boundaryHintOpacity", this);
+    navigationBoundaryHintAnimation = new QPropertyAnimation(this, "boundaryHintOpacity", this);
     navigationBoundaryHintAnimation->setObjectName(
-        QStringLiteral("navigationBoundaryHintOpacityAnimation"));
+            QStringLiteral("navigationBoundaryHintOpacityAnimation"));
     navigationBoundaryHintAnimation->setDuration(NavigationBoundaryHintAnimationDuration);
     navigationBoundaryHintAnimation->setEasingCurve(QEasingCurve::InOutQuad);
     connect(navigationBoundaryHintAnimation, &QPropertyAnimation::finished, this, [this]() {
@@ -348,7 +336,7 @@ MainWindow::MainWindow(QWidget *parent,
     });
     navigationBoundaryHintTimer = new QTimer(this);
     navigationBoundaryHintTimer->setObjectName(
-        QStringLiteral("navigationBoundaryHintDisplayTimer"));
+            QStringLiteral("navigationBoundaryHintDisplayTimer"));
     navigationBoundaryHintTimer->setSingleShot(true);
     navigationBoundaryHintTimer->setInterval(NavigationBoundaryHintDisplayDuration);
     connect(navigationBoundaryHintTimer, &QTimer::timeout, this, [this]() {
@@ -357,8 +345,8 @@ MainWindow::MainWindow(QWidget *parent,
         navigationBoundaryHintAnimation->setEndValue(0.0);
         navigationBoundaryHintAnimation->start();
     });
-    connect(graphicsView, &QVGraphicsView::navigationBoundaryReached,
-            this, &MainWindow::showNavigationBoundaryHint);
+    connect(graphicsView, &QVGraphicsView::navigationBoundaryReached, this,
+            &MainWindow::showNavigationBoundaryHint);
 
     titlebarBubble = new TitlebarBubble(graphicsView);
     titlebarBubble->move(12, 4);
@@ -373,15 +361,16 @@ MainWindow::MainWindow(QWidget *parent,
     titlebarBubbleHideTimer->setSingleShot(true);
     titlebarBubbleHideTimer->setInterval(3000);
 
-    titlebarBubbleHideAnimation = new QPropertyAnimation(titlebarBubbleOpacityEffect, "opacity", this);
+    titlebarBubbleHideAnimation =
+            new QPropertyAnimation(titlebarBubbleOpacityEffect, "opacity", this);
     titlebarBubbleHideAnimation->setDuration(250);
     titlebarBubbleHideAnimation->setStartValue(0.5);
     titlebarBubbleHideAnimation->setEndValue(0.0);
 
-    connect(titlebarBubbleHideTimer, &QTimer::timeout, titlebarBubbleHideAnimation, [this]() {
-        titlebarBubbleHideAnimation->start();
-    });
-    connect(titlebarBubbleHideAnimation, &QPropertyAnimation::finished, titlebarBubble, &QLabel::hide);
+    connect(titlebarBubbleHideTimer, &QTimer::timeout, titlebarBubbleHideAnimation,
+            [this]() { titlebarBubbleHideAnimation->start(); });
+    connect(titlebarBubbleHideAnimation, &QPropertyAnimation::finished, titlebarBubble,
+            &QLabel::hide);
 
     // Hide fullscreen label by default
     ui->fullscreenLabel->hide();
@@ -419,8 +408,7 @@ MainWindow::MainWindow(QWidget *parent,
             }
             const QPoint nativeOverlayOrigin = graphicsView->viewport()->mapFrom(
                     graphicsView, nextImageButton->geometry().topLeft());
-            const QPoint origin = graphicsView->viewport()->mapToGlobal(
-                    nativeOverlayOrigin);
+            const QPoint origin = graphicsView->viewport()->mapToGlobal(nativeOverlayOrigin);
             const QJsonObject event{
                 { QStringLiteral("phase"), QStringLiteral("fractional-visible") },
                 { QStringLiteral("global_x"), origin.x() },
@@ -434,9 +422,8 @@ MainWindow::MainWindow(QWidget *parent,
                 { QStringLiteral("has_graphics_effect"),
                   nextImageButton->graphicsEffect() != nullptr },
                 { QStringLiteral("presentation_surface"),
-                  graphicsView->usesNativeHDRNavigationOverlay()
-                          ? QStringLiteral("metal-sublayer")
-                          : QStringLiteral("qt-widget") },
+                  graphicsView->usesNativeHDRNavigationOverlay() ? QStringLiteral("metal-sublayer")
+                                                                 : QStringLiteral("qt-widget") },
                 { QStringLiteral("qt_widget_visible"), nextImageButton->isVisible() },
             };
             qInfo().noquote() << "FOVELLE_NAV"
@@ -452,20 +439,21 @@ MainWindow::MainWindow(QWidget *parent,
             syncNavigationButtonOverlay(nextImageButton);
             const QPoint nativeOverlayOrigin = graphicsView->viewport()->mapFrom(
                     graphicsView, nextImageButton->geometry().topLeft());
-            const QPoint origin = graphicsView->viewport()->mapToGlobal(
-                    nativeOverlayOrigin);
-            qInfo().noquote() << "FOVELLE_NAV"
-                              << QJsonDocument(QJsonObject{
-                                     { QStringLiteral("phase"),
-                                       QStringLiteral("fully-visible") },
-                                     { QStringLiteral("global_x"), origin.x() },
-                                     { QStringLiteral("global_y"), origin.y() },
-                                     { QStringLiteral("viewport_x"), nativeOverlayOrigin.x() },
-                                     { QStringLiteral("viewport_y"), nativeOverlayOrigin.y() },
-                                     { QStringLiteral("width"), nextImageButton->width() },
-                                     { QStringLiteral("height"), nextImageButton->height() },
-                                     { QStringLiteral("paint_opacity"), 1.0 },
-                                 }).toJson(QJsonDocument::Compact);
+            const QPoint origin = graphicsView->viewport()->mapToGlobal(nativeOverlayOrigin);
+            qInfo().noquote()
+                    << "FOVELLE_NAV"
+                    << QJsonDocument(
+                               QJsonObject{
+                                       { QStringLiteral("phase"), QStringLiteral("fully-visible") },
+                                       { QStringLiteral("global_x"), origin.x() },
+                                       { QStringLiteral("global_y"), origin.y() },
+                                       { QStringLiteral("viewport_x"), nativeOverlayOrigin.x() },
+                                       { QStringLiteral("viewport_y"), nativeOverlayOrigin.y() },
+                                       { QStringLiteral("width"), nextImageButton->width() },
+                                       { QStringLiteral("height"), nextImageButton->height() },
+                                       { QStringLiteral("paint_opacity"), 1.0 },
+                               })
+                               .toJson(QJsonDocument::Compact);
         });
         // Window-scoped HDR captures can take over a second on an XDR
         // desktop. Keep the probe visible well beyond the interaction settle
@@ -479,20 +467,21 @@ MainWindow::MainWindow(QWidget *parent,
             nextImageButton->setProperty("paintOpacity", 0.0);
             syncNavigationButtonOverlay(nextImageButton);
             qInfo().noquote() << "FOVELLE_NAV"
-                              << QJsonDocument(QJsonObject{
-                                     { QStringLiteral("phase"),
-                                       QStringLiteral("hidden") }
-                                 }).toJson(QJsonDocument::Compact);
+                              << QJsonDocument(QJsonObject{ { QStringLiteral("phase"),
+                                                              QStringLiteral("hidden") } })
+                                         .toJson(QJsonDocument::Compact);
         });
     });
     connect(graphicsView, &QVGraphicsView::zoomLevelChanged, this, &MainWindow::zoomLevelChanged);
-    connect(graphicsView, &QVGraphicsView::calculatedZoomModeChanged, this, &MainWindow::syncCalculatedZoomMode);
-    connect(graphicsView, &QVGraphicsView::sortParametersChanged, this, &MainWindow::syncSortParameters);
+    connect(graphicsView, &QVGraphicsView::calculatedZoomModeChanged, this,
+            &MainWindow::syncCalculatedZoomMode);
+    connect(graphicsView, &QVGraphicsView::sortParametersChanged, this,
+            &MainWindow::syncSortParameters);
     connect(graphicsView, &QVGraphicsView::cancelSlideshow, this, &MainWindow::cancelSlideshow);
 
     // Initialize escape shortcut
     escShortcut = new QShortcut(Qt::Key_Escape, this);
-    connect(escShortcut, &QShortcut::activated, this, [this](){
+    connect(escShortcut, &QShortcut::activated, this, [this]() {
         if (windowState().testFlag(Qt::WindowFullScreen))
             exitFullScreen();
         else
@@ -512,8 +501,7 @@ MainWindow::MainWindow(QWidget *parent,
     zoomTitlebarUpdateTimer->setInterval(50);
     connect(zoomTitlebarUpdateTimer, &QTimer::timeout, this, &MainWindow::buildWindowTitle);
 
-    if (!deferMenus)
-    {
+    if (!deferMenus) {
         // Directly constructed windows retain the historical fully materialized
         // application-menu contract used by dialogs/tests and by callers that
         // need the global AppKit menu immediately. Startup-created windows
@@ -523,20 +511,19 @@ MainWindow::MainWindow(QWidget *parent,
     }
 
     // Connect functions to application components
-    connect(&qvApp->getShortcutManager(), &ShortcutManager::shortcutsUpdated, this, &MainWindow::shortcutsUpdated);
-    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &MainWindow::settingsUpdated);
+    connect(&qvApp->getShortcutManager(), &ShortcutManager::shortcutsUpdated, this,
+            &MainWindow::shortcutsUpdated);
+    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this,
+            &MainWindow::settingsUpdated);
     settingsUpdated();
     shortcutsUpdated();
     markConstruction("settings-ready");
 
     QSettings settings;
 
-    if (!sessionStateToLoad.isEmpty())
-    {
+    if (!sessionStateToLoad.isEmpty()) {
         loadSessionState(sessionStateToLoad, true);
-    }
-    else
-    {
+    } else {
         // Load window geometry
         restoreGeometry(settings.value("geometry").toByteArray());
     }
@@ -545,7 +532,6 @@ MainWindow::MainWindow(QWidget *parent,
     // Queuing this work behind show adds event-dispatch latency to readiness.
     ensureMenus();
     markConstruction("constructor-complete");
-
 }
 
 MainWindow::~MainWindow()
@@ -596,10 +582,9 @@ void MainWindow::ensureMenus()
     for (auto action : menubarActions)
         action->setShortcutContext(Qt::WidgetShortcut);
 
-    connect(mainMenuBar, &QMenuBar::triggered, this,
-            [this](QAction *triggeredAction){
-                ActionManager::actionTriggered(triggeredAction, this);
-            });
+    connect(mainMenuBar, &QMenuBar::triggered, this, [this](QAction *triggeredAction) {
+        ActionManager::actionTriggered(triggeredAction, this);
+    });
 
     // Add all actions to this window so keyboard shortcuts are always
     // triggered using a virtual menu whose triggered signal is window-scoped.
@@ -608,10 +593,9 @@ void MainWindow::ensureMenus()
     for (const QString &key : actionKeys)
         actionManager.addCloneOfAction(virtualMenu, key);
     addActions(virtualMenu->actions());
-    connect(virtualMenu, &QMenu::triggered, this,
-            [this](QAction *triggeredAction){
-                ActionManager::actionTriggered(triggeredAction, this);
-            });
+    connect(virtualMenu, &QMenu::triggered, this, [this](QAction *triggeredAction) {
+        ActionManager::actionTriggered(triggeredAction, this);
+    });
 
     menusInitialized = true;
     syncMenuState();
@@ -621,16 +605,15 @@ void MainWindow::ensureMenus()
 }
 
 void MainWindow::syncStatefulAction(const QString &key, const QString &text,
-                                   const Qv::MaterialIcon icon)
+                                    const Qv::MaterialIcon icon)
 {
     const auto actions = qvApp->getActionManager().getAllClonesOfAction(key, this);
-    for (auto *action : actions)
-    {
+    for (auto *action : actions) {
         action->setText(text);
         const auto *menu = qobject_cast<const QMenu *>(action->parent());
         const bool context = menu && menu->property("isContextMenu").toBool();
-        const bool showIcon = context ? qvApp->getShowContextMenuIcons()
-                                      : qvApp->getShowMainMenuIcons();
+        const bool showIcon =
+                context ? qvApp->getShowContextMenuIcons() : qvApp->getShowMainMenuIcons();
         action->setIcon(showIcon ? qvApp->iconFromFont(icon) : QIcon());
         action->setIconVisibleInMenu(showIcon);
     }
@@ -639,8 +622,9 @@ void MainWindow::syncStatefulAction(const QString &key, const QString &text,
 void MainWindow::syncFullscreenAction()
 {
     const bool fullscreen = isFullScreen();
-    syncStatefulAction("fullscreen", fullscreen ? tr("Exit F&ull Screen") : tr("Enter F&ull Screen"),
-                       fullscreen ? Qv::MaterialIcon::FullscreenExit : Qv::MaterialIcon::Fullscreen);
+    syncStatefulAction(
+            "fullscreen", fullscreen ? tr("Exit F&ull Screen") : tr("Enter F&ull Screen"),
+            fullscreen ? Qv::MaterialIcon::FullscreenExit : Qv::MaterialIcon::Fullscreen);
 }
 
 void MainWindow::syncTitlebarAction()
@@ -655,7 +639,8 @@ void MainWindow::syncSlideshowAction()
 {
     const bool running = slideshowTimer->isActive();
     syncStatefulAction("slideshow", running ? tr("Stop S&lideshow") : tr("Start S&lideshow"),
-                       running ? Qv::MaterialIcon::CancelPresentation : Qv::MaterialIcon::Slideshow);
+                       running ? Qv::MaterialIcon::CancelPresentation
+                               : Qv::MaterialIcon::Slideshow);
 }
 
 void MainWindow::syncWindowOnTopAction()
@@ -682,9 +667,7 @@ void MainWindow::syncMenuState()
 bool MainWindow::event(QEvent *event)
 {
     if (!menusInitialized && !isClosing
-        && (event->type() == QEvent::ShortcutOverride
-            || event->type() == QEvent::KeyPress))
-    {
+        && (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress)) {
         ensureMenus();
     }
 
@@ -692,13 +675,11 @@ bool MainWindow::event(QEvent *event)
             || (event->type() == QEvent::ActivationChange && isActiveWindow());
     const bool deactivated = event->type() == QEvent::WindowDeactivate
             || (event->type() == QEvent::ActivationChange && !isActiveWindow());
-    if (activated && !qvApp->getIsApplicationQuitting())
-    {
+    if (activated && !qvApp->getIsApplicationQuitting()) {
         lastActivated.start();
         if (graphicsView)
             graphicsView->setHDRPresentationActive(true);
-    }
-    else if (deactivated && graphicsView)
+    } else if (deactivated && graphicsView)
         graphicsView->setHDRPresentationActive(false);
     return QMainWindow::event(event);
 }
@@ -708,11 +689,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (watched == info && event->type() == QEvent::Hide)
         QTimer::singleShot(0, this, &MainWindow::restoreImageFocusAfterInfo);
 
-    const bool isNavigationWidget =
-        watched == graphicsView ||
-        watched == graphicsView->viewport() ||
-        watched == previousImageButton ||
-        watched == nextImageButton;
+    const bool isNavigationWidget = watched == graphicsView || watched == graphicsView->viewport()
+            || watched == previousImageButton || watched == nextImageButton;
     if (!isNavigationWidget)
         return QMainWindow::eventFilter(watched, event);
 
@@ -727,17 +705,14 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 && navigationWindowRect(previousImageButton).contains(position);
         const bool nextHovered = nextImageButtonRequestedVisible
                 && navigationWindowRect(nextImageButton).contains(position);
-        if (previousHovered == previousImageButtonHovered
-            && nextHovered == nextImageButtonHovered)
+        if (previousHovered == previousImageButtonHovered && nextHovered == nextImageButtonHovered)
             return;
         previousImageButtonHovered = previousHovered;
         nextImageButtonHovered = nextHovered;
         syncNavigationButtonOverlays();
     };
-    const bool navigationProbeActive =
-            property("fovelleNavigationProbeActive").toBool();
-    if (event->type() == QEvent::MouseMove && watchedWidget)
-    {
+    const bool navigationProbeActive = property("fovelleNavigationProbeActive").toBool();
+    if (event->type() == QEvent::MouseMove && watchedWidget) {
         const auto *mouseEvent = static_cast<QMouseEvent *>(event);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         const QPoint watchedPosition = mouseEvent->position().toPoint();
@@ -751,25 +726,19 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         }
         if (pressedNavigationButton >= 0)
             return true;
-    }
-    else if (event->type() == QEvent::Enter)
-    {
+    } else if (event->type() == QEvent::Enter) {
         if (!navigationProbeActive) {
             updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
             updateNativeHover(mapFromGlobal(QCursor::pos()));
         }
-    }
-    else if (event->type() == QEvent::Leave)
-    {
+    } else if (event->type() == QEvent::Leave) {
         if (!navigationProbeActive) {
             updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
             updateNativeHover(mapFromGlobal(QCursor::pos()));
         }
-    }
-    else if ((event->type() == QEvent::MouseButtonPress
-              || event->type() == QEvent::MouseButtonRelease)
-             && watchedWidget && graphicsView->usesNativeHDRNavigationOverlay())
-    {
+    } else if ((event->type() == QEvent::MouseButtonPress
+                || event->type() == QEvent::MouseButtonRelease)
+               && watchedWidget && graphicsView->usesNativeHDRNavigationOverlay()) {
         const auto *mouseEvent = static_cast<QMouseEvent *>(event);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         const QPoint watchedPosition = mouseEvent->position().toPoint();
@@ -777,8 +746,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         const QPoint watchedPosition = mouseEvent->pos();
 #endif
         const QPoint windowPosition = watchedWidget->mapTo(this, watchedPosition);
-        if (event->type() == QEvent::MouseButtonPress
-            && mouseEvent->button() == Qt::LeftButton) {
+        if (event->type() == QEvent::MouseButtonPress && mouseEvent->button() == Qt::LeftButton) {
             if (previousImageButtonRequestedVisible
                 && navigationWindowRect(previousImageButton).contains(windowPosition))
                 pressedNavigationButton = 0;
@@ -790,8 +758,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 syncNavigationButtonOverlays();
                 return true;
             }
-        } else if (event->type() == QEvent::MouseButtonRelease
-                   && pressedNavigationButton >= 0) {
+        } else if (event->type() == QEvent::MouseButtonRelease && pressedNavigationButton >= 0) {
             const int releasedButton = pressedNavigationButton;
             const bool activate = mouseEvent->button() == Qt::LeftButton
                     && ((releasedButton == 0 && previousImageButtonRequestedVisible
@@ -814,21 +781,21 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return QMainWindow::eventFilter(watched, event);
 }
 
-bool MainWindow::isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect, const int edgeWidth)
+bool MainWindow::isNavigationEdgeActive(const QPoint &windowPosition, const QRect &contentRect,
+                                        const int edgeWidth)
 {
     if (!contentRect.isValid() || !contentRect.contains(windowPosition))
         return false;
 
     const int boundedEdgeWidth = qBound(1, edgeWidth, qMax(1, contentRect.width() / 2));
-    return windowPosition.x() < contentRect.left() + boundedEdgeWidth ||
-        windowPosition.x() >= contentRect.right() - boundedEdgeWidth + 1;
+    return windowPosition.x() < contentRect.left() + boundedEdgeWidth
+            || windowPosition.x() >= contentRect.right() - boundedEdgeWidth + 1;
 }
 
 int MainWindow::navigationEdgeWidth(const int windowWidth)
 {
-    return qMax(
-        NavigationButtonActivationMinimumWidth,
-        qCeil(windowWidth * NavigationButtonActivationPercentage / 100.0));
+    return qMax(NavigationButtonActivationMinimumWidth,
+                qCeil(windowWidth * NavigationButtonActivationPercentage / 100.0));
 }
 
 bool MainWindow::areNavigationButtonsSupported(const int windowWidth)
@@ -838,7 +805,8 @@ bool MainWindow::areNavigationButtonsSupported(const int windowWidth)
 
 void MainWindow::initializeNavigationButtons()
 {
-    auto createButton = [this](const bool previous, const QString &objectName, const QString &accessibleName) {
+    auto createButton = [this](const bool previous, const QString &objectName,
+                               const QString &accessibleName) {
         auto *button = new ImageNavigationButton(previous, graphicsView);
         button->setObjectName(objectName);
         button->setAccessibleName(accessibleName);
@@ -850,21 +818,22 @@ void MainWindow::initializeNavigationButtons()
         return button;
     };
 
-    previousImageButton = createButton(true, QStringLiteral("previousImageButton"), tr("Previous File"));
+    previousImageButton =
+            createButton(true, QStringLiteral("previousImageButton"), tr("Previous File"));
     nextImageButton = createButton(false, QStringLiteral("nextImageButton"), tr("Next File"));
 
     connect(previousImageButton, &QPushButton::clicked, this, &MainWindow::previousFile);
     connect(nextImageButton, &QPushButton::clicked, this, &MainWindow::nextFile);
 
-    auto createOpacityAnimation = [this](QPushButton *button, QPropertyAnimation **animation, const QString &objectName) {
+    auto createOpacityAnimation = [this](QPushButton *button, QPropertyAnimation **animation,
+                                         const QString &objectName) {
         *animation = new QPropertyAnimation(button, "paintOpacity", this);
         (*animation)->setObjectName(objectName);
         (*animation)->setDuration(NavigationButtonAnimationDuration);
-        connect(*animation, &QPropertyAnimation::valueChanged, button,
-                [this, button]() {
-                    button->update();
-                    syncNavigationButtonOverlay(button);
-                });
+        connect(*animation, &QPropertyAnimation::valueChanged, button, [this, button]() {
+            button->update();
+            syncNavigationButtonOverlay(button);
+        });
         connect(*animation, &QPropertyAnimation::finished, button, [this, button, animation]() {
             if ((*animation)->endValue().toReal() <= 0.0
                 && button->property("paintOpacity").toReal() <= 0.001)
@@ -873,14 +842,10 @@ void MainWindow::initializeNavigationButtons()
         });
     };
 
-    createOpacityAnimation(
-        previousImageButton,
-        &previousImageButtonAnimation,
-        QStringLiteral("previousImageButtonOpacityAnimation"));
-    createOpacityAnimation(
-        nextImageButton,
-        &nextImageButtonAnimation,
-        QStringLiteral("nextImageButtonOpacityAnimation"));
+    createOpacityAnimation(previousImageButton, &previousImageButtonAnimation,
+                           QStringLiteral("previousImageButtonOpacityAnimation"));
+    createOpacityAnimation(nextImageButton, &nextImageButtonAnimation,
+                           QStringLiteral("nextImageButtonOpacityAnimation"));
 
     graphicsView->installEventFilter(this);
     graphicsView->viewport()->installEventFilter(this);
@@ -907,14 +872,11 @@ void MainWindow::showNavigationBoundaryHint(const Qv::GoToFileMode mode)
         return;
 
     auto *hint = static_cast<NavigationBoundaryHint *>(navigationBoundaryHint);
-    hint->setMessage(mode == Qv::GoToFileMode::Previous
-                         ? tr("No previous image")
-                         : tr("No next image"));
-    hint->setMessageId(mode == Qv::GoToFileMode::Previous
-                           ? QStringLiteral("previous")
-                           : QStringLiteral("next"));
-    const Qv::Theme configuredTheme =
-        qvApp->getSettingsManager().getEnum<Qv::Theme>("theme");
+    hint->setMessage(mode == Qv::GoToFileMode::Previous ? tr("No previous image")
+                                                        : tr("No next image"));
+    hint->setMessageId(mode == Qv::GoToFileMode::Previous ? QStringLiteral("previous")
+                                                          : QStringLiteral("next"));
+    const Qv::Theme configuredTheme = qvApp->getSettingsManager().getEnum<Qv::Theme>("theme");
     hint->setAppearance(QVCocoaFunctions::resolvedTheme(configuredTheme));
     navigationBoundaryHintTimer->stop();
     navigationBoundaryHintAnimation->stop();
@@ -990,18 +952,20 @@ void MainWindow::updateNavigationButtonGeometry()
 
     const ViewportPosition viewportPosition = getViewportPosition();
     const int contentTopInView = qBound(
-        0,
-        graphicsView->mapFrom(this, QPoint(0, viewportPosition.widgetY + viewportPosition.obscuredHeight)).y(),
-        graphicsView->height());
+            0,
+            graphicsView
+                    ->mapFrom(this,
+                              QPoint(0, viewportPosition.widgetY + viewportPosition.obscuredHeight))
+                    .y(),
+            graphicsView->height());
     const int availableHeight = qMax(0, graphicsView->height() - contentTopInView);
     const int y = contentTopInView + qMax(0, (availableHeight - NavigationButtonSize) / 2);
 
-    previousImageButton->setGeometry(NavigationButtonEdgeMargin, y, NavigationButtonSize, NavigationButtonSize);
-    nextImageButton->setGeometry(
-        graphicsView->width() - NavigationButtonEdgeMargin - NavigationButtonSize,
-        y,
-        NavigationButtonSize,
-        NavigationButtonSize);
+    previousImageButton->setGeometry(NavigationButtonEdgeMargin, y, NavigationButtonSize,
+                                     NavigationButtonSize);
+    nextImageButton->setGeometry(graphicsView->width() - NavigationButtonEdgeMargin
+                                         - NavigationButtonSize,
+                                 y, NavigationButtonSize, NavigationButtonSize);
     previousImageButton->raise();
     nextImageButton->raise();
     syncNavigationButtonOverlays();
@@ -1012,7 +976,8 @@ void MainWindow::updateNavigationButtonAppearance()
     const auto updateButton = [this](QPushButton *button) {
         const std::optional<qreal> brightness = sampledContentBrightness(graphicsView, button);
         const bool isDark = brightness.has_value() && brightness.value() < 0.5;
-        button->setProperty("sampledContentBrightness", brightness.has_value() ? QVariant(brightness.value()) : QVariant());
+        button->setProperty("sampledContentBrightness",
+                            brightness.has_value() ? QVariant(brightness.value()) : QVariant());
         if (auto *navigationButton = dynamic_cast<ImageNavigationButton *>(button))
             navigationButton->setDarkBackground(isDark);
     };
@@ -1027,15 +992,13 @@ void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
     if (!graphicsView || !button)
         return;
 
-    const int index = button == previousImageButton ? 0
-            : button == nextImageButton ? 1 : -1;
+    const int index = button == previousImageButton ? 0 : button == nextImageButton ? 1 : -1;
     if (index < 0)
         return;
 
     const bool nativeOverlay = graphicsView->usesNativeHDRNavigationOverlay();
-    const bool requestedVisible = index == 0
-            ? previousImageButtonRequestedVisible
-            : nextImageButtonRequestedVisible;
+    const bool requestedVisible =
+            index == 0 ? previousImageButtonRequestedVisible : nextImageButtonRequestedVisible;
     if (!nativeOverlay) {
         if (requestedVisible && button->property("paintOpacity").toReal() > 0.001)
             button->show();
@@ -1047,18 +1010,15 @@ void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
     // corners resolve against Qt's SDR backing store instead of the sibling
     // CAMetalLayer. The shape-only overlay below is a CAMetalLayer sublayer.
     button->hide();
-    const QPoint viewportOrigin = graphicsView->viewport()->mapFrom(
-            graphicsView, button->geometry().topLeft());
+    const QPoint viewportOrigin =
+            graphicsView->viewport()->mapFrom(graphicsView, button->geometry().topLeft());
     const QRectF viewportRect(viewportOrigin, button->size());
     const bool darkBackground =
             button->property("contrastStyle").toString() == QStringLiteral("dark");
-    const bool hovered = index == 0
-            ? previousImageButtonHovered : nextImageButtonHovered;
+    const bool hovered = index == 0 ? previousImageButtonHovered : nextImageButtonHovered;
     graphicsView->setHDRNavigationOverlay(
-            index, viewportRect,
-            button->property("paintOpacity").toReal(),
-            index == 0, darkBackground, hovered,
-            pressedNavigationButton == index, button->isEnabled());
+            index, viewportRect, button->property("paintOpacity").toReal(), index == 0,
+            darkBackground, hovered, pressedNavigationButton == index, button->isEnabled());
 }
 
 void MainWindow::syncNavigationButtonOverlays()
@@ -1075,17 +1035,14 @@ void MainWindow::syncNavigationButtonOverlays()
     syncNavigationButtonOverlay(nextImageButton);
 }
 
-void MainWindow::setNavigationButtonVisible(
-    QPushButton *button,
-    QPropertyAnimation *animation,
-    const bool visible)
+void MainWindow::setNavigationButtonVisible(QPushButton *button, QPropertyAnimation *animation,
+                                            const bool visible)
 {
     if (!button || !animation)
         return;
 
-    bool &requestedVisible = button == previousImageButton
-            ? previousImageButtonRequestedVisible
-            : nextImageButtonRequestedVisible;
+    bool &requestedVisible = button == previousImageButton ? previousImageButtonRequestedVisible
+                                                           : nextImageButtonRequestedVisible;
     button->setProperty("navigationRequestedVisible", visible);
     if (requestedVisible == visible) {
         if (graphicsView->usesNativeHDRNavigationOverlay())
@@ -1097,8 +1054,7 @@ void MainWindow::setNavigationButtonVisible(
     }
     requestedVisible = visible;
 
-    if (visible)
-    {
+    if (visible) {
         animation->stop();
         const bool nativeOverlay = graphicsView->usesNativeHDRNavigationOverlay();
         if (!nativeOverlay && button->property("paintOpacity").toReal() <= 0.001)
@@ -1144,10 +1100,8 @@ void MainWindow::hideNavigationButtonsImmediately()
 
 void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
 {
-    if (!areNavigationButtonsSupported(width()) ||
-        !getIsPixmapLoaded() ||
-        getCurrentFileDetails().folderFileInfoList.size() < 2)
-    {
+    if (!areNavigationButtonsSupported(width()) || !getIsPixmapLoaded()
+        || getCurrentFileDetails().folderFileInfoList.size() < 2) {
         hideNavigationButtonsImmediately();
         return;
     }
@@ -1157,31 +1111,26 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
     const int contentTop = viewportPosition.widgetY + viewportPosition.obscuredHeight;
     const QRect contentRect(0, contentTop, width(), qMax(0, height() - contentTop));
     const QRect previousWindowRect(
-        graphicsView->mapTo(this, previousImageButton->geometry().topLeft()),
-        previousImageButton->size());
-    const QRect nextWindowRect(
-        graphicsView->mapTo(this, nextImageButton->geometry().topLeft()),
-        nextImageButton->size());
+            graphicsView->mapTo(this, previousImageButton->geometry().topLeft()),
+            previousImageButton->size());
+    const QRect nextWindowRect(graphicsView->mapTo(this, nextImageButton->geometry().topLeft()),
+                               nextImageButton->size());
     const int activationWidth = navigationEdgeWidth(width());
     const bool leftAvailable = graphicsView->hasPreviousFile();
     const bool rightAvailable = graphicsView->hasNextFile();
-    const bool leftVisible = leftAvailable && contentRect.contains(windowPosition) &&
-        (windowPosition.x() < contentRect.left() + activationWidth || previousWindowRect.contains(windowPosition));
-    const bool rightVisible = rightAvailable && contentRect.contains(windowPosition) &&
-        (windowPosition.x() >= contentRect.right() - activationWidth + 1 || nextWindowRect.contains(windowPosition));
+    const bool leftVisible = leftAvailable && contentRect.contains(windowPosition)
+            && (windowPosition.x() < contentRect.left() + activationWidth
+                || previousWindowRect.contains(windowPosition));
+    const bool rightVisible = rightAvailable && contentRect.contains(windowPosition)
+            && (windowPosition.x() >= contentRect.right() - activationWidth + 1
+                || nextWindowRect.contains(windowPosition));
 
     if ((leftVisible && !previousImageButtonRequestedVisible)
         || (rightVisible && !nextImageButtonRequestedVisible))
         updateNavigationButtonAppearance();
 
-    setNavigationButtonVisible(
-        previousImageButton,
-        previousImageButtonAnimation,
-        leftVisible);
-    setNavigationButtonVisible(
-        nextImageButton,
-        nextImageButtonAnimation,
-        rightVisible);
+    setNavigationButtonVisible(previousImageButton, previousImageButtonAnimation, leftVisible);
+    setNavigationButtonVisible(nextImageButton, nextImageButtonAnimation, rightVisible);
 }
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
@@ -1228,7 +1177,7 @@ void MainWindow::ensureContextMenu()
     contextMenu->addMenu(actionManager.buildToolsMenu(contextMenu));
     contextMenu->addMenu(actionManager.buildHelpMenu(contextMenu));
 
-    connect(contextMenu, &QMenu::triggered, this, [this](QAction *triggeredAction){
+    connect(contextMenu, &QMenu::triggered, this, [this](QAction *triggeredAction) {
         ActionManager::actionTriggered(triggeredAction, this);
     });
 
@@ -1245,18 +1194,17 @@ void MainWindow::ensureInfoDialog()
         info = new QVInfoDialog(this);
         info->installEventFilter(this);
         const QPointer<QVGraphicsView> view(graphicsView);
-        info->setColorInfoProvider(
-                [view]() { return view ? view->fileInfoColorInformation() : QvColor::Information{ }; });
+        info->setColorInfoProvider([view]() {
+            return view ? view->fileInfoColorInformation() : QvColor::Information{ };
+        });
     }
 }
 
 void MainWindow::restoreImageFocusAfterInfo()
 {
     const auto canRestore = [this]() {
-        if (isClosing || qvApp->getIsApplicationQuitting()
-            || !isVisible() || isMinimized()
-            || qvApp->applicationState() != Qt::ApplicationActive
-            || !info || info->isVisible())
+        if (isClosing || qvApp->getIsApplicationQuitting() || !isVisible() || isMinimized()
+            || qvApp->applicationState() != Qt::ApplicationActive || !info || info->isVisible())
             return false;
         const auto *active = QApplication::activeWindow();
         return !(active && active != this && active != info);
@@ -1278,7 +1226,8 @@ void MainWindow::showEvent(QShowEvent *event)
 {
     QTimer::singleShot(0, this, [this]() {
         QVCocoaFunctions::setFullSizeContentView(this, true);
-        QVCocoaFunctions::setWindowTheme(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"), windowHandle());
+        QVCocoaFunctions::setWindowTheme(qvApp->getSettingsManager().getEnum<Qv::Theme>("theme"),
+                                         windowHandle());
         if (!isFullScreen()
             && QSettings().value(QStringLiteral("options/titlebarhidden"), false).toBool())
             setTitlebarHidden(true, false);
@@ -1288,8 +1237,7 @@ void MainWindow::showEvent(QShowEvent *event)
         });
     });
 
-    if (mainMenuBar && !mainMenuBar->sizeHint().isEmpty())
-    {
+    if (mainMenuBar && !mainMenuBar->sizeHint().isEmpty()) {
         ui->fullscreenLabel->setMargin(0);
         ui->fullscreenLabel->setMinimumHeight(mainMenuBar->sizeHint().height());
     }
@@ -1297,11 +1245,10 @@ void MainWindow::showEvent(QShowEvent *event)
     syncCalculatedZoomMode();
     syncSortParameters();
 
-    if (!sessionStateToLoad.isEmpty())
-    {
+    if (!sessionStateToLoad.isEmpty()) {
         QTimer::singleShot(0, this, [this]() {
             loadSessionState(sessionStateToLoad, false);
-            sessionStateToLoad = {};
+            sessionStateToLoad = { };
         });
     }
 
@@ -1341,14 +1288,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::WindowStateChange)
-    {
-        const auto *changeEvent = static_cast<QWindowStateChangeEvent*>(event);
-        if (windowState().testFlag(Qt::WindowFullScreen) != changeEvent->oldState().testFlag(Qt::WindowFullScreen))
+    if (event->type() == QEvent::WindowStateChange) {
+        const auto *changeEvent = static_cast<QWindowStateChangeEvent *>(event);
+        if (windowState().testFlag(Qt::WindowFullScreen)
+            != changeEvent->oldState().testFlag(Qt::WindowFullScreen))
             fullscreenChanged();
-    }
-    else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
-    {
+    } else if (event->type() == QEvent::PaletteChange
+               || event->type() == QEvent::ApplicationPaletteChange) {
         // System Theme inherits the AppKit appearance. Recompute the
         // viewport and native titlebar immediately when macOS changes it.
         settingsUpdated();
@@ -1372,8 +1318,8 @@ void MainWindow::paintEvent(QPaintEvent *event)
 {
     static const bool sdrPerformanceLoggingEnabled =
             qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG");
-    const bool logSDRPerformance = sdrPerformanceLoggingEnabled
-            && !getCurrentFileDetails().isNativeHDRLoaded;
+    const bool logSDRPerformance =
+            sdrPerformanceLoggingEnabled && !getCurrentFileDetails().isNativeHDRLoaded;
     QElapsedTimer paintTimer;
     if (logSDRPerformance)
         paintTimer.start();
@@ -1385,53 +1331,47 @@ void MainWindow::paintEvent(QPaintEvent *event)
     const QRect headerRect = QRect(0, 0, width(), adjustedViewportY);
     const QRect viewportRect = rect().adjusted(0, adjustedViewportY, 0, 0);
 
-    if (headerRect.isValid())
-    {
+    if (headerRect.isValid()) {
         painter.eraseRect(headerRect);
     }
 
-    if (viewportRect.isValid())
-    {
-        if (checkerboardBackground && getIsPixmapLoaded())
-        {
+    if (viewportRect.isValid()) {
+        if (checkerboardBackground && getIsPixmapLoaded()) {
             const int gridSize = 16;
             const QColor darkColor = QColor(204, 204, 204);
             const QColor lightColor = QColorConstants::White;
             const int numHorizontalSquares = (viewportRect.width() + (gridSize - 1)) / gridSize;
             const int numVerticalSquares = (viewportRect.height() + (gridSize - 1)) / gridSize;
-            for (int iY = 0; iY < numVerticalSquares; iY++)
-            {
-                for (int iX = 0; iX < numHorizontalSquares; iX++)
-                {
+            for (int iY = 0; iY < numVerticalSquares; iY++) {
+                for (int iX = 0; iX < numHorizontalSquares; iX++) {
                     const bool isDarkSquare = (iX % 2) != (iY % 2);
-                    painter.fillRect(
-                        viewportRect.x() + (iX * gridSize),
-                        viewportRect.y() + (iY * gridSize),
-                        gridSize,
-                        gridSize,
-                        isDarkSquare ? darkColor : lightColor
-                    );
+                    painter.fillRect(viewportRect.x() + (iX * gridSize),
+                                     viewportRect.y() + (iY * gridSize), gridSize, gridSize,
+                                     isDarkSquare ? darkColor : lightColor);
                 }
             }
-        }
-        else
-        {
-            const QColor &backgroundColor = customBackgroundColor.isValid() ? customBackgroundColor : painter.background().color();
+        } else {
+            const QColor &backgroundColor = customBackgroundColor.isValid()
+                    ? customBackgroundColor
+                    : painter.background().color();
             painter.fillRect(viewportRect, backgroundColor);
 
-            if (getCurrentFileDetails().errorData.has_value())
-            {
+            if (getCurrentFileDetails().errorData.has_value()) {
                 const QVImageCore::ErrorData &errorData = getCurrentFileDetails().errorData.value();
-                const QString errorMessage = tr("Error occurred opening\n%3\n%2 (Error %1)").arg(QString::number(errorData.errorNum), errorData.errorString, getCurrentFileDetails().fileInfo.fileName());
+                const QString errorMessage =
+                        tr("Error occurred opening\n%3\n%2 (Error %1)")
+                                .arg(QString::number(errorData.errorNum), errorData.errorString,
+                                     getCurrentFileDetails().fileInfo.fileName());
                 painter.setFont(font());
-                painter.setPen(Qv::getPerceivedBrightness(backgroundColor) > 0.5 ? QColorConstants::Black : QColorConstants::White);
+                painter.setPen(Qv::getPerceivedBrightness(backgroundColor) > 0.5
+                                       ? QColorConstants::Black
+                                       : QColorConstants::White);
                 painter.drawText(viewportRect, errorMessage, QTextOption(Qt::AlignCenter));
             }
         }
     }
 
-    if (logSDRPerformance)
-    {
+    if (logSDRPerformance) {
         qint64 dirtyArea = 0;
         for (const QRect &rect : event->region())
             dirtyArea += static_cast<qint64>(rect.width()) * rect.height();
@@ -1439,12 +1379,9 @@ void MainWindow::paintEvent(QPaintEvent *event)
         qInfo().noquote() << "FOVELLE_SDR_WINDOW_PAINT"
                           << "duration_ms=" << paintTimer.nsecsElapsed() / 1000000.0
                           << "dirty_rects=" << event->region().rectCount()
-                          << "dirty_area=" << dirtyArea
-                          << "window_area=" << windowArea
+                          << "dirty_area=" << dirtyArea << "window_area=" << windowArea
                           << "dirty_ratio="
-                          << (windowArea > 0
-                                  ? static_cast<qreal>(dirtyArea) / windowArea
-                                  : 0.0)
+                          << (windowArea > 0 ? static_cast<qreal>(dirtyArea) / windowArea : 0.0)
                           << "dpr=" << devicePixelRatioF();
     }
 }
@@ -1464,14 +1401,12 @@ void MainWindow::fullscreenChanged()
 
 void MainWindow::beginNativeFullScreenTransition()
 {
-    if (!isClosing)
-    {
-        if (!isFullScreen() && !isMaximized()
-            && !normalGeometryBeforeFullScreen.isValid())
+    if (!isClosing) {
+        if (!isFullScreen() && !isMaximized() && !normalGeometryBeforeFullScreen.isValid())
             normalGeometryBeforeFullScreen = geometry();
         if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
-            qInfo() << "FULLSCREEN_GEOMETRY_BEGIN" << windowState()
-                    << geometry() << normalGeometryBeforeFullScreen;
+            qInfo() << "FULLSCREEN_GEOMETRY_BEGIN" << windowState() << geometry()
+                    << normalGeometryBeforeFullScreen;
         graphicsView->beginFullScreenPanPreservation();
     }
 }
@@ -1479,13 +1414,12 @@ void MainWindow::beginNativeFullScreenTransition()
 void MainWindow::endNativeFullScreenTransition()
 {
     if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
-        qInfo() << "FULLSCREEN_GEOMETRY_END" << windowState()
-                << geometry() << normalGeometryBeforeFullScreen;
+        qInfo() << "FULLSCREEN_GEOMETRY_END" << windowState() << geometry()
+                << normalGeometryBeforeFullScreen;
     // macOS 26 can restore an expanded-content window one titlebar taller.
     // Reconcile the normal geometry after native exit, while pan preservation
     // still covers the resize. Maximized windows retain AppKit's restoration.
-    if (!isFullScreen() && normalGeometryBeforeFullScreen.isValid())
-    {
+    if (!isFullScreen() && normalGeometryBeforeFullScreen.isValid()) {
         const QRect geometryToRestore = normalGeometryBeforeFullScreen;
         normalGeometryBeforeFullScreen = QRect();
         if (!isClosing && geometry() != geometryToRestore)
@@ -1497,7 +1431,8 @@ void MainWindow::endNativeFullScreenTransition()
 
 void MainWindow::pauseChanged()
 {
-    const bool isPaused = getIsMovieLoaded() && graphicsView->getLoadedMovie().state() != QVMovie::Running;
+    const bool isPaused =
+            getIsMovieLoaded() && graphicsView->getLoadedMovie().state() != QVMovie::Running;
 
     syncStatefulAction("pause", isPaused ? tr("Res&ume") : tr("Pa&use"),
                        isPaused ? Qv::MaterialIcon::PlayArrow : Qv::MaterialIcon::Pause);
@@ -1515,11 +1450,11 @@ void MainWindow::settingsUpdated()
 
     buildWindowTitle();
 
-    //theme
+    // theme
     const Qv::Theme theme = settingsManager.getEnum<Qv::Theme>("theme");
     customBackgroundColor = Qv::viewportBackgroundColor(QVCocoaFunctions::resolvedTheme(theme));
 
-    //checkerboardbackground
+    // checkerboardbackground
     checkerboardBackground = settingsManager.getBoolean("checkerboardbackground");
 
     // menubarenabled
@@ -1533,8 +1468,9 @@ void MainWindow::settingsUpdated()
     if (isVisible())
         QVCocoaFunctions::setWindowTheme(theme, windowHandle());
 
-    //slideshow timer
-    slideshowTimer->setInterval(static_cast<int>(settingsManager.getDouble("slideshowtimer")*1000));
+    // slideshow timer
+    slideshowTimer->setInterval(
+            static_cast<int>(settingsManager.getDouble("slideshowtimer") * 1000));
 
     // The former "Show titlebar text in full screen" preference was removed;
     // fullscreen titlebar details are now always hidden.
@@ -1545,8 +1481,8 @@ void MainWindow::settingsUpdated()
     updateNavigationButtonGeometry();
     updateNavigationButtonAppearance();
     if (navigationBoundaryHint) {
-        static_cast<NavigationBoundaryHint *>(navigationBoundaryHint)->setAppearance(
-            QVCocoaFunctions::resolvedTheme(theme));
+        static_cast<NavigationBoundaryHint *>(navigationBoundaryHint)
+                ->setAppearance(QVCocoaFunctions::resolvedTheme(theme));
         updateNavigationBoundaryHintGeometry();
     }
 
@@ -1563,8 +1499,7 @@ void MainWindow::shortcutsUpdated()
 void MainWindow::openRecent(int i)
 {
     const QString &filePath = qvApp->getActionManager().getRecentsList().value(i).filePath;
-    if (!QFile::exists(filePath))
-    {
+    if (!QFile::exists(filePath)) {
         qvApp->getActionManager().auditRecentsList(true);
     }
     graphicsView->loadFile(filePath);
@@ -1603,7 +1538,8 @@ void MainWindow::zoomLevelChanged()
 
 void MainWindow::syncCalculatedZoomMode()
 {
-    const bool isFillWindow = graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::FillWindow;
+    const bool isFillWindow =
+            graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::FillWindow;
     for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("fillwindow", this))
         action->setChecked(isFillWindow);
 }
@@ -1612,9 +1548,11 @@ void MainWindow::syncSortParameters()
 {
     const Qv::SortMode mode = graphicsView->getSortMode();
     const bool descending = graphicsView->getSortDescending();
-    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("sortmode" + QString::number(static_cast<int>(mode)), this))
+    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction(
+                 "sortmode" + QString::number(static_cast<int>(mode)), this))
         action->setChecked(true);
-    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("sortdirection" + QString::number(static_cast<int>(descending)), this))
+    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction(
+                 "sortdirection" + QString::number(static_cast<int>(descending)), this))
         action->setChecked(true);
     buildWindowTitle();
 }
@@ -1622,35 +1560,25 @@ void MainWindow::syncSortParameters()
 void MainWindow::disableActions()
 {
     const auto &actionLibrary = qvApp->getActionManager().getActionLibrary();
-    for (const auto &action : actionLibrary)
-    {
+    for (const auto &action : actionLibrary) {
         const auto &data = action->data().toStringList();
-        const auto &clonesOfAction = qvApp->getActionManager().getAllClonesOfAction(data.first(), this);
+        const auto &clonesOfAction =
+                qvApp->getActionManager().getAllClonesOfAction(data.first(), this);
 
         // Enable this window's actions when a file is loaded
-        if (data.last().contains("disable"))
-        {
-            for (const auto &clone : clonesOfAction)
-            {
+        if (data.last().contains("disable")) {
+            for (const auto &clone : clonesOfAction) {
                 const auto &cloneData = clone->data().toStringList();
-                if (cloneData.last() == "disable")
-                {
+                if (cloneData.last() == "disable") {
                     clone->setEnabled(getIsPixmapLoaded());
-                }
-                else if (cloneData.last() == "gifdisable")
-                {
+                } else if (cloneData.last() == "gifdisable") {
                     clone->setEnabled(getIsMovieLoaded());
-                }
-                else if (cloneData.last() == "undodisable")
-                {
-                    clone->setEnabled(!lastDeletedFiles.isEmpty() && !lastDeletedFiles.top().pathInTrash.isEmpty());
-                }
-                else if (cloneData.last() == "folderdisable")
-                {
+                } else if (cloneData.last() == "undodisable") {
+                    clone->setEnabled(!lastDeletedFiles.isEmpty()
+                                      && !lastDeletedFiles.top().pathInTrash.isEmpty());
+                } else if (cloneData.last() == "folderdisable") {
                     clone->setEnabled(!getCurrentFileDetails().folderFileInfoList.isEmpty());
-                }
-                else if (cloneData.last() == "windowdisable")
-                {
+                } else if (cloneData.last() == "windowdisable") {
                     clone->setEnabled(true);
                 }
             }
@@ -1658,15 +1586,14 @@ void MainWindow::disableActions()
     }
 
     const auto &openWithMenus = qvApp->getActionManager().getAllClonesOfMenu("openwith", this);
-    for (const auto &menu : openWithMenus)
-    {
+    for (const auto &menu : openWithMenus) {
         menu->setEnabled(getIsPixmapLoaded());
         menu->menuAction()->setVisible(getIsPixmapLoaded());
     }
 
-    const auto &openWithPlaceholderActions = qvApp->getActionManager().getAllClonesOfAction("openwithplaceholder", this);
-    for (const auto &action : openWithPlaceholderActions)
-    {
+    const auto &openWithPlaceholderActions =
+            qvApp->getActionManager().getAllClonesOfAction("openwithplaceholder", this);
+    for (const auto &action : openWithPlaceholderActions) {
         action->setVisible(!getIsPixmapLoaded());
     }
 }
@@ -1676,8 +1603,7 @@ void MainWindow::requestPopulateOpenWithMenu()
     if (isClosing || backgroundWorkShutDown)
         return;
 
-    if (openWithTicket)
-    {
+    if (openWithTicket) {
         openWithPopulationPending = true;
         return;
     }
@@ -1688,47 +1614,43 @@ void MainWindow::requestPopulateOpenWithMenu()
 
     const QPointer<MainWindow> owner(this);
     openWithTicket = QvAsync::run(
-        // The worker must never dereference a window, including during shutdown.
-        [filePath, provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
-            return provider(filePath);
-        },
-        [owner, filePath](QList<OpenWith::OpenWithItem> items) {
-            // QvAsync delivers on the GUI thread; owner checks and GUI access
-            // therefore cannot race with window destruction.
-            if (!owner || owner->backgroundWorkShutDown)
-                return;
-            owner->openWithTicket.reset();
-            if (!owner->isClosing
-                && filePath == owner->getCurrentFileDetails().fileInfo.absoluteFilePath())
-            {
-                owner->populateOpenWithMenu(items);
-                owner->openWithPopulatedFilePath = filePath;
-            }
-            if (owner->openWithPopulationPending && !owner->isClosing)
-            {
-                owner->openWithPopulationPending = false;
-                QTimer::singleShot(0, owner.data(), &MainWindow::requestPopulateOpenWithMenu);
-            }
-        });
+            // The worker must never dereference a window, including during shutdown.
+            [filePath, provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
+                return provider(filePath);
+            },
+            [owner, filePath](QList<OpenWith::OpenWithItem> items) {
+                // QvAsync delivers on the GUI thread; owner checks and GUI access
+                // therefore cannot race with window destruction.
+                if (!owner || owner->backgroundWorkShutDown)
+                    return;
+                owner->openWithTicket.reset();
+                if (!owner->isClosing
+                    && filePath == owner->getCurrentFileDetails().fileInfo.absoluteFilePath()) {
+                    owner->populateOpenWithMenu(items);
+                    owner->openWithPopulatedFilePath = filePath;
+                }
+                if (owner->openWithPopulationPending && !owner->isClosing) {
+                    owner->openWithPopulationPending = false;
+                    QTimer::singleShot(0, owner.data(), &MainWindow::requestPopulateOpenWithMenu);
+                }
+            });
 }
 
 void MainWindow::populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openWithItems)
 {
-    for (int i = 0; i < qvApp->getActionManager().getOpenWithMaxLength(); i++)
-    {
-        const auto clonedActions = qvApp->getActionManager().getAllClonesOfAction("openwith" + QString::number(i), this);
-        for (const auto &action : clonedActions)
-        {
+    for (int i = 0; i < qvApp->getActionManager().getOpenWithMaxLength(); i++) {
+        const auto clonedActions = qvApp->getActionManager().getAllClonesOfAction(
+                "openwith" + QString::number(i), this);
+        for (const auto &action : clonedActions) {
             // If we are within the bounds of the open with list
-            if (i < openWithItems.length())
-            {
+            if (i < openWithItems.length()) {
                 auto openWithItem = openWithItems.value(i);
 
                 action->setVisible(true);
-                action->setIconVisibleInMenu(false); // Hide icon temporarily to speed up updates in certain cases
+                action->setIconVisibleInMenu(
+                        false); // Hide icon temporarily to speed up updates in certain cases
                 action->setText(openWithItem.name);
-                if (qvApp->getShowSubmenuIcons())
-                {
+                if (qvApp->getShowSubmenuIcons()) {
                     if (!openWithItem.iconName.isEmpty())
                         action->setIcon(QIcon::fromTheme(openWithItem.iconName));
                     else
@@ -1739,9 +1661,7 @@ void MainWindow::populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openW
                 action->setData(data);
                 if (qvApp->getShowSubmenuIcons())
                     action->setIconVisibleInMenu(true);
-            }
-            else
-            {
+            } else {
                 action->setVisible(false);
             }
         }
@@ -1752,67 +1672,78 @@ void MainWindow::refreshProperties()
 {
     ensureInfoDialog();
     const QVImageCore::FileDetails &fileDetails = getCurrentFileDetails();
-    info->setInfo(
-        fileDetails.fileInfo,
-        fileDetails.baseImageSize,
-        fileDetails.isMovieLoaded ? graphicsView->getLoadedMovie().frameCount() : 0,
-        fileDetails.cameraModel
-    );
+    info->setInfo(fileDetails.fileInfo, fileDetails.baseImageSize,
+                  fileDetails.isMovieLoaded ? graphicsView->getLoadedMovie().frameCount() : 0,
+                  fileDetails.cameraModel);
 }
 
 void MainWindow::buildWindowTitle()
 {
     QString newString = "Fovelle";
-    if (getCurrentFileDetails().fileInfo.isFile())
-    {
+    if (getCurrentFileDetails().fileInfo.isFile()) {
         const QVImageCore::FileDetails &fileDetails = getCurrentFileDetails();
         const bool hasError = fileDetails.errorData.has_value();
         auto getFileName = [&]() { return fileDetails.fileInfo.fileName(); };
-        auto getZoomLevel = [&]() { return QString::number((hasError ? 1.0 : graphicsView->getZoomLevel()) * 100.0, 'f', 1) + "%"; };
+        auto getZoomLevel = [&]() {
+            return QString::number((hasError ? 1.0 : graphicsView->getZoomLevel()) * 100.0, 'f', 1)
+                    + "%";
+        };
         auto getImageIndex = [&]() { return QString::number(fileDetails.loadedIndexInFolder + 1); };
-        auto getImageCount = [&]() { return QString::number(fileDetails.folderFileInfoList.count()); };
-        auto getImageWidth = [&]() { return QString::number(hasError ? 0 : fileDetails.baseImageSize.width()); };
-        auto getImageHeight = [&]() { return QString::number(hasError ? 0 : fileDetails.baseImageSize.height()); };
-        auto getFileSize = [&]() { return QVInfoDialog::formatBytes(hasError ? 0 : fileDetails.fileInfo.size()); };
+        auto getImageCount = [&]() {
+            return QString::number(fileDetails.folderFileInfoList.count());
+        };
+        auto getImageWidth = [&]() {
+            return QString::number(hasError ? 0 : fileDetails.baseImageSize.width());
+        };
+        auto getImageHeight = [&]() {
+            return QString::number(hasError ? 0 : fileDetails.baseImageSize.height());
+        };
+        auto getFileSize = [&]() {
+            return QVInfoDialog::formatBytes(hasError ? 0 : fileDetails.fileInfo.size());
+        };
         switch (qvApp->getSettingsManager().getEnum<Qv::TitleBarText>("titlebarmode")) {
-        case Qv::TitleBarText::Minimal:
-        {
+        case Qv::TitleBarText::Minimal: {
             newString = getFileName();
             break;
         }
-        case Qv::TitleBarText::Practical:
-        {
+        case Qv::TitleBarText::Practical: {
             newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount();
             break;
         }
-        case Qv::TitleBarText::Verbose:
-        {
-            newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount() + " - " +
-                        getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - " + getZoomLevel();
+        case Qv::TitleBarText::Verbose: {
+            newString = getFileName() + " - " + getImageIndex() + "/" + getImageCount() + " - "
+                    + getImageWidth() + "x" + getImageHeight() + " - " + getFileSize() + " - "
+                    + getZoomLevel();
             break;
         }
-        case Qv::TitleBarText::Custom:
-        {
+        case Qv::TitleBarText::Custom: {
             newString = "";
             const QString customText = qvApp->getSettingsManager().getString("customtitlebartext");
-            for (int i = 0; i < customText.length(); i++)
-            {
+            for (int i = 0; i < customText.length(); i++) {
                 const QChar c = customText.at(i);
-                if (c == '%')
-                {
+                if (c == '%') {
                     i++;
-                    if (i >= customText.length()) break;
+                    if (i >= customText.length())
+                        break;
                     const QChar n = customText.at(i);
-                    if (n == 'n') newString += getFileName();
-                    else if (n == 'z') newString += getZoomLevel();
-                    else if (n == 'i') newString += getImageIndex();
-                    else if (n == 'c') newString += getImageCount();
-                    else if (n == 'w') newString += getImageWidth();
-                    else if (n == 'h') newString += getImageHeight();
-                    else if (n == 's') newString += getFileSize();
-                    else newString += n;
-                }
-                else newString += c;
+                    if (n == 'n')
+                        newString += getFileName();
+                    else if (n == 'z')
+                        newString += getZoomLevel();
+                    else if (n == 'i')
+                        newString += getImageIndex();
+                    else if (n == 'c')
+                        newString += getImageCount();
+                    else if (n == 'w')
+                        newString += getImageWidth();
+                    else if (n == 'h')
+                        newString += getImageHeight();
+                    else if (n == 's')
+                        newString += getFileSize();
+                    else
+                        newString += n;
+                } else
+                    newString += c;
             }
             break;
         }
@@ -1833,8 +1764,7 @@ void MainWindow::buildWindowTitle()
 
 void MainWindow::clearTitlebarIcons()
 {
-    if (auto *handle = windowHandle())
-    {
+    if (auto *handle = windowHandle()) {
         // QWindow::setFilePath() maps to NSWindow.representedURL on macOS and
         // causes AppKit to display a document proxy icon in the titlebar.
         handle->setIcon(QIcon());
@@ -1851,9 +1781,12 @@ void MainWindow::updateMenuBarVisible()
 void MainWindow::updateTitlebarBubbleText()
 {
     const int horizontalMargin = titlebarBubble->pos().x() * 2;
-    const int horizontalPadding = titlebarBubble->contentsMargins().left() + titlebarBubble->contentsMargins().right();
-    const int availableTextWidth = qMax(graphicsView->width() - horizontalMargin - horizontalPadding, 0);
-    titlebarBubble->setText(titlebarBubble->fontMetrics().elidedText(windowTitle(), Qt::ElideRight, availableTextWidth));
+    const int horizontalPadding =
+            titlebarBubble->contentsMargins().left() + titlebarBubble->contentsMargins().right();
+    const int availableTextWidth =
+            qMax(graphicsView->width() - horizontalMargin - horizontalPadding, 0);
+    titlebarBubble->setText(titlebarBubble->fontMetrics().elidedText(windowTitle(), Qt::ElideRight,
+                                                                     availableTextWidth));
     titlebarBubble->adjustSize();
 }
 
@@ -1862,9 +1795,9 @@ void MainWindow::revealTitlebarBubble()
     titlebarBubbleHideTimer->stop();
     titlebarBubbleHideAnimation->stop();
 
-    const bool shouldShow = !windowTitle().isEmpty() && !slideshowTimer->isActive() && getTitlebarHidden();
-    if (!shouldShow)
-    {
+    const bool shouldShow =
+            !windowTitle().isEmpty() && !slideshowTimer->isActive() && getTitlebarHidden();
+    if (!shouldShow) {
         titlebarBubble->hide();
         return;
     }
@@ -1895,14 +1828,17 @@ void MainWindow::setTitlebarHidden(const bool shouldHide, const bool persistPref
         return;
 
     const auto customizeWindowFlags = [this](const Qt::WindowFlags flagsToChange, const bool on) {
-        Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) { return (on ? (f | flagsToChange) : (f & ~flagsToChange)) | Qt::CustomizeWindowHint; });
+        Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) {
+            return (on ? (f | flagsToChange) : (f & ~flagsToChange)) | Qt::CustomizeWindowHint;
+        });
     };
 
     QVCocoaFunctions::setTitlebarHidden(this, shouldHide);
-    customizeWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinMaxButtonsHint | Qt::WindowFullscreenButtonHint, !shouldHide);
+    customizeWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinMaxButtonsHint
+                                 | Qt::WindowFullscreenButtonHint,
+                         !shouldHide);
 
-    if (persistPreference)
-    {
+    if (persistPreference) {
         QSettings settings;
         settings.setValue(QStringLiteral("options/titlebarhidden"), shouldHide);
         settings.sync();
@@ -1924,23 +1860,25 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
     if (!getIsPixmapLoaded())
         return;
 
-    //check if the program is configured to resize the window
-    const auto windowResizeMode = qvApp->getSettingsManager().getEnum<Qv::WindowResizeMode>("windowresizemode");
-    const bool shouldResize =
-        isExplicitRequest ||
-        windowResizeMode == Qv::WindowResizeMode::WhenOpeningImages ||
-        (windowResizeMode == Qv::WindowResizeMode::WhenLaunching && justLaunchedWithImage);
+    // check if the program is configured to resize the window
+    const auto windowResizeMode =
+            qvApp->getSettingsManager().getEnum<Qv::WindowResizeMode>("windowresizemode");
+    const bool shouldResize = isExplicitRequest
+            || windowResizeMode == Qv::WindowResizeMode::WhenOpeningImages
+            || (windowResizeMode == Qv::WindowResizeMode::WhenLaunching && justLaunchedWithImage);
     if (!shouldResize)
         return;
 
     justLaunchedWithImage = false;
 
-    //check if window is maximized or fullscreened
+    // check if window is maximized or fullscreened
     if (windowState().testFlag(Qt::WindowMaximized) || windowState().testFlag(Qt::WindowFullScreen))
         return;
 
-    const qreal minWindowResizedPercentage = qvApp->getSettingsManager().getInteger("minwindowresizedpercentage")/100.0;
-    const qreal maxWindowResizedPercentage = qvApp->getSettingsManager().getInteger("maxwindowresizedpercentage")/100.0;
+    const qreal minWindowResizedPercentage =
+            qvApp->getSettingsManager().getInteger("minwindowresizedpercentage") / 100.0;
+    const qreal maxWindowResizedPercentage =
+            qvApp->getSettingsManager().getInteger("maxwindowresizedpercentage") / 100.0;
 
     // Try to grab the current screen
     QScreen *currentScreen = screenContaining(frameGeometry());
@@ -1948,7 +1886,7 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
     if (!currentScreen)
         currentScreen = QGuiApplication::screens().at(0);
 
-    QSize extraWidgetsSize { 0, 0 };
+    QSize extraWidgetsSize{ 0, 0 };
 
     if (mainMenuBar && mainMenuBar->isVisible())
         extraWidgetsSize.rheight() += mainMenuBar->height();
@@ -1961,9 +1899,13 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
     const QSize hardLimitSize = currentScreen->availableSize() - windowFrameSize - extraWidgetsSize;
     const QSize screenSize = currentScreen->size();
     const QSize minWindowSize = (screenSize * minWindowResizedPercentage).boundedTo(hardLimitSize);
-    const QSize maxWindowSize = (screenSize * qMax(maxWindowResizedPercentage, minWindowResizedPercentage)).boundedTo(hardLimitSize);
-    const bool isZoomFixed = (!graphicsView->getNavigationResetsZoom() || isReapplying) && !graphicsView->getCalculatedZoomMode().has_value();
-    const QSizeF imageSize = graphicsView->getEffectiveOriginalSize() * (isZoomFixed ? graphicsView->getZoomLevel() : 1.0);
+    const QSize maxWindowSize =
+            (screenSize * qMax(maxWindowResizedPercentage, minWindowResizedPercentage))
+                    .boundedTo(hardLimitSize);
+    const bool isZoomFixed = (!graphicsView->getNavigationResetsZoom() || isReapplying)
+            && !graphicsView->getCalculatedZoomMode().has_value();
+    const QSizeF imageSize = graphicsView->getEffectiveOriginalSize()
+            * (isZoomFixed ? graphicsView->getZoomLevel() : 1.0);
     const int fitOverscan = graphicsView->getFitOverscan();
     const QSize fitOverscanSize = QSize(fitOverscan * 2, fitOverscan * 2);
     const LogicalPixelFitter fitter = graphicsView->getPixelFitter();
@@ -1971,12 +1913,15 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
 
     QSize targetSize = fitter.snapSize(imageSize) - fitOverscanSize;
 
-    const bool limitToMin = targetSize.width() < minWindowSize.width() && targetSize.height() < minWindowSize.height();
-    const bool limitToMax = targetSize.width() > maxWindowSize.width() || targetSize.height() > maxWindowSize.height();
-    if (limitToMin || limitToMax)
-    {
-        const QSizeF enforcedSize = fitter.unsnapSize(limitToMin ? minWindowSize : maxWindowSize) + fitOverscanSize;
-        const qreal fitRatio = qMin(enforcedSize.width() / imageSize.width(), enforcedSize.height() / imageSize.height());
+    const bool limitToMin = targetSize.width() < minWindowSize.width()
+            && targetSize.height() < minWindowSize.height();
+    const bool limitToMax = targetSize.width() > maxWindowSize.width()
+            || targetSize.height() > maxWindowSize.height();
+    if (limitToMin || limitToMax) {
+        const QSizeF enforcedSize =
+                fitter.unsnapSize(limitToMin ? minWindowSize : maxWindowSize) + fitOverscanSize;
+        const qreal fitRatio = qMin(enforcedSize.width() / imageSize.width(),
+                                    enforcedSize.height() / imageSize.height());
         targetSize = fitter.snapSize(imageSize * fitRatio) - fitOverscanSize;
     }
 
@@ -1985,11 +1930,13 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
 
     const bool recenterImage = isZoomFixed && geometry().size() != targetSize + extraWidgetsSize;
 
-    const auto afterMatchingSizeMode = qvApp->getSettingsManager().getEnum<Qv::AfterMatchingSize>("aftermatchingsizemode");
-    const QPoint referenceCenter =
-        afterMatchingSizeMode == Qv::AfterMatchingSize::CenterOnPrevious ? geometry().center() :
-        afterMatchingSizeMode == Qv::AfterMatchingSize::CenterOnScreen ? currentScreen->availableGeometry().center() :
-        QPoint();
+    const auto afterMatchingSizeMode =
+            qvApp->getSettingsManager().getEnum<Qv::AfterMatchingSize>("aftermatchingsizemode");
+    const QPoint referenceCenter = afterMatchingSizeMode == Qv::AfterMatchingSize::CenterOnPrevious
+            ? geometry().center()
+            : afterMatchingSizeMode == Qv::AfterMatchingSize::CenterOnScreen
+            ? currentScreen->availableGeometry().center()
+            : QPoint();
 
     // Resize window first, reposition later
     // This is smoother than a single geometry set for some reason
@@ -2003,7 +1950,8 @@ void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitReq
     const QRect availableScreenRect = currentScreen->availableGeometry();
     const int topFrameHeight = geometry().top() - frameGeometry().top();
     const int windowMinY = availableScreenRect.top() + topFrameHeight;
-    const int windowMaxY = availableScreenRect.top() + availableScreenRect.height() - titlebarOverlap;
+    const int windowMaxY =
+            availableScreenRect.top() + availableScreenRect.height() - titlebarOverlap;
     if (newRect.top() < windowMinY)
         newRect.moveTop(windowMinY);
     if (newRect.top() > windowMaxY)
@@ -2051,8 +1999,7 @@ const QJsonObject MainWindow::getSessionState() const
 
     state["titlebarHidden"] = getTitlebarHidden();
 
-    if (getIsPixmapLoaded())
-    {
+    if (getIsPixmapLoaded()) {
         state["path"] = getCurrentFileDetails().fileInfo.absoluteFilePath();
 
         if (getCurrentFileDetails().folderFileInfoList.getIsRecursive())
@@ -2066,8 +2013,7 @@ const QJsonObject MainWindow::getSessionState() const
 
 void MainWindow::loadSessionState(const QJsonObject &state, const bool isInitialPhase)
 {
-    if (isInitialPhase)
-    {
+    if (isInitialPhase) {
         restoreGeometry(QByteArray::fromBase64(state["geometry"].toString().toUtf8()));
 
         graphicsView->loadSessionState(state["graphicsView"].toObject());
@@ -2083,8 +2029,7 @@ void MainWindow::loadSessionState(const QJsonObject &state, const bool isInitial
 
     const QString path = state["path"].toString();
     const QString baseDir = state.contains("baseDir") ? state["baseDir"].toString() : "";
-    if (!path.isEmpty())
-    {
+    if (!path.isEmpty()) {
         graphicsView->setLoadIsFromSessionRestore(true);
         openFile(path, baseDir);
     }
@@ -2154,8 +2099,7 @@ void MainWindow::pickUrl()
     inputDialog->setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     NativeDialogs::applyTheme(inputDialog);
     connect(inputDialog, &QInputDialog::finished, this, [inputDialog, this](int result) {
-        if (result)
-        {
+        if (result) {
             const auto url = QUrl(inputDialog->textValue());
             openUrl(url);
         }
@@ -2195,8 +2139,7 @@ void MainWindow::showFileInfo()
 
 void MainWindow::askDeleteFile(bool permanent)
 {
-    if (!permanent && !qvApp->getSettingsManager().getBoolean("askdelete"))
-    {
+    if (!permanent && !qvApp->getSettingsManager().getBoolean("askdelete")) {
         deleteFile(permanent);
         return;
     }
@@ -2204,28 +2147,26 @@ void MainWindow::askDeleteFile(bool permanent)
     const QFileInfo &fileInfo = getCurrentFileDetails().fileInfo;
     const QString fileName = getCurrentFileDetails().fileInfo.fileName();
 
-    if (!fileInfo.isWritable())
-    {
-        NativeDialogs::showMessage(QMessageBox::Critical,
-                                   tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName),
-                                   {}, QMessageBox::Ok, this);
+    if (!fileInfo.isWritable()) {
+        NativeDialogs::showMessage(
+                QMessageBox::Critical,
+                tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName),
+                { }, QMessageBox::Ok, this);
         return;
     }
 
     QString messageText;
-    if (permanent)
-    {
-        messageText = tr("Are you sure you want to permanently delete %1? This can't be undone.").arg(fileName);
-    }
-    else
-    {
+    if (permanent) {
+        messageText = tr("Are you sure you want to permanently delete %1? This can't be undone.")
+                              .arg(fileName);
+    } else {
         messageText = tr("Are you sure you want to move %1 to the Trash?").arg(fileName);
     }
 
-    auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, messageText, {},
-                       QMessageBox::Yes | QMessageBox::No, this);
+    auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, messageText, { },
+                                                   QMessageBox::Yes | QMessageBox::No, this);
 
-    connect(msgBox, &QMessageBox::finished, this, [this, permanent](int result){
+    connect(msgBox, &QMessageBox::finished, this, [this, permanent](int result) {
         if (result != QMessageBox::Yes)
             return;
 
@@ -2245,23 +2186,19 @@ void MainWindow::deleteFile(bool permanent)
 
     bool success;
     QString trashFilePath;
-    if (permanent)
-    {
+    if (permanent) {
         success = QFile::remove(filePath);
-    }
-    else
-    {
+    } else {
         QFile file(filePath);
         success = file.moveToTrash();
         if (success)
             trashFilePath = file.fileName();
     }
 
-    if (!success || QFile::exists(filePath))
-    {
+    if (!success || QFile::exists(filePath)) {
         openFile(filePath);
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't delete %1.").arg(fileName),
-                                   {}, QMessageBox::Ok, this);
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't delete %1.").arg(fileName), { },
+                                   QMessageBox::Ok, this);
         return;
     }
 
@@ -2275,7 +2212,7 @@ void MainWindow::deleteFile(bool permanent)
         previousFile();
 
     if (!trashFilePath.isEmpty())
-        lastDeletedFiles.push({trashFilePath, filePath});
+        lastDeletedFiles.push({ trashFilePath, filePath });
 
     disableActions();
 }
@@ -2293,20 +2230,20 @@ void MainWindow::undoDelete()
         return;
 
     const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
-    if (!fileInfo.isWritable())
-    {
-        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't undo deletion of %1:\n"
-                                                    "No write permission or file is read-only.").arg(fileInfo.fileName()),
-                                   {}, QMessageBox::Ok, this);
+    if (!fileInfo.isWritable()) {
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Can't undo deletion of %1:\n"
+                                      "No write permission or file is read-only.")
+                                           .arg(fileInfo.fileName()),
+                                   { }, QMessageBox::Ok, this);
         return;
     }
 
     bool success = QFile::rename(lastDeletedFile.pathInTrash, lastDeletedFile.previousPath);
-    if (!success)
-    {
+    if (!success) {
         NativeDialogs::showMessage(QMessageBox::Critical,
                                    tr("Failed undoing deletion of %1.").arg(fileInfo.fileName()),
-                                   {}, QMessageBox::Ok, this);
+                                   { }, QMessageBox::Ok, this);
         return;
     }
 
@@ -2317,8 +2254,7 @@ void MainWindow::undoDelete()
 void MainWindow::copy()
 {
     auto *mimeData = graphicsView->getMimeData();
-    if (!mimeData->hasImage() || !mimeData->hasUrls())
-    {
+    if (!mimeData->hasImage() || !mimeData->hasUrls()) {
         mimeData->deleteLater();
         return;
     }
@@ -2332,12 +2268,10 @@ void MainWindow::paste()
     if (mimeData == nullptr)
         return;
 
-    if (mimeData->hasText())
-    {
+    if (mimeData->hasText()) {
         auto url = QUrl(mimeData->text());
 
-        if (url.isValid() && (url.scheme() == "http" || url.scheme() == "https"))
-        {
+        if (url.isValid() && (url.scheme() == "http" || url.scheme() == "https")) {
             openUrl(url);
             return;
         }
@@ -2380,9 +2314,10 @@ void MainWindow::zoomCustom()
     bool ok;
     const double oldValue = graphicsView->getZoomLevel() * 100.0;
     const double newValue = NativeDialogs::getDouble(
-        this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue,
-        Qv::MinimumZoomLevel * 100.0, Qv::MaximumZoomLevel * 100.0, 1, &ok);
-    if (!ok) return;
+            this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue,
+            Qv::MinimumZoomLevel * 100.0, Qv::MaximumZoomLevel * 100.0, 1, &ok);
+    if (!ok)
+        return;
     graphicsView->zoomAbsolute(newValue / 100.0, Qv::CalculateViewportCenterPos);
     graphicsView->fitOrConstrainImage();
 }
@@ -2394,7 +2329,8 @@ void MainWindow::toggleFitAnd100()
 
 void MainWindow::setFillWindow(const bool value)
 {
-    graphicsView->setCalculatedZoomMode(value ? std::optional(Qv::CalculatedZoomMode::FillWindow) : std::nullopt);
+    graphicsView->setCalculatedZoomMode(value ? std::optional(Qv::CalculatedZoomMode::FillWindow)
+                                              : std::nullopt);
 }
 
 void MainWindow::setSortMode(const Qv::SortMode mode)
@@ -2474,19 +2410,20 @@ void MainWindow::saveFrameAs()
     if (!getIsMovieLoaded())
         return;
 
-    if (graphicsView->getLoadedMovie().state() == QVMovie::Running)
-    {
+    if (graphicsView->getLoadedMovie().state() == QVMovie::Running) {
         pause();
     }
     QFileDialog *saveDialog = new QFileDialog(this, tr("Save Frame As..."));
     saveDialog->setDirectory(settings.value("lastFileDialogDir", QDir::homePath()).toString());
     saveDialog->setNameFilters(qvApp->getNameFilterList());
-    saveDialog->selectFile(getCurrentFileDetails().fileInfo.baseName() + "-" + QString::number(graphicsView->getLoadedMovie().currentFrameNumber()) + ".png");
+    saveDialog->selectFile(getCurrentFileDetails().fileInfo.baseName() + "-"
+                           + QString::number(graphicsView->getLoadedMovie().currentFrameNumber())
+                           + ".png");
     saveDialog->setDefaultSuffix("png");
     saveDialog->setAcceptMode(QFileDialog::AcceptSave);
     NativeDialogs::applyTheme(saveDialog);
     saveDialog->open();
-    connect(saveDialog, &QFileDialog::fileSelected, this, [this](const QString &fileName){
+    connect(saveDialog, &QFileDialog::fileSelected, this, [this](const QString &fileName) {
         if (!graphicsView->getLoadedMovie().currentImage().save(fileName, nullptr, 100))
             return;
         qvApp->invalidateFolderListings();
@@ -2533,8 +2470,7 @@ void MainWindow::cancelSlideshow()
 
 void MainWindow::slideshowAction()
 {
-    switch (qvApp->getSettingsManager().getEnum<Qv::SlideshowDirection>("slideshowdirection"))
-    {
+    switch (qvApp->getSettingsManager().getEnum<Qv::SlideshowDirection>("slideshowdirection")) {
     case Qv::SlideshowDirection::Forward:
         nextFile();
         break;
@@ -2552,7 +2488,7 @@ void MainWindow::decreaseSpeed()
     if (!getIsMovieLoaded())
         return;
 
-    graphicsView->setSpeed(graphicsView->getLoadedMovie().speed()-25);
+    graphicsView->setSpeed(graphicsView->getLoadedMovie().speed() - 25);
 }
 
 void MainWindow::resetSpeed()
@@ -2568,7 +2504,7 @@ void MainWindow::increaseSpeed()
     if (!getIsMovieLoaded())
         return;
 
-    graphicsView->setSpeed(graphicsView->getLoadedMovie().speed()+25);
+    graphicsView->setSpeed(graphicsView->getLoadedMovie().speed() + 25);
 }
 
 void MainWindow::exitFullScreen()
@@ -2589,12 +2525,9 @@ void MainWindow::exitFullScreen()
 
 void MainWindow::toggleFullScreen()
 {
-    if (windowState().testFlag(Qt::WindowFullScreen))
-    {
+    if (windowState().testFlag(Qt::WindowFullScreen)) {
         exitFullScreen();
-    }
-    else
-    {
+    } else {
         // QWindow can publish WindowFullScreen before AppKit starts its native
         // transition. Capture the user's edge before any geometry change can
         // fire the delayed constraint.
@@ -2617,10 +2550,14 @@ void MainWindow::toggleWindowOnTop()
 
     const bool targetValue = !getWindowOnTop();
 
-    Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) { return f.setFlag(Qt::WindowStaysOnTopHint, targetValue); });
+    Qv::alterWindowFlags(this, [&](Qt::WindowFlags f) {
+        return f.setFlag(Qt::WindowStaysOnTopHint, targetValue);
+    });
 
     if (info && info->windowHandle())
-        Qv::alterWindowFlags(info, [&](Qt::WindowFlags f) { return f.setFlag(Qt::WindowStaysOnTopHint, targetValue); });
+        Qv::alterWindowFlags(info, [&](Qt::WindowFlags f) {
+            return f.setFlag(Qt::WindowStaysOnTopHint, targetValue);
+        });
 
     syncWindowOnTopAction();
 
@@ -2647,8 +2584,8 @@ int MainWindow::getTitlebarOverlap() const
 MainWindow::ViewportPosition MainWindow::getViewportPosition() const
 {
     ViewportPosition result;
-    // This accounts for anything that may be above the viewport such as the menu bar (if it's inside
-    // the window) and/or the label that displays titlebar text in full screen mode.
+    // This accounts for anything that may be above the viewport such as the menu bar (if it's
+    // inside the window) and/or the label that displays titlebar text in full screen mode.
     result.widgetY = windowHandle() ? graphicsView->mapTo(this, QPoint()).y() : 0;
     // On macOS, part of the viewport may be additionally covered with the window's translucent
     // titlebar due to full size content view.

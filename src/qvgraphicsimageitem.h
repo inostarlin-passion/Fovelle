@@ -18,7 +18,8 @@
 #include <optional>
 
 class QSvgRenderer;
-template <typename T> class QFutureWatcher;
+template <typename T>
+class QFutureWatcher;
 
 // One scene item owns the application's raster and vector display contracts.
 // Raster images behave like the former QGraphicsPixmapItem.  SVG and the PDF
@@ -57,8 +58,7 @@ public:
     QSize lastVectorRasterSize() const { return lastVectorTilePixelSize; }
     QRectF lastVectorSourceRect() const { return lastVectorTileSourceRect; }
     quint64 vectorRenderCount() const { return completedVectorRenderCount; }
-    quint64 vectorTileGenerationCount() const
-        { return completedVectorTileGenerationCount; }
+    quint64 vectorTileGenerationCount() const { return completedVectorTileGenerationCount; }
 
     void setDisplayColorSpace(const QColorSpace &space);
     quint64 vectorGuiColorConversions() const { return guiColorConversions; }
@@ -89,9 +89,9 @@ private:
         QImage outputImage;
         QColorSpace outputSpace;
         QRectF sourceRect;
-        qreal deviceScaleX {0.0};
-        qreal deviceScaleY {0.0};
-        quint64 lastUse {0};
+        qreal deviceScaleX{ 0.0 };
+        qreal deviceScaleY{ 0.0 };
+        quint64 lastUse{ 0 };
     };
 
     struct AsyncTileRequest
@@ -100,10 +100,10 @@ private:
         QVCocoaFunctions::PDFVectorDocumentPtr pdfDocument;
         QRectF sourceRect;
         QSize pixelSize;
-        qreal deviceScaleX {0.0};
-        qreal deviceScaleY {0.0};
-        int svgFrame {0};
-        quint64 generation {0};
+        qreal deviceScaleX{ 0.0 };
+        qreal deviceScaleY{ 0.0 };
+        int svgFrame{ 0 };
+        quint64 generation{ 0 };
         QColorSpace targetColorSpace;
     };
 
@@ -111,7 +111,7 @@ private:
     {
         VectorTile tile;
         QString errorString;
-        quint64 generation {0};
+        quint64 generation{ 0 };
         bool preparedOnGuiThread{ false };
     };
 
@@ -119,17 +119,14 @@ private:
     void refreshDisplayColorSpace();
     void paintRasterFallback(QPainter *painter) const;
     void clearVectorTiles();
-    int matchingVectorTile(const QRectF &sourceRect, qreal deviceScaleX,
-                           qreal deviceScaleY) const;
-    int bestReusableVectorTile(const QRectF &sourceRect,
-                               qreal deviceScaleX,
+    int matchingVectorTile(const QRectF &sourceRect, qreal deviceScaleX, qreal deviceScaleY) const;
+    int bestReusableVectorTile(const QRectF &sourceRect, qreal deviceScaleX,
                                qreal deviceScaleY) const;
     void retainVectorTile(VectorTile tile) const;
     void requestAsyncVectorTile(const AsyncTileRequest &request);
     void startAsyncVectorTile(AsyncTileRequest request);
     void asyncVectorTileFinished(const AsyncTileResult &result);
-    static bool sameAsyncRequest(const AsyncTileRequest &lhs,
-                                 const AsyncTileRequest &rhs);
+    static bool sameAsyncRequest(const AsyncTileRequest &lhs, const AsyncTileRequest &rhs);
     static QSize boundedTileSize(const QSizeF &requestedSize);
 
     QPointer<QWidget> displayWidget;
@@ -140,17 +137,17 @@ private:
     QByteArray displayProfileBytes;
     bool displayProfileKnown{ false };
     QPixmap rasterPixmap;
-    Qt::TransformationMode rasterTransformationMode {Qt::FastTransformation};
-    QBrush vectorBackgroundBrush {Qt::black};
+    Qt::TransformationMode rasterTransformationMode{ Qt::FastTransformation };
+    QBrush vectorBackgroundBrush{ Qt::black };
     Qv::VectorImageData vectorImage;
     std::unique_ptr<QSvgRenderer> svgRenderer;
     QVCocoaFunctions::PDFVectorDocumentPtr pdfDocument;
-    bool vectorInteractionActive {false};
-    quint64 vectorSourceGeneration {0};
+    bool vectorInteractionActive{ false };
+    quint64 vectorSourceGeneration{ 0 };
     QvAsync::Ticket asyncTileTicket;
     std::optional<AsyncTileRequest> activeAsyncRequest;
     std::optional<AsyncTileRequest> pendingAsyncRequest;
-    bool asyncWorkShutDown {false};
+    bool asyncWorkShutDown{ false };
 
     quint64 guiColorConversions{ 0 };
     quint64 workerColorConversions{ 0 };
@@ -158,11 +155,11 @@ private:
     QImage::Format displayFormat{ QImage::Format_Invalid };
     QColorSpace lastDisplaySpace;
     mutable QVector<VectorTile> vectorTiles;
-    mutable quint64 vectorTileUseSerial {0};
+    mutable quint64 vectorTileUseSerial{ 0 };
     mutable QSize lastVectorTilePixelSize;
     mutable QRectF lastVectorTileSourceRect;
-    mutable quint64 completedVectorRenderCount {0};
-    quint64 completedVectorTileGenerationCount {0};
+    mutable quint64 completedVectorRenderCount{ 0 };
+    quint64 completedVectorTileGenerationCount{ 0 };
 };
 
 #endif // QVGRAPHICSIMAGEITEM_H

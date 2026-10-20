@@ -13,10 +13,11 @@
 #include <QRegularExpression>
 
 #if defined(qvApp)
-#undef qvApp
+#  undef qvApp
 #endif
 
-#define qvApp (qobject_cast<QVApplication *>(QCoreApplication::instance()))	// global qvapplication object
+#define qvApp \
+    (qobject_cast<QVApplication *>(QCoreApplication::instance())) // global qvapplication object
 
 class QVApplication : public QApplication
 {
@@ -29,12 +30,7 @@ public:
         qint64 lastActivatedTimestamp;
     };
 
-    enum class SessionSaveDecision
-    {
-        Yes,
-        No,
-        Cancel
-    };
+    enum class SessionSaveDecision { Yes, No, Cancel };
 
     explicit QVApplication(int &argc, char **argv);
     ~QVApplication() override;
@@ -49,10 +45,9 @@ public:
 
     static void pickUrl(MainWindow *parnet = nullptr);
 
-    static MainWindow *newWindow(const QJsonObject &windowSessionState = {});
+    static MainWindow *newWindow(const QJsonObject &windowSessionState = { });
 
     MainWindow *getMainWindow(bool shouldBeEmpty);
-
 
     void recentsMenuUpdated();
 
@@ -164,20 +159,20 @@ private:
     void queueFileOpen(const QString &file);
     void processPendingFileOpenEvents();
 
-    std::atomic<bool> isApplicationQuitting {false};
-    std::atomic<bool> isQuitSystemInitiated {false};
+    std::atomic<bool> isApplicationQuitting{ false };
+    std::atomic<bool> isQuitSystemInitiated{ false };
 
-    QSet<MainWindow*> activeWindows;
+    QSet<MainWindow *> activeWindows;
 
-    QMenu *dockMenu {nullptr};
+    QMenu *dockMenu{ nullptr };
 
-    mutable QMenuBar *menuBar {nullptr};
+    mutable QMenuBar *menuBar{ nullptr };
 
     QSet<QString> allFileExtensionSet;
     QSet<QString> fileExtensionSet;
     QSet<QString> mimeTypeNameSet;
     QStringList nameFilterList;
-    mutable bool filterListsInitialized {false};
+    mutable bool filterListsInitialized{ false };
 
     // This order is very important
     SettingsManager settingsManager;
@@ -187,16 +182,16 @@ private:
     QPointer<QVOptionsDialog> optionsDialog;
     QPointer<QVAboutDialog> aboutDialog;
 
-    bool showMainMenuIcons {false};
-    bool showContextMenuIcons {true};
-    bool showSubmenuIcons {true};
+    bool showMainMenuIcons{ false };
+    bool showContextMenuIcons{ true };
+    bool showSubmenuIcons{ true };
     UpdateChecker updateChecker;
 
-    bool isSessionStateSaveRequested {false};
+    bool isSessionStateSaveRequested{ false };
     QList<ClosedWindowData> closedWindowData;
 
     QStringList pendingFileOpenPaths;
-    bool fileOpenDispatchScheduled {false};
+    bool fileOpenDispatchScheduled{ false };
 };
 
 #endif // QVAPPLICATION_H

@@ -1,6 +1,7 @@
 #include "scrollhelper.h"
 
-ScrollHelper::ScrollHelper(QAbstractScrollArea *parent, GetParametersCallback getParametersCallback) : QObject(parent)
+ScrollHelper::ScrollHelper(QAbstractScrollArea *parent, GetParametersCallback getParametersCallback)
+    : QObject(parent)
 {
     hScrollBar = parent->horizontalScrollBar();
     vScrollBar = parent->verticalScrollBar();
@@ -16,36 +17,28 @@ void ScrollHelper::move(QPointF delta)
 
     bool isRightToLeft = hScrollBar->isRightToLeft();
     int hMin, hMax, vMin, vMax;
-    calculateScrollRange(
-        p.contentRect.width(),
-        p.usableViewportRect.width(),
-        isRightToLeft ?
-            hScrollBar->minimum() + hScrollBar->maximum() + p.usableViewportRect.width() - p.contentRect.left() - p.contentRect.width() :
-            p.contentRect.left(),
-        p.shouldCenter,
-        hMin,
-        hMax
-    );
-    calculateScrollRange(
-        p.contentRect.height(),
-        p.usableViewportRect.height(),
-        p.contentRect.top() - p.usableViewportRect.top(),
-        p.shouldCenter,
-        vMin,
-        vMax
-    );
-    QPointF scrollLocation = QPointF(hScrollBar->value(), vScrollBar->value()) + lastMoveRoundingError;
+    calculateScrollRange(p.contentRect.width(), p.usableViewportRect.width(),
+                         isRightToLeft ? hScrollBar->minimum() + hScrollBar->maximum()
+                                         + p.usableViewportRect.width() - p.contentRect.left()
+                                         - p.contentRect.width()
+                                       : p.contentRect.left(),
+                         p.shouldCenter, hMin, hMax);
+    calculateScrollRange(p.contentRect.height(), p.usableViewportRect.height(),
+                         p.contentRect.top() - p.usableViewportRect.top(), p.shouldCenter, vMin,
+                         vMax);
+    QPointF scrollLocation =
+            QPointF(hScrollBar->value(), vScrollBar->value()) + lastMoveRoundingError;
     qreal scrollDeltaX = delta.x();
     qreal scrollDeltaY = delta.y();
-    if (p.shouldConstrain)
-    {
+    if (p.shouldConstrain) {
         scrollDeltaX = calculateScrollDelta(scrollLocation.x(), hMin, hMax, scrollDeltaX);
         scrollDeltaY = calculateScrollDelta(scrollLocation.y(), vMin, vMax, scrollDeltaY);
     }
     scrollLocation += QPointF(scrollDeltaX, scrollDeltaY);
     int scrollValueX = qAbs(scrollLocation.x()) == 0.5 ? 0 : qRound(scrollLocation.x());
     int scrollValueY = qAbs(scrollLocation.y()) == 0.5 ? 0 : qRound(scrollLocation.y());
-    lastMoveRoundingError = QPointF(scrollLocation.x() - scrollValueX, scrollLocation.y() - scrollValueY);
+    lastMoveRoundingError =
+            QPointF(scrollLocation.x() - scrollValueX, scrollLocation.y() - scrollValueY);
     hScrollBar->setValue(scrollValueX);
     vScrollBar->setValue(scrollValueY);
 }
@@ -57,32 +50,28 @@ void ScrollHelper::constrain()
     move(QPointF());
 }
 
-void ScrollHelper::calculateScrollRange(int contentDimension, int viewportDimension, int offset, bool shouldCenter, int &minValue, int &maxValue)
+void ScrollHelper::calculateScrollRange(int contentDimension, int viewportDimension, int offset,
+                                        bool shouldCenter, int &minValue, int &maxValue)
 {
     int overflow = contentDimension - viewportDimension;
-    if (overflow >= 0)
-    {
+    if (overflow >= 0) {
         minValue = offset;
         maxValue = overflow + offset;
-    }
-    else if (shouldCenter)
-    {
+    } else if (shouldCenter) {
         minValue = overflow / 2 + offset;
         maxValue = minValue;
-    }
-    else
-    {
+    } else {
         minValue = overflow + offset;
         maxValue = offset;
     }
 }
 
-qreal ScrollHelper::calculateScrollDelta(qreal currentValue, int minValue, int maxValue, qreal proposedDelta)
+qreal ScrollHelper::calculateScrollDelta(qreal currentValue, int minValue, int maxValue,
+                                         qreal proposedDelta)
 {
     // A constrained image must stop at its edge. The previous implementation
     // deliberately returned a fraction of an out-of-range delta and animated
     // it back later, which produced the rubber-band effect during a drag.
-    return qBound(static_cast<qreal>(minValue) - currentValue,
-                  proposedDelta,
+    return qBound(static_cast<qreal>(minValue) - currentValue, proposedDelta,
                   static_cast<qreal>(maxValue) - currentValue);
 }

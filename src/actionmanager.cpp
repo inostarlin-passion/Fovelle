@@ -23,13 +23,14 @@ ActionManager::ActionManager(QObject *parent) : QObject(parent)
     const auto markConstruction = [&](const char *phase) {
         if (traceConstruction)
             qInfo().noquote() << QStringLiteral("FOVELLE_ACTION_MANAGER phase=%1 elapsed_ms=%2")
-                                     .arg(QString::fromLatin1(phase))
-                                     .arg(constructionTimer.elapsed());
+                                         .arg(QString::fromLatin1(phase))
+                                         .arg(constructionTimer.elapsed());
     };
     markConstruction("constructor-start");
 
     // Connect to settings signal
-    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this, &ActionManager::settingsUpdated);
+    connect(&qvApp->getSettingsManager(), &SettingsManager::settingsUpdated, this,
+            &ActionManager::settingsUpdated);
     settingsUpdated();
     markConstruction("settings-ready");
 
@@ -59,8 +60,7 @@ void ActionManager::settingsUpdated()
     isSaveRecentsEnabled = qvApp->getSettingsManager().getBoolean("saverecents");
 
     auto const recentsMenus = menuCloneLibrary.values("recents");
-    for (const auto &recentsMenu : recentsMenus)
-    {
+    for (const auto &recentsMenu : recentsMenus) {
         recentsMenu->menuAction()->setVisible(isSaveRecentsEnabled);
     }
     if (!isSaveRecentsEnabled)
@@ -69,8 +69,7 @@ void ActionManager::settingsUpdated()
 
 QAction *ActionManager::addCloneOfAction(QWidget *parent, const QString &key)
 {
-    if (auto action = getAction(key))
-    {
+    if (auto action = getAction(key)) {
         const bool isContextMenu = parent->property("isContextMenu").toBool();
         auto newAction = new QAction(parent);
         if (isContextMenu ? qvApp->getShowContextMenuIcons() : qvApp->getShowMainMenuIcons())
@@ -104,75 +103,67 @@ bool ActionManager::wouldTriggerAction(const QKeyEvent *event, const QString &ke
     return wouldTriggerAction(event, getAction(key)->shortcuts());
 }
 
-void ActionManager::setActionShortcuts(const QString &key, const QList<QKeySequence> &shortcuts) const
+void ActionManager::setActionShortcuts(const QString &key,
+                                       const QList<QKeySequence> &shortcuts) const
 {
     const auto &actions = getAllInstancesOfAction(key);
-    for (const auto &action : actions)
-    {
+    for (const auto &action : actions) {
         action->setShortcuts(shortcuts);
     }
 }
 
-QList<QAction*> ActionManager::getAllInstancesOfAction(const QString &key) const
+QList<QAction *> ActionManager::getAllInstancesOfAction(const QString &key) const
 {
-    QList<QAction*> listOfActions = getAllClonesOfAction(key);
+    QList<QAction *> listOfActions = getAllClonesOfAction(key);
 
     if (auto mainAction = getAction(key))
-            listOfActions.append(mainAction);
+        listOfActions.append(mainAction);
 
     return listOfActions;
 }
 
-QList<QAction*> ActionManager::getAllClonesOfAction(const QString &key) const
+QList<QAction *> ActionManager::getAllClonesOfAction(const QString &key) const
 {
     return actionCloneLibrary.values(key);
 }
 
-QList<QAction*> ActionManager::getAllClonesOfAction(const QString &key, QWidget *parent) const
+QList<QAction *> ActionManager::getAllClonesOfAction(const QString &key, QWidget *parent) const
 {
-    QList<QAction*> listOfChildActions;
+    QList<QAction *> listOfChildActions;
     const auto &actions = getAllClonesOfAction(key);
-    for (const auto &action : actions)
-    {
-        if (hasAncestor(action, parent))
-        {
+    for (const auto &action : actions) {
+        if (hasAncestor(action, parent)) {
             listOfChildActions.append(action);
         }
     }
     return listOfChildActions;
 }
 
-QList<QMenu*> ActionManager::getAllClonesOfMenu(const QString &key) const
+QList<QMenu *> ActionManager::getAllClonesOfMenu(const QString &key) const
 {
     return menuCloneLibrary.values(key);
 }
 
-QList<QMenu*> ActionManager::getAllClonesOfMenu(const QString &key, QWidget *parent) const
+QList<QMenu *> ActionManager::getAllClonesOfMenu(const QString &key, QWidget *parent) const
 {
-    QList<QMenu*> listOfChildMenus;
+    QList<QMenu *> listOfChildMenus;
     const auto &menus = getAllClonesOfMenu(key);
-    for (const auto &menu : menus)
-    {
-        if (hasAncestor(menu->menuAction(), parent))
-        {
+    for (const auto &menu : menus) {
+        if (hasAncestor(menu->menuAction(), parent)) {
             listOfChildMenus.append(menu);
         }
     }
     return listOfChildMenus;
 }
 
-void ActionManager::untrackClonedActions(const QList<QAction*> &actions)
+void ActionManager::untrackClonedActions(const QList<QAction *> &actions)
 {
-    for (const auto &action : actions)
-    {
-        if (auto menu = action->menu())
-        {
+    for (const auto &action : actions) {
+        if (auto menu = action->menu()) {
             QString key = action->data().toString();
             if (key.length() != 0)
                 menuCloneLibrary.remove(key, menu);
-        }
-        else
-        {
+        } else {
             QString key = action->data().toStringList().first();
             actionCloneLibrary.remove(key, action);
         }
@@ -192,8 +183,7 @@ void ActionManager::untrackClonedActions(const QMenuBar *menuBar)
 void ActionManager::hideAllInstancesOfAction(const QString &key)
 {
     auto actions = getAllInstancesOfAction(key);
-    for (auto &action : actions)
-    {
+    for (auto &action : actions) {
         action->setVisible(false);
     }
 }
@@ -215,7 +205,7 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     fileMenu->addSeparator();
     addCloneOfAction(fileMenu, "closewindow");
     addCloneOfAction(fileMenu, "closeallwindows");
-    QVCocoaFunctions::setAlternate(fileMenu, fileMenu->actions().length()-1);
+    QVCocoaFunctions::setAlternate(fileMenu, fileMenu->actions().length() - 1);
     fileMenu->addSeparator();
     fileMenu->addMenu(buildOpenWithMenu(fileMenu));
     addCloneOfAction(fileMenu, "openwithplaceholder");
@@ -238,22 +228,20 @@ QMenuBar *ActionManager::buildMenuBar(QWidget *parent)
     editMenu->addSeparator();
     addCloneOfAction(editMenu, "delete");
     addCloneOfAction(editMenu, "deletepermanent");
-    QVCocoaFunctions::setAlternate(editMenu, editMenu->actions().length()-1);
+    QVCocoaFunctions::setAlternate(editMenu, editMenu->actions().length() - 1);
 
     const auto removeMacOSServiceItems = [editMenu]() {
-        const QStringList unwantedItems {
-            QStringLiteral("AutoFill"),
-            QStringLiteral("Start Dictation"),
-            QStringLiteral("Emoji & Symbols"),
-            QStringLiteral("Emoji and Symbols")
-        };
-        for (QAction *action : editMenu->actions())
-        {
+        const QStringList unwantedItems{ QStringLiteral("AutoFill"),
+                                         QStringLiteral("Start Dictation"),
+                                         QStringLiteral("Emoji & Symbols"),
+                                         QStringLiteral("Emoji and Symbols") };
+        for (QAction *action : editMenu->actions()) {
             QString text = action->text();
             text.remove('&');
-            if (std::any_of(unwantedItems.cbegin(), unwantedItems.cend(), [&text](const QString &item) {
-                    return text.contains(item, Qt::CaseInsensitive);
-                }))
+            if (std::any_of(unwantedItems.cbegin(), unwantedItems.cend(),
+                            [&text](const QString &item) {
+                                return text.contains(item, Qt::CaseInsensitive);
+                            }))
                 editMenu->removeAction(action);
         }
     };
@@ -380,14 +368,13 @@ QMenu *ActionManager::buildRecentsMenu(QWidget *parent)
     if (isContextMenu ? qvApp->getShowContextMenuIcons() : qvApp->getShowMainMenuIcons())
         recentsMenu->setIcon(qvApp->iconFromFont(Qv::MaterialIcon::WorkHistory));
 
-    connect(recentsMenu, &QMenu::aboutToShow, this, [this]{
+    connect(recentsMenu, &QMenu::aboutToShow, this, [this] {
         // This list may already be up to date since we refresh it after opening a file, but
         // we force a refresh here in case another instance of our app opened a file recently.
         this->loadRecentsList();
     });
 
-    for (int i = 0; i < recentsListMaxLength; i++)
-    {
+    for (int i = 0; i < recentsListMaxLength; i++) {
         auto action = new QAction(tr("Empty"), recentsMenu);
         action->setVisible(false);
         action->setIconVisibleInMenu(true);
@@ -434,7 +421,7 @@ void ActionManager::saveRecentsList()
 
 void ActionManager::addFileToRecentsList(const QFileInfo &file)
 {
-    recentsList.prepend({file.fileName(), file.filePath()});
+    recentsList.prepend({ file.fileName(), file.filePath() });
     auditRecentsList();
     recentsSaveTimer->start();
 }
@@ -446,30 +433,25 @@ void ActionManager::auditRecentsList(const bool checkIfExists)
 
     bool changedList = false;
 
-    if (!isSaveRecentsEnabled && !recentsList.isEmpty())
-    {
+    if (!isSaveRecentsEnabled && !recentsList.isEmpty()) {
         recentsList.clear();
         changedList = true;
     }
 
     int i = 0;
-    while (i < recentsList.length() && i < recentsListMaxLength)
-    {
+    while (i < recentsList.length() && i < recentsListMaxLength) {
         const auto recent = recentsList.value(i);
 
         // Ensure file exists
-        if (checkIfExists && !QFileInfo::exists(recent.filePath))
-        {
+        if (checkIfExists && !QFileInfo::exists(recent.filePath)) {
             recentsList.removeAt(i);
             changedList = true;
             continue;
         }
 
         // Check for duplicates
-        for (int j = i + 1; j < recentsList.length(); j++)
-        {
-            if (recent == recentsList.value(j))
-            {
+        for (int j = i + 1; j < recentsList.length(); j++) {
+            if (recent == recentsList.value(j)) {
                 recentsList.removeAt(j);
                 changedList = true;
             }
@@ -478,15 +460,13 @@ void ActionManager::auditRecentsList(const bool checkIfExists)
         i++;
     }
 
-    while (recentsList.size() > recentsListMaxLength)
-    {
+    while (recentsList.size() > recentsListMaxLength) {
         recentsList.removeLast();
         changedList = true;
     }
 
     updateRecentsMenu();
-    if (changedList)
-    {
+    if (changedList) {
         recentsSaveTimer->start();
     }
 }
@@ -500,18 +480,16 @@ void ActionManager::clearRecentsList()
 
 void ActionManager::updateRecentsMenu()
 {
-    for (int i = 0; i < recentsListMaxLength; i++)
-    {
+    for (int i = 0; i < recentsListMaxLength; i++) {
         const auto values = actionCloneLibrary.values("recent" + QString::number(i));
-        for (const auto &action : values)
-        {
+        for (const auto &action : values) {
             // If we are within the bounds of the recent list
-            if (i < recentsList.length())
-            {
+            if (i < recentsList.length()) {
                 auto recent = recentsList.value(i);
 
                 action->setVisible(true);
-                action->setIconVisibleInMenu(false); // Hide icon temporarily to speed up updates in certain cases
+                action->setIconVisibleInMenu(
+                        false); // Hide icon temporarily to speed up updates in certain cases
                 action->setText(recent.fileName);
 
                 if (!qvApp->getShowSubmenuIcons())
@@ -525,9 +503,7 @@ void ActionManager::updateRecentsMenu()
                     icon = getCacheableIcon("filetype:" + fileInfo.suffix(), icon);
                 action->setIcon(icon);
                 action->setIconVisibleInMenu(true);
-            }
-            else
-            {
+            } else {
                 action->setVisible(false);
             }
         }
@@ -551,8 +527,7 @@ QMenu *ActionManager::buildOpenWithMenu(QWidget *parent)
     // per-window menu and the global macOS menu use the same request path.
     connect(openWithMenu, &QMenu::aboutToShow, openWithMenu, [openWithMenu]() {
         MainWindow *window = nullptr;
-        for (QObject *owner = openWithMenu; owner; owner = owner->parent())
-        {
+        for (QObject *owner = openWithMenu; owner; owner = owner->parent()) {
             if ((window = qobject_cast<MainWindow *>(owner)))
                 break;
         }
@@ -562,27 +537,23 @@ QMenu *ActionManager::buildOpenWithMenu(QWidget *parent)
             window->requestPopulateOpenWithMenu();
     });
 
-    for (int i = 0; i < openWithMaxLength; i++)
-    {
+    for (int i = 0; i < openWithMaxLength; i++) {
         auto action = new QAction(tr("Empty"), openWithMenu);
         action->setVisible(false);
         action->setIconVisibleInMenu(true);
-        action->setData(QVariantList({"openwith" + QString::number(i), ""}));
+        action->setData(QVariantList({ "openwith" + QString::number(i), "" }));
 
         openWithMenu->addAction(action);
         actionCloneLibrary.insert(action->data().toStringList().first(), action);
-        // Some madness that will show or hide separator if an item marked as default is in the first position
-        if (i == 0)
-        {
-            connect(action, &QAction::changed, action, [action, openWithMenu]{
+        // Some madness that will show or hide separator if an item marked as default is in the
+        // first position
+        if (i == 0) {
+            connect(action, &QAction::changed, action, [action, openWithMenu] {
                 // If this menu item is default
-                if (action->data().toList().at(1).value<OpenWith::OpenWithItem>().isDefault)
-                {
+                if (action->data().toList().at(1).value<OpenWith::OpenWithItem>().isDefault) {
                     if (!openWithMenu->actions().at(1)->isSeparator())
                         openWithMenu->insertSeparator(openWithMenu->actions().at(1));
-                }
-                else
-                {
+                } else {
                     if (openWithMenu->actions().at(1)->isSeparator())
                         openWithMenu->removeAction(openWithMenu->actions().at(1));
                 }
@@ -602,11 +573,11 @@ void ActionManager::actionTriggered(QAction *triggeredAction)
     auto key = triggeredAction->data().toStringList().first();
 
     // For some actions, do not look for a relevant window
-    QStringList windowlessActions = {"newwindow", "quit", "clearrecents", "open", "about", "options", "projecthomepage", "website", "checkupdates"};
-    for (const auto &actionName : std::as_const(windowlessActions))
-    {
-        if (key == actionName)
-        {
+    QStringList windowlessActions = { "newwindow",   "quit",    "clearrecents",    "open",
+                                      "about",       "options", "projecthomepage", "website",
+                                      "checkupdates" };
+    for (const auto &actionName : std::as_const(windowlessActions)) {
+        if (key == actionName) {
             actionTriggered(triggeredAction, nullptr);
             return;
         }
@@ -645,7 +616,8 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
     } else if (key == "about") {
         qvApp->openAboutDialog(relevantWindow);
     } else if (key == "projecthomepage") {
-        QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/inostarlin-passion/Fovelle")));
+        QDesktopServices::openUrl(
+                QUrl(QStringLiteral("https://github.com/inostarlin-passion/Fovelle")));
     } else if (key == "website") {
         QDesktopServices::openUrl(QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")));
     } else if (key == "checkupdates") {
@@ -662,12 +634,13 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
     if (key == "closewindow") {
         relevantWindow->close();
     } else if (key.startsWith("recent")) {
-        QChar finalChar = key.at(key.length()-1);
+        QChar finalChar = key.at(key.length() - 1);
         relevantWindow->openRecent(finalChar.digitValue());
     } else if (key == "openwithother") {
         OpenWith::showOpenWithDialog(relevantWindow);
     } else if (key.startsWith("openwith")) {
-        const auto &openWithItem = triggeredAction->data().toList().at(1).value<OpenWith::OpenWithItem>();
+        const auto &openWithItem =
+                triggeredAction->data().toList().at(1).value<OpenWith::OpenWithItem>();
         relevantWindow->openWith(openWithItem);
     } else if (key == "openurl") {
         relevantWindow->pickUrl();
@@ -748,7 +721,8 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
 
 bool ActionManager::wouldTriggerAction(const QKeyEvent *event, const QList<QKeySequence> &shortcuts)
 {
-    const QKeySequence targetSequence = (event->modifiers() | event->key()) & ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
+    const QKeySequence targetSequence =
+            (event->modifiers() | event->key()) & ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
     return shortcuts.contains(targetSequence);
 }
 
@@ -758,173 +732,209 @@ void ActionManager::initializeActionLibrary()
     quitAction->setMenuRole(QAction::QuitRole);
     actionLibrary.insert("quit", quitAction);
 
-    auto *newWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::WebAsset), tr("New Window"));
+    auto *newWindowAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::WebAsset), tr("New Window"));
     actionLibrary.insert("newwindow", newWindowAction);
 
     auto *openAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FileOpen), tr("&Open..."));
     actionLibrary.insert("open", openAction);
 
-    auto *openUrlAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::CloudDownload), tr("Open &URL..."));
+    auto *openUrlAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::CloudDownload), tr("Open &URL..."));
     actionLibrary.insert("openurl", openUrlAction);
 
-    auto *reloadFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Re&load File"));
-    reloadFileAction->setData({"disable"});
+    auto *reloadFileAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Re&load File"));
+    reloadFileAction->setData({ "disable" });
     actionLibrary.insert("reloadfile", reloadFileAction);
 
-    auto *closeWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Close), tr("Close Window"));
+    auto *closeWindowAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Close), tr("Close Window"));
     actionLibrary.insert("closewindow", closeWindowAction);
 
     //: Close all windows, that is
-    auto *closeAllWindowsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DisabledByDefault), tr("Close All"));
+    auto *closeAllWindowsAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DisabledByDefault), tr("Close All"));
     actionLibrary.insert("closeallwindows", closeAllWindowsAction);
 
-    auto *openContainingFolderAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FolderOpen), tr("Open Containing &Folder"));
+    auto *openContainingFolderAction = new QAction(
+            qvApp->iconFromFont(Qv::MaterialIcon::FolderOpen), tr("Open Containing &Folder"));
     openContainingFolderAction->setText(tr("Show in &Finder"));
-    openContainingFolderAction->setData({"disable"});
+    openContainingFolderAction->setData({ "disable" });
     actionLibrary.insert("opencontainingfolder", openContainingFolderAction);
 
-    auto *showFileInfoAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Ballot), tr("Show File &Info"));
-    showFileInfoAction->setData({"disable"});
+    auto *showFileInfoAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Ballot), tr("Show File &Info"));
+    showFileInfoAction->setData({ "disable" });
     actionLibrary.insert("showfileinfo", showFileInfoAction);
 
-    auto *deleteAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Delete), tr("&Move to Trash"));
-    deleteAction->setData({"disable"});
+    auto *deleteAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Delete), tr("&Move to Trash"));
+    deleteAction->setData({ "disable" });
     actionLibrary.insert("delete", deleteAction);
 
-    auto *deletePermanentAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DeleteForever), tr("Delete Permanently"));
-    deletePermanentAction->setData({"disable"});
+    auto *deletePermanentAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DeleteForever),
+                                              tr("Delete Permanently"));
+    deletePermanentAction->setData({ "disable" });
     actionLibrary.insert("deletepermanent", deletePermanentAction);
 
-    auto *undoAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RestoreFromTrash), tr("&Restore from Trash"));
-    undoAction->setData({"undodisable"});
+    auto *undoAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RestoreFromTrash),
+                                   tr("&Restore from Trash"));
+    undoAction->setData({ "undodisable" });
     actionLibrary.insert("undo", undoAction);
 
     auto *copyAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ContentCopy), tr("&Copy"));
-    copyAction->setData({"disable"});
+    copyAction->setData({ "disable" });
     actionLibrary.insert("copy", copyAction);
 
-    auto *pasteAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ContentPaste), tr("&Paste"));
+    auto *pasteAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ContentPaste), tr("&Paste"));
     actionLibrary.insert("paste", pasteAction);
 
-    auto *renameAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DriveFileRenameOutline), tr("R&ename..."));
-    renameAction->setData({"disable"});
+    auto *renameAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::DriveFileRenameOutline),
+                                     tr("R&ename..."));
+    renameAction->setData({ "disable" });
     actionLibrary.insert("rename", renameAction);
 
     auto *zoomInAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ZoomIn), tr("Zoom &In"));
-    zoomInAction->setData({"disable"});
+    zoomInAction->setData({ "disable" });
     actionLibrary.insert("zoomin", zoomInAction);
 
-    auto *zoomOutAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ZoomOut), tr("Zoom &Out"));
-    zoomOutAction->setData({"disable"});
+    auto *zoomOutAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::ZoomOut), tr("Zoom &Out"));
+    zoomOutAction->setData({ "disable" });
     actionLibrary.insert("zoomout", zoomOutAction);
 
-    auto *zoomCustomAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Search), tr("Set Zoom &Level..."));
-    zoomCustomAction->setData({"disable"});
+    auto *zoomCustomAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Search), tr("Set Zoom &Level..."));
+    zoomCustomAction->setData({ "disable" });
     actionLibrary.insert("zoomcustom", zoomCustomAction);
 
-    auto *toggleFitAnd100Action = new QAction(
-        qvApp->iconFromFont(Qv::MaterialIcon::FitScreen),
-        tr("Toggle Fit and 100%"));
-    toggleFitAnd100Action->setData({"disable"});
+    auto *toggleFitAnd100Action = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FitScreen),
+                                              tr("Toggle Fit and 100%"));
+    toggleFitAnd100Action->setData({ "disable" });
     actionLibrary.insert("togglefitand100", toggleFitAnd100Action);
 
-    auto *fillWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SettingsOverscan), tr("Fill &Window"));
-    fillWindowAction->setData({"disable"});
+    auto *fillWindowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SettingsOverscan),
+                                         tr("Fill &Window"));
+    fillWindowAction->setData({ "disable" });
     fillWindowAction->setCheckable(true);
     actionLibrary.insert("fillwindow", fillWindowAction);
 
-    auto *rotateRightAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RotateRight), tr("Rotate &Right"));
-    rotateRightAction->setData({"disable"});
+    auto *rotateRightAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RotateRight), tr("Rotate &Right"));
+    rotateRightAction->setData({ "disable" });
     actionLibrary.insert("rotateright", rotateRightAction);
 
-    auto *rotateLeftAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RotateLeft), tr("Rotate &Left"));
-    rotateLeftAction->setData({"disable"});
+    auto *rotateLeftAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::RotateLeft), tr("Rotate &Left"));
+    rotateLeftAction->setData({ "disable" });
     actionLibrary.insert("rotateleft", rotateLeftAction);
 
-    auto *mirrorAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SwapHoriz), tr("&Mirror"));
-    mirrorAction->setData({"disable"});
+    auto *mirrorAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SwapHoriz), tr("&Mirror"));
+    mirrorAction->setData({ "disable" });
     actionLibrary.insert("mirror", mirrorAction);
 
     auto *flipAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SwapVert), tr("&Flip"));
-    flipAction->setData({"disable"});
+    flipAction->setData({ "disable" });
     actionLibrary.insert("flip", flipAction);
 
-    auto *resetTransformationAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Replay), tr("Reset &Transformation"));
-    resetTransformationAction->setData({"disable"});
+    auto *resetTransformationAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Replay), tr("Reset &Transformation"));
+    resetTransformationAction->setData({ "disable" });
     actionLibrary.insert("resettransformation", resetTransformationAction);
 
-    auto *matchImageSizeAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Wallpaper), tr("M&atch Image Size"));
-    matchImageSizeAction->setData({"disable"});
+    auto *matchImageSizeAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Wallpaper), tr("M&atch Image Size"));
+    matchImageSizeAction->setData({ "disable" });
     actionLibrary.insert("matchimagesize", matchImageSizeAction);
 
-    auto *windowOnTopAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::KeyboardDoubleArrowUp), tr("Window On To&p"));
-    windowOnTopAction->setData({"windowdisable"});
+    auto *windowOnTopAction = new QAction(
+            qvApp->iconFromFont(Qv::MaterialIcon::KeyboardDoubleArrowUp), tr("Window On To&p"));
+    windowOnTopAction->setData({ "windowdisable" });
     windowOnTopAction->setCheckable(true);
     actionLibrary.insert("windowontop", windowOnTopAction);
 
-    auto *toggleTitlebarAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::VerticalAlignTop), tr("Hide Title&bar"));
-    toggleTitlebarAction->setData({"windowdisable"});
+    auto *toggleTitlebarAction = new QAction(
+            qvApp->iconFromFont(Qv::MaterialIcon::VerticalAlignTop), tr("Hide Title&bar"));
+    toggleTitlebarAction->setData({ "windowdisable" });
     actionLibrary.insert("toggletitlebar", toggleTitlebarAction);
 
-    auto *fullScreenAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Fullscreen), tr("Enter F&ull Screen"));
+    auto *fullScreenAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Fullscreen),
+                                         tr("Enter F&ull Screen"));
     fullScreenAction->setMenuRole(QAction::NoRole);
-    fullScreenAction->setData({"windowdisable"});
+    fullScreenAction->setData({ "windowdisable" });
     actionLibrary.insert("fullscreen", fullScreenAction);
 
-    auto *firstFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FirstPage), tr("&First File"));
-    firstFileAction->setData({"folderdisable"});
+    auto *firstFileAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FirstPage), tr("&First File"));
+    firstFileAction->setData({ "folderdisable" });
     actionLibrary.insert("firstfile", firstFileAction);
 
-    auto *previousFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::NavigateBefore), tr("Previous Fi&le"));
-    previousFileAction->setData({"folderdisable"});
+    auto *previousFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::NavigateBefore),
+                                           tr("Previous Fi&le"));
+    previousFileAction->setData({ "folderdisable" });
     actionLibrary.insert("previousfile", previousFileAction);
 
-    auto *nextFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::NavigateNext), tr("&Next File"));
-    nextFileAction->setData({"folderdisable"});
+    auto *nextFileAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::NavigateNext), tr("&Next File"));
+    nextFileAction->setData({ "folderdisable" });
     actionLibrary.insert("nextfile", nextFileAction);
 
-    auto *lastFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::LastPage), tr("Las&t File"));
-    lastFileAction->setData({"folderdisable"});
+    auto *lastFileAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::LastPage), tr("Las&t File"));
+    lastFileAction->setData({ "folderdisable" });
     actionLibrary.insert("lastfile", lastFileAction);
 
-    auto *randomFileAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Shuffle), tr("&Random File"));
-    randomFileAction->setData({"folderdisable"});
+    auto *randomFileAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Shuffle), tr("&Random File"));
+    randomFileAction->setData({ "folderdisable" });
     actionLibrary.insert("randomfile", randomFileAction);
 
-    auto *saveFrameAsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Save), tr("Save Frame &As..."));
-    saveFrameAsAction->setData({"gifdisable"});
+    auto *saveFrameAsAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Save), tr("Save Frame &As..."));
+    saveFrameAsAction->setData({ "gifdisable" });
     actionLibrary.insert("saveframeas", saveFrameAsAction);
 
     auto *pauseAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Pause), tr("Pa&use"));
-    pauseAction->setData({"gifdisable"});
+    pauseAction->setData({ "gifdisable" });
     actionLibrary.insert("pause", pauseAction);
 
-    auto *nextFrameAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SkipNext), tr("&Next Frame"));
-    nextFrameAction->setData({"gifdisable"});
+    auto *nextFrameAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SkipNext), tr("&Next Frame"));
+    nextFrameAction->setData({ "gifdisable" });
     actionLibrary.insert("nextframe", nextFrameAction);
 
-    auto *previousFrameAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SkipPrevious), tr("&Previous Frame"));
-    previousFrameAction->setData({"gifdisable"});
+    auto *previousFrameAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::SkipPrevious), tr("&Previous Frame"));
+    previousFrameAction->setData({ "gifdisable" });
     actionLibrary.insert("previousframe", previousFrameAction);
 
-    auto *decreaseSpeedAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FastRewind), tr("&Decrease Speed"));
-    decreaseSpeedAction->setData({"gifdisable"});
+    auto *decreaseSpeedAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FastRewind), tr("&Decrease Speed"));
+    decreaseSpeedAction->setData({ "gifdisable" });
     actionLibrary.insert("decreasespeed", decreaseSpeedAction);
 
-    auto *resetSpeedAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Replay), tr("&Reset Speed"));
-    resetSpeedAction->setData({"gifdisable"});
+    auto *resetSpeedAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Replay), tr("&Reset Speed"));
+    resetSpeedAction->setData({ "gifdisable" });
     actionLibrary.insert("resetspeed", resetSpeedAction);
 
-    auto *increaseSpeedAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FastForward), tr("&Increase Speed"));
-    increaseSpeedAction->setData({"gifdisable"});
+    auto *increaseSpeedAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::FastForward), tr("&Increase Speed"));
+    increaseSpeedAction->setData({ "gifdisable" });
     actionLibrary.insert("increasespeed", increaseSpeedAction);
 
-    auto *slideshowAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Slideshow), tr("Start S&lideshow"));
-    slideshowAction->setData({"disable"});
+    auto *slideshowAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Slideshow), tr("Start S&lideshow"));
+    slideshowAction->setData({ "disable" });
     actionLibrary.insert("slideshow", slideshowAction);
 
-    auto *optionsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Settings), tr("&Settings"));
-    if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
+    auto *optionsAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Settings), tr("&Settings"));
+    if (QOperatingSystemVersion::current()
+        < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
         //: This is for the options dialog on older mac versions
         optionsAction->setText(tr("Preference&s..."));
     } else {
@@ -938,33 +948,37 @@ void ActionManager::initializeActionLibrary()
     aboutAction->setMenuRole(QAction::AboutRole);
     actionLibrary.insert("about", aboutAction);
 
-    auto *projectHomepageAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Project Homepage"));
+    auto *projectHomepageAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Project Homepage"));
     actionLibrary.insert("projecthomepage", projectHomepageAction);
 
     auto *websiteAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Website"));
     actionLibrary.insert("website", websiteAction);
 
-    auto *checkUpdatesAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Check for Updates"));
+    auto *checkUpdatesAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Refresh), tr("Check for Updates"));
     actionLibrary.insert("checkupdates", checkUpdatesAction);
 
     //: This is for clearing the recents menu
-    auto *clearRecentsAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::PlaylistRemove), tr("Clear &Menu"));
+    auto *clearRecentsAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::PlaylistRemove), tr("Clear &Menu"));
     actionLibrary.insert("clearrecents", clearRecentsAction);
 
-    auto *openWithOtherAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Other Application..."));
+    auto *openWithOtherAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Other Application..."));
     openWithOtherAction->setText(tr("Other..."));
     actionLibrary.insert("openwithother", openWithOtherAction);
 
     // Qt's QCocoaMenu doesn't support disabling submenus (probably a bug) so we'll just use
     // a disabled menu item as a placeholder and swap it out with the real submenu later
-    auto *openWithPlaceholderAction = new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Open With"));
+    auto *openWithPlaceholderAction =
+            new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Launch), tr("Open With"));
     openWithPlaceholderAction->setEnabled(false);
     actionLibrary.insert("openwithplaceholder", openWithPlaceholderAction);
 
     // Set data values and disable actions
     const auto keys = actionLibrary.keys();
-    for (const auto &key : keys)
-    {
+    for (const auto &key : keys) {
         auto *value = actionLibrary.value(key);
         auto data = value->data().toStringList();
         data.prepend(key);
@@ -981,11 +995,11 @@ QIcon ActionManager::getCacheableIcon(const QString &cacheKey, const QIcon &icon
     static QCache<QString, QIcon> cache;
     QMutexLocker locker(&mutex);
     QIcon *cacheEntry = cache.take(cacheKey);
-    if (cacheEntry == nullptr)
-    {
+    if (cacheEntry == nullptr) {
         cacheEntry = new QIcon();
-        // Depending on the source icon's implementation (e.g. if it's backed by a file engine), it may
-        // not allow pixmap caching, so get a pixmap of each size once and copy it to a generic QIcon
+        // Depending on the source icon's implementation (e.g. if it's backed by a file engine), it
+        // may not allow pixmap caching, so get a pixmap of each size once and copy it to a generic
+        // QIcon
         const auto iconSizes = icon.availableSizes();
         for (const auto &iconSize : iconSizes)
             cacheEntry->addPixmap(icon.pixmap(iconSize));
@@ -997,8 +1011,7 @@ QIcon ActionManager::getCacheableIcon(const QString &cacheKey, const QIcon &icon
 
 bool ActionManager::hasAncestor(QObject *object, QObject *ancestor)
 {
-    while (object)
-    {
+    while (object) {
         if (object == ancestor)
             return true;
         object = object->parent();

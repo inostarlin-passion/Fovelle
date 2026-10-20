@@ -9,7 +9,8 @@ class SettingsManager : public QObject
 {
     Q_OBJECT
 public:
-    struct SSetting {
+    struct SSetting
+    {
         QVariant defaultValue;
         QVariant value;
     };

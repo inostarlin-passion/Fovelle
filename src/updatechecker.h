@@ -21,6 +21,7 @@ public:
     static int checkIntervalSeconds(Qv::UpdateCheckFrequency frequency);
 signals:
     void stateChanged();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

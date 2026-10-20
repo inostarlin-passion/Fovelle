@@ -15,8 +15,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace
-{
+namespace {
 constexpr quint64 MaxVectorTilePixels = 64ULL * 1024ULL * 1024ULL;
 constexpr int MaxVectorTileDimension = 16384;
 constexpr int VectorTilePanOverscanPixels = 128;
@@ -45,14 +44,10 @@ bool devicePixelAligned(const qreal value)
 }
 
 bool canUseNearestVectorTileSampling(const QTransform &deviceTransform,
-                                     const QRectF &drawnSourceRect,
-                                     const QRectF &tilePixelRect,
-                                     const QSize &tileImageSize,
-                                     const QRectF &tileSourceRect,
-                                     const qreal tileDeviceScaleX,
-                                     const qreal tileDeviceScaleY,
-                                     const qreal deviceScaleX,
-                                     const qreal deviceScaleY)
+                                     const QRectF &drawnSourceRect, const QRectF &tilePixelRect,
+                                     const QSize &tileImageSize, const QRectF &tileSourceRect,
+                                     const qreal tileDeviceScaleX, const qreal tileDeviceScaleY,
+                                     const qreal deviceScaleX, const qreal deviceScaleY)
 {
     // A nearest-neighbor copy is exact only for an axis-aligned, one-to-one
     // mapping.  The source tile has already been antialiased from vector
@@ -60,34 +55,25 @@ bool canUseNearestVectorTileSampling(const QTransform &deviceTransform,
     // enables the undersampled interaction tile that caused blurry edges.
     if (!scaleEquivalent(tileDeviceScaleX, deviceScaleX)
         || !scaleEquivalent(tileDeviceScaleY, deviceScaleY)
-        || !scaleEquivalent(tileImageSize.width() / tileSourceRect.width(),
-                            deviceScaleX)
-        || !scaleEquivalent(tileImageSize.height() / tileSourceRect.height(),
-                            deviceScaleY))
-    {
+        || !scaleEquivalent(tileImageSize.width() / tileSourceRect.width(), deviceScaleX)
+        || !scaleEquivalent(tileImageSize.height() / tileSourceRect.height(), deviceScaleY)) {
         return false;
     }
 
     const qreal transformTolerance = DevicePixelAlignmentTolerance;
     if (qAbs(deviceTransform.m12()) > transformTolerance
-        || qAbs(deviceTransform.m21()) > transformTolerance
-        || deviceTransform.m11() <= 0.0 || deviceTransform.m22() <= 0.0
-        || !scaleEquivalent(deviceTransform.m11(), deviceScaleX)
-        || !scaleEquivalent(deviceTransform.m22(), deviceScaleY))
-    {
+        || qAbs(deviceTransform.m21()) > transformTolerance || deviceTransform.m11() <= 0.0
+        || deviceTransform.m22() <= 0.0 || !scaleEquivalent(deviceTransform.m11(), deviceScaleX)
+        || !scaleEquivalent(deviceTransform.m22(), deviceScaleY)) {
         return false;
     }
 
-    const QPointF destinationTopLeft = deviceTransform.map(
-        drawnSourceRect.topLeft());
-    const QPointF destinationBottomRight = deviceTransform.map(
-        drawnSourceRect.bottomRight());
-    return devicePixelAligned(destinationTopLeft.x())
-            && devicePixelAligned(destinationTopLeft.y())
+    const QPointF destinationTopLeft = deviceTransform.map(drawnSourceRect.topLeft());
+    const QPointF destinationBottomRight = deviceTransform.map(drawnSourceRect.bottomRight());
+    return devicePixelAligned(destinationTopLeft.x()) && devicePixelAligned(destinationTopLeft.y())
             && devicePixelAligned(destinationBottomRight.x())
             && devicePixelAligned(destinationBottomRight.y())
-            && devicePixelAligned(tilePixelRect.left())
-            && devicePixelAligned(tilePixelRect.top())
+            && devicePixelAligned(tilePixelRect.left()) && devicePixelAligned(tilePixelRect.top())
             && devicePixelAligned(tilePixelRect.right())
             && devicePixelAligned(tilePixelRect.bottom());
 }
@@ -126,15 +112,14 @@ QSvgRenderer *cachedWorkerSvgRenderer(const Qv::VectorImageData &image)
 {
     SvgWorkerRenderCache &cache = svgWorkerRenderCache();
     if (cache.renderer && cache.sourcePath == image.sourcePath
-        && cache.encodedData == image.encodedData)
-    {
+        && cache.encodedData == image.encodedData) {
         return cache.renderer.get();
     }
 
     cache.renderer.reset();
     cache.sourcePath = image.sourcePath;
     cache.encodedData = image.encodedData;
-    cache.originalViewBox = {};
+    cache.originalViewBox = { };
     auto renderer = std::make_unique<QSvgRenderer>();
     const bool loaded = !image.encodedData.isEmpty() ? renderer->load(image.encodedData)
                                                      : renderer->load(image.sourcePath);
@@ -144,7 +129,7 @@ QSvgRenderer *cachedWorkerSvgRenderer(const Qv::VectorImageData &image)
     cache.renderer = std::move(renderer);
     return cache.renderer.get();
 }
-}
+} // namespace
 
 QVGraphicsImageItem::QVGraphicsImageItem(QGraphicsItem *parent) : QGraphicsObject(parent)
 {
@@ -228,7 +213,7 @@ void QVGraphicsImageItem::refreshDisplayColorSpace()
 void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
 {
     prepareGeometryChange();
-    vectorImage = {};
+    vectorImage = { };
     profileRefreshTimer.stop();
     disconnect(displayScreenConnection);
     displayWindow.clear();
@@ -240,8 +225,8 @@ void QVGraphicsImageItem::setPixmap(const QPixmap &pixmap)
     ++vectorSourceGeneration;
     pendingAsyncRequest.reset();
     clearVectorTiles();
-    lastVectorTilePixelSize = {};
-    lastVectorTileSourceRect = {};
+    lastVectorTilePixelSize = { };
+    lastVectorTileSourceRect = { };
     completedVectorRenderCount = 0;
     completedVectorTileGenerationCount = 0;
     update();
@@ -271,19 +256,15 @@ bool QVGraphicsImageItem::setVectorImage(const Qv::VectorImageData &image)
 
     std::unique_ptr<QSvgRenderer> candidateRenderer;
     QVCocoaFunctions::PDFVectorDocumentPtr candidatePdfDocument;
-    if (image.format == Qv::VectorImageFormat::Svg)
-    {
+    if (image.format == Qv::VectorImageFormat::Svg) {
         candidateRenderer = std::make_unique<QSvgRenderer>();
         const bool loaded = !image.encodedData.isEmpty()
                 ? candidateRenderer->load(image.encodedData)
                 : candidateRenderer->load(image.sourcePath);
         if (!loaded || !candidateRenderer->isValid())
             return false;
-    }
-    else if (image.format == Qv::VectorImageFormat::Pdf)
-    {
-        candidatePdfDocument = QVCocoaFunctions::createPDFVectorDocument(
-            image.encodedData);
+    } else if (image.format == Qv::VectorImageFormat::Pdf) {
+        candidatePdfDocument = QVCocoaFunctions::createPDFVectorDocument(image.encodedData);
         if (!candidatePdfDocument)
             return false;
     }
@@ -296,19 +277,18 @@ bool QVGraphicsImageItem::setVectorImage(const Qv::VectorImageData &image)
     ++vectorSourceGeneration;
     pendingAsyncRequest.reset();
     clearVectorTiles();
-    lastVectorTilePixelSize = {};
-    lastVectorTileSourceRect = {};
+    lastVectorTilePixelSize = { };
+    lastVectorTileSourceRect = { };
     completedVectorRenderCount = 0;
     completedVectorTileGenerationCount = 0;
-    if (svgRenderer)
-    {
-        QObject::connect(svgRenderer.get(), &QSvgRenderer::repaintNeeded,
-                         svgRenderer.get(), [this]() {
-            ++vectorSourceGeneration;
-            pendingAsyncRequest.reset();
-            clearVectorTiles();
-            update();
-        });
+    if (svgRenderer) {
+        QObject::connect(svgRenderer.get(), &QSvgRenderer::repaintNeeded, svgRenderer.get(),
+                         [this]() {
+                             ++vectorSourceGeneration;
+                             pendingAsyncRequest.reset();
+                             clearVectorTiles();
+                             update();
+                         });
     }
     update();
     return true;
@@ -319,8 +299,7 @@ void QVGraphicsImageItem::setVectorInteractionActive(const bool active)
     if (vectorInteractionActive == active)
         return;
     vectorInteractionActive = active;
-    if (!active)
-    {
+    if (!active) {
         // The next paint only accepts an exact-scale tile and queues it on the
         // worker when needed.  Stale interaction work is replaced by that
         // latest idle request; source rendering never blocks the GUI thread.
@@ -340,9 +319,8 @@ QRectF QVGraphicsImageItem::boundingRect() const
     if (vectorImage.isValid())
         return QRectF(QPointF(), vectorImage.logicalSize);
     if (rasterPixmap.isNull())
-        return {};
-    return QRectF(QPointF(), QSizeF(rasterPixmap.size())
-                             / rasterPixmap.devicePixelRatio());
+        return { };
+    return QRectF(QPointF(), QSizeF(rasterPixmap.size()) / rasterPixmap.devicePixelRatio());
 }
 
 void QVGraphicsImageItem::paintRasterFallback(QPainter *painter) const
@@ -353,17 +331,13 @@ void QVGraphicsImageItem::paintRasterFallback(QPainter *painter) const
     // density tile is being prepared.  It still needs filtered sampling when
     // it is enlarged during a drag; the vector tile path below supplies the
     // missing detail as soon as the worker completes.
-    painter->setRenderHint(
-        QPainter::SmoothPixmapTransform,
-        vectorImage.isValid()
-            || rasterTransformationMode == Qt::SmoothTransformation);
-    if (vectorImage.isValid())
-    {
+    painter->setRenderHint(QPainter::SmoothPixmapTransform,
+                           vectorImage.isValid()
+                                   || rasterTransformationMode == Qt::SmoothTransformation);
+    if (vectorImage.isValid()) {
         painter->drawPixmap(boundingRect(), rasterPixmap,
                             QRectF(QPointF(), QSizeF(rasterPixmap.size())));
-    }
-    else
-    {
+    } else {
         painter->drawPixmap(QPointF(), rasterPixmap);
     }
 }
@@ -374,13 +348,11 @@ void QVGraphicsImageItem::clearVectorTiles()
     vectorTileUseSerial = 0;
 }
 
-int QVGraphicsImageItem::matchingVectorTile(
-        const QRectF &sourceRect, const qreal deviceScaleX,
-        const qreal deviceScaleY) const
+int QVGraphicsImageItem::matchingVectorTile(const QRectF &sourceRect, const qreal deviceScaleX,
+                                            const qreal deviceScaleY) const
 {
     constexpr qreal CoordinateTolerance = 1e-9;
-    for (int index = 0; index < vectorTiles.size(); ++index)
-    {
+    for (int index = 0; index < vectorTiles.size(); ++index) {
         const VectorTile &tile = vectorTiles.at(index);
         if (tile.outputSpace == displayColorSpace && !tile.outputImage.isNull()
             && scaleEquivalent(tile.deviceScaleX, deviceScaleX)
@@ -395,14 +367,12 @@ int QVGraphicsImageItem::matchingVectorTile(
     return -1;
 }
 
-int QVGraphicsImageItem::bestReusableVectorTile(
-        const QRectF &sourceRect, const qreal deviceScaleX,
-        const qreal deviceScaleY) const
+int QVGraphicsImageItem::bestReusableVectorTile(const QRectF &sourceRect, const qreal deviceScaleX,
+                                                const qreal deviceScaleY) const
 {
     int bestIndex = -1;
     qreal bestScore = 0.0;
-    for (int index = 0; index < vectorTiles.size(); ++index)
-    {
+    for (int index = 0; index < vectorTiles.size(); ++index) {
         const VectorTile &tile = vectorTiles.at(index);
         if (tile.outputSpace != displayColorSpace || tile.outputImage.isNull())
             continue;
@@ -410,12 +380,10 @@ int QVGraphicsImageItem::bestReusableVectorTile(
         if (overlap.isEmpty())
             continue;
         const qreal overlapArea = overlap.width() * overlap.height();
-        const qreal scalePenalty = 1.0
-                + qAbs(std::log(deviceScaleX / tile.deviceScaleX))
+        const qreal scalePenalty = 1.0 + qAbs(std::log(deviceScaleX / tile.deviceScaleX))
                 + qAbs(std::log(deviceScaleY / tile.deviceScaleY));
         const qreal score = overlapArea / scalePenalty;
-        if (score > bestScore)
-        {
+        if (score > bestScore) {
             bestScore = score;
             bestIndex = index;
         }
@@ -435,15 +403,10 @@ void QVGraphicsImageItem::retainVectorTile(VectorTile tile) const
         return total;
     };
     while (vectorTiles.size() > MaxRetainedVectorTiles
-           || (vectorTiles.size() > 1
-               && retainedBytes() > MaxMultipleVectorTileBytes))
-    {
+           || (vectorTiles.size() > 1 && retainedBytes() > MaxMultipleVectorTileBytes)) {
         int oldestIndex = 0;
-        for (int index = 1; index < vectorTiles.size(); ++index)
-        {
-            if (vectorTiles.at(index).lastUse
-                < vectorTiles.at(oldestIndex).lastUse)
-            {
+        for (int index = 1; index < vectorTiles.size(); ++index) {
+            if (vectorTiles.at(index).lastUse < vectorTiles.at(oldestIndex).lastUse) {
                 oldestIndex = index;
             }
         }
@@ -451,8 +414,7 @@ void QVGraphicsImageItem::retainVectorTile(VectorTile tile) const
     }
 }
 
-bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs,
-                                           const AsyncTileRequest &rhs)
+bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs, const AsyncTileRequest &rhs)
 {
     return lhs.generation == rhs.generation && lhs.targetColorSpace == rhs.targetColorSpace
             && lhs.pixelSize == rhs.pixelSize && scaleEquivalent(lhs.deviceScaleX, rhs.deviceScaleX)
@@ -460,18 +422,15 @@ bool QVGraphicsImageItem::sameAsyncRequest(const AsyncTileRequest &lhs,
             && lhs.sourceRect == rhs.sourceRect;
 }
 
-void QVGraphicsImageItem::requestAsyncVectorTile(
-        const AsyncTileRequest &request)
+void QVGraphicsImageItem::requestAsyncVectorTile(const AsyncTileRequest &request)
 {
     if (asyncWorkShutDown)
         return;
-    if (request.generation != vectorSourceGeneration
-        || request.pixelSize.isEmpty() || request.sourceRect.isEmpty())
-    {
+    if (request.generation != vectorSourceGeneration || request.pixelSize.isEmpty()
+        || request.sourceRect.isEmpty()) {
         return;
     }
-    if (activeAsyncRequest.has_value())
-    {
+    if (activeAsyncRequest.has_value()) {
         if (sameAsyncRequest(activeAsyncRequest.value(), request))
             pendingAsyncRequest.reset();
         else
@@ -601,16 +560,13 @@ void QVGraphicsImageItem::asyncVectorTileFinished(const AsyncTileResult &result)
         update();
     } else if (!result.errorString.isEmpty()
                && qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG")) {
-        qWarning().noquote() << "FOVELLE_VECTOR_RENDER async_error="
-                             << result.errorString;
+        qWarning().noquote() << "FOVELLE_VECTOR_RENDER async_error=" << result.errorString;
     }
 
-    if (pendingAsyncRequest.has_value())
-    {
+    if (pendingAsyncRequest.has_value()) {
         AsyncTileRequest pending = std::move(pendingAsyncRequest.value());
         pendingAsyncRequest.reset();
-        if (pending.generation == vectorSourceGeneration)
-        {
+        if (pending.generation == vectorSourceGeneration) {
             startAsyncVectorTile(std::move(pending));
         }
     }
@@ -619,30 +575,26 @@ void QVGraphicsImageItem::asyncVectorTileFinished(const AsyncTileResult &result)
 QSize QVGraphicsImageItem::boundedTileSize(const QSizeF &requestedSize)
 {
     if (!requestedSize.isValid() || requestedSize.isEmpty())
-        return {};
+        return { };
 
     qreal width = std::ceil(requestedSize.width());
     qreal height = std::ceil(requestedSize.height());
     const qreal largestDimension = qMax(width, height);
-    if (largestDimension > MaxVectorTileDimension)
-    {
+    if (largestDimension > MaxVectorTileDimension) {
         const qreal scale = MaxVectorTileDimension / largestDimension;
         width *= scale;
         height *= scale;
     }
     const qreal pixelCount = width * height;
-    if (pixelCount > static_cast<qreal>(MaxVectorTilePixels))
-    {
-        const qreal scale = std::sqrt(static_cast<qreal>(MaxVectorTilePixels)
-                                      / pixelCount);
+    if (pixelCount > static_cast<qreal>(MaxVectorTilePixels)) {
+        const qreal scale = std::sqrt(static_cast<qreal>(MaxVectorTilePixels) / pixelCount);
         width *= scale;
         height *= scale;
     }
     QSize result(qBound(1, qCeil(width), MaxVectorTileDimension),
                  qBound(1, qCeil(height), MaxVectorTileDimension));
-    while (static_cast<quint64>(result.width())
-               * static_cast<quint64>(result.height()) > MaxVectorTilePixels)
-    {
+    while (static_cast<quint64>(result.width()) * static_cast<quint64>(result.height())
+           > MaxVectorTilePixels) {
         if (result.width() >= result.height() && result.width() > 1)
             result.rwidth() -= 1;
         else if (result.height() > 1)
@@ -653,14 +605,12 @@ QSize QVGraphicsImageItem::boundedTileSize(const QSizeF &requestedSize)
     return result;
 }
 
-void QVGraphicsImageItem::paint(QPainter *painter,
-                                const QStyleOptionGraphicsItem *option,
+void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
                                 QWidget *widget)
 {
     if (!painter)
         return;
-    if (!vectorImage.isValid())
-    {
+    if (!vectorImage.isValid()) {
         paintRasterFallback(painter);
         return;
     }
@@ -683,25 +633,21 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     painter->fillRect(exposedRect, vectorBackgroundBrush);
     painter->restore();
 
-    const bool isSvg = vectorImage.format == Qv::VectorImageFormat::Svg
-            && svgRenderer;
-    const bool isPdf = vectorImage.format == Qv::VectorImageFormat::Pdf
-            && pdfDocument;
-    if (!isSvg && !isPdf)
-    {
+    const bool isSvg = vectorImage.format == Qv::VectorImageFormat::Svg && svgRenderer;
+    const bool isPdf = vectorImage.format == Qv::VectorImageFormat::Pdf && pdfDocument;
+    if (!isSvg && !isPdf) {
         paintRasterFallback(painter);
         return;
     }
 
     const QTransform deviceTransform = painter->deviceTransform();
     const QPointF deviceOrigin = deviceTransform.map(QPointF());
-    const qreal deviceScaleX = QLineF(deviceOrigin,
-        deviceTransform.map(QPointF(1.0, 0.0))).length();
-    const qreal deviceScaleY = QLineF(deviceOrigin,
-        deviceTransform.map(QPointF(0.0, 1.0))).length();
-    if (!(deviceScaleX > 0.0) || !(deviceScaleY > 0.0)
-        || !std::isfinite(deviceScaleX) || !std::isfinite(deviceScaleY))
-    {
+    const qreal deviceScaleX =
+            QLineF(deviceOrigin, deviceTransform.map(QPointF(1.0, 0.0))).length();
+    const qreal deviceScaleY =
+            QLineF(deviceOrigin, deviceTransform.map(QPointF(0.0, 1.0))).length();
+    if (!(deviceScaleX > 0.0) || !(deviceScaleY > 0.0) || !std::isfinite(deviceScaleX)
+        || !std::isfinite(deviceScaleY)) {
         return;
     }
 
@@ -710,22 +656,21 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     // in device pixels and never grows with the document or zoom percentage.
     const qreal paddingX = 1.0 / deviceScaleX;
     const qreal paddingY = 1.0 / deviceScaleY;
-    const QRectF sourceRect = exposedRect.adjusted(
-        -paddingX, -paddingY, paddingX, paddingY).intersected(boundingRect());
+    const QRectF sourceRect = exposedRect.adjusted(-paddingX, -paddingY, paddingX, paddingY)
+                                      .intersected(boundingRect());
     const auto tileRequest = [this, sourceRect, deviceScaleX, deviceScaleY]() {
-        const int overscanPixels = vectorInteractionActive
-                ? VectorTileInteractionOverscanPixels
-                : VectorTilePanOverscanPixels;
+        const int overscanPixels = vectorInteractionActive ? VectorTileInteractionOverscanPixels
+                                                           : VectorTilePanOverscanPixels;
         const qreal overscanX = overscanPixels / deviceScaleX;
         const qreal overscanY = overscanPixels / deviceScaleY;
-        const QRectF renderedSourceRect = sourceRect.adjusted(
-            -overscanX, -overscanY, overscanX, overscanY)
-            .intersected(boundingRect());
+        const QRectF renderedSourceRect =
+                sourceRect.adjusted(-overscanX, -overscanY, overscanX, overscanY)
+                        .intersected(boundingRect());
         const qreal requestedScaleX = deviceScaleX * VectorTileRenderScale;
         const qreal requestedScaleY = deviceScaleY * VectorTileRenderScale;
-        const QSize tileSize = boundedTileSize(QSizeF(
-            renderedSourceRect.width() * requestedScaleX,
-            renderedSourceRect.height() * requestedScaleY));
+        const QSize tileSize =
+                boundedTileSize(QSizeF(renderedSourceRect.width() * requestedScaleX,
+                                       renderedSourceRect.height() * requestedScaleY));
         return AsyncTileRequest{ vectorImage,
                                  pdfDocument,
                                  renderedSourceRect,
@@ -737,13 +682,11 @@ void QVGraphicsImageItem::paint(QPainter *painter,
                                  displayColorSpace };
     };
     const auto retainedTileCoversRequest = [this](const AsyncTileRequest &request) {
-        for (const VectorTile &tile : vectorTiles)
-        {
+        for (const VectorTile &tile : vectorTiles) {
             if (scaleEquivalent(tile.deviceScaleX, request.deviceScaleX)
                 && scaleEquivalent(tile.deviceScaleY, request.deviceScaleY)
                 && tile.sourceRect.adjusted(-1e-9, -1e-9, 1e-9, 1e-9)
-                        .contains(request.sourceRect))
-            {
+                           .contains(request.sourceRect)) {
                 return true;
             }
         }
@@ -751,16 +694,14 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     };
 
     int tileIndex = matchingVectorTile(sourceRect, deviceScaleX, deviceScaleY);
-    if (tileIndex >= 0 && vectorInteractionActive)
-    {
+    if (tileIndex >= 0 && vectorInteractionActive) {
         const VectorTile &tile = vectorTiles.at(tileIndex);
-        const qreal remainingMarginPixels = qMin(
-            qMin((sourceRect.left() - tile.sourceRect.left()) * deviceScaleX,
-                 (tile.sourceRect.right() - sourceRect.right()) * deviceScaleX),
-            qMin((sourceRect.top() - tile.sourceRect.top()) * deviceScaleY,
-                 (tile.sourceRect.bottom() - sourceRect.bottom()) * deviceScaleY));
-        if (remainingMarginPixels <= VectorTilePrefetchMarginPixels)
-        {
+        const qreal remainingMarginPixels =
+                qMin(qMin((sourceRect.left() - tile.sourceRect.left()) * deviceScaleX,
+                          (tile.sourceRect.right() - sourceRect.right()) * deviceScaleX),
+                     qMin((sourceRect.top() - tile.sourceRect.top()) * deviceScaleY,
+                          (tile.sourceRect.bottom() - sourceRect.bottom()) * deviceScaleY));
+        if (remainingMarginPixels <= VectorTilePrefetchMarginPixels) {
             const AsyncTileRequest prefetch = tileRequest();
             if (!retainedTileCoversRequest(prefetch))
                 requestAsyncVectorTile(prefetch);
@@ -768,22 +709,18 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     }
     const bool cacheHit = tileIndex >= 0;
     bool reusedVectorTile = false;
-    if (tileIndex < 0)
-    {
+    if (tileIndex < 0) {
         const AsyncTileRequest request = tileRequest();
         // A tile already generated for the current device density can cover
         // the visible rect while a newly exposed tile is being produced. Do
         // not continuously regenerate that same request; its device-pixel
         // overscan determines when a pan really needs another request.
-        if (!retainedTileCoversRequest(request))
-        {
+        if (!retainedTileCoversRequest(request)) {
             requestAsyncVectorTile(request);
         }
-        tileIndex = bestReusableVectorTile(
-            sourceRect, deviceScaleX, deviceScaleY);
+        tileIndex = bestReusableVectorTile(sourceRect, deviceScaleX, deviceScaleY);
         reusedVectorTile = tileIndex >= 0;
-        if (tileIndex < 0)
-        {
+        if (tileIndex < 0) {
             // There is no source coverage to transform yet.  The bounded
             // preview keeps the UI responsive until the worker publishes the
             // requested interaction or exact terminal-density tile.
@@ -796,9 +733,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     tile.lastUse = ++vectorTileUseSerial;
     QRectF drawnSourceRect = sourceRect;
     if (reusedVectorTile
-        && !tile.sourceRect.adjusted(-1e-9, -1e-9, 1e-9, 1e-9)
-                .contains(sourceRect))
-    {
+        && !tile.sourceRect.adjusted(-1e-9, -1e-9, 1e-9, 1e-9).contains(sourceRect)) {
         paintRasterFallback(painter);
         drawnSourceRect = sourceRect.intersected(tile.sourceRect);
         if (drawnSourceRect.isEmpty())
@@ -806,11 +741,11 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     }
     const qreal sourcePixelScaleX = tile.outputImage.width() / tile.sourceRect.width();
     const qreal sourcePixelScaleY = tile.outputImage.height() / tile.sourceRect.height();
-    const QRectF tilePixelRect(
-        (drawnSourceRect.left() - tile.sourceRect.left()) * sourcePixelScaleX,
-        (drawnSourceRect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
-        drawnSourceRect.width() * sourcePixelScaleX,
-        drawnSourceRect.height() * sourcePixelScaleY);
+    const QRectF tilePixelRect((drawnSourceRect.left() - tile.sourceRect.left())
+                                       * sourcePixelScaleX,
+                               (drawnSourceRect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
+                               drawnSourceRect.width() * sourcePixelScaleX,
+                               drawnSourceRect.height() * sourcePixelScaleY);
     // Tiles are rendered at terminal device density even during interaction.
     // For an exact integer-pixel translation, the tile is already antialiased
     // vector output and a nearest copy avoids a second interpolation pass.
@@ -831,8 +766,7 @@ void QVGraphicsImageItem::paint(QPainter *painter,
     lastVectorTilePixelSize = tile.outputImage.size();
     lastVectorTileSourceRect = tile.sourceRect;
     ++completedVectorRenderCount;
-    if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG"))
-    {
+    if (qEnvironmentVariableIsSet("FOVELLE_VECTOR_RENDER_LOG")) {
         qInfo().noquote()
                 << QStringLiteral("FOVELLE_VECTOR_RENDER format=%1 source=vector cache=%2")
                            .arg(isPdf ? QStringLiteral("pdf") : QStringLiteral("svg"),

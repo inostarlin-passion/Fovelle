@@ -686,11 +686,10 @@ int runReproduction(const Options &options)
         // SVG logos short of the drag range that the system gesture needs.
         zoomed = waitForLog(
                 application->logPath,
-                [zoomStart, fullScreenViewportHeightFloor, minimumDragRange](
-                        const std::vector<ViewportSample> &current) {
+                [zoomStart, fullScreenViewportHeightFloor,
+                 minimumDragRange](const std::vector<ViewportSample> &current) {
                     const ViewportSample *sample = latestSampleAfter(current, zoomStart);
-                    return sample
-                            && sample->viewportHeight >= fullScreenViewportHeightFloor
+                    return sample && sample->viewportHeight >= fullScreenViewportHeightFloor
                             && sample->maximum - sample->minimum >= minimumDragRange;
                 },
                 750, &samples);

@@ -51,7 +51,8 @@ public:
     explicit QVImageCore(QObject *parent = nullptr);
     ~QVImageCore() override;
 
-    void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "", bool debouncePreloading = false);
+    void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "",
+                  bool debouncePreloading = false);
     void closeImage(const bool stayInDir = false);
     GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
     void markFolderInfoDirty() { folderInfoDirty = true; }
@@ -72,12 +73,12 @@ public:
 
     QPixmap scaleExpensively(const QSizeF desiredSize);
 
-    const QPixmap& getLoadedPixmap() const { return loadedPixmap; }
+    const QPixmap &getLoadedPixmap() const { return loadedPixmap; }
     const Qv::VectorImageData &getLoadedVectorImage() const { return loadedVectorImage; }
     const QVCocoaFunctions::SDRImagePtr &getLoadedSDRImage() const { return loadedSDRImage; }
     const QVCocoaFunctions::HDRImagePtr &getLoadedHDRImage() const { return loadedHDRImage; }
-    const QVMovie& getLoadedMovie() const { return loadedMovie; }
-    const FileDetails& getCurrentFileDetails() const { return currentFileDetails; }
+    const QVMovie &getLoadedMovie() const { return loadedMovie; }
+    const FileDetails &getCurrentFileDetails() const { return currentFileDetails; }
     bool hasFileOrPendingLoad() const { return fileOrLoadPending; }
     bool hasPreviousFile();
     bool hasNextFile();
@@ -103,9 +104,9 @@ protected:
     static void handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace);
 
 private:
-    QVFileEnumerator fileEnumerator {this};
-    QVImageLoader imageLoader {this};
-    QTimer preloadDebounceTimer {this};
+    QVFileEnumerator fileEnumerator{ this };
+    QVImageLoader imageLoader{ this };
+    QTimer preloadDebounceTimer{ this };
 
     QPixmap loadedPixmap;
     Qv::VectorImageData loadedVectorImage;
@@ -115,20 +116,20 @@ private:
 
     FileDetails currentFileDetails;
 
-    Qv::ColorSpaceConversion colorSpaceConversion {Qv::ColorSpaceConversion::AutoDetect};
+    Qv::ColorSpaceConversion colorSpaceConversion{ Qv::ColorSpaceConversion::AutoDetect };
 
-    int largestDimension {1920};
+    int largestDimension{ 1920 };
 
     quint64 pendingLoadRequestId = 0;
-    bool loadInProgress {false};
-    bool pendingLoadDebouncesPreloading {false};
-    bool fileOrLoadPending {false};
-    bool folderInfoDirty {false};
+    bool loadInProgress{ false };
+    bool pendingLoadDebouncesPreloading{ false };
+    bool fileOrLoadPending{ false };
+    bool folderInfoDirty{ false };
     quint64 folderScanGeneration = 0;
     QvAsync::Ticket folderScanTicket;
     QString pendingFolderPath;
     bool openDirectoryAfterScan = false;
-    bool asyncWorkShutDown {false};
+    bool asyncWorkShutDown{ false };
 };
 
 #endif // QVIMAGECORE_H

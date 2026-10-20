@@ -1,11 +1,10 @@
 #include "qvfileenumerator.h"
 #include "qvapplication.h"
 #if QT_VERSION < QT_VERSION_CHECK(6, 8, 0)
-#include <QDirIterator>
+#  include <QDirIterator>
 #endif
 
-QVFileEnumerator::QVFileEnumerator(QObject *parent)
-    : QObject{parent}
+QVFileEnumerator::QVFileEnumerator(QObject *parent) : QObject{ parent }
 {
     collator.setNumericMode(true);
     loadSettings(true);
@@ -25,7 +24,8 @@ QVFileEnumerator::ScanOptions QVFileEnumerator::scanOptions() const
     return options;
 }
 
-QVFileEnumerator::CompatibleFileList QVFileEnumerator::getCompatibleFiles(const QString &dirPath) const
+QVFileEnumerator::CompatibleFileList
+QVFileEnumerator::getCompatibleFiles(const QString &dirPath) const
 {
     return scan(dirPath, scanOptions());
 }
@@ -55,24 +55,28 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::scan(const QString &dirPa
     const auto allowMimeContentDetection = options.allowMimeContentDetection;
     const auto skipHiddenFiles = options.skipHiddenFiles;
     QCollator collator = options.collator;
-    const QMimeDatabase::MatchMode mimeMatchMode = allowMimeContentDetection ? QMimeDatabase::MatchDefault : QMimeDatabase::MatchExtension;
+    const QMimeDatabase::MatchMode mimeMatchMode =
+            allowMimeContentDetection ? QMimeDatabase::MatchDefault : QMimeDatabase::MatchExtension;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     // Avoid the FilesOnly flag since it makes Qt check isSymLink which causes performance problems
     // accessing SMB shares from macOS. We'll check isFile later to include only files.
     const QDirListing::IteratorFlags flags =
-        (!skipHiddenFiles ? QDirListing::IteratorFlag::IncludeHidden : QDirListing::IteratorFlags()) |
-        (recurse ? QDirListing::IteratorFlag::Recursive | QDirListing::IteratorFlag::FollowDirSymlinks : QDirListing::IteratorFlags());
-    for (const QDirListing::DirEntry &entry : QDirListing(dirPath, flags))
-    {
+            (!skipHiddenFiles ? QDirListing::IteratorFlag::IncludeHidden
+                              : QDirListing::IteratorFlags())
+            | (recurse ? QDirListing::IteratorFlag::Recursive
+                               | QDirListing::IteratorFlag::FollowDirSymlinks
+                       : QDirListing::IteratorFlags());
+    for (const QDirListing::DirEntry &entry : QDirListing(dirPath, flags)) {
         if (!entry.isFile())
             continue;
 #else
     const QDir::Filters filters = QDir::Files | (!skipHiddenFiles ? QDir::Hidden : QDir::Filters());
-    const QDirIterator::IteratorFlags flags = recurse ? QDirIterator::Subdirectories | QDirIterator::FollowSymlinks : QDirIterator::IteratorFlags();
+    const QDirIterator::IteratorFlags flags = recurse
+            ? QDirIterator::Subdirectories | QDirIterator::FollowSymlinks
+            : QDirIterator::IteratorFlags();
     QDirIterator it(dirPath, filters, flags);
-    while (it.hasNext())
-    {
+    while (it.hasNext()) {
         it.next();
         const QFileInfo entry = it.fileInfo();
 #endif
@@ -84,24 +88,20 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::scan(const QString &dirPa
         bool matched = !suffix.isEmpty() && extensions.contains("." + suffix);
         QString mimeType;
 
-        if (!matched || sortMode == Qv::SortMode::Type)
-        {
+        if (!matched || sortMode == Qv::SortMode::Type) {
             mimeType = mimeDb.mimeTypeForFile(absoluteFilePath, mimeMatchMode).name();
             matched |= mimeTypes.contains(mimeType);
         }
 
         // ignore macOS ._ metadata files
-        if (fileName.startsWith("._"))
-        {
+        if (fileName.startsWith("._")) {
             matched = false;
         }
 
-        if (matched)
-        {
+        if (matched) {
             qint64 numericSortKey = 0;
             QString stringSortKey;
-            switch (sortMode)
-            {
+            switch (sortMode) {
             case Qv::SortMode::DateModified:
                 numericSortKey = getFileTimeSortKey(entry, QFileDevice::FileModificationTime);
                 break;
@@ -128,27 +128,20 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::scan(const QString &dirPa
                 stringSortKey = fileName;
                 break;
             }
-            fileList.append({
-                absoluteFilePath,
-                numericSortKey,
-                stringSortKey
-            });
+            fileList.append({ absoluteFilePath, numericSortKey, stringSortKey });
         }
     }
 
-    std::sort(
-        fileList.begin(),
-        fileList.end(),
-        [&](const CompatibleFile &file1, const CompatibleFile &file2) {
-            int result =
-                file1.numericSortKey < file2.numericSortKey ? -1 :
-                file1.numericSortKey > file2.numericSortKey ? 1 :
-                collator.compare(file1.stringSortKey, file2.stringSortKey);
-            if (result == 0)
-                result = collator.compare(file1.absoluteFilePath, file2.absoluteFilePath);
-            return sortDescending ? (result > 0) : (result < 0);
-        }
-    );
+    std::sort(fileList.begin(), fileList.end(),
+              [&](const CompatibleFile &file1, const CompatibleFile &file2) {
+                  int result = file1.numericSortKey < file2.numericSortKey ? -1
+                          : file1.numericSortKey > file2.numericSortKey
+                          ? 1
+                          : collator.compare(file1.stringSortKey, file2.stringSortKey);
+                  if (result == 0)
+                      result = collator.compare(file1.absoluteFilePath, file2.absoluteFilePath);
+                  return sortDescending ? (result > 0) : (result < 0);
+              });
 
     return fileList;
 }
@@ -200,7 +193,7 @@ void QVFileEnumerator::loadSettings(const bool isInitialLoad)
 {
     const auto &settingsManager = qvApp->getSettingsManager();
 
-    //loop folders
+    // loop folders
     isLoopFoldersEnabled = settingsManager.getBoolean("loopfoldersenabled");
 
     // File ordering is intentionally fixed.  In particular, do not read the
@@ -210,9 +203,9 @@ void QVFileEnumerator::loadSettings(const bool isInitialLoad)
     sortMode = Qv::SortMode::Name;
     sortDescending = false;
 
-    //allow mime content detection
+    // allow mime content detection
     allowMimeContentDetection = settingsManager.getBoolean("allowmimecontentdetection");
 
-    //skip hidden files
+    // skip hidden files
     skipHiddenFiles = settingsManager.getBoolean("skiphidden");
 }

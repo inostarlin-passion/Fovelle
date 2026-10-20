@@ -6,8 +6,7 @@
 
 #include <mutex>
 
-namespace
-{
+namespace {
 void ensureMaterialIconFontLoaded()
 {
     static std::once_flag loadOnce;
@@ -15,12 +14,13 @@ void ensureMaterialIconFontLoaded()
         QFontDatabase::addApplicationFont(":/fonts/MaterialIconsOutlined-Regular.otf");
     });
 }
-}
+} // namespace
 
 SimpleFontIconEngine::SimpleFontIconEngine(const QChar iconChar, const QFont &iconFont)
     : m_iconChar(iconChar), m_iconFont(iconFont)
 {
-    Q_ASSERT_X(iconFont.styleStrategy() & QFont::NoFontMerging, "SimpleFontIconEngine", "Icon fonts must not use font merging");
+    Q_ASSERT_X(iconFont.styleStrategy() & QFont::NoFontMerging, "SimpleFontIconEngine",
+               "Icon fonts must not use font merging");
 }
 
 SimpleFontIconEngine::~SimpleFontIconEngine() = default;
@@ -42,7 +42,7 @@ QString SimpleFontIconEngine::iconName()
 
 QList<QSize> SimpleFontIconEngine::availableSizes(QIcon::Mode, QIcon::State)
 {
-    return {{16, 16}, {24, 24}, {32, 32}, {48, 48}, {64, 64}, {96, 96}, {128, 128}};
+    return { { 16, 16 }, { 24, 24 }, { 32, 32 }, { 48, 48 }, { 64, 64 }, { 96, 96 }, { 128, 128 } };
 }
 
 QPixmap SimpleFontIconEngine::pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state)
@@ -52,9 +52,9 @@ QPixmap SimpleFontIconEngine::pixmap(const QSize &size, QIcon::Mode mode, QIcon:
 
 void SimpleFontIconEngine::virtual_hook(int id, void *data)
 {
-    if (id == QIconEngine::ScaledPixmapHook)
-    {
-        QIconEngine::ScaledPixmapArgument &arg = *reinterpret_cast<QIconEngine::ScaledPixmapArgument*>(data);
+    if (id == QIconEngine::ScaledPixmapHook) {
+        QIconEngine::ScaledPixmapArgument &arg =
+                *reinterpret_cast<QIconEngine::ScaledPixmapArgument *>(data);
         arg.pixmap = scaledPixmapInternal(arg.size, arg.mode, arg.state, arg.scale);
         return;
     }
@@ -62,18 +62,18 @@ void SimpleFontIconEngine::virtual_hook(int id, void *data)
     QIconEngine::virtual_hook(id, data);
 }
 
-QPixmap SimpleFontIconEngine::scaledPixmapInternal(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale)
+QPixmap SimpleFontIconEngine::scaledPixmapInternal(const QSize &size, QIcon::Mode mode,
+                                                   QIcon::State state, qreal scale)
 {
     const quint64 cacheKey = calculateCacheKey(mode, state);
     const QSize scaledSize = size * scale;
-    if (cacheKey != m_pixmapCacheKey || scaledSize != m_pixmap.size() || scale != m_pixmap.devicePixelRatio())
-    {
+    if (cacheKey != m_pixmapCacheKey || scaledSize != m_pixmap.size()
+        || scale != m_pixmap.devicePixelRatio()) {
         m_pixmap = QPixmap(scaledSize);
         m_pixmap.fill(Qt::transparent);
         m_pixmap.setDevicePixelRatio(scale);
 
-        if (!m_pixmap.isNull())
-        {
+        if (!m_pixmap.isNull()) {
             QPainter painter(&m_pixmap);
             paint(&painter, QRect(QPoint(), size), mode, state);
         }
@@ -83,7 +83,8 @@ QPixmap SimpleFontIconEngine::scaledPixmapInternal(const QSize &size, QIcon::Mod
     return m_pixmap;
 }
 
-void SimpleFontIconEngine::paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State)
+void SimpleFontIconEngine::paint(QPainter *painter, const QRect &rect, QIcon::Mode mode,
+                                 QIcon::State)
 {
     // Register the font at the first real paint, not while ActionManager is
     // constructing its complete action library. Every drawing path passes
@@ -91,9 +92,8 @@ void SimpleFontIconEngine::paint(QPainter *painter, const QRect &rect, QIcon::Mo
     ensureMaterialIconFontLoaded();
 
     const QPalette palette;
-    const QColor color =
-        mode == QIcon::Disabled ? palette.color(QPalette::Disabled, QPalette::Text) :
-        palette.color(QPalette::Active, QPalette::Text);
+    const QColor color = mode == QIcon::Disabled ? palette.color(QPalette::Disabled, QPalette::Text)
+                                                 : palette.color(QPalette::Active, QPalette::Text);
 
     QFont renderFont(m_iconFont);
     renderFont.setPixelSize(qMin(rect.width(), rect.height()));

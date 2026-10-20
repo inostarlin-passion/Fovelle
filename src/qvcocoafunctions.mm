@@ -62,14 +62,13 @@ typedef void (^FovelleFullScreenLifecycleHandler)(bool transitioning);
 
 static void notifyFullScreenLifecycle(NSWindow *window, const bool transitioning)
 {
-    FovelleFullScreenLifecycleHandler handler = objc_getAssociatedObject(
-        window, &FullScreenLifecycleHandlerAssociationKey);
+    FovelleFullScreenLifecycleHandler handler =
+            objc_getAssociatedObject(window, &FullScreenLifecycleHandlerAssociationKey);
     if (handler)
         handler(transitioning);
 }
 
-static void releaseNativeImageProvider(
-    void *info, __unused const void *data, __unused size_t size)
+static void releaseNativeImageProvider(void *info, __unused const void *data, __unused size_t size)
 {
     delete static_cast<QImage *>(info);
 }
@@ -79,35 +78,28 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
     if (source.isNull())
         return nullptr;
 
-    auto *image = new QImage(
-        source.convertToFormat(QImage::Format_RGBA8888_Premultiplied));
-    if (image->isNull())
-    {
+    auto *image = new QImage(source.convertToFormat(QImage::Format_RGBA8888_Premultiplied));
+    if (image->isNull()) {
         delete image;
         return nullptr;
     }
 
-    const size_t dataSize = static_cast<size_t>(image->bytesPerLine())
-        * static_cast<size_t>(image->height());
-    CGDataProviderRef provider = CGDataProviderCreateWithData(
-        image, image->constBits(), dataSize,
-        releaseNativeImageProvider);
-    if (!provider)
-    {
+    const size_t dataSize =
+            static_cast<size_t>(image->bytesPerLine()) * static_cast<size_t>(image->height());
+    CGDataProviderRef provider = CGDataProviderCreateWithData(image, image->constBits(), dataSize,
+                                                              releaseNativeImageProvider);
+    if (!provider) {
         delete image;
         return nullptr;
     }
 
     CGColorSpaceRef colorSpace = nullptr;
     const QByteArray iccProfile = image->colorSpace().iccProfile();
-    if (!iccProfile.isEmpty())
-    {
+    if (!iccProfile.isEmpty()) {
         CFDataRef profileData = CFDataCreate(
-            kCFAllocatorDefault,
-            reinterpret_cast<const UInt8 *>(iccProfile.constData()),
-            iccProfile.size());
-        if (profileData)
-        {
+                kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(iccProfile.constData()),
+                iccProfile.size());
+        if (profileData) {
             colorSpace = CGColorSpaceCreateWithICCData(profileData);
             CFRelease(profileData);
         }
@@ -117,18 +109,15 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
     // the meaning of otherwise identical RGB component values.
     if (!colorSpace)
         colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    if (!colorSpace)
-    {
+    if (!colorSpace) {
         CGDataProviderRelease(provider);
         return nullptr;
     }
-    CGImageRef result = CGImageCreate(
-        static_cast<size_t>(image->width()),
-        static_cast<size_t>(image->height()),
-        8, 32, static_cast<size_t>(image->bytesPerLine()),
-        colorSpace,
-        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big,
-        provider, nullptr, true, kCGRenderingIntentDefault);
+    CGImageRef result =
+            CGImageCreate(static_cast<size_t>(image->width()), static_cast<size_t>(image->height()),
+                          8, 32, static_cast<size_t>(image->bytesPerLine()), colorSpace,
+                          kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big, provider,
+                          nullptr, true, kCGRenderingIntentDefault);
     CGColorSpaceRelease(colorSpace);
     CGDataProviderRelease(provider);
     return result;
@@ -191,8 +180,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
     QT_TRANSLATE_NOOP("MAC_WINDOW_MENU", "Cycle Through Windows")
 };
 
-@interface FovelleSettingsToolbarController : NSObject<NSToolbarDelegate>
-{
+@interface FovelleSettingsToolbarController : NSObject <NSToolbarDelegate> {
 @private
     QPointer<QTabBar> *_categoryTabs;
     NSArray<NSToolbarItemIdentifier> *_itemIdentifiers;
@@ -220,11 +208,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
         @"io.github.inostarlin-passion.Fovelle.settings.shortcuts",
         @"io.github.inostarlin-passion.Fovelle.settings.mouse"
     ] retain];
-    _symbolNames = [@[
-        @"gearshape",
-        @"keyboard",
-        @"computermouse"
-    ] retain];
+    _symbolNames = [@[ @"gearshape", @"keyboard", @"computermouse" ] retain];
     return self;
 }
 
@@ -255,8 +239,8 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 }
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
-      itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier
-  willBeInsertedIntoToolbar:(BOOL)flag
+            itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier
+        willBeInsertedIntoToolbar:(BOOL)flag
 {
     Q_UNUSED(toolbar);
     Q_UNUSED(flag);
@@ -274,7 +258,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
     item.paletteLabel = label;
     item.toolTip = label;
     item.image = [NSImage imageWithSystemSymbolName:_symbolNames[index]
-                          accessibilityDescription:label];
+                           accessibilityDescription:label];
     item.target = self;
     item.action = @selector(selectPane:);
     return item;
@@ -292,8 +276,8 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 
 - (void)syncSelection:(NSInteger)index
 {
-    if (!_toolbar || !_categoryTabs || _categoryTabs->isNull()
-        || index < 0 || index >= (*_categoryTabs)->count())
+    if (!_toolbar || !_categoryTabs || _categoryTabs->isNull() || index < 0
+        || index >= (*_categoryTabs)->count())
         return;
 
     _toolbar.selectedItemIdentifier = _itemIdentifiers[static_cast<NSUInteger>(index)];
@@ -309,8 +293,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 
 @end
 
-@interface QVHDRPresentationState : NSObject
-{
+@interface QVHDRPresentationState : NSObject {
 @public
     NSUInteger generation;
     BOOL firstFrameSubmitted;
@@ -371,8 +354,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 
 @end
 
-@interface QVHDRDisplayLinkDelegate : NSObject<CAMetalDisplayLinkDelegate>
-{
+@interface QVHDRDisplayLinkDelegate : NSObject <CAMetalDisplayLinkDelegate> {
     void (^updateHandler)(CAMetalDisplayLinkUpdate *update);
 }
 
@@ -390,8 +372,7 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
     return self;
 }
 
-- (void)metalDisplayLink:(CAMetalDisplayLink *)link
-             needsUpdate:(CAMetalDisplayLinkUpdate *)update
+- (void)metalDisplayLink:(CAMetalDisplayLink *)link needsUpdate:(CAMetalDisplayLinkUpdate *)update
 {
     Q_UNUSED(link);
     if (updateHandler)
@@ -412,18 +393,18 @@ static CGImageRef createNativeImageCGImage(const QImage &source)
 
 @end
 
-namespace
-{
+namespace {
 QString QStringFromCFString(CFStringRef value)
 {
     if (!value)
-        return {};
+        return { };
 
     const CFIndex length = CFStringGetLength(value);
-    const CFIndex maximumSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+    const CFIndex maximumSize =
+            CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
     QByteArray utf8(static_cast<qsizetype>(maximumSize), Qt::Uninitialized);
     if (!CFStringGetCString(value, utf8.data(), maximumSize, kCFStringEncodingUTF8))
-        return {};
+        return { };
     return QString::fromUtf8(utf8.constData());
 }
 
@@ -439,11 +420,10 @@ QString selectedMacMenuLocalization()
         return QStringLiteral("zh-TW");
     if (language == QStringLiteral("es") || language == QStringLiteral("ja"))
         return language;
-    return {};
+    return { };
 }
 
-QString appKitMenuCommandTranslation(const QString &sourceTitle,
-                                     const QString &tableKey)
+QString appKitMenuCommandTranslation(const QString &sourceTitle, const QString &tableKey)
 {
     const QString localization = selectedMacMenuLocalization();
     if (localization.isEmpty())
@@ -451,19 +431,17 @@ QString appKitMenuCommandTranslation(const QString &sourceTitle,
 
     // macOS 15.4 introduced an explicit-localization lookup. It is important
     // here because Fovelle's chosen UI language can differ from AppleLanguages.
-    if (@available(macOS 15.4, *))
-    {
+    if (@available(macOS 15.4, *)) {
         CFBundleRef appKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.AppKit"));
-        if (appKitBundle)
-        {
+        if (appKitBundle) {
             const auto key = static_cast<CFStringRef>(tableKey.toNSString());
             const auto fallback = static_cast<CFStringRef>(sourceTitle.toNSString());
             const auto locale = static_cast<CFStringRef>(localization.toNSString());
             const void *localeValues[] = { locale };
-            CFArrayRef locales = CFArrayCreate(kCFAllocatorDefault, localeValues, 1,
-                                               &kCFTypeArrayCallBacks);
+            CFArrayRef locales =
+                    CFArrayCreate(kCFAllocatorDefault, localeValues, 1, &kCFTypeArrayCallBacks);
             CFStringRef translated = CFBundleCopyLocalizedStringForLocalizations(
-                        appKitBundle, key, fallback, CFSTR("MenuCommands"), locales);
+                    appKitBundle, key, fallback, CFSTR("MenuCommands"), locales);
             CFRelease(locales);
             const QString result = QStringFromCFString(translated);
             if (translated)
@@ -475,8 +453,7 @@ QString appKitMenuCommandTranslation(const QString &sourceTitle,
 
     // 15.0-15.3, or a future AppKit table change, uses the catalogs shipped
     // with Fovelle. Unknown/dynamic window titles intentionally pass through.
-    return QCoreApplication::translate("MAC_WINDOW_MENU",
-                                       sourceTitle.toUtf8().constData());
+    return QCoreApplication::translate("MAC_WINDOW_MENU", sourceTitle.toUtf8().constData());
 }
 
 void localizeNativeWindowMenu(NSMenu *menu)
@@ -484,15 +461,14 @@ void localizeNativeWindowMenu(NSMenu *menu)
     if (!menu)
         return;
 
-    for (NSMenuItem *item in menu.itemArray)
-    {
+    for (NSMenuItem *item in menu.itemArray) {
         if (item.separatorItem)
             continue;
 
         const QString sourceTitle = QString::fromNSString(item.title);
         const bool isSubmenuTitle = item.submenu != nil;
-        const QString translated = QVCocoaFunctions::localizedWindowMenuTitle(
-                    sourceTitle, isSubmenuTitle);
+        const QString translated =
+                QVCocoaFunctions::localizedWindowMenuTitle(sourceTitle, isSubmenuTitle);
         if (!translated.isEmpty() && translated != sourceTitle)
             item.title = translated.toNSString();
         if (item.submenu)
@@ -551,9 +527,9 @@ QList<CFStringRef> imageIOTypeIdentifiers()
         return typeIdentifiers;
 
     const CFIndex count = CFArrayGetCount(identifiers);
-    for (CFIndex index = 0; index < count; ++index)
-    {
-        const auto identifier = static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
+    for (CFIndex index = 0; index < count; ++index) {
+        const auto identifier =
+                static_cast<CFStringRef>(CFArrayGetValueAtIndex(identifiers, index));
         if (isImageType(identifier))
             typeIdentifiers.append(static_cast<CFStringRef>(CFRetain(identifier)));
     }
@@ -565,8 +541,7 @@ QList<CFStringRef> imageIOTypeIdentifiers()
 CGColorSpaceRef colorSyncSrgbColorSpace()
 {
     ColorSyncProfileRef profile = ColorSyncProfileCreateWithName(kColorSyncSRGBProfile);
-    if (profile)
-    {
+    if (profile) {
         CGColorSpaceRef colorSpace = CGColorSpaceCreateWithColorSyncProfile(profile, nullptr);
         CFRelease(profile);
         if (colorSpace)
@@ -617,15 +592,14 @@ CIContext *metalCIContext(CGColorSpaceRef workingColorSpace, CGColorSpaceRef out
 QColorSpace qColorSpaceFromCGColorSpace(CGColorSpaceRef colorSpace)
 {
     if (!colorSpace)
-        return {};
+        return { };
 
     CFDataRef iccData = CGColorSpaceCopyICCData(colorSpace);
     if (!iccData)
-        return {};
+        return { };
 
-    const QByteArray data(
-        reinterpret_cast<const char *>(CFDataGetBytePtr(iccData)),
-        static_cast<qsizetype>(CFDataGetLength(iccData)));
+    const QByteArray data(reinterpret_cast<const char *>(CFDataGetBytePtr(iccData)),
+                          static_cast<qsizetype>(CFDataGetLength(iccData)));
     const QColorSpace result = QColorSpace::fromIccProfile(data);
     CFRelease(iccData);
     return result;
@@ -635,12 +609,12 @@ QString sourceCameraModel(CGImageSourceRef source)
 {
     CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
     if (!properties)
-        return {};
+        return { };
     QString model;
     const CFTypeRef tiff = CFDictionaryGetValue(properties, kCGImagePropertyTIFFDictionary);
     if (tiff && CFGetTypeID(tiff) == CFDictionaryGetTypeID()) {
-        const CFTypeRef value = CFDictionaryGetValue(
-                static_cast<CFDictionaryRef>(tiff), kCGImagePropertyTIFFModel);
+        const CFTypeRef value =
+                CFDictionaryGetValue(static_cast<CFDictionaryRef>(tiff), kCGImagePropertyTIFFModel);
         if (value && CFGetTypeID(value) == CFStringGetTypeID())
             model = QStringFromCFString(static_cast<CFStringRef>(value)).trimmed();
     }
@@ -653,11 +627,12 @@ QSize sourcePixelSize(CGImageSourceRef source, size_t index = 0)
     int width = 0;
     int height = 0;
     CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
-    if (properties)
-    {
-        if (const auto widthNumber = static_cast<CFNumberRef>(CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth)))
+    if (properties) {
+        if (const auto widthNumber = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth)))
             CFNumberGetValue(widthNumber, kCFNumberIntType, &width);
-        if (const auto heightNumber = static_cast<CFNumberRef>(CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight)))
+        if (const auto heightNumber = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight)))
             CFNumberGetValue(heightNumber, kCFNumberIntType, &height);
         CFRelease(properties);
     }
@@ -672,15 +647,12 @@ bool sourceHasAlpha(CGImageSourceRef source, size_t index = 0)
     if (!properties)
         return false;
 
-    const CFTypeRef value =
-            CFDictionaryGetValue(properties, kCGImagePropertyHasAlpha);
+    const CFTypeRef value = CFDictionaryGetValue(properties, kCGImagePropertyHasAlpha);
     if (value && CFGetTypeID(value) == CFBooleanGetTypeID())
         hasAlpha = CFBooleanGetValue(static_cast<CFBooleanRef>(value));
-    else if (value && CFGetTypeID(value) == CFNumberGetTypeID())
-    {
+    else if (value && CFGetTypeID(value) == CFNumberGetTypeID()) {
         int numericValue = 0;
-        if (CFNumberGetValue(static_cast<CFNumberRef>(value),
-                             kCFNumberIntType, &numericValue))
+        if (CFNumberGetValue(static_cast<CFNumberRef>(value), kCFNumberIntType, &numericValue))
             hasAlpha = numericValue != 0;
     }
     CFRelease(properties);
@@ -711,10 +683,10 @@ CGImagePropertyOrientation sourceOrientation(CGImageSourceRef source, size_t ind
         return orientation;
 
     const CFTypeRef rawOrientation = CFDictionaryGetValue(properties, kCGImagePropertyOrientation);
-    if (rawOrientation && CFGetTypeID(rawOrientation) == CFNumberGetTypeID())
-    {
+    if (rawOrientation && CFGetTypeID(rawOrientation) == CFNumberGetTypeID()) {
         int value = static_cast<int>(orientation);
-        if (CFNumberGetValue(static_cast<CFNumberRef>(rawOrientation), kCFNumberIntType, &value) && value >= 1 && value <= 8)
+        if (CFNumberGetValue(static_cast<CFNumberRef>(rawOrientation), kCFNumberIntType, &value)
+            && value >= 1 && value <= 8)
             orientation = static_cast<CGImagePropertyOrientation>(value);
     }
 
@@ -741,8 +713,7 @@ CFDictionaryRef pngPropertiesForFrame(CGImageSourceRef source, const size_t fram
         return nullptr;
 
     const CFTypeRef pngProperties = CFDictionaryGetValue(properties, kCGImagePropertyPNGDictionary);
-    if (!pngProperties || CFGetTypeID(pngProperties) != CFDictionaryGetTypeID())
-    {
+    if (!pngProperties || CFGetTypeID(pngProperties) != CFDictionaryGetTypeID()) {
         CFRelease(properties);
         return nullptr;
     }
@@ -755,23 +726,24 @@ CFDictionaryRef pngPropertiesForFrame(CGImageSourceRef source, const size_t fram
 QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0)
 {
     if (!cgImage)
-        return {};
+        return { };
 
     const size_t sourceWidth = CGImageGetWidth(cgImage);
     const size_t sourceHeight = CGImageGetHeight(cgImage);
     if (sourceWidth == 0 || sourceHeight == 0)
-        return {};
+        return { };
     const double boundedScale = largestDimension > 0
-            ? std::min(1.0, static_cast<double>(largestDimension)
-                              / std::max(sourceWidth, sourceHeight))
+            ? std::min(1.0,
+                       static_cast<double>(largestDimension) / std::max(sourceWidth, sourceHeight))
             : 1.0;
-    const size_t width = std::max<size_t>(
-            1, static_cast<size_t>(std::lround(sourceWidth * boundedScale)));
-    const size_t height = std::max<size_t>(
-            1, static_cast<size_t>(std::lround(sourceHeight * boundedScale)));
-    QImage image(static_cast<int>(width), static_cast<int>(height), QImage::Format_RGBA8888_Premultiplied);
+    const size_t width =
+            std::max<size_t>(1, static_cast<size_t>(std::lround(sourceWidth * boundedScale)));
+    const size_t height =
+            std::max<size_t>(1, static_cast<size_t>(std::lround(sourceHeight * boundedScale)));
+    QImage image(static_cast<int>(width), static_cast<int>(height),
+                 QImage::Format_RGBA8888_Premultiplied);
     if (image.isNull())
-        return {};
+        return { };
 
     CGColorSpaceRef colorSpace = CGImageGetColorSpace(cgImage);
     const bool canPreserveSourceSpace = colorSpace
@@ -779,23 +751,18 @@ QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0)
             && !CGColorSpaceUsesExtendedRange(colorSpace) && !CGColorSpaceIsHDR(colorSpace);
     colorSpace =
             canPreserveSourceSpace ? CGColorSpaceRetain(colorSpace) : colorSyncSrgbColorSpace();
-    CGContextRef context = CGBitmapContextCreate(
-        image.bits(),
-        width,
-        height,
-        8,
-        image.bytesPerLine(),
-        colorSpace,
-        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    if (!context)
-    {
+    CGContextRef context =
+            CGBitmapContextCreate(image.bits(), width, height, 8, image.bytesPerLine(), colorSpace,
+                                  kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    if (!context) {
         CGColorSpaceRelease(colorSpace);
-        return {};
+        return { };
     }
 
     CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-    CGContextDrawImage(context, CGRectMake(
-            0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)), cgImage);
+    CGContextDrawImage(context,
+                       CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)),
+                       cgImage);
     CGContextRelease(context);
     const QColorSpace qColorSpace = qColorSpaceFromCGColorSpace(colorSpace);
     CGColorSpaceRelease(colorSpace);
@@ -804,28 +771,30 @@ QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0)
     return image;
 }
 
-QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outputColorSpace, int largestDimension)
+QImage imageFromCIImage(CIImage *image, CIContext *context, CGColorSpaceRef outputColorSpace,
+                        int largestDimension)
 {
     if (!image || !context || !outputColorSpace)
-        return {};
+        return { };
 
     CGRect extent = image.extent;
-    if (CGRectIsEmpty(extent) ||
-        !std::isfinite(extent.origin.x) || !std::isfinite(extent.origin.y) ||
-        !std::isfinite(extent.size.width) || !std::isfinite(extent.size.height))
-        return {};
+    if (CGRectIsEmpty(extent) || !std::isfinite(extent.origin.x) || !std::isfinite(extent.origin.y)
+        || !std::isfinite(extent.size.width) || !std::isfinite(extent.size.height))
+        return { };
 
     const CGFloat maxDimension = std::max(CGRectGetWidth(extent), CGRectGetHeight(extent));
-    if (largestDimension > 0 && maxDimension > largestDimension)
-    {
+    if (largestDimension > 0 && maxDimension > largestDimension) {
         const CGFloat scale = static_cast<CGFloat>(largestDimension) / maxDimension;
         image = [image imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
         extent = image.extent;
     }
 
-    CGImageRef cgImage = [context createCGImage:image fromRect:extent format:kCIFormatRGBA8 colorSpace:outputColorSpace];
+    CGImageRef cgImage = [context createCGImage:image
+                                       fromRect:extent
+                                         format:kCIFormatRGBA8
+                                     colorSpace:outputColorSpace];
     if (!cgImage)
-        return {};
+        return { };
 
     QImage result = imageFromCGImage(cgImage);
     CGImageRelease(cgImage);
@@ -838,7 +807,8 @@ CFMutableDictionaryRef thumbnailOptions(CGImageSourceRef source, const int large
     const int sourceDimension = sourceMaxPixelSize(source, index);
     const int maxDimension =
             largestDimension > 0 ? std::min(sourceDimension, largestDimension) : sourceDimension;
-    CFNumberRef maxPixelSizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
+    CFNumberRef maxPixelSizeNumber =
+            CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &maxDimension);
     if (!maxPixelSizeNumber)
         return nullptr;
 
@@ -859,8 +829,7 @@ CFMutableDictionaryRef thumbnailOptions(CGImageSourceRef source, const int large
     return options;
 }
 
-CFMutableDictionaryRef embeddedThumbnailOptions(CGImageSourceRef source,
-                                                 const int largestDimension)
+CFMutableDictionaryRef embeddedThumbnailOptions(CGImageSourceRef source, const int largestDimension)
 {
     CFMutableDictionaryRef options = thumbnailOptions(source, largestDimension, false);
     if (!options)
@@ -871,14 +840,12 @@ CFMutableDictionaryRef embeddedThumbnailOptions(CGImageSourceRef source,
     // thumbnail from the sensor data defeats the purpose of showing a proxy
     // while the source-sized native graph is prepared.
     CFDictionaryRemoveValue(options, kCGImageSourceCreateThumbnailFromImageAlways);
-    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailFromImageIfAbsent,
-                         kCFBooleanTrue);
+    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailFromImageIfAbsent, kCFBooleanTrue);
     // Do not ask Image I/O to apply the orientation to an embedded preview.
     // Some RAW containers carry a preview in a different physical orientation
     // from the sensor image. Apply the source EXIF transform explicitly after
     // the preview has been selected so its coordinate space is deterministic.
-    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailWithTransform,
-                         kCFBooleanFalse);
+    CFDictionarySetValue(options, kCGImageSourceCreateThumbnailWithTransform, kCFBooleanFalse);
     return options;
 }
 
@@ -898,27 +865,26 @@ float ciImageContentHeadroom(CIImage *image)
     return 0.0F;
 }
 
-bool maximumCIImageRGBComponent(CIImage *source, CIContext *context,
-                                CGColorSpaceRef colorSpace, float &maximum)
+bool maximumCIImageRGBComponent(CIImage *source, CIContext *context, CGColorSpaceRef colorSpace,
+                                float &maximum)
 {
     if (!source || !context || !colorSpace || CGRectIsEmpty(source.extent))
         return false;
 
     CIFilter *areaMaximum = [CIFilter filterWithName:@"CIAreaMaximum"];
     [areaMaximum setValue:source forKey:kCIInputImageKey];
-    [areaMaximum setValue:[CIVector vectorWithCGRect:source.extent]
-                   forKey:kCIInputExtentKey];
+    [areaMaximum setValue:[CIVector vectorWithCGRect:source.extent] forKey:kCIInputExtentKey];
     CIImage *reduced = areaMaximum.outputImage;
     if (!reduced)
         return false;
 
     float pixel[4]{ 0.0F, 0.0F, 0.0F, 0.0F };
     [context render:reduced
-            toBitmap:pixel
-            rowBytes:sizeof(pixel)
-              bounds:CGRectMake(0, 0, 1, 1)
-              format:kCIFormatRGBAf
-          colorSpace:colorSpace];
+              toBitmap:pixel
+              rowBytes:sizeof(pixel)
+                bounds:CGRectMake(0, 0, 1, 1)
+                format:kCIFormatRGBAf
+            colorSpace:colorSpace];
     maximum = std::max({ pixel[0], pixel[1], pixel[2] });
     return std::isfinite(maximum);
 }
@@ -962,7 +928,7 @@ constexpr qsizetype MaxEPSRenderCacheBytes = 64LL * 1024LL * 1024LL;
 
 struct EPSReadResult
 {
-    bool recognized {false};
+    bool recognized{ false };
     QImage image;
     Qv::VectorImageData vectorImage;
     QSize intrinsicSize;
@@ -972,21 +938,19 @@ struct EPSReadResult
 struct EPSRenderCacheKey
 {
     QString absolutePath;
-    qint64 fileSize {0};
+    qint64 fileSize{ 0 };
     QDateTime lastModified;
-    int renderLargestDimension {0};
+    int renderLargestDimension{ 0 };
     QString rendererPath;
-    qint64 rendererSize {0};
+    qint64 rendererSize{ 0 };
     QDateTime rendererLastModified;
 
     bool operator==(const EPSRenderCacheKey &other) const
     {
-        return absolutePath == other.absolutePath
-                && fileSize == other.fileSize
+        return absolutePath == other.absolutePath && fileSize == other.fileSize
                 && lastModified == other.lastModified
                 && renderLargestDimension == other.renderLargestDimension
-                && rendererPath == other.rendererPath
-                && rendererSize == other.rendererSize
+                && rendererPath == other.rendererPath && rendererSize == other.rendererSize
                 && rendererLastModified == other.rendererLastModified;
     }
 };
@@ -997,24 +961,22 @@ struct EPSRenderCacheEntry
     QImage image;
     Qv::VectorImageData vectorImage;
     QSize intrinsicSize;
-    quint64 lastUse {0};
+    quint64 lastUse{ 0 };
 };
 
 std::mutex epsRenderCacheMutex;
 QVector<EPSRenderCacheEntry> epsRenderCache;
-quint64 epsRenderCacheUseSerial {0};
+quint64 epsRenderCacheUseSerial{ 0 };
 
 qsizetype epsRenderCacheEntryBytes(const EPSRenderCacheEntry &entry)
 {
-    return entry.vectorImage.encodedData.size()
-            + entry.image.sizeInBytes();
+    return entry.vectorImage.encodedData.size() + entry.image.sizeInBytes();
 }
 
 bool lookupEPSRenderCache(const EPSRenderCacheKey &key, EPSReadResult &result)
 {
     const std::lock_guard<std::mutex> lock(epsRenderCacheMutex);
-    for (EPSRenderCacheEntry &entry : epsRenderCache)
-    {
+    for (EPSRenderCacheEntry &entry : epsRenderCache) {
         if (!(entry.key == key))
             continue;
         entry.lastUse = ++epsRenderCacheUseSerial;
@@ -1023,15 +985,13 @@ bool lookupEPSRenderCache(const EPSRenderCacheKey &key, EPSReadResult &result)
         result.vectorImage = entry.vectorImage;
         result.intrinsicSize = entry.intrinsicSize;
         if (qEnvironmentVariableIsSet("FOVELLE_EPS_RENDER_LOG"))
-            qInfo().noquote() << "FOVELLE_EPS_RENDER cache=hit"
-                              << key.absolutePath;
+            qInfo().noquote() << "FOVELLE_EPS_RENDER cache=hit" << key.absolutePath;
         return true;
     }
     return false;
 }
 
-void storeEPSRenderCache(const EPSRenderCacheKey &key,
-                         const EPSReadResult &result)
+void storeEPSRenderCache(const EPSRenderCacheKey &key, const EPSReadResult &result)
 {
     if (!result.vectorImage.isValid() || result.image.isNull())
         return;
@@ -1047,23 +1007,17 @@ void storeEPSRenderCache(const EPSRenderCacheKey &key,
 
     const std::lock_guard<std::mutex> lock(epsRenderCacheMutex);
     candidate.lastUse = ++epsRenderCacheUseSerial;
-    for (EPSRenderCacheEntry &entry : epsRenderCache)
-    {
-        if (entry.key == key)
-        {
+    for (EPSRenderCacheEntry &entry : epsRenderCache) {
+        if (entry.key == key) {
             entry = std::move(candidate);
             return;
         }
     }
     epsRenderCache.append(std::move(candidate));
-    while (epsRenderCache.size() > MaxEPSRenderCacheEntries)
-    {
+    while (epsRenderCache.size() > MaxEPSRenderCacheEntries) {
         int oldestIndex = 0;
-        for (int index = 1; index < epsRenderCache.size(); ++index)
-        {
-            if (epsRenderCache.at(index).lastUse
-                < epsRenderCache.at(oldestIndex).lastUse)
-            {
+        for (int index = 1; index < epsRenderCache.size(); ++index) {
+            if (epsRenderCache.at(index).lastUse < epsRenderCache.at(oldestIndex).lastUse) {
                 oldestIndex = index;
             }
         }
@@ -1073,14 +1027,10 @@ void storeEPSRenderCache(const EPSRenderCacheKey &key,
     qsizetype totalBytes = 0;
     for (const EPSRenderCacheEntry &entry : epsRenderCache)
         totalBytes += epsRenderCacheEntryBytes(entry);
-    while (epsRenderCache.size() > 1 && totalBytes > MaxEPSRenderCacheBytes)
-    {
+    while (epsRenderCache.size() > 1 && totalBytes > MaxEPSRenderCacheBytes) {
         int oldestIndex = 0;
-        for (int index = 1; index < epsRenderCache.size(); ++index)
-        {
-            if (epsRenderCache.at(index).lastUse
-                < epsRenderCache.at(oldestIndex).lastUse)
-            {
+        for (int index = 1; index < epsRenderCache.size(); ++index) {
+            if (epsRenderCache.at(index).lastUse < epsRenderCache.at(oldestIndex).lastUse) {
                 oldestIndex = index;
             }
         }
@@ -1104,9 +1054,8 @@ bool readLittleEndianUInt32(const QByteArray &data, const int offset, quint32 &v
 bool isEPSFilename(const QString &filePath)
 {
     const QString suffix = QFileInfo(filePath).suffix().toLower();
-    return suffix == QStringLiteral("eps")
-           || suffix == QStringLiteral("epsf")
-           || suffix == QStringLiteral("epsi");
+    return suffix == QStringLiteral("eps") || suffix == QStringLiteral("epsf")
+            || suffix == QStringLiteral("epsi");
 }
 
 bool isDosEPSHeader(const QByteArray &data)
@@ -1132,13 +1081,12 @@ QString ghostscriptExecutable()
         return QFileInfo(configured).isExecutable() ? configured : QString();
 
     const QString applicationDirectory = QCoreApplication::applicationDirPath();
-    const QStringList bundledPaths {
+    const QStringList bundledPaths{
         QDir(applicationDirectory).filePath("../Resources/ghostscript/bin/gs"),
         QDir(applicationDirectory).filePath("../Resources/Ghostscript/bin/gs"),
         QDir(applicationDirectory).filePath("../Resources/ghostscript/gs")
     };
-    for (const QString &path : bundledPaths)
-    {
+    for (const QString &path : bundledPaths) {
         if (QFileInfo(path).isExecutable())
             return QFileInfo(path).absoluteFilePath();
     }
@@ -1147,19 +1095,16 @@ QString ghostscriptExecutable()
     if (!fromPath.isEmpty())
         return fromPath;
 
-    static const QStringList standardPaths {
-        QStringLiteral("/opt/homebrew/bin/gs"),
-        QStringLiteral("/usr/local/bin/gs"),
-        QStringLiteral("/opt/local/bin/gs"),
-        QStringLiteral("/opt/sw/bin/gs"),
-        QStringLiteral("/Library/TeX/texbin/gs")
-    };
-    for (const QString &path : standardPaths)
-    {
+    static const QStringList standardPaths{ QStringLiteral("/opt/homebrew/bin/gs"),
+                                            QStringLiteral("/usr/local/bin/gs"),
+                                            QStringLiteral("/opt/local/bin/gs"),
+                                            QStringLiteral("/opt/sw/bin/gs"),
+                                            QStringLiteral("/Library/TeX/texbin/gs") };
+    for (const QString &path : standardPaths) {
         if (QFileInfo(path).isExecutable())
             return path;
     }
-    return {};
+    return { };
 }
 
 QString boundedProcessError(QProcess &process)
@@ -1170,74 +1115,59 @@ QString boundedProcessError(QProcess &process)
     return QString::fromLocal8Bit(diagnostic).simplified();
 }
 
-bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
-                     QString &errorString)
+bool convertEPSToPDF(const QString &filePath, const QString &pdfPath, QString &errorString)
 {
     const QString executable = ghostscriptExecutable();
-    if (executable.isEmpty())
-    {
-        errorString = QStringLiteral(
-            "EPS rendering requires Ghostscript; the bundled runtime is unavailable or FOVELLE_GHOSTSCRIPT is invalid");
+    if (executable.isEmpty()) {
+        errorString = QStringLiteral("EPS rendering requires Ghostscript; the bundled runtime is "
+                                     "unavailable or FOVELLE_GHOSTSCRIPT is invalid");
         return false;
     }
 
     QProcess process;
     process.setProgram(executable);
-    process.setArguments({
-        QStringLiteral("-q"),
-        QStringLiteral("-dSAFER"),
-        QStringLiteral("-dBATCH"),
-        QStringLiteral("-dNOPAUSE"),
-        QStringLiteral("-dEPSCrop"),
-        QStringLiteral("-dAutoRotatePages=/None"),
-        QStringLiteral("-dALLOWPSTRANSPARENCY"),
-        QStringLiteral("-sDEVICE=pdfwrite"),
-        QStringLiteral("-dCompatibilityLevel=1.7"),
-        QStringLiteral("-sOutputFile=") + pdfPath,
-        QStringLiteral("-f"),
-        filePath
-    });
+    process.setArguments(
+            { QStringLiteral("-q"), QStringLiteral("-dSAFER"), QStringLiteral("-dBATCH"),
+              QStringLiteral("-dNOPAUSE"), QStringLiteral("-dEPSCrop"),
+              QStringLiteral("-dAutoRotatePages=/None"), QStringLiteral("-dALLOWPSTRANSPARENCY"),
+              QStringLiteral("-sDEVICE=pdfwrite"), QStringLiteral("-dCompatibilityLevel=1.7"),
+              QStringLiteral("-sOutputFile=") + pdfPath, QStringLiteral("-f"), filePath });
     process.setWorkingDirectory(QFileInfo(pdfPath).absolutePath());
     const QFileInfo executableInfo(executable);
     const QString executablePath = executableInfo.absoluteFilePath();
-    if (executablePath.contains(QStringLiteral("/Contents/Resources/ghostscript/")))
-    {
+    if (executablePath.contains(QStringLiteral("/Contents/Resources/ghostscript/"))) {
         QDir runtimeRoot(executableInfo.absolutePath());
         runtimeRoot.cdUp();
         const QDir shareRoot(runtimeRoot.filePath("share/ghostscript"));
         QDir versionRoot(shareRoot);
-        if (!versionRoot.exists(QStringLiteral("Resource/Init")))
-        {
-            const QStringList versions = shareRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-            for (const QString &version : versions)
-            {
+        if (!versionRoot.exists(QStringLiteral("Resource/Init"))) {
+            const QStringList versions =
+                    shareRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+            for (const QString &version : versions) {
                 QDir candidate(shareRoot.filePath(version));
-                if (candidate.exists(QStringLiteral("Resource/Init")))
-                {
+                if (candidate.exists(QStringLiteral("Resource/Init"))) {
                     versionRoot = candidate;
                     break;
                 }
             }
         }
-        if (versionRoot.exists(QStringLiteral("Resource/Init")))
-        {
+        if (versionRoot.exists(QStringLiteral("Resource/Init"))) {
             QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-            environment.insert("GS_LIB", QStringList {
-                versionRoot.filePath("Resource/Init"),
-                versionRoot.filePath("lib"),
-                versionRoot.filePath("Resource"),
-                versionRoot.filePath("iccprofiles")
-            }.join(QDir::listSeparator()));
+            environment.insert("GS_LIB",
+                               QStringList{ versionRoot.filePath("Resource/Init"),
+                                            versionRoot.filePath("lib"),
+                                            versionRoot.filePath("Resource"),
+                                            versionRoot.filePath("iccprofiles") }
+                                       .join(QDir::listSeparator()));
             environment.insert("GS_FONTPATH", versionRoot.filePath("fonts"));
             process.setProcessEnvironment(environment);
         }
     }
     process.setStandardOutputFile(QProcess::nullDevice());
     process.start();
-    if (!process.waitForStarted(EPSRendererStartTimeoutMs))
-    {
-        errorString = QStringLiteral("Ghostscript could not be started: %1")
-                          .arg(process.errorString());
+    if (!process.waitForStarted(EPSRendererStartTimeoutMs)) {
+        errorString =
+                QStringLiteral("Ghostscript could not be started: %1").arg(process.errorString());
         return false;
     }
     const qint64 childPid = process.processId();
@@ -1256,22 +1186,20 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath,
 
     QvAsync::unregisterChild(childPid);
     const QString diagnostic = boundedProcessError(process);
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0)
-    {
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
         errorString = diagnostic.isEmpty()
-            ? QStringLiteral("Ghostscript could not interpret the EPS document")
-            : QStringLiteral("Ghostscript could not interpret the EPS document: %1").arg(diagnostic);
+                ? QStringLiteral("Ghostscript could not interpret the EPS document")
+                : QStringLiteral("Ghostscript could not interpret the EPS document: %1")
+                          .arg(diagnostic);
         return false;
     }
 
     const QFileInfo pdfInfo(pdfPath);
-    if (!pdfInfo.isFile() || pdfInfo.size() <= 0)
-    {
+    if (!pdfInfo.isFile() || pdfInfo.size() <= 0) {
         errorString = QStringLiteral("Ghostscript did not produce an EPS rendering");
         return false;
     }
-    if (static_cast<quint64>(pdfInfo.size()) > MaxEPSIntermediatePDFBytes)
-    {
+    if (static_cast<quint64>(pdfInfo.size()) > MaxEPSIntermediatePDFBytes) {
         errorString = QStringLiteral("Ghostscript EPS rendering exceeded the safety limit");
         return false;
     }
@@ -1323,24 +1251,21 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
 {
     const QUrl pdfUrl = QUrl::fromLocalFile(pdfPath);
     CGPDFDocumentRef document = CGPDFDocumentCreateWithURL((CFURLRef)pdfUrl.toNSURL());
-    if (!document)
-    {
+    if (!document) {
         errorString = QStringLiteral("The Ghostscript EPS rendering is not a valid PDF");
-        return {};
+        return { };
     }
 
     CGPDFPageRef page = CGPDFDocumentGetPage(document, 1);
-    if (!page)
-    {
+    if (!page) {
         CGPDFDocumentRelease(document);
         errorString = QStringLiteral("The Ghostscript EPS rendering has no page");
-        return {};
+        return { };
     }
 
     CGPDFBox drawingBox = kCGPDFCropBox;
     CGRect pageBox = CGPDFPageGetBoxRect(page, drawingBox);
-    if (CGRectIsEmpty(pageBox))
-    {
+    if (CGRectIsEmpty(pageBox)) {
         drawingBox = kCGPDFMediaBox;
         pageBox = CGPDFPageGetBoxRect(page, drawingBox);
     }
@@ -1349,40 +1274,35 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
     double logicalHeight = CGRectGetHeight(pageBox);
     if (rotation == 90 || rotation == 270)
         std::swap(logicalWidth, logicalHeight);
-    constexpr double MaximumLogicalDimension =
-        static_cast<double>(std::numeric_limits<int>::max());
-    if (!(logicalWidth > 0.0) || !(logicalHeight > 0.0)
-        || !std::isfinite(logicalWidth) || !std::isfinite(logicalHeight)
-        || logicalWidth > MaximumLogicalDimension
-        || logicalHeight > MaximumLogicalDimension)
-    {
+    constexpr double MaximumLogicalDimension = static_cast<double>(std::numeric_limits<int>::max());
+    if (!(logicalWidth > 0.0) || !(logicalHeight > 0.0) || !std::isfinite(logicalWidth)
+        || !std::isfinite(logicalHeight) || logicalWidth > MaximumLogicalDimension
+        || logicalHeight > MaximumLogicalDimension) {
         CGPDFDocumentRelease(document);
         errorString = QStringLiteral("The Ghostscript EPS rendering has an invalid page box");
-        return {};
+        return { };
     }
 
     intrinsicSize = QSize(qMax(1, qCeil(logicalWidth)), qMax(1, qCeil(logicalHeight)));
     const double sourceLargestDimension = std::max(logicalWidth, logicalHeight);
     const int targetLargestDimension = requestedLargestDimension > 0
-        ? requestedLargestDimension
-        : qMax(intrinsicSize.width(), intrinsicSize.height());
+            ? requestedLargestDimension
+            : qMax(intrinsicSize.width(), intrinsicSize.height());
     const double scale = static_cast<double>(targetLargestDimension) / sourceLargestDimension;
     const int targetWidth = qMax(1, qRound(logicalWidth * scale));
     const int targetHeight = qMax(1, qRound(logicalHeight * scale));
     if (static_cast<quint64>(targetWidth) * static_cast<quint64>(targetHeight)
-        > MaxEPSRenderedPixels)
-    {
+        > MaxEPSRenderedPixels) {
         CGPDFDocumentRelease(document);
         errorString = QStringLiteral("EPS rendering dimensions exceed the safety limit");
-        return {};
+        return { };
     }
 
     QImage image(targetWidth, targetHeight, pdfRasterFormat());
-    if (image.isNull())
-    {
+    if (image.isNull()) {
         CGPDFDocumentRelease(document);
         errorString = QStringLiteral("EPS rendering pixels could not be allocated");
-        return {};
+        return { };
     }
     image.fill(Qt::transparent);
 
@@ -1392,11 +1312,10 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
             pdfRasterComponentBits(), static_cast<size_t>(image.bytesPerLine()), colorSpace,
             pdfRasterBitmapInfo());
     CGColorSpaceRelease(colorSpace);
-    if (!context)
-    {
+    if (!context) {
         CGPDFDocumentRelease(document);
         errorString = QStringLiteral("EPS rendering context could not be created");
-        return {};
+        return { };
     }
 
     // CGPDFPageGetDrawingTransform fits oversized pages but deliberately does
@@ -1405,11 +1324,10 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
     // logical PDF-point coordinates.
     const CGRect logicalDestination = CGRectMake(0, 0, logicalWidth, logicalHeight);
     CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-    CGContextScaleCTM(context,
-                      static_cast<CGFloat>(targetWidth) / logicalWidth,
+    CGContextScaleCTM(context, static_cast<CGFloat>(targetWidth) / logicalWidth,
                       static_cast<CGFloat>(targetHeight) / logicalHeight);
-    CGContextConcatCTM(context, CGPDFPageGetDrawingTransform(
-        page, drawingBox, logicalDestination, 0, true));
+    CGContextConcatCTM(context,
+                       CGPDFPageGetDrawingTransform(page, drawingBox, logicalDestination, 0, true));
     CGContextDrawPDFPage(context, page);
     CGContextRelease(context);
     CGPDFDocumentRelease(document);
@@ -1422,10 +1340,8 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     EPSReadResult result;
     const bool extensionSuggestsEPS = isEPSFilename(filePath);
     QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        if (extensionSuggestsEPS)
-        {
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (extensionSuggestsEPS) {
             result.recognized = true;
             result.errorString = QStringLiteral("EPS file could not be opened");
         }
@@ -1453,8 +1369,7 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     cacheKey.fileSize = sourceInfo.size();
     cacheKey.lastModified = sourceInfo.lastModified();
     cacheKey.renderLargestDimension = renderLargestDimension;
-    if (!executable.isEmpty())
-    {
+    if (!executable.isEmpty()) {
         const QFileInfo executableInfo(executable);
         cacheKey.rendererPath = executableInfo.absoluteFilePath();
         cacheKey.rendererSize = executableInfo.size();
@@ -1463,11 +1378,11 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
             return result;
     }
 
-    QTemporaryDir temporaryDirectory(
-        QDir::tempPath() + QStringLiteral("/Fovelle-eps-render-XXXXXX"));
-    if (!temporaryDirectory.isValid())
-    {
-        result.errorString = QStringLiteral("A temporary EPS rendering directory could not be created");
+    QTemporaryDir temporaryDirectory(QDir::tempPath()
+                                     + QStringLiteral("/Fovelle-eps-render-XXXXXX"));
+    if (!temporaryDirectory.isValid()) {
+        result.errorString =
+                QStringLiteral("A temporary EPS rendering directory could not be created");
         return result;
     }
 
@@ -1475,24 +1390,22 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     if (!convertEPSToPDF(filePath, pdfPath, result.errorString))
         return result;
 
-    result.image = imageFromPDFPage(pdfPath, renderLargestDimension,
-                                    result.intrinsicSize, result.errorString);
+    result.image = imageFromPDFPage(pdfPath, renderLargestDimension, result.intrinsicSize,
+                                    result.errorString);
     if (result.image.isNull())
         return result;
 
     QFile pdfFile(pdfPath);
-    if (!pdfFile.open(QIODevice::ReadOnly))
-    {
-        result.image = {};
+    if (!pdfFile.open(QIODevice::ReadOnly)) {
+        result.image = { };
         result.errorString = QStringLiteral("The Ghostscript EPS rendering could not be retained");
         return result;
     }
     const QByteArray pdfData = pdfFile.readAll();
-    if (pdfData.isEmpty()
-        || static_cast<quint64>(pdfData.size()) > MaxEPSIntermediatePDFBytes)
-    {
-        result.image = {};
-        result.errorString = QStringLiteral("The Ghostscript EPS rendering exceeded the safety limit");
+    if (pdfData.isEmpty() || static_cast<quint64>(pdfData.size()) > MaxEPSIntermediatePDFBytes) {
+        result.image = { };
+        result.errorString =
+                QStringLiteral("The Ghostscript EPS rendering exceeded the safety limit");
         return result;
     }
     result.vectorImage.format = Qv::VectorImageFormat::Pdf;
@@ -1501,8 +1414,7 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     if (!executable.isEmpty())
         storeEPSRenderCache(cacheKey, result);
     if (qEnvironmentVariableIsSet("FOVELLE_EPS_RENDER_LOG"))
-        qInfo().noquote() << "FOVELLE_EPS_RENDER cache=miss"
-                          << sourceInfo.absoluteFilePath();
+        qInfo().noquote() << "FOVELLE_EPS_RENDER cache=miss" << sourceInfo.absoluteFilePath();
     return result;
 }
 
@@ -1517,15 +1429,15 @@ public:
     virtual bool isHDR() const = 0;
 };
 
-class NativeHDRImage final : public QVCocoaFunctions::HDRImage,
-                             public NativeMetalImageGraph
+class NativeHDRImage final : public QVCocoaFunctions::HDRImage, public NativeMetalImageGraph
 {
 public:
-    NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage,
-                   QVCocoaFunctions::HDRMetadata metadata,
+    NativeHDRImage(CIImage *hdrImage, CIImage *sdrImage, QVCocoaFunctions::HDRMetadata metadata,
                    CIImage *auxiliaryGainMap = nil)
-        : hdr([hdrImage retain]), sdr([sdrImage retain]),
-          gainMap([auxiliaryGainMap retain]), imageMetadata(std::move(metadata))
+        : hdr([hdrImage retain]),
+          sdr([sdrImage retain]),
+          gainMap([auxiliaryGainMap retain]),
+          imageMetadata(std::move(metadata))
     {
     }
 
@@ -1540,8 +1452,7 @@ public:
     CIImage *hdrCIImage() const override { return hdr; }
     CIImage *sdrCIImage() const override { return sdr; }
     CIImage *gainMapCIImage() const override { return gainMap; }
-    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override
-        { return imageMetadata; }
+    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override { return imageMetadata; }
     bool isHDR() const override { return true; }
 
 private:
@@ -1551,8 +1462,7 @@ private:
     QVCocoaFunctions::HDRMetadata imageMetadata;
 };
 
-class NativeSDRImage final : public QVCocoaFunctions::SDRImage,
-                             public NativeMetalImageGraph
+class NativeSDRImage final : public QVCocoaFunctions::SDRImage, public NativeMetalImageGraph
 {
 public:
     struct Tile
@@ -1567,21 +1477,19 @@ public:
 
     NativeSDRImage(CGImageRef image, const bool alpha)
         : materializedImage(image ? CGImageRetain(image) : nullptr),
-          sourceSize(image
-                  ? QSize(static_cast<int>(CGImageGetWidth(image)),
-                          static_cast<int>(CGImageGetHeight(image)))
-                  : QSize()),
+          sourceSize(image ? QSize(static_cast<int>(CGImageGetWidth(image)),
+                                   static_cast<int>(CGImageGetHeight(image)))
+                           : QSize()),
           sourceHasAlpha(alpha)
     {
         imageMetadata.sourceKind = QStringLiteral("sdr");
         imageMetadata.pixelSize = sourceSize;
         imageMetadata.contentHeadroom = 1.0F;
-        imageMetadata.bitsPerComponent = image
-                ? static_cast<int>(CGImageGetBitsPerComponent(image)) : 0;
-        materializedByteCount = image
-                ? static_cast<quint64>(CGImageGetBytesPerRow(image))
+        imageMetadata.bitsPerComponent =
+                image ? static_cast<int>(CGImageGetBitsPerComponent(image)) : 0;
+        materializedByteCount = image ? static_cast<quint64>(CGImageGetBytesPerRow(image))
                         * static_cast<quint64>(CGImageGetHeight(image))
-                : 0;
+                                      : 0;
         buildFullSingleImage();
         buildTiles();
         // `fullSingleImage` and every tile retain exactly the providers they
@@ -1595,9 +1503,7 @@ public:
     }
 
     NativeSDRImage(QImage image, const bool alpha)
-        : backingImage(std::move(image)),
-          sourceSize(backingImage.size()),
-          sourceHasAlpha(alpha)
+        : backingImage(std::move(image)), sourceSize(backingImage.size()), sourceHasAlpha(alpha)
     {
         bool grayProfile = false;
         bool cmykProfile = false;
@@ -1638,8 +1544,8 @@ public:
         imageMetadata.contentHeadroom = 1.0F;
         imageMetadata.bitsPerComponent =
                 backingImage.isNull() ? 0 : componentBitsForQImage(backingImage.format());
-        materializedByteCount = static_cast<quint64>(
-                qMax<qsizetype>(0, backingImage.sizeInBytes()));
+        materializedByteCount =
+                static_cast<quint64>(qMax<qsizetype>(0, backingImage.sizeInBytes()));
         buildQImageTiles();
     }
 
@@ -1660,13 +1566,11 @@ public:
     CIImage *hdrCIImage() const override { return nil; }
     CIImage *sdrCIImage() const override { return nil; }
     CIImage *gainMapCIImage() const override { return nil; }
-    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override
-        { return imageMetadata; }
+    const QVCocoaFunctions::HDRMetadata &rendererMetadata() const override { return imageMetadata; }
     bool isHDR() const override { return false; }
     const QVector<Tile> &sourceTiles() const { return tiles; }
     CIImage *fullSingleCIImage() const { return fullSingleImage; }
-    quint64 materializedBytes() const
-        { return materializedByteCount; }
+    quint64 materializedBytes() const { return materializedByteCount; }
 
 private:
     static bool supportsDirectQImageFormat(const QImage::Format format)
@@ -1703,8 +1607,7 @@ private:
     }
     static CGBitmapInfo bitmapInfoForQImage(const QImage::Format format)
     {
-        switch (format)
-        {
+        switch (format) {
         case QImage::Format_Grayscale8:
             return static_cast<CGBitmapInfo>(kCGImageAlphaNone);
         case QImage::Format_Grayscale16:
@@ -1732,41 +1635,33 @@ private:
                                              | kCGImageAlphaPremultipliedLast);
 #endif
         case QImage::Format_RGB32:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Host | kCGImageAlphaNoneSkipFirst);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host | kCGImageAlphaNoneSkipFirst);
         case QImage::Format_ARGB32:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Host | kCGImageAlphaFirst);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host | kCGImageAlphaFirst);
         case QImage::Format_ARGB32_Premultiplied:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Host | kCGImageAlphaPremultipliedFirst);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host
+                                             | kCGImageAlphaPremultipliedFirst);
         case QImage::Format_RGBX8888:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Big | kCGImageAlphaNoneSkipLast);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Big | kCGImageAlphaNoneSkipLast);
         case QImage::Format_RGBA8888:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Big | kCGImageAlphaLast);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Big | kCGImageAlphaLast);
         case QImage::Format_RGBA8888_Premultiplied:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Big
+                                             | kCGImageAlphaPremultipliedLast);
         case QImage::Format_RGB888:
         default:
-            return static_cast<CGBitmapInfo>(
-                    kCGBitmapByteOrderDefault | kCGImageAlphaNone);
+            return static_cast<CGBitmapInfo>(kCGBitmapByteOrderDefault | kCGImageAlphaNone);
         }
     }
 
     static CGColorSpaceRef colorSpaceForQImage(const QImage &image)
     {
         const QByteArray profile = image.colorSpace().iccProfile();
-        if (!profile.isEmpty())
-        {
-            CFDataRef data = CFDataCreate(
-                    kCFAllocatorDefault,
-                    reinterpret_cast<const UInt8 *>(profile.constData()),
-                    static_cast<CFIndex>(profile.size()));
-            CGColorSpaceRef colorSpace = data
-                    ? CGColorSpaceCreateWithICCData(data) : nullptr;
+        if (!profile.isEmpty()) {
+            CFDataRef data = CFDataCreate(kCFAllocatorDefault,
+                                          reinterpret_cast<const UInt8 *>(profile.constData()),
+                                          static_cast<CFIndex>(profile.size()));
+            CGColorSpaceRef colorSpace = data ? CGColorSpaceCreateWithICCData(data) : nullptr;
             if (data)
                 CFRelease(data);
             if (colorSpace)
@@ -1780,31 +1675,25 @@ private:
         delete static_cast<QImage *>(info);
     }
 
-    static CGImageRef createQImageBand(const QImage &image,
-                                       const int top, const int height)
+    static CGImageRef createQImageBand(const QImage &image, const int top, const int height)
     {
-        if (image.isNull() || top < 0 || height <= 0
-            || top + height > image.height()
+        if (image.isNull() || top < 0 || height <= 0 || top + height > image.height()
             || !supportsDirectQImageFormat(image.format()))
             return nullptr;
 
         auto *retainedImage = new QImage(image);
         const uchar *bytes = retainedImage->constScanLine(top);
-        const size_t bytesPerRow = static_cast<size_t>(
-                retainedImage->bytesPerLine());
-        const size_t providerSize = bytesPerRow
-                * static_cast<size_t>(height);
+        const size_t bytesPerRow = static_cast<size_t>(retainedImage->bytesPerLine());
+        const size_t providerSize = bytesPerRow * static_cast<size_t>(height);
         CGDataProviderRef provider = CGDataProviderCreateWithData(
                 retainedImage, bytes, providerSize, releaseQImageProvider);
-        if (!provider)
-        {
+        if (!provider) {
             delete retainedImage;
             return nullptr;
         }
 
         CGColorSpaceRef colorSpace = colorSpaceForQImage(*retainedImage);
-        const size_t bitsPerPixel = static_cast<size_t>(
-                retainedImage->depth());
+        const size_t bitsPerPixel = static_cast<size_t>(retainedImage->depth());
         CGImageRef band = colorSpace
                 ? CGImageCreate(
                           static_cast<size_t>(retainedImage->width()), static_cast<size_t>(height),
@@ -1818,15 +1707,11 @@ private:
         return band;
     }
 
-    void appendTile(CGImageRef tileCGImage, const QRect &data,
-                    const QRect &core)
+    void appendTile(CGImageRef tileCGImage, const QRect &data, const QRect &core)
     {
-        CIImage *tileImage = tileCGImage
-                ? [CIImage imageWithCGImage:tileCGImage] : nil;
-        CGImageRef layerImage = tileCGImage
-                ? CGImageRetain(tileCGImage) : nullptr;
-        if (!tileImage)
-        {
+        CIImage *tileImage = tileCGImage ? [CIImage imageWithCGImage:tileCGImage] : nil;
+        CGImageRef layerImage = tileCGImage ? CGImageRetain(tileCGImage) : nullptr;
+        if (!tileImage) {
             if (layerImage)
                 CGImageRelease(layerImage);
             return;
@@ -1835,29 +1720,22 @@ private:
         Tile tile;
         tile.image = [tileImage retain];
         tile.layerImage = layerImage;
-        const QRect coreImageData = QVCocoaFunctions::coreImageTileRect(
-                data, sourceSize.height());
-        const QRect coreImageCore = QVCocoaFunctions::coreImageTileRect(
-                core, sourceSize.height());
-        tile.dataRect = CGRectMake(
-                coreImageData.x(), coreImageData.y(),
-                coreImageData.width(), coreImageData.height());
-        tile.coreRect = CGRectMake(
-                coreImageCore.x(), coreImageCore.y(),
-                coreImageCore.width(), coreImageCore.height());
+        const QRect coreImageData = QVCocoaFunctions::coreImageTileRect(data, sourceSize.height());
+        const QRect coreImageCore = QVCocoaFunctions::coreImageTileRect(core, sourceSize.height());
+        tile.dataRect = CGRectMake(coreImageData.x(), coreImageData.y(), coreImageData.width(),
+                                   coreImageData.height());
+        tile.coreRect = CGRectMake(coreImageCore.x(), coreImageCore.y(), coreImageCore.width(),
+                                   coreImageCore.height());
         const CGFloat dataWidth = data.width();
         const CGFloat dataHeight = data.height();
         const CGFloat coreOffsetX = core.x() - data.x();
         const CGFloat coreOffsetFromTop = core.y() - data.y();
-        tile.layerFrame = CGRectMake(
-                coreImageCore.x(), coreImageCore.y(),
-                coreImageCore.width(), coreImageCore.height());
-        tile.layerContentsRect = CGRectMake(
-                coreOffsetX / dataWidth,
-                (dataHeight - coreOffsetFromTop - core.height())
-                        / dataHeight,
-                core.width() / dataWidth,
-                core.height() / dataHeight);
+        tile.layerFrame = CGRectMake(coreImageCore.x(), coreImageCore.y(), coreImageCore.width(),
+                                     coreImageCore.height());
+        tile.layerContentsRect =
+                CGRectMake(coreOffsetX / dataWidth,
+                           (dataHeight - coreOffsetFromTop - core.height()) / dataHeight,
+                           core.width() / dataWidth, core.height() / dataHeight);
         tiles.append(tile);
     }
 
@@ -1883,25 +1761,20 @@ private:
         constexpr int SamplingBorder = 2;
         const int width = sourceSize.width();
         const int height = sourceSize.height();
-        for (int coreY = 0; coreY < height; coreY += TileSize)
-        {
-            for (int coreX = 0; coreX < width; coreX += TileSize)
-            {
-                const QRect core(coreX, coreY,
-                                 std::min(TileSize, width - coreX),
+        for (int coreY = 0; coreY < height; coreY += TileSize) {
+            for (int coreX = 0; coreX < width; coreX += TileSize) {
+                const QRect core(coreX, coreY, std::min(TileSize, width - coreX),
                                  std::min(TileSize, height - coreY));
-                const QRect data = core.adjusted(
-                        -SamplingBorder, -SamplingBorder,
-                        SamplingBorder, SamplingBorder)
-                        .intersected(QRect(0, 0, width, height));
+                const QRect data = core.adjusted(-SamplingBorder, -SamplingBorder, SamplingBorder,
+                                                 SamplingBorder)
+                                           .intersected(QRect(0, 0, width, height));
                 // CGImageCreateWithImageInRect exposes only this bounded source
                 // region to Core Image. Every leaf is therefore below Metal's
                 // texture limit, and the implementation never materializes a
                 // second full-size QImage for the multi-gigabyte bitmap.
                 CGImageRef tileCGImage = CGImageCreateWithImageInRect(
                         materializedImage,
-                        CGRectMake(data.x(), data.y(),
-                                   data.width(), data.height()));
+                        CGRectMake(data.x(), data.y(), data.width(), data.height()));
                 appendTile(tileCGImage, data, core);
                 if (tileCGImage)
                     CGImageRelease(tileCGImage);
@@ -1925,30 +1798,22 @@ private:
             return;
         for (int coreY = 0; coreY < height; coreY += safeRows) {
             const QRect rowCore(0, coreY, width, std::min(safeRows, height - coreY));
-            const QRect rowData = rowCore.adjusted(
-                    0, -SamplingBorder, 0, SamplingBorder)
-                    .intersected(QRect(0, 0, width, height));
+            const QRect rowData = rowCore.adjusted(0, -SamplingBorder, 0, SamplingBorder)
+                                          .intersected(QRect(0, 0, width, height));
             // Every provider is a full-width horizontal band below 2 GiB.
             // Tile crops retain that bounded provider, while the implicitly
             // shared QImage keeps one authoritative full-resolution decode.
-            CGImageRef bandImage = createQImageBand(
-                    backingImage, rowData.y(), rowData.height());
+            CGImageRef bandImage = createQImageBand(backingImage, rowData.y(), rowData.height());
             if (!bandImage)
                 continue;
 
-            for (int coreX = 0; coreX < width; coreX += TileSize)
-            {
-                const QRect core(coreX, coreY,
-                                 std::min(TileSize, width - coreX),
-                                 rowCore.height());
-                const QRect data = core.adjusted(
-                        -SamplingBorder, -SamplingBorder,
-                        SamplingBorder, SamplingBorder)
-                        .intersected(QRect(0, 0, width, height));
+            for (int coreX = 0; coreX < width; coreX += TileSize) {
+                const QRect core(coreX, coreY, std::min(TileSize, width - coreX), rowCore.height());
+                const QRect data = core.adjusted(-SamplingBorder, -SamplingBorder, SamplingBorder,
+                                                 SamplingBorder)
+                                           .intersected(QRect(0, 0, width, height));
                 CGImageRef tileCGImage = CGImageCreateWithImageInRect(
-                        bandImage,
-                        CGRectMake(data.x(), 0,
-                                   data.width(), data.height()));
+                        bandImage, CGRectMake(data.x(), 0, data.width(), data.height()));
                 appendTile(tileCGImage, data, core);
                 if (tileCGImage)
                     CGImageRelease(tileCGImage);
@@ -1974,10 +1839,8 @@ public:
     {
         const QByteArray pathData = QFile::encodeName(filePath);
         CFURLRef url = CFURLCreateFromFileSystemRepresentation(
-            kCFAllocatorDefault,
-            reinterpret_cast<const UInt8 *>(pathData.constData()),
-            static_cast<CFIndex>(pathData.size()),
-            false);
+                kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(pathData.constData()),
+                static_cast<CFIndex>(pathData.size()), false);
         if (!url)
             return;
 
@@ -1990,8 +1853,7 @@ public:
         if (frameTotal <= 1)
             return;
 
-        if (const CFDictionaryRef properties = pngPropertiesForFrame(source, 0))
-        {
+        if (const CFDictionaryRef properties = pngPropertiesForFrame(source, 0)) {
             double loopValue = 0;
             if (numberFromDictionary(properties, kCGImagePropertyAPNGLoopCount, loopValue))
                 loops = loopValue == 0 ? -1 : std::max(0, static_cast<int>(std::lround(loopValue)));
@@ -2016,11 +1878,12 @@ public:
     QImage frame(const int frameNumber) const override
     {
         if (!valid || frameNumber < 0 || frameNumber >= frameTotal)
-            return {};
+            return { };
 
-        CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, static_cast<size_t>(frameNumber), nullptr);
+        CGImageRef cgImage =
+                CGImageSourceCreateImageAtIndex(source, static_cast<size_t>(frameNumber), nullptr);
         if (!cgImage)
-            return {};
+            return { };
 
         QImage image = imageFromCGImage(cgImage);
         CGImageRelease(cgImage);
@@ -2033,12 +1896,11 @@ public:
             return 0;
 
         int delay = 100;
-        if (const CFDictionaryRef properties = pngPropertiesForFrame(source, static_cast<size_t>(frameNumber)))
-        {
+        if (const CFDictionaryRef properties =
+                    pngPropertiesForFrame(source, static_cast<size_t>(frameNumber))) {
             double seconds = 0;
-            if (!numberFromDictionary(properties, kCGImagePropertyAPNGUnclampedDelayTime, seconds) &&
-                !numberFromDictionary(properties, kCGImagePropertyAPNGDelayTime, seconds))
-            {
+            if (!numberFromDictionary(properties, kCGImagePropertyAPNGUnclampedDelayTime, seconds)
+                && !numberFromDictionary(properties, kCGImagePropertyAPNGDelayTime, seconds)) {
                 seconds = 0.1;
             }
 
@@ -2050,10 +1912,10 @@ public:
     }
 
 private:
-    CGImageSourceRef source {nullptr};
-    int frameTotal {0};
-    int loops {-1};
-    bool valid {false};
+    CGImageSourceRef source{ nullptr };
+    int frameTotal{ 0 };
+    int loops{ -1 };
+    bool valid{ false };
 };
 
 struct HDRFrameFlowState
@@ -2075,20 +1937,21 @@ struct HDRFrameFlowState
 void updateAtomicMaximum(std::atomic<double> &destination, const double value)
 {
     double previous = destination.load();
-    while (value > previous
-           && !destination.compare_exchange_weak(previous, value)) {
-    }
+    while (value > previous && !destination.compare_exchange_weak(previous, value)) { }
 }
 
 // Both endpoints have already been color managed in extended-linear Display P3.
 // A temporal transition must not invent a spatial RGB mask or change the final
 // image's colors. Headroom adaptation happens before this interpolation.
-static CIImage *hdrBrightnessImage(CIImage *sdr, CIImage *hdr,
-                                   const float headroom, const float progress)
+static CIImage *hdrBrightnessImage(CIImage *sdr, CIImage *hdr, const float headroom,
+                                   const float progress)
 {
-    if (!sdr) return hdr;
-    if (!hdr || headroom <= 1.0F || progress <= 0.0F) return sdr;
-    if (progress >= 1.0F) return hdr;
+    if (!sdr)
+        return hdr;
+    if (!hdr || headroom <= 1.0F || progress <= 0.0F)
+        return sdr;
+    if (progress >= 1.0F)
+        return hdr;
     CIFilter *transition = [CIFilter filterWithName:@"CIDissolveTransition"];
     [transition setValue:sdr forKey:kCIInputImageKey];
     [transition setValue:hdr forKey:kCIInputTargetImageKey];
@@ -2096,14 +1959,16 @@ static CIImage *hdrBrightnessImage(CIImage *sdr, CIImage *hdr,
     return transition.outputImage ?: sdr;
 }
 
-static CIImage *hdrDisplayEndpoint(const NativeMetalImageGraph &image,
-                                    CIImage *sdr, CIImage *hdr, const float headroom)
+static CIImage *hdrDisplayEndpoint(const NativeMetalImageGraph &image, CIImage *sdr, CIImage *hdr,
+                                   const float headroom)
 {
-    if (!hdr || headroom <= 1.0F) return sdr;
+    if (!hdr || headroom <= 1.0F)
+        return sdr;
     const float contentHeadroom = image.rendererMetadata().contentHeadroom;
     // With sufficient headroom, preserve the decoded image exactly, including
     // chromatic differences below SDR white. They are part of the HDR rendition.
-    if (contentHeadroom > 1.0F && headroom >= contentHeadroom) return hdr;
+    if (contentHeadroom > 1.0F && headroom >= contentHeadroom)
+        return hdr;
     if (@available(macOS 15.0, *)) {
         if (sdr && image.gainMapCIImage())
             return [sdr imageByApplyingGainMap:image.gainMapCIImage() headroom:headroom];
@@ -2112,38 +1977,47 @@ static CIImage *hdrDisplayEndpoint(const NativeMetalImageGraph &image,
             [toneMap setValue:hdr forKey:kCIInputImageKey];
             [toneMap setValue:@(contentHeadroom) forKey:@"inputSourceHeadroom"];
             [toneMap setValue:@(headroom) forKey:@"inputTargetHeadroom"];
-            if (toneMap.outputImage) return toneMap.outputImage;
+            if (toneMap.outputImage)
+                return toneMap.outputImage;
         }
     }
     // Earlier systems use their EDR compositor for an unsupported tone mapper.
     return hdr;
 }
 
-static CIImage *hdrBrightnessDisplayImage(const NativeMetalImageGraph &image,
-        CIImage *sdr, CIImage *hdr, const float headroom, const float progress)
+static CIImage *hdrBrightnessDisplayImage(const NativeMetalImageGraph &image, CIImage *sdr,
+                                          CIImage *hdr, const float headroom, const float progress)
 {
-    if (headroom <= 1.0F || progress <= 0.0F) return sdr;
-    return hdrBrightnessImage(sdr, hdrDisplayEndpoint(image, sdr, hdr, headroom),
-                              headroom, progress);
+    if (headroom <= 1.0F || progress <= 0.0F)
+        return sdr;
+    return hdrBrightnessImage(sdr, hdrDisplayEndpoint(image, sdr, hdr, headroom), headroom,
+                              progress);
 }
 
 static QVector<float> sampleLinearHDRImage(CIImage *source)
 {
-    if (!source || CGRectIsEmpty(source.extent)) return {};
+    if (!source || CGRectIsEmpty(source.extent))
+        return { };
     CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
     CIContext *probe = metalCIContext(space, space);
     if (!space || !probe) {
-        if (space) CGColorSpaceRelease(space);
-        return {};
+        if (space)
+            CGColorSpaceRelease(space);
+        return { };
     }
     const CGRect extent = source.extent;
-    source = [source imageByApplyingTransform:CGAffineTransformMakeTranslation(
-            -extent.origin.x, -extent.origin.y)];
-    source = [source imageByApplyingTransform:CGAffineTransformMakeScale(
-            64.0/extent.size.width, 64.0/extent.size.height)];
-    QVector<float> pixels(64*64*4);
-    [probe render:source toBitmap:pixels.data() rowBytes:64*4*sizeof(float)
-            bounds:CGRectMake(0,0,64,64) format:kCIFormatRGBAf colorSpace:space];
+    source = [source imageByApplyingTransform:CGAffineTransformMakeTranslation(-extent.origin.x,
+                                                                               -extent.origin.y)];
+    source =
+            [source imageByApplyingTransform:CGAffineTransformMakeScale(64.0 / extent.size.width,
+                                                                        64.0 / extent.size.height)];
+    QVector<float> pixels(64 * 64 * 4);
+    [probe render:source
+              toBitmap:pixels.data()
+              rowBytes:64 * 4 * sizeof(float)
+                bounds:CGRectMake(0, 0, 64, 64)
+                format:kCIFormatRGBAf
+            colorSpace:space];
     [probe clearCaches];
     CGColorSpaceRelease(space);
     return pixels;
@@ -2154,7 +2028,7 @@ struct HDRPersistentSurfaceGate
 {
     std::atomic<void *> owner{ nullptr };
 };
-}
+} // namespace
 
 struct QVCocoaFunctions::HDRRenderer::Impl
 {
@@ -2173,23 +2047,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // closed even when the QWidget itself deliberately remains alive.
         // Diagnostics and presentation timers belong to that QWidget, so keep
         // their native host valid until this renderer is destroyed.
-        nativeView = [reinterpret_cast<NSView *>(
-            viewportWidget->window()->winId()) retain];
+        nativeView = [reinterpret_cast<NSView *>(viewportWidget->window()->winId()) retain];
         device = MTLCreateSystemDefaultDevice();
         if (!nativeView || !device)
             return;
 
         commandQueue = [device newCommandQueue];
-        renderQueue = dispatch_queue_create(
-                "com.fovelle.hdr-render-encode", DISPATCH_QUEUE_SERIAL);
-        persistentSurfaceQueue = dispatch_queue_create(
-                "com.fovelle.hdr-persistent-surface",
-                dispatch_queue_attr_make_with_qos_class(
-                        DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0));
+        renderQueue = dispatch_queue_create("com.fovelle.hdr-render-encode", DISPATCH_QUEUE_SERIAL);
+        persistentSurfaceQueue =
+                dispatch_queue_create("com.fovelle.hdr-persistent-surface",
+                                      dispatch_queue_attr_make_with_qos_class(
+                                              DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0));
         outputColorSpace = colorSyncDisplayP3ColorSpace(true);
         backgroundColorSpace = colorSyncSrgbColorSpace();
-        if (!commandQueue || !renderQueue || !persistentSurfaceQueue
-            || !outputColorSpace || !backgroundColorSpace)
+        if (!commandQueue || !renderQueue || !persistentSurfaceQueue || !outputColorSpace
+            || !backgroundColorSpace)
             return;
 
         NSDictionary *contextOptions = @{
@@ -2204,8 +2076,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             (id)kCIContextCacheIntermediates : @YES
         };
         context = [[CIContext contextWithMTLDevice:device options:contextOptions] retain];
-        persistentContext = [[CIContext contextWithMTLDevice:device
-                                                     options:contextOptions] retain];
+        persistentContext = [[CIContext contextWithMTLDevice:device options:contextOptions] retain];
         if (!context || !persistentContext)
             return;
 
@@ -2224,8 +2095,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         viewportBackgroundLayer = [[CALayer layer] retain];
         viewportBackgroundLayer.opaque = YES;
         viewportBackgroundLayer.frame = CGRectZero;
-        viewportBackgroundLayer.autoresizingMask =
-                kCALayerWidthSizable | kCALayerHeightSizable;
+        viewportBackgroundLayer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
         viewportBackgroundLayer.hidden = YES;
 
         // SDR pixels are decoded once into bounded CGImage tiles, then owned
@@ -2340,8 +2210,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             displayLink.preferredFrameLatency = 1.0F;
             configureDisplayLinkFrameRate(displayLink);
             displayLink.paused = YES;
-            [displayLink addToRunLoop:NSRunLoop.mainRunLoop
-                              forMode:NSRunLoopCommonModes];
+            [displayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
             [presentationState setMetalDisplayLink:displayLink];
         }
 
@@ -2368,16 +2237,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         headroomMonitor->setInterval(100);
         QObject::connect(headroomMonitor, &QTimer::timeout, [this]() {
 #ifdef FOVELLE_HDR_SURFACE_TESTING
-            if (qEnvironmentVariableIsSet("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR")) return;
+            if (qEnvironmentVariableIsSet("FOVELLE_TEST_PAUSE_HEADROOM_MONITOR"))
+                return;
 #endif
-            if (!imageIsHDR || !presentationActiveRequested) return;
+            if (!imageIsHDR || !presentationActiveRequested)
+                return;
             NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
             float current = screen ? screen.maximumExtendedDynamicRangeColorComponentValue : 1.0F;
             bool valid = false;
             const float override = qgetenv("FOVELLE_TEST_DISPLAY_HEADROOM").toFloat(&valid);
-            if (valid) current = std::max(1.0F, override);
-            const float currentOverride = qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM").toFloat(&valid);
-            if (valid) current = std::max(1.0F, currentOverride);
+            if (valid)
+                current = std::max(1.0F, override);
+            const float currentOverride =
+                    qgetenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM").toFloat(&valid);
+            if (valid)
+                current = std::max(1.0F, currentOverride);
             if (@available(macOS 15.0, *)) {
                 if (persistentSurfaceReady || persistentSurfacePreparationInFlight) {
                     // The compositor adapts the tagged full-HDR CGImage.
@@ -2393,8 +2267,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             // headroom, not a value that another render can overwrite.
             const float surfaceHeadroom =
                     persistentSurfaceReady || persistentSurfacePreparationInFlight
-                    ? persistentSurfaceHeadroom : state.displayRenderingHeadroom;
-            if (std::abs(current - surfaceHeadroom) < 0.001F) return;
+                    ? persistentSurfaceHeadroom
+                    : state.displayRenderingHeadroom;
+            if (std::abs(current - surfaceHeadroom) < 0.001F)
+                return;
             if (persistentSurfaceReady || persistentSurfacePreparationInFlight) {
                 discardPersistentSurface(true);
                 state.displayRenderingHeadroom = std::max(1.0F, current);
@@ -2419,9 +2295,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [displayLinkDelegate invalidate];
         if (renderQueue)
-            dispatch_sync(renderQueue, ^{});
+            dispatch_sync(renderQueue, ^{ });
         if (persistentSurfaceQueue)
-            dispatch_sync(persistentSurfaceQueue, ^{});
+            dispatch_sync(persistentSurfaceQueue, ^{ });
         [presentationState setMetalDisplayLink:nil];
         [presentationState invalidate];
         clearPreparedImages();
@@ -2517,13 +2393,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     void syncViewportLayerGeometry()
     {
-        if (!presentationContainerLayer || !navigationOverlayLayer
-            || !viewportBackgroundLayer || !metalLayer)
+        if (!presentationContainerLayer || !navigationOverlayLayer || !viewportBackgroundLayer
+            || !metalLayer)
             return;
 
         const CGRect viewportFrame = viewportFrameInNativeView();
-        const CGRect viewportBounds = CGRectMake(
-                0.0, 0.0, viewportFrame.size.width, viewportFrame.size.height);
+        const CGRect viewportBounds =
+                CGRectMake(0.0, 0.0, viewportFrame.size.width, viewportFrame.size.height);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         presentationContainerLayer.frame = viewportFrame;
@@ -2540,8 +2416,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!presentationContainerLayer || presentationContainerLayer.hidden)
             return 0.0F;
         CALayer *presented = presentationContainerLayer.presentationLayer;
-        return std::clamp<float>(presented ? presented.opacity
-                                           : presentationContainerLayer.opacity,
+        return std::clamp<float>(presented ? presented.opacity : presentationContainerLayer.opacity,
                                  0.0F, 1.0F);
     }
 
@@ -2551,8 +2426,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentImageLayer.wantsExtendedDynamicRangeContent = enabled;
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
         if (@available(macOS 26.0, *)) {
-            const CADynamicRange range = enabled
-                    ? CADynamicRangeHigh : CADynamicRangeStandard;
+            const CADynamicRange range = enabled ? CADynamicRangeHigh : CADynamicRangeStandard;
             metalLayer.preferredDynamicRange = range;
             persistentImageLayer.preferredDynamicRange = range;
         }
@@ -2621,31 +2495,29 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         const CFTimeInterval fullTransitionDuration =
                 NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 0.0 : 0.45;
-        const CFTimeInterval duration = std::max<CFTimeInterval>(
-                0.08, fullTransitionDuration * distance);
+        const CFTimeInterval duration =
+                std::max<CFTimeInterval>(0.08, fullTransitionDuration * distance);
         CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
         animation.fromValue = @(startOpacity);
         animation.toValue = @(targetOpacity);
         animation.duration = duration;
-        animation.timingFunction = [CAMediaTimingFunction
-                functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-        [presentationContainerLayer addAnimation:animation
-                                          forKey:@"fovelle.hdr.presentation"];
+        animation.timingFunction =
+                [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [presentationContainerLayer addAnimation:animation forKey:@"fovelle.hdr.presentation"];
         presentationAnimationInFlight = true;
         state.presentationAnimationInFlight = true;
         state.layerOpacity = startOpacity;
         ++state.presentationTransitionCount;
 
         const auto gate = persistentSurfaceGate;
-        dispatch_after(dispatch_time(
-                               DISPATCH_TIME_NOW,
-                               static_cast<int64_t>((duration + 0.03) * NSEC_PER_SEC)),
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     static_cast<int64_t>((duration + 0.03) * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
-            auto *owner = static_cast<Impl *>(gate->owner.load());
-            if (owner)
-                owner->finishPresentationTransition(
-                        transitionGeneration, imageGeneration);
-        });
+                           auto *owner = static_cast<Impl *>(gate->owner.load());
+                           if (owner)
+                               owner->finishPresentationTransition(transitionGeneration,
+                                                                   imageGeneration);
+                       });
     }
 
     void setPresentationActive(const bool active, const bool animated)
@@ -2663,9 +2535,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return CGColorCreate(backgroundColorSpace, components);
     }
 
-    void setNavigationOverlay(const int index, const QRectF &viewportRect,
-                              const qreal opacity, const bool previous,
-                              const bool darkBackground, const bool hovered,
+    void setNavigationOverlay(const int index, const QRectF &viewportRect, const qreal opacity,
+                              const bool previous, const bool darkBackground, const bool hovered,
                               const bool pressed, const bool enabled)
     {
         if (!navigationOverlayLayer || index < 0 || index >= 2)
@@ -2685,12 +2556,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // interpretation of an already assigned sublayer frame here, so map
         // the Y coordinate explicitly. This keeps the native paint surface
         // aligned with the invisible QWidget used for hit testing.
-        const CGFloat frameY = CGRectGetHeight(navigationOverlayLayer.bounds)
-                - viewportRect.y() - frameHeight;
-        const CGRect frame = CGRectMake(viewportRect.x(), frameY,
-                                        frameWidth, frameHeight);
-        const bool artworkVisible = boundedOpacity > 0.001
-                && frame.size.width > 0.0 && frame.size.height > 0.0;
+        const CGFloat frameY =
+                CGRectGetHeight(navigationOverlayLayer.bounds) - viewportRect.y() - frameHeight;
+        const CGRect frame = CGRectMake(viewportRect.x(), frameY, frameWidth, frameHeight);
+        const bool artworkVisible =
+                boundedOpacity > 0.001 && frame.size.width > 0.0 && frame.size.height > 0.0;
         const bool highlighted = hovered || pressed;
 
         QColor background;
@@ -2713,15 +2583,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const CGFloat centerX = frame.size.width / 2.0;
         const CGFloat centerY = frame.size.height / 2.0;
         const CGFloat direction = previous ? -1.0 : 1.0;
-        CGPathMoveToPoint(chevronPath, nullptr,
-                          centerX - direction * 5.0, centerY - 12.0);
-        CGPathAddLineToPoint(chevronPath, nullptr,
-                             centerX + direction * 7.0, centerY);
-        CGPathAddLineToPoint(chevronPath, nullptr,
-                             centerX - direction * 5.0, centerY + 12.0);
+        CGPathMoveToPoint(chevronPath, nullptr, centerX - direction * 5.0, centerY - 12.0);
+        CGPathAddLineToPoint(chevronPath, nullptr, centerX + direction * 7.0, centerY);
+        CGPathAddLineToPoint(chevronPath, nullptr, centerX - direction * 5.0, centerY + 12.0);
 
-        CGColorRef backgroundCGColor = background.isValid()
-                ? navigationColor(background) : nullptr;
+        CGColorRef backgroundCGColor = background.isValid() ? navigationColor(background) : nullptr;
         CGColorRef foregroundCGColor = navigationColor(foreground);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
@@ -2789,12 +2655,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         const CGFloat frameWidth = std::max<qreal>(0.0, viewportRect.width());
         const CGFloat frameHeight = std::max<qreal>(0.0, viewportRect.height());
-        const CGFloat frameY = CGRectGetHeight(navigationOverlayLayer.bounds)
-                - viewportRect.y() - frameHeight;
+        const CGFloat frameY =
+                CGRectGetHeight(navigationOverlayLayer.bounds) - viewportRect.y() - frameHeight;
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        boundaryHintLayer.frame = CGRectMake(viewportRect.x(), frameY,
-                                              frameWidth, frameHeight);
+        boundaryHintLayer.frame = CGRectMake(viewportRect.x(), frameY, frameWidth, frameHeight);
         boundaryHintLayer.contentsScale = image.devicePixelRatioF();
         boundaryHintLayer.contents = (id)cgImage;
         boundaryHintLayer.hidden = NO;
@@ -2864,26 +2729,21 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 CGImageRelease(persistentCheckerboardImage);
                 persistentCheckerboardImage = nullptr;
             }
-            persistentCheckerboardPixelSize = {};
+            persistentCheckerboardPixelSize = { };
             return;
         }
 
         NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
-        const CGFloat scale = nativeView.window
-                ? nativeView.window.backingScaleFactor
-                : (screen ? screen.backingScaleFactor : 1.0);
-        const QSize pixelSize(
-                std::max(1, qRound(viewportSize.width() * scale)),
-                std::max(1, qRound(viewportSize.height() * scale)));
-        if (!persistentCheckerboardImage
-            || persistentCheckerboardPixelSize != pixelSize) {
+        const CGFloat scale = nativeView.window ? nativeView.window.backingScaleFactor
+                                                : (screen ? screen.backingScaleFactor : 1.0);
+        const QSize pixelSize(std::max(1, qRound(viewportSize.width() * scale)),
+                              std::max(1, qRound(viewportSize.height() * scale)));
+        if (!persistentCheckerboardImage || persistentCheckerboardPixelSize != pixelSize) {
             const size_t width = static_cast<size_t>(pixelSize.width());
             const size_t height = static_cast<size_t>(pixelSize.height());
             CGContextRef bitmap = CGBitmapContextCreate(
-                    nullptr, width, height, 8, width * 4,
-                    backgroundColorSpace,
-                    static_cast<CGBitmapInfo>(
-                            kCGImageAlphaNoneSkipLast | kCGBitmapByteOrder32Big));
+                    nullptr, width, height, 8, width * 4, backgroundColorSpace,
+                    static_cast<CGBitmapInfo>(kCGImageAlphaNoneSkipLast | kCGBitmapByteOrder32Big));
             if (!bitmap)
                 return;
             CGContextSetRGBFillColor(bitmap, 1.0, 1.0, 1.0, 1.0);
@@ -2894,10 +2754,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 for (int x = 0; x < pixelSize.width(); x += tile) {
                     if (((x / tile) + (y / tile)) % 2 == 0)
                         continue;
-                    CGContextFillRect(bitmap, CGRectMake(
-                            x, y,
-                            std::min(tile, pixelSize.width() - x),
-                            std::min(tile, pixelSize.height() - y)));
+                    CGContextFillRect(bitmap,
+                                      CGRectMake(x, y, std::min(tile, pixelSize.width() - x),
+                                                 std::min(tile, pixelSize.height() - y)));
                 }
             }
             CGImageRef checkerboard = CGBitmapContextCreateImage(bitmap);
@@ -2912,8 +2771,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        viewportBackgroundLayer.contents =
-                reinterpret_cast<id>(persistentCheckerboardImage);
+        viewportBackgroundLayer.contents = reinterpret_cast<id>(persistentCheckerboardImage);
         viewportBackgroundLayer.contentsScale = scale;
         viewportBackgroundLayer.contentsGravity = kCAGravityResize;
         [CATransaction commit];
@@ -2929,8 +2787,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const QSize sourceSize = nativeImage.pixelSize();
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
-        persistentSDRTileLayer.bounds = CGRectMake(
-                0.0, 0.0, sourceSize.width(), sourceSize.height());
+        persistentSDRTileLayer.bounds =
+                CGRectMake(0.0, 0.0, sourceSize.width(), sourceSize.height());
         persistentSDRTileLayer.anchorPoint = CGPointZero;
         persistentSDRTileLayer.position = CGPointZero;
         persistentSDRTileLayer.affineTransform = CGAffineTransformIdentity;
@@ -2953,8 +2811,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [CATransaction commit];
 
-        persistentSDRTileSurfaceReady =
-                persistentSDRTileLayer.sublayers.count
+        persistentSDRTileSurfaceReady = persistentSDRTileLayer.sublayers.count
                 == static_cast<NSUInteger>(nativeImage.sourceTiles().size());
         if (!persistentSDRTileSurfaceReady)
             clearPersistentSDRTileSurface();
@@ -2962,28 +2819,24 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     }
 
     void updatePersistentSDRTileGeometry(const NativeSDRImage &nativeImage,
-                                         const QSize &viewportSize,
-                                         const QPolygonF &corners)
+                                         const QSize &viewportSize, const QPolygonF &corners)
     {
-        if (!persistentSDRTileSurfaceReady || viewportSize.isEmpty()
-            || corners.size() < 4)
+        if (!persistentSDRTileSurfaceReady || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
         updatePersistentSDRBackground(viewportSize);
         const QSize sourceSize = nativeImage.pixelSize();
-        const QTransform qtTransform = QVCocoaFunctions::persistentHDRLayerTransform(
-                sourceSize, corners);
-        const CGAffineTransform transform = CGAffineTransformMake(
-                qtTransform.m11(), qtTransform.m12(),
-                qtTransform.m21(), qtTransform.m22(),
-                qtTransform.dx(), qtTransform.dy());
-        const CGRect viewportBounds = CGRectMake(
-                0.0, 0.0, viewportSize.width(), viewportSize.height());
+        const QTransform qtTransform =
+                QVCocoaFunctions::persistentHDRLayerTransform(sourceSize, corners);
+        const CGAffineTransform transform =
+                CGAffineTransformMake(qtTransform.m11(), qtTransform.m12(), qtTransform.m21(),
+                                      qtTransform.m22(), qtTransform.dx(), qtTransform.dy());
+        const CGRect viewportBounds =
+                CGRectMake(0.0, 0.0, viewportSize.width(), viewportSize.height());
         int visibleTileCount = 0;
         for (const NativeSDRImage::Tile &tile : nativeImage.sourceTiles()) {
             const CGRect output = CGRectIntersection(
-                    CGRectApplyAffineTransform(tile.layerFrame, transform),
-                    viewportBounds);
+                    CGRectApplyAffineTransform(tile.layerFrame, transform), viewportBounds);
             if (!CGRectIsNull(output) && !CGRectIsEmpty(output))
                 ++visibleTileCount;
         }
@@ -2991,8 +2844,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         viewportBackgroundLayer.frame = presentationContainerLayer.bounds;
-        persistentSDRTileLayer.bounds = CGRectMake(
-                0.0, 0.0, sourceSize.width(), sourceSize.height());
+        persistentSDRTileLayer.bounds =
+                CGRectMake(0.0, 0.0, sourceSize.width(), sourceSize.height());
         persistentSDRTileLayer.anchorPoint = CGPointZero;
         persistentSDRTileLayer.position = CGPointZero;
         persistentSDRTileLayer.affineTransform = transform;
@@ -3056,14 +2909,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
     }
 
-    void updatePersistentSurfaceGeometry(const QSize &viewportSize,
-                                         const QPolygonF &corners)
+    void updatePersistentSurfaceGeometry(const QSize &viewportSize, const QPolygonF &corners)
     {
         latestViewportSize = viewportSize;
         latestCorners = corners;
         syncViewportLayerGeometry();
-        if (!persistentSurfaceReady || !persistentImage
-            || viewportSize.isEmpty() || corners.size() < 4)
+        if (!persistentSurfaceReady || !persistentImage || viewportSize.isEmpty()
+            || corners.size() < 4)
             return;
 
         const CGFloat sourceWidth = CGImageGetWidth(persistentImage);
@@ -3073,16 +2925,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
         const QTransform qtTransform = QVCocoaFunctions::persistentHDRLayerTransform(
                 QSizeF(sourceWidth, sourceHeight), corners);
-        const CGAffineTransform transform = CGAffineTransformMake(
-                qtTransform.m11(), qtTransform.m12(),
-                qtTransform.m21(), qtTransform.m22(),
-                qtTransform.dx(), qtTransform.dy());
+        const CGAffineTransform transform =
+                CGAffineTransformMake(qtTransform.m11(), qtTransform.m12(), qtTransform.m21(),
+                                      qtTransform.m22(), qtTransform.dx(), qtTransform.dy());
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         viewportBackgroundLayer.frame = presentationContainerLayer.bounds;
-        persistentImageLayer.bounds = CGRectMake(
-                0.0, 0.0, sourceWidth, sourceHeight);
+        persistentImageLayer.bounds = CGRectMake(0.0, 0.0, sourceWidth, sourceHeight);
         persistentImageLayer.anchorPoint = CGPointZero;
         persistentImageLayer.position = CGPointZero;
         persistentImageLayer.affineTransform = transform;
@@ -3093,29 +2943,29 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const CGRect containerFrame = presentationContainerLayer.frame;
             const CGRect containerBounds = presentationContainerLayer.bounds;
             const CGRect imageFrame = persistentImageLayer.frame;
-            qInfo().nospace()
-                    << "FOVELLE_HDR_LAYER view_flipped=" << nativeView.isFlipped
-                    << " root_flipped=" << nativeView.layer.geometryFlipped
-                    << " container_flipped=" << presentationContainerLayer.geometryFlipped
-                    << " viewport=" << viewportSize.width() << "x" << viewportSize.height()
-                    << " view_bounds=" << viewBounds.origin.x << "," << viewBounds.origin.y
-                    << "," << viewBounds.size.width << "," << viewBounds.size.height
-                    << " root_bounds=" << rootBounds.origin.x << "," << rootBounds.origin.y
-                    << "," << rootBounds.size.width << "," << rootBounds.size.height
-                    << " container_frame=" << containerFrame.origin.x << ","
-                    << containerFrame.origin.y << "," << containerFrame.size.width << ","
-                    << containerFrame.size.height
-                    << " container_bounds=" << containerBounds.origin.x << ","
-                    << containerBounds.origin.y << "," << containerBounds.size.width << ","
-                    << containerBounds.size.height
-                    << " image_frame=" << imageFrame.origin.x << "," << imageFrame.origin.y
-                    << "," << imageFrame.size.width << "," << imageFrame.size.height;
+            qInfo().nospace() << "FOVELLE_HDR_LAYER view_flipped=" << nativeView.isFlipped
+                              << " root_flipped=" << nativeView.layer.geometryFlipped
+                              << " container_flipped=" << presentationContainerLayer.geometryFlipped
+                              << " viewport=" << viewportSize.width() << "x"
+                              << viewportSize.height() << " view_bounds=" << viewBounds.origin.x
+                              << "," << viewBounds.origin.y << "," << viewBounds.size.width << ","
+                              << viewBounds.size.height << " root_bounds=" << rootBounds.origin.x
+                              << "," << rootBounds.origin.y << "," << rootBounds.size.width << ","
+                              << rootBounds.size.height
+                              << " container_frame=" << containerFrame.origin.x << ","
+                              << containerFrame.origin.y << "," << containerFrame.size.width << ","
+                              << containerFrame.size.height
+                              << " container_bounds=" << containerBounds.origin.x << ","
+                              << containerBounds.origin.y << "," << containerBounds.size.width
+                              << "," << containerBounds.size.height
+                              << " image_frame=" << imageFrame.origin.x << ","
+                              << imageFrame.origin.y << "," << imageFrame.size.width << ","
+                              << imageFrame.size.height;
         }
         ++state.compositorGeometryUpdateCount;
     }
 
-    void installPersistentSurface(CGImageRef surface,
-                                  const NSUInteger generation,
+    void installPersistentSurface(CGImageRef surface, const NSUInteger generation,
                                   const double preparationMilliseconds)
     {
         if (generation != presentationState->generation
@@ -3123,8 +2973,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         persistentSurfacePreparationInFlight = false;
-        state.persistentHDRSurfacePreparationMilliseconds =
-                preparationMilliseconds;
+        state.persistentHDRSurfacePreparationMilliseconds = preparationMilliseconds;
         if (!surface)
             return;
 
@@ -3133,8 +2982,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentImage = CGImageRetain(surface);
         persistentSurfaceReady = true;
         state.persistentHDRSurfaceReady = true;
-        state.persistentHDRSurfaceBytes = static_cast<quint64>(
-                CGImageGetBytesPerRow(surface)) * CGImageGetHeight(surface);
+        state.persistentHDRSurfaceBytes =
+                static_cast<quint64>(CGImageGetBytesPerRow(surface)) * CGImageGetHeight(surface);
 
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
@@ -3187,9 +3036,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         persistentSurfacePreparationGeneration = presentationState->generation;
         const NSUInteger generation = persistentSurfacePreparationGeneration;
         const quint64 surfaceSerial = ++persistentSurfaceSerial;
-        float surfaceContentHeadroom = static_cast<float>(
-                QVCocoaFunctions::effectiveHDRHeadroom(
-                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
+        float surfaceContentHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
+                state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
         CIImage *source = [hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage,
                                                      state.displayRenderingHeadroom, 1.0F) retain];
         if (@available(macOS 15.0, *)) {
@@ -3201,8 +3049,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CGColorSpaceRef surfaceColorSpace = CGColorSpaceRetain(outputColorSpace);
         const auto gate = persistentSurfaceGate;
 #ifdef FOVELLE_HDR_SURFACE_TESTING
-        const int testDelay = qBound(0, qEnvironmentVariableIntValue(
-                "FOVELLE_TEST_PERSISTENT_SURFACE_DELAY_MS"), 2000);
+        const int testDelay = qBound(
+                0, qEnvironmentVariableIntValue("FOVELLE_TEST_PERSISTENT_SURFACE_DELAY_MS"), 2000);
 #endif
         dispatch_async(persistentSurfaceQueue, ^{
             @autoreleasepool {
@@ -3210,12 +3058,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 QThread::msleep(static_cast<unsigned long>(testDelay));
 #endif
                 const CFTimeInterval started = CACurrentMediaTime();
-                CGImageRef surface = [surfaceContext
-                        createCGImage:source
-                             fromRect:extent
-                               format:kCIFormatRGBAh
-                           colorSpace:surfaceColorSpace
-                             deferred:NO];
+                CGImageRef surface = [surfaceContext createCGImage:source
+                                                          fromRect:extent
+                                                            format:kCIFormatRGBAh
+                                                        colorSpace:surfaceColorSpace
+                                                          deferred:NO];
                 if (@available(macOS 15.0, *)) {
                     CGImageRef tagged = surface
                             ? CGImageCreateCopyWithContentHeadroom(surfaceContentHeadroom, surface)
@@ -3229,13 +3076,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 // Retaining it would duplicate a substantial fraction of an
                 // 8-byte-per-pixel source while the persistent surface lives.
                 [surfaceContext clearCaches];
-                const double elapsedMilliseconds =
-                        (CACurrentMediaTime() - started) * 1000.0;
+                const double elapsedMilliseconds = (CACurrentMediaTime() - started) * 1000.0;
                 dispatch_async(dispatch_get_main_queue(), ^{
                     auto *owner = static_cast<Impl *>(gate->owner.load());
                     if (owner && owner->persistentSurfaceSerial == surfaceSerial)
-                        owner->installPersistentSurface(
-                                surface, generation, elapsedMilliseconds);
+                        owner->installPersistentSurface(surface, generation, elapsedMilliseconds);
                     if (surface)
                         CGImageRelease(surface);
                 });
@@ -3264,8 +3109,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (imageIsHDR) {
             const float maximum = std::min<float>(120.0F, displayMaximum);
             const float minimum = std::min<float>(80.0F, maximum);
-            link.preferredFrameRateRange =
-                    CAFrameRateRangeMake(minimum, maximum, maximum);
+            link.preferredFrameRateRange = CAFrameRateRangeMake(minimum, maximum, maximum);
             state.requestedFrameRateMinimum = minimum;
             state.requestedFrameRateMaximum = maximum;
             state.requestedFrameRatePreferred = maximum;
@@ -3274,10 +3118,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
 
         const auto policy = QVCocoaFunctions::sdrFrameRatePolicy(displayMaximum);
-        link.preferredFrameRateRange = CAFrameRateRangeMake(
-                static_cast<float>(policy.minimum),
-                static_cast<float>(policy.maximum),
-                static_cast<float>(policy.preferred));
+        link.preferredFrameRateRange = CAFrameRateRangeMake(static_cast<float>(policy.minimum),
+                                                            static_cast<float>(policy.maximum),
+                                                            static_cast<float>(policy.preferred));
         state.requestedFrameRateMinimum = static_cast<float>(policy.minimum);
         state.requestedFrameRateMaximum = static_cast<float>(policy.maximum);
         state.requestedFrameRatePreferred = static_cast<float>(policy.preferred);
@@ -3303,8 +3146,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             replacement.preferredFrameLatency = 1.0F;
             configureDisplayLinkFrameRate(replacement);
             replacement.paused = YES;
-            [replacement addToRunLoop:NSRunLoop.mainRunLoop
-                              forMode:NSRunLoopCommonModes];
+            [replacement addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
             displayLink = replacement;
             [presentationState setMetalDisplayLink:displayLink];
             [previous release];
@@ -3314,41 +3156,34 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     bool setImage(const HDRImagePtr &newImage)
     {
-        return setImageGraph(
-                std::dynamic_pointer_cast<const NativeHDRImage>(newImage));
+        return setImageGraph(std::dynamic_pointer_cast<const NativeHDRImage>(newImage));
     }
 
     bool setSDRImage(const SDRImagePtr &newImage)
     {
-        return setImageGraph(
-                std::dynamic_pointer_cast<const NativeSDRImage>(newImage));
+        return setImageGraph(std::dynamic_pointer_cast<const NativeSDRImage>(newImage));
     }
 
-    bool setImageGraph(
-            const std::shared_ptr<const NativeMetalImageGraph> &nativeImage)
+    bool setImageGraph(const std::shared_ptr<const NativeMetalImageGraph> &nativeImage)
     {
         const bool presentationFullyVisible = currentPresentationOpacity() >= 0.999F;
         const bool previousMetalPresentationVisible = image
-                && presentationState->firstFramePresented
-                && presentationFullyVisible
+                && presentationState->firstFramePresented && presentationFullyVisible
                 && metalLayer.opacity >= 0.999F;
         const bool previousPersistentPresentationVisible = image
-                && presentationState->firstFramePresented
-                && presentationFullyVisible
-                && persistentSurfaceReady
-                && persistentImageLayer.opacity >= 0.999F;
+                && presentationState->firstFramePresented && presentationFullyVisible
+                && persistentSurfaceReady && persistentImageLayer.opacity >= 0.999F;
         // New HDR photos expose their new Qt SDR base immediately while the
         // complete native graphs prepare, rather than covering it with the old photo.
-        const bool retainPreviousPresentation = presentationActiveRequested
-                && nativeImage && !nativeImage->isHDR()
-                && (previousMetalPresentationVisible
-                    || previousPersistentPresentationVisible);
+        const bool retainPreviousPresentation = presentationActiveRequested && nativeImage
+                && !nativeImage->isHDR()
+                && (previousMetalPresentationVisible || previousPersistentPresentationVisible);
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
-            dispatch_sync(renderQueue, ^{});
+            dispatch_sync(renderQueue, ^{ });
         renderPending = false;
-        pendingViewportSize = {};
+        pendingViewportSize = { };
         pendingCorners.clear();
         pendingLinearProgress = 0.0;
         pendingRequestTimestamp = 0.0;
@@ -3363,8 +3198,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (context)
             [context clearCaches];
         const CFTimeInterval changedAt = CACurrentMediaTime();
-        brightnessRapidSwitch = lastImageChangeTime > 0.0
-                && changedAt - lastImageChangeTime < 1.0;
+        brightnessRapidSwitch = lastImageChangeTime > 0.0 && changedAt - lastImageChangeTime < 1.0;
         lastImageChangeTime = changedAt;
         brightnessStartTime = -1.0;
         image = nativeImage;
@@ -3377,9 +3211,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [presentationState resetForImage];
         ++presentationTransitionGeneration;
         presentationAnimationInFlight = false;
-        discardPersistentSurface(
-                nativeImage && previousPersistentPresentationVisible);
-        latestViewportSize = {};
+        discardPersistentSurface(nativeImage && previousPersistentPresentationVisible);
+        latestViewportSize = { };
         latestCorners.clear();
         state.imageActive = nativeImage != nullptr;
         state.sdrImageActive = nativeImage != nullptr && !imageIsHDR;
@@ -3441,10 +3274,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 state.usesMaterializedSDRTiles = true;
                 state.sdrMaterializedBytes = nativeSDR->materializedBytes();
                 state.sdrTileCount = nativeSDR->sourceTiles().size();
-                state.usesSDRFullSingleImage =
-                        nativeSDR->fullSingleCIImage() != nil;
-                state.usesPersistentSDRTileSurface =
-                        installPersistentSDRTileSurface(*nativeSDR);
+                state.usesSDRFullSingleImage = nativeSDR->fullSingleCIImage() != nil;
+                state.usesPersistentSDRTileSurface = installPersistentSDRTileSurface(*nativeSDR);
             }
         } else {
             state.isRaw = false;
@@ -3456,11 +3287,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction setDisableActions:YES];
         [presentationContainerLayer removeAnimationForKey:@"fovelle.hdr.presentation"];
         presentationContainerLayer.hidden = !nativeImage || !retainPreviousPresentation;
-        presentationContainerLayer.opacity = nativeImage && retainPreviousPresentation
-                ? 1.0F : 0.0F;
+        presentationContainerLayer.opacity =
+                nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
         metalLayer.hidden = nativeImage == nullptr;
-        metalLayer.opacity = nativeImage && previousMetalPresentationVisible
-                ? 1.0F : 0.0F;
+        metalLayer.opacity = nativeImage && previousMetalPresentationVisible ? 1.0F : 0.0F;
         if (!nativeImage) {
             viewportBackgroundLayer.hidden = YES;
             persistentSDRTileLayer.hidden = YES;
@@ -3470,8 +3300,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
         [CATransaction commit];
         state.layerOpacity = nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
-        setExtendedDynamicRangeEnabled(
-                nativeImage && imageIsHDR && presentationActiveRequested);
+        setExtendedDynamicRangeEnabled(nativeImage && imageIsHDR && presentationActiveRequested);
         return nativeImage != nullptr && state.rendererAvailable;
     }
 
@@ -3485,7 +3314,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (displayLink)
             displayLink.paused = YES;
         if (renderQueue)
-            dispatch_sync(renderQueue, ^{});
+            dispatch_sync(renderQueue, ^{ });
         clearPreparedImages();
         [presentationState resetForImage];
         discardPersistentSurface(false);
@@ -3523,8 +3352,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
 
     CIImage *preparedDisplayImage(const float targetHeadroom, const float progress)
     {
-        return hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage,
-                                         targetHeadroom, progress);
+        return hdrBrightnessDisplayImage(*image, preparedSDRImage, preparedHDRImage, targetHeadroom,
+                                         progress);
     }
 
     void syncPresentationDiagnostics()
@@ -3535,30 +3364,28 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         state.hdrPrepared = presentationState->hdrPrepared;
         state.framesInFlight = frameFlow ? frameFlow->framesInFlight.load() : 0;
         state.frameInFlight = state.framesInFlight > 0;
-        state.presentedFrameCount = frameFlow
-                ? frameFlow->presentedFrameCount.load() : 0;
-        state.presentedRenderGeneration = frameFlow
-                ? frameFlow->presentedRenderGeneration.load() : 0;
-        state.missedTargetDeadlineCount = frameFlow
-                ? frameFlow->missedTargetDeadlineCount.load() : 0;
-        state.lastPresentedIntervalMilliseconds = frameFlow
-                ? frameFlow->lastPresentedIntervalMilliseconds.load() : 0.0;
-        state.lastGPUExecutionMilliseconds = frameFlow
-                ? frameFlow->lastGPUExecutionMilliseconds.load() : 0.0;
-        state.maximumInteractiveRenderMilliseconds = frameFlow
-                ? frameFlow->maximumInteractiveRenderMilliseconds.load() : 0.0;
-        state.maximumInteractiveGPUExecutionMilliseconds = frameFlow
-                ? frameFlow->maximumInteractiveGPUExecutionMilliseconds.load() : 0.0;
-        state.lastRequestToPresentationMilliseconds = frameFlow
-                ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
-        state.firstVisibleFrameUsesFinalHeadroom = frameFlow
-                && frameFlow->firstVisibleFrameUsesFinalHeadroom.load();
-        state.sdrAuthoritativePresentedFrameCount = frameFlow
-                ? frameFlow->sdrAuthoritativePresentedFrameCount.load() : 0;
+        state.presentedFrameCount = frameFlow ? frameFlow->presentedFrameCount.load() : 0;
+        state.presentedRenderGeneration =
+                frameFlow ? frameFlow->presentedRenderGeneration.load() : 0;
+        state.missedTargetDeadlineCount =
+                frameFlow ? frameFlow->missedTargetDeadlineCount.load() : 0;
+        state.lastPresentedIntervalMilliseconds =
+                frameFlow ? frameFlow->lastPresentedIntervalMilliseconds.load() : 0.0;
+        state.lastGPUExecutionMilliseconds =
+                frameFlow ? frameFlow->lastGPUExecutionMilliseconds.load() : 0.0;
+        state.maximumInteractiveRenderMilliseconds =
+                frameFlow ? frameFlow->maximumInteractiveRenderMilliseconds.load() : 0.0;
+        state.maximumInteractiveGPUExecutionMilliseconds =
+                frameFlow ? frameFlow->maximumInteractiveGPUExecutionMilliseconds.load() : 0.0;
+        state.lastRequestToPresentationMilliseconds =
+                frameFlow ? frameFlow->lastRequestToPresentationMilliseconds.load() : 0.0;
+        state.firstVisibleFrameUsesFinalHeadroom =
+                frameFlow && frameFlow->firstVisibleFrameUsesFinalHeadroom.load();
+        state.sdrAuthoritativePresentedFrameCount =
+                frameFlow ? frameFlow->sdrAuthoritativePresentedFrameCount.load() : 0;
         state.displayLinkPaused = displayLink ? displayLink.paused : true;
         NSWindow *window = nativeView.window;
-        state.nativeWindowNumber = window
-                ? static_cast<int>(window.windowNumber) : 0;
+        state.nativeWindowNumber = window ? static_cast<int>(window.windowNumber) : 0;
         if (window) {
             // NSWindow uses a bottom-left Cocoa global coordinate system,
             // while screencapture window bounds and Qt global points use the
@@ -3566,31 +3393,28 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             // title bar), because `screencapture -l` captures that frame.
             const NSRect frame = window.frame;
             NSScreen *primaryScreen = NSScreen.screens.firstObject;
-            const CGFloat primaryTop = primaryScreen
-                    ? NSMaxY(primaryScreen.frame) : NSMaxY(frame);
+            const CGFloat primaryTop = primaryScreen ? NSMaxY(primaryScreen.frame) : NSMaxY(frame);
             state.nativeWindowGlobalX = static_cast<int>(std::lround(NSMinX(frame)));
-            state.nativeWindowGlobalY = static_cast<int>(
-                    std::lround(primaryTop - NSMaxY(frame)));
+            state.nativeWindowGlobalY = static_cast<int>(std::lround(primaryTop - NSMaxY(frame)));
         } else {
             state.nativeWindowGlobalX = 0;
             state.nativeWindowGlobalY = 0;
         }
         state.layerOpacity = currentPresentationOpacity();
         state.presentationActiveRequested = presentationActiveRequested;
-        state.presentationAnimationInFlight = presentationAnimationInFlight
-                || [presentationContainerLayer
-                           animationForKey:@"fovelle.hdr.presentation"] != nil;
+        state.presentationAnimationInFlight = presentationAnimationInFlight ||
+                [presentationContainerLayer animationForKey:@"fovelle.hdr.presentation"] != nil;
         state.persistentHDRSurfaceReady = persistentSurfaceReady;
     }
 
-    std::optional<CGAffineTransform> sourceToTextureTransform(
-            const CGRect sourceExtent, const QSize &viewportSize,
-            const QPolygonF &corners, const CGSize textureSize) const
+    std::optional<CGAffineTransform> sourceToTextureTransform(const CGRect sourceExtent,
+                                                              const QSize &viewportSize,
+                                                              const QPolygonF &corners,
+                                                              const CGSize textureSize) const
     {
-        if (viewportSize.isEmpty() || corners.size() < 4
-            || textureSize.width <= 0 || textureSize.height <= 0
-            || CGRectIsEmpty(sourceExtent) || sourceExtent.size.width <= 0
-            || sourceExtent.size.height <= 0)
+        if (viewportSize.isEmpty() || corners.size() < 4 || textureSize.width <= 0
+            || textureSize.height <= 0 || CGRectIsEmpty(sourceExtent)
+            || sourceExtent.size.width <= 0 || sourceExtent.size.height <= 0)
             return std::nullopt;
 
         // A drawable can briefly belong to the previous CAMetalLayer pool
@@ -3599,8 +3423,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const CGFloat scaleX = textureSize.width / viewportSize.width();
         const CGFloat scaleY = textureSize.height / viewportSize.height();
         const auto destinationPoint = [&](const QPointF &point) {
-            return CGPointMake(point.x() * scaleX,
-                               (viewportSize.height() - point.y()) * scaleY);
+            return CGPointMake(point.x() * scaleX, (viewportSize.height() - point.y()) * scaleY);
         };
         const CGPoint destinationBottomLeft = destinationPoint(corners.at(3));
         const CGPoint destinationBottomRight = destinationPoint(corners.at(2));
@@ -3620,8 +3443,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return CGAffineTransformMake(a, b, c, d, tx, ty);
     }
 
-    CIImage *backgroundImageForTexture(const CGRect destinationBounds,
-                                       const CGFloat scaleX,
+    CIImage *backgroundImageForTexture(const CGRect destinationBounds, const CGFloat scaleX,
                                        const CGFloat scaleY) const
     {
         // QColor stores these constants in sRGB. Keep that source tag so
@@ -3630,16 +3452,20 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CIImage *clearImage = nil;
         if (checkerboardBackground && !imageIsHDR) {
             CIFilter *checkerboard = [CIFilter filterWithName:@"CICheckerboardGenerator"];
-            CIColor *white = [CIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:1.0
-                                         colorSpace:backgroundColorSpace];
-            CIColor *gray = [CIColor colorWithRed:0.8 green:0.8 blue:0.8 alpha:1.0
+            CIColor *white = [CIColor colorWithRed:1.0
+                                             green:1.0
+                                              blue:1.0
+                                             alpha:1.0
                                         colorSpace:backgroundColorSpace];
-            [checkerboard setValue:[CIVector vectorWithX:0.0 Y:0.0]
-                            forKey:kCIInputCenterKey];
+            CIColor *gray = [CIColor colorWithRed:0.8
+                                            green:0.8
+                                             blue:0.8
+                                            alpha:1.0
+                                       colorSpace:backgroundColorSpace];
+            [checkerboard setValue:[CIVector vectorWithX:0.0 Y:0.0] forKey:kCIInputCenterKey];
             [checkerboard setValue:white forKey:@"inputColor0"];
             [checkerboard setValue:gray forKey:@"inputColor1"];
-            [checkerboard setValue:@(16.0 * std::max(scaleX, scaleY))
-                            forKey:kCIInputWidthKey];
+            [checkerboard setValue:@(16.0 * std::max(scaleX, scaleY)) forKey:kCIInputWidthKey];
             [checkerboard setValue:@1.0 forKey:kCIInputSharpnessKey];
             clearImage = [checkerboard.outputImage imageByCroppingToRect:destinationBounds];
         }
@@ -3649,67 +3475,56 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                                                    blue:backgroundColor.blueF()
                                                   alpha:1
                                              colorSpace:backgroundColorSpace];
-            clearImage = [[CIImage imageWithColor:clearColor]
-                    imageByCroppingToRect:destinationBounds];
+            clearImage =
+                    [[CIImage imageWithColor:clearColor] imageByCroppingToRect:destinationBounds];
         }
         return clearImage;
     }
 
-    CIImage *imageForTexture(CIImage *source, const QSize &viewportSize,
-                             const QPolygonF &corners, const CGSize textureSize)
+    CIImage *imageForTexture(CIImage *source, const QSize &viewportSize, const QPolygonF &corners,
+                             const CGSize textureSize)
     {
         if (!source)
             return nil;
-        const auto transform = sourceToTextureTransform(
-                source.extent, viewportSize, corners, textureSize);
+        const auto transform =
+                sourceToTextureTransform(source.extent, viewportSize, corners, textureSize);
         if (!transform)
             return nil;
         source = [source imageByApplyingTransform:*transform];
-        const CGRect destinationBounds = CGRectMake(
-                0, 0, textureSize.width, textureSize.height);
+        const CGRect destinationBounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
         const CGFloat scaleX = textureSize.width / viewportSize.width();
         const CGFloat scaleY = textureSize.height / viewportSize.height();
-        CIImage *clearImage = backgroundImageForTexture(
-                destinationBounds, scaleX, scaleY);
+        CIImage *clearImage = backgroundImageForTexture(destinationBounds, scaleX, scaleY);
         return [[source imageByCroppingToRect:destinationBounds]
                 imageByCompositingOverImage:clearImage];
     }
 
-    CIImage *tiledSDRImageForTexture(const NativeSDRImage &nativeImage,
-                                     const QSize &viewportSize,
-                                     const QPolygonF &corners,
-                                     const CGSize textureSize)
+    CIImage *tiledSDRImageForTexture(const NativeSDRImage &nativeImage, const QSize &viewportSize,
+                                     const QPolygonF &corners, const CGSize textureSize)
     {
         const QSize sourceSize = nativeImage.pixelSize();
-        const CGRect sourceExtent = CGRectMake(
-                0, 0, sourceSize.width(), sourceSize.height());
-        const auto transform = sourceToTextureTransform(
-                sourceExtent, viewportSize, corners, textureSize);
+        const CGRect sourceExtent = CGRectMake(0, 0, sourceSize.width(), sourceSize.height());
+        const auto transform =
+                sourceToTextureTransform(sourceExtent, viewportSize, corners, textureSize);
         if (!transform)
             return nil;
 
         if (nativeImage.fullSingleCIImage()) {
             state.usesSDRFullSingleImage = true;
             state.sdrVisibleTileCount = 0;
-            return imageForTexture(
-                    nativeImage.fullSingleCIImage(),
-                    viewportSize, corners, textureSize);
+            return imageForTexture(nativeImage.fullSingleCIImage(), viewportSize, corners,
+                                   textureSize);
         }
         state.usesSDRFullSingleImage = false;
 
-        const CGRect destinationBounds = CGRectMake(
-                0, 0, textureSize.width, textureSize.height);
+        const CGRect destinationBounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
         const CGFloat scaleX = textureSize.width / viewportSize.width();
         const CGFloat scaleY = textureSize.height / viewportSize.height();
-        CIImage *composite = backgroundImageForTexture(
-                destinationBounds, scaleX, scaleY);
+        CIImage *composite = backgroundImageForTexture(destinationBounds, scaleX, scaleY);
         int visibleTileCount = 0;
-        for (const NativeSDRImage::Tile &tile : nativeImage.sourceTiles())
-        {
-            const CGRect transformedCore = CGRectApplyAffineTransform(
-                    tile.coreRect, *transform);
-            const CGRect outputRect = CGRectIntersection(
-                    transformedCore, destinationBounds);
+        for (const NativeSDRImage::Tile &tile : nativeImage.sourceTiles()) {
+            const CGRect transformedCore = CGRectApplyAffineTransform(tile.coreRect, *transform);
+            const CGRect outputRect = CGRectIntersection(transformedCore, destinationBounds);
             if (CGRectIsNull(outputRect) || CGRectIsEmpty(outputRect))
                 continue;
 
@@ -3717,9 +3532,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             // available to Core Image's affine sampler, then output is clipped
             // back to the nonoverlapping core so adjacent tiles cannot create
             // translucent seams or double-composite alpha.
-            CIImage *placed = [tile.image imageByApplyingTransform:
-                    CGAffineTransformMakeTranslation(
-                            tile.dataRect.origin.x, tile.dataRect.origin.y)];
+            CIImage *placed = [tile.image imageByApplyingTransform:CGAffineTransformMakeTranslation(
+                                                                           tile.dataRect.origin.x,
+                                                                           tile.dataRect.origin.y)];
             CIImage *transformed = [placed imageByApplyingTransform:*transform];
             transformed = [transformed imageByCroppingToRect:outputRect];
             composite = [transformed imageByCompositingOverImage:composite];
@@ -3729,12 +3544,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         return composite;
     }
 
-    void revealAfterPresentation(id<CAMetalDrawable> drawable,
-                                 id<MTLCommandBuffer> commandBuffer,
+    void revealAfterPresentation(id<CAMetalDrawable> drawable, id<MTLCommandBuffer> commandBuffer,
                                  const bool finalHeadroom)
     {
-        if (presentationState->firstFrameSubmitted
-            || !state.drawableGeometryMatches
+        if (presentationState->firstFrameSubmitted || !state.drawableGeometryMatches
             || (imageIsHDR && !presentationState->hdrPrepared))
             return;
 
@@ -3811,9 +3624,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         clearPreparedImages();
         MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
                 texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
-                                              width:static_cast<NSUInteger>(textureSize.width)
-                                             height:static_cast<NSUInteger>(textureSize.height)
-                                          mipmapped:NO];
+                                             width:static_cast<NSUInteger>(textureSize.width)
+                                            height:static_cast<NSUInteger>(textureSize.height)
+                                         mipmapped:NO];
         descriptor.storageMode = MTLStorageModePrivate;
         descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite
                 | MTLTextureUsageRenderTarget;
@@ -3854,12 +3667,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const NSUInteger preparationGeneration = presentationState->generation;
         QVHDRPresentationState *gate = presentationState;
         const CGRect bounds = CGRectMake(0, 0, textureSize.width, textureSize.height);
-        const float fullTargetHeadroom = static_cast<float>(
-                QVCocoaFunctions::effectiveHDRHeadroom(
-                        state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
+        const float fullTargetHeadroom = static_cast<float>(QVCocoaFunctions::effectiveHDRHeadroom(
+                state.contentHeadroom, state.displayRenderingHeadroom, 1.0));
         CIImage *finalDisplayImage = preparedDisplayImage(fullTargetHeadroom, 1.0F);
-        CIImage *preparedHDRFrame = imageForTexture(
-                finalDisplayImage, viewportSize, corners, textureSize);
+        CIImage *preparedHDRFrame =
+                imageForTexture(finalDisplayImage, viewportSize, corners, textureSize);
         if (!preparedHDRFrame) {
             clearPreparedImages();
             presentationState->hdrPreparationInFlight = NO;
@@ -3874,11 +3686,9 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // small cross-shaped warm set prevents the first few drag samples from
         // paying that compilation cost after the user zooms.
         QPolygonF interactionWarmCorners = corners;
-        const QPointF viewportCenter(viewportSize.width() / 2.0,
-                                     viewportSize.height() / 2.0);
+        const QPointF viewportCenter(viewportSize.width() / 2.0, viewportSize.height() / 2.0);
         for (QPointF &corner : interactionWarmCorners)
-            corner = viewportCenter + (corner - viewportCenter) * 4.0
-                    + QPointF(11.0, 7.0);
+            corner = viewportCenter + (corner - viewportCenter) * 4.0 + QPointF(11.0, 7.0);
         NSMutableArray *interactionWarmFrames = [[NSMutableArray alloc] initWithCapacity:5];
         const QPointF warmOffsets[] = {
             QPointF(0.0, 0.0),
@@ -3891,8 +3701,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             QPolygonF sampleCorners = interactionWarmCorners;
             for (QPointF &corner : sampleCorners)
                 corner += offset;
-            CIImage *warmFrame = imageForTexture(
-                    finalDisplayImage, viewportSize, sampleCorners, textureSize);
+            CIImage *warmFrame =
+                    imageForTexture(finalDisplayImage, viewportSize, sampleCorners, textureSize);
             if (warmFrame)
                 [interactionWarmFrames addObject:warmFrame];
         }
@@ -3906,20 +3716,19 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CGColorSpaceRef renderColorSpace = CGColorSpaceRetain(outputColorSpace);
         dispatch_async(renderQueue, ^{
             [renderContext render:openingFrame
-                      toMTLTexture:targetTexture
-                     commandBuffer:retainedBuffer
-                            bounds:bounds
-                        colorSpace:renderColorSpace];
+                     toMTLTexture:targetTexture
+                    commandBuffer:retainedBuffer
+                           bounds:bounds
+                       colorSpace:renderColorSpace];
             for (CIImage *warmFrame in retainedWarmFrames) {
                 [renderContext render:warmFrame
-                          toMTLTexture:targetTexture
-                         commandBuffer:retainedBuffer
-                                bounds:bounds
-                            colorSpace:renderColorSpace];
+                         toMTLTexture:targetTexture
+                        commandBuffer:retainedBuffer
+                               bounds:bounds
+                           colorSpace:renderColorSpace];
             }
             [retainedBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
-                const BOOL completed =
-                        completedBuffer.status == MTLCommandBufferStatusCompleted;
+                const BOOL completed = completedBuffer.status == MTLCommandBufferStatusCompleted;
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (gate->generation != preparationGeneration)
                         return;
@@ -3939,22 +3748,20 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         });
     }
 
-    void render(const QSize &viewportSize, const QPolygonF &corners,
-                const qreal linearProgress, const bool interactive)
+    void render(const QSize &viewportSize, const QPolygonF &corners, const qreal linearProgress,
+                const bool interactive)
     {
         if (!state.rendererAvailable || !image || viewportSize.isEmpty() || corners.size() < 4)
             return;
 
-        if (maximumFramesPerSecondForCurrentDisplay()
-            != state.displayMaximumFramesPerSecond)
+        if (maximumFramesPerSecondForCurrentDisplay() != state.displayMaximumFramesPerSecond)
             configureDisplayLinkFrameRate(displayLink);
 
         syncViewportLayerGeometry();
         latestViewportSize = viewportSize;
         latestCorners = corners;
         if (persistentSDRTileSurfaceReady && !imageIsHDR) {
-            const auto nativeSDR =
-                    std::dynamic_pointer_cast<const NativeSDRImage>(image);
+            const auto nativeSDR = std::dynamic_pointer_cast<const NativeSDRImage>(image);
             if (!nativeSDR)
                 return;
 
@@ -3964,8 +3771,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const quint64 geometryGeneration = ++state.requestedRenderGeneration;
             updatePersistentSDRTileGeometry(*nativeSDR, viewportSize, corners);
             revealPersistentSDRTileSurface();
-            const double elapsedMilliseconds =
-                    geometryTimer.nsecsElapsed() / 1000000.0;
+            const double elapsedMilliseconds = geometryTimer.nsecsElapsed() / 1000000.0;
             const double now = CACurrentMediaTime();
             state.submittedRenderGeneration = geometryGeneration;
             state.lastRenderMilliseconds = elapsedMilliseconds;
@@ -3978,16 +3784,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 const double previous = frameFlow->lastPresentedTime.exchange(now);
                 frameFlow->lastPresentedIntervalMilliseconds.store(
                         previous > 0.0 ? (now - previous) * 1000.0 : 0.0);
-                frameFlow->lastRequestToPresentationMilliseconds.store(
-                        elapsedMilliseconds);
+                frameFlow->lastRequestToPresentationMilliseconds.store(elapsedMilliseconds);
                 frameFlow->lastGPUExecutionMilliseconds.store(0.0);
                 frameFlow->presentedRenderGeneration.store(geometryGeneration);
                 frameFlow->presentedFrameCount.fetch_add(1);
                 frameFlow->sdrAuthoritativePresentedFrameCount.fetch_add(1);
                 if (interactive)
-                    updateAtomicMaximum(
-                            frameFlow->maximumInteractiveRenderMilliseconds,
-                            elapsedMilliseconds);
+                    updateAtomicMaximum(frameFlow->maximumInteractiveRenderMilliseconds,
+                                        elapsedMilliseconds);
             }
             renderPending = false;
             pendingInteractive = interactive;
@@ -4004,8 +3808,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const quint64 geometryGeneration = ++state.requestedRenderGeneration;
             updatePersistentSurfaceGeometry(viewportSize, corners);
             state.submittedRenderGeneration = geometryGeneration;
-            state.lastRenderMilliseconds =
-                    geometryTimer.nsecsElapsed() / 1000000.0;
+            state.lastRenderMilliseconds = geometryTimer.nsecsElapsed() / 1000000.0;
             ++state.renderCount;
             renderPending = false;
             pendingInteractive = interactive;
@@ -4020,16 +3823,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // Mutating drawableSize from inside needsUpdate can leave the link
         // waiting on the old drawable pool after scrollbars resize a viewport.
         NSScreen *screen = nativeView.window.screen ?: NSScreen.mainScreen;
-        const CGFloat backingScale = nativeView.window
-                ? nativeView.window.backingScaleFactor
-                : (screen ? screen.backingScaleFactor : 1.0);
-        const CGSize requestedSize = CGSizeMake(
-                std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
-                std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
-        state.requestedDrawableWidth = static_cast<int>(
-                std::lround(requestedSize.width));
-        state.requestedDrawableHeight = static_cast<int>(
-                std::lround(requestedSize.height));
+        const CGFloat backingScale = nativeView.window ? nativeView.window.backingScaleFactor
+                                                       : (screen ? screen.backingScaleFactor : 1.0);
+        const CGSize requestedSize =
+                CGSizeMake(std::max<CGFloat>(1.0, viewportSize.width() * backingScale),
+                           std::max<CGFloat>(1.0, viewportSize.height() * backingScale));
+        state.requestedDrawableWidth = static_cast<int>(std::lround(requestedSize.width));
+        state.requestedDrawableHeight = static_cast<int>(std::lround(requestedSize.height));
         const bool drawableSizeChanged =
                 std::abs(metalLayer.drawableSize.width - requestedSize.width) > 0.5
                 || std::abs(metalLayer.drawableSize.height - requestedSize.height) > 0.5;
@@ -4058,9 +3858,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // while the link is still parked, leaving one stale frame on screen.
         // The deadline is refreshed by every input sample and expires shortly
         // after the final sample, so idle images still use one-shot rendering.
-        interactiveKeepAliveUntil = interactive
-                ? pendingRequestTimestamp + 0.16
-                : 0.0;
+        interactiveKeepAliveUntil = interactive ? pendingRequestTimestamp + 0.16 : 0.0;
         pendingRenderGeneration = ++state.requestedRenderGeneration;
         if (displayLink && displayLink.paused)
             displayLink.paused = NO;
@@ -4070,8 +3868,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     {
         ++state.displayLinkCallbackCount;
         syncPresentationDiagnostics();
-        const bool keepAlive = pendingInteractive
-                && interactiveKeepAliveUntil > CACurrentMediaTime();
+        const bool keepAlive =
+                pendingInteractive && interactiveKeepAliveUntil > CACurrentMediaTime();
         if (!renderPending && !keepAlive)
             return;
         // Do not pause from an idle callback: that callback can race a request
@@ -4083,8 +3881,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         // display link. Pending geometry remains latest-only, so this does not
         // turn input events into an unbounded frame queue.
         const int maximumFramesInFlight = imageIsHDR ? 2 : 3;
-        if (frameFlow
-            && frameFlow->framesInFlight.load() >= maximumFramesInFlight) {
+        if (frameFlow && frameFlow->framesInFlight.load() >= maximumFramesInFlight) {
             ++state.deferredDisplayLinkCallbackCount;
             return;
         }
@@ -4095,16 +3892,14 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         const bool interactive = pendingInteractive;
         const CFTimeInterval requestTimestamp = pendingRequestTimestamp;
         const quint64 renderGeneration = pendingRenderGeneration;
-        const bool submitted = renderToDrawable(
-                update.drawable, viewportSize, corners, linearProgress,
-                renderGeneration, requestTimestamp, update.targetTimestamp,
-                interactive);
+        const bool submitted = renderToDrawable(update.drawable, viewportSize, corners,
+                                                linearProgress, renderGeneration, requestTimestamp,
+                                                update.targetTimestamp, interactive);
         if (submitted && pendingRenderGeneration == renderGeneration) {
             if (interactive)
                 ++state.displayLinkInteractiveSubmissionCount;
-            if ((imageIsHDR && state.transitionProgress < 0.999F)
-                || keepAlive || (pendingInteractive
-                              && interactiveKeepAliveUntil > CACurrentMediaTime())) {
+            if ((imageIsHDR && state.transitionProgress < 0.999F) || keepAlive
+                || (pendingInteractive && interactiveKeepAliveUntil > CACurrentMediaTime())) {
                 // A display-link callback must receive a drawable on every
                 // cadence while interaction is active. Re-submit the latest
                 // geometry until the keep-alive deadline, refreshing the
@@ -4120,17 +3915,13 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
     }
 
-    bool renderToDrawable(id<CAMetalDrawable> drawable,
-                          const QSize &viewportSize,
-                          const QPolygonF &corners,
-                          const qreal linearProgress,
-                          const quint64 renderGeneration,
-                          const CFTimeInterval requestTimestamp,
-                          const CFTimeInterval targetTimestamp,
-                          const bool interactive)
+    bool renderToDrawable(id<CAMetalDrawable> drawable, const QSize &viewportSize,
+                          const QPolygonF &corners, const qreal linearProgress,
+                          const quint64 renderGeneration, const CFTimeInterval requestTimestamp,
+                          const CFTimeInterval targetTimestamp, const bool interactive)
     {
-        if (!state.rendererAvailable || !image || !drawable
-            || viewportSize.isEmpty() || corners.size() < 4)
+        if (!state.rendererAvailable || !image || !drawable || viewportSize.isEmpty()
+            || corners.size() < 4)
             return false;
 
         @autoreleasepool {
@@ -4165,24 +3956,30 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             if (currentOverrideIsValid)
                 state.displayCurrentHeadroom =
                         static_cast<float>(std::max(1.0, overriddenCurrentHeadroom));
-            state.displayRenderingHeadroom = static_cast<float>(
-                    QVCocoaFunctions::displayHeadroomForRendering(
+            state.displayRenderingHeadroom =
+                    static_cast<float>(QVCocoaFunctions::displayHeadroomForRendering(
                             state.displayCurrentHeadroom, state.displayPotentialHeadroom,
                             state.contentHeadroom));
             state.bootstrappingEDR = state.displayCurrentHeadroom <= 1.001F
                     && state.displayRenderingHeadroom > 1.001F;
             bool durationValid = false;
-            const double configuredDuration = qgetenv("FOVELLE_HDR_FADE_MS").toDouble(&durationValid);
-            const qreal elapsed = brightnessStartTime < 0.0 ? 0.0
+            const double configuredDuration =
+                    qgetenv("FOVELLE_HDR_FADE_MS").toDouble(&durationValid);
+            const qreal elapsed = brightnessStartTime < 0.0
+                    ? 0.0
                     : (CACurrentMediaTime() - brightnessStartTime) * 1000.0;
-            const qreal brightnessProgress = brightnessStartTime < 0.0 ? 0.0
-                    : QVCocoaFunctions::hdrBrightnessProgress(elapsed, brightnessRapidSwitch,
-                            NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion,
-                            durationValid ? configuredDuration : 600.0);
+            const qreal brightnessProgress = brightnessStartTime < 0.0
+                    ? 0.0
+                    : QVCocoaFunctions::hdrBrightnessProgress(
+                              elapsed, brightnessRapidSwitch,
+                              NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion,
+                              durationValid ? configuredDuration : 600.0);
             state.transitionProgress = static_cast<float>(brightnessProgress);
-            state.targetHeadroom = 1.0F + (std::min(
-                    std::max(1.0F, state.contentHeadroom), state.displayRenderingHeadroom)
-                    - 1.0F) * state.transitionProgress;
+            state.targetHeadroom = 1.0F
+                    + (std::min(std::max(1.0F, state.contentHeadroom),
+                                state.displayRenderingHeadroom)
+                       - 1.0F)
+                            * state.transitionProgress;
             if (!imageIsHDR) {
                 // SDR uses the same color-managed float drawable, but never
                 // opts the layer into EDR or evaluates HDR transition graphs.
@@ -4196,9 +3993,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 state.targetHeadroom = 1.0F;
             }
 
-            const CGSize requestedSize = CGSizeMake(
-                    state.requestedDrawableWidth,
-                    state.requestedDrawableHeight);
+            const CGSize requestedSize =
+                    CGSizeMake(state.requestedDrawableWidth, state.requestedDrawableHeight);
 
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
@@ -4229,8 +4025,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [CATransaction commit];
 
             const bool needsManagedPreparation = state.displayRenderingHeadroom > 1.001F;
-            const bool preparedEndpointsAvailable = presentationState->hdrPrepared
-                    && preparedSDRImage && preparedHDRImage;
+            const bool preparedEndpointsAvailable =
+                    presentationState->hdrPrepared && preparedSDRImage && preparedHDRImage;
 
             // A full-resolution RAW or adaptive-HDR graph may evaluate its
             // tiles lazily. Never reveal that first evaluation: it can contain
@@ -4258,43 +4054,38 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             const CGSize actualSize = CGSizeMake(drawable.texture.width, drawable.texture.height);
             state.actualTextureWidth = static_cast<int>(drawable.texture.width);
             state.actualTextureHeight = static_cast<int>(drawable.texture.height);
-            state.drawableGeometryMatches =
-                    state.actualTextureWidth == state.requestedDrawableWidth
+            state.drawableGeometryMatches = state.actualTextureWidth == state.requestedDrawableWidth
                     && state.actualTextureHeight == state.requestedDrawableHeight;
             if (!state.drawableGeometryMatches)
                 return false;
 
-            const bool preparedEndpointsActive = presentationState->hdrPrepared
-                    && preparedSDRImage && preparedHDRImage;
+            const bool preparedEndpointsActive =
+                    presentationState->hdrPrepared && preparedSDRImage && preparedHDRImage;
             state.preparedGeometryActive = preparedEndpointsActive;
             if (needsManagedPreparation && !preparedEndpointsActive)
                 return false;
             CIImage *source = nil;
-            const auto nativeSDR = !imageIsHDR
-                    ? dynamic_cast<const NativeSDRImage *>(image.get()) : nullptr;
+            const auto nativeSDR =
+                    !imageIsHDR ? dynamic_cast<const NativeSDRImage *>(image.get()) : nullptr;
             if (nativeSDR) {
-                source = tiledSDRImageForTexture(
-                        *nativeSDR, viewportSize, corners, actualSize);
+                source = tiledSDRImageForTexture(*nativeSDR, viewportSize, corners, actualSize);
             } else {
-                source = hdrBrightnessDisplayImage(*image,
-                        preparedEndpointsActive ? preparedSDRImage : image->sdrCIImage(),
+                source = hdrBrightnessDisplayImage(
+                        *image, preparedEndpointsActive ? preparedSDRImage : image->sdrCIImage(),
                         preparedEndpointsActive ? preparedHDRImage : image->hdrCIImage(),
                         state.displayRenderingHeadroom, state.transitionProgress);
-                source = imageForTexture(
-                        source, viewportSize, corners, actualSize);
+                source = imageForTexture(source, viewportSize, corners, actualSize);
             }
             const bool usesAuthoritativeSDRFrame = nativeSDR != nullptr;
             if (!source)
                 return false;
 
-            const CGRect destinationBounds = CGRectMake(
-                    0, 0, actualSize.width, actualSize.height);
+            const CGRect destinationBounds = CGRectMake(0, 0, actualSize.width, actualSize.height);
             const bool finalHeadroom = state.transitionProgress >= 0.999F;
             revealAfterPresentation(drawable, commandBuffer, finalHeadroom);
             state.submittedRenderGeneration = renderGeneration;
             const auto submittedFlow = frameFlow;
-            const auto presentationCallTimestamp =
-                    std::make_shared<std::atomic<double>>(0.0);
+            const auto presentationCallTimestamp = std::make_shared<std::atomic<double>>(0.0);
             if (submittedFlow)
                 submittedFlow->framesInFlight.fetch_add(1);
             [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedBuffer) {
@@ -4302,14 +4093,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     const double gpuStart = completedBuffer.GPUStartTime;
                     const double gpuEnd = completedBuffer.GPUEndTime;
                     if (gpuEnd >= gpuStart && gpuStart > 0.0) {
-                        const double gpuMilliseconds =
-                                (gpuEnd - gpuStart) * 1000.0;
-                        submittedFlow->lastGPUExecutionMilliseconds.store(
-                                gpuMilliseconds);
+                        const double gpuMilliseconds = (gpuEnd - gpuStart) * 1000.0;
+                        submittedFlow->lastGPUExecutionMilliseconds.store(gpuMilliseconds);
                         if (interactive)
                             updateAtomicMaximum(
-                                    submittedFlow
-                                            ->maximumInteractiveGPUExecutionMilliseconds,
+                                    submittedFlow->maximumInteractiveGPUExecutionMilliseconds,
                                     gpuMilliseconds);
                     }
                     submittedFlow->framesInFlight.fetch_sub(1);
@@ -4327,16 +4115,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     // inside addPresentedHandler. The handler invocation itself
                     // is the documented post-presentation observation point,
                     // so use its monotonic timestamp as the auditable fallback.
-                    const double presentedTime = reportedPresentedTime > 0.0
-                            ? reportedPresentedTime : CACurrentMediaTime();
-                    const double previousTime = submittedFlow->lastPresentedTime.exchange(
-                            presentedTime);
-                    const double intervalMilliseconds = previousTime > 0.0
-                            ? (presentedTime - previousTime) * 1000.0 : 0.0;
+                    const double presentedTime = reportedPresentedTime > 0.0 ? reportedPresentedTime
+                                                                             : CACurrentMediaTime();
+                    const double previousTime =
+                            submittedFlow->lastPresentedTime.exchange(presentedTime);
+                    const double intervalMilliseconds =
+                            previousTime > 0.0 ? (presentedTime - previousTime) * 1000.0 : 0.0;
                     const double requestToPresentationMilliseconds =
                             std::max(0.0, (presentedTime - requestTimestamp) * 1000.0);
-                    submittedFlow->lastPresentedIntervalMilliseconds.store(
-                            intervalMilliseconds);
+                    submittedFlow->lastPresentedIntervalMilliseconds.store(intervalMilliseconds);
                     submittedFlow->lastRequestToPresentationMilliseconds.store(
                             requestToPresentationMilliseconds);
                     const quint64 presentedCount =
@@ -4344,26 +4131,24 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                     submittedFlow->presentedRenderGeneration.store(renderGeneration);
                     if (usesAuthoritativeSDRFrame)
                         submittedFlow->sdrAuthoritativePresentedFrameCount.fetch_add(1);
-                    const double presentationCallTime =
-                            presentationCallTimestamp->load();
-                    const bool missedDeadline = targetTimestamp > 0.0
-                            && presentationCallTime > targetTimestamp;
+                    const double presentationCallTime = presentationCallTimestamp->load();
+                    const bool missedDeadline =
+                            targetTimestamp > 0.0 && presentationCallTime > targetTimestamp;
                     if (missedDeadline)
                         submittedFlow->missedTargetDeadlineCount.fetch_add(1);
                     if (presentationLogging) {
                         std::fprintf(stderr,
-                                "FOVELLE_PRESENT {\"generation\":%llu,"
-                                "\"presented_count\":%llu,\"interactive\":%s,"
-                                "\"final_headroom\":%s,\"interval_ms\":%.3f,"
-                                "\"request_to_present_ms\":%.3f,"
-                                "\"missed_target\":%s}\n",
-                                static_cast<unsigned long long>(renderGeneration),
-                                static_cast<unsigned long long>(presentedCount),
-                                interactive ? "true" : "false",
-                                finalHeadroom ? "true" : "false",
-                                intervalMilliseconds,
-                                requestToPresentationMilliseconds,
-                                missedDeadline ? "true" : "false");
+                                     "FOVELLE_PRESENT {\"generation\":%llu,"
+                                     "\"presented_count\":%llu,\"interactive\":%s,"
+                                     "\"final_headroom\":%s,\"interval_ms\":%.3f,"
+                                     "\"request_to_present_ms\":%.3f,"
+                                     "\"missed_target\":%s}\n",
+                                     static_cast<unsigned long long>(renderGeneration),
+                                     static_cast<unsigned long long>(presentedCount),
+                                     interactive ? "true" : "false",
+                                     finalHeadroom ? "true" : "false", intervalMilliseconds,
+                                     requestToPresentationMilliseconds,
+                                     missedDeadline ? "true" : "false");
                     }
                 }];
             }
@@ -4381,10 +4166,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 QElapsedTimer timer;
                 timer.start();
                 [renderContext render:encodedSource
-                          toMTLTexture:encodedDrawable.texture
-                         commandBuffer:encodedCommandBuffer
-                                bounds:destinationBounds
-                            colorSpace:renderColorSpace];
+                         toMTLTexture:encodedDrawable.texture
+                        commandBuffer:encodedCommandBuffer
+                               bounds:destinationBounds
+                           colorSpace:renderColorSpace];
                 // Presentation is ordered after every Core Image command
                 // encoded in this command buffer. A drawable supplied by
                 // CAMetalDisplayLink must use ordinary present; targetTimestamp
@@ -4393,17 +4178,15 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 presentationCallTimestamp->store(CACurrentMediaTime());
                 [encodedCommandBuffer presentDrawable:encodedDrawable];
                 [encodedCommandBuffer commit];
-                const double elapsedMilliseconds =
-                        timer.nsecsElapsed() / 1000000.0;
+                const double elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
                 {
                     const std::lock_guard<std::mutex> lock(telemetryMutex);
                     state.lastRenderMilliseconds = elapsedMilliseconds;
                     ++state.renderCount;
                 }
                 if (interactive && submittedFlow)
-                    updateAtomicMaximum(
-                            submittedFlow->maximumInteractiveRenderMilliseconds,
-                            elapsedMilliseconds);
+                    updateAtomicMaximum(submittedFlow->maximumInteractiveRenderMilliseconds,
+                                        elapsedMilliseconds);
                 CGColorSpaceRelease(renderColorSpace);
             });
             syncPresentationDiagnostics();
@@ -4519,8 +4302,7 @@ void QVCocoaFunctions::HDRRenderer::setCheckerboardBackground(const bool enabled
         impl->setCheckerboardBackground(enabled);
 }
 
-void QVCocoaFunctions::HDRRenderer::setPresentationActive(const bool active,
-                                                          const bool animated)
+void QVCocoaFunctions::HDRRenderer::setPresentationActive(const bool active, const bool animated)
 {
     if (impl)
         impl->setPresentationActive(active, animated);
@@ -4535,25 +4317,23 @@ void QVCocoaFunctions::HDRRenderer::invalidateGeometry()
 void QVCocoaFunctions::HDRRenderer::clear()
 {
     if (impl)
-        impl->setImage({});
+        impl->setImage({ });
 }
 
 void QVCocoaFunctions::HDRRenderer::render(const QSize &viewportSize, const QPolygonF &imageCorners,
-                                           const qreal transitionProgress,
-                                           const bool interactive)
+                                           const qreal transitionProgress, const bool interactive)
 {
     if (impl)
         impl->render(viewportSize, imageCorners, transitionProgress, interactive);
 }
 
 void QVCocoaFunctions::HDRRenderer::setNavigationOverlay(
-        const int index, const QRectF &viewportRect, const qreal opacity,
-        const bool previous, const bool darkBackground, const bool hovered,
-        const bool pressed, const bool enabled)
+        const int index, const QRectF &viewportRect, const qreal opacity, const bool previous,
+        const bool darkBackground, const bool hovered, const bool pressed, const bool enabled)
 {
     if (impl)
-        impl->setNavigationOverlay(index, viewportRect, opacity, previous,
-                                   darkBackground, hovered, pressed, enabled);
+        impl->setNavigationOverlay(index, viewportRect, opacity, previous, darkBackground, hovered,
+                                   pressed, enabled);
 }
 
 void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()
@@ -4562,8 +4342,8 @@ void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()
         impl->clearNavigationOverlays();
 }
 
-void QVCocoaFunctions::HDRRenderer::setBoundaryHintOverlay(
-        const QRectF &viewportRect, const QImage &image)
+void QVCocoaFunctions::HDRRenderer::setBoundaryHintOverlay(const QRectF &viewportRect,
+                                                           const QImage &image)
 {
     if (impl)
         impl->setBoundaryHintOverlay(viewportRect, image);
@@ -4583,20 +4363,17 @@ void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
 
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
 {
-    return impl ? impl->diagnostics() : HDRRendererDiagnostics{};
+    return impl ? impl->diagnostics() : HDRRendererDiagnostics{ };
 }
 
-QRect QVCocoaFunctions::coreImageTileRect(const QRect &topLeftPixelRect,
-                                          const int sourceHeight)
+QRect QVCocoaFunctions::coreImageTileRect(const QRect &topLeftPixelRect, const int sourceHeight)
 {
-    if (!topLeftPixelRect.isValid() || sourceHeight <= 0
-        || topLeftPixelRect.top() < 0
+    if (!topLeftPixelRect.isValid() || sourceHeight <= 0 || topLeftPixelRect.top() < 0
         || topLeftPixelRect.bottom() >= sourceHeight)
-        return {};
+        return { };
 
     return QRect(topLeftPixelRect.x(),
-                 sourceHeight - topLeftPixelRect.y()
-                         - topLeftPixelRect.height(),
+                 sourceHeight - topLeftPixelRect.y() - topLeftPixelRect.height(),
                  topLeftPixelRect.width(), topLeftPixelRect.height());
 }
 
@@ -4607,8 +4384,7 @@ QVCocoaFunctions::sdrFrameRatePolicy(const qreal displayMaximumFramesPerSecond)
     constexpr qreal RequiredFramesPerSecond = 180.0;
     constexpr qreal MaximumRequestedFramesPerSecond = 240.0;
     const qreal displayMaximum =
-            std::isfinite(displayMaximumFramesPerSecond)
-                    && displayMaximumFramesPerSecond > 0.0
+            std::isfinite(displayMaximumFramesPerSecond) && displayMaximumFramesPerSecond > 0.0
             ? displayMaximumFramesPerSecond
             : FallbackDisplayFramesPerSecond;
 
@@ -4622,15 +4398,15 @@ QVCocoaFunctions::sdrFrameRatePolicy(const qreal displayMaximumFramesPerSecond)
     }
 
     policy.minimum = RequiredFramesPerSecond;
-    policy.maximum = std::min(displayMaximum,
-                              MaximumRequestedFramesPerSecond);
+    policy.maximum = std::min(displayMaximum, MaximumRequestedFramesPerSecond);
     policy.preferred = policy.maximum;
     return policy;
 }
 
 QVector<float> QVCocoaFunctions::HDRRenderer::probePersistentHDRPixels() const
 {
-    if (!impl || !impl->persistentSurfaceReady || !impl->persistentImage) return {};
+    if (!impl || !impl->persistentSurfaceReady || !impl->persistentImage)
+        return { };
     @autoreleasepool {
         CIImage *source = [CIImage imageWithCGImage:impl->persistentImage];
         return sampleLinearHDRImage(source);
@@ -4644,61 +4420,87 @@ qreal QVCocoaFunctions::easedHDRTransition(const qreal progress)
     qreal low = 0.0, high = 1.0;
     for (int i = 0; i < 48; ++i) {
         const qreal u = (low + high) * 0.5;
-        const qreal x = 3.0 * (1.0-u)*(1.0-u)*u*0.42
-                + 3.0*(1.0-u)*u*u*0.58 + u*u*u;
-        if (x < bounded) low = u; else high = u;
+        const qreal x =
+                3.0 * (1.0 - u) * (1.0 - u) * u * 0.42 + 3.0 * (1.0 - u) * u * u * 0.58 + u * u * u;
+        if (x < bounded)
+            low = u;
+        else
+            high = u;
     }
     const qreal u = (low + high) * 0.5;
-    if (bounded == 0.0 || bounded == 1.0) return bounded;
-    return 3.0*(1.0-u)*u*u + u*u*u;
+    if (bounded == 0.0 || bounded == 1.0)
+        return bounded;
+    return 3.0 * (1.0 - u) * u * u + u * u * u;
 }
 
 qreal QVCocoaFunctions::hdrBrightnessProgress(const qreal elapsedMilliseconds,
-        const bool rapidSwitch, const bool reduceMotion, const qreal totalMilliseconds)
+                                              const bool rapidSwitch, const bool reduceMotion,
+                                              const qreal totalMilliseconds)
 {
-    if (reduceMotion) return 1.0;
-    const qreal total = rapidSwitch ? 250.0
-            : (std::isfinite(totalMilliseconds) ? std::clamp(totalMilliseconds, 400.0, 800.0) : 600.0);
+    if (reduceMotion)
+        return 1.0;
+    const qreal total = rapidSwitch
+            ? 250.0
+            : (std::isfinite(totalMilliseconds) ? std::clamp(totalMilliseconds, 400.0, 800.0)
+                                                : 600.0);
     const qreal delay = rapidSwitch ? 0.0 : 80.0;
     return easedHDRTransition((elapsedMilliseconds - delay) / (total - delay));
 }
 
-std::array<float, 4> QVCocoaFunctions::probeHDRBrightnessPixel(
-        const std::array<float, 4> &sdr, const std::array<float, 4> &hdr,
-        const float headroom, const float easedProgress)
+std::array<float, 4> QVCocoaFunctions::probeHDRBrightnessPixel(const std::array<float, 4> &sdr,
+                                                               const std::array<float, 4> &hdr,
+                                                               const float headroom,
+                                                               const float easedProgress)
 {
     CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
     CIContext *probe = metalCIContext(space, space);
     CIImage *base = [CIImage imageWithBitmapData:[NSData dataWithBytes:sdr.data() length:16]
-            bytesPerRow:16 size:CGSizeMake(1, 1) format:kCIFormatRGBAf colorSpace:space];
+                                     bytesPerRow:16
+                                            size:CGSizeMake(1, 1)
+                                          format:kCIFormatRGBAf
+                                      colorSpace:space];
     CIImage *high = [CIImage imageWithBitmapData:[NSData dataWithBytes:hdr.data() length:16]
-            bytesPerRow:16 size:CGSizeMake(1, 1) format:kCIFormatRGBAf colorSpace:space];
-    std::array<float, 4> result{};
+                                     bytesPerRow:16
+                                            size:CGSizeMake(1, 1)
+                                          format:kCIFormatRGBAf
+                                      colorSpace:space];
+    std::array<float, 4> result{ };
     [probe render:hdrBrightnessImage(base, high, headroom, easedProgress)
-            toBitmap:result.data() rowBytes:16 bounds:CGRectMake(0, 0, 1, 1)
-            format:kCIFormatRGBAf colorSpace:space];
+              toBitmap:result.data()
+              rowBytes:16
+                bounds:CGRectMake(0, 0, 1, 1)
+                format:kCIFormatRGBAf
+            colorSpace:space];
     CGColorSpaceRelease(space);
     return result;
 }
 
 QVector<float> QVCocoaFunctions::probeHDRBrightnessImage(const HDRImagePtr &opaqueImage,
-        const float headroom, const float easedProgress, const bool sourceEndpoint,
-        const bool materializeBeforeSampling)
+                                                         const float headroom,
+                                                         const float easedProgress,
+                                                         const bool sourceEndpoint,
+                                                         const bool materializeBeforeSampling)
 {
     const auto image = std::dynamic_pointer_cast<const NativeHDRImage>(opaqueImage);
-    if (!image) return {};
+    if (!image)
+        return { };
     @autoreleasepool {
-        CIImage *source = sourceEndpoint ? image->hdrCIImage()
+        CIImage *source = sourceEndpoint
+                ? image->hdrCIImage()
                 : hdrBrightnessDisplayImage(*image, image->sdrCIImage(), image->hdrCIImage(),
                                             headroom, easedProgress);
         if (materializeBeforeSampling && source) {
             CGColorSpaceRef space = colorSyncDisplayP3ColorSpace(true);
             CIContext *probe = metalCIContext(space, space);
-            CGImageRef full = [probe createCGImage:source fromRect:source.extent
-                    format:kCIFormatRGBAh colorSpace:space deferred:NO];
-            const auto pixels = full
-                    ? sampleLinearHDRImage([CIImage imageWithCGImage:full]) : QVector<float>{};
-            if (full) CGImageRelease(full);
+            CGImageRef full = [probe createCGImage:source
+                                          fromRect:source.extent
+                                            format:kCIFormatRGBAh
+                                        colorSpace:space
+                                          deferred:NO];
+            const auto pixels = full ? sampleLinearHDRImage([CIImage imageWithCGImage:full])
+                                     : QVector<float>{ };
+            if (full)
+                CGImageRelease(full);
             [probe clearCaches];
             CGColorSpaceRelease(space);
             return pixels;
@@ -4728,38 +4530,34 @@ qreal QVCocoaFunctions::resolvedHDRContentHeadroom(const qreal reportedHeadroom,
 }
 
 qreal QVCocoaFunctions::displayHeadroomForRendering(const qreal currentHeadroom,
-                                                     const qreal potentialHeadroom,
-                                                     const qreal contentHeadroom)
+                                                    const qreal potentialHeadroom,
+                                                    const qreal contentHeadroom)
 {
     Q_UNUSED(potentialHeadroom)
     Q_UNUSED(contentHeadroom)
     return std::isfinite(currentHeadroom) ? std::max(1.0, currentHeadroom) : 1.0;
 }
 
-bool QVCocoaFunctions::isFinalHDRFrameReadyForReveal(
-        const bool drawableGeometryMatches, const qreal transitionProgress)
+bool QVCocoaFunctions::isFinalHDRFrameReadyForReveal(const bool drawableGeometryMatches,
+                                                     const qreal transitionProgress)
 {
     return drawableGeometryMatches && transitionProgress >= 0.999;
 }
 
-QTransform QVCocoaFunctions::persistentHDRLayerTransform(
-        const QSizeF &sourceSize, const QPolygonF &imageCorners)
+QTransform QVCocoaFunctions::persistentHDRLayerTransform(const QSizeF &sourceSize,
+                                                         const QPolygonF &imageCorners)
 {
-    if (sourceSize.width() <= 0.0 || sourceSize.height() <= 0.0
-        || imageCorners.size() < 4)
-        return {};
+    if (sourceSize.width() <= 0.0 || sourceSize.height() <= 0.0 || imageCorners.size() < 4)
+        return { };
 
     const QPointF topLeft = imageCorners.at(0);
     const QPointF topRight = imageCorners.at(1);
     const QPointF bottomLeft = imageCorners.at(3);
-    return QTransform(
-            (topRight.x() - topLeft.x()) / sourceSize.width(),
-            (topRight.y() - topLeft.y()) / sourceSize.width(),
-            0.0,
-            (bottomLeft.x() - topLeft.x()) / sourceSize.height(),
-            (bottomLeft.y() - topLeft.y()) / sourceSize.height(),
-            0.0,
-            topLeft.x(), topLeft.y(), 1.0);
+    return QTransform((topRight.x() - topLeft.x()) / sourceSize.width(),
+                      (topRight.y() - topLeft.y()) / sourceSize.width(), 0.0,
+                      (bottomLeft.x() - topLeft.x()) / sourceSize.height(),
+                      (bottomLeft.y() - topLeft.y()) / sourceSize.height(), 0.0, topLeft.x(),
+                      topLeft.y(), 1.0);
 }
 
 bool QVCocoaFunctions::persistentHDRLayerGeometryFlipped()
@@ -4784,12 +4582,12 @@ QVCocoaFunctions::probeHDRPixelStatistics(const HDRImagePtr &opaqueImage)
             return statistics;
         }
 
-        const bool sdrValid = maximumCIImageRGBComponent(
-                nativeImage->sdrCIImage(), probeContext, colorSpace,
-                statistics.sdrMaximumComponent);
-        const bool hdrValid = maximumCIImageRGBComponent(
-                nativeImage->hdrCIImage(), probeContext, colorSpace,
-                statistics.hdrMaximumComponent);
+        const bool sdrValid =
+                maximumCIImageRGBComponent(nativeImage->sdrCIImage(), probeContext, colorSpace,
+                                           statistics.sdrMaximumComponent);
+        const bool hdrValid =
+                maximumCIImageRGBComponent(nativeImage->hdrCIImage(), probeContext, colorSpace,
+                                           statistics.hdrMaximumComponent);
         statistics.valid = sdrValid && hdrValid;
         [probeContext clearCaches];
         CGColorSpaceRelease(colorSpace);
@@ -4806,8 +4604,7 @@ static void hideMenuShortcuts(QMenu *menu)
     }
 }
 
-static void popUpNativeContextMenuAfterRelease(QMenu *menu,
-                                               const NSPoint screenPoint)
+static void popUpNativeContextMenuAfterRelease(QMenu *menu, const NSPoint screenPoint)
 {
     if (!menu)
         return;
@@ -4820,9 +4617,7 @@ static void popUpNativeContextMenuAfterRelease(QMenu *menu,
         });
         return;
     }
-    [menu->toNSMenu() popUpMenuPositioningItem:nil
-                                   atLocation:screenPoint
-                                       inView:nil];
+    [menu->toNSMenu() popUpMenuPositioningItem:nil atLocation:screenPoint inView:nil];
 }
 
 void QVCocoaFunctions::showMenu(QMenu *menu)
@@ -4849,72 +4644,73 @@ void QVCocoaFunctions::setUserDefaults()
                             object:nil
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
-            NSWindow *window = notification.object;
-            notifyFullScreenLifecycle(window, true);
-            objc_setAssociatedObject(
-                window, &FullScreenTransitionCompleteAssociationKey,
-                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        }];
+                            NSWindow *window = notification.object;
+                            notifyFullScreenLifecycle(window, true);
+                            objc_setAssociatedObject(window,
+                                                     &FullScreenTransitionCompleteAssociationKey,
+                                                     @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                        }];
         [center addObserverForName:NSWindowDidEnterFullScreenNotification
                             object:nil
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
-            NSWindow *window = notification.object;
-            notifyFullScreenLifecycle(window, false);
-            objc_setAssociatedObject(window, &FullScreenTransitionCompleteAssociationKey,
-                @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            NSNumber *pending = objc_getAssociatedObject(window, &FullScreenExitPendingAssociationKey);
-            if (pending.boolValue) {
-                objc_setAssociatedObject(window, &FullScreenExitPendingAssociationKey,
-                    @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                // Let all did-enter observers finish before starting exit.
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (window.styleMask & NSWindowStyleMaskFullScreen)
-                        [window toggleFullScreen:nil];
-                });
-            }
-        }];
+                            NSWindow *window = notification.object;
+                            notifyFullScreenLifecycle(window, false);
+                            objc_setAssociatedObject(window,
+                                                     &FullScreenTransitionCompleteAssociationKey,
+                                                     @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                            NSNumber *pending = objc_getAssociatedObject(
+                                    window, &FullScreenExitPendingAssociationKey);
+                            if (pending.boolValue) {
+                                objc_setAssociatedObject(window,
+                                                         &FullScreenExitPendingAssociationKey, @NO,
+                                                         OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                                // Let all did-enter observers finish before starting exit.
+                                dispatch_async(dispatch_get_main_queue(), ^{
+                                    if (window.styleMask & NSWindowStyleMaskFullScreen)
+                                        [window toggleFullScreen:nil];
+                                });
+                            }
+                        }];
         [center addObserverForName:NSWindowWillExitFullScreenNotification
                             object:nil
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
-            NSWindow *window = notification.object;
-            notifyFullScreenLifecycle(window, true);
-            objc_setAssociatedObject(
-                window, &FullScreenTransitionCompleteAssociationKey,
-                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        }];
+                            NSWindow *window = notification.object;
+                            notifyFullScreenLifecycle(window, true);
+                            objc_setAssociatedObject(window,
+                                                     &FullScreenTransitionCompleteAssociationKey,
+                                                     @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                        }];
         [center addObserverForName:NSWindowDidExitFullScreenNotification
                             object:nil
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *notification) {
-            NSWindow *window = notification.object;
-            objc_setAssociatedObject(
-                window, &FullScreenTransitionCompleteAssociationKey,
-                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            objc_setAssociatedObject(
-                window, &FullScreenExitPendingAssociationKey,
-                @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            // Qt also handles this notification and resets the native style
-            // mask. Complete our geometry handoff after all observers run,
-            // so a later Qt style update cannot grow the restored window.
-            dispatch_async(dispatch_get_main_queue(), ^{
-                notifyFullScreenLifecycle(window, false);
-            });
-        }];
+                            NSWindow *window = notification.object;
+                            objc_setAssociatedObject(window,
+                                                     &FullScreenTransitionCompleteAssociationKey,
+                                                     @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                            objc_setAssociatedObject(window, &FullScreenExitPendingAssociationKey,
+                                                     @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                            // Qt also handles this notification and resets the native style
+                            // mask. Complete our geometry handoff after all observers run,
+                            // so a later Qt style update cannot grow the restored window.
+                            dispatch_async(dispatch_get_main_queue(),
+                                           ^{ notifyFullScreenLifecycle(window, false); });
+                        }];
     });
 }
 
 void QVCocoaFunctions::registerWillPowerOffObserver()
 {
     [[[NSWorkspace sharedWorkspace] notificationCenter]
-        addObserverForName:NSWorkspaceWillPowerOffNotification
-        object:nil
-        queue:[NSOperationQueue mainQueue]
-        usingBlock:^(__unused NSNotification *notification) {
-            if (qvApp)
-                qvApp->onSystemInitiatedQuit();
-        }];
+            addObserverForName:NSWorkspaceWillPowerOffNotification
+                        object:nil
+                         queue:[NSOperationQueue mainQueue]
+                    usingBlock:^(__unused NSNotification *notification) {
+                        if (qvApp)
+                            qvApp->onSystemInitiatedQuit();
+                    }];
 }
 
 bool QVCocoaFunctions::requestFullScreenExit(QWindow *window)
@@ -4927,25 +4723,21 @@ bool QVCocoaFunctions::requestFullScreenExit(QWindow *window)
     if (!nativeWindow)
         return false;
 
-    const bool nativeFullScreen =
-        nativeWindow.styleMask & NSWindowStyleMaskFullScreen;
+    const bool nativeFullScreen = nativeWindow.styleMask & NSWindowStyleMaskFullScreen;
     if (!nativeFullScreen && window->windowState() != Qt::WindowFullScreen)
         return false;
 
-    NSNumber *transitionComplete = objc_getAssociatedObject(
-        nativeWindow, &FullScreenTransitionCompleteAssociationKey);
-    if (!transitionComplete && nativeFullScreen)
-    {
+    NSNumber *transitionComplete =
+            objc_getAssociatedObject(nativeWindow, &FullScreenTransitionCompleteAssociationKey);
+    if (!transitionComplete && nativeFullScreen) {
         // Compatibility fallback for a native full-screen window created
         // before observer installation.
         [nativeWindow toggleFullScreen:nil];
         return true;
     }
-    if (!transitionComplete.boolValue)
-    {
-        objc_setAssociatedObject(
-            nativeWindow, &FullScreenExitPendingAssociationKey,
-            @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (!transitionComplete.boolValue) {
+        objc_setAssociatedObject(nativeWindow, &FullScreenExitPendingAssociationKey, @YES,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         return true;
     }
 
@@ -4960,7 +4752,7 @@ bool QVCocoaFunctions::requestFullScreenExit(QWindow *window)
 // also refresh the guarded lifecycle handler.
 void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable)
 {
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
     NSWindow *nativeWindow = view.window;
     // Observe lifecycle only. Qt's delegate and AppKit own animation, frame
     // restoration and Space changes, as in qView; never install custom
@@ -4970,12 +4762,12 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
         if (!guardedWindow)
             return;
         QMetaObject::invokeMethod(guardedWindow.data(),
-            transitioning ? "beginNativeFullScreenTransition"
-                          : "endNativeFullScreenTransition",
-            Qt::DirectConnection);
+                                  transitioning ? "beginNativeFullScreenTransition"
+                                                : "endNativeFullScreenTransition",
+                                  Qt::DirectConnection);
     };
-    objc_setAssociatedObject(nativeWindow, &FullScreenLifecycleHandlerAssociationKey,
-        handler, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(nativeWindow, &FullScreenLifecycleHandlerAssociationKey, handler,
+                             OBJC_ASSOCIATION_COPY_NONATOMIC);
 
     // Make sure the requested state isn't already in effect
     if (enable == (nativeWindow.styleMask & NSWindowStyleMaskFullSizeContentView))
@@ -4989,7 +4781,9 @@ void QVCocoaFunctions::setFullSizeContentView(QWidget *window, const bool enable
     NSRect originalFrame = nativeWindow.frame;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    Qv::alterWindowFlags(window, [&](Qt::WindowFlags f) { return f.setFlag(Qt::ExpandedClientAreaHint, enable); });
+    Qv::alterWindowFlags(window, [&](Qt::WindowFlags f) {
+        return f.setFlag(Qt::ExpandedClientAreaHint, enable);
+    });
 #else
     if (enable)
         nativeWindow.styleMask |= NSWindowStyleMaskFullSizeContentView;
@@ -5006,16 +4800,18 @@ bool QVCocoaFunctions::getTitlebarHidden(const QWidget *window)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     return window->windowFlags().testFlags(Qt::NoTitleBarBackgroundHint);
 #else
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
     return view.window.titleVisibility == NSWindowTitleHidden;
 #endif
 }
 
 void QVCocoaFunctions::setTitlebarHidden(QWidget *window, const bool hide)
 {
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    Qv::alterWindowFlags(window, [&](Qt::WindowFlags f) { return f.setFlag(Qt::NoTitleBarBackgroundHint, hide); });
+    Qv::alterWindowFlags(window, [&](Qt::WindowFlags f) {
+        return f.setFlag(Qt::NoTitleBarBackgroundHint, hide);
+    });
 #else
     view.window.titlebarAppearsTransparent = hide;
 #endif
@@ -5024,10 +4820,10 @@ void QVCocoaFunctions::setTitlebarHidden(QWidget *window, const bool hide)
 
 void QVCocoaFunctions::setWindowCollectionBehaviorManaged(QWidget *window)
 {
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
     view.window.collectionBehavior =
-        (view.window.collectionBehavior | NSWindowCollectionBehaviorManaged) &
-        ~(NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorStationary);
+            (view.window.collectionBehavior | NSWindowCollectionBehaviorManaged)
+            & ~(NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorStationary);
 }
 
 bool QVCocoaFunctions::attachWindowAbove(QWindow *child, QWindow *parent)
@@ -5047,8 +4843,7 @@ bool QVCocoaFunctions::attachWindowAbove(QWindow *child, QWindow *parent)
     // AppKit then maintains the new child-above-parent ordering on subsequent
     // ordering operations involving either window.
     NSWindow *existingParent = childWindow.parentWindow;
-    if (existingParent != parentWindow)
-    {
+    if (existingParent != parentWindow) {
         if (existingParent)
             [existingParent removeChildWindow:childWindow];
         [parentWindow addChildWindow:childWindow ordered:NSWindowAbove];
@@ -5067,7 +4862,7 @@ bool QVCocoaFunctions::isWindowChildOf(const QWindow *child, const QWindow *pare
     NSWindow *childWindow = childView.window;
     NSWindow *parentWindow = parentView.window;
     return childWindow && parentWindow && childWindow != parentWindow
-        && childWindow.parentWindow == parentWindow;
+            && childWindow.parentWindow == parentWindow;
 }
 
 static NSAppearanceName closestStandardAppearanceName(NSAppearance *appearance)
@@ -5090,7 +4885,8 @@ Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
     if (override == "light")
         return Qv::Theme::Light;
 
-    NSAppearance *appearance = NSApp ? NSApp.effectiveAppearance : [NSAppearance currentDrawingAppearance];
+    NSAppearance *appearance =
+            NSApp ? NSApp.effectiveAppearance : [NSAppearance currentDrawingAppearance];
     if (!appearance)
         return Qv::Theme::Light;
 
@@ -5101,8 +4897,8 @@ Qv::Theme QVCocoaFunctions::resolvedTheme(const Qv::Theme theme)
 void QVCocoaFunctions::setApplicationTheme(const Qv::Theme theme)
 {
     const QByteArray systemOverride = qgetenv("FOVELLE_SYSTEM_THEME").toLower();
-    const bool hasControlledSystemTheme = theme == Qv::Theme::System
-        && (systemOverride == "light" || systemOverride == "dark");
+    const bool hasControlledSystemTheme =
+            theme == Qv::Theme::System && (systemOverride == "light" || systemOverride == "dark");
     const bool followsSystem = theme == Qv::Theme::System && !hasControlledSystemTheme;
     const Qv::Theme effectiveTheme = followsSystem ? Qv::Theme::System : resolvedTheme(theme);
 
@@ -5133,9 +4929,8 @@ void QVCocoaFunctions::setApplicationTheme(const Qv::Theme theme)
     // sends ApplicationPaletteChange to every QWidget.
     QGuiApplication::styleHints()->setColorScheme(colorScheme);
 #else
-    NSApp.appearance = requestedAppearanceName
-        ? [NSAppearance appearanceNamed:requestedAppearanceName]
-        : nil;
+    NSApp.appearance =
+            requestedAppearanceName ? [NSAppearance appearanceNamed:requestedAppearanceName] : nil;
 #endif
 }
 
@@ -5148,7 +4943,7 @@ void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
     // existing callers, but make every window inherit NSApp rather than
     // creating a second, potentially stale per-window appearance override.
     setApplicationTheme(theme);
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
     [view.window setAppearance:nil];
 
     // AppKit can expose the window background while native fullscreen content
@@ -5156,15 +4951,17 @@ void QVCocoaFunctions::setWindowTheme(const Qv::Theme theme, QWindow *window)
     // match the canvas even when its backing store/layers are not covering it.
     const QColor background = Qv::viewportBackgroundColor(resolvedTheme(theme));
     view.window.backgroundColor = [NSColor colorWithSRGBRed:background.redF()
-        green:background.greenF() blue:background.blueF() alpha:1.0];
+                                                      green:background.greenF()
+                                                       blue:background.blueF()
+                                                      alpha:1.0];
 }
 
 QString QVCocoaFunctions::getWindowAppearanceName(const QWindow *window)
 {
     if (!window)
-        return {};
+        return { };
 
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
     NSString *name = closestStandardAppearanceName(view.window.effectiveAppearance);
     if ([name isEqualToString:NSAppearanceNameAqua])
         return QStringLiteral("Aqua");
@@ -5194,17 +4991,15 @@ void QVCocoaFunctions::configureSettingsToolbar(QWindow *window, QTabBar *catego
         return;
 
     auto *controller = static_cast<FovelleSettingsToolbarController *>(
-        objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey));
-    if (controller)
-    {
+            objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey));
+    if (controller) {
         [controller syncSelection:categoryTabs->currentIndex()];
         return;
     }
 
-    controller = [[FovelleSettingsToolbarController alloc]
-        initWithCategoryTabs:categoryTabs];
+    controller = [[FovelleSettingsToolbarController alloc] initWithCategoryTabs:categoryTabs];
     auto *toolbar = [[NSToolbar alloc]
-        initWithIdentifier:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"];
+            initWithIdentifier:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"];
     toolbar.delegate = controller;
     toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
     toolbar.sizeMode = NSToolbarSizeModeRegular;
@@ -5225,24 +5020,25 @@ void QVCocoaFunctions::configureSettingsToolbar(QWindow *window, QTabBar *catego
     [[nativeWindow standardWindowButton:NSWindowMiniaturizeButton] setEnabled:NO];
     [[nativeWindow standardWindowButton:NSWindowZoomButton] setEnabled:NO];
 
-    objc_setAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey,
-                             controller, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey, controller,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [toolbar release];
     [controller release];
 
     QPointer<QWindow> guardedWindow(window);
-    QObject::connect(categoryTabs, &QTabBar::currentChanged, categoryTabs,
-                     [guardedWindow](const int index) {
-        if (!guardedWindow)
-            return;
-        auto *nativeView = reinterpret_cast<NSView *>(guardedWindow->winId());
-        auto *toolbarController = static_cast<FovelleSettingsToolbarController *>(
-            objc_getAssociatedObject(nativeView.window, &SettingsToolbarAssociationKey));
-        [toolbarController syncSelection:index];
-    });
+    QObject::connect(
+            categoryTabs, &QTabBar::currentChanged, categoryTabs, [guardedWindow](const int index) {
+                if (!guardedWindow)
+                    return;
+                auto *nativeView = reinterpret_cast<NSView *>(guardedWindow->winId());
+                auto *toolbarController =
+                        static_cast<FovelleSettingsToolbarController *>(objc_getAssociatedObject(
+                                nativeView.window, &SettingsToolbarAssociationKey));
+                [toolbarController syncSelection:index];
+            });
     [static_cast<FovelleSettingsToolbarController *>(
-        objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey))
-        syncSelection:categoryTabs->currentIndex()];
+            objc_getAssociatedObject(nativeWindow, &SettingsToolbarAssociationKey))
+            syncSelection:categoryTabs->currentIndex()];
 }
 
 bool QVCocoaFunctions::hasNativeSettingsToolbar(const QWindow *window)
@@ -5252,10 +5048,10 @@ bool QVCocoaFunctions::hasNativeSettingsToolbar(const QWindow *window)
 
     auto *view = reinterpret_cast<NSView *>(window->winId());
     NSToolbar *toolbar = view.window.toolbar;
-    return toolbar
-        && [toolbar.identifier isEqualToString:
-            @"io.github.inostarlin-passion.Fovelle.settings.toolbar"]
-        && view.window.toolbarStyle == NSWindowToolbarStylePreference;
+    return toolbar &&
+            [toolbar.identifier
+                    isEqualToString:@"io.github.inostarlin-passion.Fovelle.settings.toolbar"]
+            && view.window.toolbarStyle == NSWindowToolbarStylePreference;
 }
 
 int QVCocoaFunctions::getObscuredHeight(QWindow *window)
@@ -5263,7 +5059,7 @@ int QVCocoaFunctions::getObscuredHeight(QWindow *window)
     if (!window)
         return 0;
 
-    auto *view = reinterpret_cast<NSView*>(window->winId());
+    auto *view = reinterpret_cast<NSView *>(window->winId());
 
     if (view.window.titlebarAppearsTransparent)
         return 0;
@@ -5278,10 +5074,17 @@ bool QVCocoaFunctions::startWindowDrag(QWindow *window)
 {
     if ((NSEvent.pressedMouseButtons & 1) == 0)
         return false;
-    NSView *view = reinterpret_cast<NSView*>(window->winId());
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
     NSPoint startPoint = view.window.mouseLocationOutsideOfEventStream;
-    NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:startPoint modifierFlags:0
-        timestamp:0 windowNumber:view.window.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1];
+    NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+                                        location:startPoint
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:view.window.windowNumber
+                                         context:nil
+                                     eventNumber:0
+                                      clickCount:1
+                                        pressure:1];
     [view.window performWindowDragWithEvent:event];
     return true;
 }
@@ -5289,7 +5092,9 @@ bool QVCocoaFunctions::startWindowDrag(QWindow *window)
 void QVCocoaFunctions::setWindowMenu(QMenu *menu)
 {
     NSMenu *nativeMenu = menu->toNSMenu();
-    [nativeMenu addItemWithTitle:@"Minimize" action:@selector(performMiniaturize:) keyEquivalent:@"m"];
+    [nativeMenu addItemWithTitle:@"Minimize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
 
     [nativeMenu addItemWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""];
     [[NSApplication sharedApplication] setWindowsMenu:nativeMenu];
@@ -5297,9 +5102,7 @@ void QVCocoaFunctions::setWindowMenu(QMenu *menu)
     // AppKit augments this menu after windows are registered and again while
     // opening its nested Move & Resize / Full Screen Tile menus. Translate at
     // both lifecycle points, always starting from the native menu's titles.
-    const auto localizeMenu = [menu]() {
-        localizeNativeWindowMenu(menu->toNSMenu());
-    };
+    const auto localizeMenu = [menu]() { localizeNativeWindowMenu(menu->toNSMenu()); };
     QObject::connect(menu, &QMenu::aboutToShow, menu, localizeMenu);
     QTimer::singleShot(0, menu, localizeMenu);
 }
@@ -5329,12 +5132,12 @@ void QVCocoaFunctions::setDockRecents(const QStringList &recentPathsList)
     if (recentPathsList.length() == 0)
         return;
 
-    // The dispatch_async wrapper is a workaround for the first document not getting added after a call
-    // to clear the documents. We just introduce a slight processing delay which is enough to fix it.
+    // The dispatch_async wrapper is a workaround for the first document not getting added after a
+    // call to clear the documents. We just introduce a slight processing delay which is enough to
+    // fix it.
     const QStringList paths = recentPathsList;
     dispatch_async(dispatch_get_main_queue(), ^{
-        for (int i = paths.size() - 1; i >= 0; i--)
-        {
+        for (int i = paths.size() - 1; i >= 0; i--) {
             const auto &path = paths[i];
             auto url = QUrl::fromLocalFile(path);
             [documentController noteNewRecentDocumentURL:url.toNSURL()];
@@ -5342,33 +5145,40 @@ void QVCocoaFunctions::setDockRecents(const QStringList &recentPathsList)
     });
 }
 
-QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &filePath, const bool loadIcons, const QString &defaultSuffix)
+QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &filePath,
+                                                                 const bool loadIcons,
+                                                                 const QString &defaultSuffix)
 {
     auto fileUrl = QUrl(filePath);
     fileUrl.setScheme("file");
 
     NSString *utiType = nil;
     NSError *error = nil;
-    BOOL success = [fileUrl.toNSURL() getResourceValue:&utiType forKey:NSURLTypeIdentifierKey error:&error];
+    BOOL success = [fileUrl.toNSURL() getResourceValue:&utiType
+                                                forKey:NSURLTypeIdentifierKey
+                                                 error:&error];
 
-    if (!success)
-    {
+    if (!success) {
         NSLog(@"getResourceValue:forKey:error: returned error == %@", error);
         return QList<OpenWith::OpenWithItem>();
     }
 
-    NSArray *supportedApplications = [(NSArray *)LSCopyAllRoleHandlersForContentType((CFStringRef)utiType, kLSRolesAll) autorelease];
-    NSString *defaultApplication = [(NSString *)LSCopyDefaultRoleHandlerForContentType((CFStringRef)utiType, kLSRolesAll) autorelease];
+    NSArray *supportedApplications =
+            [(NSArray *)LSCopyAllRoleHandlersForContentType((CFStringRef)utiType, kLSRolesAll)
+                    autorelease];
+    NSString *defaultApplication =
+            [(NSString *)LSCopyDefaultRoleHandlerForContentType((CFStringRef)utiType, kLSRolesAll)
+                    autorelease];
 
     QList<OpenWith::OpenWithItem> listOfOpenWithItems;
-    for (NSString *appId in supportedApplications)
-    {
-        if ([appId isEqualToString:@"io.github.inostarlin-passion.Fovelle"] || [appId isEqualToString:@""])
+    for (NSString *appId in supportedApplications) {
+        if ([appId isEqualToString:@"io.github.inostarlin-passion.Fovelle"] ||
+            [appId isEqualToString:@""])
             continue;
 
         OpenWith::OpenWithItem openWithItem;
         openWithItem.exec = "open";
-        openWithItem.args.append({"-b", QString::fromNSString(appId)});
+        openWithItem.args.append({ "-b", QString::fromNSString(appId) });
 
         NSURL *appURL = [[NSWorkspace sharedWorkspace] URLForApplicationWithBundleIdentifier:appId];
         if (!appURL)
@@ -5378,16 +5188,15 @@ QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &
         NSString *appName = [[NSFileManager defaultManager] displayNameAtPath:absolutePath];
         openWithItem.name = QString::fromNSString(appName);
 
-        if (loadIcons)
-        {
+        if (loadIcons) {
             QFileIconProvider fiProvider;
             QIcon icon = fiProvider.icon(QFileInfo(QString::fromNSString(absolutePath)));
-            openWithItem.icon = ActionManager::getCacheableIcon("application:" + QString::fromNSString(appId), icon);
+            openWithItem.icon = ActionManager::getCacheableIcon(
+                    "application:" + QString::fromNSString(appId), icon);
         }
 
         // If the program is the default program, save it to add to the beginning after sorting
-        if ([appId isEqualToString:defaultApplication])
-        {
+        if ([appId isEqualToString:defaultApplication]) {
             openWithItem.isDefault = true;
             openWithItem.name += defaultSuffix;
         }
@@ -5398,23 +5207,21 @@ QList<OpenWith::OpenWithItem> QVCocoaFunctions::getOpenWithItems(const QString &
     return listOfOpenWithItems;
 }
 
-QVCocoaFunctions::FileAssociationResult QVCocoaFunctions::associateAllSupportedFormats(
-        const QStringList &extensions, const bool dryRun)
+QVCocoaFunctions::FileAssociationResult
+QVCocoaFunctions::associateAllSupportedFormats(const QStringList &extensions, const bool dryRun)
 {
     FileAssociationResult result;
     QSet<QByteArray> seen;
     NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
 
-    for (const QString &extension : extensions)
-    {
+    for (const QString &extension : extensions) {
         const QByteArray normalized = normalizedExtension(extension.toUtf8());
         if (normalized.isEmpty() || seen.contains(normalized))
             continue;
         seen.insert(normalized);
         ++result.requestedCount;
 
-        if (dryRun)
-        {
+        if (dryRun) {
             ++result.associatedCount;
             continue;
         }
@@ -5422,10 +5229,9 @@ QVCocoaFunctions::FileAssociationResult QVCocoaFunctions::associateAllSupportedF
         NSString *tag = [NSString stringWithUTF8String:normalized.constData()];
         UTType *type = [UTType typeWithTag:tag
                                   tagClass:UTTagClassFilenameExtension
-                         conformingToType:nil];
+                          conformingToType:nil];
         NSString *identifier = type.identifier;
-        if (!bundleIdentifier || !identifier)
-        {
+        if (!bundleIdentifier || !identifier) {
             result.failedExtensions.append(QString::fromUtf8(normalized));
             continue;
         }
@@ -5443,24 +5249,21 @@ QVCocoaFunctions::FileAssociationResult QVCocoaFunctions::associateAllSupportedF
 
 QByteArray QVCocoaFunctions::getIccProfileForWindow(const QWindow *window)
 {
-    NSView *view = reinterpret_cast<NSView*>(window->winId());
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
     NSColorSpace *nsColorSpace = view.window.colorSpace;
-    if (nsColorSpace)
-    {
+    if (nsColorSpace) {
         NSData *iccProfileData = nsColorSpace.ICCProfileData;
-        if (iccProfileData)
-        {
+        if (iccProfileData) {
             return QByteArray::fromNSData(iccProfileData);
         }
     }
-    return {};
+    return { };
 }
 
 QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
 {
     QList<QByteArray> formats;
-    for (const auto identifier : imageIOTypeIdentifiers())
-    {
+    for (const auto identifier : imageIOTypeIdentifiers()) {
         for (const auto &format : typeTags(identifier, UTTagClassFilenameExtension)) {
             if (!formats.contains(format))
                 formats.append(format);
@@ -5472,10 +5275,8 @@ QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
     // current macOS releases. The native bridge renders its PostScript program
     // through Ghostscript, so expose the conventional filename aliases through
     // the same registry consumed by Settings and folder enumeration.
-    for (const QByteArray &format : {QByteArrayLiteral("eps"),
-                                     QByteArrayLiteral("epsf"),
-                                     QByteArrayLiteral("epsi")})
-    {
+    for (const QByteArray &format :
+         { QByteArrayLiteral("eps"), QByteArrayLiteral("epsf"), QByteArrayLiteral("epsi") }) {
         if (!formats.contains(format))
             formats.append(format);
     }
@@ -5485,8 +5286,7 @@ QList<QByteArray> QVCocoaFunctions::getAdditionalImageFormats()
 QList<QString> QVCocoaFunctions::getAdditionalImageMimeTypes()
 {
     QList<QString> mimeTypes;
-    for (const auto identifier : imageIOTypeIdentifiers())
-    {
+    for (const auto identifier : imageIOTypeIdentifiers()) {
         for (const auto &mimeType : typeTags(identifier, UTTagClassMIMEType)) {
             const QString value = QString::fromUtf8(mimeType);
             if (!value.isEmpty() && !mimeTypes.contains(value))
@@ -5504,13 +5304,11 @@ bool QVCocoaFunctions::supportsAdditionalImageFormat(const QByteArray &format)
         normalized = "avif";
     if (normalized == "eps" || normalized == "epsf" || normalized == "epsi")
         return true;
-    for (const auto identifier : imageIOTypeIdentifiers())
-    {
+    for (const auto identifier : imageIOTypeIdentifiers()) {
         const bool supported =
                 typeTags(identifier, UTTagClassFilenameExtension).contains(normalized);
         CFRelease(identifier);
-        if (supported)
-        {
+        if (supported) {
             return true;
         }
     }
@@ -5523,10 +5321,8 @@ struct QVCocoaFunctions::PDFVectorDocument::Impl
     explicit Impl(const QByteArray &bytes) : sourceData(bytes)
     {
         data = CFDataCreateWithBytesNoCopy(
-            kCFAllocatorDefault,
-            reinterpret_cast<const UInt8 *>(sourceData.constData()),
-            static_cast<CFIndex>(sourceData.size()),
-            kCFAllocatorNull);
+                kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(sourceData.constData()),
+                static_cast<CFIndex>(sourceData.size()), kCFAllocatorNull);
         if (!data)
             return;
         CGDataProviderRef provider = CGDataProviderCreateWithCFData(data);
@@ -5537,13 +5333,10 @@ struct QVCocoaFunctions::PDFVectorDocument::Impl
         if (!document || !CGPDFDocumentGetPage(document, 1))
             return;
         drawingBox = kCGPDFCropBox;
-        if (CGRectIsEmpty(CGPDFPageGetBoxRect(
-                CGPDFDocumentGetPage(document, 1), drawingBox)))
-        {
+        if (CGRectIsEmpty(CGPDFPageGetBoxRect(CGPDFDocumentGetPage(document, 1), drawingBox))) {
             drawingBox = kCGPDFMediaBox;
         }
-        valid = !CGRectIsEmpty(CGPDFPageGetBoxRect(
-            CGPDFDocumentGetPage(document, 1), drawingBox));
+        valid = !CGRectIsEmpty(CGPDFPageGetBoxRect(CGPDFDocumentGetPage(document, 1), drawingBox));
     }
 
     ~Impl()
@@ -5555,10 +5348,10 @@ struct QVCocoaFunctions::PDFVectorDocument::Impl
     }
 
     QByteArray sourceData;
-    CFDataRef data {nullptr};
-    CGPDFDocumentRef document {nullptr};
-    CGPDFBox drawingBox {kCGPDFCropBox};
-    bool valid {false};
+    CFDataRef data{ nullptr };
+    CGPDFDocumentRef document{ nullptr };
+    CGPDFBox drawingBox{ kCGPDFCropBox };
+    bool valid{ false };
     mutable std::mutex renderMutex;
 };
 
@@ -5574,9 +5367,10 @@ bool QVCocoaFunctions::PDFVectorDocument::isValid() const
     return impl && impl->valid;
 }
 
-QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
-        const QSizeF &logicalPageSize, const QRectF &sourceRect,
-        const QSize &pixelSize, QString *errorString) const
+QImage QVCocoaFunctions::PDFVectorDocument::renderTile(const QSizeF &logicalPageSize,
+                                                       const QRectF &sourceRect,
+                                                       const QSize &pixelSize,
+                                                       QString *errorString) const
 {
     const auto fail = [errorString](const QString &message) {
         if (errorString)
@@ -5588,15 +5382,12 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
 
     const QRectF pageRect(QPointF(), logicalPageSize);
     const QRectF clippedSource = sourceRect.intersected(pageRect);
-    if (!isValid() || !logicalPageSize.isValid()
-        || logicalPageSize.isEmpty() || clippedSource.isEmpty()
-        || pixelSize.isEmpty())
-    {
+    if (!isValid() || !logicalPageSize.isValid() || logicalPageSize.isEmpty()
+        || clippedSource.isEmpty() || pixelSize.isEmpty()) {
         return fail(QStringLiteral("The vector PDF tile request is invalid"));
     }
-    if (static_cast<quint64>(pixelSize.width())
-            * static_cast<quint64>(pixelSize.height()) > MaxEPSRenderedPixels)
-    {
+    if (static_cast<quint64>(pixelSize.width()) * static_cast<quint64>(pixelSize.height())
+        > MaxEPSRenderedPixels) {
         return fail(QStringLiteral("The vector PDF tile exceeds the safety limit"));
     }
 
@@ -5626,20 +5417,18 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
     // final bitmap dimensions come from QPainter's device transform, so this
     // is final-device rasterization rather than a persistent zoomed image.
     CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-    CGContextScaleCTM(
-        context,
-        static_cast<CGFloat>(pixelSize.width()) / clippedSource.width(),
-        static_cast<CGFloat>(pixelSize.height()) / clippedSource.height());
+    CGContextScaleCTM(context, static_cast<CGFloat>(pixelSize.width()) / clippedSource.width(),
+                      static_cast<CGFloat>(pixelSize.height()) / clippedSource.height());
     // QGraphicsItem uses a top-left origin while a PDF destination uses a
     // bottom-left origin.  Convert the exposed item's vertical interval to
     // its matching Quartz interval before translating it to the tile origin.
-    const qreal quartzSourceBottom = logicalPageSize.height()
-            - clippedSource.bottom();
+    const qreal quartzSourceBottom = logicalPageSize.height() - clippedSource.bottom();
     CGContextTranslateCTM(context, -clippedSource.left(), -quartzSourceBottom);
-    const CGRect logicalDestination = CGRectMake(
-        0, 0, logicalPageSize.width(), logicalPageSize.height());
-    CGContextConcatCTM(context, CGPDFPageGetDrawingTransform(
-        page, impl->drawingBox, logicalDestination, 0, true));
+    const CGRect logicalDestination =
+            CGRectMake(0, 0, logicalPageSize.width(), logicalPageSize.height());
+    CGContextConcatCTM(
+            context,
+            CGPDFPageGetDrawingTransform(page, impl->drawingBox, logicalDestination, 0, true));
     CGContextDrawPDFPage(context, page);
     CGContextRelease(context);
     tile.setColorSpace(pdfRasterQColorSpace());
@@ -5647,38 +5436,31 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(
 }
 
 QVCocoaFunctions::PDFVectorDocumentPtr
-QVCocoaFunctions::createPDFVectorDocument(const QByteArray &pdfData,
-                                           QString *errorString)
+QVCocoaFunctions::createPDFVectorDocument(const QByteArray &pdfData, QString *errorString)
 {
     if (errorString)
         errorString->clear();
-    if (pdfData.isEmpty())
-    {
+    if (pdfData.isEmpty()) {
         if (errorString)
             *errorString = QStringLiteral("The vector PDF data is empty");
-        return {};
+        return { };
     }
-    const auto document = std::shared_ptr<PDFVectorDocument>(
-        new PDFVectorDocument(pdfData));
-    if (!document->isValid())
-    {
+    const auto document = std::shared_ptr<PDFVectorDocument>(new PDFVectorDocument(pdfData));
+    if (!document->isValid()) {
         if (errorString)
             *errorString = QStringLiteral("The vector PDF document is invalid");
-        return {};
+        return { };
     }
     return document;
 }
 
 QImage QVCocoaFunctions::renderPDFVectorTile(const QByteArray &pdfData,
-                                              const QSizeF &logicalPageSize,
-                                              const QRectF &sourceRect,
-                                              const QSize &pixelSize,
-                                              QString *errorString)
+                                             const QSizeF &logicalPageSize,
+                                             const QRectF &sourceRect, const QSize &pixelSize,
+                                             QString *errorString)
 {
-    const PDFVectorDocumentPtr document = createPDFVectorDocument(pdfData,
-                                                                   errorString);
-    return document ? document->renderTile(logicalPageSize, sourceRect,
-                                            pixelSize, errorString)
+    const PDFVectorDocumentPtr document = createPDFVectorDocument(pdfData, errorString);
+    return document ? document->renderTile(logicalPageSize, sourceRect, pixelSize, errorString)
                     : QImage();
 }
 
@@ -5734,15 +5516,13 @@ QVector<float> QVCocoaFunctions::probeSDRImagePixels(const SDRImagePtr &opaque,
 
 QSize QVCocoaFunctions::imagePixelSize(const QString &filePath)
 {
-    @autoreleasepool
-    {
+    @autoreleasepool {
         const QUrl fileUrl = QUrl::fromLocalFile(filePath);
-        CGImageSourceRef source = CGImageSourceCreateWithURL(
-                reinterpret_cast<CFURLRef>(fileUrl.toNSURL()), nullptr);
+        CGImageSourceRef source =
+                CGImageSourceCreateWithURL(reinterpret_cast<CFURLRef>(fileUrl.toNSURL()), nullptr);
         if (!source)
-            return {};
-        const QSize size = orientedPixelSize(
-                sourcePixelSize(source), sourceOrientation(source));
+            return { };
+        const QSize size = orientedPixelSize(sourcePixelSize(source), sourceOrientation(source));
         CFRelease(source);
         return size;
     }
@@ -5753,11 +5533,9 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 {
     NativeImageReadResult result;
 
-    @autoreleasepool
-    {
+    @autoreleasepool {
         const EPSReadResult epsResult = readEPS(filePath, fallbackLargestDimension);
-        if (epsResult.recognized)
-        {
+        if (epsResult.recognized) {
             result.image = epsResult.image;
             result.vectorImage = epsResult.vectorImage;
             result.intrinsicSize = epsResult.intrinsicSize;
@@ -5790,8 +5568,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
 
         const QUrl fileUrl = QUrl::fromLocalFile(filePath);
         CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)fileUrl.toNSURL(), nullptr);
-        if (!source)
-        {
+        if (!source) {
             result.errorString = QStringLiteral("Image I/O could not create an image source");
             return result;
         }
@@ -5836,10 +5613,9 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             result.hdrMetadata.hasISOGainMap =
                     hasAuxiliaryImage(source, kCGImageAuxiliaryDataTypeISOGainMap);
 
-        if (result.isRaw)
-        {
-            const bool hasGainMap = result.hdrMetadata.hasAppleGainMap
-                    || result.hdrMetadata.hasISOGainMap;
+        if (result.isRaw) {
+            const bool hasGainMap =
+                    result.hdrMetadata.hasAppleGainMap || result.hdrMetadata.hasISOGainMap;
             CIImage *embeddedRawProxy = nil;
             if (!hasGainMap) {
                 // Image I/O can select a different orientation for a RAW
@@ -5848,8 +5624,8 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 // while the CGImageSource still owns the primary image's
                 // orientation contract.  The native graphs below remain the
                 // authoritative source for the final frame and zoom.
-                if (CFDictionaryRef options = embeddedThumbnailOptions(
-                            source, fallbackLargestDimension)) {
+                if (CFDictionaryRef options =
+                            embeddedThumbnailOptions(source, fallbackLargestDimension)) {
                     CGImageRef embeddedPreview =
                             CGImageSourceCreateThumbnailAtIndex(source, 0, options);
                     CFRelease(options);
@@ -5862,15 +5638,13 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                         // only when the bounded preview and source pixels
                         // disagree about their physical aspect; ordinary RAW
                         // previews continue to receive only the EXIF transform.
-                        const bool previewAxesAreTransposed =
-                                sourceSize.isValid()
+                        const bool previewAxesAreTransposed = sourceSize.isValid()
                                 && ((CGImageGetWidth(embeddedPreview)
                                      > CGImageGetHeight(embeddedPreview))
                                     != (sourceSize.width() > sourceSize.height()));
                         if (previewAxesAreTransposed) {
                             embeddedRawProxy = [embeddedRawProxy
-                                    imageByApplyingCGOrientation:
-                                            kCGImagePropertyOrientationRight];
+                                    imageByApplyingCGOrientation:kCGImagePropertyOrientationRight];
                         }
                         CGImageRelease(embeddedPreview);
                     }
@@ -5908,17 +5682,14 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 headroomRawFilter.draftModeEnabled = YES;
                 headroomRawFilter.extendedDynamicRangeAmount = 1.0F;
                 const CGSize nativeSize = headroomRawFilter.nativeSize;
-                const int sourceLargestDimension = std::max({
-                    result.intrinsicSize.width(), result.intrinsicSize.height(),
-                    static_cast<int>(std::lround(nativeSize.width)),
-                    static_cast<int>(std::lround(nativeSize.height))
-                });
+                const int sourceLargestDimension =
+                        std::max({ result.intrinsicSize.width(), result.intrinsicSize.height(),
+                                   static_cast<int>(std::lround(nativeSize.width)),
+                                   static_cast<int>(std::lround(nativeSize.height)) });
                 const int probeLargestDimension = std::max(
-                        1, std::min(sourceLargestDimension,
-                                    RawHeadroomProbeLargestDimension));
+                        1, std::min(sourceLargestDimension, RawHeadroomProbeLargestDimension));
                 headroomRawFilter.scaleFactor = sourceLargestDimension > 0
-                        ? static_cast<CGFloat>(probeLargestDimension)
-                                / sourceLargestDimension
+                        ? static_cast<CGFloat>(probeLargestDimension) / sourceLargestDimension
                         : 1.0F;
             }
 
@@ -5947,10 +5718,10 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CIImage *processedSDR = sdrRawFilter.previewImage;
                     if (!processedSDR) {
                         processedSDR = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
-                                                                  options:previewOptions];
+                                                               options:previewOptions];
                     }
                     CIImage *gainMap = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
-                                                                    options:gainMapOptions];
+                                                               options:gainMapOptions];
                     CIImage *processedHDR = processedSDR && gainMap
                             ? [processedSDR imageByApplyingGainMap:gainMap]
                             : nil;
@@ -5958,9 +5729,9 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     if (processedSDR && processedHDR && processedHeadroom > 1.001F
                         && CGRectEqualToRect(processedSDR.extent, processedHDR.extent)) {
                         const CGRect extent = processedHDR.extent;
-                        result.intrinsicSize = QSize(
-                            static_cast<int>(std::lround(extent.size.width)),
-                            static_cast<int>(std::lround(extent.size.height)));
+                        result.intrinsicSize =
+                                QSize(static_cast<int>(std::lround(extent.size.width)),
+                                      static_cast<int>(std::lround(extent.size.height)));
                         result.hdrMetadata.sourceKind =
                                 QStringLiteral("camera-raw-processed-gain-map");
                         result.hdrMetadata.pixelSize = result.intrinsicSize;
@@ -5969,23 +5740,18 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                         result.hdrMetadata.decodedToHDR = true;
                         result.hdrMetadata.usesProcessedRawPreview = true;
                         result.hdrMetadata.usedRawPreview = true;
-                        result.hdrMetadata.colorSpaceName =
-                                colorSpaceName(processedHDR.colorSpace);
+                        result.hdrMetadata.colorSpaceName = colorSpaceName(processedHDR.colorSpace);
                         result.hdrMetadata.transferFunction =
                                 transferFunctionName(processedHDR.colorSpace, true);
                         result.hdrImage = std::make_shared<NativeHDRImage>(
                                 processedHDR, processedSDR, result.hdrMetadata, gainMap);
                         result.usedRawPreview = true;
 
-                        CGColorSpaceRef workingColorSpace =
-                                colorSyncDisplayP3ColorSpace(true);
-                        CGColorSpaceRef fallbackColorSpace =
-                                colorSyncDisplayP3ColorSpace(false);
-                        CIContext *context = metalCIContext(
-                                workingColorSpace, fallbackColorSpace);
-                        result.image = imageFromCIImage(
-                                processedSDR, context, fallbackColorSpace,
-                                0);
+                        CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
+                        CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
+                        CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
+                        result.image =
+                                imageFromCIImage(processedSDR, context, fallbackColorSpace, 0);
                         if (context)
                             [context clearCaches];
                         if (workingColorSpace)
@@ -5996,8 +5762,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 }
             }
 
-            if (!result.hdrImage && sdrRawFilter && hdrRawFilter)
-            {
+            if (!result.hdrImage && sdrRawFilter && hdrRawFilter) {
                 // Other RAW formats retain independent, immutable Apple RAW
                 // recipes. Preserve every camera default, including negative
                 // BaselineExposure; changing that property alone flattens
@@ -6034,9 +5799,8 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     if (result.image.isNull()) {
                         CIImage *coldOpenImage = sdrImage
                                 ?: embeddedRawProxy ?: sdrRawFilter.previewImage;
-                        result.image = imageFromCIImage(coldOpenImage, context,
-                                                        fallbackColorSpace,
-                                                        0);
+                        result.image =
+                                imageFromCIImage(coldOpenImage, context, fallbackColorSpace, 0);
                     }
 
                     // CIRAWFilter currently reports contentHeadroom == 0 for
@@ -6049,21 +5813,19 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     // later zoom operations, while this scalar does not need
                     // source-resolution pixels.
                     float measuredHeadroom = 0.0F;
-                    CIImage *headroomProbeImage = headroomRawFilter
-                            ? headroomRawFilter.outputImage : nil;
+                    CIImage *headroomProbeImage =
+                            headroomRawFilter ? headroomRawFilter.outputImage : nil;
                     const bool probeMeasured = maximumCIImageRGBComponent(
-                            headroomProbeImage, context, workingColorSpace,
-                            measuredHeadroom);
+                            headroomProbeImage, context, workingColorSpace, measuredHeadroom);
                     if (!probeMeasured) {
                         // Keep the old exact path as a rare decoder-failure
                         // fallback. Supported RAW files take the bounded probe
                         // above and never scan the source-sized graph here.
-                        maximumCIImageRGBComponent(hdrImage, context,
-                                                   workingColorSpace,
+                        maximumCIImageRGBComponent(hdrImage, context, workingColorSpace,
                                                    measuredHeadroom);
                     }
-                    result.hdrMetadata.contentHeadroom = static_cast<float>(
-                            resolvedHDRContentHeadroom(
+                    result.hdrMetadata.contentHeadroom =
+                            static_cast<float>(resolvedHDRContentHeadroom(
                                     ciImageContentHeadroom(hdrImage), measuredHeadroom));
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 160000
                     // CIImage content-headroom tagging was introduced after
@@ -6071,11 +5833,11 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     // while the SDK15 Release build uses the same pixel graph
                     // and layer-level fallback contract.
                     if (@available(macOS 16.0, *))
-                        hdrImage = [hdrImage imageBySettingContentHeadroom:
-                                result.hdrMetadata.contentHeadroom];
+                        hdrImage = [hdrImage
+                                imageBySettingContentHeadroom:result.hdrMetadata.contentHeadroom];
 #endif
-                    result.hdrImage = std::make_shared<NativeHDRImage>(
-                            hdrImage, sdrImage, result.hdrMetadata);
+                    result.hdrImage = std::make_shared<NativeHDRImage>(hdrImage, sdrImage,
+                                                                       result.hdrMetadata);
 
                     if (context)
                         [context clearCaches];
@@ -6090,9 +5852,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                 CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                 CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                result.image = imageFromCIImage(embeddedRawProxy, context,
-                                                fallbackColorSpace,
-                                                0);
+                result.image = imageFromCIImage(embeddedRawProxy, context, fallbackColorSpace, 0);
                 if (context)
                     [context clearCaches];
                 if (workingColorSpace)
@@ -6101,15 +5861,13 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CGColorSpaceRelease(fallbackColorSpace);
             }
 
-            if (result.image.isNull())
-            {
+            if (result.image.isNull()) {
                 CIImage *rawPreview = sdrRawFilter.previewImage ?: hdrRawFilter.previewImage;
                 if (rawPreview) {
                     CGColorSpaceRef workingColorSpace = colorSyncDisplayP3ColorSpace(true);
                     CGColorSpaceRef fallbackColorSpace = colorSyncDisplayP3ColorSpace(false);
                     CIContext *context = metalCIContext(workingColorSpace, fallbackColorSpace);
-                    result.image = imageFromCIImage(rawPreview, context,
-                                                    fallbackColorSpace, 0);
+                    result.image = imageFromCIImage(rawPreview, context, fallbackColorSpace, 0);
                     result.usedRawPreview = !result.image.isNull();
                     if (context)
                         [context clearCaches];
@@ -6137,12 +5895,11 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
             result.hdrMetadata.usedRawPreview = result.usedRawPreview;
 
             if (result.image.isNull() && !result.hdrImage) {
-                result.errorString = QStringLiteral(
-                    "Core Image RAW decoder does not support this camera model and no embedded JPEG preview is available");
+                result.errorString =
+                        QStringLiteral("Core Image RAW decoder does not support this camera model "
+                                       "and no embedded JPEG preview is available");
             }
-        }
-        else if (result.isImageIOType)
-        {
+        } else if (result.isImageIOType) {
             // Keep the conventional Image I/O metadata read on the non-RAW
             // path.  RAW performs the same read after its bounded proxy is
             // captured because Image I/O's RAW thumbnail selection is stateful
@@ -6164,7 +5921,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                 // extent does not require a full RGBA allocation, unlike the
                 // old full-resolution Image I/O thumbnail used as a probe.
                 probeImage = [CIImage imageWithContentsOfURL:fileUrl.toNSURL()
-                                                    options:probeOptions];
+                                                     options:probeOptions];
             }
             const float decodedHeadroom = ciImageContentHeadroom(probeImage);
             CGColorSpaceRef decodedColorSpace = probeImage.colorSpace;
@@ -6217,8 +5974,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                         // short-lived loading placeholder. Keep every source
                         // pixel so the stable SDR image remains as detailed as
                         // the native HDR presentation at arbitrary zoom.
-                        result.image = imageFromCIImage(sdrImage, context,
-                                                        fallbackColorSpace, 0);
+                        result.image = imageFromCIImage(sdrImage, context, fallbackColorSpace, 0);
                         if (context)
                             [context clearCaches];
                         if (workingColorSpace)
@@ -6255,33 +6011,31 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     QImage decodedImage = oversizedReader.read();
                     if (!decodedImage.isNull()) {
                         result.intrinsicSize = decodedImage.size();
-                        const int proxyLimit = fallbackLargestDimension > 0
-                                ? fallbackLargestDimension : 2048;
-                        result.image = decodedImage.scaled(
-                                proxyLimit, proxyLimit, Qt::KeepAspectRatio,
-                                Qt::SmoothTransformation);
+                        const int proxyLimit =
+                                fallbackLargestDimension > 0 ? fallbackLargestDimension : 2048;
+                        result.image =
+                                decodedImage.scaled(proxyLimit, proxyLimit, Qt::KeepAspectRatio,
+                                                    Qt::SmoothTransformation);
                         nativeSDRImage = std::make_shared<NativeSDRImage>(
                                 std::move(decodedImage),
                                 sourceHasAlpha(source, selectedImageIndex));
                         if (!nativeSDRImage->sourceTiles().isEmpty()) {
                             result.sdrImage = nativeSDRImage;
                         } else {
-                            result.image = {};
-                            result.errorString = QStringLiteral(
-                                    "The oversized image could not be split into bounded providers");
+                            result.image = { };
+                            result.errorString = QStringLiteral("The oversized image could not be "
+                                                                "split into bounded providers");
                         }
                         if (qEnvironmentVariableIsSet("FOVELLE_SDR_PERF_LOG"))
-                            qInfo().noquote()
-                                    << "FOVELLE_SDR_BOUNDED_PROVIDER"
-                                    << "pixels=" << result.intrinsicSize
-                                    << "tiles="
-                                    << nativeSDRImage->sourceTiles().size()
-                                    << "bytes="
-                                    << nativeSDRImage->materializedBytes();
+                            qInfo().noquote() << "FOVELLE_SDR_BOUNDED_PROVIDER"
+                                              << "pixels=" << result.intrinsicSize
+                                              << "tiles=" << nativeSDRImage->sourceTiles().size()
+                                              << "bytes=" << nativeSDRImage->materializedBytes();
                     } else {
-                        result.errorString = QStringLiteral(
-                                "Qt image decoder could not create bounded providers for an image above 2 GiB: %1")
-                                .arg(oversizedReader.errorString());
+                        result.errorString =
+                                QStringLiteral("Qt image decoder could not create bounded "
+                                               "providers for an image above 2 GiB: %1")
+                                        .arg(oversizedReader.errorString());
                     }
                 } else {
                     // Interaction is never allowed to fall back to an enlarged
@@ -6292,18 +6046,16 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                     CGImageRef decodedImage = nullptr;
                     if (CFMutableDictionaryRef options =
                                 thumbnailOptions(source, 0, false, selectedImageIndex)) {
-                        CFDictionarySetValue(
-                                options,
-                                kCGImageSourceShouldCacheImmediately,
-                                kCFBooleanTrue);
+                        CFDictionarySetValue(options, kCGImageSourceShouldCacheImmediately,
+                                             kCFBooleanTrue);
                         decodedImage = CGImageSourceCreateThumbnailAtIndex(
                                 source, selectedImageIndex, options);
                         CFRelease(options);
                     }
                     if (decodedImage) {
-                        result.intrinsicSize = QSize(
-                                static_cast<int>(CGImageGetWidth(decodedImage)),
-                                static_cast<int>(CGImageGetHeight(decodedImage)));
+                        result.intrinsicSize =
+                                QSize(static_cast<int>(CGImageGetWidth(decodedImage)),
+                                      static_cast<int>(CGImageGetHeight(decodedImage)));
                         nativeSDRImage = std::make_shared<NativeSDRImage>(
                                 decodedImage, sourceHasAlpha(source, selectedImageIndex));
                         if (!nativeSDRImage->sourceTiles().isEmpty()) {
@@ -6312,8 +6064,7 @@ QVCocoaFunctions::readImageWithImageIO(const QString &filePath, const int fallba
                             // Qt placeholder. A second ImageIO thumbnail request
                             // would parse and inflate a huge PNG again, doubling
                             // cold-open latency without improving visible pixels.
-                            result.image = imageFromCGImage(
-                                    decodedImage, fallbackLargestDimension);
+                            result.image = imageFromCGImage(decodedImage, fallbackLargestDimension);
                         }
                         CGImageRelease(decodedImage);
                     }
@@ -6356,7 +6107,8 @@ QImage QVCocoaFunctions::readAdditionalImage(const QString &filePath, QString *e
     return result.image;
 }
 
-std::unique_ptr<QVCocoaFunctions::AnimatedImage> QVCocoaFunctions::createAnimatedImage(const QString &filePath)
+std::unique_ptr<QVCocoaFunctions::AnimatedImage>
+QVCocoaFunctions::createAnimatedImage(const QString &filePath)
 {
     const QString suffix = QFileInfo(filePath).suffix().toLower();
     if (suffix != QStringLiteral("png") && suffix != QStringLiteral("apng"))

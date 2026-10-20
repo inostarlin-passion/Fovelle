@@ -42,7 +42,8 @@ int LogicalPixelFitter::snap(const qreal value, const qreal logicalScale)
     const int valueRoundedUp = valueRoundedDown + 1;
     const int physicalPixelsDrawn = qRound(value * logicalScale);
     const int physicalPixelsShownIfRoundingUp = qRound(valueRoundedUp * logicalScale);
-    return physicalPixelsDrawn >= physicalPixelsShownIfRoundingUp ? valueRoundedUp : valueRoundedDown;
+    return physicalPixelsDrawn >= physicalPixelsShownIfRoundingUp ? valueRoundedUp
+                                                                  : valueRoundedDown;
 }
 
 qreal LogicalPixelFitter::unsnap(const int value, const qreal logicalScale)

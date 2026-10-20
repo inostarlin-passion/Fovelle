@@ -15,8 +15,8 @@ ShortcutManager::ShortcutManager(QObject *parent) : QObject(parent)
     const auto markConstruction = [&](const char *phase) {
         if (traceConstruction)
             qInfo().noquote() << QStringLiteral("FOVELLE_SHORTCUT_MANAGER phase=%1 elapsed_ms=%2")
-                                     .arg(QString::fromLatin1(phase))
-                                     .arg(constructionTimer.elapsed());
+                                         .arg(QString::fromLatin1(phase))
+                                         .arg(constructionTimer.elapsed());
     };
     markConstruction("constructor-start");
 
@@ -36,30 +36,26 @@ void ShortcutManager::updateShortcuts()
     // These actions are no longer configurable shortcuts. Remove their old
     // persisted values so an upgrade cannot leave an invisible binding or a
     // stale Original Size shortcut in the user's profile.
-    for (const QString &removedShortcut : {
-             QStringLiteral("originalsize"),
-             QStringLiteral("zoomtofit"),
-             QStringLiteral("navresetszoom")})
-    {
+    for (const QString &removedShortcut :
+         { QStringLiteral("originalsize"), QStringLiteral("zoomtofit"),
+           QStringLiteral("navresetszoom") }) {
         settings.remove(removedShortcut);
     }
 
     // Set all shortcuts to the user-set shortcut or the default
-    for (auto &shortcut : shortcutsList)
-    {
+    for (auto &shortcut : shortcutsList) {
         const QStringList configuredShortcuts =
-            settings.value(shortcut.name, shortcut.defaultShortcuts).toStringList();
+                settings.value(shortcut.name, shortcut.defaultShortcuts).toStringList();
         shortcut.shortcuts = withoutReservedEscape(configuredShortcuts);
-        if (shortcut.shortcuts != configuredShortcuts
-            && settings.contains(shortcut.name))
+        if (shortcut.shortcuts != configuredShortcuts && settings.contains(shortcut.name))
             settings.setValue(shortcut.name, shortcut.shortcuts);
     }
 
     // Set all action shortcuts now that the shortcuts have changed
     const auto &actionManager = qvApp->getActionManager();
-    for (const auto &shortcut : getShortcutsList())
-    {
-        actionManager.setActionShortcuts(shortcut.name, stringListToKeySequenceList(shortcut.shortcuts));
+    for (const auto &shortcut : getShortcutsList()) {
+        actionManager.setActionShortcuts(shortcut.name,
+                                         stringListToKeySequenceList(shortcut.shortcuts));
     }
 
     hideShortcuts();
@@ -69,76 +65,162 @@ void ShortcutManager::updateShortcuts()
 
 void ShortcutManager::initializeShortcutsList()
 {
-    shortcutsList.append({tr("Open"), "open", keyBindingsToStringList(QKeySequence::Open), {}});
-    shortcutsList.append({tr("Open URL"), "openurl", QStringList(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O).toString()), {}});
-    shortcutsList.append({tr("Reload File"), "reloadfile", keyBindingsToStringList(QKeySequence::Refresh), {}});
-    shortcutsList.append({tr("Open Containing Folder"), "opencontainingfolder", {}, {}});
+    shortcutsList.append({ tr("Open"), "open", keyBindingsToStringList(QKeySequence::Open), { } });
+    shortcutsList.append({ tr("Open URL"),
+                           "openurl",
+                           QStringList(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O).toString()),
+                           { } });
+    shortcutsList.append({ tr("Reload File"),
+                           "reloadfile",
+                           keyBindingsToStringList(QKeySequence::Refresh),
+                           { } });
+    shortcutsList.append({ tr("Open Containing Folder"), "opencontainingfolder", { }, { } });
     shortcutsList.last().readableName = tr("Show in Finder");
-    shortcutsList.append({tr("Show File Info"), "showfileinfo", QStringList(QKeySequence(Qt::Key_I).toString()), {}});
-    shortcutsList.append({tr("Restore from Trash"), "undo", keyBindingsToStringList(QKeySequence::Undo), {}});
-    shortcutsList.append({tr("Copy"), "copy", keyBindingsToStringList(QKeySequence::Copy), {}});
-    shortcutsList.append({tr("Paste"), "paste", keyBindingsToStringList(QKeySequence::Paste), {}});
-    shortcutsList.append({tr("Rename"), "rename", QStringList(QKeySequence(Qt::Key_F2).toString()), {}});
+    shortcutsList.append({ tr("Show File Info"),
+                           "showfileinfo",
+                           QStringList(QKeySequence(Qt::Key_I).toString()),
+                           { } });
+    shortcutsList.append(
+            { tr("Restore from Trash"), "undo", keyBindingsToStringList(QKeySequence::Undo), { } });
+    shortcutsList.append({ tr("Copy"), "copy", keyBindingsToStringList(QKeySequence::Copy), { } });
+    shortcutsList.append(
+            { tr("Paste"), "paste", keyBindingsToStringList(QKeySequence::Paste), { } });
+    shortcutsList.append(
+            { tr("Rename"), "rename", QStringList(QKeySequence(Qt::Key_F2).toString()), { } });
     // ctrl+r for renaming, unless it conflicts with refresh (i.e. reload file)
-    if (!QKeySequence::keyBindings(QKeySequence::Refresh).contains(QKeySequence(Qt::CTRL | Qt::Key_R)))
+    if (!QKeySequence::keyBindings(QKeySequence::Refresh)
+                 .contains(QKeySequence(Qt::CTRL | Qt::Key_R)))
         shortcutsList.last().defaultShortcuts << QKeySequence(Qt::CTRL | Qt::Key_R).toString();
     // cmd+enter
-    shortcutsList.last().defaultShortcuts.prepend(QKeySequence(Qt::CTRL | Qt::Key_Return).toString());
+    shortcutsList.last().defaultShortcuts.prepend(
+            QKeySequence(Qt::CTRL | Qt::Key_Return).toString());
 
-    shortcutsList.append({tr("Move to Trash"), "delete", keyBindingsToStringList(QKeySequence::Delete), {}});
+    shortcutsList.append(
+            { tr("Move to Trash"), "delete", keyBindingsToStringList(QKeySequence::Delete), { } });
     // cmd+backspace
-    shortcutsList.last().defaultShortcuts.prepend(QKeySequence(Qt::CTRL | Qt::Key_Backspace).toString());
-    shortcutsList.append({tr("Delete Permanently"), "deletepermanent", QStringList(QKeySequence(Qt::SHIFT | Qt::Key_Delete).toString()), {}});
+    shortcutsList.last().defaultShortcuts.prepend(
+            QKeySequence(Qt::CTRL | Qt::Key_Backspace).toString());
+    shortcutsList.append({ tr("Delete Permanently"),
+                           "deletepermanent",
+                           QStringList(QKeySequence(Qt::SHIFT | Qt::Key_Delete).toString()),
+                           { } });
     // cmd+option+backspace
-    shortcutsList.last().defaultShortcuts.prepend(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Backspace).toString());
-    shortcutsList.append({tr("First File"), "firstfile", QStringList(QKeySequence(Qt::Key_Home).toString()), {}});
-    shortcutsList.append({tr("Previous File"), "previousfile", QStringList(QKeySequence(Qt::Key_Left).toString()), {}});
-    shortcutsList.append({tr("Next File"), "nextfile", QStringList(QKeySequence(Qt::Key_Right).toString()), {}});
-    shortcutsList.append({tr("Last File"), "lastfile", QStringList(QKeySequence(Qt::Key_End).toString()), {}});
-    shortcutsList.append({tr("Random File"), "randomfile", QStringList(QKeySequence(Qt::Key_R).toString()), {}});
-    shortcutsList.append({tr("Zoom In"), "zoomin", keyBindingsToStringList(QKeySequence::ZoomIn), {}});
+    shortcutsList.last().defaultShortcuts.prepend(
+            QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Backspace).toString());
+    shortcutsList.append({ tr("First File"),
+                           "firstfile",
+                           QStringList(QKeySequence(Qt::Key_Home).toString()),
+                           { } });
+    shortcutsList.append({ tr("Previous File"),
+                           "previousfile",
+                           QStringList(QKeySequence(Qt::Key_Left).toString()),
+                           { } });
+    shortcutsList.append({ tr("Next File"),
+                           "nextfile",
+                           QStringList(QKeySequence(Qt::Key_Right).toString()),
+                           { } });
+    shortcutsList.append({ tr("Last File"),
+                           "lastfile",
+                           QStringList(QKeySequence(Qt::Key_End).toString()),
+                           { } });
+    shortcutsList.append({ tr("Random File"),
+                           "randomfile",
+                           QStringList(QKeySequence(Qt::Key_R).toString()),
+                           { } });
+    shortcutsList.append(
+            { tr("Zoom In"), "zoomin", keyBindingsToStringList(QKeySequence::ZoomIn), { } });
     // Allow zooming with Ctrl + plus like a regular person (without holding shift)
-    if (!shortcutsList.last().defaultShortcuts.contains(QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()))
+    if (!shortcutsList.last().defaultShortcuts.contains(
+                QKeySequence(Qt::CTRL | Qt::Key_Equal).toString()))
         shortcutsList.last().defaultShortcuts << QKeySequence(Qt::CTRL | Qt::Key_Equal).toString();
 
-    shortcutsList.append({tr("Zoom Out"), "zoomout", keyBindingsToStringList(QKeySequence::ZoomOut), {}});
-    shortcutsList.append({tr("Set Zoom Level"), "zoomcustom", {}, {}});
-    shortcutsList.append({tr("Toggle Fit and 100%"), "togglefitand100", QStringList(QKeySequence(Qt::Key_Z).toString()), {}});
-    shortcutsList.append({tr("Fill Window"), "fillwindow", QStringList(QKeySequence(Qt::CTRL | Qt::Key_8).toString()), {}});
-    shortcutsList.append({tr("Rotate Right"), "rotateright", QStringList(QKeySequence(Qt::Key_Up).toString()), {}});
-    shortcutsList.append({tr("Rotate Left"), "rotateleft", QStringList(QKeySequence(Qt::Key_Down).toString()), {}});
-    shortcutsList.append({tr("Mirror"), "mirror", QStringList(QKeySequence(Qt::Key_F).toString()), {}});
-    shortcutsList.append({tr("Flip"), "flip", QStringList(QKeySequence(Qt::CTRL | Qt::Key_F).toString()), {}});
-    shortcutsList.append({tr("Reset Transformation"), "resettransformation", QStringList(QKeySequence(Qt::Key_T).toString()), {}});
-    shortcutsList.append({tr("Match Image Size"), "matchimagesize", {}, {}});
-    shortcutsList.append({tr("Window On Top"), "windowontop", {}, {}});
-    shortcutsList.append({tr("Toggle Titlebar Hidden"), "toggletitlebar", {}, {}});
-    shortcutsList.append({tr("Full Screen"), "fullscreen", QStringList(QKeySequence(Qt::Key_Return).toString()), {}});
-    shortcutsList.append({tr("Save Frame As"), "saveframeas", keyBindingsToStringList(QKeySequence::Save), {}});
-    shortcutsList.append({tr("Pause"), "pause", QStringList(QKeySequence(Qt::Key_P).toString()), {}});
-    shortcutsList.append({tr("Next Frame"), "nextframe", QStringList(QKeySequence(Qt::Key_Period).toString()), {}});
-    shortcutsList.append({tr("Previous Frame"), "previousframe", QStringList(QKeySequence(Qt::Key_Comma).toString()), {}});
-    shortcutsList.append({tr("Decrease Speed"), "decreasespeed", QStringList(QKeySequence(Qt::Key_BracketLeft).toString()), {}});
-    shortcutsList.append({tr("Reset Speed"), "resetspeed", QStringList(QKeySequence(Qt::Key_Backslash).toString()), {}});
-    shortcutsList.append({tr("Increase Speed"), "increasespeed", QStringList(QKeySequence(Qt::Key_BracketRight).toString()), {}});
-    shortcutsList.append({tr("Toggle Slideshow"), "slideshow", {}, {}});
-    shortcutsList.append({tr("Settings"), "options", keyBindingsToStringList(QKeySequence::Preferences), {}});
-    if (QOperatingSystemVersion::current() < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
+    shortcutsList.append(
+            { tr("Zoom Out"), "zoomout", keyBindingsToStringList(QKeySequence::ZoomOut), { } });
+    shortcutsList.append({ tr("Set Zoom Level"), "zoomcustom", { }, { } });
+    shortcutsList.append({ tr("Toggle Fit and 100%"),
+                           "togglefitand100",
+                           QStringList(QKeySequence(Qt::Key_Z).toString()),
+                           { } });
+    shortcutsList.append({ tr("Fill Window"),
+                           "fillwindow",
+                           QStringList(QKeySequence(Qt::CTRL | Qt::Key_8).toString()),
+                           { } });
+    shortcutsList.append({ tr("Rotate Right"),
+                           "rotateright",
+                           QStringList(QKeySequence(Qt::Key_Up).toString()),
+                           { } });
+    shortcutsList.append({ tr("Rotate Left"),
+                           "rotateleft",
+                           QStringList(QKeySequence(Qt::Key_Down).toString()),
+                           { } });
+    shortcutsList.append(
+            { tr("Mirror"), "mirror", QStringList(QKeySequence(Qt::Key_F).toString()), { } });
+    shortcutsList.append({ tr("Flip"),
+                           "flip",
+                           QStringList(QKeySequence(Qt::CTRL | Qt::Key_F).toString()),
+                           { } });
+    shortcutsList.append({ tr("Reset Transformation"),
+                           "resettransformation",
+                           QStringList(QKeySequence(Qt::Key_T).toString()),
+                           { } });
+    shortcutsList.append({ tr("Match Image Size"), "matchimagesize", { }, { } });
+    shortcutsList.append({ tr("Window On Top"), "windowontop", { }, { } });
+    shortcutsList.append({ tr("Toggle Titlebar Hidden"), "toggletitlebar", { }, { } });
+    shortcutsList.append({ tr("Full Screen"),
+                           "fullscreen",
+                           QStringList(QKeySequence(Qt::Key_Return).toString()),
+                           { } });
+    shortcutsList.append({ tr("Save Frame As"),
+                           "saveframeas",
+                           keyBindingsToStringList(QKeySequence::Save),
+                           { } });
+    shortcutsList.append(
+            { tr("Pause"), "pause", QStringList(QKeySequence(Qt::Key_P).toString()), { } });
+    shortcutsList.append({ tr("Next Frame"),
+                           "nextframe",
+                           QStringList(QKeySequence(Qt::Key_Period).toString()),
+                           { } });
+    shortcutsList.append({ tr("Previous Frame"),
+                           "previousframe",
+                           QStringList(QKeySequence(Qt::Key_Comma).toString()),
+                           { } });
+    shortcutsList.append({ tr("Decrease Speed"),
+                           "decreasespeed",
+                           QStringList(QKeySequence(Qt::Key_BracketLeft).toString()),
+                           { } });
+    shortcutsList.append({ tr("Reset Speed"),
+                           "resetspeed",
+                           QStringList(QKeySequence(Qt::Key_Backslash).toString()),
+                           { } });
+    shortcutsList.append({ tr("Increase Speed"),
+                           "increasespeed",
+                           QStringList(QKeySequence(Qt::Key_BracketRight).toString()),
+                           { } });
+    shortcutsList.append({ tr("Toggle Slideshow"), "slideshow", { }, { } });
+    shortcutsList.append(
+            { tr("Settings"), "options", keyBindingsToStringList(QKeySequence::Preferences), { } });
+    if (QOperatingSystemVersion::current()
+        < QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 13)) {
         shortcutsList.last().readableName = tr("Preferences");
     }
-    shortcutsList.append({tr("New Window"), "newwindow", keyBindingsToStringList(QKeySequence::New), {}});
-    shortcutsList.append({tr("Close Window"), "closewindow", QStringList(QKeySequence(Qt::CTRL | Qt::Key_W).toString()), {}});
-    shortcutsList.append({tr("Close All"), "closeallwindows", QStringList(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W).toString()), {}});
-    shortcutsList.append({tr("Quit"), "quit", keyBindingsToStringList(QKeySequence::Quit), {}});
+    shortcutsList.append(
+            { tr("New Window"), "newwindow", keyBindingsToStringList(QKeySequence::New), { } });
+    shortcutsList.append({ tr("Close Window"),
+                           "closewindow",
+                           QStringList(QKeySequence(Qt::CTRL | Qt::Key_W).toString()),
+                           { } });
+    shortcutsList.append({ tr("Close All"),
+                           "closeallwindows",
+                           QStringList(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W).toString()),
+                           { } });
+    shortcutsList.append({ tr("Quit"), "quit", keyBindingsToStringList(QKeySequence::Quit), { } });
 }
 
 void ShortcutManager::hideShortcuts()
 {
     QMutableListIterator<SShortcut> i(shortcutsList);
-    while (i.hasNext())
-    {
-        if (hiddenShortcuts.contains(i.next().name))
-        {
+    while (i.hasNext()) {
+        if (hiddenShortcuts.contains(i.next().name)) {
             i.remove();
         }
     }

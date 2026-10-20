@@ -16,18 +16,19 @@ QSize nativeWindowContentSize(QWindow *window);
 // committed geometry after removal. Neither Qt state nor a production clock.
 struct NativeFullScreenPresentation
 {
-    bool active {false};
+    bool active{ false };
     QRectF windowRect;
     QRectF imageRect;
-    bool running {false};
+    bool running{ false };
 };
-NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction = true);
+NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window,
+                                                          bool refreshTransaction = true);
 
 // Read actual proxy contents and rasterize its model-layer transform. This is
 // an offscreen correctness oracle, not a physical-display frame measurement.
 struct NativeFullScreenImageSnapshot
 {
-    bool active {false};
+    bool active{ false };
     QSize sourceSize;
     QSizeF orientedSize;
     QImage sourcePreview;
@@ -39,8 +40,9 @@ bool nativeFullScreenUsesSystemAnimation(QWindow *window);
 void nativeToggleFullScreen(QWindow *window);
 
 #include <functional>
-struct NativeSDRLayerGeometry {
-    bool active {false};
+struct NativeSDRLayerGeometry
+{
+    bool active{ false };
     QRectF viewport;
     QRectF image;
     QRectF background;
@@ -49,8 +51,9 @@ struct NativeSDRLayerGeometry {
 NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window);
 void nativeSetResizeProbe(QWindow *window, std::function<void()> callback);
 
-struct NativeHDRLayerGeometry {
-    bool active {false};
+struct NativeHDRLayerGeometry
+{
+    bool active{ false };
     QRectF viewport;
     QRectF image;
     QRectF background;
@@ -65,9 +68,9 @@ void nativeSetContentHidden(QWindow *window, bool hidden);
 
 struct NativeHDRSurfaceData
 {
-    quintptr identity {0};
-    float contentHeadroom {0};
-    float layerHeadroom {0};
+    quintptr identity{ 0 };
+    float contentHeadroom{ 0 };
+    float layerHeadroom{ 0 };
     QByteArray pixels;
 };
 NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window);

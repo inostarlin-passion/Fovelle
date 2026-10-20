@@ -23,13 +23,12 @@ public:
     ~QVInfoDialog();
 
     void setInfo(const QFileInfo fileInfo, const QSize imageSize, const int frameCount,
-                 const QString &cameraModel = {});
+                 const QString &cameraModel = { });
 
     void updateInfo();
     void setColorInfoProvider(std::function<QvColor::Information()> provider);
 
-    static QString formatModifiedDateTime(const QDateTime &dateTime,
-                                          const QString &languageCode);
+    static QString formatModifiedDateTime(const QDateTime &dateTime, const QString &languageCode);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -43,7 +42,7 @@ private:
 
     QFileInfo fileInfo;
     QSize imageSize;
-    int frameCount {0};
+    int frameCount{ 0 };
     QString cameraModel;
 
 public:

@@ -14,8 +14,16 @@
 @end
 
 @implementation FovelleTestFullScreenObserver
-- (void)didEnter:(NSNotification *)notification { Q_UNUSED(notification); ++entries; }
-- (void)didExit:(NSNotification *)notification { Q_UNUSED(notification); ++exits; }
+- (void)didEnter:(NSNotification *)notification
+{
+    Q_UNUSED(notification);
+    ++entries;
+}
+- (void)didExit:(NSNotification *)notification
+{
+    Q_UNUSED(notification);
+    ++exits;
+}
 - (void)dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -28,25 +36,30 @@ NativeTitlebarSnapshot nativeTitlebarSnapshot(QWindow *window)
     NSView *view = reinterpret_cast<NSView *>(window->winId());
     NSWindow *nativeWindow = view.window;
     if (!nativeWindow)
-        return {false, 0, 0};
+        return { false, 0, 0 };
     static char observerKey;
     FovelleTestFullScreenObserver *observer = objc_getAssociatedObject(nativeWindow, &observerKey);
     if (!observer) {
         observer = [[FovelleTestFullScreenObserver alloc] init];
         NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-        [center addObserver:observer selector:@selector(didEnter:)
-            name:NSWindowDidEnterFullScreenNotification object:nativeWindow];
-        [center addObserver:observer selector:@selector(didExit:)
-            name:NSWindowDidExitFullScreenNotification object:nativeWindow];
-        objc_setAssociatedObject(nativeWindow, &observerKey, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [center addObserver:observer
+                   selector:@selector(didEnter:)
+                       name:NSWindowDidEnterFullScreenNotification
+                     object:nativeWindow];
+        [center addObserver:observer
+                   selector:@selector(didExit:)
+                       name:NSWindowDidExitFullScreenNotification
+                     object:nativeWindow];
+        objc_setAssociatedObject(nativeWindow, &observerKey, observer,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [observer release];
     }
     // Read AppKit independently of the production Qt flag getter. The
     // notifications prevent Qt's requested state from ending sampling early.
     const bool hidden = nativeWindow.titleVisibility == NSWindowTitleHidden
-        && nativeWindow.titlebarAppearsTransparent
-        && [nativeWindow standardWindowButton:NSWindowCloseButton].hidden;
-    return {hidden, observer->entries, observer->exits};
+            && nativeWindow.titlebarAppearsTransparent &&
+            [nativeWindow standardWindowButton:NSWindowCloseButton].hidden;
+    return { hidden, observer->entries, observer->exits };
 }
 
 QSize nativeWindowContentSize(QWindow *window)
@@ -61,7 +74,7 @@ NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool 
     NSView *view = reinterpret_cast<NSView *>(window->winId());
     NSWindow *real = view.window;
     if (!real)
-        return {};
+        return { };
     // Discover the visible auxiliary proxy by public AppKit properties. Do
     // not consult production association keys or its NSAnimation progress.
     for (NSWindow *candidate in NSApp.windows) {
@@ -91,10 +104,10 @@ NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool 
         const auto rect = [](CGRect r) {
             return QRectF(r.origin.x, r.origin.y, r.size.width, r.size.height);
         };
-        return {true, rect(presentation.frame), rect(image.frame),
-            layer.animationKeys.count != 0};
+        return { true, rect(presentation.frame), rect(image.frame),
+                 layer.animationKeys.count != 0 };
     }
-    return {};
+    return { };
 }
 
 NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window)
@@ -117,13 +130,13 @@ NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window)
         result.orientedPreview = QImage(32, 32, QImage::Format_RGBA8888_Premultiplied);
         const auto context = [contents](QImage &target) {
             target.fill(Qt::transparent);
-            return CGBitmapContextCreate(target.bits(), target.width(), target.height(),
-                8, target.bytesPerLine(), CGImageGetColorSpace(contents),
-                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+            return CGBitmapContextCreate(target.bits(), target.width(), target.height(), 8,
+                                         target.bytesPerLine(), CGImageGetColorSpace(contents),
+                                         kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
         };
         CGContextRef raw = context(result.sourcePreview);
         if (!raw)
-            return {};
+            return { };
         CGContextSetInterpolationQuality(raw, kCGInterpolationNone);
         CGContextDrawImage(raw, CGRectMake(0, 0, 32, 32), contents);
         CGContextRelease(raw);
@@ -139,26 +152,27 @@ NativeFullScreenImageSnapshot nativeFullScreenImageSnapshot(QWindow *window)
         copy.anchorPoint = image.anchorPoint;
         copy.transform = image.transform;
         copy.position = CGPointMake(image.position.x - image.frame.origin.x,
-            image.position.y - image.frame.origin.y);
+                                    image.position.y - image.frame.origin.y);
         [root addSublayer:copy];
         CGContextRef oriented = context(result.orientedPreview);
         if (!oriented)
-            return {};
-        CGContextScaleCTM(oriented, 32.0 / image.frame.size.width,
-            32.0 / image.frame.size.height);
+            return { };
+        CGContextScaleCTM(oriented, 32.0 / image.frame.size.width, 32.0 / image.frame.size.height);
         [root renderInContext:oriented];
         CGContextRelease(oriented);
         return result;
     }
-    return {};
+    return { };
 }
 
 bool nativeFullScreenUsesSystemAnimation(QWindow *window)
 {
     NSWindow *native = reinterpret_cast<NSView *>(window->winId()).window;
     return native && native.alphaValue == 1.0
-        && ![native.delegate respondsToSelector:@selector(customWindowsToEnterFullScreenForWindow:)]
-        && ![native.delegate respondsToSelector:@selector(customWindowsToExitFullScreenForWindow:)];
+            && ![native.delegate
+                    respondsToSelector:@selector(customWindowsToEnterFullScreenForWindow:)]
+            && ![native.delegate
+                    respondsToSelector:@selector(customWindowsToExitFullScreenForWindow:)];
 }
 
 void nativeToggleFullScreen(QWindow *window)
@@ -178,22 +192,26 @@ NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window)
                 continue;
             bool hasPixels = false;
             for (CALayer *tile in image.sublayers)
-                hasPixels |= tile.contents && CFGetTypeID((CFTypeRef)tile.contents) == CGImageGetTypeID();
-            if (!hasPixels) continue;
+                hasPixels |= tile.contents
+                        && CFGetTypeID((CFTypeRef)tile.contents) == CGImageGetTypeID();
+            if (!hasPixels)
+                continue;
             const auto qtRect = [root, view](CGRect r) {
                 return QRectF(r.origin.x,
-                    root.geometryFlipped ? r.origin.y : view.bounds.size.height - CGRectGetMaxY(r),
-                    r.size.width, r.size.height);
+                              root.geometryFlipped ? r.origin.y
+                                                   : view.bounds.size.height - CGRectGetMaxY(r),
+                              r.size.width, r.size.height);
             };
             CALayer *background = container.sublayers.firstObject;
             // Rasterize actual CGImage tiles and background at the native
             // viewport's bottom. This is an offscreen layer oracle, not FPS.
-            QImage band(qRound(container.bounds.size.width), 8, QImage::Format_RGBA8888_Premultiplied);
+            QImage band(qRound(container.bounds.size.width), 8,
+                        QImage::Format_RGBA8888_Premultiplied);
             band.fill(Qt::transparent);
             CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-            CGContextRef context = CGBitmapContextCreate(band.bits(), band.width(), band.height(),
-                8, band.bytesPerLine(), color,
-                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+            CGContextRef context = CGBitmapContextCreate(
+                    band.bits(), band.width(), band.height(), 8, band.bytesPerLine(), color,
+                    kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
             CGColorSpaceRelease(color);
             if (context) {
                 CGContextSetInterpolationQuality(context, kCGInterpolationNone);
@@ -203,12 +221,12 @@ NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window)
                 [container renderInContext:context];
                 CGContextRelease(context);
             }
-            return {true, qtRect([container convertRect:container.bounds toLayer:root]),
-                qtRect([image convertRect:image.bounds toLayer:root]),
-                qtRect([background convertRect:background.bounds toLayer:root]), band};
+            return { true, qtRect([container convertRect:container.bounds toLayer:root]),
+                     qtRect([image convertRect:image.bounds toLayer:root]),
+                     qtRect([background convertRect:background.bounds toLayer:root]), band };
         }
     }
-    return {};
+    return { };
 }
 
 @interface FovelleResizeProbe : NSObject {
@@ -218,11 +236,14 @@ NativeSDRLayerGeometry nativeSDRLayerGeometry(QWindow *window)
 - (void)didResize:(NSNotification *)notification;
 @end
 @implementation FovelleResizeProbe
-- (void)didResize:(NSNotification *)notification {
+- (void)didResize:(NSNotification *)notification
+{
     Q_UNUSED(notification);
-    if (callback && *callback) (*callback)();
+    if (callback && *callback)
+        (*callback)();
 }
-- (void)dealloc {
+- (void)dealloc
+{
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     delete callback;
     [super dealloc];
@@ -236,8 +257,10 @@ void nativeSetResizeProbe(QWindow *window, std::function<void()> callback)
     if (!probe) {
         probe = [[FovelleResizeProbe alloc] init];
         probe->callback = new std::function<void()>;
-        [[NSNotificationCenter defaultCenter] addObserver:probe selector:@selector(didResize:)
-            name:NSWindowDidResizeNotification object:native];
+        [[NSNotificationCenter defaultCenter] addObserver:probe
+                                                 selector:@selector(didResize:)
+                                                     name:NSWindowDidResizeNotification
+                                                   object:native];
         objc_setAssociatedObject(native, &key, probe, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [probe release];
     }
@@ -260,8 +283,10 @@ NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &exp
                 || !(CGImageGetBitmapInfo(pixels) & kCGBitmapFloatComponents))
                 continue;
             const auto qtRect = [root, view](CGRect r) {
-                return QRectF(r.origin.x, root.geometryFlipped ? r.origin.y
-                    : view.bounds.size.height - CGRectGetMaxY(r), r.size.width, r.size.height);
+                return QRectF(r.origin.x,
+                              root.geometryFlipped ? r.origin.y
+                                                   : view.bounds.size.height - CGRectGetMaxY(r),
+                              r.size.width, r.size.height);
             };
             const QRectF actualImage = qtRect([image convertRect:image.bounds toLayer:root]);
             const QRectF viewport = qtRect([container convertRect:container.bounds toLayer:root]);
@@ -270,14 +295,16 @@ NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &exp
             // Using the same color conversion for both strips avoids comparing
             // an attached EDR subtree with an unattached layer's tone mapping.
             const auto band = [container, image, background](CGAffineTransform transform) {
-                QImage result(qRound(container.bounds.size.width), 8, QImage::Format_RGBA8888_Premultiplied);
+                QImage result(qRound(container.bounds.size.width), 8,
+                              QImage::Format_RGBA8888_Premultiplied);
                 result.fill(Qt::transparent);
                 CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-                CGContextRef context = CGBitmapContextCreate(result.bits(), result.width(), result.height(),
-                    8, result.bytesPerLine(), color,
-                    kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+                CGContextRef context = CGBitmapContextCreate(
+                        result.bits(), result.width(), result.height(), 8, result.bytesPerLine(),
+                        color, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
                 CGColorSpaceRelease(color);
-                if (!context) return QImage();
+                if (!context)
+                    return QImage();
                 if (background.backgroundColor) {
                     CGContextSetFillColorWithColor(context, background.backgroundColor);
                     CGContextFillRect(context, CGRectMake(0, 0, result.width(), 8));
@@ -289,27 +316,33 @@ NativeHDRLayerGeometry nativeHDRLayerGeometry(QWindow *window, const QRectF &exp
                 return result;
             };
             const CGRect actual = [image convertRect:image.bounds toLayer:container];
-            const qreal targetY = root.geometryFlipped ? expectedImage.top()-viewport.top()
-                : viewport.bottom()-expectedImage.bottom();
-            const CGFloat sx = expectedImage.width()/actual.size.width;
-            const CGFloat sy = expectedImage.height()/actual.size.height;
-            const CGAffineTransform normalize = CGAffineTransformMake(sx, 0, 0, sy,
-                expectedImage.left()-viewport.left()-actual.origin.x*sx,
-                targetY-actual.origin.y*sy);
-            const CGAffineTransform expectedTransform = CGAffineTransformConcat(image.affineTransform, normalize);
-            return {true, viewport, actualImage,
-                qtRect([background convertRect:background.bounds toLayer:root]), band(image.affineTransform), band(expectedTransform)};
+            const qreal targetY = root.geometryFlipped ? expectedImage.top() - viewport.top()
+                                                       : viewport.bottom() - expectedImage.bottom();
+            const CGFloat sx = expectedImage.width() / actual.size.width;
+            const CGFloat sy = expectedImage.height() / actual.size.height;
+            const CGAffineTransform normalize = CGAffineTransformMake(
+                    sx, 0, 0, sy, expectedImage.left() - viewport.left() - actual.origin.x * sx,
+                    targetY - actual.origin.y * sy);
+            const CGAffineTransform expectedTransform =
+                    CGAffineTransformConcat(image.affineTransform, normalize);
+            return { true,
+                     viewport,
+                     actualImage,
+                     qtRect([background convertRect:background.bounds toLayer:root]),
+                     band(image.affineTransform),
+                     band(expectedTransform) };
         }
     }
-    return {};
+    return { };
 }
 
 QColor nativeWindowBackground(QWindow *window)
 {
     NSColor *color = [reinterpret_cast<NSView *>(window->winId()).window.backgroundColor
-        colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
-    return color ? QColor::fromRgbF(color.redComponent, color.greenComponent,
-        color.blueComponent, color.alphaComponent) : QColor();
+            colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+    return color ? QColor::fromRgbF(color.redComponent, color.greenComponent, color.blueComponent,
+                                    color.alphaComponent)
+                 : QColor();
 }
 
 void nativeSetContentHidden(QWindow *window, bool hidden)
@@ -332,13 +365,16 @@ NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window)
             }
         }
         for (CALayer *child in layer.sublayers)
-            if (CGImageRef image = self(self, child)) return image;
+            if (CGImageRef image = self(self, child))
+                return image;
         return nullptr;
     };
     CGImageRef image = find(find, view.layer);
-    if (!image) return {};
+    if (!image)
+        return { };
     CFDataRef bytes = CGDataProviderCopyData(CGImageGetDataProvider(image));
-    if (!bytes) return {};
+    if (!bytes)
+        return { };
     NativeHDRSurfaceData result;
     result.identity = reinterpret_cast<quintptr>(image);
     if (@available(macOS 15.0, *))
@@ -348,7 +384,7 @@ NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window)
         result.layerHeadroom = surfaceLayer.contentsHeadroom;
 #endif
     result.pixels = QByteArray(reinterpret_cast<const char *>(CFDataGetBytePtr(bytes)),
-                              CFDataGetLength(bytes));
+                               CFDataGetLength(bytes));
     CFRelease(bytes);
     return result;
 }

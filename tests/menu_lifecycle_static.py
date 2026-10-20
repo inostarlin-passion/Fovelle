@@ -8,11 +8,11 @@ window = (root/'src/mainwindow.cpp').read_text()
 actions = (root/'src/actionmanager.cpp').read_text()
 header = (root/'src/asyncwork.h').read_text()
 shutdown = (root/'src/qvapplication.cpp').read_text()
-keys = re.findall(r'actionLibrary.insert\("([^"]+)"', actions)
+keys = re.findall(r'actionLibrary\.insert\s*\(\s*"([^"]+)"', actions)
 assert len(keys) >= 50
 assert len(keys) == len(set(keys))
 # Every state-dependent text/check writer is reviewed, including helper paths.
-writers = set(re.findall(r'(?:getAllClonesOfAction|syncStatefulAction)\("([^"]+)"', window))
+writers = set(re.findall(r'(?:getAllClonesOfAction|syncStatefulAction)\s*\(\s*"([^"]+)"', window))
 assert {'fullscreen','pause','slideshow','toggletitlebar','windowontop','fillwindow'} <= writers
 for function in ['ensureMenus', 'ensureContextMenu']:
     body = window.split(f'void MainWindow::{function}()',1)[1].split('\nvoid ',1)[0]

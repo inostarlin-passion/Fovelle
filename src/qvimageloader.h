@@ -67,8 +67,7 @@ public:
 
     void setLargestDimension(int value);
 
-    static PreloadAdmission preloadAdmissionForFile(
-        const QString &absoluteFilePath);
+    static PreloadAdmission preloadAdmissionForFile(const QString &absoluteFilePath);
 
     quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false);
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
@@ -94,12 +93,7 @@ private:
         bool operator!=(const FileIdentity &other) const { return !(*this == other); }
     };
 
-    enum class State
-    {
-        Queued,
-        Loading,
-        Cached
-    };
+    enum class State { Queued, Loading, Cached };
 
     struct Entry
     {
@@ -122,8 +116,7 @@ private:
     static QString normalizePath(const QString &path);
     static FileIdentity getFileIdentity(const QString &absoluteFilePath);
     static FileIdentity getFileIdentity(const Result &result);
-    static Result readFile(const QString &absoluteFilePath, int largestDimension,
-                           bool isPreload);
+    static Result readFile(const QString &absoluteFilePath, int largestDimension, bool isPreload);
 
     bool isWanted(const QString &absoluteFilePath, const Entry &entry) const;
     void queueCachedDelivery(quint64 requestId, const QString &absoluteFilePath);
@@ -137,7 +130,7 @@ private:
     std::shared_ptr<int> lifetimeToken = std::make_shared<int>(0);
     QList<QvAsync::Ticket> workTickets;
     ReadFunction readFunction;
-    bool asyncWorkShutDown {false};
+    bool asyncWorkShutDown{ false };
 
     quint64 nextRequestId = 0;
     int largestDimension = 1920;

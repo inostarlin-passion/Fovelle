@@ -25,9 +25,11 @@ public:
     void constrain();
 
 private:
-    static void calculateScrollRange(int contentDimension, int viewportDimension, int offset, bool shouldCenter, int &minValue, int &maxValue);
+    static void calculateScrollRange(int contentDimension, int viewportDimension, int offset,
+                                     bool shouldCenter, int &minValue, int &maxValue);
 
-    static qreal calculateScrollDelta(qreal currentValue, int minValue, int maxValue, qreal proposedDelta);
+    static qreal calculateScrollDelta(qreal currentValue, int minValue, int maxValue,
+                                      qreal proposedDelta);
 
     QScrollBar *hScrollBar;
     QScrollBar *vScrollBar;

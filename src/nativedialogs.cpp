@@ -7,8 +7,7 @@
 #include <QTextDocument>
 #include <QTimer>
 
-namespace
-{
+namespace {
 QString plainAlertText(const QString &text)
 {
     if (!Qt::mightBeRichText(text))
@@ -21,14 +20,12 @@ QString plainAlertText(const QString &text)
     document.setHtml(text);
     return document.toPlainText();
 }
-}
+} // namespace
 
-namespace NativeDialogs
-{
+namespace NativeDialogs {
 Qv::Theme currentTheme()
 {
-    return qvApp ? qvApp->getSettingsManager().getEnum<Qv::Theme>("theme")
-                 : Qv::Theme::Light;
+    return qvApp ? qvApp->getSettingsManager().getEnum<Qv::Theme>("theme") : Qv::Theme::Light;
 }
 
 void applyTheme(QWidget *dialog)
@@ -50,11 +47,9 @@ void applyTheme(QWidget *dialog)
     QTimer::singleShot(0, dialog, apply);
 }
 
-QMessageBox *createMessageBox(const QMessageBox::Icon severity,
-                              const QString &messageText,
+QMessageBox *createMessageBox(const QMessageBox::Icon severity, const QString &messageText,
                               const QString &informativeText,
-                              const QMessageBox::StandardButtons buttons,
-                              QWidget *parent)
+                              const QMessageBox::StandardButtons buttons, QWidget *parent)
 {
     auto *messageBox = new QMessageBox(parent);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
@@ -75,10 +70,8 @@ QMessageBox *createMessageBox(const QMessageBox::Icon severity,
     return messageBox;
 }
 
-void showMessage(const QMessageBox::Icon severity,
-                 const QString &messageText,
-                 const QString &informativeText,
-                 const QMessageBox::StandardButtons buttons,
+void showMessage(const QMessageBox::Icon severity, const QString &messageText,
+                 const QString &informativeText, const QMessageBox::StandardButtons buttons,
                  QWidget *parent)
 {
     auto *messageBox = createMessageBox(severity, messageText, informativeText, buttons, parent);
@@ -88,14 +81,8 @@ void showMessage(const QMessageBox::Icon severity,
     messageBox->show();
 }
 
-double getDouble(QWidget *parent,
-                 const QString &title,
-                 const QString &label,
-                 const double value,
-                 const double minimum,
-                 const double maximum,
-                 const int decimals,
-                 bool *ok)
+double getDouble(QWidget *parent, const QString &title, const QString &label, const double value,
+                 const double minimum, const double maximum, const int decimals, bool *ok)
 {
     QInputDialog dialog(parent);
     dialog.setWindowTitle(title);
@@ -115,4 +102,4 @@ double getDouble(QWidget *parent,
         *ok = accepted;
     return dialog.doubleValue();
 }
-}
+} // namespace NativeDialogs

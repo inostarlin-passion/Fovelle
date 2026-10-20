@@ -20,7 +20,8 @@ public:
     void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State state) override;
 
 private:
-    QPixmap scaledPixmapInternal(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale);
+    QPixmap scaledPixmapInternal(const QSize &size, QIcon::Mode mode, QIcon::State state,
+                                 qreal scale);
 
     static constexpr quint64 calculateCacheKey(QIcon::Mode mode, QIcon::State state)
     {
@@ -30,7 +31,7 @@ private:
     const QChar m_iconChar;
     const QFont m_iconFont;
     mutable QPixmap m_pixmap;
-    mutable quint64 m_pixmapCacheKey = {};
+    mutable quint64 m_pixmapCacheKey = { };
 };
 
 #endif // SIMPLEFONTICONENGINE_H

@@ -8,7 +8,8 @@ class ShortcutManager : public QObject
 {
     Q_OBJECT
 public:
-    struct SShortcut {
+    struct SShortcut
+    {
         QString readableName;
         QString name;
         QStringList defaultShortcuts;
@@ -31,8 +32,7 @@ public:
     static QList<QKeySequence> stringListToKeySequenceList(const QStringList &stringList)
     {
         QList<QKeySequence> keySequences;
-        for (const auto &string : stringList)
-        {
+        for (const auto &string : stringList) {
             keySequences << QKeySequence::fromString(string);
         }
         return keySequences;
@@ -55,8 +55,7 @@ public:
     static QStringList withoutReservedEscape(const QStringList &shortcuts)
     {
         QStringList result;
-        for (const QString &shortcut : shortcuts)
-        {
+        for (const QString &shortcut : shortcuts) {
             if (!beginsWithReservedEscape(QKeySequence::fromString(shortcut)))
                 result.append(shortcut);
         }
@@ -66,10 +65,9 @@ public:
     static QString stringListToReadableString(const QStringList &stringList)
     {
         QStringList readableStrings;
-        for (const QString &shortcut : stringList)
-        {
+        for (const QString &shortcut : stringList) {
             const QKeySequence sequence =
-                QKeySequence::fromString(shortcut, QKeySequence::PortableText);
+                    QKeySequence::fromString(shortcut, QKeySequence::PortableText);
             if (!sequence.isEmpty())
                 readableStrings << sequence.toString(QKeySequence::NativeText);
         }
@@ -78,7 +76,9 @@ public:
 
     static QStringList readableStringToStringList(QString shortcutString)
     {
-        return QKeySequence::fromString(shortcutString, QKeySequence::NativeText).toString().split(", ");
+        return QKeySequence::fromString(shortcutString, QKeySequence::NativeText)
+                .toString()
+                .split(", ");
     }
 
     explicit ShortcutManager(QObject *parent = nullptr);

@@ -34,24 +34,24 @@ public:
     int delay;
     bool endMark;
     inline QFrameInfo(bool endMark) : image(QImage()), delay(QMOVIE_INVALID_DELAY), endMark(endMark)
-    { }
+    {
+    }
 
     inline QFrameInfo() : image(QImage()), delay(QMOVIE_INVALID_DELAY), endMark(false) { }
 
     inline QFrameInfo(QImage image, int delay)
         : image(std::move(image)), delay(delay), endMark(false)
-    { }
+    {
+    }
 
     inline bool isValid() const
     {
         return endMark || !(image.isNull() && (delay == QMOVIE_INVALID_DELAY));
     }
 
-    inline bool isEndMarker()
-    { return endMark; }
+    inline bool isEndMarker() { return endMark; }
 
-    static inline QFrameInfo endMarker()
-    { return QFrameInfo(true); }
+    static inline QFrameInfo endMarker() { return QFrameInfo(true); }
 };
 Q_DECLARE_TYPEINFO(QFrameInfo, Q_RELOCATABLE_TYPE);
 
@@ -135,7 +135,8 @@ public:
     void publishFrame(const QFrameInfo &info);
     void finishPlayback();
 
-    inline void enterState(QVMovie::MovieState newState) {
+    inline void enterState(QVMovie::MovieState newState)
+    {
         movieState = newState;
         emit q_ptr->stateChanged(newState);
     }
@@ -175,9 +176,7 @@ public:
     QTimer *nextImageTimer = nullptr;
 };
 
-QVMoviePrivate::QVMoviePrivate()
-{
-}
+QVMoviePrivate::QVMoviePrivate() { }
 
 void QVMoviePrivate::init(QVMovie *qq, std::unique_ptr<QImageReader> r)
 {
@@ -186,9 +185,7 @@ void QVMoviePrivate::init(QVMovie *qq, std::unique_ptr<QImageReader> r)
     nextImageTimer = new QTimer(qq);
     nextImageTimer->setTimerType(Qt::PreciseTimer);
     nextImageTimer->setSingleShot(true);
-    QObject::connect(nextImageTimer, &QTimer::timeout, qq, [this]() {
-        _q_loadNextFrame();
-    });
+    QObject::connect(nextImageTimer, &QTimer::timeout, qq, [this]() { _q_loadNextFrame(); });
 }
 
 void QVMoviePrivate::reset()
@@ -234,7 +231,7 @@ bool QVMoviePrivate::isDone()
 
 int QVMoviePrivate::speedAdjustedDelay(int delay) const
 {
-    return int( (qint64(delay) * qint64(100) ) / qint64(speed) );
+    return int((qint64(delay) * qint64(100)) / qint64(speed));
 }
 
 QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
@@ -245,21 +242,18 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         return QFrameInfo(); // Invalid
 
     if (haveReadAll && (frameNumber > greatestFrameNumber)) {
-        if (frameNumber == greatestFrameNumber+1)
+        if (frameNumber == greatestFrameNumber + 1)
             return QFrameInfo::endMarker();
         return QFrameInfo(); // Invalid
     }
 
-    if (nativeAnimation)
-    {
-        if (frameNumber >= nativeAnimation->frameCount())
-        {
+    if (nativeAnimation) {
+        if (frameNumber >= nativeAnimation->frameCount()) {
             haveReadAll = true;
             return QFrameInfo::endMarker();
         }
 
-        if (cacheMode == QVMovie::CacheAll)
-        {
+        if (cacheMode == QVMovie::CacheAll) {
             const auto cached = frameMap.find(frameNumber);
             if (cached != frameMap.end()) {
                 cacheOrder.remove(frameNumber);
@@ -291,10 +285,12 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
     // For an animated image format, QImageIOHandler::nextImageDelay() should
     // provide the time to wait until showing the next frame; but multi-frame
     // formats are not expected to provide this value, so use 1000 ms by default.
-    const auto nextFrameDelay = [&]() { return supportsAnimation ? reader->nextImageDelay() : 1000; };
+    const auto nextFrameDelay = [&]() {
+        return supportsAnimation ? reader->nextImageDelay() : 1000;
+    };
 
     if (cacheMode == QVMovie::CacheNone) {
-        if (frameNumber != currentFrameNumber+1) {
+        if (frameNumber != currentFrameNumber + 1) {
             // Non-sequential frame access
             if (!reader->jumpToImage(frameNumber)) {
                 if (frameNumber == 0) {
@@ -323,7 +319,8 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         }
         if (stopAtFrame > 0 ? (frameNumber < stopAtFrame) : reader->canRead()) {
             // reader says we can read. Attempt to actually read image
-            // But if it's a non-animated multi-frame format and we know the frame count, stop there.
+            // But if it's a non-animated multi-frame format and we know the frame count, stop
+            // there.
             if (stopAtFrame > 0)
                 reader->jumpToImage(frameNumber);
             QImage anImage = reader->read();
@@ -359,7 +356,8 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
         for (int i = greatestFrameNumber + 1; i <= frameNumber; ++i) {
             if (stopAtFrame > 0 ? (frameNumber < stopAtFrame) : reader->canRead()) {
                 // reader says we can read. Attempt to actually read image
-                // But if it's a non-animated multi-frame format and we know the frame count, stop there.
+                // But if it's a non-animated multi-frame format and we know the frame count, stop
+                // there.
                 if (stopAtFrame > 0)
                     reader->jumpToImage(frameNumber);
                 QImage anImage = reader->read();
@@ -377,7 +375,8 @@ QFrameInfo QVMoviePrivate::infoForFrame(int frameNumber)
             } else {
                 // We've read all frames now. Return an end marker
                 haveReadAll = true;
-                return frameNumber == greatestFrameNumber + 1 ? QFrameInfo::endMarker() : QFrameInfo();
+                return frameNumber == greatestFrameNumber + 1 ? QFrameInfo::endMarker()
+                                                              : QFrameInfo();
             }
         }
     }
@@ -409,7 +408,7 @@ bool QVMoviePrivate::next()
         // Loop as appropriate
         if (playCounter != 0) {
             if (playCounter != -1) // Infinite?
-                playCounter--;     // Nope
+                playCounter--; // Nope
             nextFrameNumber = 0;
             return next();
         }
@@ -602,8 +601,12 @@ void QVMoviePrivate::_q_loadNextFrame(bool starting)
         emit q->frameChanged(currentFrameNumber);
 
         if (speed && movieState == QVMovie::Running) {
-            nextLoadTime = (nextLoadTime.has_value() ? nextLoadTime.value() : loadStartTime) + std::chrono::milliseconds(nextDelay);
-            const int adjustedNextDelay = std::chrono::duration_cast<std::chrono::milliseconds>(nextLoadTime.value() - std::chrono::steady_clock::now()).count();
+            nextLoadTime = (nextLoadTime.has_value() ? nextLoadTime.value() : loadStartTime)
+                    + std::chrono::milliseconds(nextDelay);
+            const int adjustedNextDelay =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                            nextLoadTime.value() - std::chrono::steady_clock::now())
+                            .count();
             if (adjustedNextDelay < -1000) {
                 // If we get too far behind, don't try to catch up
                 nextLoadTime = std::nullopt;
@@ -641,7 +644,7 @@ bool QVMoviePrivate::isValid() const
         // ### the const_cast here is ugly, but 'const' of this method is
         // technically wrong right now, since it may cause the underlying device
         // to open.
-        emit const_cast<QVMovie*>(q)->error(reader->error());
+        emit const_cast<QVMovie *>(q)->error(reader->error());
     }
     return canRead;
 }
@@ -660,7 +663,7 @@ bool QVMoviePrivate::jumpToFrame(int frameNumber)
     asyncPlayback = false;
     _q_loadNextFrame();
     asyncPlayback = wasAsync;
-    return (nextFrameNumber == currentFrameNumber+1);
+    return (nextFrameNumber == currentFrameNumber + 1);
 }
 
 int QVMoviePrivate::frameCount() const
@@ -669,17 +672,16 @@ int QVMoviePrivate::frameCount() const
     if ((result = reader->imageCount()) != 0)
         return result;
     if (haveReadAll)
-        return greatestFrameNumber+1;
+        return greatestFrameNumber + 1;
     return 0; // Don't know
 }
 
 bool QVMoviePrivate::jumpToNextFrame()
 {
-    return jumpToFrame(currentFrameNumber+1);
+    return jumpToFrame(currentFrameNumber + 1);
 }
 
-QVMovie::QVMovie(QObject *parent)
-    : QObject(parent), d_ptr(new QVMoviePrivate)
+QVMovie::QVMovie(QObject *parent) : QObject(parent), d_ptr(new QVMoviePrivate)
 {
     Q_D(QVMovie);
     d->init(this, std::make_unique<QImageReader>());
@@ -930,10 +932,9 @@ QList<QByteArray> QVMovie::supportedFormats()
     QBuffer buffer;
     buffer.open(QIODevice::ReadOnly);
 
-    const auto doesntSupportAnimation =
-            [&buffer](const QByteArray &format) {
-                return !QImageReader(&buffer, format).supportsOption(QImageIOHandler::Animation);
-            };
+    const auto doesntSupportAnimation = [&buffer](const QByteArray &format) {
+        return !QImageReader(&buffer, format).supportsOption(QImageIOHandler::Animation);
+    };
 
     list.removeIf(doesntSupportAnimation);
     return list;
