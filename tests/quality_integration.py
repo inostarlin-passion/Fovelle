@@ -490,7 +490,7 @@ def main() -> int:
                 "tags:",
                 "- 'v*'",
                 "contents: write",
-                "softprops/action-gh-release@v3",
+                "softprops/action-gh-release@",
                 "GITHUB_TOKEN",
                 "generate_release_notes: true",
                 "fail_on_unmatched_files: true",
@@ -500,7 +500,7 @@ def main() -> int:
         {
             "tag_trigger": "- 'v*'" in workflow,
             "write_permission": "contents: write" in workflow,
-            "release_action": "softprops/action-gh-release@v3" in workflow,
+            "release_action": "softprops/action-gh-release@" in workflow,
             "test_before_publish": "ctest --test-dir build --output-on-failure" in workflow,
         },
         "the release workflow is tag-triggered, tests before packaging, and grants the action contents write access",
@@ -588,7 +588,7 @@ def main() -> int:
     )
 
     tidy_config = text(".clang-tidy")
-    tidy_workflow = text(".github/workflows/test.yml")
+    tidy_workflow = text(".github/workflows/build.yml")
     tidy_script = text("build.sh")
     tidy_path = shutil.which("clang-tidy")
     tidy_verify: subprocess.CompletedProcess[str] | None = None
@@ -597,7 +597,7 @@ def main() -> int:
     tidy_contract = all_present(
         tidy_config,
         ("Checks:", "bugprone-use-after-move", "performance-move-const-arg", "clang-diagnostic-*"),
-    ) and all_present(tidy_workflow + tidy_script, ("brew install llvm", "--tidy", "CMAKE_CXX_CLANG_TIDY=clang-tidy"))
+    ) and "-DCMAKE_CXX_CLANG_TIDY=clang-tidy" in tidy_workflow and "requirements-ci.txt" in tidy_workflow
     add_check(
         checks,
         "I-15",

@@ -319,7 +319,7 @@ def main() -> int:
         )
     ) and all(
         marker in workflow
-        for marker in ("timeout-minutes: 60", "timeout-minutes: 45", 'NOTARIZATION_TIMEOUT: "30m"')
+        for marker in ("timeout-minutes: 45", 'NOTARIZATION_TIMEOUT: "30m"')
     )
     timeout_behavior = (
         custom_timeout.returncode == 0
@@ -338,12 +338,11 @@ def main() -> int:
             "notary_verbose_output": "--verbose" in script,
             "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in workflow,
             "failure_is_fail_closed": "no release artifact was created" in script,
-            "workflow_job_timeout": "timeout-minutes: 60" in workflow,
             "workflow_step_timeout": "timeout-minutes: 45" in workflow,
             "custom_timeout_dry_run": custom_timeout.returncode == 0 and "DRY_RUN_NOTARIZATION_TIMEOUT: 45s" in (custom_timeout.stdout + custom_timeout.stderr),
             "invalid_timeout_rejected": invalid_timeout.returncode != 0 and "NOTARIZATION_TIMEOUT" in (invalid_timeout.stdout + invalid_timeout.stderr),
         },
-        "Apple notarization has a validated finite wait, observable progress, workflow-level safety bounds, and fail-closed timeout behavior",
+        "Apple notarization has a validated finite wait, observable progress, notarization-step safety bounds, and fail-closed timeout behavior",
     )
 
     result = {

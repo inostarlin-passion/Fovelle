@@ -50,7 +50,7 @@ class FastGateTests(unittest.TestCase):
         self.assertNotRegex(cmake, r'\bTIMEOUT\s+[1-9][0-9]*')
         self.assertNotIn('QTEST_FUNCTION_TIMEOUT', cmake)
         self.assertNotIn('budget_seconds', self.manifest())
-        for name in ('test.yml', 'build.yml', 'release.yml', 'release-compatibility.yml'):
+        for name in ('build.yml', 'release.yml', 'release-compatibility.yml'):
             workflow = (runner.ROOT / '.github/workflows' / name).read_text()
             self.assertFalse(re.search(r'^    timeout-minutes:', workflow, re.M), name)
             step = re.search(r'      - name: (?:Test|Run tests)\n(.*?)(?=\n      -|\Z)', workflow, re.S)

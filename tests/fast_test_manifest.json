@@ -116,6 +116,10 @@
     {
       "script": "menu_lifecycle_static.py",
       "args": []
+    },
+    {
+      "script": "ci_runner_policy_tests.py",
+      "args": []
     }
   ],
   "groups": [

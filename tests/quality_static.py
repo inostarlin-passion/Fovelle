@@ -501,7 +501,7 @@ def main() -> int:
             and "version: '6.11.2'" in workflow
             and "version: '6.8" not in workflow
             and "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow
-            for workflow in (checks_workflow, build_workflow)
+            for workflow in (build_workflow,)
         )
         and "runs-on: macos-15" in release_workflow
         and "runs-on: macos-14" not in release_workflow
@@ -523,27 +523,26 @@ def main() -> int:
         "ST-27-CI-APPLE-SDK",
         runner_sdk_contract,
         {
-            "build_and_checks_use_macos_26": all("runs-on: macos-26" in workflow for workflow in (build_workflow, checks_workflow)),
+            "build_and_checks_use_macos_26": "runs-on: macos-26" in build_workflow and "runs-on: ubuntu-24.04-arm" in checks_workflow,
             "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
             "release_compatibility_uses_macos_15": "runs-on: macos-15" in compatibility_workflow,
-            "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflow_sources),
-            "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in workflow_sources),
-            "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in workflow_sources),
+            "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
+            "xcode_version_is_verified": all("xcodebuild -version" in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
+            "sdk_version_is_verified": all("xcrun --sdk macosx --show-sdk-version" in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
             "build_and_checks_xcode_26_minimum": all('test "${XCODE_VERSION%%.*}" -ge 26' in workflow for workflow in (build_workflow, checks_workflow)),
             "build_and_checks_sdk_26_minimum": all('test "${SDK_VERSION%%.*}" -ge 26' in workflow for workflow in (build_workflow, checks_workflow)),
             "release_xcode_16_minimum": 'test "${XCODE_VERSION%%.*}" -ge 16' in release_workflow,
             "release_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in release_workflow,
             "release_compatibility_sdk_15_exact": 'test "${SDK_VERSION%%.*}" -eq 15' in compatibility_workflow,
-            "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in workflow_sources),
-            "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in workflow_sources),
-            "deployment_target_15_is_explicit": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in workflow_sources),
+            "qt_6_11_2_is_pinned": all("version: '6.11.2'" in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
+            "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
+            "deployment_target_15_is_explicit": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
         },
         "build/check jobs use macOS 26 for HDR headers while Release uses the macOS 15 SDK and all jobs pin Qt 6.11.2 and deployment target 15.0",
     )
 
     bounded_build_contract = (
         all("run: cmake --build build --parallel 2" in source[path] for path in (
-            ".github/workflows/test.yml",
             ".github/workflows/build.yml",
             ".github/workflows/release.yml",
             ".github/workflows/release-compatibility.yml",
@@ -555,7 +554,7 @@ def main() -> int:
         "ST-28-CI-BUILD-PARALLELISM",
         bounded_build_contract,
         {
-            "test_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/test.yml"],
+            "format_workflow_does_not_rebuild": "cmake --build" not in source[".github/workflows/test.yml"],
             "build_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/build.yml"],
             "release_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/release.yml"],
             "unbounded_test_build_is_absent": "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"],
@@ -696,7 +695,7 @@ def main() -> int:
             "- 'v*'",
             "permissions:",
             "contents: write",
-            "softprops/action-gh-release@v3",
+            "softprops/action-gh-release@",
             "GITHUB_TOKEN",
             "generate_release_notes: true",
             "fail_on_unmatched_files: true",
@@ -710,7 +709,7 @@ def main() -> int:
         {
             "tag_trigger": "- 'v*'" in release_workflow,
             "write_permission": "contents: write" in release_workflow,
-            "action": "softprops/action-gh-release@v3" in release_workflow,
+            "action": "softprops/action-gh-release@" in release_workflow,
             "token": "GITHUB_TOKEN" in release_workflow,
             "pre_release_tests": "ctest --test-dir build --output-on-failure" in release_workflow,
         },
@@ -853,7 +852,7 @@ def main() -> int:
     )
 
     tidy_config = source[".clang-tidy"]
-    tidy_workflow = source[".github/workflows/test.yml"]
+    tidy_workflow = source[".github/workflows/build.yml"]
     tidy_script = source["build.sh"]
     tidy_contract = contains_all(
         tidy_config,
@@ -863,14 +862,14 @@ def main() -> int:
             "performance-move-const-arg",
             "clang-diagnostic-*",
         ),
-    ) and contains_all(tidy_workflow + tidy_script, ("brew install llvm", "--tidy", "CMAKE_CXX_CLANG_TIDY=clang-tidy"))
+    ) and "-DCMAKE_CXX_CLANG_TIDY=clang-tidy" in tidy_workflow and "requirements-ci.txt" in tidy_workflow
     add_check(
         checks,
         "ST-18",
         tidy_contract,
         {
             "config_has_enabled_checks": tidy_contract,
-            "workflow_installs_llvm": "brew install llvm" in tidy_workflow,
+            "workflow_installs_pinned_tools": "requirements-ci.txt" in tidy_workflow,
             "build_script_wires_clang_tidy": "CMAKE_CXX_CLANG_TIDY=clang-tidy" in tidy_script,
         },
         "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation",

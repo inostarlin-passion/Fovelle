@@ -169,9 +169,9 @@ ET.ElementTree(root).write(xml)
             self.assertIn(name,helper)
 
     def test_workflow_gate_contract(self):
-        for name in ('build.yml','test.yml','release.yml','release-compatibility.yml'):
+        for name in ('build.yml','release.yml','release-compatibility.yml'):
             workflow=(ROOT/'.github/workflows'/name).read_text()
-            part=workflow.split('  clang-tidy:')[0] if name=='test.yml' else workflow
+            part=workflow
             self.assertIn('FOVELLE_REQUIRE_PORTABLE_HDR=ON',part)
             self.assertIn('Upload portable HDR execution evidence',part)
             self.assertIn('if: always()',part)

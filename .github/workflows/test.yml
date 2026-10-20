@@ -1,136 +1,45 @@
 name: Checks
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  unit-tests:
-    name: Run Unit Tests
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python test environment
-        run: |
-          python3 -m venv .venv
-          .venv/bin/python -m pip install --disable-pip-version-check -r tests/requirements.txt
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
-
-      - name: Verify Xcode and macOS SDK
-        shell: bash
-        run: |
-          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
-          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
-          echo "Xcode ${XCODE_VERSION}"
-          echo "macOS SDK ${SDK_VERSION}"
-          test "${XCODE_VERSION%%.*}" -ge 26
-          test "${SDK_VERSION%%.*}" -ge 26
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.11.2'
-          cache: true
-          modules: 'qtimageformats'
-
-      - name: Install Ghostscript for EPS rendering
-        run: brew install ghostscript
-
-      - name: Configure CMake
-        run: >-
-          cmake -B build
-          -DBUILD_TESTS=ON
-          -DFOVELLE_EXTENDED_TESTS=OFF
-          -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
-          -DFOVELLE_BUILD_TRANSLATIONS=ON
-          -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
-          -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python"
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
-
-      - name: Build
-        run: cmake --build build --parallel 2
-
-      - name: Verify fixed adjacent preload policy
-        run: python3 tests/preload_policy_quality.py
-
-      - name: Run tests
-        env:
-          FOVELLE_TEST_PROFILE: ci
-        run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure
-
-      - name: Upload portable HDR execution evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: portable-hdr-execution
-          path: |
-            build/test-results/portable-hdr/
-            build/test-results/fast/
-            build/Testing/Temporary/LastTest.log
-          if-no-files-found: error
-
-  clang-tidy:
-    name: Run clang-tidy
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify Xcode and macOS SDK
-        shell: bash
-        run: |
-          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
-          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
-          echo "Xcode ${XCODE_VERSION}"
-          echo "macOS SDK ${SDK_VERSION}"
-          test "${XCODE_VERSION%%.*}" -ge 26
-          test "${SDK_VERSION%%.*}" -ge 26
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.11.2'
-          cache: true
-          modules: 'qtimageformats'
-
-      - name: Install clang-tidy
-        run: |
-          brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
-
-      - name: Run clang-tidy
-        run: ./build.sh --tidy
-
   format:
     name: Run clang-format
-    runs-on: macos-26
+    runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify Xcode and macOS SDK
-        shell: bash
-        run: |
-          XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
-          SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
-          echo "Xcode ${XCODE_VERSION}"
-          echo "macOS SDK ${SDK_VERSION}"
-          test "${XCODE_VERSION%%.*}" -ge 26
-          test "${SDK_VERSION%%.*}" -ge 26
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          version: '6.11.2'
-          cache: true
-          modules: 'qtimageformats'
+          persist-credentials: false
 
-      - name: Install clang-format
-        run: |
-          brew install clang-format
-          echo "$(brew --prefix clang-format)/bin" >> "$GITHUB_PATH"
+      - name: Set up pinned Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.7'
+          cache: pip
+          cache-dependency-path: .github/requirements-format.txt
+
+      - name: Install pinned formatter
+        run: python -m pip install --disable-pip-version-check -r .github/requirements-format.txt
+
+      - name: Verify pinned environment
+        run: python .github/scripts/verify_environment.py --lane format --output ci-environment-format.json
+
+      - name: Validate CI configuration
+        run: python tests/ci_runner_policy_tests.py
 
       - name: Run clang-format
-        run: ./build.sh --format-check
+        run: python .github/scripts/check_format.py
+
+      - name: Upload format environment
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: format-environment
+          path: ci-environment-format.json
+          retention-days: 7
+          if-no-files-found: ignore

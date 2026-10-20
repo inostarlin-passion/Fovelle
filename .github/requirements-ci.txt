@@ -1,0 +1,4 @@
+-r ../tests/requirements.txt
+cmake==4.4.2
+ninja==1.13.2
+clang-tidy==23.1.3

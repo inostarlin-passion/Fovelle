@@ -28,8 +28,8 @@ do
         exit 0
         ;;
         --format-check)
-        clang-format -i **/*.cpp **/*.h **/*.mm --dry-run -Werror
-        exit 0
+        python3 .github/scripts/check_format.py
+        exit $?
         ;;
         --tidy)
         # Static analysis must not run the release-only Ghostscript staging

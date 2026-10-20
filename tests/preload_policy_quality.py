@@ -114,7 +114,7 @@ def main() -> int:
         "all Stretch-column equality contracts allow integer rounding while preserving total width",
     )
 
-    for workflow_name in (".github/workflows/test.yml", ".github/workflows/build.yml"):
+    for workflow_name in (".github/workflows/build.yml",):
         workflow = source[workflow_name]
         check(
             checks,
@@ -130,6 +130,14 @@ def main() -> int:
             "python3 tests/preload_policy_quality.py" in workflow,
             f"{workflow_name} runs the fixed-policy static gate",
         )
+
+    format_workflow = source[".github/workflows/test.yml"]
+    check(checks, "CI-FORMAT-001", "workflow_call:" in format_workflow
+          and "ubuntu-24.04" in format_workflow and "Install Qt" not in format_workflow,
+          "reusable formatting avoids an extra macOS/Qt build")
+    check(checks, "CI-FORMAT-002", "./.github/workflows/test.yml" in source[".github/workflows/build.yml"]
+          and "needs: format" in source[".github/workflows/build.yml"],
+          "the single build waits for the reusable formatting gate")
 
     failed = [identifier for identifier, passed, _ in checks if not passed]
     for identifier, passed, detail in checks:

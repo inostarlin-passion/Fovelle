@@ -49,3 +49,6 @@ CMakeLists.txt.user*
 
 bin/*
 build/*
+
+# Local Python environments
+/.venv/

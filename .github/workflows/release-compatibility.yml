@@ -5,17 +5,32 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release-sdk15-compatibility:
     name: Compile Release artifact with macOS 15 SDK
+    # Run macOS jobs natively on Apple Silicon.
     runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Verify Xcode and macOS SDK
         shell: bash
         run: |
+          echo "Runner architecture $(uname -m)"
+          test "$(uname -m)" = "arm64"
           XCODE_VERSION="$(xcodebuild -version | awk '$1 == "Xcode" { print $2 }')"
           SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
           SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
@@ -26,31 +41,44 @@ jobs:
           test "${SDK_VERSION%%.*}" -eq 15
           test -d "${SDK_PATH}"
 
-      - name: Set up Python test environment
-        run: |
-          python3 -m venv .venv
-          .venv/bin/python -m pip install --disable-pip-version-check -r tests/requirements.txt
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Set up pinned Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.7'
+          cache: pip
+          cache-dependency-path: |
+            .github/requirements-ci.txt
+            tests/requirements.txt
+
+      - name: Install pinned build and test tools
+        run: python -m pip install --disable-pip-version-check -r .github/requirements-ci.txt
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
         with:
           version: '6.11.2'
           modules: 'qtimageformats'
           cache: true
+          setup-python: false
+          aqtversion: '==3.3.0'
+          py7zrversion: '==1.1.0'
 
       - name: Install Ghostscript for EPS rendering tests
         run: brew install ghostscript
 
+      - name: Verify pinned environment
+        run: python .github/scripts/verify_environment.py --lane compatibility --output build/ci-environment.json
+
       - name: Configure Release-compatible universal build
         run: >-
-          cmake -S . -B build
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
           -DBUILD_TESTS=ON
           -DFOVELLE_EXTENDED_TESTS=OFF
           -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=ON
-          -DPython3_EXECUTABLE="$GITHUB_WORKSPACE/.venv/bin/python"
+          -DPython3_EXECUTABLE="$(command -v python)"
           -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
           -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
           -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
@@ -74,14 +102,17 @@ jobs:
 
       - name: Upload portable HDR execution evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: portable-hdr-execution
+          name: compat-diagnostics
+          retention-days: 7
           path: |
             build/test-results/portable-hdr/
             build/test-results/fast/
             build/Testing/Temporary/LastTest.log
-          if-no-files-found: error
+            build/ci-environment.json
+            build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
 
       - name: Deploy Qt and verify installable zip contract
         shell: bash
