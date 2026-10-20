@@ -80,7 +80,7 @@ jobs:
           killall Dock || true
 
       - name: Test
-        timeout-minutes: 3
+        timeout-minutes: 1
         env:
           FOVELLE_TEST_PROFILE: ci
           FOVELLE_DISABLE_AUTO_UPDATE_CHECK: "1"

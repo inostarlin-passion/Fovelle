@@ -69,7 +69,7 @@ jobs:
           killall Dock || true
 
       - name: Test
-        timeout-minutes: 3
+        timeout-minutes: 1
         env:
           FOVELLE_TEST_PROFILE: ci
         run: QT_QPA_PLATFORM=cocoa ctest --test-dir build --output-on-failure --timeout 90

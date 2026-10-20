@@ -22,6 +22,12 @@ class FastGateTests(unittest.TestCase):
         bad['groups'][0]['functions'].append(bad['groups'][0]['functions'][0])
         with self.assertRaises(ValueError):
             runner.validate_manifest(bad)
+        valid_rows = self.manifest()['portable_fullscreen_rows']
+        for rows in ([], valid_rows[:-1], valid_rows + valid_rows[:1], valid_rows + ['unknown']):
+            bad = self.manifest()
+            bad['portable_fullscreen_rows'] = rows
+            with self.assertRaises(ValueError):
+                runner.validate_manifest(bad)
         bad = self.manifest()
         bad['portable_hdr'] = False
         with self.assertRaises(ValueError):
@@ -36,10 +42,10 @@ class FastGateTests(unittest.TestCase):
         self.assertIn('option(FOVELLE_EXTENDED_TESTS', cmake)
         self.assertIn('if(FOVELLE_EXTENDED_TESTS)', cmake)
         self.assertIn('NAME FovelleFastTests', cmake)
-        self.assertIn('TIMEOUT 175', cmake)
+        self.assertIn('TIMEOUT 58', cmake)
         for name in ('test.yml', 'build.yml', 'release.yml', 'release-compatibility.yml'):
             workflow = (runner.ROOT / '.github/workflows' / name).read_text()
-            self.assertRegex(workflow, r'- name: (?:Test|Run tests)\n\s+timeout-minutes: 3\n')
+            self.assertRegex(workflow, r'- name: (?:Test|Run tests)\n\s+timeout-minutes: 1\n')
 
     def test_nonzero_exit_is_not_success(self):
         with tempfile.TemporaryDirectory() as directory:

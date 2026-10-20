@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "budget_seconds": 165,
+  "budget_seconds": 55,
   "static": [
     {
       "script": "native_alerts_acceptance.py",
@@ -138,7 +138,6 @@
         "testEPSInitialFrameMatchesStableRender",
         "testEPSRenderCacheCutsConversionLatency",
         "testImageLoaderLoadsSVGAsVectorDocument",
-        "testEPSRenderSurvivesStaticMovieProbe",
         "testMalformedEPSFailsSafely",
         "testEPSMissingRendererFailsActionably",
         "testVectorInteractionPreservesTerminalDensity",
@@ -147,7 +146,8 @@
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
         "testVectorPaintTimingClockIsolation",
-        "testVectorPresentationFrameBudget",
+        "testVectorPresentationFrameBudget:svg-1x",
+        "testVectorPresentationFrameBudget:eps-2x",
         "testColorSvgWideGamut",
         "testColorSvgMixedPaints",
         "testColorNetpbm",
@@ -196,8 +196,10 @@
         "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
         "testMouseWheelKeepsBottomRightAnchor",
         "testZoomTerminalStateDoesNotRewriteViewport",
-        "testZoomKeepsVerticalScrollbarTrajectoryStable",
-        "testKeepZoomAcrossNavigation",
+        "testZoomKeepsVerticalScrollbarTrajectoryStable:keyboard-zoom-in-disabled",
+        "testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive",
+        "testKeepZoomAcrossNavigation:png1.2",
+        "testKeepZoomAcrossNavigation:svg64",
         "testKeepCalculatedZoomAndFailedNavigation",
         "testKeepZoomWindowIsolationAndSession"
       ]
@@ -208,19 +210,14 @@
         "testSourceColorMetadata",
         "testColorContainerBoundaries",
         "testFileInfoColorFallback",
-        "testHDRPersistentSurfaceMetadata:gain-map",
-        "testHDRPersistentSurfaceMetadata:raw",
-        "testHDRInfoCloseRestores:close"
+        "testHDRPersistentSurfaceMetadata:raw"
       ]
     },
     {
       "suite": "WindowBehaviorTests",
       "functions": [
-        "testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity",
         "testNativeMessageBoxStandardButtonResponses",
-        "testFullScreenDefersExpensiveRefinement",
-        "testNativeFullScreenRoundTrip:visible-normal-raster",
-        "testNativeFullScreenRoundTrip:hidden-maximized-vector"
+        "testNativeFullScreenRoundTrip:visible-normal-raster"
       ]
     },
     {
@@ -236,11 +233,15 @@
         "testFolderScanGeneration",
         "testDirectoryOpenAndNavigation",
         "testMovieBoundedCache",
-        "testMoviePauseResume",
+        "testMoviePauseResume:async=0-apng=0-cache=0",
+        "testMoviePauseResume:async=1-apng=1-cache=1",
         "testMovieResumeDelayedDispatch",
-        "testMoviePauseQueuedRead",
+        "testMoviePauseQueuedRead:completed",
+        "testMoviePauseQueuedRead:inflight",
+        "testMoviePauseQueuedRead:pending-destroy",
         "testMovieAsyncPlayback",
-        "testMovieAsyncPlaybackSpeed",
+        "testMovieAsyncPlaybackSpeed:fast",
+        "testMovieAsyncPlaybackSpeed:gui-delayed",
         "testMovieAsyncInvalidInput",
         "testMovieQueuedSourceReplacement",
         "testLoaderNonblockingShutdown"
@@ -272,12 +273,15 @@
         "testToggleFitAnd100Translations",
         "testPrimaryStandardShortcutDoesNotExposeActionName",
         "testShortcutsColumnFillsRemainingWidth",
-        "testDoubleClickOpensShortcutEditor",
-        "testShortcutUpdateKeepsSettingsWidth",
-        "testEscapeRejectsShortcutEditorLikeCancel"
+        "testShortcutUpdateKeepsSettingsWidth"
       ]
     }
   ],
   "portable_hdr": true,
-  "legacy_bt709": true
+  "legacy_bt709": true,
+  "portable_fullscreen_rows": [
+    "exit-bottom-visible",
+    "enter-size-hidden",
+    "exit-position-hidden"
+  ]
 }

@@ -83,7 +83,8 @@ ET.ElementTree(root).write(xml)
                 env=os.environ.copy();env['CI_GATE_STUB']=mode;env['CI_GATE_STARTUP_DELAY']='0.35'
                 started=time.monotonic()
                 with self.assertRaises(RuntimeError):
-                    run_suite(str(script),'FixtureSuite',['required'],env,root,timeout=5)
+                    run_suite(str(script),'FixtureSuite',['required'],env,root,
+                              timeout=1 if mode=='hang' else 5)
                 self.assertLess(time.monotonic()-started,10.5)
                 record=json.loads((root/'FixtureSuite.json').read_text())
                 self.assertEqual(record['status'],'timeout' if mode=='hang' else 'failed')

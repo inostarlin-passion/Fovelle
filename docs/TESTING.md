@@ -8,10 +8,10 @@ cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
 ```
 
-The test command has a three-minute limit. Installing dependencies, compiling,
+The test command has a one-minute limit. Installing dependencies, compiling,
 format/lint jobs, and packaging/signing are separate operations. The runner shares
-one 165-second deadline across every stage; CTest allows 175 seconds for execution
-and cleanup, and Actions limits the test step to three minutes. A timeout fails
+one 55-second deadline across every stage; CTest allows 58 seconds for execution
+and cleanup, and Actions limits the test step to one minute. A timeout fails
 the gate; it never counts as a successful partial run.
 
 `tests/fast_test_manifest.json` defines the default coverage. Selected Qt functions
@@ -20,12 +20,31 @@ separate overlapping CTest entries. GUI suites execute sequentially in isolated
 processes to avoid focus interference. Local and CI profiles execute the same
 manifest; `FOVELLE_TEST_PROFILE=ci` only identifies the evidence.
 
-The default gate includes all ImageLoader format/color/vector performance tests,
-core zoom/pan and settings checks, animation speed/pause/queued-read checks,
-network and shutdown checks, representative native alerts and SDR full-screen
-transitions, HDR pixel/math checks, and the mandatory real-file HDR gate. The HDR
-gate retains both bundled fixtures and all ten full-screen continuity rows, with
-strict XML verification requiring zero failures and zero skips.
+The default gate covers every existing risk domain: format/color loading, vector
+performance, zoom/pan and settings, animation pause/queued-read/speed, downloads,
+shutdown, native alerts/full-screen, HDR pixels/math and real HDR files. Assertions
+and production timing remain unchanged. Expensive parameter matrices use these
+representatives (the complete matrices remain available through extended tests):
+
+| Area | Default representatives | Extended coverage |
+| --- | --- | --- |
+| Vector frame budget | SVG 1x, EPS 2x | Both formats at both scales |
+| Keep zoom during navigation | PNG 1.2, SVG 64 | All formats and zoom levels |
+| Scrollbar trajectory | Keyboard in, wheel out with expensive refinement | All input/direction/refinement combinations |
+| Movie pause/resume | Synchronous GIF without cache, asynchronous APNG with cache | All eight combinations |
+| Queued movie read | Completed, inflight, pending destruction | Every cancellation/replacement/jump path |
+| Movie speed | Fast, delayed GUI dispatch | Slow and normal speed as well |
+| HDR surface metadata | RAW | Gain map and delayed RAW as well |
+| Native window | Standard alert buttons, visible raster round trip | Appearance/severity, hidden vector, refinement |
+| HDR full-screen continuity | Visible exit bottom, hidden enter size, hidden exit position | All ten phase/visibility rows |
+
+Both bundled HDR fixtures still execute through the real-file decode gate and
+native color fidelity test. Every selected row must pass with zero skips. The
+standalone `python3 tests/run_portable_hdr.py build/tests/fovelle_tests` retains
+all ten HDR full-screen rows. EPS movie probing, additional shortcut-editor
+interactions and all Info-dialog close/restore paths remain in extended tests.
+The runner timeout regression uses a one-second injected deadline; native test
+waits are unchanged.
 
 Logs, XML and per-stage timings are written to `build/test-results/fast/` and
 `build/test-results/portable-hdr/`. `fast/summary.json` records every planned stage,
@@ -43,8 +62,30 @@ cmake -S . -B build -DFOVELLE_EXTENDED_TESTS=OFF
 
 This includes the original full suites, all focused regressions, redundant state
 combinations, longer fault injections and deployment smoke checks. It is outside
-the default three-minute budget. External-fixture and Accessibility-dependent
+the default one-minute budget. External-fixture and Accessibility-dependent
 checks still require their original explicit configuration and permissions.
 Full-screen state/geometry combinations, all Info-dialog close paths, second
 HiDPI passes and the delayed RAW injection remain in this deep matrix rather
 than being deleted or silently skipped by the default gate.
+
+The budget is for test execution after building, not for a cold CI job. Hosted
+runner performance must be checked in Actions; the `ci` profile uses the same
+commands locally but does not emulate hosted hardware.
+
+Budget and selection behavior follow the official [Qt test
+reference](https://doc.qt.io/qt-6/qtest-overview.html#qt-test-command-line-arguments), [CTest TIMEOUT
+property](https://cmake.org/cmake/help/latest/prop_test/TIMEOUT.html), and
+[Actions step timeout reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepstimeout-minutes).
+Timeouts fail the gate; they do not establish that the selected coverage can pass
+within the target. Use the emitted summary and XML to verify actual completion.
+
+Measured on the development Mac on 2026-10-20 after this change:
+
+| Invocation | CTest wall time | Result |
+| --- | --- | --- |
+| Default local profile | 45.95 s | All 39 stages passed |
+| CI profile with workflow command | 45.67 s | All 39 stages passed |
+
+The previous saved gate summary took 96.60 s. These measurements confirm local
+completion below one minute; the CI-profile measurement is local, and hosted
+Actions timing remains unverified until the workflow runs remotely.

@@ -589,7 +589,7 @@ set_tests_properties(FovelleActionsFollowupStatic PROPERTIES TIMEOUT 30 LABELS "
 
 else()
     if(NOT FOVELLE_REQUIRE_PORTABLE_HDR)
-        message(FATAL_ERROR "The default three-minute gate requires portable HDR coverage")
+        message(FATAL_ERROR "The default one-minute gate requires portable HDR coverage")
     endif()
     add_test(NAME FovelleFastTests
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_fast_tests.py
@@ -597,6 +597,6 @@ else()
             --output ${CMAKE_BINARY_DIR}/test-results/fast
             --portable-output ${CMAKE_BINARY_DIR}/test-results/portable-hdr)
     set_tests_properties(FovelleFastTests PROPERTIES
-        TIMEOUT 175 RUN_SERIAL TRUE LABELS "local;ci;fast"
+        TIMEOUT 58 RUN_SERIAL TRUE LABELS "local;ci;fast"
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()

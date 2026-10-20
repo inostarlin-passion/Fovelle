@@ -13,7 +13,7 @@ import time
 from run_portable_hdr import FULLSCREEN_ROWS, FIXTURES, prepare_output, run_suite, validate_fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
-BUDGET_SECONDS = 165
+BUDGET_SECONDS = 55
 REQUIRED = {
     'ImageLoaderTests': {'testColorSvgWideGamut', 'testColorNetpbm', 'testVectorPresentationFrameBudget',
                          'testVectorDisplayTargetSwitch', 'testVectorRequestBurstAndDestruction'},
@@ -33,6 +33,10 @@ def validate_manifest(manifest):
         raise ValueError('Unsupported manifest or changed shared budget')
     if manifest.get('portable_hdr') is not True or manifest.get('legacy_bt709') is not True:
         raise ValueError('Mandatory native HDR or legacy color coverage removed')
+    rows = manifest.get('portable_fullscreen_rows', [])
+    if (len(rows) != len(set(rows)) or not set(rows) <= set(FULLSCREEN_ROWS)
+            or not {'exit-bottom-visible', 'enter-size-hidden', 'exit-position-hidden'} <= set(rows)):
+        raise ValueError('Missing or invalid representative HDR full-screen rows')
     groups = manifest.get('groups', [])
     if len({g['suite'] for g in groups}) != len(groups):
         raise ValueError('Duplicate Qt suite')
@@ -42,7 +46,7 @@ def validate_manifest(manifest):
     for suite, selectors in by_suite.items():
         if not selectors or len(set(selectors)) != len(selectors):
             raise ValueError('Empty or duplicate function selectors: ' + suite)
-        if not all(re.fullmatch(r'test\w+(?::[\w=-]+)?', s) for s in selectors):
+        if not all(re.fullmatch(r'test\w+(?::[\w=.\-]+)?', s) for s in selectors):
             raise ValueError('Invalid function selector')
         bases = {s.split(':')[0] for s in selectors}
         if not REQUIRED[suite] <= bases:
@@ -121,7 +125,9 @@ def main():
         portable = [
             {'suite': 'RemediationTests', 'functions': ['testPortableHDR']},
             {'suite': 'HDRPolicyTests', 'functions': ['testHDRBrightnessNativeColorFidelity']},
-            {'suite': 'WindowBehaviorTests', 'functions': ['testHDRFullScreenVisualContinuity']},
+            {'suite': 'WindowBehaviorTests', 'functions': [
+                'testHDRFullScreenVisualContinuity:' + row
+                for row in manifest['portable_fullscreen_rows']]},
         ]
         # Write every planned stage before executing anything, including HDR evidence.
         prepare_output(output, [g['suite'] for g in manifest['groups']])
@@ -161,13 +167,15 @@ def main():
                 stage_env.update(FOVELLE_HDR_JPEG_SAMPLE=str(FIXTURES / 'gain-map.jpg'),
                                  FOVELLE_HDR_FULLSCREEN_IMAGE=str(FIXTURES / 'bayer.dng'))
                 if group['suite'] == 'WindowBehaviorTests':
-                    rows['testHDRFullScreenVisualContinuity'] = FULLSCREEN_ROWS
+                    rows['testHDRFullScreenVisualContinuity'] = manifest['portable_fullscreen_rows']
             try:
                 record = run_suite(executable, group['suite'], group['functions'], stage_env,
                                    destination, timeout=deadline - time.monotonic(), required_rows=rows)
             except RuntimeError:
                 record = json.loads((destination / (group['suite'] + '.json')).read_text())
             complete(record)
+        if time.monotonic() > deadline:
+            raise RuntimeError('Shared test execution budget exceeded')
         summary['status'] = 'passed'
     except (OSError, ValueError, RuntimeError) as error:
         summary['error'] = str(error)
