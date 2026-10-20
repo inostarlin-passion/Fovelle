@@ -165,7 +165,7 @@ def main():
                     rows.setdefault(function, []).append(row)
             if native:
                 stage_env.update(FOVELLE_HDR_JPEG_SAMPLE=str(FIXTURES / 'gain-map.jpg'),
-                                 FOVELLE_HDR_FULLSCREEN_IMAGE=str(FIXTURES / 'bayer.dng'))
+                                 FOVELLE_HDR_FULLSCREEN_IMAGE=str(FIXTURES / 'gain-map.jpg'))
                 if group['suite'] == 'WindowBehaviorTests':
                     rows['testHDRFullScreenVisualContinuity'] = manifest['portable_fullscreen_rows']
             try:

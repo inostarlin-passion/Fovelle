@@ -28,19 +28,22 @@ representatives (the complete matrices remain available through extended tests):
 
 | Area | Default representatives | Extended coverage |
 | --- | --- | --- |
-| Vector frame budget | SVG 1x, EPS 2x | Both formats at both scales |
+| Vector frame budget | SVG 2x, EPS 1x | Both formats at both scales |
+| Persist zoom preference across processes | macOS native settings | INI settings as well |
 | Keep zoom during navigation | PNG 1.2, SVG 64 | All formats and zoom levels |
 | Scrollbar trajectory | Keyboard in, wheel out with expensive refinement | All input/direction/refinement combinations |
 | Movie pause/resume | Synchronous GIF without cache, asynchronous APNG with cache | All eight combinations |
 | Queued movie read | Completed, inflight, pending destruction | Every cancellation/replacement/jump path |
 | Movie speed | Fast, delayed GUI dispatch | Slow and normal speed as well |
-| HDR surface metadata | RAW | Gain map and delayed RAW as well |
+| HDR surface metadata | Gain map | RAW and delayed RAW as well |
 | Native window | Standard alert buttons, visible raster round trip | Appearance/severity, hidden vector, refinement |
 | HDR full-screen continuity | Visible exit bottom, hidden enter size, hidden exit position | All ten phase/visibility rows |
 
-Both bundled HDR fixtures still execute through the real-file decode gate and
-native color fidelity test. Every selected row must pass with zero skips. The
-standalone `python3 tests/run_portable_hdr.py build/tests/fovelle_tests` retains
+Both bundled HDR fixtures still execute through the real-file decode gate.
+The default surface-metadata and full-screen tests use the gain-map JPEG to avoid
+repeated RAW decoding on hosted runners; native color fidelity still executes.
+The standalone HDR gate and extended surface-metadata tests retain the RAW path.
+Every selected row must pass with zero skips. The standalone `python3 tests/run_portable_hdr.py build/tests/fovelle_tests` retains
 all ten HDR full-screen rows. EPS movie probing, additional shortcut-editor
 interactions and all Info-dialog close/restore paths remain in extended tests.
 The runner timeout regression uses a one-second injected deadline; native test
@@ -79,7 +82,8 @@ property](https://cmake.org/cmake/help/latest/prop_test/TIMEOUT.html), and
 Timeouts fail the gate; they do not establish that the selected coverage can pass
 within the target. Use the emitted summary and XML to verify actual completion.
 
-Measured on the development Mac on 2026-10-20 after this change:
+Initial measurements on the development Mac on 2026-10-20, before hosted-runner
+feedback (superseded by the selection changes above):
 
 | Invocation | CTest wall time | Result |
 | --- | --- | --- |
@@ -88,4 +92,9 @@ Measured on the development Mac on 2026-10-20 after this change:
 
 The previous saved gate summary took 96.60 s. These measurements confirm local
 completion below one minute; the CI-profile measurement is local, and hosted
-Actions timing remains unverified until the workflow runs remotely.
+Actions subsequently failed at the 55-second shared deadline. Both failed runs
+had no assertion failures before timeout. Their XML identified EPS 2x rendering,
+repeated RAW decoding and the second settings backend as excessive default work.
+The revised selection above retains both vector formats/scales, native settings
+restart checks and real RAW decoding, while leaving the additional combinations
+in the extended gate. The one-minute CI limit and all assertions remain intact.

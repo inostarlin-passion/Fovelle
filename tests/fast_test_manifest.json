@@ -146,8 +146,8 @@
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
         "testVectorPaintTimingClockIsolation",
-        "testVectorPresentationFrameBudget:svg-1x",
-        "testVectorPresentationFrameBudget:eps-2x",
+        "testVectorPresentationFrameBudget:svg-2x",
+        "testVectorPresentationFrameBudget:eps-1x",
         "testColorSvgWideGamut",
         "testColorSvgMixedPaints",
         "testColorNetpbm",
@@ -162,7 +162,7 @@
       "suite": "FeatureTests",
       "functions": [
         "testKeepZoomSurvivesStartupMigration",
-        "testKeepZoomPersistsAcrossProcesses",
+        "testKeepZoomPersistsAcrossProcesses:macos-native-restart",
         "testKeepZoomPreferenceAndColorTranslations",
         "testApplicationVersionIsCurrent",
         "testSettingsFormatsIncludeNativeImageFormats",
@@ -210,7 +210,7 @@
         "testSourceColorMetadata",
         "testColorContainerBoundaries",
         "testFileInfoColorFallback",
-        "testHDRPersistentSurfaceMetadata:raw"
+        "testHDRPersistentSurfaceMetadata:gain-map"
       ]
     },
     {
