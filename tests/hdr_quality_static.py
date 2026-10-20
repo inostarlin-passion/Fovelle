@@ -81,7 +81,7 @@ def main() -> int:
     release_script = (repo / "dist/scripts/package-macos-release.sh").read_text(encoding="utf-8")
 
     case("ST-CI-APPLE-SDK", {
-        "build_and_test_use_macos_26": "runs-on: macos-26" in build_workflow and "runs-on: ubuntu-24.04-arm" in test_workflow,
+        "build_uses_arm_sdk26_and_format_uses_linux": "runs-on: macos-15" in build_workflow and "runs-on: ubuntu-24.04-arm" in test_workflow,
         "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
         "release_compatibility_uses_macos_15": "runs-on: macos-15" in compatibility_workflow,
         "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in workflows.values()),

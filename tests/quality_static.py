@@ -492,7 +492,7 @@ def main() -> int:
     compatibility_workflow = source[".github/workflows/release-compatibility.yml"]
     runner_sdk_contract = (
         all(
-            "runs-on: macos-26" in workflow
+            "runs-on: macos-15" in workflow
             and "runs-on: macos-14" not in workflow
             and "xcodebuild -version" in workflow
             and "xcrun --sdk macosx --show-sdk-version" in workflow
@@ -523,7 +523,7 @@ def main() -> int:
         "ST-27-CI-APPLE-SDK",
         runner_sdk_contract,
         {
-            "build_and_checks_use_macos_26": "runs-on: macos-26" in build_workflow and "runs-on: ubuntu-24.04-arm" in checks_workflow,
+            "build_uses_arm_sdk26_and_format_uses_linux": "runs-on: macos-15" in build_workflow and "runs-on: ubuntu-24.04-arm" in checks_workflow,
             "release_uses_macos_15": "runs-on: macos-15" in release_workflow,
             "release_compatibility_uses_macos_15": "runs-on: macos-15" in compatibility_workflow,
             "legacy_macos_14_runner_absent": all("runs-on: macos-14" not in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
@@ -538,7 +538,7 @@ def main() -> int:
             "legacy_qt_6_8_is_absent": all("version: '6.8" not in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
             "deployment_target_15_is_explicit": all("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow for workflow in (build_workflow, release_workflow, compatibility_workflow)),
         },
-        "build/check jobs use macOS 26 for HDR headers while Release uses the macOS 15 SDK and all jobs pin Qt 6.11.2 and deployment target 15.0",
+        "the main ARM job uses SDK 26 for HDR headers while Release uses the macOS 15 SDK and all jobs pin Qt 6.11.2 and deployment target 15.0",
     )
 
     bounded_build_contract = (

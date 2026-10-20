@@ -1,10 +1,10 @@
 # CI 环境与维护
 
-主入口是 `workflows/build.yml`：先调用 `test.yml` 在 Ubuntu 24.04 ARM64 检查格式，再在一个 macOS 26 ARM64 job 中完成 clang-tidy、构建、测试和开发包验证。`test.yml` 只接受 reusable/manual 调用，不再对同一个 push/PR 重复构建和测试。常规 push 的 macOS job 从四个减少到一个；PR 另外运行独立 SDK 15 兼容通道。
+主入口是 `workflows/build.yml`：先调用 `test.yml` 在 Ubuntu 24.04 ARM64 检查格式，再在一个 macOS 15 ARM64 job 中完成 clang-tidy、构建、测试和开发包验证。`test.yml` 只接受 reusable/manual 调用，不再对同一个 push/PR 重复构建和测试。常规 push 的 macOS job 从四个减少到一个；PR 另外运行独立 SDK 15 兼容通道。
 
 | 通道 | Runner | Xcode / SDK | 用途 |
 |---|---|---|---|
-| 主 CI | macos-26 | 26.6 / 26.5 | 新 SDK 条件编译路径、构建、静态分析、完整默认测试、开发包 |
+| 主 CI | macos-15 | 26.2 / 26.2 | 新 SDK 条件编译路径、构建、静态分析、完整默认测试、开发包 |
 | 兼容与发布 | macos-15 | 16.4 / 15.5 | 保持现有 SDK 15 发布合同和最低 macOS 15；发布为 x86_64+arm64 Universal |
 | 格式 | ubuntu-24.04-arm | 不需要 Xcode 或 Qt | 同一固定版本 clang-format，读取 Git 跟踪文件且不改写源码 |
 
@@ -27,3 +27,5 @@ python3 -m venv .venv
 ```
 
 格式检查需要 `.github/requirements-format.txt` 中的固定工具：`python .github/scripts/check_format.py`。构建分析使用编译器数据库和 `CMAKE_CXX_CLANG_TIDY`，不再另建一套 clang-tidy job。修改不能以跳过格式错误、测试失败、HDR fixture 或产物验证来换取绿灯。
+
+当前主 CI 采用 macOS15 ARM 主机上的 Xcode26.2/SDK26.2：Apple 支持该组合，GitHub 镜像已安装它。这是在 macos-26 托管池反复未分配机器后的显式路由调整，仍为 ARM64，SDK26 编译路径和所有测试断言保留；没有 Intel 或浮动 latest 回退。主 CI 的 macOS26 专属运行时覆盖不能由 macOS15 替代，需在对应系统单独验证；本机 macOS27 ARM 回归也不冒充 macOS26 hosted 执行。

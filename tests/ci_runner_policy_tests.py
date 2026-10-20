@@ -67,7 +67,7 @@ class RunnerPolicyTests(unittest.TestCase):
             self.assertIn('-DCMAKE_OSX_SYSROOT=', text)
 
     def test_all_ci_hosts_are_explicitly_arm_and_main_binary_is_arm64(self):
-        expected = {'main': ('macos-26', 'arm64'),
+        expected = {'main': ('macos-15', 'arm64'),
                     'compatibility': ('macos-15', 'arm64'),
                     'format': ('ubuntu-24.04-arm', 'aarch64')}
         for lane, (label, architecture) in expected.items():
