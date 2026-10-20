@@ -420,6 +420,8 @@ void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata()
     ScopedEnvironmentValue current("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM");
     qputenv("FOVELLE_TEST_DISPLAY_HEADROOM", "16");
     qputenv("FOVELLE_TEST_DISPLAY_CURRENT_HEADROOM", "16");
+    QTemporaryDir isolatedFixture;
+    QVERIFY(isolatedFixture.isValid());
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     const bool quitPolicy = qvApp->quitOnLastWindowClosed();
@@ -447,8 +449,15 @@ void ImageCoreAndMovieTests::testHDRPersistentSurfaceMetadata()
     if (loadDelayMs > 0)
         QTimer::singleShot(loadDelayMs, Qt::PreciseTimer, &window,
                            [release] { release->release(4); });
-    window.openFile(QDir::isAbsolutePath(fixture) ? fixture
-            : QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/" + fixture);
+    QString path = fixture;
+    if (!QDir::isAbsolutePath(fixture)) {
+        // Metadata restoration is a single-image test. Keep adjacent RAW files
+        // out of navigation preloading and the application's shutdown drain.
+        path = isolatedFixture.filePath(fixture);
+        QVERIFY(QFile::copy(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR)
+                                   + "/portable-hdr/" + fixture, path));
+    }
+    window.openFile(path);
     // Functional fixture readiness shares the existing 15 s native decode budget.
     // Pixel identity and metadata below remain the acceptance criteria.
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 15000);

@@ -28,7 +28,8 @@ representatives (the complete matrices remain available through extended tests):
 
 | Area | Default representatives | Extended coverage |
 | --- | --- | --- |
-| Vector frame budget | SVG 2x, EPS 1x | Both formats at both scales |
+| Vector frame budget | SVG 1x, EPS 1x | Both formats at 2x as well |
+| Startup preference migration | Preserve disabled navigation reset | Fresh and enabled profiles as well |
 | Persist zoom preference across processes | macOS native settings | INI settings as well |
 | Keep zoom during navigation | PNG 1.2, SVG 64 | All formats and zoom levels |
 | Scrollbar trajectory | Keyboard in, wheel out with expensive refinement | All input/direction/refinement combinations |
@@ -95,6 +96,13 @@ completion below one minute; the CI-profile measurement is local, and hosted
 Actions subsequently failed at the 55-second shared deadline. Both failed runs
 had no assertion failures before timeout. Their XML identified EPS 2x rendering,
 repeated RAW decoding and the second settings backend as excessive default work.
-The revised selection above retains both vector formats/scales, native settings
+The revised selection above retains both vector formats, native settings
 restart checks and real RAW decoding, while leaving the additional combinations
 in the extended gate. The one-minute CI limit and all assertions remain intact.
+
+Single-image HDR surface and full-screen cases copy their input into a temporary
+folder before opening it. This prevents automatic adjacent-image preloading from
+starting an unrelated RAW decode that can outlive the case and trigger the real
+application shutdown exit code 75. Navigation/preload behavior keeps its own
+regressions; production shutdown limits are unchanged. Combined zoom-preference
+and translation-dialog permutations remain in the extended FeatureTests suite.

@@ -15071,6 +15071,8 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     const bool originalQuit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     ScopedHDRTestDisplay display;
+    QTemporaryDir isolatedFixture;
+    QVERIFY(isolatedFixture.isValid());
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     auto cleanup = qScopeGuard([&] {
@@ -15095,7 +15097,11 @@ void WindowBehaviorTests::testHDRFullScreenVisualContinuity()
     window.activateWindow();
     QVERIFY2(QTest::qWaitForWindowActive(&window, 5000),
              "HDR continuity requires an active native window");
-    window.openFile(path);
+    // This case measures one HDR surface, not folder navigation. In particular,
+    // a gain-map fixture must not preload its neighboring RAW while closing.
+    const QString isolatedPath = isolatedFixture.filePath(QFileInfo(path).fileName());
+    QVERIFY(QFile::copy(path, isolatedPath));
+    window.openFile(isolatedPath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     QVERIFY(view);

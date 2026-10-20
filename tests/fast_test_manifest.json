@@ -146,7 +146,7 @@
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
         "testVectorPaintTimingClockIsolation",
-        "testVectorPresentationFrameBudget:svg-2x",
+        "testVectorPresentationFrameBudget:svg-1x",
         "testVectorPresentationFrameBudget:eps-1x",
         "testColorSvgWideGamut",
         "testColorSvgMixedPaints",
@@ -161,9 +161,8 @@
     {
       "suite": "FeatureTests",
       "functions": [
-        "testKeepZoomSurvivesStartupMigration",
+        "testKeepZoomSurvivesStartupMigration:preserve-disabled",
         "testKeepZoomPersistsAcrossProcesses:macos-native-restart",
-        "testKeepZoomPreferenceAndColorTranslations",
         "testApplicationVersionIsCurrent",
         "testSettingsFormatsIncludeNativeImageFormats",
         "testUpdateConfigurationValidation",
