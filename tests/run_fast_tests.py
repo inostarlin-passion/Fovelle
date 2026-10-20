@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """One bounded, deduplicated default gate for local development and CI."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -98,6 +99,19 @@ def run_command(name, command, environment, output, deadline):
     return record
 
 
+
+def run_static_checks(entries, environment, output, deadline):
+    # These scripts use source files and test-owned subprocess fixtures only.
+    # Cocoa suites below remain strictly sequential to preserve GUI focus.
+    def invoke(entry):
+        command = [sys.executable, str(ROOT / 'tests' / entry['script'])]
+        command += [arg.format(repo=ROOT, output=output) for arg in entry['args']]
+        return run_command(entry['script'], command, environment, output, deadline)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        return list(executor.map(invoke, entries))
+
+
 def main():
     started = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -138,18 +152,19 @@ def main():
         validate_fixtures()
         index = 0
 
-        def complete(record):
+        def complete(record, *, fail_fast=True):
             nonlocal index
             summary['stages'][index].update(record)
             print(json.dumps(summary['stages'][index]), flush=True)
             index += 1
-            if record['status'] != 'passed':
+            if fail_fast and record['status'] != 'passed':
                 raise RuntimeError('Stage failed; inspect logs: ' + str(output))
 
-        for entry in manifest['static']:
-            command = [sys.executable, str(ROOT / 'tests' / entry['script'])]
-            command += [arg.format(repo=ROOT, output=output) for arg in entry['args']]
-            complete(run_command(entry['script'], command, env, output, deadline))
+        static_records = run_static_checks(manifest['static'], env, output, deadline)
+        for record in static_records:
+            complete(record, fail_fast=False)
+        if any(record['status'] != 'passed' for record in static_records):
+            raise RuntimeError('Static stage failed; inspect logs: ' + str(output))
         for group in manifest['groups'] + [{'legacy': True}] + portable:
             if group.get('legacy'):
                 complete(run_command('legacy-bt709', [str(Path(executable).with_name('fovelle_legacy_bt709_tests'))],

@@ -13073,6 +13073,12 @@ void ShortcutSettingsTests::testShortcutUpdateKeepsSettingsWidth()
     tabs->setCurrentIndex(1);
     QTRY_VERIFY_WITH_TIMEOUT(table->isVisible(), 1000);
 
+    // Switching categories animates the Settings frame. Measure the presented
+    // Shortcuts endpoint after the initial Cocoa metrics pass, not a frame
+    // inherited from whichever category a preceding test happened to leave.
+    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(!dialog.property("settingsCategoryTransitionActive").toBool(), 1000);
+    QCOMPARE(dialog.width(), dialog.property("settingsFixedWidth").toInt());
     const int widthBefore = dialog.width();
     const int fixedWidthBefore = dialog.property("settingsFixedWidth").toInt();
     const QKeySequence replacement(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F12);

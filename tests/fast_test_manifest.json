@@ -121,41 +121,16 @@
       "functions": [
         "testImageLoaderPriorities",
         "testImageLoaderCacheAndAttachment",
-        "testImageLoaderRetainedDuringDelivery",
-        "testImageLoaderForegroundRequestPreservesCache",
         "testImageLoaderSupersededForegroundDiscarded",
-        "testImageLoaderDisabledRetention",
         "testImageLoaderCachedErrorRetry",
         "testImageLoaderDestructionDuringLoad",
-        "testImageLoaderLoadsWebpWithImageIOFallback",
-        "testImageLoaderLoadsAvifWithImageIOFallback",
-        "testImageLoaderAppliesWebpOrientation",
-        "testImageLoaderAppliesAvifOrientation",
-        "testImageLoaderLoadsTiffWithImageIO",
-        "testEPSFormatIsAdvertised",
-        "testEPSPostScriptRender",
         "testImageLoaderLoadsEPS",
-        "testEPSInitialFrameMatchesStableRender",
-        "testEPSRenderCacheCutsConversionLatency",
-        "testImageLoaderLoadsSVGAsVectorDocument",
-        "testMalformedEPSFailsSafely",
-        "testEPSMissingRendererFailsActionably",
-        "testVectorInteractionPreservesTerminalDensity",
-        "testImageIOUsesContentTypeInsteadOfFilenameExtension",
-        "testImageLoaderPreservesSourceResolutionForZoom",
+        "testImageLoaderAppliesAvifOrientation",
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
-        "testVectorPaintTimingClockIsolation",
         "testVectorPresentationFrameBudget:svg-1x",
-        "testVectorPresentationFrameBudget:eps-1x",
         "testColorSvgWideGamut",
-        "testColorSvgMixedPaints",
-        "testColorNetpbm",
-        "testColorNativeMultiImage",
-        "testColorPdfPrecision",
-        "testColorBoundedProvider",
-        "testColorAnimationClearsStaticRepresentations",
-        "testColorUnspecifiedSource"
+        "testColorNetpbm"
       ]
     },
     {
@@ -163,15 +138,10 @@
       "functions": [
         "testKeepZoomSurvivesStartupMigration:preserve-disabled",
         "testKeepZoomPersistsAcrossProcesses:macos-native-restart",
-        "testApplicationVersionIsCurrent",
-        "testSettingsFormatsIncludeNativeImageFormats",
         "testUpdateConfigurationValidation",
         "testUpdateCheckFrequencyPolicy",
         "testCameraModelMetadata",
-        "testCameraModelNavigation",
-        "testCameraModelPresentation",
-        "testCameraModelTranslations",
-        "testFileInfoModifiedUsesUiLanguageFormats"
+        "testApplicationVersionIsCurrent"
       ]
     },
     {
@@ -193,14 +163,8 @@
         "testMousePanKeepsOverflowRangeAndContinuity",
         "testKeyboardZoomUsesCursorAnchor",
         "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
-        "testMouseWheelKeepsBottomRightAnchor",
-        "testZoomTerminalStateDoesNotRewriteViewport",
-        "testZoomKeepsVerticalScrollbarTrajectoryStable:keyboard-zoom-in-disabled",
         "testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive",
-        "testKeepZoomAcrossNavigation:png1.2",
-        "testKeepZoomAcrossNavigation:svg64",
-        "testKeepCalculatedZoomAndFailedNavigation",
-        "testKeepZoomWindowIsolationAndSession"
+        "testKeepZoomAcrossNavigation:svg64"
       ]
     },
     {
@@ -224,24 +188,15 @@
       "functions": [
         "testDownloadThreadAffinity",
         "testDownloadHttpFailureCleanup",
-        "testDownloadIdleTimeout",
         "testDownloadTotalTimeout",
         "testDownloadLimits",
         "testDownloadProgressAndCancel",
-        "testFolderScanAsync",
         "testFolderScanGeneration",
         "testDirectoryOpenAndNavigation",
         "testMovieBoundedCache",
-        "testMoviePauseResume:async=0-apng=0-cache=0",
         "testMoviePauseResume:async=1-apng=1-cache=1",
-        "testMovieResumeDelayedDispatch",
-        "testMoviePauseQueuedRead:completed",
         "testMoviePauseQueuedRead:inflight",
-        "testMoviePauseQueuedRead:pending-destroy",
-        "testMovieAsyncPlayback",
-        "testMovieAsyncPlaybackSpeed:fast",
         "testMovieAsyncPlaybackSpeed:gui-delayed",
-        "testMovieAsyncInvalidInput",
         "testMovieQueuedSourceReplacement",
         "testLoaderNonblockingShutdown"
       ]
@@ -266,12 +221,8 @@
     {
       "suite": "ShortcutSettingsTests",
       "functions": [
-        "testToggleFitAnd100IsTheOnlyFitShortcutAction",
         "testToggleFitAnd100DefaultsToZ",
         "testToggleFitAnd100ChangesBetweenFitAnd100Percent",
-        "testToggleFitAnd100Translations",
-        "testPrimaryStandardShortcutDoesNotExposeActionName",
-        "testShortcutsColumnFillsRemainingWidth",
         "testShortcutUpdateKeepsSettingsWidth"
       ]
     }

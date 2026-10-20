@@ -16,7 +16,8 @@ the gate; it never counts as a successful partial run.
 
 `tests/fast_test_manifest.json` defines the default coverage. Selected Qt functions
 retain their original assertions. Functions/data rows are not run again through
-separate overlapping CTest entries. GUI suites execute sequentially in isolated
+separate overlapping CTest entries. Source-only scripts run with up to four workers and retain ordered per-stage
+evidence, including failures. GUI suites execute sequentially in isolated
 processes to avoid focus interference. Local and CI profiles execute the same
 manifest; `FOVELLE_TEST_PROFILE=ci` only identifies the evidence.
 
@@ -28,14 +29,14 @@ representatives (the complete matrices remain available through extended tests):
 
 | Area | Default representatives | Extended coverage |
 | --- | --- | --- |
-| Vector frame budget | SVG 1x, EPS 1x | Both formats at 2x as well |
+| Vector frame budget | SVG 1x | EPS and both formats at 2x; EPS decoding still runs by default |
 | Startup preference migration | Preserve disabled navigation reset | Fresh and enabled profiles as well |
 | Persist zoom preference across processes | macOS native settings | INI settings as well |
-| Keep zoom during navigation | PNG 1.2, SVG 64 | All formats and zoom levels |
-| Scrollbar trajectory | Keyboard in, wheel out with expensive refinement | All input/direction/refinement combinations |
-| Movie pause/resume | Synchronous GIF without cache, asynchronous APNG with cache | All eight combinations |
-| Queued movie read | Completed, inflight, pending destruction | Every cancellation/replacement/jump path |
-| Movie speed | Fast, delayed GUI dispatch | Slow and normal speed as well |
+| Keep zoom during navigation | SVG 64 | PNG/XPM and other zoom levels |
+| Scrollbar trajectory | Wheel out with expensive refinement | Other input/direction/refinement combinations |
+| Movie pause/resume | Asynchronous APNG with cache | All eight combinations |
+| Queued movie read | Inflight | Other cancellation/replacement/jump/destruction paths |
+| Movie speed | 200% speed with delayed GUI dispatch | Slow, normal and fast without GUI delay as well |
 | HDR surface metadata | Gain map | RAW and delayed RAW as well |
 | Native window | Standard alert buttons, visible raster round trip | Appearance/severity, hidden vector, refinement |
 | HDR full-screen continuity | Visible exit bottom, hidden enter size, hidden exit position | All ten phase/visibility rows |
@@ -106,3 +107,21 @@ starting an unrelated RAW decode that can outlive the case and trigger the real
 application shutdown exit code 75. Navigation/preload behavior keeps its own
 regressions; production shutdown limits are unchanged. Combined zoom-preference
 and translation-dialog permutations remain in the extended FeatureTests suite.
+
+After hosted timing showed continued exhaustion at 55 seconds, the default
+selection was reduced to a core regression set for each of the ten domains.
+Loader cache/error/cancellation, EPS decoding, AVIF orientation, vector display
+switch/burst/frame budget and SVG/Netpbm color still run. The default UI set
+covers pan, scrollbar cleanup, cursor/toggle anchors, zoom persistence, native
+full-screen/alerts and shortcut editing. Downloads retain failure, total timeout,
+size limits and cancellation; movies retain bounded cache, pause, inflight reads,
+delayed 200% playback and source replacement; shutdown remains covered. Extra
+format/color permutations, camera presentation, secondary shortcut interactions,
+zoom terminal-state permutations and additional movie/download scenarios stay in
+the extended gate. All 25 source-only scripts and all three mandatory HDR stages
+remain in the default gate.
+
+Shortcut width stability waits for the selected category animation and queued
+Cocoa metrics pass before taking its baseline. This removes dependence on the
+category left by preceding tests; the before/after width, persistence and edited
+shortcut assertions remain unchanged.

@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+import threading
 import unittest
 from unittest import mock
 
@@ -46,6 +47,37 @@ class FastGateTests(unittest.TestCase):
         for name in ('test.yml', 'build.yml', 'release.yml', 'release-compatibility.yml'):
             workflow = (runner.ROOT / '.github/workflows' / name).read_text()
             self.assertRegex(workflow, r'- name: (?:Test|Run tests)\n\s+timeout-minutes: 1\n')
+
+    def test_static_checks_overlap_and_preserve_failure_evidence(self):
+        barrier = threading.Barrier(2)
+        entries = [{'script': name, 'args': []} for name in ('failed.py', 'passed.py')]
+        deadline = time.monotonic() + 3
+
+        def execute(name, command, environment, output, shared_deadline):
+            self.assertEqual(shared_deadline, deadline)
+            barrier.wait(timeout=2)
+            return {'name': name, 'status': 'failed' if name == 'failed.py' else 'passed'}
+
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(runner, 'run_command', side_effect=execute):
+            records = runner.run_static_checks(entries, {}, Path(directory), deadline)
+        self.assertEqual([r['name'] for r in records], ['failed.py', 'passed.py'])
+        self.assertEqual([r['status'] for r in records], ['failed', 'passed'])
+
+    def test_failed_parallel_static_stage_stops_native_suites(self):
+        entries = self.manifest()['static'][:2]
+        records = [{'name': entry['script'], 'status': status}
+                   for entry, status in zip(entries, ('failed', 'passed'))]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            arguments = ['gate', '/unused', '--output', str(root / 'fast'),
+                         '--portable-output', str(root / 'hdr')]
+            with mock.patch.object(sys, 'argv', arguments), mock.patch.object(runner, 'run_static_checks', return_value=records), mock.patch.object(runner, 'run_suite') as native:
+                self.assertEqual(runner.main(), 1)
+                native.assert_not_called()
+            summary = json.loads((root / 'fast/summary.json').read_text())
+            self.assertEqual(summary['status'], 'failed')
+            self.assertEqual([s['status'] for s in summary['stages'][:2]], ['failed', 'passed'])
+            self.assertTrue(all(s['status'] == 'not-run' for s in summary['stages'][2:]))
 
     def test_nonzero_exit_is_not_success(self):
         with tempfile.TemporaryDirectory() as directory:
