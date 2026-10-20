@@ -27,8 +27,7 @@
 #include <QCursor>
 #include <QInputDialog>
 #include <QProgressDialog>
-#include <QFutureWatcher>
-#include <QtConcurrent/QtConcurrentRun>
+#include <QPointer>
 #include <QMenu>
 #include <QWindow>
 #include <QNetworkRequest>
@@ -517,8 +516,8 @@ MainWindow::MainWindow(QWidget *parent,
     {
         // Directly constructed windows retain the historical fully materialized
         // application-menu contract used by dialogs/tests and by callers that
-        // need the global AppKit menu immediately. Startup-created windows opt
-        // into the deferred path explicitly from QVApplication::newWindow().
+        // need the global AppKit menu immediately. Startup-created windows
+        // skip this fallback tree and build only their own menus below.
         qvApp->getMenuBar();
         ensureMenus();
     }
@@ -529,27 +528,6 @@ MainWindow::MainWindow(QWidget *parent,
     settingsUpdated();
     shortcutsUpdated();
     markConstruction("settings-ready");
-
-    // Connection for open with menu population futurewatcher
-    connect(&openWithFutureWatcher, &QFutureWatcher<QList<OpenWith::OpenWithItem>>::finished, this, [this](){
-        if (backgroundWorkShutDown)
-            return;
-
-        const QString completedFilePath = openWithFutureFilePath;
-        openWithFutureFilePath.clear();
-
-        if (!isClosing && completedFilePath == getCurrentFileDetails().fileInfo.absoluteFilePath())
-        {
-            populateOpenWithMenu(openWithFutureWatcher.result());
-            openWithPopulatedFilePath = completedFilePath;
-        }
-
-        if (openWithPopulationPending && !isClosing)
-        {
-            openWithPopulationPending = false;
-            QTimer::singleShot(0, this, &MainWindow::requestPopulateOpenWithMenu);
-        }
-    });
 
     QSettings settings;
 
@@ -563,6 +541,9 @@ MainWindow::MainWindow(QWidget *parent,
         restoreGeometry(settings.value("geometry").toByteArray());
     }
 
+    // Build the window menu before native show, after final settings/geometry.
+    // Queuing this work behind show adds event-dispatch latency to readiness.
+    ensureMenus();
     markConstruction("constructor-complete");
 
 }
@@ -582,23 +563,15 @@ void MainWindow::shutdownBackgroundWork()
     backgroundWorkShutDown = true;
     openWithPopulationPending = false;
 
-    // QtConcurrent::run() cannot be canceled. Wait for the Open With worker
-    // before QApplication teardown so its QIcon/QPixmap work still has a live
-    // QGuiApplication context. This wait must precede clear(): a future can be
-    // running while its runnable is still queued behind another pool task, and
-    // clearing that runnable would leave waitForFinished() without a terminal
-    // state.
-    if (openWithFutureWatcher.isRunning())
-        openWithFutureWatcher.waitForFinished();
+    // Work owns values only. Cancel delivery now; the application drains the
+    // managed pool before Qt teardown, with its existing finite deadline.
+    QvAsync::cancel(openWithTicket);
+    openWithTicket.reset();
 
     const auto activeDownloads = downloads;
     for (auto *download : activeDownloads)
         download->cancel();
     downloads.clear();
-
-    // Discard speculative owner-local work that has not started.
-    backgroundThreadPool.clear();
-    backgroundThreadPool.waitForDone();
 
     if (graphicsView)
         graphicsView->shutdownAsyncWork();
@@ -1315,16 +1288,6 @@ void MainWindow::showEvent(QShowEvent *event)
         });
     });
 
-    if (!menusInitialized)
-    {
-        // Use two queued turns so the startup marker posted by main() can
-        // observe first responsiveness before optional menu construction.
-        QTimer::singleShot(0, this, [this]() {
-            if (!menusInitialized)
-                QTimer::singleShot(0, this, &MainWindow::ensureMenus);
-        });
-    }
-
     if (mainMenuBar && !mainMenuBar->sizeHint().isEmpty())
     {
         ui->fullscreenLabel->setMargin(0);
@@ -1713,7 +1676,7 @@ void MainWindow::requestPopulateOpenWithMenu()
     if (isClosing || backgroundWorkShutDown)
         return;
 
-    if (openWithFutureWatcher.isRunning())
+    if (openWithTicket)
     {
         openWithPopulationPending = true;
         return;
@@ -1723,14 +1686,30 @@ void MainWindow::requestPopulateOpenWithMenu()
     if (filePath.isEmpty() || filePath == openWithPopulatedFilePath)
         return;
 
-    openWithFutureFilePath = filePath;
-    openWithFutureWatcher.setFuture(QtConcurrent::run(&backgroundThreadPool,
-        // Copy the provider and path; queued work must not refer to this window.
+    const QPointer<MainWindow> owner(this);
+    openWithTicket = QvAsync::run(
+        // The worker must never dereference a window, including during shutdown.
         [filePath, provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
-            if (filePath.isEmpty()) return {};
             return provider(filePath);
-        }
-    ));
+        },
+        [owner, filePath](QList<OpenWith::OpenWithItem> items) {
+            // QvAsync delivers on the GUI thread; owner checks and GUI access
+            // therefore cannot race with window destruction.
+            if (!owner || owner->backgroundWorkShutDown)
+                return;
+            owner->openWithTicket.reset();
+            if (!owner->isClosing
+                && filePath == owner->getCurrentFileDetails().fileInfo.absoluteFilePath())
+            {
+                owner->populateOpenWithMenu(items);
+                owner->openWithPopulatedFilePath = filePath;
+            }
+            if (owner->openWithPopulationPending && !owner->isClosing)
+            {
+                owner->openWithPopulationPending = false;
+                QTimer::singleShot(0, owner.data(), &MainWindow::requestPopulateOpenWithMenu);
+            }
+        });
 }
 
 void MainWindow::populateOpenWithMenu(const QList<OpenWith::OpenWithItem> &openWithItems)

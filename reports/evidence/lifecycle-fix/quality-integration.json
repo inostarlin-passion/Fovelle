@@ -1,0 +1,309 @@
+{
+  "kind": "integration",
+  "repo": "/Users/inostarlin/code/Fovelle",
+  "build_dir": "/Users/inostarlin/code/Fovelle/build",
+  "checks": [
+    {
+      "id": "I-01",
+      "pass": true,
+      "actual": {
+        "window_icon_reset": true,
+        "application_global_icon_removed": true,
+        "titlebar_clear_helper": true,
+        "native_document_path_cleared": true
+      },
+      "expected": "the titlebar window icon and native document path are explicitly cleared without changing the bundle identity"
+    },
+    {
+      "id": "I-02",
+      "pass": true,
+      "actual": {
+        "wheel_helper": true,
+        "touchpad_fractional_zoom": true,
+        "configured_wheel_path": true,
+        "discrete_mouse_path": true,
+        "fit_continuity_state": true,
+        "resize_recalculation_guard": true
+      },
+      "expected": "the implemented input contract keeps discrete wheel actions setting-driven, routes unmodified phased touchpad streams to pixel panning, and preserves fit intent through a resized viewport"
+    },
+    {
+      "id": "I-02-GESTURE-SCROLLBAR",
+      "pass": true,
+      "actual": {
+        "native_event_path": true,
+        "scrollbar_overflow_path": true,
+        "test_cases": true
+      },
+      "expected": "Apple native gesture events, overflow-aware scrollbars, Theme-aware styling, and performance evidence are integrated"
+    },
+    {
+      "id": "I-02-LAYOUT-TITLEBAR",
+      "pass": true,
+      "actual": {
+        "scene_rect_compensation": true,
+        "unobscured_viewport_regression": true
+      },
+      "expected": "the fit calculation and scene alignment share the same macOS titlebar-obscured viewport contract"
+    },
+    {
+      "id": "I-03",
+      "pass": false,
+      "actual": {
+        "native_decode_path": false,
+        "frameworks_linked": true,
+        "native_decoder_is_primary": true,
+        "full_resolution_native_decode": false,
+        "loader_bounds_only_hdr_fallback": true,
+        "raw_content_detection": true,
+        "preview_fallback": false
+      },
+      "expected": "Image I/O identifies native files by content UTI; RAW decoding uses Core Image/Metal/ColorSync with embedded preview fallback, and Qt remains a non-RAW fallback"
+    },
+    {
+      "id": "I-03-APNG",
+      "pass": true,
+      "actual": {
+        "image_io_animation_factory": true,
+        "frame_count": true,
+        "frame_delays": true,
+        "qvmovie_native_path": true,
+        "cache_contract": true
+      },
+      "expected": "the integrated APNG path provides composed frames and timing metadata through QVMovie's cache and playback state machine"
+    },
+    {
+      "id": "I-04",
+      "pass": true,
+      "actual": {
+        "native_extensions_registered": true,
+        "settings_table_uses_complete_registry": true
+      },
+      "expected": "Settings → Formats reads the same registry extended by native WebP/AVIF support"
+    },
+    {
+      "id": "I-10",
+      "pass": false,
+      "actual": {
+        "persisted_setting": true,
+        "image_ui": true,
+        "viewport_policy": false,
+        "never_gate": true,
+        "open_browse_case": true
+      },
+      "expected": "the new setting is integrated across persistence, Settings → Image, viewport calculation, and the open/browse regression case"
+    },
+    {
+      "id": "I-11",
+      "pass": true,
+      "actual": {
+        "lazy_menu_trigger": true,
+        "delivery_canceled": true,
+        "path_value_capture": true,
+        "refresh_serialization": true
+      },
+      "expected": "the Issue #864 Open With worker teardown contract is present in the integrated application sources"
+    },
+    {
+      "id": "I-05",
+      "pass": true,
+      "actual": {
+        "bundle": true,
+        "executable": true,
+        "icon": true,
+        "identifier": "io.github.inostarlin-passion.Fovelle",
+        "document_extensions": [
+          "avif",
+          "avifs",
+          "webp"
+        ]
+      },
+      "expected": "the built bundle is executable, retains the Dock/Finder icon, and advertises WebP/AVIF document types"
+    },
+    {
+      "id": "I-06",
+      "pass": false,
+      "actual": {
+        "return_code": 8,
+        "output": "Continuity\", \"testKeyboardZoomUsesCursorAnchor\", \"testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor\", \"testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive\", \"testKeepZoomAcrossNavigation:svg64\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/GraphicsViewTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/GraphicsViewTests.log\", \"elapsed_seconds\": 1.424}\n{\"name\": \"ImageCoreAndMovieTests\", \"status\": \"passed\", \"suite\": \"ImageCoreAndMovieTests\", \"functions\": [\"testSourceColorMetadata\", \"testColorContainerBoundaries\", \"testFileInfoColorFallback\", \"testHDRPersistentSurfaceMetadata:gain-map\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageCoreAndMovieTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageCoreAndMovieTests.log\", \"elapsed_seconds\": 3.672}\n{\"name\": \"WindowBehaviorTests\", \"status\": \"passed\", \"suite\": \"WindowBehaviorTests\", \"functions\": [\"testNativeMessageBoxStandardButtonResponses\", \"testLateMenuState\", \"testLateFullscreenMenu\", \"testLatePauseMenu\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/WindowBehaviorTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/WindowBehaviorTests.log\", \"elapsed_seconds\": 2.552}\n{\"name\": \"RemediationTests\", \"status\": \"passed\", \"suite\": \"RemediationTests\", \"functions\": [\"testDownloadThreadAffinity\", \"testDownloadHttpFailureCleanup\", \"testDownloadTotalTimeout\", \"testDownloadLimits\", \"testDownloadProgressAndCancel\", \"testFolderScanGeneration\", \"testDirectoryOpenAndNavigation\", \"testMovieBoundedCache\", \"testMoviePauseResume:async=1-apng=1-cache=1\", \"testMoviePauseQueuedRead:inflight\", \"testMovieAsyncPlaybackSpeed:gui-delayed\", \"testMovieQueuedSourceReplacement\", \"testLoaderNonblockingShutdown\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/RemediationTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/RemediationTests.log\", \"elapsed_seconds\": 5.173}\n{\"name\": \"ScrollHelperTests\", \"status\": \"passed\", \"suite\": \"ScrollHelperTests\", \"functions\": [\"testMinimumEdgesAreHardClamped\", \"testMaximumEdgesAreHardClamped\", \"testEdgePositionDoesNotReboundAfterRelease\", \"testInteriorDragPreservesExactMovement\", \"testUnconstrainedModeRemainsUnbounded\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ScrollHelperTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ScrollHelperTests.log\", \"elapsed_seconds\": 0.939}\n{\"name\": \"ApplicationEventTests\", \"status\": \"passed\", \"suite\": \"ApplicationEventTests\", \"functions\": [\"testFileOpenEventIsDeferredAndLoadsImage\", \"testFileOpenEventWithoutPathIsIgnored\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ApplicationEventTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ApplicationEventTests.log\", \"elapsed_seconds\": 0.508}\n{\"name\": \"ShortcutSettingsTests\", \"status\": \"passed\", \"suite\": \"ShortcutSettingsTests\", \"functions\": [\"testToggleFitAnd100DefaultsToZ\", \"testToggleFitAnd100ChangesBetweenFitAnd100Percent\", \"testShortcutUpdateKeepsSettingsWidth\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ShortcutSettingsTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/fast/ShortcutSettingsTests.log\", \"elapsed_seconds\": 1.26}\n{\"name\": \"legacy-bt709\", \"status\": \"passed\", \"returncode\": 0, \"command\": [\"/Users/inostarlin/code/Fovelle/build/tests/fovelle_legacy_bt709_tests\"], \"elapsed_seconds\": 0.041}\n{\"name\": \"portable-RemediationTests\", \"status\": \"passed\", \"suite\": \"RemediationTests\", \"functions\": [\"testPortableHDR\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.log\", \"elapsed_seconds\": 0.448}\n{\"name\": \"portable-HDRPolicyTests\", \"status\": \"passed\", \"suite\": \"HDRPolicyTests\", \"functions\": [\"testHDRBrightnessNativeColorFidelity\"], \"returncode\": 0, \"error\": null, \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.log\", \"elapsed_seconds\": 1.159}\n{\"name\": \"portable-WindowBehaviorTests\", \"status\": \"failed\", \"suite\": \"WindowBehaviorTests\", \"functions\": [\"testHDRFullScreenVisualContinuity:exit-bottom-visible\", \"testHDRFullScreenVisualContinuity:enter-size-hidden\", \"testHDRFullScreenVisualContinuity:exit-position-hidden\"], \"returncode\": 1, \"error\": \"WindowBehaviorTests exited with status 1\", \"xml\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.xml\", \"log\": \"/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.log\", \"elapsed_seconds\": 16.899}\nStage failed; inspect logs: /Users/inostarlin/code/Fovelle/build/test-results/fast\n\n    Start 2: FovelleLifecycleFixStatic\n2/5 Test #2: FovelleLifecycleFixStatic ........   Passed    0.03 sec\n    Start 3: FovelleLifecycleFixWindow\n3/5 Test #3: FovelleLifecycleFixWindow ........   Passed    1.82 sec\n    Start 4: FovelleLifecycleFixWorker\n4/5 Test #4: FovelleLifecycleFixWorker ........   Passed   11.03 sec\n    Start 5: FovelleLifecycleFixDrain\n5/5 Test #5: FovelleLifecycleFixDrain .........   Passed    2.06 sec\n\n80% tests passed, 1 tests failed out of 5\n\nLabel Time Summary:\nacceptance    =  14.91 sec*proc (3 tests)\nci            =  38.69 sec*proc (1 test)\nfast          =  38.69 sec*proc (1 test)\nlifecycle     =  14.91 sec*proc (3 tests)\nlocal         =  38.69 sec*proc (1 test)\n\nTotal Test time (real) =  53.63 sec\n\nThe following tests FAILED:\n\t  1 - FovelleFastTests (Failed)                         ci fast local\nErrors while running CTest\n"
+      },
+      "expected": "CTest executes the configured Qt integration test target successfully"
+    },
+    {
+      "id": "I-07",
+      "pass": true,
+      "actual": {
+        "qmake": "/opt/homebrew/bin/qmake",
+        "return_code": 0,
+        "output": "Info: creating stash file /var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-_rst3kui/.qmake.stash\nProject MESSAGE: This is a release build\nProject WARNING: Qt has only been tested with version 26 of the platform SDK, you're using 27.\nProject WARNING: This is an unsupported configuration. You may experience build issues, and by using\nProject WARNING: the 27.0 SDK you are opting in to new features that Qt has not been prepared for.\nProject WARNING: Please downgrade the SDK you use to build your app to version 26, or configure\nProject WARNING: with CONFIG+=sdk_no_version_check when running qmake to silence this warning.\nRCC: Warning: No resources in '/var/folders/67/9bkcqksx6b15ry52hhng9dl00000gn/T/fovelle-qmake-_rst3kui/build/qmake_qtbase_translations.qrc'.\n"
+      },
+      "expected": "the legacy macOS qmake project still configures with the native frameworks"
+    },
+    {
+      "id": "I-08",
+      "pass": true,
+      "actual": {
+        "return_code": 0,
+        "output": "",
+        "scope": [
+          "src",
+          "tests",
+          "CMakeLists.txt",
+          "qView.pro",
+          "build.sh",
+          ".clang-tidy",
+          ".github",
+          "dist"
+        ],
+        "excluded_preexisting_paths": [
+          "README.md"
+        ]
+      },
+      "expected": "the integrated task-scoped working-tree diff has no whitespace errors; unrelated pre-existing README.md changes remain untouched"
+    },
+    {
+      "id": "I-09",
+      "pass": false,
+      "actual": {
+        "cases": {
+          "testApplicationVersionIsCurrent": true,
+          "testImageLoaderLoadsWebpWithImageIOFallback": true,
+          "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testImageLoaderAppliesWebpOrientation": true,
+          "testImageLoaderAppliesAvifOrientation": true,
+          "testImageLoaderLoadsTiffWithImageIO": true,
+          "testImageIOUsesContentTypeInsteadOfFilenameExtension": true,
+          "testImageLoaderPreservesSourceResolutionForZoom": true,
+          "testAnimatedPngPlaysBeyondFirstFrame": true,
+          "testWindowIconIsCleared": true,
+          "testTitlebarDocumentProxyIsClearedForLoadedFile": true,
+          "testTitlebarIconClearingIsIdempotent": true,
+          "testSettingsFormatsIncludeNativeImageFormats": true,
+          "testSettingsFormatsIncludeTiffAndSystemRawFormats": false,
+          "testSmallImageOneToOneSettingIsExposedInImageOptions": true,
+          "testOpenWithWorkerTeardownContract": true,
+          "testMouseWheelUsesOneDiscreteStep": true,
+          "testTouchpadWheelCanUseFractionalSteps": true,
+          "testImageIsCenteredAfterOpeningWithScrollBars": true,
+          "testTouchpadWheelRespectsConfiguredZoomWithScrollBars": true,
+          "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling": true,
+          "testRotatedZoomToFitUsesUnobscuredViewport": true,
+          "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable": true,
+          "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
+          "testManualZoomRemainsManualAcrossResize": true,
+          "testSmallImageOneToOnePolicyUsesViewportAndWindowMode": true,
+          "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages": true,
+          "testNativePinchZoomChangesScaleAtGesturePosition": true,
+          "testNativePanChangesViewport": true,
+          "testScrollBarsFollowImageOverflowAxes": true,
+          "testScrollBarsMatchTheme": true,
+          "testNativeGestureResponsePerformance": true,
+          "testDefaultTitlebarTextIsPractical": true,
+          "testNavigationEdgeActivationExcludesTitlebar": true,
+          "testNavigationButtonSizingAndNoDelay": true,
+          "testNavigationButtonsUseActualContentContrast": true,
+          "testNavigationButtonsFadeTransition": true,
+          "testNavigationButtonsClickSwitchesFiles": true
+        }
+      },
+      "expected": "the integrated test source contains one deterministic case for each current-scope acceptance criterion"
+    },
+    {
+      "id": "I-18-VERSION-CI",
+      "pass": true,
+      "actual": {
+        "version_file": true,
+        "cmake_reads_version_file": true,
+        "qmake_reads_version_file": true,
+        "runtime_uses_build_version": true,
+        "apng_env_override": true,
+        "embedded_apng_fallback": true
+      },
+      "expected": "the version 1.3.3 comes from VERSION and the CI APNG fixture contract is integrated without a developer-machine-only path"
+    },
+    {
+      "id": "I-12",
+      "pass": true,
+      "actual": {
+        "tag_trigger": true,
+        "write_permission": true,
+        "release_action": true,
+        "test_before_publish": true
+      },
+      "expected": "the release workflow is tag-triggered, tests before packaging, and grants the action contents write access"
+    },
+    {
+      "id": "I-13",
+      "pass": true,
+      "actual": {
+        "default_return": true,
+        "no_mainwindow_enter_shortcut": true
+      },
+      "expected": "the Full Screen QAction owns the default Enter binding and no hardcoded Enter bypass remains in MainWindow"
+    },
+    {
+      "id": "I-14",
+      "pass": false,
+      "actual": {
+        "theme_setting_and_ui": false,
+        "native_appearance_mapping": true,
+        "old_controls_removed": true,
+        "title_formats": true
+      },
+      "expected": "the integrated sources provide the two themes, requested title formats, native appearance bridge, and checkerboard-compatible viewport colors"
+    },
+    {
+      "id": "I-14-NAV",
+      "pass": true,
+      "actual": {
+        "buttons": true,
+        "pointer_filter": true,
+        "underlying_content_sample": true,
+        "transition": true,
+        "edge_width": true,
+        "minimum_strip": true,
+        "percentage_strip": true,
+        "minimum_window": true,
+        "transition_duration": true,
+        "tooltip_api_absent": true,
+        "visibility_delay_api_absent": true
+      },
+      "expected": "the navigation buttons are integrated with content-only edge activation, per-side content sampling, and opacity transitions"
+    },
+    {
+      "id": "I-15",
+      "pass": true,
+      "actual": {
+        "config_contract": true,
+        "clang_tidy": "/opt/homebrew/opt/llvm/bin/clang-tidy",
+        "verify_config_return_code": 0,
+        "verify_config_output": "No config errors detected.\n"
+      },
+      "expected": "the integrated GitHub Actions clang-tidy contract has enabled checks and validates when the tool is available"
+    },
+    {
+      "id": "I-16",
+      "pass": true,
+      "actual": {
+        "return_code": 0,
+        "release_contract_passed": true,
+        "output": "with a pinned, target-versioned, Universal source build and validates three-component minos values\"\n    },\n    {\n      \"id\": \"R-02\",\n      \"pass\": true,\n      \"actual\": {\n        \"macdeployqt\": true,\n        \"always_overwrite\": true,\n        \"workflow_step\": true\n      },\n      \"expected\": \"the Release app is self-contained with Qt frameworks and plugins before signing\"\n    },\n    {\n      \"id\": \"R-03\",\n      \"pass\": true,\n      \"actual\": {\n        \"APPLE_APP_SPECIFIC_PASSWORD\": true,\n        \"APPLE_CERTIFICATE_BASE64\": true,\n        \"APPLE_CERTIFICATE_PASSWORD\": true,\n        \"APPLE_ID\": true,\n        \"APPLE_TEAM_ID\": true\n      },\n      \"expected\": \"all five configured GitHub Secrets are explicitly wired to the release step without embedding values\"\n    },\n    {\n      \"id\": \"R-04\",\n      \"pass\": true,\n      \"actual\": {\n        \"certificate_import\": true,\n        \"pkcs12_certificate_type\": true,\n        \"developer_id_identity_check\": true,\n        \"secure_timestamp\": true,\n        \"hardened_runtime\": true,\n        \"ephemeral_keychain_access\": true,\n        \"codesign_private_key_acl\": true,\n        \"keychain_search_list\": true,\n        \"private_signing_key_preflight\": true,\n        \"identity_scoped_partition_update\": true,\n        \"partition_update_is_best_effort\": true,\n        \"explicit_keychain_for_codesign\": true,\n        \"ad_hoc_signing_absent\": true\n      },\n      \"expected\": \"the app is signed with an imported Developer ID Application identity, verified private key access, explicit temporary keychain access, secure timestamp, and Hardened Runtime\"\n    },\n    {\n      \"id\": \"R-05\",\n      \"pass\": true,\n      \"actual\": {\n        \"notarytool_wait\": true,\n        \"apple_credentials\": true,\n        \"staple_and_validate\": true\n      },\n      \"expected\": \"the signed app is submitted to Apple, waits for approval, staples the ticket, and validates it\"\n    },\n    {\n      \"id\": \"R-06\",\n      \"pass\": true,\n      \"actual\": {\n        \"gatekeeper\": true,\n        \"codesign_verify\": true,\n        \"final_zip_extracted\": true,\n        \"zip_path\": true\n      },\n      \"expected\": \"the exact final zip is extracted and checked for architecture, signature, stapled ticket, and Gatekeeper acceptance\"\n    },\n    {\n      \"id\": \"R-07\",\n      \"pass\": true,\n      \"actual\": {\n        \"shell_trace_disabled\": true,\n        \"secret_echo_absent\": true\n      },\n      \"expected\": \"the release script does not intentionally print certificate or Apple credential values\"\n    },\n    {\n      \"id\": \"R-08\",\n      \"pass\": true,\n      \"actual\": {\n        \"return_code\": 0,\n        \"output\": \"DRY_RUN: macdeployqt -> Developer ID Application signing -> notarization -> stapling -> Gatekeeper verification -> Universal zip\\nDRY_RUN_APP_PATH: fixture/Fovelle.app\\nDRY_RUN_RELEASE_ZIP_PATH: fixture/Fovelle-universal.zip\\nDRY_RUN_NOTARIZATION_TIMEOUT: 30m\\nDRY_RUN_EXPECTED_MACOS_DEPLOYMENT_TARGET: 15.0\\n\"\n      },\n      \"expected\": \"the release orchestration is deterministically executable in dry-run mode without requiring secrets or network access\"\n    },\n    {\n      \"id\": \"R-09\",\n      \"pass\": true,\n      \"actual\": {\n        \"default_timeout\": true,\n        \"duration_validation\": true,\n        \"notary_timeout_argument\": true,\n        \"notary_verbose_output\": true,\n        \"workflow_notarization_timeout\": true,\n        \"failure_is_fail_closed\": true,\n        \"workflow_job_timeout\": true,\n        \"workflow_step_timeout\": true,\n        \"custom_timeout_dry_run\": true,\n        \"invalid_timeout_rejected\": true\n      },\n      \"expected\": \"Apple notarization has a validated finite wait, observable progress, workflow-level safety bounds, and fail-closed timeout behavior\"\n    }\n  ],\n  \"passed\": true,\n  \"limitations\": [\n    \"Dry-run validates orchestration without consuming Apple credentials; actual notarization requires the configured GitHub Secrets and Apple service.\",\n    \"Artifact-level Gatekeeper acceptance is verified by the Release workflow after the signed zip is produced.\"\n  ]\n}\n"
+      },
+      "expected": "the executable release contract test passes in dry-run mode without exposing or consuming credentials"
+    },
+    {
+      "id": "I-17",
+      "pass": true,
+      "actual": {
+        "finite_notarization_timeout": true,
+        "duration_validation": true,
+        "observable_notary_output": true,
+        "workflow_job_timeout": true,
+        "workflow_step_timeout": true,
+        "workflow_notarization_timeout": true
+      },
+      "expected": "the integrated Release path cannot wait indefinitely for Apple notarization and exposes bounded progress"
+    }
+  ],
+  "passed": false
+}

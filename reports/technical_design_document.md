@@ -1,42 +1,41 @@
-# 菜单状态与生命周期性能设计（2026-10-20）
+# 启动与退出性能修复技术设计
 
-## 问题界定与原子验收
+日期：2026-10-20（Asia/Shanghai）。依据：`reports/root_cause.md`。保留用户已有 README 和根因报告修改；旧版同名报告归档至 `reports/evidence/lifecycle-fix/baseline-reports/`。
 
-M1：隐藏/显示标题栏后，View、快捷键动作和右键菜单显示对应的下一步操作，包含先改变状态后创建菜单。
-M2：全屏、暂停/继续、幻灯片、置顶、填充窗口和固定排序策略，在菜单创建及状态变化后正确；不同窗口互不污染。
-M3：遍历每个动作，核查文案、勾选、启用、可见和图标策略，不更改静态命令的语义。
-P1：同环境 Release 构建，进程启动至窗口及菜单就绪的中位数至少减少 50%。
-P2：同一空窗口工作负载，退出请求前标记至进程正常结束的中位数至少减少 50%。
-R1：现有默认回归门禁通过，退出仍保留设置写入、任务取消及安全排空。
+## 问题与边界
 
-## 证据与推导
+原子问题 S：应用创建窗口后经两轮零定时器才创建菜单；菜单就绪终点包含事件调度等待。原子问题 E：Open With 的窗口私有线程池和 future 在窗口销毁时无期限等待；5.2 秒受控查询已证明其可拖延退出。空窗口原有退出约 29 ms，不能要求它也下降 50%。图片解码与原生渲染队列的等待属于独立路径，本修复不以删除资源安全边界优化计时。
 
-本地源码：setTitlebarHidden/fullscreenChanged/pauseChanged/toggleSlideshow/toggleWindowOnTop 只更新已经存在的窗口动作副本；ensureMenus 和 ensureContextMenu 只同步启用、填充和排序。addCloneOfAction 从默认动作库取值，因此状态先变、菜单后创建必然留下旧默认值。不能把状态写回全局模板，否则会污染另一个窗口。
+## 多跳检索、交叉验证与收敛
 
-联网两跳核查（查询后打开原始文档）：[QAction 文案、勾选及 changed 信号](https://doc.qt.io/qt-6/qaction.html)、[QMenu 生命周期与 macOS 限制](https://doc.qt.io/qt-6/qmenu.html)、[Qt 退出信号](https://doc.qt.io/qt-6/qcoreapplication.html#aboutToQuit)、[线程池排空语义](https://doc.qt.io/qt-6/qthreadpool.html)、[Apple 启动测量建议](https://developer.apple.com/documentation/xcode/reducing-your-app-s-launch-time)。文档用于确认框架契约；性能收益必须由本机测量证明，不能由文档推定。
+1. [Qt 6.11 QTimer](https://doc.qt.io/qt-6.11/qtimer.html) 的零定时器不保证与其他事件源的顺序；对照本地 showEvent 两次排队和根因报告中提前菜单的干预实验。由 API 语义推出可能延迟，由本地干预验证实际影响，不能把移动工作误称为消除了全部菜单成本。
+2. [Qt QThreadPool](https://doc.qt.io/qt-6.11/qthreadpool.html) 与 [v6.11.2 源码](https://raw.githubusercontent.com/qt/qtbase/v6.11.2/src/corelib/thread/qthreadpool.cpp) 交叉确认 clear 仅丢弃排队任务，析构和无限 wait 会等待运行任务；[Qt Concurrent run](https://doc.qt.io/qt-6.11/qtconcurrentrun.html) 说明基本任务不会被自动中断。回查 MainWindow 的 watcher 和私有池，定位实际等待点。
+3. [Apple Launch Services 查询](https://developer.apple.com/documentation/coreservices/1448020-lscopyallrolehandlersforcontentt) 确认其工作为系统应用发现，且接口线程安全；[Qt QPointer](https://doc.qt.io/qt-6.11/qpointer.html) 提供 QObject 销毁后的弱引用清零语义。结合已有 QvAsync 取消票据、GUI 队列交付、应用析构有时限排空，选择重用现有生命周期机制。
+4. 反向检验：只删 wait 仍会被成员线程池析构阻塞；分离线程会越过 QApplication 生命周期；只调小 QvAsync timeout 无法约束原窗口池。均不采用。公开检索不能证明真实系统查询延迟分布，采用信号量阻塞与真实子进程验收补足。默认 provider 仍可读取应用级配置并使用图标缓存；这些应用依赖在 QvAsync 排空期间保持存活，“独立”指不依赖窗口，而非不依赖 QApplication。API 语义证据收敛，性能收益以本轮交替实测为准。
 
-## 设计及正确性论证
+## 方案
 
-新增无状态投影函数 syncMenuState：仅把实际窗口状态投影到该窗口的所有动作副本，含标题栏、全屏、播放、幻灯片、置顶、填充和启用状态；排序菜单已移除，维持固定策略。菜单创建完成后调用；现有状态事件继续调用对应投影。提取标题栏/幻灯片/置顶投影，避免同步过程中切换业务状态。动态图标遵循主菜单无图标、右键有图标策略。
+启动窗口保留 deferMenus 参数的“跳过备用全局菜单”语义，在窗口构造末尾（设置、会话几何完成后、show 前）同步 ensureMenus；移除 showEvent 的菜单定时器。菜单仍保持幂等、状态同步、窗口快捷键和惰性上下文菜单。
 
-不变式：对窗口 W 的每个已创建副本 a，a 的显示状态等于 f(W)。初始时在菜单完整创建后投影建立不变式；每个状态转移后重投影保持不变式；晚建菜单重新投影恢复不变式。所有查询限定祖先 W，因此不同窗口隔离。反例测试采用状态先变、右键菜单后创建；仅测试先建菜单再切换不足以证实修复。
+Open With 改用 QvAsync::run。工作闭包仅复制路径和 provider，不访问窗口；完成闭包在 GUI 线程检查 QPointer 和停止状态，核对当前文件后再写菜单。单个窗口只允许一个查询在途，后续请求合并，完成后重试最新文件。shutdownBackgroundWork 幂等取消票据，先阻止交付，再取消下载及图像任务；移除窗口私有池及 watcher 等待。应用析构继续执行 QSettings sync 和 QvAsync::finishOrExit（默认 1500 ms），慢系统调用超时保留退出码 75；正常完成退出码 0。
 
-性能：先冻结未修改 Release 可执行文件，重复运行真实 Cocoa 进程。启动计时包含进程创建、首轮事件循环和延迟菜单创建；退出计时包含 aboutToQuit、析构及进程终止。固定 300 ms probe 等待不计入退出，也不能算作优化收益。两版本各预热一次，交替测量至少 10 次。所有样本须正常退出且具有就绪/退出标记。禁止跳过析构、减少任务安全等待或把未完成工作移动到计时终点后制造通过。
+## 正确性论证
 
-候选优化：生产窗口无需在构造自身菜单前额外物化一份无窗口应用菜单；保留显式请求时的懒创建接口。先验证兼容性与实际收益，不保证可单凭此达到 50%。若分段数据显示系统/Qt 固定成本主导，报告应明确失败，不捏造达标。
+- 菜单构造 happens-before show，因此可见窗口不再等待两轮事件才能取得菜单和快捷键；ensureMenus 的幂等条件避免重复树。最终 settings/session 几何已应用，状态测试覆盖多窗口、全屏、动画暂停及上下文菜单。
+- worker 只持有值与 provider，窗口销毁无需等待它。取消票据同时阻断尚未开始工作及已排队交付；QPointer 在 GUI 线程检查和访问，没有跨线程解引用窗口的竞态。
+- 只有 GUI 线程更新运行票据、pending 和路径，单飞与最新路径检查阻止旧文件结果覆盖新文件；完成后清除票据允许重试。
+- 应用析构排空同一受管理池，完成时线程已结束，Qt 可正常销毁；超时则在 Qt 销毁前保存设置并 _Exit(75)，不能把它报告为正常退出。不会把任务移至无监管线程。
 
-## 验证边界
+## 原子验收标准
 
-只对当前机器、空窗口、隔离 INI 设置、自动更新禁用的可重复负载建立性能结论。冷系统缓存、图片解码、会话恢复及多窗口性能不能从空窗口样本外推。历史报告备份于 evidence/menu-lifecycle/previous_*。
+| ID | 标准 | 验证 |
+|---|---|---|
+| A1 | 应用工厂返回的窗口在未派发下一轮事件前已有主菜单和虚拟快捷键 | 静态 S1、动态 D1 |
+| A2 | 提前构建后菜单状态、上下文菜单和多窗口隔离保持正确 | 现有动态 D2 |
+| A3 | 正在运行的 Open With 不阻塞窗口收尾，重复收尾安全且取消后不交付 | 静态 S2、动态 D3 |
+| A4 | 同窗查询单飞，旧结果不写入新文件菜单，最新请求最终交付 | 动态 D4 |
+| A5 | Open With 真实子进程短任务正常退出；10 秒任务在 4 秒内退出 75，设置落盘 | 动态 D5 |
+| A6 | 有限排空、设置同步和 loader 取消安全边界保持 | 静态 S2、现有动态 D6 |
+| A7 | 热缓存空窗口菜单就绪中位启动时间较基线降低，退出中位时间不增加超过 20 ms | 性能 P1，预热后交替各 10 次 |
 
-## 第二轮性能假设
-
-Qt 6.9+ 在窗口显示前设置 ExpandedClientAreaHint，避免首轮显示之后再改变 native style mask 并恢复 frame。关闭中的窗口无需取消 full-size content view；保留 native 窗口直至正常析构，避免关闭时额外 style/frame 更新。Qt [窗口标志契约](https://doc.qt.io/qt-6/qwidget.html#windowFlags-prop) 和 [expanded client area 设计](https://www.qt.io/blog/expanded-client-areas-and-safe-areas-in-qt-6.9) 与本地 setFullSizeContentView 实现交叉核验；本地 alterWindowFlags 直接更新 QWindow，不使用 QWidget 隐藏重显路径，因此性能收益仍需实测。兼容旧 Qt 的既有 showEvent 分支保留。
-
-反证条件：最大化、safe-area、标题栏或原生全屏回归失败即不得保留；安全退出取消/排空边界不变。
-
-## 菜单逐项审计结果
-
-完整清单见 evidence/menu-lifecycle/action-audit.json，共 50 个字面动作。具有动态文案的四类为标题栏、全屏、动画暂停及幻灯片；具有窗口勾选的两类为置顶和填充。其余为固定命令文案，文件/动画/撤销/目录相关启用规则由 disableActions 同步。recent 和 Open With 的名称来自项目已有动态列表刷新路径，不属于布尔开关文案。旧排序命令不在动作库/右键菜单中，已有固定排序测试继续覆盖。
-
-无需将窗口状态复制至全局动作模板；无窗口 fallback 的窗口命令原本禁用，生产窗口使用自身菜单。直接调用 getMenuBar 的契约保留。
+性能边界为父进程 spawn → 首轮事件且菜单就绪，以及探针退出请求 → 完整进程结束；不代表光学首帧、Finder 调度或系统冷缓存。没有自然慢查询 SLA；受控阻塞验证机制。原生 renderQueue 与全局遗留池的独立等待不在本次已证实修复覆盖范围。

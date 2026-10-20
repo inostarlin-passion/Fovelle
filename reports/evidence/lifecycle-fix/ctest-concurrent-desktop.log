@@ -1,0 +1,39 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 2: FovelleLifecycleFixStatic
+1/4 Test #2: FovelleLifecycleFixStatic ........   Passed    0.03 sec
+    Start 3: FovelleLifecycleFixWindow
+2/4 Test #3: FovelleLifecycleFixWindow ........***Exception: SegFault 16.26 sec
+********* Start testing of WindowBehaviorTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : WindowBehaviorTests::initTestCase() entering
+PASS   : WindowBehaviorTests::initTestCase()
+INFO   : WindowBehaviorTests::testStartupMenusReadyBeforeEvents() entering
+PASS   : WindowBehaviorTests::testStartupMenusReadyBeforeEvents()
+INFO   : WindowBehaviorTests::testLateMenuState() entering
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=0-deferred=0)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=0-deferred=1)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=1-deferred=0)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=1-deferred=1)
+INFO   : WindowBehaviorTests::testLateFullscreenMenu() entering
+FAIL!  : WindowBehaviorTests::testLateFullscreenMenu() '!window.isFullScreen()' returned FALSE. ()
+   Loc: [/Users/inostarlin/code/Fovelle/tests/menu_lifecycle_acceptance.inc(92)]
+INFO   : WindowBehaviorTests::testLatePauseMenu() entering
+Received signal 11 (SIGSEGV), code SEGV_ACCERR, at instruction address 0x0000000104628898, accessing address 0x0000000000000273
+         testLatePauseMenu function time: 14ms, total time: 15867ms
+
+    Start 4: FovelleLifecycleFixWorker
+3/4 Test #4: FovelleLifecycleFixWorker ........   Passed   10.92 sec
+    Start 5: FovelleLifecycleFixDrain
+4/4 Test #5: FovelleLifecycleFixDrain .........   Passed    2.17 sec
+
+75% tests passed, 1 tests failed out of 4
+
+Label Time Summary:
+acceptance    =  29.35 sec*proc (3 tests)
+lifecycle     =  29.35 sec*proc (3 tests)
+
+Total Test time (real) =  29.39 sec
+
+The following tests FAILED:
+	  3 - FovelleLifecycleFixWindow (SEGFAULT)              acceptance lifecycle
+Errors while running CTest

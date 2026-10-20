@@ -663,10 +663,8 @@ void QVApplication::onAboutToQuit()
         }
     }
 
-    // Window-owned pools must be stopped while their QObject and GUI
-    // dependencies still exist. Each owner clears queued work and waits only
-    // for work that has already started; unrelated legacy global work is
-    // handled by the conditional wait below.
+    // Cancel window delivery while GUI dependencies exist. Owner-independent
+    // work is drained at the bounded QvAsync boundary in the destructor.
     for (QWidget *widget : QApplication::topLevelWidgets())
     {
         if (auto *window = qobject_cast<MainWindow *>(widget))
@@ -674,9 +672,8 @@ void QVApplication::onAboutToQuit()
     }
 
     // Keep the existing safety boundary for legacy/global futures, but avoid
-    // entering the blocking wait when no global worker is active. Window-owned
-    // work is drained by its owner, which keeps this application-level phase
-    // out of the critical shutdown path for unrelated tasks.
+    // entering the blocking wait when no global worker is active. Open With
+    // and image work use the separately managed QvAsync pool.
     QThreadPool *threadPool = QThreadPool::globalInstance();
     const int activeThreadsBeforeDrain = threadPool->activeThreadCount();
     if (activeThreadsBeforeDrain > 0)

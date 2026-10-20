@@ -1,0 +1,15 @@
+FOVELLE_STARTUP phase=application-identity elapsed_ms=0.025
+FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.795
+Loaded translation "zh_Hans"
+FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.794
+FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.827
+FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.830
+FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=196.949
+FOVELLE_STARTUP phase=window-state-ready elapsed_ms=196.977
+FOVELLE_STARTUP phase=window-shown elapsed_ms=219.652
+FOVELLE_STARTUP phase=window-raised elapsed_ms=222.608
+FOVELLE_STARTUP phase=window-created elapsed_ms=222.624
+FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=259.743
+FOVELLE_MAINWINDOW phase=menus-ready
+FOVELLE_STARTUP phase=system-probe elapsed_ms=524.134
+FOVELLE_SYSTEM_PROBE windows=1 maximized=true visible=true

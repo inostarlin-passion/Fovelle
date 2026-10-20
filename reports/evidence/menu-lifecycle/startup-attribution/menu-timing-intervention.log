@@ -1,0 +1,52 @@
+{
+  "summary": {
+    "qview": {
+      "total_mean_ms": 381.3077624501602,
+      "total_median_ms": 385.1751040019735,
+      "stages_mean_ms": {
+        "spawn_to_identity": 44.18139585068275,
+        "settings_preparation": 6.168068600163679,
+        "application_construction": 93.14510009935475,
+        "window_construction_and_show": 105.66014379946864,
+        "window_to_first_event": 34.56345625090762,
+        "first_event_to_menus": 97.58959784958279
+      },
+      "stages_median_ms": {
+        "spawn_to_identity": 39.08256299837376,
+        "settings_preparation": 5.445979004434776,
+        "application_construction": 93.10227099922486,
+        "window_construction_and_show": 106.60979200110887,
+        "window_to_first_event": 33.68358350053313,
+        "first_event_to_menus": 107.9968749982072
+      }
+    },
+    "fovelle": {
+      "total_mean_ms": 319.4579124505253,
+      "total_median_ms": 318.98699950033915,
+      "stages_mean_ms": {
+        "spawn_to_identity": 39.00142700003926,
+        "settings_preparation": 5.072764650321915,
+        "application_construction": 92.79657294937351,
+        "window_construction_and_show": 148.17739790014457,
+        "window_to_first_event": 34.409749950646074,
+        "first_event_to_menus": 0.0
+      },
+      "stages_median_ms": {
+        "spawn_to_identity": 37.93566650347202,
+        "settings_preparation": 4.328166996856453,
+        "application_construction": 90.85818750099861,
+        "window_construction_and_show": 146.79393749975134,
+        "window_to_first_event": 34.74268750142073,
+        "first_event_to_menus": 0.0
+      }
+    }
+  },
+  "difference_means": {
+    "spawn_to_identity": -5.17996885064349,
+    "settings_preparation": -1.0953039498417638,
+    "application_construction": -0.348527149981237,
+    "window_construction_and_show": 42.51725410067593,
+    "window_to_first_event": -0.15370630026154686,
+    "first_event_to_menus": -97.58959784958279
+  }
+}

@@ -1,0 +1,71 @@
+-- Configuring done (0.6s)
+-- Generating done (0.2s)
+-- Build files have been written to: /Users/inostarlin/code/Fovelle/build
+[  0%] Built target fovelle_tests_autogen_timestamp_deps
+[  0%] Built target fovelle_native_drag_helper_autogen_timestamp_deps
+[  1%] Built target Fovelle_autogen_timestamp_deps
+[  4%] Built target Fovelle_lrelease
+[  4%] Built target fovelle_legacy_bt709_tests_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target fovelle_native_drag_helper
+[  7%] Built target fovelle_sparkle_probe
+[  8%] Automatic MOC and UIC for target fovelle_legacy_bt709_tests
+[  8%] Built target fovelle_native_drag_helper_autogen
+[  9%] Automatic MOC and UIC for target fovelle_tests
+[ 10%] Built target Fovelle_autogen
+[ 10%] Built target fovelle_legacy_bt709_tests_autogen
+[ 14%] Built target fovelle_native_drag_helper
+[ 19%] Built target fovelle_legacy_bt709_tests
+[ 61%] Built target Fovelle
+[ 61%] Built target fovelle_tests_autogen
+[ 62%] Building CXX object tests/CMakeFiles/fovelle_tests.dir/tst_qviewtests.cpp.o
+In file included from /Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:16957:
+/Users/inostarlin/code/Fovelle/tests/zoom_color_acceptance.inc:648:23: warning: 'setActiveWindow' is deprecated: Use QWidget::activateWindow() instead. [-Wdeprecated-declarations]
+  648 |         QApplication::setActiveWindow(&window);
+      |                       ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qapplication.h:84:5: note: 'setActiveWindow' has been explicitly marked deprecated here
+   84 |     QT_DEPRECATED_VERSION_X_6_5("Use QWidget::activateWindow() instead.")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:183:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_5'
+  183 | # define QT_DEPRECATED_VERSION_X_6_5(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:31:33: note: expanded from macro 'QT_DEPRECATED_X'
+   31 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1018:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1018 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+In file included from /Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:16957:
+/Users/inostarlin/code/Fovelle/tests/zoom_color_acceptance.inc:719:19: warning: 'setActiveWindow' is deprecated: Use QWidget::activateWindow() instead. [-Wdeprecated-declarations]
+  719 |     QApplication::setActiveWindow(owner.get());
+      |                   ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qapplication.h:84:5: note: 'setActiveWindow' has been explicitly marked deprecated here
+   84 |     QT_DEPRECATED_VERSION_X_6_5("Use QWidget::activateWindow() instead.")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:183:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_5'
+  183 | # define QT_DEPRECATED_VERSION_X_6_5(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:31:33: note: expanded from macro 'QT_DEPRECATED_X'
+   31 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1018:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1018 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+In file included from /Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:16957:
+/Users/inostarlin/code/Fovelle/tests/zoom_color_acceptance.inc:727:23: warning: 'setActiveWindow' is deprecated: Use QWidget::activateWindow() instead. [-Wdeprecated-declarations]
+  727 |         QApplication::setActiveWindow(&other);
+      |                       ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qapplication.h:84:5: note: 'setActiveWindow' has been explicitly marked deprecated here
+   84 |     QT_DEPRECATED_VERSION_X_6_5("Use QWidget::activateWindow() instead.")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:183:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_5'
+  183 | # define QT_DEPRECATED_VERSION_X_6_5(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:31:33: note: expanded from macro 'QT_DEPRECATED_X'
+   31 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1018:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1018 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+3 warnings generated.
+[ 63%] Linking CXX executable fovelle_tests
+[100%] Built target fovelle_tests

@@ -1,0 +1,45 @@
+--- a/src/mainwindow.cpp
++++ b/src/mainwindow.cpp
+@@ -610,13 +610,22 @@
+     if (menusInitialized || isClosing || qvApp->getIsApplicationQuitting())
+         return;
+ 
++    QElapsedTimer menuProfile;
++    menuProfile.start();
++    const auto menuMark = [&menuProfile](const char *phase) {
++        qInfo().noquote() << QString("FOVELLE_MAINWINDOW phase=%1 elapsed_ms=%2")
++            .arg(phase).arg(menuProfile.nsecsElapsed()/1000000.0, 0, 'f', 3);
++    };
++    menuMark("menu-build-start");
+     // A visible window supplies its own native menu bar. The fallback
+     // application bar remains lazy via QVApplication::getMenuBar(); creating
+     // both trees here duplicates launch work and subsequent teardown.
+     auto &actionManager = qvApp->getActionManager();
+ 
+     mainMenuBar = actionManager.buildMenuBar(this);
++    menuMark("menu-tree-built");
+     setMenuBar(mainMenuBar);
++    menuMark("menu-attached");
+ 
+     // Stop actions conflicting with the window's actions.
+     const auto menubarActions = ActionManager::getAllNestedActions(mainMenuBar->actions());
+@@ -640,8 +649,10 @@
+                 ActionManager::actionTriggered(triggeredAction, this);
+             });
+ 
++    menuMark("menu-virtual-built");
+     menusInitialized = true;
+     syncMenuState();
++    menuMark("menu-synced");
+ 
+     if (qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF"))
+         qInfo().noquote() << "FOVELLE_MAINWINDOW phase=menus-ready";
+@@ -1320,6 +1331,8 @@
+         // Use two queued turns so the startup marker posted by main() can
+         // observe first responsiveness before optional menu construction.
+         QTimer::singleShot(0, this, [this]() {
++            if (qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF"))
++                qInfo().noquote() << "FOVELLE_MAINWINDOW phase=menu-first-queued-turn";
+             if (!menusInitialized)
+                 QTimer::singleShot(0, this, &MainWindow::ensureMenus);
+         });

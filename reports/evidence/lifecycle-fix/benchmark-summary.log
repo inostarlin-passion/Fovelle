@@ -1,0 +1,14 @@
+{
+  "startup_ms": {
+    "baseline_median": 348.5138955002185,
+    "candidate_median": 290.6805419988814,
+    "reduction_percent": 16.594274790200114,
+    "passed": true
+  },
+  "exit_ms": {
+    "baseline_median": 31.75652099889703,
+    "candidate_median": 32.792020501801744,
+    "reduction_percent": -3.260746046270868,
+    "passed": true
+  }
+}

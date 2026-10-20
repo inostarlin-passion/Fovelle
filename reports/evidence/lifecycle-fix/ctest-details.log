@@ -1,0 +1,183 @@
+Start testing: Oct 20 20:27 CST
+----------------------------------------------------------
+1/5 Testing: FovelleFastTests
+1/5 Test: FovelleFastTests
+Command: "/opt/homebrew/bin/python3" "/Users/inostarlin/code/Fovelle/tests/run_fast_tests.py" "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests" "--output" "/Users/inostarlin/code/Fovelle/build/test-results/fast" "--portable-output" "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleFastTests" start time: Oct 20 20:27 CST
+Output:
+----------------------------------------------------------
+{"name": "native_alerts_acceptance.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/native_alerts_acceptance.py"], "elapsed_seconds": 0.24}
+{"name": "navigation_boundary_hint_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/navigation_boundary_hint_static.py"], "elapsed_seconds": 0.079}
+{"name": "test_hdr_focus_transition_metrics.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/test_hdr_focus_transition_metrics.py"], "elapsed_seconds": 0.134}
+{"name": "test_fullscreen_system_metrics.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/test_fullscreen_system_metrics.py"], "elapsed_seconds": 0.079}
+{"name": "hdr_brightness_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/hdr_brightness_static.py"], "elapsed_seconds": 0.069}
+{"name": "zoom_color_acceptance_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/zoom_color_acceptance_static.py"], "elapsed_seconds": 0.042}
+{"name": "keep_zoom_persistence_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/keep_zoom_persistence_static.py"], "elapsed_seconds": 0.041}
+{"name": "remediation_contract.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/remediation_contract.py"], "elapsed_seconds": 0.077}
+{"name": "remediation_gate_tests.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/remediation_gate_tests.py"], "elapsed_seconds": 0.078}
+{"name": "actions_regression_tests.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/actions_regression_tests.py"], "elapsed_seconds": 1.698}
+{"name": "stapler_retry_tests.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/stapler_retry_tests.py"], "elapsed_seconds": 0.396}
+{"name": "movie_resume_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/movie_resume_static.py"], "elapsed_seconds": 0.077}
+{"name": "camera_model_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/camera_model_static.py"], "elapsed_seconds": 0.074}
+{"name": "hdr_info_output_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/hdr_info_output_static.py"], "elapsed_seconds": 0.076}
+{"name": "hdr_info_restore_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/hdr_info_restore_static.py"], "elapsed_seconds": 0.075}
+{"name": "hdr_headroom_restore_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/hdr_headroom_restore_static.py"], "elapsed_seconds": 0.077}
+{"name": "hdr_surface_metadata_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/hdr_surface_metadata_static.py"], "elapsed_seconds": 0.073}
+{"name": "color_rendering_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/color_rendering_static.py"], "elapsed_seconds": 0.074}
+{"name": "vector_performance_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/vector_performance_static.py"], "elapsed_seconds": 0.077}
+{"name": "actions_followup_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/actions_followup_static.py"], "elapsed_seconds": 0.075}
+{"name": "test_fast_tests.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/test_fast_tests.py"], "elapsed_seconds": 0.345}
+{"name": "toggle_fit_stability_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/toggle_fit_stability_static.py", "--repo", "/Users/inostarlin/code/Fovelle", "--output", "/Users/inostarlin/code/Fovelle/build/test-results/fast/toggle-fit.json"], "elapsed_seconds": 0.075}
+{"name": "zoom_scrollbar_duration_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/zoom_scrollbar_duration_static.py", "--repo", "/Users/inostarlin/code/Fovelle", "--output", "/Users/inostarlin/code/Fovelle/build/test-results/fast/scrollbar-duration.json"], "elapsed_seconds": 0.073}
+{"name": "update_acceptance.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/update_acceptance.py", "--static-only"], "elapsed_seconds": 0.18}
+{"name": "preload_policy_quality.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/preload_policy_quality.py"], "elapsed_seconds": 0.073}
+{"name": "menu_lifecycle_static.py", "status": "passed", "returncode": 0, "command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "/Users/inostarlin/code/Fovelle/tests/menu_lifecycle_static.py"], "elapsed_seconds": 0.073}
+{"name": "ImageLoaderTests", "status": "passed", "suite": "ImageLoaderTests", "functions": ["testImageLoaderPriorities", "testImageLoaderCacheAndAttachment", "testImageLoaderSupersededForegroundDiscarded", "testImageLoaderCachedErrorRetry", "testImageLoaderDestructionDuringLoad", "testImageLoaderLoadsEPS", "testImageLoaderAppliesAvifOrientation", "testVectorDisplayTargetSwitch", "testVectorRequestBurstAndDestruction", "testColorSvgWideGamut", "testColorNetpbm"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageLoaderTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageLoaderTests.log", "elapsed_seconds": 0.877}
+{"name": "FeatureTests", "status": "passed", "suite": "FeatureTests", "functions": ["testKeepZoomSurvivesStartupMigration:preserve-disabled", "testKeepZoomPersistsAcrossProcesses:macos-native-restart", "testUpdateConfigurationValidation", "testUpdateCheckFrequencyPolicy", "testCameraModelMetadata", "testApplicationVersionIsCurrent"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/FeatureTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/FeatureTests.log", "elapsed_seconds": 1.7}
+{"name": "HDRPolicyTests", "status": "passed", "suite": "HDRPolicyTests", "functions": ["testTransitionCurveIsBoundedAndMonotonic", "testHDRBrightnessTimingAndBezier", "testHDRBrightnessPreservesEndpointColors", "testHDRBrightnessLinearLightPixels", "testDisplayHeadroomBootstrapsFromPotentialCapability", "testHDRHeadroomIsClampedToContentAndDisplay", "testSDRDisplayForcesUnitHeadroom"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/HDRPolicyTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/HDRPolicyTests.log", "elapsed_seconds": 0.397}
+{"name": "GraphicsViewTests", "status": "passed", "suite": "GraphicsViewTests", "functions": ["testZoomOutClearsStaleVerticalScrollRange", "testMousePanKeepsOverflowRangeAndContinuity", "testKeyboardZoomUsesCursorAnchor", "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor", "testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive", "testKeepZoomAcrossNavigation:svg64"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/GraphicsViewTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/GraphicsViewTests.log", "elapsed_seconds": 1.378}
+{"name": "ImageCoreAndMovieTests", "status": "passed", "suite": "ImageCoreAndMovieTests", "functions": ["testSourceColorMetadata", "testColorContainerBoundaries", "testFileInfoColorFallback", "testHDRPersistentSurfaceMetadata:gain-map"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageCoreAndMovieTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ImageCoreAndMovieTests.log", "elapsed_seconds": 3.663}
+{"name": "WindowBehaviorTests", "status": "passed", "suite": "WindowBehaviorTests", "functions": ["testNativeMessageBoxStandardButtonResponses", "testLateMenuState", "testLateFullscreenMenu", "testLatePauseMenu"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/WindowBehaviorTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/WindowBehaviorTests.log", "elapsed_seconds": 2.543}
+{"name": "RemediationTests", "status": "passed", "suite": "RemediationTests", "functions": ["testDownloadThreadAffinity", "testDownloadHttpFailureCleanup", "testDownloadTotalTimeout", "testDownloadLimits", "testDownloadProgressAndCancel", "testFolderScanGeneration", "testDirectoryOpenAndNavigation", "testMovieBoundedCache", "testMoviePauseResume:async=1-apng=1-cache=1", "testMoviePauseQueuedRead:inflight", "testMovieAsyncPlaybackSpeed:gui-delayed", "testMovieQueuedSourceReplacement", "testLoaderNonblockingShutdown"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/RemediationTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/RemediationTests.log", "elapsed_seconds": 5.179}
+{"name": "ScrollHelperTests", "status": "passed", "suite": "ScrollHelperTests", "functions": ["testMinimumEdgesAreHardClamped", "testMaximumEdgesAreHardClamped", "testEdgePositionDoesNotReboundAfterRelease", "testInteriorDragPreservesExactMovement", "testUnconstrainedModeRemainsUnbounded"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ScrollHelperTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ScrollHelperTests.log", "elapsed_seconds": 0.887}
+{"name": "ApplicationEventTests", "status": "passed", "suite": "ApplicationEventTests", "functions": ["testFileOpenEventIsDeferredAndLoadsImage", "testFileOpenEventWithoutPathIsIgnored"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ApplicationEventTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ApplicationEventTests.log", "elapsed_seconds": 0.51}
+{"name": "ShortcutSettingsTests", "status": "passed", "suite": "ShortcutSettingsTests", "functions": ["testToggleFitAnd100DefaultsToZ", "testToggleFitAnd100ChangesBetweenFitAnd100Percent", "testShortcutUpdateKeepsSettingsWidth"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ShortcutSettingsTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/fast/ShortcutSettingsTests.log", "elapsed_seconds": 1.249}
+{"name": "legacy-bt709", "status": "passed", "returncode": 0, "command": ["/Users/inostarlin/code/Fovelle/build/tests/fovelle_legacy_bt709_tests"], "elapsed_seconds": 0.038}
+{"name": "portable-RemediationTests", "status": "passed", "suite": "RemediationTests", "functions": ["testPortableHDR"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/RemediationTests.log", "elapsed_seconds": 0.403}
+{"name": "portable-HDRPolicyTests", "status": "passed", "suite": "HDRPolicyTests", "functions": ["testHDRBrightnessNativeColorFidelity"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/HDRPolicyTests.log", "elapsed_seconds": 1.205}
+{"name": "portable-WindowBehaviorTests", "status": "passed", "suite": "WindowBehaviorTests", "functions": ["testHDRFullScreenVisualContinuity:exit-bottom-visible", "testHDRFullScreenVisualContinuity:enter-size-hidden", "testHDRFullScreenVisualContinuity:exit-position-hidden"], "returncode": 0, "error": null, "xml": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.xml", "log": "/Users/inostarlin/code/Fovelle/build/test-results/portable-hdr/WindowBehaviorTests.log", "elapsed_seconds": 8.207}
+<end of output>
+Test time =  30.19 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleFastTests" end time: Oct 20 20:27 CST
+"FovelleFastTests" time elapsed: 00:00:30
+----------------------------------------------------------
+
+2/5 Testing: FovelleLifecycleFixStatic
+2/5 Test: FovelleLifecycleFixStatic
+Command: "/opt/homebrew/bin/python3" "/Users/inostarlin/code/Fovelle/tests/lifecycle_fix_static.py"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleLifecycleFixStatic" start time: Oct 20 20:27 CST
+Output:
+----------------------------------------------------------
+PASS S1: menus constructed before show without queued menu work
+PASS S2: cancellation, weak owner, application drain and persistence retained
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleLifecycleFixStatic" end time: Oct 20 20:27 CST
+"FovelleLifecycleFixStatic" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/5 Testing: FovelleLifecycleFixWindow
+3/5 Test: FovelleLifecycleFixWindow
+Command: "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests" "testStartupMenusReadyBeforeEvents" "testLateMenuState" "testLateFullscreenMenu" "testLatePauseMenu" "-v1"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleLifecycleFixWindow" start time: Oct 20 20:27 CST
+Output:
+----------------------------------------------------------
+********* Start testing of WindowBehaviorTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : WindowBehaviorTests::initTestCase() entering
+PASS   : WindowBehaviorTests::initTestCase()
+INFO   : WindowBehaviorTests::testStartupMenusReadyBeforeEvents() entering
+PASS   : WindowBehaviorTests::testStartupMenusReadyBeforeEvents()
+INFO   : WindowBehaviorTests::testLateMenuState() entering
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=0-deferred=0)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=0-deferred=1)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=1-deferred=0)
+PASS   : WindowBehaviorTests::testLateMenuState(hidden=1-deferred=1)
+INFO   : WindowBehaviorTests::testLateFullscreenMenu() entering
+PASS   : WindowBehaviorTests::testLateFullscreenMenu()
+INFO   : WindowBehaviorTests::testLatePauseMenu() entering
+PASS   : WindowBehaviorTests::testLatePauseMenu()
+INFO   : WindowBehaviorTests::cleanupTestCase() entering
+PASS   : WindowBehaviorTests::cleanupTestCase()
+Totals: 9 passed, 0 failed, 0 skipped, 0 blacklisted, 1709ms
+********* Finished testing of WindowBehaviorTests *********
+<end of output>
+Test time =   1.83 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleLifecycleFixWindow" end time: Oct 20 20:27 CST
+"FovelleLifecycleFixWindow" time elapsed: 00:00:01
+----------------------------------------------------------
+
+4/5 Testing: FovelleLifecycleFixWorker
+4/5 Test: FovelleLifecycleFixWorker
+Command: "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests" "testOpenWithWorkerTeardownContract" "testOpenWithLatestRequest" "testOpenWithShutdownProcess" "-v1"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleLifecycleFixWorker" start time: Oct 20 20:27 CST
+Output:
+----------------------------------------------------------
+********* Start testing of FeatureTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : FeatureTests::initTestCase() entering
+PASS   : FeatureTests::initTestCase()
+INFO   : FeatureTests::testOpenWithWorkerTeardownContract() entering
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(normal-startup) OPENWITH_WINDOW teardown_ms= 21
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(normal-startup)
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(slow-startup) OPENWITH_WINDOW teardown_ms= 22
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(slow-startup)
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(controlled-platform-latency) OPENWITH_WINDOW teardown_ms= 15
+PASS   : FeatureTests::testOpenWithWorkerTeardownContract(controlled-platform-latency)
+INFO   : FeatureTests::testOpenWithLatestRequest() entering
+PASS   : FeatureTests::testOpenWithLatestRequest()
+INFO   : FeatureTests::testOpenWithShutdownProcess() entering
+QINFO  : FeatureTests::testOpenWithShutdownProcess() OPENWITH_PROCESS delay_ms= 30 exit= 0 wall_ms= 322
+QINFO  : FeatureTests::testOpenWithShutdownProcess() OPENWITH_PROCESS delay_ms= 10000 exit= 75 wall_ms= 1830
+PASS   : FeatureTests::testOpenWithShutdownProcess()
+INFO   : FeatureTests::cleanupTestCase() entering
+PASS   : FeatureTests::cleanupTestCase()
+Totals: 7 passed, 0 failed, 0 skipped, 0 blacklisted, 10861ms
+********* Finished testing of FeatureTests *********
+<end of output>
+Test time =  11.03 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleLifecycleFixWorker" end time: Oct 20 20:27 CST
+"FovelleLifecycleFixWorker" time elapsed: 00:00:11
+----------------------------------------------------------
+
+5/5 Testing: FovelleLifecycleFixDrain
+5/5 Test: FovelleLifecycleFixDrain
+Command: "/Users/inostarlin/code/Fovelle/build/tests/fovelle_tests" "testLoaderNonblockingShutdown" "testShutdownProcess" "-v1"
+Directory: /Users/inostarlin/code/Fovelle/build/tests
+"FovelleLifecycleFixDrain" start time: Oct 20 20:27 CST
+Output:
+----------------------------------------------------------
+********* Start testing of RemediationTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : RemediationTests::initTestCase() entering
+PASS   : RemediationTests::initTestCase()
+INFO   : RemediationTests::testLoaderNonblockingShutdown() entering
+PASS   : RemediationTests::testLoaderNonblockingShutdown()
+INFO   : RemediationTests::testShutdownProcess() entering
+PASS   : RemediationTests::testShutdownProcess()
+INFO   : RemediationTests::cleanupTestCase() entering
+PASS   : RemediationTests::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1919ms
+********* Finished testing of RemediationTests *********
+<end of output>
+Test time =   2.13 sec
+----------------------------------------------------------
+Test Passed.
+"FovelleLifecycleFixDrain" end time: Oct 20 20:27 CST
+"FovelleLifecycleFixDrain" time elapsed: 00:00:02
+----------------------------------------------------------
+
+End testing: Oct 20 20:27 CST
+
+acceptance =  14.99 sec*proc
+
+ci =  30.19 sec*proc
+
+fast =  30.19 sec*proc
+
+lifecycle =  14.99 sec*proc
+
+local =  30.19 sec*proc
+

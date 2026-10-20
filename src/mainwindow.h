@@ -6,13 +6,12 @@
 #include "qvgraphicsview.h"
 #include "openwith.h"
 #include "urldownload.h"
+#include "asyncwork.h"
 
 #include <QMainWindow>
-#include <QFutureWatcher>
 #include <QShortcut>
 #include <QNetworkAccessManager>
 #include <QStack>
-#include <QThreadPool>
 #include <functional>
 
 namespace Ui {
@@ -334,16 +333,11 @@ private:
     QList<UrlDownload *> downloads;
     QList<UrlDownload::Artifact> downloadedArtifacts;
 
-    // Keep window-owned asynchronous work independent from the application's
-    // global pool so application shutdown never waits for unrelated jobs.
-    QThreadPool backgroundThreadPool;
-
     QStack<DeletedPaths> lastDeletedFiles;
 
     QMenuBar *mainMenuBar {nullptr};
     OpenWithProvider openWithItemProvider;
-    QFutureWatcher<QList<OpenWith::OpenWithItem>> openWithFutureWatcher;
-    QString openWithFutureFilePath;
+    QvAsync::Ticket openWithTicket;
     QString openWithPopulatedFilePath;
     bool openWithPopulationPending {false};
     bool contextMenuInitialized {false};

@@ -1,0 +1,4478 @@
+{
+  "runs": {
+    "qview": [
+      {
+        "stages_ms": {
+          "spawn_to_identity": 42.85900000104448,
+          "settings_preparation": 1.3488330005202442,
+          "application_construction": 104.77020899998024,
+          "window_construction_and_show": 117.126625002129,
+          "window_to_first_event": 42.42470800090814,
+          "first_event_to_menus": 0.022916996385902166
+        },
+        "total_ms": 308.552292000968,
+        "internal": {
+          "application-identity": 0.031,
+          "settings-migrated": 2.725,
+          "application-constructed": 107.527,
+          "command-line-parsed": 107.563,
+          "window-constructor-start": 107.568,
+          "window-constructor-complete": 200.88,
+          "window-state-ready": 200.91,
+          "window-shown": 221.502,
+          "window-raised": 224.634,
+          "window-created": 224.651,
+          "first-event-loop-turn": 267.087,
+          "system-probe": 525.767
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 42.85900000104448,
+            "internal_ms": 0.031,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.031"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 44.20783300156472,
+            "internal_ms": 2.725,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=2.725"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 148.97804200154496,
+            "internal_ms": 107.527,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=107.527"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 149.00433300499571,
+            "internal_ms": 107.563,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=107.563"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 149.00683300220408,
+            "internal_ms": 107.568,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=107.568"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 242.32933300663717,
+            "internal_ms": 200.88,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=200.880"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 242.36312500579515,
+            "internal_ms": 200.91,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=200.910"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 262.9559170018183,
+            "internal_ms": 221.502,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=221.502"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 266.08225000381935,
+            "internal_ms": 224.634,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=224.634"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 266.10466700367397,
+            "internal_ms": 224.651,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=224.651"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 308.5293750045821,
+            "internal_ms": 267.087,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=267.087"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 308.552292000968,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 567.2282080049627,
+            "internal_ms": 525.767,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=525.767"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 32.21095800108742,
+          "settings_preparation": 0.5906669975956902,
+          "application_construction": 96.01133300020592,
+          "window_construction_and_show": 117.07000000023982,
+          "window_to_first_event": 40.13141700124834,
+          "first_event_to_menus": 0.037917001463938504
+        },
+        "total_ms": 286.0522920018411,
+        "internal": {
+          "application-identity": 0.025,
+          "settings-migrated": 1.439,
+          "application-constructed": 97.417,
+          "command-line-parsed": 97.448,
+          "window-constructor-start": 97.452,
+          "window-constructor-complete": 189.981,
+          "window-state-ready": 190.016,
+          "window-shown": 211.562,
+          "window-raised": 214.485,
+          "window-created": 214.498,
+          "first-event-loop-turn": 254.6,
+          "system-probe": 515.752
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 32.21095800108742,
+            "internal_ms": 0.025,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.025"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 32.80162499868311,
+            "internal_ms": 1.439,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.439"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 128.81295799888903,
+            "internal_ms": 97.417,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=97.417"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 128.84708299679914,
+            "internal_ms": 97.448,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=97.448"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 128.85000000096625,
+            "internal_ms": 97.452,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=97.452"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 221.3716670012218,
+            "internal_ms": 189.981,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=189.981"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 221.4049999965937,
+            "internal_ms": 190.016,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=190.016"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 242.95570800313726,
+            "internal_ms": 211.562,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=211.562"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 245.86612499842886,
+            "internal_ms": 214.485,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=214.485"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 245.88295799912885,
+            "internal_ms": 214.498,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=214.498"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 286.0143750003772,
+            "internal_ms": 254.6,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=254.600"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 286.0522920018411,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 547.146208002232,
+            "internal_ms": 515.752,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=515.752"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.722750002809335,
+          "settings_preparation": 0.702124998497311,
+          "application_construction": 109.13991700363113,
+          "window_construction_and_show": 109.89116699784063,
+          "window_to_first_event": 38.4389579994604,
+          "first_event_to_menus": 0.028832997486460954
+        },
+        "total_ms": 294.92374999972526,
+        "internal": {
+          "application-identity": 0.029,
+          "settings-migrated": 1.782,
+          "application-constructed": 110.743,
+          "command-line-parsed": 110.783,
+          "window-constructor-start": 110.787,
+          "window-constructor-complete": 202.288,
+          "window-state-ready": 202.315,
+          "window-shown": 217.83,
+          "window-raised": 220.769,
+          "window-created": 220.784,
+          "first-event-loop-turn": 259.196,
+          "system-probe": 522.321
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.722750002809335,
+            "internal_ms": 0.029,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.029"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 37.424875001306646,
+            "internal_ms": 1.782,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.782"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 146.56479200493777,
+            "internal_ms": 110.743,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=110.743"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 146.6232500024489,
+            "internal_ms": 110.783,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=110.783"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 146.6712500041467,
+            "internal_ms": 110.787,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=110.787"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 237.95029200118734,
+            "internal_ms": 202.288,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=202.288"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 237.97241700231098,
+            "internal_ms": 202.315,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=202.315"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 253.49354200443486,
+            "internal_ms": 217.83,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=217.830"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 256.43645899981493,
+            "internal_ms": 220.769,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=220.769"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 256.4559590027784,
+            "internal_ms": 220.784,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=220.784"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 294.8949170022388,
+            "internal_ms": 259.196,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=259.196"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 294.92374999972526,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 557.9907089995686,
+            "internal_ms": 522.321,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=522.321"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 33.470917005615775,
+          "settings_preparation": 1.091165999241639,
+          "application_construction": 100.82737499760697,
+          "window_construction_and_show": 118.28204199991887,
+          "window_to_first_event": 38.81770800217055,
+          "first_event_to_menus": 0.05704199429601431
+        },
+        "total_ms": 292.5462499988498,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 2.209,
+          "application-constructed": 103.036,
+          "command-line-parsed": 103.064,
+          "window-constructor-start": 103.068,
+          "window-constructor-complete": 195.543,
+          "window-state-ready": 195.577,
+          "window-shown": 218.303,
+          "window-raised": 221.308,
+          "window-created": 221.321,
+          "first-event-loop-turn": 260.053,
+          "system-probe": 522.243
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 33.470917005615775,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 34.56208300485741,
+            "internal_ms": 2.209,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=2.209"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 135.38945800246438,
+            "internal_ms": 103.036,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.036"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 135.4120000032708,
+            "internal_ms": 103.064,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.064"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 135.4143330027,
+            "internal_ms": 103.068,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.068"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 227.9084170004353,
+            "internal_ms": 195.543,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=195.543"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 227.93495800578967,
+            "internal_ms": 195.577,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=195.577"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 250.6610830023419,
+            "internal_ms": 218.303,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=218.303"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 253.65408300422132,
+            "internal_ms": 221.308,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=221.308"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 253.67150000238325,
+            "internal_ms": 221.321,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=221.321"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 292.4892080045538,
+            "internal_ms": 260.053,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=260.053"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 292.5462499988498,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 554.5958330039866,
+            "internal_ms": 522.243,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=522.243"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.751125000591855,
+          "settings_preparation": 0.7217919992399402,
+          "application_construction": 99.14279200165765,
+          "window_construction_and_show": 107.70749999937834,
+          "window_to_first_event": 42.294915998354554,
+          "first_event_to_menus": 0.05983400478726253
+        },
+        "total_ms": 286.6779590040096,
+        "internal": {
+          "application-identity": 0.032,
+          "settings-migrated": 1.698,
+          "application-constructed": 100.809,
+          "command-line-parsed": 100.84,
+          "window-constructor-start": 100.845,
+          "window-constructor-complete": 187.268,
+          "window-state-ready": 187.303,
+          "window-shown": 202.354,
+          "window-raised": 208.465,
+          "window-created": 208.482,
+          "first-event-loop-turn": 250.799,
+          "system-probe": 509.847
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.751125000591855,
+            "internal_ms": 0.032,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.032"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 37.472916999831796,
+            "internal_ms": 1.698,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.698"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.61570900148945,
+            "internal_ms": 100.809,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=100.809"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.6422089995467,
+            "internal_ms": 100.84,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=100.840"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 136.64470900403103,
+            "internal_ms": 100.845,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=100.845"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 223.07262499816716,
+            "internal_ms": 187.268,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=187.268"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 223.10250000009546,
+            "internal_ms": 187.303,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=187.303"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 238.15045900119003,
+            "internal_ms": 202.354,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=202.354"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 244.2706250003539,
+            "internal_ms": 208.465,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=208.465"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 244.3232090008678,
+            "internal_ms": 208.482,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=208.482"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 286.61812499922235,
+            "internal_ms": 250.799,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=250.799"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 286.6779590040096,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 545.6610420005745,
+            "internal_ms": 509.847,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=509.847"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 35.37720899475971,
+          "settings_preparation": 0.6792910062358715,
+          "application_construction": 100.20749999966938,
+          "window_construction_and_show": 118.63229199661873,
+          "window_to_first_event": 37.69454199937172,
+          "first_event_to_menus": 0.028041002224199474
+        },
+        "total_ms": 292.6188749988796,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 1.686,
+          "application-constructed": 101.874,
+          "command-line-parsed": 101.903,
+          "window-constructor-start": 101.907,
+          "window-constructor-complete": 194.359,
+          "window-state-ready": 194.401,
+          "window-shown": 217.698,
+          "window-raised": 220.5,
+          "window-created": 220.513,
+          "first-event-loop-turn": 258.198,
+          "system-probe": 521.571
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 35.37720899475971,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 36.056500000995584,
+            "internal_ms": 1.686,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.686"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.26400000066496,
+            "internal_ms": 101.874,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=101.874"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.2854589970084,
+            "internal_ms": 101.903,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=101.903"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 136.28770899958909,
+            "internal_ms": 101.907,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=101.907"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 228.74962499918183,
+            "internal_ms": 194.359,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=194.359"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 228.77375000098255,
+            "internal_ms": 194.401,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=194.401"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 252.08924999606097,
+            "internal_ms": 217.698,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=217.698"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 254.8827499995241,
+            "internal_ms": 220.5,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=220.500"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 254.8962919972837,
+            "internal_ms": 220.513,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=220.513"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 292.5908339966554,
+            "internal_ms": 258.198,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=258.198"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 292.6188749988796,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 555.9892089950154,
+            "internal_ms": 521.571,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=521.571"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.372416998958215,
+          "settings_preparation": 0.8275000000139698,
+          "application_construction": 105.01491600007284,
+          "window_construction_and_show": 110.23250000289408,
+          "window_to_first_event": 40.33287499623839,
+          "first_event_to_menus": 0.021625004592351615
+        },
+        "total_ms": 295.80183300276985,
+        "internal": {
+          "application-identity": 0.025,
+          "settings-migrated": 1.672,
+          "application-constructed": 106.659,
+          "command-line-parsed": 106.691,
+          "window-constructor-start": 106.694,
+          "window-constructor-complete": 198.33,
+          "window-state-ready": 198.365,
+          "window-shown": 213.825,
+          "window-raised": 216.861,
+          "window-created": 216.878,
+          "first-event-loop-turn": 257.232,
+          "system-probe": 518.774
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.372416998958215,
+            "internal_ms": 0.025,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.025"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 40.199916998972185,
+            "internal_ms": 1.672,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.672"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.21483299904503,
+            "internal_ms": 106.659,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=106.659"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.2367919991957,
+            "internal_ms": 106.691,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=106.691"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 145.23908300179755,
+            "internal_ms": 106.694,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=106.694"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 236.87595799856354,
+            "internal_ms": 198.33,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=198.330"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 236.90162500133738,
+            "internal_ms": 198.365,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=198.365"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 252.3900419982965,
+            "internal_ms": 213.825,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=213.825"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 255.42541700269794,
+            "internal_ms": 216.861,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=216.861"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 255.4473330019391,
+            "internal_ms": 216.878,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=216.878"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 295.7802079981775,
+            "internal_ms": 257.232,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=257.232"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 295.80183300276985,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 557.325583002239,
+            "internal_ms": 518.774,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=518.774"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 33.52525000082096,
+          "settings_preparation": 0.8067079979809932,
+          "application_construction": 102.0221250000759,
+          "window_construction_and_show": 118.83604200556874,
+          "window_to_first_event": 37.18658299476374,
+          "first_event_to_menus": 0.03829200431937352
+        },
+        "total_ms": 292.4150000035297,
+        "internal": {
+          "application-identity": 0.025,
+          "settings-migrated": 1.795,
+          "application-constructed": 103.794,
+          "command-line-parsed": 103.827,
+          "window-constructor-start": 103.83,
+          "window-constructor-complete": 196.949,
+          "window-state-ready": 196.977,
+          "window-shown": 219.652,
+          "window-raised": 222.608,
+          "window-created": 222.624,
+          "first-event-loop-turn": 259.743,
+          "system-probe": 524.134
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 33.52525000082096,
+            "internal_ms": 0.025,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.025"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 34.331957998801954,
+            "internal_ms": 1.795,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.795"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.35408299887786,
+            "internal_ms": 103.794,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.794"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.3790830000653,
+            "internal_ms": 103.827,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.827"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 136.3815830045496,
+            "internal_ms": 103.83,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.830"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 229.50679199857404,
+            "internal_ms": 196.949,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=196.949"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 229.53879200213123,
+            "internal_ms": 196.977,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=196.977"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 252.20899999840185,
+            "internal_ms": 219.652,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=219.652"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 255.1680420001503,
+            "internal_ms": 222.608,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=222.608"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 255.1901250044466,
+            "internal_ms": 222.624,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=222.624"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 292.37670799921034,
+            "internal_ms": 259.743,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=259.743"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 292.4150000035297,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 556.692333004321,
+            "internal_ms": 524.134,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=524.134"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 38.07958299876191,
+          "settings_preparation": 0.6896670020068996,
+          "application_construction": 101.19524999754503,
+          "window_construction_and_show": 109.18691600090824,
+          "window_to_first_event": 37.854917005461175,
+          "first_event_to_menus": 0.029082999390084296
+        },
+        "total_ms": 287.03541600407334,
+        "internal": {
+          "application-identity": 0.03,
+          "settings-migrated": 1.662,
+          "application-constructed": 102.825,
+          "command-line-parsed": 102.857,
+          "window-constructor-start": 102.86,
+          "window-constructor-complete": 193.508,
+          "window-state-ready": 193.541,
+          "window-shown": 209.148,
+          "window-raised": 212.011,
+          "window-created": 212.023,
+          "first-event-loop-turn": 249.872,
+          "system-probe": 513.576
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 38.07958299876191,
+            "internal_ms": 0.03,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.030"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 38.76925000076881,
+            "internal_ms": 1.662,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.662"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 139.96449999831384,
+            "internal_ms": 102.825,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=102.825"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 139.99108300049556,
+            "internal_ms": 102.857,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=102.857"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 139.99370799865574,
+            "internal_ms": 102.86,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=102.860"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 230.63820799870882,
+            "internal_ms": 193.508,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=193.508"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 230.6858750016545,
+            "internal_ms": 193.541,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=193.541"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 246.27775000408292,
+            "internal_ms": 209.148,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=209.148"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 249.1359160048887,
+            "internal_ms": 212.011,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=212.011"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 249.15141599922208,
+            "internal_ms": 212.023,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=212.023"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 287.00633300468326,
+            "internal_ms": 249.872,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=249.872"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 287.03541600407334,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 550.7107910016202,
+            "internal_ms": 513.576,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=513.576"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 31.261791998986155,
+          "settings_preparation": 0.8297919994220138,
+          "application_construction": 102.43891600111965,
+          "window_construction_and_show": 112.28937499981839,
+          "window_to_first_event": 39.66687499632826,
+          "first_event_to_menus": 0.023667002096772194
+        },
+        "total_ms": 286.51041699777124,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 1.595,
+          "application-constructed": 104.065,
+          "command-line-parsed": 104.093,
+          "window-constructor-start": 104.097,
+          "window-constructor-complete": 196.283,
+          "window-state-ready": 196.337,
+          "window-shown": 213.34,
+          "window-raised": 216.31,
+          "window-created": 216.327,
+          "first-event-loop-turn": 256.017,
+          "system-probe": 517.747
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 31.261791998986155,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 32.09158399840817,
+            "internal_ms": 1.595,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.595"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 134.53049999952782,
+            "internal_ms": 104.065,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=104.065"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 134.55195899587125,
+            "internal_ms": 104.093,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=104.093"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 134.5543749994249,
+            "internal_ms": 104.097,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=104.097"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 226.74966699560173,
+            "internal_ms": 196.283,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=196.283"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 226.78129199630348,
+            "internal_ms": 196.337,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=196.337"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 243.80887499864912,
+            "internal_ms": 213.34,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=213.340"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 246.77712499396876,
+            "internal_ms": 216.31,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=216.310"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 246.8198749993462,
+            "internal_ms": 216.327,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=216.327"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 286.4867499956745,
+            "internal_ms": 256.017,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=256.017"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 286.51041699777124,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 548.2485419997829,
+            "internal_ms": 517.747,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=517.747"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.305165999394376,
+          "settings_preparation": 0.8957499958341941,
+          "application_construction": 104.98733400163474,
+          "window_construction_and_show": 118.07933299860451,
+          "window_to_first_event": 39.90341700409772,
+          "first_event_to_menus": 0.024708002456463873
+        },
+        "total_ms": 303.195708002022,
+        "internal": {
+          "application-identity": 0.027,
+          "settings-migrated": 1.984,
+          "application-constructed": 106.948,
+          "command-line-parsed": 106.984,
+          "window-constructor-start": 106.988,
+          "window-constructor-complete": 200.64,
+          "window-state-ready": 200.67,
+          "window-shown": 222.076,
+          "window-raised": 224.932,
+          "window-created": 224.944,
+          "first-event-loop-turn": 264.942,
+          "system-probe": 526.463
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.305165999394376,
+            "internal_ms": 0.027,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.027"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 40.20091599522857,
+            "internal_ms": 1.984,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.984"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.1882499968633,
+            "internal_ms": 106.948,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=106.948"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.21454100031406,
+            "internal_ms": 106.984,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=106.984"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 145.21716599847423,
+            "internal_ms": 106.988,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=106.988"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 238.8678749994142,
+            "internal_ms": 200.64,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=200.640"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 238.8961249962449,
+            "internal_ms": 200.67,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=200.670"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 260.3088329997263,
+            "internal_ms": 222.076,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=222.076"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 263.16770799894584,
+            "internal_ms": 224.932,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=224.932"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 263.2675829954678,
+            "internal_ms": 224.944,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=224.944"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 303.17099999956554,
+            "internal_ms": 264.942,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=264.942"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 303.195708002022,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 564.6979579978506,
+            "internal_ms": 526.463,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=526.463"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 33.13570799946319,
+          "settings_preparation": 0.6450000000768341,
+          "application_construction": 102.10337500029709,
+          "window_construction_and_show": 110.75549999804934,
+          "window_to_first_event": 48.49691699928371,
+          "first_event_to_menus": 0.021083003957755864
+        },
+        "total_ms": 295.15758300112793,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 1.575,
+          "application-constructed": 103.651,
+          "command-line-parsed": 103.679,
+          "window-constructor-start": 103.682,
+          "window-constructor-complete": 196.394,
+          "window-state-ready": 196.424,
+          "window-shown": 211.281,
+          "window-raised": 214.389,
+          "window-created": 214.404,
+          "first-event-loop-turn": 262.909,
+          "system-probe": 516.205
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 33.13570799946319,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 33.78070799954003,
+            "internal_ms": 1.575,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.575"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 135.88408299983712,
+            "internal_ms": 103.651,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.651"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 135.9089170000516,
+            "internal_ms": 103.679,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.679"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 135.91179200011538,
+            "internal_ms": 103.682,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.682"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 228.62495799927274,
+            "internal_ms": 196.394,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=196.394"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 228.6520420020679,
+            "internal_ms": 196.424,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=196.424"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 243.5726670009899,
+            "internal_ms": 211.281,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=211.281"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 246.62083300063387,
+            "internal_ms": 214.389,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=214.389"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 246.63958299788646,
+            "internal_ms": 214.404,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=214.404"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 295.1364999971702,
+            "internal_ms": 262.909,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=262.909"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 295.15758300112793,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 548.4316669972031,
+            "internal_ms": 516.205,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=516.205"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 38.42416599945864,
+          "settings_preparation": 0.6921670064912178,
+          "application_construction": 105.95120799553115,
+          "window_construction_and_show": 108.47795900190249,
+          "window_to_first_event": 41.08541599998716,
+          "first_event_to_menus": 0.028166999982204288
+        },
+        "total_ms": 294.65908300335286,
+        "internal": {
+          "application-identity": 0.027,
+          "settings-migrated": 1.441,
+          "application-constructed": 107.38,
+          "command-line-parsed": 107.411,
+          "window-constructor-start": 107.415,
+          "window-constructor-complete": 193.278,
+          "window-state-ready": 193.314,
+          "window-shown": 212.737,
+          "window-raised": 215.848,
+          "window-created": 215.864,
+          "first-event-loop-turn": 256.942,
+          "system-probe": 517.039
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 38.42416599945864,
+            "internal_ms": 0.027,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.027"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 39.116333005949855,
+            "internal_ms": 1.441,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.441"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.067541001481,
+            "internal_ms": 107.38,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=107.380"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.0926250035991,
+            "internal_ms": 107.411,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=107.411"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 145.09533300588373,
+            "internal_ms": 107.415,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=107.415"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 230.96662500029197,
+            "internal_ms": 193.278,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=193.278"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 230.99654100224143,
+            "internal_ms": 193.314,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=193.314"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 250.4183750061202,
+            "internal_ms": 212.737,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=212.737"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 253.5296250061947,
+            "internal_ms": 215.848,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=215.848"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 253.5455000033835,
+            "internal_ms": 215.864,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=215.864"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 294.63091600337066,
+            "internal_ms": 256.942,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=256.942"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 294.65908300335286,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 554.7290410031565,
+            "internal_ms": 517.039,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=517.039"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 35.2282500025467,
+          "settings_preparation": 0.760165996325668,
+          "application_construction": 101.39537500072038,
+          "window_construction_and_show": 110.78720899968175,
+          "window_to_first_event": 39.09208300319733,
+          "first_event_to_menus": 0.07170799653977156
+        },
+        "total_ms": 287.3347909990116,
+        "internal": {
+          "application-identity": 0.024,
+          "settings-migrated": 1.692,
+          "application-constructed": 103.072,
+          "command-line-parsed": 103.101,
+          "window-constructor-start": 103.105,
+          "window-constructor-complete": 188.098,
+          "window-state-ready": 188.13,
+          "window-shown": 210.992,
+          "window-raised": 213.852,
+          "window-created": 213.864,
+          "first-event-loop-turn": 252.914,
+          "system-probe": 515.007
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 35.2282500025467,
+            "internal_ms": 0.024,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.024"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 35.98841599887237,
+            "internal_ms": 1.692,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.692"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.38379099959275,
+            "internal_ms": 103.072,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.072"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.40545800101245,
+            "internal_ms": 103.101,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.101"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 137.40791600139346,
+            "internal_ms": 103.105,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.105"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 222.40883300401038,
+            "internal_ms": 188.098,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=188.098"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 222.44333300477592,
+            "internal_ms": 188.13,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=188.130"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 245.32824999914737,
+            "internal_ms": 210.992,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=210.992"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 248.15662499895552,
+            "internal_ms": 213.852,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=213.852"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 248.1709999992745,
+            "internal_ms": 213.864,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=213.864"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 287.26308300247183,
+            "internal_ms": 252.914,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=252.914"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 287.3347909990116,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 549.3245830002706,
+            "internal_ms": 515.007,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=515.007"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 37.12183300376637,
+          "settings_preparation": 2.162624994525686,
+          "application_construction": 121.16787500417558,
+          "window_construction_and_show": 121.05283299752045,
+          "window_to_first_event": 40.816291999362875,
+          "first_event_to_menus": 0.04129199805902317
+        },
+        "total_ms": 322.36274999741,
+        "internal": {
+          "application-identity": 0.033,
+          "settings-migrated": 3.656,
+          "application-constructed": 124.828,
+          "command-line-parsed": 124.862,
+          "window-constructor-start": 124.866,
+          "window-constructor-complete": 226.893,
+          "window-state-ready": 226.94,
+          "window-shown": 242.592,
+          "window-raised": 245.855,
+          "window-created": 245.872,
+          "first-event-loop-turn": 286.704,
+          "system-probe": 547.749
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 37.12183300376637,
+            "internal_ms": 0.033,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.033"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 39.284457998292055,
+            "internal_ms": 3.656,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=3.656"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 160.45233300246764,
+            "internal_ms": 124.828,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=124.828"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 160.47837500082096,
+            "internal_ms": 124.862,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=124.862"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 160.48083300120197,
+            "internal_ms": 124.866,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=124.866"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 262.551166000776,
+            "internal_ms": 226.893,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=226.893"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 262.58470799803035,
+            "internal_ms": 226.94,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=226.940"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 278.21024999866495,
+            "internal_ms": 242.592,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=242.592"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 281.4808750044904,
+            "internal_ms": 245.855,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=245.855"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 281.5051659999881,
+            "internal_ms": 245.872,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=245.872"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 322.32145799935097,
+            "internal_ms": 286.704,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=286.704"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 322.36274999741,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 583.3732500032056,
+            "internal_ms": 547.749,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=547.749"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 33.32425000553485,
+          "settings_preparation": 0.7694169980823062,
+          "application_construction": 116.23516599502182,
+          "window_construction_and_show": 114.22500000480795,
+          "window_to_first_event": 37.88716699637007,
+          "first_event_to_menus": 0.02479200338711962
+        },
+        "total_ms": 302.4657920032041,
+        "internal": {
+          "application-identity": 0.025,
+          "settings-migrated": 1.534,
+          "application-constructed": 117.732,
+          "command-line-parsed": 117.773,
+          "window-constructor-start": 117.778,
+          "window-constructor-complete": 206.575,
+          "window-state-ready": 206.611,
+          "window-shown": 228.964,
+          "window-raised": 231.973,
+          "window-created": 231.986,
+          "first-event-loop-turn": 269.815,
+          "system-probe": 533.546
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 33.32425000553485,
+            "internal_ms": 0.025,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.025"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 34.093667003617156,
+            "internal_ms": 1.534,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.534"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 150.32883299863897,
+            "internal_ms": 117.732,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=117.732"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 150.36562499881256,
+            "internal_ms": 117.773,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=117.773"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 150.36937500553904,
+            "internal_ms": 117.778,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=117.778"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 239.1552920016693,
+            "internal_ms": 206.575,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=206.575"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 239.18537500139792,
+            "internal_ms": 206.611,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=206.611"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 261.5421670052456,
+            "internal_ms": 228.964,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=228.964"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 264.54116700188024,
+            "internal_ms": 231.973,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=231.973"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 264.5538330034469,
+            "internal_ms": 231.986,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=231.986"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 302.440999999817,
+            "internal_ms": 269.815,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=269.815"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 302.4657920032041,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 566.1741670046467,
+            "internal_ms": 533.546,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=533.546"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.50700000132201,
+          "settings_preparation": 0.7935839967103675,
+          "application_construction": 96.88270799961174,
+          "window_construction_and_show": 109.98008300521178,
+          "window_to_first_event": 45.79087499587331,
+          "first_event_to_menus": 0.03358400135766715
+        },
+        "total_ms": 292.9878340000869,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 2.006,
+          "application-constructed": 98.871,
+          "command-line-parsed": 98.902,
+          "window-constructor-start": 98.906,
+          "window-constructor-complete": 190.38,
+          "window-state-ready": 190.415,
+          "window-shown": 205.785,
+          "window-raised": 208.832,
+          "window-created": 208.848,
+          "first-event-loop-turn": 254.641,
+          "system-probe": 510.263
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.50700000132201,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 40.30058399803238,
+            "internal_ms": 2.006,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=2.006"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.18329199764412,
+            "internal_ms": 98.871,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=98.871"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.20829199883156,
+            "internal_ms": 98.902,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=98.902"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 137.21104199794354,
+            "internal_ms": 98.906,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=98.906"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 228.69958400406176,
+            "internal_ms": 190.38,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=190.380"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 228.72887500125216,
+            "internal_ms": 190.415,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=190.415"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 244.09625000407686,
+            "internal_ms": 205.785,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=205.785"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 247.1434170001885,
+            "internal_ms": 208.832,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=208.832"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 247.1633750028559,
+            "internal_ms": 208.848,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=208.848"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 292.9542499987292,
+            "internal_ms": 254.641,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=254.641"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 292.9878340000869,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 548.5715419999906,
+            "internal_ms": 510.263,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=510.263"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 35.04495800007135,
+          "settings_preparation": 0.6819580012233928,
+          "application_construction": 101.2704169988865,
+          "window_construction_and_show": 117.10862499603536,
+          "window_to_first_event": 47.5330000044778,
+          "first_event_to_menus": 0.02887499431381002
+        },
+        "total_ms": 301.6678329950082,
+        "internal": {
+          "application-identity": 0.05,
+          "settings-migrated": 1.906,
+          "application-constructed": 103.148,
+          "command-line-parsed": 103.178,
+          "window-constructor-start": 103.182,
+          "window-constructor-complete": 200.819,
+          "window-state-ready": 200.879,
+          "window-shown": 217.192,
+          "window-raised": 220.238,
+          "window-created": 220.25,
+          "first-event-loop-turn": 267.774,
+          "system-probe": 521.632
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 35.04495800007135,
+            "internal_ms": 0.05,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.050"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 35.72691600129474,
+            "internal_ms": 1.906,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=1.906"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.99733300018124,
+            "internal_ms": 103.148,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.148"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.02204099536175,
+            "internal_ms": 103.178,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.178"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 137.025124997308,
+            "internal_ms": 103.182,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.182"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 234.66866599483183,
+            "internal_ms": 200.819,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=200.819"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 234.70316599559737,
+            "internal_ms": 200.879,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=200.879"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 251.0578329965938,
+            "internal_ms": 217.192,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=217.192"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 254.08583299577003,
+            "internal_ms": 220.238,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=220.238"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 254.1059579962166,
+            "internal_ms": 220.25,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=220.250"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 301.6389580006944,
+            "internal_ms": 267.774,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=267.774"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 301.6678329950082,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 555.4787079963717,
+            "internal_ms": 521.632,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=521.632"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 37.026042002253234,
+          "settings_preparation": 1.2162909988546744,
+          "application_construction": 100.21599999890896,
+          "window_construction_and_show": 111.03000000002794,
+          "window_to_first_event": 36.96845900412882,
+          "first_event_to_menus": 0.026915993657894433
+        },
+        "total_ms": 286.4837079978315,
+        "internal": {
+          "application-identity": 0.026,
+          "settings-migrated": 2.904,
+          "application-constructed": 103.125,
+          "command-line-parsed": 103.163,
+          "window-constructor-start": 103.166,
+          "window-constructor-complete": 188.211,
+          "window-state-ready": 188.238,
+          "window-shown": 210.987,
+          "window-raised": 214.122,
+          "window-created": 214.137,
+          "first-event-loop-turn": 251.124,
+          "system-probe": 516.067
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 37.026042002253234,
+            "internal_ms": 0.026,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.026"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 38.24233300110791,
+            "internal_ms": 2.904,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=2.904"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 138.45833300001686,
+            "internal_ms": 103.125,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=103.125"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 138.48233300086576,
+            "internal_ms": 103.163,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=103.163"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 138.4847079971223,
+            "internal_ms": 103.166,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=103.166"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 223.53408300114097,
+            "internal_ms": 188.211,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=188.211"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 223.56333299831022,
+            "internal_ms": 188.238,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=188.238"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 246.31720800243784,
+            "internal_ms": 210.987,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=210.987"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 249.4583329971647,
+            "internal_ms": 214.122,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=214.122"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 249.4883330000448,
+            "internal_ms": 214.137,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=214.137"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 286.4567920041736,
+            "internal_ms": 251.124,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=251.124"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 286.4837079978315,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 551.4167080036714,
+            "internal_ms": 516.067,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=516.067"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.03125000518048,
+          "settings_preparation": 0.8509999970556237,
+          "application_construction": 108.26512500352692,
+          "window_construction_and_show": 115.93783299758798,
+          "window_to_first_event": 42.69287500210339,
+          "first_event_to_menus": 0.07112499588401988
+        },
+        "total_ms": 303.8492080013384,
+        "internal": {
+          "application-identity": 0.032,
+          "settings-migrated": 2.017,
+          "application-constructed": 110.259,
+          "command-line-parsed": 110.289,
+          "window-constructor-start": 110.293,
+          "window-constructor-complete": 204.414,
+          "window-state-ready": 204.447,
+          "window-shown": 222.816,
+          "window-raised": 226.148,
+          "window-created": 226.167,
+          "first-event-loop-turn": 268.878,
+          "system-probe": 527.741
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.03125000518048,
+            "internal_ms": 0.032,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0.032"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 36.882250002236106,
+            "internal_ms": 2.017,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=2.017"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.14737500576302,
+            "internal_ms": 110.259,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=110.259"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.1693749986589,
+            "internal_ms": 110.289,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=110.289"
+          },
+          {
+            "phase": "window-constructor-start",
+            "parent_ms": 145.1716250012396,
+            "internal_ms": 110.293,
+            "line": "FOVELLE_STARTUP phase=window-constructor-start elapsed_ms=110.293"
+          },
+          {
+            "phase": "window-constructor-complete",
+            "parent_ms": 239.29916600172874,
+            "internal_ms": 204.414,
+            "line": "FOVELLE_STARTUP phase=window-constructor-complete elapsed_ms=204.414"
+          },
+          {
+            "phase": "window-state-ready",
+            "parent_ms": 239.3278330055182,
+            "internal_ms": 204.447,
+            "line": "FOVELLE_STARTUP phase=window-state-ready elapsed_ms=204.447"
+          },
+          {
+            "phase": "window-shown",
+            "parent_ms": 257.70345800265204,
+            "internal_ms": 222.816,
+            "line": "FOVELLE_STARTUP phase=window-shown elapsed_ms=222.816"
+          },
+          {
+            "phase": "window-raised",
+            "parent_ms": 261.05400000233203,
+            "internal_ms": 226.148,
+            "line": "FOVELLE_STARTUP phase=window-raised elapsed_ms=226.148"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 261.085208003351,
+            "internal_ms": 226.167,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=226.167"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 303.7780830054544,
+            "internal_ms": 268.878,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=268.878"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 303.8492080013384,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 562.6519580036984,
+            "internal_ms": 527.741,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=527.741"
+          }
+        ],
+        "returncode": 0
+      }
+    ],
+    "fovelle": [
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.85724999802187,
+          "settings_preparation": 4.8569999999017455,
+          "application_construction": 93.16354200564092,
+          "window_construction_and_show": 107.93974999978673,
+          "window_to_first_event": 34.255082995514385,
+          "first_event_to_menus": 42.15362499962794
+        },
+        "total_ms": 322.2262499984936,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 98.0,
+          "command-line-parsed": 98.0,
+          "window-created": 206.0,
+          "first-event-loop-turn": 241.0,
+          "system-probe": 507.0,
+          "quit-requested": 524.0,
+          "event-loop-return": 530.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.85724999802187,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 44.714249997923616,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.87779200356454,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=98"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.90733399946475,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=98"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.92770900181495,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.99237499915762,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 138.58170899766264,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 138.67641700198874,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 171.63854200043716,
+            "internal_ms": 33.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=33"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 245.81754200335126,
+            "internal_ms": 206.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=206"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 280.07262499886565,
+            "internal_ms": 241.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=241"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 322.2262499984936,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 546.8132500027423,
+            "internal_ms": 507.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=507"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 563.6773750011344,
+            "internal_ms": 524.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=524"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 569.6599170041736,
+            "internal_ms": 530.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=530"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 41.11645900411531,
+          "settings_preparation": 4.6067500006756745,
+          "application_construction": 90.36095799820032,
+          "window_construction_and_show": 108.56841699569486,
+          "window_to_first_event": 32.43237500282703,
+          "first_event_to_menus": 44.82329099846538
+        },
+        "total_ms": 321.9082499999786,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 95.0,
+          "command-line-parsed": 95.0,
+          "window-created": 204.0,
+          "first-event-loop-turn": 236.0,
+          "system-probe": 505.0,
+          "quit-requested": 526.0,
+          "event-loop-return": 527.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 41.11645900411531,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 45.72320900479099,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.0841670029913,
+            "internal_ms": 95.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=95"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.09537500451552,
+            "internal_ms": 95.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=95"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 136.1248750035884,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 136.1929170016083,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 136.76708400453208,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 136.85808399895905,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 170.92608399980236,
+            "internal_ms": 34.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=34"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 244.65258399868617,
+            "internal_ms": 204.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=204"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 277.0849590015132,
+            "internal_ms": 236.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=236"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 321.9082499999786,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 545.5535000000964,
+            "internal_ms": 505.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=505"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 566.2962089991197,
+            "internal_ms": 526.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=526"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.2855420018313,
+            "internal_ms": 527.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=527"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.326041001302656,
+          "settings_preparation": 4.116208998311777,
+          "application_construction": 95.60729100485332,
+          "window_construction_and_show": 100.26462499808986,
+          "window_to_first_event": 33.75075000076322,
+          "first_event_to_menus": 43.6736670017126
+        },
+        "total_ms": 313.73858300503343,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 4.0,
+          "application-constructed": 100.0,
+          "command-line-parsed": 100.0,
+          "window-created": 200.0,
+          "first-event-loop-turn": 234.0,
+          "system-probe": 502.0,
+          "quit-requested": 522.0,
+          "event-loop-return": 524.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.326041001302656,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 40.44224999961443,
+            "internal_ms": 4.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=4"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.04954100446776,
+            "internal_ms": 100.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=100"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.0642080035177,
+            "internal_ms": 100.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=100"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 136.09508300578455,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 136.1490830022376,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 136.71500000054948,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 136.80658300290816,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 168.7983330048155,
+            "internal_ms": 32.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=32"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 236.3141660025576,
+            "internal_ms": 200.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=200"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 270.06491600332083,
+            "internal_ms": 234.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=234"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 313.73858300503343,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 537.7080410034978,
+            "internal_ms": 502.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=502"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 557.6871250013937,
+            "internal_ms": 522.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=522"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 560.3453330040793,
+            "internal_ms": 524.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=524"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.731499996676575,
+          "settings_preparation": 3.9644589996896684,
+          "application_construction": 95.0250829992001,
+          "window_construction_and_show": 102.88183300144738,
+          "window_to_first_event": 31.98250000423286,
+          "first_event_to_menus": 41.85095899447333
+        },
+        "total_ms": 312.4363339957199,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 4.0,
+          "application-constructed": 99.0,
+          "command-line-parsed": 99.0,
+          "window-created": 202.0,
+          "first-event-loop-turn": 234.0,
+          "system-probe": 504.0,
+          "quit-requested": 524.0,
+          "event-loop-return": 532.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.731499996676575,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 40.695958996366244,
+            "internal_ms": 4.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=4"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 135.72104199556634,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=99"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 135.7368749959278,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=99"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 135.77008399443002,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 135.83358399773715,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 136.40658399526728,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 136.49729199823923,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 170.10862499591894,
+            "internal_ms": 34.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=34"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 238.6028749970137,
+            "internal_ms": 202.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=202"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 270.5853750012466,
+            "internal_ms": 234.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=234"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 312.4363339957199,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 540.2407919973484,
+            "internal_ms": 504.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=504"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 560.5619999987539,
+            "internal_ms": 524.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=524"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.5677500005113,
+            "internal_ms": 532.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=532"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 35.76070899725892,
+          "settings_preparation": 3.8898330021766014,
+          "application_construction": 92.61374999914551,
+          "window_construction_and_show": 104.4922500004759,
+          "window_to_first_event": 33.591583000088576,
+          "first_event_to_menus": 45.537874997535255
+        },
+        "total_ms": 315.88599999668077,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 4.0,
+          "application-constructed": 97.0,
+          "command-line-parsed": 97.0,
+          "window-created": 201.0,
+          "first-event-loop-turn": 235.0,
+          "system-probe": 502.0,
+          "quit-requested": 523.0,
+          "event-loop-return": 525.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 35.76070899725892,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 39.65054199943552,
+            "internal_ms": 4.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=4"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 132.26429199858103,
+            "internal_ms": 97.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=97"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 132.2755419969326,
+            "internal_ms": 97.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=97"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 132.32849999621976,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 132.37195900001097,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 132.997417000297,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 133.09154199669138,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 168.83470899483655,
+            "internal_ms": 36.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=36"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 236.75654199905694,
+            "internal_ms": 201.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=201"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 270.3481249991455,
+            "internal_ms": 235.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=235"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 315.88599999668077,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 537.2738340010983,
+            "internal_ms": 502.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=502"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 558.3797090002918,
+            "internal_ms": 523.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=523"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 560.4288339964114,
+            "internal_ms": 525.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=525"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 40.62033299851464,
+          "settings_preparation": 4.799624999577645,
+          "application_construction": 91.04458399815485,
+          "window_construction_and_show": 102.46575000201119,
+          "window_to_first_event": 37.05029100092361,
+          "first_event_to_menus": 117.10254199715564
+        },
+        "total_ms": 393.0831249963376,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 96.0,
+          "command-line-parsed": 96.0,
+          "window-created": 199.0,
+          "first-event-loop-turn": 236.0,
+          "system-probe": 500.0,
+          "quit-requested": 520.0,
+          "event-loop-return": 529.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 40.62033299851464,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 45.419957998092286,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 136.46454199624714,
+            "internal_ms": 96.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=96"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 136.48033299978124,
+            "internal_ms": 96.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=96"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 136.51008300075773,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 136.57162500021514,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 137.15391699952306,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 137.24370799900498,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.583374998183,
+            "internal_ms": 33.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=33"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 238.93029199825833,
+            "internal_ms": 199.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=199"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 275.98058299918193,
+            "internal_ms": 236.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=236"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 393.0831249963376,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 540.3748329990776,
+            "internal_ms": 500.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=500"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 560.4548749979585,
+            "internal_ms": 520.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=520"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.9694999964559,
+            "internal_ms": 529.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=529"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 41.361542003869545,
+          "settings_preparation": 4.961457998433616,
+          "application_construction": 99.57095800200477,
+          "window_construction_and_show": 107.84799999964889,
+          "window_to_first_event": 31.513249996351078,
+          "first_event_to_menus": 115.29562500072643
+        },
+        "total_ms": 400.55083300103433,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 105.0,
+          "command-line-parsed": 105.0,
+          "window-created": 213.0,
+          "first-event-loop-turn": 244.0,
+          "system-probe": 514.0,
+          "quit-requested": 536.0,
+          "event-loop-return": 545.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 41.361542003869545,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 46.32300000230316,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.89395800430793,
+            "internal_ms": 105.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=105"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.9064170048805,
+            "internal_ms": 105.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=105"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 145.9333750026417,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 145.99520800402388,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 146.58637499815086,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 146.69316700019408,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 184.88704199990025,
+            "internal_ms": 38.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=38"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 253.74195800395682,
+            "internal_ms": 213.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=213"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 285.2552080003079,
+            "internal_ms": 244.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=244"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 400.55083300103433,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 555.0457080025808,
+            "internal_ms": 514.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=514"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 577.3953750031069,
+            "internal_ms": 536.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=536"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 586.2964170009946,
+            "internal_ms": 545.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=545"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 45.66779200104065,
+          "settings_preparation": 9.67595799738774,
+          "application_construction": 97.58520800096449,
+          "window_construction_and_show": 107.15462500229478,
+          "window_to_first_event": 34.29941699869232,
+          "first_event_to_menus": 43.86499999964144
+        },
+        "total_ms": 338.2480000000214,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 10.0,
+          "application-constructed": 108.0,
+          "command-line-parsed": 108.0,
+          "window-created": 215.0,
+          "first-event-loop-turn": 249.0,
+          "system-probe": 516.0,
+          "quit-requested": 537.0,
+          "event-loop-return": 539.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 45.66779200104065,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 55.34374999842839,
+            "internal_ms": 10.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=10"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 152.92895799939288,
+            "internal_ms": 108.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=108"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 152.94366700254614,
+            "internal_ms": 108.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=108"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 152.9858330031857,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 153.04295800160617,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 153.67416699882597,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 153.77837500273017,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 191.30800000129966,
+            "internal_ms": 38.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=38"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 260.08358300168766,
+            "internal_ms": 215.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=215"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 294.38300000038,
+            "internal_ms": 249.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=249"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 338.2480000000214,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 561.6445420018863,
+            "internal_ms": 516.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=516"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 582.6577500047279,
+            "internal_ms": 537.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=537"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 584.2357920046197,
+            "internal_ms": 539.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=539"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 38.659999998344574,
+          "settings_preparation": 3.9262089994736016,
+          "application_construction": 102.07691600226099,
+          "window_construction_and_show": 110.23958399891853,
+          "window_to_first_event": 30.52254100475693,
+          "first_event_to_menus": 112.50379199918825
+        },
+        "total_ms": 397.9290420029429,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 4.0,
+          "application-constructed": 106.0,
+          "command-line-parsed": 106.0,
+          "window-created": 217.0,
+          "first-event-loop-turn": 247.0,
+          "system-probe": 518.0,
+          "quit-requested": 539.0,
+          "event-loop-return": 548.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 38.659999998344574,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 42.586208997818176,
+            "internal_ms": 4.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=4"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 144.66312500007916,
+            "internal_ms": 106.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=106"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 144.67904200137127,
+            "internal_ms": 106.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=106"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 144.70704200357432,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 144.76820900017628,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 145.33741700142855,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 145.4286250009318,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 186.41824999940582,
+            "internal_ms": 41.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=41"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 254.9027089989977,
+            "internal_ms": 217.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=217"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 285.4252500037546,
+            "internal_ms": 247.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=247"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 397.9290420029429,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 556.0268749977695,
+            "internal_ms": 518.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=518"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 577.5954589989851,
+            "internal_ms": 539.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=539"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 586.038292000012,
+            "internal_ms": 548.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=548"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 37.92983300081687,
+          "settings_preparation": 4.8357920022681355,
+          "application_construction": 92.61241600324865,
+          "window_construction_and_show": 101.74691699648974,
+          "window_to_first_event": 32.58066700072959,
+          "first_event_to_menus": 44.213875000423286
+        },
+        "total_ms": 313.9195000039763,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 98.0,
+          "command-line-parsed": 98.0,
+          "window-created": 200.0,
+          "first-event-loop-turn": 232.0,
+          "system-probe": 501.0,
+          "quit-requested": 521.0,
+          "event-loop-return": 530.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 37.92983300081687,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 42.765625003085006,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 135.37804100633366,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=98"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 135.39212500472786,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=98"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 135.42054100253154,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 135.47529100469546,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 136.0307080030907,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 136.12108300003456,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.34800000308314,
+            "internal_ms": 33.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=33"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 237.1249580028234,
+            "internal_ms": 200.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=200"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 269.705625003553,
+            "internal_ms": 232.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=232"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 313.9195000039763,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 538.6420830036514,
+            "internal_ms": 501.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=501"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 559.2040000046836,
+            "internal_ms": 521.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=521"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 567.6007910005865,
+            "internal_ms": 530.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=530"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 38.87304099771427,
+          "settings_preparation": 3.913000000466127,
+          "application_construction": 94.80812500260072,
+          "window_construction_and_show": 107.54362500301795,
+          "window_to_first_event": 34.12266699888278,
+          "first_event_to_menus": 44.24120800103992
+        },
+        "total_ms": 323.50166600372177,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 99.0,
+          "command-line-parsed": 99.0,
+          "window-created": 207.0,
+          "first-event-loop-turn": 241.0,
+          "system-probe": 508.0,
+          "quit-requested": 531.0,
+          "event-loop-return": 539.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 38.87304099771427,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 42.7860409981804,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.59416600078112,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=99"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.6111249992391,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=99"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.6419160005753,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.71420800185297,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 138.3251660008682,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 138.41562499874271,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 175.43279100209475,
+            "internal_ms": 37.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=37"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 245.13779100379907,
+            "internal_ms": 207.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=207"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 279.26045800268184,
+            "internal_ms": 241.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=241"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 323.50166600372177,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 546.7264580001938,
+            "internal_ms": 508.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=508"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 569.1519579995656,
+            "internal_ms": 531.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=531"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 577.6972079984262,
+            "internal_ms": 539.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=539"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.23666600167053,
+          "settings_preparation": 4.0057090009213425,
+          "application_construction": 93.90924999752315,
+          "window_construction_and_show": 102.25491600431269,
+          "window_to_first_event": 35.69774999778019,
+          "first_event_to_menus": 110.34441700030584
+        },
+        "total_ms": 385.44870800251374,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 98.0,
+          "command-line-parsed": 98.0,
+          "window-created": 201.0,
+          "first-event-loop-turn": 236.0,
+          "system-probe": 502.0,
+          "quit-requested": 523.0,
+          "event-loop-return": 530.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.23666600167053,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 43.24237500259187,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.15162500011502,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=98"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.16316600039136,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=98"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.19645800301805,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.25895799871068,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 137.83608299854677,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 137.92766600090545,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.2029999976512,
+            "internal_ms": 31.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=31"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 239.4065410044277,
+            "internal_ms": 201.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=201"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 275.1042910022079,
+            "internal_ms": 236.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=236"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 385.44870800251374,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 540.6217909985571,
+            "internal_ms": 502.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=502"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 561.2378750010976,
+            "internal_ms": 523.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=523"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.6354999998002,
+            "internal_ms": 530.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=530"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 40.18354100116994,
+          "settings_preparation": 4.3552919960347936,
+          "application_construction": 93.19687500101281,
+          "window_construction_and_show": 100.70695800095564,
+          "window_to_first_event": 31.410208997840527,
+          "first_event_to_menus": 115.2390409988584
+        },
+        "total_ms": 385.0919159958721,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 98.0,
+          "command-line-parsed": 98.0,
+          "window-created": 199.0,
+          "first-event-loop-turn": 230.0,
+          "system-probe": 501.0,
+          "quit-requested": 524.0,
+          "event-loop-return": 530.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 40.18354100116994,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 44.538832997204736,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.73570799821755,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=98"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.75191600143444,
+            "internal_ms": 98.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=98"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.7890829971875,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.85549999738578,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 138.50100000126986,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 138.59770799899707,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.06391600059578,
+            "internal_ms": 31.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=31"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 238.4426659991732,
+            "internal_ms": 199.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=199"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 269.8528749970137,
+            "internal_ms": 230.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=230"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 385.0919159958721,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 540.4320410016226,
+            "internal_ms": 501.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=501"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 563.1350409967126,
+            "internal_ms": 524.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=524"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 569.8179579994758,
+            "internal_ms": 530.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=530"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 40.83891700429376,
+          "settings_preparation": 5.183499997656327,
+          "application_construction": 89.71191700402414,
+          "window_construction_and_show": 101.40587499336107,
+          "window_to_first_event": 38.46545800479362,
+          "first_event_to_menus": 118.41308300063247
+        },
+        "total_ms": 394.0187500047614,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 6.0,
+          "application-constructed": 95.0,
+          "command-line-parsed": 95.0,
+          "window-created": 197.0,
+          "first-event-loop-turn": 235.0,
+          "system-probe": 498.0,
+          "quit-requested": 519.0,
+          "event-loop-return": 528.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 40.83891700429376,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 46.02241700195009,
+            "internal_ms": 6.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=6"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 135.73433400597423,
+            "internal_ms": 95.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=95"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 135.74554200022249,
+            "internal_ms": 95.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=95"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 135.78162500198232,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 135.8580840023933,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 136.46562500071013,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 136.55387500330107,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.5611250033835,
+            "internal_ms": 33.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=33"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 237.1402089993353,
+            "internal_ms": 197.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=197"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 275.6056670041289,
+            "internal_ms": 235.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=235"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 394.0187500047614,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 538.2966250035679,
+            "internal_ms": 498.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=498"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 559.678375000658,
+            "internal_ms": 519.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=519"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 567.9537920004805,
+            "internal_ms": 528.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=528"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.317333001235966,
+          "settings_preparation": 6.047125003533438,
+          "application_construction": 92.21629199601011,
+          "window_construction_and_show": 102.07287500088569,
+          "window_to_first_event": 36.592208001820836,
+          "first_event_to_menus": 109.54075000336161
+        },
+        "total_ms": 385.78658300684765,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 7.0,
+          "application-constructed": 99.0,
+          "command-line-parsed": 99.0,
+          "window-created": 201.0,
+          "first-event-loop-turn": 237.0,
+          "system-probe": 502.0,
+          "quit-requested": 523.0,
+          "event-loop-return": 531.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.317333001235966,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 45.3644580047694,
+            "internal_ms": 7.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=7"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.58075000077952,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=99"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.59766700241016,
+            "internal_ms": 99.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=99"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.62462500017136,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.68075000552926,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 138.263167005789,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 138.35350000590552,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 168.44670800492167,
+            "internal_ms": 30.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=30"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 239.6536250016652,
+            "internal_ms": 201.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=201"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 276.24583300348604,
+            "internal_ms": 237.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=237"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 385.78658300684765,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 541.0757920035394,
+            "internal_ms": 502.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=502"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 562.1400420059217,
+            "internal_ms": 523.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=523"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 569.6388330034097,
+            "internal_ms": 531.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=531"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 39.51875000348082,
+          "settings_preparation": 4.444916994543746,
+          "application_construction": 83.9720420044614,
+          "window_construction_and_show": 110.48591599683277,
+          "window_to_first_event": 39.92925000056857,
+          "first_event_to_menus": 43.88391700194916
+        },
+        "total_ms": 322.23479200183647,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 89.0,
+          "command-line-parsed": 89.0,
+          "window-created": 199.0,
+          "first-event-loop-turn": 239.0,
+          "system-probe": 501.0,
+          "quit-requested": 522.0,
+          "event-loop-return": 529.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 39.51875000348082,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 43.963666998024564,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 127.93570900248596,
+            "internal_ms": 89.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=89"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 127.94762499834178,
+            "internal_ms": 89.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=89"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 127.97929200314684,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 128.04324999888195,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 128.6264169975766,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 128.7325419980334,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.327167001029,
+            "internal_ms": 41.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=41"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 238.42162499931874,
+            "internal_ms": 199.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=199"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 278.3508749998873,
+            "internal_ms": 239.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=239"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 322.23479200183647,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 540.5353750029462,
+            "internal_ms": 501.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=501"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 561.4040840009693,
+            "internal_ms": 522.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=522"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.1752500022412,
+            "internal_ms": 529.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=529"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 38.815250001789536,
+          "settings_preparation": 3.767999995034188,
+          "application_construction": 102.75466600432992,
+          "window_construction_and_show": 103.82170899538323,
+          "window_to_first_event": 30.18204100226285,
+          "first_event_to_menus": 43.75008399802027
+        },
+        "total_ms": 323.09174999682,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 4.0,
+          "application-constructed": 107.0,
+          "command-line-parsed": 107.0,
+          "window-created": 211.0,
+          "first-event-loop-turn": 241.0,
+          "system-probe": 512.0,
+          "quit-requested": 533.0,
+          "event-loop-return": 539.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 38.815250001789536,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 42.583249996823724,
+            "internal_ms": 4.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=4"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 145.33791600115364,
+            "internal_ms": 107.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=107"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 145.3503750017262,
+            "internal_ms": 107.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=107"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 145.38504099618876,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 145.45150000049034,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 146.017708000727,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 146.1127079965081,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 178.15325000265148,
+            "internal_ms": 32.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=32"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 249.15962499653688,
+            "internal_ms": 211.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=211"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 279.3416659987997,
+            "internal_ms": 241.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=241"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 323.09174999682,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 550.2281250010128,
+            "internal_ms": 512.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=512"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 571.5465000030235,
+            "internal_ms": 533.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=533"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 577.9701249994105,
+            "internal_ms": 539.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=539"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 41.25058399949921,
+          "settings_preparation": 5.0214160000905395,
+          "application_construction": 91.40054199815495,
+          "window_construction_and_show": 100.83708300226135,
+          "window_to_first_event": 37.355833999754395,
+          "first_event_to_menus": 102.47520800476195
+        },
+        "total_ms": 378.3406670045224,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 97.0,
+          "command-line-parsed": 97.0,
+          "window-created": 198.0,
+          "first-event-loop-turn": 235.0,
+          "system-probe": 499.0,
+          "quit-requested": 520.0,
+          "event-loop-return": 527.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 41.25058399949921,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 46.27199999958975,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 137.6725419977447,
+            "internal_ms": 97.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=97"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 137.68379200337222,
+            "internal_ms": 97.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=97"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 137.71854199876543,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 137.78033400012646,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 138.37633399816696,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 138.4722500006319,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 169.36662499938393,
+            "internal_ms": 31.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=31"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 238.50962500000605,
+            "internal_ms": 198.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=198"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 275.86545899976045,
+            "internal_ms": 235.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=235"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 378.3406670045224,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 539.8854590021074,
+            "internal_ms": 499.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=499"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 561.1006250037462,
+            "internal_ms": 520.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=520"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 568.1219590042019,
+            "internal_ms": 527.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=527"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 36.74908299581148,
+          "settings_preparation": 4.77225000213366,
+          "application_construction": 98.54862499923911,
+          "window_construction_and_show": 110.86137500387849,
+          "window_to_first_event": 39.23766699881526,
+          "first_event_to_menus": 44.405207998352125
+        },
+        "total_ms": 334.5742079982301,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 5.0,
+          "application-constructed": 104.0,
+          "command-line-parsed": 104.0,
+          "window-created": 215.0,
+          "first-event-loop-turn": 254.0,
+          "system-probe": 515.0,
+          "quit-requested": 535.0,
+          "event-loop-return": 537.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 36.74908299581148,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 41.52133299794514,
+            "internal_ms": 5.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=5"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 140.06995799718425,
+            "internal_ms": 104.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=104"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 140.08545799879357,
+            "internal_ms": 104.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=104"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 140.115665999474,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 140.17749999766238,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 140.76283299800707,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 140.85454100131756,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 182.50204099604161,
+            "internal_ms": 42.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=42"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 250.93133300106274,
+            "internal_ms": 215.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=215"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 290.168999999878,
+            "internal_ms": 254.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=254"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 334.5742079982301,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 551.4854159991955,
+            "internal_ms": 515.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=515"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 571.8148329979158,
+            "internal_ms": 535.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=535"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 572.9289579976466,
+            "internal_ms": 537.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=537"
+          }
+        ],
+        "returncode": 0
+      },
+      {
+        "stages_ms": {
+          "spawn_to_identity": 40.56637499888893,
+          "settings_preparation": 5.950749997282401,
+          "application_construction": 85.68133400694933,
+          "window_construction_and_show": 110.44641599437455,
+          "window_to_first_event": 37.779625003167894,
+          "first_event_to_menus": 102.12429199600592
+        },
+        "total_ms": 382.548791996669,
+        "internal": {
+          "application-identity": 0.0,
+          "settings-migrated": 7.0,
+          "application-constructed": 92.0,
+          "command-line-parsed": 92.0,
+          "window-created": 203.0,
+          "first-event-loop-turn": 241.0,
+          "system-probe": 504.0,
+          "quit-requested": 526.0,
+          "event-loop-return": 533.0
+        },
+        "events": [
+          {
+            "phase": "application-identity",
+            "parent_ms": 40.56637499888893,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_STARTUP phase=application-identity elapsed_ms=0"
+          },
+          {
+            "phase": "settings-migrated",
+            "parent_ms": 46.51712499617133,
+            "internal_ms": 7.0,
+            "line": "FOVELLE_STARTUP phase=settings-migrated elapsed_ms=7"
+          },
+          {
+            "phase": "application-constructed",
+            "parent_ms": 132.19845900312066,
+            "internal_ms": 92.0,
+            "line": "FOVELLE_STARTUP phase=application-constructed elapsed_ms=92"
+          },
+          {
+            "phase": "command-line-parsed",
+            "parent_ms": 132.21454199810978,
+            "internal_ms": 92.0,
+            "line": "FOVELLE_STARTUP phase=command-line-parsed elapsed_ms=92"
+          },
+          {
+            "phase": "constructor-start",
+            "parent_ms": 132.24354200065136,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-start elapsed_ms=0"
+          },
+          {
+            "phase": "ui-ready",
+            "parent_ms": 132.30220900004497,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=ui-ready elapsed_ms=0"
+          },
+          {
+            "phase": "graphics-view-ready",
+            "parent_ms": 132.89508399611805,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=graphics-view-ready elapsed_ms=0"
+          },
+          {
+            "phase": "settings-ready",
+            "parent_ms": 132.98862500232644,
+            "internal_ms": 0.0,
+            "line": "FOVELLE_MAINWINDOW phase=settings-ready elapsed_ms=0"
+          },
+          {
+            "phase": "constructor-complete",
+            "parent_ms": 172.8789170010714,
+            "internal_ms": 40.0,
+            "line": "FOVELLE_MAINWINDOW phase=constructor-complete elapsed_ms=40"
+          },
+          {
+            "phase": "window-created",
+            "parent_ms": 242.6448749974952,
+            "internal_ms": 203.0,
+            "line": "FOVELLE_STARTUP phase=window-created elapsed_ms=203"
+          },
+          {
+            "phase": "first-event-loop-turn",
+            "parent_ms": 280.4245000006631,
+            "internal_ms": 241.0,
+            "line": "FOVELLE_STARTUP phase=first-event-loop-turn elapsed_ms=241"
+          },
+          {
+            "phase": "menus-ready",
+            "parent_ms": 382.548791996669,
+            "internal_ms": null,
+            "line": "FOVELLE_MAINWINDOW phase=menus-ready"
+          },
+          {
+            "phase": "system-probe",
+            "parent_ms": 544.1321670004982,
+            "internal_ms": 504.0,
+            "line": "FOVELLE_STARTUP phase=system-probe elapsed_ms=504"
+          },
+          {
+            "phase": "quit-requested",
+            "parent_ms": 565.6001669995021,
+            "internal_ms": 526.0,
+            "line": "FOVELLE_STARTUP phase=quit-requested elapsed_ms=526"
+          },
+          {
+            "phase": "event-loop-return",
+            "parent_ms": 572.7130000013858,
+            "internal_ms": 533.0,
+            "line": "FOVELLE_STARTUP phase=event-loop-return elapsed_ms=533"
+          }
+        ],
+        "returncode": 0
+      }
+    ]
+  },
+  "summary": {
+    "qview": {
+      "total_mean_ms": 295.66491870064056,
+      "total_median_ms": 293.82345850171987,
+      "stages_mean_ms": {
+        "spawn_to_identity": 36.18898120112135,
+        "settings_preparation": 0.8877749492967268,
+        "application_construction": 103.96224579999398,
+        "window_construction_and_show": 113.83444170023722,
+        "window_to_first_event": 40.75550000015937,
+        "first_event_to_menus": 0.03597504983190447
+      },
+      "stages_median_ms": {
+        "spawn_to_identity": 36.37700000399491,
+        "settings_preparation": 0.7815004973963369,
+        "application_construction": 102.0627500001865,
+        "window_construction_and_show": 113.25718750231317,
+        "window_to_first_event": 40.01741700267303,
+        "first_event_to_menus": 0.028853995900135487
+      }
+    },
+    "fovelle": {
+      "total_mean_ms": 352.2281874506007,
+      "total_median_ms": 336.41110399912577,
+      "stages_mean_ms": {
+        "spawn_to_identity": 39.4690499502758,
+        "settings_preparation": 4.854762599279638,
+        "application_construction": 93.79301870139898,
+        "window_construction_and_show": 105.20192494950606,
+        "window_to_first_event": 34.637558300528326,
+        "first_event_to_menus": 74.27187294961186
+      },
+      "stages_median_ms": {
+        "spawn_to_identity": 39.41804150235839,
+        "settings_preparation": 4.689500001404667,
+        "application_construction": 93.18020850332687,
+        "window_construction_and_show": 104.15697949792957,
+        "window_to_first_event": 34.18887499719858,
+        "first_event_to_menus": 45.18058299800032
+      }
+    }
+  },
+  "fovelle_minus_qview_stage_mean_ms": {
+    "spawn_to_identity": 3.2800687491544522,
+    "settings_preparation": 3.9669876499829115,
+    "application_construction": -10.169227098595002,
+    "window_construction_and_show": -8.632516750731156,
+    "window_to_first_event": -6.1179416996310465,
+    "first_event_to_menus": 74.23589789977996
+  }
+}

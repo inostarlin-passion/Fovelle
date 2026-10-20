@@ -607,3 +607,21 @@ else()
         TIMEOUT 58 RUN_SERIAL TRUE LABELS "local;ci;fast"
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()
+
+add_test(NAME FovelleLifecycleFixStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/lifecycle_fix_static.py)
+add_test(NAME FovelleLifecycleFixWindow COMMAND fovelle_tests
+    testStartupMenusReadyBeforeEvents testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
+set_tests_properties(FovelleLifecycleFixWindow PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 40 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+add_test(NAME FovelleLifecycleFixWorker COMMAND fovelle_tests
+    testOpenWithWorkerTeardownContract testOpenWithLatestRequest testOpenWithShutdownProcess -v1)
+set_tests_properties(FovelleLifecycleFixWorker PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 45 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+add_test(NAME FovelleLifecycleFixDrain COMMAND fovelle_tests
+    testLoaderNonblockingShutdown testShutdownProcess -v1)
+set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=RemediationTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 20 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")

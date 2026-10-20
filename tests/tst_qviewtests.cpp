@@ -246,6 +246,8 @@ private slots:
     void testUpdateCheckFrequencyPolicy();
     void testUpdateConfigurationValidation();
     void testSmallImageOneToOneSettingIsExposedInImageOptions();
+    void testOpenWithLatestRequest();
+    void testOpenWithShutdownProcess();
     void testOpenWithWorkerTeardownContract_data();
     void testOpenWithWorkerTeardownContract();
 };
@@ -428,6 +430,7 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testStartupMenusReadyBeforeEvents();
     void testLateMenuState_data();
     void testLateMenuState();
     void testLateFullscreenMenu();
@@ -5446,16 +5449,9 @@ void FeatureTests::testSmallImageOneToOneSettingIsExposedInImageOptions()
 }
 
 // TC-ISSUE-864-OPENWITH-TEARDOWN
-// Purpose: drain Open With work before the window's GUI dependencies disappear.
-// Preconditions: Cocoa QPA; writable temporary directory; live QApplication.
-// Inputs: native PNG handler lookup, setup delays 0/5100 ms, or a controlled
-// 5200 ms provider (longer than the application's five-second overhead budget).
-// Steps: show/load a window, request population, close and destroy it, measure
-// dispatch/close/total and the provider's own interval, then inspect completion.
-// Expected: the provider finishes before destruction returns; dispatch, close
-// and incremental drain overhead stay below 5 s. Platform lookup latency has
-// no five-second SLA and stays bounded by QtTest's whole-function watchdog.
-// Postconditions: fixture/window are destroyed and quit policy is restored.
+// Purpose: cancel owner delivery promptly; drain work before application teardown.
+// D3: block a genuinely running provider; window destruction must cancel
+// delivery without waiting. Values are shared; cleanup always releases work.
 void FeatureTests::testOpenWithWorkerTeardownContract_data()
 {
     QTest::addColumn<int>("setupDelayMs");
@@ -5469,68 +5465,48 @@ void FeatureTests::testOpenWithWorkerTeardownContract()
 {
     QFETCH(int, setupDelayMs);
     QFETCH(int, enumerationDelayMs);
-    std::atomic<bool> workerFinished{ false };
-    std::atomic<qint64> workerMs{ 0 };
-    const MainWindow::OpenWithProvider provider = [&](const QString &path) {
-        QElapsedTimer timer;
-        timer.start();
-        QList<OpenWith::OpenWithItem> items;
-        if (enumerationDelayMs >= 0)
-            QThread::msleep(static_cast<unsigned long>(enumerationDelayMs));
-        else
-            items = OpenWith::getOpenWithItems(path);
-        workerMs.store(timer.elapsed());
-        workerFinished.store(true);
+    auto gate = std::make_shared<QSemaphore>();
+    auto entered = std::make_shared<std::atomic<bool>>(false);
+    auto finished = std::make_shared<std::atomic<bool>>(false);
+    const auto release = qScopeGuard([gate] { gate->release(); QvAsync::drain(5000); });
+    const MainWindow::OpenWithProvider provider = [=](const QString &path) {
+        entered->store(true);
+        gate->acquire();
+        const auto items = enumerationDelayMs < 0 ? OpenWith::getOpenWithItems(path)
+                                                 : QList<OpenWith::OpenWithItem>{};
+        finished->store(true);
         return items;
     };
-    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
-    const auto restoreQuitPolicy = qScopeGuard([originalQuitOnLastWindowClosed]() {
-        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
-    });
+    const bool quit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
-
+    const auto restore = qScopeGuard([quit] { qvApp->setQuitOnLastWindowClosed(quit); });
     QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString imagePath = createTestImage(dir, "openwith-teardown", Qt::darkCyan);
-    QVERIFY(!imagePath.isEmpty());
-
-    qint64 dispatchMs = 0;
-    qint64 closeMs = 0;
-    QElapsedTimer teardownTimer;
+    const QString path = createTestImage(dir, "openwith-teardown", Qt::darkCyan);
+    QElapsedTimer timer;
     {
-        MainWindow window(nullptr, { }, false, provider);
+        MainWindow window(nullptr, {}, false, provider);
         window.setAttribute(Qt::WA_DeleteOnClose, false);
-        window.resize(640, 480);
         window.show();
-        QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-        window.openFile(imagePath);
+        window.openFile(path);
         QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-
         QTest::qWait(setupDelayMs);
-        // Measure only the operation named by this contract. Cold window/menu
-        // initialization and image decoding have their own readiness checks.
-        teardownTimer.start();
         window.requestPopulateOpenWithMenu();
-        dispatchMs = teardownTimer.elapsed();
+        QTRY_VERIFY_WITH_TIMEOUT(entered->load(), 1000);
+        timer.start();
+        // A timed fallback lets the pre-fix red test finish without deadlock.
+        QvAsync::schedule([gate] { QThread::msleep(1000); gate->release(); });
         window.close();
-        closeMs = teardownTimer.elapsed() - dispatchMs;
+        window.shutdownBackgroundWork();
+        window.shutdownBackgroundWork();
     }
-
-    const qint64 teardownMs = teardownTimer.elapsed();
-    const qint64 providerMs = workerMs.load();
-    const qint64 overheadMs = qMax<qint64>(0, teardownMs - providerMs);
-    qInfo() << "OPENWITH_TEARDOWN setup_delay_ms=" << setupDelayMs << "total_ms=" << teardownMs
-            << "worker_ms=" << providerMs << "dispatch_ms=" << dispatchMs << "close_ms=" << closeMs
-            << "overhead_ms=" << overheadMs;
-    // A quick return is not sufficient: it must not abandon a worker that
-    // may still own QIcon/QPixmap data when QApplication later shuts down.
-    QVERIFY2(workerFinished.load(), "Window destruction returned before Open With completed");
-    QVERIFY2(providerMs <= teardownMs + 1,
-             "The measured provider interval must be inside teardown");
-    QVERIFY2(dispatchMs < 5000, "Dispatch must not synchronously block on platform enumeration");
-    QVERIFY2(closeMs < 5000, "The window close event exceeded its five-second budget");
-    QVERIFY2(overheadMs < 5000,
-             qPrintable(QStringLiteral("Open With teardown overhead took %1 ms").arg(overheadMs)));
+    const qint64 elapsed = timer.elapsed();
+    const bool wasFinished = finished->load();
+    gate->release();
+    QVERIFY(QvAsync::drain(5000));
+    QCoreApplication::processEvents(); // queued deliveries after owner destruction
+    qInfo() << "OPENWITH_WINDOW teardown_ms=" << elapsed;
+    QVERIFY2(elapsed < 250, "Window shutdown waited for provider");
+    QVERIFY2(!wasFinished, "Provider must still be running when window destruction returns");
 }
 
 void GraphicsViewTests::testMouseWheelUsesOneDiscreteStep()
@@ -17037,6 +17013,35 @@ int main(int argc, char *argv[])
     QVApplication app(argc, argv);
     if (!probePhase.isEmpty())
         return runKeepZoomPersistenceProbe(probePhase);
+    const QString openWithProbe = qEnvironmentVariable("FOVELLE_OPENWITH_SHUTDOWN_PROBE");
+    if (!openWithProbe.isEmpty()) {
+        app.setQuitOnLastWindowClosed(false);
+        QSettings saved(openWithProbe + "/saved.ini", QSettings::IniFormat);
+        saved.setValue("saved", true);
+        saved.sync();
+        const QString imagePath = openWithProbe + "/probe.png";
+        QImage image(8, 8, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        if (!image.save(imagePath)) return 2;
+        auto started = std::make_shared<QSemaphore>();
+        const int delay = qEnvironmentVariableIntValue("FOVELLE_READ_SHUTDOWN_DELAY_MS");
+        MainWindow window(nullptr, {}, true, [started, delay](const QString &) {
+            started->release();
+            QThread::msleep(static_cast<unsigned long>(delay));
+            return QList<OpenWith::OpenWithItem>{};
+        });
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        window.show();
+        window.openFile(imagePath);
+        QElapsedTimer timer;
+        timer.start();
+        while (!window.getIsPixmapLoaded() && timer.elapsed() < 2000)
+            QCoreApplication::processEvents();
+        if (!window.getIsPixmapLoaded()) return 3;
+        window.requestPopulateOpenWithMenu();
+        if (!started->tryAcquire(1, 1000)) return 4;
+        return 0;
+    }
     const QString shutdownProbe = qEnvironmentVariable("FOVELLE_READ_SHUTDOWN_PROBE");
     if (!shutdownProbe.isEmpty()) {
         QSettings saved(shutdownProbe + "/saved.ini", QSettings::IniFormat);
@@ -17093,3 +17098,5 @@ int main(int argc, char *argv[])
         // Its observable terminal state was validated immediately above.
 
 #include "menu_lifecycle_acceptance.inc"
+
+#include "lifecycle_fix_acceptance.inc"

@@ -1,0 +1,105 @@
+{
+  "comparison": "current Fovelle 1.3.3 versus upstream qView 7.1; controlled source builds",
+  "formula": "reduction_percent = (qView_median - Fovelle_median) / qView_median * 100; negative means Fovelle is slower",
+  "primary_scenario": "matched-maximized",
+  "scenarios": {
+    "default-window": {
+      "samples_per_app": 20,
+      "all_measured_processes_exit_zero": true,
+      "summary": {
+        "startup_ms": {
+          "qview_median_ms": 284.51435399620095,
+          "fovelle_median_ms": 370.5132715003856,
+          "fovelle_minus_qview_ms": 85.99891750418465,
+          "reduction_percent": -30.22656547772382,
+          "qview_range_ms": [
+            266.7504999990342,
+            309.901708002144
+          ],
+          "fovelle_range_ms": [
+            303.04687500029104,
+            393.39762500458164
+          ],
+          "exploratory_paired_bootstrap_95_percent_interval_for_reduction": [
+            -33.52246782629542,
+            -11.85203060119775
+          ]
+        },
+        "exit_ms": {
+          "qview_median_ms": 35.370582998439204,
+          "fovelle_median_ms": 30.051749999984168,
+          "fovelle_minus_qview_ms": -5.318832998455036,
+          "reduction_percent": 15.037447923009184,
+          "qview_range_ms": [
+            27.71312500408385,
+            47.130332997767255
+          ],
+          "fovelle_range_ms": [
+            28.252541000256315,
+            35.92937500070548
+          ],
+          "exploratory_paired_bootstrap_95_percent_interval_for_reduction": [
+            12.554679601123919,
+            17.356400380629132
+          ]
+        }
+      }
+    },
+    "matched-maximized": {
+      "samples_per_app": 20,
+      "all_measured_processes_exit_zero": true,
+      "summary": {
+        "startup_ms": {
+          "qview_median_ms": 294.5076039977721,
+          "fovelle_median_ms": 373.0803334983648,
+          "fovelle_minus_qview_ms": 78.57272950059269,
+          "reduction_percent": -26.679355111383508,
+          "qview_range_ms": [
+            273.60062500520144,
+            333.6822079945705
+          ],
+          "fovelle_range_ms": [
+            312.7869159943657,
+            404.1970409962232
+          ],
+          "exploratory_paired_bootstrap_95_percent_interval_for_reduction": [
+            -31.849239305936393,
+            -8.163859132316853
+          ]
+        },
+        "exit_ms": {
+          "qview_median_ms": 33.36772900001961,
+          "fovelle_median_ms": 28.29060400108574,
+          "fovelle_minus_qview_ms": -5.0771249989338685,
+          "reduction_percent": 15.215674398850709,
+          "qview_range_ms": [
+            24.939875002019107,
+            39.99787499924423
+          ],
+          "fovelle_range_ms": [
+            26.027500003692694,
+            38.4917079936713
+          ],
+          "exploratory_paired_bootstrap_95_percent_interval_for_reduction": [
+            0.4088154751711315,
+            20.42468801287245
+          ]
+        }
+      }
+    }
+  },
+  "evidence_valid": true,
+  "readme_claim": {
+    "startup_reduction_percent": 24.45,
+    "exit_reduction_percent": 51.53,
+    "status": "Found in README.md:23, but corresponding original versions, methodology and raw samples were not found in searched project evidence. Not reproduced by these current controlled builds."
+  },
+  "prior_turn_comparison": "Earlier 5.19% startup / 11.64% exit compared two Fovelle revisions; neither is a comparison against qView.",
+  "limitations": [
+    "First frame not measured optically",
+    "Different default window sizes and feature sets",
+    "qView is a source build with a main.cpp-only measurement patch, not the shipped Qt 6.8.3 bundle",
+    "Fresh profile migration and suppressed onboarding are explicit workload choices",
+    "These results do not cover image decode, pending workers, saved profiles, cold OS cache, Finder launch or all hardware"
+  ]
+}

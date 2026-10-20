@@ -1,0 +1,130 @@
+{
+  "environment": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "sha256": {
+    "baseline": "98925604485b687fde3dee60d88eb3ee67b012eacc692f32b5a3b93fbe97c479",
+    "candidate": "4bf102f292365e01dd94686e3f129c2efb3bb2d1b091e49cb85a12460a3e57a2"
+  },
+  "metric": "parent monotonic; spawn to first event-loop AND menus ready; quit probe to full exit",
+  "limitations": "warm cache, isolated INI, no image, one maximized Cocoa window; not optical first frame",
+  "runs": {
+    "baseline": [
+      {
+        "startup_ms": 358.62079200160224,
+        "exit_ms": 37.21166700415779,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 536.6485000049579,
+        "exit_ms": 32.432624997454695,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 291.42062500613974,
+        "exit_ms": 27.013083999918308,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 347.8398750012275,
+        "exit_ms": 33.63595900009386,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 338.8514580001356,
+        "exit_ms": 34.79654200054938,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 345.86004100128775,
+        "exit_ms": 31.080417000339366,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 355.9613750039716,
+        "exit_ms": 30.174750005244277,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 349.1879159992095,
+        "exit_ms": 35.222624996094964,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 352.5281660040491,
+        "exit_ms": 29.212750006990973,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 285.254583999631,
+        "exit_ms": 29.842124997230712,
+        "returncode": 0
+      }
+    ],
+    "candidate": [
+      {
+        "startup_ms": 419.31483300140826,
+        "exit_ms": 50.41837500175461,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 435.40308299998287,
+        "exit_ms": 51.99387500033481,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 289.073959000234,
+        "exit_ms": 27.025167000829242,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 293.12016699987,
+        "exit_ms": 35.02779200061923,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 278.53516599861905,
+        "exit_ms": 29.141541999706533,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 286.40570800052956,
+        "exit_ms": 31.970625001122244,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 276.78554200247163,
+        "exit_ms": 33.613416002481245,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 290.8765839965781,
+        "exit_ms": 34.10612500010757,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 290.48450000118464,
+        "exit_ms": 26.13299999939045,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 292.31895900011295,
+        "exit_ms": 26.4182089958922,
+        "returncode": 0
+      }
+    ]
+  },
+  "summary": {
+    "startup_ms": {
+      "baseline_median": 348.5138955002185,
+      "candidate_median": 290.6805419988814,
+      "reduction_percent": 16.594274790200114,
+      "passed": true
+    },
+    "exit_ms": {
+      "baseline_median": 31.75652099889703,
+      "candidate_median": 32.792020501801744,
+      "reduction_percent": -3.260746046270868,
+      "passed": true
+    }
+  },
+  "passed": true
+}

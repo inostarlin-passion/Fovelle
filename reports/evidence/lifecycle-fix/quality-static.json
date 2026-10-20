@@ -1,0 +1,445 @@
+{
+  "kind": "static",
+  "repo": "/Users/inostarlin/code/Fovelle",
+  "checks": [
+    {
+      "id": "ST-01",
+      "pass": false,
+      "actual": {
+        "tool": "/opt/homebrew/opt/llvm/bin/clang-format",
+        "return_code": 1,
+        "output": "or: code should be clang-formatted [-Wclang-format-violations]\n        MainWindow window(nullptr, {}, true, [started, delay](const QString &) {\n                                    ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17031:50: error: code should be clang-formatted [-Wclang-format-violations]\n            return QList<OpenWith::OpenWithItem>{};\n                                                 ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17040:41: error: code should be clang-formatted [-Wclang-format-violations]\n        if (!window.getIsPixmapLoaded()) return 3;\n                                        ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17042:43: error: code should be clang-formatted [-Wclang-format-violations]\n        if (!started->tryAcquire(1, 1000)) return 4;\n                                          ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17075:69: error: code should be clang-formatted [-Wclang-format-violations]\n        return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;\n                                                                    ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17075:103: error: code should be clang-formatted [-Wclang-format-violations]\n        return selectedSuite.isEmpty() || selectedSuite == suiteName ? QTest::qExec(suite, argc, argv) : 0;\n                                                                                                      ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17096:30: error: code should be clang-formatted [-Wclang-format-violations]\n#include \"tst_qviewtests.moc\"\n                             ^\n/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp:17097:74: error: code should be clang-formatted [-Wclang-format-violations]\n        // The synchronous commit has no intermediate animation timeline.\n                                                                         ^\n"
+      },
+      "expected": "clang-format reports no changes for the changed C++ files"
+    },
+    {
+      "id": "ST-02",
+      "pass": true,
+      "actual": {
+        "files": [
+          "/Users/inostarlin/code/Fovelle/tests/quality_audit.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_feature_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_fullscreen_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_integration.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_layout_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_manifest.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_release.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_release_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_specification.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_static.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_system_probe.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_titlebar_system.py",
+          "/Users/inostarlin/code/Fovelle/tests/quality_unit_runner.py"
+        ],
+        "syntax_errors": []
+      },
+      "expected": "all quality runner Python files parse successfully"
+    },
+    {
+      "id": "ST-03",
+      "pass": true,
+      "actual": {
+        "return_code": 0,
+        "output": "",
+        "scope": [
+          "src",
+          "tests",
+          "CMakeLists.txt",
+          "qView.pro",
+          "build.sh",
+          ".clang-tidy",
+          ".github",
+          "dist"
+        ],
+        "excluded_preexisting_paths": [
+          "README.md"
+        ]
+      },
+      "expected": "the task-scoped working-tree diff has no whitespace errors; unrelated pre-existing README.md changes remain untouched"
+    },
+    {
+      "id": "ST-04",
+      "pass": true,
+      "actual": {
+        "window_icon_cleared": true,
+        "global_icon_assignment_absent": true,
+        "titlebar_clear_helper": true,
+        "native_document_path_cleared": true,
+        "no_direct_document_path_assignment": true,
+        "bundle_resource_retained": true
+      },
+      "expected": "the image window clears its native icon and represented document path while the bundle resource remains available"
+    },
+    {
+      "id": "ST-05",
+      "pass": true,
+      "actual": {
+        "pure_helper": true,
+        "touch_device_fractional_zoom": true,
+        "wheel_event_remains_configured": true,
+        "discrete_mouse_branch": true,
+        "power_calculation": true
+      },
+      "expected": "discrete wheel events use configured actions; unmodified phased touchpad streams pan in pixels, while native pinch remains a separate zoom path"
+    },
+    {
+      "id": "ST-06",
+      "pass": false,
+      "actual": {
+        "image_io_type_query": true,
+        "image_io_decode": true,
+        "orientation_transform": true,
+        "loader_native_decoder": true,
+        "loader_image_io_call": true,
+        "full_resolution_native_decode": false,
+        "loader_bounds_only_hdr_fallback": true,
+        "raw_uses_content_type": true,
+        "preview_fallback": false,
+        "metal_context": true,
+        "colorsync_context": true
+      },
+      "expected": "Image I/O identifies every native image by UTI; RAW uses CIRAWFilter/CIImage, embedded preview fallback, ColorSync, and Metal-backed CIContext, while Qt remains a non-RAW fallback"
+    },
+    {
+      "id": "ST-06-APNG",
+      "pass": true,
+      "actual": {
+        "native_animation_interface": true,
+        "image_io_frame_count": true,
+        "apng_delay_metadata": true,
+        "movie_uses_native_animation": true,
+        "native_loop_count": true
+      },
+      "expected": "APNG uses macOS Image I/O frame composition, per-frame delays, loop metadata, and the existing QVMovie timer/cache contract"
+    },
+    {
+      "id": "ST-07",
+      "pass": true,
+      "actual": {
+        "application_registry": true,
+        "settings_uses_all_extensions": true,
+        "native_test_assertions": true
+      },
+      "expected": "Settings → Formats consumes the same complete extension registry that includes WebP and AVIF"
+    },
+    {
+      "id": "ST-08",
+      "pass": true,
+      "actual": {
+        "frameworks_declared": true
+      },
+      "expected": "application, qmake, and test targets link the native frameworks"
+    },
+    {
+      "id": "ST-09",
+      "pass": false,
+      "actual": {
+        "test_markers": {
+          "testApplicationVersionIsCurrent": true,
+          "testImageLoaderLoadsWebpWithImageIOFallback": true,
+          "testImageLoaderLoadsAvifWithImageIOFallback": true,
+          "testImageLoaderAppliesWebpOrientation": true,
+          "testImageLoaderAppliesAvifOrientation": true,
+          "testImageLoaderLoadsTiffWithImageIO": true,
+          "testImageIOUsesContentTypeInsteadOfFilenameExtension": true,
+          "testImageLoaderPreservesSourceResolutionForZoom": true,
+          "testAnimatedPngPlaysBeyondFirstFrame": true,
+          "testWindowIconIsCleared": true,
+          "testTitlebarDocumentProxyIsClearedForLoadedFile": true,
+          "testTitlebarIconClearingIsIdempotent": true,
+          "testSettingsFormatsIncludeNativeImageFormats": true,
+          "testSettingsFormatsIncludeTiffAndSystemRawFormats": false,
+          "testSmallImageOneToOneSettingIsExposedInImageOptions": true,
+          "testOpenWithWorkerTeardownContract": true,
+          "testMouseWheelUsesOneDiscreteStep": true,
+          "testTouchpadWheelCanUseFractionalSteps": true,
+          "testImageIsCenteredAfterOpeningWithScrollBars": true,
+          "testTouchpadWheelRespectsConfiguredZoomWithScrollBars": true,
+          "testOpeningZoomToFitDoesNotGainScrollBarsAfterExpensiveScaling": true,
+          "testRotatedZoomToFitUsesUnobscuredViewport": true,
+          "testZoomAcrossScrollbarThresholdKeepsViewportCenterStable": true,
+          "testTouchpadPanUsesPixelsWithoutChangingZoom": true,
+          "testFitZoomSurvivesInverseWheelStepsAndFullscreenResize": true,
+          "testManualZoomRemainsManualAcrossResize": true,
+          "testSmallImageOneToOnePolicyUsesViewportAndWindowMode": true,
+          "testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages": true,
+          "testNativePinchZoomChangesScaleAtGesturePosition": true,
+          "testNativePanChangesViewport": true,
+          "testScrollBarsFollowImageOverflowAxes": true,
+          "testScrollBarsMatchTheme": true,
+          "testNativeGestureResponsePerformance": true,
+          "testFullscreenDefaultShortcutIsEnterAndConfigurable": true,
+          "testEnterDoesNotBypassClearedFullscreenShortcut": true,
+          "testConfiguredFullscreenShortcutStillWorks": true,
+          "testPracticalTitlebarTextUsesFilenameAndSequence": true,
+          "testDefaultTitlebarTextIsPractical": true,
+          "testVerboseTitlebarTextUsesAllRequestedFields": true,
+          "testThemeSettingsReplaceRemovedColorControls": true,
+          "testThemeAppliesNativeAppearanceAndViewportBackground": true,
+          "testCheckerboardOverridesThemeAndRestoresBackground": true,
+          "testNavigationEdgeActivationExcludesTitlebar": true,
+          "testNavigationButtonSizingAndNoDelay": true,
+          "testNavigationButtonsUseActualContentContrast": true,
+          "testNavigationButtonsFadeTransition": true,
+          "testNavigationButtonsClickSwitchesFiles": true
+        }
+      },
+      "expected": "each atomic feature criterion has a deterministic test implementation"
+    },
+    {
+      "id": "ST-23-GESTURE-SCROLLBAR",
+      "pass": true,
+      "actual": {
+        "native_event_path": true,
+        "scrollbar_overflow_path": true,
+        "native_gesture_markers": {
+          "QNativeGestureEvent": true,
+          "QEvent::NativeGesture": true,
+          "Qt::ZoomNativeGesture": true,
+          "Qt::PanNativeGesture": true,
+          "viewportEvent": true,
+          "nativeGestureZoomFactor": true,
+          "nativeGesturePanScrollDelta": true,
+          "isPhasedTouchpadScroll": true,
+          "wheel-trackpad-pan": true
+        },
+        "scrollbar_markers": {
+          "Qt::ScrollBarAsNeeded": true,
+          "setSceneRect": true,
+          "scrollBarStyleSheet": true,
+          "QScrollBar::handle": true,
+          "QScrollBar::add-page": true,
+          "Qv::Theme::Dark": true
+        }
+      },
+      "expected": "Apple native gesture events drive zoom/pan, overflow drives AsNeeded bars, and the selected Theme drives handle/track styles"
+    },
+    {
+      "id": "ST-24-LAYOUT-TITLEBAR",
+      "pass": true,
+      "actual": {
+        "scene_rect_compensation": true,
+        "regression_test_contract": true,
+        "markers": {
+          "getSceneRectForViewport": true,
+          "obscured_height": true,
+          "scene_padding": true,
+          "usable_top_bottom_assertions": true
+        }
+      },
+      "expected": "fit layout compensates for the macOS titlebar-obscured region and verifies both image edges against the unobscured viewport"
+    },
+    {
+      "id": "ST-25-CI-TEST-BOUNDS",
+      "pass": true,
+      "actual": {
+        "scene_rect_reentrancy_guard": true,
+        "test_window_contract": true,
+        "markers": {
+          "QScopedValueRollback": true,
+          "scene_rect_change_filter": true,
+          "qtest_function_timeout": true,
+          "ctest_timeout": true
+        }
+      },
+      "expected": "scene-rect updates cannot recursively trigger fit passes, and CI/CTest terminate a stuck test within a documented bounded window"
+    },
+    {
+      "id": "ST-27-CI-APPLE-SDK",
+      "pass": true,
+      "actual": {
+        "build_and_checks_use_macos_26": true,
+        "release_uses_macos_15": true,
+        "release_compatibility_uses_macos_15": true,
+        "legacy_macos_14_runner_absent": true,
+        "xcode_version_is_verified": true,
+        "sdk_version_is_verified": true,
+        "build_and_checks_xcode_26_minimum": true,
+        "build_and_checks_sdk_26_minimum": true,
+        "release_xcode_16_minimum": true,
+        "release_sdk_15_exact": true,
+        "release_compatibility_sdk_15_exact": true,
+        "qt_6_11_2_is_pinned": true,
+        "legacy_qt_6_8_is_absent": true,
+        "deployment_target_15_is_explicit": true
+      },
+      "expected": "build/check jobs use macOS 26 for HDR headers while Release uses the macOS 15 SDK and all jobs pin Qt 6.11.2 and deployment target 15.0"
+    },
+    {
+      "id": "ST-28-CI-BUILD-PARALLELISM",
+      "pass": true,
+      "actual": {
+        "test_workflow_uses_parallel_2": true,
+        "build_workflow_uses_parallel_2": true,
+        "release_workflow_uses_parallel_2": true,
+        "unbounded_test_build_is_absent": true
+      },
+      "expected": "CI compilation uses a bounded parallelism contract that keeps the Checks job inside its timeout window"
+    },
+    {
+      "id": "ST-26-CROSS-DPI-GEOMETRY",
+      "pass": true,
+      "actual": {
+        "non_retina_safe_lower_bound": true,
+        "retina_only_strict_bound_absent": true,
+        "cross_dpi_documentation": true
+      },
+      "expected": "geometry regression tests assert the rendering invariant without requiring a Retina backing scale"
+    },
+    {
+      "id": "ST-22-VERSION-CI",
+      "pass": true,
+      "actual": {
+        "version_contract": true,
+        "apng_fixture_contract": true,
+        "old_version_absent": true
+      },
+      "expected": "the released version is read from VERSION (1.3.3) and APNG tests have a hermetic fallback instead of requiring a developer-machine path"
+    },
+    {
+      "id": "ST-10",
+      "pass": true,
+      "actual": {
+        "calculated_mode_snapshot": true,
+        "calculated_level_snapshot": true,
+        "floating_point_tolerance": true,
+        "resize_restoration_path": true
+      },
+      "expected": "the fullscreen resize path can restore fit intent after an inverse manual zoom without changing other manual zoom levels"
+    },
+    {
+      "id": "ST-11",
+      "pass": false,
+      "actual": {
+        "setting_default": true,
+        "settings_binding": true,
+        "image_checkbox": true,
+        "strict_small_image_helper": true,
+        "actual_viewport": false,
+        "never_gate": true,
+        "automatic_mode_override": true
+      },
+      "expected": "the persisted Image option and deterministic viewport/window-mode policy are wired into automatic fit zoom"
+    },
+    {
+      "id": "ST-12",
+      "pass": true,
+      "actual": {
+        "lazy_menu_trigger": true,
+        "delivery_canceled_on_teardown": true,
+        "path_captured_by_value": true,
+        "serial_refresh_guard": true,
+        "regression_test": true
+      },
+      "expected": "Open With background work is serialized, uses a value-captured path, and is drained at the bounded application teardown boundary"
+    },
+    {
+      "id": "ST-13",
+      "pass": true,
+      "actual": {
+        "tag_trigger": true,
+        "write_permission": true,
+        "action": true,
+        "token": true,
+        "pre_release_tests": true
+      },
+      "expected": "a pushed v-prefixed Git tag builds, tests, packages, and publishes a GitHub Release with softprops/action-gh-release"
+    },
+    {
+      "id": "ST-14",
+      "pass": true,
+      "actual": {
+        "default_return": true,
+        "hardcoded_return_removed": true,
+        "hardcoded_keypad_enter_removed": true,
+        "test_coverage": true
+      },
+      "expected": "Enter is owned by the configurable Full Screen QAction; MainWindow has no independent Enter shortcut"
+    },
+    {
+      "id": "ST-15",
+      "pass": true,
+      "actual": {
+        "practical_and_verbose_formatters_and_tests": true
+      },
+      "expected": "Practical and Verbose titlebar modes follow the requested filename-first field order"
+    },
+    {
+      "id": "ST-16",
+      "pass": false,
+      "actual": {
+        "theme_setting_default": false,
+        "theme_binding": true,
+        "two_theme_labels": false,
+        "old_controls_removed": true,
+        "standard_native_appearances": true,
+        "viewport_colors": true
+      },
+      "expected": "Theme is the only Window color control, defaults to Light, and maps to standard Aqua/DarkAqua plus deterministic viewport colors"
+    },
+    {
+      "id": "ST-17",
+      "pass": true,
+      "actual": {
+        "theme_and_checkerboard_tests": true
+      },
+      "expected": "Theme controls, native appearance, viewport colors, and checkerboard precedence have deterministic tests"
+    },
+    {
+      "id": "ST-21",
+      "pass": true,
+      "actual": {
+        "mouse_filter": true,
+        "actual_content_sample": true,
+        "per_side_style": true,
+        "fade_effect": true,
+        "deterministic_tests": true
+      },
+      "expected": "the navigation feature observes pointer position in content space, samples each button's underlying pixels, and animates visibility with deterministic tests"
+    },
+    {
+      "id": "ST-18",
+      "pass": true,
+      "actual": {
+        "config_has_enabled_checks": true,
+        "workflow_installs_llvm": true,
+        "build_script_wires_clang_tidy": true
+      },
+      "expected": "the CI clang-tidy job has an explicit non-empty check configuration and a reproducible tool invocation"
+    },
+    {
+      "id": "ST-19",
+      "pass": true,
+      "actual": {
+        "universal_architecture": true,
+        "dependency_deployment": true,
+        "developer_id_signing": true,
+        "ephemeral_keychain_access": true,
+        "codesign_private_key_acl": true,
+        "keychain_search_list": true,
+        "private_signing_key_preflight": true,
+        "identity_scoped_partition_update": true,
+        "partition_update_is_best_effort": true,
+        "notarization_and_gatekeeper": true,
+        "shell_syntax_return_code": 0
+      },
+      "expected": "the Release workflow has a syntactically valid Universal build and signed/notarized artifact verification path"
+    },
+    {
+      "id": "ST-20",
+      "pass": true,
+      "actual": {
+        "finite_notarization_timeout": true,
+        "duration_validation": true,
+        "observable_notary_output": true,
+        "fail_closed_timeout": true,
+        "workflow_job_timeout": true,
+        "workflow_step_timeout": true,
+        "workflow_notarization_timeout": true,
+        "shell_syntax_return_code": 0
+      },
+      "expected": "the notarization wait is bounded, observable, validated, and protected by workflow timeouts"
+    }
+  ],
+  "passed": false
+}

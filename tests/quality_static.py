@@ -670,9 +670,9 @@ def main() -> int:
     issue_864_contract = contains_all(
         window_cpp + mainwindow_header + actionmanager_cpp + test_source,
         (
-            "openWithFutureWatcher.isRunning()",
-            "openWithFutureWatcher.waitForFinished();",
-            "openWithFutureFilePath",
+            "if (openWithTicket)",
+            "QvAsync::cancel(openWithTicket);",
+            "QPointer<MainWindow>",
             "[filePath, provider = openWithItemProvider]()",
             "openWithPopulationPending",
             "testOpenWithWorkerTeardownContract",
@@ -684,12 +684,12 @@ def main() -> int:
         issue_864_contract,
         {
             "lazy_menu_trigger": "aboutToShow" in actionmanager_cpp and "requestPopulateOpenWithMenu" in actionmanager_cpp,
-            "future_waited_on_teardown": "openWithFutureWatcher.waitForFinished();" in window_cpp,
+            "delivery_canceled_on_teardown": "QvAsync::cancel(openWithTicket);" in window_cpp,
             "path_captured_by_value": "[filePath, provider = openWithItemProvider]()" in window_cpp,
             "serial_refresh_guard": "openWithPopulationPending" in window_cpp,
             "regression_test": "testOpenWithWorkerTeardownContract" in test_source,
         },
-        "Open With background work is serialized, uses a value-captured path, and is finished before QApplication teardown",
+        "Open With background work is serialized, uses a value-captured path, and is drained at the bounded application teardown boundary",
     )
 
     release_workflow = source[".github/workflows/release.yml"]

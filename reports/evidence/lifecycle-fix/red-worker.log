@@ -1,0 +1,12 @@
+********* Start testing of FeatureTests *********
+Config: Using QtTest library 6.11.2, Qt 6.11.2 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 17.0.0 (clang-1700.6.4.2)), macos 27.0.1
+INFO   : FeatureTests::initTestCase() entering
+PASS   : FeatureTests::initTestCase()
+INFO   : FeatureTests::testOpenWithWorkerTeardownContract() entering
+QINFO  : FeatureTests::testOpenWithWorkerTeardownContract(controlled-platform-latency) OPENWITH_WINDOW teardown_ms= 1014
+FAIL!  : FeatureTests::testOpenWithWorkerTeardownContract(controlled-platform-latency) 'elapsed < 250' returned FALSE. (Window shutdown waited for provider)
+   Loc: [/Users/inostarlin/code/Fovelle/tests/tst_qviewtests.cpp(5508)]
+INFO   : FeatureTests::cleanupTestCase() entering
+PASS   : FeatureTests::cleanupTestCase()
+Totals: 2 passed, 1 failed, 0 skipped, 0 blacklisted, 1325ms
+********* Finished testing of FeatureTests *********

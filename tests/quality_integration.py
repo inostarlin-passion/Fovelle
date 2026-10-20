@@ -293,8 +293,8 @@ def main() -> int:
     issue_864 = all_present(
         mainwindow + text("src/mainwindow.h") + actionmanager,
         (
-            "openWithFutureWatcher.waitForFinished();",
-            "openWithFutureFilePath",
+            "QvAsync::cancel(openWithTicket);",
+            "QPointer<MainWindow>",
             "[filePath, provider = openWithItemProvider]()",
             "openWithPopulationPending",
         ),
@@ -305,7 +305,7 @@ def main() -> int:
         issue_864,
         {
             "lazy_menu_trigger": "aboutToShow" in actionmanager and "requestPopulateOpenWithMenu" in actionmanager,
-            "future_waited": "openWithFutureWatcher.waitForFinished();" in mainwindow,
+            "delivery_canceled": "QvAsync::cancel(openWithTicket);" in mainwindow,
             "path_value_capture": "[filePath, provider = openWithItemProvider]()" in mainwindow,
             "refresh_serialization": "openWithPopulationPending" in mainwindow,
         },
