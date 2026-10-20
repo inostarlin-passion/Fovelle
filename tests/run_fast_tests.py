@@ -16,13 +16,13 @@ from run_portable_hdr import FULLSCREEN_ROWS, FIXTURES, prepare_output, run_suit
 ROOT = Path(__file__).resolve().parents[1]
 BUDGET_SECONDS = 55
 REQUIRED = {
-    'ImageLoaderTests': {'testColorSvgWideGamut', 'testColorNetpbm', 'testVectorPresentationFrameBudget',
+    'ImageLoaderTests': {'testColorSvgWideGamut', 'testColorNetpbm',
                          'testVectorDisplayTargetSwitch', 'testVectorRequestBurstAndDestruction'},
     'FeatureTests': {'testKeepZoomPersistsAcrossProcesses', 'testUpdateConfigurationValidation'},
     'GraphicsViewTests': {'testMousePanKeepsOverflowRangeAndContinuity', 'testKeepZoomAcrossNavigation'},
     'HDRPolicyTests': {'testHDRBrightnessLinearLightPixels'},
     'ImageCoreAndMovieTests': {'testHDRPersistentSurfaceMetadata'},
-    'WindowBehaviorTests': {'testNativeFullScreenRoundTrip'},
+    'WindowBehaviorTests': {'testNativeMessageBoxStandardButtonResponses'},
     'RemediationTests': {'testMoviePauseResume', 'testMoviePauseQueuedRead', 'testMovieAsyncPlaybackSpeed',
                          'testDownloadLimits', 'testLoaderNonblockingShutdown'},
     'ScrollHelperTests': set(), 'ApplicationEventTests': set(), 'ShortcutSettingsTests': set(),

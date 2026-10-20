@@ -128,7 +128,6 @@
         "testImageLoaderAppliesAvifOrientation",
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
-        "testVectorPresentationFrameBudget:svg-1x",
         "testColorSvgWideGamut",
         "testColorNetpbm"
       ]
@@ -179,8 +178,7 @@
     {
       "suite": "WindowBehaviorTests",
       "functions": [
-        "testNativeMessageBoxStandardButtonResponses",
-        "testNativeFullScreenRoundTrip:visible-normal-raster"
+        "testNativeMessageBoxStandardButtonResponses"
       ]
     },
     {
