@@ -1,7 +1,0 @@
-{
-  "baseline_commit": "9aeac7c7ba3ff3b6e108ae42e5e196e6a6a3f311",
-  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
-  "baseline_sha256": "bfd04737ff9ab96f543f72fb750730539f97efd4a6a315df2da6186ba7a0531f",
-  "configuration": "Release; Qt 6.11.2; Cocoa; fresh INI per process; automatic updates disabled",
-  "candidate_sha256": "98925604485b687fde3dee60d88eb3ee67b012eacc692f32b5a3b93fbe97c479"
-}

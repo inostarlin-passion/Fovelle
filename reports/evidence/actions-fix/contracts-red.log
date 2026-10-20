@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/inostarlin/code/Fovelle/tests/actions_regression_tests.py", line 13, in <module>
-    from run_portable_hdr import FULLSCREEN_ROWS, run_suite, validate_xml
-ImportError: cannot import name 'FULLSCREEN_ROWS' from 'run_portable_hdr' (/Users/inostarlin/code/Fovelle/tests/run_portable_hdr.py)

@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/inostarlin/code/Fovelle/tests/lifecycle_fix_static.py", line 10, in <module>
-    assert constructor.rfind('ensureMenus();') > constructor.index('restoreGeometry(')
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError

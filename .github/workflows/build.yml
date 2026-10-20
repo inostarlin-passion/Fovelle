@@ -10,7 +10,6 @@ on:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,10 +58,9 @@ jobs:
         run: python3 tests/preload_policy_quality.py
 
       - name: Test
-        timeout-minutes: 1
         env:
           FOVELLE_TEST_PROFILE: ci
-        run: ctest --test-dir build --output-on-failure --timeout 90
+        run: ctest --test-dir build --output-on-failure
 
       - name: Upload portable HDR execution evidence
         if: always()

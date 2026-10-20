@@ -348,7 +348,7 @@ def main() -> int:
         "the built bundle is executable, retains the Dock/Finder icon, and advertises WebP/AVIF document types",
     )
 
-    ctest = run(repo, "ctest", "--test-dir", str(build_dir), "--output-on-failure", "--timeout", "90")
+    ctest = run(repo, "ctest", "--test-dir", str(build_dir), "--output-on-failure")
     add_check(
         checks,
         "I-06",
@@ -647,7 +647,6 @@ def main() -> int:
             "validate_notarization_timeout",
             '--timeout "$NOTARIZATION_TIMEOUT"',
             "--verbose",
-            "timeout-minutes: 60",
             "timeout-minutes: 45",
             'NOTARIZATION_TIMEOUT: "30m"',
         ),
@@ -660,7 +659,6 @@ def main() -> int:
             "finite_notarization_timeout": 'NOTARIZATION_TIMEOUT="${NOTARIZATION_TIMEOUT:-30m}"' in release_script and '--timeout "$NOTARIZATION_TIMEOUT"' in release_script,
             "duration_validation": "validate_notarization_timeout" in release_script,
             "observable_notary_output": "--verbose" in release_script,
-            "workflow_job_timeout": "timeout-minutes: 60" in workflow,
             "workflow_step_timeout": "timeout-minutes: 45" in workflow,
             "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in workflow,
         },

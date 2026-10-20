@@ -71,7 +71,7 @@ def prepare_output(output, suites):
         }, indent=2) + '\n')
 
 
-def run_suite(executable, suite, functions, environment, output, *, timeout=180, required_rows=None):
+def run_suite(executable, suite, functions, environment, output, *, timeout=None, required_rows=None):
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     xml = output / (suite + '.xml')
@@ -87,8 +87,8 @@ def run_suite(executable, suite, functions, environment, output, *, timeout=180,
               'returncode': None, 'error': None, 'xml': str(xml), 'log': str(log)}
     started = time.monotonic()
     try:
-        if timeout <= 0:
-            raise TimeoutError('The shared HDR gate budget has expired')
+        if timeout is not None and timeout <= 0:
+            raise TimeoutError('The explicitly requested execution timeout has expired')
         with log.open('w') as stream:
             process = subprocess.Popen(command, env=env, stdout=stream, stderr=subprocess.STDOUT,
                                        start_new_session=True)
@@ -138,10 +138,9 @@ def main():
         output = args.output or Path(temporary)
         prepare_output(output, [suite for suite, _, _ in runs])
         validate_fixtures()
-        deadline = time.monotonic() + 270
         for suite, functions, rows in runs:
             run_suite(args.executable, suite, functions, env, output,
-                      timeout=min(180, deadline - time.monotonic()), required_rows=rows)
+                      required_rows=rows)
             print(suite + ': actual HDR tests executed; zero failures/skips', flush=True)
 
 

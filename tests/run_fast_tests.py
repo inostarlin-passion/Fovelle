@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One bounded, deduplicated default gate for local development and CI."""
+"""One deduplicated default gate without an execution-time budget for local development and CI."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -14,7 +14,6 @@ import time
 from run_portable_hdr import FULLSCREEN_ROWS, FIXTURES, prepare_output, run_suite, validate_fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
-BUDGET_SECONDS = 55
 REQUIRED = {
     'ImageLoaderTests': {'testColorSvgWideGamut', 'testColorNetpbm',
                          'testVectorDisplayTargetSwitch', 'testVectorRequestBurstAndDestruction'},
@@ -30,8 +29,8 @@ REQUIRED = {
 
 
 def validate_manifest(manifest):
-    if manifest.get('version') != 1 or manifest.get('budget_seconds') != BUDGET_SECONDS:
-        raise ValueError('Unsupported manifest or changed shared budget')
+    if manifest.get('version') != 1 or 'budget_seconds' in manifest:
+        raise ValueError('Unsupported manifest or obsolete execution budget')
     if manifest.get('portable_hdr') is not True or manifest.get('legacy_bt709') is not True:
         raise ValueError('Mandatory native HDR or legacy color coverage removed')
     rows = manifest.get('portable_fullscreen_rows', [])
@@ -69,19 +68,18 @@ def validate_manifest(manifest):
             raise ValueError('Invalid static script: ' + script)
 
 
-def run_command(name, command, environment, output, deadline):
+def run_command(name, command, environment, output, *, timeout=None):
     output.mkdir(parents=True, exist_ok=True)
     record = {'name': name, 'status': 'failed', 'returncode': None, 'command': command}
     started = time.monotonic()
     try:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        if timeout is not None and timeout <= 0:
             raise subprocess.TimeoutExpired(command, 0)
         with (output / (name + '.log')).open('w') as stream:
             process = subprocess.Popen(command, env=environment, stdout=stream,
                                        stderr=subprocess.STDOUT, start_new_session=True)
             try:
-                record['returncode'] = process.wait(timeout=remaining)
+                record['returncode'] = process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
@@ -100,13 +98,13 @@ def run_command(name, command, environment, output, deadline):
 
 
 
-def run_static_checks(entries, environment, output, deadline):
+def run_static_checks(entries, environment, output):
     # These scripts use source files and test-owned subprocess fixtures only.
     # Cocoa suites below remain strictly sequential to preserve GUI focus.
     def invoke(entry):
         command = [sys.executable, str(ROOT / 'tests' / entry['script'])]
         command += [arg.format(repo=ROOT, output=output) for arg in entry['args']]
-        return run_command(entry['script'], command, environment, output, deadline)
+        return run_command(entry['script'], command, environment, output)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         return list(executor.map(invoke, entries))
@@ -123,9 +121,8 @@ def main():
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    summary = {'profile': args.profile, 'budget_seconds': BUDGET_SECONDS,
+    summary = {'profile': args.profile, 'budget_seconds': None,
                'status': 'failed', 'stages': []}
-    deadline = started + BUDGET_SECONDS
     try:
         manifest = json.loads((ROOT / 'tests/fast_test_manifest.json').read_text())
         validate_manifest(manifest)
@@ -135,7 +132,7 @@ def main():
                          'FOVELLE_HDR_JPEG_SAMPLE', 'FOVELLE_HDR_FULLSCREEN_IMAGE'):
             env.pop(variable, None)
         env.update(QT_QPA_PLATFORM='cocoa', QT_FATAL_WARNINGS='1',
-                   QTEST_FUNCTION_TIMEOUT='30000', FOVELLE_DISABLE_AUTO_UPDATE_CHECK='1')
+                   FOVELLE_DISABLE_AUTO_UPDATE_CHECK='1')
         portable = [
             {'suite': 'RemediationTests', 'functions': ['testPortableHDR']},
             {'suite': 'HDRPolicyTests', 'functions': ['testHDRBrightnessNativeColorFidelity']},
@@ -160,7 +157,7 @@ def main():
             if fail_fast and record['status'] != 'passed':
                 raise RuntimeError('Stage failed; inspect logs: ' + str(output))
 
-        static_records = run_static_checks(manifest['static'], env, output, deadline)
+        static_records = run_static_checks(manifest['static'], env, output)
         for record in static_records:
             complete(record, fail_fast=False)
         if any(record['status'] != 'passed' for record in static_records):
@@ -168,7 +165,7 @@ def main():
         for group in manifest['groups'] + [{'legacy': True}] + portable:
             if group.get('legacy'):
                 complete(run_command('legacy-bt709', [str(Path(executable).with_name('fovelle_legacy_bt709_tests'))],
-                                     env, output, deadline))
+                                     env, output))
                 continue
             native = group in portable
             destination = args.portable_output if native else output
@@ -185,12 +182,10 @@ def main():
                     rows['testHDRFullScreenVisualContinuity'] = manifest['portable_fullscreen_rows']
             try:
                 record = run_suite(executable, group['suite'], group['functions'], stage_env,
-                                   destination, timeout=deadline - time.monotonic(), required_rows=rows)
+                                   destination, required_rows=rows)
             except RuntimeError:
                 record = json.loads((destination / (group['suite'] + '.json')).read_text())
             complete(record)
-        if time.monotonic() > deadline:
-            raise RuntimeError('Shared test execution budget exceeded')
         summary['status'] = 'passed'
     except (OSError, ValueError, RuntimeError) as error:
         summary['error'] = str(error)

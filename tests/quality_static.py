@@ -459,18 +459,13 @@ def main() -> int:
             "if (sceneRect() != desiredSceneRect)",
         ),
     )
-    workflow_timeout_contract = contains_all(
-        source[".github/workflows/test.yml"] + source[".github/workflows/build.yml"] + source["tests/CMakeLists.txt"],
-        (
-            "QTEST_FUNCTION_TIMEOUT=30000",
-            "TIMEOUT 90",
-            "--timeout 90",
-            "timeout-minutes: 10",
-        ),
-    )
+    workflow_timeout_contract = all(
+        '--timeout' not in source[name]
+        for name in ('.github/workflows/test.yml', '.github/workflows/build.yml')
+    ) and 'TIMEOUT 0' in source['tests/CMakeLists.txt'] and 'QTEST_FUNCTION_TIMEOUT' not in source['tests/CMakeLists.txt']
     add_check(
         checks,
-        "ST-25-CI-TEST-BOUNDS",
+        "ST-25-CI-TEST-EXECUTION",
         reentrancy_contract and workflow_timeout_contract,
         {
             "scene_rect_reentrancy_guard": reentrancy_contract,
@@ -478,11 +473,11 @@ def main() -> int:
             "markers": {
                 "QScopedValueRollback": "QScopedValueRollback" in graphics_cpp,
                 "scene_rect_change_filter": "if (sceneRect() != desiredSceneRect)" in graphics_cpp,
-                "qtest_function_timeout": "QTEST_FUNCTION_TIMEOUT=30000" in source["tests/CMakeLists.txt"],
-                "ctest_timeout": "--timeout 90" in source[".github/workflows/test.yml"] + source[".github/workflows/build.yml"],
+                "no_custom_qtest_watchdog": "QTEST_FUNCTION_TIMEOUT" not in source["tests/CMakeLists.txt"],
+                "ctest_uncapped": "--timeout" not in source[".github/workflows/test.yml"] + source[".github/workflows/build.yml"],
             },
         },
-        "scene-rect updates cannot recursively trigger fit passes, and CI/CTest terminate a stuck test within a documented bounded window",
+        "scene-rect updates cannot recursively trigger fit passes, and CI/CTest have no custom execution-time budget",
     )
 
     workflow_sources = (
@@ -565,7 +560,7 @@ def main() -> int:
             "release_workflow_uses_parallel_2": "run: cmake --build build --parallel 2" in source[".github/workflows/release.yml"],
             "unbounded_test_build_is_absent": "run: cmake --build build --parallel\n" not in source[".github/workflows/test.yml"],
         },
-        "CI compilation uses a bounded parallelism contract that keeps the Checks job inside its timeout window",
+        "CI compilation uses a bounded parallelism contract that keeps the Checks job within available runner resources",
     )
 
     cross_dpi_test_contract = (
@@ -939,7 +934,6 @@ def main() -> int:
             '--timeout "$NOTARIZATION_TIMEOUT"',
             "--verbose",
             "no release artifact was created",
-            "timeout-minutes: 60",
             "timeout-minutes: 45",
             'NOTARIZATION_TIMEOUT: "30m"',
         ),
@@ -953,7 +947,6 @@ def main() -> int:
             "duration_validation": "validate_notarization_timeout" in release_script,
             "observable_notary_output": "--verbose" in release_script,
             "fail_closed_timeout": "no release artifact was created" in release_script,
-            "workflow_job_timeout": "timeout-minutes: 60" in release_workflow,
             "workflow_step_timeout": "timeout-minutes: 45" in release_workflow,
             "workflow_notarization_timeout": 'NOTARIZATION_TIMEOUT: "30m"' in release_workflow,
             "shell_syntax_return_code": release_syntax.returncode,

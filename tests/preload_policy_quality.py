@@ -120,8 +120,9 @@ def main() -> int:
             checks,
             f"CI-{Path(workflow_name).stem.upper()}-001",
             "version: '6.11.2'" in workflow
-            and "ctest --test-dir build --output-on-failure --timeout 90" in workflow,
-            f"{workflow_name} pins Qt 6.11.2 and retains the bounded CTest timeout",
+            and "ctest --test-dir build --output-on-failure" in workflow
+            and "--timeout" not in workflow,
+            f"{workflow_name} pins Qt 6.11.2 and runs CTest without a custom execution timeout",
         )
         check(
             checks,

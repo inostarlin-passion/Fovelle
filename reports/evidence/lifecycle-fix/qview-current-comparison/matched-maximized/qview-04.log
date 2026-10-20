@@ -1,5 +1,0 @@
-Loaded translation "zh_Hans"
-FOVELLE_STARTUP phase=first-event-loop-turn
-FOVELLE_MAINWINDOW phase=menus-ready
-FOVELLE_STARTUP phase=system-probe
-FOVELLE_SYSTEM_PROBE windows=1 maximized=true visible=true

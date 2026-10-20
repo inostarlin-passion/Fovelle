@@ -1,13 +1,6 @@
 .DS_Store
 .directory
-reports/*
-!reports/root_cause.md
-!reports/technical_design_document.md
-!reports/test_case_specification.md
-!reports/test_completion_report.md
-!reports/evidence/
-reports/evidence/*
-!reports/evidence/titlebar_fullscreen/
+/reports/
 
 # C++ objects and libs
 
@@ -56,16 +49,3 @@ CMakeLists.txt.user*
 
 bin/*
 build/*
-
-!reports/evidence/update/
-
-!reports/evidence/remediation/
-
-!reports/evidence/actions-fix/
-!reports/evidence/actions-fix/**
-
-!reports/evidence/menu-lifecycle/
-!reports/evidence/menu-lifecycle/**
-
-!reports/evidence/lifecycle-fix/
-!reports/evidence/lifecycle-fix/**

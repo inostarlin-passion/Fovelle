@@ -76,6 +76,23 @@ ET.ElementTree(root).write(xml)
             self.assertIn('fixture diagnostic',(root/'FixtureSuite.log').read_text())
             self.assertEqual(json.loads((root/'FixtureSuite.json').read_text())['status'],'passed')
 
+    def test_run_suite_without_timeout_preserves_xml_validation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = self.make_stub(root)
+            env = os.environ.copy()
+            env['CI_GATE_STARTUP_DELAY'] = '0.1'
+            with patch('run_portable_hdr.subprocess.Popen', wraps=run_portable_hdr.subprocess.Popen) as launch:
+                record = run_suite(str(script), 'FixtureSuite', ['required'], env, root)
+            self.assertEqual(record['status'], 'passed')
+            self.assertEqual(record['returncode'], 0)
+            self.assertEqual(launch.call_count, 1)
+            # With no deadline, incorrect XML must still fail.
+            env['CI_GATE_STUB'] = 'silent'
+            with self.assertRaises(RuntimeError):
+                run_suite(str(script), 'FixtureSuite', ['required'], env, root)
+            self.assertEqual(json.loads((root/'FixtureSuite.json').read_text())['status'], 'failed')
+
     def test_run_suite_failure_and_timeout(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);script=self.make_stub(root)

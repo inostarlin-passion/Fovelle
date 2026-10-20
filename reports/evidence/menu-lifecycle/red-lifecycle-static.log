@@ -1,6 +1,0 @@
-PASS: audited 50 literal actions plus recent/Open With menu entries; obsolete sort actions absent; dynamic writers: ['fillwindow', 'fullscreen', 'openwith', 'openwithplaceholder', 'pause', 'slideshow', 'sortdirection', 'sortmode', 'toggletitlebar', 'windowontop']; shutdown safety preserved
-Traceback (most recent call last):
-  File "/Users/inostarlin/code/Fovelle/tests/menu_lifecycle_static.py", line 28, in <module>
-    assert 'setFullSizeContentView' not in close, 'Closing must not restyle a dying native window'
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: Closing must not restyle a dying native window

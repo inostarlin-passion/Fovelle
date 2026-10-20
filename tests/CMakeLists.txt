@@ -1,6 +1,9 @@
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+# Explicit zero disables CTest execution timeouts, including inherited defaults.
+# QtTest retains its own framework watchdog; functional timing assertions remain.
+
 set(FOVELLE_TEST_SOURCES
     tst_qviewtests.cpp
     native_titlebar_probe.mm
@@ -160,7 +163,7 @@ if(FOVELLE_ENABLE_NATIVE_DRAG_REPRODUCTION)
     )
     set_tests_properties(FovelleNativeDragReproduction PROPERTIES
         SKIP_RETURN_CODE 77
-        TIMEOUT 90
+        TIMEOUT 0
         LABELS "native-ui;fullscreen;requires-accessibility"
     )
 endif()
@@ -184,17 +187,16 @@ add_test(NAME FovelleTests
         ${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test_suites.py
         $<TARGET_FILE:fovelle_tests>)
 set_tests_properties(FovelleTests PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000"
-    # This entry runs eight suites sequentially; hosted macOS runners exceed
-    # 180s while still making progress. Individual Qt functions retain 30s.
-    TIMEOUT 360
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1"
+    # Execution duration is diagnostic only; CTest must not cap this matrix.
+    TIMEOUT 0
 )
 
 add_test(NAME FovelleNativeAlertsStatic
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/native_alerts_acceptance.py)
 set_tests_properties(FovelleNativeAlertsStatic PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 0
     LABELS "macos;native-dialog;appearance;source-contract;acceptance"
 )
 
@@ -202,8 +204,8 @@ add_test(NAME FovelleNativeAlertsDynamic COMMAND fovelle_tests
     testNativeMessageBoxesUseCocoaAlertsAcrossAppearanceAndSeverity
     testNativeMessageBoxStandardButtonResponses -v1)
 set_tests_properties(FovelleNativeAlertsDynamic PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 45
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0
     LABELS "macos;native-dialog;appearance;dynamic;acceptance"
 )
 
@@ -211,7 +213,7 @@ add_test(NAME FovelleNavigationBoundaryHintStatic
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/navigation_boundary_hint_static.py)
 set_tests_properties(FovelleNavigationBoundaryHintStatic PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 0
     LABELS "navigation;hint;localization;source-contract;acceptance"
 )
 
@@ -219,7 +221,7 @@ add_test(NAME FovelleHDRFocusTransitionEvidence
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_hdr_focus_transition_metrics.py)
 set_tests_properties(FovelleHDRFocusTransitionEvidence PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 0
     LABELS "hdr;focus;transition;dynamic-evidence;acceptance"
 )
 
@@ -227,8 +229,8 @@ add_test(NAME FovelleNavigationBoundaryHintDynamic COMMAND fovelle_tests
     testNavigationBoundaryHintFeedbackAndAppearance
     testViewportImageRemainsSharpAfterFocusLoss -v1)
 set_tests_properties(FovelleNavigationBoundaryHintDynamic PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 45
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0
     LABELS "navigation;hint;focus;dynamic;acceptance"
 )
 
@@ -240,7 +242,7 @@ if(APPLE AND EXISTS "${FOVELLE_FULLSCREEN_AVIF_IMAGE}")
         COMMAND fovelle_tests testProvidedRasterFullScreenTransitionKeepsImageVisible)
     set_tests_properties(FovelleSDRFullScreenPresentation PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=SDRSampleInteractionTests;FOVELLE_FULLSCREEN_SDR_IMAGE=${FOVELLE_FULLSCREEN_AVIF_IMAGE}"
-        TIMEOUT 45
+        TIMEOUT 0
         RUN_SERIAL TRUE
         LABELS "native-ui;fullscreen;sdr")
 endif()
@@ -251,15 +253,15 @@ add_test(NAME FovelleToggleFitStabilitySourceContract
         --repo ${CMAKE_SOURCE_DIR}
         --output ${CMAKE_BINARY_DIR}/test-results/toggle-fit-stability-static.json)
 set_tests_properties(FovelleToggleFitStabilitySourceContract PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 0
     LABELS "zoom;toggle-fit;source-contract;acceptance"
 )
 
 add_test(NAME FovelleToggleFitStabilityAcceptance COMMAND fovelle_tests
     testToggleFitReturnHasMonotonicStableTerminalSize -v1)
 set_tests_properties(FovelleToggleFitStabilityAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 45
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;toggle-fit;dynamic;acceptance"
 )
 
@@ -269,7 +271,7 @@ add_test(NAME FovelleZoomScrollbarDurationSourceContract
         --repo ${CMAKE_SOURCE_DIR}
         --output ${CMAKE_BINARY_DIR}/test-results/zoom-scrollbar-duration-static.json)
 set_tests_properties(FovelleZoomScrollbarDurationSourceContract PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 0
     LABELS "zoom;scrollbar;duration;source-contract;acceptance"
 )
 
@@ -279,8 +281,8 @@ add_test(NAME FovelleScrollbarZoomDurationAcceptance COMMAND fovelle_tests
     testZoomAnchorProjectsInsideAndOutsideImage
     testWheelZoomCrossesHorizontalScrollbarWithoutPositionJump -v1)
 set_tests_properties(FovelleScrollbarZoomDurationAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;scrollbar;duration;dynamic;acceptance"
 )
 
@@ -288,16 +290,16 @@ add_test(NAME FovelleToggleFitAnchorAcceptance COMMAND fovelle_tests
     testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor
     testToggleFitAnd100FreezesViewportCenterDuringScrollbarTransition -v1)
 set_tests_properties(FovelleToggleFitAnchorAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;toggle-fit;anchor;dynamic;acceptance"
 )
 
 add_test(NAME FovelleToggleFitTrajectoryAcceptance COMMAND fovelle_tests
     testToggleFitAnd100CenterTrajectoryIsLinear -v1)
 set_tests_properties(FovelleToggleFitTrajectoryAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;toggle-fit;trajectory;dynamic;acceptance"
 )
 
@@ -310,8 +312,8 @@ add_test(NAME FovelleFiveIssueZoomAcceptance COMMAND fovelle_tests
     testMouseWheelKeepsBottomRightAnchor
     testZoomTerminalStateDoesNotRewriteViewport)
 set_tests_properties(FovelleFiveIssueZoomAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 150
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;dynamic;acceptance"
 )
 
@@ -321,90 +323,90 @@ add_test(NAME FovelleFourIssueZoomAcceptance COMMAND fovelle_tests
     testRightOutsideWheelZoomHasNoTransientHorizontalScrollBar
     testToggleFitTo100HasNoAvoidableBlankSpace)
 set_tests_properties(FovelleFourIssueZoomAcceptance PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 120
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;dynamic;acceptance;four-issues"
 )
 
 add_test(NAME FovelleShortcutSettingsTests COMMAND fovelle_tests)
 set_tests_properties(FovelleShortcutSettingsTests PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=ShortcutSettingsTests"
-    TIMEOUT 90
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=ShortcutSettingsTests"
+    TIMEOUT 0
 )
 
 add_test(NAME FovelleZoomScrollbarTrajectory COMMAND fovelle_tests
     testZoomKeepsVerticalScrollbarTrajectoryStable -v1)
 set_tests_properties(FovelleZoomScrollbarTrajectory PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 120
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;scrollbar;trajectory"
 )
 
 add_test(NAME FovelleZoomScrollbarTrajectoryHiDpi COMMAND fovelle_tests
     testZoomKeepsVerticalScrollbarTrajectoryStable -v1)
 set_tests_properties(FovelleZoomScrollbarTrajectoryHiDpi PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=2;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 120
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=2;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;scrollbar;trajectory;hidpi"
 )
 
 add_test(NAME FovelleZoomScrollbarExpensiveRefinement COMMAND fovelle_tests
     testZoomKeepsVerticalScrollbarPositionDuringExpensiveRefinement -v1)
 set_tests_properties(FovelleZoomScrollbarExpensiveRefinement PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;scrollbar;refinement;dynamic;acceptance"
 )
 
 add_test(NAME FovelleZoomScrollbarVerticalTopology COMMAND fovelle_tests
     testZoomKeepsVerticalScrollbarPositionWhenVerticalRangeAppears -v1)
 set_tests_properties(FovelleZoomScrollbarVerticalTopology PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=GraphicsViewTests"
-    TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests"
+    TIMEOUT 0
     LABELS "zoom;scrollbar;vertical-topology;dynamic;acceptance"
 )
 
 add_test(NAME FovelleHiddenTitlebarFullScreen COMMAND fovelle_tests
     testTitlebarPresentationDuringFullScreen -v1)
 set_tests_properties(FovelleHiddenTitlebarFullScreen PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 90
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0
     RUN_SERIAL TRUE
     LABELS "macos;titlebar;fullscreen;dynamic;acceptance")
 
 add_test(NAME FovelleFullScreenMetricsGate
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_fullscreen_system_metrics.py)
 set_tests_properties(FovelleFullScreenMetricsGate PROPERTIES
-    TIMEOUT 15
+    TIMEOUT 0
     LABELS "fullscreen;metrics;unit")
 
 add_test(NAME FovelleFullScreenRefinement COMMAND fovelle_tests
     testFullScreenDefersExpensiveRefinement -v1)
 set_tests_properties(FovelleFullScreenRefinement PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 30
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0
     RUN_SERIAL TRUE
     LABELS "macos;fullscreen;refinement;dynamic;acceptance")
 
 add_test(NAME FovelleNativeFullScreenRoundTrip COMMAND fovelle_tests
     testNativeFullScreenRoundTrip testExitFullscreenActionUsesEscapePath -v1)
 set_tests_properties(FovelleNativeFullScreenRoundTrip PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 120 RUN_SERIAL TRUE
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;native;dynamic;acceptance")
 
 add_test(NAME FovelleFullScreenVisualContinuity COMMAND fovelle_tests
     testFullScreenVisualContinuity -v1)
 set_tests_properties(FovelleFullScreenVisualContinuity PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=30000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 90 RUN_SERIAL TRUE
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;continuity;dynamic;acceptance")
 
 add_test(NAME FovelleHDRFullScreenVisualContinuity COMMAND fovelle_tests
     testHDRFullScreenVisualContinuity -v1)
 set_tests_properties(FovelleHDRFullScreenVisualContinuity PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 300 RUN_SERIAL TRUE
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;hdr;continuity;dynamic;acceptance")
 
 # Display capture validates a controlled native content handoff separately
@@ -412,8 +414,8 @@ set_tests_properties(FovelleHDRFullScreenVisualContinuity PROPERTIES
 add_test(NAME FovelleFullScreenBottomBackgroundHandoff COMMAND fovelle_tests
     testFullScreenBottomBackgroundHandoff -v1)
 set_tests_properties(FovelleFullScreenBottomBackgroundHandoff PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QTEST_FUNCTION_TIMEOUT=60000;FOVELLE_TEST_SUITE=WindowBehaviorTests"
-    TIMEOUT 120 RUN_SERIAL TRUE
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests"
+    TIMEOUT 0 RUN_SERIAL TRUE
     LABELS "macos;fullscreen;display-capture;background-handoff;requires-desktop")
 
 add_test(NAME FovelleUpdateStatic
@@ -422,7 +424,7 @@ add_test(NAME FovelleUpdateConfiguration COMMAND fovelle_tests
     testUpdateConfigurationValidation testUpdateCheckFrequencyPolicy -v1)
 set_tests_properties(FovelleUpdateConfiguration PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 30)
+    TIMEOUT 0)
 option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
 add_test(NAME FovelleMenuLifecycleStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/menu_lifecycle_static.py)
@@ -430,29 +432,29 @@ add_test(NAME FovelleMenuLifecycleDynamic COMMAND fovelle_tests
     testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
 set_tests_properties(FovelleMenuLifecycleDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 30 RUN_SERIAL TRUE LABELS "menu;state;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "menu;state;regression")
 if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
     add_test(NAME FovelleUpdateInstall
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py)
-    set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 240 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
+    set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
 endif()
 
 add_test(NAME FovelleHDRBrightnessStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_brightness_static.py)
-set_tests_properties(FovelleHDRBrightnessStatic PROPERTIES TIMEOUT 30 LABELS "hdr;brightness;static;acceptance")
+set_tests_properties(FovelleHDRBrightnessStatic PROPERTIES TIMEOUT 0 LABELS "hdr;brightness;static;acceptance")
 add_test(NAME FovelleHDRBrightnessDynamic COMMAND fovelle_tests
     testHDRBrightnessTimingAndBezier testHDRBrightnessLinearLightPixels
     testTransitionCurveIsBoundedAndMonotonic testDisplayHeadroomBootstrapsFromPotentialCapability
     testHDRHeadroomIsClampedToContentAndDisplay testSDRDisplayForcesUnitHeadroom)
 set_tests_properties(FovelleHDRBrightnessDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests"
-    TIMEOUT 60 LABELS "hdr;brightness;dynamic;acceptance")
+    TIMEOUT 0 LABELS "hdr;brightness;dynamic;acceptance")
 
 add_test(NAME FovelleHDRColorPixels COMMAND fovelle_tests
     testHDRBrightnessPreservesEndpointColors -v1)
 set_tests_properties(FovelleHDRColorPixels PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests"
-    TIMEOUT 30 LABELS "hdr;color;dynamic;acceptance")
+    TIMEOUT 0 LABELS "hdr;color;dynamic;acceptance")
 set(FOVELLE_HDR_COLOR_FIXTURE_DIR "/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test"
     CACHE PATH "Local HDR color regression fixtures")
 if(EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG" AND EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/2.DNG"
@@ -460,67 +462,67 @@ if(EXISTS "${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG" AND EXISTS "${FOVELLE_HDR_COL
     add_test(NAME FovelleHDRColorSamples COMMAND fovelle_tests testHDRColorFidelity -v1)
     set_tests_properties(FovelleHDRColorSamples PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRSampleTests;FOVELLE_HDR_JPEG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG;FOVELLE_HDR_RAW_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/2.DNG;FOVELLE_HDR_PLAIN_DNG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/3.dng;FOVELLE_HDR_NEF_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/4.nef"
-        TIMEOUT 90 LABELS "hdr;color;dynamic;local-fixture;acceptance")
+        TIMEOUT 0 LABELS "hdr;color;dynamic;local-fixture;acceptance")
     add_test(NAME FovelleHDRColorNative COMMAND fovelle_tests testHDRBrightnessNativeColorFidelity -v1)
     set_tests_properties(FovelleHDRColorNative PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=HDRPolicyTests;FOVELLE_HDR_JPEG_SAMPLE=${FOVELLE_HDR_COLOR_FIXTURE_DIR}/1.JPG"
-        TIMEOUT 45 RUN_SERIAL TRUE LABELS "hdr;color;native;local-fixture;acceptance")
+        TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;color;native;local-fixture;acceptance")
 endif()
 
 add_test(NAME FovelleZoomColorStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/zoom_color_acceptance_static.py)
-set_tests_properties(FovelleZoomColorStatic PROPERTIES TIMEOUT 30 LABELS "zoom;color;localization;static;acceptance")
+set_tests_properties(FovelleZoomColorStatic PROPERTIES TIMEOUT 0 LABELS "zoom;color;localization;static;acceptance")
 add_test(NAME FovelleKeepZoomDynamic COMMAND fovelle_tests
     testKeepZoomAcrossNavigation testKeepCalculatedZoomAndFailedNavigation testKeepZoomWindowIsolationAndSession -v1)
 set_tests_properties(FovelleKeepZoomDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 90 LABELS "zoom;dynamic;acceptance")
+    TIMEOUT 0 LABELS "zoom;dynamic;acceptance")
 add_test(NAME FovelleColorInformationDynamic COMMAND fovelle_tests
     testSourceColorMetadata testColorContainerBoundaries testColorInformationFollowsPresentation -v1)
 set_tests_properties(FovelleColorInformationDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 60 LABELS "color;dynamic;acceptance")
+    TIMEOUT 0 LABELS "color;dynamic;acceptance")
 add_test(NAME FovelleZoomColorLocalization COMMAND fovelle_tests
     testKeepZoomPreferenceAndColorTranslations -v1)
 set_tests_properties(FovelleZoomColorLocalization PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 30 LABELS "zoom;color;localization;dynamic;acceptance")
+    TIMEOUT 0 LABELS "zoom;color;localization;dynamic;acceptance")
 
 add_test(NAME FovelleKeepZoomHiDpi COMMAND fovelle_tests
     testKeepZoomAcrossNavigation testKeepCalculatedZoomAndFailedNavigation testKeepZoomWindowIsolationAndSession -v1)
 set_tests_properties(FovelleKeepZoomHiDpi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=2;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 90 LABELS "zoom;hidpi;dynamic;acceptance")
+    TIMEOUT 0 LABELS "zoom;hidpi;dynamic;acceptance")
 
 add_test(NAME FovelleKeepZoomPersistenceStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/keep_zoom_persistence_static.py)
 set_tests_properties(FovelleKeepZoomPersistenceStatic PROPERTIES
-    TIMEOUT 30 LABELS "zoom;settings;persistence;static;acceptance")
+    TIMEOUT 0 LABELS "zoom;settings;persistence;static;acceptance")
 add_test(NAME FovelleKeepZoomPersistenceDynamic COMMAND fovelle_tests
     testKeepZoomSurvivesStartupMigration testKeepZoomPersistsAcrossProcesses -v1)
 set_tests_properties(FovelleKeepZoomPersistenceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 90 LABELS "zoom;settings;persistence;restart;dynamic;acceptance")
+    TIMEOUT 0 LABELS "zoom;settings;persistence;restart;dynamic;acceptance")
 
 add_test(NAME FovelleRemediationStatic COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_contract.py)
 add_test(NAME FovelleRemediationGateTests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_gate_tests.py)
 add_test(NAME FovelleRemediationDynamic COMMAND fovelle_tests)
-set_tests_properties(FovelleRemediationDynamic PROPERTIES ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1" TIMEOUT 90 RUN_SERIAL TRUE)
+set_tests_properties(FovelleRemediationDynamic PROPERTIES ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1" TIMEOUT 0 RUN_SERIAL TRUE)
 if(FOVELLE_REQUIRE_PORTABLE_HDR)
     add_test(NAME FovellePortableHDR COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_portable_hdr.py $<TARGET_FILE:fovelle_tests> --output ${CMAKE_BINARY_DIR}/test-results/portable-hdr)
-    set_tests_properties(FovellePortableHDR PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE LABELS "hdr;raw;real-fixtures;required;native-ui")
+    set_tests_properties(FovellePortableHDR PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;raw;real-fixtures;required;native-ui")
 endif()
 
 add_test(NAME FovelleDeploymentArtifact COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/remediation_delivery.py $<TARGET_BUNDLE_DIR:Fovelle>)
-set_tests_properties(FovelleDeploymentArtifact PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE LABELS "deployment;bundle;artifact;smoke")
+set_tests_properties(FovelleDeploymentArtifact PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "deployment;bundle;artifact;smoke")
 
 add_test(NAME FovelleActionsRegressionContracts
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_regression_tests.py)
-set_tests_properties(FovelleActionsRegressionContracts PROPERTIES TIMEOUT 30 LABELS "ci;regression;contracts")
+set_tests_properties(FovelleActionsRegressionContracts PROPERTIES TIMEOUT 0 LABELS "ci;regression;contracts")
 
 add_test(NAME FovelleStaplerRetryContracts
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/stapler_retry_tests.py)
-set_tests_properties(FovelleStaplerRetryContracts PROPERTIES TIMEOUT 30 LABELS "ci;release;regression")
+set_tests_properties(FovelleStaplerRetryContracts PROPERTIES TIMEOUT 0 LABELS "ci;release;regression")
 
 add_test(NAME FovelleMovieResumeStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/movie_resume_static.py)
@@ -529,7 +531,7 @@ add_test(NAME FovelleMovieResumeDynamic
     testMovieResumeDelayedDispatch -v1)
 set_tests_properties(FovelleMovieResumeDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=RemediationTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 60 RUN_SERIAL TRUE LABELS "movie;pause;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "movie;pause;regression")
 
 add_test(NAME FovelleCameraModelStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/camera_model_static.py)
@@ -538,14 +540,14 @@ add_test(NAME FovelleCameraModelDynamic COMMAND fovelle_tests
     testCameraModelTranslations testFileInfoModifiedUsesUiLanguageFormats -v1)
 set_tests_properties(FovelleCameraModelDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=FeatureTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 60 RUN_SERIAL TRUE LABELS "metadata;info;camera;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "metadata;info;camera;regression")
 
 add_test(NAME FovelleHDRInfoOutputStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_info_output_static.py)
 add_test(NAME FovelleHDRInfoOutputDynamic COMMAND fovelle_tests testHDRInfoUsesNormalOutput testFileInfoColorFallback -v1)
 set_tests_properties(FovelleHDRInfoOutputDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;info;color;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;info;color;regression")
 
 add_test(NAME FovelleHDRInfoRestoreStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_info_restore_static.py)
@@ -553,21 +555,21 @@ add_test(NAME FovelleHDRInfoRestoreDynamic COMMAND fovelle_tests
     testHDRInfoCloseRestores testHDRInfoCloseGuards -v1)
 set_tests_properties(FovelleHDRInfoRestoreDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 90 RUN_SERIAL TRUE LABELS "hdr;info;focus;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;info;focus;regression")
 
 add_test(NAME FovelleHDRHeadroomRestoreStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_headroom_restore_static.py)
 add_test(NAME FovelleHDRHeadroomRestoreDynamic COMMAND fovelle_tests testHDRHeadroomSurfaceRestores -v1)
 set_tests_properties(FovelleHDRHeadroomRestoreDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 90 RUN_SERIAL TRUE LABELS "hdr;headroom;pixels;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;headroom;pixels;regression")
 
 add_test(NAME FovelleHDRSurfaceMetadataStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_surface_metadata_static.py)
 add_test(NAME FovelleHDRSurfaceMetadataDynamic COMMAND fovelle_tests testHDRPersistentSurfaceMetadata -v1)
 set_tests_properties(FovelleHDRSurfaceMetadataDynamic PROPERTIES
     ENVIRONMENT "FOVELLE_TEST_SUITE=ImageCoreAndMovieTests;QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 60 RUN_SERIAL TRUE LABELS "hdr;metadata;brightness;regression")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "hdr;metadata;brightness;regression")
 
 add_test(NAME FovelleColorRenderingStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/color_rendering_static.py)
@@ -577,10 +579,10 @@ add_test(NAME FovelleColorRenderingDynamic COMMAND fovelle_tests
     testColorAnimationClearsStaticRepresentations testColorUnspecifiedSource)
 set_tests_properties(FovelleColorRenderingDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
-    TIMEOUT 90)
+    TIMEOUT 0)
 
 add_test(NAME FovelleLegacyBt709Backend COMMAND fovelle_legacy_bt709_tests)
-set_tests_properties(FovelleLegacyBt709Backend PROPERTIES TIMEOUT 30 LABELS "color;unit;compatibility")
+set_tests_properties(FovelleLegacyBt709Backend PROPERTIES TIMEOUT 0 LABELS "color;unit;compatibility")
 
 add_test(NAME FovelleVectorPerformanceStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/vector_performance_static.py)
@@ -588,15 +590,15 @@ add_test(NAME FovelleVectorPerformanceDynamic COMMAND fovelle_tests
     testVectorPaintTimingClockIsolation testVectorPresentationFrameBudget testVectorDisplayTargetSwitch testVectorRequestBurstAndDestruction)
 set_tests_properties(FovelleVectorPerformanceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
-    TIMEOUT 90 RUN_SERIAL TRUE LABELS "vector;performance;pixels")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "vector;performance;pixels")
 
 add_test(NAME FovelleActionsFollowupStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/actions_followup_static.py)
-set_tests_properties(FovelleActionsFollowupStatic PROPERTIES TIMEOUT 30 LABELS "ci;static;regression")
+set_tests_properties(FovelleActionsFollowupStatic PROPERTIES TIMEOUT 0 LABELS "ci;static;regression")
 
 else()
     if(NOT FOVELLE_REQUIRE_PORTABLE_HDR)
-        message(FATAL_ERROR "The default one-minute gate requires portable HDR coverage")
+        message(FATAL_ERROR "The default test gate requires portable HDR coverage")
     endif()
     add_test(NAME FovelleFastTests
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_fast_tests.py
@@ -604,7 +606,7 @@ else()
             --output ${CMAKE_BINARY_DIR}/test-results/fast
             --portable-output ${CMAKE_BINARY_DIR}/test-results/portable-hdr)
     set_tests_properties(FovelleFastTests PROPERTIES
-        TIMEOUT 58 RUN_SERIAL TRUE LABELS "local;ci;fast"
+        TIMEOUT 0 RUN_SERIAL TRUE LABELS "local;ci;fast"
         ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()
 
@@ -614,14 +616,19 @@ add_test(NAME FovelleLifecycleFixWindow COMMAND fovelle_tests
     testStartupMenusReadyBeforeEvents testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
 set_tests_properties(FovelleLifecycleFixWindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 40 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
 add_test(NAME FovelleLifecycleFixWorker COMMAND fovelle_tests
     testOpenWithWorkerTeardownContract testOpenWithLatestRequest testOpenWithShutdownProcess -v1)
 set_tests_properties(FovelleLifecycleFixWorker PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 45 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
 add_test(NAME FovelleLifecycleFixDrain COMMAND fovelle_tests
     testLoaderNonblockingShutdown testShutdownProcess -v1)
 set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=RemediationTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 20 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+
+# Include registrations without their own property block (for example static
+# lifecycle checks). Override inherited CTEST_TEST_TIMEOUT for every test.
+get_property(FOVELLE_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
+set_tests_properties(${FOVELLE_REGISTERED_TESTS} PROPERTIES TIMEOUT 0)

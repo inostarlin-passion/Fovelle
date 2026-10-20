@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "budget_seconds": 55,
   "static": [
     {
       "script": "native_alerts_acceptance.py",
