@@ -171,6 +171,16 @@ class RunnerPolicyTests(unittest.TestCase):
             if 'package-macos-release.sh' in step.get('run', '') or step.get('uses', '').startswith('softprops/'):
                 self.assertEqual(step.get('if'), "github.event_name == 'push'")
 
+    def test_macos15_capture_environment_is_prepared_before_tests(self):
+        for file, (job_name, _) in MAC_JOBS.items():
+            job = self.workflows[file]['jobs'][job_name]
+            if job['runs-on'] != 'macos-15':
+                continue
+            commands = '\n'.join(s.get('run', '') for s in job['steps'])
+            self.assertIn('defaults write com.apple.dock autohide -bool true', commands)
+            self.assertLess(commands.index('defaults write com.apple.dock orientation -string left'),
+                            commands.index('ctest --test-dir build'))
+
     def test_wrong_runner_labels_are_rejected(self):
         for file, (job, _) in MAC_JOBS.items():
             for label in ['macos-26-intel', 'macos-15-intel', 'macos-latest', 'macos-26-large', ['self-hosted', 'macOS']]:

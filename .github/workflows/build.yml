@@ -91,6 +91,14 @@ jobs:
       - name: Verify fixed adjacent preload policy
         run: python3 tests/preload_policy_quality.py
 
+      # Match the existing macOS 15 capture setup: the Dock shadow must not
+      # overlap the bottom strip used by the fullscreen image oracle.
+      - name: Move Dock away from bottom display capture tests
+        run: |
+          defaults write com.apple.dock orientation -string left
+          defaults write com.apple.dock autohide -bool true
+          killall Dock || true
+
       - name: Test
         env:
           FOVELLE_TEST_PROFILE: ci
