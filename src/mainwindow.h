@@ -253,6 +253,12 @@ private:
     void syncNavigationBoundaryHintOverlay();
 
     void ensureMenus();
+    void syncMenuState();
+    void syncTitlebarAction();
+    void syncSlideshowAction();
+    void syncWindowOnTopAction();
+    void syncFullscreenAction();
+    void syncStatefulAction(const QString &key, const QString &text, Qv::MaterialIcon icon);
 
     void clearTitlebarIcons();
 

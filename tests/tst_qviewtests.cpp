@@ -428,6 +428,10 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testLateMenuState_data();
+    void testLateMenuState();
+    void testLateFullscreenMenu();
+    void testLatePauseMenu();
     void testFullscreenDefaultShortcutIsEnterAndConfigurable();
     void testEnterDoesNotBypassClearedFullscreenShortcut();
     void testConfiguredFullscreenShortcutStillWorks();
@@ -17087,3 +17091,5 @@ int main(int argc, char *argv[])
 #include "tst_qviewtests.moc"
         // The synchronous commit has no intermediate animation timeline.
         // Its observable terminal state was validated immediately above.
+
+#include "menu_lifecycle_acceptance.inc"

@@ -424,6 +424,13 @@ set_tests_properties(FovelleUpdateConfiguration PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 30)
 option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
+add_test(NAME FovelleMenuLifecycleStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/menu_lifecycle_static.py)
+add_test(NAME FovelleMenuLifecycleDynamic COMMAND fovelle_tests
+    testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
+set_tests_properties(FovelleMenuLifecycleDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 30 RUN_SERIAL TRUE LABELS "menu;state;regression")
 if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
     add_test(NAME FovelleUpdateInstall
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py)

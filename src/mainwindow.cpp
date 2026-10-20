@@ -306,6 +306,11 @@ MainWindow::MainWindow(QWidget *parent,
     setWindowIcon(QIcon());
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_OpaquePaintEvent);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    // Configure the final native style before creating/showing the peer,
+    // avoiding a style-mask and frame update on the first event-loop turn.
+    setWindowFlag(Qt::ExpandedClientAreaHint, true);
+#endif
 
     // Allow the titlebar to overlap widgets with full size content view
     setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
@@ -605,10 +610,9 @@ void MainWindow::ensureMenus()
     if (menusInitialized || isClosing || qvApp->getIsApplicationQuitting())
         return;
 
-    // Materialize the AppKit application menu after the first window has
-    // reached the event loop. Direct callers/tests may still request it
-    // synchronously through QVApplication::getMenuBar().
-    qvApp->getMenuBar();
+    // A visible window supplies its own native menu bar. The fallback
+    // application bar remains lazy via QVApplication::getMenuBar(); creating
+    // both trees here duplicates launch work and subsequent teardown.
     auto &actionManager = qvApp->getActionManager();
 
     mainMenuBar = actionManager.buildMenuBar(this);
@@ -637,12 +641,69 @@ void MainWindow::ensureMenus()
             });
 
     menusInitialized = true;
-    disableActions();
-    syncCalculatedZoomMode();
-    syncSortParameters();
+    syncMenuState();
 
     if (qEnvironmentVariableIsSet("FOVELLE_STARTUP_PERF"))
         qInfo().noquote() << "FOVELLE_MAINWINDOW phase=menus-ready";
+}
+
+void MainWindow::syncStatefulAction(const QString &key, const QString &text,
+                                   const Qv::MaterialIcon icon)
+{
+    const auto actions = qvApp->getActionManager().getAllClonesOfAction(key, this);
+    for (auto *action : actions)
+    {
+        action->setText(text);
+        const auto *menu = qobject_cast<const QMenu *>(action->parent());
+        const bool context = menu && menu->property("isContextMenu").toBool();
+        const bool showIcon = context ? qvApp->getShowContextMenuIcons()
+                                      : qvApp->getShowMainMenuIcons();
+        action->setIcon(showIcon ? qvApp->iconFromFont(icon) : QIcon());
+        action->setIconVisibleInMenu(showIcon);
+    }
+}
+
+void MainWindow::syncFullscreenAction()
+{
+    const bool fullscreen = isFullScreen();
+    syncStatefulAction("fullscreen", fullscreen ? tr("Exit F&ull Screen") : tr("Enter F&ull Screen"),
+                       fullscreen ? Qv::MaterialIcon::FullscreenExit : Qv::MaterialIcon::Fullscreen);
+}
+
+void MainWindow::syncTitlebarAction()
+{
+    const auto actions = qvApp->getActionManager().getAllClonesOfAction("toggletitlebar", this);
+    const QString text = getTitlebarHidden() ? tr("Show Title&bar") : tr("Hide Title&bar");
+    for (auto *action : actions)
+        action->setText(text);
+}
+
+void MainWindow::syncSlideshowAction()
+{
+    const bool running = slideshowTimer->isActive();
+    syncStatefulAction("slideshow", running ? tr("Stop S&lideshow") : tr("Start S&lideshow"),
+                       running ? Qv::MaterialIcon::CancelPresentation : Qv::MaterialIcon::Slideshow);
+}
+
+void MainWindow::syncWindowOnTopAction()
+{
+    const bool onTop = getWindowOnTop();
+    for (auto *action : qvApp->getActionManager().getAllClonesOfAction("windowontop", this))
+        action->setChecked(onTop);
+}
+
+void MainWindow::syncMenuState()
+{
+    // A menu can be created after any state transition. Reconcile from the
+    // owner, never from the global action templates shared by other windows.
+    disableActions();
+    syncCalculatedZoomMode();
+    syncSortParameters();
+    syncTitlebarAction();
+    syncFullscreenAction();
+    pauseChanged();
+    syncSlideshowAction();
+    syncWindowOnTopAction();
 }
 
 bool MainWindow::event(QEvent *event)
@@ -1202,9 +1263,7 @@ void MainWindow::ensureContextMenu()
     // The menu may be created after a file has already loaded. Bring its
     // freshly cloned actions to the same state as the always-present window
     // actions before the first Cocoa menu tracking pass.
-    disableActions();
-    syncCalculatedZoomMode();
-    syncSortParameters();
+    syncMenuState();
 }
 
 void MainWindow::ensureInfoDialog()
@@ -1297,7 +1356,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     isClosing = true;
     hideNavigationButtonsImmediately();
 
-    QVCocoaFunctions::setFullSizeContentView(this, false);
+    // Keep the native style until destruction. Restyling a closing window
+    // performs an unnecessary frame/layout transaction during quit.
 
     if (qvApp->getIsSessionStateSaveRequested())
         qvApp->addClosedWindowSessionState(getSessionState(), getLastActivatedTimestamp());
@@ -1428,22 +1488,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
 void MainWindow::fullscreenChanged()
 {
-    const bool isFullscreen = windowState().testFlag(Qt::WindowFullScreen);
-
-    const auto fullscreenActions = qvApp->getActionManager().getAllClonesOfAction("fullscreen", this);
-    for (const auto &fullscreenAction : fullscreenActions)
-    {
-        fullscreenAction->setText(isFullscreen ? tr("Exit F&ull Screen") : tr("Enter F&ull Screen"));
-        const auto *menu = qobject_cast<const QMenu *>(fullscreenAction->parent());
-        const bool isContextMenu = menu && menu->property("isContextMenu").toBool();
-        const bool showIcon = isContextMenu
-                ? qvApp->getShowContextMenuIcons()
-                : qvApp->getShowMainMenuIcons();
-        fullscreenAction->setIcon(showIcon
-                ? qvApp->iconFromFont(isFullscreen ? Qv::MaterialIcon::FullscreenExit : Qv::MaterialIcon::Fullscreen)
-                : QIcon());
-        fullscreenAction->setIconVisibleInMenu(showIcon);
-    }
+    syncFullscreenAction();
 
     // The former "Show titlebar text in full screen" preference was removed;
     // fullscreen titlebar details are now always hidden.
@@ -1491,12 +1536,8 @@ void MainWindow::pauseChanged()
 {
     const bool isPaused = getIsMovieLoaded() && graphicsView->getLoadedMovie().state() != QVMovie::Running;
 
-    const auto pauseActions = qvApp->getActionManager().getAllClonesOfAction("pause", this);
-    for (const auto &pauseAction : pauseActions)
-    {
-        pauseAction->setText(isPaused ? tr("Res&ume") : tr("Pa&use"));
-        pauseAction->setIcon(qvApp->iconFromFont(isPaused ? Qv::MaterialIcon::PlayArrow : Qv::MaterialIcon::Pause));
-    }
+    syncStatefulAction("pause", isPaused ? tr("Res&ume") : tr("Pa&use"),
+                       isPaused ? Qv::MaterialIcon::PlayArrow : Qv::MaterialIcon::Pause);
 }
 
 void MainWindow::openFile(const QString &fileName, const QString &baseDir)
@@ -1888,11 +1929,7 @@ void MainWindow::setTitlebarHidden(const bool shouldHide, const bool persistPref
         settings.sync();
     }
 
-    const auto toggleTitlebarActions = qvApp->getActionManager().getAllClonesOfAction("toggletitlebar", this);
-    for (const auto &toggleTitlebarAction : toggleTitlebarActions)
-    {
-        toggleTitlebarAction->setText(shouldHide ? tr("Show Title&bar") : tr("Hide Title&bar"));
-    }
+    syncTitlebarAction();
 
     clearTitlebarIcons();
     updateMenuBarVisible();
@@ -2506,12 +2543,7 @@ void MainWindow::toggleSlideshow()
         slideshowTimer->start();
     else
         slideshowTimer->stop();
-    const auto slideshowActions = qvApp->getActionManager().getAllClonesOfAction("slideshow", this);
-    for (const auto &slideshowAction : slideshowActions)
-    {
-        slideshowAction->setText(isStarting ? tr("Stop S&lideshow") : tr("Start S&lideshow"));
-        slideshowAction->setIcon(qvApp->iconFromFont(isStarting ? Qv::MaterialIcon::CancelPresentation : Qv::MaterialIcon::Slideshow));
-    }
+    syncSlideshowAction();
 }
 
 void MainWindow::cancelSlideshow()
@@ -2611,8 +2643,7 @@ void MainWindow::toggleWindowOnTop()
     if (info && info->windowHandle())
         Qv::alterWindowFlags(info, [&](Qt::WindowFlags f) { return f.setFlag(Qt::WindowStaysOnTopHint, targetValue); });
 
-    for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("windowontop", this))
-        action->setChecked(targetValue);
+    syncWindowOnTopAction();
 
     // Make sure window still participates in Mission Control
     QVCocoaFunctions::setWindowCollectionBehaviorManaged(this);

@@ -1,0 +1,12 @@
+Test project /Users/inostarlin/code/Fovelle/build
+    Start 1: FovelleFastTests
+1/1 Test #1: FovelleFastTests .................   Passed   29.84 sec
+
+100% tests passed out of 1
+
+Label Time Summary:
+ci       =  29.84 sec*proc (1 test)
+fast     =  29.84 sec*proc (1 test)
+local    =  29.84 sec*proc (1 test)
+
+Total Test time (real) =  29.84 sec

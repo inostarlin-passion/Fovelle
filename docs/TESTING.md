@@ -111,3 +111,20 @@ the extended gate. The default HDR continuity rows still exercise native
 enter/exit transitions, including pixel, size and position checks. This leaves
 room for cold RAW decoder startup and hosted scheduling variance within the
 shared budget.
+
+Menu state regressions are part of the default gate. For an isolated run:
+
+```sh
+FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 build/tests/fovelle_tests testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1
+python3 tests/menu_lifecycle_static.py
+```
+
+`tests/lifecycle_benchmark.py BASELINE_EXECUTABLE CANDIDATE_EXECUTABLE --output DIRECTORY`
+compares real Cocoa processes, warming both builds once and alternating ten
+measured pairs. Freeze a baseline from the original Release build before
+rebuilding the candidate, keeping each executable's bundle resources/frameworks
+available. The comparison includes process startup through event-loop and menu
+readiness, and pre-quit through complete process termination. Both median
+reductions must reach 50%; a missed target returns 1 and retains all observations.
+Run this separately from GUI regressions or builds to avoid competing work.
+The default correctness gate does not imply that this performance target passed.

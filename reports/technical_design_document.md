@@ -1,34 +1,42 @@
-# 三分钟默认测试入口设计
+# 菜单状态与生命周期性能设计（2026-10-20）
 
-## 问题与边界
+## 问题界定与原子验收
 
-现有本地66个CTest入口约589.28秒，主入口246.18秒，且后续专项重复运行相同Qt函数。用户目标：默认本地测试和CI测试各在180秒内完成。此处计量从测试启动到退出，依赖安装、编译、签名发布另计；明确保留超过180秒的显式深度回归入口，不宣称精简后仍执行每个原数据行。
+M1：隐藏/显示标题栏后，View、快捷键动作和右键菜单显示对应的下一步操作，包含先改变状态后创建菜单。
+M2：全屏、暂停/继续、幻灯片、置顶、填充窗口和固定排序策略，在菜单创建及状态变化后正确；不同窗口互不污染。
+M3：遍历每个动作，核查文案、勾选、启用、可见和图标策略，不更改静态命令的语义。
+P1：同环境 Release 构建，进程启动至窗口及菜单就绪的中位数至少减少 50%。
+P2：同一空窗口工作负载，退出请求前标记至进程正常结束的中位数至少减少 50%。
+R1：现有默认回归门禁通过，退出仍保留设置写入、任务取消及安全排空。
 
-原子拆解：消除重复入口；缩减状态笛卡尔积；保留关键风险的真实动态验证；强制总预算；保持失败/跳过可见；本地/CI使用同一清单；保留完整矩阵；实测两个入口。
+## 证据与推导
 
-## 多跳检索与交叉核验
+本地源码：setTitlebarHidden/fullscreenChanged/pauseChanged/toggleSlideshow/toggleWindowOnTop 只更新已经存在的窗口动作副本；ensureMenus 和 ensureContextMenu 只同步启用、填充和排序。addCloneOfAction 从默认动作库取值，因此状态先变、菜单后创建必然留下旧默认值。不能把状态写回全局模板，否则会污染另一个窗口。
 
-- 先核对上轮原始CTest日志、QtTest输出及当前66项注册，避免将CTestCostData移动平均误当单次实测。
-- [Qt命令行选择函数/数据行](https://doc.qt.io/qt-6/qtest-overview.html)：支持function和function:row，可保留原断言而精简重复矩阵。
-- [CTest TIMEOUT](https://cmake.org/cmake/help/latest/prop_test/TIMEOUT.html)：单测试属性覆盖--timeout默认值；因此只改命令的90秒不能限制总时长。
-- [Python子进程](https://docs.python.org/3/library/subprocess.html)：start_new_session与超时配合进程组清理；复用仓库真实HDR执行器，避免只杀包装器、留下Qt进程。
-- [GitHub工作流语法](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)：步骤timeout-minutes独立于job，可给测试步骤3分钟硬界限。
-- 交叉核验代码：run_portable_hdr.py已严格检查实际XML、所需数据行、零失败/零skip、fixture校验和；精简入口复用此校验，HDR的10个真实全屏行全部保留。
+联网两跳核查（查询后打开原始文档）：[QAction 文案、勾选及 changed 信号](https://doc.qt.io/qt-6/qaction.html)、[QMenu 生命周期与 macOS 限制](https://doc.qt.io/qt-6/qmenu.html)、[Qt 退出信号](https://doc.qt.io/qt-6/qcoreapplication.html#aboutToQuit)、[线程池排空语义](https://doc.qt.io/qt-6/qthreadpool.html)、[Apple 启动测量建议](https://developer.apple.com/documentation/xcode/reducing-your-app-s-launch-time)。文档用于确认框架契约；性能收益必须由本机测量证明，不能由文档推定。
 
-## 实现与覆盖选择
+## 设计及正确性论证
 
-默认仅注册FovelleFastTests，执行清单tests/fast_test_manifest.json。使用唯一Qt suite分组，函数和数据行不重复；各组在独立进程顺序执行，避免GUI并发抢焦点。全部原注册和用例保留在FOVELLE_EXTENDED_TESTS=ON分支。历史目标名仍在原文件，静态契约仍可核验。
+新增无状态投影函数 syncMenuState：仅把实际窗口状态投影到该窗口的所有动作副本，含标题栏、全屏、播放、幻灯片、置顶、填充和启用状态；排序菜单已移除，维持固定策略。菜单创建完成后调用；现有状态事件继续调用对应投影。提取标题栏/幻灯片/置顶投影，避免同步过程中切换业务状态。动态图标遵循主菜单无图标、右键有图标策略。
 
-保留：全部ImageLoader格式/颜色/矢量性能用例，HDR数学与像素、真实便携HDR及其完整10行全屏、代表性SDR全屏/原生提示框、缩放拖动、动画pause/queued read/倍速、网络失败与清理、设置持久化、元数据、旧Qt BT.709后端及现有静态契约。完整矩阵中的多窗口/多状态重复、外部本地fixture、故障注入长等待、全部Info关闭途径和独立打包部署重复验证改由深度入口执行。CI构建/发布仍保留真实bundle验证。
+不变式：对窗口 W 的每个已创建副本 a，a 的显示状态等于 f(W)。初始时在菜单完整创建后投影建立不变式；每个状态转移后重投影保持不变式；晚建菜单重新投影恢复不变式。所有查询限定祖先 W，因此不同窗口隔离。反例测试采用状态先变、右键菜单后创建；仅测试先建菜单再切换不足以证实修复。
 
-清单是覆盖边界，不靠提前退出或skip冒充通过。Qt执行XML必须包含所选函数/行且全部pass；同一函数的多个显式数据行可产生多个XML节点，节点数必须精确匹配选择器数量，行集合也必须精确匹配；清单缺失、重复、未知函数、缺失数据行、fixture损坏、非零退出和超时均失败。阶段日志及总JSON保留全部计划项，未运行项标明not-run，清理旧XML防止读到上次成功。
+性能：先冻结未修改 Release 可执行文件，重复运行真实 Cocoa 进程。启动计时包含进程创建、首轮事件循环和延迟菜单创建；退出计时包含 aboutToQuit、析构及进程终止。固定 300 ms probe 等待不计入退出，也不能算作优化收益。两版本各预热一次，交替测量至少 10 次。所有样本须正常退出且具有就绪/退出标记。禁止跳过析构、减少任务安全等待或把未完成工作移动到计时终点后制造通过。
 
-预算三层：执行器共享单调165秒总deadline（不是每项165秒）；默认CTest属性175秒；四个CI工作流的测试步骤3分钟。失败即非零，超时不会被报告为成功。local/ci仅标识证据，执行集合、断言和预算完全相同。
+候选优化：生产窗口无需在构造自身菜单前额外物化一份无窗口应用菜单；保留显式请求时的懒创建接口。先验证兼容性与实际收益，不保证可单凭此达到 50%。若分段数据显示系统/Qt 固定成本主导，报告应明确失败，不捏造达标。
 
-## 正确性与反证
+## 验证边界
 
-去重正确性：每个suite仅一个普通执行组，所选函数/行集合无交叠；真实HDR特殊组与普通组的函数也不交叠。改变执行次数不改原用例断言。完整功能等价不在本次承诺内，完整矩阵可显式恢复。
+只对当前机器、空窗口、隔离 INI 设置、自动更新禁用的可重复负载建立性能结论。冷系统缓存、图片解码、会话恢复及多窗口性能不能从空窗口样本外推。历史报告备份于 evidence/menu-lifecycle/previous_*。
 
-预算正确性：阶段i的可用时间为D-now，各阶段共享D；任一阶段不能重新获得完整预算。Qt子进程由原执行器以独立session启动并在超时killpg；普通命令也同样回收。预算耗尽或任何失败立即停止并写失败摘要。175/180秒外层为异常清理和CTest留余量。
+## 第二轮性能假设
 
-反证测试：重复选择、缺少核心覆盖、XML缺失/skip/错行、命令非零、子进程超时、耗尽共享预算、旧产物清理均应失败。真实本地与CI配置入口分别执行并记录wall time，不能以设置超时替代成功实测；远端实际时长需推送后Actions确认。
+Qt 6.9+ 在窗口显示前设置 ExpandedClientAreaHint，避免首轮显示之后再改变 native style mask 并恢复 frame。关闭中的窗口无需取消 full-size content view；保留 native 窗口直至正常析构，避免关闭时额外 style/frame 更新。Qt [窗口标志契约](https://doc.qt.io/qt-6/qwidget.html#windowFlags-prop) 和 [expanded client area 设计](https://www.qt.io/blog/expanded-client-areas-and-safe-areas-in-qt-6.9) 与本地 setFullSizeContentView 实现交叉核验；本地 alterWindowFlags 直接更新 QWindow，不使用 QWidget 隐藏重显路径，因此性能收益仍需实测。兼容旧 Qt 的既有 showEvent 分支保留。
+
+反证条件：最大化、safe-area、标题栏或原生全屏回归失败即不得保留；安全退出取消/排空边界不变。
+
+## 菜单逐项审计结果
+
+完整清单见 evidence/menu-lifecycle/action-audit.json，共 50 个字面动作。具有动态文案的四类为标题栏、全屏、动画暂停及幻灯片；具有窗口勾选的两类为置顶和填充。其余为固定命令文案，文件/动画/撤销/目录相关启用规则由 disableActions 同步。recent 和 Open With 的名称来自项目已有动态列表刷新路径，不属于布尔开关文案。旧排序命令不在动作库/右键菜单中，已有固定排序测试继续覆盖。
+
+无需将窗口状态复制至全局动作模板；无窗口 fallback 的窗口命令原本禁用，生产窗口使用自身菜单。直接调用 getMenuBar 的契约保留。

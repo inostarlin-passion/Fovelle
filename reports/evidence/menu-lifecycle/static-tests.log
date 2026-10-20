@@ -1,0 +1,1 @@
+PASS: audited 50 literal actions plus recent/Open With menu entries; obsolete sort actions absent; dynamic writers: ['fillwindow', 'fullscreen', 'openwith', 'openwithplaceholder', 'pause', 'slideshow', 'sortdirection', 'sortmode', 'toggletitlebar', 'windowontop']; shutdown safety preserved

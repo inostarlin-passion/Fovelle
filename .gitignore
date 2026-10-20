@@ -63,3 +63,6 @@ build/*
 
 !reports/evidence/actions-fix/
 !reports/evidence/actions-fix/**
+
+!reports/evidence/menu-lifecycle/
+!reports/evidence/menu-lifecycle/**

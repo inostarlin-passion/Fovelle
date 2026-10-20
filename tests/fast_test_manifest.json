@@ -113,6 +113,10 @@
     {
       "script": "preload_policy_quality.py",
       "args": []
+    },
+    {
+      "script": "menu_lifecycle_static.py",
+      "args": []
     }
   ],
   "groups": [
@@ -178,7 +182,10 @@
     {
       "suite": "WindowBehaviorTests",
       "functions": [
-        "testNativeMessageBoxStandardButtonResponses"
+        "testNativeMessageBoxStandardButtonResponses",
+        "testLateMenuState",
+        "testLateFullscreenMenu",
+        "testLatePauseMenu"
       ]
     },
     {

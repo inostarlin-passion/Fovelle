@@ -1,0 +1,124 @@
+{
+  "runs": {
+    "baseline": [
+      {
+        "startup_ms": 421.979624999949,
+        "exit_ms": 40.25191700202413,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 632.3126250026689,
+        "exit_ms": 98.07404199818848,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 484.22066700004507,
+        "exit_ms": 30.768374999752268,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 383.1726250027714,
+        "exit_ms": 35.2587079978548,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 391.9415000018489,
+        "exit_ms": 36.27575000064098,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 340.5410000013944,
+        "exit_ms": 33.87304200077779,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 399.26883400039515,
+        "exit_ms": 38.50612500173156,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 390.5976659989392,
+        "exit_ms": 34.58724999654805,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 349.5729999995092,
+        "exit_ms": 37.368291999882786,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 383.33987499936484,
+        "exit_ms": 37.81962499851943,
+        "returncode": 0
+      }
+    ],
+    "candidate": [
+      {
+        "startup_ms": 370.3910830008681,
+        "exit_ms": 43.589749999227934,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 567.2563329972036,
+        "exit_ms": 62.586750002083136,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 376.19050000284915,
+        "exit_ms": 32.72674999971059,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 371.56749999849126,
+        "exit_ms": 31.52820900140796,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 366.5402920014458,
+        "exit_ms": 26.089874998433515,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 368.70304200056125,
+        "exit_ms": 34.77170799669693,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 372.0602499997767,
+        "exit_ms": 24.580540997703793,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 381.4719999973022,
+        "exit_ms": 33.20483399875229,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 359.6009579996462,
+        "exit_ms": 32.34304199941107,
+        "returncode": 0
+      },
+      {
+        "startup_ms": 363.0253330011328,
+        "exit_ms": 32.015207998483675,
+        "returncode": 0
+      }
+    ]
+  },
+  "metric": "parent monotonic wall clock; spawn to event-loop AND menus ready; pre-quit system-probe to full process exit",
+  "summary": {
+    "startup_ms": {
+      "baseline_median": 391.26958300039405,
+      "candidate_median": 370.9792914996797,
+      "reduction_percent": 5.1857574373967985,
+      "passed": false
+    },
+    "exit_ms": {
+      "baseline_median": 36.822021000261884,
+      "candidate_median": 32.53489599956083,
+      "reduction_percent": 11.642829166466884,
+      "passed": false
+    }
+  },
+  "passed": false
+}
