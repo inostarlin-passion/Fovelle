@@ -114,21 +114,18 @@ jobs:
             build/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: ignore
 
-      - name: Deploy Qt and verify installable zip contract
-        shell: bash
-        run: |
-          macdeployqt build/Fovelle.app -always-overwrite
-          RELEASE_ZIP_PATH="${RUNNER_TEMP}/Fovelle-macos15-compatibility.zip"
-          ditto -c -k --sequesterRsrc --keepParent build/Fovelle.app "${RELEASE_ZIP_PATH}"
-          VERIFY_ROOT="${RUNNER_TEMP}/fovelle-macos15-verified"
-          mkdir -p "${VERIFY_ROOT}"
-          ditto -x -k "${RELEASE_ZIP_PATH}" "${VERIFY_ROOT}"
-          VERIFIED_APP="${VERIFY_ROOT}/Fovelle.app"
-          MAIN_BINARY="${VERIFIED_APP}/Contents/MacOS/Fovelle"
-          MAIN_MIN_OS="$(otool -l "${MAIN_BINARY}" | awk '$1 == "minos" { print $2; exit }')"
-          MAIN_SDK="$(otool -l "${MAIN_BINARY}" | awk '$1 == "sdk" { print $2; exit }')"
-          PLIST_MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "${VERIFIED_APP}/Contents/Info.plist")"
-          echo "main minos=${MAIN_MIN_OS} sdk=${MAIN_SDK} plist=${PLIST_MIN_OS}"
-          test "${MAIN_MIN_OS}" = 15.0
-          test "${MAIN_SDK%%.*}" -eq 15
-          test "${PLIST_MIN_OS}" = 15.0
+      - name: Package and verify the release compatibility artifact
+        env:
+          RELEASE_UNSIGNED: "true"
+          RELEASE_APP_PATH: build/Fovelle.app
+          RELEASE_ZIP_PATH: Fovelle-macos15-compatibility.zip
+        run: bash dist/scripts/package-macos-release.sh
+
+      - name: Upload final artifact evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compatibility-artifact-evidence
+          retention-days: 7
+          path: build/test-results/release-artifact/
+          if-no-files-found: ignore

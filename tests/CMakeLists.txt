@@ -425,7 +425,6 @@ add_test(NAME FovelleUpdateConfiguration COMMAND fovelle_tests
 set_tests_properties(FovelleUpdateConfiguration PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 0)
-option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
 add_test(NAME FovelleMenuLifecycleStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/menu_lifecycle_static.py)
 add_test(NAME FovelleMenuLifecycleDynamic COMMAND fovelle_tests
@@ -433,11 +432,7 @@ add_test(NAME FovelleMenuLifecycleDynamic COMMAND fovelle_tests
 set_tests_properties(FovelleMenuLifecycleDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 0 RUN_SERIAL TRUE LABELS "menu;state;regression")
-if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
-    add_test(NAME FovelleUpdateInstall
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py)
-    set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
-endif()
+
 
 add_test(NAME FovelleHDRBrightnessStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/hdr_brightness_static.py)
@@ -627,6 +622,16 @@ add_test(NAME FovelleLifecycleFixDrain COMMAND fovelle_tests
 set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=RemediationTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+
+# Release acceptance is independent of the optional historical regression matrix.
+option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
+if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
+    add_test(NAME FovelleUpdateInstall
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py
+            --build-dir ${CMAKE_BINARY_DIR}
+            --output ${CMAKE_BINARY_DIR}/test-results/update-install)
+    set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
+endif()
 
 # Include registrations without their own property block (for example static
 # lifecycle checks). Override inherited CTEST_TEST_TIMEOUT for every test.

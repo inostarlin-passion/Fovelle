@@ -14,7 +14,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ci:
+    uses: ./.github/workflows/build.yml
   release:
+    needs: ci
     permissions:
       contents: write
     name: Build and publish macOS release
@@ -29,6 +32,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate stable release identity
+        id: identity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          RELEASE_TAG="v$(cat VERSION)"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            test "$REF_TYPE" = tag
+            RELEASE_TAG="$REF_NAME"
+          fi
+          python3 dist/scripts/validate-release.py --tag "$RELEASE_TAG"
 
       - name: Verify Xcode and macOS SDK
         shell: bash
@@ -81,10 +98,11 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_TESTS=ON
           -DFOVELLE_EXTENDED_TESTS=OFF
+          -DFOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON
           -DFOVELLE_REQUIRE_PORTABLE_HDR=ON
           -DFOVELLE_UPDATE_FEED_URL="https://github.com/inostarlin-passion/Fovelle/releases/latest/download/appcast.xml"
           -DFOVELLE_UPDATE_PUBLIC_KEY="$FOVELLE_UPDATE_PUBLIC_KEY"
-          -DFOVELLE_REQUIRE_UPDATE_CONFIG=${{ github.event_name == 'push' }}
+          -DFOVELLE_REQUIRE_UPDATE_CONFIG=ON
           -DFOVELLE_BUILD_TRANSLATIONS=ON
           -DQV_DISABLE_ONLINE_VERSION_CHECK=OFF
           -DPython3_EXECUTABLE="$(command -v python)"
@@ -134,14 +152,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Sign, notarize, validate, and package Fovelle
-        if: github.event_name == 'push'
         timeout-minutes: 45
         env:
           FOVELLE_GENERATE_APPCAST: "true"
           SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_APP_PATH: build/Fovelle.app
-          RELEASE_ZIP_PATH: Fovelle-${{ github.ref_name }}-macOS-universal.zip
+          RELEASE_ZIP_PATH: Fovelle-${{ steps.identity.outputs.tag }}-macOS-universal.zip
           NOTARIZATION_TIMEOUT: "30m"
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
@@ -150,12 +167,33 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash dist/scripts/package-macos-release.sh
 
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate
+          if-no-files-found: error
+          path: |
+            Fovelle-${{ steps.identity.outputs.tag }}-macOS-universal.zip
+            build/update-release/appcast.xml
+
+      - name: Upload final artifact evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-artifact-evidence
+          retention-days: 7
+          path: |
+            build/test-results/release-artifact/
+            build/test-results/update-install/
+          if-no-files-found: ignore
+
       - name: Create GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Fovelle ${{ github.ref_name }}
+          prerelease: false
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |

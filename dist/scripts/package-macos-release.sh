@@ -80,17 +80,23 @@ if [[ "$RELEASE_DRY_RUN" == "true" ]]; then
     exit 0
 fi
 
-require_env APPLE_CERTIFICATE_BASE64
-require_env APPLE_CERTIFICATE_PASSWORD
-require_env APPLE_APP_SPECIFIC_PASSWORD
-require_env APPLE_ID
-require_env APPLE_TEAM_ID
+RELEASE_UNSIGNED="${RELEASE_UNSIGNED:-false}"
+if [[ "$RELEASE_UNSIGNED" != "true" ]]; then
+    require_env APPLE_CERTIFICATE_BASE64
+    require_env APPLE_CERTIFICATE_PASSWORD
+    require_env APPLE_APP_SPECIFIC_PASSWORD
+    require_env APPLE_ID
+    require_env APPLE_TEAM_ID
+elif [[ "${FOVELLE_GENERATE_APPCAST:-false}" == "true" ]]; then
+    fail "unsigned compatibility packages cannot generate a release appcast"
+fi
 
 [[ -d "$APP_PATH" ]] || fail "application bundle does not exist: $APP_PATH"
 
 RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ "${FOVELLE_GENERATE_APPCAST:-false}" == "true" ]]; then
     require_env SPARKLE_PRIVATE_ED_KEY
+    python3 "$RELEASE_ROOT/dist/scripts/validate-release.py" --tag "$RELEASE_TAG" --app "$APP_PATH"
     UPDATE_PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP_PATH/Contents/Info.plist")
     printf '%s' "$SPARKLE_PRIVATE_ED_KEY" | swift "$RELEASE_ROOT/dist/scripts/validate-update-key.swift" "$UPDATE_PUBLIC_KEY"
 fi
@@ -120,41 +126,17 @@ FOVELLE_GHOSTSCRIPT_ARCHITECTURES="x86_64;arm64" \
 xattr -cr "$APP_PATH"
 
 assert_macos_deployment_target() {
-    local app_path="$1"
-    local candidate
-    local minos
-    local sdk
-    local main_binary="$app_path/Contents/MacOS/Fovelle"
-    local main_minos=""
-    local main_sdk=""
-    local plist_target
-    local macho_count=0
-
-    while IFS= read -r -d '' candidate; do
-        if ! is_macho "$candidate"; then
-            continue
-        fi
-        minos="$(otool -l "$candidate" | awk '$1 == "minos" { print $2; exit }')"
-        sdk="$(otool -l "$candidate" | awk '$1 == "sdk" { print $2; exit }')"
-        [[ -n "$minos" ]] || fail "Mach-O has no readable minimum macOS version: $candidate"
-        if [[ "$candidate" == "$main_binary" ]]; then
-            main_minos="$minos"
-            main_sdk="$sdk"
-        else
-            version_is_at_most "$minos" "$EXPECTED_MACOS_DEPLOYMENT_TARGET" || \
-                fail "embedded dependency requires newer macOS: $candidate requires $minos, target is $EXPECTED_MACOS_DEPLOYMENT_TARGET"
-        fi
-        macho_count=$((macho_count + 1))
-    done < <(find "$app_path/Contents" -type f -print0)
-
-    ((macho_count > 0)) || fail "no Mach-O files were found while checking deployment target: $app_path"
-    [[ "$main_minos" == "$EXPECTED_MACOS_DEPLOYMENT_TARGET" ]] || fail "main executable minimum macOS version mismatch: ${main_minos:-<missing>}, expected $EXPECTED_MACOS_DEPLOYMENT_TARGET"
-    [[ "${main_sdk%%.*}" == "${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}" ]] || fail "main executable was not compiled with the expected macOS SDK family: ${main_sdk:-<missing>}, expected ${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}.x"
-    plist_target="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app_path/Contents/Info.plist" 2>/dev/null || true)"
-    [[ "$plist_target" == "$EXPECTED_MACOS_DEPLOYMENT_TARGET" ]] || fail "Info.plist LSMinimumSystemVersion mismatch: ${plist_target:-<missing>}, expected $EXPECTED_MACOS_DEPLOYMENT_TARGET"
-    echo "macOS deployment target verified: $EXPECTED_MACOS_DEPLOYMENT_TARGET across $macho_count Mach-O files and Info.plist"
+    # Includes LSMinimumSystemVersion, every otool -l architecture slice,
+    # Universal dependencies, bundle versions and deployed dependency resolution.
+    python3 "$RELEASE_ROOT/dist/scripts/verify-release-artifact.py" "$1" \
+        --minimum "$EXPECTED_MACOS_DEPLOYMENT_TARGET" \
+        --sdk-major "${EXPECTED_MACOS_DEPLOYMENT_TARGET%%.*}" \
+        --version "$(cat "$RELEASE_ROOT/VERSION")" \
+        --output "${FOVELLE_RELEASE_EVIDENCE_DIR:-$RELEASE_ROOT/build/test-results/release-artifact}/contract.json"
 }
 
+# Normalize install IDs/rpaths before any signatures are produced.
+python3 "$RELEASE_ROOT/dist/scripts/verify-macos-bundle.py" "$APP_PATH" --sanitize
 assert_macos_deployment_target "$APP_PATH"
 
 assert_universal_app() {
@@ -179,6 +161,20 @@ assert_universal_app() {
 }
 
 assert_universal_app "$APP_PATH"
+
+# PRs exercise the same deployment/source-runtime/contract/ZIP/smoke path without secrets.
+if [[ "$RELEASE_UNSIGNED" == "true" ]]; then
+    python3 "$RELEASE_ROOT/dist/scripts/verify-macos-bundle.py" "$APP_PATH" --sign-adhoc
+    ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RELEASE_ZIP_PATH"
+    VERIFY_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/fovelle-compatibility.XXXXXX")"
+    trap 'rm -rf "$VERIFY_ROOT"' EXIT
+    ditto -x -k "$RELEASE_ZIP_PATH" "$VERIFY_ROOT"
+    VERIFIED_APP="$VERIFY_ROOT/$(basename "$APP_PATH")"
+    assert_macos_deployment_target "$VERIFIED_APP"
+    codesign --verify --deep --strict "$VERIFIED_APP"
+    python3 "$RELEASE_ROOT/dist/scripts/smoke-release-artifact.py" "$VERIFIED_APP"
+    exit 0
+fi
 
 TEMP_ROOT="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/fovelle-release-$$"
 KEYCHAIN_PATH="$TEMP_ROOT/signing.keychain-db"
@@ -309,10 +305,15 @@ codesign --verify --deep --strict --verbose=2 "$VERIFIED_APP"
 python3 "$RELEASE_ROOT/dist/scripts/stapler-with-retry.py" validate "$VERIFIED_APP"
 spctl --assess --type execute --verbose=4 --ignore-cache "$VERIFIED_APP"
 
+python3 "$RELEASE_ROOT/dist/scripts/smoke-release-artifact.py" "$VERIFIED_APP"
+
 # The enclosing app is signed only after Sparkle helpers/XPC bundles and framework.
 # Publish appcast only after the notarized archive has passed all verification.
 if [[ "${FOVELLE_GENERATE_APPCAST:-false}" == "true" ]]; then
     bash "$RELEASE_ROOT/dist/scripts/generate-update-appcast.sh"
+    python3 "$RELEASE_ROOT/dist/scripts/validate-release.py" --tag "$RELEASE_TAG" \
+        --app "$VERIFIED_APP" --appcast "$RELEASE_ROOT/build/update-release/appcast.xml" \
+        --archive "$RELEASE_ZIP_PATH"
 fi
 
 echo "Release package created: $RELEASE_ZIP_PATH"

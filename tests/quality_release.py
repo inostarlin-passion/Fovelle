@@ -24,6 +24,7 @@ def main() -> int:
     workflow = (repo / ".github/workflows/release.yml").read_text(encoding="utf-8")
     script_path = repo / "dist/scripts/package-macos-release.sh"
     script = script_path.read_text(encoding="utf-8")
+    artifact_validator = (repo / "dist/scripts/verify-release-artifact.py").read_text(encoding="utf-8")
     checks: list[dict] = []
 
     universal_contract = all(
@@ -60,10 +61,12 @@ def main() -> int:
         for marker in (
             "EXPECTED_MACOS_DEPLOYMENT_TARGET",
             "assert_macos_deployment_target",
-            "otool -l",
-            "LSMinimumSystemVersion",
+            "verify-release-artifact.py",
         )
     )
+    sdk15_contract = sdk15_contract and all(marker in artifact_validator for marker in (
+        "LSMinimumSystemVersion", "for arch in architectures:", "'otool', '-arch', arch, '-l'",
+        "actual > target", "sdk[1].split('.')[0] != sdk_major"))
     add_check(
         checks,
         "R-10",
@@ -72,8 +75,8 @@ def main() -> int:
             "release_runner_is_macos15": "runs-on: macos-15" in workflow,
             "release_sdk_is_exactly_15": 'test "${SDK_VERSION%%.*}" -eq 15' in workflow,
             "deployment_target_is_15": "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0" in workflow,
-            "artifact_min_os_is_verified": "LSMinimumSystemVersion" in script,
-            "artifact_sdk_is_verified": "otool -l" in script,
+            "artifact_min_os_is_verified": "LSMinimumSystemVersion" in artifact_validator,
+            "artifact_sdk_is_verified": "sdk_major" in artifact_validator,
         },
         "Release compiles against the macOS 15 SDK and fails closed unless the final bundle targets macOS 15",
     )

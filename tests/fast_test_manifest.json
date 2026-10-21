@@ -120,6 +120,10 @@
     {
       "script": "ci_runner_policy_tests.py",
       "args": []
+    },
+    {
+      "script": "release_pipeline_tests.py",
+      "args": []
     }
   ],
   "groups": [

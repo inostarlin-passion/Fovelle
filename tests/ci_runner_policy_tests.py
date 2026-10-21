@@ -101,7 +101,7 @@ class RunnerPolicyTests(unittest.TestCase):
         self.assertEqual(build['jobs']['build']['needs'], 'format')
         self.assertEqual(set(checks['on']), {'workflow_call', 'workflow_dispatch'})
         self.assertEqual(set(checks['jobs']), {'format'})
-        self.assertEqual(set(build['on']), {'push', 'pull_request', 'workflow_dispatch'})
+        self.assertEqual(set(build['on']), {'push', 'pull_request', 'workflow_dispatch', 'workflow_call'})
         mac = build['jobs']['build']['steps']
         self.assertEqual(sum('cmake --build build' in s.get('run', '') for s in mac), 1)
         self.assertEqual(sum('ctest --test-dir build' in s.get('run', '') for s in mac), 1)
@@ -144,7 +144,7 @@ class RunnerPolicyTests(unittest.TestCase):
     def test_concurrency_and_unlimited_test_policy_are_preserved(self):
         for file in ['build.yml', 'release-compatibility.yml']:
             group = self.workflows[file]['concurrency']
-            self.assertEqual(group['cancel-in-progress'], 'true')
+            self.assertEqual(group['cancel-in-progress'], "${{ github.workflow == 'Build Fovelle' }}" if file == 'build.yml' else 'true')
             self.assertIn('github.workflow', group['group'])
             self.assertIn('github.event.pull_request.number || github.ref', group['group'])
         self.assertNotIn('concurrency', self.workflows['test.yml'])  # reusable caller owns its group
@@ -168,7 +168,7 @@ class RunnerPolicyTests(unittest.TestCase):
             self.assertIn('test "${SDK_VERSION%%.*}" -eq 15', text)
         release = self.workflows['release.yml']['jobs']['release']['steps']
         for step in release:
-            if 'package-macos-release.sh' in step.get('run', '') or step.get('uses', '').startswith('softprops/'):
+            if step.get('uses', '').startswith('softprops/'):
                 self.assertEqual(step.get('if'), "github.event_name == 'push'")
 
     def test_macos15_capture_environment_is_prepared_before_tests(self):

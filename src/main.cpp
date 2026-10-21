@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "qvapplication.h"
+#include "qvimageloader.h"
 #include <QCheckBox>
 #include <QCommandLineParser>
 #include <QTemporaryDir>
@@ -73,6 +74,29 @@ int main(int argc, char *argv[])
     parser.addPositionalArgument(QObject::tr("file"), QObject::tr("The file to open."));
     parser.process(app);
     startupTrace.mark("command-line-parsed");
+
+    // Exercise the real installed loader and Cocoa event loop with isolated settings.
+    const QString artifactImage = qEnvironmentVariable("FOVELLE_ARTIFACT_IMAGE");
+    if (deploymentSettings && !artifactImage.isEmpty()) {
+        QVApplication::newWindow();
+        QVImageLoader loader;
+        QObject::connect(
+                &loader, &QVImageLoader::imageReady, &app,
+                [&app, &artifactImage](quint64, const QVImageLoader::Result &result) {
+                    const bool valid = !result.errorData && !result.image.isNull()
+                            && !result.intrinsicSize.isEmpty()
+                            && (!artifactImage.endsWith(QStringLiteral(".eps"))
+                                || (result.vectorImage.isValid()
+                                    && result.vectorImage.format == Qv::VectorImageFormat::Pdf));
+                    qInfo().noquote() << (valid ? "FOVELLE_ARTIFACT_DECODE_OK"
+                                                : "FOVELLE_ARTIFACT_DECODE_FAILED")
+                                      << artifactImage;
+                    app.onSystemInitiatedQuit();
+                    app.exit(valid ? 0 : 1);
+                });
+        loader.requestImage(artifactImage);
+        return QApplication::exec();
+    }
 
     if (!parser.positionalArguments().isEmpty()) {
         QVApplication::openFile(QVApplication::newWindow(),

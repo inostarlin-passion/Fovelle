@@ -645,7 +645,11 @@ void ImageCoreAndMovieTests::testHDRInfoCloseRestores()
     // Model the missed-activation case: Qt already considers the owner active,
     // but the native presentation has a late/stale inactive request.
     if (dropActivation && closePath != "escape" && closePath != "shortcut") {
+        // This fixture deliberately models Qt activation without native focus events.
+        QT_WARNING_PUSH
+        QT_WARNING_DISABLE_DEPRECATED
         QApplication::setActiveWindow(&window);
+        QT_WARNING_POP
         QVERIFY(window.isActiveWindow());
     } else
         QVERIFY(QTest::qWaitForWindowActive(dialog, 3000));
@@ -716,7 +720,11 @@ void ImageCoreAndMovieTests::testHDRInfoCloseGuards()
     owner->showFileInfo();
     auto *dialog = owner->findChild<QVInfoDialog *>();
     QVERIFY(dialog);
+    // This fixture deliberately models Qt activation without native focus events.
+    QT_WARNING_PUSH
+    QT_WARNING_DISABLE_DEPRECATED
     QApplication::setActiveWindow(owner.get());
+    QT_WARNING_POP
     view->setHDRPresentationActive(false);
     QTest::qWait(700);
     QWidget other;
@@ -724,7 +732,11 @@ void ImageCoreAndMovieTests::testHDRInfoCloseGuards()
     if (scenario == "another-window") {
         other.show();
         other.activateWindow();
+        // This fixture deliberately models Qt activation without native focus events.
+        QT_WARNING_PUSH
+        QT_WARNING_DISABLE_DEPRECATED
         QApplication::setActiveWindow(&other);
+        QT_WARNING_POP
     } else if (scenario == "reopen")
         owner->showFileInfo();
     else if (scenario == "hidden-owner")

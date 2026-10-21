@@ -243,8 +243,21 @@ class DynamicTests(unittest.TestCase):
     def test_download_install_relaunch(self): self.run_scenario('install')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(); parser.add_argument('--static-only', action='store_true'); args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--static-only', action='store_true')
+    parser.add_argument('--build-dir', type=Path, default=BUILD)
+    parser.add_argument('--output', type=Path)
+    args = parser.parse_args()
+    BUILD = args.build_dir.resolve()
+    SPARKLE = BUILD / '_deps/sparkle'
     suite = unittest.TestLoader().loadTestsFromTestCase(StaticTests)
     if not args.static_only: suite.addTests(unittest.TestLoader().loadTestsFromTestCase(DynamicTests))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if args.output:
+        args.output.mkdir(parents=True, exist_ok=True)
+        (args.output / 'summary.json').write_text(json.dumps({
+            'passed': result.wasSuccessful(), 'tests_run': result.testsRun,
+            'failures': [(str(test), message) for test, message in result.failures],
+            'errors': [(str(test), message) for test, message in result.errors],
+        }, indent=2) + '\n')
     raise SystemExit(not result.wasSuccessful())
