@@ -100,6 +100,8 @@ class DynamicTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='fovelle-sparkle-test-') as directory:
             work = Path(directory)
             events = work/'events.txt'; events.touch()
+            feed_started = work/'feed-request-started'
+            release_feed = threading.Event()
             bundle_identifier = 'io.github.inostarlin-passion.Fovelle.UpdateFixture.'+work.name
             # OpenSSL's DER encodings end with the raw 32-byte private seed/public key.
             openssl = shutil.which('openssl')
@@ -117,6 +119,13 @@ class DynamicTests(unittest.TestCase):
                 def do_GET(self):
                     if self.path == '/appcast.xml':
                         observed['feed_requests'] += 1
+                        feed_started.touch()
+                        if mode == 'cancel-check':
+                            # Keep the request in flight until the probe has canceled.
+                            # A visible progress window alone does not mean the
+                            # asynchronous network request has reached the server.
+                            release_feed.wait(45)
+                            return
                         time.sleep(1.2) # Native progress must be visible before feed returns.
                         observed['progress_before_feed_response'] = events.exists() and 'CHECK_PROGRESS_VISIBLE' in events.read_text()
                         payload = feed
@@ -186,7 +195,8 @@ class DynamicTests(unittest.TestCase):
             older = make_app(work/'old', '1.0.0')
             original = hashlib.sha256((older/'Contents/Info.plist').read_bytes()).hexdigest()
             threading.Thread(target=server.serve_forever, daemon=True).start()
-            env = dict(os.environ, FOVELLE_UPDATE_TEST_MODE=mode, FOVELLE_UPDATE_TEST_EVENTS=str(events))
+            env = dict(os.environ, FOVELLE_UPDATE_TEST_MODE=mode, FOVELLE_UPDATE_TEST_EVENTS=str(events),
+                       FOVELLE_UPDATE_TEST_FEED_STARTED=str(feed_started))
             process = subprocess.Popen([str(older/'Contents/MacOS/UpdateFixture')], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
                 deadline = time.monotonic()+45
@@ -212,6 +222,10 @@ class DynamicTests(unittest.TestCase):
                     if mode.startswith('cancel-'):
                         self.assertIn('CANCEL_', recorded)
                         self.assertTrue('READY_AFTER_CANCEL' in recorded or 'CYCLE_READY' in recorded)
+                        if mode == 'cancel-check':
+                            self.assertLess(recorded.index('FEED_REQUEST_STARTED'), recorded.index('CANCEL_CHECK'))
+                            self.assertNotIn('UPDATE_OFFER_VISIBLE', recorded)
+                            self.assertEqual(observed['downloads'], 0)
                     else:
                         self.assertIn('RESULT_ALERT_VISIBLE', recorded)
                         self.assertIn('CYCLE_READY', recorded)
@@ -229,6 +243,7 @@ class DynamicTests(unittest.TestCase):
                         try: os.kill(int(line.strip().split(None, 1)[0]), 9)
                         except ProcessLookupError: pass
                 stdout, stderr = process.communicate(timeout=5)
+                release_feed.set()
                 server.shutdown(); server.server_close()
                 if 'CYCLE_READY' not in recorded and 'READY_AFTER_CANCEL' not in recorded and 'RELAUNCHED_NEW_VERSION' not in recorded: print('PROBE_EXIT', process.returncode, stderr[-4000:])
                 subprocess.run(['defaults', 'delete', bundle_identifier], capture_output=True)

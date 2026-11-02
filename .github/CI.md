@@ -38,7 +38,7 @@ python3 -m venv .venv
 - PR 兼容通道调用同一个 `package-macos-release.sh`（`RELEASE_UNSIGNED=true`）。Qt 部署、固定 Ghostscript 源码构建、逐依赖/逐架构校验、ZIP 解压和实际解码与正式发布共用；Developer ID、公证和 appcast 生成限于 Release。
 - `verify-release-artifact.py` 对每个 Mach-O 的每个架构分别执行 otool，验证 Universal、最低运行系统、主程序 SDK 家族、plist 版本及动态依赖，不接受只检查第一个架构的结果。
 - 最终 ZIP 解压后，`smoke-release-artifact.py` 清除 Qt/DYLD/GS/Fovelle 环境覆盖，并用系统 PATH 启动实际 Cocoa 应用，在临时设置目录中解码 PNG、SVG、EPS，确认最终包的固定 Ghostscript 版本；结果保存在 `build/test-results/release-artifact/`。
-- Release 显式启用 `FOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON`。该门禁独立于 `FOVELLE_EXTENDED_TESTS`，通过临时测试应用、临时 Ed25519 密钥和本地 HTTP 服务验证更新下载、签名拒绝、安装、替换和重启，不使用正式更新密钥或现有应用。证据保存在 `build/test-results/update-install/`。
+- 主 CI 和 Release 均显式启用 `FOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON`，在打 tag 前即可验证更新安装用例。该门禁独立于 `FOVELLE_EXTENDED_TESTS`，通过临时测试应用、临时 Ed25519 密钥和本地 HTTP 服务验证更新下载、签名拒绝、安装、替换和重启，不使用正式更新密钥或现有应用。取消检查用例等待本地服务器确认请求已到达，再在响应暂停期间点击取消，避免把进度窗口可见误当成请求已经发出。证据保存在 `build/test-results/update-install/`。
 - clang-tidy 已启用检查的警告升级为错误。测试中少数用于模拟“Qt 活跃但原生焦点事件缺失”的旧 Qt 接口使用局部废弃告警抑制，保留反例语义；其余诊断仍阻断构建。
 
 相关官方依据：[工作流复用与并发](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)、[CMake 按语言启用 clang-tidy](https://cmake.org/cmake/help/latest/prop_tgt/LANG_CLANG_TIDY.html)、[LLVM 告警升级](https://clang.llvm.org/extra/clang-tidy/)、[Sparkle 版本和更新发布](https://sparkle-project.org/documentation/publishing/)。

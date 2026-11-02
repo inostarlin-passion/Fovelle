@@ -123,7 +123,13 @@ static NSArray<NSView *> *views(NSView *root)
                 continue;
             if ([button.title isEqualToString:@"Cancel"] &&
                 [self.mode isEqualToString:@"cancel-check"] && !self.canceled) {
+                NSString *feedStarted =
+                        NSProcessInfo.processInfo.environment[@"FOVELLE_UPDATE_TEST_FEED_STARTED"];
+                if (!self.progress || !feedStarted
+                    || ![NSFileManager.defaultManager fileExistsAtPath:feedStarted])
+                    continue;
                 self.canceled = YES;
+                event(@"FEED_REQUEST_STARTED");
                 event(@"CANCEL_CHECK");
                 [button performClick:nil];
                 return;

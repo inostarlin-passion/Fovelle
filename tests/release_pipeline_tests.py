@@ -141,6 +141,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotEqual(build['concurrency']['group'], release['concurrency']['group'])
         config = next(s for s in build['jobs']['build']['steps'] if s.get('name') == 'Configure')['run']
         self.assertIn('CMAKE_OBJCXX_CLANG_TIDY=clang-tidy', config)
+        self.assertIn('FOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON', config)
         steps = release['jobs']['release']['steps']
         package = next(s for s in steps if s.get('name') == 'Sign, notarize, validate, and package Fovelle')
         self.assertNotIn('if', package)  # manual runs must sign and notarize too
