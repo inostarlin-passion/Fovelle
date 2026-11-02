@@ -450,7 +450,7 @@ No write permission or file is read-only.</source>
     </message>
     <message>
         <source>Failed undoing deletion of %1.</source>
-        <translation>撤销删除失败。</translation>
+        <translation>撤销删除 %1 失败。</translation>
     </message>
     <message>
         <source>Set Zoom Level</source>
@@ -495,6 +495,16 @@ No write permission or file is read-only.</source>
     <message>
         <source>Error: %1</source>
         <translation>错误：%1</translation>
+    </message>
+    <message>
+        <source>Unsupported image format: %1</source>
+        <translation>不支持的图像格式：%1</translation>
+    </message>
+    <message>
+        <source>Could not save %1:
+%2</source>
+        <translation>无法保存 %1：
+%2</translation>
     </message>
 </context>
 <context>

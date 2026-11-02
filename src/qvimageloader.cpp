@@ -41,11 +41,9 @@ void QVImageLoader::shutdownAsyncWork()
 
     asyncWorkShutDown = true;
     pendingRequest.reset();
-    lifetimeToken.reset();
-
-    for (const auto &ticket : std::as_const(workTickets))
-        QvAsync::cancel(ticket);
-    workTickets.clear();
+    for (const auto &entry : std::as_const(entries))
+        QvAsync::cancel(entry.ticket);
+    entries.clear();
 }
 
 void QVImageLoader::setLargestDimension(const int value)
@@ -68,6 +66,13 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
         entry.expectedIdentity = identity;
         targetEntryIt = entries.insert(normalizedPath, std::move(entry));
     } else {
+        if (targetEntryIt->state == State::Loading && targetEntryIt->priority > 0) {
+            // A queued/running preload may be behind uninterruptible shared work.
+            // Give the explicit request its own foreground job and identity.
+            QvAsync::cancel(targetEntryIt->ticket);
+            targetEntryIt->ticket.reset();
+            targetEntryIt->state = State::Queued;
+        }
         targetEntryIt->priority = 0;
         targetEntryIt->expectedIdentity = identity;
 
@@ -99,6 +104,7 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
     if (targetEntry.state == State::Cached)
         queueCachedDelivery(requestId, normalizedPath);
 
+    cancelUnwantedJobs();
     startReadyJobs();
     return requestId;
 }
@@ -107,15 +113,9 @@ void QVImageLoader::clear()
 {
     pendingRequest.reset();
 
-    for (auto it = entries.begin(); it != entries.end();) {
-        if (it->state == State::Loading) {
-            it->desired = false;
-            it->reloadAfterFinish = false;
-            ++it;
-        } else {
-            it = entries.erase(it);
-        }
-    }
+    for (const auto &entry : std::as_const(entries))
+        QvAsync::cancel(entry.ticket);
+    entries.clear();
 }
 
 bool QVImageLoader::FileIdentity::operator==(const FileIdentity &other) const
@@ -184,6 +184,8 @@ QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
                                               const int largestDimension, const bool isPreload)
 {
+    if (QvAsync::isCanceled())
+        return { };
     const FileIdentity inputIdentity = getFileIdentity(absoluteFilePath);
     QElapsedTimer decodeTimer;
     decodeTimer.start();
@@ -211,6 +213,8 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
     bool isMultiFrameImage = false;
     const QVCocoaFunctions::NativeImageReadResult nativeResult =
             QVCocoaFunctions::readImageWithImageIO(absoluteFilePath, qMin(largestDimension, 2048));
+    if (QvAsync::isCanceled())
+        return { };
     isMultiFrameImage = nativeResult.isMultiFrameImage;
     const bool useNativeImageIO = nativeResult.isImageIOType;
     const bool useQtFallback = nativeResult.allowsQtFallback && nativeResult.image.isNull()
@@ -354,13 +358,12 @@ void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
         if (desiredIt == desiredEntries.constEnd()) {
             it->desired = false;
             const bool wanted = isWanted(it.key(), it.value());
-            if (!wanted)
-                it->reloadAfterFinish = false;
-
-            if (it->state == State::Loading || wanted)
+            if (wanted) {
                 ++it;
-            else
+            } else {
+                QvAsync::cancel(it->ticket);
                 it = entries.erase(it);
+            }
             continue;
         }
 
@@ -422,6 +425,18 @@ void QVImageLoader::deliverResult(const quint64 requestId, const QString &absolu
     }
 }
 
+void QVImageLoader::cancelUnwantedJobs()
+{
+    for (auto it = entries.begin(); it != entries.end();) {
+        if (isWanted(it.key(), it.value())) {
+            ++it;
+        } else {
+            QvAsync::cancel(it->ticket);
+            it = entries.erase(it);
+        }
+    }
+}
+
 void QVImageLoader::startReadyJobs()
 {
     std::optional<int> nextPriority;
@@ -468,22 +483,22 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     entryIt->state = State::Loading;
     entryIt->startedIdentity = entryIt->expectedIdentity;
     entryIt->reloadAfterFinish = false;
-    const quint64 generation = ++entryIt->generation;
+    const quint64 generation = ++nextJobGeneration;
+    entryIt->generation = generation;
     const int priority = entryIt->priority;
     const bool isPreload = priority > 0;
     const int targetLargestDimension = largestDimension;
-    emit loadStarted(absoluteFilePath, priority);
-
     const auto read = readFunction;
-    workTickets.removeIf([](const QvAsync::Ticket &ticket) { return ticket.use_count() == 1; });
-    workTickets.append(QvAsync::run(
+    entryIt->ticket = QvAsync::run(
             [read, absoluteFilePath, targetLargestDimension, isPreload] {
                 return read(absoluteFilePath, targetLargestDimension, isPreload);
             },
             [this, absoluteFilePath, generation](Result result) {
                 jobFinished(absoluteFilePath, generation, std::move(result));
             },
-            -priority));
+            -priority, isPreload ? QvAsync::Lane::Shared : QvAsync::Lane::Foreground);
+    // Observers may synchronously clear demand; publish only after cancellation is possible.
+    emit loadStarted(absoluteFilePath, priority);
 }
 
 void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 generation,
@@ -493,6 +508,8 @@ void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 g
     if (entryIt == entries.end() || entryIt->state != State::Loading
         || entryIt->generation != generation)
         return;
+
+    entryIt->ticket.reset();
 
     if (!isWanted(absoluteFilePath, entryIt.value())) {
         entries.erase(entryIt);

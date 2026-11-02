@@ -625,6 +625,16 @@ No write permission or file is read-only.</source>
         <source>Error: %1</source>
         <translation>錯誤：%1</translation>
     </message>
+    <message>
+        <source>Unsupported image format: %1</source>
+        <translation>不支援的影像格式：%1</translation>
+    </message>
+    <message>
+        <source>Could not save %1:
+%2</source>
+        <translation>無法儲存 %1：
+%2</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

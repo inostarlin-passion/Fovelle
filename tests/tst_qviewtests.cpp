@@ -13,6 +13,8 @@
 #include <QFileOpenEvent>
 #include <QImage>
 #include <QImageReader>
+#include <QImageWriter>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QLineF>
 #include <QFile>
@@ -143,6 +145,10 @@ class ImageLoaderTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testLoaderSupersessionCancellation();
+    void testLoaderCancellationLifecycle();
+    void testLoaderForegroundIsolation();
+    void testLoaderPoolBoundAndDrain();
     void testImageLoaderPriorities();
     void testImageLoaderCacheAndAttachment();
     void testImageLoaderRetainedDuringDelivery();
@@ -428,6 +434,12 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testUndoDeleteRetry();
+    void testUndoDeleteHistory();
+    void testFrameExportFormats();
+    void testFrameExportRejected();
+    void testFrameExportWrite();
+    void testFrameExportSnapshot();
     void testStartupMenusReadyBeforeEvents();
     void testLateMenuState_data();
     void testLateMenuState();
@@ -16531,3 +16543,5 @@ int main(int argc, char *argv[])
 #include "menu_lifecycle_acceptance.inc"
 
 #include "lifecycle_fix_acceptance.inc"
+
+#include "important_fixes_acceptance.inc"

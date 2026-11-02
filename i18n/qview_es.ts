@@ -497,6 +497,16 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <source>Error: %1</source>
         <translation>Error: %1</translation>
     </message>
+    <message>
+        <source>Unsupported image format: %1</source>
+        <translation>Formato de imagen no compatible: %1</translation>
+    </message>
+    <message>
+        <source>Could not save %1:
+%2</source>
+        <translation>No se pudo guardar %1:
+%2</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

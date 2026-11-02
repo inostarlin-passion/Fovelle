@@ -469,6 +469,15 @@ No write permission or file is read-only.</source>
         <source>No next image</source>
         <translation></translation>
     </message>
+    <message>
+        <source>Unsupported image format: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not save %1:
+%2</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

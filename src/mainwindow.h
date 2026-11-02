@@ -247,6 +247,11 @@ protected slots:
     void shortcutsUpdated();
 
 private:
+    friend class WindowBehaviorTests;
+
+    static QStringList frameExportNameFilters();
+    bool saveFrameImage(const QImage &frame, const QString &fileName);
+
     qreal boundaryHintOpacity() const;
     void setBoundaryHintOpacity(qreal opacity);
     void showNavigationBoundaryHint(Qv::GoToFileMode mode);

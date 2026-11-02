@@ -18,6 +18,7 @@
 #include <QDesktopServices>
 #include <QContextMenuEvent>
 #include <QImageWriter>
+#include <QSaveFile>
 #include <QImage>
 #include <QSettings>
 #include <QStyle>
@@ -2222,23 +2223,12 @@ void MainWindow::undoDelete()
     if (lastDeletedFiles.isEmpty())
         return;
 
-    const DeletedPaths lastDeletedFile = lastDeletedFiles.pop();
-    // Update the Restore from Trash action now that its history has changed
-    disableActions();
+    const DeletedPaths lastDeletedFile = lastDeletedFiles.top();
 
     if (lastDeletedFile.pathInTrash.isEmpty() || lastDeletedFile.previousPath.isEmpty())
         return;
 
     const QFileInfo fileInfo(lastDeletedFile.pathInTrash);
-    if (!fileInfo.isWritable()) {
-        NativeDialogs::showMessage(QMessageBox::Critical,
-                                   tr("Can't undo deletion of %1:\n"
-                                      "No write permission or file is read-only.")
-                                           .arg(fileInfo.fileName()),
-                                   { }, QMessageBox::Ok, this);
-        return;
-    }
-
     bool success = QFile::rename(lastDeletedFile.pathInTrash, lastDeletedFile.previousPath);
     if (!success) {
         NativeDialogs::showMessage(QMessageBox::Critical,
@@ -2247,6 +2237,8 @@ void MainWindow::undoDelete()
         return;
     }
 
+    lastDeletedFiles.pop();
+    disableActions();
     qvApp->invalidateFolderListings();
     openFile(lastDeletedFile.previousPath);
 }
@@ -2403,6 +2395,47 @@ void MainWindow::randomFile()
     graphicsView->goToFile(Qv::GoToFileMode::Random);
 }
 
+QStringList MainWindow::frameExportNameFilters()
+{
+    QStringList patterns;
+    for (const auto &format : QImageWriter::supportedImageFormats())
+        patterns.append("*." + QString::fromLatin1(format).toLower());
+    patterns.removeDuplicates();
+    patterns.sort();
+    return { QVApplication::tr("Supported Images") + " (" + patterns.join(' ') + ')' };
+}
+
+bool MainWindow::saveFrameImage(const QImage &frame, const QString &fileName)
+{
+    const QByteArray format = QFileInfo(fileName).suffix().toLatin1().toLower();
+    QString error;
+    if (format.isEmpty() || !QImageWriter::supportedImageFormats().contains(format)) {
+        error = tr("Unsupported image format: %1").arg(QString::fromLatin1(format));
+    } else {
+        QSaveFile output(fileName);
+        if (!output.open(QIODevice::WriteOnly)) {
+            error = output.errorString();
+        } else {
+            QImageWriter writer(&output, format);
+            writer.setQuality(100);
+            if (!writer.write(frame)) {
+                error = writer.errorString();
+                output.cancelWriting();
+            } else if (!output.commit()) {
+                error = output.errorString();
+            } else {
+                qvApp->invalidateFolderListings();
+                return true;
+            }
+        }
+    }
+    NativeDialogs::showMessage(
+            QMessageBox::Critical,
+            tr("Could not save %1:\n%2").arg(QFileInfo(fileName).fileName(), error), { },
+            QMessageBox::Ok, this);
+    return false;
+}
+
 void MainWindow::saveFrameAs()
 {
     QSettings settings;
@@ -2413,9 +2446,11 @@ void MainWindow::saveFrameAs()
     if (graphicsView->getLoadedMovie().state() == QVMovie::Running) {
         pause();
     }
+    const QImage frame = graphicsView->getLoadedMovie().currentImage();
     QFileDialog *saveDialog = new QFileDialog(this, tr("Save Frame As..."));
+    saveDialog->setAttribute(Qt::WA_DeleteOnClose);
     saveDialog->setDirectory(settings.value("lastFileDialogDir", QDir::homePath()).toString());
-    saveDialog->setNameFilters(qvApp->getNameFilterList());
+    saveDialog->setNameFilters(frameExportNameFilters());
     saveDialog->selectFile(getCurrentFileDetails().fileInfo.baseName() + "-"
                            + QString::number(graphicsView->getLoadedMovie().currentFrameNumber())
                            + ".png");
@@ -2423,11 +2458,8 @@ void MainWindow::saveFrameAs()
     saveDialog->setAcceptMode(QFileDialog::AcceptSave);
     NativeDialogs::applyTheme(saveDialog);
     saveDialog->open();
-    connect(saveDialog, &QFileDialog::fileSelected, this, [this](const QString &fileName) {
-        if (!graphicsView->getLoadedMovie().currentImage().save(fileName, nullptr, 100))
-            return;
-        qvApp->invalidateFolderListings();
-    });
+    connect(saveDialog, &QFileDialog::fileSelected, this,
+            [this, frame](const QString &fileName) { saveFrameImage(frame, fileName); });
 }
 
 void MainWindow::pause()

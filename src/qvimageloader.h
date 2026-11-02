@@ -105,6 +105,7 @@ private:
         FileIdentity startedIdentity;
         quint64 generation = 0;
         std::optional<Result> result;
+        QvAsync::Ticket ticket;
     };
 
     struct PendingRequest
@@ -121,18 +122,18 @@ private:
     bool isWanted(const QString &absoluteFilePath, const Entry &entry) const;
     void queueCachedDelivery(quint64 requestId, const QString &absoluteFilePath);
     void deliverResult(quint64 requestId, const QString &absoluteFilePath);
+    void cancelUnwantedJobs();
     void startReadyJobs();
     void startJob(const QString &absoluteFilePath);
     void jobFinished(const QString &absoluteFilePath, quint64 generation, Result result);
 
     QHash<QString, Entry> entries;
     std::optional<PendingRequest> pendingRequest;
-    std::shared_ptr<int> lifetimeToken = std::make_shared<int>(0);
-    QList<QvAsync::Ticket> workTickets;
     ReadFunction readFunction;
     bool asyncWorkShutDown{ false };
 
     quint64 nextRequestId = 0;
+    quint64 nextJobGeneration = 0;
     int largestDimension = 1920;
 };
 

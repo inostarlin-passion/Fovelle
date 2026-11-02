@@ -497,6 +497,16 @@ No write permission or file is read-only.</source>
         <source>Error: %1</source>
         <translation>エラー：%1</translation>
     </message>
+    <message>
+        <source>Unsupported image format: %1</source>
+        <translation>未対応の画像形式: %1</translation>
+    </message>
+    <message>
+        <source>Could not save %1:
+%2</source>
+        <translation>%1 を保存できませんでした:
+%2</translation>
+    </message>
 </context>
 <context>
     <name>OpenWith</name>

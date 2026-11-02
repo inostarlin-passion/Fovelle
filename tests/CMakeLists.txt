@@ -633,6 +633,24 @@ if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
     set_tests_properties(FovelleUpdateInstall PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "macos;update;native-ui;installer")
 endif()
 
+
+if(FOVELLE_EXTENDED_TESTS)
+    add_test(NAME FovelleImportantFixesStatic
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/important_fixes_tests.py)
+    add_test(NAME FovelleImportantFixesLoader COMMAND fovelle_tests
+        testLoaderSupersessionCancellation testLoaderCancellationLifecycle testLoaderForegroundIsolation
+        testLoaderPoolBoundAndDrain -v1)
+    set_tests_properties(FovelleImportantFixesLoader PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+        TIMEOUT 0 RUN_SERIAL TRUE)
+    add_test(NAME FovelleImportantFixesWindow COMMAND fovelle_tests
+        testUndoDeleteRetry testUndoDeleteHistory testFrameExportFormats testFrameExportRejected
+        testFrameExportWrite testFrameExportSnapshot -v1)
+    set_tests_properties(FovelleImportantFixesWindow PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+        TIMEOUT 0 RUN_SERIAL TRUE)
+endif()
+
 # Include registrations without their own property block (for example static
 # lifecycle checks). Override inherited CTEST_TEST_TIMEOUT for every test.
 get_property(FOVELLE_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)

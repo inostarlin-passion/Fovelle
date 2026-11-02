@@ -124,6 +124,10 @@
     {
       "script": "release_pipeline_tests.py",
       "args": []
+    },
+    {
+      "script": "important_fixes_tests.py",
+      "args": []
     }
   ],
   "groups": [
@@ -140,7 +144,11 @@
         "testVectorDisplayTargetSwitch",
         "testVectorRequestBurstAndDestruction",
         "testColorSvgWideGamut",
-        "testColorNetpbm"
+        "testColorNetpbm",
+        "testLoaderSupersessionCancellation",
+        "testLoaderCancellationLifecycle",
+        "testLoaderForegroundIsolation",
+        "testLoaderPoolBoundAndDrain"
       ]
     },
     {
@@ -192,7 +200,13 @@
         "testNativeMessageBoxStandardButtonResponses",
         "testLateMenuState",
         "testLateFullscreenMenu",
-        "testLatePauseMenu"
+        "testLatePauseMenu",
+        "testUndoDeleteRetry",
+        "testUndoDeleteHistory",
+        "testFrameExportFormats",
+        "testFrameExportRejected",
+        "testFrameExportWrite",
+        "testFrameExportSnapshot"
       ]
     },
     {

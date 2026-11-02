@@ -17,7 +17,8 @@ struct State
 using Ticket = std::shared_ptr<State>;
 void cancel(const Ticket &ticket);
 void setCurrentTicket(const Ticket &ticket);
-void schedule(std::function<void()> work, int priority = 0);
+enum class Lane { Shared, Foreground };
+void schedule(std::function<void()> work, int priority = 0, Lane lane = Lane::Shared);
 bool drain(int timeoutMs);
 void finishOrExit(int exitCode = 75, int timeoutMs = 1500);
 bool isCanceled();
@@ -25,7 +26,7 @@ void registerChild(qint64 pid);
 void unregisterChild(qint64 pid);
 
 template <class Work, class Completion>
-Ticket run(Work work, Completion completion, int priority = 0)
+Ticket run(Work work, Completion completion, int priority = 0, Lane lane = Lane::Shared)
 {
     auto ticket = std::make_shared<State>();
     auto *application = QCoreApplication::instance();
@@ -49,7 +50,7 @@ Ticket run(Work work, Completion completion, int priority = 0)
                         },
                         Qt::QueuedConnection);
             },
-            priority);
+            priority, lane);
     return ticket;
 }
 } // namespace QvAsync
