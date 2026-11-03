@@ -9,10 +9,10 @@
   "deployment_target": "15.0",
   "lanes": {
     "main": {
-      "runner": "macos-15",
+      "runner": "macos-26",
       "system": "Darwin",
       "architecture": "arm64",
-      "os_major": "15",
+      "os_major": "26",
       "xcode": "26.2",
       "sdk": "26.2",
       "developer_dir": "/Applications/Xcode_26.2.app/Contents/Developer"

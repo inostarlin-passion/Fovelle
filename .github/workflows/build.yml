@@ -20,8 +20,8 @@ jobs:
     uses: ./.github/workflows/test.yml
   build:
     needs: format
-    # Native ARM64 SDK-26 build; avoid the unavailable macos-26 hosted pool.
-    runs-on: macos-15
+    # Native ARM64 SDK-26 build; macos-15 repeatedly failed before runner allocation.
+    runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
       MACOSX_DEPLOYMENT_TARGET: '15.0'
