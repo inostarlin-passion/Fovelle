@@ -19,6 +19,7 @@
 #include <QContextMenuEvent>
 #include <QImageWriter>
 #include <QSaveFile>
+#include <sys/stat.h>
 #include <QImage>
 #include <QSettings>
 #include <QStyle>
@@ -562,7 +563,6 @@ void MainWindow::shutdownBackgroundWork()
 
     if (graphicsView)
         graphicsView->shutdownAsyncWork();
-    downloadedArtifacts.clear();
 }
 
 void MainWindow::ensureMenus()
@@ -1614,9 +1614,12 @@ void MainWindow::requestPopulateOpenWithMenu()
         return;
 
     const QPointer<MainWindow> owner(this);
+    const auto sourceLifetime = graphicsView->getSourceLifetime();
     openWithTicket = QvAsync::run(
             // The worker must never dereference a window, including during shutdown.
-            [filePath, provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
+            [filePath, sourceLifetime,
+             provider = openWithItemProvider]() -> QList<OpenWith::OpenWithItem> {
+                Q_UNUSED(sourceLifetime);
                 return provider(filePath);
             },
             [owner, filePath](QList<OpenWith::OpenWithItem> items) {
@@ -2075,8 +2078,8 @@ void MainWindow::openUrl(const QUrl &url)
     connect(download, &UrlDownload::succeeded, this,
             [this, cleanup](const UrlDownload::Artifact &artifact) {
                 if (!backgroundWorkShutDown) {
-                    downloadedArtifacts.append(artifact);
-                    openFile(artifact.path);
+                    graphicsView->loadFile(artifact.path, { }, artifact.directory);
+                    cancelSlideshow();
                 }
                 cleanup();
             });
@@ -2147,8 +2150,9 @@ void MainWindow::askDeleteFile(bool permanent)
 
     const QFileInfo &fileInfo = getCurrentFileDetails().fileInfo;
     const QString fileName = getCurrentFileDetails().fileInfo.fileName();
+    const auto target = captureDeleteTarget(fileInfo.absoluteFilePath());
 
-    if (!fileInfo.isWritable()) {
+    if (!target || !fileInfo.isWritable()) {
         NativeDialogs::showMessage(
                 QMessageBox::Critical,
                 tr("Can't delete %1:\nNo write permission or file is read-only.").arg(fileName),
@@ -2167,23 +2171,58 @@ void MainWindow::askDeleteFile(bool permanent)
     auto *msgBox = NativeDialogs::createMessageBox(QMessageBox::Question, messageText, { },
                                                    QMessageBox::Yes | QMessageBox::No, this);
 
-    connect(msgBox, &QMessageBox::finished, this, [this, permanent](int result) {
-        if (result != QMessageBox::Yes)
-            return;
+    const auto sourceLifetime = graphicsView->getSourceLifetime();
+    connect(msgBox, &QMessageBox::finished, this,
+            [this, target, permanent, sourceLifetime](int result) {
+                Q_UNUSED(sourceLifetime);
+                if (result != QMessageBox::Yes)
+                    return;
 
-        this->deleteFile(permanent);
-    });
+                deleteTarget(*target, permanent);
+            });
 
     msgBox->show();
 }
 
 void MainWindow::deleteFile(bool permanent)
 {
-    const QFileInfo &fileInfo = getCurrentFileDetails().fileInfo;
-    const QString filePath = fileInfo.absoluteFilePath();
-    const QString fileName = fileInfo.fileName();
+    const auto target = captureDeleteTarget(getCurrentFileDetails().fileInfo.absoluteFilePath());
+    if (target)
+        deleteTarget(*target, permanent);
+}
 
-    graphicsView->closeImage(true);
+std::optional<MainWindow::DeleteTarget> MainWindow::captureDeleteTarget(const QString &path)
+{
+    if (path.isEmpty())
+        return std::nullopt;
+    struct stat status;
+    if (::lstat(QFile::encodeName(path).constData(), &status) != 0)
+        return std::nullopt;
+    const QByteArray identity = QByteArray::number(qulonglong(status.st_dev)) + ':'
+            + QByteArray::number(qulonglong(status.st_ino)) + ':'
+            + QByteArray::number(qlonglong(status.st_size)) + ':'
+            + QByteArray::number(qlonglong(status.st_mtimespec.tv_sec)) + ':'
+            + QByteArray::number(qlonglong(status.st_mtimespec.tv_nsec));
+    return DeleteTarget{ QFileInfo(path).absoluteFilePath(), identity };
+}
+
+void MainWindow::deleteTarget(const DeleteTarget &target, bool permanent)
+{
+    const auto current = captureDeleteTarget(target.path);
+    const QByteArray currentTarget = current ? current->identity : QByteArray();
+    const QString filePath = target.path;
+    const QString fileName = QFileInfo(filePath).fileName();
+    if (currentTarget != target.identity) {
+        NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't delete %1.").arg(fileName), { },
+                                   QMessageBox::Ok, this);
+        return;
+    }
+
+    const bool wasCurrent = getCurrentFileDetails().fileInfo.absoluteFilePath() == filePath;
+    // Keep a downloaded source alive across closeImage and the filesystem operation.
+    const auto sourceLifetime = graphicsView->getSourceLifetime();
+    if (wasCurrent)
+        graphicsView->closeImage(true);
 
     bool success;
     QString trashFilePath;
@@ -2197,7 +2236,10 @@ void MainWindow::deleteFile(bool permanent)
     }
 
     if (!success || QFile::exists(filePath)) {
-        openFile(filePath);
+        if (wasCurrent) {
+            graphicsView->loadFile(filePath, { }, sourceLifetime);
+            cancelSlideshow();
+        }
         NativeDialogs::showMessage(QMessageBox::Critical, tr("Can't delete %1.").arg(fileName), { },
                                    QMessageBox::Ok, this);
         return;
@@ -2207,9 +2249,9 @@ void MainWindow::deleteFile(bool permanent)
     qvApp->invalidateFolderListings();
 
     auto afterDelete = qvApp->getSettingsManager().getEnum<Qv::AfterDelete>("afterdelete");
-    if (afterDelete == Qv::AfterDelete::MoveForward)
+    if (wasCurrent && afterDelete == Qv::AfterDelete::MoveForward)
         nextFile();
-    else if (afterDelete == Qv::AfterDelete::MoveBack)
+    else if (wasCurrent && afterDelete == Qv::AfterDelete::MoveBack)
         previousFile();
 
     if (!trashFilePath.isEmpty())

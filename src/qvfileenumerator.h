@@ -59,7 +59,8 @@ public:
     static CompatibleFileList scan(const QString &dirPath, const ScanOptions &options);
     CompatibleFileList getCompatibleFiles(const QString &dirPath) const;
     QvAsync::Ticket scanAsync(const QString &dirPath, QObject *receiver,
-                              std::function<void(CompatibleFileList)> completion) const;
+                              std::function<void(CompatibleFileList)> completion,
+                              std::shared_ptr<void> sourceLifetime = { }) const;
     bool getIsLoopFoldersEnabled() const { return isLoopFoldersEnabled; }
     Qv::SortMode getSortMode() const { return sortMode; }
     void setSortMode(const Qv::SortMode mode);

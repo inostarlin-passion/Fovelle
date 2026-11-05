@@ -249,6 +249,14 @@ protected slots:
 private:
     friend class WindowBehaviorTests;
 
+    struct DeleteTarget
+    {
+        QString path;
+        QByteArray identity;
+    };
+    static std::optional<DeleteTarget> captureDeleteTarget(const QString &path);
+    void deleteTarget(const DeleteTarget &target, bool permanent);
+
     static QStringList frameExportNameFilters();
     bool saveFrameImage(const QImage &frame, const QString &fileName);
 
@@ -340,7 +348,6 @@ private:
     QElapsedTimer lastActivated;
 
     QList<UrlDownload *> downloads;
-    QList<UrlDownload::Artifact> downloadedArtifacts;
 
     QStack<DeletedPaths> lastDeletedFiles;
 

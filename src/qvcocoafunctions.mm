@@ -21,6 +21,7 @@
 #include <QImageReader>
 #include <QLocale>
 #include <QProcess>
+#include <QPainter>
 #include <QProcessEnvironment>
 #include <QPointer>
 #include <QScopeGuard>
@@ -38,6 +39,8 @@
 #include <cstdio>
 #include <limits>
 #include <mutex>
+#include <sys/resource.h>
+#include <unistd.h>
 
 #import <Cocoa/Cocoa.h>
 #import <ColorSync/ColorSync.h>
@@ -723,7 +726,8 @@ CFDictionaryRef pngPropertiesForFrame(CGImageSourceRef source, const size_t fram
     return static_cast<CFDictionaryRef>(pngProperties);
 }
 
-QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0)
+QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0,
+                        const bool interpolate = true)
 {
     if (!cgImage)
         return { };
@@ -759,7 +763,11 @@ QImage imageFromCGImage(CGImageRef cgImage, const int largestDimension = 0)
         return { };
     }
 
-    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+    // QImage allocates uninitialized pixels. Source-over would blend partial
+    // alpha against those bytes instead of copying the decoded source.
+    CGContextSetBlendMode(context, kCGBlendModeCopy);
+    CGContextSetInterpolationQuality(context,
+                                     interpolate ? kCGInterpolationHigh : kCGInterpolationNone);
     CGContextDrawImage(context,
                        CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)),
                        cgImage);
@@ -1107,13 +1115,27 @@ QString ghostscriptExecutable()
     return { };
 }
 
-QString boundedProcessError(QProcess &process)
+void limitEPSOutputFile()
 {
-    QByteArray diagnostic = process.readAllStandardError();
-    if (diagnostic.size() > MaxEPSRendererDiagnosticBytes)
-        diagnostic.truncate(MaxEPSRendererDiagnosticBytes);
-    return QString::fromLocal8Bit(diagnostic).simplified();
+    // This runs between fork and exec: only async-signal-safe system calls.
+    struct rlimit inherited;
+    if (::getrlimit(RLIMIT_FSIZE, &inherited) != 0)
+        ::_exit(126);
+    const rlim_t maximum = static_cast<rlim_t>(MaxEPSIntermediatePDFBytes);
+    const rlim_t cap =
+            inherited.rlim_max == RLIM_INFINITY ? maximum : std::min(maximum, inherited.rlim_max);
+    const struct rlimit limited{ cap, cap };
+    if (::setrlimit(RLIMIT_FSIZE, &limited) != 0)
+        ::_exit(126);
 }
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+class EPSProcess final : public QProcess
+{
+protected:
+    void setupChildProcess() override { limitEPSOutputFile(); }
+};
+#endif
 
 bool convertEPSToPDF(const QString &filePath, const QString &pdfPath, QString &errorString)
 {
@@ -1124,7 +1146,30 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath, QString &e
         return false;
     }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     QProcess process;
+    process.setChildProcessModifier(limitEPSOutputFile);
+#else
+    EPSProcess process;
+#endif
+    process.setReadChannel(QProcess::StandardError);
+    QByteArray diagnostic;
+    bool diagnosticExceeded = false;
+    const auto consumeDiagnostic = [&] {
+        while (!diagnosticExceeded && process.bytesAvailable() > 0) {
+            const auto remaining = MaxEPSRendererDiagnosticBytes - diagnostic.size();
+            const auto chunk = process.read(qMin<qint64>(4096, remaining + 1));
+            if (chunk.isEmpty())
+                break;
+            diagnostic.append(chunk.constData(), qMin<qsizetype>(chunk.size(), remaining));
+            if (chunk.size() > remaining) {
+                diagnosticExceeded = true;
+                process.kill();
+            }
+        }
+    };
+    QObject::connect(&process, &QProcess::readyReadStandardError, &process, consumeDiagnostic,
+                     Qt::DirectConnection);
     process.setProgram(executable);
     process.setArguments(
             { QStringLiteral("-q"), QStringLiteral("-dSAFER"), QStringLiteral("-dBATCH"),
@@ -1176,21 +1221,32 @@ bool convertEPSToPDF(const QString &filePath, const QString &pdfPath, QString &e
     QElapsedTimer processTimer;
     processTimer.start();
     while (!process.waitForFinished(50)) {
-        if (QvAsync::isCanceled() || processTimer.elapsed() >= EPSRendererTimeoutMs) {
+        consumeDiagnostic();
+        if (diagnosticExceeded || QvAsync::isCanceled()
+            || processTimer.elapsed() >= EPSRendererTimeoutMs
+            || QFileInfo(pdfPath).size() > static_cast<qint64>(MaxEPSIntermediatePDFBytes)) {
             process.kill();
             process.waitForFinished(500);
-            errorString = QStringLiteral("EPS renderer canceled or timed out");
+            errorString = diagnosticExceeded
+                    ? QStringLiteral("EPS renderer diagnostic output exceeded the safety limit")
+                    : QvAsync::isCanceled() || processTimer.elapsed() >= EPSRendererTimeoutMs
+                    ? QStringLiteral("EPS renderer canceled or timed out")
+                    : QStringLiteral("Ghostscript EPS rendering exceeded the safety limit");
             return false;
         }
     }
 
-    QvAsync::unregisterChild(childPid);
-    const QString diagnostic = boundedProcessError(process);
+    consumeDiagnostic();
+    if (diagnosticExceeded) {
+        errorString = QStringLiteral("EPS renderer diagnostic output exceeded the safety limit");
+        return false;
+    }
+    const QString diagnosticText = QString::fromLocal8Bit(diagnostic).simplified();
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        errorString = diagnostic.isEmpty()
+        errorString = diagnosticText.isEmpty()
                 ? QStringLiteral("Ghostscript could not interpret the EPS document")
                 : QStringLiteral("Ghostscript could not interpret the EPS document: %1")
-                          .arg(diagnostic);
+                          .arg(diagnosticText);
         return false;
     }
 
@@ -1571,6 +1627,38 @@ public:
     const QVector<Tile> &sourceTiles() const { return tiles; }
     CIImage *fullSingleCIImage() const { return fullSingleImage; }
     quint64 materializedBytes() const { return materializedByteCount; }
+
+    QImage copyImage() const
+    {
+        if (!backingImage.isNull())
+            return backingImage;
+        if (tiles.isEmpty())
+            return { };
+        QImage output(sourceSize, QImage::Format_RGBA8888_Premultiplied);
+        if (output.isNull())
+            return { };
+        output.setColorSpace(
+                qColorSpaceFromCGColorSpace(CGImageGetColorSpace(tiles.first().layerImage)));
+        output.fill(Qt::transparent);
+        QPainter painter(&output);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        for (const auto &tile : tiles) {
+            QImage pixels = imageFromCGImage(tile.layerImage, 0, false);
+            if (pixels.isNull())
+                return { };
+            if (output.colorSpace().isValid() && pixels.colorSpace().isValid()
+                && output.colorSpace() != pixels.colorSpace())
+                pixels.convertToColorSpace(output.colorSpace());
+            const QRectF data(tile.dataRect.origin.x,
+                              sourceSize.height() - CGRectGetMaxY(tile.dataRect),
+                              tile.dataRect.size.width, tile.dataRect.size.height);
+            const QRectF core(tile.coreRect.origin.x,
+                              sourceSize.height() - CGRectGetMaxY(tile.coreRect),
+                              tile.coreRect.size.width, tile.coreRect.size.height);
+            painter.drawImage(core, pixels, core.translated(-data.topLeft()));
+        }
+        return output;
+    }
 
 private:
     static bool supportsDirectQImageFormat(const QImage::Format format)
@@ -5479,6 +5567,30 @@ QVCocoaFunctions::SDRImagePtr QVCocoaFunctions::createSDRImage(QImage image, con
         return { };
     auto native = std::make_shared<NativeSDRImage>(std::move(image), hasAlpha);
     return native->sourceTiles().isEmpty() ? SDRImagePtr{ } : native;
+}
+
+QImage QVCocoaFunctions::copySDRImage(const SDRImagePtr &opaque)
+{
+    const auto image = std::dynamic_pointer_cast<const NativeSDRImage>(opaque);
+    return image ? image->copyImage() : QImage();
+}
+
+QImage QVCocoaFunctions::copyHDRImage(const HDRImagePtr &opaque)
+{
+    const auto image = std::dynamic_pointer_cast<const NativeHDRImage>(opaque);
+    if (!image)
+        return { };
+    @autoreleasepool {
+        CGColorSpaceRef output = colorSyncDisplayP3ColorSpace(false);
+        CGColorSpaceRef working = colorSyncDisplayP3ColorSpace(true);
+        CIContext *context = metalCIContext(working, output);
+        QImage result = imageFromCIImage(image->sdrCIImage(), context, output, 0);
+        if (output)
+            CGColorSpaceRelease(output);
+        if (working)
+            CGColorSpaceRelease(working);
+        return result;
+    }
 }
 #ifdef FOVELLE_HDR_SURFACE_TESTING
 QVector<float> QVCocoaFunctions::probeSDRImagePixels(const SDRImagePtr &opaque,

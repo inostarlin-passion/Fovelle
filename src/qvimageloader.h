@@ -27,6 +27,7 @@ public:
 
     struct Result
     {
+        std::shared_ptr<void> sourceLifetime;
         QImage image;
         QvColor::SourceInfo sourceColor;
         Qv::VectorImageData vectorImage;
@@ -69,7 +70,8 @@ public:
 
     static PreloadAdmission preloadAdmissionForFile(const QString &absoluteFilePath);
 
-    quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false);
+    quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false,
+                         std::shared_ptr<void> sourceLifetime = { });
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
     void clear();
 
@@ -97,6 +99,7 @@ private:
 
     struct Entry
     {
+        std::shared_ptr<void> sourceLifetime;
         int priority = 0;
         bool desired = false;
         bool reloadAfterFinish = false;

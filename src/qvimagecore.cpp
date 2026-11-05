@@ -10,6 +10,8 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QElapsedTimer>
+#include <QSvgRenderer>
+#include <QPainter>
 
 QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
 {
@@ -32,6 +34,7 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
                 pendingLoadRequestId = 0;
                 loadInProgress = false;
                 pendingLoadDebouncesPreloading = false;
+                pendingSourceLifetime.reset();
                 loadPixmap(readData);
 
                 // A fileChanged handler may have synchronously requested another image.
@@ -78,7 +81,7 @@ QVImageCore::~QVImageCore()
 }
 
 void QVImageCore::loadFile(const QString &fileName, const bool isReloading, const QString &baseDir,
-                           const bool debouncePreloading)
+                           const bool debouncePreloading, std::shared_ptr<void> sourceLifetime)
 {
     if (asyncWorkShutDown)
         return;
@@ -92,6 +95,9 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
 
     QFileInfo fileInfo(adjustedFileName);
     QString absolutePath = fileInfo.absoluteFilePath();
+    if (!sourceLifetime && absolutePath == currentFileDetails.fileInfo.absoluteFilePath())
+        sourceLifetime = loadedSourceLifetime;
+    pendingSourceLifetime = sourceLifetime;
 
     if (fileInfo.isDir()) {
         setPaused(true);
@@ -124,7 +130,7 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     preloadDebounceTimer.stop();
     loadInProgress = true;
     pendingLoadDebouncesPreloading = debouncePreloading;
-    pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading);
+    pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading, sourceLifetime);
 }
 
 void QVImageCore::shutdownAsyncWork()
@@ -139,6 +145,7 @@ void QVImageCore::shutdownAsyncWork()
     QvAsync::cancel(folderScanTicket);
     loadedMovie.stop();
     imageLoader.shutdownAsyncWork();
+    pendingSourceLifetime.reset();
 }
 
 void QVImageCore::loadPixmap(const ReadData &readData)
@@ -216,7 +223,9 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     // supplied the authoritative PDF result.
     const bool isVectorDocument = loadedVectorImage.isValid();
     loadedMovie.setFileName(isVectorDocument ? QString()
-                                             : currentFileDetails.fileInfo.absoluteFilePath());
+                                             : currentFileDetails.fileInfo.absoluteFilePath(),
+                            readData.sourceLifetime);
+    loadedSourceLifetime = readData.sourceLifetime;
 
     if (!isVectorDocument && !readData.isMultiFrameImage && loadedMovie.isValid()
         && loadedMovie.frameCount() != 1)
@@ -249,6 +258,7 @@ void QVImageCore::closeImage(const bool stayInDir)
     openDirectoryAfterScan = false;
     preloadDebounceTimer.stop();
     imageLoader.clear();
+    pendingSourceLifetime.reset();
     pendingLoadRequestId = 0;
     loadInProgress = false;
     pendingLoadDebouncesPreloading = false;
@@ -272,6 +282,7 @@ void QVImageCore::loadEmptyPixmap()
     loadedHDRImage.reset();
     loadedMovie.stop();
     loadedMovie.setFileName("");
+    loadedSourceLifetime.reset();
 
     emit fileChanged();
 }
@@ -418,7 +429,8 @@ void QVImageCore::updateFolderInfo(QString dirPath)
         currentFileDetails.loadedIndexInFolder = -1;
     }
     folderScanTicket = fileEnumerator.scanAsync(
-            dirPath, this, [this, generation, dirPath](QVFileEnumerator::CompatibleFileList files) {
+            dirPath, this,
+            [this, generation, dirPath](QVFileEnumerator::CompatibleFileList files) {
                 if (asyncWorkShutDown || generation != folderScanGeneration
                     || pendingFolderPath != dirPath)
                     return;
@@ -436,7 +448,8 @@ void QVImageCore::updateFolderInfo(QString dirPath)
                     refreshDesiredImages(!preloadDebounceTimer.isActive());
                 }
                 emit folderInfoChanged();
-            });
+            },
+            pendingSourceLifetime ? pendingSourceLifetime : loadedSourceLifetime);
 }
 
 QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool includePreloads) const
@@ -555,6 +568,37 @@ void QVImageCore::setSpeed(int desiredSpeed)
 {
     if (currentFileDetails.isMovieLoaded)
         loadedMovie.setSpeed(std::clamp(desiredSpeed, 0, 1000));
+}
+
+QImage QVImageCore::clipboardImage() const
+{
+    if (!currentFileDetails.isPixmapLoaded)
+        return { };
+    if (currentFileDetails.isMovieLoaded)
+        return loadedMovie.currentImage();
+    if (loadedSDRImage)
+        return QVCocoaFunctions::copySDRImage(loadedSDRImage);
+    if (loadedHDRImage)
+        return QVCocoaFunctions::copyHDRImage(loadedHDRImage);
+    if (loadedVectorImage.isValid()) {
+        const QSize size = loadedVectorImage.logicalSize.toSize();
+        if (loadedVectorImage.format == Qv::VectorImageFormat::Pdf)
+            return QVCocoaFunctions::renderPDFVectorTile(
+                    loadedVectorImage.encodedData, loadedVectorImage.logicalSize,
+                    QRectF(QPointF(), loadedVectorImage.logicalSize), size);
+        QSvgRenderer renderer(loadedVectorImage.encodedData);
+        if (!renderer.isValid())
+            return { };
+        QImage image(size, QImage::Format_RGBA8888_Premultiplied);
+        if (image.isNull())
+            return { };
+        image.setColorSpace(loadedVectorImage.colorSpace);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        renderer.render(&painter);
+        return image;
+    }
+    return loadedPixmap.toImage();
 }
 
 QPixmap QVImageCore::scaleExpensively(const QSizeF desiredSize)

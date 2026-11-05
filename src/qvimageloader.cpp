@@ -22,6 +22,20 @@ constexpr int VectorPreviewLargestDimension = 512;
 // which exposes no cooperative cancellation point once it starts.
 constexpr qint64 MaxPreloadSourceBytes = 128LL * 1024LL * 1024LL;
 constexpr quint64 MaxPreloadDecodedBytes = 128ULL * 1024ULL * 1024ULL;
+
+template <class T>
+std::shared_ptr<T> retainSource(const std::shared_ptr<T> &image,
+                                const std::shared_ptr<void> &sourceLifetime)
+{
+    if (!image || !sourceLifetime)
+        return image;
+    struct Owner
+    {
+        std::shared_ptr<void> sourceLifetime;
+        std::shared_ptr<T> image;
+    };
+    return { std::make_shared<Owner>(Owner{ sourceLifetime, image }), image.get() };
+}
 } // namespace
 
 QVImageLoader::QVImageLoader(QObject *parent, ReadFunction read)
@@ -51,7 +65,8 @@ void QVImageLoader::setLargestDimension(const int value)
     largestDimension = value;
 }
 
-quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool forceReload)
+quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool forceReload,
+                                    std::shared_ptr<void> sourceLifetime)
 {
     if (asyncWorkShutDown)
         return 0;
@@ -87,6 +102,8 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
     }
 
     Entry &targetEntry = targetEntryIt.value();
+    if (sourceLifetime)
+        targetEntry.sourceLifetime = std::move(sourceLifetime);
     const bool retryCachedError = targetEntry.state == State::Cached
             && targetEntry.result.has_value() && targetEntry.result->errorData.has_value();
     if (forceReload || retryCachedError) {
@@ -489,9 +506,14 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     const bool isPreload = priority > 0;
     const int targetLargestDimension = largestDimension;
     const auto read = readFunction;
+    const auto sourceLifetime = entryIt->sourceLifetime;
     entryIt->ticket = QvAsync::run(
-            [read, absoluteFilePath, targetLargestDimension, isPreload] {
-                return read(absoluteFilePath, targetLargestDimension, isPreload);
+            [read, absoluteFilePath, targetLargestDimension, isPreload, sourceLifetime] {
+                auto result = read(absoluteFilePath, targetLargestDimension, isPreload);
+                result.sourceLifetime = sourceLifetime;
+                result.sdrImage = retainSource(result.sdrImage, sourceLifetime);
+                result.hdrImage = retainSource(result.hdrImage, sourceLifetime);
+                return result;
             },
             [this, absoluteFilePath, generation](Result result) {
                 jobFinished(absoluteFilePath, generation, std::move(result));

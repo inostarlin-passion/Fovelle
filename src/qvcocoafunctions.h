@@ -83,6 +83,8 @@ public:
     };
 
     using SDRImagePtr = std::shared_ptr<const SDRImage>;
+    static QImage copySDRImage(const SDRImagePtr &image);
+    static QImage copyHDRImage(const HDRImagePtr &image);
 
     struct NativeImageReadResult
     {

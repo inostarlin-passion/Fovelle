@@ -655,3 +655,13 @@ endif()
 # lifecycle checks). Override inherited CTEST_TEST_TIMEOUT for every test.
 get_property(FOVELLE_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
 set_tests_properties(${FOVELLE_REGISTERED_TESTS} PROPERTIES TIMEOUT 0)
+
+if(FOVELLE_EXTENDED_TESTS)
+    add_test(NAME FovelleReviewFixesStatic
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/review_fixes_static.py)
+    add_test(NAME FovelleReviewFixes COMMAND fovelle_tests
+        testDeleteConfirmationKeepsTarget testDeleteConfirmationRejectsReplacement testEPSOutputLimit testEPSDiagnosticLimit testEPSResourceCompatibility testClipboardFullResolution testClipboardRepresentations testDownloadedSourcesRetire testSourceLeaseAsyncLifetime testSourceLeaseConsumers -v1)
+    set_tests_properties(FovelleReviewFixesStatic FovelleReviewFixes PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE)
+    set_tests_properties(FovelleReviewFixes PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
+endif()

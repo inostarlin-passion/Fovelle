@@ -30,13 +30,17 @@ QVFileEnumerator::getCompatibleFiles(const QString &dirPath) const
     return scan(dirPath, scanOptions());
 }
 
-QvAsync::Ticket
-QVFileEnumerator::scanAsync(const QString &dirPath, QObject *receiver,
-                            std::function<void(CompatibleFileList)> completion) const
+QvAsync::Ticket QVFileEnumerator::scanAsync(const QString &dirPath, QObject *receiver,
+                                            std::function<void(CompatibleFileList)> completion,
+                                            std::shared_ptr<void> sourceLifetime) const
 {
     const ScanOptions options = scanOptions();
-    const auto ticket = QvAsync::run([dirPath, options] { return scan(dirPath, options); },
-                                     std::move(completion));
+    const auto ticket = QvAsync::run(
+            [dirPath, options, sourceLifetime] {
+                Q_UNUSED(sourceLifetime);
+                return scan(dirPath, options);
+            },
+            std::move(completion));
     QObject::connect(receiver, &QObject::destroyed, [ticket] { QvAsync::cancel(ticket); });
     return ticket;
 }

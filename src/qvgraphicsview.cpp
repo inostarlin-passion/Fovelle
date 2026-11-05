@@ -1287,13 +1287,23 @@ void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, 
 
 QMimeData *QVGraphicsView::getMimeData() const
 {
-    auto *mimeData = new QMimeData();
+    class SourceMimeData final : public QMimeData
+    {
+        std::shared_ptr<void> sourceLifetime;
+
+    public:
+        explicit SourceMimeData(std::shared_ptr<void> source)
+            : sourceLifetime(std::move(source)) { }
+    };
+    auto *mimeData = new SourceMimeData(imageCore.getSourceLifetime());
     if (!getCurrentFileDetails().isPixmapLoaded)
         return mimeData;
 
     mimeData->setUrls(
             { QUrl::fromLocalFile(imageCore.getCurrentFileDetails().fileInfo.absoluteFilePath()) });
-    mimeData->setImageData(imageCore.getLoadedPixmap().toImage());
+    const QImage image = imageCore.clipboardImage();
+    if (!image.isNull())
+        mimeData->setImageData(image);
     return mimeData;
 }
 
@@ -1319,9 +1329,10 @@ void QVGraphicsView::loadMimeData(const QMimeData *mimeData)
     }
 }
 
-void QVGraphicsView::loadFile(const QString &fileName, const QString &baseDir)
+void QVGraphicsView::loadFile(const QString &fileName, const QString &baseDir,
+                              std::shared_ptr<void> sourceLifetime)
 {
-    imageCore.loadFile(fileName, false, baseDir);
+    imageCore.loadFile(fileName, false, baseDir, false, std::move(sourceLifetime));
 }
 
 void QVGraphicsView::reloadFile()

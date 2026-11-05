@@ -59,6 +59,7 @@ Q_DECLARE_TYPEINFO(QFrameInfo, Q_RELOCATABLE_TYPE);
 // object and never borrows the synchronous reader used by manual frame jumps.
 struct AsyncMovieDecoder
 {
+    std::shared_ptr<void> sourceLifetime;
     QString path;
     QByteArray format;
     std::unique_ptr<QImageReader> reader;
@@ -145,6 +146,7 @@ public:
     void _q_loadNextFrame(bool starting);
 
     QVMovie *q_ptr = nullptr;
+    std::shared_ptr<void> sourceLifetime;
     std::unique_ptr<QImageReader> reader = nullptr;
     std::unique_ptr<QVCocoaFunctions::AnimatedImage> nativeAnimation;
     int speed = 100;
@@ -508,6 +510,7 @@ void QVMoviePrivate::loadAsyncFrame()
         q->setProperty("decoderCreations", q->property("decoderCreations").toInt() + 1);
 #endif
         asyncDecoder = std::make_shared<AsyncMovieDecoder>();
+        asyncDecoder->sourceLifetime = sourceLifetime;
         asyncDecoder->path = absoluteFilePath;
         asyncDecoder->format = reader->format();
     }
@@ -711,6 +714,8 @@ QVMovie::~QVMovie()
     Q_D(QVMovie);
     d->cancelNextLoad();
     d->reader.reset();
+    d->nativeAnimation.reset();
+    d->sourceLifetime.reset();
 }
 
 void QVMovie::setDevice(QIODevice *device)
@@ -720,6 +725,7 @@ void QVMovie::setDevice(QIODevice *device)
     d->nativeAnimation.reset();
     d->reader->setDevice(device);
     d->reset();
+    d->sourceLifetime.reset();
 }
 
 QIODevice *QVMovie::device() const
@@ -728,7 +734,7 @@ QIODevice *QVMovie::device() const
     return d->reader->device();
 }
 
-void QVMovie::setFileName(const QString &fileName)
+void QVMovie::setFileName(const QString &fileName, std::shared_ptr<void> sourceLifetime)
 {
     stop();
     Q_D(QVMovie);
@@ -736,6 +742,7 @@ void QVMovie::setFileName(const QString &fileName)
     d->reader->setFileName(fileName);
     d->configureNativeAnimation();
     d->reset();
+    d->sourceLifetime = std::move(sourceLifetime);
 }
 
 QString QVMovie::fileName() const

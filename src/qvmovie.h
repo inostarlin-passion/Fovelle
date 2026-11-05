@@ -12,6 +12,7 @@
 #include <QtCore/qlist.h>
 #include <QtCore/qscopedpointer.h>
 #include <QtGui/qimagereader.h>
+#include <memory>
 
 QT_REQUIRE_CONFIG(movie);
 
@@ -50,7 +51,7 @@ public:
     void setDevice(QIODevice *device);
     QIODevice *device() const;
 
-    void setFileName(const QString &fileName);
+    void setFileName(const QString &fileName, std::shared_ptr<void> sourceLifetime = { });
     QString fileName() const;
 
     void setFormat(const QByteArray &format);

@@ -68,6 +68,8 @@
 #include <QPointer>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QStandardPaths>
+#include <QClipboard>
 #include <QUuid>
 #include <QTextStream>
 #include <QMenu>
@@ -434,6 +436,16 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testDeleteConfirmationKeepsTarget();
+    void testDeleteConfirmationRejectsReplacement();
+    void testEPSOutputLimit();
+    void testEPSDiagnosticLimit();
+    void testEPSResourceCompatibility();
+    void testClipboardFullResolution();
+    void testClipboardRepresentations();
+    void testDownloadedSourcesRetire();
+    void testSourceLeaseAsyncLifetime();
+    void testSourceLeaseConsumers();
     void testUndoDeleteRetry();
     void testUndoDeleteHistory();
     void testFrameExportFormats();
@@ -16545,3 +16557,5 @@ int main(int argc, char *argv[])
 #include "lifecycle_fix_acceptance.inc"
 
 #include "important_fixes_acceptance.inc"
+
+#include "review_fixes_acceptance.inc"

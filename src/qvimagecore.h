@@ -52,7 +52,7 @@ public:
     ~QVImageCore() override;
 
     void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "",
-                  bool debouncePreloading = false);
+                  bool debouncePreloading = false, std::shared_ptr<void> sourceLifetime = { });
     void closeImage(const bool stayInDir = false);
     GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
     void markFolderInfoDirty() { folderInfoDirty = true; }
@@ -72,6 +72,8 @@ public:
     void setSpeed(int desiredSpeed);
 
     QPixmap scaleExpensively(const QSizeF desiredSize);
+    QImage clipboardImage() const;
+    const std::shared_ptr<void> &getSourceLifetime() const { return loadedSourceLifetime; }
 
     const QPixmap &getLoadedPixmap() const { return loadedPixmap; }
     const Qv::VectorImageData &getLoadedVectorImage() const { return loadedVectorImage; }
@@ -104,6 +106,8 @@ protected:
     static void handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace);
 
 private:
+    std::shared_ptr<void> loadedSourceLifetime;
+    std::shared_ptr<void> pendingSourceLifetime;
     QVFileEnumerator fileEnumerator{ this };
     QVImageLoader imageLoader{ this };
     QTimer preloadDebounceTimer{ this };
