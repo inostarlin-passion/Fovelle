@@ -81,6 +81,13 @@ starting an unrelated RAW decode that can outlive the case and trigger the real
 application shutdown exit code 75. Navigation/preload behavior keeps its own
 regressions; production shutdown limits are unchanged.
 
+Clipboard representation tests also copy their GIF and HDR inputs into the
+test-owned folder. Source-lease tests wait for their decoder's read marker and
+temporary directory removal instead of calling the application-wide shutdown
+drain. A deliberately blocked unrelated worker verifies that canceled loader
+ownership can be checked while other work is still running, without setting the
+global shutdown flag and canceling the next test's image loads.
+
 Shortcut width stability waits for the selected category animation and queued
 Cocoa metrics pass before taking its baseline. This removes dependence on the
 category left by preceding tests; the before/after width, persistence and edited

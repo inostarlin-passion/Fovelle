@@ -313,14 +313,18 @@ void WindowBehaviorTests::testClipboardRepresentations()
     QTRY_VERIFY_WITH_TIMEOUT(core.getCurrentFileDetails().isVectorLoaded, 3000);
     QCOMPARE(core.clipboardImage().size(), QSize(800, 600));
     QVERIFY(core.clipboardImage().pixelColor(400, 300).red() > 240);
-    const auto gif = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif";
+    const auto gif = directory.filePath("movie.gif");
+    QVERIFY(QFile::copy(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/remediation.gif", gif));
     core.loadFile(gif);
     QTRY_VERIFY_WITH_TIMEOUT(core.getCurrentFileDetails().isMovieLoaded, 2000);
     QTRY_VERIFY_WITH_TIMEOUT(core.getLoadedMovie().currentFrameNumber() >= 0, 2000);
     core.setPaused(true);
     core.jumpToNextFrame();
     QCOMPARE(core.clipboardImage(), core.getLoadedMovie().currentImage());
-    const auto hdrPath = QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/gain-map.jpg";
+    // Keep the clipboard test from preloading the neighboring RAW fixture.
+    const auto hdrPath = directory.filePath("gain-map.jpg");
+    QVERIFY(QFile::copy(QString::fromUtf8(FOVELLE_TEST_FIXTURE_DIR) + "/portable-hdr/gain-map.jpg",
+                        hdrPath));
     core.loadFile(hdrPath);
     QTRY_VERIFY_WITH_TIMEOUT(core.getCurrentFileDetails().isNativeHDRLoaded, 5000);
     QCOMPARE(core.clipboardImage().size(), core.getCurrentFileDetails().baseImageSize);
@@ -376,6 +380,16 @@ void WindowBehaviorTests::testDownloadedSourcesRetire()
 
 void WindowBehaviorTests::testSourceLeaseAsyncLifetime()
 {
+    // A canceled native decode from another window may still be running.
+    // Source ownership must be observable without shutting down either pool.
+    auto unrelatedEntered = std::make_shared<QSemaphore>();
+    auto unrelatedRelease = std::make_shared<QSemaphore>();
+    const auto unblockUnrelated = qScopeGuard([unrelatedRelease] { unrelatedRelease->release(); });
+    QvAsync::schedule([unrelatedEntered, unrelatedRelease] {
+        unrelatedEntered->release();
+        unrelatedRelease->acquire();
+    });
+    QTRY_COMPARE_WITH_TIMEOUT(unrelatedEntered->available(), 1, 2000);
     for (const bool destroy : { false, true }) {
         auto lease = std::make_shared<QTemporaryDir>();
         const auto directory = lease->path();
@@ -402,12 +416,12 @@ void WindowBehaviorTests::testSourceLeaseAsyncLifetime()
             loader->clear();
         QVERIFY(QFile::exists(path));
         gate->release = true;
-        QVERIFY(QvAsync::drain(1500));
-        QCoreApplication::processEvents();
-        QVERIFY(readable->load());
-        QCOMPARE(delivered.size(), 0);
+        QTRY_VERIFY_WITH_TIMEOUT(readable->load(), 2000);
         QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(directory), 2000);
+        QCoreApplication::processEvents();
+        QCOMPARE(delivered.size(), 0);
     }
+    unrelatedRelease->release();
     auto lease = std::make_shared<QTemporaryDir>();
     const auto directory = lease->path();
     const auto gif = lease->filePath("movie.gif");
@@ -429,7 +443,6 @@ void WindowBehaviorTests::testSourceLeaseAsyncLifetime()
     movie.setFileName("");
     QVERIFY(QFile::exists(gif)); // The canceled queued decoder still owns its work closure.
     release->release(4);
-    QVERIFY(QvAsync::drain(1500));
     QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(directory), 2000);
 }
 
