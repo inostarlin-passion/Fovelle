@@ -1,58 +1,18 @@
-# 2026-11-05 四项审查问题修复设计
+# 保留 About 模态的更新进度框修复设计
 
-范围：基线 991d611 的删除目标漂移、EPS 转换资源限制过晚、复制分辨率丢失、下载文件累积。旧版三份报告保存在 reports/history-20261102/。
+## 问题界定与证据
 
-## 问题界定与多跳证据
+About 有两个独立的交互要求。它可见时，其他窗口不能抢走交互，尤其是设置。它发起检查后，更新进度框应在其上方，且「取消」可点击。
 
-| 问题 | 调用链与交叉证据 | 结论 |
-|---|---|---|
-| 删除 | askDeleteFile 的文案读取 A → finished 仅捕获 this/permanent → deleteFile 再读取当前文件；独立 Cocoa 探针显示 A 存在、B 被删除 | 确认与执行没有共享不可变目标 |
-| EPS | convertEPSToPDF 等待循环仅检查时间/取消 → 结束后检查 PDF、读取全部 stderr 再截断；受控进程超过256MiB仍存活 | 后置检查无法限制运行期资源 |
-| 复制 | ImageIO 完整像素保存在 NativeSDRImage → image 字段为2048代理 → getMimeData 使用代理；4000×3000实测复制为2048×1536 | 复制复用了不具有完整像素的显示接口 |
-| 下载 | succeeded 追加 QList<Artifact> → clear 仅发生在窗口退出；3次下载切回本地图仍保留3份 | 窗口列表替代了真实消费者所有权 |
+| 证据 | 设计约束 |
+|---|---|
+| 旧实现通过 `Qt::ApplicationModal` 显示 About，然后在点击时才改为 `NonModal`。 | Qt 在显示时建立模态会话，事后改属性无法解除。上轮将 About 永久改成非模态，修正了层叠，却使设置可以打开。[Qt QWidget 模态属性](https://doc.qt.io/qt-6/qwidget.html#windowModality-prop) |
+| Sparkle 标准驱动使用独立的 AppKit 窗口显示检查进度，标准控制器没有设置父窗口的接口。 | AppKit 模态会话会过滤其他窗口的输入。原生探针在模态 About 上分别提高普通 `NSWindow` 的层级和建立父子关系。前者的取消按钮收不到点击，后者能接收点击且 About 仍为模态窗口。[AppKit 模态会话](https://developer.apple.com/documentation/appkit/nsapplication/beginmodalsession%28for%3A%29) · [AppKit 子窗口顺序](https://developer.apple.com/documentation/appkit/nswindow/addchildwindow%28_%3Aordered%3A%29) |
+| Sparkle 允许给 `SPUUpdater` 注入 UI 驱动。其标准驱动通过同步展示方法创建检查、更新提议和下载等窗口，错误及无更新提示使用自己的原生模态会话。 | 复用标准驱动，在呈现后用 AppKit 公开的窗口控制器和 framework 身份限定挂接对象。原生模态提示继续由 Sparkle 管理。[Sparkle 用户驱动 API](https://sparkle-project.org/documentation/api-reference/Protocols/SPUUserDriver.html) · [Sparkle 2.10.0 标准驱动实现](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUStandardUserDriver.m) |
 
-以上原始探针记录在 /tmp/fovelle-project-audit-20261105/。本轮另固化回归测试，不以历史默认测试通过代替新行为验证。
+## 实现与正确性
 
-## 方案与正确性论证
-
-### 删除事务
-
-创建 DeleteTarget 值，包含绝对路径及 lstat 的设备、inode、大小和纳秒修改时间。确认回调捕获目标及源文件生命周期引用；实际删除仅接受该目标。执行前重新采样身份，缺失或变化则报错并不操作文件。公开 deleteFile(bool) 同样先快照再调用事务。只有目标仍为当前图像时才关闭/恢复图像、执行 afterdelete 导航；删除后台目标仅刷新目录、最近文件和恢复历史。
-
-不变量：目标路径不会随 GUI 当前图片变化；验证失败不调用删除；当前 B 不因删除 A 被清空。由值捕获及统一事务入口保证。该设计防止确认期间替换文件和应用内异步漂移；不承诺消除其他进程在最后一次身份检查与 unlink 之间实施的文件系统竞争（系统没有此处可用的按inode条件unlink事务）。
-
-### EPS 执行期资源控制
-
-子进程启动前设置 RLIMIT_FSIZE，上限 min(继承硬限制,256MiB)，失败立即退出；只使用适合 fork 后执行的系统调用，Qt6 使用 childProcessModifier，Qt5 使用 setupChildProcess。此限制约束常规文件的长度，包含快速结束前的写入；监控循环仍检查输出、取消和30秒超时。stderr 的 readyReadStandardError 以小块增量消费，仅保存64KiB；额外字节触发杀进程。最终再执行同一检查，覆盖快速退出；所有终止路径等待回收子进程并注销PID，临时目录按RAII清理。
-
-证明：内核拒绝超过RLIMIT_FSIZE的文件增长，故轮询窗口不产生任意大文件；累计读取阈值单调增加，诊断保留字节不超过64KiB，超限后不继续正常转换。运行期监控和结束检查共同覆盖慢写、突发和快速退出。stdout 丢弃。限制不是对子进程所有堆内存或所有临时文件累计容量的沙箱保证。
-
-### 完整分辨率复制
-
-提供明确的原生SDR图像导出接口：QImage-backed provider直接共享完整QImage；CGImage-backed provider按已有权威tile重建自然尺寸QImage，裁掉采样边界、保持方向/alpha/色彩空间。HDR使用其完整SDR端点；SVG/PDF按自然逻辑尺寸栅格化；动画复制当前帧，普通Qt图像复制完整已加载像素。失败不得回退到缩略图覆盖现有剪贴板。getMimeData 保持文件URL，并由持有源租约的QMimeData子类确保临时URL有效。
-
-证明：目标尺寸来自完整源而非代理；tile的core区域无重叠覆盖整幅源图，data区域只提供采样边界，1:1拷贝不缩放；缓存的原生图像是已加载快照，源文件后续变化不影响复制。动画分支不重新读取第一帧。内存分配失败返回空数据，MainWindow原有保护保持剪贴板不变。
-
-### 下载消费者所有权
-
-去掉窗口历史列表；成功回调将 Artifact.directory 作为 std::shared_ptr<void> 源租约传给 view/core/loader。loader Entry、工作闭包和Result携带租约，原生SDR/HDR指针的共享所有权也绑定租约；core保留当前图像租约，movie的每个异步decoder独立持有租约，剪贴板MIME及Open With工作也持有租约。取消只撤销交付，不提前删除运行中任务使用的源。关闭图像时释放当前租约和reader；切图后无消费者的下载自然删除，不再按下载次数累积。
-
-证明：每个可能延迟访问文件的消费者持有同一个共享租约，因此最后一个消费者退出之前 QTemporaryDir 不析构；无消费者后引用计数归零，自动清理。没有全局历史或窗口列表持续持有旧下载。由当前图片、在途任务、至多当前剪贴板的真实需求决定保留数量；不会通过强制回收仍被解码使用的文件来满足任意总量阈值。现有下载128MiB单次限制及并发池上限保留。
-
-## 验收组与测试映射
-
-D1：确认A期间切到B，仅删除A，B保持显示（永久/垃圾桶）。D2：A被替换或修改后拒绝删除；取消不操作文件。
-E1：输出文件运行期不能超过256MiB，超限进程及时回收且临时文件清理。E2：stderr超过64KiB即终止，错误消息有界，快速退出也不能绕过。E3：合法EPS、渲染失败、取消及超时路径保持有效。
-C1：大SDR复制完整尺寸、方向、alpha和像素，且不重新依赖已变更源文件。C2：Qt/动画/HDR/矢量复制保持其正确自然尺寸或当前帧；失败不覆盖剪贴板。
-L1：连续下载切图后无消费者旧文件删除，当前文件可读。L2：取消/销毁期间在途loader、movie仍能读取源，结束后清理。L3：原生图像、剪贴板、Open With消费者保留源，释放后清理；失败/取消下载无残留。
-
-每条均有源码/注册静态用例和动态行为用例；详细六要素及测试方法见 test_case_specification.md。新用例进入默认manifest和扩展CTest，不移除已有覆盖。先执行修复前失败，再实现并执行专项、默认门禁、格式及差异检查；如证据要求调整设计，同步更新三份报告。
-
-## 实现中交叉核验后的补充
-
-- 完整像素的透明度测试发现 imageFromCGImage 使用默认 source-over 混合写入未初始化 QImage，半透明 alpha 会受目标旧字节影响。统一改用 kCGBlendModeCopy；复制tile时关闭插值，确保1:1像素拷贝。该修复是复制正确性的必要条件，测试保留tile边界和alpha的精确断言，没有降低标准。
-- PDF像素处于浮点线性P3空间，测试先转换到sRGB再验证红色，避免把不同色彩空间的分量直接比较；此为测试预期校正，生产PDF色彩路径未改动。
-- 目录扫描也携带源租约；删除当前下载失败后的重新加载显式传递租约，避免 closeImage 后的恢复任务失去文件。最后一个原生对象和剪贴板消费者分别单独验证，防止重叠引用掩盖遗漏。
-- .gitignore 只为要求交付的三份 Markdown 报告开放跟踪；生成日志、XML和历史报告保持本地忽略，不提交大体积构建产物。
-
-最终规格将10组回归进一步展开为A01–A23共23条独立原子断言，分别列出六要素及其代码作用域。动态方法共享夹具但每条断言都有明确输入和验证点；不把组合兼容性测试当作单一不可分标准。
+1. 恢复 About 构造时的 `Qt::ApplicationModal`。检查更新槽直接调用更新器。设置入口对可见的 About 提前返回，也覆盖 Qt 在应用仅剩一个模态窗口时仍允许菜单项的情形。About 关闭后重新允许设置。
+2. 用 `SPUUpdater` 配合继承标准用户驱动的小型子类。子类调用标准实现，在活动模态窗口为 About 时，将可见且由 Sparkle framework 自己的控制器管理的窗口挂接到 About 上方。这个判断不依赖本地化标题或 Sparkle 私有类名。无模态 About 时，调用标准实现即可。窗口创建和重新聚焦沿用 Sparkle 的公开驱动回调。
+3. Qt 和 AppKit 的 About 模态会话持续存在，保持对其他应用窗口的输入约束。AppKit 子窗口关系确保进度在 About 之上，且实际鼠标事件可到达子窗口。取消直接走标准 Sparkle 控件和状态回调，About 在同一模态会话中继续可用。
+4. About 关闭时，在父窗口退场前移除 Sparkle 子窗口关系。AppKit 原生探针表明，直接关闭父窗口会把仍在运行的子窗口一起隐藏。提前解除关系可保持更新进度显示，并让 Sparkle 继续管理该会话。

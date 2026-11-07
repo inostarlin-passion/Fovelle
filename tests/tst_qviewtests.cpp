@@ -16412,6 +16412,8 @@ void WindowBehaviorTests::testViewportImageRemainsSharpAfterFocusLoss()
 #include "remediation_tests.h"
 #include "moc_remediation_tests.cpp"
 
+int runAboutUpdateTests(int argc, char *argv[]);
+
 int main(int argc, char *argv[])
 {
     QCoreApplication::setOrganizationName("Fovelle");
@@ -16461,6 +16463,8 @@ int main(int argc, char *argv[])
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDirectory.path());
     }
     QVApplication app(argc, argv);
+    if (qgetenv("FOVELLE_TEST_SUITE") == "AboutUpdateTests")
+        return runAboutUpdateTests(argc, argv);
     if (!probePhase.isEmpty())
         return runKeepZoomPersistenceProbe(probePhase);
     const QString openWithProbe = qEnvironmentVariable("FOVELLE_OPENWITH_SHUTDOWN_PROBE");

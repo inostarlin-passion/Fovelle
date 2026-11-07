@@ -6,6 +6,7 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 set(FOVELLE_TEST_SOURCES
     tst_qviewtests.cpp
+    about_update_tests.mm
     native_titlebar_probe.mm
     native_color_fixtures.mm
     ../src/mainwindow.cpp
@@ -626,6 +627,10 @@ set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
 # Release acceptance is independent of the optional historical regression matrix.
 option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
 if(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS)
+    add_test(NAME FovelleAboutUpdate
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_about_update_test.py
+            $<TARGET_FILE:fovelle_tests>)
+    set_tests_properties(FovelleAboutUpdate PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE LABELS "macos;update;native-ui")
     add_test(NAME FovelleUpdateInstall
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/update_acceptance.py
             --build-dir ${CMAKE_BINARY_DIR}

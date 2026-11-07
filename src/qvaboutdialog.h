@@ -17,6 +17,7 @@ public:
     ~QVAboutDialog() override;
 
     void updateCheckForUpdatesButtonState();
+    void done(int result) override;
 
 protected:
     void showEvent(QShowEvent *event) override;

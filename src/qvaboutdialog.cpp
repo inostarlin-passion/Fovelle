@@ -13,11 +13,10 @@ QVAboutDialog::QVAboutDialog(QWidget *parent) : QDialog(parent), ui(new Ui::QVAb
 
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    setWindowModality(Qt::ApplicationModal);
 
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this,
             &QVAboutDialog::checkForUpdatesButtonClicked);
-
-    setWindowModality(Qt::ApplicationModal);
 
     const QString subtitleText = tr("version %1").arg(QCoreApplication::applicationVersion());
     ui->subtitleLabel->setText(subtitleText);
@@ -48,6 +47,12 @@ void QVAboutDialog::showEvent(QShowEvent *event)
     QDialog::showEvent(event);
 }
 
+void QVAboutDialog::done(int result)
+{
+    UpdateChecker::detachWindowsFromAbout(this);
+    QDialog::done(result);
+}
+
 void QVAboutDialog::updateCheckForUpdatesButtonState()
 {
     ui->checkForUpdatesButton->setEnabled(!qvApp->getUpdateChecker().getIsChecking());
@@ -55,8 +60,6 @@ void QVAboutDialog::updateCheckForUpdatesButtonState()
 
 void QVAboutDialog::checkForUpdatesButtonClicked()
 {
-    // Cocoa updater windows must remain reachable when launched from About.
-    setWindowModality(Qt::NonModal);
     qvApp->getUpdateChecker().check(true);
     updateCheckForUpdatesButtonState();
 }

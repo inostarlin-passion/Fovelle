@@ -57,15 +57,54 @@ class StaticTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('Release updates require', result.stderr)
 
+    def test_about_stays_application_modal(self):
+        about = (ROOT/'src/qvaboutdialog.cpp').read_text()
+        constructor, handler = about.split('void QVAboutDialog::checkForUpdatesButtonClicked()', 1)
+        self.assertIn('setWindowModality(Qt::ApplicationModal)', constructor)
+        self.assertNotRegex(handler.split('\n}', 1)[0], r'\b(?:setModal|setWindowModality)\s*\(')
+
+    def test_preferences_respect_visible_about(self):
+        app = (ROOT/'src/qvapplication.cpp').read_text()
+        self.assertRegex(app, r'void QVApplication::openOptionsDialog\(QWidget \*parent\)\s*\{'
+                              r'\s*if \(aboutDialog && aboutDialog->isVisible\(\)\)\s*return;')
+
     def test_manual_entries_use_standard_ui(self):
         bridge = (ROOT/'src/updatechecker_sparkle.mm').read_text()
-        self.assertIn('[impl->controller checkForUpdates:nil]', bridge)
-        self.assertIn('initWithStartingUpdater:NO', bridge)
+        self.assertIn('[impl->updater checkForUpdates]', bridge)
+        self.assertIn('FovelleUpdateUserDriver : SPUStandardUserDriver', bridge)
+        self.assertIn('userDriver:driver', bridge)
+        self.assertRegex(bridge, r'\[super showUserInitiatedUpdateCheckWithCancellation:cancellation\];'
+                                 r'\s*\[self attachWindowsToAbout\];')
+        self.assertIn('QApplication::activeModalWidget()', bridge)
+        self.assertIn('[parent addChildWindow:window ordered:NSWindowAbove]', bridge)
         self.assertNotIn('QDesktopServices', bridge)
         self.assertNotIn('api.github.com', (ROOT/'src/updatechecker.cpp').read_text())
-        for source in ['src/actionmanager.cpp', 'src/qvaboutdialog.cpp']:
-            self.assertIn('getUpdateChecker().check(true)', (ROOT/source).read_text())
-        self.assertIn('setWindowModality(Qt::NonModal)', (ROOT/'src/qvaboutdialog.cpp').read_text())
+        self.assertIn('getUpdateChecker().check(true)', (ROOT/'src/actionmanager.cpp').read_text())
+        about = (ROOT/'src/qvaboutdialog.cpp').read_text()
+        self.assertRegex(about, r'connect\(ui->checkForUpdatesButton,\s*&QPushButton::clicked,\s*this,\s*'
+                                r'&QVAboutDialog::checkForUpdatesButtonClicked\)')
+        handler = about.split('void QVAboutDialog::checkForUpdatesButtonClicked()', 1)[1]
+        self.assertIn('getUpdateChecker().check(true)', handler.split('\n}', 1)[0])
+
+    def test_about_button_tracks_update_state(self):
+        app = (ROOT/'src/qvapplication.cpp').read_text()
+        about = (ROOT/'src/qvaboutdialog.cpp').read_text()
+        bridge = (ROOT/'src/updatechecker_sparkle.mm').read_text()
+        self.assertRegex(app, r'connect\(&updateChecker, &UpdateChecker::stateChanged, this,'
+                              r'\s*\[this\]\(\)\s*\{\s*if \(aboutDialog\)'
+                              r'\s*aboutDialog->updateCheckForUpdatesButtonState\(\);')
+        self.assertIn('setEnabled(!qvApp->getUpdateChecker().getIsChecking())', about)
+        self.assertIn('return impl->started && !impl->updater.canCheckForUpdates;', bridge)
+        self.assertRegex(bridge, r'isEqualToString:@"canCheckForUpdates"\]\)\s*'
+                                 r'emit self.owner->stateChanged\(\);')
+
+    def test_closing_about_detaches_update_windows(self):
+        about = (ROOT/'src/qvaboutdialog.cpp').read_text()
+        bridge = (ROOT/'src/updatechecker_sparkle.mm').read_text()
+        self.assertRegex(about, r'void QVAboutDialog::done\(int result\)\s*\{'
+                                r'\s*UpdateChecker::detachWindowsFromAbout\(this\);'
+                                r'\s*QDialog::done\(result\);')
+        self.assertIn('[parent removeChildWindow:window]', bridge)
 
     def test_secure_configuration_and_lifetime(self):
         bridge = (ROOT/'src/updatechecker_sparkle.mm').read_text()

@@ -5,6 +5,8 @@
 #include <QObject>
 #include <memory>
 
+class QVAboutDialog;
+
 // Owns Sparkle's standard UI and installer for the lifetime of the app.
 class UpdateChecker : public QObject
 {
@@ -15,6 +17,7 @@ public:
     void initialize(Qv::UpdateCheckFrequency frequency);
     void setFrequency(Qv::UpdateCheckFrequency frequency);
     void check(bool isManualCheck = false);
+    static void detachWindowsFromAbout(QVAboutDialog *about);
     bool getIsChecking() const;
     QString configurationError() const;
     static bool isConfigurationValid(const QString &feed, const QString &publicKey);

@@ -1,8 +1,91 @@
 #include "updatechecker.h"
+#include "qvaboutdialog.h"
 #include <QApplication>
 #include <QMessageBox>
 #include "nativedialogs.h"
+#import <AppKit/AppKit.h>
 #import <Sparkle/Sparkle.h>
+
+namespace {
+NSWindow *nativeAboutWindow(QVAboutDialog *about)
+{
+    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(about->winId());
+    return view.window;
+}
+
+bool isSparkleWindow(NSWindow *window)
+{
+    NSWindowController *controller = window.windowController;
+    return controller &&
+            [NSBundle bundleForClass:controller.class] ==
+            [NSBundle bundleForClass:SPUStandardUserDriver.class];
+}
+} // namespace
+
+@interface FovelleUpdateUserDriver : SPUStandardUserDriver
+@end
+
+@implementation FovelleUpdateUserDriver
+- (void)attachWindowsToAbout
+{
+    auto *about = qobject_cast<QVAboutDialog *>(QApplication::activeModalWidget());
+    if (!about || !about->isVisible())
+        return;
+
+    NSWindow *parent = nativeAboutWindow(about);
+    // AppKit's modal session accepts input in child windows. An independent
+    // Sparkle window can be raised but still cannot receive mouse events.
+    for (NSWindow *window in NSApp.windows) {
+        if (window.visible && !window.parentWindow && isSparkleWindow(window))
+            [parent addChildWindow:window ordered:NSWindowAbove];
+    }
+}
+
+- (void)showUserInitiatedUpdateCheckWithCancellation:(void (^)(void))cancellation
+{
+    [super showUserInitiatedUpdateCheckWithCancellation:cancellation];
+    [self attachWindowsToAbout];
+}
+
+- (void)showUpdatePermissionRequest:(SPUUpdatePermissionRequest *)request
+                              reply:(void (^)(SUUpdatePermissionResponse *))reply
+{
+    [super showUpdatePermissionRequest:request reply:reply];
+    [self attachWindowsToAbout];
+}
+
+- (void)showUpdateFoundWithAppcastItem:(SUAppcastItem *)item
+                                 state:(SPUUserUpdateState *)state
+                                 reply:(void (^)(SPUUserUpdateChoice))reply
+{
+    [super showUpdateFoundWithAppcastItem:item state:state reply:reply];
+    [self attachWindowsToAbout];
+}
+
+- (void)showDownloadInitiatedWithCancellation:(void (^)(void))cancellation
+{
+    [super showDownloadInitiatedWithCancellation:cancellation];
+    [self attachWindowsToAbout];
+}
+
+- (void)showDownloadDidStartExtractingUpdate
+{
+    [super showDownloadDidStartExtractingUpdate];
+    [self attachWindowsToAbout];
+}
+
+- (void)showReadyToInstallAndRelaunch:(void (^)(SPUUserUpdateChoice))installUpdateHandler
+{
+    [super showReadyToInstallAndRelaunch:installUpdateHandler];
+    [self attachWindowsToAbout];
+}
+
+- (void)showUpdateInFocus
+{
+    [super showUpdateInFocus];
+    [self attachWindowsToAbout];
+}
+@end
 
 @interface FovelleUpdaterObserver : NSObject
 @property (nonatomic, assign) UpdateChecker *owner;
@@ -22,7 +105,7 @@
 
 struct UpdateChecker::Impl
 {
-    SPUStandardUpdaterController *controller = nil;
+    SPUUpdater *updater = nil;
     FovelleUpdaterObserver *observer = nil;
     Qv::UpdateCheckFrequency frequency = Qv::UpdateCheckFrequency::Weekly;
     QString error;
@@ -34,7 +117,7 @@ UpdateChecker::UpdateChecker(QObject *parent) : QObject(parent), impl(std::make_
 UpdateChecker::~UpdateChecker()
 {
     if (impl->observer)
-        [impl->controller.updater removeObserver:impl->observer forKeyPath:@"canCheckForUpdates"];
+        [impl->updater removeObserver:impl->observer forKeyPath:@"canCheckForUpdates"];
 }
 
 void UpdateChecker::initialize(Qv::UpdateCheckFrequency frequency)
@@ -53,22 +136,23 @@ void UpdateChecker::initialize(Qv::UpdateCheckFrequency frequency)
                              "public key are required.");
             return;
         }
-        impl->controller = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:NO
-                                                                         updaterDelegate:nil
-                                                                      userDriverDelegate:nil];
+        auto *driver = [[FovelleUpdateUserDriver alloc] initWithHostBundle:bundle delegate:nil];
+        impl->updater = [[SPUUpdater alloc] initWithHostBundle:bundle
+                                             applicationBundle:bundle
+                                                    userDriver:driver
+                                                      delegate:nil];
         NSError *error = nil;
-        if (![impl->controller.updater startUpdater:&error]) {
+        if (![impl->updater startUpdater:&error]) {
             impl->error = QString::fromUtf8(error.localizedDescription.UTF8String);
             return;
         }
         impl->started = true;
         impl->observer = [[FovelleUpdaterObserver alloc] init];
         impl->observer.owner = this;
-        [impl->controller.updater
-                addObserver:impl->observer
-                 forKeyPath:@"canCheckForUpdates"
-                    options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
-                    context:nullptr];
+        [impl->updater addObserver:impl->observer
+                        forKeyPath:@"canCheckForUpdates"
+                           options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
+                           context:nullptr];
         setFrequency(frequency);
     }
 }
@@ -85,7 +169,7 @@ void UpdateChecker::setFrequency(Qv::UpdateCheckFrequency frequency)
 #endif
     if (qEnvironmentVariableIsSet("FOVELLE_DISABLE_AUTO_UPDATE_CHECK"))
         automatic = false;
-    auto *updater = impl->controller.updater;
+    auto *updater = impl->updater;
     if (updater.automaticallyChecksForUpdates != automatic)
         updater.automaticallyChecksForUpdates = automatic;
     const int interval = checkIntervalSeconds(frequency);
@@ -108,12 +192,23 @@ void UpdateChecker::check(bool isManualCheck)
     }
     // This standard entry point shows checking progress and manages download,
     // signature validation, installation and relaunch, including cancellation.
-    [impl->controller checkForUpdates:nil];
+    [impl->updater checkForUpdates];
+}
+
+void UpdateChecker::detachWindowsFromAbout(QVAboutDialog *about)
+{
+    if (!about->windowHandle())
+        return;
+    NSWindow *parent = nativeAboutWindow(about);
+    for (NSWindow *window in parent.childWindows) {
+        if (isSparkleWindow(window))
+            [parent removeChildWindow:window];
+    }
 }
 
 bool UpdateChecker::getIsChecking() const
 {
-    return impl->started && !impl->controller.updater.canCheckForUpdates;
+    return impl->started && !impl->updater.canCheckForUpdates;
 }
 QString UpdateChecker::configurationError() const
 {

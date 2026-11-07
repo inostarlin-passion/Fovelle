@@ -312,6 +312,9 @@ bool QVApplication::foundOnTopWindow() const
 
 void QVApplication::openOptionsDialog(QWidget *parent)
 {
+    if (aboutDialog && aboutDialog->isVisible())
+        return;
+
     auto *anchorWindow = qobject_cast<MainWindow *>(parent);
     if (!anchorWindow)
         anchorWindow = qobject_cast<MainWindow *>(QApplication::activeWindow());
