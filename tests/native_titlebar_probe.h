@@ -74,3 +74,14 @@ struct NativeHDRSurfaceData
     QByteArray pixels;
 };
 NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window);
+
+struct NativeNavigationArtwork
+{
+    bool visible{ false };
+    bool groupOpacity{ false };
+    bool pointsLeft{ false };
+    float opacity{ 0.0F };
+    QColor tile;
+    QColor chevron;
+};
+NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, bool previous);

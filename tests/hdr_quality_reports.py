@@ -976,7 +976,7 @@ def main() -> int:
                     "ST-HDR-RAW-CONTENT-HEADROOM", "ST-HDR-THEME-BACKGROUND",
                     "ST-HDR-INTERACTION-NO-REACTIVATION", "UT-HDR-FORMAT-COVERAGE",
                     "ST-HDR-DISPLAYLINK-LATEST-ONLY", "ST-HDR-UI-REQUEST-COALESCING",
-                    "ST-HDR-NAV-CACHED-SAMPLING", "ST-HDR-NAV-NATIVE-COMPOSITOR",
+                    "ST-HDR-NAV-NO-SAMPLING", "ST-HDR-NAV-NATIVE-COMPOSITOR",
                     "ST-HDR-VERSION-0.1.4",
                 ],
                 "facts": [
@@ -1020,7 +1020,7 @@ def main() -> int:
                 "atomic_evidence_ids": [
                     "ST-HDR-DISPLAYLINK-LATEST-ONLY", "ST-HDR-UI-REQUEST-COALESCING",
                     "ST-HDR-PRESENTATION-TELEMETRY",
-                    "UT-HDR-NAV-SAMPLING-LATENCY", "SYS-HDR-TIME-BEHAVIOR",
+                    "SYS-HDR-TIME-BEHAVIOR",
                     "SYS-HDR-INTERACTION-RESPONSIVENESS",
                     "SYS-HDR-PRESENTATION-RESPONSIVENESS",
                 ],
@@ -1044,7 +1044,7 @@ def main() -> int:
                     "UT-HDR-FIRST-VISIBLE-FINAL", "UT-HDR-FIRST-VISIBLE-GEOMETRY",
                     "UT-HDR-CONTENT-HEADROOM", "UT-HDR-PRESENTATION-REUSE",
                     "UT-HDR-THEME-BACKGROUND",
-                    "UT-HDR-NAV-SAMPLING-LATENCY", "UT-HDR-NAV-TRANSPARENT-FADE",
+                    "UT-HDR-NAV-TRANSPARENT-FADE",
                     "SYS-HDR-FIRST-VISIBLE-FINAL",
                     "SYS-HDR-FORCED-SDR-COMPATIBILITY", "SYS-HDR-NO-PREMATURE-BLACK-FRAME",
                     "SYS-HDR-RAW-NO-BLANK-REGION", "SYS-HDR-THEME-BACKGROUND-STABILITY",

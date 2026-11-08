@@ -288,8 +288,6 @@ private:
 
     void updateNavigationButtonGeometry();
 
-    void updateNavigationButtonAppearance();
-
     void updateNavigationButtonVisibility(const QPoint &windowPosition);
 
     void setNavigationButtonVisible(QPushButton *button, QPropertyAnimation *animation,

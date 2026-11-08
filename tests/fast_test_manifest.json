@@ -10,6 +10,10 @@
       "args": []
     },
     {
+      "script": "navigation_button_style_static.py",
+      "args": []
+    },
+    {
       "script": "test_hdr_focus_transition_metrics.py",
       "args": []
     },
@@ -205,6 +209,11 @@
         "testLateMenuState",
         "testLateFullscreenMenu",
         "testLatePauseMenu",
+        "testNavigationButtonsUseDarkArtwork:widget-white-left",
+        "testNavigationButtonsUseDarkArtwork:widget-white-right",
+        "testNavigationButtonsUseDarkArtwork:native-white-left",
+        "testNavigationButtonsUseDarkArtwork:native-white-right",
+        "testNavigationButtonUsesTransparentPaintOnlyFade",
         "testUndoDeleteRetry",
         "testUndoDeleteHistory",
         "testFrameExportFormats",

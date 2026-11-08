@@ -440,7 +440,7 @@ def main() -> int:
         "testDefaultTitlebarTextIsPractical",
         "testNavigationEdgeActivationExcludesTitlebar",
         "testNavigationButtonSizingAndNoDelay",
-        "testNavigationButtonsUseActualContentContrast",
+        "testNavigationButtonsUseDarkArtwork",
         "testNavigationButtonsFadeTransition",
         "testNavigationButtonsClickSwitchesFiles",
     )
@@ -554,7 +554,6 @@ def main() -> int:
             "previousImageButton",
             "nextImageButton",
             "eventFilter(QObject *watched, QEvent *event)",
-            "sampleDisplayedImageBrightness",
             "QPropertyAnimation",
             "navigationEdgeWidth",
             "NavigationButtonActivationMinimumWidth",
@@ -564,14 +563,18 @@ def main() -> int:
             "setNavigationButtonVisible",
         ),
     )
+    fixed_style = (
+        "QColor background(128, 128, 128" in mainwindow
+        and "sampleDisplayedImageBrightness" not in mainwindow
+    )
     add_check(
         checks,
         "I-14-NAV",
-        navigation_contract and "setToolTip" not in mainwindow,
+        navigation_contract and fixed_style and "setToolTip" not in mainwindow,
         {
             "buttons": "previousImageButton" in mainwindow and "nextImageButton" in mainwindow,
             "pointer_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow,
-            "underlying_content_sample": "sampleDisplayedImageBrightness" in mainwindow,
+            "fixed_dark_artwork": fixed_style,
             "transition": "QPropertyAnimation" in mainwindow,
             "edge_width": "navigationEdgeWidth" in mainwindow + text("src/mainwindow.h"),
             "minimum_strip": "NavigationButtonActivationMinimumWidth" in mainwindow + text("src/mainwindow.h"),
@@ -584,7 +587,7 @@ def main() -> int:
                 "NavigationButtonHideDelay" not in mainwindow + text("src/mainwindow.h")
             ),
         },
-        "the navigation buttons are integrated with content-only edge activation, per-side content sampling, and opacity transitions",
+        "the navigation buttons are integrated with content-only edge activation, fixed dark artwork, and opacity transitions",
     )
 
     tidy_config = text(".clang-tidy")

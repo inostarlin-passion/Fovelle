@@ -680,20 +680,10 @@ def main() -> int:
             and 'QStringLiteral("qt_widget_visible")' in main_window
         ),
     })
-    case("ST-HDR-NAV-CACHED-SAMPLING", {
+    case("ST-HDR-NAV-NO-SAMPLING", {
         "viewport_grab_removed": "viewport()->grab" not in main_window,
-        "bounded_proxy_created_once_per_load": (
-            "navigationSamplingImage = imageCore.getLoadedPixmap().toImage()" in view
-            and "> 384" in view
-        ),
-        "hover_reads_cached_pixels": (
-            "sampleDisplayedImageBrightness" in main_window
-            and "navigationSamplingImage.pixelColor" in view
-        ),
-        "sampling_uses_device_independent_pixmap_geometry": (
-            "loadedPixmapItem->mapFromScene" in view
-            and "loadedPixmapItem->boundingRect" in view
-        ),
+        "no_brightness_sampling": "sampleDisplayedImageBrightness" not in main_window + view,
+        "no_sampling_proxy": "navigationSamplingImage" not in view,
     })
     case("ST-HDR-OBSERVABILITY", {
         "json_telemetry": '"FOVELLE_HDR"' in view and "QJsonDocument::Compact" in view,

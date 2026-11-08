@@ -103,7 +103,7 @@ def main() -> int:
         before_window, "std::optional<qreal> sampledContentBrightness", "class TitlebarBubble"
     ) + section(before_window, "void MainWindow::initializeNavigationButtons", "void MainWindow::updateNavigationButtonGeometry")
     after_navigation = section(
-        after_window, "std::optional<qreal> sampledContentBrightness", "class TitlebarBubble"
+        after_window, "class ImageNavigationButton", "class TitlebarBubble"
     ) + section(after_window, "void MainWindow::initializeNavigationButtons", "void MainWindow::updateNavigationButtonGeometry")
 
     baseline_command = [
@@ -161,11 +161,10 @@ def main() -> int:
             and "dispatch_async(renderQueue" in after_renderer
             and "[renderContext render:encodedSource" in after_renderer
         ),
-        "navigation_sampling_is_cached_and_bounded": (
-            "sampleDisplayedImageBrightness" in after_navigation
-            and "viewport()->grab" not in after_navigation
-            and "navigationSamplingImage" in after_view
-            and "384, 384" in after_view
+        "navigation_artwork_requires_no_sampling": (
+            "viewport()->grab" not in after_window
+            and "sampleDisplayedImageBrightness" not in after_window + after_view
+            and "navigationSamplingImage" not in after_view
         ),
         "navigation_fades_only_custom_painted_pixels": (
             'setProperty("paintOpacity", 0.0)' in after_window
@@ -262,8 +261,8 @@ def main() -> int:
                 "symptom": "zoomed HDR pan and hover controls are sluggish",
                 "facts": ["drawable_wait_on_ui_render_path", "paint_and_both_scrollbars_render_synchronously", "navigation_hover_grabs_and_repaints_viewport"],
                 "inference": "the main event loop performs avoidable drawable/CI work per UI event",
-                "correction": ["display_link_supplies_drawable_without_next_drawable", "core_image_texture_encoding_is_off_appkit_thread", "ui_events_are_coalesced_before_renderer", "navigation_sampling_is_cached_and_bounded"],
-                "verification_ids": ["ST-HDR-DISPLAYLINK-LATEST-ONLY", "UT-HDR-NAV-SAMPLING-LATENCY", "SYS-HDR-INTERACTION-RESPONSIVENESS"],
+                "correction": ["display_link_supplies_drawable_without_next_drawable", "core_image_texture_encoding_is_off_appkit_thread", "ui_events_are_coalesced_before_renderer", "navigation_artwork_requires_no_sampling"],
+                "verification_ids": ["ST-HDR-DISPLAYLINK-LATEST-ONLY", "ST-HDR-NAV-NO-SAMPLING", "SYS-HDR-INTERACTION-RESPONSIVENESS"],
             },
             {
                 "symptom": "navigation fade exposes a standard rectangle",

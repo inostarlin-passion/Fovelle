@@ -66,28 +66,6 @@ public:
                 "QPushButton { background: transparent; border: none; padding: 0; }"));
         setProperty("paintOpacity", 0.0);
         setProperty("artworkComposition", QStringLiteral("single-composited-button"));
-        setProperty("lightArtwork", QStringLiteral("transparent-chevron"));
-        setProperty("darkArtwork", QStringLiteral("gray-tile-chevron"));
-    }
-
-    void setDarkBackground(const bool value)
-    {
-        if (darkBackground == value) {
-            setProperty("contrastStyle",
-                        darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
-            setProperty("navigationStyle",
-                        darkBackground ? QStringLiteral("dark-tinted")
-                                       : QStringLiteral("light-transparent"));
-            return;
-        }
-
-        darkBackground = value;
-        setProperty("contrastStyle",
-                    darkBackground ? QStringLiteral("dark") : QStringLiteral("light"));
-        setProperty("navigationStyle",
-                    darkBackground ? QStringLiteral("dark-tinted")
-                                   : QStringLiteral("light-transparent"));
-        update();
     }
 
 protected:
@@ -112,19 +90,14 @@ protected:
         artworkPainter.setRenderHint(QPainter::Antialiasing);
 
         const bool isHovered = underMouse() || isDown();
-        if (darkBackground) {
-            QColor background(128, 128, 128, isHovered ? 235 : 220);
-            if (!isEnabled())
-                background.setAlpha(100);
-            artworkPainter.setPen(Qt::NoPen);
-            artworkPainter.setBrush(background);
-            artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
-        }
-        // The light-background artwork intentionally has no hover tile. The
-        // reference style is a transparent plate with only the chevron; the
-        // entire button remains one composited artwork surface.
+        QColor background(128, 128, 128, isHovered ? 235 : 220);
+        if (!isEnabled())
+            background.setAlpha(100);
+        artworkPainter.setPen(Qt::NoPen);
+        artworkPainter.setBrush(background);
+        artworkPainter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
 
-        QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
+        QColor foreground(48, 48, 48);
         if (!isEnabled())
             foreground.setAlpha(90);
 
@@ -151,22 +124,7 @@ protected:
 
 private:
     const bool previous;
-    bool darkBackground{ false };
 };
-
-std::optional<qreal> sampledContentBrightness(const QVGraphicsView *graphicsView,
-                                              const QPushButton *button)
-{
-    if (!graphicsView || !button || !graphicsView->isVisible())
-        return { };
-
-    const QPoint viewportCenter =
-            graphicsView->viewport()->mapFrom(graphicsView, button->geometry().center());
-    // Sample the cached, bounded SDR proxy through the production view
-    // transform. QWidget::grab() repaints the viewport, which used to submit
-    // two additional full HDR frames on every edge entry.
-    return graphicsView->sampleDisplayedImageBrightness(viewportCenter);
-}
 
 class TitlebarBubble : public QLabel
 {
@@ -382,7 +340,6 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     connect(graphicsView, &QVGraphicsView::folderInfoChanged, this, [this] {
         buildWindowTitle();
         disableActions();
-        updateNavigationButtonAppearance();
         updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
     });
     connect(graphicsView, &QVGraphicsView::fileChanged, this, [this]() {
@@ -395,7 +352,6 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
             if (!nextImageButton)
                 return;
             updateNavigationButtonGeometry();
-            updateNavigationButtonAppearance();
             nextImageButtonAnimation->stop();
             setProperty("fovelleNavigationProbeActive", true);
             nextImageButton->setProperty("paintOpacity", 0.5);
@@ -850,7 +806,6 @@ void MainWindow::initializeNavigationButtons()
 
     graphicsView->installEventFilter(this);
     graphicsView->viewport()->installEventFilter(this);
-    updateNavigationButtonAppearance();
     updateNavigationButtonGeometry();
 }
 
@@ -972,22 +927,6 @@ void MainWindow::updateNavigationButtonGeometry()
     syncNavigationButtonOverlays();
 }
 
-void MainWindow::updateNavigationButtonAppearance()
-{
-    const auto updateButton = [this](QPushButton *button) {
-        const std::optional<qreal> brightness = sampledContentBrightness(graphicsView, button);
-        const bool isDark = brightness.has_value() && brightness.value() < 0.5;
-        button->setProperty("sampledContentBrightness",
-                            brightness.has_value() ? QVariant(brightness.value()) : QVariant());
-        if (auto *navigationButton = dynamic_cast<ImageNavigationButton *>(button))
-            navigationButton->setDarkBackground(isDark);
-    };
-
-    updateButton(previousImageButton);
-    updateButton(nextImageButton);
-    syncNavigationButtonOverlays();
-}
-
 void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
 {
     if (!graphicsView || !button)
@@ -1014,12 +953,10 @@ void MainWindow::syncNavigationButtonOverlay(QPushButton *button)
     const QPoint viewportOrigin =
             graphicsView->viewport()->mapFrom(graphicsView, button->geometry().topLeft());
     const QRectF viewportRect(viewportOrigin, button->size());
-    const bool darkBackground =
-            button->property("contrastStyle").toString() == QStringLiteral("dark");
     const bool hovered = index == 0 ? previousImageButtonHovered : nextImageButtonHovered;
     graphicsView->setHDRNavigationOverlay(
-            index, viewportRect, button->property("paintOpacity").toReal(), index == 0,
-            darkBackground, hovered, pressedNavigationButton == index, button->isEnabled());
+            index, viewportRect, button->property("paintOpacity").toReal(), index == 0, hovered,
+            pressedNavigationButton == index, button->isEnabled());
 }
 
 void MainWindow::syncNavigationButtonOverlays()
@@ -1125,10 +1062,6 @@ void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
     const bool rightVisible = rightAvailable && contentRect.contains(windowPosition)
             && (windowPosition.x() >= contentRect.right() - activationWidth + 1
                 || nextWindowRect.contains(windowPosition));
-
-    if ((leftVisible && !previousImageButtonRequestedVisible)
-        || (rightVisible && !nextImageButtonRequestedVisible))
-        updateNavigationButtonAppearance();
 
     setNavigationButtonVisible(previousImageButton, previousImageButtonAnimation, leftVisible);
     setNavigationButtonVisible(nextImageButton, nextImageButtonAnimation, rightVisible);
@@ -1258,7 +1191,6 @@ void MainWindow::showEvent(QShowEvent *event)
     QMainWindow::showEvent(event);
     clearTitlebarIcons();
     updateNavigationButtonGeometry();
-    updateNavigationButtonAppearance();
     updateNavigationBoundaryHintGeometry();
 }
 
@@ -1309,7 +1241,6 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
     updateTitlebarBubbleText();
     updateNavigationButtonGeometry();
-    updateNavigationButtonAppearance();
     updateNavigationBoundaryHintGeometry();
     if (!areNavigationButtonsSupported(width()))
         hideNavigationButtonsImmediately();
@@ -1480,7 +1411,6 @@ void MainWindow::settingsUpdated()
     updateMenuBarVisible();
 
     updateNavigationButtonGeometry();
-    updateNavigationButtonAppearance();
     if (navigationBoundaryHint) {
         static_cast<NavigationBoundaryHint *>(navigationBoundaryHint)
                 ->setAppearance(QVCocoaFunctions::resolvedTheme(theme));
@@ -1525,10 +1455,8 @@ void MainWindow::fileChanged(const bool isRestoringState)
     // full repaint to handle error message
     update();
     updateNavigationButtonGeometry();
-    QTimer::singleShot(0, this, [this]() {
-        updateNavigationButtonAppearance();
-        updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos()));
-    });
+    QTimer::singleShot(
+            0, this, [this]() { updateNavigationButtonVisibility(mapFromGlobal(QCursor::pos())); });
 }
 
 void MainWindow::zoomLevelChanged()
@@ -1856,7 +1784,6 @@ void MainWindow::setTitlebarHidden(const bool shouldHide, const bool persistPref
     update();
     graphicsView->fitOrConstrainImage();
     updateNavigationButtonGeometry();
-    updateNavigationButtonAppearance();
 }
 
 void MainWindow::setWindowSize(const bool isReapplying, const bool isExplicitRequest)

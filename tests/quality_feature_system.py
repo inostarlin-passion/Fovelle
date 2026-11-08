@@ -46,7 +46,7 @@ CASES = (
     ("TC-THEME-CHECKERBOARD", "WindowBehaviorTests", "testCheckerboardOverridesThemeAndRestoresBackground"),
     ("TC-NAV-EDGE", "WindowBehaviorTests", "testNavigationEdgeActivationExcludesTitlebar"),
     ("TC-NAV-SIZE", "WindowBehaviorTests", "testNavigationButtonSizingAndNoDelay"),
-    ("TC-NAV-CONTRAST", "WindowBehaviorTests", "testNavigationButtonsUseActualContentContrast"),
+    ("TC-NAV-DARK-ARTWORK", "WindowBehaviorTests", "testNavigationButtonsUseDarkArtwork"),
     ("TC-NAV-TRANSITION", "WindowBehaviorTests", "testNavigationButtonsFadeTransition"),
     ("TC-NAV-CLICK", "WindowBehaviorTests", "testNavigationButtonsClickSwitchesFiles"),
 )
@@ -101,7 +101,7 @@ def main() -> int:
             "return_code": result.returncode if result else None,
             "timed_out": case_timed_out,
             "status": "passed"
-            if result and result.returncode == 0 and re.search(rf"PASS\s+: {re.escape(suite)}::{re.escape(test_name)}\(\)", case_output)
+            if result and result.returncode == 0 and "SKIP" not in case_output and re.search(rf"PASS\s+: {re.escape(suite)}::{re.escape(test_name)}\([^)]*\)", case_output)
             else "failed",
             "output": case_output[-4000:],
         })

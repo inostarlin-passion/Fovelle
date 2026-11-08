@@ -512,8 +512,8 @@ private slots:
     void testNavigationEdgeActivationExcludesTitlebar();
     void testNavigationButtonSizingAndNoDelay();
     void testNavigationArtworkStylesAreSingleCompositedButtons();
-    void testNavigationButtonsUseActualContentContrast();
-    void testNavigationBrightnessSamplingIsBounded();
+    void testNavigationButtonsUseDarkArtwork_data();
+    void testNavigationButtonsUseDarkArtwork();
     void testNavigationButtonUsesTransparentPaintOnlyFade();
     void testNavigationButtonsFadeTransition();
     void testNavigationButtonsClickSwitchesFiles();
@@ -682,21 +682,6 @@ static QString createTransparentImage(const QTemporaryDir &dir, const QString &n
     const QString path = dir.filePath(name + ".png");
     QImage image(size, QImage::Format_ARGB32);
     image.fill(Qt::transparent);
-    if (!image.save(path))
-        return { };
-    return path;
-}
-
-static QString createSplitImage(const QTemporaryDir &dir, const QString &name,
-                                const QSize size = QSize(1600, 1000))
-{
-    const QString path = dir.filePath(name + ".png");
-    QImage image(size, QImage::Format_RGB32);
-    QPainter painter(&image);
-    painter.fillRect(QRect(0, 0, size.width() / 2, size.height()), QColorConstants::White);
-    painter.fillRect(QRect(size.width() / 2, 0, size.width() - size.width() / 2, size.height()),
-                     QColorConstants::Black);
-    painter.end();
     if (!image.save(path))
         return { };
     return path;
@@ -15622,52 +15607,69 @@ void WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()
     window.close();
 }
 
-// TC-NAV-CONTRAST
-// Test purpose: verify that each navigation button chooses its style from the
-// pixels actually displayed beneath that button, independently per side.
-// Preconditions: a visible two-file folder, a split white/black image, and the
-// Settings Theme explicitly set to Dark to prove it is not the selector.
-// Input data: a 1600x1000 image whose left half is white and right half black,
-// plus a second image in the same folder.
-// Steps: open the first image, move to the left edge and then right edge, and
-// inspect the sampled brightness and contrastStyle properties.
-// Expected result: the left button reports a light style and brightness > 0.5;
-// the right button reports a dark style and brightness < 0.5.
-// Postcondition: the window and temporary files are released; settings restore.
-void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
+void WindowBehaviorTests::testNavigationButtonsUseDarkArtwork_data()
 {
+    QTest::addColumn<bool>("native");
+    QTest::addColumn<bool>("whiteLeft");
+    QTest::newRow("widget-white-left") << false << true;
+    QTest::newRow("widget-white-right") << false << false;
+    QTest::newRow("native-white-left") << true << true;
+    QTest::newRow("native-white-right") << true << false;
+}
+
+void WindowBehaviorTests::testNavigationButtonsUseDarkArtwork()
+{
+    QFETCH(bool, native);
+    QFETCH(bool, whiteLeft);
     ScopedOptionValues options(
-            { { "theme", static_cast<int>(Qv::Theme::Dark) },
+            { { "theme", static_cast<int>(whiteLeft ? Qv::Theme::Dark : Qv::Theme::Light) },
               { "checkerboardbackground", false },
               { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
               { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
-              { "loopfoldersenabled", true },
+              { "loopfoldersenabled", false },
               { "sortmode", static_cast<int>(Qv::SortMode::Name) },
               { "sortdescending", false } });
 
     const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuit = qScopeGuard([originalQuitOnLastWindowClosed] {
+        qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+    });
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString firstPath = createSplitImage(dir, "01-navigation");
-    const QString secondPath = createSplitImage(dir, "02-navigation");
-    QVERIFY(!firstPath.isEmpty());
-    QVERIFY(!secondPath.isEmpty());
+    const QString suffix =
+            native ? QStringLiteral("-navigation.png") : QStringLiteral("-navigation.svg");
+    const QString imagePath = dir.filePath(QStringLiteral("02") + suffix);
+    if (native) {
+        QImage image(1600, 1200, QImage::Format_RGB32);
+        image.fill(whiteLeft ? Qt::black : Qt::white);
+        QPainter painter(&image);
+        painter.fillRect(0, 0, 800, 1200, whiteLeft ? Qt::white : Qt::black);
+        painter.end();
+        QVERIFY(image.save(imagePath));
+    } else {
+        QByteArray svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"1200\">"
+                         "<rect width=\"800\" height=\"1200\" fill=\"%LEFT%\"/>"
+                         "<rect x=\"800\" width=\"800\" height=\"1200\" fill=\"%RIGHT%\"/></svg>";
+        svg.replace("%LEFT%", whiteLeft ? "white" : "black");
+        svg.replace("%RIGHT%", whiteLeft ? "black" : "white");
+        QFile file(imagePath);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(svg), svg.size());
+    }
+    QVERIFY(QFile::copy(imagePath, dir.filePath(QStringLiteral("01") + suffix)));
+    QVERIFY(QFile::copy(imagePath, dir.filePath(QStringLiteral("03") + suffix)));
 
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.setWindowState(Qt::WindowNoState);
+    const auto closeWindow = qScopeGuard([&window] { window.close(); });
     window.resize(800, 600);
     window.show();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isVisible(), 1000);
-    window.raise();
     window.activateWindow();
-    QVERIFY2(QTest::qWaitForWindowActive(&window, 5000),
-             "navigation contrast test requires an active macOS window");
-    window.openFile(firstPath);
+    QVERIFY(QTest::qWaitForWindowActive(&window, 5000));
+    window.openFile(imagePath);
     QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size() == 2, 5000);
-    QTest::qWait(100);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().folderFileInfoList.size(), 3, 5000);
 
     auto *view = window.findChild<QVGraphicsView *>("graphicsView");
     auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
@@ -15675,47 +15677,64 @@ void WindowBehaviorTests::testNavigationButtonsUseActualContentContrast()
     QVERIFY(view);
     QVERIFY(previousButton);
     QVERIFY(nextButton);
-    const bool nativeOverlay = view->usesNativeHDRNavigationOverlay();
+    QCOMPARE(view->usesNativeHDRNavigationOverlay(), native);
+    QTRY_VERIFY_WITH_TIMEOUT(view->hasPreviousFile() && view->hasNextFile(), 5000);
 
-    const int middleY = view->viewport()->height() / 2;
-    sendMouseMove(view->viewport(), QPoint(1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("navigationRequestedVisible").toBool(), 5000);
-    if (nativeOverlay)
-        QTRY_VERIFY_WITH_TIMEOUT(
-                view->nativeMetalRendererDiagnostics().nativeNavigationVisibleCount > 0, 5000);
-    else
-        QTRY_VERIFY_WITH_TIMEOUT(previousButton->isVisible(), 1000);
-    QTRY_VERIFY_WITH_TIMEOUT(previousButton->property("sampledContentBrightness").isValid(), 1000);
-    QCOMPARE(previousButton->property("contrastStyle").toString(), QStringLiteral("light"));
-    QVERIFY(previousButton->property("sampledContentBrightness").toDouble() > 0.5);
+    for (QPushButton *button : { previousButton, nextButton }) {
+        const bool previous = button == previousButton;
+        const QPoint center = view->viewport()->mapFrom(view, button->geometry().center());
+        const QPointF imagePoint = view->mapToScene(center);
+        QVERIFY(QRectF(0, 0, 1600, 1200).contains(imagePoint));
+        QCOMPARE(imagePoint.x() < 800, previous);
 
-    sendMouseMove(view->viewport(), QPoint(view->viewport()->width() - 1, middleY));
-    QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("navigationRequestedVisible").toBool(), 5000);
-    if (!nativeOverlay)
-        QTRY_VERIFY_WITH_TIMEOUT(nextButton->isVisible(), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(nextButton->property("sampledContentBrightness").isValid(), 1000);
-    QCOMPARE(nextButton->property("contrastStyle").toString(), QStringLiteral("dark"));
-    QVERIFY(nextButton->property("sampledContentBrightness").toDouble() < 0.5);
-
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
+        const QPoint edge(previous ? 1 : view->viewport()->width() - 1, center.y());
+        sendMouseMove(view->viewport(), edge);
+        QVERIFY(button->property("navigationRequestedVisible").toBool());
+        const auto hasFinishedFadingIn = [&] {
+            // A queued Cocoa enter/leave event can recheck the physical cursor
+            // during the wait. Keep the synthetic pointer on the tested edge.
+            if (!button->property("navigationRequestedVisible").toBool())
+                sendMouseMove(view->viewport(), edge);
+            return qFuzzyCompare(button->property("paintOpacity").toReal(), 1.0);
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(hasFinishedFadingIn(), 5000);
+        QColor tile;
+        QColor chevron;
+        if (native) {
+            QVERIFY(!button->isVisible());
+            const auto artwork = nativeNavigationArtwork(window.windowHandle(), previous);
+            QVERIFY(artwork.visible);
+            QVERIFY(artwork.groupOpacity);
+            QCOMPARE(artwork.opacity, 1.0F);
+            QCOMPARE(artwork.pointsLeft, previous);
+            tile = artwork.tile;
+            chevron = artwork.chevron;
+        } else {
+            QVERIFY(button->isVisible());
+            QImage image(button->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            button->render(&image);
+            const int x = image.width() / 2;
+            const int y = image.height() / 2;
+            tile = image.pixelColor(x, y + 18);
+            chevron = image.pixelColor(x + (previous ? -6 : 6), y);
+            QCOMPARE(image.pixelColor(x + (previous ? 6 : -6), y), tile);
+        }
+        QVERIFY(tile.isValid());
+        QVERIFY(tile.alpha() == 220 || tile.alpha() == 235);
+        QVERIFY(qAbs(tile.red() - 128) <= 1);
+        QCOMPARE(tile.green(), tile.red());
+        QCOMPARE(tile.blue(), tile.red());
+        QCOMPARE(chevron, QColor(48, 48, 48));
+    }
 }
 
 // TC-NAV-ARTWORK-STYLES
-// Test purpose: verify the two navigation visuals are single composited
-// buttons with explicit transparent-light and tinted-dark artwork contracts.
-// Preconditions: MainWindow has created both navigation buttons.
-// Input data: the previous and next button object properties.
-// Steps: inspect composition metadata, absence of widget effects, and the
-// style names used by the contrast renderer.
-// Expected result: both buttons share one composited-artwork contract and
-// expose the two required style variants without separate child controls.
-// Postcondition: the temporary window is closed.
 void WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons()
 {
     MainWindow window;
     window.setAttribute(Qt::WA_DeleteOnClose, false);
-    const auto buttons = window.findChildren<QPushButton *>();
+    const auto closeWindow = qScopeGuard([&window] { window.close(); });
     auto *previousButton = window.findChild<QPushButton *>("previousImageButton");
     auto *nextButton = window.findChild<QPushButton *>("nextImageButton");
     QVERIFY(previousButton);
@@ -15723,63 +15742,9 @@ void WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons(
     for (QPushButton *button : { previousButton, nextButton }) {
         QCOMPARE(button->property("artworkComposition").toString(),
                  QStringLiteral("single-composited-button"));
-        QCOMPARE(button->property("lightArtwork").toString(),
-                 QStringLiteral("transparent-chevron"));
-        QCOMPARE(button->property("darkArtwork").toString(), QStringLiteral("gray-tile-chevron"));
         QVERIFY(button->graphicsEffect() == nullptr);
+        QVERIFY(button->findChildren<QWidget *>().isEmpty());
     }
-    QVERIFY(buttons.size() >= 2);
-    window.close();
-}
-
-// TC-HDR-UNIT-NAV-SAMPLING-LATENCY
-// Test purpose: prove hover contrast uses the bounded decoded proxy instead of
-// synchronously capturing/repainting the HDR viewport.
-// Preconditions: a visible split image has populated the navigation sample.
-// Input data: 10,000 brightness queries at the displayed image center.
-// Steps: call sampleDisplayedImageBrightness repeatedly and time the batch.
-// Expected result: every query returns a value and the batch completes within
-// 250 ms (at least 40,000 queries/s on the target machine).
-// Postcondition: the view geometry and renderer state remain unchanged.
-void WindowBehaviorTests::testNavigationBrightnessSamplingIsBounded()
-{
-    ScopedOptionValues options(
-            { { "checkerboardbackground", false },
-              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
-              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
-    const bool originalQuitOnLastWindowClosed = qvApp->quitOnLastWindowClosed();
-    qvApp->setQuitOnLastWindowClosed(false);
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString path = createSplitImage(dir, "bounded-navigation-sample");
-    QVERIFY(!path.isEmpty());
-
-    MainWindow window;
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(800, 600);
-    window.show();
-    window.openFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
-    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
-    QVERIFY(view);
-    const QPoint samplePoint = view->viewport()->rect().center();
-    QVERIFY(view->sampleDisplayedImageBrightness(samplePoint).has_value());
-
-    QElapsedTimer timer;
-    timer.start();
-    int validCount = 0;
-    constexpr int Iterations = 10000;
-    for (int index = 0; index < Iterations; ++index)
-        validCount += view->sampleDisplayedImageBrightness(samplePoint).has_value();
-    const qreal elapsedMilliseconds = timer.nsecsElapsed() / 1000000.0;
-    qInfo("FOVELLE_NAV_SAMPLE iterations=%d elapsed_ms=%.6f", Iterations,
-          static_cast<double>(elapsedMilliseconds));
-    QCOMPARE(validCount, Iterations);
-    QVERIFY2(elapsedMilliseconds <= 250.0,
-             qPrintable(QString::number(elapsedMilliseconds, 'f', 3)));
-
-    window.close();
-    qvApp->setQuitOnLastWindowClosed(originalQuitOnLastWindowClosed);
 }
 
 // TC-HDR-UNIT-NAV-TRANSPARENT-FADE
@@ -15812,8 +15777,6 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
         QVERIFY(button->testAttribute(Qt::WA_TranslucentBackground));
         QVERIFY(button->testAttribute(Qt::WA_NoSystemBackground));
         QVERIFY(!button->autoFillBackground());
-        // The light reference artwork has no tile even when pressed. The dark
-        // variant supplies its gray tile as part of the same artwork surface.
         button->setDown(true);
         const auto renderAtOpacity = [button](const qreal opacity) {
             button->setProperty("paintOpacity", opacity);
@@ -15835,9 +15798,7 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
             for (int x = 0; x < full.width(); ++x) {
                 const int fullAlpha = full.pixelColor(x, y).alpha();
                 const int halfAlpha = half.pixelColor(x, y).alpha();
-                if (fullAlpha == 0)
-                    continue;
-                ++artworkPixelCount;
+                artworkPixelCount += fullAlpha > 0;
                 opaqueChevronPixelCount += fullAlpha == 255;
                 QVERIFY2(qAbs(halfAlpha * 2 - fullAlpha) <= 3,
                          qPrintable(QStringLiteral("pixel=(%1,%2) full=%3 half=%4")
@@ -15848,7 +15809,7 @@ void WindowBehaviorTests::testNavigationButtonUsesTransparentPaintOnlyFade()
             }
         }
         QVERIFY(artworkPixelCount > 0);
-        QCOMPARE(full.pixelColor(2, full.height() / 2).alpha(), 0);
+        QCOMPARE(full.pixelColor(2, full.height() / 2).alpha(), 235);
         QVERIFY(opaqueChevronPixelCount > 0);
         button->setDown(false);
     }

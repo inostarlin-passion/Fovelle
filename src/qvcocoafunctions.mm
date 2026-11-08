@@ -2624,8 +2624,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     }
 
     void setNavigationOverlay(const int index, const QRectF &viewportRect, const qreal opacity,
-                              const bool previous, const bool darkBackground, const bool hovered,
-                              const bool pressed, const bool enabled)
+                              const bool previous, const bool hovered, const bool pressed,
+                              const bool enabled)
     {
         if (!navigationOverlayLayer || index < 0 || index >= 2)
             return;
@@ -2651,15 +2651,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 boundedOpacity > 0.001 && frame.size.width > 0.0 && frame.size.height > 0.0;
         const bool highlighted = hovered || pressed;
 
-        QColor background;
-        if (darkBackground)
-            background = QColor(128, 128, 128, highlighted ? 235 : 220);
-        // Light artwork is the transparent-chevron variant: it has no hover
-        // tile, matching the reference Photos control.
-        if (!enabled && background.isValid())
+        QColor background(128, 128, 128, highlighted ? 235 : 220);
+        if (!enabled)
             background.setAlpha(100);
 
-        QColor foreground = darkBackground ? QColor(48, 48, 48) : QColor(96, 96, 96);
+        QColor foreground(48, 48, 48);
         if (!enabled)
             foreground.setAlpha(90);
 
@@ -2675,7 +2671,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         CGPathAddLineToPoint(chevronPath, nullptr, centerX + direction * 7.0, centerY);
         CGPathAddLineToPoint(chevronPath, nullptr, centerX - direction * 5.0, centerY + 12.0);
 
-        CGColorRef backgroundCGColor = background.isValid() ? navigationColor(background) : nullptr;
+        CGColorRef backgroundCGColor = navigationColor(background);
         CGColorRef foregroundCGColor = navigationColor(foreground);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
@@ -2692,7 +2688,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         backgroundLayer.path = backgroundPath;
         backgroundLayer.fillColor = backgroundCGColor;
         backgroundLayer.opacity = 1.0F;
-        backgroundLayer.hidden = !artworkVisible || !background.isValid();
+        backgroundLayer.hidden = !artworkVisible;
         chevronLayer.frame = CGRectMake(0.0, 0.0, frameWidth, frameHeight);
         chevronLayer.path = chevronPath;
         chevronLayer.strokeColor = foregroundCGColor;
@@ -4415,13 +4411,15 @@ void QVCocoaFunctions::HDRRenderer::render(const QSize &viewportSize, const QPol
         impl->render(viewportSize, imageCorners, transitionProgress, interactive);
 }
 
-void QVCocoaFunctions::HDRRenderer::setNavigationOverlay(
-        const int index, const QRectF &viewportRect, const qreal opacity, const bool previous,
-        const bool darkBackground, const bool hovered, const bool pressed, const bool enabled)
+void QVCocoaFunctions::HDRRenderer::setNavigationOverlay(const int index,
+                                                         const QRectF &viewportRect,
+                                                         const qreal opacity, const bool previous,
+                                                         const bool hovered, const bool pressed,
+                                                         const bool enabled)
 {
     if (impl)
-        impl->setNavigationOverlay(index, viewportRect, opacity, previous, darkBackground, hovered,
-                                   pressed, enabled);
+        impl->setNavigationOverlay(index, viewportRect, opacity, previous, hovered, pressed,
+                                   enabled);
 }
 
 void QVCocoaFunctions::HDRRenderer::clearNavigationOverlays()

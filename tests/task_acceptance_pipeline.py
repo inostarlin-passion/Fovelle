@@ -110,7 +110,7 @@ RESEARCH_TRACE = [
         "dimension": "Photos navigation reference",
         "source": "https://support.apple.com/en-gb/guide/photos/pht9b4411b24/mac",
         "finding": "Apple Photos documents left/right arrow navigation between photos, matching the requested directional control semantics.",
-        "explicit_premise": "The two supplied local reference images define appearance: light is transparent-chevron and dark is gray-tile-chevron; the artwork remains one composited button.",
+        "explicit_premise": "The gray-tile-chevron artwork applies over every background and remains one composited button.",
     },
     {
         "hop": 4,
@@ -272,14 +272,14 @@ CASES = [
     ),
     make_case(
         "NAV-001",
-        "浅色背景下的悬浮按钮为透明底板加符号。",
+        "浅色背景下的悬浮按钮使用深色背景款。",
         "static",
         "tests/task_acceptance_pipeline.py::static_navigation_contract",
-        "验证浅色导航样式没有有色悬浮底板。",
+        "验证浅色背景上同样绘制灰色圆角底板和深灰符号。",
         ["按钮绘制源码可读。"],
-        {"style": "light-transparent", "reference": "/Users/inostarlin/Downloads/浅色背景下的右侧导航按钮.jpg"},
-        ["检查 QWidget 和 Cocoa 两条绘制路径。", "确认浅色分支只保留 chevron。"],
-        "浅色样式使用透明底板和灰色 chevron。",
+        {"style": "dark-tinted", "background": "light"},
+        ["检查 QWidget 和 Cocoa 两条绘制路径。", "确认两条路径都使用固定底板和箭头。"],
+        "浅色背景上的按钮绘制灰色圆角底板和深灰 chevron。",
         ["不生成额外 UI 资源。"],
     ),
     make_case(
@@ -290,7 +290,7 @@ CASES = [
         "验证深色导航样式保留灰色圆角底板和深色符号。",
         ["按钮绘制源码可读。"],
         {"style": "dark-tinted", "reference": "/Users/inostarlin/Downloads/深色背景下的右侧导航按钮.jpg"},
-        ["检查深色背景分支及底板颜色。", "确认符号仍属于同一绘制面。"],
+        ["检查固定底板颜色。", "确认符号仍属于同一绘制面。"],
         "深色样式使用灰色底板和深色 chevron。",
         ["不拆分为可独立交互的底板控件和符号控件。"],
     ),
@@ -299,7 +299,7 @@ CASES = [
         "悬浮按钮的符号和底板属于一个不可分割的合成按钮。",
         "unit",
         "tests/tst_qviewtests.cpp::WindowBehaviorTests::testNavigationArtworkStylesAreSingleCompositedButtons",
-        "验证两种导航视觉都通过一个按钮对象和一个合成绘制面提供。",
+        "验证左右两侧各通过一个按钮对象和一个合成绘制面提供。",
         ["Debug 测试二进制已构建。", "Qt Cocoa 平台插件可用。"],
         {"suite": "WindowBehaviorTests", "test": "testNavigationArtworkStylesAreSingleCompositedButtons"},
         ["启动 QtTest 用例。", "读取两个导航按钮的合成属性和图形效果。"],
@@ -700,15 +700,13 @@ def static_navigation_contract(repo: Path, sources: dict[str, str]) -> tuple[boo
     cocoa = sources["cocoa"]
     checks = {
         "single_composition_property": '"single-composited-button"' in widget,
-        "light_transparent_property": '"transparent-chevron"' in widget,
-        "dark_tinted_property": '"gray-tile-chevron"' in widget,
-        "light_has_no_qwidget_tile": "The light-background artwork intentionally has no hover tile" in widget,
+        "fixed_style": "setDarkBackground" not in widget and "darkBackground" not in cocoa,
         "dark_qwidget_background": "QColor background(128, 128, 128" in widget,
         "cocoa_group_opacity": "navigationButtonLayers[index].allowsGroupOpacity = YES" in cocoa,
         "cocoa_parent_opacity": "buttonLayer.opacity = boundedOpacity" in cocoa,
         "cocoa_children_full_opacity": "backgroundLayer.opacity = 1.0F" in cocoa and "chevronLayer.opacity = 1.0F" in cocoa,
-        "cocoa_light_branch_transparent": "// Light artwork is the transparent-chevron variant" in cocoa,
-        "cocoa_dark_branch": "if (darkBackground)" in cocoa and "QColor(128, 128, 128" in cocoa,
+        "dark_cocoa_background": "QColor background(128, 128, 128" in cocoa,
+        "dark_chevron": all("QColor foreground(48, 48, 48)" in source for source in (widget, cocoa)),
     }
     return all(checks.values()), {"checks": checks}
 

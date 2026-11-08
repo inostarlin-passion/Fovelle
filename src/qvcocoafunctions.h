@@ -238,8 +238,7 @@ public:
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
                     qreal transitionProgress, bool interactive = false);
         void setNavigationOverlay(int index, const QRectF &viewportRect, qreal opacity,
-                                  bool previous, bool darkBackground, bool hovered, bool pressed,
-                                  bool enabled);
+                                  bool previous, bool hovered, bool pressed, bool enabled);
         void clearNavigationOverlays();
         void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
         void setBoundaryHintOpacity(qreal opacity);

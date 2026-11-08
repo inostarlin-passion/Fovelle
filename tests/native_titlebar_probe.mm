@@ -69,6 +69,42 @@ QSize nativeWindowContentSize(QWindow *window)
     return QSize(qRound(size.width), qRound(size.height));
 }
 
+NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, const bool previous)
+{
+    const NSView *view = reinterpret_cast<NSView *>(window->winId());
+    const auto color = [](CGColorRef value) {
+        if (!value || CGColorGetNumberOfComponents(value) != 4)
+            return QColor();
+        const CGFloat *rgba = CGColorGetComponents(value);
+        return QColor::fromRgbF(rgba[0], rgba[1], rgba[2], rgba[3]).toRgb();
+    };
+    for (CALayer *overlay in view.layer.sublayers) {
+        for (CALayer *button in overlay.sublayers) {
+            if (button.hidden || button.sublayers.count != 2
+                || (CGRectGetMidX(button.frame) < CGRectGetMidX(overlay.bounds)) != previous)
+                continue;
+            CALayer *tile = button.sublayers[0];
+            CALayer *chevron = button.sublayers[1];
+            if (![tile isKindOfClass:CAShapeLayer.class]
+                || ![chevron isKindOfClass:CAShapeLayer.class])
+                continue;
+            CAShapeLayer *shape = static_cast<CAShapeLayer *>(chevron);
+            if (!shape.path)
+                continue;
+            // For both directions the last point is on the side opposite the tip.
+            const bool pointsLeft =
+                    CGPathGetCurrentPoint(shape.path).x > CGRectGetMidX(shape.bounds);
+            return { !overlay.hidden && !tile.hidden && !shape.hidden,
+                     button.allowsGroupOpacity,
+                     pointsLeft,
+                     button.opacity,
+                     color(static_cast<CAShapeLayer *>(tile).fillColor),
+                     color(shape.strokeColor) };
+        }
+    }
+    return { };
+}
+
 NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction)
 {
     NSView *view = reinterpret_cast<NSView *>(window->winId());

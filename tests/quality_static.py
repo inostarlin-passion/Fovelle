@@ -346,7 +346,7 @@ def main() -> int:
         "testCheckerboardOverridesThemeAndRestoresBackground",
         "testNavigationEdgeActivationExcludesTitlebar",
         "testNavigationButtonSizingAndNoDelay",
-        "testNavigationButtonsUseActualContentContrast",
+        "testNavigationButtonsUseDarkArtwork",
         "testNavigationButtonsFadeTransition",
         "testNavigationButtonsClickSwitchesFiles",
     )
@@ -817,38 +817,38 @@ def main() -> int:
         window_cpp + mainwindow_header + test_source,
         (
             "eventFilter(QObject *watched, QEvent *event)",
-            "sampledContentBrightness",
-            "sampleDisplayedImageBrightness",
-            "QGraphicsOpacityEffect",
+            '"paintOpacity"',
             "NavigationButtonAnimationDuration",
             "NavigationButtonMinimumWindowWidth",
             "navigationEdgeWidth",
-            "setDarkBackground",
             "setNavigationButtonVisible",
             "testNavigationButtonSizingAndNoDelay",
-            "testNavigationButtonsUseActualContentContrast",
+            "testNavigationButtonsUseDarkArtwork",
             "testNavigationButtonsFadeTransition",
             "testNavigationButtonsClickSwitchesFiles",
         ),
     )
+    fixed_style = (
+        "QColor background(128, 128, 128" in window_cpp
+        and "sampleDisplayedImageBrightness" not in window_cpp
+    )
     add_check(
         checks,
         "ST-21",
-        navigation_contract and "setToolTip" not in window_cpp,
+        navigation_contract and fixed_style and "setToolTip" not in window_cpp,
         {
             "mouse_filter": "eventFilter(QObject *watched, QEvent *event)" in mainwindow_header,
-            "actual_content_sample": "sampleDisplayedImageBrightness" in window_cpp,
-            "per_side_style": "sampledContentBrightness" in window_cpp and "setDarkBackground" in window_cpp,
-            "fade_effect": "QGraphicsOpacityEffect" in window_cpp and "NavigationButtonAnimationDuration" in window_cpp,
+            "fixed_dark_artwork": fixed_style,
+            "artwork_fade": '"paintOpacity"' in window_cpp and "NavigationButtonAnimationDuration" in window_cpp,
             "deterministic_tests": all(marker in test_source for marker in (
                 "testNavigationEdgeActivationExcludesTitlebar",
                 "testNavigationButtonSizingAndNoDelay",
-                "testNavigationButtonsUseActualContentContrast",
-            "testNavigationButtonsFadeTransition",
-            "testNavigationButtonsClickSwitchesFiles",
+                "testNavigationButtonsUseDarkArtwork",
+                "testNavigationButtonsFadeTransition",
+                "testNavigationButtonsClickSwitchesFiles",
             )),
         },
-        "the navigation feature observes pointer position in content space, samples each button's underlying pixels, and animates visibility with deterministic tests",
+        "the navigation feature observes pointer position in content space, draws the fixed dark artwork, and animates visibility with deterministic tests",
     )
 
     tidy_config = source[".clang-tidy"]

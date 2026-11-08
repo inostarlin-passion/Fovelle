@@ -75,7 +75,7 @@ EXPECTED_CASES = (
     ("TC-SETTINGS-SPACING", "WindowBehaviorTests", "testSettingsSpacingUsesNativeStyle"),
     ("TC-NAV-EDGE", "WindowBehaviorTests", "testNavigationEdgeActivationExcludesTitlebar"),
     ("TC-NAV-SIZE", "WindowBehaviorTests", "testNavigationButtonSizingAndNoDelay"),
-    ("TC-NAV-CONTRAST", "WindowBehaviorTests", "testNavigationButtonsUseActualContentContrast"),
+    ("TC-NAV-DARK-ARTWORK", "WindowBehaviorTests", "testNavigationButtonsUseDarkArtwork"),
     ("TC-NAV-TRANSITION", "WindowBehaviorTests", "testNavigationButtonsFadeTransition"),
     ("TC-NAV-CLICK", "WindowBehaviorTests", "testNavigationButtonsClickSwitchesFiles"),
 )
@@ -137,7 +137,12 @@ def main() -> int:
         {
             "id": identifier,
             "test": f"{suite}::{test_name}",
-            "status": "passed" if f"PASS   : {suite}::{test_name}()" in output else "failed",
+            "status": "passed" if (
+                all(f"PASS   : {suite}::{test_name}({backend}-{side})" in output
+                    for backend in ("widget", "native") for side in ("white-left", "white-right"))
+                if test_name == "testNavigationButtonsUseDarkArtwork"
+                else f"PASS   : {suite}::{test_name}()" in output
+            ) else "failed",
         }
         for identifier, suite, test_name in EXPECTED_CASES
     ]

@@ -1102,42 +1102,6 @@ bool QVGraphicsView::canReuseHDRPresentation(const bool firstFramePresented, con
     return firstFramePresented && hdrPrepared;
 }
 
-std::optional<qreal>
-QVGraphicsView::sampleDisplayedImageBrightness(const QPoint &viewportPoint) const
-{
-    const QRectF pixmapRect = loadedPixmapItem ? loadedPixmapItem->boundingRect() : QRectF();
-    if (navigationSamplingImage.isNull() || pixmapRect.isEmpty()
-        || !viewport()->rect().contains(viewportPoint))
-        return { };
-
-    // Scene coordinates are device-independent. On a Retina host the sampling
-    // preview can therefore have twice as many physical pixels as scene units.
-    // Map through the actual item instead of dividing by the preview size.
-    const QPointF itemPoint = loadedPixmapItem->mapFromScene(mapToScene(viewportPoint));
-    if (!pixmapRect.contains(itemPoint))
-        return { };
-
-    const int centerX = qBound(0,
-                               qFloor((itemPoint.x() - pixmapRect.left())
-                                      * navigationSamplingImage.width() / pixmapRect.width()),
-                               navigationSamplingImage.width() - 1);
-    const int centerY = qBound(0,
-                               qFloor((itemPoint.y() - pixmapRect.top())
-                                      * navigationSamplingImage.height() / pixmapRect.height()),
-                               navigationSamplingImage.height() - 1);
-    qreal total = 0.0;
-    int count = 0;
-    for (int y = qMax(0, centerY - 1); y <= qMin(navigationSamplingImage.height() - 1, centerY + 1);
-         ++y) {
-        for (int x = qMax(0, centerX - 1);
-             x <= qMin(navigationSamplingImage.width() - 1, centerX + 1); ++x) {
-            total += Qv::getPerceivedBrightness(navigationSamplingImage.pixelColor(x, y));
-            ++count;
-        }
-    }
-    return count > 0 ? std::optional<qreal>(total / count) : std::nullopt;
-}
-
 bool QVGraphicsView::usesNativeHDRNavigationOverlay() const
 {
     return hdrRendererActive && hdrRenderer && hdrRenderer->isAvailable();
@@ -1202,12 +1166,12 @@ void QVGraphicsView::setHDRPresentationActive(const bool active)
 
 void QVGraphicsView::setHDRNavigationOverlay(const int index, const QRectF &viewportRect,
                                              const qreal opacity, const bool previous,
-                                             const bool darkBackground, const bool hovered,
-                                             const bool pressed, const bool enabled)
+                                             const bool hovered, const bool pressed,
+                                             const bool enabled)
 {
     if (hdrRenderer)
-        hdrRenderer->setNavigationOverlay(index, viewportRect, opacity, previous, darkBackground,
-                                          hovered, pressed, enabled);
+        hdrRenderer->setNavigationOverlay(index, viewportRect, opacity, previous, hovered, pressed,
+                                          enabled);
 }
 
 void QVGraphicsView::clearHDRNavigationOverlays()
@@ -1377,8 +1341,6 @@ void QVGraphicsView::beforeLoad()
     hdrScrollInteractionClock.invalidate();
     hdrInteractionZoomMilliseconds = 0.0;
     hdrInteractionStep = -1;
-    navigationSamplingImage = { };
-    navigationSamplingSourceSize = { };
     vectorRefineTimer->stop();
     setVectorInteractionPresentation(false);
     lastCalculatedZoomMode.reset();
@@ -1464,13 +1426,6 @@ void QVGraphicsView::postLoad()
     loadedPixmapItem->setTransform(QTransform());
     const QSize fallbackSize = imageCore.getLoadedPixmap().size();
     const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
-    navigationSamplingSourceSize = sourceSize.isEmpty() ? fallbackSize : sourceSize;
-    navigationSamplingImage = imageCore.getLoadedPixmap().toImage();
-    if (!navigationSamplingImage.isNull()
-        && qMax(navigationSamplingImage.width(), navigationSamplingImage.height()) > 384) {
-        navigationSamplingImage = navigationSamplingImage.scaled(384, 384, Qt::KeepAspectRatio,
-                                                                 Qt::SmoothTransformation);
-    }
     if ((getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded)
         && !fallbackSize.isEmpty() && !sourceSize.isEmpty()) {
         loadedPixmapItem->setTransform(QTransform::fromScale(

@@ -194,15 +194,12 @@ public:
     // instead of falling back to SDR and restarting the opening transition.
     static bool canReuseHDRPresentation(bool firstFramePresented, bool hdrPrepared);
 
-    std::optional<qreal> sampleDisplayedImageBrightness(const QPoint &viewportPoint) const;
-
     bool usesNativeSDRMetalRenderer() const;
     QVCocoaFunctions::HDRRendererDiagnostics nativeMetalRendererDiagnostics() const;
     bool usesNativeHDRNavigationOverlay() const;
     void setHDRPresentationActive(bool active);
     void setHDRNavigationOverlay(int index, const QRectF &viewportRect, qreal opacity,
-                                 bool previous, bool darkBackground, bool hovered, bool pressed,
-                                 bool enabled);
+                                 bool previous, bool hovered, bool pressed, bool enabled);
     void clearHDRNavigationOverlays();
     void setHDRBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
     void setHDRBoundaryHintOpacity(qreal opacity);
@@ -489,8 +486,6 @@ private:
     bool hdrFocusTransitionTestScheduled{ false };
     QSize hdrPendingViewportSize;
     QPolygonF hdrPendingImageCorners;
-    QImage navigationSamplingImage;
-    QSize navigationSamplingSourceSize;
 
     ScrollHelper *scrollHelper;
     AxisLocker scrollAxisLocker;

@@ -1,18 +1,18 @@
-# 保留 About 模态的更新进度框修复设计
+# 悬浮导航按钮统一样式设计
 
-## 问题界定与证据
+## 问题界定与代码证据
 
-About 有两个独立的交互要求。它可见时，其他窗口不能抢走交互，尤其是设置。它发起检查后，更新进度框应在其上方，且「取消」可点击。
-
-| 证据 | 设计约束 |
+| 检索路径 | 交叉核验结果 |
 |---|---|
-| 旧实现通过 `Qt::ApplicationModal` 显示 About，然后在点击时才改为 `NonModal`。 | Qt 在显示时建立模态会话，事后改属性无法解除。上轮将 About 永久改成非模态，修正了层叠，却使设置可以打开。[Qt QWidget 模态属性](https://doc.qt.io/qt-6/qwidget.html#windowModality-prop) |
-| Sparkle 标准驱动使用独立的 AppKit 窗口显示检查进度，标准控制器没有设置父窗口的接口。 | AppKit 模态会话会过滤其他窗口的输入。原生探针在模态 About 上分别提高普通 `NSWindow` 的层级和建立父子关系。前者的取消按钮收不到点击，后者能接收点击且 About 仍为模态窗口。[AppKit 模态会话](https://developer.apple.com/documentation/appkit/nsapplication/beginmodalsession%28for%3A%29) · [AppKit 子窗口顺序](https://developer.apple.com/documentation/appkit/nswindow/addchildwindow%28_%3Aordered%3A%29) |
-| Sparkle 允许给 `SPUUpdater` 注入 UI 驱动。其标准驱动通过同步展示方法创建检查、更新提议和下载等窗口，错误及无更新提示使用自己的原生模态会话。 | 复用标准驱动，在呈现后用 AppKit 公开的窗口控制器和 framework 身份限定挂接对象。原生模态提示继续由 Sparkle 管理。[Sparkle 用户驱动 API](https://sparkle-project.org/documentation/api-reference/Protocols/SPUUserDriver.html) · [Sparkle 2.10.0 标准驱动实现](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUStandardUserDriver.m) |
+| `MainWindow::initializeNavigationButtons` → `ImageNavigationButton::paintEvent` | 上一张和下一张共用同一个控件类型。原有深色背景款绘制灰色圆角底板及深灰色箭头，浅色背景款只绘制箭头。 |
+| 边缘鼠标事件、图像加载及窗口变化 → `updateNavigationButtonAppearance` → `QVGraphicsView::sampleDisplayedImageBrightness` | 每个按钮的位置都会单独取样。亮度低于 0.5 时选用深色背景款。搜索调用者确认，亮度 API 和它的图像缓存只为这项样式选择服务。 |
+| `MainWindow::syncNavigationButtonOverlay` → `QVGraphicsView::setHDRNavigationOverlay` → `HDRRenderer::setNavigationOverlay` | 原生渲染也根据同一个样式标志绘制。支持原生覆盖层的 SDR 图像同样走这条路径。只改 QWidget 的绘制无法覆盖这类图像。 |
+| `setNavigationButtonVisible`、几何更新和鼠标事件 → `syncNavigationButtonOverlay` | 样式选择与可见性、几何、点击和动画分别处理。几何更新、动画推进和鼠标状态变化各自同步覆盖层。 |
 
-## 实现与正确性
+## 方案与正确性证明
 
-1. 恢复 About 构造时的 `Qt::ApplicationModal`。检查更新槽直接调用更新器。设置入口对可见的 About 提前返回，也覆盖 Qt 在应用仅剩一个模态窗口时仍允许菜单项的情形。About 关闭后重新允许设置。
-2. 用 `SPUUpdater` 配合继承标准用户驱动的小型子类。子类调用标准实现，在活动模态窗口为 About 时，将可见且由 Sparkle framework 自己的控制器管理的窗口挂接到 About 上方。这个判断不依赖本地化标题或 Sparkle 私有类名。无模态 About 时，调用标准实现即可。窗口创建和重新聚焦沿用 Sparkle 的公开驱动回调。
-3. Qt 和 AppKit 的 About 模态会话持续存在，保持对其他应用窗口的输入约束。AppKit 子窗口关系确保进度在 About 之上，且实际鼠标事件可到达子窗口。取消直接走标准 Sparkle 控件和状态回调，About 在同一模态会话中继续可用。
-4. About 关闭时，在父窗口退场前移除 Sparkle 子窗口关系。AppKit 原生探针表明，直接关闭父窗口会把仍在运行的子窗口一起隐藏。提前解除关系可保持更新进度显示，并让 Sparkle 继续管理该会话。
+1. 在 QWidget 和原生图层中，直接绘制已有的深色背景款。底板 RGB 为 128，默认 alpha 为 220，悬停或按下时为 235，禁用时为 100。箭头 RGB 为 48，禁用时 alpha 为 90。保留各自已有的圆角、尺寸和箭头路径。
+2. 删除样式标志及两条渲染路径之间的样式参数，同时删除亮度采样入口、专用缓存和样式更新调用。选择 QWidget 或原生图层仍由现有的渲染能力决定。
+3. 两条绘制路径中，颜色和形状仅依赖交互状态、尺寸及箭头方向。两处保留的表达式均来自原深色背景分支，因此对任意背景，同尺寸、同方向、同交互状态生成的绘制内容都等同于原深色背景款。半透明底板与图像混合后，最终屏幕像素仍会随图像变化。
+4. QWidget 先合成底板和箭头，再对合成图应用 `paintOpacity`。原生路径继续只对允许组透明度的父图层应用动画值，子图层用自身的颜色 alpha。背景透明的圆角外区域和淡入淡出的整体乘数由此保留。
+5. 按钮的边缘命中、文件可用性及点击连接继续使用原有输入和事件处理。移除的调用只更新样式并重复同步图层。文件加载仍排队更新可见性，几何和动画各自保留同步入口，因此移除样式更新后仍能完成显示、切换文件和隐藏。
