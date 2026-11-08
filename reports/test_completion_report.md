@@ -1,31 +1,43 @@
-# GitHub Actions 的 About 更新检查测试完成报告
+# GitHub Actions Universal 发布构建测试完成报告
 
-2026-11-08 验证。失败运行 `42475098087` 的格式和构建均成功，`FovelleAboutUpdate` 是唯一失败的 CTest 组。前一次运行的同一组曾在取消用例超时。[崩溃运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42475098087) · [取消超时运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42365504806)
+## 原子验收结果
 
-| 原子标准 | 静态 | 动态 |
+| 标准 | 用例 | 结果 |
 |---|---|---|
-| A01 窗口注销 | S01 通过。关闭和析构均移除活动窗口及三类菜单注册。 | D01 三行通过。显示后直接析构、未显示直接析构、正常关闭再析构均恢复应用级菜单和动作列表。旧版的两行直接析构均因多出一个最近文件菜单条目失败，正常关闭行通过。 |
-| A02 模态 About 内取消并再次检查 | S02 通过。CI 运行原生套件，每次点击前等待新连接及 WindowServer 排序。 | D02 通过。同一个 About 内完成两轮真实 AppKit 鼠标取消，更新器每轮恢复空闲，Qt 和 AppKit 都维持 About 的模态状态。 |
-| A03 关闭 About 后仍可取消 | S03 通过。解除原生父子关系先于 About 退场。 | D03 通过。原进度窗口继续显示，可接收原生取消事件，更新器恢复空闲。 |
+| A01 两种架构的 `BOOL` 可编译为快照字段 | S01 | 通过。修复前，静态断言因缺少显式转换而失败。修复后，导航静态脚本 4 项全部通过。 |
+| A01 两种架构的 `BOOL` 可编译为快照字段 | S02 | 通过。修复前，编译真实翻译单元复现 `signed char` 到 `bool` 的列表初始化窄化错误，诊断与远端一致。修复后，带 `-Werror=c++11-narrowing` 编译成功，`lipo -archs` 确认目标文件包含 x86_64 与 arm64。[原失败 job](https://github.com/inostarlin-passion/Fovelle/actions/runs/42481278343/job/128736201193) |
+| A02 原生 `NO` 读取为 `false` | D01 | 通过。临时 Cocoa 图层树中按钮可见，快照读取为 `false`。 |
+| A03 原生 `YES` 读取为 `true` | D02 | 通过。临时 Cocoa 图层树中按钮可见，快照读取为 `true`。 |
+| A03 原生 `YES` 读取为 `true` | D03 | 通过。两组 PNG 集成用例均通过，每组核验前进和后退按钮的组透明度、可见性、不透明度、箭头方向和颜色。 |
 
-## 本机回归
+## 本地回归
 
-- macOS 27.0.1、Qt 6.12.0 上，12 项更新静态检查全部通过。固定版本 clang-format 23.1.3、CI 配置测试及 `git diff --check` 通过。
-- `FovelleAboutUpdate` 完整套件包含 8 条用例或数据行，连续运行 20 轮全部通过。
-- 使用 `FOVELLE_TEST_PROFILE=ci` 重跑完整 CTest，7 组全部通过，耗时 117.76 秒。首轮的 About 与安装组均通过，`FovelleFastTests` 内的 HDR 全屏 `enter-size-hidden` 结束态断言失败。该行在完整重跑中通过。
+- macOS 27.0.1 arm64、SDK 27.0、Qt 6.12.0，CMake 4.4.2，部署目标 macOS 15.0。完整本地构建成功。链接器报告本机 Homebrew QtSvg 以较新系统构建，因此本地运行结果用于验证功能。
+- `FOVELLE_TEST_PROFILE=ci` 下 CTest 7/7 通过，用时 117.53 秒，包含快速套件的 45 个阶段、生命周期、原生 About 和更新安装测试。
+- clang-format 23.1.3、对修改后探针执行的 clang-tidy 23.1.3（警告视为错误）和 `git diff --check` 均通过。CI 策略测试 13/13，发布流水线测试 7/7。
 
-## GitHub Actions
+## GitHub Actions 验证
 
-验证分支为 `codex/about-update-ci`，提交为 `6dbd59ecbd35f7dd57706e5b8a24533e7805b5a4`。在 GitHub 托管的 macOS 26 ARM64、Qt 6.11.2 环境中，格式和构建任务均成功。CTest 7 组全部通过，耗时 183.66 秒，其中 `FovelleAboutUpdate` 用时 3.94 秒。Qt 应用包校验、压缩、解包复验及产物上传均成功。[验证运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42476657735) · [应用包产物](https://github.com/inostarlin-passion/Fovelle/actions/runs/42476657735/artifacts/13615723730)
+2026-11-09，独立分支 `codex/fix-universal-release-bool` 的提交 `8bfaa21` 通过 macOS 15 Release Compatibility 的 Build 与 Test 步骤。诊断产物确认实际环境为 Xcode 16.4、SDK 15.5 和 Qt 6.11.2，快速套件 45 个阶段通过。原生 QtTest XML 确认 `disabled`、`enabled` 及两组真实原生按钮用例均执行并通过。[兼容工作流](https://github.com/inostarlin-passion/Fovelle/actions/runs/42497158272) · [诊断产物](https://github.com/inostarlin-passion/Fovelle/actions/runs/42497158272/artifacts/13623744616)
 
-## 复跑
+兼容包的打包和验收步骤也通过，工作流最终状态为 `success`。`contract.json` 和 `smoke.json` 均报告通过，覆盖双架构产物合同、应用启动、Ghostscript 以及 PNG、SVG、EPS 解码。[兼容包验收产物](https://github.com/inostarlin-passion/Fovelle/actions/runs/42497158272/artifacts/13624417216)
 
-```sh
-python3 tests/update_acceptance.py --static-only
-ctest --test-dir build-about-update -R '^FovelleAboutUpdate$' --repeat until-fail:20 --output-on-failure
-FOVELLE_TEST_PROFILE=ci ctest --test-dir build-about-update --output-on-failure
+正式标签 `v1.3.7` 仍指向原失败提交 `73b536f`。签名、公证及正式发布未执行。
+
+## 复现命令
+
+```bash
+cmake -S . -B build-about-update -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build-about-update --parallel 4
+python3 tests/navigation_button_style_static.py
+python3 tests/native_titlebar_probe_compile_test.py build-about-update
+QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+  FOVELLE_TEST_SUITE=WindowBehaviorTests ./build-about-update/tests/fovelle_tests \
+  testNativeNavigationGroupOpacity \
+  testNavigationButtonsUseDarkArtwork:native-white-left \
+  testNavigationButtonsUseDarkArtwork:native-white-right
+QT_QPA_PLATFORM=cocoa FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+  FOVELLE_TEST_PROFILE=ci ctest --test-dir build-about-update --output-on-failure
 ```
 
-本机日志在 `build-about-update`。旧版回归见 `ci-about-red-*.log`，修复后的静态、原生和完整回归见 `ci-about-static.log`、`ci-about-focused.log`、`ci-about-repeat.log`、`ci-about-full.log` 和 `ci-about-full-recheck.log`。
-
-远端构建步骤及 CTest 明细见 `ci-about-actions-build.log`。
+复用包含 `BUILD_TESTS=ON`、`FOVELLE_REQUIRE_PORTABLE_HDR=ON` 和 `FOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON` 的本地 CMake 配置。快速套件结果保存在 `build-about-update/test-results/fast/`，完整 CTest 日志保存在 `build-about-update/Testing/Temporary/LastTest.log`。

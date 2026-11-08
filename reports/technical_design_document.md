@@ -1,17 +1,21 @@
-# GitHub Actions 的 About 更新检查修复设计
+# GitHub Actions Universal 发布构建修复设计
 
-## 问题界定与交叉核验
+## 问题界定与证据
 
-| 检索路径 | 证据 |
+| 检索路径 | 核验结果 |
 |---|---|
-| 远端提交 → `Build Fovelle` → `Test` | `015dbbd` 的格式检查和构建成功。七个 CTest 入口中只有 `FovelleAboutUpdate` 失败。日志显示设置用例结束后，进度窗口用例收到 SIGSEGV。[失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42475098087) |
-| 本机崩溃堆栈 → `ActionManager::updateRecentsMenu` → `MainWindow` 的关闭和析构 | 本机同类崩溃发生在刷新最近文件项时调用 `QAction::setVisible`。设置用例用栈上的 `MainWindow`，离开作用域直接析构。窗口注册表和菜单副本只在 `closeEvent` 清除，析构路径留下裸指针。远端日志缺少堆栈，因此由定向回归用例核验这条因果链。 |
-| 前一次失败 → `canCancelAndRetry` → AppKit 事件及回环端点 | `e3e8998` 的进度窗口保持可见。用例在控件可见后就投递鼠标事件，端点也没有回报连接何时开始。Sparkle 先展示进度再开始 appcast 请求，两个信号分别代表不同阶段。可见性也早于 WindowServer 完成排序。[前一次运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42365504806) · [Sparkle 2.10.0 发起检查流程](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUUserInitiatedUpdateDriver.m) |
-| 取消按钮 → Sparkle 标准驱动 → 可再次检查 | 原生按钮动作调用取消回调并关闭检查进度。进度消失后还要等待更新器恢复可检查状态，才能证明同一 About 可开启下一轮检查。[Sparkle 2.10.0 标准用户驱动](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUStandardUserDriver.m) |
+| 标签与提交 → 主 CI → 发布工作流 | `v1.3.7` 与 `main` 指向同一提交 `73b536f`。主 CI 的格式和 arm64 构建、测试全部通过。发布工作流复用的主 CI 也通过，之后的独立发布 job 在 Build 阶段失败。[主 CI](https://github.com/inostarlin-passion/Fovelle/actions/runs/42479746137) · [发布 job](https://github.com/inostarlin-passion/Fovelle/actions/runs/42481278343/job/128736201193) |
+| Build 日志 → 编译命令 → 源码 | 发布命令使用 Xcode 16.4、SDK 15.5、C++17、`-arch x86_64 -arch arm64`。编译 `tests/native_titlebar_probe.mm` 时，Clang 报出运行时 `BOOL`（`signed char`）到 `bool` 的列表初始化窄化错误。报错行把 `CALayer.allowsGroupOpacity` 直接填入 `NativeNavigationArtwork::groupOpacity`。 |
+| SDK 声明 → 目标架构 → 差异解释 | QuartzCore 声明该属性为 `BOOL`。本机 SDK 对同一 macOS 15 部署目标预处理，x86_64 得到 `OBJC_BOOL_IS_BOOL=0`，arm64 得到 `OBJC_BOOL_IS_BOOL=1`。这与 Universal 发布失败而 arm64 CI 通过一致。[QuartzCore 属性](https://developer.apple.com/documentation/quartzcore/calayer/allowsgroupopacity) · [Clang 窄化诊断](https://clang.llvm.org/docs/DiagnosticsReference.html#wc-11-narrowing) |
 
-## 方案与正确性
+## 变更
 
-1. 抽出窗口注销步骤，由正常关闭和析构共同调用。在 Qt 销毁窗口子对象前，从活动窗口集合移除窗口，并解除上下文菜单、菜单栏和虚拟菜单的副本注册。按键和值移除条目，重复注销同一窗口是幂等的。正常关闭仍在原位置保存几何和会话数据。析构遇到应用已进入 Qt 基类清理时，应用注册表已退出使用，由应用实例检查避开访问。
-2. About 测试端点接受本地 TLS 连接，读到握手记录后追加到本轮专用计数文件，并将连接保持到测试结束。每轮从当前计数取基线。新增握手、应用激活、目标按钮启用以及进度窗口已在 WindowServer 中排序都成立后，才投递 AppKit 的鼠标按下和释放。About 可见时，验证进度在其上方。关闭 About 后，验证独立进度窗口仍可接收鼠标输入。
-3. 在窗口仍有有效子对象时解除注册，任何随后查找都只会返回其他存活窗口的副本。已关闭再析构时，第二次移除也只匹配该窗口自己的地址。直接销毁未显示窗口同样解除菜单副本，因为菜单在构造时创建。
-4. 端点只确认握手并保持连接，进度无法因收到 appcast 而结束。鼠标输入仍经过 AppKit。每次断言进度关闭、更新器空闲及 About 按钮重新启用。重复检查需要新的握手，因此第一次检查的计数无法满足第二次。现有 CTest 入口继续调用原生用例，并保留更新安装回归。
+在 `nativeNavigationArtwork` 的聚合返回值中使用 `static_cast<bool>(button.allowsGroupOpacity)`。Objective-C 属性只读取一次，转换发生在原生探针的 C++ 快照边界。发布、SDK 15 兼容通道及应用正常使用原有入口，继续构建和运行原有门禁。
+
+将静态断言放入默认快速测试已注册的导航样式脚本。新增数据驱动 QtTest，使用临时 `QWindow` 和真实 `CALayer` 层级给探针分别输入 `NO` 与 `YES`。沿用已有原生按钮集成测试核验实际应用的两个按钮。
+
+## 正确性证明
+
+1. 在 x86_64 上，显式转换接受整型 `BOOL` 并产生 `bool`。在 arm64 上，`BOOL` 已是 `bool`，结果类型同样是 `bool`。聚合字段接收同类型表达式，因此该初始化在两个目标上均没有窄化转换。
+2. C++ 到布尔类型的转换将零映射为 `false`，将非零映射为 `true`。因此原生属性为 `NO` 或 `YES` 时，快照分别返回 `false` 或 `true`，包括原先已经能编译的 arm64 通道。[C++ 布尔转换规则](https://eel.is/c++draft/conv.bool)
+3. 修改只发生在返回结构的第二个表达式。按钮筛选、其余字段和找不到按钮时的默认快照沿用同一路径。静态检查会阻止移除该边界转换，动态测试会发现常量替代或反转语义，实际按钮集成测试会继续检查样式及方向。

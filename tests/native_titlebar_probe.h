@@ -85,3 +85,4 @@ struct NativeNavigationArtwork
     QColor chevron;
 };
 NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, bool previous);
+NativeNavigationArtwork sampleNavigationGroupOpacity(QWindow *window, bool enabled);

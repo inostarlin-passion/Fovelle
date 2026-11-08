@@ -1,42 +1,52 @@
-# GitHub Actions 的 About 更新检查验收规格
+# GitHub Actions Universal 发布构建验收规格
 
-| 原子标准 | 静态用例 | 动态用例 |
-|---|---|---|
-| A01 窗口结束生命周期时清除自己的注册条目 | S01 `test_main_window_releases_registrations_on_close_and_destruction` | D01 `mainWindowRegistrationsAreReleased` |
-| A02 About 保持模态时，可以取消正在进行的检查并再次发起 | S02 `test_about_native_cancel_waits_for_current_connection` | D02 `canCancelAndRetry` |
-| A03 关闭 About 后，正在进行的检查仍可取消 | S03 `test_closing_about_detaches_update_windows` | D03 `closingAboutKeepsProgressUsable` |
+| 原子验收标准 | 用例 |
+|---|---|
+| A01 生产探针的 Objective-C 布尔值可在 x86_64 和 arm64 目标上严格编译为 C++ 快照 | S01 显式类型边界，S02 同一翻译单元的双架构编译 |
+| A02 已找到的可见按钮在原生属性为 `NO` 时返回 `false` | D01 `disabled` |
+| A03 已找到的可见按钮在原生属性为 `YES` 时返回 `true` | D02 `enabled`，D03 真实按钮集成 |
 
-静态用例由 `tests/update_acceptance.py --static-only` 执行。动态用例在 `FovelleAboutUpdate` 中执行，使用一次性应用包和回环 TLS 端点。
+## S01 显式类型边界（静态）
 
-## A01 窗口注册注销
+- 测试目的　检测聚合初始化重新使用未转换的原生属性。
+- 前置条件　Python 可运行，工作区包含导航探针源码。
+- 输入数据　`NativeNavigationArtwork` 声明和 `nativeNavigationArtwork` 实现。
+- 操作步骤　执行 `navigation_button_style_static.py`，核对快照字段类型及源属性在聚合中的显式转换。
+- 预期结果　字段为 `bool`，聚合将显式转换后的 `button.allowsGroupOpacity` 写入该字段。
+- 后置条件　脚本只读取源码，可重复运行。
 
-| 要素 | S01 | D01 |
-|---|---|---|
-| 测试目的 | 核对窗口各退出路径的注销时机及范围 | 验证窗口销毁前后真实菜单注册表的内容 |
-| 前置条件 | 主窗口源码可读 | Qt Cocoa 会话及应用菜单可用 |
-| 输入数据 | 析构、关闭事件、活动窗口和菜单副本注销实现 | 已显示直接析构、未显示直接析构、显式关闭再析构三个场景 |
-| 操作步骤 | 核对析构和关闭都调用注销，且注销覆盖活动窗口及三类菜单 | 保存全局最近文件菜单及动作的基线，创建窗口，确认新增注册，退出作用域后比较基线。显式关闭行在析构前也比较一次 |
-| 预期结果 | 在子对象仍可用时解除窗口所有注册 | 销毁后注册列表恢复至基线，保留应用级菜单和动作 |
-| 后置条件 | 源码无写入 | 临时窗口释放，应用级菜单仍可使用 |
+## S02 同一翻译单元的双架构编译（静态）
 
-## A02 模态 About 内取消并再次检查
+- 测试目的　用编译器验证原始报错所在翻译单元同时支持两种 `BOOL` 表示。
+- 前置条件　已配置 macOS CMake 测试构建，生成 Ninja 编译命令，SDK 和 Qt 头文件可用。
+- 输入数据　`fovelle_tests` 中的 `native_titlebar_probe.mm` 编译命令、macOS 15.0 部署目标和两个目标架构。
+- 操作步骤　以该命令编译真实翻译单元，在一个编译调用中指定 x86_64 与 arm64，开启窄化错误检查，再用 `lipo` 核验目标文件架构。
+- 预期结果　编译退出码为 0，目标文件包含 x86_64 与 arm64。
+- 后置条件　验证目标文件写入临时目录并清理。正式发布和 SDK 15 兼容通道可用各自的正常构建入口重复验证。
 
-| 要素 | S02 | D02 |
-|---|---|---|
-| 测试目的 | 核对默认 CI 入口保留原生输入测试，并在每轮等待新的连接和可用窗口 | 验证同一个 About 窗口可完成两轮取消 |
-| 前置条件 | 工作流、CTest 和测试源码可读 | 应用包可启动，回环端点可收取 TLS ClientHello |
-| 输入数据 | CTest 注册、回环记录和取消用例 | 两轮原生检查及按下、释放事件 |
-| 操作步骤 | 检查端点在读到握手记录后更新计数，取消用例在事件前读取新计数与 WindowServer 排序 | 点击检查，等待握手及进度就绪，投递鼠标事件，等进度消失且更新器空闲，再用同一 About 重复 |
-| 预期结果 | CI 保留用例，原生点击依赖可观察的就绪条件 | 每轮均有新握手，进度正常关闭，更新按钮重新启用，About 持续为应用模态 |
-| 后置条件 | 源码无写入 | 关闭 About，停止端点并删除临时文件 |
+## D01 原生属性关闭（动态）
 
-## A03 关闭 About 后仍可取消
+- 测试目的　核对实际 `CALayer` 的关闭状态。
+- 前置条件　已构建 `fovelle_tests`，macOS Cocoa 平台可运行 QtTest。
+- 输入数据　临时窗口中的可见前进按钮，`allowsGroupOpacity = NO`。
+- 操作步骤　运行 `testNativeNavigationGroupOpacity:disabled`，构造原生图层树并调用实际探针。
+- 预期结果　快照确认按钮可见且 `groupOpacity == false`。
+- 后置条件　销毁临时窗口和图层。
 
-| 要素 | S03 | D03 |
-|---|---|---|
-| 测试目的 | 核对窗口关闭前解除原生父子关系 | 验证解除关系后进度仍接收原生输入 |
-| 前置条件 | About 和更新桥接源码可读 | 已启动有真实挂起连接的检查 |
-| 输入数据 | About 关闭处理和 Sparkle 窗口解绑实现 | 当前 About、已排序的进度窗口及原生取消事件 |
-| 操作步骤 | 检查解绑先于 `QDialog::done` | 等待连接，关闭 About，检查原进度仍在屏幕上且没有父窗口，投递原生鼠标事件 |
-| 预期结果 | About 退场前解绑 Sparkle 窗口 | 原进度窗口仍可取消，更新器回到空闲 |
-| 后置条件 | 源码无写入 | 更新会话结束，临时应用及连接清理 |
+## D02 原生属性开启（动态）
+
+- 测试目的　核对实际 `CALayer` 的开启状态。
+- 前置条件　已构建 `fovelle_tests`，macOS Cocoa 平台可运行 QtTest。
+- 输入数据　临时窗口中的可见前进按钮，`allowsGroupOpacity = YES`。
+- 操作步骤　运行 `testNativeNavigationGroupOpacity:enabled`，构造原生图层树并调用实际探针。
+- 预期结果　快照确认按钮可见且 `groupOpacity == true`。
+- 后置条件　销毁临时窗口和图层。
+
+## D03 真实按钮集成（动态）
+
+- 测试目的　验证应用实际创建的上一张和下一张原生按钮均使用组透明度，探针的可见性、方向与样式断言仍成立。
+- 前置条件　已构建 `fovelle_tests`，Cocoa 窗口可激活。
+- 输入数据　由 `testNavigationButtonsUseDarkArtwork` 生成的黑白 PNG，左右各一组。
+- 操作步骤　运行 `native-white-left` 和 `native-white-right`，分别将鼠标移向两侧边缘，等按钮淡入并检查快照。
+- 预期结果　每行的两个按钮都可见，组透明度开启，不透明度、箭头方向和颜色满足原断言。
+- 后置条件　关闭窗口，释放临时图片并恢复临时选项。

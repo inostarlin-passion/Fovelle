@@ -209,6 +209,8 @@
         "testLateMenuState",
         "testLateFullscreenMenu",
         "testLatePauseMenu",
+        "testNativeNavigationGroupOpacity:disabled",
+        "testNativeNavigationGroupOpacity:enabled",
         "testNavigationButtonsUseDarkArtwork:widget-white-left",
         "testNavigationButtonsUseDarkArtwork:widget-white-right",
         "testNavigationButtonsUseDarkArtwork:native-white-left",
