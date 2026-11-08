@@ -268,6 +268,7 @@ private:
     void syncNavigationBoundaryHintOverlay();
 
     void ensureMenus();
+    void unregisterFromApplication();
     void syncMenuState();
     void syncTitlebarAction();
     void syncSlideshowAction();

@@ -63,6 +63,39 @@ class StaticTests(unittest.TestCase):
         self.assertIn('setWindowModality(Qt::ApplicationModal)', constructor)
         self.assertNotRegex(handler.split('\n}', 1)[0], r'\b(?:setModal|setWindowModality)\s*\(')
 
+    def test_main_window_releases_registrations_on_close_and_destruction(self):
+        source = (ROOT/'src/mainwindow.cpp').read_text()
+        destructor = source.split('MainWindow::~MainWindow()', 1)[1].split('\n}', 1)[0]
+        close = source.split('void MainWindow::closeEvent(', 1)[1].split('\n}', 1)[0]
+        unregister = source.split('void MainWindow::unregisterFromApplication()', 1)
+        self.assertEqual(len(unregister), 2)
+        unregister = unregister[1].split('\n}', 1)[0]
+        self.assertLess(destructor.index('unregisterFromApplication();'), destructor.index('delete ui;'))
+        self.assertLess(close.index('unregisterFromApplication();'), close.index('QMainWindow::closeEvent(event);'))
+        self.assertIn('deleteFromActiveWindows(this)', unregister)
+        for menu in ('contextMenu', 'mainMenuBar', 'virtualMenu'):
+            self.assertIn(f'untrackClonedActions({menu})', unregister)
+
+    def test_about_native_cancel_waits_for_current_connection(self):
+        runner = (ROOT/'tests/run_about_update_test.py').read_text()
+        tests = (ROOT/'tests/about_update_tests.mm').read_text()
+        workflow = (ROOT/'.github/workflows/build.yml').read_text()
+        registration = (ROOT/'tests/CMakeLists.txt').read_text()
+        self.assertIn('-DFOVELLE_ENABLE_UPDATE_INSTALL_TESTS=ON', workflow)
+        self.assertRegex(registration, r'add_test\(NAME FovelleAboutUpdate\s+'
+                                      r'COMMAND .*run_about_update_test\.py')
+        self.assertIn('FOVELLE_ABOUT_UPDATE_CONNECTIONS', runner)
+        self.assertLess(runner.index('self.request.recv(1)'), runner.index('connections.open("ab")'))
+        ready = tests.split('bool checkingProgressReady(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('startedConnections() > previousConnections', ready)
+        self.assertIn('isOrderedAbove(cancel.window, parent)', ready)
+        for case in ('canCancelAndRetry', 'closingAboutKeepsProgressUsable'):
+            body = tests.split(f'void AboutUpdateTests::{case}()', 1)[1].split('\n}', 1)[0]
+            self.assertLess(body.index('const auto previousConnections = startedConnections();'),
+                            body.index('QTest::mouseClick(checkButton'))
+            self.assertLess(body.index('checkingProgressReady(previousConnections,'),
+                            body.index('postMouseClick(cancel);'))
+
     def test_preferences_respect_visible_about(self):
         app = (ROOT/'src/qvapplication.cpp').read_text()
         self.assertRegex(app, r'void QVApplication::openOptionsDialog\(QWidget \*parent\)\s*\{'

@@ -2,6 +2,7 @@
 
 #include "qvapplication.h"
 
+#include <QFileInfo>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QTest>
@@ -48,7 +49,19 @@ bool isOrderedAbove(NSWindow *front, NSWindow *back)
     }
     if (windows)
         CFRelease((CFArrayRef)windows);
-    return inOrder;
+    return back ? inOrder : frontSeen;
+}
+
+qint64 startedConnections()
+{
+    return QFileInfo(qEnvironmentVariable("FOVELLE_ABOUT_UPDATE_CONNECTIONS")).size();
+}
+
+bool checkingProgressReady(const qint64 previousConnections, NSWindow *parent)
+{
+    NSButton *cancel = visibleProgressCancelButton();
+    return NSApp.active && cancel.enabled && startedConnections() > previousConnections
+            && cancel.window.parentWindow == parent && isOrderedAbove(cancel.window, parent);
 }
 
 void postMouseClick(NSButton *button)
@@ -104,6 +117,8 @@ private slots:
     void init();
     void cleanup();
     void opensApplicationModal();
+    void mainWindowRegistrationsAreReleased_data();
+    void mainWindowRegistrationsAreReleased();
     void blocksPreferencesWhileOpen();
     void showsProgressInFront();
     void canCancelAndRetry();
@@ -133,6 +148,7 @@ void AboutUpdateTests::init()
     aboutWindow = reinterpret_cast<NSView *>(about->winId()).window;
     QVERIFY(aboutWindow.visible);
     [aboutWindow center];
+    [NSApp activate];
 }
 
 void AboutUpdateTests::cleanup()
@@ -156,6 +172,44 @@ void AboutUpdateTests::opensApplicationModal()
     QCOMPARE(about->windowModality(), Qt::ApplicationModal);
     QCOMPARE(QApplication::activeModalWidget(), about.data());
     QTRY_COMPARE(NSApp.modalWindow, aboutWindow);
+}
+
+void AboutUpdateTests::mainWindowRegistrationsAreReleased_data()
+{
+    QTest::addColumn<bool>("showWindow");
+    QTest::addColumn<bool>("closeWindow");
+    QTest::newRow("shown-direct-destruction") << true << false;
+    QTest::newRow("unshown-direct-destruction") << false << false;
+    QTest::newRow("close-then-destroy") << true << true;
+}
+
+void AboutUpdateTests::mainWindowRegistrationsAreReleased()
+{
+    QFETCH(bool, showWindow);
+    QFETCH(bool, closeWindow);
+    qvApp->getMenuBar();
+    const auto &manager = qvApp->getActionManager();
+    const auto menusBefore = manager.getAllClonesOfMenu("recents");
+    const auto actionsBefore = manager.getAllClonesOfAction("recent0");
+    QVERIFY(!menusBefore.isEmpty());
+    QVERIFY(!actionsBefore.isEmpty());
+    {
+        MainWindow window;
+        window.setAttribute(Qt::WA_DeleteOnClose, false);
+        if (showWindow) {
+            window.show();
+            QVERIFY(window.isVisible());
+        }
+        QCOMPARE(manager.getAllClonesOfMenu("recents").size(), menusBefore.size() + 1);
+        QCOMPARE(manager.getAllClonesOfAction("recent0").size(), actionsBefore.size() + 1);
+        if (closeWindow) {
+            QVERIFY(window.close());
+            QCOMPARE(manager.getAllClonesOfMenu("recents"), menusBefore);
+            QCOMPARE(manager.getAllClonesOfAction("recent0"), actionsBefore);
+        }
+    }
+    QCOMPARE(manager.getAllClonesOfMenu("recents"), menusBefore);
+    QCOMPARE(manager.getAllClonesOfAction("recent0"), actionsBefore);
 }
 
 void AboutUpdateTests::blocksPreferencesWhileOpen()
@@ -184,8 +238,9 @@ void AboutUpdateTests::showsProgressInFront()
 {
     QVERIFY2(qvApp->getUpdateChecker().configurationError().isEmpty(),
              qPrintable(qvApp->getUpdateChecker().configurationError()));
+    const auto previousConnections = startedConnections();
     QTest::mouseClick(checkButton, Qt::LeftButton);
-    QTRY_VERIFY(visibleProgressCancelButton());
+    QTRY_VERIFY(checkingProgressReady(previousConnections, aboutWindow));
     NSWindow *progressWindow = visibleProgressCancelButton().window;
     QVERIFY(aboutWindow.visible);
     QVERIFY(NSIntersectsRect(progressWindow.frame, aboutWindow.frame));
@@ -204,11 +259,11 @@ void AboutUpdateTests::canCancelAndRetry()
     QVERIFY2(qvApp->getUpdateChecker().configurationError().isEmpty(),
              qPrintable(qvApp->getUpdateChecker().configurationError()));
     for (int attempt = 0; attempt < 2; ++attempt) {
+        const auto previousConnections = startedConnections();
         QTest::mouseClick(checkButton, Qt::LeftButton);
         QVERIFY(!checkButton->isEnabled());
-        QTRY_VERIFY(visibleProgressCancelButton());
+        QTRY_VERIFY(checkingProgressReady(previousConnections, aboutWindow));
         NSButton *cancel = visibleProgressCancelButton();
-        QVERIFY(cancel.enabled);
         // Sparkle can accept another click to refocus visible progress. Wait
         // for the cancellation's completion notification before starting again.
         QSignalSpy stateChanges(&qvApp->getUpdateChecker(), &UpdateChecker::stateChanged);
@@ -216,6 +271,9 @@ void AboutUpdateTests::canCancelAndRetry()
         QTRY_VERIFY(!visibleProgressCancelButton());
         QTRY_VERIFY(!stateChanges.isEmpty());
         QTRY_VERIFY(about && about->isVisible() && checkButton->isEnabled());
+        QVERIFY(!qvApp->getUpdateChecker().getIsChecking());
+        QCOMPARE(QApplication::activeModalWidget(), about.data());
+        QCOMPARE(NSApp.modalWindow, aboutWindow);
     }
 }
 
@@ -223,18 +281,20 @@ void AboutUpdateTests::closingAboutKeepsProgressUsable()
 {
     QVERIFY2(qvApp->getUpdateChecker().configurationError().isEmpty(),
              qPrintable(qvApp->getUpdateChecker().configurationError()));
+    const auto previousConnections = startedConnections();
     QTest::mouseClick(checkButton, Qt::LeftButton);
-    QTRY_VERIFY(visibleProgressCancelButton());
-    QCOMPARE(visibleProgressCancelButton().window.parentWindow, aboutWindow);
+    QTRY_VERIFY(checkingProgressReady(previousConnections, aboutWindow));
+    NSWindow *progressWindow = visibleProgressCancelButton().window;
 
     about->close();
     QTRY_VERIFY(!about);
+    QTRY_VERIFY(checkingProgressReady(previousConnections, nil));
     NSButton *cancel = visibleProgressCancelButton();
-    QVERIFY(cancel);
-    QVERIFY(!cancel.window.parentWindow);
+    QCOMPARE(cancel.window, progressWindow);
     QSignalSpy stateChanges(&qvApp->getUpdateChecker(), &UpdateChecker::stateChanged);
     postMouseClick(cancel);
     QTRY_VERIFY(!visibleProgressCancelButton() && !stateChanges.isEmpty());
+    QTRY_VERIFY(!qvApp->getUpdateChecker().getIsChecking());
 }
 
 int runAboutUpdateTests(int argc, char *argv[])
