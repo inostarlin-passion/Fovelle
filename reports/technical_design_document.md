@@ -1,18 +1,17 @@
-# 悬浮导航按钮统一样式设计
+# GitHub Actions 的 About 更新检查修复设计
 
-## 问题界定与代码证据
+## 问题界定与交叉核验
 
-| 检索路径 | 交叉核验结果 |
+| 检索路径 | 证据 |
 |---|---|
-| `MainWindow::initializeNavigationButtons` → `ImageNavigationButton::paintEvent` | 上一张和下一张共用同一个控件类型。原有深色背景款绘制灰色圆角底板及深灰色箭头，浅色背景款只绘制箭头。 |
-| 边缘鼠标事件、图像加载及窗口变化 → `updateNavigationButtonAppearance` → `QVGraphicsView::sampleDisplayedImageBrightness` | 每个按钮的位置都会单独取样。亮度低于 0.5 时选用深色背景款。搜索调用者确认，亮度 API 和它的图像缓存只为这项样式选择服务。 |
-| `MainWindow::syncNavigationButtonOverlay` → `QVGraphicsView::setHDRNavigationOverlay` → `HDRRenderer::setNavigationOverlay` | 原生渲染也根据同一个样式标志绘制。支持原生覆盖层的 SDR 图像同样走这条路径。只改 QWidget 的绘制无法覆盖这类图像。 |
-| `setNavigationButtonVisible`、几何更新和鼠标事件 → `syncNavigationButtonOverlay` | 样式选择与可见性、几何、点击和动画分别处理。几何更新、动画推进和鼠标状态变化各自同步覆盖层。 |
+| 远端提交 → `Build Fovelle` → `Test` | `015dbbd` 的格式检查和构建成功。七个 CTest 入口中只有 `FovelleAboutUpdate` 失败。日志显示设置用例结束后，进度窗口用例收到 SIGSEGV。[失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42475098087) |
+| 本机崩溃堆栈 → `ActionManager::updateRecentsMenu` → `MainWindow` 的关闭和析构 | 本机同类崩溃发生在刷新最近文件项时调用 `QAction::setVisible`。设置用例用栈上的 `MainWindow`，离开作用域直接析构。窗口注册表和菜单副本只在 `closeEvent` 清除，析构路径留下裸指针。远端日志缺少堆栈，因此由定向回归用例核验这条因果链。 |
+| 前一次失败 → `canCancelAndRetry` → AppKit 事件及回环端点 | `e3e8998` 的进度窗口保持可见。用例在控件可见后就投递鼠标事件，端点也没有回报连接何时开始。Sparkle 先展示进度再开始 appcast 请求，两个信号分别代表不同阶段。可见性也早于 WindowServer 完成排序。[前一次运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/42365504806) · [Sparkle 2.10.0 发起检查流程](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUUserInitiatedUpdateDriver.m) |
+| 取消按钮 → Sparkle 标准驱动 → 可再次检查 | 原生按钮动作调用取消回调并关闭检查进度。进度消失后还要等待更新器恢复可检查状态，才能证明同一 About 可开启下一轮检查。[Sparkle 2.10.0 标准用户驱动](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/SPUStandardUserDriver.m) |
 
-## 方案与正确性证明
+## 方案与正确性
 
-1. 在 QWidget 和原生图层中，直接绘制已有的深色背景款。底板 RGB 为 128，默认 alpha 为 220，悬停或按下时为 235，禁用时为 100。箭头 RGB 为 48，禁用时 alpha 为 90。保留各自已有的圆角、尺寸和箭头路径。
-2. 删除样式标志及两条渲染路径之间的样式参数，同时删除亮度采样入口、专用缓存和样式更新调用。选择 QWidget 或原生图层仍由现有的渲染能力决定。
-3. 两条绘制路径中，颜色和形状仅依赖交互状态、尺寸及箭头方向。两处保留的表达式均来自原深色背景分支，因此对任意背景，同尺寸、同方向、同交互状态生成的绘制内容都等同于原深色背景款。半透明底板与图像混合后，最终屏幕像素仍会随图像变化。
-4. QWidget 先合成底板和箭头，再对合成图应用 `paintOpacity`。原生路径继续只对允许组透明度的父图层应用动画值，子图层用自身的颜色 alpha。背景透明的圆角外区域和淡入淡出的整体乘数由此保留。
-5. 按钮的边缘命中、文件可用性及点击连接继续使用原有输入和事件处理。移除的调用只更新样式并重复同步图层。文件加载仍排队更新可见性，几何和动画各自保留同步入口，因此移除样式更新后仍能完成显示、切换文件和隐藏。
+1. 抽出窗口注销步骤，由正常关闭和析构共同调用。在 Qt 销毁窗口子对象前，从活动窗口集合移除窗口，并解除上下文菜单、菜单栏和虚拟菜单的副本注册。按键和值移除条目，重复注销同一窗口是幂等的。正常关闭仍在原位置保存几何和会话数据。析构遇到应用已进入 Qt 基类清理时，应用注册表已退出使用，由应用实例检查避开访问。
+2. About 测试端点接受本地 TLS 连接，读到握手记录后追加到本轮专用计数文件，并将连接保持到测试结束。每轮从当前计数取基线。新增握手、应用激活、目标按钮启用以及进度窗口已在 WindowServer 中排序都成立后，才投递 AppKit 的鼠标按下和释放。About 可见时，验证进度在其上方。关闭 About 后，验证独立进度窗口仍可接收鼠标输入。
+3. 在窗口仍有有效子对象时解除注册，任何随后查找都只会返回其他存活窗口的副本。已关闭再析构时，第二次移除也只匹配该窗口自己的地址。直接销毁未显示窗口同样解除菜单副本，因为菜单在构造时创建。
+4. 端点只确认握手并保持连接，进度无法因收到 appcast 而结束。鼠标输入仍经过 AppKit。每次断言进度关闭、更新器空闲及 About 按钮重新启用。重复检查需要新的握手，因此第一次检查的计数无法满足第二次。现有 CTest 入口继续调用原生用例，并保留更新安装回归。

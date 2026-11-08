@@ -494,9 +494,26 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
 
 MainWindow::~MainWindow()
 {
+    unregisterFromApplication();
     shutdownBackgroundWork();
 
     delete ui;
+}
+
+void MainWindow::unregisterFromApplication()
+{
+    auto *application = qvApp;
+    if (!application)
+        return;
+
+    application->deleteFromActiveWindows(this);
+    auto &actionManager = application->getActionManager();
+    if (contextMenu)
+        actionManager.untrackClonedActions(contextMenu);
+    if (mainMenuBar)
+        actionManager.untrackClonedActions(mainMenuBar);
+    if (virtualMenu)
+        actionManager.untrackClonedActions(virtualMenu);
 }
 
 void MainWindow::shutdownBackgroundWork()
@@ -1208,14 +1225,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QSettings settings;
     settings.setValue("geometry", saveGeometry());
 
-    qvApp->deleteFromActiveWindows(this);
-    if (contextMenu)
-        qvApp->getActionManager().untrackClonedActions(contextMenu);
-    if (mainMenuBar)
-        qvApp->getActionManager().untrackClonedActions(mainMenuBar);
-    if (virtualMenu)
-        qvApp->getActionManager().untrackClonedActions(virtualMenu);
-
+    unregisterFromApplication();
     QMainWindow::closeEvent(event);
 }
 
