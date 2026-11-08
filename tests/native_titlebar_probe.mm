@@ -95,7 +95,7 @@ NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, const bool prev
             const bool pointsLeft =
                     CGPathGetCurrentPoint(shape.path).x > CGRectGetMidX(shape.bounds);
             return { !overlay.hidden && !tile.hidden && !shape.hidden,
-                     button.allowsGroupOpacity,
+                     static_cast<bool>(button.allowsGroupOpacity),
                      pointsLeft,
                      button.opacity,
                      color(static_cast<CAShapeLayer *>(tile).fillColor),
@@ -103,6 +103,30 @@ NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, const bool prev
         }
     }
     return { };
+}
+
+NativeNavigationArtwork sampleNavigationGroupOpacity(QWindow *window, bool enabled)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    view.wantsLayer = YES;
+    CALayer *overlay = [CALayer layer];
+    overlay.frame = CGRectMake(0, 0, 100, 100);
+    CALayer *button = [CALayer layer];
+    button.frame = CGRectMake(70, 40, 20, 20);
+    button.allowsGroupOpacity = enabled ? YES : NO;
+    CAShapeLayer *chevron = [CAShapeLayer layer];
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathMoveToPoint(path, nullptr, 5, 5);
+    CGPathAddLineToPoint(path, nullptr, 15, 10);
+    chevron.path = path;
+    CGPathRelease(path);
+    [button addSublayer:[CAShapeLayer layer]];
+    [button addSublayer:chevron];
+    [overlay addSublayer:button];
+    [view.layer addSublayer:overlay];
+    const auto artwork = nativeNavigationArtwork(window, false);
+    [overlay removeFromSuperlayer];
+    return artwork;
 }
 
 NativeFullScreenPresentation nativeFullScreenPresentation(QWindow *window, bool refreshTransaction)

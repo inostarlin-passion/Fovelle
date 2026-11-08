@@ -512,6 +512,8 @@ private slots:
     void testNavigationEdgeActivationExcludesTitlebar();
     void testNavigationButtonSizingAndNoDelay();
     void testNavigationArtworkStylesAreSingleCompositedButtons();
+    void testNativeNavigationGroupOpacity_data();
+    void testNativeNavigationGroupOpacity();
     void testNavigationButtonsUseDarkArtwork_data();
     void testNavigationButtonsUseDarkArtwork();
     void testNavigationButtonUsesTransparentPaintOnlyFade();
@@ -15605,6 +15607,22 @@ void WindowBehaviorTests::testNavigationButtonSizingAndNoDelay()
     QCOMPARE(nextButton->property("transitionDurationMs").toInt(),
              MainWindow::NavigationButtonAnimationDuration);
     window.close();
+}
+
+void WindowBehaviorTests::testNativeNavigationGroupOpacity_data()
+{
+    QTest::addColumn<bool>("enabled");
+    QTest::newRow("disabled") << false;
+    QTest::newRow("enabled") << true;
+}
+
+void WindowBehaviorTests::testNativeNavigationGroupOpacity()
+{
+    QFETCH(bool, enabled);
+    QWindow window;
+    const auto artwork = sampleNavigationGroupOpacity(&window, enabled);
+    QVERIFY(artwork.visible);
+    QCOMPARE(artwork.groupOpacity, enabled);
 }
 
 void WindowBehaviorTests::testNavigationButtonsUseDarkArtwork_data()

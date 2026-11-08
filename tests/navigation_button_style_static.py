@@ -19,6 +19,17 @@ HEADERS = "\n".join(
 
 
 class NavigationButtonStyleTests(unittest.TestCase):
+    def test_native_probe_converts_objc_bool_before_list_initialization(self):
+        tests = SRC.parent / "tests"
+        header = (tests / "native_titlebar_probe.h").read_text(encoding="utf-8")
+        source = (tests / "native_titlebar_probe.mm").read_text(encoding="utf-8")
+        self.assertRegex(header, r"bool\s+groupOpacity\b")
+        self.assertRegex(
+            source,
+            r"return\s*\{\s*!overlay\.hidden && !tile\.hidden && !shape\.hidden,\s*"
+            r"static_cast<bool>\(button\.allowsGroupOpacity\),\s*pointsLeft,",
+        )
+
     def test_widget_draws_dark_artwork(self):
         self.assertIn("QColor background(128, 128, 128, isHovered ? 235 : 220)", WIDGET)
         self.assertIn("background.setAlpha(100)", WIDGET)
