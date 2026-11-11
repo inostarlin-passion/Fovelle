@@ -327,6 +327,10 @@ class GraphicsViewTests : public QObject
 private slots:
     void testKeepZoomAcrossNavigation_data();
     void testKeepZoomAcrossNavigation();
+    void testBoundaryNavigationKeepsZoom_data();
+    void testBoundaryNavigationKeepsZoom();
+    void testSuccessfulNavigationAppliesZoomPreference_data();
+    void testSuccessfulNavigationAppliesZoomPreference();
     void testKeepCalculatedZoomAndFailedNavigation();
     void testKeepZoomWindowIsolationAndSession();
     void testMouseWheelUsesOneDiscreteStep();

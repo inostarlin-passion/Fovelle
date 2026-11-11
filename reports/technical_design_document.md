@@ -1,21 +1,21 @@
-# GitHub Actions Universal 发布构建修复设计
+# 图片导航到达边界时保留缩放
 
-## 问题界定与证据
+## 问题界定
 
-| 检索路径 | 核验结果 |
-|---|---|
-| 标签与提交 → 主 CI → 发布工作流 | `v1.3.7` 与 `main` 指向同一提交 `73b536f`。主 CI 的格式和 arm64 构建、测试全部通过。发布工作流复用的主 CI 也通过，之后的独立发布 job 在 Build 阶段失败。[主 CI](https://github.com/inostarlin-passion/Fovelle/actions/runs/42479746137) · [发布 job](https://github.com/inostarlin-passion/Fovelle/actions/runs/42481278343/job/128736201193) |
-| Build 日志 → 编译命令 → 源码 | 发布命令使用 Xcode 16.4、SDK 15.5、C++17、`-arch x86_64 -arch arm64`。编译 `tests/native_titlebar_probe.mm` 时，Clang 报出运行时 `BOOL`（`signed char`）到 `bool` 的列表初始化窄化错误。报错行把 `CALayer.allowsGroupOpacity` 直接填入 `NativeNavigationArtwork::groupOpacity`。 |
-| SDK 声明 → 目标架构 → 差异解释 | QuartzCore 声明该属性为 `BOOL`。本机 SDK 对同一 macOS 15 部署目标预处理，x86_64 得到 `OBJC_BOOL_IS_BOOL=0`，arm64 得到 `OBJC_BOOL_IS_BOOL=1`。这与 Universal 发布失败而 arm64 CI 通过一致。[QuartzCore 属性](https://developer.apple.com/documentation/quartzcore/calayer/allowsgroupopacity) · [Clang 窄化诊断](https://clang.llvm.org/docs/DiagnosticsReference.html#wc-11-narrowing) |
+请求上一张或下一张时，如果目标仍是当前图片，视图应保留当前缩放比例和缩放模式。只有切换到另一张图片时才应用用户的导航缩放设置。
 
-## 变更
+1. 菜单、悬浮按钮和键盘等入口最终调用 `QVGraphicsView::goToFile()`，由 `QVImageCore::goToFile()` 选择目标。
+2. `FileDetails::updateLoadedIndexInFolder()` 先筛选规范化后大小写等价的路径，再用 `QFileInfo` 确认匹配。因此，已打开路径和目录枚举路径的字符串可以不同，文件索引仍然有效。
+3. 关闭循环时，首张请求上一张或末张请求下一张会设置 `reachedEnd`，但仍继续处理当前索引。开启循环的单图目录也会选回当前索引。原有字符串判重可以被同一文件的不同路径拼写绕过，从而把当前图片交回加载器。
+4. 加载结果触发 `fileChanging` 和 `fileChanged`，视图在 `postLoad()` 中根据 `navresetszoom` 应用默认缩放。这是切图时的正常行为。
 
-在 `nativeNavigationArtwork` 的聚合返回值中使用 `static_cast<bool>(button.allowsGroupOpacity)`。Objective-C 属性只读取一次，转换发生在原生探针的 C++ 快照边界。发布、SDK 15 兼容通道及应用正常使用原有入口，继续构建和运行原有门禁。
+## 设计
 
-将静态断言放入默认快速测试已注册的导航样式脚本。新增数据驱动 QtTest，使用临时 `QWindow` 和真实 `CALayer` 层级给探针分别输入 `NO` 与 `YES`。沿用已有原生按钮集成测试核验实际应用的两个按钮。
+在 `QVImageCore::goToFile()` 中，关闭循环且到达边界时立即返回已设置 `reachedEnd` 的结果。完成候选索引查找后，如果候选索引等于当前文件索引且当前文件路径非空，也直接返回。保留现有的候选文件存在性检查。缩放设置继续由视图在加载时处理。
 
 ## 正确性证明
 
-1. 在 x86_64 上，显式转换接受整型 `BOOL` 并产生 `bool`。在 arm64 上，`BOOL` 已是 `bool`，结果类型同样是 `bool`。聚合字段接收同类型表达式，因此该初始化在两个目标上均没有窄化转换。
-2. C++ 到布尔类型的转换将零映射为 `false`，将非零映射为 `true`。因此原生属性为 `NO` 或 `YES` 时，快照分别返回 `false` 或 `true`，包括原先已经能编译的 arm64 通道。[C++ 布尔转换规则](https://eel.is/c++draft/conv.bool)
-3. 修改只发生在返回结构的第二个表达式。按钮筛选、其余字段和找不到按钮时的默认快照沿用同一路径。静态检查会阻止移除该边界转换，动态测试会发现常量替代或反转语义，实际按钮集成测试会继续检查样式及方向。
+1. 首张请求上一张和末张请求下一张在关闭循环时都设置 `reachedEnd`。返回发生在查找和加载之前，因此两种请求均无法发起新加载。返回值继续驱动方向提示和幻灯片停止逻辑。
+2. 开启循环时，单图目录的首末索引均为 0。两个方向都会选中当前索引。判重以索引为准，路径拼写差异不影响结果。`closeImage(true)` 可以保留目录索引，但会清空当前文件路径，所以同索引保护仍允许从保留的目录打开文件。
+3. 以上两条返回路径都不会执行 `loadFile()`，因此不会发出由该次请求引起的文件切换信号，也不会触发 `postLoad()` 中的缩放更新。
+4. 对于存在且索引不同的目标，包括多图目录中的循环切换，两个返回条件均不成立。目标沿原加载路径完成切换，继续按 `navresetszoom` 选择重置或保留缩放。

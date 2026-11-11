@@ -70,6 +70,170 @@ void GraphicsViewTests::testKeepZoomAcrossNavigation()
     QCOMPARE(view->getZoomLevel(), level);
 }
 
+void GraphicsViewTests::testBoundaryNavigationKeepsZoom_data()
+{
+    QTest::addColumn<bool>("previous");
+    QTest::addColumn<bool>("singleImage");
+    QTest::addColumn<bool>("loop");
+    QTest::addColumn<bool>("alternateSpelling");
+
+    QTest::newRow("first-previous") << true << false << false << false;
+    QTest::newRow("first-previous-alias") << true << false << false << true;
+    QTest::newRow("last-next") << false << false << false << false;
+    QTest::newRow("last-next-alias") << false << false << false << true;
+    QTest::newRow("single-previous") << true << true << false << false;
+    QTest::newRow("single-next") << false << true << false << false;
+    QTest::newRow("single-loop-previous-alias") << true << true << true << true;
+    QTest::newRow("single-loop-next-alias") << false << true << true << true;
+}
+
+void GraphicsViewTests::testBoundaryNavigationKeepsZoom()
+{
+    QFETCH(bool, previous);
+    QFETCH(bool, singleImage);
+    QFETCH(bool, loop);
+    QFETCH(bool, alternateSpelling);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const auto currentName =
+            previous || singleImage ? QStringLiteral("01-image") : QStringLiteral("02-image");
+    const auto path = createTestImage(dir, currentName, Qt::red, QSize(1200, 800));
+    QVERIFY(!path.isEmpty());
+    if (!singleImage) {
+        const auto neighborName =
+                previous ? QStringLiteral("02-image") : QStringLiteral("01-image");
+        QVERIFY(!createTestImage(dir, neighborName, Qt::blue).isEmpty());
+    }
+    const auto openPath = alternateSpelling ? dir.filePath(currentName.toUpper() + ".png") : path;
+    if (alternateSpelling && !QFile::exists(openPath))
+        QSKIP("The test volume does not resolve the alternate spelling of this filename");
+
+    ScopedOptionValues options(
+            { { "navresetszoom", true },
+              { "loopfoldersenabled", loop },
+              { "smallimageoneone", false },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
+    const auto closePolicy = qScopeGuard([quitOnClose = qvApp->quitOnLastWindowClosed()] {
+        qvApp->setQuitOnLastWindowClosed(quitOnClose);
+    });
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); });
+    window.resize(800, 600);
+    window.show();
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    QVERIFY(view->getNavigationResetsZoom());
+    window.openFile(openPath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    const auto &details = window.getCurrentFileDetails();
+    const int currentIndex = previous || singleImage ? 0 : 1;
+    QTRY_COMPARE_WITH_TIMEOUT(details.loadedIndexInFolder, currentIndex, 5000);
+    QCOMPARE(details.folderFileInfoList.size(), singleImage ? 1 : 2);
+    QCOMPARE(details.folderFileInfoList.at(currentIndex).absoluteFilePath, path);
+    QCOMPARE(details.fileInfo.absoluteFilePath(), openPath);
+
+    constexpr double zoom = 1.75;
+    view->zoomAbsolute(zoom);
+    QCOMPARE(view->getZoomLevel(), zoom);
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    const auto transform = view->transform();
+    QSignalSpy fileChanged(view, &QVGraphicsView::fileChanged);
+    QSignalSpy zoomChanged(view, &QVGraphicsView::zoomLevelChanged);
+    QSignalSpy boundary(view, &QVGraphicsView::navigationBoundaryReached);
+    QSignalSpy slideshowStopped(view, &QVGraphicsView::cancelSlideshow);
+    if (previous)
+        window.previousFile();
+    else
+        window.nextFile();
+
+    // A repeated load can be delivered from cache on a later event-loop turn.
+    QTest::qWait(300);
+    QCOMPARE(view->getZoomLevel(), zoom);
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    QCOMPARE(view->transform(), transform);
+    QCOMPARE(details.fileInfo.absoluteFilePath(), openPath);
+    QCOMPARE(fileChanged.size(), 0);
+    QCOMPARE(zoomChanged.size(), 0);
+    QCOMPARE(boundary.size(), loop ? 0 : 1);
+    QCOMPARE(slideshowStopped.size(), loop ? 0 : 1);
+    if (!loop) {
+        QCOMPARE(boundary.constFirst().constFirst().value<Qv::GoToFileMode>(),
+                 previous ? Qv::GoToFileMode::Previous : Qv::GoToFileMode::Next);
+    }
+}
+
+void GraphicsViewTests::testSuccessfulNavigationAppliesZoomPreference_data()
+{
+    QTest::addColumn<bool>("resetZoom");
+    QTest::addColumn<bool>("loop");
+
+    QTest::newRow("reset-next") << true << false;
+    QTest::newRow("reset-wrap-previous") << true << true;
+    QTest::newRow("keep-previous") << false << false;
+    QTest::newRow("keep-wrap-next") << false << true;
+}
+
+void GraphicsViewTests::testSuccessfulNavigationAppliesZoomPreference()
+{
+    QFETCH(bool, resetZoom);
+    QFETCH(bool, loop);
+
+    constexpr auto fitMode = Qv::CalculatedZoomMode::ZoomToFit;
+    ScopedOptionValues options(
+            { { "navresetszoom", resetZoom },
+              { "loopfoldersenabled", loop },
+              { "smallimageoneone", false },
+              { "calculatedzoommode", static_cast<int>(fitMode) },
+              { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) } });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const auto first = createTestImage(dir, "01-image", Qt::red, QSize(1200, 800));
+    const auto last = createTestImage(dir, "02-image", Qt::blue, QSize(900, 1100));
+    QVERIFY(!first.isEmpty() && !last.isEmpty());
+
+    const auto closePolicy = qScopeGuard([quitOnClose = qvApp->quitOnLastWindowClosed()] {
+        qvApp->setQuitOnLastWindowClosed(quitOnClose);
+    });
+    qvApp->setQuitOnLastWindowClosed(false);
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    const auto closeWindow = qScopeGuard([&] { window.close(); });
+    window.resize(800, 600);
+    window.show();
+    auto *view = window.findChild<QVGraphicsView *>();
+    QVERIFY(view);
+    QCOMPARE(view->getNavigationResetsZoom(), resetZoom);
+    window.openFile(resetZoom ? first : last);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().loadedIndexInFolder, resetZoom ? 0 : 1,
+                              5000);
+
+    constexpr double zoom = 1.75;
+    view->zoomAbsolute(zoom);
+    QCOMPARE(view->getZoomLevel(), zoom);
+    QVERIFY(!view->getCalculatedZoomMode().has_value());
+    QSignalSpy boundary(view, &QVGraphicsView::navigationBoundaryReached);
+    if (resetZoom != loop)
+        window.nextFile();
+    else
+        window.previousFile();
+
+    QTRY_COMPARE_WITH_TIMEOUT(window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              resetZoom ? last : first, 5000);
+    QVERIFY(window.getIsPixmapLoaded());
+    QCOMPARE(boundary.size(), 0);
+    if (resetZoom) {
+        QVERIFY(view->getCalculatedZoomMode() == fitMode);
+        QVERIFY(view->getZoomLevel() != zoom);
+    } else {
+        QVERIFY(!view->getCalculatedZoomMode().has_value());
+        QCOMPARE(view->getZoomLevel(), zoom);
+    }
+}
+
 void GraphicsViewTests::testKeepCalculatedZoomAndFailedNavigation()
 {
     ScopedOptionValues options({ { "navresetszoom", false }, { "smallimageoneone", false } });

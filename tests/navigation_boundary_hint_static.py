@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -22,6 +23,7 @@ def check(identifier: str, passed: bool, detail: str) -> bool:
 def main() -> int:
     qv_view = read("src/qvgraphicsview.cpp")
     qv_view_h = read("src/qvgraphicsview.h")
+    image_core = read("src/qvimagecore.cpp")
     mainwindow = read("src/mainwindow.cpp")
     mainwindow_h = read("src/mainwindow.h")
     cocoa = read("src/qvcocoafunctions.mm")
@@ -29,6 +31,33 @@ def main() -> int:
     test_cpp = read("tests/tst_qviewtests.cpp")
 
     cases: list[bool] = []
+    navigation = image_core.split("QVImageCore::GoToFileResult QVImageCore::goToFile(", 1)[1]
+    navigation = navigation.split("bool QVImageCore::hasPreviousFile()", 1)[0]
+    cases.append(check(
+        "S01",
+        bool(re.search(
+            r"case Qv::GoToFileMode::Previous:.*?if \(newIndex == 0\).*?"
+            r"else\s+result\.reachedEnd = true;.*?"
+            r"case Qv::GoToFileMode::Next:.*?if \(fileList\.size\(\) - 1 == newIndex\).*?"
+            r"else\s+result\.reachedEnd = true;.*?"
+            r"if \(result\.reachedEnd\)\s+return result;\s+while \(searchDirection",
+            navigation,
+            re.S,
+        )),
+        "Previous and Next return the boundary result before searching for a file",
+    ))
+    cases.append(check(
+        "S02",
+        bool(re.search(
+            r"while \(searchDirection == -1.*?newIndex--;\s+(?://[^\n]*\s+)?"
+            r"if \(newIndex == currentFileDetails\.loadedIndexInFolder\s+"
+            r"&& !currentFileDetails\.fileInfo\.filePath\(\)\.isEmpty\(\)\)\s+"
+            r"return result;.*?loadFile\(nextImageFilePath",
+            navigation,
+            re.S,
+        )),
+        "Navigation skips the current index only if a file is open",
+    ))
     boundary_gate = (
         "if (result.reachedEnd)" in qv_view
         and "reportNavigationBoundary" in qv_view

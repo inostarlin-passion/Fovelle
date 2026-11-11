@@ -359,6 +359,9 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
     }
     }
 
+    if (result.reachedEnd)
+        return result;
+
     while (searchDirection == 1 && newIndex < fileList.size() - 1
            && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
         newIndex++;
@@ -366,10 +369,13 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
            && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
         newIndex--;
 
-    const QString nextImageFilePath = fileList.value(newIndex).absoluteFilePath;
+    // The current slot can match a path spelled differently in the listing.
+    if (newIndex == currentFileDetails.loadedIndexInFolder
+        && !currentFileDetails.fileInfo.filePath().isEmpty())
+        return result;
 
-    if (!QFile::exists(nextImageFilePath)
-        || nextImageFilePath == currentFileDetails.fileInfo.absoluteFilePath())
+    const QString nextImageFilePath = fileList.value(newIndex).absoluteFilePath;
+    if (!QFile::exists(nextImageFilePath))
         return result;
 
     if (shouldRetryFolderInfoUpdate)

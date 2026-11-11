@@ -190,7 +190,9 @@
         "testKeyboardZoomUsesCursorAnchor",
         "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
         "testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive",
-        "testKeepZoomAcrossNavigation:svg64"
+        "testKeepZoomAcrossNavigation:svg64",
+        "testBoundaryNavigationKeepsZoom",
+        "testSuccessfulNavigationAppliesZoomPreference"
       ]
     },
     {
