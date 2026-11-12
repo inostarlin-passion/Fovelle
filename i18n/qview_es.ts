@@ -346,6 +346,14 @@
         <source>Check for Updates</source>
         <translation>Buscar actualizaciones</translation>
     </message>
+    <message>
+        <source>Show Thumbnails on Hover</source>
+        <translation>Mostrar miniaturas al pasar el puntero</translation>
+    </message>
+    <message>
+        <source>Focus Thumbnails</source>
+        <translation>Enfocar miniaturas</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -1957,6 +1965,33 @@ Puedes volver a activarla en Configuración.</translation>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>La descarga supera el límite de tamaño</translation>
+    </message>
+</context>
+<context>
+    <name>QVThumbnailStrip</name>
+    <message>
+        <source>Thumbnails</source>
+        <translation>Miniaturas</translation>
+    </message>
+    <message>
+        <source>%1, current image, %2 of %3</source>
+        <translation>%1, imagen actual, %2 de %3</translation>
+    </message>
+    <message>
+        <source>%1, %2 of %3</source>
+        <translation>%1, %2 de %3</translation>
+    </message>
+    <message>
+        <source>Could not verify the image. Try again.</source>
+        <translation>No se pudo verificar la imagen. Inténtalo de nuevo.</translation>
+    </message>
+    <message>
+        <source>The image changed. Choose it again.</source>
+        <translation>La imagen cambió. Vuelve a seleccionarla.</translation>
+    </message>
+    <message>
+        <source>The image is no longer available.</source>
+        <translation>La imagen ya no está disponible.</translation>
     </message>
 </context>
 </TS>

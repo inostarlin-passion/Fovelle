@@ -66,6 +66,7 @@ set(FOVELLE_SOURCES
     src/openwith.cpp
     src/qvfileenumerator.cpp
     src/qvgraphicsview.cpp
+    src/qvthumbnailstrip.cpp
     src/qvgraphicsimageitem.cpp
     src/qvmenu.cpp
     src/qvoptionsdialog.cpp
@@ -98,6 +99,7 @@ set(FOVELLE_HEADERS
     src/openwith.h
     src/qvfileenumerator.h
     src/qvgraphicsview.h
+    src/qvthumbnailstrip.h
     src/qvgraphicsimageitem.h
     src/qvmenu.h
     src/qvnamespace.h

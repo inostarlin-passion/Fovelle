@@ -55,7 +55,14 @@ public:
                   bool debouncePreloading = false, std::shared_ptr<void> sourceLifetime = { });
     void closeImage(const bool stayInDir = false);
     GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
-    void markFolderInfoDirty() { folderInfoDirty = true; }
+    void markFolderInfoDirty();
+    void refreshThumbnailListing();
+    bool openThumbnail(int index, const QString &path, quint64 listVersion,
+                       const QByteArray &fileVersion);
+    quint64 thumbnailListVersion() const { return folderScanGeneration; }
+    bool thumbnailListingReady() const { return !folderInfoDirty && pendingFolderPath.isEmpty(); }
+    bool thumbnailNavigationBusy() const { return loadInProgress || openDirectoryAfterScan; }
+    bool thumbnailLoopEnabled() const { return fileEnumerator.getIsLoopFoldersEnabled(); }
 
     Qv::SortMode getSortMode() const { return fileEnumerator.getSortMode(); }
     void setSortMode(const Qv::SortMode mode) { fileEnumerator.setSortMode(mode); }
@@ -94,6 +101,9 @@ signals:
 
     void sortParametersChanged();
     void folderInfoChanged();
+    void thumbnailListingChanged();
+    void imageRequestStarted();
+    void thumbnailOpenRejected();
 
 protected:
     void loadPixmap(const ReadData &readData);

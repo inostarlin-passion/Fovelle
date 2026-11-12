@@ -4,6 +4,7 @@ SOURCES += \
     $$PWD/openwith.cpp \
     $$PWD/qvfileenumerator.cpp \
     $$PWD/qvgraphicsview.cpp \
+    $$PWD/qvthumbnailstrip.cpp \
     $$PWD/qvgraphicsimageitem.cpp \
     $$PWD/qvmenu.cpp \
     $$PWD/qvoptionsdialog.cpp \
@@ -34,6 +35,7 @@ HEADERS += \
     $$PWD/openwith.h \
     $$PWD/qvfileenumerator.h \
     $$PWD/qvgraphicsview.h \
+    $$PWD/qvthumbnailstrip.h \
     $$PWD/qvgraphicsimageitem.h \
     $$PWD/qvmenu.h \
     $$PWD/qvnamespace.h \

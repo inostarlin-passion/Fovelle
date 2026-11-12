@@ -440,6 +440,29 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testThumbnailCenter();
+    void testThumbnailCompact();
+    void testThumbnailLoop();
+    void testThumbnailHover();
+    void testThumbnailHide();
+    void testThumbnailClick();
+    void testThumbnailInvalidPress();
+    void testThumbnailVersion();
+    void testThumbnailKeyboard();
+    void testThumbnailPreview();
+    void testThumbnailSingle();
+    void testThumbnailPreference();
+    void testThumbnailBackendHandoff();
+    void testThumbnailSupersededValidation();
+    void testThumbnailVersionChangesDuringRead();
+    void testThumbnailPreferenceDoesNotRescan();
+    void testThumbnailFadeReversal();
+    void testThumbnailFullscreenTransition();
+    void testThumbnailVersionedCacheReuse();
+    void testThumbnailFocusRefreshesDirtyListing();
+    void testThumbnailNativeHDR();
+    void testThumbnailDragOwnership();
+
     void testDeleteConfirmationKeepsTarget();
     void testDeleteConfirmationRejectsReplacement();
     void testEPSOutputLimit();
@@ -16546,3 +16569,5 @@ int main(int argc, char *argv[])
 #include "important_fixes_acceptance.inc"
 
 #include "review_fixes_acceptance.inc"
+
+#include "thumbnail_acceptance.inc"

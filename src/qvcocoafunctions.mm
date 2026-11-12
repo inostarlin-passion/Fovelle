@@ -40,6 +40,7 @@
 #include <limits>
 #include <mutex>
 #include <sys/resource.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #import <Cocoa/Cocoa.h>
@@ -2263,6 +2264,12 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             [navigationButtonLayers[index] addSublayer:navigationBackgroundLayers[index]];
             [navigationButtonLayers[index] addSublayer:navigationChevronLayers[index]];
         }
+        thumbnailLayer = [[CALayer layer] retain];
+        thumbnailLayer.geometryFlipped = YES;
+        thumbnailLayer.hidden = YES;
+        thumbnailLayer.zPosition = 5.0;
+        thumbnailLayer.contentsGravity = kCAGravityResize;
+        [navigationOverlayLayer addSublayer:thumbnailLayer];
         boundaryHintLayer = [[CALayer layer] retain];
         boundaryHintLayer.geometryFlipped = YES;
         boundaryHintLayer.hidden = YES;
@@ -2404,6 +2411,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [displayLink release];
         [displayLinkDelegate release];
         [navigationOverlayLayer release];
+        [thumbnailLayer release];
         [boundaryHintLayer release];
         [presentationContainerLayer release];
         [metalLayer release];
@@ -2725,6 +2733,45 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction commit];
         state.nativeNavigationVisibleCount = 0;
         ++state.navigationOverlayUpdateCount;
+    }
+
+    void setThumbnailSurface(const QRectF &rect, const QImage &image)
+    {
+        if (!thumbnailLayer || image.isNull())
+            return;
+        CGImageRef cgImage = createNativeImageCGImage(image);
+        if (!cgImage)
+            return;
+        syncViewportLayerGeometry();
+        const qreal y = CGRectGetHeight(navigationOverlayLayer.bounds) - rect.y() - rect.height();
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailLayer.frame = CGRectMake(rect.x(), y, rect.width(), rect.height());
+        thumbnailLayer.contentsScale = image.devicePixelRatioF();
+        thumbnailLayer.contents = (id)cgImage;
+        ++state.thumbnailUploadCount;
+        [CATransaction commit];
+        CGImageRelease(cgImage);
+    }
+
+    void setThumbnailOpacity(const qreal opacity)
+    {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailLayer.opacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
+        thumbnailLayer.hidden = opacity <= 0.001 || !thumbnailLayer.contents;
+        state.nativeThumbnailVisible = !thumbnailLayer.hidden;
+        [CATransaction commit];
+    }
+
+    void clearThumbnailSurface()
+    {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailLayer.hidden = YES;
+        thumbnailLayer.contents = nil;
+        state.nativeThumbnailVisible = false;
+        [CATransaction commit];
     }
 
     void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image)
@@ -4297,6 +4344,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CAMetalLayer *metalLayer{ nil };
     CALayer *navigationOverlayLayer{ nil };
     CALayer *boundaryHintLayer{ nil };
+    CALayer *thumbnailLayer{ nil };
     CALayer *navigationButtonLayers[2]{ nil, nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
     CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
@@ -4445,6 +4493,24 @@ void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
 {
     if (impl)
         impl->clearBoundaryHintOverlay();
+}
+
+void QVCocoaFunctions::HDRRenderer::setThumbnailSurface(const QRectF &rect, const QImage &image)
+{
+    if (impl)
+        impl->setThumbnailSurface(rect, image);
+}
+
+void QVCocoaFunctions::HDRRenderer::setThumbnailOpacity(const qreal opacity)
+{
+    if (impl)
+        impl->setThumbnailOpacity(opacity);
+}
+
+void QVCocoaFunctions::HDRRenderer::clearThumbnailSurface()
+{
+    if (impl)
+        impl->clearThumbnailSurface();
 }
 
 QVCocoaFunctions::HDRRendererDiagnostics QVCocoaFunctions::HDRRenderer::diagnostics() const
@@ -4715,6 +4781,52 @@ void QVCocoaFunctions::showMenu(QMenu *menu)
     popUpNativeContextMenuAfterRelease(menu, screenPoint);
 }
 
+bool QVCocoaFunctions::reduceThumbnailMotion()
+{
+    return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
+}
+
+bool QVCocoaFunctions::reduceThumbnailTransparency()
+{
+    return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceTransparency;
+}
+
+bool QVCocoaFunctions::thumbnailMayReadContent(const QString &path)
+{
+    @autoreleasepool {
+        struct statfs volume;
+        if (::statfs(QFile::encodeName(path).constData(), &volume) != 0
+            || !(volume.f_flags & MNT_LOCAL))
+            return false;
+        NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
+        NSString *status = nil;
+        [url getResourceValue:&status forKey:NSURLUbiquitousItemDownloadingStatusKey error:nil];
+        return ![status isEqualToString:NSURLUbiquitousItemDownloadingStatusNotDownloaded];
+    }
+}
+
+QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge)
+{
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
+        CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)url, nullptr);
+        if (!source)
+            return { };
+        CFDictionaryRef options = (CFDictionaryRef)@{
+            (id)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
+            (id)kCGImageSourceCreateThumbnailWithTransform: @YES,
+            (id)kCGImageSourceThumbnailMaxPixelSize: @(longestEdge),
+            (id)kCGImageSourceDecodeRequest: (id)kCGImageSourceDecodeToSDR,
+        };
+        CGImageRef thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
+        CFRelease(source);
+        if (!thumbnail)
+            return { };
+        const auto releaseThumbnail = qScopeGuard([thumbnail] { CGImageRelease(thumbnail); });
+        return imageFromCGImage(thumbnail);
+    }
+}
+
 void QVCocoaFunctions::setUserDefaults()
 {
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"NSFullScreenMenuItemEverywhere"];
@@ -4726,6 +4838,37 @@ void QVCocoaFunctions::setUserDefaults()
     static dispatch_once_t fullScreenObserversOnce;
     dispatch_once(&fullScreenObserversOnce, ^{
         NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+        static int menuTrackingDepth = 0;
+        [center addObserverForName:NSMenuDidBeginTrackingNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *) {
+                            if (++menuTrackingDepth == 1) {
+                                if (auto *application = QCoreApplication::instance())
+                                    application->setProperty("fovelleNativeMenuTracking", true);
+                            }
+                        }];
+        [center addObserverForName:NSMenuDidEndTrackingNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *) {
+                            if (menuTrackingDepth > 0 && --menuTrackingDepth == 0) {
+                                if (auto *application = QCoreApplication::instance())
+                                    application->setProperty("fovelleNativeMenuTracking", false);
+                            }
+                        }];
+        [NSWorkspace.sharedWorkspace.notificationCenter
+                addObserverForName:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:^(NSNotification *) {
+                            if (auto *application = QCoreApplication::instance()) {
+                                const auto revision = application->property(
+                                        "fovelleAccessibilityDisplayRevision").toUInt();
+                                application->setProperty("fovelleAccessibilityDisplayRevision",
+                                                         revision + 1);
+                            }
+                        }];
         [center addObserverForName:NSWindowWillEnterFullScreenNotification
                             object:nil
                              queue:[NSOperationQueue mainQueue]

@@ -35,6 +35,11 @@ ActionManager::ActionManager(QObject *parent) : QObject(parent)
     markConstruction("settings-ready");
 
     initializeActionLibrary();
+    connect(&qvApp->getSettingsManager(), &SettingsManager::thumbnailHoverChanged, this,
+            [this](bool enabled) {
+                for (auto *action : getAllClonesOfAction("thumbnailhover"))
+                    action->setChecked(enabled);
+            });
     markConstruction("actions-ready");
 
     recentsSaveTimer = new QTimer(this);
@@ -307,6 +312,10 @@ QMenu *ActionManager::buildViewMenu(QWidget *parent)
     addCloneOfAction(viewMenu, "windowontop");
     addCloneOfAction(viewMenu, "toggletitlebar");
     addCloneOfAction(viewMenu, "fullscreen");
+    viewMenu->addSeparator();
+    auto *hover = addCloneOfAction(viewMenu, "thumbnailhover");
+    hover->setChecked(qvApp->getSettingsManager().getBoolean("thumbnailhoverenabled"));
+    addCloneOfAction(viewMenu, "focusthumbnails")->setEnabled(false);
 
     menuCloneLibrary.insert(viewMenu->menuAction()->data().toString(), viewMenu);
     return viewMenu;
@@ -575,7 +584,7 @@ void ActionManager::actionTriggered(QAction *triggeredAction)
     // For some actions, do not look for a relevant window
     QStringList windowlessActions = { "newwindow",   "quit",    "clearrecents",    "open",
                                       "about",       "options", "projecthomepage", "website",
-                                      "checkupdates" };
+                                      "checkupdates", "thumbnailhover" };
     for (const auto &actionName : std::as_const(windowlessActions)) {
         if (key == actionName) {
             actionTriggered(triggeredAction, nullptr);
@@ -622,6 +631,12 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         QDesktopServices::openUrl(QUrl(QStringLiteral("https://fovelle-viewer.onrender.com/")));
     } else if (key == "checkupdates") {
         qvApp->getUpdateChecker().check(true);
+    } else if (key == "thumbnailhover") {
+        auto &settingsManager = qvApp->getSettingsManager();
+        QSettings settings;
+        settings.setValue(QStringLiteral("options/thumbnailhoverenabled"),
+                          !settingsManager.getBoolean("thumbnailhoverenabled"));
+        settingsManager.loadSettings();
     } else if (key == "clearrecents") {
         qvApp->getActionManager().clearRecentsList();
     }
@@ -684,6 +699,8 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         relevantWindow->resetTransformation();
     } else if (key == "matchimagesize") {
         relevantWindow->setWindowSize(true, true);
+    } else if (key == "focusthumbnails") {
+        relevantWindow->focusThumbnails();
     } else if (key == "windowontop") {
         relevantWindow->toggleWindowOnTop();
     } else if (key == "toggletitlebar") {
@@ -849,6 +866,14 @@ void ActionManager::initializeActionLibrary()
             new QAction(qvApp->iconFromFont(Qv::MaterialIcon::Wallpaper), tr("M&atch Image Size"));
     matchImageSizeAction->setData({ "disable" });
     actionLibrary.insert("matchimagesize", matchImageSizeAction);
+
+    auto *thumbnailHover = new QAction(tr("Show Thumbnails on Hover"));
+    thumbnailHover->setCheckable(true);
+    actionLibrary.insert("thumbnailhover", thumbnailHover);
+
+    auto *focusThumbnails = new QAction(tr("Focus Thumbnails"));
+    focusThumbnails->setData({ "thumbnaildisable" });
+    actionLibrary.insert("focusthumbnails", focusThumbnails);
 
     auto *windowOnTopAction = new QAction(
             qvApp->iconFromFont(Qv::MaterialIcon::KeyboardDoubleArrowUp), tr("Window On To&p"));

@@ -35,6 +35,11 @@ QVImageCore::QVImageCore(QObject *parent) : QObject(parent)
                 loadInProgress = false;
                 pendingLoadDebouncesPreloading = false;
                 pendingSourceLifetime.reset();
+                if (readData.versionMismatch) {
+                    emit thumbnailOpenRejected();
+                    refreshDesiredImages();
+                    return;
+                }
                 loadPixmap(readData);
 
                 // A fileChanged handler may have synchronously requested another image.
@@ -86,6 +91,7 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     if (asyncWorkShutDown)
         return;
 
+    emit imageRequestStarted();
     QString adjustedFileName = fileName;
 
     // sanitize file name if necessary
@@ -131,6 +137,47 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     loadInProgress = true;
     pendingLoadDebouncesPreloading = debouncePreloading;
     pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading, sourceLifetime);
+}
+
+void QVImageCore::markFolderInfoDirty()
+{
+    if (folderInfoDirty || asyncWorkShutDown)
+        return;
+
+    folderInfoDirty = true;
+    ++folderScanGeneration;
+    QvAsync::cancel(folderScanTicket);
+    const QString interruptedDirectory = pendingFolderPath;
+    pendingFolderPath.clear();
+    emit thumbnailListingChanged();
+    if (!interruptedDirectory.isEmpty())
+        updateFolderInfo(interruptedDirectory);
+}
+
+void QVImageCore::refreshThumbnailListing()
+{
+    if (folderInfoDirty)
+        updateFolderInfo();
+}
+
+bool QVImageCore::openThumbnail(const int index, const QString &path, const quint64 listVersion,
+                                const QByteArray &fileVersion)
+{
+    const auto &listing = currentFileDetails.folderFileInfoList;
+    if (asyncWorkShutDown || thumbnailNavigationBusy() || !thumbnailListingReady()
+        || listVersion != folderScanGeneration || !currentFileDetails.isPixmapLoaded
+        || index < 0 || index >= listing.size() || index == currentFileDetails.loadedIndexInFolder
+        || listing.at(index).absoluteFilePath != path || fileVersion.isEmpty()) {
+        return false;
+    }
+
+    preloadDebounceTimer.stop();
+    pendingLoadDebouncesPreloading = false;
+    loadInProgress = true;
+    pendingLoadRequestId = imageLoader.requestVersionedImage(path, fileVersion);
+    if (!pendingLoadRequestId)
+        loadInProgress = false;
+    return pendingLoadRequestId != 0;
 }
 
 void QVImageCore::shutdownAsyncWork()
@@ -456,6 +503,7 @@ void QVImageCore::updateFolderInfo(QString dirPath)
                 emit folderInfoChanged();
             },
             pendingSourceLifetime ? pendingSourceLifetime : loadedSourceLifetime);
+    emit thumbnailListingChanged();
 }
 
 QList<QVImageLoader::DesiredImage> QVImageCore::getDesiredImages(const bool includePreloads) const
@@ -646,7 +694,7 @@ void QVImageCore::settingsUpdated()
 {
     auto &settingsManager = qvApp->getSettingsManager();
 
-    // update folder info to reflect new settings (e.g. sort order)
+    // Update folder info to reflect enumeration settings.
     fileEnumerator.loadSettings(false);
     updateFolderInfo();
 

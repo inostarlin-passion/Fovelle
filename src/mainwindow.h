@@ -24,6 +24,7 @@ class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QMenuBar;
 class QMenu;
+class QVThumbnailStrip;
 
 class MainWindow : public QMainWindow
 {
@@ -220,6 +221,8 @@ public slots:
     void syncSortParameters();
 
     void disableActions();
+    void focusThumbnails();
+    void showThumbnailMessage(const QString &message);
 
 protected:
     bool event(QEvent *event) override;
@@ -263,10 +266,12 @@ private:
     qreal boundaryHintOpacity() const;
     void setBoundaryHintOpacity(qreal opacity);
     void showNavigationBoundaryHint(Qv::GoToFileMode mode);
+    void showNavigationHint(const QString &message, const QString &id);
     void hideNavigationBoundaryHint();
     void updateNavigationBoundaryHintGeometry();
     void syncNavigationBoundaryHintOverlay();
 
+    void syncThumbnailActions();
     void ensureMenus();
     void unregisterFromApplication();
     void syncMenuState();
@@ -306,6 +311,7 @@ private:
 
     Ui::MainWindow *ui;
     QVGraphicsView *graphicsView;
+    QVThumbnailStrip *thumbnailStrip = nullptr;
 
     QLabel *titlebarBubble;
     QGraphicsOpacityEffect *titlebarBubbleOpacityEffect;

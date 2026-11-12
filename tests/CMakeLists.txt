@@ -13,6 +13,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/openwith.cpp
     ../src/qvfileenumerator.cpp
     ../src/qvgraphicsview.cpp
+    ../src/qvthumbnailstrip.cpp
     ../src/qvgraphicsimageitem.cpp
     ../src/qvmenu.cpp
     ../src/qvoptionsdialog.cpp
@@ -45,6 +46,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/openwith.h
     ../src/qvfileenumerator.h
     ../src/qvgraphicsview.h
+    ../src/qvthumbnailstrip.h
     ../src/qvgraphicsimageitem.h
     ../src/qvmenu.h
     ../src/qvnamespace.h
@@ -670,3 +672,19 @@ if(FOVELLE_EXTENDED_TESTS)
     set_tests_properties(FovelleReviewFixes PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()
+
+add_test(NAME FovelleThumbnailStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/thumbnail_static.py)
+add_test(NAME FovelleThumbnailDynamic
+    COMMAND $<TARGET_FILE:fovelle_tests>
+        testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover
+        testThumbnailHide testThumbnailClick testThumbnailInvalidPress testThumbnailVersion
+        testThumbnailKeyboard testThumbnailPreview testThumbnailSingle testThumbnailPreference
+        testThumbnailBackendHandoff testThumbnailSupersededValidation
+        testThumbnailVersionChangesDuringRead testThumbnailPreferenceDoesNotRescan
+        testThumbnailFadeReversal testThumbnailFullscreenTransition
+        testThumbnailVersionedCacheReuse testThumbnailFocusRefreshesDirtyListing
+        testThumbnailNativeHDR testThumbnailDragOwnership)
+set_tests_properties(FovelleThumbnailDynamic PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    RUN_SERIAL TRUE)

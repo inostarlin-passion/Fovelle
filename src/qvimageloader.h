@@ -41,6 +41,8 @@ public:
         bool isMultiFrameImage = false;
         QSize intrinsicSize;
         double decodeMilliseconds = 0.0;
+        QByteArray fileVersionStamp;
+        bool versionMismatch = false;
         bool preloadRejected = false;
         quint64 estimatedDecodedBytes = 0;
         QString preloadRejectionReason;
@@ -72,6 +74,8 @@ public:
 
     quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false,
                          std::shared_ptr<void> sourceLifetime = { });
+    static QByteArray fileVersion(const QString &path);
+    quint64 requestVersionedImage(const QString &path, const QByteArray &version);
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
     void clear();
 
@@ -130,6 +134,7 @@ private:
     void startJob(const QString &absoluteFilePath);
     void jobFinished(const QString &absoluteFilePath, quint64 generation, Result result);
 
+    QvAsync::Ticket versionedTicket;
     QHash<QString, Entry> entries;
     std::optional<PendingRequest> pendingRequest;
     ReadFunction readFunction;

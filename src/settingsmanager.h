@@ -47,6 +47,7 @@ public:
 
 signals:
     void settingsUpdated();
+    void thumbnailHoverChanged(bool enabled);
 
 protected:
     void initializeSettingsLibrary();

@@ -134,6 +134,8 @@ public:
         bool frameInFlight{ false };
         bool usesNativeNavigationOverlay{ false };
         bool nativeBoundaryHintVisible{ false };
+        bool nativeThumbnailVisible{ false };
+        quint64 thumbnailUploadCount{ 0 };
         bool firstVisibleFrameUsesFinalHeadroom{ false };
         bool usesDisplayLinkInteractionPacing{ false };
         bool usesPersistentHDRSurface{ false };
@@ -243,6 +245,9 @@ public:
         void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
         void setBoundaryHintOpacity(qreal opacity);
         void clearBoundaryHintOverlay();
+        void setThumbnailSurface(const QRectF &rect, const QImage &image);
+        void setThumbnailOpacity(qreal opacity);
+        void clearThumbnailSurface();
         HDRRendererDiagnostics diagnostics() const;
         QVector<float> probePersistentHDRPixels() const;
 
@@ -300,6 +305,11 @@ public:
     // platform theme builds QWidget palettes from NSApp.effectiveAppearance,
     // so a window-only override is insufficient for dialog contents.
     static void setApplicationTheme(Qv::Theme theme);
+
+    static bool thumbnailMayReadContent(const QString &path);
+    static QImage readThumbnail(const QString &path, int longestEdge);
+    static bool reduceThumbnailMotion();
+    static bool reduceThumbnailTransparency();
 
     static void setWindowTheme(Qv::Theme theme, QWindow *window);
 

@@ -1,3 +1,63 @@
+# 视口底部缩略图条测试完成报告
+
+测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。使用 CMake 构建了应用和 Qt Test 目标。
+
+## 缩略图验收结果
+
+24 条通过，0 条失败，0 条跳过。包含 2 条静态测试与 22 条动态测试。动态测试在默认缩放与 `QT_SCALE_FACTOR=2` 下均通过。第二轮的强制缩放产生了 Qt 窗口定位警告，Qt 改用主屏继续执行。
+
+| 编号 | 测试代码 | 结果 |
+| --- | --- | --- |
+| T01 | `testThumbnailCenter` | 通过 |
+| T02 | `testThumbnailCompact` | 通过 |
+| T03 | `testThumbnailLoop` | 通过 |
+| T04 | `testThumbnailHover` | 通过 |
+| T05 | `testThumbnailHide` | 通过 |
+| T06 | `testThumbnailClick` | 通过 |
+| T07 | `testThumbnailInvalidPress` | 通过 |
+| T08 | `testThumbnailVersion` | 通过 |
+| T09 | `testThumbnailKeyboard` | 通过 |
+| T10 | `testThumbnailPreview` | 通过 |
+| T11 | `test_build_and_native_overlay` | 通过 |
+| T12 | `test_background_budget_and_versioned_foreground` | 通过 |
+| T13 | `testThumbnailSingle` | 通过 |
+| T14 | `testThumbnailPreference` | 通过 |
+| T15 | `testThumbnailBackendHandoff` | 通过 |
+| T16 | `testThumbnailSupersededValidation` | 通过 |
+| T17 | `testThumbnailVersionChangesDuringRead` | 通过 |
+| T18 | `testThumbnailPreferenceDoesNotRescan` | 通过 |
+| T19 | `testThumbnailFadeReversal` | 通过 |
+| T20 | `testThumbnailFullscreenTransition` | 通过 |
+| T21 | `testThumbnailVersionedCacheReuse` | 通过 |
+| T22 | `testThumbnailFocusRefreshesDirtyListing` | 通过 |
+| T23 | `testThumbnailNativeHDR` | 通过 |
+| T24 | `testThumbnailDragOwnership` | 通过 |
+
+静态用例见 [thumbnail_static.py](../tests/thumbnail_static.py)，动态用例见 [thumbnail_acceptance.inc](../tests/thumbnail_acceptance.inc)。T23 使用仓库内的 gain-map JPEG，覆盖原生 HDR 合成。T15 覆盖原生 SDR 与 Qt 绘制移交。
+
+## 回归结果
+
+现有 `FovelleFastTests` 和 4 组 `FovelleLifecycleFix` CTest 全部通过。快速回归包括目录扫描代次、导航、缩放保留、加载器取消、原生菜单、可移植 HDR 和源文件生命周期用例。未运行需要更新安装包的 Sparkle 安装测试。
+
+## 复现命令
+
+```sh
+cmake --build build-about-update --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-about-update -R 'FovelleThumbnail' --output-on-failure
+QT_SCALE_FACTOR=2 ctest --test-dir build-about-update -R '^FovelleThumbnailDynamic$' --output-on-failure
+ctest --test-dir build-about-update -R 'Fovelle(FastTests|LifecycleFix)' --output-on-failure
+```
+
+在实现前，接线静态测试按预期失败。动态验证中，几何测试最初在主图的延后适配完成前取基线，随后改为在窗口激活和视口稳定后驱动悬停。缓存用例显式保留目标在原有预读需求列表中，使其满足已缓存的前置条件。
+
+## 验证边界
+
+- 本轮对缩放使用单一物理显示器和 Qt 强制缩放。实际跨屏、VoiceOver 实机操作、真实 SMB 与云占位环境，以及 100／10,000 张目录和 60／120 Hz 下的 P95 性能目标仍需实测。
+- 预览无法在预算内生成时显示格式占位，部分 RAW 和 EPS 会走此路径。原生层按面板图像更新内容，淡入淡出仅更新透明度。
+- 本机构建使用的 Homebrew QtSvg 以 macOS 27.0 构建，链接器提示部署目标为 15.0。当前环境通过构建和运行，macOS 15 的运行结果需要在相应系统上验证。
+
+---
+
 # 图片导航边界缩放测试完成报告
 
 ## 原子验收结果

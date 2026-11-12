@@ -40,6 +40,12 @@ public:
                   std::shared_ptr<void> sourceLifetime = { });
     const std::shared_ptr<void> &getSourceLifetime() const { return imageCore.getSourceLifetime(); }
 
+    QVImageCore &thumbnailImageCore() { return imageCore; }
+    void holdThumbnailCursor(bool hold);
+    void setNativeThumbnailSurface(const QRect &rect, const QImage &surface);
+    void setNativeThumbnailOpacity(qreal opacity);
+    void clearNativeThumbnailSurface();
+
     void reloadFile();
 
     void shutdownAsyncWork();
@@ -456,6 +462,7 @@ private:
     std::optional<QPointF> fullScreenPanAnchorScene;
     bool isCursorAutoHideFullscreenEnabled{ true };
     bool isCursorVisible{ true };
+    bool thumbnailHoldsCursor{ false };
     QRect lastImageContentRect;
 
     // One immutable, oriented RGBA snapshot shared with native transition

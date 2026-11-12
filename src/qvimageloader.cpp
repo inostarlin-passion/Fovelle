@@ -13,6 +13,7 @@
 #include <QThreadPool>
 
 #include <limits>
+#include <sys/stat.h>
 
 namespace {
 constexpr qint64 MaxVectorSourceBytes = 256LL * 1024LL * 1024LL;
@@ -50,6 +51,8 @@ QVImageLoader::~QVImageLoader()
 
 void QVImageLoader::shutdownAsyncWork()
 {
+    QvAsync::cancel(versionedTicket);
+    versionedTicket.reset();
     if (asyncWorkShutDown)
         return;
 
@@ -68,6 +71,8 @@ void QVImageLoader::setLargestDimension(const int value)
 quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool forceReload,
                                     std::shared_ptr<void> sourceLifetime)
 {
+    QvAsync::cancel(versionedTicket);
+    versionedTicket.reset();
     if (asyncWorkShutDown)
         return 0;
 
@@ -126,8 +131,71 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
     return requestId;
 }
 
+QByteArray QVImageLoader::fileVersion(const QString &path)
+{
+    struct stat info;
+    if (::stat(QFile::encodeName(path).constData(), &info) != 0 || !S_ISREG(info.st_mode))
+        return { };
+
+    return QByteArray::number(qulonglong(info.st_dev)) + ':'
+            + QByteArray::number(qulonglong(info.st_ino)) + ':'
+            + QByteArray::number(qlonglong(info.st_size)) + ':'
+#ifdef Q_OS_MACOS
+            + QByteArray::number(qlonglong(info.st_mtimespec.tv_sec)) + ':'
+            + QByteArray::number(qlonglong(info.st_mtimespec.tv_nsec)) + ':'
+            + QByteArray::number(qlonglong(info.st_ctimespec.tv_sec)) + ':'
+            + QByteArray::number(qlonglong(info.st_ctimespec.tv_nsec));
+#else
+            + QByteArray::number(qlonglong(info.st_mtime)) + ':'
+            + QByteArray::number(qlonglong(info.st_ctime));
+#endif
+}
+
+quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArray &version)
+{
+    if (asyncWorkShutDown || version.isEmpty())
+        return 0;
+
+    QvAsync::cancel(versionedTicket);
+    std::optional<Result> cached;
+    const auto entry = entries.constFind(path);
+    if (entry != entries.cend() && entry->state == State::Cached && entry->result
+        && !entry->result->errorData && entry->result->fileVersionStamp == version) {
+        cached = entry->result;
+    }
+    pendingRequest.reset();
+    cancelUnwantedJobs();
+
+    const auto requestId = ++nextRequestId;
+    const auto read = readFunction;
+    const int dimension = largestDimension;
+    versionedTicket = QvAsync::run(
+            [path, version, read, dimension, cached = std::move(cached)]() mutable {
+                if (fileVersion(path) == version) {
+                    if (cached)
+                        return std::move(*cached);
+                    auto result = read(path, dimension, false);
+                    if (fileVersion(path) == version)
+                        return result;
+                }
+                Result rejected;
+                rejected.absoluteFilePath = path;
+                rejected.versionMismatch = true;
+                return rejected;
+            },
+            [this, requestId](const Result &result) {
+                versionedTicket.reset();
+                emit imageReady(requestId, result);
+            },
+            0, QvAsync::Lane::Foreground);
+    emit loadStarted(path, 0);
+    return requestId;
+}
+
 void QVImageLoader::clear()
 {
+    QvAsync::cancel(versionedTicket);
+    versionedTicket.reset();
     pendingRequest.reset();
 
     for (const auto &entry : std::as_const(entries))
@@ -509,7 +577,12 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     const auto sourceLifetime = entryIt->sourceLifetime;
     entryIt->ticket = QvAsync::run(
             [read, absoluteFilePath, targetLargestDimension, isPreload, sourceLifetime] {
+                const auto initialVersion = fileVersion(absoluteFilePath);
                 auto result = read(absoluteFilePath, targetLargestDimension, isPreload);
+                if (!result.preloadRejected && !result.errorData && !initialVersion.isEmpty()
+                    && fileVersion(absoluteFilePath) == initialVersion) {
+                    result.fileVersionStamp = initialVersion;
+                }
                 result.sourceLifetime = sourceLifetime;
                 result.sdrImage = retainSource(result.sdrImage, sourceLifetime);
                 result.hdrImage = retainSource(result.hdrImage, sourceLifetime);

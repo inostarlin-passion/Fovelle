@@ -346,6 +346,14 @@
         <source>Check for Updates</source>
         <translation>アップデートを確認</translation>
     </message>
+    <message>
+        <source>Show Thumbnails on Hover</source>
+        <translation>ポインタを合わせてサムネイルを表示</translation>
+    </message>
+    <message>
+        <source>Focus Thumbnails</source>
+        <translation>サムネイルにフォーカス</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -1957,6 +1965,33 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>ダウンロードのサイズ制限を超えました</translation>
+    </message>
+</context>
+<context>
+    <name>QVThumbnailStrip</name>
+    <message>
+        <source>Thumbnails</source>
+        <translation>サムネイル</translation>
+    </message>
+    <message>
+        <source>%1, current image, %2 of %3</source>
+        <translation>%1、現在の画像、%3 枚中 %2 枚目</translation>
+    </message>
+    <message>
+        <source>%1, %2 of %3</source>
+        <translation>%1、%3 枚中 %2 枚目</translation>
+    </message>
+    <message>
+        <source>Could not verify the image. Try again.</source>
+        <translation>画像を確認できませんでした。もう一度お試しください。</translation>
+    </message>
+    <message>
+        <source>The image changed. Choose it again.</source>
+        <translation>画像が変更されました。選び直してください。</translation>
+    </message>
+    <message>
+        <source>The image is no longer available.</source>
+        <translation>画像は利用できなくなりました。</translation>
     </message>
 </context>
 </TS>

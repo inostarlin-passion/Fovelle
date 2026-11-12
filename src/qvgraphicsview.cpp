@@ -1180,6 +1180,24 @@ void QVGraphicsView::clearHDRNavigationOverlays()
         hdrRenderer->clearNavigationOverlays();
 }
 
+void QVGraphicsView::setNativeThumbnailSurface(const QRect &rect, const QImage &surface)
+{
+    if (hdrRenderer)
+        hdrRenderer->setThumbnailSurface(rect, surface);
+}
+
+void QVGraphicsView::setNativeThumbnailOpacity(const qreal opacity)
+{
+    if (hdrRenderer)
+        hdrRenderer->setThumbnailOpacity(opacity);
+}
+
+void QVGraphicsView::clearNativeThumbnailSurface()
+{
+    if (hdrRenderer)
+        hdrRenderer->clearThumbnailSurface();
+}
+
 void QVGraphicsView::setHDRBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image)
 {
     if (hdrRenderer)
@@ -2344,9 +2362,18 @@ void QVGraphicsView::centerImage()
     logViewportState("center-after");
 }
 
+void QVGraphicsView::holdThumbnailCursor(const bool hold)
+{
+    if (thumbnailHoldsCursor == hold)
+        return;
+    thumbnailHoldsCursor = hold;
+    setCursorVisible(true);
+}
+
 void QVGraphicsView::setCursorVisible(const bool visible)
 {
-    const bool autoHideCursor = isCursorAutoHideFullscreenEnabled && window()->isFullScreen();
+    const bool autoHideCursor = isCursorAutoHideFullscreenEnabled && window()->isFullScreen()
+            && !thumbnailHoldsCursor;
     if (visible) {
         if (autoHideCursor && pressedMouseButton == Qt::NoButton)
             hideCursorTimer->start();

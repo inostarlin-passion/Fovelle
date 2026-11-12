@@ -346,6 +346,14 @@
         <source>Check for Updates</source>
         <translation>检查更新</translation>
     </message>
+    <message>
+        <source>Show Thumbnails on Hover</source>
+        <translation>悬停时显示缩略图</translation>
+    </message>
+    <message>
+        <source>Focus Thumbnails</source>
+        <translation>聚焦缩略图</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -1956,6 +1964,33 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>下载超过大小限制</translation>
+    </message>
+</context>
+<context>
+    <name>QVThumbnailStrip</name>
+    <message>
+        <source>Thumbnails</source>
+        <translation>缩略图</translation>
+    </message>
+    <message>
+        <source>%1, current image, %2 of %3</source>
+        <translation>%1，当前图片，第 %2 张，共 %3 张</translation>
+    </message>
+    <message>
+        <source>%1, %2 of %3</source>
+        <translation>%1，第 %2 张，共 %3 张</translation>
+    </message>
+    <message>
+        <source>Could not verify the image. Try again.</source>
+        <translation>无法验证图片，请重试。</translation>
+    </message>
+    <message>
+        <source>The image changed. Choose it again.</source>
+        <translation>图片已变化，请重新选择。</translation>
+    </message>
+    <message>
+        <source>The image is no longer available.</source>
+        <translation>图片已不可用。</translation>
     </message>
 </context>
 </TS>

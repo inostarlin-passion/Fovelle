@@ -81,18 +81,24 @@ void SettingsManager::loadSettings()
     QSettings settings;
     settings.beginGroup("options");
     bool changed = false;
+    bool thumbnailChanged = false;
 
-    const auto keys = settingsLibrary.keys();
-    for (const auto &key : keys) {
-        auto &setting = settingsLibrary[key];
-        if (setting.value != settings.value(key, setting.defaultValue))
+    for (auto it = settingsLibrary.begin(); it != settingsLibrary.end(); ++it) {
+        auto &setting = it.value();
+        const QVariant next = settings.value(it.key(), setting.defaultValue);
+        if (setting.value == next)
+            continue;
+        setting.value = next;
+        if (it.key() == "thumbnailhoverenabled")
+            thumbnailChanged = true;
+        else
             changed = true;
-
-        setting.value = settings.value(key, setting.defaultValue);
     }
 
     if (changed)
         emit settingsUpdated();
+    if (thumbnailChanged)
+        emit thumbnailHoverChanged(getBoolean("thumbnailhoverenabled"));
 }
 
 const QVariant SettingsManager::getSetting(const QString &key, bool defaults) const
@@ -316,6 +322,7 @@ void SettingsManager::initializeSettingsLibrary()
     settingsLibrary.insert("scalefactor", { 25, { } });
     settingsLibrary.insert("cursorzoom", { true, { } });
     settingsLibrary.insert("navresetszoom", { true, { } });
+    settingsLibrary.insert("thumbnailhoverenabled", { true, { } });
     // Usually not desired due to the way macOS does DPI scaling
     settingsLibrary.insert("onetoonepixelsizing", { false, { } });
     settingsLibrary.insert("smallimageoneone", { false, { } });

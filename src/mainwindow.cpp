@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "qvthumbnailstrip.h"
 #include "ui_mainwindow.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
@@ -274,6 +275,15 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     centralWidget()->layout()->addWidget(graphicsView);
     markConstruction("graphics-view-ready");
 
+    thumbnailStrip = new QVThumbnailStrip(this, graphicsView);
+    thumbnailStrip->setHoverEnabled(
+            qvApp->getSettingsManager().getBoolean("thumbnailhoverenabled"));
+    connect(&qvApp->getSettingsManager(), &SettingsManager::thumbnailHoverChanged,
+            thumbnailStrip, &QVThumbnailStrip::setHoverEnabled);
+    connect(thumbnailStrip, &QVThumbnailStrip::overlayGeometryChanged, this, [this] {
+        if (navigationBoundaryHint)
+            updateNavigationBoundaryHintGeometry();
+    });
     initializeNavigationButtons();
 
     navigationBoundaryHint = new NavigationBoundaryHint(graphicsView->viewport());
@@ -440,6 +450,8 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     // Initialize escape shortcut
     escShortcut = new QShortcut(Qt::Key_Escape, this);
     connect(escShortcut, &QShortcut::activated, this, [this]() {
+        if (thumbnailStrip->dismissFocus())
+            return;
         if (windowState().testFlag(Qt::WindowFullScreen))
             exitFullScreen();
         else
@@ -497,6 +509,8 @@ MainWindow::~MainWindow()
     unregisterFromApplication();
     shutdownBackgroundWork();
 
+    delete thumbnailStrip;
+    thumbnailStrip = nullptr;
     delete ui;
 }
 
@@ -844,11 +858,22 @@ void MainWindow::showNavigationBoundaryHint(const Qv::GoToFileMode mode)
     if (mode != Qv::GoToFileMode::Previous && mode != Qv::GoToFileMode::Next)
         return;
 
+    const bool previous = mode == Qv::GoToFileMode::Previous;
+    showNavigationHint(previous ? tr("No previous image") : tr("No next image"),
+                       previous ? QStringLiteral("previous") : QStringLiteral("next"));
+}
+
+void MainWindow::showThumbnailMessage(const QString &message)
+{
+    if (isActiveWindow() && !isClosing)
+        showNavigationHint(message, QStringLiteral("thumbnail"));
+}
+
+void MainWindow::showNavigationHint(const QString &message, const QString &id)
+{
     auto *hint = static_cast<NavigationBoundaryHint *>(navigationBoundaryHint);
-    hint->setMessage(mode == Qv::GoToFileMode::Previous ? tr("No previous image")
-                                                        : tr("No next image"));
-    hint->setMessageId(mode == Qv::GoToFileMode::Previous ? QStringLiteral("previous")
-                                                          : QStringLiteral("next"));
+    hint->setMessage(message);
+    hint->setMessageId(id);
     const Qv::Theme configuredTheme = qvApp->getSettingsManager().getEnum<Qv::Theme>("theme");
     hint->setAppearance(QVCocoaFunctions::resolvedTheme(configuredTheme));
     navigationBoundaryHintTimer->stop();
@@ -887,7 +912,9 @@ void MainWindow::updateNavigationBoundaryHintGeometry()
     QWidget *viewport = graphicsView->viewport();
     const QSize hintSize = navigationBoundaryHint->sizeHint();
     const int x = qMax(0, (viewport->width() - hintSize.width()) / 2);
-    const int y = qMax(0, viewport->height() - hintSize.height() - 24);
+    const QRect stripRect = thumbnailStrip->panelRect();
+    const int y = qMax(0, stripRect.isEmpty() ? viewport->height() - hintSize.height() - 24
+                                            : stripRect.top() - hintSize.height() - 8);
     navigationBoundaryHint->setGeometry(QRect(QPoint(x, y), hintSize));
     navigationBoundaryHint->raise();
     syncNavigationBoundaryHintOverlay();
@@ -1250,6 +1277,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     updateTitlebarBubbleText();
+    syncThumbnailActions();
     updateNavigationButtonGeometry();
     updateNavigationBoundaryHintGeometry();
     if (!areNavigationButtonsSupported(width()))
@@ -1344,6 +1372,7 @@ void MainWindow::fullscreenChanged()
 void MainWindow::beginNativeFullScreenTransition()
 {
     if (!isClosing) {
+        thumbnailStrip->suppress(true);
         if (!isFullScreen() && !isMaximized() && !normalGeometryBeforeFullScreen.isValid())
             normalGeometryBeforeFullScreen = geometry();
         if (qEnvironmentVariableIsSet("FOVELLE_DIAGNOSTIC_LOG"))
@@ -1369,6 +1398,8 @@ void MainWindow::endNativeFullScreenTransition()
     }
     graphicsView->endFullScreenPanPreservation();
     graphicsView->synchronizeNativeImageGeometryForFullScreenTransition();
+    if (!isClosing)
+        thumbnailStrip->suppress(false);
 }
 
 void MainWindow::pauseChanged()
@@ -1426,6 +1457,8 @@ void MainWindow::settingsUpdated()
                 ->setAppearance(QVCocoaFunctions::resolvedTheme(theme));
         updateNavigationBoundaryHintGeometry();
     }
+
+    thumbnailStrip->refresh();
 
     // repaint in case background color changed
     update();
@@ -1496,8 +1529,23 @@ void MainWindow::syncSortParameters()
     buildWindowTitle();
 }
 
+void MainWindow::focusThumbnails()
+{
+    QTimer::singleShot(0, thumbnailStrip, &QVThumbnailStrip::focusStrip);
+}
+
+void MainWindow::syncThumbnailActions()
+{
+    if (!thumbnailStrip)
+        return;
+    auto &actions = qvApp->getActionManager();
+    for (auto *action : actions.getAllClonesOfAction("focusthumbnails", this))
+        action->setEnabled(thumbnailStrip->canOfferFocus());
+}
+
 void MainWindow::disableActions()
 {
+    syncThumbnailActions();
     const auto &actionLibrary = qvApp->getActionManager().getActionLibrary();
     for (const auto &action : actionLibrary) {
         const auto &data = action->data().toStringList();
@@ -2470,6 +2518,7 @@ void MainWindow::toggleSlideshow()
         slideshowTimer->start();
     else
         slideshowTimer->stop();
+    thumbnailStrip->setSlideshowRunning(isStarting);
     syncSlideshowAction();
 }
 
