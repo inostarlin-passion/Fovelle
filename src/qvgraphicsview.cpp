@@ -1181,7 +1181,7 @@ void QVGraphicsView::clearHDRNavigationOverlays()
 }
 
 void QVGraphicsView::setNativeThumbnailSurface(const QRect &rect, const QImage &surface,
-                                                 const bool outgoing)
+                                               const bool outgoing)
 {
     if (hdrRenderer)
         hdrRenderer->setThumbnailSurface(rect, surface, outgoing);
@@ -2379,8 +2379,8 @@ void QVGraphicsView::holdThumbnailCursor(const bool hold)
 
 void QVGraphicsView::setCursorVisible(const bool visible)
 {
-    const bool autoHideCursor = isCursorAutoHideFullscreenEnabled && window()->isFullScreen()
-            && !thumbnailHoldsCursor;
+    const bool autoHideCursor =
+            isCursorAutoHideFullscreenEnabled && window()->isFullScreen() && !thumbnailHoldsCursor;
     if (visible) {
         if (autoHideCursor && pressedMouseButton == Qt::NoButton)
             hideCursorTimer->start();

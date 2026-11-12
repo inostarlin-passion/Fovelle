@@ -278,8 +278,8 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     thumbnailStrip = new QVThumbnailStrip(this, graphicsView);
     thumbnailStrip->setHoverEnabled(
             qvApp->getSettingsManager().getBoolean("thumbnailhoverenabled"));
-    connect(&qvApp->getSettingsManager(), &SettingsManager::thumbnailHoverChanged,
-            thumbnailStrip, &QVThumbnailStrip::setHoverEnabled);
+    connect(&qvApp->getSettingsManager(), &SettingsManager::thumbnailHoverChanged, thumbnailStrip,
+            &QVThumbnailStrip::setHoverEnabled);
     connect(thumbnailStrip, &QVThumbnailStrip::overlayGeometryChanged, this, [this] {
         if (navigationBoundaryHint)
             updateNavigationBoundaryHintGeometry();
@@ -913,8 +913,9 @@ void MainWindow::updateNavigationBoundaryHintGeometry()
     const QSize hintSize = navigationBoundaryHint->sizeHint();
     const int x = qMax(0, (viewport->width() - hintSize.width()) / 2);
     const QRect stripRect = thumbnailStrip->panelRect();
-    const int y = qMax(0, stripRect.isEmpty() ? viewport->height() - hintSize.height() - 24
-                                            : stripRect.top() - hintSize.height() - 8);
+    const int y = qMax(0,
+                       stripRect.isEmpty() ? viewport->height() - hintSize.height() - 24
+                                           : stripRect.top() - hintSize.height() - 8);
     navigationBoundaryHint->setGeometry(QRect(QPoint(x, y), hintSize));
     navigationBoundaryHint->raise();
     syncNavigationBoundaryHintOverlay();

@@ -1,3 +1,31 @@
+# GitHub Actions 格式检查修复测试完成报告
+
+首轮验证日期为 2026-11-12。失败运行 `43248926333` 的环境校验通过，锁定版本为 clang-format 23.1.3。格式检查的 38 条诊断可在本机复现。 [原始失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/43248926333)
+
+| 编号 | 执行入口 | 结果 |
+| --- | --- | --- |
+| C01 | `.github/scripts/check_format.py` | 通过。用 clang-format 23.1.3 执行全量检查，修复前退出码 1，修复后退出码 0 |
+| C02 | `tests/ci_runner_policy_tests.py` | 通过。13 条政策测试全部通过 |
+| C03 | CMake 构建及 `FovelleThumbnail` CTest | 通过。应用和测试目标构建成功，缩略图静态和动态作业均通过。本机以 CI 测试档运行全部 9 个 CTest 目标，也均通过 |
+| C04 | `Build Fovelle` 手动触发 | 部分验证。GitHub 格式作业通过。截至 2026-11-12 23:44（北京时间），macOS 构建仍排队，API 显示未分配 runner |
+
+本机与验证提交的源码、测试及工作流一致。托管构建和打包结果仍待 GitHub runner 执行。Clang 原始词法标记对比确认五个修复文件的标记内容与顺序一致。验证提交为 `59989bbf5f843b74d946d71c0888544c398565f8`，验证分支为 `codex/fix-thumbnail-ci`。 [验证运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/43249624290)
+
+## 复现命令
+
+```sh
+# 当前 PATH 中的 clang-format 应为 23.1.3，Python 环境应已安装 PyYAML
+clang-format --version
+python .github/scripts/check_format.py
+python tests/ci_runner_policy_tests.py
+cmake --build build-about-update --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-about-update -R 'FovelleThumbnail' --output-on-failure
+FOVELLE_TEST_PROFILE=ci ctest --test-dir build-about-update --output-on-failure
+gh run view 43249624290 --json headSha,status,conclusion,jobs
+```
+
+---
+
 # 长截图与 RAW 缩略图方向测试完成报告
 
 测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。应用与 Qt Test 目标构建成功。

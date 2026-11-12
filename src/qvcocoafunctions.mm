@@ -4520,7 +4520,7 @@ void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
 }
 
 void QVCocoaFunctions::HDRRenderer::setThumbnailSurface(const QRectF &rect, const QImage &image,
-                                                          const bool outgoing)
+                                                        const bool outgoing)
 {
     if (impl)
         impl->setThumbnailSurface(rect, image, outgoing);
@@ -4850,12 +4850,12 @@ static bool allowsLargePngThumbnail(CGImageSourceRef source, CFStringRef type, s
     const auto releaseProperties = qScopeGuard([properties] { CFRelease(properties); });
     double depth = 0;
     // Limit this exception to PNGs whose source fits in an RGBA8 buffer.
-    return numberFromDictionary(properties, kCGImagePropertyDepth, depth)
-            && depth >= 1 && depth <= 8;
+    return numberFromDictionary(properties, kCGImagePropertyDepth, depth) && depth >= 1
+            && depth <= 8;
 }
 
 QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
-                                      const qint64 fileBytes, bool &allowQtFallback)
+                                       const qint64 fileBytes, bool &allowQtFallback)
 {
     constexpr qint64 MaxThumbnailEPSBytes = 16 * 1024 * 1024;
     constexpr qint64 MaxNativeThumbnailPixels = 64 * 1000 * 1000;
@@ -4871,8 +4871,10 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         }
 
         NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
-        CGImageSourceRef source = CGImageSourceCreateWithURL(
-                (CFURLRef)url, (CFDictionaryRef)@{ (id)kCGImageSourceShouldCache: @NO });
+        CGImageSourceRef source =
+                CGImageSourceCreateWithURL((CFURLRef)url,
+                                           (CFDictionaryRef)
+                                                   @{(id)kCGImageSourceShouldCache : @NO});
         if (!source)
             return { };
         const auto releaseSource = qScopeGuard([source] { CFRelease(source); });
@@ -4884,7 +4886,8 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         if (isRawImageType(type)) {
             allowQtFallback = false;
             const QSize pixels = sourcePixelSize(source);
-            if (pixels.isEmpty() || qint64(pixels.width()) * pixels.height() > MaxRawThumbnailPixels)
+            if (pixels.isEmpty()
+                || qint64(pixels.width()) * pixels.height() > MaxRawThumbnailPixels)
                 return { };
             CIRAWFilter *filter = [CIRAWFilter filterWithImageURL:url];
             if (!filter)
@@ -4898,7 +4901,9 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             if (QvAsync::isCanceled())
                 return { };
 
-            CIContext *context = [CIContext contextWithOptions:@{ kCIContextCacheIntermediates: @NO }];
+            CIContext *context = [CIContext contextWithOptions:@{
+                kCIContextCacheIntermediates : @NO
+            }];
             CGColorSpaceRef space = colorSyncSrgbColorSpace();
             const auto releaseSpace = qScopeGuard([space] { CGColorSpaceRelease(space); });
             // Camera previews can have their own axes and framing. Use the
@@ -4912,9 +4917,8 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         }
 
         UTType *imageType = [UTType typeWithIdentifier:(NSString *)type];
-        const bool heif = [imageType conformsToType:UTTypeHEIF]
-                || [imageType conformsToType:UTTypeHEIC]
-                || [imageType conformsToType:UTTypeHEICS];
+        const bool heif = [imageType conformsToType:UTTypeHEIF] ||
+                [imageType conformsToType:UTTypeHEIC] || [imageType conformsToType:UTTypeHEICS];
         const bool subsampled = heif || CFEqual(type, CFSTR("public.jpeg"))
                 || CFEqual(type, CFSTR("public.png")) || CFEqual(type, CFSTR("public.tiff"));
         const size_t index = heif ? CGImageSourceGetPrimaryImageIndex(source) : 0;
@@ -4939,10 +4943,10 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             return { };
 
         NSMutableDictionary *options = [@{
-            (id)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
-            (id)kCGImageSourceCreateThumbnailWithTransform: @YES,
-            (id)kCGImageSourceThumbnailMaxPixelSize: @(longestEdge),
-            (id)kCGImageSourceDecodeRequest: (id)kCGImageSourceDecodeToSDR,
+            (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+            (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
+            (id)kCGImageSourceThumbnailMaxPixelSize : @(longestEdge),
+            (id)kCGImageSourceDecodeRequest : (id)kCGImageSourceDecodeToSDR,
         } mutableCopy];
         if (subsampleFactor > 1)
             options[(id)kCGImageSourceSubsampleFactor] = @(subsampleFactor);
@@ -4992,8 +4996,9 @@ void QVCocoaFunctions::setUserDefaults()
                              queue:[NSOperationQueue mainQueue]
                         usingBlock:^(NSNotification *) {
                             if (auto *application = QCoreApplication::instance()) {
-                                const auto revision = application->property(
-                                        "fovelleAccessibilityDisplayRevision").toUInt();
+                                const auto revision =
+                                        application->property("fovelleAccessibilityDisplayRevision")
+                                                .toUInt();
                                 application->setProperty("fovelleAccessibilityDisplayRevision",
                                                          revision + 1);
                             }
