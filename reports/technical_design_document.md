@@ -1,3 +1,19 @@
+# GitHub Actions 格式检查修复
+
+## 根因
+
+`Build Fovelle` 在提交 `9b5a63a` 上失败。环境验证已确认 Linux ARM64、Python 3.14.7 和 clang-format 23.1.3。实际失败来自 `check_format.py` 的 38 条格式诊断，涉及 `actionmanager.cpp`、`mainwindow.cpp`、`qvcocoafunctions.mm`、`qvgraphicsview.cpp` 和 `qvimagecore.cpp`。构建作业依赖格式作业，因此此次运行未执行 macOS 构建或测试。 [失败作业](https://github.com/inostarlin-passion/Fovelle/actions/runs/43248926333/job/131289092005)
+
+## 修复与正确性论证
+
+对五个受影响的文件应用仓库锁定的 clang-format 23.1.3，使用原有 `.clang-format`。复用现有全量格式检查和工作流政策测试，并以应用构建和现有缩略图测试验证行为。使用独立验证分支上的 `workflow_dispatch` 跑完整工作流。
+
+1. 本地与 CI 使用同一格式化器版本和仓库配置。格式化后全量 `--dry-run --Werror` 返回 0，说明原有格式门禁能够接受修复后的全部受检文件。
+2. 修复以锁定格式化器的输出为准，源代码标记顺序和内容保持一致。原有构建配置与格式依赖继续由政策测试约束。
+3. GitHub Actions 按验证提交的 SHA 执行。只有同一运行的格式与 macOS 构建作业均成功，才判定完整工作流已验证。
+
+---
+
 # 长截图与 RAW 缩略图方向修复
 
 ## 根因

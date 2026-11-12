@@ -165,8 +165,8 @@ bool QVImageCore::openThumbnail(const int index, const QString &path, const quin
 {
     const auto &listing = currentFileDetails.folderFileInfoList;
     if (asyncWorkShutDown || thumbnailNavigationBusy() || !thumbnailListingReady()
-        || listVersion != folderScanGeneration || !currentFileDetails.isPixmapLoaded
-        || index < 0 || index >= listing.size() || index == currentFileDetails.loadedIndexInFolder
+        || listVersion != folderScanGeneration || !currentFileDetails.isPixmapLoaded || index < 0
+        || index >= listing.size() || index == currentFileDetails.loadedIndexInFolder
         || listing.at(index).absoluteFilePath != path || fileVersion.isEmpty()) {
         return false;
     }

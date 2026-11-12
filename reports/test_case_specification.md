@@ -1,3 +1,16 @@
+# GitHub Actions 修复验收
+
+| 编号与测试目的 | 前置条件 | 输入数据 | 操作步骤 | 预期结果 | 后置条件 |
+| --- | --- | --- | --- | --- | --- |
+| C01 静态，锁定版本接受所有受检源文件 | 已安装 clang-format 23.1.3 | 原工作树与修复工作树 | 分别执行 `check_format.py` | 修复前可复现格式失败，修复后全量通过 | 保留现有格式规则 |
+| C02 静态，CI 门禁配置通过政策检查 | Python 环境有 PyYAML | 当前工作流与工具链配置 | 执行 `ci_runner_policy_tests.py` | 全部政策用例通过 | 工作树不变 |
+| C03 动态，格式化源代码可构建并运行缩略图套件 | 已配置 macOS 本地构建 | 修复后的源码与原有 Qt Test | 构建应用和测试目标，运行 `FovelleThumbnail` | 两个目标构建成功，静态和动态缩略图套件通过 | 构建日志保留在本机 |
+| C04 动态，GitHub Actions 完整链路 | 远端可运行现有 `Build Fovelle` | 独立分支上的修复提交 | 触发工作流，核对 SHA，等待完成 | 格式和 macOS 构建作业均成功，构建测试步骤实际运行 | 保留可核查的运行链接 |
+
+C01–C04 复用已经固化的格式检查脚本、政策测试、CTest 和工作流。执行入口依次为 [格式检查](../.github/scripts/check_format.py)、[CI 政策测试](../tests/ci_runner_policy_tests.py)、[CTest 注册](../tests/CMakeLists.txt) 和 [构建工作流](../.github/workflows/build.yml)。
+
+---
+
 # 长截图与 RAW 缩略图方向验收
 
 | 编号与测试目的 | 前置条件 | 输入数据 | 操作步骤 | 预期结果 | 后置条件 |

@@ -582,8 +582,8 @@ void ActionManager::actionTriggered(QAction *triggeredAction)
     auto key = triggeredAction->data().toStringList().first();
 
     // For some actions, do not look for a relevant window
-    QStringList windowlessActions = { "newwindow",   "quit",    "clearrecents",    "open",
-                                      "about",       "options", "projecthomepage", "website",
+    QStringList windowlessActions = { "newwindow",    "quit",          "clearrecents",    "open",
+                                      "about",        "options",       "projecthomepage", "website",
                                       "checkupdates", "thumbnailhover" };
     for (const auto &actionName : std::as_const(windowlessActions)) {
         if (key == actionName) {
