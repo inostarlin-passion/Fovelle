@@ -14,6 +14,8 @@
 #include <QImageReader>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QNativeGestureEvent>
+#include <QWheelEvent>
 #include <QMutex>
 #include <QPainter>
 #include <QPointer>
@@ -34,6 +36,25 @@ constexpr qint64 MaxEstimatedBytes = 64 * 1024 * 1024;
 constexpr int Gap = 8;
 constexpr int Padding = 8;
 constexpr int BottomMargin = 14;
+
+QImage fitTransitionSurface(const QImage &image, const QSize &size, const qreal dpr)
+{
+    const QSize pixels(qCeil(size.width() * dpr), qCeil(size.height() * dpr));
+    if (image.size() == pixels && image.devicePixelRatioF() == dpr)
+        return image;
+
+    QImage fitted(pixels, image.format());
+    fitted.setDevicePixelRatio(dpr);
+    fitted.setColorSpace(image.colorSpace());
+    fitted.fill(Qt::transparent);
+    const QSizeF logicalSize = QSizeF(image.size()) / image.devicePixelRatioF();
+    QPainter painter(&fitted);
+    painter.drawImage(
+            QPointF((size.width() - logicalSize.width()) / 2, size.height() - logicalSize.height()),
+            image);
+    painter.end();
+    return fitted;
+}
 
 struct Preview
 {
@@ -312,7 +333,8 @@ QVThumbnailStrip::QVThumbnailStrip(MainWindow *owner, QVGraphicsView *graphicsVi
     hide();
     qApp->installEventFilter(this);
 
-    for (auto *timer : { &enterTimer, &leaveTimer, &gestureTimer, &validationTimer })
+    for (auto *timer :
+         { &enterTimer, &leaveTimer, &gestureTimer, &validationTimer, &wheelSequenceTimer })
         timer->setSingleShot(true);
 
     connect(&enterTimer, &QTimer::timeout, this, [this] {
@@ -339,6 +361,21 @@ QVThumbnailStrip::QVThumbnailStrip(MainWindow *owner, QVGraphicsView *graphicsVi
             hideImmediately();
     });
 
+    connect(&wheelSequenceTimer, &QTimer::timeout, this,
+            [this] { wheelOwner = ScrollOwner::None; });
+    selectionFade.setDuration(180);
+    selectionFade.setEasingCurve(QEasingCurve::InOutQuad);
+    selectionFade.setStartValue(0.0);
+    selectionFade.setEndValue(1.0);
+    connect(&selectionFade, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        if (outgoingSurface.isNull())
+            return;
+        selectionProgress = value.toReal();
+        updateRendering(false);
+    });
+    connect(&selectionFade, &QVariantAnimation::finished, this,
+            &QVThumbnailStrip::finishTransition);
+
     auto &core = view->thumbnailImageCore();
     connect(&core, &QVImageCore::thumbnailListingChanged, this, &QVThumbnailStrip::refresh);
     connect(&core, &QVImageCore::folderInfoChanged, this, &QVThumbnailStrip::refresh);
@@ -348,7 +385,7 @@ QVThumbnailStrip::QVThumbnailStrip(MainWindow *owner, QVGraphicsView *graphicsVi
     });
     connect(view, &QVGraphicsView::fileChanged, this, [this] {
         cancelActivation();
-        refresh();
+        refreshVisible(true);
     });
     connect(&core, &QVImageCore::thumbnailOpenRejected, this, [this] {
         cancelActivation();
@@ -406,8 +443,15 @@ bool QVThumbnailStrip::blocked() const
             || !window->isActiveWindow() || QApplication::activeModalWidget();
 }
 
+QRectF QVThumbnailStrip::cellClip() const
+{
+    return QRectF(panel).adjusted(Padding, 0, -Padding, 0);
+}
+
 int QVThumbnailStrip::slotAt(const QPoint &pos) const
 {
+    if (!cellClip().contains(pos))
+        return -1;
     for (int i = 0; i < visibleCells.size(); ++i) {
         if (visibleCells.at(i).index >= 0 && visibleCells.at(i).rect.contains(pos))
             return i;
@@ -417,8 +461,7 @@ int QVThumbnailStrip::slotAt(const QPoint &pos) const
 
 bool QVThumbnailStrip::hitTest(const QPoint &pos) const
 {
-    return targetOpacity > 0 && opacityValue > 0.001 && !surface.isNull() && !blocked()
-            && view->thumbnailImageCore().thumbnailListingReady() && slotAt(pos) >= 0;
+    return canBrowseAt(pos) && outgoingSurface.isNull() && slotAt(pos) >= 0;
 }
 
 int QVThumbnailStrip::previewCount() const
@@ -474,11 +517,17 @@ void QVThumbnailStrip::focusStrip()
         view->thumbnailImageCore().refreshThumbnailListing();
         return;
     }
+    finishTransition();
+    browsePosition = view->getCurrentFileDetails().loadedIndexInFolder;
     rebuild();
-    focusSlot = visibleCells.size() / 2;
+    focusSlot = slotAt(panel.center());
     view->viewport()->setFocus(Qt::OtherFocusReason);
-    animateTo(true);
-    updateRendering(true);
+    if (targetOpacity > 0) {
+        requestPreviews();
+        updateRendering(true);
+    } else {
+        animateTo(true);
+    }
 }
 
 bool QVThumbnailStrip::dismissFocus()
@@ -494,9 +543,15 @@ bool QVThumbnailStrip::dismissFocus()
 
 void QVThumbnailStrip::refresh()
 {
+    refreshVisible(false);
+}
+
+void QVThumbnailStrip::refreshVisible(const bool imageCommitted)
+{
     const auto &core = view->thumbnailImageCore();
     if (!core.thumbnailListingReady()) {
         pressedSlot = -1;
+        finishTransition();
         cancelActivation();
         if (core.getCurrentFileDetails().loadedIndexInFolder < 0)
             hideImmediately();
@@ -522,9 +577,37 @@ void QVThumbnailStrip::refresh()
             hideImmediately();
             return;
         }
+        const int next = core.getCurrentFileDetails().loadedIndexInFolder;
+        const bool changed = currentIndex != next;
+        QImage previous;
+        if (imageCommitted && changed && listVersion == core.thumbnailListVersion()
+            && opacityValue > 0.001 && !QVCocoaFunctions::reduceThumbnailMotion()) {
+            previous = transitionSnapshot();
+        }
+        if (imageCommitted && changed)
+            browsePosition = next;
         rebuild();
         requestPreviews();
-        updateRendering(true);
+        const qreal dpr = view->viewport()->devicePixelRatioF();
+        if (!previous.isNull()) {
+            selectionFade.stop();
+            outgoingSurface = fitTransitionSurface(previous, panel.size(), dpr);
+            outgoingDirty = true;
+            selectionProgress = 0;
+            updateRendering(true);
+            selectionFade.start();
+        } else {
+            if (imageCommitted && changed) {
+                finishTransition();
+            } else if (!outgoingSurface.isNull()) {
+                const auto fitted = fitTransitionSurface(outgoingSurface, panel.size(), dpr);
+                if (fitted.cacheKey() != outgoingSurface.cacheKey()) {
+                    outgoingSurface = fitted;
+                    outgoingDirty = true;
+                }
+            }
+            updateRendering(true);
+        }
     }
     if (!blocked())
         updatePointer(lastPointer, true);
@@ -613,6 +696,11 @@ void QVThumbnailStrip::hideImmediately()
     enterTimer.stop();
     leaveTimer.stop();
     fade.stop();
+    selectionFade.stop();
+    outgoingSurface = { };
+    outgoingDirty = false;
+    selectionProgress = 1;
+    browsePosition = -1;
     ++previewGeneration;
     if (!visibleCells.isEmpty())
         previewQueue().unsubscribe(this);
@@ -635,7 +723,7 @@ void QVThumbnailStrip::hideImmediately()
         emit overlayGeometryChanged();
 }
 
-void QVThumbnailStrip::rebuild()
+bool QVThumbnailStrip::rebuild()
 {
     const auto &core = view->thumbnailImageCore();
     const auto &details = core.getCurrentFileDetails();
@@ -643,16 +731,41 @@ void QVThumbnailStrip::rebuild()
     const QString oldFocus = focusSlot >= 0 && focusSlot < visibleCells.size()
             ? visibleCells.at(focusSlot).path
             : QString();
-    if (listVersion != core.thumbnailListVersion() || currentIndex != nextCurrent)
+    const bool newListing = listVersion != core.thumbnailListVersion();
+    if (newListing || currentIndex != nextCurrent)
         pressedSlot = -1;
     listVersion = core.thumbnailListVersion();
     const auto oldCells = std::move(visibleCells);
-    visibleCells = layout(usableViewport(), details.folderFileInfoList.size(), nextCurrent,
-                          core.thumbnailLoopEnabled());
+    if (newListing || currentIndex != nextCurrent || browsePosition < 0)
+        browsePosition = nextCurrent;
+
+    const int count = details.folderFileInfoList.size();
+    const int anchor = qFloor(browsePosition);
+    const qreal fraction = browsePosition - anchor;
+    visibleCells = layout(usableViewport(), count, anchor,
+                          browsePosition == nextCurrent && core.thumbnailLoopEnabled());
     if (visibleCells.isEmpty()) {
         panel = { };
-        return;
+        return !oldCells.isEmpty();
     }
+
+    const QRect nextPanel = visibleCells.first()
+                                    .rect.united(visibleCells.last().rect)
+                                    .adjusted(-Padding, -Padding, Padding, Padding)
+                                    .toAlignedRect();
+    if (fraction > 0) {
+        const int enteringIndex = anchor + visibleCells.size() / 2 + 1;
+        const qreal pitch = visibleCells.first().rect.width() + Gap;
+        if (enteringIndex < count)
+            visibleCells.append({ visibleCells.last().rect.translated(pitch, 0), enteringIndex });
+        for (auto &cell : visibleCells)
+            cell.rect.translate(-fraction * pitch, 0);
+    }
+    if (panel != nextPanel) {
+        panel = nextPanel;
+        emit overlayGeometryChanged();
+    }
+
     for (auto &cell : visibleCells) {
         if (cell.index < 0)
             continue;
@@ -671,32 +784,46 @@ void QVThumbnailStrip::rebuild()
             || visibleCells.at(pressedSlot).path != oldCells.at(pressedSlot).path))
         pressedSlot = -1;
     if (focusSlot >= 0) {
-        focusSlot = visibleCells.size() / 2;
-        if (nextCurrent == currentIndex) {
-            for (int i = 0; i < visibleCells.size(); ++i) {
-                if (visibleCells.at(i).path == oldFocus)
-                    focusSlot = i;
+        focusSlot = -1;
+        qreal nearest = panel.width();
+        for (int i = 0; i < visibleCells.size(); ++i) {
+            const auto &cell = visibleCells.at(i);
+            if (cell.index < 0 || !cellClip().intersects(cell.rect))
+                continue;
+            if ((nextCurrent == currentIndex && cell.path == oldFocus)
+                || (nextCurrent != currentIndex && cell.index == nextCurrent)) {
+                focusSlot = i;
+                break;
+            }
+            const qreal distance = qAbs(cell.rect.center().x() - panel.center().x());
+            if (distance < nearest) {
+                nearest = distance;
+                focusSlot = i;
             }
         }
     }
     currentIndex = nextCurrent;
-    auto &center = visibleCells[visibleCells.size() / 2];
     const auto &proxy = core.getLoadedPixmap();
-    if (center.preview.isNull() && !proxy.isNull() && proxy.width() <= 512
-        && proxy.height() <= 512) {
-        center.preview = proxy.toImage();
-        if (center.preview.colorSpace().isValid())
-            center.preview = center.preview.convertedToColorSpace(QColorSpace::SRgb);
-        center.currentProxy = true;
+    if (!proxy.isNull() && proxy.width() <= 512 && proxy.height() <= 512) {
+        for (auto &cell : visibleCells) {
+            if (cell.index != nextCurrent || !cell.preview.isNull())
+                continue;
+            cell.preview = proxy.toImage();
+            if (cell.preview.colorSpace().isValid())
+                cell.preview = cell.preview.convertedToColorSpace(QColorSpace::SRgb);
+            cell.currentProxy = true;
+            break;
+        }
     }
-    const QRect nextPanel = visibleCells.first()
-                                    .rect.united(visibleCells.last().rect)
-                                    .adjusted(-Padding, -Padding, Padding, Padding)
-                                    .toAlignedRect();
-    if (panel != nextPanel) {
-        panel = nextPanel;
-        emit overlayGeometryChanged();
+
+    if (newListing || oldCells.size() != visibleCells.size())
+        return true;
+    for (int i = 0; i < oldCells.size(); ++i) {
+        if (oldCells.at(i).path != visibleCells.at(i).path
+            || oldCells.at(i).rect.size() != visibleCells.at(i).rect.size())
+            return true;
     }
+    return false;
 }
 
 void QVThumbnailStrip::requestPreviews()
@@ -704,30 +831,30 @@ void QVThumbnailStrip::requestPreviews()
     const quint64 generation = ++previewGeneration;
     auto &queue = previewQueue();
     queue.unsubscribe(this);
-    const int center = visibleCells.size() / 2;
     const qreal scale = view->viewport()->devicePixelRatioF();
-    for (int distance = 0; distance <= center; ++distance) {
-        for (int offset : { distance, -distance }) {
-            const int i = center + offset;
-            const auto &cell = visibleCells.at(i);
-            if (cell.index >= 0) {
-                const QSize size(qCeil(cell.rect.width() * scale),
-                                 qCeil(cell.rect.height() * scale));
-                queue.request(this, cell.path, size, [this, generation, i](const Preview &preview) {
-                    if (generation != previewGeneration || targetOpacity <= 0)
-                        return;
-                    auto &bound = visibleCells[i];
-                    if (!preview.image.isNull() || !bound.currentProxy) {
-                        bound.preview = preview.image;
-                        bound.currentProxy = false;
-                    }
-                    bound.version = preview.version;
-                    updateRendering(true);
-                });
+    QList<int> order;
+    for (int i = 0; i < visibleCells.size(); ++i) {
+        if (visibleCells.at(i).index >= 0)
+            order.append(i);
+    }
+    std::stable_sort(order.begin(), order.end(), [this](int a, int b) {
+        return qAbs(visibleCells.at(a).rect.center().x() - panel.center().x())
+                < qAbs(visibleCells.at(b).rect.center().x() - panel.center().x());
+    });
+    for (const int i : order) {
+        const auto &cell = visibleCells.at(i);
+        const QSize size(qCeil(cell.rect.width() * scale), qCeil(cell.rect.height() * scale));
+        queue.request(this, cell.path, size, [this, generation, i](const Preview &preview) {
+            if (generation != previewGeneration || targetOpacity <= 0)
+                return;
+            auto &bound = visibleCells[i];
+            if (!preview.image.isNull() || !bound.currentProxy) {
+                bound.preview = preview.image;
+                bound.currentProxy = false;
             }
-            if (distance == 0)
-                break;
-        }
+            bound.version = preview.version;
+            updateRendering(true);
+        });
     }
 }
 
@@ -735,7 +862,8 @@ void QVThumbnailStrip::activate(const int slot)
 {
     auto &core = view->thumbnailImageCore();
     if (slot < 0 || slot >= visibleCells.size() || !waitingPath.isEmpty()
-        || core.thumbnailNavigationBusy() || !core.thumbnailListingReady())
+        || !outgoingSurface.isNull() || core.thumbnailNavigationBusy()
+        || !core.thumbnailListingReady())
         return;
     const auto &cell = visibleCells.at(slot);
     if (cell.index < 0 || cell.index == currentIndex)
@@ -783,6 +911,135 @@ void QVThumbnailStrip::cancelActivation()
     updateRendering(true);
 }
 
+QImage QVThumbnailStrip::transitionSnapshot() const
+{
+    if (outgoingSurface.isNull())
+        return surface;
+
+    QImage snapshot(surface.size(), surface.format());
+    snapshot.setDevicePixelRatio(surface.devicePixelRatioF());
+    snapshot.setColorSpace(surface.colorSpace());
+    snapshot.fill(Qt::transparent);
+    QPainter painter(&snapshot);
+    painter.setOpacity(1 - selectionProgress);
+    painter.drawImage(QPoint(), outgoingSurface);
+    painter.setOpacity(selectionProgress);
+    painter.drawImage(QPoint(), surface);
+    painter.end();
+    return snapshot;
+}
+
+void QVThumbnailStrip::finishTransition()
+{
+    if (outgoingSurface.isNull())
+        return;
+    selectionFade.stop();
+    outgoingSurface = { };
+    outgoingDirty = false;
+    selectionProgress = 1;
+    updateRendering(false);
+}
+
+bool QVThumbnailStrip::canBrowseAt(const QPointF &position) const
+{
+    return targetOpacity > 0 && opacityValue > 0.001 && !surface.isNull() && !blocked()
+            && QRectF(panel).contains(position)
+            && view->thumbnailImageCore().thumbnailListingReady();
+}
+
+bool QVThumbnailStrip::handleWheel(QWheelEvent *event)
+{
+    const auto phase = event->phase();
+    const bool inside = canBrowseAt(event->position());
+    bool ownsEvent = inside;
+    if (phase != Qt::NoScrollPhase) {
+        if (phase == Qt::ScrollBegin || wheelOwner == ScrollOwner::None)
+            wheelOwner = inside ? ScrollOwner::Strip : ScrollOwner::Viewport;
+        if (phase == Qt::ScrollEnd || phase == Qt::ScrollMomentum)
+            wheelSequenceTimer.start(350);
+        else
+            wheelSequenceTimer.stop();
+        ownsEvent = wheelOwner == ScrollOwner::Strip;
+    }
+    if (!ownsEvent)
+        return false;
+
+    // Keep consuming a sequence that began here even if the strip closes or
+    // the cursor moves away before macOS delivers its final momentum events.
+    if (targetOpacity > 0 && !blocked() && view->thumbnailImageCore().thumbnailListingReady()
+        && !visibleCells.isEmpty()) {
+        if (inside)
+            leaveTimer.stop();
+        const bool pixel = !event->pixelDelta().isNull();
+        const QPoint delta = pixel ? event->pixelDelta() : event->angleDelta();
+        const qreal x = delta.x();
+        const qreal y = delta.y();
+        const qreal amount = qAbs(x) >= qAbs(y) ? x : y;
+        const qreal divisor = pixel ? visibleCells.first().rect.width() + Gap : 120.0;
+        scrollBy(-amount / divisor);
+    }
+    event->accept();
+    return true;
+}
+
+bool QVThumbnailStrip::handleNativeBrowse(QNativeGestureEvent *event)
+{
+    const auto type = event->gestureType();
+    const bool inside = canBrowseAt(event->position());
+    if (type == Qt::BeginNativeGesture) {
+        nativeGestureOwner = inside ? ScrollOwner::Strip : ScrollOwner::Viewport;
+    } else if (type == Qt::EndNativeGesture) {
+        const bool owned = nativeGestureOwner == ScrollOwner::Strip;
+        nativeGestureOwner = ScrollOwner::None;
+        if (owned)
+            event->accept();
+        return owned;
+    } else if (type != Qt::PanNativeGesture && type != Qt::SwipeNativeGesture) {
+        if (nativeGestureOwner != ScrollOwner::None)
+            nativeGestureOwner = ScrollOwner::Viewport;
+        return false;
+    }
+
+    const bool ownsEvent = nativeGestureOwner == ScrollOwner::Strip
+            || (nativeGestureOwner == ScrollOwner::None && inside);
+    if (!ownsEvent)
+        return false;
+    if (targetOpacity > 0 && !blocked() && view->thumbnailImageCore().thumbnailListingReady()
+        && !visibleCells.isEmpty()) {
+        if (inside)
+            leaveTimer.stop();
+        if (type == Qt::PanNativeGesture)
+            scrollBy(-event->delta().x() / (visibleCells.first().rect.width() + Gap));
+        else if (type == Qt::SwipeNativeGesture) {
+            // Cocoa reports a left swipe at 180 degrees and a right swipe at 0.
+            if (event->value() == 180)
+                scrollBy(1);
+            else if (event->value() == 0)
+                scrollBy(-1);
+        }
+    }
+    event->accept();
+    return true;
+}
+
+void QVThumbnailStrip::scrollBy(const qreal slotDelta)
+{
+    const int lastIndex = view->getCurrentFileDetails().folderFileInfoList.size() - 1;
+    if (lastIndex < 1 || qFuzzyIsNull(slotDelta))
+        return;
+    const qreal next = qBound(0.0, browsePosition + slotDelta, qreal(lastIndex));
+    if (next == browsePosition)
+        return;
+
+    finishTransition();
+    pressedSlot = -1;
+    browsePosition = next;
+    if (rebuild())
+        requestPreviews();
+    hoverSlot = slotAt(lastPointer);
+    updateRendering(true);
+}
+
 void QVThumbnailStrip::updateRendering(const bool contentChanged)
 {
     if (panel.isEmpty())
@@ -807,6 +1064,7 @@ void QVThumbnailStrip::updateRendering(const bool contentChanged)
         painter.setPen(Qt::NoPen);
         painter.setBrush(tint);
         painter.drawRoundedRect(QRectF(panel), 10, 10);
+        painter.setClipRect(cellClip());
         for (int i = 0; i < visibleCells.size(); ++i) {
             const auto &cell = visibleCells.at(i);
             if (cell.index < 0)
@@ -852,12 +1110,17 @@ void QVThumbnailStrip::updateRendering(const bool contentChanged)
     if (native) {
         if (contentChanged || !nativeSurface)
             view->setNativeThumbnailSurface(panel, surface);
+        if (!outgoingSurface.isNull() && (outgoingDirty || !nativeSurface)) {
+            view->setNativeThumbnailSurface(panel, outgoingSurface, true);
+            outgoingDirty = false;
+        }
+        view->setNativeThumbnailTransitionProgress(selectionProgress);
         view->setNativeThumbnailOpacity(opacityValue);
     } else if (nativeSurface) {
         view->clearNativeThumbnailSurface();
     }
     nativeSurface = native;
-    const bool active = targetOpacity > 0 && opacityValue > 0.001;
+    const bool active = targetOpacity > 0 && opacityValue > 0.001 && outgoingSurface.isNull();
     if (contentChanged || accessibilityActive != active) {
         accessibilityActive = active;
         syncAccessibleButtons();
@@ -875,11 +1138,12 @@ void QVThumbnailStrip::syncAccessibleButtons()
         accessibleButtons.append(button);
     }
     const bool enabled = targetOpacity > 0 && opacityValue > 0.001 && !blocked()
-            && view->thumbnailImageCore().thumbnailListingReady();
+            && outgoingSurface.isNull() && view->thumbnailImageCore().thumbnailListingReady();
     const auto &listing = view->getCurrentFileDetails().folderFileInfoList;
     for (int i = 0; i < accessibleButtons.size(); ++i) {
         auto *button = accessibleButtons.at(i);
-        if (!enabled || i >= visibleCells.size() || visibleCells.at(i).index < 0) {
+        if (!enabled || i >= visibleCells.size() || visibleCells.at(i).index < 0
+            || !cellClip().intersects(visibleCells.at(i).rect)) {
             button->hide();
             continue;
         }
@@ -892,7 +1156,8 @@ void QVThumbnailStrip::syncAccessibleButtons()
                                   .arg(cell.index + 1)
                                   .arg(listing.size())
                         : tr("%1, %2 of %3").arg(name).arg(cell.index + 1).arg(listing.size()));
-        button->setGeometry(cell.rect.toAlignedRect().translated(-panel.topLeft()));
+        button->setGeometry(
+                cell.rect.intersected(cellClip()).toAlignedRect().translated(-panel.topLeft()));
         button->setEnabled(waitingPath.isEmpty());
         button->show();
     }
@@ -909,8 +1174,12 @@ void QVThumbnailStrip::paintEvent(QPaintEvent *)
     if (view->usesNativeHDRNavigationOverlay() || surface.isNull())
         return;
     QPainter painter(this);
-    painter.setOpacity(opacityValue);
-    painter.drawImage(QPoint(0, 0), surface);
+    if (!outgoingSurface.isNull()) {
+        painter.setOpacity(opacityValue * (1 - selectionProgress));
+        painter.drawImage(QPoint(), outgoingSurface);
+    }
+    painter.setOpacity(opacityValue * selectionProgress);
+    painter.drawImage(QPoint(), surface);
 }
 
 bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
@@ -923,6 +1192,9 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
         dragActive = false;
         fileDragActive = false;
         ownsPress = false;
+        wheelSequenceTimer.stop();
+        wheelOwner = ScrollOwner::None;
+        nativeGestureOwner = ScrollOwner::None;
         cancelActivation();
         hideImmediately();
     }
@@ -937,13 +1209,15 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
                 updatePointer(lastPointer, true);
             }
         } else if (change->propertyName() == "fovelleAccessibilityDisplayRevision") {
-            if (QVCocoaFunctions::reduceThumbnailMotion()
-                && fade.state() == QAbstractAnimation::Running) {
-                fade.stop();
-                if (targetOpacity == 0)
-                    hideImmediately();
-                else
-                    opacityValue = targetOpacity;
+            if (QVCocoaFunctions::reduceThumbnailMotion()) {
+                finishTransition();
+                if (fade.state() == QAbstractAnimation::Running) {
+                    fade.stop();
+                    if (targetOpacity == 0)
+                        hideImmediately();
+                    else
+                        opacityValue = targetOpacity;
+                }
             }
             updateRendering(true);
         }
@@ -976,11 +1250,15 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
             fileDragActive = false;
         }
         if (type == QEvent::NativeGesture) {
+            if (handleNativeBrowse(static_cast<QNativeGestureEvent *>(event)))
+                return true;
             gestureTimer.start(250);
             hideImmediately();
         }
         if (type == QEvent::Wheel) {
             auto *wheel = static_cast<QWheelEvent *>(event);
+            if (handleWheel(wheel))
+                return true;
             if (wheel->phase() != Qt::NoScrollPhase) {
                 gestureTimer.start(wheel->phase() == Qt::ScrollEnd ? 80 : 250);
                 hideImmediately();
@@ -1028,9 +1306,9 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
                 return true;
             }
             if (type != QEvent::MouseButtonRelease && mouse->modifiers() == Qt::NoModifier
-                && hitTest(pos)) {
+                && canBrowseAt(pos) && (slotAt(pos) >= 0 || !outgoingSurface.isNull())) {
                 ownsPress = true;
-                pressedSlot = type == QEvent::MouseButtonPress ? slotAt(pos) : -1;
+                pressedSlot = type == QEvent::MouseButtonPress && hitTest(pos) ? slotAt(pos) : -1;
                 pressedPosition = pos;
                 return true;
             }
@@ -1061,7 +1339,8 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
                 else {
                     const int step = code == Qt::Key_Left ? -1 : 1;
                     for (int i = focusSlot + step; i >= 0 && i < visibleCells.size(); i += step) {
-                        if (visibleCells.at(i).index >= 0) {
+                        if (visibleCells.at(i).index >= 0
+                            && cellClip().intersects(visibleCells.at(i).rect)) {
                             focusSlot = i;
                             updateRendering(true);
                             break;

@@ -42,7 +42,8 @@ public:
 
     QVImageCore &thumbnailImageCore() { return imageCore; }
     void holdThumbnailCursor(bool hold);
-    void setNativeThumbnailSurface(const QRect &rect, const QImage &surface);
+    void setNativeThumbnailSurface(const QRect &rect, const QImage &surface, bool outgoing = false);
+    void setNativeThumbnailTransitionProgress(qreal progress);
     void setNativeThumbnailOpacity(qreal opacity);
     void clearNativeThumbnailSurface();
 

@@ -1180,10 +1180,17 @@ void QVGraphicsView::clearHDRNavigationOverlays()
         hdrRenderer->clearNavigationOverlays();
 }
 
-void QVGraphicsView::setNativeThumbnailSurface(const QRect &rect, const QImage &surface)
+void QVGraphicsView::setNativeThumbnailSurface(const QRect &rect, const QImage &surface,
+                                                 const bool outgoing)
 {
     if (hdrRenderer)
-        hdrRenderer->setThumbnailSurface(rect, surface);
+        hdrRenderer->setThumbnailSurface(rect, surface, outgoing);
+}
+
+void QVGraphicsView::setNativeThumbnailTransitionProgress(const qreal progress)
+{
+    if (hdrRenderer)
+        hdrRenderer->setThumbnailTransitionProgress(progress);
 }
 
 void QVGraphicsView::setNativeThumbnailOpacity(const qreal opacity)

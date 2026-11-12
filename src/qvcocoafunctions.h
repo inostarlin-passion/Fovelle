@@ -245,7 +245,8 @@ public:
         void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
         void setBoundaryHintOpacity(qreal opacity);
         void clearBoundaryHintOverlay();
-        void setThumbnailSurface(const QRectF &rect, const QImage &image);
+        void setThumbnailSurface(const QRectF &rect, const QImage &image, bool outgoing);
+        void setThumbnailTransitionProgress(qreal progress);
         void setThumbnailOpacity(qreal opacity);
         void clearThumbnailSurface();
         HDRRendererDiagnostics diagnostics() const;

@@ -440,6 +440,16 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testThumbnailTransition();
+    void testThumbnailWheelBrowse();
+    void testThumbnailScrollMomentum();
+    void testThumbnailWheelOutside();
+    void testThumbnailScrollBounds();
+    void testThumbnailClickAfterScroll();
+    void testThumbnailNativeBrowse();
+    void testThumbnailReopenRecenters();
+    void testThumbnailTransitionResize();
+    void testThumbnailTransitionRetarget();
     void testThumbnailCenter();
     void testThumbnailCompact();
     void testThumbnailLoop();

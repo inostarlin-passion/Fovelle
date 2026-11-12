@@ -9,6 +9,8 @@
 
 class MainWindow;
 class QVGraphicsView;
+class QWheelEvent;
+class QNativeGestureEvent;
 
 class QVThumbnailStrip : public QWidget
 {
@@ -35,6 +37,8 @@ public:
     qreal opacity() const { return opacityValue; }
     const QList<Cell> &cells() const { return visibleCells; }
     int previewCount() const;
+    qreal browseIndex() const { return browsePosition; }
+    qreal transitionProgress() const { return selectionProgress; }
     QRect panelRect() const { return panel; }
     void focusStrip();
     bool dismissFocus();
@@ -56,7 +60,15 @@ private:
     void updatePointer(const QPoint &pos, bool canEnter);
     void animateTo(bool visible);
     void hideImmediately();
-    void rebuild();
+    bool rebuild();
+    QRectF cellClip() const;
+    void refreshVisible(bool imageCommitted);
+    void finishTransition();
+    QImage transitionSnapshot() const;
+    bool canBrowseAt(const QPointF &position) const;
+    bool handleWheel(QWheelEvent *event);
+    bool handleNativeBrowse(QNativeGestureEvent *event);
+    void scrollBy(qreal slotDelta);
     void requestPreviews();
     void updateRendering(bool contentChanged);
     void syncAccessibleButtons();
@@ -69,13 +81,18 @@ private:
     QList<Cell> visibleCells;
     QRect panel;
     QImage surface;
+    QImage outgoingSurface;
     QPoint lastPointer{ -1, -1 };
     QPoint pressedPosition;
     QTimer enterTimer;
     QTimer leaveTimer;
     QTimer gestureTimer;
     QTimer validationTimer;
+    QTimer wheelSequenceTimer;
     QVariantAnimation fade;
+    QVariantAnimation selectionFade;
+    qreal browsePosition = -1;
+    qreal selectionProgress = 1;
     qreal opacityValue = 0;
     qreal targetOpacity = 0;
     quint64 previewGeneration = 0;
@@ -93,7 +110,11 @@ private:
     bool fileDragActive = false;
     bool slideshowRunning = false;
     bool focusRequested = false;
+    enum class ScrollOwner { None, Strip, Viewport };
+    ScrollOwner wheelOwner = ScrollOwner::None;
+    ScrollOwner nativeGestureOwner = ScrollOwner::None;
     bool nativeSurface = false;
+    bool outgoingDirty = false;
     bool accessibilityActive = false;
     QString waitingPath;
     QList<QWidget *> accessibleButtons;

@@ -1,3 +1,42 @@
+# 缩略图切换过渡与横向浏览测试完成报告
+
+测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。应用与测试目标均已成功构建。
+
+| 编号 | 固化测试 | 结果 |
+| --- | --- | --- |
+| S01 | `testThumbnailTransition` | 通过，提交后出现中间透明度，过渡期间禁用命中，完成后居中 |
+| S02 | `testThumbnailWheelBrowse` | 通过，离散轮滚动一格，主图、缩放和滚动位置保持一致 |
+| S03 | `testThumbnailScrollMomentum` | 通过，半格像素位移正确，停顿并移出面板后仍由条接收更新和惯性 |
+| S04 | `testThumbnailWheelOutside` | 通过，面板外保留原有主图导航 |
+| S05 | `testThumbnailScrollBounds` | 通过，首末端限制正确，继续滚动不切图 |
+| S06 | `testThumbnailClickAfterScroll` | 通过，点击从屏外滚入的格打开正确路径 |
+| S07 | `testThumbnailNativeBrowse` | 通过，原生横移和左滑只改变浏览位置 |
+| S08 | `testThumbnailReopenRecenters` | 通过，收起并重新呼出后以当前图居中 |
+| S09 | `test_browsing_and_native_transition_wiring` | 通过，滚动路径不触发打开，原生逐帧修改透明度 |
+| S10 | `testThumbnailTransitionResize` | 通过，窗口变窄、槽位减少时，切图过渡继续 |
+| S11 | `testThumbnailTransitionRetarget` | 通过，连续提交后续接过渡，最后一张居中 |
+
+实现前 S09 因滚动入口和原生新旧层尚未接入而失败。生产实现完成后，默认缩放下的 4 条静态测试和 39 条动态用例全部通过，强制 2× 下 39 条动态用例也全部通过，无跳过。测试代码见 [静态接线](../tests/thumbnail_static.py) 与 [Cocoa 动态用例](../tests/thumbnail_acceptance.inc)。
+
+## 回归结果
+
+S01–S11 全部通过。现有快速回归与 4 组生命周期回归共 5 组全部通过。
+
+## 复现命令
+
+```sh
+cmake --build build-about-update --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-about-update -R 'FovelleThumbnail' --output-on-failure
+QT_SCALE_FACTOR=2 ctest --test-dir build-about-update -R '^FovelleThumbnailDynamic$' --output-on-failure
+ctest --test-dir build-about-update -R 'Fovelle(FastTests|LifecycleFix)' --output-on-failure
+```
+
+## 验证边界
+
+滚轮和手势使用 Qt 合成事件投递给实际 Cocoa 窗口。物理触控板和不同系统手势配置未进行人工操作验证。强制 2× 属于软件缩放。Homebrew QtSvg 在本机构建中仍产生部署目标版本提示。
+
+---
+
 # 缩略图内容与尺寸修复测试完成报告
 
 测试环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa 和本机 Ghostscript。测试日期为 2026-11-12。

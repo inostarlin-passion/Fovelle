@@ -38,6 +38,22 @@ class ThumbnailWiring(unittest.TestCase):
             self.assertIn(gate, native)
         self.assertIn("kCGImageSourceSubsampleFactor", native)
 
+    def test_browsing_and_native_transition_wiring(self):
+        strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        wheel = strip.split("bool QVThumbnailStrip::handleWheel(", 1)[1].split(
+            "bool QVThumbnailStrip::", 1)[0]
+        scroll = strip.split("void QVThumbnailStrip::scrollBy(", 1)[1].split(
+            "void QVThumbnailStrip::", 1)[0]
+        self.assertIn("scrollBy(", wheel)
+        for action in ("activate(", "openThumbnail(", "goToFile("):
+            self.assertNotIn(action, wheel + scroll)
+        cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        progress = cocoa.split("    void setThumbnailTransitionProgress(", 1)[1].split(
+            "    void ", 1)[0]
+        self.assertIn("thumbnailOutgoingLayer.opacity", progress)
+        self.assertIn("thumbnailContentLayer.opacity", progress)
+        self.assertNotIn("createNativeImageCGImage", progress)
+
 
 if __name__ == "__main__":
     unittest.main()

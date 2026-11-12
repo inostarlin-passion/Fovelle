@@ -23,6 +23,9 @@ struct ThumbnailWindow
             next = createTestImage(dir, "02", Qt::green, QSize(120, 80));
         if (count > 2)
             createTestImage(dir, "03", Qt::blue, QSize(120, 80));
+        for (int i = 4; i <= count; ++i)
+            createTestImage(dir, QStringLiteral("%1").arg(i, 2, 10, QLatin1Char('0')), Qt::yellow,
+                            QSize(120, 80));
         window.openFile(first);
     }
 
@@ -41,15 +44,27 @@ struct ThumbnailWindow
                       QPoint(view->viewport()->width() / 2, view->viewport()->height() - 3));
     }
 
-    QPoint nextCenter() const
+    QPoint nextCenter() const { return cellCenter(1); }
+
+    QPoint cellCenter(const int index) const
     {
         for (const auto &cell : strip->cells()) {
-            if (cell.index == 1)
+            if (cell.index == index)
                 return cell.rect.center().toPoint();
         }
         return { -1, -1 };
     }
 };
+bool sendThumbnailWheel(ThumbnailWindow &fixture, const QPoint &pos, const QPoint &pixel,
+                        const QPoint &angle, const Qt::ScrollPhase phase = Qt::NoScrollPhase)
+{
+    auto *viewport = fixture.view->viewport();
+    QWheelEvent event(pos, viewport->mapToGlobal(pos), pixel, angle, Qt::NoButton, Qt::NoModifier,
+                      phase, false);
+    event.ignore();
+    QCoreApplication::sendEvent(viewport, &event);
+    return event.isAccepted();
+}
 } // namespace
 
 void WindowBehaviorTests::testThumbnailCenter()
@@ -471,4 +486,166 @@ void WindowBehaviorTests::testThumbnailContent()
         const QColor square = preview.pixelColor(preview.width() / 4, preview.height() / 2);
         QVERIFY(square.lightness() > 224);
     }
+}
+
+void WindowBehaviorTests::testThumbnailTransition()
+{
+    if (QVCocoaFunctions::reduceThumbnailMotion())
+        QSKIP("Reduce Motion is enabled on the test host.");
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    fixture.window.nextFile();
+    QTRY_VERIFY(fixture.strip->transitionProgress() > 0 && fixture.strip->transitionProgress() < 1);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.next);
+    QVERIFY(!fixture.strip->hitTest(fixture.nextCenter()));
+    QTRY_COMPARE(fixture.strip->transitionProgress(), 1.0);
+    QVERIFY(qAbs(fixture.cellCenter(1).x() - fixture.strip->panelRect().center().x()) <= 1);
+}
+
+void WindowBehaviorTests::testThumbnailWheelBrowse()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const qreal zoom = fixture.view->getZoomLevel();
+    const int horizontal = fixture.view->horizontalScrollBar()->value();
+    const int vertical = fixture.view->verticalScrollBar()->value();
+    const QPoint pos = fixture.strip->panelRect().center();
+    QVERIFY(sendThumbnailWheel(fixture, pos, { }, QPoint(0, -120)));
+    QCOMPARE(fixture.strip->browseIndex(), 1.0);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+    QCOMPARE(fixture.view->getZoomLevel(), zoom);
+    QCOMPARE(fixture.view->horizontalScrollBar()->value(), horizontal);
+    QCOMPARE(fixture.view->verticalScrollBar()->value(), vertical);
+}
+
+void WindowBehaviorTests::testThumbnailScrollMomentum()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const QPoint pos = fixture.strip->panelRect().center();
+    const QPoint outside(fixture.view->viewport()->width() / 2, 160);
+    QVERIFY(sendThumbnailWheel(fixture, pos, { }, { }, Qt::ScrollBegin));
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(-76, 0), { }, Qt::ScrollUpdate));
+    QCOMPARE(fixture.strip->browseIndex(), 0.5);
+    QVERIFY(sendThumbnailWheel(fixture, outside, { }, { }, Qt::ScrollEnd));
+    QVERIFY(sendThumbnailWheel(fixture, outside, QPoint(-76, 0), { }, Qt::ScrollMomentum));
+    QCOMPARE(fixture.strip->browseIndex(), 1.0);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailWheelOutside()
+{
+    ScopedOptionValues options(
+            { { "viewporthorizontalscrollaction", int(Qv::ViewportScrollAction::Navigate) } });
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    sendThumbnailWheel(fixture, QPoint(400, 140), { }, QPoint(-120, 0));
+    QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.next);
+}
+
+void WindowBehaviorTests::testThumbnailScrollBounds()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const QPoint pos = fixture.strip->panelRect().center();
+    QVERIFY(sendThumbnailWheel(fixture, pos, { }, QPoint(-12000, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 7.0);
+    QVERIFY(sendThumbnailWheel(fixture, pos, { }, QPoint(-120, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 7.0);
+    QVERIFY(sendThumbnailWheel(fixture, pos, { }, QPoint(12000, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 0.0);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailClickAfterScroll()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const auto target =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(5).absoluteFilePath;
+    QCOMPARE(fixture.cellCenter(5), QPoint(-1, -1));
+    QVERIFY(sendThumbnailWheel(fixture, fixture.strip->panelRect().center(), { }, QPoint(-600, 0)));
+    const QPoint pos = fixture.cellCenter(5);
+    QVERIFY(fixture.strip->panelRect().contains(pos));
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, Qt::NoModifier, pos);
+    QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), target);
+    QTRY_COMPARE(fixture.strip->transitionProgress(), 1.0);
+    QCOMPARE(fixture.strip->browseIndex(), 5.0);
+}
+
+void WindowBehaviorTests::testThumbnailNativeBrowse()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const QPoint pos = fixture.strip->panelRect().center();
+    QVERIFY(sendNativeGesture(fixture.view, Qt::PanNativeGesture, pos, 0, QPointF(-76, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 0.5);
+    QVERIFY(sendNativeGesture(fixture.view, Qt::SwipeNativeGesture, pos, 180));
+    QCOMPARE(fixture.strip->browseIndex(), 1.5);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailReopenRecenters()
+{
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QVERIFY(sendThumbnailWheel(fixture, fixture.strip->panelRect().center(), { }, QPoint(-240, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 2.0);
+    sendMouseMove(fixture.view->viewport(), QPoint(400, 140));
+    QTRY_COMPARE(fixture.strip->opacity(), 0.0);
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QCOMPARE(fixture.strip->browseIndex(), 0.0);
+}
+
+void WindowBehaviorTests::testThumbnailTransitionResize()
+{
+    if (QVCocoaFunctions::reduceThumbnailMotion())
+        QSKIP("Reduce Motion is enabled on the test host.");
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const int initialWidth = fixture.strip->panelRect().width();
+    fixture.window.nextFile();
+    QTRY_VERIFY(fixture.strip->transitionProgress() < 1);
+    fixture.window.resize(680, 600);
+    QTRY_VERIFY(fixture.strip->panelRect().width() < initialWidth);
+    QVERIFY(fixture.strip->transitionProgress() < 1);
+    QTRY_COMPARE(fixture.strip->transitionProgress(), 1.0);
+}
+
+void WindowBehaviorTests::testThumbnailTransitionRetarget()
+{
+    if (QVCocoaFunctions::reduceThumbnailMotion())
+        QSKIP("Reduce Motion is enabled on the test host.");
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const auto third =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(2).absoluteFilePath;
+    fixture.window.nextFile();
+    QTRY_VERIFY(fixture.strip->transitionProgress() < 1);
+    fixture.window.nextFile();
+    QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), third);
+    QVERIFY(fixture.strip->transitionProgress() < 1);
+    QTRY_COMPARE(fixture.strip->transitionProgress(), 1.0);
+    QCOMPARE(fixture.strip->browseIndex(), 2.0);
 }

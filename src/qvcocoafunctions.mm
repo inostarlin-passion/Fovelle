@@ -2269,7 +2269,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         thumbnailLayer.geometryFlipped = YES;
         thumbnailLayer.hidden = YES;
         thumbnailLayer.zPosition = 5.0;
-        thumbnailLayer.contentsGravity = kCAGravityResize;
+        thumbnailOutgoingLayer = [CALayer layer];
+        thumbnailContentLayer = [CALayer layer];
+        [thumbnailLayer addSublayer:thumbnailOutgoingLayer];
+        [thumbnailLayer addSublayer:thumbnailContentLayer];
         [navigationOverlayLayer addSublayer:thumbnailLayer];
         boundaryHintLayer = [[CALayer layer] retain];
         boundaryHintLayer.geometryFlipped = YES;
@@ -2736,7 +2739,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         ++state.navigationOverlayUpdateCount;
     }
 
-    void setThumbnailSurface(const QRectF &rect, const QImage &image)
+    void setThumbnailSurface(const QRectF &rect, const QImage &image, const bool outgoing)
     {
         if (!thumbnailLayer || image.isNull())
             return;
@@ -2748,11 +2751,28 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         thumbnailLayer.frame = CGRectMake(rect.x(), y, rect.width(), rect.height());
-        thumbnailLayer.contentsScale = image.devicePixelRatioF();
-        thumbnailLayer.contents = (id)cgImage;
+        CALayer *layer = outgoing ? thumbnailOutgoingLayer : thumbnailContentLayer;
+        layer.frame = thumbnailLayer.bounds;
+        layer.contentsScale = image.devicePixelRatioF();
+        layer.contents = (id)cgImage;
         ++state.thumbnailUploadCount;
         [CATransaction commit];
         CGImageRelease(cgImage);
+    }
+
+    void setThumbnailTransitionProgress(const qreal progress)
+    {
+        const float bounded = std::clamp<float>(progress, 0.0F, 1.0F);
+        if (thumbnailContentLayer.opacity == bounded
+            && (bounded < 1.0F || !thumbnailOutgoingLayer.contents))
+            return;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailOutgoingLayer.opacity = 1.0F - bounded;
+        thumbnailContentLayer.opacity = bounded;
+        if (bounded >= 1.0F)
+            thumbnailOutgoingLayer.contents = nil;
+        [CATransaction commit];
     }
 
     void setThumbnailOpacity(const qreal opacity)
@@ -2760,7 +2780,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         thumbnailLayer.opacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
-        thumbnailLayer.hidden = opacity <= 0.001 || !thumbnailLayer.contents;
+        thumbnailLayer.hidden = opacity <= 0.001 || !thumbnailContentLayer.contents;
         state.nativeThumbnailVisible = !thumbnailLayer.hidden;
         [CATransaction commit];
     }
@@ -2770,7 +2790,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         thumbnailLayer.hidden = YES;
-        thumbnailLayer.contents = nil;
+        thumbnailContentLayer.contents = nil;
+        thumbnailOutgoingLayer.contents = nil;
         state.nativeThumbnailVisible = false;
         [CATransaction commit];
     }
@@ -4346,6 +4367,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CALayer *navigationOverlayLayer{ nil };
     CALayer *boundaryHintLayer{ nil };
     CALayer *thumbnailLayer{ nil };
+    CALayer *thumbnailOutgoingLayer{ nil };
+    CALayer *thumbnailContentLayer{ nil };
     CALayer *navigationButtonLayers[2]{ nil, nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
     CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
@@ -4496,10 +4519,17 @@ void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
         impl->clearBoundaryHintOverlay();
 }
 
-void QVCocoaFunctions::HDRRenderer::setThumbnailSurface(const QRectF &rect, const QImage &image)
+void QVCocoaFunctions::HDRRenderer::setThumbnailSurface(const QRectF &rect, const QImage &image,
+                                                          const bool outgoing)
 {
     if (impl)
-        impl->setThumbnailSurface(rect, image);
+        impl->setThumbnailSurface(rect, image, outgoing);
+}
+
+void QVCocoaFunctions::HDRRenderer::setThumbnailTransitionProgress(const qreal progress)
+{
+    if (impl)
+        impl->setThumbnailTransitionProgress(progress);
 }
 
 void QVCocoaFunctions::HDRRenderer::setThumbnailOpacity(const qreal opacity)
