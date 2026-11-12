@@ -307,7 +307,8 @@ public:
     static void setApplicationTheme(Qv::Theme theme);
 
     static bool thumbnailMayReadContent(const QString &path);
-    static QImage readThumbnail(const QString &path, int longestEdge);
+    static QImage readThumbnail(const QString &path, int longestEdge, qint64 fileBytes,
+                                bool &allowQtFallback);
     static bool reduceThumbnailMotion();
     static bool reduceThumbnailTransparency();
 

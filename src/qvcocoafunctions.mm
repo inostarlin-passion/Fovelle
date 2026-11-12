@@ -1392,7 +1392,8 @@ QImage imageFromPDFPage(const QString &pdfPath, const int requestedLargestDimens
     return image;
 }
 
-EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimension)
+EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimension,
+                      const bool retainVector = true)
 {
     EPSReadResult result;
     const bool extensionSuggestsEPS = isEPSFilename(filePath);
@@ -1449,7 +1450,7 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
 
     result.image = imageFromPDFPage(pdfPath, renderLargestDimension, result.intrinsicSize,
                                     result.errorString);
-    if (result.image.isNull())
+    if (result.image.isNull() || !retainVector)
         return result;
 
     QFile pdfFile(pdfPath);
@@ -4805,25 +4806,93 @@ bool QVCocoaFunctions::thumbnailMayReadContent(const QString &path)
     }
 }
 
-QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge)
+QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
+                                      const qint64 fileBytes, bool &allowQtFallback)
 {
+    constexpr qint64 MaxThumbnailEPSBytes = 16 * 1024 * 1024;
+    constexpr qint64 MaxNativeThumbnailPixels = 64 * 1000 * 1000;
+    constexpr qint64 MaxRawThumbnailPixels = 64 * 1000 * 1000;
+    constexpr qint64 MaxOtherThumbnailPixels = 8 * 1000 * 1000;
+
     @autoreleasepool {
+        if (isEPSFilename(path)) {
+            allowQtFallback = false;
+            if (fileBytes <= MaxThumbnailEPSBytes)
+                return readEPS(path, longestEdge, false).image;
+            return { };
+        }
+
         NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
-        CGImageSourceRef source = CGImageSourceCreateWithURL((CFURLRef)url, nullptr);
+        CGImageSourceRef source = CGImageSourceCreateWithURL(
+                (CFURLRef)url, (CFDictionaryRef)@{ (id)kCGImageSourceShouldCache: @NO });
         if (!source)
             return { };
-        CFDictionaryRef options = (CFDictionaryRef)@{
+        const auto releaseSource = qScopeGuard([source] { CFRelease(source); });
+
+        const CFStringRef type = CGImageSourceGetType(source);
+        if (!type)
+            return { };
+
+        if (isRawImageType(type)) {
+            allowQtFallback = false;
+            const QSize pixels = sourcePixelSize(source);
+            if (pixels.isEmpty() || qint64(pixels.width()) * pixels.height() > MaxRawThumbnailPixels)
+                return { };
+            CIRAWFilter *filter = [CIRAWFilter filterWithImageURL:url];
+            if (!filter)
+                return { };
+
+            filter.orientation = sourceOrientation(source, 0);
+            filter.draftModeEnabled = YES;
+            filter.extendedDynamicRangeAmount = 0.0F;
+            const CGFloat longestSourceEdge = std::max(pixels.width(), pixels.height());
+            filter.scaleFactor = std::min<CGFloat>(1, longestEdge / longestSourceEdge);
+            CIImage *preview = filter.previewImage;
+            if (!preview)
+                preview = filter.outputImage;
+            if (QvAsync::isCanceled())
+                return { };
+
+            CIContext *context = [CIContext contextWithOptions:@{ kCIContextCacheIntermediates: @NO }];
+            CGColorSpaceRef space = colorSyncSrgbColorSpace();
+            const auto releaseSpace = qScopeGuard([space] { CGColorSpaceRelease(space); });
+            return imageFromCIImage(preview, context, space, longestEdge);
+        }
+
+        UTType *imageType = [UTType typeWithIdentifier:(NSString *)type];
+        const bool heif = [imageType conformsToType:UTTypeHEIF]
+                || [imageType conformsToType:UTTypeHEIC]
+                || [imageType conformsToType:UTTypeHEICS];
+        const bool subsampled = heif || CFEqual(type, CFSTR("public.jpeg"))
+                || CFEqual(type, CFSTR("public.png")) || CFEqual(type, CFSTR("public.tiff"));
+        const size_t index = heif ? CGImageSourceGetPrimaryImageIndex(source) : 0;
+        const QSize pixels = sourcePixelSize(source, index);
+        const qint64 maxPixels = subsampled ? MaxNativeThumbnailPixels : MaxOtherThumbnailPixels;
+        if (pixels.isEmpty() || qint64(pixels.width()) * pixels.height() > maxPixels)
+            return { };
+
+        NSMutableDictionary *options = [@{
             (id)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
             (id)kCGImageSourceCreateThumbnailWithTransform: @YES,
             (id)kCGImageSourceThumbnailMaxPixelSize: @(longestEdge),
             (id)kCGImageSourceDecodeRequest: (id)kCGImageSourceDecodeToSDR,
-        };
-        CGImageRef thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options);
-        CFRelease(source);
+        } mutableCopy];
+        if (subsampled) {
+            const int longestSourceEdge = qMax(pixels.width(), pixels.height());
+            for (const int factor : { 8, 4, 2 }) {
+                if (longestSourceEdge / factor >= longestEdge) {
+                    options[(id)kCGImageSourceSubsampleFactor] = @(factor);
+                    break;
+                }
+            }
+        }
+        CGImageRef thumbnail =
+                CGImageSourceCreateThumbnailAtIndex(source, index, (CFDictionaryRef)options);
+        [options release];
         if (!thumbnail)
             return { };
         const auto releaseThumbnail = qScopeGuard([thumbnail] { CGImageRelease(thumbnail); });
-        return imageFromCGImage(thumbnail);
+        return imageFromCGImage(thumbnail, longestEdge);
     }
 }
 

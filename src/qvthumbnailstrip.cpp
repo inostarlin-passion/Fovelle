@@ -27,8 +27,9 @@
 namespace {
 constexpr int MaxPreviewJobs = 2;
 constexpr int PreviewCacheBytes = 24 * 1024 * 1024;
-constexpr qint64 MaxSourcePixels = 8000000;
-constexpr qint64 MaxSourceBytes = 64 * 1024 * 1024;
+constexpr qint64 MaxThumbnailFileBytes = 256 * 1024 * 1024;
+constexpr qint64 MaxQtSourceBytes = 64 * 1024 * 1024;
+constexpr qint64 MaxSvgSourceBytes = 1024 * 1024;
 constexpr qint64 MaxEstimatedBytes = 64 * 1024 * 1024;
 constexpr int Gap = 8;
 constexpr int Padding = 8;
@@ -48,6 +49,36 @@ struct PreviewCache
     QMutex decodeMutex;
 };
 
+QImage readQtPreview(const QString &path, const QSize &size, const qint64 fileBytes)
+{
+    if (fileBytes > MaxQtSourceBytes)
+        return { };
+
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    if (!reader.canRead())
+        return { };
+
+    const auto format = reader.format();
+    const bool vector = format == "svg" || format == "svgz";
+    // The SVG handler rasterizes directly to the scaled size. Apply the
+    // encoded-size gate before asking the handler to parse its canvas.
+    if (vector
+        && (fileBytes > MaxSvgSourceBytes || !reader.supportsOption(QImageIOHandler::ScaledSize)))
+        return { };
+
+    const QSize source = reader.size();
+    if (source.isEmpty())
+        return { };
+    if (!vector && qint64(source.width()) * source.height() > MaxEstimatedBytes / 16)
+        return { };
+
+    const bool rotated = reader.transformation().testFlag(QImageIOHandler::TransformationRotate90);
+    const QSize bounds = rotated ? size.transposed() : size;
+    reader.setScaledSize(source.scaled(bounds, Qt::KeepAspectRatio));
+    return reader.read();
+}
+
 Preview readPreview(const QString &path, const QSize &size, PreviewCache &cache)
 {
     const auto version = QVImageLoader::fileVersion(path);
@@ -64,41 +95,30 @@ Preview readPreview(const QString &path, const QSize &size, PreviewCache &cache)
     }
 
     QImage image;
-    if (!QvAsync::isCanceled() && QVCocoaFunctions::thumbnailMayReadContent(path)
-        && QFileInfo(path).size() <= MaxSourceBytes) {
-        // The plugins may decompress before scaling. Serialise that path and
-        // budget both a source buffer and a colour-conversion buffer.
-        QMutexLocker decodeLock(&cache.decodeMutex);
-        QImageReader reader(path);
-        reader.setAutoTransform(true);
-        const auto format = reader.format();
-        const QSize source = reader.size();
-        const qint64 pixels = qint64(source.width()) * source.height();
-        const bool raster = format == "jpeg" || format == "png" || format == "gif"
-                || format == "webp" || format == "bmp" || format == "tiff" || format == "heif"
-                || format == "avif";
-        const bool vector = format == "svg" && QFileInfo(path).size() <= 1024 * 1024;
-        if (!QvAsync::isCanceled() && (raster || vector) && source.isValid() && pixels > 0
-            && pixels <= MaxSourcePixels && pixels <= MaxEstimatedBytes / 16) {
-            if (format == "jpeg" || format == "png" || format == "heif" || format == "avif")
-                image = QVCocoaFunctions::readThumbnail(path, qMax(size.width(), size.height()));
-            if (image.isNull()) {
-                const bool rotated =
-                        reader.transformation().testFlag(QImageIOHandler::TransformationRotate90);
-                const QSize bounds = rotated ? size.transposed() : size;
-                reader.setScaledSize(source.scaled(bounds, Qt::KeepAspectRatio));
-                image = reader.read();
-            }
-            if (!image.isNull()) {
-                if (image.width() > size.width() || image.height() > size.height())
-                    image = image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                if (image.colorSpace().isValid())
-                    image = image.convertedToColorSpace(QColorSpace::SRgb);
-                else
-                    image.setColorSpace(QColorSpace::SRgb);
-                image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (!QvAsync::isCanceled() && QVCocoaFunctions::thumbnailMayReadContent(path)) {
+        const qint64 fileBytes = QFileInfo(path).size();
+        if (fileBytes > 0 && fileBytes <= MaxThumbnailFileBytes) {
+            // Some codecs allocate at source resolution even for a scaled
+            // request. Keep decoding serialized across all open windows.
+            QMutexLocker decodeLock(&cache.decodeMutex);
+            if (!QvAsync::isCanceled()) {
+                bool allowQtFallback = true;
+                image = QVCocoaFunctions::readThumbnail(path, qMax(size.width(), size.height()),
+                                                        fileBytes, allowQtFallback);
+                if (image.isNull() && allowQtFallback && !QvAsync::isCanceled())
+                    image = readQtPreview(path, size, fileBytes);
             }
         }
+    }
+
+    if (!image.isNull()) {
+        if (image.width() > size.width() || image.height() > size.height())
+            image = image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        if (image.colorSpace().isValid())
+            image = image.convertedToColorSpace(QColorSpace::SRgb);
+        else
+            image.setColorSpace(QColorSpace::SRgb);
+        image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     }
 
     if (QVImageLoader::fileVersion(path) != version)
@@ -249,7 +269,7 @@ QList<QVThumbnailStrip::Cell> QVThumbnailStrip::layout(const QRectF &viewport, c
         return { };
 
     const int maxRadius = qMin(4, count - 1);
-    for (const QSize size : { QSize(72, 52), QSize(56, 40) }) {
+    for (const QSize size : { QSize(144, 104), QSize(112, 80) }) {
         for (int radius = maxRadius; radius >= 1; --radius) {
             const int slotCount = 2 * radius + 1;
             if (slotCount * size.width() + 2 * radius * Gap + 2 * Padding + 24 > viewport.width())

@@ -1,3 +1,43 @@
+# 缩略图内容与尺寸修复测试完成报告
+
+测试环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa 和本机 Ghostscript。测试日期为 2026-11-12。
+
+## 原子验收
+
+| 编号 | 固化测试 | 结果 |
+| --- | --- | --- |
+| R01 | `testThumbnailCenter` | 通过，标准格 144×104 pt，首末项均居中 |
+| R02 | `testThumbnailCompact` | 通过，紧凑格 112×80 pt，392/488 pt 断点符合设计 |
+| R03 | `testThumbnailContent:jpeg` | 通过，2400 万像素 JPEG 邻图显示绿色实像 |
+| R04 | `testThumbnailContent:png` | 通过，500 万像素 PNG 邻图显示红色实像 |
+| R05 | `testThumbnailContent:raw` | 通过，仓库 DNG 样本显示非透明实像 |
+| R06 | `testThumbnailContent:eps` | 通过，EPS 缩略图保留黑白图案 |
+| R07 | `testThumbnailContent:svg` | 通过，6000×4000 的逻辑画布显示蓝色实像 |
+| R08 | `testThumbnailContent:ppm` | 通过，PPM 显示绿色实像 |
+| R09 | `testThumbnailContent:corrupt` | 通过，损坏 PNG 保留占位槽 |
+| R10 | `test_native_preview_has_independent_admission` | 通过，原生优先、独立预算和回退顺序的静态合同满足 |
+
+所有有效内容用例都断言了输出像素尺寸上限。测试源见 [动态验收](../tests/thumbnail_acceptance.inc) 和 [静态验收](../tests/thumbnail_static.py)。R10 在生产代码变更前因原生和 Qt 回退尚未分离而失败。
+
+## 构建与回归
+
+应用和测试目标构建成功。R01–R10 全部通过。缩略图套件共执行 3 条静态测试和 29 条动态用例，均通过。29 条动态用例在 `QT_SCALE_FACTOR=2` 下再次通过，未跳过用例。现有快速回归和 4 组生命周期回归全部通过。
+
+## 复现命令
+
+```sh
+cmake --build build-about-update --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-about-update -R 'FovelleThumbnail' --output-on-failure
+QT_SCALE_FACTOR=2 ctest --test-dir build-about-update -R '^FovelleThumbnailDynamic$' --output-on-failure
+ctest --test-dir build-about-update -R 'Fovelle(FastTests|LifecycleFix)' --output-on-failure
+```
+
+## 验证边界
+
+有效格式的测试覆盖上表样本。其他文件仍受系统解码器、文件访问权限和预览预算约束。2× 用例使用 Qt 强制缩放，未测量实际跨屏或不同刷新率下的性能。构建使用的 Homebrew QtSvg 仍有部署目标版本提示。
+
+---
+
 # 视口底部缩略图条测试完成报告
 
 测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。使用 CMake 构建了应用和 Qt Test 目标。

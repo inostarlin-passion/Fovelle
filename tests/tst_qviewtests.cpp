@@ -450,6 +450,8 @@ private slots:
     void testThumbnailVersion();
     void testThumbnailKeyboard();
     void testThumbnailPreview();
+    void testThumbnailContent_data();
+    void testThumbnailContent();
     void testThumbnailSingle();
     void testThumbnailPreference();
     void testThumbnailBackendHandoff();

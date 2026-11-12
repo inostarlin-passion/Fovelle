@@ -679,7 +679,7 @@ add_test(NAME FovelleThumbnailDynamic
     COMMAND $<TARGET_FILE:fovelle_tests>
         testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover
         testThumbnailHide testThumbnailClick testThumbnailInvalidPress testThumbnailVersion
-        testThumbnailKeyboard testThumbnailPreview testThumbnailSingle testThumbnailPreference
+        testThumbnailKeyboard testThumbnailPreview testThumbnailContent testThumbnailSingle testThumbnailPreference
         testThumbnailBackendHandoff testThumbnailSupersededValidation
         testThumbnailVersionChangesDuringRead testThumbnailPreferenceDoesNotRescan
         testThumbnailFadeReversal testThumbnailFullscreenTransition

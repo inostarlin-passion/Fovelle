@@ -15,7 +15,7 @@ struct ThumbnailWindow
     {
         qvApp->setQuitOnLastWindowClosed(false);
         window.setAttribute(Qt::WA_DeleteOnClose, false);
-        window.resize(800, 500);
+        window.resize(1000, 600);
         window.show();
         window.activateWindow();
         first = createTestImage(dir, "01", Qt::red, QSize(120, 80));
@@ -54,10 +54,11 @@ struct ThumbnailWindow
 
 void WindowBehaviorTests::testThumbnailCenter()
 {
-    const QRectF viewport(0, 0, 800, 500);
+    const QRectF viewport(0, 0, 1600, 500);
     for (int center : { 0, 8 }) {
         const auto cells = QVThumbnailStrip::layout(viewport, 9, center, false);
         QCOMPARE(cells.size(), 9);
+        QCOMPARE(cells.at(4).rect.size(), QSizeF(144, 104));
         QCOMPARE(cells.at(4).rect.center().x(), viewport.center().x());
         QCOMPARE(cells.at(4).index, center);
         QCOMPARE(cells.at(center == 0 ? 3 : 5).index, -1);
@@ -66,11 +67,11 @@ void WindowBehaviorTests::testThumbnailCenter()
 
 void WindowBehaviorTests::testThumbnailCompact()
 {
-    for (int width : { 223, 224, 271, 272 }) {
+    for (int width : { 391, 392, 487, 488 }) {
         const auto cells = QVThumbnailStrip::layout(QRectF(0, 0, width, 160), 2, 0, false);
-        QCOMPARE(cells.size(), width == 223 ? 0 : 3);
+        QCOMPARE(cells.size(), width == 391 ? 0 : 3);
         if (!cells.isEmpty())
-            QCOMPARE(cells.at(1).rect.width(), width < 272 ? 56.0 : 72.0);
+            QCOMPARE(cells.at(1).rect.size(), width < 488 ? QSizeF(112, 80) : QSizeF(144, 104));
     }
 }
 
@@ -387,4 +388,87 @@ void WindowBehaviorTests::testThumbnailDragOwnership()
     fixture.hover();
     QTRY_COMPARE(fixture.strip->opacity(), 1.0);
     QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailContent_data()
+{
+    QTest::addColumn<QString>("fixtureKind");
+    for (const auto *name : { "jpeg", "png", "raw", "eps", "svg", "ppm", "corrupt" })
+        QTest::newRow(name) << QString::fromLatin1(name);
+}
+
+void WindowBehaviorTests::testThumbnailContent()
+{
+    QFETCH(QString, fixtureKind);
+    ThumbnailWindow fixture(1);
+    QString path;
+    QColor expected;
+    if (fixtureKind == "jpeg" || fixtureKind == "png") {
+        path = fixture.dir.filePath("02." + fixtureKind);
+        const QSize dimensions = fixtureKind == "jpeg" ? QSize(6000, 4000) : QSize(2500, 2000);
+        expected = fixtureKind == "jpeg" ? QColor(Qt::green) : QColor(Qt::red);
+        QImage input(dimensions, QImage::Format_RGB32);
+        input.fill(expected);
+        QVERIFY(input.save(path));
+    } else if (fixtureKind == "raw") {
+        path = fixture.dir.filePath("02.dng");
+        QVERIFY(QFile::copy(QStringLiteral(FOVELLE_TEST_FIXTURE_DIR "/portable-hdr/bayer.dng"),
+                            path));
+    } else if (fixtureKind == "eps") {
+        path = createEPSVectorImage(fixture.dir, QStringLiteral("02"));
+        QVERIFY(!path.isEmpty());
+    } else {
+        path = fixture.dir.filePath(fixtureKind == "corrupt" ? "02.png" : "02." + fixtureKind);
+        QByteArray bytes;
+        if (fixtureKind == "svg") {
+            expected = Qt::blue;
+            bytes = "<svg xmlns='http://www.w3.org/2000/svg' width='6000' height='4000'>"
+                    "<rect width='6000' height='4000' fill='blue'/></svg>";
+        } else if (fixtureKind == "ppm") {
+            expected = Qt::green;
+            bytes = "P6\n2 2\n255\n" + QByteArray::fromHex("00ff0000ff0000ff0000ff00");
+        } else {
+            bytes = "Not a PNG image";
+        }
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(bytes), bytes.size());
+    }
+
+    qvApp->invalidateFolderListings();
+    fixture.view->thumbnailImageCore().refreshThumbnailListing();
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    const auto target = [&] {
+        for (const auto &cell : fixture.strip->cells()) {
+            if (cell.path == path)
+                return cell;
+        }
+        return QVThumbnailStrip::Cell{ };
+    };
+    QTRY_VERIFY_WITH_TIMEOUT(!target().version.isEmpty(), 10000);
+    const auto cell = target();
+    const auto &preview = cell.preview;
+    if (fixtureKind == "corrupt") {
+        QVERIFY(preview.isNull());
+        QVERIFY(cell.rect.isValid());
+        return;
+    }
+
+    QVERIFY2(!preview.isNull(), qPrintable(path));
+    const qreal dpr = fixture.view->viewport()->devicePixelRatioF();
+    QVERIFY(preview.width() <= std::ceil(cell.rect.width() * dpr));
+    QVERIFY(preview.height() <= std::ceil(cell.rect.height() * dpr));
+    const QColor center = preview.pixelColor(preview.rect().center());
+    QVERIFY(center.alpha() > 0);
+    if (expected.isValid()) {
+        QVERIFY(std::abs(center.red() - expected.red()) <= 12);
+        QVERIFY(std::abs(center.green() - expected.green()) <= 12);
+        QVERIFY(std::abs(center.blue() - expected.blue()) <= 12);
+    }
+    if (fixtureKind == "eps") {
+        QVERIFY(center.lightness() < 32);
+        const QColor square = preview.pixelColor(preview.width() / 4, preview.height() / 2);
+        QVERIFY(square.lightness() > 224);
+    }
 }
