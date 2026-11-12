@@ -1,3 +1,19 @@
+# 长截图与 RAW 缩略图方向修复
+
+## 根因
+
+FireShot PNG 为 3352 × 24126、8 位，合计 80,870,352 像素。在后台调用 ImageIO 前即被 6,400 万像素门槛拒绝。独立 ImageIO 探针以 8 倍子采样成功生成 40 × 288 的完整预览。
+
+Sony ARW 的 ImageIO 方向为 EXIF 8，主图为竖向，`CIRAWFilter.previewImage` 却返回横向。Nikon NEF 的 ImageIO 方向为 EXIF 1，主图为横向，内嵌预览却为竖向。两者的 RAW 草稿输出应用同一方向后，与完整 RAW 图像按像素布局比较均一致。内嵌预览是单独的相机图像，调整 `filter.orientation` 无法为它建立与 RAW 解码图相同的方向约定。 [Apple RAW 预览](https://developer.apple.com/documentation/coreimage/cirawfilter/previewimage?language=objc)
+
+## 设计与正确性论证
+
+1. 保留现有通用栅格门槛。在 PNG 确认可请求 8 倍子采样、样本深度可确认且为 1–8 位时，允许最多 1 亿源像素。按最宽 RGBA8 表示估计，源像素缓冲上限为 400 MB。子采样和最终缩略图尺寸约束继续生效。该分支只增加符合条件的 PNG，JPEG、HEIF、TIFF、RAW 和 Qt 回退的上限沿用原值。 [Apple ImageIO 子采样选项](https://developer.apple.com/documentation/imageio/kcgimagesourcesubsamplefactor)
+2. RAW 缩略图和主图都从相同 ImageIO 方向配置 `CIRAWFilter`，使用 RAW 解码图的 `outputImage`。缩略图先用草稿模式和原有目标比例，草稿无法输出时在相同比例下尝试普通模式。两个分支均从传感器图解码并应用同一个 EXIF 方向。缩放只改变取样大小，因此不会引入额外的旋转或镜像。相机内嵌预览不再用于缩略图方向判断。
+3. 使用原有后台队列、文件版本校验及缩略图输出边界。若 RAW 解码图在两种模式均不可用，保留占位，避免展示方向无法确认的内嵌图。主图的解码、HDR、转场和切图入口保持原状。
+
+---
+
 # 缩略图切换过渡与横向浏览
 
 ## 设计

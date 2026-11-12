@@ -54,6 +54,29 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertIn("thumbnailContentLayer.opacity", progress)
         self.assertNotIn("createNativeImageCGImage", progress)
 
+    def test_large_png_exception_is_format_and_subsample_bounded(self):
+        cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        native = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(
+            "void QVCocoaFunctions::", 1)[0]
+        policy = cocoa.split("bool allowsLargePngThumbnail(", 1)[1].split("\n}", 1)[0]
+        for guard in ("public.png", "subsampleFactor != 8", "100 * 1000 * 1000",
+                      "kCGImagePropertyDepth", "depth >= 1", "depth <= 8"):
+            self.assertIn(guard, policy)
+        self.assertIn("allowsLargePngThumbnail(", native)
+        self.assertIn("kCGImageSourceThumbnailMaxPixelSize", native)
+        strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        self.assertIn("QVImageLoader::fileVersion(path) != version", strip)
+
+    def test_raw_thumbnail_uses_oriented_decode_graph(self):
+        cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        raw = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(
+            "if (isRawImageType(type))", 1)[1].split("UTType *imageType", 1)[0]
+        self.assertIn("filter.orientation = sourceOrientation(source, 0)", raw)
+        self.assertIn("filter.draftModeEnabled = YES", raw)
+        self.assertIn("filter.draftModeEnabled = NO", raw)
+        self.assertEqual(raw.count("filter.outputImage"), 2)
+        self.assertNotIn("filter.previewImage", raw)
+
 
 if __name__ == "__main__":
     unittest.main()

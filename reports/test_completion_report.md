@@ -1,3 +1,44 @@
+# 长截图与 RAW 缩略图方向测试完成报告
+
+测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。应用与 Qt Test 目标构建成功。
+
+| 编号 | 固化测试 | 结果 |
+| --- | --- | --- |
+| P01 | `testThumbnailLongPng` | 通过，7200 万像素 PNG 的上下色块、纵横比和尺寸均正确 |
+| P02 | `testThumbnailRawOrientation:exif6` | 通过，缩略图与主图同向 |
+| P03 | `testThumbnailRawOrientation:exif8` | 通过，缩略图与主图同向 |
+| P04 | `testThumbnailReportedSample:fireshot-png` | 通过，原截图有实际像素、色调变化和正确比例 |
+| P05 | `testThumbnailReportedSample:sony-arw` | 通过，原始 ARW 缩略图为竖向，像素结构与主图同向 |
+| P06 | `testThumbnailReportedSample:nikon-nef` | 通过，原始 NEF 缩略图为横向，像素结构与主图同向 |
+| P07 | `test_large_png_exception_is_format_and_subsample_bounded` | 通过，扩容路径具有 PNG 类型、8 倍子采样、位深和像素上限约束 |
+| P08 | `test_raw_thumbnail_uses_oriented_decode_graph` | 通过，草稿和普通模式均取已配置方向的 RAW 解码图 |
+
+生产代码改动前，P01 因没有预览失败，P04 因没有预览失败，P05/P06 因缩略图纵横比与主图方向相反而失败。P02/P03 在改动前也通过，作为已有方向行为的回归。P07/P08 在改动前失败。动态用例见 [thumbnail_acceptance.inc](../tests/thumbnail_acceptance.inc)，静态用例见 [thumbnail_static.py](../tests/thumbnail_static.py)。
+
+## 回归结果
+
+P01–P08 全部通过。缩略图套件的 6 条静态测试和 42 条动态用例通过，42 条动态用例在强制 2× 缩放下再次通过。三个原样本在默认缩放及强制 2× 下均通过，无跳过。现有快速回归与 4 组生命周期回归共 5 组全部通过。
+
+## 复现命令
+
+```sh
+cmake --build build-about-update --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-about-update -R 'FovelleThumbnail' --output-on-failure
+QT_SCALE_FACTOR=2 ctest --test-dir build-about-update -R '^FovelleThumbnailDynamic$' --output-on-failure
+ctest --test-dir build-about-update -R 'Fovelle(FastTests|LifecycleFix)' --output-on-failure
+QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=WindowBehaviorTests FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+  FOVELLE_REPORTED_THUMBNAIL_PNG='/Users/inostarlin/Downloads/FireShot Capture 001 - 油车配置选择建议 - [chatgpt.com].png' \
+  FOVELLE_REPORTED_THUMBNAIL_ARW='/Users/inostarlin/Downloads/DSC07019.ARW' \
+  FOVELLE_REPORTED_THUMBNAIL_NEF='/Volumes/CRYSTAL/仓库/Fovelle App/hdr_test/4.nef' \
+  build-about-update/tests/fovelle_tests testThumbnailReportedSample -v1
+```
+
+## 验证边界
+
+原样本测试在缩略图条中读取临时副本，使用原始文件字节。三个原文件未写入，私有样本不进入仓库。普通 CTest 使用可分发的 PNG 和 DNG 测试数据。RAW 若无法获得定向解码图会显示占位。Homebrew QtSvg 仍报告 macOS 部署目标差异，本轮运行验证使用 macOS 27.0.1。
+
+---
+
 # 缩略图切换过渡与横向浏览测试完成报告
 
 测试日期为 2026-11-12。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa。应用与测试目标均已成功构建。

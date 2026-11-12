@@ -462,6 +462,11 @@ private slots:
     void testThumbnailPreview();
     void testThumbnailContent_data();
     void testThumbnailContent();
+    void testThumbnailLongPng();
+    void testThumbnailRawOrientation_data();
+    void testThumbnailRawOrientation();
+    void testThumbnailReportedSample_data();
+    void testThumbnailReportedSample();
     void testThumbnailSingle();
     void testThumbnailPreference();
     void testThumbnailBackendHandoff();

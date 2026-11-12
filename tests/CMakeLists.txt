@@ -688,7 +688,8 @@ add_test(NAME FovelleThumbnailDynamic
         testThumbnailTransition testThumbnailWheelBrowse testThumbnailScrollMomentum
         testThumbnailWheelOutside testThumbnailScrollBounds testThumbnailClickAfterScroll
         testThumbnailNativeBrowse testThumbnailReopenRecenters
-        testThumbnailTransitionResize testThumbnailTransitionRetarget)
+        testThumbnailTransitionResize testThumbnailTransitionRetarget
+        testThumbnailLongPng testThumbnailRawOrientation)
 set_tests_properties(FovelleThumbnailDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     RUN_SERIAL TRUE)

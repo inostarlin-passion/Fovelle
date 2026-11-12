@@ -1,5 +1,8 @@
 #include "qvthumbnailstrip.h"
 
+#include <QtEndian>
+#include <cstring>
+
 namespace {
 struct ThumbnailWindow
 {
@@ -648,4 +651,195 @@ void WindowBehaviorTests::testThumbnailTransitionRetarget()
     QVERIFY(fixture.strip->transitionProgress() < 1);
     QTRY_COMPARE(fixture.strip->transitionProgress(), 1.0);
     QCOMPARE(fixture.strip->browseIndex(), 2.0);
+}
+
+namespace {
+QVThumbnailStrip::Cell thumbnailCell(const ThumbnailWindow &fixture, const QString &path)
+{
+    for (const auto &cell : fixture.strip->cells()) {
+        if (cell.path == path)
+            return cell;
+    }
+    return { };
+}
+
+void revealNewThumbnail(ThumbnailWindow &fixture)
+{
+    qvApp->invalidateFolderListings();
+    fixture.view->thumbnailImageCore().refreshThumbnailListing();
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+}
+
+QImage orientationLuma(const QImage &input)
+{
+    QImage image = input.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    if (image.colorSpace().isValid())
+        image = image.convertedToColorSpace(QColorSpace::SRgb);
+    return image.convertToFormat(QImage::Format_Grayscale8);
+}
+
+double orientationCorrelation(const QImage &a, const QImage &b)
+{
+    if (a.isNull() || b.isNull())
+        return -1;
+    double sumA = 0, sumB = 0, sumAA = 0, sumBB = 0, sumAB = 0;
+    for (int y = 0; y < a.height(); ++y) {
+        for (int x = 0; x < a.width(); ++x) {
+            const double pa = a.constScanLine(y)[x];
+            const double pb = b.constScanLine(y)[x];
+            sumA += pa;
+            sumB += pb;
+            sumAA += pa * pa;
+            sumBB += pb * pb;
+            sumAB += pa * pb;
+        }
+    }
+    const int count = a.width() * a.height();
+    const double scale = std::sqrt((count * sumAA - sumA * sumA) * (count * sumBB - sumB * sumB));
+    return scale > 0 ? (count * sumAB - sumA * sumB) / scale : -1;
+}
+
+void verifyRawThumbnailOrientation(ThumbnailWindow &fixture, const QString &path,
+                                   const QImage &preview)
+{
+    QVERIFY(!preview.isNull());
+    fixture.window.openFile(path);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              path, 15000);
+    const auto main = fixture.view->thumbnailImageCore().getLoadedPixmap().toImage();
+    QVERIFY(!main.isNull());
+    const qreal ratio = qreal(main.width()) / main.height();
+    QVERIFY(qAbs(ratio - qreal(preview.width()) / preview.height()) < 0.04);
+    const auto mainLuma = orientationLuma(main);
+    const auto previewLuma = orientationLuma(preview);
+    const double aligned = orientationCorrelation(mainLuma, previewLuma);
+    double alternative = -1;
+    for (int angle : { 0, 90, 180, 270 }) {
+        const auto rotated = previewLuma.transformed(QTransform().rotate(angle));
+        if (angle != 0)
+            alternative = qMax(alternative, orientationCorrelation(mainLuma, rotated));
+        alternative = qMax(alternative,
+                           orientationCorrelation(
+                                   mainLuma, rotated.transformed(QTransform::fromScale(-1, 1))));
+    }
+    QVERIFY2(aligned > 0.80 && aligned - alternative > 0.10,
+             qPrintable(QString("aligned=%1 best_alternative=%2").arg(aligned).arg(alternative)));
+}
+
+bool writeOrientedFixtureDng(const QString &path, quint16 orientation)
+{
+    QFile source(QStringLiteral(FOVELLE_TEST_FIXTURE_DIR "/portable-hdr/bayer.dng"));
+    if (!source.open(QIODevice::ReadOnly))
+        return false;
+    auto bytes = source.readAll();
+    if (bytes.size() < 10 || bytes.left(4) != QByteArray("II*\0", 4))
+        return false;
+    const qsizetype directory = qFromLittleEndian<quint32>(bytes.constData() + 4);
+    if (directory > bytes.size() - 2)
+        return false;
+    const int count = qFromLittleEndian<quint16>(bytes.constData() + directory);
+    if (bytes.size() - directory - 2 < count * 12)
+        return false;
+    for (int i = 0; i < count; ++i) {
+        const qsizetype field = directory + 2 + i * 12;
+        if (qFromLittleEndian<quint16>(bytes.constData() + field) == 274
+            && qFromLittleEndian<quint16>(bytes.constData() + field + 2) == 3
+            && qFromLittleEndian<quint32>(bytes.constData() + field + 4) == 1) {
+            qToLittleEndian(orientation, bytes.data() + field + 8);
+            QFile output(path);
+            return output.open(QIODevice::WriteOnly) && output.write(bytes) == bytes.size();
+        }
+    }
+    return false;
+}
+} // namespace
+
+void WindowBehaviorTests::testThumbnailLongPng()
+{
+    ThumbnailWindow fixture(1);
+    const QString path = fixture.dir.filePath("02-long.png");
+    const QSize dimensions(3000, 24000);
+    {
+        QImage original(dimensions, QImage::Format_Grayscale8);
+        QVERIFY(!original.isNull());
+        for (int y = 0; y < original.height(); ++y)
+            std::memset(original.scanLine(y), y < original.height() / 2 ? 32 : 224,
+                        original.width());
+        QVERIFY(original.save(path));
+    }
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 15000);
+    const auto cell = thumbnailCell(fixture, path);
+    const auto &image = cell.preview;
+    QVERIFY(!image.isNull());
+    const qreal dpr = fixture.view->viewport()->devicePixelRatioF();
+    QVERIFY(image.height() <= std::ceil(cell.rect.height() * dpr));
+    QVERIFY(image.width() <= std::ceil(cell.rect.width() * dpr));
+    QVERIFY(qAbs(qreal(image.width()) / image.height()
+                 - qreal(dimensions.width()) / dimensions.height())
+            < 0.012);
+    QVERIFY(image.pixelColor(image.width() / 2, image.height() / 4).lightness() < 64);
+    QVERIFY(image.pixelColor(image.width() / 2, 3 * image.height() / 4).lightness() > 192);
+}
+
+void WindowBehaviorTests::testThumbnailRawOrientation_data()
+{
+    QTest::addColumn<int>("orientation");
+    QTest::newRow("exif6") << 6;
+    QTest::newRow("exif8") << 8;
+}
+
+void WindowBehaviorTests::testThumbnailRawOrientation()
+{
+    QFETCH(int, orientation);
+    ThumbnailWindow fixture(1);
+    const QString path = fixture.dir.filePath("02-rotated.dng");
+    QVERIFY(writeOrientedFixtureDng(path, quint16(orientation)));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 15000);
+    verifyRawThumbnailOrientation(fixture, path, thumbnailCell(fixture, path).preview);
+}
+
+void WindowBehaviorTests::testThumbnailReportedSample_data()
+{
+    QTest::addColumn<QByteArray>("variable");
+    QTest::addColumn<QSize>("expectedSize");
+    QTest::newRow("fireshot-png") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_PNG")
+                                  << QSize(3352, 24126);
+    QTest::newRow("sony-arw") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_ARW") << QSize(4672, 7008);
+    QTest::newRow("nikon-nef") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_NEF") << QSize(4256, 2832);
+}
+
+void WindowBehaviorTests::testThumbnailReportedSample()
+{
+    QFETCH(QByteArray, variable);
+    QFETCH(QSize, expectedSize);
+    const QString original = qEnvironmentVariable(variable.constData());
+    if (original.isEmpty())
+        QSKIP("Set the reported-sample path to run this local regression.");
+    QVERIFY2(QVCocoaFunctions::thumbnailMayReadContent(original), qPrintable(original));
+    ThumbnailWindow fixture(1);
+    const QString path = fixture.dir.filePath("02." + QFileInfo(original).suffix());
+    QVERIFY(QFile::copy(original, path));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 15000);
+    const QImage preview = thumbnailCell(fixture, path).preview;
+    QVERIFY(!preview.isNull());
+    QVERIFY(qAbs(qreal(preview.width()) / preview.height()
+                 - qreal(expectedSize.width()) / expectedSize.height())
+            < 0.025);
+    if (variable.endsWith("_PNG")) {
+        const auto luma = orientationLuma(preview);
+        int darkest = 255, brightest = 0;
+        for (int y = 0; y < luma.height(); ++y) {
+            for (int x = 0; x < luma.width(); ++x) {
+                darkest = qMin(darkest, int(luma.constScanLine(y)[x]));
+                brightest = qMax(brightest, int(luma.constScanLine(y)[x]));
+            }
+        }
+        QVERIFY(brightest - darkest > 32);
+    } else {
+        verifyRawThumbnailOrientation(fixture, path, preview);
+    }
 }

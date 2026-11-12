@@ -4836,6 +4836,24 @@ bool QVCocoaFunctions::thumbnailMayReadContent(const QString &path)
     }
 }
 
+static bool allowsLargePngThumbnail(CGImageSourceRef source, CFStringRef type, size_t index,
+                                    qint64 sourcePixels, int subsampleFactor)
+{
+    constexpr qint64 MaxLargePngThumbnailPixels = 100 * 1000 * 1000;
+    if (!CFEqual(type, CFSTR("public.png")) || subsampleFactor != 8
+        || sourcePixels > MaxLargePngThumbnailPixels)
+        return false;
+
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
+    if (!properties)
+        return false;
+    const auto releaseProperties = qScopeGuard([properties] { CFRelease(properties); });
+    double depth = 0;
+    // Limit this exception to PNGs whose source fits in an RGBA8 buffer.
+    return numberFromDictionary(properties, kCGImagePropertyDepth, depth)
+            && depth >= 1 && depth <= 8;
+}
+
 QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
                                       const qint64 fileBytes, bool &allowQtFallback)
 {
@@ -4877,16 +4895,20 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             filter.extendedDynamicRangeAmount = 0.0F;
             const CGFloat longestSourceEdge = std::max(pixels.width(), pixels.height());
             filter.scaleFactor = std::min<CGFloat>(1, longestEdge / longestSourceEdge);
-            CIImage *preview = filter.previewImage;
-            if (!preview)
-                preview = filter.outputImage;
             if (QvAsync::isCanceled())
                 return { };
 
             CIContext *context = [CIContext contextWithOptions:@{ kCIContextCacheIntermediates: @NO }];
             CGColorSpaceRef space = colorSyncSrgbColorSpace();
             const auto releaseSpace = qScopeGuard([space] { CGColorSpaceRelease(space); });
-            return imageFromCIImage(preview, context, space, longestEdge);
+            // Camera previews can have their own axes and framing. Use the
+            // same oriented RAW graph as the main view, at thumbnail scale.
+            QImage thumbnail = imageFromCIImage(filter.outputImage, context, space, longestEdge);
+            if (thumbnail.isNull() && !QvAsync::isCanceled()) {
+                filter.draftModeEnabled = NO;
+                thumbnail = imageFromCIImage(filter.outputImage, context, space, longestEdge);
+            }
+            return thumbnail;
         }
 
         UTType *imageType = [UTType typeWithIdentifier:(NSString *)type];
@@ -4897,8 +4919,23 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
                 || CFEqual(type, CFSTR("public.png")) || CFEqual(type, CFSTR("public.tiff"));
         const size_t index = heif ? CGImageSourceGetPrimaryImageIndex(source) : 0;
         const QSize pixels = sourcePixelSize(source, index);
+        if (pixels.isEmpty())
+            return { };
+
+        int subsampleFactor = 1;
+        if (subsampled) {
+            const int longestSourceEdge = qMax(pixels.width(), pixels.height());
+            for (const int factor : { 8, 4, 2 }) {
+                if (longestSourceEdge / factor >= longestEdge) {
+                    subsampleFactor = factor;
+                    break;
+                }
+            }
+        }
         const qint64 maxPixels = subsampled ? MaxNativeThumbnailPixels : MaxOtherThumbnailPixels;
-        if (pixels.isEmpty() || qint64(pixels.width()) * pixels.height() > maxPixels)
+        const qint64 sourcePixels = qint64(pixels.width()) * pixels.height();
+        if (sourcePixels > maxPixels
+            && !allowsLargePngThumbnail(source, type, index, sourcePixels, subsampleFactor))
             return { };
 
         NSMutableDictionary *options = [@{
@@ -4907,15 +4944,8 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             (id)kCGImageSourceThumbnailMaxPixelSize: @(longestEdge),
             (id)kCGImageSourceDecodeRequest: (id)kCGImageSourceDecodeToSDR,
         } mutableCopy];
-        if (subsampled) {
-            const int longestSourceEdge = qMax(pixels.width(), pixels.height());
-            for (const int factor : { 8, 4, 2 }) {
-                if (longestSourceEdge / factor >= longestEdge) {
-                    options[(id)kCGImageSourceSubsampleFactor] = @(factor);
-                    break;
-                }
-            }
-        }
+        if (subsampleFactor > 1)
+            options[(id)kCGImageSourceSubsampleFactor] = @(subsampleFactor);
         CGImageRef thumbnail =
                 CGImageSourceCreateThumbnailAtIndex(source, index, (CFDictionaryRef)options);
         [options release];

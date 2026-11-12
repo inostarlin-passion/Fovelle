@@ -20,6 +20,7 @@ macOS 15.0 or later.
 - Preloads images for faster navigation.
 - Supports light, dark, and system appearance modes.
 - Provides rich, customizable keyboard and mouse shortcuts.
+- Provides a thumbnail strip that appears and hides automatically and scrolls horizontally with the mouse wheel or a horizontal swipe.
 
 ## Additional Features
 
