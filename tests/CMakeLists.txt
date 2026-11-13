@@ -677,8 +677,16 @@ if(FOVELLE_EXTENDED_TESTS)
         "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()
 
+set(thumbnail_static_args)
+if(CMAKE_GENERATOR MATCHES "Ninja|Makefiles")
+    FetchContent_GetProperties(fovelle_libwebp SOURCE_DIR thumbnail_webp_source_dir)
+    list(APPEND thumbnail_static_args
+        --build-dir "${CMAKE_BINARY_DIR}"
+        --webp-source "${thumbnail_webp_source_dir}")
+endif()
 add_test(NAME FovelleThumbnailStatic
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/thumbnail_static.py)
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/thumbnail_static.py
+        ${thumbnail_static_args})
 add_test(NAME FovelleThumbnailDynamic
     COMMAND $<TARGET_FILE:fovelle_tests>
         testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover

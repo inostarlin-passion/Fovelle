@@ -237,3 +237,25 @@ C01–C04 复用已经固化的格式检查脚本、政策测试、CTest 和工�
 - 操作步骤　执行对应 CTest 项。
 - 预期结果　既有格式内容、长 PNG、RAW 方向、队列、过渡和导航用例通过。
 - 后置条件　还原各用例设置并清理临时图片。
+
+---
+
+# GitHub Actions 的 libwebp 头文件验收
+
+## CIW01 应用与测试的生成编译命令包含 vendored 头文件路径（静态）
+
+- 测试目的　捕获会被系统 libwebp 掩盖的构建接线缺口。
+- 前置条件　使用 CMake 和 Ninja 配置项目，启用测试与编译数据库。
+- 输入数据　生成的 `compile_commands.json` 与 CMake 中实际解析到的 libwebp 源码目录。
+- 操作步骤　执行缩略图静态套件，逐一检查 `Fovelle` 和 `fovelle_tests` 编译 `qvcocoafunctions.mm` 的命令。
+- 预期结果　两条命令都包含可解析到同一份 vendored `webp/decode.h` 的包含目录。
+- 后置条件　保留生成的编译数据库，源文件和配置不变。
+
+## CIW02 干净头文件搜索与缩略图运行（动态）
+
+- 测试目的　验证实际 Objective-C++ 编译能使用静态库对应的头文件，且 WebP 解码可用。
+- 前置条件　macOS、Qt、Ninja 和 clang-tidy 可运行，Release 构建已配置。
+- 输入数据　CIW01 的两条编译命令、VP8L 与 VP8X 透明 WebP 夹具及现有缩略图回归数据。
+- 操作步骤　清除通用 Homebrew include 回退后执行编译命令，构建应用和测试程序，再运行默认 CTest。
+- 预期结果　应用与测试的 Objective-C++ 对象编译成功，WebP 用例生成尺寸受限、保留颜色与 alpha 的预览，默认回归套件通过。
+- 后置条件　删除独立编译探针输出，保留可复现的 CMake 构建和 CTest 日志。

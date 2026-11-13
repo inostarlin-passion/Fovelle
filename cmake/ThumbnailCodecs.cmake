@@ -59,6 +59,9 @@ function(fovelle_add_libwebp)
             add_subdirectory("${fovelle_libwebp_SOURCE_DIR}" "${fovelle_libwebp_BINARY_DIR}" EXCLUDE_FROM_ALL)
         endif()
     endif()
+    # libwebp 1.6.0's decoder target omits src from its build interface.
+    target_include_directories(webpdecoder INTERFACE
+        "$<BUILD_INTERFACE:${fovelle_libwebp_SOURCE_DIR}/src>")
     set(FOVELLE_LIBWEBP_NOTICES
         "${fovelle_libwebp_SOURCE_DIR}/COPYING" "${fovelle_libwebp_SOURCE_DIR}/PATENTS" PARENT_SCOPE)
 endfunction()
