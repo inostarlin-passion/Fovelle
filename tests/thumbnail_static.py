@@ -1,5 +1,9 @@
+import argparse
 from pathlib import Path
+import sys
 import unittest
+
+from thumbnail_webp_compile_test import cocoa_compile_commands
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -98,5 +102,37 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertNotIn("filter.previewImage", raw)
 
 
+class ThumbnailCompileCommands(unittest.TestCase):
+    build_dir = None
+    webp_source = None
+
+    def test_bundled_webp_header_is_reachable_for_both_targets(self):
+        if self.build_dir is None:
+            self.skipTest("Configure a CMake build to check generated compile commands")
+        expected_header = (self.webp_source / "src/webp/decode.h").resolve(strict=True)
+
+        for target, directory, command in cocoa_compile_commands(self.build_dir):
+            with self.subTest(target=target):
+                arguments = iter(command)
+                include_paths = []
+                for arg in arguments:
+                    if arg in ("-I", "-isystem", "-idirafter"):
+                        include_paths.append(next(arguments))
+                    elif arg.startswith("-I"):
+                        include_paths.append(arg[2:])
+                candidates = (directory / path / "webp/decode.h" for path in include_paths)
+                header = next((path.resolve() for path in candidates if path.is_file()), None)
+                self.assertEqual(header, expected_header, f"{target} must use the bundled header")
+
+
 if __name__ == "__main__":
-    unittest.main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--build-dir", type=Path)
+    parser.add_argument("--webp-source", type=Path)
+    args, unittest_args = parser.parse_known_args()
+    if bool(args.build_dir) != bool(args.webp_source):
+        parser.error("--build-dir and --webp-source must be supplied together")
+
+    ThumbnailCompileCommands.build_dir = args.build_dir
+    ThumbnailCompileCommands.webp_source = args.webp_source
+    unittest.main(argv=[sys.argv[0], *unittest_args])

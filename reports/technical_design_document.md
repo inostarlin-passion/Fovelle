@@ -143,3 +143,13 @@ Sony ARW 的 ImageIO 方向为 EXIF 8，主图为竖向，`CIRAWFilter.previewIm
 2. PNG 签名及 IHDR 将 `9.png` 送入专用路径，文件、面积和单边都满足其上限。libpng 再独立校验尺寸及数据，读完才交付。损坏或中断只能返回空图。常规大小的 PNG 仍由原有解码器处理。
 3. 每个中间像素按像素中心映射到一个源坐标。非隔行图每行一次，Adam7 的 7 个 pass 划分全部源坐标且互斥，因此每个目标像素恰好得到一次填充。中间图存储量与目标尺寸成正比，行缓冲随源宽增长。元数据分配和源尺寸分别受限，没有随源面积或文件大小分配的输入或像素缓冲。平滑缩放在预乘 alpha 后进行，输出保留宽高比、方向和透明度。 [libpng 手册](https://github.com/pnggroup/libpng/blob/v1.6.59/libpng-manual.txt)
 4. 两条路径均受现有后台解码锁控制。读前、读后的文件版本和槽位请求代次仍决定结果能否缓存或提交。临时失败、过预算和取消仍允许槽位作为导航目标。
+
+---
+
+# GitHub Actions 的 libwebp 头文件解析
+
+运行 `43430398089` 的格式检查和 CMake Configure 已通过。Build 在编译应用的 `qvcocoafunctions.mm` 时停止，clang-tidy 报告找不到 `webp/decode.h`。应用与测试程序均链接 vendored `webpdecoder`。libwebp 1.6.0 的该目标在构建接口导出源码根目录和构建目录，公开头文件实际位于源码根目录下的 `src/webp`。本机构建命令末尾有 Homebrew 的 include 回退路径，因而可意外找到系统安装的同名头文件。 [失败作业](https://github.com/inostarlin-passion/Fovelle/actions/runs/43430398089/job/131902344346)
+
+在 `fovelle_add_libwebp()` 完成依赖创建后，为 `webpdecoder` 的构建接口增加源码的 `src` 目录。CMake 会把该使用要求传给链接它的 `Fovelle` 和 `fovelle_tests`。使用 `BUILD_INTERFACE` 将补充路径限制在源码构建。qmake 继续使用 pkg-config 提供的安装目录。
+
+正确性依据是编译器对尖括号头文件沿包含目录查找。对于新增目录 `<libwebp 源码>/src`，拼接 `webp/decode.h` 可命中同一个依赖版本的公开头文件，头文件再通过相对引用找到同目录下的 `types.h`。应用与测试链接同一目标，因此使用同一套头文件和静态库。将新路径加到两种 CMake 依赖创建分支的汇合点，可覆盖两条配置路径。
