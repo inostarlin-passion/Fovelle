@@ -288,3 +288,24 @@ QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=WindowBehaviorTests \
 FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
 build-thumbnail-release/tests/fovelle_tests testThumbnailCorpus
 ```
+
+---
+
+# GitHub Actions 的 libwebp 头文件测试完成报告
+
+验证日期为 2026-11-13（北京时间）。运行 `43430398089` 在 macOS Build 步骤报告 `webp/decode.h` 缺失。保留 runner 的编译和检查设置，修复点为 vendored `webpdecoder` 的 CMake 构建接口。 [原始失败作业](https://github.com/inostarlin-passion/Fovelle/actions/runs/43430398089/job/131902344346)
+
+| 编号 | 执行入口 | 验收证据 |
+| --- | --- | --- |
+| CIW01 | `FovelleThumbnailStatic` | 修复前两目标解析到 Homebrew 的头文件，两条断言均失败。修复后两目标均解析到 vendored `src/webp/decode.h`，静态套件通过 |
+| CIW02 | `tests/thumbnail_webp_compile_test.py`、Release 构建、CTest | 修复前移除 Homebrew 回退后复现 `file not found`。修复后探针成功编译应用和测试目标的 Cocoa 对象。Release 构建和 CI 测试档 7/7 个 CTest 目标通过，含 VP8L、VP8X 两个用例和完整缩略图套件的 52 项记录 |
+
+锁定版本 clang-format 23.1.3 的格式检查、13 项 CI 配置测试及 `git diff --check` 均通过。本机 clang-tidy 23.1.3 显式指定与 Qt 本地依赖一致的 Command Line Tools SDK 后，通过两条 Cocoa 编译命令的检查。
+
+验证分支为 `codex/fix-webp-ci-headers`，远端运行对应代码提交 `71c3a1c`。首轮格式检查通过，macOS 作业因托管 runner 容量不足被取消。重试后，Build、Test、Qt 应用包校验、解包校验及产物上传均通过，工作流最终结论为 success。 [GitHub Actions 验证运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/43434733863)
+
+```sh
+python3 tests/thumbnail_webp_compile_test.py build-thumbnail-release
+ctest --test-dir build-thumbnail-release -R '^FovelleThumbnail' --output-on-failure
+FOVELLE_TEST_PROFILE=ci ctest --test-dir build-thumbnail-release --output-on-failure
+```
