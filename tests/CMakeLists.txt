@@ -14,6 +14,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/qvfileenumerator.cpp
     ../src/qvgraphicsview.cpp
     ../src/qvthumbnailstrip.cpp
+    ../src/qvpngthumbnail.cpp
     ../src/qvgraphicsimageitem.cpp
     ../src/qvmenu.cpp
     ../src/qvoptionsdialog.cpp
@@ -47,6 +48,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/qvfileenumerator.h
     ../src/qvgraphicsview.h
     ../src/qvthumbnailstrip.h
+    ../src/qvpngthumbnail.h
     ../src/qvgraphicsimageitem.h
     ../src/qvmenu.h
     ../src/qvnamespace.h
@@ -93,6 +95,8 @@ target_include_directories(fovelle_tests PRIVATE ../src)
 target_link_libraries(fovelle_tests PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     ZLIB::ZLIB
+    png_static
+    webpdecoder
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -689,7 +693,8 @@ add_test(NAME FovelleThumbnailDynamic
         testThumbnailWheelOutside testThumbnailScrollBounds testThumbnailClickAfterScroll
         testThumbnailNativeBrowse testThumbnailReopenRecenters
         testThumbnailTransitionResize testThumbnailTransitionRetarget
-        testThumbnailLongPng testThumbnailRawOrientation)
+        testThumbnailLongPng testThumbnailRawOrientation
+        testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected)
 set_tests_properties(FovelleThumbnailDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     RUN_SERIAL TRUE)

@@ -843,3 +843,269 @@ void WindowBehaviorTests::testThumbnailReportedSample()
         verifyRawThumbnailOrientation(fixture, path, preview);
     }
 }
+
+namespace {
+QByteArray pngFixtureChunk(const QByteArray &type, const QByteArray &payload)
+{
+    QByteArray chunk(4, '\0');
+    qToBigEndian(quint32(payload.size()), chunk.data());
+    chunk.append(type);
+    chunk.append(payload);
+    const auto crc = crc32(0, reinterpret_cast<const Bytef *>(chunk.constData() + 4),
+                           uInt(chunk.size() - 4));
+    char checksum[4];
+    qToBigEndian(quint32(crc), checksum);
+    chunk.append(checksum, sizeof(checksum));
+    return chunk;
+}
+
+bool writeThumbnailPng(const QString &path, const QSize &size, bool adam7,
+                       const QByteArray &variant)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+    const auto write = [&file](const QByteArray &bytes) {
+        return file.write(bytes) == bytes.size();
+    };
+    QByteArray header(13, '\0');
+    qToBigEndian(quint32(size.width()), header.data());
+    qToBigEndian(quint32(size.height()), header.data() + 4);
+    header[8] = adam7 ? 16 : 8;
+    header[9] = adam7 ? 6 : 2;
+    header[12] = adam7 ? 1 : 0;
+    if (!write(QByteArray::fromHex("89504e470d0a1a0a")) || !write(pngFixtureChunk("IHDR", header)))
+        return false;
+    if (variant == "file-limit")
+        return file.resize(2LL * 1024 * 1024 * 1024 + 1);
+    if (variant == "pixel-limit" || variant == "edge-limit")
+        return write(pngFixtureChunk("IEND", { }));
+    if (adam7
+        && (!write(pngFixtureChunk(
+                    "eXIf",
+                    QByteArray::fromHex("49492a0008000000010012010300010000000600000000000000")))
+            || !write(pngFixtureChunk("cICP", QByteArray::fromHex("0c0d0001")))))
+        return false;
+
+    z_stream stream{ };
+    if (deflateInit(&stream, Z_BEST_SPEED) != Z_OK)
+        return false;
+    const auto cleanup = qScopeGuard([&stream] { deflateEnd(&stream); });
+    QByteArray compressed(64 * 1024, '\0');
+    const auto feed = [&](QByteArray &row, const int flush) {
+        stream.next_in = reinterpret_cast<Bytef *>(row.data());
+        stream.avail_in = uInt(row.size());
+        do {
+            stream.next_out = reinterpret_cast<Bytef *>(compressed.data());
+            stream.avail_out = uInt(compressed.size());
+            const int status = deflate(&stream, flush);
+            if (status != Z_OK && status != Z_STREAM_END)
+                return false;
+            const int written = int(compressed.size()) - int(stream.avail_out);
+            if (written > 0 && !write(pngFixtureChunk("IDAT", compressed.left(written))))
+                return false;
+            if (status == Z_STREAM_END)
+                return true;
+        } while (stream.avail_in != 0 || stream.avail_out == 0);
+        return flush != Z_FINISH;
+    };
+    constexpr int starts[7][2] = { { 0, 0 }, { 4, 0 }, { 0, 4 }, { 2, 0 },
+                                   { 0, 2 }, { 1, 0 }, { 0, 1 } };
+    constexpr int strides[7][2] = { { 8, 8 }, { 8, 8 }, { 4, 8 }, { 4, 4 },
+                                    { 2, 4 }, { 2, 2 }, { 1, 2 } };
+    for (int pass = 0; pass < (adam7 ? 7 : 1); ++pass) {
+        const int startX = adam7 ? starts[pass][0] : 0;
+        const int startY = adam7 ? starts[pass][1] : 0;
+        const int stepX = adam7 ? strides[pass][0] : 1;
+        const int stepY = adam7 ? strides[pass][1] : 1;
+        QByteArray upper(1, '\0'), lower(1, '\0');
+        for (int x = startX; x < size.width(); x += stepX) {
+            upper.append(adam7 ? QByteArray::fromHex("a00040002000ffff")
+                               : QByteArray::fromHex("ff0000"));
+            lower.append(adam7 ? QByteArray::fromHex("20004000a0008080")
+                               : QByteArray::fromHex("0000ff"));
+        }
+        for (int y = startY; y < size.height(); y += stepY) {
+            if (!feed(y < size.height() / 2 ? upper : lower, Z_NO_FLUSH))
+                return false;
+        }
+    }
+    QByteArray end;
+    return feed(end, Z_FINISH) && (variant == "truncated" || write(pngFixtureChunk("IEND", { })));
+}
+
+void verifyThumbnailBounds(const ThumbnailWindow &fixture, const QVThumbnailStrip::Cell &cell,
+                           const QSize &source)
+{
+    const QImage &image = cell.preview;
+    QVERIFY(!image.isNull());
+    QVERIFY(!cell.currentProxy);
+    const qreal dpr = fixture.view->viewport()->devicePixelRatioF();
+    const QSize limits(qCeil(cell.rect.width() * dpr), qCeil(cell.rect.height() * dpr));
+    QVERIFY(image.width() <= limits.width());
+    QVERIFY(image.height() <= limits.height());
+    if (source.isValid()) {
+        const QSize ideal = source.scaled(limits, Qt::KeepAspectRatio);
+        QVERIFY(qAbs(image.width() - ideal.width()) <= 2);
+        QVERIFY(qAbs(image.height() - ideal.height()) <= 2);
+    }
+    QCOMPARE(image.colorSpace(), QColorSpace(QColorSpace::SRgb));
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+} // namespace
+
+void WindowBehaviorTests::testThumbnailLargeWebp_data()
+{
+    QTest::addColumn<QString>("fixtureName");
+    QTest::newRow("lossless-vp8l") << QStringLiteral("thumbnail-large-alpha.webp");
+    QTest::newRow("lossy-vp8x") << QStringLiteral("thumbnail-large-lossy-alpha.webp");
+}
+
+void WindowBehaviorTests::testThumbnailLargeWebp()
+{
+    QFETCH(QString, fixtureName);
+    ThumbnailWindow fixture(1);
+    const QString path = fixture.dir.filePath("02-large.webp");
+    QVERIFY(QFile::copy(QStringLiteral(FOVELLE_TEST_FIXTURE_DIR "/") + fixtureName, path));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY(!thumbnailCell(fixture, path).version.isEmpty());
+    const auto cell = thumbnailCell(fixture, path);
+    QVERIFY(!cell.preview.isNull());
+    verifyThumbnailBounds(fixture, cell, QSize(4200, 2400));
+    const int x = cell.preview.width() / 2;
+    const QColor upper = cell.preview.pixelColor(x, cell.preview.height() / 4);
+    QVERIFY(upper.red() > 240 && upper.green() < 15 && upper.blue() < 15);
+    QCOMPARE(upper.alpha(), 255);
+    QCOMPARE(cell.preview.pixelColor(x, cell.preview.height() * 3 / 4).alpha(), 0);
+}
+
+void WindowBehaviorTests::testThumbnailStreamingPng_data()
+{
+    QTest::addColumn<bool>("adam7");
+    QTest::newRow("rgb8") << false;
+    QTest::newRow("oriented-adam7-rgba16") << true;
+}
+
+void WindowBehaviorTests::testThumbnailStreamingPng()
+{
+    QFETCH(bool, adam7);
+    ThumbnailWindow fixture(1);
+    const QString path = fixture.dir.filePath("02-large.png");
+    const QSize source(8201, 12201);
+    QVERIFY(writeThumbnailPng(path, source, adam7, { }));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 30000);
+    const auto cell = thumbnailCell(fixture, path);
+    const auto &image = cell.preview;
+    QVERIFY(!image.isNull());
+    verifyThumbnailBounds(fixture, cell, adam7 ? source.transposed() : source);
+    if (adam7) {
+        const int y = image.height() / 2;
+        const QColor left = image.pixelColor(image.width() / 4, y);
+        const QColor right = image.pixelColor(image.width() * 3 / 4, y);
+        QVERIFY(left.blue() > 145 && left.red() < 35);
+        QVERIFY(right.red() > 170 && right.blue() < 35);
+        QVERIFY(qAbs(left.alpha() - 128) <= 1);
+        QCOMPARE(right.alpha(), 255);
+    } else {
+        const int x = image.width() / 2;
+        QCOMPARE(image.pixelColor(x, image.height() / 4), QColor(Qt::red));
+        QCOMPARE(image.pixelColor(x, image.height() * 3 / 4), QColor(Qt::blue));
+    }
+}
+
+void WindowBehaviorTests::testThumbnailStreamingPngRejected_data()
+{
+    QTest::addColumn<QByteArray>("variant");
+    QTest::addColumn<QSize>("source");
+    QTest::newRow("file-limit") << QByteArray("file-limit") << QSize(8201, 12201);
+    QTest::newRow("pixel-limit") << QByteArray("pixel-limit") << QSize(40000, 40000);
+    QTest::newRow("edge-limit") << QByteArray("edge-limit") << QSize(65537, 1000);
+    QTest::newRow("truncated") << QByteArray("truncated") << QSize(8201, 12201);
+}
+
+void WindowBehaviorTests::testThumbnailStreamingPngRejected()
+{
+    QFETCH(QByteArray, variant);
+    QFETCH(QSize, source);
+    ThumbnailWindow fixture(2);
+    const QString path = fixture.dir.filePath("03-rejected.png");
+    QVERIFY(writeThumbnailPng(path, source, false, variant));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 30000);
+    QVERIFY(thumbnailCell(fixture, path).preview.isNull());
+    QTRY_VERIFY(!thumbnailCell(fixture, fixture.next).preview.isNull());
+}
+
+void WindowBehaviorTests::testThumbnailCorpus_data()
+{
+    QTest::addColumn<QString>("original");
+    const QString base = qEnvironmentVariable("FOVELLE_THUMBNAIL_CORPUS");
+    if (base.isEmpty()) {
+        QTest::newRow("unconfigured") << QString();
+        return;
+    }
+    for (const QString &name :
+         { QStringLiteral("sdr_test"), QStringLiteral("hdr_test"), QStringLiteral("mix_test"),
+           QStringLiteral("用于UI截图的示例图片") }) {
+        const QDir dir(QDir(base).filePath(name));
+        const auto files = dir.entryList(QDir::Files);
+        if (files.isEmpty())
+            QTest::newRow(qPrintable(name)) << dir.absolutePath();
+        for (const QString &file : files) {
+            QTest::newRow(qPrintable(name + '/' + file)) << dir.absoluteFilePath(file);
+        }
+    }
+}
+
+void WindowBehaviorTests::testThumbnailCorpus()
+{
+    QFETCH(QString, original);
+    if (original.isEmpty())
+        QSKIP("Set FOVELLE_THUMBNAIL_CORPUS to the mounted sample directory.");
+    const QByteArray originalVersion = QVImageLoader::fileVersion(original);
+    QVERIFY(!originalVersion.isEmpty());
+    ThumbnailWindow fixture(1);
+    const QString name = QFileInfo(original).fileName();
+    const QString path = fixture.dir.filePath("02-" + name);
+    QVERIFY(QFile::link(original, path));
+    qvApp->invalidateFolderListings();
+    fixture.view->thumbnailImageCore().refreshThumbnailListing();
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.strip->focusStrip();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 60000);
+    const auto cell = thumbnailCell(fixture, path);
+    qInfo() << name << cell.preview.size();
+    QVERIFY(!cell.preview.isNull());
+
+    QSize expected;
+    QByteArray lumaHex;
+    if (name == "5.webp") {
+        expected = QSize(4275, 2451);
+        lumaHex = "33251b44534c473d3b2d1c48675d574f5c21202650743f3e38103e1727871a29"
+                  "292c65313e592e505e755f5995957d835267706f7d8d6a350e1c1a1a2c251a08";
+    } else if (name == "9.png") {
+        expected = QSize(23094, 31390);
+        lumaHex = "a2a09d9b97979a95aea8a5aba7a39e97adbcaaa7aeada8a39fabb3a0afacab949"
+                  "d9bac8e72a69e8d9492966849739382778893846d5e786660626d81706d635e";
+    } else if (name == "macOS 2.webp") {
+        expected = QSize(6016, 6016);
+        lumaHex = "ceb4a1b1aa9c91bebabaa87876a8b7bd96985161654e887a2f2c318a8b2a32a03"
+                  "46fb9c4c3a666a1b2a1d4b9b4e1be79cf8ac5a9a1ddcfc5ba84a5998fc0bc7b";
+    }
+    verifyThumbnailBounds(fixture, cell, expected);
+    if (!lumaHex.isEmpty()) {
+        // ImageIO reference exported independently from the preview queue.
+        const auto bytes = QByteArray::fromHex(lumaHex);
+        QCOMPARE(bytes.size(), 64);
+        const QImage reference(reinterpret_cast<const uchar *>(bytes.constData()), 8, 8, 8,
+                               QImage::Format_Grayscale8);
+        const QImage actual =
+                cell.preview.scaled(8, 8, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                        .convertToFormat(QImage::Format_Grayscale8);
+        const double correlation = orientationCorrelation(actual, reference);
+        QVERIFY2(correlation > 0.9, qPrintable(QString::number(correlation)));
+    }
+    QCOMPARE(QVImageLoader::fileVersion(original), originalVersion);
+}

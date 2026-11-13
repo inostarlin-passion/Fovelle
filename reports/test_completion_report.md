@@ -249,3 +249,42 @@ FOVELLE_TEST_PROFILE=ci ctest --test-dir build-about-update --output-on-failure
 ```
 
 定向结果保存在 `build-about-update/test-results/navigation-boundary-zoom/`，其中 `baseline.xml` 和 `fixed.xml` 分别记录修复前后的动态结果，`boundary-hint.xml` 记录提示回归。完整日志位于 `build-about-update/Testing/Temporary/LastTest.log`，快速门禁摘要位于 `build-about-update/test-results/fast/summary.json`。
+
+---
+
+# WebP 与超大 PNG 缩略图测试完成报告
+
+本机验证日期为 2026-11-13（北京时间）。环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0，使用 Cocoa 平台插件。测试从普通 PNG 打开缩略图条，检查邻居槽位中后台提交的真实像素。
+
+## 原子验收
+
+| 编号 | 执行入口 | 结果 |
+| --- | --- | --- |
+| TW01 | `FovelleThumbnailStatic` | 6 项静态检查通过，包含预算、文件身份、队列和构建接线 |
+| TW02 | `testThumbnailLargeWebp` | VP8L 与 VP8X 两行通过，验证位置、透明度、颜色、比例和输出范围 |
+| TW03 | `testThumbnailStreamingPng` | RGB8 与带 EXIF 6、Display P3 声明的 Adam7 RGBA16 两行通过 |
+| TW04 | `testThumbnailStreamingPngRejected` | 文件、面积、单边和截断四行通过，确认占位及正常邻居仍可显示 |
+| TW05 | `testThumbnailCorpus` | 25 张实际图片全部通过，包括 10 张 SDR、5 张 HDR、4 张混合目录图片和 6 张截图样本 |
+| TW06 | `FovelleThumbnailStatic`、`FovelleThumbnailDynamic` | 两个 CTest 目标均通过。动态 QtTest 记录 52 项通过，含初始化、清理及 8 个新增数据行 |
+
+修复前的 Cocoa 回归复现 6 个失败，覆盖三张实际问题图片、透明 VP8L，以及两种超大 PNG。测试用独立 ImageIO 参考图的 8 × 8 亮度结构和尺寸比例验证三张实际问题图。实际槽位图像为 `5.webp` 288 × 165、`9.png` 152 × 208、`macOS 2.webp` 208 × 208。样本版本戳在各测试前后相同。
+
+## 解码与构建验证
+
+- 对 `9.png`，独立逐行解码探针在最长边 288 像素时输出 211 × 288，耗时 8.47 秒，峰值 RSS 为 28,884,992 字节。直接强制 ImageIO 以 8 倍子采样生成预览的独立探针峰值 RSS 为 1,424,228,352 字节。计时包含本机文件读取，结果受缓存和磁盘影响。该测量针对解码器进程，整套 Cocoa 测试的内存还包含应用渲染、预读和其他样本。
+- Debug 与 Release 的应用和测试目标均构建成功，qmake 构建完成。CMake 应用包含 libpng 与 libwebp 许可文件，两项依赖静态链接。两套静态库均生成 arm64 和 x86_64 切片，通过双架构链接探针。
+- 项目格式检查、变更 C++ 源码的 clang-tidy 和 `git diff --check` 均通过。Homebrew 的 QtSvg 在链接时提示其最低系统版本为 macOS 27.0。本机运行验收使用 macOS 27.0.1。
+- 使用含 PyYAML 与 Pillow 的项目虚拟环境重跑 Release 默认 CTest，7 个目标全部通过，包含快速套件、生命周期检查和缩略图验收。本次环境未启用历史扩展矩阵或更新安装测试。
+- 专用 PNG 解码上限为 2 GiB、10 亿像素和 65,536 单边像素。超过上限、损坏或专用路径无法转换的颜色声明保留占位。逐行解码仍须读取完整压缩数据。
+
+## 复现命令
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests --parallel 8
+ctest --test-dir build-thumbnail-release -R '^FovelleThumbnail' --output-on-failure
+
+FOVELLE_THUMBNAIL_CORPUS='/Volumes/CRYSTAL/仓库/Fovelle App' \
+QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=WindowBehaviorTests \
+FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+build-thumbnail-release/tests/fovelle_tests testThumbnailCorpus
+```

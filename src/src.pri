@@ -4,6 +4,7 @@ SOURCES += \
     $$PWD/openwith.cpp \
     $$PWD/qvfileenumerator.cpp \
     $$PWD/qvgraphicsview.cpp \
+    $$PWD/qvpngthumbnail.cpp \
     $$PWD/qvthumbnailstrip.cpp \
     $$PWD/qvgraphicsimageitem.cpp \
     $$PWD/qvmenu.cpp \
@@ -35,6 +36,7 @@ HEADERS += \
     $$PWD/openwith.h \
     $$PWD/qvfileenumerator.h \
     $$PWD/qvgraphicsview.h \
+    $$PWD/qvpngthumbnail.h \
     $$PWD/qvthumbnailstrip.h \
     $$PWD/qvgraphicsimageitem.h \
     $$PWD/qvmenu.h \
@@ -71,6 +73,8 @@ FORMS += \
 
 macx:include($$PWD/../dist/mac/sparkle.pri)
 
+CONFIG += link_pkgconfig
+PKGCONFIG += libpng libwebp
 LIBS += -lz
 
 SOURCES += $$PWD/urldownload.cpp $$PWD/asyncwork.cpp

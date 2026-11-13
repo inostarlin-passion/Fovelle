@@ -3,6 +3,7 @@
 #include "actionmanager.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
+#include "qvpngthumbnail.h"
 #include "colorinformation.h"
 
 #include <QUrl>
@@ -32,6 +33,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QWidget>
+#include <QtEndian>
 
 #include <algorithm>
 #include <atomic>
@@ -42,6 +44,7 @@
 #include <sys/resource.h>
 #include <sys/mount.h>
 #include <unistd.h>
+#include <webp/decode.h>
 
 #import <Cocoa/Cocoa.h>
 #import <ColorSync/ColorSync.h>
@@ -4836,30 +4839,68 @@ bool QVCocoaFunctions::thumbnailMayReadContent(const QString &path)
     }
 }
 
-static bool allowsLargePngThumbnail(CGImageSourceRef source, CFStringRef type, size_t index,
-                                    qint64 sourcePixels, int subsampleFactor)
+static QImage readSimpleLosslessWebpThumbnail(const QString &path, const int longestEdge,
+                                              const qint64 pixelLimit)
 {
-    constexpr qint64 MaxLargePngThumbnailPixels = 100 * 1000 * 1000;
-    if (!CFEqual(type, CFSTR("public.png")) || subsampleFactor != 8
-        || sourcePixels > MaxLargePngThumbnailPixels)
-        return false;
+    constexpr qint64 MaxWebpFallbackBytes = 64 * 1024 * 1024;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return { };
+    const qint64 fileBytes = file.size();
+    if (fileBytes < 25 || fileBytes > MaxWebpFallbackBytes || longestEdge <= 0
+        || QvAsync::isCanceled())
+        return { };
 
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, index, nullptr);
-    if (!properties)
-        return false;
-    const auto releaseProperties = qScopeGuard([properties] { CFRelease(properties); });
-    double depth = 0;
-    // Limit this exception to PNGs whose source fits in an RGBA8 buffer.
-    return numberFromDictionary(properties, kCGImagePropertyDepth, depth) && depth >= 1
-            && depth <= 8;
+    const auto header = file.peek(25);
+    if (header.size() != 25 || !header.startsWith("RIFF") || header.mid(8, 4) != "WEBP"
+        || header.mid(12, 4) != "VP8L")
+        return { };
+    const quint32 payloadBytes = qFromLittleEndian<quint32>(header.constData() + 16);
+    if (qFromLittleEndian<quint32>(header.constData() + 4) != fileBytes - 8
+        || 20 + qint64(payloadBytes) + (payloadBytes & 1) != fileBytes)
+        return { };
+
+    WebPDecoderConfig config;
+    if (!WebPInitDecoderConfig(&config))
+        return { };
+    const auto cleanup = qScopeGuard([&] { WebPFreeDecBuffer(&config.output); });
+    if (WebPGetFeatures(reinterpret_cast<const uint8_t *>(header.constData()), header.size(),
+                        &config.input)
+                != VP8_STATUS_OK
+        || config.input.format != 2
+        || qint64(config.input.width) * config.input.height > pixelLimit)
+        return { };
+
+    const QSize source(config.input.width, config.input.height);
+    const QSize size = qMax(source.width(), source.height()) > longestEdge
+            ? source.scaled(longestEdge, longestEdge, Qt::KeepAspectRatio).expandedTo(QSize(1, 1))
+            : source;
+    QImage image(size, QImage::Format_RGBA8888_Premultiplied);
+    if (image.isNull())
+        return { };
+    config.options.use_scaling = size != source;
+    config.options.scaled_width = size.width();
+    config.options.scaled_height = size.height();
+    config.output.colorspace = MODE_rgbA;
+    config.output.is_external_memory = 1;
+    config.output.u.RGBA = { image.bits(), int(image.bytesPerLine()), size_t(image.sizeInBytes()) };
+    const auto bytes = file.read(fileBytes);
+    if (bytes.size() != fileBytes || !bytes.startsWith(header) || QvAsync::isCanceled()
+        || WebPDecode(reinterpret_cast<const uint8_t *>(bytes.constData()), bytes.size(), &config)
+                != VP8_STATUS_OK)
+        return { };
+    image.setColorSpace(QColorSpace::SRgb);
+    return image;
 }
 
 QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
                                        const qint64 fileBytes, bool &allowQtFallback)
 {
+    constexpr qint64 MaxThumbnailFileBytes = 256 * 1024 * 1024;
     constexpr qint64 MaxThumbnailEPSBytes = 16 * 1024 * 1024;
     constexpr qint64 MaxNativeThumbnailPixels = 64 * 1000 * 1000;
     constexpr qint64 MaxRawThumbnailPixels = 64 * 1000 * 1000;
+    constexpr qint64 MaxWebpThumbnailPixels = 40 * 1000 * 1000;
     constexpr qint64 MaxOtherThumbnailPixels = 8 * 1000 * 1000;
 
     @autoreleasepool {
@@ -4867,6 +4908,16 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             allowQtFallback = false;
             if (fileBytes <= MaxThumbnailEPSBytes)
                 return readEPS(path, longestEdge, false).image;
+            return { };
+        }
+
+        if (auto png = readLargePngThumbnail(path, longestEdge, MaxThumbnailFileBytes,
+                                             MaxNativeThumbnailPixels)) {
+            allowQtFallback = false;
+            return std::move(*png);
+        }
+        if (fileBytes > MaxThumbnailFileBytes) {
+            allowQtFallback = false;
             return { };
         }
 
@@ -4922,9 +4973,11 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         const bool subsampled = heif || CFEqual(type, CFSTR("public.jpeg"))
                 || CFEqual(type, CFSTR("public.png")) || CFEqual(type, CFSTR("public.tiff"));
         const size_t index = heif ? CGImageSourceGetPrimaryImageIndex(source) : 0;
+        const bool webp = CFEqual(type, CFSTR("org.webmproject.webp"));
         const QSize pixels = sourcePixelSize(source, index);
         if (pixels.isEmpty())
-            return { };
+            return webp ? readSimpleLosslessWebpThumbnail(path, longestEdge, MaxWebpThumbnailPixels)
+                        : QImage();
 
         int subsampleFactor = 1;
         if (subsampled) {
@@ -4936,10 +4989,11 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
                 }
             }
         }
-        const qint64 maxPixels = subsampled ? MaxNativeThumbnailPixels : MaxOtherThumbnailPixels;
+        const qint64 maxPixels = webp ? MaxWebpThumbnailPixels
+                : subsampled          ? MaxNativeThumbnailPixels
+                                      : MaxOtherThumbnailPixels;
         const qint64 sourcePixels = qint64(pixels.width()) * pixels.height();
-        if (sourcePixels > maxPixels
-            && !allowsLargePngThumbnail(source, type, index, sourcePixels, subsampleFactor))
+        if (sourcePixels > maxPixels)
             return { };
 
         NSMutableDictionary *options = [@{
@@ -4954,7 +5008,8 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
                 CGImageSourceCreateThumbnailAtIndex(source, index, (CFDictionaryRef)options);
         [options release];
         if (!thumbnail)
-            return { };
+            return webp ? readSimpleLosslessWebpThumbnail(path, longestEdge, MaxWebpThumbnailPixels)
+                        : QImage();
         const auto releaseThumbnail = qScopeGuard([thumbnail] { CGImageRelease(thumbnail); });
         return imageFromCGImage(thumbnail, longestEdge);
     }

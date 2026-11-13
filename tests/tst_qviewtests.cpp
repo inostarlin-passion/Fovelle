@@ -463,6 +463,14 @@ private slots:
     void testThumbnailContent_data();
     void testThumbnailContent();
     void testThumbnailLongPng();
+    void testThumbnailLargeWebp_data();
+    void testThumbnailLargeWebp();
+    void testThumbnailStreamingPng_data();
+    void testThumbnailStreamingPng();
+    void testThumbnailStreamingPngRejected_data();
+    void testThumbnailStreamingPngRejected();
+    void testThumbnailCorpus_data();
+    void testThumbnailCorpus();
     void testThumbnailRawOrientation_data();
     void testThumbnailRawOrientation();
     void testThumbnailReportedSample_data();

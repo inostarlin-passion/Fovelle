@@ -29,7 +29,6 @@
 namespace {
 constexpr int MaxPreviewJobs = 2;
 constexpr int PreviewCacheBytes = 24 * 1024 * 1024;
-constexpr qint64 MaxThumbnailFileBytes = 256 * 1024 * 1024;
 constexpr qint64 MaxQtSourceBytes = 64 * 1024 * 1024;
 constexpr qint64 MaxSvgSourceBytes = 1024 * 1024;
 constexpr qint64 MaxEstimatedBytes = 64 * 1024 * 1024;
@@ -118,7 +117,7 @@ Preview readPreview(const QString &path, const QSize &size, PreviewCache &cache)
     QImage image;
     if (!QvAsync::isCanceled() && QVCocoaFunctions::thumbnailMayReadContent(path)) {
         const qint64 fileBytes = QFileInfo(path).size();
-        if (fileBytes > 0 && fileBytes <= MaxThumbnailFileBytes) {
+        if (fileBytes > 0) {
             // Some codecs allocate at source resolution even for a scaled
             // request. Keep decoding serialized across all open windows.
             QMutexLocker decodeLock(&cache.decodeMutex);

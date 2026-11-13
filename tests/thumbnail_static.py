@@ -54,17 +54,37 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertIn("thumbnailContentLayer.opacity", progress)
         self.assertNotIn("createNativeImageCGImage", progress)
 
-    def test_large_png_exception_is_format_and_subsample_bounded(self):
+    def test_large_png_and_webp_admission(self):
         cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
         native = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(
             "void QVCocoaFunctions::", 1)[0]
-        policy = cocoa.split("bool allowsLargePngThumbnail(", 1)[1].split("\n}", 1)[0]
-        for guard in ("public.png", "subsampleFactor != 8", "100 * 1000 * 1000",
-                      "kCGImagePropertyDepth", "depth >= 1", "depth <= 8"):
-            self.assertIn(guard, policy)
-        self.assertIn("allowsLargePngThumbnail(", native)
-        self.assertIn("kCGImageSourceThumbnailMaxPixelSize", native)
+        self.assertLess(native.index("readLargePngThumbnail("),
+                        native.index("CGImageSourceCreateWithURL("))
+        self.assertLess(native.index("fileBytes > MaxThumbnailFileBytes"),
+                        native.index("CGImageSourceCreateWithURL("))
+        self.assertIn('CFEqual(type, CFSTR("org.webmproject.webp"))', native)
+        self.assertIn("MaxWebpThumbnailPixels = 40 * 1000 * 1000", native)
+        self.assertIn("readSimpleLosslessWebpThumbnail(", native)
+        webp = cocoa.split("QImage readSimpleLosslessWebpThumbnail(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(webp.index("fileBytes > MaxWebpFallbackBytes"), webp.index("file.read("))
+        self.assertLess(webp.index("config.input.width"), webp.index("WebPDecode("))
+        self.assertIn('header.mid(12, 4) != "VP8L"', webp)
+        self.assertLess(native.index("sourcePixels > maxPixels"),
+                        native.index("CGImageSourceCreateThumbnailAtIndex("))
+
+        png = (ROOT / "src/qvpngthumbnail.cpp").read_text()
+        for guard in ("MaxPngFileBytes", "MaxPngPixels", "MaxPngEdge",
+                      "png_set_user_limits", "png_set_chunk_malloc_max", "QvAsync::isCanceled()"):
+            self.assertIn(guard, png)
+        self.assertLess(png.index("png_read_row("), png.index("png_read_end("))
+        self.assertIn("PNG_PASS_ROWS", png)
+        self.assertNotIn("png_read_image(", png)
+        self.assertNotIn("readAll(", png)
+        for name in ("CMakeLists.txt", "tests/CMakeLists.txt", "src/src.pri"):
+            self.assertIn("qvpngthumbnail.cpp", (ROOT / name).read_text())
+
         strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        self.assertLess(strip.index("QMutexLocker decodeLock"), strip.index("readThumbnail("))
         self.assertIn("QVImageLoader::fileVersion(path) != version", strip)
 
     def test_raw_thumbnail_uses_oriented_decode_graph(self):

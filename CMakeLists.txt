@@ -59,6 +59,7 @@ endif()
 find_package(ZLIB REQUIRED)
 
 include(cmake/Sparkle.cmake)
+include(cmake/ThumbnailCodecs.cmake)
 
 set(FOVELLE_SOURCES
     src/main.cpp
@@ -67,6 +68,7 @@ set(FOVELLE_SOURCES
     src/qvfileenumerator.cpp
     src/qvgraphicsview.cpp
     src/qvthumbnailstrip.cpp
+    src/qvpngthumbnail.cpp
     src/qvgraphicsimageitem.cpp
     src/qvmenu.cpp
     src/qvoptionsdialog.cpp
@@ -100,6 +102,7 @@ set(FOVELLE_HEADERS
     src/qvfileenumerator.h
     src/qvgraphicsview.h
     src/qvthumbnailstrip.h
+    src/qvpngthumbnail.h
     src/qvgraphicsimageitem.h
     src/qvmenu.h
     src/qvnamespace.h
@@ -151,6 +154,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     ZLIB::ZLIB
+    png_static
+    webpdecoder
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -183,7 +188,12 @@ endif()
 set(MACOSX_BUNDLE_ICON_FILE "qView.icns")
 set(app_icon_macos "${CMAKE_CURRENT_SOURCE_DIR}/dist/mac/${MACOSX_BUNDLE_ICON_FILE}")
 set_source_files_properties(${app_icon_macos} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-target_sources(${PROJECT_NAME} PRIVATE ${app_icon_macos})
+set_source_files_properties("${FOVELLE_LIBPNG_LICENSE}" PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources/licenses/libpng")
+set_source_files_properties(${FOVELLE_LIBWEBP_NOTICES} PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources/licenses/libwebp")
+target_sources(${PROJECT_NAME} PRIVATE
+    ${app_icon_macos} "${FOVELLE_LIBPNG_LICENSE}" ${FOVELLE_LIBWEBP_NOTICES})
 
 set(MACOSX_ICON_FILENAME ${MACOSX_BUNDLE_ICON_FILE})
 configure_file(
