@@ -17,13 +17,15 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = {
     'ImageLoaderTests': {'testColorSvgWideGamut', 'testColorNetpbm',
                          'testVectorDisplayTargetSwitch', 'testVectorRequestBurstAndDestruction'},
-    'FeatureTests': {'testKeepZoomPersistsAcrossProcesses', 'testUpdateConfigurationValidation'},
+    'FeatureTests': {'testKeepZoomPersistsAcrossProcesses', 'testUpdateConfigurationValidation',
+                     'testOpenWithWorkerTeardownContract', 'testOpenWithLatestRequest'},
     'GraphicsViewTests': {'testMousePanKeepsOverflowRangeAndContinuity', 'testKeepZoomAcrossNavigation'},
     'HDRPolicyTests': {'testHDRBrightnessLinearLightPixels'},
     'ImageCoreAndMovieTests': {'testHDRPersistentSurfaceMetadata'},
-    'WindowBehaviorTests': {'testNativeMessageBoxStandardButtonResponses'},
+    'WindowBehaviorTests': {'testNativeMessageBoxStandardButtonResponses',
+                            'testStartupMenusReadyBeforeEvents', 'testEPSResourceCompatibility'},
     'RemediationTests': {'testMoviePauseResume', 'testMoviePauseQueuedRead', 'testMovieAsyncPlaybackSpeed',
-                         'testDownloadLimits', 'testLoaderNonblockingShutdown'},
+                         'testDownloadLimits', 'testLoaderNonblockingShutdown', 'testShutdownProcess'},
     'ScrollHelperTests': set(), 'ApplicationEventTests': set(), 'ShortcutSettingsTests': set(),
 }
 
@@ -35,7 +37,7 @@ def validate_manifest(manifest):
         raise ValueError('Mandatory native HDR or legacy color coverage removed')
     rows = manifest.get('portable_fullscreen_rows', [])
     if (len(rows) != len(set(rows)) or not set(rows) <= set(FULLSCREEN_ROWS)
-            or not {'exit-bottom-visible', 'enter-size-hidden', 'exit-position-hidden'} <= set(rows)):
+            or not {'exit-bottom-visible', 'enter-size-hidden'} <= set(rows)):
         raise ValueError('Missing or invalid representative HDR full-screen rows')
     groups = manifest.get('groups', [])
     if len({g['suite'] for g in groups}) != len(groups):

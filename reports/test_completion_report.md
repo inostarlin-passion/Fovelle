@@ -1,3 +1,66 @@
+# 默认完整测试套件提速完成报告
+
+2026-11-14 在 Apple Silicon、macOS 27.0.1 和 Qt 6.12.0 上使用已构建的 Release 测试程序验证。完整默认 CTest 从 122.74 秒降至 52.23 秒，7/7 目标通过。内部默认门禁执行 45 个阶段，其中包含十个 Qt 套件、真实 HDR 样本和独立色彩回归。编译在计时前完成。 [默认 CTest 日志](../build-thumbnail-release/test-results/full-fast-default.log)
+
+| 编号 | 固化测试 | 结果 |
+| --- | --- | --- |
+| FT01 | `test_long_regressions_stay_available_in_extended_gate`、`review_fixes_static.py`、CTest 注册检查 | 通过。默认 7 个目标，扩展配置 83 个目标，两种配置均保留原执行超时策略 |
+| FT02 | 完整默认 CTest，带原始 JPEG | 7/7 通过，墙钟时间 52.64 秒。 [原图 CTest 日志](../build-thumbnail-release/test-results/full-fast-original.log) |
+| FT03 | `FovelleEPSRendererTimeout` | 通过，30.15 秒。应用报告真实生产超时，渲染进程已回收。 [扩展 EPS 日志](../build-thumbnail-release/test-results/full-fast-extended-eps.log) |
+
+启动菜单测试合并到默认进程后，曾把最大化几何写入下一用例。补上测试设置恢复后，两条导航按钮绘制路径均通过。缩略图代表用例由独立 Cocoa 进程执行，保留了原有的焦点断言。生命周期慢启动和平台延迟、完整缩略图矩阵及真实 EPS 超时由扩展配置提供。CI 单独启用的 Sparkle 安装门禁沿用原配置。
+
+```sh
+FOVELLE_FIT_REGRESSION_JPEG="$HOME/Downloads/Snipaste_2026-11-14_15-57-50.jpg" \
+  /usr/bin/time -p ctest --test-dir build-thumbnail-release --output-on-failure
+```
+
+---
+
+# 默认适合窗口的双滚动条测试完成报告
+
+2026-11-14 在 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 上验证。Debug 与 Release 均构建了应用和 Qt Test。本机 QtSvg 的最低部署版本高于项目的 macOS 15.0 链接目标，构建产生警告，以下测试在当前系统完成。
+
+## 本机精简验收
+
+| 输入 | CTest 目标 | 本机实测耗时 |
+| --- | --- | --- |
+| 用户原图副本 | 3/3 通过 | 1.47 秒 |
+| 同尺寸临时 JPEG | 3/3 通过 | 1.42 秒 |
+
+耗时为已构建的 Release 测试程序从 CTest 启动到退出的墙钟时间。两种输入各运行两个临界尺寸，共用一次 100% 切换、调整尺寸及旋转检查，并各运行一次分数 DPR 重采样。项目完整回归仍可通过默认 CTest 命令运行。 [原图日志](../build-thumbnail-release/test-results/default-fit-quick-original.log) · [临时 JPEG 日志](../build-thumbnail-release/test-results/default-fit-quick-generated.log)
+
+## 修复前后对照
+
+原图与同尺寸的临时 JPEG 均复现。可用视口为 642 × 365 DIP 时，计入 32 DIP 标题栏后，旧场景高 397.583 DIP，超出 397 DIP，最终横向滚动范围为 [0, 17]，纵向为 [-32, -14]。可用视口为 642 × 366 DIP 时，旧场景宽 642.732 DIP，横向范围为 [0, 18]，纵向为 [-32, -15]。修复后，原图在两个尺寸下的两轴范围均为 [0, 0]。 [修复前日志](../build-about-update/test-results/default-fit/baseline-jpeg.log) · [修复后日志](../build-about-update/test-results/default-fit/fixed.log)
+
+| 编号 | 固化测试 | 结果 |
+| --- | --- | --- |
+| FW01 | `test_fit_uses_one_calculation` | 通过。适配和切换共用浮点目标计算 |
+| FW02 | `test_fit_leaves_scrollbar_policies_to_qt` | 通过。默认策略为 AsNeeded |
+| FW03 | `testDefaultFitScrollBars:height-overflow` | 通过。横条隐藏且范围为空 |
+| FW04 | `testDefaultFitScrollBars:width-overflow` | 通过。纵条隐藏且范围为空 |
+| FW05 | `testDefaultFitScrollBars` | 通过。两种边界几何均满足浮点尺寸约束 |
+| FW06 | `testDefaultFitScrollBars` | 通过。100% 时两条滚动条可见且均可滚动 |
+| FW07 | `testDefaultFitScrollBars` | 通过。返回后即时及稳定时的比例一致，两轴范围为空 |
+| FW08 | `testDefaultFitScrollBars` | 通过。调整窗口和旋转后无滚动范围 |
+| FW09 | `testDefaultFitScrollBarsAfterRefinement` | 通过。DPR 2.6 下实际替换背板，按原倍率换算的宽度为 643.077 DIP，修复后场景不超过 643 DIP，两轴范围为空 |
+| FW10 | `testDefaultFitScrollBars:height-overflow`、`:width-overflow`（原图副本） | 通过。使用原图验证默认打开、100% 切换、调整窗口及旋转 |
+
+精简后每次运行 2 项静态检查、2 个 JPEG 数据行和 1 个重采样场景。既有缩放、滚动范围、小图 1:1 和导航回归中，Qt Test 汇总为 24 项通过（含初始化和清理）。CI 锁定的 clang-format 23.1.3 和 `git diff --check` 通过。 [既有回归日志](../build-about-update/test-results/default-fit/related-graphics.log)
+
+精简前，Release 配置默认注册的 10 个 CTest 目标全部通过，耗时 122.74 秒，包含原图用例、重采样、快速门禁、生命周期和缩略图回归。修复通过工作区构建交付。 [Release CTest 日志](../build-about-update/test-results/default-fit/release-ctest.log)
+
+## 复现命令
+
+```sh
+cmake --build build-thumbnail-release --target fovelle_tests
+FOVELLE_FIT_REGRESSION_JPEG=/Users/inostarlin/Downloads/Snipaste_2026-11-14_15-57-50.jpg \
+  ctest --test-dir build-thumbnail-release -L '^default-fit$' --output-on-failure
+```
+
+---
+
 # 缩略图键盘跨可见边缘导航测试完成报告
 
 2026-11-14 在 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 上验证。应用和 Qt Test 的 Release 构建均成功。构建时，本机 Homebrew 的 QtSvg 触发了部署目标版本差异的链接警告，测试在当前系统完成。

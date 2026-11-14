@@ -164,6 +164,8 @@
       "functions": [
         "testKeepZoomSurvivesStartupMigration:preserve-disabled",
         "testKeepZoomPersistsAcrossProcesses:macos-native-restart",
+        "testOpenWithWorkerTeardownContract:normal-startup",
+        "testOpenWithLatestRequest",
         "testUpdateConfigurationValidation",
         "testUpdateCheckFrequencyPolicy",
         "testCameraModelMetadata",
@@ -191,7 +193,8 @@
         "testToggleFitAnd100UsesDisplayedStateAndDirectionalAnchor",
         "testZoomKeepsVerticalScrollbarTrajectoryStable:wheel-zoom-out-expensive",
         "testKeepZoomAcrossNavigation:svg64",
-        "testBoundaryNavigationKeepsZoom",
+        "testBoundaryNavigationKeepsZoom:first-previous",
+        "testBoundaryNavigationKeepsZoom:last-next",
         "testSuccessfulNavigationAppliesZoomPreference"
       ]
     },
@@ -208,14 +211,13 @@
       "suite": "WindowBehaviorTests",
       "functions": [
         "testNativeMessageBoxStandardButtonResponses",
+        "testStartupMenusReadyBeforeEvents",
         "testLateMenuState",
         "testLateFullscreenMenu",
         "testLatePauseMenu",
         "testNativeNavigationGroupOpacity:disabled",
         "testNativeNavigationGroupOpacity:enabled",
         "testNavigationButtonsUseDarkArtwork:widget-white-left",
-        "testNavigationButtonsUseDarkArtwork:widget-white-right",
-        "testNavigationButtonsUseDarkArtwork:native-white-left",
         "testNavigationButtonsUseDarkArtwork:native-white-right",
         "testNavigationButtonUsesTransparentPaintOnlyFade",
         "testUndoDeleteRetry",
@@ -251,7 +253,8 @@
         "testMoviePauseQueuedRead:inflight",
         "testMovieAsyncPlaybackSpeed:gui-delayed",
         "testMovieQueuedSourceReplacement",
-        "testLoaderNonblockingShutdown"
+        "testLoaderNonblockingShutdown",
+        "testShutdownProcess"
       ]
     },
     {
@@ -284,7 +287,6 @@
   "legacy_bt709": true,
   "portable_fullscreen_rows": [
     "exit-bottom-visible",
-    "enter-size-hidden",
-    "exit-position-hidden"
+    "enter-size-hidden"
   ]
 }

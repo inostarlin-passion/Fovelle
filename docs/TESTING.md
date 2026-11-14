@@ -1,21 +1,23 @@
 # Testing Fovelle
 
-Build once, then use the same default gate locally and in CI:
+Build once, then run the full default test selection locally:
 
 ```sh
 cmake -S . -B build -DBUILD_TESTS=ON -DFOVELLE_EXTENDED_TESTS=OFF
 cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
+/usr/bin/time -p ctest --test-dir build --output-on-failure
 ```
 
 CTest and the default runner impose no execution-time budget (`TIMEOUT 0`).
 Functional timing assertions, explicit subprocess timeouts and QtTest's own
 watchdog remain active. A failure never counts as a successful partial run.
-Installing dependencies, compiling, format/lint and packaging are separate.
+The local target is under one minute for the CTest run. Installing dependencies,
+compiling, format/lint and packaging are separate. CI also enables the separate
+Sparkle installation tests where configured.
 
 `tests/fast_test_manifest.json` defines the default coverage. Selected Qt functions
-retain their original assertions. Functions/data rows are not run again through
-separate overlapping CTest entries. Source-only scripts run with up to four
+retain their original assertions. The default lifecycle cases run alongside the other manifest selections.
+The selected thumbnail cases run in their own Cocoa process. Source-only scripts run with up to four
 workers and retain ordered per-stage evidence, including failures. GUI suites execute sequentially in isolated
 processes to avoid focus interference. Local and CI profiles execute the same
 manifest; `FOVELLE_TEST_PROFILE=ci` only identifies the evidence.
@@ -37,8 +39,11 @@ representatives (the complete matrices remain available through extended tests):
 | Queued movie read | Inflight | Other cancellation/replacement/jump/destruction paths |
 | Movie speed | 200% speed with delayed GUI dispatch | Slow, normal and fast without GUI delay as well |
 | HDR surface metadata | Gain map | RAW and delayed RAW as well |
-| Native window | Standard alert buttons; three HDR full-screen rows below | SDR round trips, appearance/severity, hidden vector, refinement |
-| HDR full-screen continuity | Visible exit bottom, hidden enter size, hidden exit position | All ten phase/visibility rows |
+| Native window | Standard alert buttons, ready menus and one artwork direction per rendering path | Other directions, SDR round trips, appearance/severity, hidden vector and refinement |
+| HDR full-screen continuity | Visible exit bottom and hidden enter size | All ten phase/visibility rows |
+| Lifecycle | Normal Open With teardown, latest-request handling and application shutdown | Slow startup, platform latency and Open With shutdown subprocess |
+| Thumbnails | Keyboard, wheel, transition, cache supersession, and JPEG/WebP/PNG/RAW decode representatives | Full browsing, presentation and decoder matrix |
+| EPS | Valid rendering, diagnostic/file limits and cancellation | Real 30-second renderer timeout |
 
 Both bundled HDR fixtures still execute through the real-file decode gate.
 The default surface-metadata and full-screen tests use the gain-map JPEG to avoid
@@ -97,7 +102,7 @@ The core set retains loader cache/error/cancellation, EPS decoding, AVIF
 orientation, vector display-switch/burst/destruction and SVG/Netpbm color.
 Downloads retain failure, total timeout, size limits and cancellation; movies
 retain bounded cache, pause, inflight reads, delayed 200% playback and source
-replacement; shutdown remains covered. All 25 source-only scripts and all three
+replacement; shutdown remains covered. All source-only scripts in the manifest and all three
 mandatory HDR stages execute in the default gate.
 
 Format/color permutations, camera presentation, secondary shortcut interactions,
@@ -127,7 +132,11 @@ The 2026-11-05 review regressions run by default in WindowBehaviorTests and
 `review_fixes_static.py`. They cover deletion target identity during navigation,
 EPS file and diagnostic limits, full-resolution clipboard pixels, and downloaded
 source lifetimes across decoder cancellation, native images, MIME and Open With.
-One case deliberately exercises the real 30-second EPS timeout, so the selected
-gate can take longer than a minute. No production timeout is shortened for tests.
+The separate extended EPS test waits for the production 30-second timeout.
+After enabling extended tests, run it directly with:
+
+```sh
+ctest --test-dir build -R '^FovelleEPSRendererTimeout$' --output-on-failure
+```
 The six-part case specifications and completion evidence are documented in
 `reports/test_case_specification.md` and `reports/test_completion_report.md`.

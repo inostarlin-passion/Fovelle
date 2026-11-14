@@ -372,6 +372,9 @@ private slots:
     void testSmallImageOneToOneAppliedWhenOpeningAndBrowsingImages();
     void testNativePinchZoomChangesScaleAtGesturePosition();
     void testNativePanChangesViewport();
+    void testDefaultFitScrollBars_data();
+    void testDefaultFitScrollBars();
+    void testDefaultFitScrollBarsAfterRefinement();
     void testScrollBarsFollowImageOverflowAxes();
     void testScrollBarsReachImageEdges();
     void testScrollBarGeometryMatchesViewMetricAndDoesNotRebound();
@@ -498,6 +501,7 @@ private slots:
     void testEPSOutputLimit();
     void testEPSDiagnosticLimit();
     void testEPSResourceCompatibility();
+    void testEPSRendererTimeout();
     void testClipboardFullResolution();
     void testClipboardRepresentations();
     void testDownloadedSourcesRetire();
@@ -9247,6 +9251,167 @@ void ScrollHelperTests::testUnconstrainedModeRemainsUnbounded()
 
     QCOMPARE(harness.scrollArea.horizontalScrollBar()->value(), -120);
     QCOMPARE(harness.scrollArea.verticalScrollBar()->value(), -80);
+}
+
+void GraphicsViewTests::testDefaultFitScrollBars_data()
+{
+    QTest::addColumn<int>("usableHeight");
+    QTest::newRow("height-overflow") << 365;
+    QTest::newRow("width-overflow") << 366;
+}
+
+void GraphicsViewTests::testDefaultFitScrollBars()
+{
+    QFETCH(int, usableHeight);
+    ScopedWindowGeometry windowGeometry;
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "smallimageoneone", false },
+              { "fitoverscan", 0 },
+              { "fitzoomlimitenabled", false },
+              { "titlebarhidden", false } });
+    const bool originalQuitPolicy = qvApp->quitOnLastWindowClosed();
+    qvApp->setQuitOnLastWindowClosed(false);
+    const auto restoreQuitPolicy = qScopeGuard(
+            [originalQuitPolicy]() { qvApp->setQuitOnLastWindowClosed(originalQuitPolicy); });
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QSize imageSize(3456, 1968);
+    const QString imagePath = dir.filePath("fit-regression.jpg");
+    const QString sample = qEnvironmentVariable("FOVELLE_FIT_REGRESSION_JPEG");
+    if (sample.isEmpty()) {
+        QImage image(imageSize, QImage::Format_RGB32);
+        image.fill(Qt::darkBlue);
+        image.setDotsPerMeterX(5669);
+        image.setDotsPerMeterY(5669);
+        QVERIFY(image.save(imagePath));
+    } else {
+        QVERIFY2(QFile::copy(sample, imagePath), qPrintable(sample));
+    }
+
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(642, 450);
+    window.show();
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight > 0, 2000);
+    const int titlebar = window.getViewportPosition().obscuredHeight;
+    const QSize fitViewport(642, usableHeight + titlebar);
+    window.resize(window.size() + fitViewport - view->maximumViewportSize());
+    QTRY_COMPARE(view->maximumViewportSize(), fitViewport);
+
+    const auto checkFit = [&](const QSizeF &source) {
+        const QSize viewportSize = view->maximumViewportSize();
+        const QRectF sceneBounds = view->transform().mapRect(view->sceneRect());
+        const QScrollBar *horizontal = view->horizontalScrollBar();
+        const QScrollBar *vertical = view->verticalScrollBar();
+        qInfo() << "Fit viewport:" << viewportSize << "titlebar:" << titlebar
+                << "scene:" << sceneBounds << "ranges:" << horizontal->minimum()
+                << horizontal->maximum() << vertical->minimum() << vertical->maximum();
+        QCOMPARE(horizontal->maximum(), horizontal->minimum());
+        QCOMPARE(vertical->maximum(), vertical->minimum());
+        QVERIFY(!horizontal->isVisible());
+        QVERIFY(!vertical->isVisible());
+        QVERIFY(sceneBounds.width() <= viewportSize.width());
+        QVERIFY(sceneBounds.height() <= viewportSize.height());
+        const qreal expected = qMin(viewportSize.width() / source.width(),
+                                    (viewportSize.height() - titlebar) / source.height());
+        QVERIFY(QVGraphicsView::zoomLevelsEquivalent(view->getZoomLevel(), expected));
+        QVERIFY(view->isImageAtFit());
+    };
+
+    window.openFile(imagePath);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    QCOMPARE(window.getCurrentFileDetails().loadedPixmapSize, imageSize);
+    QVERIFY(view->getCalculatedZoomMode().has_value());
+    QCOMPARE(view->getCalculatedZoomMode().value(), Qv::CalculatedZoomMode::ZoomToFit);
+    checkFit(imageSize);
+    // Both dimensions have a distinct opening regression. The height row
+    // also covers the shared toggle, resize and rotation paths.
+    if (QTest::currentTestFailed() || usableHeight != 365)
+        return;
+    const qreal initialZoom = view->getZoomLevel();
+
+    view->toggleFitAnd100();
+    QCOMPARE(view->getZoomLevel(), 1.0);
+    QTRY_VERIFY(view->horizontalScrollBar()->isVisible());
+    QTRY_VERIFY(view->verticalScrollBar()->isVisible());
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
+    QVERIFY(view->verticalScrollBar()->maximum() > view->verticalScrollBar()->minimum());
+    QCOMPARE(view->horizontalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
+    QCOMPARE(view->verticalScrollBarPolicy(), Qt::ScrollBarAsNeeded);
+
+    view->toggleFitAnd100();
+    QCOMPARE(view->getZoomLevel(), initialZoom);
+    checkFit(imageSize);
+    QTest::qWait(100);
+    checkFit(imageSize);
+
+    window.resize(window.size() + QSize(0, 1));
+    QTRY_COMPARE(view->maximumViewportSize(), QSize(642, 366 + titlebar));
+    checkFit(imageSize);
+    view->rotateImage(90);
+    view->fitOrConstrainImage();
+    checkFit(imageSize.transposed());
+}
+
+void GraphicsViewTests::testDefaultFitScrollBarsAfterRefinement()
+{
+    ScopedWindowGeometry windowGeometry;
+    ScopedOptionValues options(
+            { { "windowresizemode", static_cast<int>(Qv::WindowResizeMode::Never) },
+              { "calculatedzoommode", static_cast<int>(Qv::CalculatedZoomMode::ZoomToFit) },
+              { "onetoonepixelsizing", false },
+              { "fitoverscan", 0 },
+              { "titlebarhidden", false },
+              { "smoothscalingmode", static_cast<int>(Qv::SmoothScalingMode::Expensive) },
+              { "smoothscalinglimitenabled", false } });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path =
+            createQtRasterTestImage(dir, "fit-refinement", Qt::darkCyan, QSize(3456, 1968));
+    QVERIFY(!path.isEmpty());
+    MainWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.setWindowState(Qt::WindowNoState);
+    window.resize(643, 450);
+    window.show();
+    auto *view = window.findChild<QVGraphicsView *>("graphicsView");
+    QVERIFY(view);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getViewportPosition().obscuredHeight > 0, 2000);
+    const QSize fitViewport(643, 367 + window.getViewportPosition().obscuredHeight);
+    window.resize(window.size() + fitViewport - view->maximumViewportSize());
+    QTRY_COMPARE(view->maximumViewportSize(), fitViewport);
+
+    window.openFile(path);
+    QTRY_VERIFY_WITH_TIMEOUT(window.getIsPixmapLoaded(), 5000);
+    auto *item = dynamic_cast<QVGraphicsImageItem *>(view->scene()->items().constFirst());
+    QVERIFY(item);
+    view->removeExpensiveScaling();
+    const QRectF originalBounds = view->transform().mapRect(view->sceneRect());
+    QVERIFY(originalBounds.width() <= fitViewport.width());
+    QVERIFY(originalBounds.height() <= fitViewport.height());
+    const qint64 originalPixmap = item->pixmap().cacheKey();
+    view->applyExpensiveScaling();
+    QVERIFY(item->pixmap().cacheKey() != originalPixmap);
+    const qreal unadjustedWidth = item->boundingRect().width() / view->devicePixelRatioF();
+    if (qEnvironmentVariable("QT_SCALE_FACTOR") == QStringLiteral("1.3"))
+        QVERIFY(unadjustedWidth > fitViewport.width());
+
+    const QRectF sceneBounds = view->transform().mapRect(view->sceneRect());
+    qInfo() << "Refined viewport:" << fitViewport << "DPR:" << view->devicePixelRatioF()
+            << "unadjusted backing width:" << unadjustedWidth << "scene:" << sceneBounds;
+    QVERIFY(sceneBounds.width() <= fitViewport.width());
+    QVERIFY(sceneBounds.height() <= fitViewport.height());
+    QCOMPARE(view->horizontalScrollBar()->maximum(), view->horizontalScrollBar()->minimum());
+    QCOMPARE(view->verticalScrollBar()->maximum(), view->verticalScrollBar()->minimum());
+    QVERIFY(!view->horizontalScrollBar()->isVisible());
+    QVERIFY(!view->verticalScrollBar()->isVisible());
 }
 
 // TC-SCROLLBAR-AXES

@@ -1,6 +1,7 @@
 // D1: no event dispatch between factory return and readiness assertions.
 void WindowBehaviorTests::testStartupMenusReadyBeforeEvents()
 {
+    ScopedWindowGeometry windowGeometry;
     const bool quit = qvApp->quitOnLastWindowClosed();
     qvApp->setQuitOnLastWindowClosed(false);
     const auto restore = qScopeGuard([quit] { qvApp->setQuitOnLastWindowClosed(quit); });

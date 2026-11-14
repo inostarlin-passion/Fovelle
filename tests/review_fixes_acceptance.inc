@@ -252,15 +252,17 @@ void WindowBehaviorTests::testEPSResourceCompatibility()
         const auto output = QString::fromUtf8(renderer.readMarker("started")).section('\n', 1);
         QVERIFY(!QFile::exists(QFileInfo(output).absolutePath()));
     }
-    {
-        ReviewRenderer renderer("time.sleep(40)\n");
-        QElapsedTimer timer;
-        timer.start();
-        const auto result = QVCocoaFunctions::readImageWithImageIO(renderer.source);
-        QVERIFY(result.errorString.contains("timed out"));
-        QVERIFY(timer.elapsed() >= 29000 && timer.elapsed() < 35000);
-        QVERIFY(renderer.reaped());
-    }
+}
+
+void WindowBehaviorTests::testEPSRendererTimeout()
+{
+    ReviewRenderer renderer("time.sleep(40)\n");
+    QElapsedTimer timer;
+    timer.start();
+    const auto result = QVCocoaFunctions::readImageWithImageIO(renderer.source);
+    QVERIFY(result.errorString.contains("timed out"));
+    QVERIFY(timer.elapsed() >= 29000 && timer.elapsed() < 35000);
+    QVERIFY(renderer.reaped());
 }
 
 void WindowBehaviorTests::testClipboardFullResolution()

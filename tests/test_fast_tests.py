@@ -61,6 +61,22 @@ class FastGateTests(unittest.TestCase):
         self.assertIn('timeout-minutes: 45', release)
         self.assertIn('NOTARIZATION_TIMEOUT: "30m"', release)
 
+    def test_long_regressions_stay_available_in_extended_gate(self):
+        cmake = (runner.ROOT / 'tests/CMakeLists.txt').read_text()
+        for name in ('FovelleLifecycleFixWorker', 'FovelleEPSRendererTimeout'):
+            with self.subTest(name=name):
+                before_registration = cmake.split('add_test(NAME ' + name, 1)[0]
+                self.assertIn('add_test(NAME ' + name, cmake)
+                self.assertEqual(before_registration.rsplit('endif()', 1)[-1]
+                                 .rsplit('if(', 1)[-1].splitlines()[0],
+                                 'FOVELLE_EXTENDED_TESTS)')
+        selectors = {selector for group in self.manifest()['groups']
+                     for selector in group['functions']}
+        self.assertNotIn('testEPSRendererTimeout', selectors)
+        self.assertIn('testEPSResourceCompatibility', selectors)
+        self.assertIn('testOpenWithWorkerTeardownContract:normal-startup', selectors)
+        self.assertNotIn('testOpenWithWorkerTeardownContract', selectors)
+
     def test_complete_gate_has_no_elapsed_time_budget(self):
         manifest = self.manifest()
         records = [{'name': e['script'], 'status': 'passed'} for e in manifest['static']]

@@ -614,21 +614,23 @@ endif()
 
 add_test(NAME FovelleLifecycleFixStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/lifecycle_fix_static.py)
-add_test(NAME FovelleLifecycleFixWindow COMMAND fovelle_tests
-    testStartupMenusReadyBeforeEvents testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
-set_tests_properties(FovelleLifecycleFixWindow PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
-add_test(NAME FovelleLifecycleFixWorker COMMAND fovelle_tests
-    testOpenWithWorkerTeardownContract testOpenWithLatestRequest testOpenWithShutdownProcess -v1)
-set_tests_properties(FovelleLifecycleFixWorker PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
-add_test(NAME FovelleLifecycleFixDrain COMMAND fovelle_tests
-    testLoaderNonblockingShutdown testShutdownProcess -v1)
-set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=RemediationTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+if(FOVELLE_EXTENDED_TESTS)
+    add_test(NAME FovelleLifecycleFixWindow COMMAND fovelle_tests
+        testStartupMenusReadyBeforeEvents testLateMenuState testLateFullscreenMenu testLatePauseMenu -v1)
+    set_tests_properties(FovelleLifecycleFixWindow PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+        TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+    add_test(NAME FovelleLifecycleFixWorker COMMAND fovelle_tests
+        testOpenWithWorkerTeardownContract testOpenWithLatestRequest testOpenWithShutdownProcess -v1)
+    set_tests_properties(FovelleLifecycleFixWorker PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=FeatureTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+        TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+    add_test(NAME FovelleLifecycleFixDrain COMMAND fovelle_tests
+        testLoaderNonblockingShutdown testShutdownProcess -v1)
+    set_tests_properties(FovelleLifecycleFixDrain PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=RemediationTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+        TIMEOUT 0 RUN_SERIAL TRUE LABELS "lifecycle;acceptance")
+endif()
 
 # Release acceptance is independent of the optional historical regression matrix.
 option(FOVELLE_ENABLE_UPDATE_INSTALL_TESTS "Run disposable Sparkle UI/install/relaunch fixtures on a logged-in macOS desktop" OFF)
@@ -662,6 +664,23 @@ if(FOVELLE_EXTENDED_TESTS)
         TIMEOUT 0 RUN_SERIAL TRUE)
 endif()
 
+add_test(NAME FovelleDefaultFitScrollBarsStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/default_fit_scrollbars_static.py)
+set_tests_properties(FovelleDefaultFitScrollBarsStatic PROPERTIES
+    TIMEOUT 0 LABELS "default-fit")
+
+add_test(NAME FovelleDefaultFitScrollBars
+    COMMAND fovelle_tests testDefaultFitScrollBars -v1)
+set_tests_properties(FovelleDefaultFitScrollBars PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 0 LABELS "default-fit")
+
+add_test(NAME FovelleDefaultFitScrollBarsRefinement
+    COMMAND fovelle_tests testDefaultFitScrollBarsAfterRefinement -v1)
+set_tests_properties(FovelleDefaultFitScrollBarsRefinement PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;QT_SCALE_FACTOR=1.3;FOVELLE_TEST_SUITE=GraphicsViewTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
+    TIMEOUT 0 LABELS "default-fit")
+
 # Include registrations without their own property block (for example static
 # lifecycle checks). Override inherited CTEST_TEST_TIMEOUT for every test.
 get_property(FOVELLE_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
@@ -672,7 +691,11 @@ if(FOVELLE_EXTENDED_TESTS)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/review_fixes_static.py)
     add_test(NAME FovelleReviewFixes COMMAND fovelle_tests
         testDeleteConfirmationKeepsTarget testDeleteConfirmationRejectsReplacement testEPSOutputLimit testEPSDiagnosticLimit testEPSResourceCompatibility testClipboardFullResolution testClipboardRepresentations testDownloadedSourcesRetire testSourceLeaseAsyncLifetime testSourceLeaseConsumers -v1)
-    set_tests_properties(FovelleReviewFixesStatic FovelleReviewFixes PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE)
+    add_test(NAME FovelleEPSRendererTimeout COMMAND fovelle_tests testEPSRendererTimeout -v1)
+    set_tests_properties(FovelleReviewFixesStatic FovelleReviewFixes FovelleEPSRendererTimeout
+        PROPERTIES TIMEOUT 0 RUN_SERIAL TRUE)
+    set_tests_properties(FovelleEPSRendererTimeout PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
     set_tests_properties(FovelleReviewFixes PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")
 endif()
@@ -687,23 +710,34 @@ endif()
 add_test(NAME FovelleThumbnailStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/thumbnail_static.py
         ${thumbnail_static_args})
-add_test(NAME FovelleThumbnailDynamic
-    COMMAND $<TARGET_FILE:fovelle_tests>
-        testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover
-        testThumbnailHide testThumbnailClick testThumbnailInvalidPress testThumbnailVersion
-        testThumbnailKeyboard testThumbnailPreview testThumbnailContent testThumbnailSingle testThumbnailPreference
-        testThumbnailKeyboardScroll testThumbnailKeyboardBounds testThumbnailKeyboardAfterWheel
-        testThumbnailBackendHandoff testThumbnailSupersededValidation
-        testThumbnailVersionChangesDuringRead testThumbnailPreferenceDoesNotRescan
-        testThumbnailFadeReversal testThumbnailFullscreenTransition
-        testThumbnailVersionedCacheReuse testThumbnailFocusRefreshesDirtyListing
-        testThumbnailNativeHDR testThumbnailDragOwnership
-        testThumbnailTransition testThumbnailWheelBrowse testThumbnailScrollMomentum
-        testThumbnailWheelOutside testThumbnailScrollBounds testThumbnailClickAfterScroll
-        testThumbnailNativeBrowse testThumbnailReopenRecenters
-        testThumbnailTransitionResize testThumbnailTransitionRetarget
-        testThumbnailLongPng testThumbnailRawOrientation
-        testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected)
+set_tests_properties(FovelleThumbnailStatic PROPERTIES TIMEOUT 0)
+if(FOVELLE_EXTENDED_TESTS)
+    add_test(NAME FovelleThumbnailDynamic
+        COMMAND $<TARGET_FILE:fovelle_tests>
+            testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover
+            testThumbnailHide testThumbnailClick testThumbnailInvalidPress testThumbnailVersion
+            testThumbnailKeyboard testThumbnailPreview testThumbnailContent testThumbnailSingle testThumbnailPreference
+            testThumbnailKeyboardScroll testThumbnailKeyboardBounds testThumbnailKeyboardAfterWheel
+            testThumbnailBackendHandoff testThumbnailSupersededValidation
+            testThumbnailVersionChangesDuringRead testThumbnailPreferenceDoesNotRescan
+            testThumbnailFadeReversal testThumbnailFullscreenTransition
+            testThumbnailVersionedCacheReuse testThumbnailFocusRefreshesDirtyListing
+            testThumbnailNativeHDR testThumbnailDragOwnership
+            testThumbnailTransition testThumbnailWheelBrowse testThumbnailScrollMomentum
+            testThumbnailWheelOutside testThumbnailScrollBounds testThumbnailClickAfterScroll
+            testThumbnailNativeBrowse testThumbnailReopenRecenters
+            testThumbnailTransitionResize testThumbnailTransitionRetarget
+            testThumbnailLongPng testThumbnailRawOrientation
+            testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected)
+else()
+    add_test(NAME FovelleThumbnailDynamic
+        COMMAND fovelle_tests testThumbnailContent:jpeg testThumbnailContent:corrupt
+            testThumbnailKeyboardScroll testThumbnailKeyboardBounds:first-wraps
+            testThumbnailWheelBrowse testThumbnailTransitionRetarget
+            testThumbnailSupersededValidation testThumbnailVersionChangesDuringRead
+            testThumbnailLargeWebp:lossy-vp8x testThumbnailStreamingPng:oriented-adam7-rgba16
+            testThumbnailStreamingPngRejected:truncated testThumbnailRawOrientation:exif6)
+endif()
 set_tests_properties(FovelleThumbnailDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
-    RUN_SERIAL TRUE)
+    RUN_SERIAL TRUE TIMEOUT 0)

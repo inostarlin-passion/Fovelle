@@ -22,6 +22,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+
+namespace {
+qreal containedFitScale(const QSizeF &content, const QSize &viewport)
+{
+    // QGraphicsView compares floating-point scene bounds before computing
+    // integer scrollbar ranges. Leave room for transform and inset rounding.
+    constexpr qreal roundingMargin = 1.0 - 8.0 * std::numeric_limits<qreal>::epsilon();
+    return qMin(viewport.width() / content.width(), viewport.height() / content.height())
+            * roundingMargin;
+}
+} // namespace
 
 QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
 {
@@ -2101,7 +2113,20 @@ void QVGraphicsView::applyExpensiveScaling()
     loadedPixmapItem->setPixmap(imageCore.scaleExpensively(mappedSize));
 
     // Set appropriate scale factor
-    const qreal newTransformScale = 1.0 / devicePixelRatioF();
+    qreal newTransformScale = 1.0 / devicePixelRatioF();
+    if (calculatedZoomMode == Qv::CalculatedZoomMode::ZoomToFit) {
+        const QSize fitViewport = getFitViewportSize(true);
+        const QSizeF backingSize =
+                getUnspecializedTransform().mapRect(loadedPixmapItem->boundingRect()).size();
+        if (!fitViewport.isEmpty() && !backingSize.isEmpty()
+            && zoomLevel <= containedFitScale(getEffectiveOriginalSize(), fitViewport)) {
+            // Resampling rounds the backing dimensions to whole device
+            // pixels, which can put an otherwise fitted image over the edge.
+            // Preserve intentional overflow at the minimum zoom level.
+            newTransformScale =
+                    qMin(newTransformScale, containedFitScale(backingSize, fitViewport));
+        }
+    }
     setTransformScale(newTransformScale);
     appliedDpiAdjustment = dpiAdjustment;
     appliedExpensiveScaleZoomLevel = zoomLevel;
@@ -2151,74 +2176,10 @@ void QVGraphicsView::recalculateZoom(const std::optional<QPoint> &zoomAnchor)
     if (!getCurrentFileDetails().isPixmapLoaded || !calculatedZoomMode.has_value())
         return;
 
-    const QSizeF imageSize = getEffectiveOriginalSize();
-    const QSize viewSize = getFitViewportSize(true);
-    const QSize usableViewportSize = getFitViewportSize();
-
-    if (viewSize.isEmpty())
+    const qreal targetRatio = calculateZoomLevelForMode(calculatedZoomMode.value());
+    if (targetRatio <= 0.0)
         return;
 
-    const LogicalPixelFitter fitter = getPixelFitter();
-    const qreal fitXRatio = fitter.unsnapWidth(viewSize.width()) / imageSize.width();
-    const qreal fitYRatio = fitter.unsnapHeight(viewSize.height()) / imageSize.height();
-
-    qreal targetRatio;
-    const auto windowResizeMode =
-            qvApp->getSettingsManager().getEnum<Qv::WindowResizeMode>("windowresizemode");
-    const bool keepSmallImageAtOneToOne = calculatedZoomMode.has_value()
-            && calculatedZoomMode.value() != Qv::CalculatedZoomMode::OriginalSize
-            && shouldDisplaySmallImageAtOneToOne(imageSize, usableViewportSize,
-                                                 showSmallImagesAtOneToOne, windowResizeMode);
-
-    // Each mode will check if the rounded image size already produces the desired fit,
-    // in which case we can use exactly 1.0 to avoid unnecessary scaling
-    const int imageOverflowX = fitter.snapWidth(imageSize.width()) - viewSize.width();
-    const int imageOverflowY = fitter.snapHeight(imageSize.height()) - viewSize.height();
-
-    if (keepSmallImageAtOneToOne) {
-        targetRatio = 1.0;
-    } else
-        switch (calculatedZoomMode.value()) {
-        case Qv::CalculatedZoomMode::ZoomToFit:
-            // In rare cases, if the window sizing code just barely increased the size to enforce
-            // the minimum and intends for a tiny upscale to occur (e.g. to 100.3%), that could get
-            // misdetected as the special case for 1.0 here and leave an unintentional 1 pixel
-            // border. So if we match on only one dimension, make sure the other dimension will have
-            // at least a few pixels of border showing.
-            if ((imageOverflowX == 0 && (imageOverflowY == 0 || imageOverflowY <= -2))
-                || (imageOverflowY == 0 && (imageOverflowX == 0 || imageOverflowX <= -2))) {
-                targetRatio = 1.0;
-            } else {
-                // If the fit ratios are extremely close, it's possible that both are sufficient to
-                // contain the image, but one results in the opposing dimension getting rounded down
-                // to just under the view size, so use the larger of the two ratios in that case.
-                const bool isOverallFitToXRatio =
-                        fitter.snapHeight(imageSize.height() * fitXRatio) == viewSize.height();
-                const bool isOverallFitToYRatio =
-                        fitter.snapWidth(imageSize.width() * fitYRatio) == viewSize.width();
-                if (isOverallFitToXRatio || isOverallFitToYRatio)
-                    targetRatio = qMax(fitXRatio, fitYRatio);
-                else
-                    targetRatio = qMin(fitXRatio, fitYRatio);
-            }
-            break;
-        case Qv::CalculatedZoomMode::FillWindow:
-            if ((imageOverflowX == 0 && imageOverflowY >= 0)
-                || (imageOverflowY == 0 && imageOverflowX >= 0)) {
-                targetRatio = 1.0;
-            } else {
-                targetRatio = qMax(fitXRatio, fitYRatio);
-            }
-            break;
-        default:
-            targetRatio = 1.0;
-            break;
-        }
-
-    if (fitZoomLimit.has_value() && targetRatio > fitZoomLimit.value())
-        targetRatio = fitZoomLimit.value();
-
-    targetRatio = boundedZoomLevel(targetRatio);
     lastCalculatedZoomMode = calculatedZoomMode;
     lastCalculatedZoomLevel = targetRatio;
 
@@ -2236,38 +2197,25 @@ qreal QVGraphicsView::calculateZoomLevelForMode(const Qv::CalculatedZoomMode mod
     if (viewSize.isEmpty() || imageSize.isEmpty())
         return 0.0;
 
-    const LogicalPixelFitter fitter = getPixelFitter();
-    const qreal fitXRatio = fitter.unsnapWidth(viewSize.width()) / imageSize.width();
-    const qreal fitYRatio = fitter.unsnapHeight(viewSize.height()) / imageSize.height();
     const auto windowResizeMode =
             qvApp->getSettingsManager().getEnum<Qv::WindowResizeMode>("windowresizemode");
     const bool keepSmallImageAtOneToOne = mode != Qv::CalculatedZoomMode::OriginalSize
             && shouldDisplaySmallImageAtOneToOne(imageSize, usableViewportSize,
                                                  showSmallImagesAtOneToOne, windowResizeMode);
-    const int imageOverflowX = fitter.snapWidth(imageSize.width()) - viewSize.width();
-    const int imageOverflowY = fitter.snapHeight(imageSize.height()) - viewSize.height();
 
     qreal targetRatio = 1.0;
-    if (keepSmallImageAtOneToOne) {
-        targetRatio = 1.0;
-    } else if (mode == Qv::CalculatedZoomMode::ZoomToFit) {
-        if ((imageOverflowX == 0 && (imageOverflowY == 0 || imageOverflowY <= -2))
-            || (imageOverflowY == 0 && (imageOverflowX == 0 || imageOverflowX <= -2))) {
-            targetRatio = 1.0;
-        } else {
-            const bool isOverallFitToXRatio =
-                    fitter.snapHeight(imageSize.height() * fitXRatio) == viewSize.height();
-            const bool isOverallFitToYRatio =
-                    fitter.snapWidth(imageSize.width() * fitYRatio) == viewSize.width();
-            targetRatio = (isOverallFitToXRatio || isOverallFitToYRatio)
-                    ? qMax(fitXRatio, fitYRatio)
-                    : qMin(fitXRatio, fitYRatio);
+    if (!keepSmallImageAtOneToOne && mode == Qv::CalculatedZoomMode::ZoomToFit) {
+        targetRatio = containedFitScale(imageSize, viewSize);
+    } else if (!keepSmallImageAtOneToOne && mode == Qv::CalculatedZoomMode::FillWindow) {
+        const LogicalPixelFitter fitter = getPixelFitter();
+        const int imageOverflowX = fitter.snapWidth(imageSize.width()) - viewSize.width();
+        const int imageOverflowY = fitter.snapHeight(imageSize.height()) - viewSize.height();
+        if (!((imageOverflowX == 0 && imageOverflowY >= 0)
+              || (imageOverflowY == 0 && imageOverflowX >= 0))) {
+            const qreal fitXRatio = fitter.unsnapWidth(viewSize.width()) / imageSize.width();
+            const qreal fitYRatio = fitter.unsnapHeight(viewSize.height()) / imageSize.height();
+            targetRatio = qMax(fitXRatio, fitYRatio);
         }
-    } else if (mode == Qv::CalculatedZoomMode::FillWindow) {
-        targetRatio = (imageOverflowX == 0 && imageOverflowY >= 0)
-                        || (imageOverflowY == 0 && imageOverflowX >= 0)
-                ? 1.0
-                : qMax(fitXRatio, fitYRatio);
     }
 
     if (fitZoomLimit.has_value() && targetRatio > fitZoomLimit.value())
