@@ -184,6 +184,123 @@ void WindowBehaviorTests::testThumbnailKeyboard()
     QVERIFY(fixture.window.isVisible());
 }
 
+void WindowBehaviorTests::testThumbnailKeyboardScroll_data()
+{
+    QTest::addColumn<int>("key");
+    QTest::addColumn<int>("step");
+    QTest::newRow("left") << int(Qt::Key_Left) << -1;
+    QTest::newRow("right") << int(Qt::Key_Right) << 1;
+}
+
+void WindowBehaviorTests::testThumbnailKeyboardScroll()
+{
+    QFETCH(int, key);
+    QFETCH(int, step);
+    ScopedOptionValues options({ { "loopfoldersenabled", false } });
+    ThumbnailWindow fixture(17);
+    QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+    auto &core = fixture.view->thumbnailImageCore();
+    QTRY_COMPARE(core.getCurrentFileDetails().folderFileInfoList.size(), 17);
+    const auto pathAt = [&](int index) {
+        return core.getCurrentFileDetails().folderFileInfoList.at(index).absoluteFilePath;
+    };
+    const auto original = pathAt(8);
+    fixture.window.openFile(original);
+    QTRY_COMPARE(core.getCurrentFileDetails().loadedIndexInFolder, 8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.strip->focusStrip();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QCOMPARE(fixture.strip->browseIndex(), 8.0);
+
+    auto *viewport = fixture.view->viewport();
+    bool crossedEdge = false;
+    for (int distance = 1; distance <= 7; ++distance) {
+        const int target = 8 + distance * step;
+        const bool visible = fixture.strip->panelRect().contains(fixture.cellCenter(target));
+        const qreal before = fixture.strip->browseIndex();
+        QTest::keyClick(viewport, Qt::Key(key));
+        QCOMPARE(core.getCurrentFileDetails().fileInfo.absoluteFilePath(), original);
+        QVERIFY(!core.thumbnailNavigationBusy());
+        if (visible) {
+            QCOMPARE(fixture.strip->browseIndex(), before);
+        } else {
+            crossedEdge = true;
+            QCOMPARE(fixture.strip->browseIndex(), qreal(target));
+            QVERIFY(qAbs(fixture.cellCenter(target).x() - fixture.strip->panelRect().center().x())
+                    <= 1);
+        }
+    }
+    QVERIFY(crossedEdge);
+    const auto target = pathAt(8 + 7 * step);
+    QTest::keyClick(viewport, Qt::Key_Return);
+    QTRY_COMPARE(core.getCurrentFileDetails().fileInfo.absoluteFilePath(), target);
+}
+
+void WindowBehaviorTests::testThumbnailKeyboardBounds_data()
+{
+    QTest::addColumn<bool>("loop");
+    QTest::addColumn<int>("key");
+    QTest::addColumn<int>("start");
+    QTest::addColumn<int>("target");
+    QTest::newRow("first-closed") << false << int(Qt::Key_Left) << 1 << 0;
+    QTest::newRow("last-closed") << false << int(Qt::Key_Right) << 15 << 16;
+    QTest::newRow("first-wraps") << true << int(Qt::Key_Left) << 1 << 16;
+    QTest::newRow("last-wraps") << true << int(Qt::Key_Right) << 15 << 0;
+}
+
+void WindowBehaviorTests::testThumbnailKeyboardBounds()
+{
+    QFETCH(bool, loop);
+    QFETCH(int, key);
+    QFETCH(int, start);
+    QFETCH(int, target);
+    ScopedOptionValues options({ { "loopfoldersenabled", loop } });
+    ThumbnailWindow fixture(17);
+    QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+    auto &core = fixture.view->thumbnailImageCore();
+    QTRY_COMPARE(core.getCurrentFileDetails().folderFileInfoList.size(), 17);
+    const auto &listing = core.getCurrentFileDetails().folderFileInfoList;
+    const auto original = listing.at(start).absoluteFilePath;
+    const auto destination = listing.at(target).absoluteFilePath;
+    fixture.window.openFile(original);
+    QTRY_COMPARE(core.getCurrentFileDetails().loadedIndexInFolder, start);
+    QTRY_VERIFY(fixture.strip->available());
+    QCOMPARE(core.thumbnailLoopEnabled(), loop);
+    fixture.strip->focusStrip();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+
+    auto *viewport = fixture.view->viewport();
+    QTest::keyClick(viewport, Qt::Key(key));
+    const qreal before = fixture.strip->browseIndex();
+    QTest::keyClick(viewport, Qt::Key(key));
+    QCOMPARE(core.getCurrentFileDetails().fileInfo.absoluteFilePath(), original);
+    QVERIFY(!core.thumbnailNavigationBusy());
+    if (!loop)
+        QCOMPARE(fixture.strip->browseIndex(), before);
+    QVERIFY(fixture.strip->panelRect().contains(fixture.cellCenter(target)));
+    QTest::keyClick(viewport, Qt::Key_Return);
+    QTRY_COMPARE(core.getCurrentFileDetails().fileInfo.absoluteFilePath(), destination);
+}
+
+void WindowBehaviorTests::testThumbnailKeyboardAfterWheel()
+{
+    ScopedOptionValues options({ { "loopfoldersenabled", false } });
+    ThumbnailWindow fixture(17);
+    QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+    QTRY_VERIFY(fixture.strip->available());
+    QCOMPARE(fixture.window.getCurrentFileDetails().folderFileInfoList.size(), 17);
+    fixture.strip->focusStrip();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QVERIFY(sendThumbnailWheel(fixture, fixture.strip->panelRect().center(), { }, QPoint(-720, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 6.0);
+    QCOMPARE(fixture.cellCenter(0), QPoint(-1, -1));
+    const auto target =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(7).absoluteFilePath;
+    QTest::keyClick(fixture.view->viewport(), Qt::Key_Right);
+    QTest::keyClick(fixture.view->viewport(), Qt::Key_Return);
+    QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), target);
+}
+
 void WindowBehaviorTests::testThumbnailPreview()
 {
     ThumbnailWindow fixture;

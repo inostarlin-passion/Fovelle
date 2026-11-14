@@ -72,6 +72,7 @@ private:
     void requestPreviews();
     void updateRendering(bool contentChanged);
     void syncAccessibleButtons();
+    void moveFocus(int step);
     void activate(int slot);
     void cancelActivation();
     bool blocked() const;

@@ -459,6 +459,11 @@ private slots:
     void testThumbnailInvalidPress();
     void testThumbnailVersion();
     void testThumbnailKeyboard();
+    void testThumbnailKeyboardScroll_data();
+    void testThumbnailKeyboardScroll();
+    void testThumbnailKeyboardBounds_data();
+    void testThumbnailKeyboardBounds();
+    void testThumbnailKeyboardAfterWheel();
     void testThumbnailPreview();
     void testThumbnailContent_data();
     void testThumbnailContent();

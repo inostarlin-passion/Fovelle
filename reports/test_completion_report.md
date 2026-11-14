@@ -1,3 +1,39 @@
+# 缩略图键盘跨可见边缘导航测试完成报告
+
+2026-11-14 在 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 上验证。应用和 Qt Test 的 Release 构建均成功。构建时，本机 Homebrew 的 QtSvg 触发了部署目标版本差异的链接警告，测试在当前系统完成。
+
+## 修复前后对照
+
+修复前，TK01 缺少独立的键盘移动入口，静态检查失败。Cocoa 的左右回归都在第一次跨边缘时失败。起始浏览位置为 8，左右目标分别为 5 和 11，实际浏览位置均停在 8。目录首尾和滚轮组合的 5 个回归数据行在基线上已通过。 [基线日志](../build-thumbnail-release/test-results/thumbnail-keyboard/baseline.log)
+
+| 编号 | 固化测试 | 修复后结果 |
+| --- | --- | --- |
+| TK01 | `test_keyboard_movement_and_versioned_activation_are_separate` | 通过。方向键调用焦点移动，确认保留版本化打开入口 |
+| TK02 | `testThumbnailKeyboardScroll:left` | 通过。左侧屏外目标可见并居中 |
+| TK03 | `testThumbnailKeyboardScroll:right` | 通过。右侧屏外目标可见并居中 |
+| TK04 | `testThumbnailKeyboardScroll:right` | 通过。目标已可见的每一步均保持原浏览位置 |
+| TK05 | `testThumbnailKeyboardScroll:left` 和 `:right` | 通过。两方向各 7 步均保持原主图，且未启动导航加载 |
+| TK06 | `testThumbnailKeyboardBounds:first-closed` | 通过。首项外侧按键保持位置，确认打开索引 0 |
+| TK07 | `testThumbnailKeyboardBounds:last-closed` | 通过。末项外侧按键保持位置，确认打开索引 16 |
+| TK08 | `testThumbnailKeyboardBounds:first-wraps` | 通过。首项左移到可见的末项，确认打开索引 16 |
+| TK09 | `testThumbnailKeyboardBounds:last-wraps` | 通过。末项右移到可见的首项，确认打开索引 0 |
+| TK10 | `testThumbnailKeyboardAfterWheel` | 通过。滚轮移到索引 6 后，右移并确认打开索引 7 |
+| TK11 | `testThumbnailKeyboardScroll:left` 和 `:right` | 通过。跨边缘后继续移动并确认，分别打开索引 1 和 15 |
+
+新增的 7 个动态数据行全部通过。默认 CTest 共 7 个目标全部通过，耗时 120.57 秒。缩略图静态目标通过 8 项，Cocoa 动态目标共 59 项通过（含初始化和清理），零失败、零跳过。CI 锁定的 clang-format 23.1.3 检查和 `git diff --check` 均通过。 [修复后日志](../build-thumbnail-release/test-results/thumbnail-keyboard/fixed.log) · [CTest 汇总](../build-thumbnail-release/test-results/thumbnail-keyboard/ctest.log)
+
+## 复现命令
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests --parallel 5
+ctest --test-dir build-thumbnail-release --output-on-failure
+QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=WindowBehaviorTests FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+  build-thumbnail-release/tests/fovelle_tests \
+  testThumbnailKeyboardScroll testThumbnailKeyboardBounds testThumbnailKeyboardAfterWheel -v1
+```
+
+---
+
 # GitHub Actions 格式检查修复测试完成报告
 
 首轮验证日期为 2026-11-12。失败运行 `43248926333` 的环境校验通过，锁定版本为 clang-format 23.1.3。格式检查的 38 条诊断可在本机复现。 [原始失败运行](https://github.com/inostarlin-passion/Fovelle/actions/runs/43248926333)

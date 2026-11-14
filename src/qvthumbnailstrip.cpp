@@ -857,6 +857,49 @@ void QVThumbnailStrip::requestPreviews()
     }
 }
 
+void QVThumbnailStrip::moveFocus(const int step)
+{
+    const auto &core = view->thumbnailImageCore();
+    if (!core.thumbnailListingReady() || focusSlot < 0 || focusSlot >= visibleCells.size())
+        return;
+
+    const int count = core.getCurrentFileDetails().folderFileInfoList.size();
+    const int focusedIndex = visibleCells.at(focusSlot).index;
+    if (focusedIndex < 0 || focusedIndex >= count)
+        return;
+
+    int target = focusedIndex + step;
+    if (target < 0 || target >= count) {
+        if (!core.thumbnailLoopEnabled())
+            return;
+        target = target < 0 ? count - 1 : 0;
+    }
+
+    const auto slotForTarget = [this, target] {
+        const auto clip = cellClip();
+        for (int i = 0; i < visibleCells.size(); ++i) {
+            const auto &cell = visibleCells.at(i);
+            if (cell.index == target && clip.intersects(cell.rect))
+                return i;
+        }
+        return -1;
+    };
+    int slot = slotForTarget();
+    bool contentChanged = false;
+    if (slot < 0) {
+        finishTransition();
+        pressedSlot = -1;
+        browsePosition = target;
+        contentChanged = rebuild();
+        slot = slotForTarget();
+        hoverSlot = slotAt(lastPointer);
+    }
+    focusSlot = slot;
+    if (contentChanged)
+        requestPreviews();
+    updateRendering(true);
+}
+
 void QVThumbnailStrip::activate(const int slot)
 {
     auto &core = view->thumbnailImageCore();
@@ -1335,17 +1378,8 @@ bool QVThumbnailStrip::eventFilter(QObject *watched, QEvent *event)
                     dismissFocus();
                 else if (code == Qt::Key_Return || code == Qt::Key_Enter || code == Qt::Key_Space)
                     activate(focusSlot);
-                else {
-                    const int step = code == Qt::Key_Left ? -1 : 1;
-                    for (int i = focusSlot + step; i >= 0 && i < visibleCells.size(); i += step) {
-                        if (visibleCells.at(i).index >= 0
-                            && cellClip().intersects(visibleCells.at(i).rect)) {
-                            focusSlot = i;
-                            updateRendering(true);
-                            break;
-                        }
-                    }
-                }
+                else
+                    moveFocus(code == Qt::Key_Left ? -1 : 1);
             }
             return true;
         }

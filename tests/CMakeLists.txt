@@ -692,6 +692,7 @@ add_test(NAME FovelleThumbnailDynamic
         testThumbnailCenter testThumbnailCompact testThumbnailLoop testThumbnailHover
         testThumbnailHide testThumbnailClick testThumbnailInvalidPress testThumbnailVersion
         testThumbnailKeyboard testThumbnailPreview testThumbnailContent testThumbnailSingle testThumbnailPreference
+        testThumbnailKeyboardScroll testThumbnailKeyboardBounds testThumbnailKeyboardAfterWheel
         testThumbnailBackendHandoff testThumbnailSupersededValidation
         testThumbnailVersionChangesDuringRead testThumbnailPreferenceDoesNotRescan
         testThumbnailFadeReversal testThumbnailFullscreenTransition

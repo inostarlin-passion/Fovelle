@@ -58,6 +58,25 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertIn("thumbnailContentLayer.opacity", progress)
         self.assertNotIn("createNativeImageCGImage", progress)
 
+    def test_keyboard_movement_and_versioned_activation_are_separate(self):
+        strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        keys = strip.split("bool QVThumbnailStrip::eventFilter(", 1)[1]
+        self.assertIn("moveFocus(code == Qt::Key_Left ? -1 : 1);", keys)
+        self.assertRegex(
+            keys,
+            r"else if \(code == Qt::Key_Return \|\| code == Qt::Key_Enter"
+            r" \|\| code == Qt::Key_Space\)\s+activate\(focusSlot\);",
+        )
+        move = strip.split("void QVThumbnailStrip::moveFocus(", 1)[1].split(
+            "void QVThumbnailStrip::", 1
+        )[0]
+        for action in ("activate(", "openThumbnail(", "openFile(", "goToFile("):
+            self.assertNotIn(action, move)
+        activate = strip.split("void QVThumbnailStrip::activate(", 1)[1].split(
+            "void QVThumbnailStrip::", 1
+        )[0]
+        self.assertIn("core.openThumbnail(index, path, snapshot, verified)", activate)
+
     def test_large_png_and_webp_admission(self):
         cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
         native = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(
