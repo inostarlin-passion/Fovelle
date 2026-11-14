@@ -4893,10 +4893,44 @@ static QImage readSimpleLosslessWebpThumbnail(const QString &path, const int lon
     return image;
 }
 
+static bool hasTiffSignature(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const auto signature = file.read(4);
+    return signature == QByteArrayLiteral("II\x2a\x00")
+            || signature == QByteArrayLiteral("MM\x00\x2a")
+            || signature == QByteArrayLiteral("II\x2b\x00")
+            || signature == QByteArrayLiteral("MM\x00\x2b");
+}
+
+static bool allowsLargeTiffThumbnail(CGImageSourceRef source, const QSize &pixels)
+{
+    constexpr qint64 MaxTiffPixels = 100 * 1000 * 1000;
+    constexpr int MaxTiffEdge = 32768;
+    if (pixels.isEmpty() || pixels.width() > MaxTiffEdge || pixels.height() > MaxTiffEdge
+        || qint64(pixels.width()) * pixels.height() > MaxTiffPixels)
+        return false;
+
+    const CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr);
+    if (!properties)
+        return false;
+    const auto releaseProperties = qScopeGuard([properties] { CFRelease(properties); });
+    NSDictionary *metadata = (NSDictionary *)properties;
+    id depth = metadata[(id)kCGImagePropertyDepth];
+    id model = metadata[(id)kCGImagePropertyColorModel];
+    return [@8 isEqual:depth] && ![@YES isEqual:metadata[(id)kCGImagePropertyIsFloat]]
+            && ([(NSString *)kCGImagePropertyColorModelRGB isEqual:model] ||
+                [(NSString *)kCGImagePropertyColorModelGray isEqual:model] ||
+                [(NSString *)kCGImagePropertyColorModelCMYK isEqual:model]);
+}
+
 QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
                                        const qint64 fileBytes, bool &allowQtFallback)
 {
     constexpr qint64 MaxThumbnailFileBytes = 256 * 1024 * 1024;
+    constexpr qint64 MaxTiffThumbnailFileBytes = 512 * 1024 * 1024;
     constexpr qint64 MaxThumbnailEPSBytes = 16 * 1024 * 1024;
     constexpr qint64 MaxNativeThumbnailPixels = 64 * 1000 * 1000;
     constexpr qint64 MaxRawThumbnailPixels = 64 * 1000 * 1000;
@@ -4916,9 +4950,11 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             allowQtFallback = false;
             return std::move(*png);
         }
-        if (fileBytes > MaxThumbnailFileBytes) {
+        const bool largeFile = fileBytes > MaxThumbnailFileBytes;
+        if (largeFile) {
             allowQtFallback = false;
-            return { };
+            if (fileBytes > MaxTiffThumbnailFileBytes || !hasTiffSignature(path))
+                return { };
         }
 
         NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
@@ -4932,6 +4968,9 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
 
         const CFStringRef type = CGImageSourceGetType(source);
         if (!type)
+            return { };
+        const bool tiff = CFEqual(type, CFSTR("public.tiff"));
+        if (largeFile && !tiff)
             return { };
 
         if (isRawImageType(type)) {
@@ -4971,7 +5010,7 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         const bool heif = [imageType conformsToType:UTTypeHEIF] ||
                 [imageType conformsToType:UTTypeHEIC] || [imageType conformsToType:UTTypeHEICS];
         const bool subsampled = heif || CFEqual(type, CFSTR("public.jpeg"))
-                || CFEqual(type, CFSTR("public.png")) || CFEqual(type, CFSTR("public.tiff"));
+                || CFEqual(type, CFSTR("public.png")) || tiff;
         const size_t index = heif ? CGImageSourceGetPrimaryImageIndex(source) : 0;
         const bool webp = CFEqual(type, CFSTR("org.webmproject.webp"));
         const QSize pixels = sourcePixelSize(source, index);
@@ -4993,8 +5032,15 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
                 : subsampled          ? MaxNativeThumbnailPixels
                                       : MaxOtherThumbnailPixels;
         const qint64 sourcePixels = qint64(pixels.width()) * pixels.height();
-        if (sourcePixels > maxPixels)
+        if (tiff && (largeFile || sourcePixels > maxPixels)) {
+            // ImageIO can decode a full-sized intermediate despite the subsample
+            // request. Admit only bounded 8-bit sources on this exceptional path.
+            allowQtFallback = false;
+            if (!allowsLargeTiffThumbnail(source, pixels) || QvAsync::isCanceled())
+                return { };
+        } else if (sourcePixels > maxPixels) {
             return { };
+        }
 
         NSMutableDictionary *options = [@{
             (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,

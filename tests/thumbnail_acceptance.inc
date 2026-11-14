@@ -922,6 +922,8 @@ void WindowBehaviorTests::testThumbnailReportedSample_data()
 {
     QTest::addColumn<QByteArray>("variable");
     QTest::addColumn<QSize>("expectedSize");
+    QTest::newRow("jaguar-tiff") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_TIFF")
+                                 << QSize(11409, 8705);
     QTest::newRow("fireshot-png") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_PNG")
                                   << QSize(3352, 24126);
     QTest::newRow("sony-arw") << QByteArray("FOVELLE_REPORTED_THUMBNAIL_ARW") << QSize(4672, 7008);
@@ -938,10 +940,17 @@ void WindowBehaviorTests::testThumbnailReportedSample()
     QVERIFY2(QVCocoaFunctions::thumbnailMayReadContent(original), qPrintable(original));
     ThumbnailWindow fixture(1);
     const QString path = fixture.dir.filePath("02." + QFileInfo(original).suffix());
-    QVERIFY(QFile::copy(original, path));
+    const bool tiff = variable.endsWith("_TIFF");
+    const auto version = QVImageLoader::fileVersion(original);
+    QVERIFY(!version.isEmpty());
+    if (tiff)
+        QVERIFY(QFile::link(original, path));
+    else
+        QVERIFY(QFile::copy(original, path));
     revealNewThumbnail(fixture);
-    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 15000);
-    const QImage preview = thumbnailCell(fixture, path).preview;
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), tiff ? 60000 : 15000);
+    const auto cell = thumbnailCell(fixture, path);
+    const QImage preview = cell.preview;
     QVERIFY(!preview.isNull());
     QVERIFY(qAbs(qreal(preview.width()) / preview.height()
                  - qreal(expectedSize.width()) / expectedSize.height())
@@ -956,6 +965,26 @@ void WindowBehaviorTests::testThumbnailReportedSample()
             }
         }
         QVERIFY(brightest - darkest > 32);
+    } else if (tiff) {
+        // Downsampled from an independent sips export, with ICC converted to sRGB.
+        const auto bytes = QByteArray::fromHex(
+                "969bbac29b8a564d807889b68f52343884838167603e313b7171666b48434148"
+                "5f6b6066484742404f515072886b572e4f4848596f68593a6b4c5453513e5f5d");
+        QCOMPARE(bytes.size(), 64);
+        const QImage reference(reinterpret_cast<const uchar *>(bytes.constData()), 8, 8, 8,
+                               QImage::Format_Grayscale8);
+        const auto observed = preview.scaled(8, 8, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                                      .convertToFormat(QImage::Format_Grayscale8);
+        const auto correlation = orientationCorrelation(reference, observed);
+        qInfo() << "Jaguar thumbnail" << preview.size() << "luma correlation" << correlation;
+        QVERIFY(correlation > 0.90);
+        QCOMPARE(preview.colorSpace(), QColorSpace(QColorSpace::SRgb));
+        const qreal dpr = fixture.view->viewport()->devicePixelRatioF();
+        QVERIFY(preview.width() <= qCeil(cell.rect.width() * dpr));
+        QVERIFY(preview.height() <= qCeil(cell.rect.height() * dpr));
+        QVERIFY(!cell.currentProxy);
+        QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+        QCOMPARE(QVImageLoader::fileVersion(original), version);
     } else {
         verifyRawThumbnailOrientation(fixture, path, preview);
     }
@@ -1225,4 +1254,179 @@ void WindowBehaviorTests::testThumbnailCorpus()
         QVERIFY2(correlation > 0.9, qPrintable(QString::number(correlation)));
     }
     QCOMPARE(QVImageLoader::fileVersion(original), originalVersion);
+}
+
+namespace {
+constexpr qint64 MiB = 1024 * 1024;
+
+bool writeStripedTiff(const QString &path, const QSize &size, const int bits, const int channels,
+                      const int orientation, const bool little, const qint64 fileBytes)
+{
+    QByteArray header(little ? "II" : "MM");
+    const auto appendNumber = [little, &header](auto value) {
+        char bytes[sizeof(value)];
+        if (little)
+            qToLittleEndian(value, bytes);
+        else
+            qToBigEndian(value, bytes);
+        header.append(bytes, sizeof(value));
+    };
+    constexpr quint16 TagCount = 12;
+    constexpr quint32 DataOffset = 8 + 2 + TagCount * 12 + 4;
+    const quint32 countsOffset = DataOffset + size.height() * 4;
+    const quint32 bitsOffset = countsOffset + size.height() * 4;
+    const quint32 stripeOffset = bitsOffset + channels * 2;
+    const quint32 rowBytes = size.width() * channels * (bits / 8);
+    const auto entry = [&appendNumber](quint16 tag, quint16 type, quint32 count, quint32 value) {
+        appendNumber(tag);
+        appendNumber(type);
+        appendNumber(count);
+        if (type == 3 && count == 1) {
+            appendNumber(quint16(value));
+            appendNumber(quint16(0));
+        } else {
+            appendNumber(value);
+        }
+    };
+
+    appendNumber(quint16(42));
+    appendNumber(quint32(8));
+    appendNumber(TagCount);
+    entry(256, 4, 1, size.width());
+    entry(257, 4, 1, size.height());
+    entry(258, 3, channels, channels == 1 ? bits : bitsOffset);
+    entry(259, 3, 1, 1); // Uncompressed.
+    entry(262, 3, 1, channels == 4 ? 5 : channels == 3 ? 2 : 1); // CMYK, RGB, gray.
+    entry(273, 4, size.height(), DataOffset);
+    entry(274, 3, 1, orientation);
+    entry(277, 3, 1, channels);
+    entry(278, 4, 1, 1); // One scanline per strip.
+    entry(279, 4, size.height(), countsOffset);
+    entry(284, 3, 1, 1); // Interleaved samples.
+    entry(339, 3, 1, 1); // Unsigned samples.
+    appendNumber(quint32(0)); // No next IFD.
+    // All strips in each half share one scanline. Trailing padding exercises the
+    // encoded-file limit without writing hundreds of MiB into the test directory.
+    for (int y = 0; y < size.height(); ++y)
+        appendNumber(stripeOffset + (y < size.height() / 2 ? 0 : rowBytes));
+    for (int y = 0; y < size.height(); ++y)
+        appendNumber(rowBytes);
+    for (int c = 0; c < channels; ++c)
+        appendNumber(quint16(bits));
+    if (channels == 4) {
+        QByteArray dark(rowBytes, char(0));
+        for (int x = 0; x < dark.size(); x += channels)
+            dark[x + 3] = char(220);
+        header += dark;
+        header += QByteArray(rowBytes, char(0));
+    } else {
+        header += QByteArray(rowBytes, char(32));
+        header += QByteArray(rowBytes, char(224));
+    }
+    QFile file(path);
+    // ImageIO also checks the nominal extent of uncompressed strips against
+    // the file length, even when the strip table reuses the same scanline.
+    const qint64 nominalBytes = stripeOffset + qint64(rowBytes) * size.height();
+    return file.open(QIODevice::WriteOnly) && file.write(header) == header.size()
+            && file.resize(qMax(fileBytes, qMax(nominalBytes, qint64(header.size()))));
+}
+} // namespace
+
+void WindowBehaviorTests::testThumbnailLargeTiff_data()
+{
+    QTest::addColumn<QSize>("source");
+    QTest::addColumn<int>("channels");
+    QTest::addColumn<int>("orientation");
+    QTest::addColumn<bool>("little");
+    QTest::addColumn<qint64>("bytes");
+    QTest::newRow("ordinary") << QSize(128, 88) << 3 << 1 << true << qint64(0);
+    QTest::newRow("file-only") << QSize(640, 480) << 3 << 1 << true << (256 * MiB + 1);
+    QTest::newRow("pixels-only-rotated") << QSize(10000, 6401) << 1 << 6 << true << qint64(0);
+    QTest::newRow("both-cmyk-big-endian") << QSize(12000, 7500) << 4 << 1 << false << (512 * MiB);
+}
+
+void WindowBehaviorTests::testThumbnailLargeTiff()
+{
+    QFETCH(QSize, source);
+    QFETCH(int, channels);
+    QFETCH(int, orientation);
+    QFETCH(bool, little);
+    QFETCH(qint64, bytes);
+    ThumbnailWindow fixture(1);
+    const auto path = fixture.dir.filePath("02.tiff");
+    QVERIFY(writeStripedTiff(path, source, 8, channels, orientation, little, bytes));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 30000);
+    const auto cell = thumbnailCell(fixture, path);
+    QVERIFY(!cell.preview.isNull());
+    const QSize oriented = orientation == 6 ? source.transposed() : source;
+    verifyThumbnailBounds(fixture, cell, source.width() >= 640 ? oriented : QSize());
+    const QImage luma = orientationLuma(cell.preview);
+    const auto dark = orientation == 6 ? luma.constScanLine(16)[24] : luma.constScanLine(8)[16];
+    const auto light = orientation == 6 ? luma.constScanLine(16)[8] : luma.constScanLine(24)[16];
+    QVERIFY(light - dark > 50);
+}
+
+void WindowBehaviorTests::testThumbnailLargeTiffRejected_data()
+{
+    QTest::addColumn<QSize>("source");
+    QTest::addColumn<int>("bits");
+    QTest::addColumn<qint64>("bytes");
+    QTest::newRow("file-limit") << QSize(640, 480) << 8 << (512 * MiB + 1);
+    QTest::newRow("pixel-limit") << QSize(10001, 10000) << 8 << qint64(0);
+    QTest::newRow("edge-limit") << QSize(32769, 10) << 8 << (256 * MiB + 1);
+    QTest::newRow("sample-depth") << QSize(640, 480) << 16 << (256 * MiB + 1);
+    QTest::newRow("jpeg-with-tiff-extension") << QSize() << 0 << (256 * MiB + 1);
+    QTest::newRow("broken-directory") << QSize() << 0 << (256 * MiB + 2);
+}
+
+void WindowBehaviorTests::testThumbnailLargeTiffRejected()
+{
+    QFETCH(QSize, source);
+    QFETCH(int, bits);
+    QFETCH(qint64, bytes);
+    ThumbnailWindow fixture(2);
+    const auto path = fixture.dir.filePath("03.tiff");
+    if (source.isValid()) {
+        QVERIFY(writeStripedTiff(path, source, bits, 1, 1, true, bytes));
+    } else {
+        QImage jpeg(640, 480, QImage::Format_RGB32);
+        jpeg.fill(Qt::yellow);
+        if (bytes == 256 * MiB + 1)
+            QVERIFY(jpeg.save(path, "JPEG"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Append));
+        if (bytes == 256 * MiB + 2)
+            QCOMPARE(file.write(QByteArray::fromHex("49492a00ffffffff")), 8);
+        QVERIFY(file.resize(bytes));
+    }
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 30000);
+    QVERIFY(thumbnailCell(fixture, path).preview.isNull());
+    QTRY_VERIFY(!thumbnailCell(fixture, fixture.next).preview.isNull());
+}
+
+void WindowBehaviorTests::testThumbnailGalleryLargePng_data()
+{
+    QTest::addColumn<QString>("name");
+    QTest::newRow("largest-file") << QStringLiteral("014 Muse on Pegasus - Odilon Redon 1907.png");
+    QTest::newRow("largest-area") << QStringLiteral("032 Nativity - Athos Bulcao 1999.png");
+}
+
+void WindowBehaviorTests::testThumbnailGalleryLargePng()
+{
+    QFETCH(QString, name);
+    const auto gallery = qEnvironmentVariable("FOVELLE_THUMBNAIL_GALLERY");
+    if (gallery.isEmpty())
+        QSKIP("Set FOVELLE_THUMBNAIL_GALLERY to the mounted gallery directory.");
+    const auto original = QDir(gallery).filePath(name);
+    const auto version = QVImageLoader::fileVersion(original);
+    QVERIFY(!version.isEmpty());
+    ThumbnailWindow fixture(1);
+    const auto path = fixture.dir.filePath("02.png");
+    QVERIFY(QFile::link(original, path));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 120000);
+    verifyThumbnailBounds(fixture, thumbnailCell(fixture, path), QImageReader(path).size());
+    QCOMPARE(QVImageLoader::fileVersion(original), version);
 }

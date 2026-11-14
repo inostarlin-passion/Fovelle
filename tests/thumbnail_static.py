@@ -110,6 +110,36 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertLess(strip.index("QMutexLocker decodeLock"), strip.index("readThumbnail("))
         self.assertIn("QVImageLoader::fileVersion(path) != version", strip)
 
+    def test_large_tiff_admission_is_format_scoped(self):
+        cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        native = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(
+            "void QVCocoaFunctions::", 1)[0]
+        gates = (
+            "readLargePngThumbnail(", "fileBytes > MaxThumbnailFileBytes",
+            "fileBytes > MaxTiffThumbnailFileBytes", "hasTiffSignature(path)",
+            "CGImageSourceCreateWithURL(", 'CFEqual(type, CFSTR("public.tiff"))',
+            "largeFile && !tiff", "allowsLargeTiffThumbnail(source, pixels)",
+            "CGImageSourceCreateThumbnailAtIndex(",
+        )
+        for gate in gates:
+            self.assertIn(gate, native)
+        positions = [native.index(gate) for gate in gates]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("MaxThumbnailFileBytes = 256 * 1024 * 1024", native)
+        self.assertIn("MaxTiffThumbnailFileBytes = 512 * 1024 * 1024", native)
+        self.assertIn("if (sourcePixels > maxPixels)", native)
+        large = cocoa.split("bool allowsLargeTiffThumbnail(", 1)[1].split("\n}", 1)[0]
+        for guard in ("MaxTiffPixels = 100 * 1000 * 1000", "MaxTiffEdge = 32768",
+                      "kCGImagePropertyIsFloat", "kCGImagePropertyDepth", "[@8 isEqual:depth]",
+                      "kCGImagePropertyColorModelRGB", "kCGImagePropertyColorModelGray",
+                      "kCGImagePropertyColorModelCMYK"):
+            self.assertIn(guard, large)
+        strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        guards = ("thumbnailMayReadContent", "QMutexLocker decodeLock", "readThumbnail(",
+                  "QVImageLoader::fileVersion(path) != version")
+        positions = [strip.index(guard) for guard in guards]
+        self.assertEqual(positions, sorted(positions))
+
     def test_raw_thumbnail_uses_oriented_decode_graph(self):
         cocoa = (ROOT / "src/qvcocoafunctions.mm").read_text()
         raw = cocoa.split("QVCocoaFunctions::readThumbnail(", 1)[1].split(

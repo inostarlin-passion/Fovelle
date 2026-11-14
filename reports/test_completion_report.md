@@ -1,3 +1,45 @@
+# 大 TIFF 缩略图测试完成报告
+
+2026-11-14 在 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 上构建并验证 Release。测试使用应用的真实导航条、后台解码和缓存，从独立的起始图观察邻居槽。
+
+| 验收 | 固化测试 | 结果 |
+| --- | --- | --- |
+| TT01 | `FovelleThumbnailStatic` | 通过。验证大小、签名、类型、位深和像素分流顺序，以及后台解码和版本复验。 |
+| TT02 | `testThumbnailLargeTiff` 三个超限数据行 | 通过。编码大小、像素数、两项同时超限分别得到 sRGB 缩略图；顺时针旋转的灰阶条纹方向正确。 |
+| TT03 | `testThumbnailLargeTiffRejected` 六个数据行 | 通过。分别覆盖 512 MiB、1 亿像素、32768 单边、16 位样本、JPEG 扩展名伪装和损坏 TIFF 目录。正常邻居继续显示。 |
+| TT04 | `testThumbnailReportedSample:jaguar-tiff` | 通过。原图缩略图为 272 × 208，和独立 sips 参考的亮度相关系数为 0.998636。槽位尺寸、sRGB、主图和源文件版本均满足要求。 |
+| TT05 | `testThumbnailGalleryLargePng` 两个数据行 | 通过。编码最大（1,385,269,031 字节）的画作与像素最多（729,669,102 像素）的画作均显示预览。 |
+| TT06 | `testThumbnailLargeTiff:ordinary` | 通过。普通 RGB TIFF 色阶与槽位尺寸正确。 |
+| TT07 | `testThumbnailCorpus` | 独立 Cocoa 进程中 25 张图集样本全部通过。 [图集日志](../build-thumbnail-release/test-results/large-tiff/corpus.log) |
+| TT08 | `FovelleThumbnailDynamic`、完整 Cocoa 缩略图矩阵 | 通过。完整矩阵为 67 个数据行或独立用例，加上初始化和清理，共 69 项通过。 [完整矩阵日志](../build-thumbnail-release/test-results/large-tiff/extended-thumbnail.log) |
+
+修复前，对原始画作和三个超旧预算的合成样本均复现空缩略图。修复后均通过。全目录读取头部并核对尺寸与大小，排除了 AppleDouble 伴生文件和 `.DS_Store`，共识别 153 个图像文件。43 张 PNG 超过 256 MiB，仍在现有流式 PNG 准入范围内。像素级核对覆盖上述两张 PNG，其他 PNG 完成头部和预算检查。 [修复前结果](../build-thumbnail-release/test-results/large-tiff/baseline-final-fixtures.log) · [修复后结果](../build-thumbnail-release/test-results/large-tiff/acceptance.log)
+
+默认 CTest 7/7 通过，耗时 57.00 秒，内部快速门禁 45 个阶段通过。独立的 TIFF 和同目录 PNG 验收共 13 个数据行、15 项（含初始化和清理）通过。CI 固定版本的 clang-format 检查和 `git diff --check` 通过。 [默认 CTest 日志](../build-thumbnail-release/test-results/large-tiff/default-ctest.log)
+
+将新用例与旧图集放在同一 Cocoa 进程的一次组合运行中，`sdr_test/9.png` 等待预览发布超时，`hdr_test/1.JPG` 的导航条未显示。独立图集复跑中两者均通过，另一次组合运行中这两个数据行也通过。异常未稳定复现，未定位成因。 [异常组合运行日志](../build-thumbnail-release/test-results/large-tiff/combined-initial.log) · [较早组合运行日志](../build-thumbnail-release/test-results/large-tiff/combined-earlier.log)
+
+本机 QtSvg 二进制的部署版本高于项目的 macOS 15.0 链接目标，构建产生版本警告。本次运行验证覆盖 macOS 27.0.1。大 TIFF 的 ImageIO 内部内存随文件而异，独立探针测得当前样本的峰值 RSS 约 474 MiB。应用保留串行缩略图解码。修复交付到工作区的 Release 构建 `build-thumbnail-release/Fovelle.app`，本机已安装的副本未替换。
+
+## 复现
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests
+ctest --test-dir build-thumbnail-release --output-on-failure
+FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa \
+FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+FOVELLE_REPORTED_THUMBNAIL_TIFF='/Volumes/CRYSTAL/画作/GALLERY/141 Jaguar Attacking a Horse - Henri Rousseau 1910.tif' \
+FOVELLE_THUMBNAIL_GALLERY='/Volumes/CRYSTAL/画作/GALLERY' \
+  build-thumbnail-release/tests/fovelle_tests \
+    testThumbnailReportedSample:jaguar-tiff testThumbnailGalleryLargePng
+FOVELLE_TEST_SUITE=WindowBehaviorTests QT_QPA_PLATFORM=cocoa \
+FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1 \
+FOVELLE_THUMBNAIL_CORPUS='/Volumes/CRYSTAL/仓库/Fovelle App' \
+  build-thumbnail-release/tests/fovelle_tests testThumbnailCorpus
+```
+
+---
+
 # 默认完整测试套件提速完成报告
 
 2026-11-14 在 Apple Silicon、macOS 27.0.1 和 Qt 6.12.0 上使用已构建的 Release 测试程序验证。完整默认 CTest 从 122.74 秒降至 52.23 秒，7/7 目标通过。内部默认门禁执行 45 个阶段，其中包含十个 Qt 套件、真实 HDR 样本和独立色彩回归。编译在计时前完成。 [默认 CTest 日志](../build-thumbnail-release/test-results/full-fast-default.log)

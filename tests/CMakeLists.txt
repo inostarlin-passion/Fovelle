@@ -728,10 +728,12 @@ if(FOVELLE_EXTENDED_TESTS)
             testThumbnailNativeBrowse testThumbnailReopenRecenters
             testThumbnailTransitionResize testThumbnailTransitionRetarget
             testThumbnailLongPng testThumbnailRawOrientation
+            testThumbnailLargeTiff testThumbnailLargeTiffRejected
             testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected)
 else()
     add_test(NAME FovelleThumbnailDynamic
         COMMAND fovelle_tests testThumbnailContent:jpeg testThumbnailContent:corrupt
+            testThumbnailLargeTiff testThumbnailLargeTiffRejected
             testThumbnailKeyboardScroll testThumbnailKeyboardBounds:first-wraps
             testThumbnailWheelBrowse testThumbnailTransitionRetarget
             testThumbnailSupersededValidation testThumbnailVersionChangesDuringRead
