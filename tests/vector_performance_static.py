@@ -30,6 +30,22 @@ class VectorPerformanceContracts(unittest.TestCase):
             self.assertIn('"' + key + '"', s)
         cmake=(ROOT/'tests/CMakeLists.txt').read_text()
         self.assertIn('testVectorPaintTimingClockIsolation testVectorPresentationFrameBudget', cmake)
+    def test_pdf_pan_pixel_grid_contract(self):
+        item = (ROOT / "src/qvgraphicsimageitem.cpp").read_text()
+        self.assertIn("const bool usePdfPixelGrid = isPdf", item)
+        request = item.split("const auto tileRequest =")[1].split("const auto retainedTileCoversRequest")[0]
+        self.assertIn("if (usePdfPixelGrid)", request)
+        self.assertIn("alignedDeviceRect", request)
+        self.assertIn("boundedTileSize", request)
+        pdf = (ROOT / "src/qvcocoafunctions.mm").read_text().split("PDFVectorDocument::renderTile(")[1]
+        pdf = pdf.split("QVCocoaFunctions::createPDFVectorDocument(")[0]
+        self.assertIn("pixelSize.width()) / sourceRect.width()", pdf)
+        self.assertIn("CGContextClipToRect", pdf)
+        self.assertLess(pdf.index("CGContextClipToRect"), pdf.index("CGContextDrawPDFPage(context"))
+        view = (ROOT / "src/qvgraphicsview.cpp").read_text().split("void QVGraphicsView::scrollContentsBy(")[1]
+        view = view.split("QGraphicsView::scrollContentsBy(dx, dy);")[0]
+        self.assertIn("setVectorInteractionPresentation(true)", view)
+
     def test_registration(self):
         s=(ROOT/'tests/CMakeLists.txt').read_text()
         self.assertTrue('FovelleVectorPerformanceDynamic' in s)

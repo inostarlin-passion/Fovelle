@@ -179,6 +179,10 @@ private slots:
     void testVectorDisplayTargetSwitch_data();
     void testVectorDisplayTargetSwitch();
     void testVectorRequestBurstAndDestruction();
+    void testEpsPanPixelGrid_data();
+    void testEpsPanPixelGrid();
+    void testEpsPanPartialTile();
+    void testEpsPanPaintBudget();
     void testVectorPaintTimingClockIsolation();
     void testVectorPresentationFrameBudget_data();
     void testVectorPresentationFrameBudget();
@@ -1035,6 +1039,19 @@ static double sampledChannelDifference(const QImage &actual, const QImage &expec
     }
     return channelSamples > 0 ? static_cast<double>(difference) / channelSamples
                               : std::numeric_limits<double>::infinity();
+}
+
+static QImage compositeVectorReference(const QImage &raster)
+{
+    QImage reference(raster.size(), QImage::Format_ARGB32_Premultiplied);
+    reference.fill(Qt::black);
+    const QImage srgb = raster.colorSpace().isValid()
+            ? raster.convertedToColorSpace(QColorSpace::SRgb)
+            : raster;
+    QPainter painter(&reference);
+    painter.drawImage(QPoint(), srgb.convertToFormat(reference.format()));
+    painter.end();
+    return reference;
 }
 
 static QString createBase64Image(const QTemporaryDir &dir, const QString &name,
@@ -2763,7 +2780,7 @@ void ImageLoaderTests::testEPSPostScriptRender()
     }
     QVERIFY2(sceneItem.vectorRenderCount() > 0,
              "the asynchronous exact PDF tile did not become paintable");
-    QVERIFY(sampledChannelDifference(sceneRender, renderedImage) < 3.0);
+    QVERIFY(sampledChannelDifference(sceneRender, compositeVectorReference(renderedImage)) < 3.0);
     const quint64 pdfTileGenerationCount = sceneItem.vectorTileGenerationCount();
     for (int repaint = 0; repaint < 8; ++repaint)
         paintSceneItem();
@@ -3144,7 +3161,7 @@ void ImageLoaderTests::testVectorInteractionPreservesTerminalDensity()
                             + QStringLiteral("%1x%2")
                                       .arg(sceneItem.lastVectorRasterSize().width())
                                       .arg(sceneItem.lastVectorRasterSize().height())));
-        QVERIFY2(sampledChannelDifference(actual, reference) < 3.0,
+        QVERIFY2(sampledChannelDifference(actual, compositeVectorReference(reference)) < 3.0,
                  qPrintable(document.first
                             + QStringLiteral(" interaction tile differs from reference")));
     }
@@ -11166,7 +11183,10 @@ void GraphicsViewTests::testVectorDragFrameBudgetForEPSAndSVG()
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QList<QPair<QString, QString>> documents{
-        { QStringLiteral("eps"), createLargeEPSVectorImage(dir, QStringLiteral("drag-eps")) },
+        { QStringLiteral("eps"),
+          qEnvironmentVariableIsSet("FOVELLE_EPS_SAMPLE")
+                  ? qEnvironmentVariable("FOVELLE_EPS_SAMPLE")
+                  : createLargeEPSVectorImage(dir, QStringLiteral("drag-eps")) },
         { QStringLiteral("svg"), svgSamplePath(dir) }
     };
     for (const auto &document : documents)

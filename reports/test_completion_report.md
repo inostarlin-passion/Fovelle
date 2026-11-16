@@ -1,3 +1,43 @@
+# EPS 拖动性能测试完成报告
+
+2026-11-17 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 上验证 Release。原生对照使用相同的 2× 显示器、同一份 `sdr_test/6.eps`、同一套系统输入和相同应用日志开关。
+
+| 验收 | 固化测试 | 结果 |
+| --- | --- | --- |
+| EP01 | `vector_performance_static.py` | 6 项通过。修复前的静态用例缺少 PDF 对齐契约。 [静态日志](../build-thumbnail-release/test-results/eps-pan/final-static.log) |
+| EP02 | `testEpsPanPixelGrid` | 内部、页面边缘、旋转三行通过。修复前前两行因栅格密度误差失败。 |
+| EP03 | `testEpsPanPartialTile` | 通过。旧帧处于同一透明区域时，修复前显示洋红预览，修复后显示正确的绿色背景；裸露带继续使用预览。 |
+| EP04 | `testEpsPanPaintBudget` | 指定 EPS 的热缓存、跨界 CPU p95 分别为 3.02 ms、3.07 ms，栅格参考为 1.78 ms，验收门槛为 8.33 ms。 |
+| EP05 | `testVectorDragFrameBudgetForEPSAndSVG`、`testVectorPanRepaintsOnlyExposedStrip`、`testVectorPaintClearsStalePixelsBeforeTileReady` | 全部通过。EPS/SVG 首帧覆盖率均为 100%，合成检查各有 0 个残留像素，释放后恢复最小更新且细化完成。 [Qt 拖动日志](../build-thumbnail-release/test-results/eps-pan/final-drag.log) |
+| EP06 | `eps_pan_native.py --baseline-app …` | 通过。两版均收到 32 步系统拖动输入并通过全屏几何断言。对齐采样帧数从 0/32 增至 34/37。应用绘制耗时中位数从 10.71 ms 降到 5.27 ms，p95 从 25.40 ms 降到 10.97 ms。多个绘制帧可来自同一步鼠标输入。 [配对日志](../build-thumbnail-release/test-results/eps-pan/final-native.log) |
+| EP07 | `fovelle_native_drag_helper` 加 `3.jpeg` | 通过。接近底部、退出锚点、恢复窗口几何均正确。 [JPEG 日志](../build-thumbnail-release/test-results/eps-pan/final-native-jpeg.log) |
+
+指定样本的图像加载和矢量相关测试共 18 项通过，Qt 拖动组共 5 项通过，合计含两组初始化和清理。默认 CTest 7/7 通过，用时 55.81 秒。CI 固定版本 clang-format 和 `git diff --check` 通过。 [修复前动态日志](../build-thumbnail-release/test-results/eps-pan/red-dynamic.log) · [最终图像测试日志](../build-thumbnail-release/test-results/eps-pan/final-dynamic.log) · [默认 CTest 日志](../build-thumbnail-release/test-results/eps-pan/final-ctest.log)
+
+指定样本在旧版的两个像素测试中也失败。旧断言直接比较带透明度的 PDF 渲染和已与视口背景合成的图元；现将独立参考转为 sRGB 并与同一背景合成，同时保留原像素容差和裁剪检查。 [旧版像素日志](../build-thumbnail-release/test-results/eps-pan/baseline-existing-pixels.log)
+
+离屏 QImage 微基准中，修复前热缓存、跨界 CPU p95 分别为 0.84 ms、1.30 ms；修复后离屏耗时增加，两组仍在验收预算内。原生窗口耗时按应用绘制日志计算，显示器实际呈现帧率超出本次测量范围。构建时 QtSvg 产生本机系统版本高于 macOS 15.0 部署目标的既有链接警告。
+
+## 复现
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests fovelle_native_drag_helper
+ctest --test-dir build-thumbnail-release --output-on-failure
+
+sample='/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/6.eps'
+FOVELLE_TEST_SUITE=ImageLoaderTests FOVELLE_EPS_SAMPLE="$sample" QT_QPA_PLATFORM=cocoa \
+  build-thumbnail-release/tests/fovelle_tests \
+  testEpsPanPixelGrid testEpsPanPartialTile testEpsPanPaintBudget
+
+python3 tests/eps_pan_native.py \
+  --helper "$PWD/build-thumbnail-release/tests/fovelle_native_drag_helper" \
+  --app "$PWD/build-thumbnail-release/Fovelle.app" \
+  --baseline-app "$PWD/build-install-release/Fovelle.app" \
+  --image "$sample"
+```
+
+---
+
 # 大 TIFF 缩略图测试完成报告
 
 2026-11-14 在 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 上构建并验证 Release。测试使用应用的真实导航条、后台解码和缓存，从独立的起始图观察邻居槽。

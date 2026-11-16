@@ -214,3 +214,163 @@ void ImageLoaderTests::testVectorPresentationFrameBudget()
     QVERIFY2(p95 <= budget, "GUI paint CPU exceeds frame budget");
     QVERIFY2(vectorPercentile(cold, .95) <= budget, "First tile paint CPU exceeds frame budget");
 }
+
+void ImageLoaderTests::testEpsPanPixelGrid_data()
+{
+    QTest::addColumn<QString>("location");
+    QTest::newRow("interior") << QStringLiteral("interior");
+    QTest::newRow("page-edge") << QStringLiteral("edge");
+    QTest::newRow("rotated") << QStringLiteral("rotated");
+}
+
+void ImageLoaderTests::testEpsPanPixelGrid()
+{
+    QFETCH(QString, location);
+    QTemporaryDir directory;
+    const auto loaded = loadImage(createTransparentEPSVectorImage(directory, "pixel-grid"));
+    QVERIFY(loaded && loaded->vectorImage.format == Qv::VectorImageFormat::Pdf);
+    QVGraphicsImageItem item;
+    QVERIFY(item.setVectorImage(loaded->vectorImage));
+    item.setVectorBackgroundBrush(Qt::green);
+    constexpr qreal Zoom = 43.9453125;
+    constexpr qreal DeviceScale = 2 * Zoom;
+    const bool pageEdge = location == "edge";
+    const bool rotated = location == "rotated";
+    const QPointF anchor = pageEdge ? QPointF(118, 38) : QPointF(48, 20);
+    const QPointF deviceAnchor(360.25, 270.75);
+    QImage canvas(720, 540, QImage::Format_ARGB32_Premultiplied);
+    canvas.setDevicePixelRatio(2);
+    QTransform deviceTransform;
+    const auto paint = [&](int shift) {
+        canvas.fill(Qt::magenta);
+        QPainter painter(&canvas);
+        painter.translate((deviceAnchor.x() + shift) / 2, deviceAnchor.y() / 2);
+        painter.scale(Zoom, Zoom);
+        if (rotated)
+            painter.rotate(90);
+        painter.translate(-anchor.x(), -anchor.y());
+        deviceTransform = painter.deviceTransform();
+        QStyleOptionGraphicsItem option;
+        option.exposedRect = deviceTransform.inverted().mapRect(QRectF(QPointF(), canvas.size()));
+        item.paint(&painter, &option);
+    };
+    paint(0);
+    QTRY_VERIFY_WITH_TIMEOUT(item.vectorTileGenerationCount() > 0, 5000);
+    paint(0);
+    if (!rotated) {
+        const QRectF source = item.lastVectorSourceRect();
+        const QRectF device = deviceTransform.mapRect(source);
+        QVERIFY(qAbs(source.width() * DeviceScale - item.lastVectorRasterSize().width()) < 1e-6);
+        QVERIFY(qAbs(source.height() * DeviceScale - item.lastVectorRasterSize().height()) < 1e-6);
+        QVERIFY(qAbs(device.left() - qRound(device.left())) < 1e-6);
+        QVERIFY(qAbs(device.top() - qRound(device.top())) < 1e-6);
+        if (pageEdge) {
+            QVERIFY(source.right() >= 120 && (source.right() - 120) * DeviceScale < 1);
+            QVERIFY(source.bottom() >= 40 && (source.bottom() - 40) * DeviceScale < 1);
+        }
+    }
+    const quint64 generation = item.vectorTileGenerationCount();
+    paint(-12);
+    QCOMPARE(item.vectorRequestDepth(), 0);
+    QCOMPARE(item.vectorTileGenerationCount(), generation);
+    const QPointF artwork(49, 20);
+    if (!pageEdge)
+        QCOMPARE(canvas.pixelColor(deviceTransform.map(artwork).toPoint()), QColor(Qt::white));
+    const QPointF clear = pageEdge ? QPointF(119, 39) : QPointF(47, 19);
+    QCOMPARE(canvas.pixelColor(deviceTransform.map(clear).toPoint()), QColor(Qt::green));
+    if (pageEdge)
+        QCOMPARE(canvas.pixelColor(deviceTransform.map(QPointF(121, 39)).toPoint()),
+                 QColor(Qt::magenta));
+}
+
+void ImageLoaderTests::testEpsPanPartialTile()
+{
+    QTemporaryDir directory;
+    const auto loaded = loadImage(createTransparentEPSVectorImage(directory, "partial-tile"));
+    QVERIFY(loaded && loaded->vectorImage.format == Qv::VectorImageFormat::Pdf);
+    QVGraphicsImageItem item;
+    QPixmap preview(120, 40);
+    preview.fill(Qt::magenta);
+    item.setPixmap(preview);
+    QVERIFY(item.setVectorImage(loaded->vectorImage));
+    item.setVectorBackgroundBrush(Qt::green);
+    QImage canvas(800, 320, QImage::Format_ARGB32_Premultiplied);
+    const auto paint = [&](qreal x) {
+        canvas.fill(Qt::red);
+        QPainter painter(&canvas);
+        painter.scale(20, 20);
+        painter.translate(-x, -12);
+        QStyleOptionGraphicsItem option;
+        option.exposedRect = QRectF(x, 12, 40, 16);
+        item.paint(&painter, &option);
+    };
+    paint(5);
+    QTRY_VERIFY_WITH_TIMEOUT(item.vectorTileGenerationCount() > 0, 5000);
+    paint(5);
+    QVERIFY(item.lastVectorSourceRect().right() > 50);
+    item.setVectorInteractionActive(true);
+    paint(35);
+    QCOMPARE(item.vectorTileGenerationCount(), quint64(1));
+    QCOMPARE(item.vectorRequestDepth(), 1);
+    QCOMPARE(canvas.pixelColor(20, 160), QColor(Qt::green));
+    QCOMPARE(canvas.pixelColor(280, 160), QColor(Qt::white));
+    QCOMPARE(canvas.pixelColor(780, 160), QColor(Qt::magenta));
+}
+
+void ImageLoaderTests::testEpsPanPaintBudget()
+{
+    QTemporaryDir directory;
+    const QString sample = qEnvironmentVariable("FOVELLE_EPS_SAMPLE");
+    const auto loaded = loadImage(
+            sample.isEmpty() ? createTransparentEPSVectorImage(directory, "pan-budget") : sample);
+    QVERIFY(loaded && loaded->vectorImage.format == Qv::VectorImageFormat::Pdf);
+    QVERIFY(!loaded->image.isNull());
+    QVGraphicsImageItem item;
+    item.setPixmap(QPixmap::fromImage(loaded->image));
+    QVERIFY(item.setVectorImage(loaded->vectorImage));
+    item.setVectorBackgroundBrush(Qt::black);
+    QImage canvas(3422, 2134, QImage::Format_ARGB32_Premultiplied);
+    canvas.setDevicePixelRatio(2);
+    constexpr qreal Zoom = 43.9453125;
+    const auto paint = [&](int pan) {
+        QPainter painter(&canvas);
+        painter.translate(-1700 - pan, -205);
+        painter.scale(Zoom, Zoom);
+        QStyleOptionGraphicsItem option;
+        option.exposedRect =
+                painter.deviceTransform().inverted().mapRect(QRectF(QPointF(), canvas.size()));
+        return measureVectorPaint([&] { item.paint(&painter, &option); });
+    };
+    QVERIFY(paint(0).has_value());
+    QTRY_VERIFY_WITH_TIMEOUT(item.vectorTileGenerationCount() > 0, 5000);
+    QVERIFY(paint(0).has_value());
+    const qreal startingRight = item.lastVectorSourceRect().right();
+    QVERIFY(startingRight > (1700 + 1711 + 60) / Zoom);
+    QVERIFY(startingRight < (1700 + 1711 + 80) / Zoom);
+
+    QImage reference(canvas.size(), QImage::Format_RGB32);
+    reference.setDevicePixelRatio(2);
+    reference.fill(Qt::gray);
+    QVector<double> cached, partial, raster;
+    item.setVectorInteractionActive(true);
+    // Suppress publication of replacement tiles during this measured sequence
+    // so both the hot cache and the cross-boundary frames are always exercised.
+    for (int step = 0; step < 36; ++step) {
+        const auto warm = paint(step);
+        const auto crossing = paint(90 + 4 * step);
+        QPainter painter(&canvas);
+        const auto baseline = measureVectorPaint([&] { painter.drawImage(QPoint(), reference); });
+        QVERIFY(warm && crossing && baseline);
+        cached.append(warm->cpuMs);
+        partial.append(crossing->cpuMs);
+        raster.append(baseline->cpuMs);
+    }
+    const double cachedP95 = vectorPercentile(cached, .95);
+    const double partialP95 = vectorPercentile(partial, .95);
+    const double rasterP95 = vectorPercentile(raster, .95);
+    const double budget = qMax(1000.0 / 120, 4 * rasterP95);
+    qInfo() << "EPS_PAN_CPU_P95 cached_ms=" << cachedP95 << "partial_ms=" << partialP95
+            << "raster_ms=" << rasterP95 << "budget_ms=" << budget;
+    QVERIFY(cachedP95 <= budget);
+    QVERIFY(partialP95 <= budget);
+}

@@ -5881,15 +5881,18 @@ QImage QVCocoaFunctions::PDFVectorDocument::renderTile(const QSizeF &logicalPage
     // final bitmap dimensions come from QPainter's device transform, so this
     // is final-device rasterization rather than a persistent zoomed image.
     CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-    CGContextScaleCTM(context, static_cast<CGFloat>(pixelSize.width()) / clippedSource.width(),
-                      static_cast<CGFloat>(pixelSize.height()) / clippedSource.height());
+    CGContextScaleCTM(context, static_cast<CGFloat>(pixelSize.width()) / sourceRect.width(),
+                      static_cast<CGFloat>(pixelSize.height()) / sourceRect.height());
     // QGraphicsItem uses a top-left origin while a PDF destination uses a
     // bottom-left origin.  Convert the exposed item's vertical interval to
     // its matching Quartz interval before translating it to the tile origin.
-    const qreal quartzSourceBottom = logicalPageSize.height() - clippedSource.bottom();
-    CGContextTranslateCTM(context, -clippedSource.left(), -quartzSourceBottom);
+    const qreal quartzSourceBottom = logicalPageSize.height() - sourceRect.bottom();
+    CGContextTranslateCTM(context, -sourceRect.left(), -quartzSourceBottom);
     const CGRect logicalDestination =
             CGRectMake(0, 0, logicalPageSize.width(), logicalPageSize.height());
+    // A device-aligned tile can extend a fraction of a pixel past the page.
+    // Keep that margin transparent without stretching the artwork to fill it.
+    CGContextClipToRect(context, logicalDestination);
     CGContextConcatCTM(
             context,
             CGPDFPageGetDrawingTransform(page, impl->drawingBox, logicalDestination, 0, true));
