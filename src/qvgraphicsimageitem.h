@@ -92,6 +92,7 @@ private:
         qreal deviceScaleX{ 0.0 };
         qreal deviceScaleY{ 0.0 };
         quint64 lastUse{ 0 };
+        bool isOpaque{ false };
     };
 
     struct AsyncTileRequest

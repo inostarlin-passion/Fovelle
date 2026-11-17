@@ -104,6 +104,19 @@ QImage prepareVectorDisplay(const QImage &source, const QColorSpace &target, boo
 #endif
 }
 
+bool isOpaqueVectorTile(const QImage &image)
+{
+    if (image.format() != QImage::Format_ARGB32_Premultiplied)
+        return false;
+
+    for (int y = 0; y < image.height(); ++y) {
+        const auto *row = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+        if (!std::all_of(row, row + image.width(), [](QRgb pixel) { return qAlpha(pixel) == 255; }))
+            return false;
+    }
+    return true;
+}
+
 struct SvgWorkerRenderCache
 {
     QString sourcePath;
@@ -526,6 +539,20 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                                     request.sourceRect.height() * originalViewBox.height()
                                             / logicalSize.height());
                             if (tileViewBox.isValid() && !tileViewBox.isEmpty()) {
+                                // Device alignment can extend the request by a fraction of
+                                // a pixel past the page. Keep that padding transparent.
+                                const QRectF pageInTile = request.sourceRect.intersected(
+                                        QRectF(QPointF(), logicalSize));
+                                if (pageInTile != request.sourceRect) {
+                                    QTransform sourceToTile;
+                                    sourceToTile.scale(request.pixelSize.width()
+                                                               / request.sourceRect.width(),
+                                                       request.pixelSize.height()
+                                                               / request.sourceRect.height());
+                                    sourceToTile.translate(-request.sourceRect.left(),
+                                                           -request.sourceRect.top());
+                                    tilePainter.setClipRect(sourceToTile.mapRect(pageInTile));
+                                }
                                 renderer->setViewBox(tileViewBox);
                                 renderer->render(&tilePainter,
                                                  QRectF(QPointF(), QSizeF(request.pixelSize)));
@@ -543,6 +570,8 @@ void QVGraphicsImageItem::startAsyncVectorTile(AsyncTileRequest request)
                             prepareVectorDisplay(result.tile.image, request.targetColorSpace,
                                                  &result.preparedOnGuiThread);
                     result.tile.outputSpace = request.targetColorSpace;
+                    if (request.vectorImage.format == Qv::VectorImageFormat::Svg)
+                        result.tile.isOpaque = isOpaqueVectorTile(result.tile.outputImage);
                     // The immutable vector document remains authoritative. Free
                     // the large high-depth temporary on this worker, rather than
                     // retaining/freeing it during a GUI cache eviction.
@@ -641,15 +670,21 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
     // first so an incomplete asynchronous tile can never reveal the previous
     // frame.  The view supplies either the solid theme brush or its
     // checkerboard brush.
-    painter->save();
-    painter->setCompositionMode(QPainter::CompositionMode_Source);
-    painter->fillRect(exposedRect, vectorBackgroundBrush);
-    painter->restore();
+    const auto paintBackground = [&]() {
+        painter->save();
+        painter->setCompositionMode(QPainter::CompositionMode_Source);
+        painter->fillRect(exposedRect, vectorBackgroundBrush);
+        painter->restore();
+    };
+    const auto paintPreview = [&]() {
+        paintBackground();
+        paintRasterFallback(painter);
+    };
 
     const bool isSvg = vectorImage.format == Qv::VectorImageFormat::Svg && svgRenderer;
     const bool isPdf = vectorImage.format == Qv::VectorImageFormat::Pdf && pdfDocument;
     if (!isSvg && !isPdf) {
-        paintRasterFallback(painter);
+        paintPreview();
         return;
     }
 
@@ -661,6 +696,7 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
             QLineF(deviceOrigin, deviceTransform.map(QPointF(0.0, 1.0))).length();
     if (!(deviceScaleX > 0.0) || !(deviceScaleY > 0.0) || !std::isfinite(deviceScaleX)
         || !std::isfinite(deviceScaleY)) {
+        paintBackground();
         return;
     }
 
@@ -671,9 +707,10 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
     const qreal paddingY = 1.0 / deviceScaleY;
     const QRectF sourceRect = exposedRect.adjusted(-paddingX, -paddingY, paddingX, paddingY)
                                       .intersected(boundingRect());
-    const bool usePdfPixelGrid = isPdf && deviceTransform.type() <= QTransform::TxScale
+    const bool useVectorPixelGrid = deviceTransform.type() <= QTransform::TxScale
             && deviceTransform.m11() > 0.0 && deviceTransform.m22() > 0.0;
-    const QTransform deviceToSource = usePdfPixelGrid ? deviceTransform.inverted() : QTransform();
+    const QTransform deviceToSource =
+            useVectorPixelGrid ? deviceTransform.inverted() : QTransform();
     const auto tileRequest = [&]() {
         const int overscanPixels = vectorInteractionActive ? VectorTileInteractionOverscanPixels
                                                            : VectorTilePanOverscanPixels;
@@ -686,7 +723,7 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         const qreal requestedScaleY = deviceScaleY * VectorTileRenderScale;
         QSize tileSize = boundedTileSize(QSizeF(renderedSourceRect.width() * requestedScaleX,
                                                 renderedSourceRect.height() * requestedScaleY));
-        if (usePdfPixelGrid) {
+        if (useVectorPixelGrid) {
             // Keep the exact device scale at fractional zoom and page edges.
             // Rounding only the bitmap size changes the sampling rate on every tile.
             const QRectF deviceRect =
@@ -750,7 +787,7 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
             // There is no source coverage to transform yet.  The bounded
             // preview keeps the UI responsive until the worker publishes the
             // requested interaction or exact terminal-density tile.
-            paintRasterFallback(painter);
+            paintPreview();
             return;
         }
     }
@@ -759,7 +796,7 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
     tile.lastUse = ++vectorTileUseSerial;
     const QRectF drawnSourceRect = sourceRect.intersected(tile.sourceRect);
     if (drawnSourceRect.isEmpty()) {
-        paintRasterFallback(painter);
+        paintPreview();
         return;
     }
     const qreal sourcePixelScaleX = tile.outputImage.width() / tile.sourceRect.width();
@@ -769,40 +806,43 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
                       (rect.top() - tile.sourceRect.top()) * sourcePixelScaleY,
                       rect.width() * sourcePixelScaleX, rect.height() * sourcePixelScaleY);
     };
-    const QRectF deviceRect = usePdfPixelGrid
+    const QRectF deviceRect = useVectorPixelGrid
             ? alignedDeviceRect(deviceTransform.mapRect(drawnSourceRect))
             : QRectF();
     const QRectF alignedSource = deviceToSource.mapRect(deviceRect);
     const QRectF alignedTilePixels = tilePixels(alignedSource);
     static const bool forceSmooth = qEnvironmentVariableIsSet("FOVELLE_VECTOR_FORCE_SMOOTH");
-    const bool copyDevicePixels = usePdfPixelGrid && !forceSmooth
+    const bool copyDevicePixels = useVectorPixelGrid && !forceSmooth
             && canUseNearestVectorTileSampling(deviceTransform, alignedSource, alignedTilePixels,
                                                tile.outputImage.size(), tile.sourceRect,
                                                tile.deviceScaleX, tile.deviceScaleY, deviceScaleX,
                                                deviceScaleY);
+    // SourceOver reduces to a plain copy for fully opaque pixels at unit
+    // opacity. With full coverage it also replaces the entire background.
+    const bool copyOpaqueTile = copyDevicePixels && tile.isOpaque && painter->opacity() == 1.0
+            && painter->compositionMode() == QPainter::CompositionMode_SourceOver;
+    if (!copyOpaqueTile || !alignedSource.contains(exposedRect))
+        paintBackground();
+
     if (!drawnSourceRect.contains(exposedRect) && !rasterPixmap.isNull()) {
-        if (isPdf) {
-            // Transparent PDF pixels expose the background in the retained tile.
-            // Only fill the newly exposed region with the low-resolution preview.
-            const QRectF coverage =
-                    (copyDevicePixels ? alignedSource : drawnSourceRect).intersected(exposedRect);
-            QPainterPath uncovered;
-            uncovered.addRect(exposedRect);
-            if (!coverage.isEmpty())
-                uncovered.addRect(coverage);
-            painter->save();
-            painter->setClipPath(uncovered, Qt::IntersectClip);
-            paintRasterFallback(painter);
-            painter->restore();
-        } else {
-            paintRasterFallback(painter);
-        }
+        // Transparent vector pixels expose the background in the retained tile.
+        // Only fill the newly exposed region with the low-resolution preview.
+        const QRectF coverage =
+                (copyDevicePixels ? alignedSource : drawnSourceRect).intersected(exposedRect);
+        QPainterPath uncovered;
+        uncovered.addRect(exposedRect);
+        if (!coverage.isEmpty())
+            uncovered.addRect(coverage);
+        painter->save();
+        painter->setClipPath(uncovered, Qt::IntersectClip);
+        paintRasterFallback(painter);
+        painter->restore();
     }
     // Tiles are rendered at terminal device density even during interaction.
     // For an exact integer-pixel translation, the tile is already antialiased
     // vector output and a nearest copy avoids a second interpolation pass.
     // Fractional pixel offsets, density changes, and rotated mappings still
-    // need filtering. An aligned PDF tile can also be copied on partial reuse.
+    // need filtering. An aligned tile can also be copied on partial reuse.
     const QRectF tilePixelRect = tilePixels(drawnSourceRect);
     const bool nearestSampling = copyDevicePixels
             || (!forceSmooth && !reusedVectorTile
@@ -821,6 +861,8 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         painter->save();
         painter->resetTransform();
         painter->setWorldTransform(painter->deviceTransform().inverted());
+        if (copyOpaqueTile)
+            painter->setCompositionMode(QPainter::CompositionMode_Source);
         painter->drawImage(deviceRect, tile.outputImage, alignedTilePixels.toRect());
         painter->restore();
     } else {
@@ -838,7 +880,8 @@ void QVGraphicsImageItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
                                                            : QStringLiteral("miss"))
                 << "sampling="
                 << (nearestSampling ? QStringLiteral("nearest") : QStringLiteral("smooth"))
-                << "deviceScale=" << deviceScaleX << deviceScaleY << "exposedRect=" << exposedRect
-                << "sourceRect=" << tile.sourceRect << "tilePixels=" << tile.outputImage.size();
+                << "opaque_copy=" << copyOpaqueTile << "deviceScale=" << deviceScaleX
+                << deviceScaleY << "exposedRect=" << exposedRect << "sourceRect=" << tile.sourceRect
+                << "tilePixels=" << tile.outputImage.size();
     }
 }

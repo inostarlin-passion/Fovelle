@@ -590,7 +590,8 @@ add_test(NAME FovelleVectorPerformanceStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/vector_performance_static.py)
 add_test(NAME FovelleVectorPerformanceDynamic COMMAND fovelle_tests
     testVectorPaintTimingClockIsolation testVectorPresentationFrameBudget testVectorDisplayTargetSwitch testVectorRequestBurstAndDestruction
-    testEpsPanPixelGrid testEpsPanPartialTile testEpsPanPaintBudget)
+    testEpsPanPixelGrid testEpsPanPartialTile testEpsPanPaintBudget
+    testSvgPanPixelGrid testSvgPanPartialTile testSvgPanOpaqueTile)
 set_tests_properties(FovelleVectorPerformanceDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=ImageLoaderTests"
     TIMEOUT 0 RUN_SERIAL TRUE LABELS "vector;performance;pixels")

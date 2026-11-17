@@ -30,13 +30,17 @@ class VectorPerformanceContracts(unittest.TestCase):
             self.assertIn('"' + key + '"', s)
         cmake=(ROOT/'tests/CMakeLists.txt').read_text()
         self.assertIn('testVectorPaintTimingClockIsolation testVectorPresentationFrameBudget', cmake)
-    def test_pdf_pan_pixel_grid_contract(self):
+    def test_vector_pan_pixel_grid_contract(self):
         item = (ROOT / "src/qvgraphicsimageitem.cpp").read_text()
-        self.assertIn("const bool usePdfPixelGrid = isPdf", item)
         request = item.split("const auto tileRequest =")[1].split("const auto retainedTileCoversRequest")[0]
-        self.assertIn("if (usePdfPixelGrid)", request)
+        self.assertIn("if (useVectorPixelGrid)", request)
         self.assertIn("alignedDeviceRect", request)
         self.assertIn("boundedTileSize", request)
+        svg = item.split("else if (request.vectorImage.format == Qv::VectorImageFormat::Svg)")[1]
+        svg = svg.split("result.tile.outputImage =")[0]
+        self.assertIn("svgWorkerRenderCache().originalViewBox", svg)
+        self.assertIn("tilePainter.setClipRect", svg)
+        self.assertLess(svg.index("tilePainter.setClipRect"), svg.index("renderer->render"))
         pdf = (ROOT / "src/qvcocoafunctions.mm").read_text().split("PDFVectorDocument::renderTile(")[1]
         pdf = pdf.split("QVCocoaFunctions::createPDFVectorDocument(")[0]
         self.assertIn("pixelSize.width()) / sourceRect.width()", pdf)
@@ -45,6 +49,17 @@ class VectorPerformanceContracts(unittest.TestCase):
         view = (ROOT / "src/qvgraphicsview.cpp").read_text().split("void QVGraphicsView::scrollContentsBy(")[1]
         view = view.split("QGraphicsView::scrollContentsBy(dx, dy);")[0]
         self.assertIn("setVectorInteractionPresentation(true)", view)
+
+    def test_opaque_svg_copy_requires_verified_alpha(self):
+        item = (ROOT / "src/qvgraphicsimageitem.cpp").read_text()
+        worker = item.split("void QVGraphicsImageItem::startAsyncVectorTile(")[1]
+        worker = worker.split("void QVGraphicsImageItem::asyncVectorTileFinished(")[0]
+        self.assertIn("result.tile.isOpaque = isOpaqueVectorTile(result.tile.outputImage)", worker)
+        paint = item.split("void QVGraphicsImageItem::paint(")[1]
+        self.assertIn("copyDevicePixels && tile.isOpaque", paint)
+        self.assertIn("painter->opacity() == 1.0", paint)
+        self.assertIn("painter->compositionMode() == QPainter::CompositionMode_SourceOver", paint)
+        self.assertIn("!copyOpaqueTile || !alignedSource.contains(exposedRect)", paint)
 
     def test_registration(self):
         s=(ROOT/'tests/CMakeLists.txt').read_text()

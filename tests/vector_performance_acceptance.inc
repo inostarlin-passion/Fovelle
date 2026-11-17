@@ -223,14 +223,10 @@ void ImageLoaderTests::testEpsPanPixelGrid_data()
     QTest::newRow("rotated") << QStringLiteral("rotated");
 }
 
-void ImageLoaderTests::testEpsPanPixelGrid()
+static void verifyVectorPanPixelGrid(const Qv::VectorImageData &vector, const QString &location)
 {
-    QFETCH(QString, location);
-    QTemporaryDir directory;
-    const auto loaded = loadImage(createTransparentEPSVectorImage(directory, "pixel-grid"));
-    QVERIFY(loaded && loaded->vectorImage.format == Qv::VectorImageFormat::Pdf);
     QVGraphicsImageItem item;
-    QVERIFY(item.setVectorImage(loaded->vectorImage));
+    QVERIFY(item.setVectorImage(vector));
     item.setVectorBackgroundBrush(Qt::green);
     constexpr qreal Zoom = 43.9453125;
     constexpr qreal DeviceScale = 2 * Zoom;
@@ -278,16 +274,58 @@ void ImageLoaderTests::testEpsPanPixelGrid()
         QCOMPARE(canvas.pixelColor(deviceTransform.map(artwork).toPoint()), QColor(Qt::white));
     const QPointF clear = pageEdge ? QPointF(119, 39) : QPointF(47, 19);
     QCOMPARE(canvas.pixelColor(deviceTransform.map(clear).toPoint()), QColor(Qt::green));
-    if (pageEdge)
+    if (pageEdge) {
         QCOMPARE(canvas.pixelColor(deviceTransform.map(QPointF(121, 39)).toPoint()),
                  QColor(Qt::magenta));
+        if (vector.format == Qv::VectorImageFormat::Svg) {
+            const QPointF edge = deviceTransform.map(QPointF(120, 39));
+            // The outward-aligned tile includes a pixel centered past the page.
+            // Out-of-viewBox artwork must not color that extra pixel.
+            const int outside = qCeil(edge.x()) - 1;
+            QVERIFY(outside + 0.5 > edge.x());
+            QCOMPARE(canvas.pixelColor(outside, qRound(edge.y())), QColor(Qt::magenta));
+        }
+    }
 }
 
-void ImageLoaderTests::testEpsPanPartialTile()
+void ImageLoaderTests::testEpsPanPixelGrid()
 {
+    QFETCH(QString, location);
     QTemporaryDir directory;
-    const auto loaded = loadImage(createTransparentEPSVectorImage(directory, "partial-tile"));
+    const auto loaded = loadImage(createTransparentEPSVectorImage(directory, "pixel-grid"));
     QVERIFY(loaded && loaded->vectorImage.format == Qv::VectorImageFormat::Pdf);
+    verifyVectorPanPixelGrid(loaded->vectorImage, location);
+}
+
+void ImageLoaderTests::testSvgPanPixelGrid_data()
+{
+    QTest::addColumn<QString>("location");
+    QTest::newRow("without-viewbox") << QStringLiteral("interior");
+    QTest::newRow("offset-viewbox-page-edge") << QStringLiteral("edge");
+    QTest::newRow("offset-viewbox-rotated") << QStringLiteral("rotated");
+}
+
+void ImageLoaderTests::testSvgPanPixelGrid()
+{
+    QFETCH(QString, location);
+    Qv::VectorImageData vector;
+    vector.format = Qv::VectorImageFormat::Svg;
+    vector.logicalSize = QSizeF(120, 40);
+    vector.colorSpace = QColorSpace::SRgb;
+    vector.encodedData = location == "interior"
+            ? QByteArray("<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40'>"
+                         "<rect x='48' y='12' width='24' height='16' fill='white'/></svg>")
+            : QByteArray("<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40' "
+                         "viewBox='10 20 240 80'>"
+                         "<rect x='106' y='44' width='48' height='32' fill='white'/>"
+                         "<rect x='250' y='90' width='12' height='10' fill='blue'/></svg>");
+    verifyVectorPanPixelGrid(vector, location);
+}
+
+static void verifyPartialVectorTile(const QString &path, Qv::VectorImageFormat format)
+{
+    const auto loaded = loadImage(path);
+    QVERIFY(loaded && loaded->vectorImage.format == format);
     QVGraphicsImageItem item;
     QPixmap preview(120, 40);
     preview.fill(Qt::magenta);
@@ -315,6 +353,20 @@ void ImageLoaderTests::testEpsPanPartialTile()
     QCOMPARE(canvas.pixelColor(20, 160), QColor(Qt::green));
     QCOMPARE(canvas.pixelColor(280, 160), QColor(Qt::white));
     QCOMPARE(canvas.pixelColor(780, 160), QColor(Qt::magenta));
+}
+
+void ImageLoaderTests::testEpsPanPartialTile()
+{
+    QTemporaryDir directory;
+    verifyPartialVectorTile(createTransparentEPSVectorImage(directory, "partial-tile"),
+                            Qv::VectorImageFormat::Pdf);
+}
+
+void ImageLoaderTests::testSvgPanPartialTile()
+{
+    QTemporaryDir directory;
+    verifyPartialVectorTile(createTransparentSVGVectorImage(directory, "partial-tile"),
+                            Qv::VectorImageFormat::Svg);
 }
 
 void ImageLoaderTests::testEpsPanPaintBudget()
@@ -373,4 +425,56 @@ void ImageLoaderTests::testEpsPanPaintBudget()
             << "raster_ms=" << rasterP95 << "budget_ms=" << budget;
     QVERIFY(cachedP95 <= budget);
     QVERIFY(partialP95 <= budget);
+}
+
+void ImageLoaderTests::testSvgPanOpaqueTile_data()
+{
+    QTest::addColumn<qreal>("opacity");
+    QTest::newRow("fully-opaque") << qreal(1.0);
+    QTest::newRow("translucent-painter") << qreal(0.5);
+}
+
+void ImageLoaderTests::testSvgPanOpaqueTile()
+{
+    QFETCH(qreal, opacity);
+    Qv::VectorImageData vector;
+    vector.format = Qv::VectorImageFormat::Svg;
+    vector.logicalSize = QSizeF(120, 40);
+    vector.colorSpace = QColorSpace::SRgb;
+    vector.encodedData = "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40'>"
+                         "<rect width='120' height='40' fill='red'/></svg>";
+    QVGraphicsImageItem item;
+    QVERIFY(item.setVectorImage(vector));
+    item.setVectorBackgroundBrush(Qt::green);
+
+    QImage canvas(600, 400, QImage::Format_ARGB32_Premultiplied);
+    const auto paint = [&]() {
+        canvas.fill(Qt::blue);
+        QPainter painter(&canvas);
+        painter.setOpacity(opacity);
+        painter.scale(23.75, 23.75);
+        painter.translate(-10, -10);
+        QStyleOptionGraphicsItem option;
+        option.exposedRect =
+                painter.deviceTransform().inverted().mapRect(QRectF(QPointF(), canvas.size()));
+        item.paint(&painter, &option);
+        QCOMPARE(painter.compositionMode(), QPainter::CompositionMode_SourceOver);
+    };
+    paint();
+    QTRY_VERIFY_WITH_TIMEOUT(item.vectorTileGenerationCount() > 0, 5000);
+    paint();
+    QVERIFY(item.vectorRenderCount() > 0);
+
+    QImage reference(1, 1, canvas.format());
+    reference.fill(Qt::blue);
+    QImage source(1, 1, canvas.format());
+    source.fill(Qt::red);
+    QPainter painter(&reference);
+    painter.setOpacity(opacity);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(reference.rect(), Qt::green);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    painter.drawImage(QPoint(), source);
+    painter.end();
+    QCOMPARE(canvas.pixelColor(300, 200), reference.pixelColor(0, 0));
 }

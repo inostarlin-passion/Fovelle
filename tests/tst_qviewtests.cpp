@@ -183,6 +183,11 @@ private slots:
     void testEpsPanPixelGrid();
     void testEpsPanPartialTile();
     void testEpsPanPaintBudget();
+    void testSvgPanPixelGrid_data();
+    void testSvgPanPixelGrid();
+    void testSvgPanPartialTile();
+    void testSvgPanOpaqueTile_data();
+    void testSvgPanOpaqueTile();
     void testVectorPaintTimingClockIsolation();
     void testVectorPresentationFrameBudget_data();
     void testVectorPresentationFrameBudget();

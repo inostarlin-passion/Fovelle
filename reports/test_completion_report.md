@@ -1,3 +1,41 @@
+# SVG 拖动性能测试完成报告
+
+2026-11-17 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 和 2× 显示器上验证 Release。使用修改前复制的同一工作区 bundle 与最终 bundle，交替进行三轮原生全屏 32 步拖动。每轮分别计算应用绘制 p50 和 p95，再各取三轮中位数。
+
+| 验收 | 固化测试 | 结果 |
+| --- | --- | --- |
+| SV01 | `vector_performance_static.py` | 7 项通过，覆盖共享对齐、预算、SVG 视框裁剪、异步色彩转换和全视口重绘。 [静态日志](../build-thumbnail-release/test-results/svg-pan/final-static.log) |
+| SV02 | `testSvgPanPixelGrid` | 无显式视框、偏移视框页边、偏移视框旋转三行通过。修复前前两行有密度误差，修复后整数像素平移重用瓦片，页外标记保持不可见。 |
+| SV03 | `testSvgPanPartialTile` | 通过。修复前透明重用区显示洋红预览，修复后显示绿色背景，图形及裸露带分别保留白色和洋红。 |
+| SV04 | `testVectorDragFrameBudgetForEPSAndSVG`、`testVectorPanRepaintsOnlyExposedStrip`、`testVectorPaintClearsStalePixelsBeforeTileReady` | 通过。使用指定 SVG 和 EPS，鼠标拖动首帧均覆盖整个视口，透明像素检查无残留，释放后恢复最小更新并完成细化。 [窗口日志](../build-thumbnail-release/test-results/svg-pan/final-drag.log) |
+| SV05 | `vector_pan_native.py --repeat 3 --require-opaque-copy` | 通过。三轮均通过全屏终点、退出锚点和窗口几何检查。基线 132 次绘制均未对齐；候选 136 次绘制全部对齐并覆盖不透明瓦片。p50 从 6.25 ms 降至 3.22 ms（约 49%），p95 从 7.99 ms 降至 5.31 ms（约 34%）。 [原生对照日志](../build-thumbnail-release/test-results/svg-pan/final-native.log) |
+| SV06 | `testSvgPanOpaqueTile` 和静态检查 | 1.0、0.5 不透明度两行均匹配独立合成参考，绘制后合成模式复原。原生日志确认实际样本使用不透明覆盖分支。 |
+
+首次实现仅启用像素对齐，三轮对照虽全数走对齐路径，但 p50 为 5.92 → 6.05 ms，p95 为 7.46 → 7.57 ms。最终实现加入 worker Alpha 检查和省略已被完整覆盖的背景绘制，达到 SV05 的改善标准。记录来自应用绘制事件，显示器实际呈现帧率超出本次测量范围。 [首次实现对照](../build-thumbnail-release/test-results/svg-pan/green-native.log)
+
+修复前的像素回归有 3 项失败。最终图元与颜色回归 28 项通过，窗口回归 6 项通过，两组均含初始化和清理。默认 CTest 7/7 通过，用时 56.92 秒。CI 固定版本 clang-format 和 `git diff --check` 通过。本机 QtSvg 链接仍产生 macOS 15.0 部署目标的版本警告。 [修复前 Qt 日志](../build-thumbnail-release/test-results/svg-pan/red-dynamic.log) · [最终 Qt 日志](../build-thumbnail-release/test-results/svg-pan/final-dynamic.log) · [默认 CTest 日志](../build-thumbnail-release/test-results/svg-pan/final-ctest.log)
+
+## 复现
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests fovelle_native_drag_helper
+ctest --test-dir build-thumbnail-release --output-on-failure
+
+sample='/Volumes/CRYSTAL/仓库/Fovelle App/sdr_test/7.svg'
+QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=ImageLoaderTests \
+  build-thumbnail-release/tests/fovelle_tests \
+  testSvgPanPixelGrid testSvgPanPartialTile testSvgPanOpaqueTile
+QT_QPA_PLATFORM=cocoa FOVELLE_TEST_SUITE=GraphicsViewTests FOVELLE_SVG_SAMPLE="$sample" \
+  build-thumbnail-release/tests/fovelle_tests testVectorDragFrameBudgetForEPSAndSVG
+python3 tests/vector_pan_native.py \
+  --helper "$PWD/build-thumbnail-release/tests/fovelle_native_drag_helper" \
+  --app "$PWD/build-thumbnail-release/Fovelle.app" \
+  --baseline-app "$PWD/build-thumbnail-release/test-results/svg-pan/Baseline.app" \
+  --image "$sample" --repeat 3 --require-opaque-copy
+```
+
+---
+
 # EPS 拖动性能测试完成报告
 
 2026-11-17 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 上验证 Release。原生对照使用相同的 2× 显示器、同一份 `sdr_test/6.eps`、同一套系统输入和相同应用日志开关。
@@ -9,7 +47,7 @@
 | EP03 | `testEpsPanPartialTile` | 通过。旧帧处于同一透明区域时，修复前显示洋红预览，修复后显示正确的绿色背景；裸露带继续使用预览。 |
 | EP04 | `testEpsPanPaintBudget` | 指定 EPS 的热缓存、跨界 CPU p95 分别为 3.02 ms、3.07 ms，栅格参考为 1.78 ms，验收门槛为 8.33 ms。 |
 | EP05 | `testVectorDragFrameBudgetForEPSAndSVG`、`testVectorPanRepaintsOnlyExposedStrip`、`testVectorPaintClearsStalePixelsBeforeTileReady` | 全部通过。EPS/SVG 首帧覆盖率均为 100%，合成检查各有 0 个残留像素，释放后恢复最小更新且细化完成。 [Qt 拖动日志](../build-thumbnail-release/test-results/eps-pan/final-drag.log) |
-| EP06 | `eps_pan_native.py --baseline-app …` | 通过。两版均收到 32 步系统拖动输入并通过全屏几何断言。对齐采样帧数从 0/32 增至 34/37。应用绘制耗时中位数从 10.71 ms 降到 5.27 ms，p95 从 25.40 ms 降到 10.97 ms。多个绘制帧可来自同一步鼠标输入。 [配对日志](../build-thumbnail-release/test-results/eps-pan/final-native.log) |
+| EP06 | `vector_pan_native.py --baseline-app …` | 通过。两版均收到 32 步系统拖动输入并通过全屏几何断言。对齐采样帧数从 0/32 增至 34/37。应用绘制耗时中位数从 10.71 ms 降到 5.27 ms，p95 从 25.40 ms 降到 10.97 ms。多个绘制帧可来自同一步鼠标输入。 [配对日志](../build-thumbnail-release/test-results/eps-pan/final-native.log) |
 | EP07 | `fovelle_native_drag_helper` 加 `3.jpeg` | 通过。接近底部、退出锚点、恢复窗口几何均正确。 [JPEG 日志](../build-thumbnail-release/test-results/eps-pan/final-native-jpeg.log) |
 
 指定样本的图像加载和矢量相关测试共 18 项通过，Qt 拖动组共 5 项通过，合计含两组初始化和清理。默认 CTest 7/7 通过，用时 55.81 秒。CI 固定版本 clang-format 和 `git diff --check` 通过。 [修复前动态日志](../build-thumbnail-release/test-results/eps-pan/red-dynamic.log) · [最终图像测试日志](../build-thumbnail-release/test-results/eps-pan/final-dynamic.log) · [默认 CTest 日志](../build-thumbnail-release/test-results/eps-pan/final-ctest.log)
@@ -29,7 +67,7 @@ FOVELLE_TEST_SUITE=ImageLoaderTests FOVELLE_EPS_SAMPLE="$sample" QT_QPA_PLATFORM
   build-thumbnail-release/tests/fovelle_tests \
   testEpsPanPixelGrid testEpsPanPartialTile testEpsPanPaintBudget
 
-python3 tests/eps_pan_native.py \
+python3 tests/vector_pan_native.py \
   --helper "$PWD/build-thumbnail-release/tests/fovelle_native_drag_helper" \
   --app "$PWD/build-thumbnail-release/Fovelle.app" \
   --baseline-app "$PWD/build-install-release/Fovelle.app" \
