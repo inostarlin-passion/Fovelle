@@ -57,6 +57,7 @@ public:
     GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
     void markFolderInfoDirty();
     void refreshThumbnailListing();
+    bool checkThumbnailListing();
     bool openThumbnail(int index, const QString &path, quint64 listVersion,
                        const QByteArray &fileVersion);
     quint64 thumbnailListVersion() const { return folderScanGeneration; }
@@ -141,6 +142,7 @@ private:
     bool folderInfoDirty{ false };
     quint64 folderScanGeneration = 0;
     QvAsync::Ticket folderScanTicket;
+    QvAsync::Ticket thumbnailScanTicket;
     QString pendingFolderPath;
     bool openDirectoryAfterScan = false;
     bool asyncWorkShutDown{ false };

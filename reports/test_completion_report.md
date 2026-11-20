@@ -1,3 +1,44 @@
+# 缩略图六项修复测试完成报告
+
+使用 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 的 Release 构建。动态测试以缩略图条尚未打开的邻居为观察对象。临时样本由测试销毁，真实图库样本通过临时目录引用并复核源文件版本。
+
+| 验收 | 固化测试 | 核验内容 |
+| --- | --- | --- |
+| TH01a–TH01c | `testThumbnailLiveListing` 三行 | 新增、删除、向原本无图的递归子目录加入文件。 |
+| TH02a–TH02b | `testThumbnailLiveReplacement` 两行 | 原地覆盖与原子替换均更换可见像素和版本。 |
+| TH03 | `test_live_subscription_and_file_version` | 事件、重扫、取消旧订阅和读前读后版本核对贯通。 |
+| TH04–TH05 | `testThumbnailOffscreenDecode`、`test_decode_uses_two_independent_bounded_slots_and_cancels_orphans` | 滚出 EPS 后终止模拟渲染进程，新可见 PNG 在限时内出现。 |
+| TH06–TH08 | `testThumbnailClickWithBusySharedPool`、`testThumbnailValidationRetry`、`testThumbnailLateValidation`、`test_metadata_admission_and_timeout_cancellation` | 共享线程全满时仍能点击。校验接纳满载和实际读阻塞两种超时均可重试。迟到的旧结果无切图。 |
+| TH09a–TH09b | `testThumbnailExpandedWebp`、`testThumbnailLargeTiff` 与 `testThumbnailLargeTiffRejected` | 4200 万像素 WebP、编码大小超旧阈值及像素超旧阈值的整数 16 位 TIFF 均得到预览。高位深输入超估算预算时显示占位。 |
+| TH10 | `testThumbnailEmbeddedRaw`、`test_over_budget_raw_is_embedded_only` | 6800 万像素 DNG 使用已有的 128 × 64 预览，方向 6 后蓝左红右。超预算分支禁止触发传感器解码。 |
+| TH11 | `testThumbnailPreviewStates` | 加载、读取失败、超预算的状态可区分。超缩略图预算的 SVG 能从占位格打开主图。 |
+| TH12–TH13 | `testThumbnailLoopContinuity`、`testThumbnailLoopDeduplication` | 跨首尾滚动保持位移和主图，两图目录逆向滚动仍连续且无重复格。 |
+| TH14a–TH14b | `testThumbnailIncrementalDrawing` 四行 | 分别核验 Qt 与原生绘制的分数滚动、受影响格回填、上传计数和成品像素。 |
+| TH15 | `test_native_content_and_geometry_can_change_independently`、现有 Qt 和原生交接、HDR、切图过渡和全屏用例 | 栅格与布局分离。覆盖层保持裁剪、命中、动画和后端交接。 |
+
+修复前的 Cocoa 探针复现了目录和像素过期、屏外 EPS 阻塞、校验超时无法立即重试和循环边缘跳变。新增五项源码检查在原版本均未通过。初次组合运行在淡出反转用例开始失去 Cocoa 窗口焦点，后续用例受影响。最终测试夹具显式激活测试窗口，保留原有的窗口活动、动画和结果断言。 [修复前探针](../build-thumbnail-release/test-results/thumbnail-repair/baseline-probes.log) · [修复前静态检查](../build-thumbnail-release/test-results/thumbnail-repair/baseline-static.log) · [中间焦点异常记录](../build-thumbnail-release/test-results/thumbnail-repair/extended-focus-interrupted.log)
+
+## 最终结果
+
+| 验证 | 结果 | 日志 |
+| --- | --- | --- |
+| 默认 CTest | 7/7 通过，耗时 70.34 秒。缩略图静态检查 14 项通过，动态代表矩阵 45 项通过。 | [默认回归](../build-thumbnail-release/test-results/thumbnail-repair/final-ctest.log) · [逐项日志](../build-thumbnail-release/test-results/thumbnail-repair/final-ctest-detail.log) |
+| 完整 Cocoa 缩略图矩阵 | 89 项通过，耗时 43.21 秒。TH01a 至 TH15 全部通过，另覆盖原有交互与解码回归。 | [扩展矩阵](../build-thumbnail-release/test-results/thumbnail-repair/final-extended.log) |
+| 本地真实图库 | 25 张图集样本通过。独立验收的 TIFF 和两张超大 PNG 全部通过。TIFF 输出 272 × 208，与独立参考亮度相关系数 0.998636。 | [真实图集](../build-thumbnail-release/test-results/thumbnail-repair/final-corpus.log) · [大文件样本](../build-thumbnail-release/test-results/thumbnail-repair/final-gallery.log) |
+
+动态矩阵计数包含初始化和清理，均无失败或跳过。一像素滚动在两种路径都产生 0 次背景重栅、0 次单格重栅和 0 次原生上传。覆盖同一邻居时只重栅该格的等待和就绪两帧，Qt 背景重栅为 0 次，原生上传为 2 次。Qt 控件和 WindowServer 原生窗口取样均保留上下色带方向。
+
+Release 应用及测试程序构建完成。CI 固定版 clang-format 与 `git diff --check` 均通过。本机 Homebrew QtSvg 构建目标高于项目声明的 macOS 15.0，链接仍有部署版本提示。运行验证覆盖 macOS 27.0.1 的本地目录。真实 SMB、云占位、跨出监控目录树的符号链接变更、VoiceOver、物理跨屏和 120 Hz 呈现均待实机验证。 [Release 构建](../build-thumbnail-release/test-results/thumbnail-repair/verified-build.log)
+
+```sh
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests --parallel 4
+ctest --test-dir build-thumbnail-release --output-on-failure
+cmake -S . -B build-thumbnail-release -DFOVELLE_EXTENDED_TESTS=ON
+ctest --test-dir build-thumbnail-release -R '^FovelleThumbnail' --output-on-failure
+```
+
+---
+
 # SVG 拖动性能测试完成报告
 
 2026-11-17 在 Apple M3 Pro、macOS 27.0.1、Qt 6.12.0 和 2× 显示器上验证 Release。使用修改前复制的同一工作区 bundle 与最终 bundle，交替进行三轮原生全屏 32 步拖动。每轮分别计算应用绘制 p50 和 p95，再各取三轮中位数。

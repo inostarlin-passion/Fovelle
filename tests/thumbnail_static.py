@@ -19,8 +19,8 @@ class ThumbnailWiring(unittest.TestCase):
     def test_background_budget_and_versioned_foreground(self):
         strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
         self.assertIn("24 * 1024 * 1024", strip)
-        self.assertIn("MaxPreviewJobs = 2", strip)
-        self.assertIn("QvAsync::Lane::Shared", strip)
+        self.assertIn("QvAsync::Lane::ThumbnailDecode", strip)
+        self.assertIn("QvAsync::Lane::ThumbnailMetadata", strip)
         loader = (ROOT / "src/qvimageloader.cpp").read_text()
         versioned = loader.split("QVImageLoader::requestVersionedImage", 1)[1].split(
             "void QVImageLoader::", 1)[0]
@@ -86,7 +86,7 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertLess(native.index("fileBytes > MaxThumbnailFileBytes"),
                         native.index("CGImageSourceCreateWithURL("))
         self.assertIn('CFEqual(type, CFSTR("org.webmproject.webp"))', native)
-        self.assertIn("MaxWebpThumbnailPixels = 40 * 1000 * 1000", native)
+        self.assertIn("MaxWebpThumbnailPixels = 64 * 1000 * 1000", native)
         self.assertIn("readSimpleLosslessWebpThumbnail(", native)
         webp = cocoa.split("QImage readSimpleLosslessWebpThumbnail(", 1)[1].split("\n}", 1)[0]
         self.assertLess(webp.index("fileBytes > MaxWebpFallbackBytes"), webp.index("file.read("))
@@ -107,7 +107,7 @@ class ThumbnailWiring(unittest.TestCase):
             self.assertIn("qvpngthumbnail.cpp", (ROOT / name).read_text())
 
         strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
-        self.assertLess(strip.index("QMutexLocker decodeLock"), strip.index("readThumbnail("))
+        self.assertIn("isQuickThumbnail(path, fileBytes)", strip)
         self.assertIn("QVImageLoader::fileVersion(path) != version", strip)
 
     def test_large_tiff_admission_is_format_scoped(self):
@@ -131,11 +131,12 @@ class ThumbnailWiring(unittest.TestCase):
         large = cocoa.split("bool allowsLargeTiffThumbnail(", 1)[1].split("\n}", 1)[0]
         for guard in ("MaxTiffPixels = 100 * 1000 * 1000", "MaxTiffEdge = 32768",
                       "kCGImagePropertyIsFloat", "kCGImagePropertyDepth", "[@8 isEqual:depth]",
+                      "[@16 isEqual:depth]", "MaxHighDepthBytes",
                       "kCGImagePropertyColorModelRGB", "kCGImagePropertyColorModelGray",
                       "kCGImagePropertyColorModelCMYK"):
             self.assertIn(guard, large)
         strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
-        guards = ("thumbnailMayReadContent", "QMutexLocker decodeLock", "readThumbnail(",
+        guards = ("thumbnailMayReadContent", "isQuickThumbnail(path, fileBytes)", "readThumbnail(",
                   "QVImageLoader::fileVersion(path) != version")
         positions = [strip.index(guard) for guard in guards]
         self.assertEqual(positions, sorted(positions))
@@ -149,6 +150,55 @@ class ThumbnailWiring(unittest.TestCase):
         self.assertIn("filter.draftModeEnabled = NO", raw)
         self.assertEqual(raw.count("filter.outputImage"), 2)
         self.assertNotIn("filter.previewImage", raw)
+
+
+class ThumbnailRepairs(unittest.TestCase):
+    def setUp(self):
+        self.strip = (ROOT / "src/qvthumbnailstrip.cpp").read_text()
+        self.native = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        self.async_code = (ROOT / "src/asyncwork.cpp").read_text()
+
+    def test_live_subscription_and_file_version(self):
+        self.assertIn("FSEventStreamSetDispatchQueue", self.strip)
+        changed = self.strip.split("void QVThumbnailStrip::filesChanged(", 1)[1].split(
+            "void QVThumbnailStrip::", 1)[0]
+        self.assertIn("invalidate", changed)
+        self.assertIn("directoryChangeTimer.start()", changed)
+        self.assertIn("checkThumbnailListing()", self.strip)
+        self.assertIn("QVImageLoader::fileVersion(path) != version", self.strip)
+
+    def test_decode_uses_two_independent_bounded_slots_and_cancels_orphans(self):
+        self.assertIn("bool fastRunning", self.strip)
+        self.assertIn("bool slowRunning", self.strip)
+        self.assertIn("QvAsync::Lane::ThumbnailDecode", self.strip)
+        self.assertIn("QvAsync::cancel(job.ticket)", self.strip)
+        self.assertIn("const bool canceled", self.strip)
+        self.assertIn("if (!canceled)", self.strip)
+
+    def test_metadata_admission_and_timeout_cancellation(self):
+        self.assertIn("ThumbnailMetadata", self.async_code)
+        self.assertIn("tryStart(runnable)", self.async_code)
+        self.assertIn("QvAsync::trySchedule", self.strip)
+        self.assertIn("QvAsync::cancel(validationTicket)", self.strip)
+        loader = (ROOT / "src/qvimageloader.cpp").read_text()
+        versioned = loader.split("QVImageLoader::requestVersionedImage", 1)[1].split(
+            "void QVImageLoader::", 1)[0]
+        self.assertGreaterEqual(versioned.count("fileVersion(path) == version"), 2)
+
+    def test_over_budget_raw_is_embedded_only(self):
+        raw = self.native.split("QImage readEmbeddedRawStripThumbnail(", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("kCGImageSourceCreateThumbnailFromImageIfAbsent : @NO", raw)
+        self.assertNotIn("kCGImageSourceCreateThumbnailFromImageAlways", raw)
+        self.assertIn("imageByApplyingCGOrientation", raw)
+        self.assertIn("readEmbeddedRawStripThumbnail(source", self.native)
+
+    def test_native_content_and_geometry_can_change_independently(self):
+        self.assertIn("thumbnailCellsLayer.masksToBounds = YES", self.native)
+        self.assertIn("tile.image.cacheKey()", self.native)
+        self.assertIn("thumbnailBackgroundKey", self.native)
+        self.assertIn("void QVThumbnailStrip::drawContent", self.strip)
+        self.assertIn("update(dirty)", self.strip)
 
 
 class ThumbnailCompileCommands(unittest.TestCase):

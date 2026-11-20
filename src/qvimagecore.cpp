@@ -1,6 +1,7 @@
 #include "qvimagecore.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
+#include <algorithm>
 #include <cstring>
 #include <QDir>
 #include <QUrl>
@@ -146,6 +147,8 @@ void QVImageCore::markFolderInfoDirty()
 
     folderInfoDirty = true;
     ++folderScanGeneration;
+    QvAsync::cancel(thumbnailScanTicket);
+    thumbnailScanTicket.reset();
     QvAsync::cancel(folderScanTicket);
     const QString interruptedDirectory = pendingFolderPath;
     pendingFolderPath.clear();
@@ -158,6 +161,44 @@ void QVImageCore::refreshThumbnailListing()
 {
     if (folderInfoDirty)
         updateFolderInfo();
+}
+
+bool QVImageCore::checkThumbnailListing()
+{
+    if (asyncWorkShutDown)
+        return true;
+    if (!pendingFolderPath.isEmpty() || thumbnailScanTicket)
+        return false;
+    const auto root = currentFileDetails.folderFileInfoList.getBaseDir();
+    if (root.isEmpty())
+        return true;
+    if (folderInfoDirty) {
+        updateFolderInfo(root);
+        return true;
+    }
+    const auto generation = folderScanGeneration;
+    thumbnailScanTicket = QvAsync::run(
+            [root, options = fileEnumerator.scanOptions()] {
+                return QVFileEnumerator::scan(root, options);
+            },
+            [this, generation](QVFileEnumerator::CompatibleFileList files) {
+                thumbnailScanTicket.reset();
+                if (folderScanGeneration != generation || !thumbnailListingReady())
+                    return;
+                const auto &current = currentFileDetails.folderFileInfoList;
+                if (current.getIsRecursive() == files.getIsRecursive()
+                    && std::equal(current.cbegin(), current.cend(), files.cbegin(), files.cend(),
+                                  [](const auto &a, const auto &b) {
+                                      return a.absoluteFilePath == b.absoluteFilePath;
+                                  }))
+                    return;
+                ++folderScanGeneration;
+                currentFileDetails.folderFileInfoList = std::move(files);
+                currentFileDetails.updateLoadedIndexInFolder();
+                refreshDesiredImages(!preloadDebounceTimer.isActive());
+                emit folderInfoChanged();
+            });
+    return true;
 }
 
 bool QVImageCore::openThumbnail(const int index, const QString &path, const quint64 listVersion,
@@ -186,6 +227,8 @@ void QVImageCore::shutdownAsyncWork()
         return;
 
     asyncWorkShutDown = true;
+    QvAsync::cancel(thumbnailScanTicket);
+    thumbnailScanTicket.reset();
     pendingLoadDebouncesPreloading = false;
     preloadDebounceTimer.stop();
     ++folderScanGeneration;
@@ -300,6 +343,8 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 void QVImageCore::closeImage(const bool stayInDir)
 {
     ++folderScanGeneration;
+    QvAsync::cancel(thumbnailScanTicket);
+    thumbnailScanTicket.reset();
     QvAsync::cancel(folderScanTicket);
     pendingFolderPath.clear();
     openDirectoryAfterScan = false;
@@ -472,6 +517,8 @@ void QVImageCore::updateFolderInfo(QString dirPath)
 
     if (asyncWorkShutDown)
         return;
+    QvAsync::cancel(thumbnailScanTicket);
+    thumbnailScanTicket.reset();
     QvAsync::cancel(folderScanTicket);
     const quint64 generation = ++folderScanGeneration;
     pendingFolderPath = dirPath;

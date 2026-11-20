@@ -713,6 +713,13 @@ add_test(NAME FovelleThumbnailStatic
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/thumbnail_static.py
         ${thumbnail_static_args})
 set_tests_properties(FovelleThumbnailStatic PROPERTIES TIMEOUT 0)
+set(thumbnail_repair_cases
+    testThumbnailLiveListing testThumbnailLiveReplacement testThumbnailOffscreenDecode
+    testThumbnailClickWithBusySharedPool testThumbnailValidationRetry testThumbnailLateValidation
+    testThumbnailExpandedWebp
+    testThumbnailEmbeddedRaw
+    testThumbnailPreviewStates testThumbnailLoopContinuity testThumbnailLoopDeduplication
+    testThumbnailIncrementalDrawing)
 if(FOVELLE_EXTENDED_TESTS)
     add_test(NAME FovelleThumbnailDynamic
         COMMAND $<TARGET_FILE:fovelle_tests>
@@ -731,7 +738,8 @@ if(FOVELLE_EXTENDED_TESTS)
             testThumbnailTransitionResize testThumbnailTransitionRetarget
             testThumbnailLongPng testThumbnailRawOrientation
             testThumbnailLargeTiff testThumbnailLargeTiffRejected
-            testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected)
+            testThumbnailLargeWebp testThumbnailStreamingPng testThumbnailStreamingPngRejected
+            ${thumbnail_repair_cases})
 else()
     add_test(NAME FovelleThumbnailDynamic
         COMMAND fovelle_tests testThumbnailContent:jpeg testThumbnailContent:corrupt
@@ -740,7 +748,8 @@ else()
             testThumbnailWheelBrowse testThumbnailTransitionRetarget
             testThumbnailSupersededValidation testThumbnailVersionChangesDuringRead
             testThumbnailLargeWebp:lossy-vp8x testThumbnailStreamingPng:oriented-adam7-rgba16
-            testThumbnailStreamingPngRejected:truncated testThumbnailRawOrientation:exif6)
+            testThumbnailStreamingPngRejected:truncated testThumbnailRawOrientation:exif6
+            ${thumbnail_repair_cases})
 endif()
 set_tests_properties(FovelleThumbnailDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"

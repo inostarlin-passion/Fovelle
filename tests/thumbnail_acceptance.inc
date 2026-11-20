@@ -1,6 +1,9 @@
 #include "qvthumbnailstrip.h"
 
+#include <QSaveFile>
 #include <QtEndian>
+#include <cerrno>
+#include <csignal>
 #include <cstring>
 
 namespace {
@@ -20,7 +23,7 @@ struct ThumbnailWindow
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         window.resize(1000, 600);
         window.show();
-        window.activateWindow();
+        nativeActivateTestWindow(window.windowHandle());
         first = createTestImage(dir, "01", Qt::red, QSize(120, 80));
         if (count > 1)
             next = createTestImage(dir, "02", Qt::green, QSize(120, 80));
@@ -40,6 +43,8 @@ struct ThumbnailWindow
 
     void hover(const bool settle = true)
     {
+        if (!window.isActiveWindow())
+            nativeActivateTestWindow(window.windowHandle());
         QVERIFY(QTest::qWaitForWindowActive(&window, 1000));
         if (settle)
             QTest::qWait(100);
@@ -1336,25 +1341,32 @@ void WindowBehaviorTests::testThumbnailLargeTiff_data()
 {
     QTest::addColumn<QSize>("source");
     QTest::addColumn<int>("channels");
+    QTest::addColumn<int>("bits");
     QTest::addColumn<int>("orientation");
     QTest::addColumn<bool>("little");
     QTest::addColumn<qint64>("bytes");
-    QTest::newRow("ordinary") << QSize(128, 88) << 3 << 1 << true << qint64(0);
-    QTest::newRow("file-only") << QSize(640, 480) << 3 << 1 << true << (256 * MiB + 1);
-    QTest::newRow("pixels-only-rotated") << QSize(10000, 6401) << 1 << 6 << true << qint64(0);
-    QTest::newRow("both-cmyk-big-endian") << QSize(12000, 7500) << 4 << 1 << false << (512 * MiB);
+    QTest::newRow("ordinary") << QSize(128, 88) << 3 << 8 << 1 << true << qint64(0);
+    QTest::newRow("file-only") << QSize(640, 480) << 3 << 8 << 1 << true << (256 * MiB + 1);
+    QTest::newRow("pixels-only-rotated") << QSize(10000, 6401) << 1 << 8 << 6 << true << qint64(0);
+    QTest::newRow("both-cmyk-big-endian")
+            << QSize(12000, 7500) << 4 << 8 << 1 << false << (512 * MiB);
+    QTest::newRow("integer-16-bit-file")
+            << QSize(640, 480) << 1 << 16 << 6 << true << (256 * MiB + 1);
+    QTest::newRow("integer-16-bit-pixels")
+            << QSize(10000, 6401) << 1 << 16 << 1 << true << qint64(0);
 }
 
 void WindowBehaviorTests::testThumbnailLargeTiff()
 {
     QFETCH(QSize, source);
     QFETCH(int, channels);
+    QFETCH(int, bits);
     QFETCH(int, orientation);
     QFETCH(bool, little);
     QFETCH(qint64, bytes);
     ThumbnailWindow fixture(1);
     const auto path = fixture.dir.filePath("02.tiff");
-    QVERIFY(writeStripedTiff(path, source, 8, channels, orientation, little, bytes));
+    QVERIFY(writeStripedTiff(path, source, bits, channels, orientation, little, bytes));
     revealNewThumbnail(fixture);
     QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 30000);
     const auto cell = thumbnailCell(fixture, path);
@@ -1375,7 +1387,7 @@ void WindowBehaviorTests::testThumbnailLargeTiffRejected_data()
     QTest::newRow("file-limit") << QSize(640, 480) << 8 << (512 * MiB + 1);
     QTest::newRow("pixel-limit") << QSize(10001, 10000) << 8 << qint64(0);
     QTest::newRow("edge-limit") << QSize(32769, 10) << 8 << (256 * MiB + 1);
-    QTest::newRow("sample-depth") << QSize(640, 480) << 16 << (256 * MiB + 1);
+    QTest::newRow("high-depth-memory-limit") << QSize(10000, 8193) << 16 << qint64(0);
     QTest::newRow("jpeg-with-tiff-extension") << QSize() << 0 << (256 * MiB + 1);
     QTest::newRow("broken-directory") << QSize() << 0 << (256 * MiB + 2);
 }
@@ -1429,4 +1441,453 @@ void WindowBehaviorTests::testThumbnailGalleryLargePng()
     QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 120000);
     verifyThumbnailBounds(fixture, thumbnailCell(fixture, path), QImageReader(path).size());
     QCOMPARE(QVImageLoader::fileVersion(original), version);
+}
+
+void WindowBehaviorTests::testThumbnailLiveListing_data()
+{
+    QTest::addColumn<QString>("operation");
+    QTest::newRow("add") << QStringLiteral("add");
+    QTest::newRow("remove") << QStringLiteral("remove");
+    QTest::newRow("nested-add") << QStringLiteral("nested");
+}
+
+void WindowBehaviorTests::testThumbnailLiveListing()
+{
+    QFETCH(QString, operation);
+    ScopedOptionValues options({ { "loopfoldersenabled", false } });
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    if (operation == "add") {
+        const auto added = createTestImage(fixture.dir, "00", Qt::cyan, QSize(120, 80));
+        QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, added).preview.isNull(), 4000);
+    } else if (operation == "remove") {
+        QVERIFY(!thumbnailCell(fixture, fixture.next).path.isEmpty());
+        QVERIFY(QFile::remove(fixture.next));
+        QTRY_VERIFY_WITH_TIMEOUT(thumbnailCell(fixture, fixture.next).path.isEmpty(), 4000);
+    } else {
+        // Recursive listings must also see a file in a directory with no images yet.
+        QVERIFY(QDir(fixture.dir.path()).mkdir("sub"));
+        QFile enable(fixture.dir.filePath("qv-recurse.txt"));
+        QVERIFY(enable.open(QIODevice::WriteOnly));
+        enable.close();
+        QTRY_VERIFY(fixture.window.getCurrentFileDetails().folderFileInfoList.getIsRecursive());
+        QImage cyan(120, 80, QImage::Format_RGB32);
+        cyan.fill(Qt::cyan);
+        const auto child = fixture.dir.filePath("sub/00.png");
+        QVERIFY(cyan.save(child));
+        QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, child).preview.isNull(), 4000);
+    }
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailLiveReplacement_data()
+{
+    QTest::addColumn<bool>("atomic");
+    QTest::newRow("in-place") << false;
+    QTest::newRow("atomic-replace") << true;
+}
+
+void WindowBehaviorTests::testThumbnailLiveReplacement()
+{
+    QFETCH(bool, atomic);
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_VERIFY(!thumbnailCell(fixture, fixture.next).preview.isNull());
+    const auto old = thumbnailCell(fixture, fixture.next).version;
+    QImage replacement(120, 80, QImage::Format_RGB32);
+    replacement.fill(Qt::magenta);
+    if (atomic) {
+        QSaveFile output(fixture.next);
+        QVERIFY(output.open(QIODevice::WriteOnly));
+        QVERIFY(replacement.save(&output, "PNG"));
+        QVERIFY(output.commit());
+    } else {
+        QVERIFY(replacement.save(fixture.next));
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(thumbnailCell(fixture, fixture.next).version != old
+                                     && !thumbnailCell(fixture, fixture.next).preview.isNull(),
+                             4000);
+    QCOMPARE(thumbnailCell(fixture, fixture.next).preview.pixelColor(5, 5), QColor(Qt::magenta));
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailOffscreenDecode()
+{
+    ScopedOptionValues options({ { "loopfoldersenabled", false } });
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    const auto oldThird =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(2).absoluteFilePath;
+    const auto target =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(6).absoluteFilePath;
+    QVERIFY(QFile::remove(oldThird));
+    const auto slow = fixture.dir.filePath("03-slow.eps");
+    QFile eps(slow);
+    QVERIFY(eps.open(QIODevice::WriteOnly));
+    QVERIFY(eps.write("%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 20 20\nshowpage\n") > 0);
+    eps.close();
+
+    const auto started = fixture.dir.filePath("started");
+    const auto worker = fixture.dir.filePath("fake-gs");
+    QFile script(worker);
+    QVERIFY(script.open(QIODevice::WriteOnly));
+    // exec makes the observed PID the renderer itself and avoids orphan children.
+    QVERIFY(script.write("#!/bin/sh\nprintf '%s' \"$$\" > \"$FOVELLE_THUMBNAIL_TEST_START\"\nexec "
+                         "/bin/sleep 8\n")
+            > 0);
+    script.close();
+    QVERIFY(script.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner
+                                  | QFileDevice::ExeOwner));
+    const auto old = qgetenv("FOVELLE_GHOSTSCRIPT");
+    const auto reset = qScopeGuard([old] {
+        if (old.isNull())
+            qunsetenv("FOVELLE_GHOSTSCRIPT");
+        else
+            qputenv("FOVELLE_GHOSTSCRIPT", old);
+        qunsetenv("FOVELLE_THUMBNAIL_TEST_START");
+    });
+    qputenv("FOVELLE_GHOSTSCRIPT", QFile::encodeName(worker));
+    qputenv("FOVELLE_THUMBNAIL_TEST_START", QFile::encodeName(started));
+
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(started), 2500);
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QFile pidFile(started);
+    QVERIFY(pidFile.open(QIODevice::ReadOnly));
+    const int pid = pidFile.readAll().toInt();
+    QVERIFY(pid > 1);
+    auto cleanup = qScopeGuard([pid] { ::kill(pid, SIGTERM); });
+    QVERIFY(sendThumbnailWheel(fixture, fixture.strip->panelRect().center(), { }, QPoint(-720, 0)));
+    QCOMPARE(fixture.strip->browseIndex(), 6.0);
+    QVERIFY(thumbnailCell(fixture, slow).path.isEmpty());
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, target).preview.isNull(), 1200);
+    QTRY_VERIFY_WITH_TIMEOUT(::kill(pid, 0) == -1 && errno == ESRCH, 1200);
+    cleanup.dismiss();
+}
+
+namespace {
+struct ThumbnailWorkerGate
+{
+    std::shared_ptr<QSemaphore> entered = std::make_shared<QSemaphore>();
+    std::shared_ptr<QSemaphore> gate = std::make_shared<QSemaphore>();
+    int count;
+
+    ThumbnailWorkerGate(QvAsync::Lane lane, int workers) : count(workers)
+    {
+        for (int i = 0; i < count; ++i)
+            QvAsync::schedule(
+                    [entered = entered, gate = gate] {
+                        entered->release();
+                        gate->acquire();
+                    },
+                    10, lane);
+    }
+
+    ~ThumbnailWorkerGate() { gate->release(count); }
+};
+} // namespace
+
+void WindowBehaviorTests::testThumbnailClickWithBusySharedPool()
+{
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QTRY_VERIFY(!thumbnailCell(fixture, fixture.next).preview.isNull());
+    ThumbnailWorkerGate busy(QvAsync::Lane::Shared, 4);
+    QTRY_COMPARE(busy.entered->available(), 4);
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.nextCenter());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              fixture.next, 1500);
+}
+
+void WindowBehaviorTests::testThumbnailValidationRetry()
+{
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    const auto third =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(2).absoluteFilePath;
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QTRY_VERIFY(!thumbnailCell(fixture, third).preview.isNull());
+    ThumbnailWorkerGate busy(QvAsync::Lane::ThumbnailMetadata, 2);
+    QTRY_COMPARE(busy.entered->available(), 2);
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.nextCenter());
+    QTest::qWait(950);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.cellCenter(2));
+    QTest::qWait(80);
+    busy.gate->release();
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              third, 1500);
+}
+
+void WindowBehaviorTests::testThumbnailLateValidation()
+{
+    ThumbnailWindow fixture;
+    QTRY_VERIFY(fixture.strip->available());
+    const auto third =
+            fixture.window.getCurrentFileDetails().folderFileInfoList.at(2).absoluteFilePath;
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QTRY_VERIFY(!thumbnailCell(fixture, third).preview.isNull());
+
+    auto entered = std::make_shared<QSemaphore>();
+    auto release = std::make_shared<QSemaphore>();
+    auto finished = std::make_shared<QSemaphore>();
+    const auto cleanup = qScopeGuard([release] { release->release(); });
+    fixture.strip->setValidationReader(
+            [entered, release, finished, old = fixture.next](const auto &path) {
+                if (path != old)
+                    return QVImageLoader::fileVersion(path);
+                entered->release();
+                release->acquire();
+                const auto version = QVImageLoader::fileVersion(path);
+                finished->release();
+                return version;
+            });
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.nextCenter());
+    QTRY_COMPARE(entered->available(), 1);
+    QTest::qWait(900);
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.cellCenter(2));
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(),
+                              third, 1500);
+    QVERIFY(!finished->available());
+    release->release();
+    QTRY_COMPARE(finished->available(), 1);
+    QTest::qWait(80);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), third);
+}
+
+void WindowBehaviorTests::testThumbnailExpandedWebp()
+{
+    ThumbnailWindow fixture(1);
+    const auto path = fixture.dir.filePath("02-wide.webp");
+    QVERIFY(QFile::copy(QStringLiteral(FOVELLE_TEST_FIXTURE_DIR "/thumbnail-42mp.webp"), path));
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 15000);
+    const auto cell = thumbnailCell(fixture, path);
+    verifyThumbnailBounds(fixture, cell, QSize(7000, 6000));
+    const auto &image = cell.preview;
+    QVERIFY(!image.isNull());
+    QVERIFY(image.pixelColor(image.width() / 4, image.height() / 2).red() > 200);
+    QVERIFY(image.pixelColor(image.width() * 3 / 4, image.height() / 2).blue() > 170);
+}
+
+void WindowBehaviorTests::testThumbnailEmbeddedRaw()
+{
+    ThumbnailWindow fixture(1);
+    const auto path = fixture.dir.filePath("02-large.dng");
+    QVERIFY(QFile::copy(
+            QStringLiteral(FOVELLE_TEST_FIXTURE_DIR "/thumbnail-embedded-raw-prefix.bin"), path));
+    QFile dng(path);
+    QVERIFY(dng.open(QIODevice::ReadWrite));
+    QVERIFY(dng.resize(dng.size() + 10000LL * 6800 * 2));
+    dng.close();
+    QCOMPARE(QVCocoaFunctions::imagePixelSize(path), QSize(6800, 10000));
+
+    revealNewThumbnail(fixture);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailCell(fixture, path).version.isEmpty(), 10000);
+    const auto cell = thumbnailCell(fixture, path);
+    verifyThumbnailBounds(fixture, cell, QSize());
+    const auto &image = cell.preview;
+    QVERIFY(!image.isNull());
+    QVERIFY(image.height() <= 128);
+    QVERIFY(qAbs(image.width() * 2 - image.height()) <= 1);
+    QVERIFY(image.pixelColor(image.width() / 4, image.height() / 2).blue() > 180);
+    QVERIFY(image.pixelColor(image.width() * 3 / 4, image.height() / 2).red() > 190);
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailPreviewStates()
+{
+    using Status = QVThumbnailStrip::PreviewStatus;
+    ThumbnailWindow fixture(1);
+    const auto broken = fixture.dir.filePath("02.jpg");
+    QFile jpg(broken);
+    QVERIFY(jpg.open(QIODevice::WriteOnly));
+    QVERIFY(jpg.write("unreadable jpg") > 0);
+    jpg.close();
+    const auto oversized = fixture.dir.filePath("03.svg");
+    QFile svg(oversized);
+    QVERIFY(svg.open(QIODevice::WriteOnly));
+    QVERIFY(svg.write("<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20'>"
+                      "<rect width='20' height='20' fill='red'/><!--")
+            > 0);
+    QCOMPARE(svg.write(QByteArray(MiB, ' ')), MiB);
+    QVERIFY(svg.write("--></svg>") > 0);
+    svg.close();
+    qvApp->invalidateFolderListings();
+    fixture.view->thumbnailImageCore().refreshThumbnailListing();
+    QTRY_VERIFY(fixture.strip->available());
+    QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+    {
+        ThumbnailWorkerGate busy(QvAsync::Lane::ThumbnailDecode, 2);
+        QTRY_COMPARE(busy.entered->available(), 2);
+        fixture.strip->focusStrip();
+        QCOMPARE(thumbnailCell(fixture, broken).status, Status::Loading);
+    }
+    QTRY_COMPARE(thumbnailCell(fixture, broken).status, Status::Failed);
+    QTRY_COMPARE(thumbnailCell(fixture, oversized).status, Status::Limited);
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    QTest::mouseClick(fixture.view->viewport(), Qt::LeftButton, { }, fixture.cellCenter(2));
+    QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), oversized);
+}
+
+void WindowBehaviorTests::testThumbnailLoopContinuity()
+{
+    ScopedOptionValues options({ { "loopfoldersenabled", true } });
+    ThumbnailWindow fixture(8);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const QPoint pos = fixture.strip->panelRect().center();
+    const QPoint last = fixture.cellCenter(7);
+    QVERIFY(last.x() >= 0);
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(-1, 0), { }));
+    QCOMPARE(fixture.cellCenter(7), last - QPoint(1, 0));
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(1, 0), { }));
+    QCOMPARE(fixture.cellCenter(7), last);
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(76, 0), { }));
+    QCOMPARE(fixture.strip->browseIndex(), 7.5);
+    QCOMPARE(fixture.cellCenter(7), last + QPoint(76, 0));
+    QCOMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), fixture.first);
+}
+
+void WindowBehaviorTests::testThumbnailLoopDeduplication()
+{
+    ScopedOptionValues options({ { "loopfoldersenabled", true } });
+    ThumbnailWindow fixture(2);
+    QTRY_VERIFY(fixture.strip->available());
+    fixture.hover();
+    QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+    const QPoint start = fixture.nextCenter();
+    const QPoint pos = fixture.strip->panelRect().center();
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(1, 0), { }));
+    QCOMPARE(fixture.nextCenter(), start + QPoint(1, 0));
+    QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(-1, 0), { }));
+    QCOMPARE(fixture.nextCenter(), start);
+    for (int delta : { -40, -40, 40, 40, 40, -40 }) {
+        QVERIFY(sendThumbnailWheel(fixture, pos, QPoint(delta, 0), { }));
+        QSet<int> indices;
+        for (const auto &cell : fixture.strip->cells()) {
+            if (cell.index < 0)
+                continue;
+            QVERIFY(!indices.contains(cell.index));
+            indices.insert(cell.index);
+        }
+        QCOMPARE(indices.size(), 2);
+    }
+    QCOMPARE(fixture.nextCenter(), start);
+}
+
+void WindowBehaviorTests::testThumbnailIncrementalDrawing_data()
+{
+    QTest::addColumn<bool>("native");
+    QTest::addColumn<bool>("scroll");
+    QTest::newRow("qt-scroll") << false << true;
+    QTest::newRow("native-scroll") << true << true;
+    QTest::newRow("qt-update") << false << false;
+    QTest::newRow("native-update") << true << false;
+}
+
+void WindowBehaviorTests::testThumbnailIncrementalDrawing()
+{
+    QFETCH(bool, native);
+    QFETCH(bool, scroll);
+    ThumbnailWindow fixture(5);
+    QTRY_VERIFY(fixture.strip->available());
+    const auto svg = fixture.dir.filePath("00.svg");
+    if (!native) {
+        QFile file(svg);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20'/>") > 0);
+        file.close();
+        fixture.window.openFile(svg);
+        QTRY_COMPARE(fixture.window.getCurrentFileDetails().fileInfo.absoluteFilePath(), svg);
+        qvApp->invalidateFolderListings();
+        fixture.view->thumbnailImageCore().refreshThumbnailListing();
+    }
+    QTRY_COMPARE(fixture.view->usesNativeHDRNavigationOverlay(), native);
+    QTRY_VERIFY(fixture.strip->available());
+    QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+    const auto changed = native ? fixture.next : fixture.first;
+    {
+        ThumbnailWorkerGate busy(QvAsync::Lane::ThumbnailDecode, 2);
+        QTRY_COMPARE(busy.entered->available(), 2);
+        QVERIFY(QTest::qWaitForWindowActive(&fixture.window, 1000));
+        QTRY_VERIFY(fixture.strip->available());
+        fixture.strip->focusStrip();
+        QTRY_COMPARE(fixture.strip->opacity(), 1.0);
+        QVERIFY(thumbnailCell(fixture, changed).preview.isNull());
+    }
+    QTRY_VERIFY(!thumbnailCell(fixture, changed).preview.isNull());
+    QTRY_VERIFY(!thumbnailCell(fixture, fixture.next).preview.isNull());
+    QTest::qWait(150);
+    const auto background = fixture.strip->backgroundRasterCount();
+    const auto tiles = fixture.strip->tileRasterCount();
+    const auto uploads = fixture.view->nativeMetalRendererDiagnostics().thumbnailUploadCount;
+    if (scroll) {
+        const auto before = thumbnailCell(fixture, changed).rect;
+        QVERIFY(sendThumbnailWheel(fixture, fixture.strip->panelRect().center(), QPoint(-1, 0),
+                                   { }));
+        QCOMPARE(thumbnailCell(fixture, changed).rect, before.translated(-1, 0));
+        QCOMPARE(fixture.strip->backgroundRasterCount(), background);
+        // A fractional movement may reveal one edge tile.
+        QVERIFY(fixture.strip->tileRasterCount() <= tiles + 1);
+        QVERIFY(fixture.view->nativeMetalRendererDiagnostics().thumbnailUploadCount <= uploads + 1);
+        qInfo() << "Thumbnail scroll raster and upload deltas" << native
+                << fixture.strip->backgroundRasterCount() - background
+                << fixture.strip->tileRasterCount() - tiles
+                << fixture.view->nativeMetalRendererDiagnostics().thumbnailUploadCount - uploads;
+        return;
+    }
+
+    QImage changedImage(120, 80, QImage::Format_RGB32);
+    changedImage.fill(Qt::magenta);
+    {
+        QPainter painter(&changedImage);
+        painter.fillRect(QRect(0, changedImage.height() / 2, changedImage.width(),
+                               changedImage.height() / 2),
+                         Qt::cyan);
+    }
+    QVERIFY(changedImage.save(changed));
+    QTRY_COMPARE_WITH_TIMEOUT(thumbnailCell(fixture, changed).preview.pixelColor(5, 5),
+                              QColor(Qt::magenta), 4000);
+    QCOMPARE(fixture.strip->backgroundRasterCount(), background);
+    QVERIFY(fixture.strip->tileRasterCount() <= tiles + 2);
+    QVERIFY(fixture.view->nativeMetalRendererDiagnostics().thumbnailUploadCount <= uploads + 2);
+
+    const QPoint center = thumbnailCell(fixture, changed).rect.center().toPoint();
+    const QPoint origin = native ? fixture.view->viewport()->mapTo(&fixture.window, center)
+                                 : center - fixture.strip->panelRect().topLeft();
+    const auto stripePixels = [&] {
+        const auto capture = native ? fixture.window.screen()->grabWindow(fixture.window.winId())
+                                    : fixture.strip->grab();
+        const auto image = capture.toImage();
+        const qreal scale = capture.devicePixelRatio();
+        const auto upper = (QPointF(origin + QPoint(0, -12)) * scale).toPoint();
+        const auto lower = (QPointF(origin + QPoint(0, 12)) * scale).toPoint();
+        if (!image.rect().contains(upper) || !image.rect().contains(lower))
+            return std::pair{ QColor(), QColor() };
+        return std::pair{ image.pixelColor(upper), image.pixelColor(lower) };
+    };
+    const auto correctStripes = [](const std::pair<QColor, QColor> &colors) {
+        const auto &[upper, lower] = colors;
+        return upper.isValid() && lower.isValid() && upper.red() > 180 && upper.blue() > 180
+                && upper.red() - upper.green() > 100 && lower.green() - lower.red() > 100
+                && lower.green() > 180 && lower.blue() > 180;
+    };
+    if (native)
+        QTest::qWait(75);
+    const auto colors = stripePixels();
+    QVERIFY2(correctStripes(colors),
+             qPrintable(colors.first.name() + QStringLiteral(" / ") + colors.second.name()));
+    qInfo() << "Thumbnail raster and upload deltas" << native
+            << fixture.strip->backgroundRasterCount() - background
+            << fixture.strip->tileRasterCount() - tiles
+            << fixture.view->nativeMetalRendererDiagnostics().thumbnailUploadCount - uploads;
 }

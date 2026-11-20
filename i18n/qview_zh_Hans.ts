@@ -1969,6 +1969,22 @@ You can reenable it in Preferences.</source>
 <context>
     <name>QVThumbnailStrip</name>
     <message>
+        <source>Loading preview</source>
+        <translation>正在加载预览</translation>
+    </message>
+    <message>
+        <source>Preview exceeds limits</source>
+        <translation>预览超出限制</translation>
+    </message>
+    <message>
+        <source>Preview unavailable</source>
+        <translation>预览暂不可用</translation>
+    </message>
+    <message>
+        <source>Preview failed</source>
+        <translation>预览失败</translation>
+    </message>
+    <message>
         <source>Thumbnails</source>
         <translation>缩略图</translation>
     </message>

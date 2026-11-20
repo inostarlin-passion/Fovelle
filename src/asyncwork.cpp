@@ -4,6 +4,7 @@
 #include <QSet>
 #include <QSettings>
 #include <QThreadPool>
+#include <QRunnable>
 #include <QElapsedTimer>
 #include <cstdlib>
 #include <csignal>
@@ -31,6 +32,31 @@ QThreadPool &foregroundPool()
     Q_UNUSED(configured);
     return instance;
 }
+QThreadPool &thumbnailPool(QvAsync::Lane lane)
+{
+    struct Pool : QThreadPool
+    {
+        Pool() { setMaxThreadCount(2); }
+    };
+    static Pool decode;
+    static Pool metadata;
+    return lane == QvAsync::Lane::ThumbnailDecode ? decode : metadata;
+}
+
+QThreadPool &threadPool(QvAsync::Lane lane)
+{
+    switch (lane) {
+    case QvAsync::Lane::Foreground:
+        return foregroundPool();
+    case QvAsync::Lane::ThumbnailDecode:
+    case QvAsync::Lane::ThumbnailMetadata:
+        return thumbnailPool(lane);
+    case QvAsync::Lane::Shared:
+        return pool();
+    }
+    Q_UNREACHABLE();
+}
+
 bool waitForPool(QThreadPool &instance, int timeoutMs)
 {
     return instance.waitForDone(timeoutMs);
@@ -47,8 +73,17 @@ void QvAsync::cancel(const Ticket &ticket)
 }
 void QvAsync::schedule(std::function<void()> work, int priority, Lane lane)
 {
-    auto &target = lane == Lane::Foreground ? foregroundPool() : pool();
-    target.start(std::move(work), priority);
+    threadPool(lane).start(std::move(work), priority);
+}
+bool QvAsync::trySchedule(std::function<void()> work, Lane lane)
+{
+    if (stopping.load())
+        return false;
+    auto *runnable = QRunnable::create(std::move(work));
+    if (threadPool(lane).tryStart(runnable))
+        return true;
+    delete runnable;
+    return false;
 }
 void QvAsync::setCurrentTicket(const Ticket &ticket)
 {
@@ -73,6 +108,10 @@ bool QvAsync::drain(int timeoutMs)
     stopping.store(true);
     pool().clear();
     foregroundPool().clear();
+    auto &thumbnailDecode = thumbnailPool(Lane::ThumbnailDecode);
+    auto &thumbnailMetadata = thumbnailPool(Lane::ThumbnailMetadata);
+    thumbnailDecode.clear();
+    thumbnailMetadata.clear();
     QElapsedTimer elapsed;
     elapsed.start();
     const auto remaining = [&] {
@@ -80,7 +119,10 @@ bool QvAsync::drain(int timeoutMs)
     };
     const bool sharedComplete = waitForPool(pool(), remaining());
     const bool foregroundComplete = waitForPool(foregroundPool(), remaining());
-    const bool complete = sharedComplete && foregroundComplete;
+    const bool thumbnailDecodeComplete = waitForPool(thumbnailDecode, remaining());
+    const bool thumbnailMetadataComplete = waitForPool(thumbnailMetadata, remaining());
+    const bool complete = sharedComplete && foregroundComplete && thumbnailDecodeComplete
+            && thumbnailMetadataComplete;
     if (complete)
         stopping.store(false);
     return complete;

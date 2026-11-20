@@ -69,6 +69,13 @@ QSize nativeWindowContentSize(QWindow *window)
     return QSize(qRound(size.width), qRound(size.height));
 }
 
+void nativeActivateTestWindow(QWindow *window)
+{
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    [NSApp activate];
+    [view.window makeKeyAndOrderFront:nil];
+}
+
 NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, const bool previous)
 {
     const NSView *view = reinterpret_cast<NSView *>(window->winId());

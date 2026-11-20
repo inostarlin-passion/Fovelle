@@ -1,7 +1,12 @@
 #ifndef QVTHUMBNAILSTRIP_H
 #define QVTHUMBNAILSTRIP_H
 
+#include "asyncwork.h"
+
+#include <QColor>
 #include <QImage>
+#include <QSet>
+#include <memory>
 #include <QRectF>
 #include <QTimer>
 #include <QVariantAnimation>
@@ -9,6 +14,8 @@
 
 class MainWindow;
 class QVGraphicsView;
+class QPainter;
+class ThumbnailWatch;
 class QWheelEvent;
 class QNativeGestureEvent;
 
@@ -17,6 +24,8 @@ class QVThumbnailStrip : public QWidget
     Q_OBJECT
 
 public:
+    enum class PreviewStatus { Loading, Ready, Limited, Unavailable, Failed };
+
     struct Cell
     {
         QRectF rect;
@@ -24,6 +33,11 @@ public:
         QString path;
         QByteArray version;
         QImage preview;
+        PreviewStatus status = PreviewStatus::Loading;
+        QSize requestedPreviewSize;
+        QImage tile;
+        qint64 tileSource = 0;
+        int tileStyle = -1;
         bool currentProxy = false;
     };
 
@@ -46,6 +60,15 @@ public:
     void setSlideshowRunning(bool running);
     void setHoverEnabled(bool enabled);
     void refresh();
+
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+    quint64 backgroundRasterCount() const { return backgroundRasters; }
+    quint64 tileRasterCount() const { return tileRasters; }
+    void setValidationReader(std::function<QByteArray(const QString &)> reader)
+    {
+        validationReader = std::move(reader);
+    }
+#endif
 
 signals:
     void overlayGeometryChanged();
@@ -70,7 +93,12 @@ private:
     bool handleNativeBrowse(QNativeGestureEvent *event);
     void scrollBy(qreal slotDelta);
     void requestPreviews();
-    void updateRendering(bool contentChanged);
+    void updateRendering(bool contentChanged, const QRect &changedCell = { });
+    void drawContent(QPainter &painter) const;
+    QString previewStatusText(PreviewStatus status) const;
+    void syncWatch();
+    void filesChanged(bool rescan, const QSet<QString> &paths, bool all = false);
+    void submitValidation();
     void syncAccessibleButtons();
     void moveFocus(int step);
     void activate(int slot);
@@ -81,14 +109,23 @@ private:
     QVGraphicsView *view;
     QList<Cell> visibleCells;
     QRect panel;
-    QImage surface;
+    QImage background;
+    QColor panelForeground;
+    QColor panelTint;
+    QColor panelFocus;
     QImage outgoingSurface;
+    QImage animatedContent;
     QPoint lastPointer{ -1, -1 };
     QPoint pressedPosition;
     QTimer enterTimer;
     QTimer leaveTimer;
     QTimer gestureTimer;
     QTimer validationTimer;
+    QTimer validationAdmission;
+    QTimer directoryChangeTimer;
+    std::unique_ptr<ThumbnailWatch> watch;
+    QvAsync::Ticket validationTicket;
+    std::function<void(const QByteArray &)> validationDone;
     QTimer wheelSequenceTimer;
     QVariantAnimation fade;
     QVariantAnimation selectionFade;
@@ -117,6 +154,13 @@ private:
     bool nativeSurface = false;
     bool outgoingDirty = false;
     bool accessibilityActive = false;
+    bool currentSourceChanged = false;
+    bool watchNeedsCatchup = false;
+#ifdef FOVELLE_HDR_SURFACE_TESTING
+    quint64 backgroundRasters = 0;
+    quint64 tileRasters = 0;
+    std::function<QByteArray(const QString &)> validationReader;
+#endif
     QString waitingPath;
     QList<QWidget *> accessibleButtons;
     QWidget *reportedAccessibleFocus = nullptr;

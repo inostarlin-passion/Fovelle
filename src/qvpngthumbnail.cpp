@@ -198,7 +198,7 @@ bool decodePngRows(png_structp png, png_infop info, PngInput &input, const QSize
 
 std::optional<QImage> readLargePngThumbnail(const QString &path, const int longestEdge,
                                             const qint64 nativeFileLimit,
-                                            const qint64 nativePixelLimit)
+                                            const qint64 nativePixelLimit, bool &limited)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
@@ -216,8 +216,12 @@ std::optional<QImage> readLargePngThumbnail(const QString &path, const int longe
     if (fileBytes <= nativeFileLimit && area <= quint64(nativePixelLimit))
         return std::nullopt;
 
-    if (!width || !height || width > MaxPngEdge || height > MaxPngEdge || area > MaxPngPixels
-        || fileBytes > MaxPngFileBytes || longestEdge <= 0 || QvAsync::isCanceled())
+    if (width > MaxPngEdge || height > MaxPngEdge || area > MaxPngPixels
+        || fileBytes > MaxPngFileBytes) {
+        limited = true;
+        return QImage();
+    }
+    if (!width || !height || longestEdge <= 0 || QvAsync::isCanceled())
         return QImage();
 
     const QSize source{ int(width), int(height) };

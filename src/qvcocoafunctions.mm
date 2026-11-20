@@ -19,6 +19,8 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QHash>
+#include <QSet>
 #include <QImageReader>
 #include <QLocale>
 #include <QProcess>
@@ -2272,8 +2274,17 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         thumbnailLayer.geometryFlipped = YES;
         thumbnailLayer.hidden = YES;
         thumbnailLayer.zPosition = 5.0;
+        thumbnailLayer.allowsGroupOpacity = YES;
         thumbnailOutgoingLayer = [CALayer layer];
         thumbnailContentLayer = [CALayer layer];
+        thumbnailContentLayer.geometryFlipped = YES;
+        thumbnailContentLayer.allowsGroupOpacity = YES;
+        thumbnailBackgroundLayer = [CALayer layer];
+        thumbnailCellsLayer = [CALayer layer];
+        thumbnailCellsLayer.geometryFlipped = YES;
+        thumbnailCellsLayer.masksToBounds = YES;
+        [thumbnailContentLayer addSublayer:thumbnailBackgroundLayer];
+        [thumbnailContentLayer addSublayer:thumbnailCellsLayer];
         [thumbnailLayer addSublayer:thumbnailOutgoingLayer];
         [thumbnailLayer addSublayer:thumbnailContentLayer];
         [navigationOverlayLayer addSublayer:thumbnailLayer];
@@ -2742,25 +2753,77 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         ++state.navigationOverlayUpdateCount;
     }
 
-    void setThumbnailSurface(const QRectF &rect, const QImage &image, const bool outgoing)
+    static CGRect thumbnailFrame(const QRectF &rect, qreal parentHeight)
     {
-        if (!thumbnailLayer || image.isNull())
-            return;
+        return CGRectMake(rect.x(), parentHeight - rect.y() - rect.height(), rect.width(),
+                          rect.height());
+    }
+
+    bool uploadThumbnailImage(CALayer *layer, const QImage &image)
+    {
         CGImageRef cgImage = createNativeImageCGImage(image);
         if (!cgImage)
-            return;
-        syncViewportLayerGeometry();
-        const qreal y = CGRectGetHeight(navigationOverlayLayer.bounds) - rect.y() - rect.height();
-        [CATransaction begin];
-        [CATransaction setDisableActions:YES];
-        thumbnailLayer.frame = CGRectMake(rect.x(), y, rect.width(), rect.height());
-        CALayer *layer = outgoing ? thumbnailOutgoingLayer : thumbnailContentLayer;
-        layer.frame = thumbnailLayer.bounds;
+            return false;
         layer.contentsScale = image.devicePixelRatioF();
         layer.contents = (id)cgImage;
         ++state.thumbnailUploadCount;
-        [CATransaction commit];
         CGImageRelease(cgImage);
+        return true;
+    }
+
+    void setThumbnailContent(const QRectF &rect, const QImage &background, const QRectF &clip,
+                             const QList<ThumbnailTile> &tiles)
+    {
+        if (!thumbnailLayer || background.isNull())
+            return;
+        syncViewportLayerGeometry();
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailLayer.frame = thumbnailFrame(rect, CGRectGetHeight(navigationOverlayLayer.bounds));
+        thumbnailContentLayer.frame = thumbnailLayer.bounds;
+        thumbnailBackgroundLayer.frame = thumbnailContentLayer.bounds;
+        const auto localClip = clip.translated(-rect.topLeft());
+        thumbnailCellsLayer.frame = thumbnailFrame(localClip, rect.height());
+        if (thumbnailBackgroundKey != background.cacheKey()
+            && uploadThumbnailImage(thumbnailBackgroundLayer, background))
+            thumbnailBackgroundKey = background.cacheKey();
+
+        QSet<qint64> visible;
+        for (const auto &tile : tiles) {
+            const auto key = tile.image.cacheKey();
+            visible.insert(key);
+            auto *layer = thumbnailCellLayers.value(key, nil);
+            if (!layer) {
+                layer = [CALayer layer];
+                if (!uploadThumbnailImage(layer, tile.image))
+                    continue;
+                [thumbnailCellsLayer addSublayer:layer];
+                thumbnailCellLayers.insert(key, layer);
+            }
+            layer.frame = thumbnailFrame(tile.rect.translated(-clip.topLeft()), clip.height());
+        }
+        for (auto it = thumbnailCellLayers.begin(); it != thumbnailCellLayers.end();) {
+            if (visible.contains(it.key())) {
+                ++it;
+            } else {
+                [it.value() removeFromSuperlayer];
+                it = thumbnailCellLayers.erase(it);
+            }
+        }
+        [CATransaction commit];
+    }
+
+    void setThumbnailTransitionSurface(const QRectF &rect, const QImage &image)
+    {
+        if (!thumbnailLayer || image.isNull())
+            return;
+        syncViewportLayerGeometry();
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        thumbnailLayer.frame = thumbnailFrame(rect, CGRectGetHeight(navigationOverlayLayer.bounds));
+        thumbnailOutgoingLayer.frame = thumbnailLayer.bounds;
+        uploadThumbnailImage(thumbnailOutgoingLayer, image);
+        [CATransaction commit];
     }
 
     void setThumbnailTransitionProgress(const qreal progress)
@@ -2783,7 +2846,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         thumbnailLayer.opacity = std::clamp<CGFloat>(opacity, 0.0, 1.0);
-        thumbnailLayer.hidden = opacity <= 0.001 || !thumbnailContentLayer.contents;
+        thumbnailLayer.hidden = opacity <= 0.001 || !thumbnailBackgroundLayer.contents;
         state.nativeThumbnailVisible = !thumbnailLayer.hidden;
         [CATransaction commit];
     }
@@ -2793,7 +2856,11 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         thumbnailLayer.hidden = YES;
-        thumbnailContentLayer.contents = nil;
+        for (auto *layer : std::as_const(thumbnailCellLayers))
+            [layer removeFromSuperlayer];
+        thumbnailCellLayers.clear();
+        thumbnailBackgroundKey = 0;
+        thumbnailBackgroundLayer.contents = nil;
         thumbnailOutgoingLayer.contents = nil;
         state.nativeThumbnailVisible = false;
         [CATransaction commit];
@@ -4372,6 +4439,10 @@ struct QVCocoaFunctions::HDRRenderer::Impl
     CALayer *thumbnailLayer{ nil };
     CALayer *thumbnailOutgoingLayer{ nil };
     CALayer *thumbnailContentLayer{ nil };
+    CALayer *thumbnailBackgroundLayer{ nil };
+    CALayer *thumbnailCellsLayer{ nil };
+    QHash<qint64, CALayer *> thumbnailCellLayers;
+    qint64 thumbnailBackgroundKey = 0;
     CALayer *navigationButtonLayers[2]{ nil, nil };
     CAShapeLayer *navigationBackgroundLayers[2]{ nil, nil };
     CAShapeLayer *navigationChevronLayers[2]{ nil, nil };
@@ -4522,11 +4593,20 @@ void QVCocoaFunctions::HDRRenderer::clearBoundaryHintOverlay()
         impl->clearBoundaryHintOverlay();
 }
 
-void QVCocoaFunctions::HDRRenderer::setThumbnailSurface(const QRectF &rect, const QImage &image,
-                                                        const bool outgoing)
+void QVCocoaFunctions::HDRRenderer::setThumbnailContent(const QRectF &rect,
+                                                        const QImage &background,
+                                                        const QRectF &clip,
+                                                        const QList<ThumbnailTile> &tiles)
 {
     if (impl)
-        impl->setThumbnailSurface(rect, image, outgoing);
+        impl->setThumbnailContent(rect, background, clip, tiles);
+}
+
+void QVCocoaFunctions::HDRRenderer::setThumbnailTransitionSurface(const QRectF &rect,
+                                                                  const QImage &image)
+{
+    if (impl)
+        impl->setThumbnailTransitionSurface(rect, image);
 }
 
 void QVCocoaFunctions::HDRRenderer::setThumbnailTransitionProgress(const qreal progress)
@@ -4920,21 +5000,48 @@ static bool allowsLargeTiffThumbnail(CGImageSourceRef source, const QSize &pixel
     NSDictionary *metadata = (NSDictionary *)properties;
     id depth = metadata[(id)kCGImagePropertyDepth];
     id model = metadata[(id)kCGImagePropertyColorModel];
-    return [@8 isEqual:depth] && ![@YES isEqual:metadata[(id)kCGImagePropertyIsFloat]]
-            && ([(NSString *)kCGImagePropertyColorModelRGB isEqual:model] ||
-                [(NSString *)kCGImagePropertyColorModelGray isEqual:model] ||
-                [(NSString *)kCGImagePropertyColorModelCMYK isEqual:model]);
+    const bool supportedModel = [(NSString *)kCGImagePropertyColorModelRGB isEqual:model] ||
+            [(NSString *)kCGImagePropertyColorModelGray isEqual:model] ||
+            [(NSString *)kCGImagePropertyColorModelCMYK isEqual:model];
+    if (!supportedModel || [@YES isEqual:metadata[(id)kCGImagePropertyIsFloat]])
+        return false;
+    // Charge even gray input as four 16-bit samples: ImageIO can promote it
+    // while transforming, before reducing to the target thumbnail dimensions.
+    constexpr qint64 MaxHighDepthBytes = 512LL * 1024 * 1024;
+    return [@8 isEqual:depth]
+            || ([@16 isEqual:depth]
+                && qint64(pixels.width()) * pixels.height() * 8 <= MaxHighDepthBytes);
+}
+
+static QImage readEmbeddedRawStripThumbnail(CGImageSourceRef source, int longestEdge)
+{
+    const NSDictionary *options = @{
+        (id)kCGImageSourceCreateThumbnailFromImageIfAbsent : @NO,
+        (id)kCGImageSourceCreateThumbnailWithTransform : @NO,
+        (id)kCGImageSourceThumbnailMaxPixelSize : @(longestEdge),
+        (id)kCGImageSourceDecodeRequest : (id)kCGImageSourceDecodeToSDR,
+    };
+    CGImageRef thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, (CFDictionaryRef)options);
+    if (!thumbnail)
+        return { };
+    const auto releaseThumbnail = qScopeGuard([thumbnail] { CGImageRelease(thumbnail); });
+    CIImage *oriented = [[CIImage imageWithCGImage:thumbnail]
+            imageByApplyingCGOrientation:sourceOrientation(source, 0)];
+    CIContext *context = [CIContext contextWithOptions:@{kCIContextCacheIntermediates : @NO}];
+    CGColorSpaceRef space = colorSyncSrgbColorSpace();
+    const auto releaseSpace = qScopeGuard([space] { CGColorSpaceRelease(space); });
+    return imageFromCIImage(oriented, context, space, longestEdge);
 }
 
 QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdge,
-                                       const qint64 fileBytes, bool &allowQtFallback)
+                                       const qint64 fileBytes, bool &allowQtFallback, bool &limited)
 {
     constexpr qint64 MaxThumbnailFileBytes = 256 * 1024 * 1024;
     constexpr qint64 MaxTiffThumbnailFileBytes = 512 * 1024 * 1024;
     constexpr qint64 MaxThumbnailEPSBytes = 16 * 1024 * 1024;
     constexpr qint64 MaxNativeThumbnailPixels = 64 * 1000 * 1000;
     constexpr qint64 MaxRawThumbnailPixels = 64 * 1000 * 1000;
-    constexpr qint64 MaxWebpThumbnailPixels = 40 * 1000 * 1000;
+    constexpr qint64 MaxWebpThumbnailPixels = 64 * 1000 * 1000;
     constexpr qint64 MaxOtherThumbnailPixels = 8 * 1000 * 1000;
 
     @autoreleasepool {
@@ -4942,19 +5049,22 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             allowQtFallback = false;
             if (fileBytes <= MaxThumbnailEPSBytes)
                 return readEPS(path, longestEdge, false).image;
+            limited = true;
             return { };
         }
 
         if (auto png = readLargePngThumbnail(path, longestEdge, MaxThumbnailFileBytes,
-                                             MaxNativeThumbnailPixels)) {
+                                             MaxNativeThumbnailPixels, limited)) {
             allowQtFallback = false;
             return std::move(*png);
         }
         const bool largeFile = fileBytes > MaxThumbnailFileBytes;
         if (largeFile) {
             allowQtFallback = false;
-            if (fileBytes > MaxTiffThumbnailFileBytes || !hasTiffSignature(path))
+            if (fileBytes > MaxTiffThumbnailFileBytes || !hasTiffSignature(path)) {
+                limited = true;
                 return { };
+            }
         }
 
         NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
@@ -4976,9 +5086,13 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
         if (isRawImageType(type)) {
             allowQtFallback = false;
             const QSize pixels = sourcePixelSize(source);
-            if (pixels.isEmpty()
-                || qint64(pixels.width()) * pixels.height() > MaxRawThumbnailPixels)
+            if (pixels.isEmpty())
                 return { };
+            if (qint64(pixels.width()) * pixels.height() > MaxRawThumbnailPixels) {
+                const auto embedded = readEmbeddedRawStripThumbnail(source, longestEdge);
+                limited = embedded.isNull();
+                return embedded;
+            }
             CIRAWFilter *filter = [CIRAWFilter filterWithImageURL:url];
             if (!filter)
                 return { };
@@ -5036,9 +5150,14 @@ QImage QVCocoaFunctions::readThumbnail(const QString &path, const int longestEdg
             // ImageIO can decode a full-sized intermediate despite the subsample
             // request. Admit only bounded 8-bit sources on this exceptional path.
             allowQtFallback = false;
-            if (!allowsLargeTiffThumbnail(source, pixels) || QvAsync::isCanceled())
+            if (!allowsLargeTiffThumbnail(source, pixels)) {
+                limited = true;
+                return { };
+            }
+            if (QvAsync::isCanceled())
                 return { };
         } else if (sourcePixels > maxPixels) {
+            limited = true;
             return { };
         }
 

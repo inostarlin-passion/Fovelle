@@ -17,8 +17,9 @@ struct State
 using Ticket = std::shared_ptr<State>;
 void cancel(const Ticket &ticket);
 void setCurrentTicket(const Ticket &ticket);
-enum class Lane { Shared, Foreground };
+enum class Lane { Shared, Foreground, ThumbnailDecode, ThumbnailMetadata };
 void schedule(std::function<void()> work, int priority = 0, Lane lane = Lane::Shared);
+bool trySchedule(std::function<void()> work, Lane lane);
 bool drain(int timeoutMs);
 void finishOrExit(int exitCode = 75, int timeoutMs = 1500);
 bool isCanceled();

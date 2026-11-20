@@ -47,6 +47,12 @@ public:
 
     using PDFVectorDocumentPtr = std::shared_ptr<const PDFVectorDocument>;
 
+    struct ThumbnailTile
+    {
+        QRectF rect;
+        QImage image;
+    };
+
     struct HDRMetadata
     {
         QString sourceKind;
@@ -245,7 +251,9 @@ public:
         void setBoundaryHintOverlay(const QRectF &viewportRect, const QImage &image);
         void setBoundaryHintOpacity(qreal opacity);
         void clearBoundaryHintOverlay();
-        void setThumbnailSurface(const QRectF &rect, const QImage &image, bool outgoing);
+        void setThumbnailContent(const QRectF &rect, const QImage &background, const QRectF &clip,
+                                 const QList<ThumbnailTile> &tiles);
+        void setThumbnailTransitionSurface(const QRectF &rect, const QImage &image);
         void setThumbnailTransitionProgress(qreal progress);
         void setThumbnailOpacity(qreal opacity);
         void clearThumbnailSurface();
@@ -309,7 +317,7 @@ public:
 
     static bool thumbnailMayReadContent(const QString &path);
     static QImage readThumbnail(const QString &path, int longestEdge, qint64 fileBytes,
-                                bool &allowQtFallback);
+                                bool &allowQtFallback, bool &limited);
     static bool reduceThumbnailMotion();
     static bool reduceThumbnailTransparency();
 

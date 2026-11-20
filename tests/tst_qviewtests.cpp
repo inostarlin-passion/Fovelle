@@ -510,6 +510,21 @@ private slots:
     void testThumbnailFocusRefreshesDirtyListing();
     void testThumbnailNativeHDR();
     void testThumbnailDragOwnership();
+    void testThumbnailLiveListing_data();
+    void testThumbnailLiveListing();
+    void testThumbnailLiveReplacement_data();
+    void testThumbnailLiveReplacement();
+    void testThumbnailOffscreenDecode();
+    void testThumbnailClickWithBusySharedPool();
+    void testThumbnailValidationRetry();
+    void testThumbnailLateValidation();
+    void testThumbnailExpandedWebp();
+    void testThumbnailEmbeddedRaw();
+    void testThumbnailPreviewStates();
+    void testThumbnailLoopContinuity();
+    void testThumbnailLoopDeduplication();
+    void testThumbnailIncrementalDrawing();
+    void testThumbnailIncrementalDrawing_data();
 
     void testDeleteConfirmationKeepsTarget();
     void testDeleteConfirmationRejectsReplacement();
