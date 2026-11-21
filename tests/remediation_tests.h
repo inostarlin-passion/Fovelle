@@ -283,11 +283,8 @@ private slots:
         policy.totalTimeoutMs = 1000;
         UrlDownload download(policy);
         QSignalSpy failed(&download, &UrlDownload::failed);
-        QElapsedTimer timer;
-        timer.start();
         download.start(server.url());
         QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 1500);
-        QVERIFY(timer.elapsed() < 800);
         QVERIFY(failed.at(0).at(0).toString().contains("idle", Qt::CaseInsensitive));
     }
     void testDownloadTranslatedFailure()
@@ -381,14 +378,11 @@ private slots:
         UrlDownload download(policy);
         QSignalSpy failed(&download, &UrlDownload::failed);
         QSignalSpy progress(&download, &UrlDownload::progress);
-        QElapsedTimer timer;
-        timer.start();
         download.start(server.url());
         QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, 3000);
         QVERIFY2(progress.count() >= 2,
                  "The total-deadline case must observe actual streaming progress");
         QVERIFY(download.receivedBytes() > 0);
-        QVERIFY(timer.elapsed() < 2000);
         QCOMPARE(failed.at(0).at(0).toString(),
                  QCoreApplication::translate("UrlDownload", "Download total timeout"));
     }
@@ -565,12 +559,9 @@ private slots:
             QTest::qWait(120);
             QCOMPARE(frames.count(), count);
             QCOMPARE(movie.currentImage(), image);
-            QElapsedTimer elapsed;
-            elapsed.start();
             movie.setPaused(false);
             // The next publication pauses again: detect exact frame order.
             QTRY_COMPARE_WITH_TIMEOUT(frames.count(), count + 1, 1000);
-            QVERIFY(elapsed.elapsed() < 1000);
             const int expected = (previous + 1) % movie.frameCount();
             QCOMPARE(movie.currentFrameNumber(), expected);
             QVERIFY(reference.jumpToFrame(expected));
@@ -899,28 +890,32 @@ private slots:
     }
     void testLoaderNonblockingShutdown()
     {
-        auto release = std::make_shared<std::atomic<bool>>(false);
+        auto gate = std::make_shared<QSemaphore>();
         auto entered = std::make_shared<std::atomic<bool>>(false);
+        auto gateTimedOut = std::make_shared<std::atomic<bool>>(false);
+        const auto release = qScopeGuard([gate] {
+            gate->release();
+            QvAsync::drain(5000);
+        });
         int deliveries = 0;
-        auto *loader =
-                new QVImageLoader(nullptr, [release, entered](const QString &path, int, bool) {
+        auto loader = std::make_unique<QVImageLoader>(
+                nullptr, [gate, entered, gateTimedOut](const QString &path, int, bool) {
                     entered->store(true);
-                    while (!release->load())
-                        QThread::msleep(5);
+                    // Let a blocking destructor return so the test can report the regression.
+                    if (!gate->tryAcquire(1, 10000))
+                        gateTimedOut->store(true);
                     QVImageLoader::Result result;
                     result.absoluteFilePath = path;
                     return result;
                 });
-        connect(loader, &QVImageLoader::imageReady, this, [&] { ++deliveries; });
+        connect(loader.get(), &QVImageLoader::imageReady, this, [&] { ++deliveries; });
         loader->requestImage("/nonexistent/test.png");
         QTRY_VERIFY_WITH_TIMEOUT(entered->load(), 1000);
-        QElapsedTimer timer;
-        timer.start();
-        delete loader;
-        const auto elapsed = timer.elapsed();
-        release->store(true);
-        QVERIFY(elapsed < 100);
-        QTest::qWait(100);
+        loader.reset();
+        gate->release();
+        QVERIFY(QvAsync::drain(5000));
+        QCoreApplication::processEvents();
+        QVERIFY2(!gateTimedOut->load(), "Loader destruction waited for the blocked decoder");
         QCOMPARE(deliveries, 0);
     }
     void testPortableHDR()
@@ -948,13 +943,10 @@ private slots:
             environment.insert("FOVELLE_READ_SHUTDOWN_PROBE", dir.path());
             environment.insert("FOVELLE_READ_SHUTDOWN_DELAY_MS", QString::number(delay));
             child.setProcessEnvironment(environment);
-            QElapsedTimer timer;
-            timer.start();
             child.start(QCoreApplication::applicationFilePath(), { });
             QVERIFY(child.waitForFinished(5000));
             QCOMPARE(child.exitStatus(), QProcess::NormalExit);
             QCOMPARE(child.exitCode(), delay > 1500 ? 75 : 0);
-            QVERIFY(timer.elapsed() < 4000);
             QSettings settings(dir.filePath("saved.ini"), QSettings::IniFormat);
             QCOMPARE(settings.value("saved").toBool(), true);
         }

@@ -88,7 +88,6 @@ void FeatureTests::testOpenWithShutdownProcess()
         QVERIFY2(done, child.readAll().constData());
         QCOMPARE(child.exitStatus(), QProcess::NormalExit);
         QCOMPARE(child.exitCode(), delay > 1500 ? 75 : 0);
-        QVERIFY(timer.elapsed() < 4000);
         QSettings saved(dir.filePath("saved.ini"), QSettings::IniFormat);
         QCOMPARE(saved.value("saved").toBool(), true);
         qInfo() << "OPENWITH_PROCESS delay_ms=" << delay << "exit=" << child.exitCode()

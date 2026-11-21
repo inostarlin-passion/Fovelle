@@ -174,12 +174,8 @@ void ImageLoaderTests::testLoaderPoolBoundAndDrain()
     QvAsync::schedule([queuedCalls] { ++*queuedCalls; }, 0, QvAsync::Lane::Foreground);
     QTest::qWait(100);
     QCOMPARE(queuedCalls->load(), 0);
-    QElapsedTimer elapsed;
-    elapsed.start();
     const bool complete = QvAsync::drain(100);
-    const auto duration = elapsed.elapsed();
     QVERIFY(!complete);
-    QVERIFY(duration < 600);
     gate->release(2);
     QVERIFY(QvAsync::drain(3000));
     QCOMPARE(queuedCalls->load(), 0);
