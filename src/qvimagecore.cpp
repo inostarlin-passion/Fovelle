@@ -92,52 +92,69 @@ void QVImageCore::loadFile(const QString &fileName, const bool isReloading, cons
     if (asyncWorkShutDown)
         return;
 
-    emit imageRequestStarted();
-    QString adjustedFileName = fileName;
-
-    // sanitize file name if necessary
-    QUrl fileUrl = QUrl(adjustedFileName);
-    if (fileUrl.isLocalFile())
-        adjustedFileName = fileUrl.toLocalFile();
-
-    QFileInfo fileInfo(adjustedFileName);
-    QString absolutePath = fileInfo.absoluteFilePath();
-    if (!sourceLifetime && absolutePath == currentFileDetails.fileInfo.absoluteFilePath())
-        sourceLifetime = loadedSourceLifetime;
-    pendingSourceLifetime = sourceLifetime;
-
-    if (fileInfo.isDir()) {
-        setPaused(true);
-        // Invalidate any previous image delivery while resolving a directory.
-        imageLoader.clear();
-        pendingLoadRequestId = 0;
-        loadInProgress = false;
-        fileOrLoadPending = true;
-        openDirectoryAfterScan = true;
-        updateFolderInfo(absolutePath);
-        return;
-    }
-
+    cancelFileResolution();
+    imageLoader.cancelPendingRequest();
+    pendingLoadRequestId = 0;
     openDirectoryAfterScan = false;
-    const QString directory = baseDir.isEmpty() ? fileInfo.absolutePath() : baseDir;
-    const auto &listing = currentFileDetails.folderFileInfoList;
-    const bool inCurrentListing =
-            std::any_of(listing.cbegin(), listing.cend(),
-                        [&absolutePath](const QVFileEnumerator::CompatibleFile &file) {
-                            return file.absoluteFilePath == absolutePath;
-                        });
-    // Preserve the base directory when navigating a recursive listing.
-    if (!baseDir.isEmpty() || (!inCurrentListing && listing.getBaseDir() != directory))
-        updateFolderInfo(directory);
+    preloadDebounceTimer.stop();
+    loadInProgress = true;
+    fileOrLoadPending = true;
 
-    // Pause playing movie because it feels better that way
+    const QUrl fileUrl(fileName);
+    const QFileInfo fileInfo(fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileName);
+    const QString path = fileInfo.absoluteFilePath();
+    if (!sourceLifetime && path == currentFileDetails.fileInfo.absoluteFilePath())
+        sourceLifetime = loadedSourceLifetime;
+    pendingSourceLifetime = std::move(sourceLifetime);
+
+    fileResolutionTicket = QvAsync::run(
+            [fileInfo, sourceLifetime = pendingSourceLifetime] {
+                Q_UNUSED(sourceLifetime);
+                return fileInfo.isDir();
+            },
+            [this, path, baseDir, isReloading, debouncePreloading](bool isDirectory) {
+                fileResolutionTicket.reset();
+                if (isDirectory) {
+                    setPaused(true);
+                    imageLoader.clear();
+                    loadInProgress = false;
+                    openDirectoryAfterScan = true;
+                    updateFolderInfo(path);
+                    return;
+                }
+
+                const QString directory =
+                        baseDir.isEmpty() ? QFileInfo(path).absolutePath() : baseDir;
+                const auto &listing = currentFileDetails.folderFileInfoList;
+                const bool inCurrentListing =
+                        std::any_of(listing.cbegin(), listing.cend(),
+                                    [&path](const QVFileEnumerator::CompatibleFile &file) {
+                                        return file.absoluteFilePath == path;
+                                    });
+                // Preserve the base directory of a recursive listing.
+                if (!baseDir.isEmpty() || (!inCurrentListing && listing.getBaseDir() != directory))
+                    updateFolderInfo(directory);
+
+                beginImageLoad(path, isReloading, debouncePreloading);
+            },
+            0, QvAsync::Lane::Foreground);
+    emit imageRequestStarted();
+}
+
+void QVImageCore::beginImageLoad(const QString &path, bool forceReload, bool debouncePreloading)
+{
     setPaused(true);
-
     fileOrLoadPending = true;
     preloadDebounceTimer.stop();
     loadInProgress = true;
     pendingLoadDebouncesPreloading = debouncePreloading;
-    pendingLoadRequestId = imageLoader.requestImage(absolutePath, isReloading, sourceLifetime);
+    pendingLoadRequestId = imageLoader.requestImage(path, forceReload, pendingSourceLifetime);
+}
+
+void QVImageCore::cancelFileResolution()
+{
+    QvAsync::cancel(fileResolutionTicket);
+    fileResolutionTicket.reset();
 }
 
 void QVImageCore::markFolderInfoDirty()
@@ -187,6 +204,7 @@ bool QVImageCore::checkThumbnailListing()
                     return;
                 const auto &current = currentFileDetails.folderFileInfoList;
                 if (current.getIsRecursive() == files.getIsRecursive()
+                    && current.getPhysicalBaseDir() == files.getPhysicalBaseDir()
                     && std::equal(current.cbegin(), current.cend(), files.cbegin(), files.cend(),
                                   [](const auto &a, const auto &b) {
                                       return a.absoluteFilePath == b.absoluteFilePath;
@@ -227,6 +245,7 @@ void QVImageCore::shutdownAsyncWork()
         return;
 
     asyncWorkShutDown = true;
+    cancelFileResolution();
     QvAsync::cancel(thumbnailScanTicket);
     thumbnailScanTicket.reset();
     pendingLoadDebouncesPreloading = false;
@@ -254,6 +273,8 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 
     // Do this first so we can keep folder info even when loading errored files
     currentFileDetails.fileInfo = QFileInfo(readData.absoluteFilePath);
+    currentFileDetails.sourceFileSize = readData.fileSize;
+    currentFileDetails.sourceIsFile = readData.sourceIsFile;
     currentFileDetails.updateLoadedIndexInFolder();
     if (currentFileDetails.loadedIndexInFolder == -1) {
         // If the current list of files doesn't contain this one, assume we're switching folders now
@@ -342,6 +363,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
 
 void QVImageCore::closeImage(const bool stayInDir)
 {
+    cancelFileResolution();
     ++folderScanGeneration;
     QvAsync::cancel(thumbnailScanTicket);
     thumbnailScanTicket.reset();
@@ -382,20 +404,8 @@ void QVImageCore::loadEmptyPixmap()
 QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, const int index)
 {
     GoToFileResult result;
-    if (loadInProgress)
+    if (asyncWorkShutDown || thumbnailNavigationBusy())
         return result;
-
-    bool shouldRetryFolderInfoUpdate = false;
-
-    if (folderInfoDirty) {
-        // Make sure the file still exists because if it disappears from the file listing we'll lose
-        // track of our index within the folder. Use the static 'exists' method to avoid caching.
-        // If we skip updating now, flag it for retry later once we locate a new file.
-        if (QFile::exists(currentFileDetails.fileInfo.absoluteFilePath()))
-            updateFolderInfo();
-        else
-            shouldRetryFolderInfoUpdate = true;
-    }
 
     const auto &fileList = currentFileDetails.folderFileInfoList;
     if (fileList.isEmpty())
@@ -451,29 +461,52 @@ QVImageCore::GoToFileResult QVImageCore::goToFile(const Qv::GoToFileMode mode, c
     }
     }
 
-    if (result.reachedEnd)
+    if (result.reachedEnd) {
+        if (folderInfoDirty)
+            updateFolderInfo();
+        return result;
+    }
+
+    const int loadedIndex = currentFileDetails.loadedIndexInFolder;
+    const bool hasCurrentPath = !currentFileDetails.fileInfo.filePath().isEmpty();
+    if (newIndex < 0 || newIndex >= fileList.size() || (hasCurrentPath && newIndex == loadedIndex))
         return result;
 
-    while (searchDirection == 1 && newIndex < fileList.size() - 1
-           && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
-        newIndex++;
-    while (searchDirection == -1 && newIndex > 0
-           && !QFile::exists(fileList.value(newIndex).absoluteFilePath))
-        newIndex--;
+    loadInProgress = true;
+    fileResolutionTicket = QvAsync::run(
+            [fileList, newIndex, searchDirection, loadedIndex, hasCurrentPath,
+             sourceLifetime = loadedSourceLifetime]() -> QString {
+                Q_UNUSED(sourceLifetime);
+                for (qsizetype candidate = newIndex; candidate >= 0 && candidate < fileList.size();
+                     candidate += searchDirection) {
+                    if (QvAsync::isCanceled() || (hasCurrentPath && candidate == loadedIndex))
+                        break;
+                    const auto &path = fileList.at(candidate).absoluteFilePath;
+                    if (QFileInfo(path).isFile())
+                        return path;
+                    if (searchDirection == 0)
+                        break;
+                }
+                return { };
+            },
+            [this, mode](const QString &path) {
+                fileResolutionTicket.reset();
+                if (path.isEmpty()) {
+                    loadInProgress = false;
+                    if (folderInfoDirty)
+                        updateFolderInfo();
+                    else
+                        refreshDesiredImages(!preloadDebounceTimer.isActive());
+                    return;
+                }
 
-    // The current slot can match a path spelled differently in the listing.
-    if (newIndex == currentFileDetails.loadedIndexInFolder
-        && !currentFileDetails.fileInfo.filePath().isEmpty())
-        return result;
-
-    const QString nextImageFilePath = fileList.value(newIndex).absoluteFilePath;
-    if (!QFile::exists(nextImageFilePath))
-        return result;
-
-    if (shouldRetryFolderInfoUpdate)
-        updateFolderInfo();
-
-    loadFile(nextImageFilePath, false, { }, mode == Qv::GoToFileMode::Random);
+                pendingSourceLifetime.reset();
+                if (folderInfoDirty)
+                    updateFolderInfo();
+                beginImageLoad(path, false, mode == Qv::GoToFileMode::Random);
+            },
+            0, QvAsync::Lane::Foreground);
+    emit imageRequestStarted();
 
     return result;
 }
@@ -542,8 +575,9 @@ void QVImageCore::updateFolderInfo(QString dirPath)
                     if (currentFileDetails.folderFileInfoList.isEmpty())
                         closeImage(true);
                     else
-                        loadFile(currentFileDetails.folderFileInfoList.constFirst()
-                                         .absoluteFilePath);
+                        beginImageLoad(
+                                currentFileDetails.folderFileInfoList.constFirst().absoluteFilePath,
+                                false, false);
                 } else {
                     refreshDesiredImages(!preloadDebounceTimer.isActive());
                 }
@@ -765,8 +799,9 @@ void QVImageCore::FileDetails::updateLoadedIndexInFolder()
         // QFileInfo::operator== because it respects file system case sensitivity rules
         QString candidatePath =
                 folderFileInfoList[i].absoluteFilePath.normalized(QString::NormalizationForm_D);
-        if (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0
-            && QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo) {
+        if (candidatePath == targetPath
+            || (candidatePath.compare(targetPath, Qt::CaseInsensitive) == 0
+                && QFileInfo(folderFileInfoList[i].absoluteFilePath) == fileInfo)) {
             loadedIndexInFolder = i;
             return;
         }

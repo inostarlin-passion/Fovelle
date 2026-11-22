@@ -1619,6 +1619,10 @@ No write permission or file is read-only.</source>
         <translation>無法重新命名 %1:
 (檢查所有字元是否合法)</translation>
     </message>
+    <message>
+        <source>Could not rename %1 because the original file changed or is no longer available.</source>
+        <translation>原始檔案已變更或無法存取，無法重新命名 %1。</translation>
+    </message>
 </context>
 <context>
     <name>QVShortcutDialog</name>
@@ -2208,6 +2212,10 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>下載超過大小限制</translation>
+    </message>
+    <message>
+        <source>Cannot finalize download file</source>
+        <translation>無法完成下載檔案的儲存</translation>
     </message>
 </context>
 <context>

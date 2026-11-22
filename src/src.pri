@@ -44,6 +44,7 @@ HEADERS += \
     $$PWD/qvoptionsdialog.h \
     $$PWD/qvapplication.h \
     $$PWD/qvaboutdialog.h \
+    $$PWD/fileversion.h \
     $$PWD/qvrenamedialog.h \
     $$PWD/qvinfodialog.h \
     $$PWD/colorinformation.h \

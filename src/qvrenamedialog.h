@@ -8,7 +8,7 @@ class QVRenameDialog : public QInputDialog
 {
     Q_OBJECT
 public:
-    QVRenameDialog(QWidget *parent, QFileInfo fileInfo);
+    QVRenameDialog(QWidget *parent, QFileInfo source);
 
     void onFinished(int result);
 
@@ -20,7 +20,8 @@ protected:
     void showEvent(QShowEvent *event) override;
 
 private:
-    QFileInfo fileInfo;
+    const QFileInfo fileInfo;
+    const QByteArray originalVersion;
 };
 
 #endif // QVRENAMEDIALOG_H

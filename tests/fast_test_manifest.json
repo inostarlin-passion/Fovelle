@@ -134,6 +134,10 @@
       "args": []
     },
     {
+      "script": "file_io_static.py",
+      "args": []
+    },
+    {
       "script": "review_fixes_static.py",
       "args": []
     }
@@ -142,6 +146,8 @@
     {
       "suite": "ImageLoaderTests",
       "functions": [
+        "testCacheDetectsSameMetadataReplacement",
+        "testCacheRetriesReplacementDuringRead",
         "testImageLoaderPriorities",
         "testImageLoaderCacheAndAttachment",
         "testImageLoaderSupersededForegroundDiscarded",
@@ -239,6 +245,10 @@
         "testEPSResourceCompatibility",
         "testClipboardFullResolution",
         "testClipboardRepresentations",
+        "testRenameKeepsConfirmedIdentity",
+        "testDownloadUsesFinalImageFormat",
+        "testOpenAndNavigationYieldForFileProbe",
+        "testAsyncDirectoryOpen",
         "testDownloadedSourcesRetire",
         "testSourceLeaseAsyncLifetime",
         "testSourceLeaseConsumers"

@@ -1,3 +1,48 @@
+# 文件操作、缓存、URL 和异步预查测试完成报告
+
+验证基线为 `6c26ba4`。最终本机环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Ghostscript 10.08.0 和 Cocoa，使用 Debug、默认 CTest 选择并启用更新安装测试。项目的格式检查使用固定的 clang-format 23.1.3。本机 Homebrew QtSvg 的最低系统版本是 27.0，构建保留对应链接警告。
+
+## 基线复现
+
+四项新源码契约在基线均失败。动态基线确认重命名替换、两层旧缓存、读取中替换、两种 URL 格式误判及两个前台提交时序问题。合法 EPS 基线已加载出矢量图，测试第一次把关闭窗口误作对象销毁而过早检查租约。修正后，清理断言在窗口对象析构、文件句柄关闭之后执行。 [基线静态](../build-about-update/test-results/file-io/baseline-static.log) · [基线缓存](../build-about-update/test-results/file-io/baseline-cache.log) · [基线窗口](../build-about-update/test-results/file-io/baseline-window.log)
+
+## 原子验收
+
+| 编号 | 代码用例 | 核验结果 |
+| --- | --- | --- |
+| IO01 | `testRenameKeepsConfirmedIdentity:replacement` | 通过。替换图留在原路径，未产生新名，应用显示拒绝提示。 |
+| IO02 | `testRenameKeepsConfirmedIdentity:unchanged` | 通过。新路径保存原像素，窗口打开新文件。 |
+| IO03 | `test_IO03_rename_checks_original_directory_entry` | 通过。读取目录项身份，改名前验证，成功之后才发出新路径。 |
+| IO04 | `testCacheDetectsSameMetadataReplacement:bitmap` | 通过。普通请求交付新版本和蓝色像素。 |
+| IO05 | `testCacheRetriesReplacementDuringRead` | 通过。门闩内替换触发第二次读取，只交付一次且为新图。 |
+| IO06 | `testCacheDetectsSameMetadataReplacement:eps-reload` | 通过。强制重载返回新的矢量和蓝色像素。 |
+| IO07 | `test_IO07_caches_compare_strong_worker_versions` | 通过。验证两层版本、工作线程复验和结果发布前的重试分支。 |
+| IO08a | `testDownloadUsesFinalImageFormat:redirect-to-png` | 通过。302 后按最终 PNG 路径交付并打开，源字节保留。 |
+| IO08b | `testDownloadUsesFinalImageFormat:png-at-eps-url` | 通过。识别 PNG 内容并修正强制 EPS 的后缀。 |
+| IO08c | `testDownloadUsesFinalImageFormat:genuine-eps` | 通过。EPS 文件名、原始字节、矢量渲染和租约清理均符合预期。 |
+| IO09 | `test_IO09_redirect_and_file_publication_are_ordered` | 通过。验证最终响应地址和暂存文件的关闭、改名及发布顺序。 |
+| IO10 | `testOpenAndNavigationYieldForFileProbe:superseded-open` | 通过。两个前台席位被占用期间界面事件继续，解除阻塞后只交付最后一次打开。 |
+| IO11 | `testOpenAndNavigationYieldForFileProbe:missing-neighbor` | 通过。阻塞期间界面可处理事件，恢复后跳过已删除的邻居并打开下一张。 |
+| IO12 | `testAsyncDirectoryOpen` | 通过。从目录入口打开排序后的第一张有效图。 |
+| IO13 | `test_IO13_metadata_is_worker_owned` | 通过。文件分类、导航候选、缓存复验、物理目录根和标题元数据的获取符合线程约定。 |
+
+[静态结果](../build-about-update/test-results/file-io/final-static.log) · [主图用例 XML](../build-about-update/test-results/fast/ImageLoaderTests.xml) · [窗口用例 XML](../build-about-update/test-results/fast/WindowBehaviorTests.xml)
+
+## 最终回归
+
+| 检查 | 结果 |
+| --- | --- |
+| 新增验收 | 11 条动态场景、4 项源码契约均通过，零失败、零跳过。 |
+| 默认 CTest | 9/9 通过，109.59 秒，含 Sparkle 安装与缩略图矩阵。 |
+| 补充回归 | 16 条动态场景通过，含缓存保留与 EPS 缓存复用、8 个首尾导航和别名缩放场景，以及原始下载内容、APNG、清理和超时。零失败、零跳过。 |
+| 构建与格式 | 应用及测试目标构建成功。固定版本格式检查、四套翻译目录解析和 `git diff --check` 均通过。 |
+
+[默认 CTest](../build-about-update/test-results/file-io/final-ctest.log) · [补充缓存](../build-about-update/test-results/file-io/final-extra-cache.log) · [补充导航](../build-about-update/test-results/file-io/final-extra-navigation.log) · [补充下载](../build-about-update/test-results/file-io/final-extra-download.log) · [构建日志](../build-about-update/test-results/file-io/final-build.log)
+
+磁盘验证使用可控工作池席位和实际本地文件。真实 SMB 或离线卷的阻塞时间和文件服务器元数据粒度尚未测量。本地 Debug 构建的结果对应上述系统和依赖组合。
+
+---
+
 # 缩略图六项修复测试完成报告
 
 使用 Apple Silicon、macOS 27.0.1、Qt 6.12.0 和 Cocoa 的 Release 构建。动态测试以缩略图条尚未打开的邻居为观察对象。临时样本由测试销毁，真实图库样本通过临时目录引用并复核源文件版本。

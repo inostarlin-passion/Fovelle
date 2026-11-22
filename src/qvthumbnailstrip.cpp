@@ -372,22 +372,21 @@ public:
 
     ~ThumbnailWatch() { stop(); }
 
-    bool observe(const QString &path, bool recurse)
+    bool observe(const QString &path, const QString &physicalRoot, bool recurse)
     {
         recursive = recurse;
-        if (path == root)
+        // FSEvents reports the physical directory resolved by the worker.
+        const auto prefix = physicalRoot.isEmpty() || physicalRoot.endsWith(QLatin1Char('/'))
+                ? physicalRoot
+                : physicalRoot + QLatin1Char('/');
+        if (path == root && prefix == physicalPrefix)
             return false;
         stop();
         root = path;
-        if (root.isEmpty())
-            return false;
-
-        // FSEvents resolves aliases such as /var to their physical location.
-        const auto physicalRoot = QFileInfo(root).canonicalFilePath();
+        physicalPrefix = prefix;
         if (physicalRoot.isEmpty())
             return false;
-        physicalPrefix = physicalRoot.endsWith(QLatin1Char('/')) ? physicalRoot
-                                                                 : physicalRoot + QLatin1Char('/');
+
         const auto directory = physicalRoot.toCFString();
         const void *directories[] = { directory };
         const auto paths = CFArrayCreate(nullptr, directories, 1, &kCFTypeArrayCallBacks);
@@ -601,11 +600,12 @@ void QVThumbnailStrip::syncWatch()
     const auto &details = view->getCurrentFileDetails();
     const auto &listing = details.folderFileInfoList;
     if (!details.isPixmapLoaded || view->thumbnailImageCore().getSourceLifetime()) {
-        watch->observe({ }, false);
+        watch->observe({ }, { }, false);
         watchNeedsCatchup = false;
         return;
     }
-    if (watch->observe(listing.getBaseDir(), listing.getIsRecursive())) {
+    if (watch->observe(listing.getBaseDir(), listing.getPhysicalBaseDir(),
+                       listing.getIsRecursive())) {
         watchNeedsCatchup = true;
         if (targetOpacity > 0) {
             watchNeedsCatchup = false;

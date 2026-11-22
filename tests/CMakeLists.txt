@@ -55,6 +55,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/qvoptionsdialog.h
     ../src/qvapplication.h
     ../src/qvaboutdialog.h
+    ../src/fileversion.h
     ../src/qvrenamedialog.h
     ../src/qvinfodialog.h
     ../src/colorinformation.h

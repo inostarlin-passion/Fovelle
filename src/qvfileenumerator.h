@@ -28,17 +28,20 @@ public:
     public:
         CompatibleFileList() = default;
 
-        explicit CompatibleFileList(const QString &baseDir, const bool isRecursive)
-            : baseDir(baseDir), isRecursive(isRecursive)
+        explicit CompatibleFileList(const QString &baseDir, const bool isRecursive,
+                                    const QString &physicalBaseDir = { })
+            : baseDir(baseDir), physicalBaseDir(physicalBaseDir), isRecursive(isRecursive)
         {
         }
 
         QString getBaseDir() const { return baseDir; }
+        QString getPhysicalBaseDir() const { return physicalBaseDir; }
 
         bool getIsRecursive() const { return isRecursive; }
 
     private:
         QString baseDir;
+        QString physicalBaseDir;
         bool isRecursive{ false };
     };
 

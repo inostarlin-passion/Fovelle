@@ -1352,6 +1352,10 @@ No write permission or file is read-only.</source>
 (Check that all characters are valid)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Could not rename %1 because the original file changed or is no longer available.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>QVShortcutDialog</name>

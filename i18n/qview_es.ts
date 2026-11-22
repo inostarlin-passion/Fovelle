@@ -1444,6 +1444,10 @@ No tiene permiso de escritura o el archivo es de solo lectura.</translation>
         <translation>No se ha podido cambiar el nombre de %1:
 (Compruebe que todos los caracteres sean válidos)</translation>
     </message>
+    <message>
+        <source>Could not rename %1 because the original file changed or is no longer available.</source>
+        <translation>No se pudo renombrar %1 porque el archivo original cambió o ya no está disponible.</translation>
+    </message>
 </context>
 <context>
     <name>QVShortcutDialog</name>
@@ -1965,6 +1969,10 @@ Puedes volver a activarla en Configuración.</translation>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>La descarga supera el límite de tamaño</translation>
+    </message>
+    <message>
+        <source>Cannot finalize download file</source>
+        <translation>No se pudo guardar el archivo descargado</translation>
     </message>
 </context>
 <context>

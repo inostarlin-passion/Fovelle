@@ -147,6 +147,9 @@ class ImageLoaderTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testCacheDetectsSameMetadataReplacement_data();
+    void testCacheDetectsSameMetadataReplacement();
+    void testCacheRetriesReplacementDuringRead();
     void testLoaderSupersessionCancellation();
     void testLoaderCancellationLifecycle();
     void testLoaderForegroundIsolation();
@@ -534,6 +537,13 @@ private slots:
     void testEPSRendererTimeout();
     void testClipboardFullResolution();
     void testClipboardRepresentations();
+    void testRenameKeepsConfirmedIdentity_data();
+    void testRenameKeepsConfirmedIdentity();
+    void testDownloadUsesFinalImageFormat_data();
+    void testDownloadUsesFinalImageFormat();
+    void testOpenAndNavigationYieldForFileProbe_data();
+    void testOpenAndNavigationYieldForFileProbe();
+    void testAsyncDirectoryOpen();
     void testDownloadedSourcesRetire();
     void testSourceLeaseAsyncLifetime();
     void testSourceLeaseConsumers();
@@ -16800,3 +16810,5 @@ int main(int argc, char *argv[])
 #include "review_fixes_acceptance.inc"
 
 #include "thumbnail_acceptance.inc"
+
+#include "file_io_acceptance.inc"

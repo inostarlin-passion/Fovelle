@@ -40,7 +40,7 @@ def main() -> int:
             r"else\s+result\.reachedEnd = true;.*?"
             r"case Qv::GoToFileMode::Next:.*?if \(fileList\.size\(\) - 1 == newIndex\).*?"
             r"else\s+result\.reachedEnd = true;.*?"
-            r"if \(result\.reachedEnd\)\s+return result;\s+while \(searchDirection",
+            r"if \(result\.reachedEnd\)\s*\{.*?return result;.*?QvAsync::run",
             navigation,
             re.S,
         )),
@@ -49,10 +49,9 @@ def main() -> int:
     cases.append(check(
         "S02",
         bool(re.search(
-            r"while \(searchDirection == -1.*?newIndex--;\s+(?://[^\n]*\s+)?"
-            r"if \(newIndex == currentFileDetails\.loadedIndexInFolder\s+"
-            r"&& !currentFileDetails\.fileInfo\.filePath\(\)\.isEmpty\(\)\)\s+"
-            r"return result;.*?loadFile\(nextImageFilePath",
+            r"const bool hasCurrentPath = !currentFileDetails\.fileInfo\.filePath\(\)\.isEmpty\(\);"
+            r".*?\(hasCurrentPath && newIndex == loadedIndex\).*?return result;"
+            r".*?QvAsync::run.*?\(hasCurrentPath && candidate == loadedIndex\).*?break;",
             navigation,
             re.S,
         )),

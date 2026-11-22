@@ -1,6 +1,8 @@
 #include "urldownload.h"
 #include <QNetworkReply>
 #include <QDir>
+#include <QFileInfo>
+#include <QMimeDatabase>
 #include <QRegularExpression>
 #include <QThread>
 #include <QUrl>
@@ -47,11 +49,7 @@ void UrlDownload::start(const QUrl &url)
     }
     artifact.directory =
             std::make_shared<QTemporaryDir>(QDir::tempPath() + "/FovelleDownload-XXXXXX");
-    QString suffix = url.path().section('.', -1).toLower();
-    if (!QRegularExpression("^[a-z0-9]{1,10}$").match(suffix).hasMatch())
-        suffix = "image";
-    artifact.path = artifact.directory->filePath("download." + suffix);
-    output.setFileName(artifact.path);
+    output.setFileName(artifact.directory->filePath(".download.part"));
     if (!artifact.directory->isValid() || !output.open(QIODevice::WriteOnly)) {
         finish(State::Failed, tr("Cannot create download file"));
         return;
@@ -76,12 +74,38 @@ void UrlDownload::start(const QUrl &url)
             return;
         }
         consume();
-        if (state == State::Active) {
-            if (!output.flush())
-                finish(State::Failed, output.errorString());
-            else
-                finish(State::Succeeded);
+        if (state != State::Active)
+            return;
+        if (!output.flush()) {
+            finish(State::Failed, output.errorString());
+            return;
         }
+
+        const QRegularExpression suffixPattern("^[a-z0-9]{1,10}$");
+        QString suffix = QFileInfo(reply->url().path()).suffix().toLower();
+        if (!suffixPattern.match(suffix).hasMatch())
+            suffix = "image";
+        output.close();
+
+        // These suffixes force the native loader to use Ghostscript even when
+        // an HTTP endpoint actually serves a different image format.
+        if (suffix == "eps" || suffix == "epsf" || suffix == "epsi") {
+            QFile content(output.fileName());
+            if (content.open(QIODevice::ReadOnly)) {
+                const auto type = QMimeDatabase().mimeTypeForData(content.read(4096));
+                const auto detected = type.preferredSuffix();
+                if (type.name().startsWith("image/") && type.name() != "image/x-eps"
+                    && suffixPattern.match(detected).hasMatch())
+                    suffix = detected;
+            }
+        }
+
+        artifact.path = artifact.directory->filePath("download." + suffix);
+        if (!QFile::rename(output.fileName(), artifact.path)) {
+            finish(State::Failed, tr("Cannot finalize download file"));
+            return;
+        }
+        finish(State::Succeeded);
     });
     idleTimer.start(policy.idleTimeoutMs);
     totalTimer.start(policy.totalTimeoutMs);

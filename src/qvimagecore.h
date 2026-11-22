@@ -25,6 +25,8 @@ public:
         QFileInfo fileInfo;
         QVFileEnumerator::CompatibleFileList folderFileInfoList;
         int loadedIndexInFolder = -1;
+        qint64 sourceFileSize = 0;
+        bool sourceIsFile = false;
         bool isPixmapLoaded = false;
         bool isMovieLoaded = false;
         bool isNativeHDRLoaded = false;
@@ -117,6 +119,10 @@ protected:
     static void handleColorSpaceConversion(QImage &image, const QColorSpace &targetColorSpace);
 
 private:
+    void beginImageLoad(const QString &path, bool forceReload, bool debouncePreloading);
+    void cancelFileResolution();
+
+    QvAsync::Ticket fileResolutionTicket;
     std::shared_ptr<void> loadedSourceLifetime;
     std::shared_ptr<void> pendingSourceLifetime;
     QVFileEnumerator fileEnumerator{ this };

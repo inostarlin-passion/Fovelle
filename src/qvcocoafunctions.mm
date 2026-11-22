@@ -5,6 +5,7 @@
 #include "qvcocoafunctions.h"
 #include "qvpngthumbnail.h"
 #include "colorinformation.h"
+#include "fileversion.h"
 
 #include <QUrl>
 #include <QThread>
@@ -952,20 +953,16 @@ struct EPSReadResult
 struct EPSRenderCacheKey
 {
     QString absolutePath;
-    qint64 fileSize{ 0 };
-    QDateTime lastModified;
+    QByteArray sourceVersion;
     int renderLargestDimension{ 0 };
     QString rendererPath;
-    qint64 rendererSize{ 0 };
-    QDateTime rendererLastModified;
+    QByteArray rendererVersion;
 
     bool operator==(const EPSRenderCacheKey &other) const
     {
-        return absolutePath == other.absolutePath && fileSize == other.fileSize
-                && lastModified == other.lastModified
+        return absolutePath == other.absolutePath && sourceVersion == other.sourceVersion
                 && renderLargestDimension == other.renderLargestDimension
-                && rendererPath == other.rendererPath && rendererSize == other.rendererSize
-                && rendererLastModified == other.rendererLastModified;
+                && rendererPath == other.rendererPath && rendererVersion == other.rendererVersion;
     }
 };
 
@@ -1429,17 +1426,15 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
             : EPSFallbackLargestDimension;
     EPSRenderCacheKey cacheKey;
     cacheKey.absolutePath = sourceInfo.absoluteFilePath();
-    cacheKey.fileSize = sourceInfo.size();
-    cacheKey.lastModified = sourceInfo.lastModified();
+    cacheKey.sourceVersion = QvFile::version(filePath);
     cacheKey.renderLargestDimension = renderLargestDimension;
     if (!executable.isEmpty()) {
-        const QFileInfo executableInfo(executable);
-        cacheKey.rendererPath = executableInfo.absoluteFilePath();
-        cacheKey.rendererSize = executableInfo.size();
-        cacheKey.rendererLastModified = executableInfo.lastModified();
-        if (lookupEPSRenderCache(cacheKey, result))
-            return result;
+        cacheKey.rendererPath = QFileInfo(executable).absoluteFilePath();
+        cacheKey.rendererVersion = QvFile::version(executable);
     }
+    const bool cacheable = !cacheKey.sourceVersion.isEmpty() && !cacheKey.rendererVersion.isEmpty();
+    if (cacheable && lookupEPSRenderCache(cacheKey, result))
+        return result;
 
     QTemporaryDir temporaryDirectory(QDir::tempPath()
                                      + QStringLiteral("/Fovelle-eps-render-XXXXXX"));
@@ -1474,7 +1469,8 @@ EPSReadResult readEPS(const QString &filePath, const int requestedLargestDimensi
     result.vectorImage.format = Qv::VectorImageFormat::Pdf;
     result.vectorImage.encodedData = pdfData;
     result.vectorImage.logicalSize = QSizeF(result.intrinsicSize);
-    if (!executable.isEmpty())
+    if (cacheable && cacheKey.sourceVersion == QvFile::version(filePath)
+        && cacheKey.rendererVersion == QvFile::version(executable))
         storeEPSRenderCache(cacheKey, result);
     if (qEnvironmentVariableIsSet("FOVELLE_EPS_RENDER_LOG"))
         qInfo().noquote() << "FOVELLE_EPS_RENDER cache=miss" << sourceInfo.absoluteFilePath();

@@ -38,6 +38,7 @@ public:
         QString absoluteFilePath;
         qint64 fileSize = 0;
         QDateTime lastModified;
+        bool sourceIsFile = false;
         bool isMultiFrameImage = false;
         QSize intrinsicSize;
         double decodeMilliseconds = 0.0;
@@ -77,6 +78,7 @@ public:
     static QByteArray fileVersion(const QString &path);
     quint64 requestVersionedImage(const QString &path, const QByteArray &version);
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
+    void cancelPendingRequest();
     void clear();
 
     // Stop speculative and foreground decode work while the application is
@@ -90,15 +92,6 @@ signals:
                         quint64 estimatedDecodedBytes, const QString &reason);
 
 private:
-    struct FileIdentity
-    {
-        qint64 fileSize = 0;
-        QDateTime lastModified;
-
-        bool operator==(const FileIdentity &other) const;
-        bool operator!=(const FileIdentity &other) const { return !(*this == other); }
-    };
-
     enum class State { Queued, Loading, Cached };
 
     struct Entry
@@ -108,8 +101,6 @@ private:
         bool desired = false;
         bool reloadAfterFinish = false;
         State state = State::Queued;
-        FileIdentity expectedIdentity;
-        FileIdentity startedIdentity;
         quint64 generation = 0;
         std::optional<Result> result;
         QvAsync::Ticket ticket;
@@ -122,8 +113,6 @@ private:
     };
 
     static QString normalizePath(const QString &path);
-    static FileIdentity getFileIdentity(const QString &absoluteFilePath);
-    static FileIdentity getFileIdentity(const Result &result);
     static Result readFile(const QString &absoluteFilePath, int largestDimension, bool isPreload);
 
     bool isWanted(const QString &absoluteFilePath, const Entry &entry) const;
@@ -132,9 +121,10 @@ private:
     void cancelUnwantedJobs();
     void startReadyJobs();
     void startJob(const QString &absoluteFilePath);
-    void jobFinished(const QString &absoluteFilePath, quint64 generation, Result result);
+    void jobFinished(const QString &absoluteFilePath, quint64 generation, Result result,
+                     bool changedDuringRead);
 
-    QvAsync::Ticket versionedTicket;
+    QvAsync::Ticket foregroundValidationTicket;
     QHash<QString, Entry> entries;
     std::optional<PendingRequest> pendingRequest;
     ReadFunction readFunction;

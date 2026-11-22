@@ -49,7 +49,7 @@ QVFileEnumerator::CompatibleFileList QVFileEnumerator::scan(const QString &dirPa
                                                             const ScanOptions &options)
 {
     const bool recurse = QFile::exists(QDir(dirPath).filePath("qv-recurse.txt"));
-    CompatibleFileList fileList(dirPath, recurse);
+    CompatibleFileList fileList(dirPath, recurse, QFileInfo(dirPath).canonicalFilePath());
 
     const QMimeDatabase mimeDb;
     const auto &extensions = options.extensions;

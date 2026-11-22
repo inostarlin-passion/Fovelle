@@ -1444,6 +1444,10 @@ No write permission or file is read-only.</source>
         <translation>名前を変更できません %1:
 (すべての文字が有効であることを確認してください)</translation>
     </message>
+    <message>
+        <source>Could not rename %1 because the original file changed or is no longer available.</source>
+        <translation>元のファイルが変更されたか利用できなくなったため、%1 の名前を変更できませんでした。</translation>
+    </message>
 </context>
 <context>
     <name>QVShortcutDialog</name>
@@ -1965,6 +1969,10 @@ You can reenable it in Preferences.</source>
     <message>
         <source>Download exceeds byte limit</source>
         <translation>ダウンロードのサイズ制限を超えました</translation>
+    </message>
+    <message>
+        <source>Cannot finalize download file</source>
+        <translation>ダウンロードしたファイルを保存できません</translation>
     </message>
 </context>
 <context>

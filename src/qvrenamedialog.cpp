@@ -1,16 +1,19 @@
 #include "qvrenamedialog.h"
+#include "fileversion.h"
 
 #include <QDir>
 #include <QMessageBox>
 #include "nativedialogs.h"
 
-QVRenameDialog::QVRenameDialog(QWidget *parent, QFileInfo fileInfo) : QInputDialog(parent)
+QVRenameDialog::QVRenameDialog(QWidget *parent, QFileInfo source)
+    : QInputDialog(parent),
+      fileInfo(std::move(source)),
+      originalVersion(
+              QvFile::version(fileInfo.absoluteFilePath(), QvFile::LinkMode::DirectoryEntry))
 {
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     NativeDialogs::applyTheme(this);
-
-    this->fileInfo = fileInfo;
 
     setWindowTitle(tr("Rename..."));
     setLabelText(tr("File name:"));
@@ -22,33 +25,47 @@ QVRenameDialog::QVRenameDialog(QWidget *parent, QFileInfo fileInfo) : QInputDial
 
 void QVRenameDialog::onFinished(int result)
 {
-    if (!fileInfo.isWritable()) {
+    if (result != QDialog::Accepted)
+        return;
+
+    const auto source = fileInfo.absoluteFilePath();
+    const auto destination =
+            QDir::cleanPath(fileInfo.absolutePath() + QDir::separator() + textValue());
+    if (source == destination)
+        return;
+
+    const auto sameEntry = [&] {
+        if (!originalVersion.isEmpty()
+            && originalVersion == QvFile::version(source, QvFile::LinkMode::DirectoryEntry))
+            return true;
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Could not rename %1 because the original file changed or is "
+                                      "no longer available.")
+                                           .arg(fileInfo.fileName()),
+                                   { }, QMessageBox::Ok, parentWidget());
+        return false;
+    };
+    if (!sameEntry())
+        return;
+    if (!QFileInfo(source).isWritable()) {
         NativeDialogs::showMessage(
                 QMessageBox::Critical,
                 tr("Could not rename %1:\nNo write permission or file is read-only.")
                         .arg(fileInfo.fileName()),
-                { }, QMessageBox::Ok, this);
+                { }, QMessageBox::Ok, parentWidget());
         return;
     }
 
-    if (result) {
-        const auto newFileName = textValue();
-        const auto newFilePath =
-                QDir::cleanPath(fileInfo.absolutePath() + QDir::separator() + newFileName);
-
-        emit readyToRenameFile();
-
-        if (fileInfo.absoluteFilePath() != newFilePath) {
-            if (QFile::rename(fileInfo.absoluteFilePath(), newFilePath)) {
-                emit newFileToOpen(newFilePath);
-            } else {
-                NativeDialogs::showMessage(
-                        QMessageBox::Critical,
-                        tr("Could not rename %1:\n(Check that all characters are valid)")
-                                .arg(fileInfo.fileName()),
-                        { }, QMessageBox::Ok, this);
-            }
-        }
+    emit readyToRenameFile();
+    if (!sameEntry())
+        return;
+    if (QFile::rename(source, destination)) {
+        emit newFileToOpen(destination);
+    } else {
+        NativeDialogs::showMessage(QMessageBox::Critical,
+                                   tr("Could not rename %1:\n(Check that all characters are valid)")
+                                           .arg(fileInfo.fileName()),
+                                   { }, QMessageBox::Ok, parentWidget());
     }
 }
 

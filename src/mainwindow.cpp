@@ -1671,8 +1671,8 @@ void MainWindow::refreshProperties()
 void MainWindow::buildWindowTitle()
 {
     QString newString = "Fovelle";
-    if (getCurrentFileDetails().fileInfo.isFile()) {
-        const QVImageCore::FileDetails &fileDetails = getCurrentFileDetails();
+    const auto &fileDetails = getCurrentFileDetails();
+    if (fileDetails.sourceIsFile) {
         const bool hasError = fileDetails.errorData.has_value();
         auto getFileName = [&]() { return fileDetails.fileInfo.fileName(); };
         auto getZoomLevel = [&]() {
@@ -1690,7 +1690,7 @@ void MainWindow::buildWindowTitle()
             return QString::number(hasError ? 0 : fileDetails.baseImageSize.height());
         };
         auto getFileSize = [&]() {
-            return QVInfoDialog::formatBytes(hasError ? 0 : fileDetails.fileInfo.size());
+            return QVInfoDialog::formatBytes(hasError ? 0 : fileDetails.sourceFileSize);
         };
         switch (qvApp->getSettingsManager().getEnum<Qv::TitleBarText>("titlebarmode")) {
         case Qv::TitleBarText::Minimal: {

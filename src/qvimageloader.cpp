@@ -1,4 +1,5 @@
 #include "qvimageloader.h"
+#include "fileversion.h"
 #include "svgcolor.h"
 #include "qvcocoafunctions.h"
 
@@ -7,13 +8,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
-#include <QMetaObject>
 #include <QPainter>
 #include <QSvgRenderer>
 #include <QThreadPool>
 
 #include <limits>
-#include <sys/stat.h>
 
 namespace {
 constexpr qint64 MaxVectorSourceBytes = 256LL * 1024LL * 1024LL;
@@ -51,8 +50,8 @@ QVImageLoader::~QVImageLoader()
 
 void QVImageLoader::shutdownAsyncWork()
 {
-    QvAsync::cancel(versionedTicket);
-    versionedTicket.reset();
+    QvAsync::cancel(foregroundValidationTicket);
+    foregroundValidationTicket.reset();
     if (asyncWorkShutDown)
         return;
 
@@ -71,19 +70,17 @@ void QVImageLoader::setLargestDimension(const int value)
 quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool forceReload,
                                     std::shared_ptr<void> sourceLifetime)
 {
-    QvAsync::cancel(versionedTicket);
-    versionedTicket.reset();
+    QvAsync::cancel(foregroundValidationTicket);
+    foregroundValidationTicket.reset();
     if (asyncWorkShutDown)
         return 0;
 
     const QString normalizedPath = normalizePath(absoluteFilePath);
-    const FileIdentity identity = getFileIdentity(normalizedPath);
 
     auto targetEntryIt = entries.find(normalizedPath);
     if (targetEntryIt == entries.end()) {
         Entry entry;
         entry.priority = 0;
-        entry.expectedIdentity = identity;
         targetEntryIt = entries.insert(normalizedPath, std::move(entry));
     } else {
         if (targetEntryIt->state == State::Loading && targetEntryIt->priority > 0) {
@@ -94,16 +91,6 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
             targetEntryIt->state = State::Queued;
         }
         targetEntryIt->priority = 0;
-        targetEntryIt->expectedIdentity = identity;
-
-        if (targetEntryIt->state == State::Cached
-            && getFileIdentity(targetEntryIt->result.value()) != identity) {
-            targetEntryIt->state = State::Queued;
-            targetEntryIt->result.reset();
-        } else if (targetEntryIt->state == State::Loading
-                   && targetEntryIt->startedIdentity != identity) {
-            targetEntryIt->reloadAfterFinish = true;
-        }
     }
 
     Entry &targetEntry = targetEntryIt.value();
@@ -111,7 +98,9 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
         targetEntry.sourceLifetime = std::move(sourceLifetime);
     const bool retryCachedError = targetEntry.state == State::Cached
             && targetEntry.result.has_value() && targetEntry.result->errorData.has_value();
-    if (forceReload || retryCachedError) {
+    const bool unversionedCache =
+            targetEntry.state == State::Cached && targetEntry.result->fileVersionStamp.isEmpty();
+    if (forceReload || retryCachedError || unversionedCache) {
         if (targetEntry.state == State::Loading) {
             targetEntry.reloadAfterFinish = true;
         } else {
@@ -133,22 +122,7 @@ quint64 QVImageLoader::requestImage(const QString &absoluteFilePath, const bool 
 
 QByteArray QVImageLoader::fileVersion(const QString &path)
 {
-    struct stat info;
-    if (::stat(QFile::encodeName(path).constData(), &info) != 0 || !S_ISREG(info.st_mode))
-        return { };
-
-    return QByteArray::number(qulonglong(info.st_dev)) + ':'
-            + QByteArray::number(qulonglong(info.st_ino)) + ':'
-            + QByteArray::number(qlonglong(info.st_size)) + ':'
-#ifdef Q_OS_MACOS
-            + QByteArray::number(qlonglong(info.st_mtimespec.tv_sec)) + ':'
-            + QByteArray::number(qlonglong(info.st_mtimespec.tv_nsec)) + ':'
-            + QByteArray::number(qlonglong(info.st_ctimespec.tv_sec)) + ':'
-            + QByteArray::number(qlonglong(info.st_ctimespec.tv_nsec));
-#else
-            + QByteArray::number(qlonglong(info.st_mtime)) + ':'
-            + QByteArray::number(qlonglong(info.st_ctime));
-#endif
+    return QvFile::version(path);
 }
 
 quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArray &version)
@@ -156,7 +130,7 @@ quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArr
     if (asyncWorkShutDown || version.isEmpty())
         return 0;
 
-    QvAsync::cancel(versionedTicket);
+    QvAsync::cancel(foregroundValidationTicket);
     std::optional<Result> cached;
     const auto entry = entries.constFind(path);
     if (entry != entries.cend() && entry->state == State::Cached && entry->result
@@ -169,7 +143,7 @@ quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArr
     const auto requestId = ++nextRequestId;
     const auto read = readFunction;
     const int dimension = largestDimension;
-    versionedTicket = QvAsync::run(
+    foregroundValidationTicket = QvAsync::run(
             [path, version, read, dimension, cached = std::move(cached)]() mutable {
                 if (fileVersion(path) == version) {
                     if (cached)
@@ -184,7 +158,7 @@ quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArr
                 return rejected;
             },
             [this, requestId](const Result &result) {
-                versionedTicket.reset();
+                foregroundValidationTicket.reset();
                 emit imageReady(requestId, result);
             },
             0, QvAsync::Lane::Foreground);
@@ -192,20 +166,20 @@ quint64 QVImageLoader::requestVersionedImage(const QString &path, const QByteArr
     return requestId;
 }
 
+void QVImageLoader::cancelPendingRequest()
+{
+    QvAsync::cancel(foregroundValidationTicket);
+    foregroundValidationTicket.reset();
+    pendingRequest.reset();
+    cancelUnwantedJobs();
+}
+
 void QVImageLoader::clear()
 {
-    QvAsync::cancel(versionedTicket);
-    versionedTicket.reset();
-    pendingRequest.reset();
-
+    cancelPendingRequest();
     for (const auto &entry : std::as_const(entries))
         QvAsync::cancel(entry.ticket);
     entries.clear();
-}
-
-bool QVImageLoader::FileIdentity::operator==(const FileIdentity &other) const
-{
-    return fileSize == other.fileSize && lastModified == other.lastModified;
 }
 
 QString QVImageLoader::normalizePath(const QString &path)
@@ -255,30 +229,18 @@ QVImageLoader::preloadAdmissionForFile(const QString &absoluteFilePath)
     return admission;
 }
 
-QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const QString &absoluteFilePath)
-{
-    const QFileInfo fileInfo(absoluteFilePath);
-    return { fileInfo.size(), fileInfo.lastModified() };
-}
-
-QVImageLoader::FileIdentity QVImageLoader::getFileIdentity(const Result &result)
-{
-    return { result.fileSize, result.lastModified };
-}
-
 QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
                                               const int largestDimension, const bool isPreload)
 {
     if (QvAsync::isCanceled())
         return { };
-    const FileIdentity inputIdentity = getFileIdentity(absoluteFilePath);
+    const QFileInfo fileInfo(absoluteFilePath);
     QElapsedTimer decodeTimer;
     decodeTimer.start();
 
     if (isPreload) {
         const PreloadAdmission admission = preloadAdmissionForFile(absoluteFilePath);
         if (!admission.allowed) {
-            const QFileInfo fileInfo(absoluteFilePath);
             Result rejected;
             rejected.absoluteFilePath = fileInfo.absoluteFilePath();
             rejected.fileSize = fileInfo.size();
@@ -375,8 +337,6 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
         }
     }
 
-    const QFileInfo fileInfo(absoluteFilePath);
-
     Result result;
     result.cameraModel = nativeResult.cameraModel;
     result.sourceColor = QvColor::readSource(absoluteFilePath);
@@ -393,10 +353,9 @@ QVImageLoader::Result QVImageLoader::readFile(const QString &absoluteFilePath,
     result.hdrImage = nativeResult.hdrImage;
     result.hdrMetadata = nativeResult.hdrMetadata;
     result.absoluteFilePath = fileInfo.absoluteFilePath();
-    // Preserve the identity from before both decode and metadata reads.
-    // jobFinished retries if the file changed during either operation.
-    result.fileSize = inputIdentity.fileSize;
-    result.lastModified = inputIdentity.lastModified;
+    result.fileSize = fileInfo.size();
+    result.lastModified = fileInfo.lastModified();
+    result.sourceIsFile = fileInfo.isFile();
     result.isMultiFrameImage = isMultiFrameImage;
     result.intrinsicSize = intrinsicSize;
     result.decodeMilliseconds = decodeTimer.nsecsElapsed() / 1000000.0;
@@ -419,23 +378,14 @@ void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
     if (asyncWorkShutDown)
         return;
 
-    struct DesiredEntry
-    {
-        int priority;
-        FileIdentity identity;
-    };
-
-    QHash<QString, DesiredEntry> desiredEntries;
+    QHash<QString, int> desiredEntries;
     for (const DesiredImage &desiredImage : desiredImages) {
-        const QString absoluteFilePath = normalizePath(desiredImage.absoluteFilePath);
-        const FileIdentity identity = getFileIdentity(absoluteFilePath);
-        auto desiredIt = desiredEntries.find(absoluteFilePath);
-        if (desiredIt == desiredEntries.end()) {
-            desiredEntries.insert(absoluteFilePath, { desiredImage.priority, identity });
-        } else {
-            desiredIt->priority = qMin(desiredIt->priority, desiredImage.priority);
-            desiredIt->identity = identity;
-        }
+        const QString path = normalizePath(desiredImage.absoluteFilePath);
+        auto it = desiredEntries.find(path);
+        if (it == desiredEntries.end())
+            desiredEntries.insert(path, desiredImage.priority);
+        else
+            *it = qMin(*it, desiredImage.priority);
     }
 
     for (auto it = entries.begin(); it != entries.end();) {
@@ -453,17 +403,7 @@ void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
         }
 
         it->desired = true;
-        it->priority = desiredIt->priority;
-        it->expectedIdentity = desiredIt->identity;
-
-        if (it->state == State::Cached
-            && getFileIdentity(it->result.value()) != it->expectedIdentity) {
-            it->state = State::Queued;
-            it->result.reset();
-        } else if (it->state == State::Loading && it->startedIdentity != it->expectedIdentity) {
-            it->reloadAfterFinish = true;
-        }
-
+        it->priority = desiredIt.value();
         desiredEntries.remove(it.key());
         ++it;
     }
@@ -471,8 +411,7 @@ void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
     for (auto it = desiredEntries.constBegin(); it != desiredEntries.constEnd(); ++it) {
         Entry entry;
         entry.desired = true;
-        entry.priority = it->priority;
-        entry.expectedIdentity = it->identity;
+        entry.priority = it.value();
         entries.insert(it.key(), std::move(entry));
     }
 
@@ -481,10 +420,23 @@ void QVImageLoader::setDesiredImages(const QList<DesiredImage> &desiredImages)
 
 void QVImageLoader::queueCachedDelivery(const quint64 requestId, const QString &absoluteFilePath)
 {
-    QMetaObject::invokeMethod(
-            this,
-            [this, requestId, absoluteFilePath]() { deliverResult(requestId, absoluteFilePath); },
-            Qt::QueuedConnection);
+    const auto version = entries.constFind(absoluteFilePath)->result->fileVersionStamp;
+    foregroundValidationTicket = QvAsync::run(
+            [absoluteFilePath, version] { return fileVersion(absoluteFilePath) == version; },
+            [this, requestId, absoluteFilePath](bool matches) {
+                foregroundValidationTicket.reset();
+                if (!pendingRequest || pendingRequest->id != requestId)
+                    return;
+                if (matches) {
+                    deliverResult(requestId, absoluteFilePath);
+                } else {
+                    auto entry = entries.find(absoluteFilePath);
+                    entry->state = State::Queued;
+                    entry->result.reset();
+                    startReadyJobs();
+                }
+            },
+            0, QvAsync::Lane::Foreground);
 }
 
 void QVImageLoader::deliverResult(const quint64 requestId, const QString &absoluteFilePath)
@@ -566,7 +518,6 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
     }
 
     entryIt->state = State::Loading;
-    entryIt->startedIdentity = entryIt->expectedIdentity;
     entryIt->reloadAfterFinish = false;
     const quint64 generation = ++nextJobGeneration;
     entryIt->generation = generation;
@@ -579,17 +530,18 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
             [read, absoluteFilePath, targetLargestDimension, isPreload, sourceLifetime] {
                 const auto initialVersion = fileVersion(absoluteFilePath);
                 auto result = read(absoluteFilePath, targetLargestDimension, isPreload);
-                if (!result.preloadRejected && !result.errorData && !initialVersion.isEmpty()
-                    && fileVersion(absoluteFilePath) == initialVersion) {
-                    result.fileVersionStamp = initialVersion;
-                }
+                const auto finalVersion =
+                        QvAsync::isCanceled() ? QByteArray() : fileVersion(absoluteFilePath);
+                const bool changedDuringRead = initialVersion != finalVersion;
+                if (!changedDuringRead && !result.preloadRejected && !result.errorData)
+                    result.fileVersionStamp = finalVersion;
                 result.sourceLifetime = sourceLifetime;
                 result.sdrImage = retainSource(result.sdrImage, sourceLifetime);
                 result.hdrImage = retainSource(result.hdrImage, sourceLifetime);
-                return result;
+                return std::make_pair(std::move(result), changedDuringRead);
             },
-            [this, absoluteFilePath, generation](Result result) {
-                jobFinished(absoluteFilePath, generation, std::move(result));
+            [this, absoluteFilePath, generation](std::pair<Result, bool> read) {
+                jobFinished(absoluteFilePath, generation, std::move(read.first), read.second);
             },
             -priority, isPreload ? QvAsync::Lane::Shared : QvAsync::Lane::Foreground);
     // Observers may synchronously clear demand; publish only after cancellation is possible.
@@ -597,7 +549,7 @@ void QVImageLoader::startJob(const QString &absoluteFilePath)
 }
 
 void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 generation,
-                                Result result)
+                                Result result, bool changedDuringRead)
 {
     auto entryIt = entries.find(absoluteFilePath);
     if (entryIt == entries.end() || entryIt->state != State::Loading
@@ -608,6 +560,14 @@ void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 g
 
     if (!isWanted(absoluteFilePath, entryIt.value())) {
         entries.erase(entryIt);
+        startReadyJobs();
+        return;
+    }
+
+    if (entryIt->reloadAfterFinish || changedDuringRead) {
+        entryIt->state = State::Queued;
+        entryIt->reloadAfterFinish = false;
+        entryIt->result.reset();
         startReadyJobs();
         return;
     }
@@ -629,17 +589,6 @@ void QVImageLoader::jobFinished(const QString &absoluteFilePath, const quint64 g
         return;
     }
 
-    const FileIdentity currentIdentity = getFileIdentity(absoluteFilePath);
-    if (entryIt->reloadAfterFinish || getFileIdentity(result) != currentIdentity) {
-        entryIt->state = State::Queued;
-        entryIt->reloadAfterFinish = false;
-        entryIt->expectedIdentity = currentIdentity;
-        entryIt->result.reset();
-        startReadyJobs();
-        return;
-    }
-
-    entryIt->expectedIdentity = currentIdentity;
     entryIt->state = State::Cached;
     entryIt->result = std::move(result);
 
