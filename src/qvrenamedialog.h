@@ -8,7 +8,7 @@ class QVRenameDialog : public QInputDialog
 {
     Q_OBJECT
 public:
-    QVRenameDialog(QWidget *parent, QFileInfo source);
+    QVRenameDialog(QWidget *parent, const QFileInfo &source);
 
     void onFinished(int result);
 

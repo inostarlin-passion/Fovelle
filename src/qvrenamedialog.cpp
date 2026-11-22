@@ -5,9 +5,9 @@
 #include <QMessageBox>
 #include "nativedialogs.h"
 
-QVRenameDialog::QVRenameDialog(QWidget *parent, QFileInfo source)
+QVRenameDialog::QVRenameDialog(QWidget *parent, const QFileInfo &source)
     : QInputDialog(parent),
-      fileInfo(std::move(source)),
+      fileInfo(source),
       originalVersion(
               QvFile::version(fileInfo.absoluteFilePath(), QvFile::LinkMode::DirectoryEntry))
 {
