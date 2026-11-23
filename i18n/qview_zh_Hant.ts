@@ -424,6 +424,22 @@
         <source>Focus Thumbnails</source>
         <translation>聚焦縮圖</translation>
     </message>
+    <message>
+        <source>Compare Images</source>
+        <translation>雙圖比較</translation>
+    </message>
+    <message>
+        <source>Sync Zoom</source>
+        <translation>同步縮放</translation>
+    </message>
+    <message>
+        <source>Sync Pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap Sides</source>
+        <translation>交換左右</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -1926,6 +1942,22 @@ No write permission or file is read-only.</source>
         <source>Random File</source>
         <translation>隨機檔案</translation>
     </message>
+    <message>
+        <source>Compare Images</source>
+        <translation>雙圖比較</translation>
+    </message>
+    <message>
+        <source>Sync Zoom</source>
+        <translation>同步縮放</translation>
+    </message>
+    <message>
+        <source>Sync Pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap Sides</source>
+        <translation>交換左右</translation>
+    </message>
 </context>
 <context>
     <name>UpdateChecker</name>
@@ -2243,6 +2275,116 @@ You can reenable it in Preferences.</source>
     <message>
         <source>The image is no longer available.</source>
         <translation>圖片已無法使用。</translation>
+    </message>
+</context>
+<context>
+    <name>QVComparison</name>
+    <message>
+        <source>Sync zoom</source>
+        <translation>同步縮放</translation>
+    </message>
+    <message>
+        <source>Sync pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap sides</source>
+        <translation>交換左右</translation>
+    </message>
+    <message>
+        <source>Exit compare</source>
+        <translation>退出比較</translation>
+    </message>
+    <message>
+        <source>Choose comparison image…</source>
+        <translation>選擇比較圖片…</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>Choose or drop an image in this pane.</source>
+        <translation>請選擇圖片，或將圖片拖入此欄。</translation>
+    </message>
+    <message>
+        <source>Comparison image status</source>
+        <translation>比較圖片狀態</translation>
+    </message>
+    <message>
+        <source>Comparison divider</source>
+        <translation>比較分隔線</translation>
+    </message>
+    <message>
+        <source>Choose comparison image</source>
+        <translation>選擇比較圖片</translation>
+    </message>
+    <message>
+        <source>Loading %1…</source>
+        <translation>正在載入 %1…</translation>
+    </message>
+    <message>
+        <source>SDR preview</source>
+        <translation>SDR 預覽</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>預覽</translation>
+    </message>
+    <message>
+        <source>%1 · %2 · %3</source>
+        <translation>%1 · %2 · %3</translation>
+    </message>
+    <message>
+        <source>● %1</source>
+        <translation>● %1</translation>
+    </message>
+    <message>
+        <source>Left pane, %1</source>
+        <translation>左欄，%1</translation>
+    </message>
+    <message>
+        <source>Right pane, %1</source>
+        <translation>右欄，%1</translation>
+    </message>
+    <message>
+        <source>Reference</source>
+        <translation>參考圖</translation>
+    </message>
+    <message>
+        <source>Comparison</source>
+        <translation>比較圖</translation>
+    </message>
+    <message>
+        <source>Replace…</source>
+        <translation>更換…</translation>
+    </message>
+</context>
+<context>
+    <name>QVImageLoader</name>
+    <message>
+        <source>Unable to read this file.</source>
+        <translation>無法讀取此檔案。</translation>
+    </message>
+    <message>
+        <source>This image exceeds the comparison memory budget.</source>
+        <translation>圖像超出比較模式的記憶體預算。</translation>
+    </message>
+    <message>
+        <source>Animated images cannot be used for comparison.</source>
+        <translation>比較模式僅支援靜態圖像。</translation>
+    </message>
+    <message>
+        <source>Unable to determine the image size.</source>
+        <translation>無法確定圖像尺寸。</translation>
+    </message>
+    <message>
+        <source>The file changed while it was being read. Select it again.</source>
+        <translation>檔案在讀取時發生變化，請重新選擇。</translation>
+    </message>
+    <message>
+        <source>Unable to display this image.</source>
+        <translation>無法顯示此圖像。</translation>
     </message>
 </context>
 </TS>

@@ -1,5 +1,6 @@
 #include "qvgraphicsview.h"
 #include "qvgraphicsimageitem.h"
+#include "qvcomparison.h"
 #include "qvapplication.h"
 #include "qvinfodialog.h"
 #include "qvmovie.h"
@@ -115,8 +116,9 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
         // second geometry policy after the transaction has returned.
         p.contentRect = getScrollContentRect();
         p.usableViewportRect = getUsableViewportRect();
-        p.shouldConstrain = constrainImagePosition;
-        p.shouldCenter = constrainToCenterWhenSmaller;
+        p.shouldConstrain = comparison || constrainImagePosition;
+        p.shouldCenter = comparison || constrainToCenterWhenSmaller;
+        p.useScrollbarLimits = comparison != nullptr;
     });
 
     connect(&imageCore, &QVImageCore::animatedFrameChanged, this,
@@ -266,6 +268,15 @@ QVGraphicsView::QVGraphicsView(QWidget *parent) : QGraphicsView(parent)
             setVectorInteractionPresentation(true);
         }
     };
+    // Slider user actions are emitted before Qt propagates sliderPosition to value.
+    for (auto *bar : { horizontalScrollBar(), verticalScrollBar() }) {
+        connect(bar, &QScrollBar::actionTriggered, this, [this, bar](int) {
+            if (!comparison)
+                return;
+            const int amount = bar->sliderPosition() - bar->value();
+            panFromInput(bar == horizontalScrollBar() ? QPointF(amount, 0) : QPointF(0, amount));
+        });
+    }
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this, viewportScrollChanged);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, viewportScrollChanged);
     connect(qvApp, &QGuiApplication::applicationStateChanged, this,
@@ -524,12 +535,30 @@ void QVGraphicsView::setVectorInteractionPresentation(const bool active)
 
 void QVGraphicsView::dropEvent(QDropEvent *event)
 {
+    if (comparison) {
+        const auto urls = event->mimeData()->urls();
+        if (comparison->candidateView() == this && urls.size() == 1 && urls.first().isLocalFile()) {
+            comparison->selectFile(urls.first().toLocalFile());
+            event->acceptProposedAction();
+        } else {
+            event->ignore();
+        }
+        return;
+    }
     QGraphicsView::dropEvent(event);
     loadMimeData(event->mimeData());
 }
 
 void QVGraphicsView::dragEnterEvent(QDragEnterEvent *event)
 {
+    if (comparison) {
+        const auto urls = event->mimeData()->urls();
+        if (comparison->candidateView() == this && urls.size() == 1 && urls.first().isLocalFile())
+            event->acceptProposedAction();
+        else
+            event->ignore();
+        return;
+    }
     QGraphicsView::dragEnterEvent(event);
     if (event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
@@ -538,6 +567,14 @@ void QVGraphicsView::dragEnterEvent(QDragEnterEvent *event)
 
 void QVGraphicsView::dragMoveEvent(QDragMoveEvent *event)
 {
+    if (comparison) {
+        const auto urls = event->mimeData()->urls();
+        if (comparison->candidateView() == this && urls.size() == 1 && urls.first().isLocalFile())
+            event->acceptProposedAction();
+        else
+            event->ignore();
+        return;
+    }
     QGraphicsView::dragMoveEvent(event);
     event->acceptProposedAction();
 }
@@ -550,6 +587,10 @@ void QVGraphicsView::dragLeaveEvent(QDragLeaveEvent *event)
 
 void QVGraphicsView::mousePressEvent(QMouseEvent *event)
 {
+    if (comparison) {
+        comparison->activate(this);
+        setFocus(Qt::MouseFocusReason);
+    }
     const auto initializeDrag = [this, event](const Qv::ViewportDragAction action,
                                               const bool delayStart = false) {
         pressedMouseButton = event->button();
@@ -701,7 +742,15 @@ bool QVGraphicsView::viewportEvent(QEvent *event)
 
 bool QVGraphicsView::event(QEvent *event)
 {
-    if (event->type() == QEvent::ShortcutOverride && !turboNavMode.has_value()) {
+    if (comparison && event->type() == QEvent::ShortcutOverride) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->modifiers() == Qt::NoModifier
+            && (key->key() == Qt::Key_Left || key->key() == Qt::Key_Right
+                || key->key() == Qt::Key_Up || key->key() == Qt::Key_Down)) {
+            event->accept();
+            return true;
+        }
+    } else if (event->type() == QEvent::ShortcutOverride && !turboNavMode.has_value()) {
         const QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         const ActionManager &actionManager = qvApp->getActionManager();
         if (actionManager.wouldTriggerAction(keyEvent, "previousfile")
@@ -764,7 +813,8 @@ bool QVGraphicsView::eventFilter(QObject *watched, QEvent *event)
 void QVGraphicsView::focusInEvent(QFocusEvent *event)
 {
     lastFocusIn.start();
-
+    if (comparison)
+        comparison->activate(this);
     QGraphicsView::focusInEvent(event);
 }
 
@@ -776,6 +826,19 @@ void QVGraphicsView::focusOutEvent(QFocusEvent *event)
 }
 
 void QVGraphicsView::wheelEvent(QWheelEvent *event)
+{
+    QVGraphicsView *target = comparison ? comparison->wheelTarget(this, event->phase()) : this;
+    if (!target) {
+        event->accept();
+        return;
+    }
+    const QPoint position = target == this
+            ? event->position().toPoint()
+            : target->viewport()->mapFromGlobal(event->globalPosition().toPoint());
+    target->processWheel(event, position);
+}
+
+void QVGraphicsView::processWheel(QWheelEvent *event, const QPoint &eventPos)
 {
     const QInputDevice *device = nullptr;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -801,7 +864,7 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
                 : QPointF(event->angleDelta()) / 2.0;
         if (!trackpadDelta.isNull()) {
             cancelPostLayoutZoomAnchor();
-            scrollHelper->move(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
+            panFromInput(nativeGesturePanScrollDelta(trackpadDelta, isRightToLeft()));
             constrainBoundsTimer->start();
         }
         event->accept();
@@ -809,7 +872,6 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
         return;
     }
 
-    const QPoint eventPos = event->position().toPoint();
     const bool isAltAction = event->modifiers().testFlag(Qt::ControlModifier);
     const Qv::ViewportScrollAction horizontalAction =
             isAltAction ? altHorizontalScrollAction : horizontalScrollAction;
@@ -852,14 +914,14 @@ void QVGraphicsView::wheelEvent(QWheelEvent *event)
 
 void QVGraphicsView::keyPressEvent(QKeyEvent *event)
 {
-    if (turboNavMode.has_value()) {
+    if (!comparison && turboNavMode.has_value()) {
         if (ActionManager::wouldTriggerAction(event, navPrevShortcuts)
             || ActionManager::wouldTriggerAction(event, navNextShortcuts)
             || ActionManager::wouldTriggerAction(event, navRandomShortcuts)) {
             lastTurboNavKeyPress.start();
             return;
         }
-    } else {
+    } else if (!comparison) {
         const ActionManager &actionManager = qvApp->getActionManager();
         const std::optional<Qv::GoToFileMode> triggeredNavMode =
                 actionManager.wouldTriggerAction(event, "previousfile") ? Qv::GoToFileMode::Previous
@@ -906,7 +968,7 @@ void QVGraphicsView::keyPressEvent(QKeyEvent *event)
                                     * getRtlFlip(),
                             (verticalScrollBar()->singleStep() * scrollYSmallSteps)
                                     + (verticalScrollBar()->pageStep() * scrollYLargeSteps) };
-        scrollHelper->move(delta);
+        panFromInput(delta);
         constrainBoundsTimer->start();
         return;
     }
@@ -928,6 +990,21 @@ void QVGraphicsView::contextMenuEvent(QContextMenuEvent *event)
 
 void QVGraphicsView::executeClickAction(const Qv::ViewportClickAction action, const QPoint mousePos)
 {
+    if (comparison) {
+        switch (action) {
+        case Qv::ViewportClickAction::ZoomToFit:
+            comparison->calculatedZoom(this, Qv::CalculatedZoomMode::ZoomToFit);
+            return;
+        case Qv::ViewportClickAction::FillWindow:
+            comparison->calculatedZoom(this, Qv::CalculatedZoomMode::FillWindow);
+            return;
+        case Qv::ViewportClickAction::OriginalSize:
+            comparison->calculatedZoom(this, Qv::CalculatedZoomMode::OriginalSize);
+            return;
+        default:
+            break;
+        }
+    }
     if (action == Qv::ViewportClickAction::ZoomToFit) {
         setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit);
     } else if (action == Qv::ViewportClickAction::FillWindow) {
@@ -985,7 +1062,7 @@ void QVGraphicsView::executeDragAction(const Qv::ViewportDragAction action, cons
 {
     if (action == Qv::ViewportDragAction::Pan) {
         cancelPostLayoutZoomAnchor();
-        scrollHelper->move(QPointF(-delta.x() * getRtlFlip(), -delta.y()));
+        panFromInput(QPointF(-delta.x() * getRtlFlip(), -delta.y()));
     } else if (action == Qv::ViewportDragAction::MoveWindow) {
         const auto windowState = window()->windowState();
         if (isSystemWindowDragActive || windowState.testFlag(Qt::WindowFullScreen))
@@ -1263,7 +1340,7 @@ void QVGraphicsView::executeScrollAction(const Qv::ViewportScrollAction action, 
         if (hasShiftModifier)
             std::swap(scrollX, scrollY);
 
-        scrollHelper->move(QPointF(scrollX, scrollY));
+        panFromInput(QPointF(scrollX, scrollY));
         constrainBoundsTimer->start();
     } else if (action == Qv::ViewportScrollAction::Zoom) {
         if (!getCurrentFileDetails().isPixmapLoaded)
@@ -1458,10 +1535,13 @@ void QVGraphicsView::postLoad()
     if (imageCore.getLoadedHDRImage() || imageCore.getLoadedSDRImage())
         ensureHDRRenderer();
 
+    const bool retainPrevious = !comparison || comparison->candidateView() != this;
     if (imageCore.getLoadedHDRImage())
-        hdrRendererActive = hdrRenderer && hdrRenderer->setImage(imageCore.getLoadedHDRImage());
+        hdrRendererActive =
+                hdrRenderer && hdrRenderer->setImage(imageCore.getLoadedHDRImage(), retainPrevious);
     else
-        hdrRendererActive = hdrRenderer && hdrRenderer->setSDRImage(imageCore.getLoadedSDRImage());
+        hdrRendererActive = hdrRenderer
+                && hdrRenderer->setSDRImage(imageCore.getLoadedSDRImage(), retainPrevious);
     updateViewportOpacityContract();
     // Keep the bounded SDR proxy visible until a correctly sized Metal frame
     // has actually reached the display. It is a seamless placeholder, not the
@@ -1470,7 +1550,8 @@ void QVGraphicsView::postLoad()
     loadedPixmapItem->setTransform(QTransform());
     const QSize fallbackSize = imageCore.getLoadedPixmap().size();
     const QSize sourceSize = getCurrentFileDetails().loadedPixmapSize;
-    if ((getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded)
+    if ((getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded
+         || getCurrentFileDetails().isComparisonPreview)
         && !fallbackSize.isEmpty() && !sourceSize.isEmpty()) {
         loadedPixmapItem->setTransform(QTransform::fromScale(
                 static_cast<qreal>(sourceSize.width()) / fallbackSize.width(),
@@ -1498,7 +1579,8 @@ void QVGraphicsView::postLoad()
         matchContentCenter(lastImageContentRect);
 
     const auto &fileDetails = getCurrentFileDetails();
-    if (!fileDetails.fileInfo.filePath().isEmpty() && !fileDetails.errorData.has_value())
+    if ((!comparison || comparison->candidateView() != this)
+        && !fileDetails.fileInfo.filePath().isEmpty() && !fileDetails.errorData.has_value())
         qvApp->getActionManager().addFileToRecentsList(fileDetails.fileInfo);
 
     const bool closedImage = fileDetails.fileInfo.filePath().isEmpty();
@@ -1691,6 +1773,76 @@ void QVGraphicsView::postLoad()
     }
 }
 
+void QVGraphicsView::setComparison(QVComparison *owner)
+{
+    comparison = owner;
+    scrollHelper->resetRounding();
+}
+
+qreal QVGraphicsView::comparisonMinimumZoom() const
+{
+    const qreal fit = calculateZoomLevelForMode(Qv::CalculatedZoomMode::ZoomToFit);
+    return qMin(qMin(zoomLevel, Qv::MinimumZoomLevel), fit > 0 ? fit : Qv::MinimumZoomLevel);
+}
+
+qreal QVGraphicsView::boundedViewZoom(qreal level) const
+{
+    if (comparison && std::isfinite(level) && level < Qv::MinimumZoomLevel)
+        return qMax(comparisonMinimumZoom(), level);
+    return boundedZoomLevel(level);
+}
+
+QPointF QVGraphicsView::comparisonImageCenter() const
+{
+    const QRectF image = imageViewportRect();
+    if (image.isEmpty())
+        return { 0.5, 0.5 };
+    const QPointF point = QPointF(getUsableViewportRect().center()) - image.topLeft();
+    return { point.x() / image.width(), point.y() / image.height() };
+}
+
+void QVGraphicsView::restoreComparisonCenter(QPointF center)
+{
+    if (!getCurrentFileDetails().isPixmapLoaded)
+        return;
+    fitOrConstrainImage();
+    if (!calculatedZoomMode.has_value()) {
+        const QRectF image = imageViewportRect();
+        const QPointF imagePoint =
+                image.topLeft() + QPointF(center.x() * image.width(), center.y() * image.height());
+        const QPointF scenePoint = mapViewportPointToScene(viewportTransform(), imagePoint);
+        cancelPostLayoutZoomAnchor();
+        applyZoomAnchor(scenePoint, getUsableViewportRect().center());
+    }
+    scrollHelper->resetRounding();
+}
+
+void QVGraphicsView::refreshComparisonPresentation()
+{
+    if (hdrRendererActive && hdrRenderer) {
+        hdrRenderer->refreshViewportFrame();
+        synchronizeNativeImageGeometryForFullScreenTransition();
+        requestHDRRendererUpdate();
+    }
+}
+
+void QVGraphicsView::cancelComparisonInput()
+{
+    resetDragState();
+    cancelTurboNav();
+    constrainBoundsTimer->stop();
+    scrollAxisLocker.reset();
+    scrollHelper->resetRounding();
+}
+
+void QVGraphicsView::panFromInput(QPointF delta)
+{
+    if (comparison)
+        comparison->pan(this, delta);
+    else
+        scrollHelper->move(delta);
+}
+
 void QVGraphicsView::zoomIn()
 {
     const std::optional<QPoint> cursorPosition = getCursorViewportPosition();
@@ -1783,7 +1935,7 @@ QVGraphicsView::ZoomPlan QVGraphicsView::makeZoomPlan(const qreal targetZoom,
                                                       const std::optional<QPoint> &targetPos) const
 {
     ZoomPlan plan;
-    plan.targetZoom = boundedZoomLevel(targetZoom);
+    plan.targetZoom = boundedViewZoom(targetZoom);
     plan.oldViewportTransform = viewportTransform();
     plan.oldImageViewportRect = imageViewportRect();
     plan.oldImageSceneRect = scene() ? scene()->itemsBoundingRect() : QRectF();
@@ -2003,6 +2155,10 @@ void QVGraphicsView::commitZoomImmediately(const ZoomPlan &plan)
 
 void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional<QPoint> &mousePos)
 {
+    if (comparison) {
+        comparison->relativeZoom(this, relativeLevel, mousePos);
+        return;
+    }
     const qreal absoluteLevel = boundedZoomLevel(zoomLevel * relativeLevel);
     const std::optional<QPoint> pos = !mousePos.has_value() ? std::nullopt
             : zoomToCursor && isCursorVisible               ? mousePos
@@ -2013,7 +2169,7 @@ void QVGraphicsView::zoomRelative(const qreal relativeLevel, const std::optional
 void QVGraphicsView::zoomAbsolute(const qreal absoluteLevel, const std::optional<QPoint> &targetPos,
                                   const bool isApplyingCalculation)
 {
-    const qreal requestedLevel = boundedZoomLevel(absoluteLevel);
+    const qreal requestedLevel = boundedViewZoom(absoluteLevel);
     const bool keepsCalculatedZoomMode = isApplyingCalculation && calculatedZoomMode.has_value()
             && Qv::calculatedZoomModeIsSticky(calculatedZoomMode.value());
     const bool shouldRestoreCalculatedZoom = !isApplyingCalculation
@@ -2227,6 +2383,9 @@ qreal QVGraphicsView::calculateZoomLevelForMode(const Qv::CalculatedZoomMode mod
 
     if (fitZoomLimit.has_value() && targetRatio > fitZoomLimit.value())
         targetRatio = fitZoomLimit.value();
+    if (comparison && mode == Qv::CalculatedZoomMode::ZoomToFit && targetRatio > 0
+        && targetRatio < Qv::MinimumZoomLevel)
+        return targetRatio;
     return boundedZoomLevel(targetRatio);
 }
 
@@ -2422,6 +2581,9 @@ void QVGraphicsView::setLoadIsFromSessionRestore(const bool value)
 void QVGraphicsView::goToFile(const Qv::GoToFileMode mode, const int index,
                               const bool reportNavigationBoundary)
 {
+    if (comparison)
+        return;
+
     const QVImageCore::GoToFileResult result = imageCore.goToFile(mode, index);
 
     if (result.reachedEnd) {
@@ -2575,8 +2737,8 @@ bool QVGraphicsView::isSmoothScalingRequested() const
 bool QVGraphicsView::isExpensiveScalingRequested() const
 {
     if (getCurrentFileDetails().isNativeHDRLoaded || getCurrentFileDetails().isNativeSDRLoaded
-        || getCurrentFileDetails().isVectorLoaded || !isSmoothScalingRequested()
-        || smoothScalingMode != Qv::SmoothScalingMode::Expensive
+        || getCurrentFileDetails().isVectorLoaded || getCurrentFileDetails().isComparisonPreview
+        || !isSmoothScalingRequested() || smoothScalingMode != Qv::SmoothScalingMode::Expensive
         || !getCurrentFileDetails().isPixmapLoaded)
         return false;
 
@@ -2598,7 +2760,7 @@ QSizeF QVGraphicsView::getEffectiveOriginalSize() const
 
 LogicalPixelFitter QVGraphicsView::getPixelFitter() const
 {
-    const MainWindow::ViewportPosition viewportPos = getMainWindow()->getViewportPosition();
+    const auto viewportPos = getMainWindow()->getViewportPosition(comparison ? this : nullptr);
     return LogicalPixelFitter(devicePixelRatioF(),
                               QPoint(0, viewportPos.widgetY + viewportPos.obscuredHeight));
 }
@@ -2611,6 +2773,8 @@ void QVGraphicsView::matchContentCenter(const QRect target)
 
 std::optional<Qv::GoToFileMode> QVGraphicsView::getNavigationRegion(const QPoint mousePos) const
 {
+    if (comparison)
+        return { };
     const int regionWidth = qMin(width() / 3, 150);
     const int regionMinY = height() / 4;
     const int regionMaxY = regionMinY + (height() / 2);
@@ -2673,7 +2837,7 @@ QPoint QVGraphicsView::zoomAnchorViewportPoint(const QPoint &requestedPoint) con
 QRect QVGraphicsView::getUsableViewportRect(const bool addOverscan) const
 {
     QRect rect = viewport()->rect();
-    rect.setTop(getMainWindow()->getViewportPosition().obscuredHeight);
+    rect.setTop(getMainWindow()->getViewportPosition(comparison ? this : nullptr).obscuredHeight);
     if (addOverscan)
         rect.adjust(-fitOverscan, -fitOverscan, fitOverscan, fitOverscan);
     return rect;
@@ -2688,7 +2852,10 @@ QSize QVGraphicsView::getFitViewportSize(const bool addOverscan) const
     // when that same bar disappears near the end of the animation.
     QSize size = maximumViewportSize();
     if (const MainWindow *mainWindow = getMainWindow())
-        size.rheight() = qMax(0, size.height() - mainWindow->getViewportPosition().obscuredHeight);
+        size.rheight() = qMax(0,
+                              size.height()
+                                      - mainWindow->getViewportPosition(comparison ? this : nullptr)
+                                                .obscuredHeight);
     if (addOverscan)
         size += QSize(fitOverscan * 2, fitOverscan * 2);
     return size;
@@ -3075,14 +3242,24 @@ int QVGraphicsView::getRtlFlip() const
 
 bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
 {
-    const auto getGesturePosition = [](const QNativeGestureEvent *gestureEvent) {
+    auto *target = comparison ? comparison->gestureTarget(this, event->gestureType()) : this;
+    if (!target) {
+        event->accept();
+        return true;
+    }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        return gestureEvent->position().toPoint();
+    const QPoint position = target == this
+            ? event->position().toPoint()
+            : target->viewport()->mapFromGlobal(event->globalPosition().toPoint());
 #else
-        return gestureEvent->localPos().toPoint();
+    const QPoint position = target == this ? event->localPos().toPoint()
+                                           : target->viewport()->mapFromGlobal(event->globalPos());
 #endif
-    };
+    return target->processNativeGesture(event, position);
+}
 
+bool QVGraphicsView::processNativeGesture(QNativeGestureEvent *event, const QPoint &position)
+{
     switch (event->gestureType()) {
     case Qt::BeginNativeGesture:
         if (getCurrentFileDetails().isVectorLoaded)
@@ -3096,14 +3273,18 @@ bool QVGraphicsView::handleNativeGestureEvent(QNativeGestureEvent *event)
     case Qt::ZoomNativeGesture: {
         if (getCurrentFileDetails().isPixmapLoaded) {
             const qreal relativeFactor = nativeGestureZoomFactor(event->value());
-            if (!qFuzzyCompare(relativeFactor, 1.0))
-                zoomAbsolute(zoomLevel * relativeFactor, getGesturePosition(event));
+            if (!qFuzzyCompare(relativeFactor, 1.0)) {
+                if (comparison)
+                    comparison->relativeZoom(this, relativeFactor, position);
+                else
+                    zoomAbsolute(zoomLevel * relativeFactor, position);
+            }
         }
         break;
     }
     case Qt::PanNativeGesture: {
         if (getCurrentFileDetails().isPixmapLoaded && !event->delta().isNull()) {
-            scrollHelper->move(nativeGesturePanScrollDelta(event->delta(), isRightToLeft()));
+            panFromInput(nativeGesturePanScrollDelta(event->delta(), isRightToLeft()));
             constrainBoundsTimer->start();
         }
         break;
@@ -3164,8 +3345,10 @@ void QVGraphicsView::refreshVerticalScrollBarGeometry()
     if (geometry.width() <= 0 || geometry.height() <= 0)
         return;
 
-    const int obscuredHeight =
-            getMainWindow() ? qMax(0, getMainWindow()->getViewportPosition().obscuredHeight) : 0;
+    const int obscuredHeight = getMainWindow()
+            ? qMax(0,
+                   getMainWindow()->getViewportPosition(comparison ? this : nullptr).obscuredHeight)
+            : 0;
     const int adjustedTop = qMin(obscuredHeight, geometry.bottom() + 1);
     if (geometry.top() == adjustedTop)
         return;
@@ -3298,7 +3481,8 @@ QRectF QVGraphicsView::getSceneRectForViewport() const
     if (!mainWindow)
         return sceneRect;
 
-    const int obscuredHeight = mainWindow->getViewportPosition().obscuredHeight;
+    const int obscuredHeight =
+            mainWindow->getViewportPosition(comparison ? this : nullptr).obscuredHeight;
     if (obscuredHeight <= 0)
         return sceneRect;
 

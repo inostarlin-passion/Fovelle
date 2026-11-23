@@ -32,6 +32,17 @@ QThreadPool &foregroundPool()
     Q_UNUSED(configured);
     return instance;
 }
+QThreadPool &comparisonPool()
+{
+    static QThreadPool instance;
+    static const bool configured = [] {
+        instance.setMaxThreadCount(1);
+        return true;
+    }();
+    Q_UNUSED(configured);
+    return instance;
+}
+
 QThreadPool &thumbnailPool(QvAsync::Lane lane)
 {
     struct Pool : QThreadPool
@@ -48,6 +59,8 @@ QThreadPool &threadPool(QvAsync::Lane lane)
     switch (lane) {
     case QvAsync::Lane::Foreground:
         return foregroundPool();
+    case QvAsync::Lane::Comparison:
+        return comparisonPool();
     case QvAsync::Lane::ThumbnailDecode:
     case QvAsync::Lane::ThumbnailMetadata:
         return thumbnailPool(lane);
@@ -108,6 +121,7 @@ bool QvAsync::drain(int timeoutMs)
     stopping.store(true);
     pool().clear();
     foregroundPool().clear();
+    comparisonPool().clear();
     auto &thumbnailDecode = thumbnailPool(Lane::ThumbnailDecode);
     auto &thumbnailMetadata = thumbnailPool(Lane::ThumbnailMetadata);
     thumbnailDecode.clear();
@@ -121,8 +135,9 @@ bool QvAsync::drain(int timeoutMs)
     const bool foregroundComplete = waitForPool(foregroundPool(), remaining());
     const bool thumbnailDecodeComplete = waitForPool(thumbnailDecode, remaining());
     const bool thumbnailMetadataComplete = waitForPool(thumbnailMetadata, remaining());
-    const bool complete = sharedComplete && foregroundComplete && thumbnailDecodeComplete
-            && thumbnailMetadataComplete;
+    const bool comparisonComplete = waitForPool(comparisonPool(), remaining());
+    const bool complete = sharedComplete && foregroundComplete && comparisonComplete
+            && thumbnailDecodeComplete && thumbnailMetadataComplete;
     if (complete)
         stopping.store(false);
     return complete;

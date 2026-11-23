@@ -14,13 +14,15 @@ public:
         QRect usableViewportRect;
         bool shouldConstrain;
         bool shouldCenter;
+        bool useScrollbarLimits = false;
     };
 
     using GetParametersCallback = std::function<void(Parameters &)>;
 
     explicit ScrollHelper(QAbstractScrollArea *parent, GetParametersCallback getParametersCallback);
 
-    void move(QPointF delta);
+    QPointF move(QPointF delta);
+    void resetRounding() { lastMoveRoundingError = { }; }
 
     void constrain();
 

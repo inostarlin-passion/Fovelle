@@ -13,6 +13,7 @@ set(FOVELLE_TEST_SOURCES
     ../src/openwith.cpp
     ../src/qvfileenumerator.cpp
     ../src/qvgraphicsview.cpp
+    ../src/qvcomparison.cpp
     ../src/qvthumbnailstrip.cpp
     ../src/qvpngthumbnail.cpp
     ../src/qvgraphicsimageitem.cpp
@@ -47,6 +48,7 @@ set(FOVELLE_TEST_HEADERS
     ../src/openwith.h
     ../src/qvfileenumerator.h
     ../src/qvgraphicsview.h
+    ../src/qvcomparison.h
     ../src/qvthumbnailstrip.h
     ../src/qvpngthumbnail.h
     ../src/qvgraphicsimageitem.h
@@ -755,3 +757,16 @@ endif()
 set_tests_properties(FovelleThumbnailDynamic PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1"
     RUN_SERIAL TRUE TIMEOUT 0)
+
+
+add_test(NAME FovelleComparisonStatic
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/comparison_static.py)
+set_tests_properties(FovelleComparisonStatic PROPERTIES TIMEOUT 0 LABELS "compare;static")
+
+add_test(NAME FovelleComparisonDynamic COMMAND fovelle_tests
+    testCompareEntry testCompareLoad testCompareZoom testCompareIndependent testComparePan
+    testCompareSwap testCompareReplacement testCompareExitWhileLoading testCompareAdmission
+    testCompareNativeLayout testCompareGestureOwnership testCompareZoomCommands testCompareRemove
+    testCompareBudgetPreview)
+set_tests_properties(FovelleComparisonDynamic PROPERTIES TIMEOUT 0 LABELS "compare;dynamic"
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")

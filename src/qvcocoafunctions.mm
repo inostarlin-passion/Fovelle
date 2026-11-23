@@ -2508,6 +2508,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
             return;
 
         const CGRect viewportFrame = viewportFrameInNativeView();
+        state.nativeViewportFrame = QRectF(viewportFrame.origin.x, viewportFrame.origin.y,
+                                           viewportFrame.size.width, viewportFrame.size.height);
         const CGRect viewportBounds =
                 CGRectMake(0.0, 0.0, viewportFrame.size.width, viewportFrame.size.height);
         [CATransaction begin];
@@ -3373,17 +3375,20 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         }
     }
 
-    bool setImage(const HDRImagePtr &newImage)
+    bool setImage(const HDRImagePtr &newImage, bool retainPrevious = true)
     {
-        return setImageGraph(std::dynamic_pointer_cast<const NativeHDRImage>(newImage));
+        return setImageGraph(std::dynamic_pointer_cast<const NativeHDRImage>(newImage),
+                             retainPrevious);
     }
 
-    bool setSDRImage(const SDRImagePtr &newImage)
+    bool setSDRImage(const SDRImagePtr &newImage, bool retainPrevious)
     {
-        return setImageGraph(std::dynamic_pointer_cast<const NativeSDRImage>(newImage));
+        return setImageGraph(std::dynamic_pointer_cast<const NativeSDRImage>(newImage),
+                             retainPrevious);
     }
 
-    bool setImageGraph(const std::shared_ptr<const NativeMetalImageGraph> &nativeImage)
+    bool setImageGraph(const std::shared_ptr<const NativeMetalImageGraph> &nativeImage,
+                       bool retainPrevious)
     {
         const bool presentationFullyVisible = currentPresentationOpacity() >= 0.999F;
         const bool previousMetalPresentationVisible = image
@@ -3394,8 +3399,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
                 && persistentSurfaceReady && persistentImageLayer.opacity >= 0.999F;
         // New HDR photos expose their new Qt SDR base immediately while the
         // complete native graphs prepare, rather than covering it with the old photo.
-        const bool retainPreviousPresentation = presentationActiveRequested && nativeImage
-                && !nativeImage->isHDR()
+        const bool retainPreviousPresentation = retainPrevious && presentationActiveRequested
+                && nativeImage && !nativeImage->isHDR()
                 && (previousMetalPresentationVisible || previousPersistentPresentationVisible);
         if (displayLink)
             displayLink.paused = YES;
@@ -3430,7 +3435,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         [presentationState resetForImage];
         ++presentationTransitionGeneration;
         presentationAnimationInFlight = false;
-        discardPersistentSurface(nativeImage && previousPersistentPresentationVisible);
+        discardPersistentSurface(retainPrevious && nativeImage
+                                 && previousPersistentPresentationVisible);
         latestViewportSize = { };
         latestCorners.clear();
         state.imageActive = nativeImage != nullptr;
@@ -3509,7 +3515,8 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         presentationContainerLayer.opacity =
                 nativeImage && retainPreviousPresentation ? 1.0F : 0.0F;
         metalLayer.hidden = nativeImage == nullptr;
-        metalLayer.opacity = nativeImage && previousMetalPresentationVisible ? 1.0F : 0.0F;
+        metalLayer.opacity =
+                retainPrevious && nativeImage && previousMetalPresentationVisible ? 1.0F : 0.0F;
         if (!nativeImage) {
             viewportBackgroundLayer.hidden = YES;
             persistentSDRTileLayer.hidden = YES;
@@ -4506,14 +4513,14 @@ bool QVCocoaFunctions::HDRRenderer::isAvailable() const
     return impl && impl->state.rendererAvailable;
 }
 
-bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image)
+bool QVCocoaFunctions::HDRRenderer::setImage(const HDRImagePtr &image, bool retainPrevious)
 {
-    return impl && impl->setImage(image);
+    return impl && impl->setImage(image, retainPrevious);
 }
 
-bool QVCocoaFunctions::HDRRenderer::setSDRImage(const SDRImagePtr &image)
+bool QVCocoaFunctions::HDRRenderer::setSDRImage(const SDRImagePtr &image, bool retainPrevious)
 {
-    return impl && impl->setSDRImage(image);
+    return impl && impl->setSDRImage(image, retainPrevious);
 }
 
 void QVCocoaFunctions::HDRRenderer::setBackgroundColor(const QColor &color)
@@ -4538,6 +4545,12 @@ void QVCocoaFunctions::HDRRenderer::invalidateGeometry()
 {
     if (impl)
         impl->invalidateGeometry();
+}
+
+void QVCocoaFunctions::HDRRenderer::refreshViewportFrame()
+{
+    if (impl)
+        impl->syncViewportLayerGeometry();
 }
 
 void QVCocoaFunctions::HDRRenderer::clear()
@@ -6131,6 +6144,28 @@ QSize QVCocoaFunctions::imagePixelSize(const QString &filePath)
         const QSize size = orientedPixelSize(sourcePixelSize(source), sourceOrientation(source));
         CFRelease(source);
         return size;
+    }
+}
+
+QSize QVCocoaFunctions::comparisonImageSize(const QString &path)
+{
+    @autoreleasepool {
+        CGImageSourceRef source =
+                CGImageSourceCreateWithURL((CFURLRef)QUrl::fromLocalFile(path).toNSURL(), nullptr);
+        if (!source)
+            return { };
+        const auto releaseSource = qScopeGuard([source] { CFRelease(source); });
+        QSize largest;
+        qint64 largestArea = 0;
+        for (size_t i = 0; i < CGImageSourceGetCount(source); ++i) {
+            const QSize size = sourcePixelSize(source, i);
+            const qint64 area = size.isValid() ? qint64(size.width()) * size.height() : 0;
+            if (area > largestArea) {
+                largest = size;
+                largestArea = area;
+            }
+        }
+        return largest;
     }
 }
 

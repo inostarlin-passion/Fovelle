@@ -25,6 +25,7 @@ class QPropertyAnimation;
 class QMenuBar;
 class QMenu;
 class QVThumbnailStrip;
+class QVComparison;
 
 class MainWindow : public QMainWindow
 {
@@ -119,6 +120,10 @@ public:
     void toggleFitAnd100();
 
     void setFillWindow(const bool value);
+    void toggleComparison();
+    void setComparisonZoom(bool enabled);
+    void setComparisonPan(bool enabled);
+    void swapComparison();
 
     void setSortMode(const Qv::SortMode mode);
 
@@ -166,7 +171,7 @@ public:
 
     int getTitlebarOverlap() const;
 
-    ViewportPosition getViewportPosition() const;
+    ViewportPosition getViewportPosition(const QVGraphicsView *view = nullptr) const;
 
     const QVImageCore::FileDetails &getCurrentFileDetails() const
     {
@@ -272,6 +277,9 @@ private:
     void syncNavigationBoundaryHintOverlay();
 
     void syncThumbnailActions();
+    void leaveComparison();
+    bool isComparing() const;
+    QVGraphicsView *viewForZoom() const;
     void ensureMenus();
     void unregisterFromApplication();
     void syncMenuState();
@@ -310,7 +318,8 @@ private:
     void revealTitlebarBubble();
 
     Ui::MainWindow *ui;
-    QVGraphicsView *graphicsView;
+    QVGraphicsView *graphicsView = nullptr;
+    QVComparison *comparison = nullptr;
     QVThumbnailStrip *thumbnailStrip = nullptr;
 
     QLabel *titlebarBubble;

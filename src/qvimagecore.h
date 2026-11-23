@@ -32,6 +32,7 @@ public:
         bool isNativeHDRLoaded = false;
         bool isNativeSDRLoaded = false;
         bool isVectorLoaded = false;
+        bool isComparisonPreview = false;
         QSize baseImageSize;
         QSize loadedPixmapSize;
         QColorSpace targetColorSpace;
@@ -56,6 +57,8 @@ public:
     void loadFile(const QString &fileName, bool isReloading = false, const QString &baseDir = "",
                   bool debouncePreloading = false, std::shared_ptr<void> sourceLifetime = { });
     void closeImage(const bool stayInDir = false);
+    void commitComparisonImage(const ReadData &data);
+    void setComparisonPreloadsSuspended(bool suspended);
     GoToFileResult goToFile(const Qv::GoToFileMode mode, const int index = 0);
     void markFolderInfoDirty();
     void refreshThumbnailListing();
@@ -109,7 +112,7 @@ signals:
     void thumbnailOpenRejected();
 
 protected:
-    void loadPixmap(const ReadData &readData);
+    void loadPixmap(const ReadData &readData, bool comparisonImage = false);
     void loadEmptyPixmap();
     void updateFolderInfo(QString dirPath = QString());
     QList<QVImageLoader::DesiredImage> getDesiredImages(bool includePreloads = true) const;
@@ -146,6 +149,7 @@ private:
     bool pendingLoadDebouncesPreloading{ false };
     bool fileOrLoadPending{ false };
     bool folderInfoDirty{ false };
+    bool comparisonPreloadsSuspended{ false };
     quint64 folderScanGeneration = 0;
     QvAsync::Ticket folderScanTicket;
     QvAsync::Ticket thumbnailScanTicket;

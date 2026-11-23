@@ -113,6 +113,7 @@ public:
     struct HDRRendererDiagnostics
     {
         QString outputColorSpaceName;
+        QRectF nativeViewportFrame;
         bool rendererAvailable{ false };
         bool imageActive{ false };
         bool sdrImageActive{ false };
@@ -236,12 +237,13 @@ public:
         HDRRenderer &operator=(const HDRRenderer &) = delete;
 
         bool isAvailable() const;
-        bool setImage(const HDRImagePtr &image);
-        bool setSDRImage(const SDRImagePtr &image);
+        bool setImage(const HDRImagePtr &image, bool retainPrevious = true);
+        bool setSDRImage(const SDRImagePtr &image, bool retainPrevious = true);
         void setBackgroundColor(const QColor &color);
         void setCheckerboardBackground(bool enabled);
         void setPresentationActive(bool active, bool animated = true);
         void invalidateGeometry();
+        void refreshViewportFrame();
         void clear();
         void render(const QSize &viewportSize, const QPolygonF &imageCorners,
                     qreal transitionProgress, bool interactive = false);
@@ -390,6 +392,7 @@ public:
     // a filename extension to decide whether this is a RAW image. Native SDR
     // and HDR graphs preserve source detail while `image` is only the bounded
     // Qt compatibility proxy used until the native layer presents.
+    static QSize comparisonImageSize(const QString &path);
     static NativeImageReadResult readImageWithImageIO(const QString &filePath,
                                                       int fallbackLargestDimension = 0);
 

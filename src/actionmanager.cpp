@@ -316,6 +316,11 @@ QMenu *ActionManager::buildViewMenu(QWidget *parent)
     auto *hover = addCloneOfAction(viewMenu, "thumbnailhover");
     hover->setChecked(qvApp->getSettingsManager().getBoolean("thumbnailhoverenabled"));
     addCloneOfAction(viewMenu, "focusthumbnails")->setEnabled(false);
+    viewMenu->addSeparator();
+    addCloneOfAction(viewMenu, "compare");
+    addCloneOfAction(viewMenu, "comparezoom");
+    addCloneOfAction(viewMenu, "comparepan");
+    addCloneOfAction(viewMenu, "compareswap");
 
     menuCloneLibrary.insert(viewMenu->menuAction()->data().toString(), viewMenu);
     return viewMenu;
@@ -701,6 +706,14 @@ void ActionManager::actionTriggered(QAction *triggeredAction, MainWindow *releva
         relevantWindow->setWindowSize(true, true);
     } else if (key == "focusthumbnails") {
         relevantWindow->focusThumbnails();
+    } else if (key == "compare") {
+        relevantWindow->toggleComparison();
+    } else if (key == "comparezoom") {
+        relevantWindow->setComparisonZoom(triggeredAction->isChecked());
+    } else if (key == "comparepan") {
+        relevantWindow->setComparisonPan(triggeredAction->isChecked());
+    } else if (key == "compareswap") {
+        relevantWindow->swapComparison();
     } else if (key == "windowontop") {
         relevantWindow->toggleWindowOnTop();
     } else if (key == "toggletitlebar") {
@@ -874,6 +887,17 @@ void ActionManager::initializeActionLibrary()
     auto *focusThumbnails = new QAction(tr("Focus Thumbnails"));
     focusThumbnails->setData({ "thumbnaildisable" });
     actionLibrary.insert("focusthumbnails", focusThumbnails);
+
+    const auto compareAction = [this](const QString &key, const QString &label, bool checkable) {
+        auto *action = new QAction(label);
+        action->setData({ "comparedisable" });
+        action->setCheckable(checkable);
+        actionLibrary.insert(key, action);
+    };
+    compareAction("compare", tr("Compare Images"), true);
+    compareAction("comparezoom", tr("Sync Zoom"), true);
+    compareAction("comparepan", tr("Sync Pan"), true);
+    compareAction("compareswap", tr("Swap Sides"), false);
 
     auto *windowOnTopAction = new QAction(
             qvApp->iconFromFont(Qv::MaterialIcon::KeyboardDoubleArrowUp), tr("Window On To&p"));

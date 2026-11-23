@@ -354,6 +354,22 @@
         <source>Focus Thumbnails</source>
         <translation>聚焦缩略图</translation>
     </message>
+    <message>
+        <source>Compare Images</source>
+        <translation>双图对比</translation>
+    </message>
+    <message>
+        <source>Sync Zoom</source>
+        <translation>同步缩放</translation>
+    </message>
+    <message>
+        <source>Sync Pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap Sides</source>
+        <translation>交换左右</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -1692,6 +1708,22 @@ No write permission or file is read-only.</source>
         <source>Exit</source>
         <translation>退出</translation>
     </message>
+    <message>
+        <source>Compare Images</source>
+        <translation>双图对比</translation>
+    </message>
+    <message>
+        <source>Sync Zoom</source>
+        <translation>同步缩放</translation>
+    </message>
+    <message>
+        <source>Sync Pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap Sides</source>
+        <translation>交换左右</translation>
+    </message>
 </context>
 <context>
     <name>UpdateChecker</name>
@@ -2015,6 +2047,116 @@ You can reenable it in Preferences.</source>
     <message>
         <source>The image is no longer available.</source>
         <translation>图片已不可用。</translation>
+    </message>
+</context>
+<context>
+    <name>QVComparison</name>
+    <message>
+        <source>Sync zoom</source>
+        <translation>同步缩放</translation>
+    </message>
+    <message>
+        <source>Sync pan</source>
+        <translation>同步平移</translation>
+    </message>
+    <message>
+        <source>Swap sides</source>
+        <translation>交换左右</translation>
+    </message>
+    <message>
+        <source>Exit compare</source>
+        <translation>退出对比</translation>
+    </message>
+    <message>
+        <source>Choose comparison image…</source>
+        <translation>选择对比图…</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>Choose or drop an image in this pane.</source>
+        <translation>请选择图片，或将图片拖入此栏。</translation>
+    </message>
+    <message>
+        <source>Comparison image status</source>
+        <translation>对比图状态</translation>
+    </message>
+    <message>
+        <source>Comparison divider</source>
+        <translation>对比分隔线</translation>
+    </message>
+    <message>
+        <source>Choose comparison image</source>
+        <translation>选择对比图</translation>
+    </message>
+    <message>
+        <source>Loading %1…</source>
+        <translation>正在加载 %1…</translation>
+    </message>
+    <message>
+        <source>SDR preview</source>
+        <translation>SDR 预览</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>预览</translation>
+    </message>
+    <message>
+        <source>%1 · %2 · %3</source>
+        <translation>%1 · %2 · %3</translation>
+    </message>
+    <message>
+        <source>● %1</source>
+        <translation>● %1</translation>
+    </message>
+    <message>
+        <source>Left pane, %1</source>
+        <translation>左栏，%1</translation>
+    </message>
+    <message>
+        <source>Right pane, %1</source>
+        <translation>右栏，%1</translation>
+    </message>
+    <message>
+        <source>Reference</source>
+        <translation>参考图</translation>
+    </message>
+    <message>
+        <source>Comparison</source>
+        <translation>对比图</translation>
+    </message>
+    <message>
+        <source>Replace…</source>
+        <translation>更换…</translation>
+    </message>
+</context>
+<context>
+    <name>QVImageLoader</name>
+    <message>
+        <source>Unable to read this file.</source>
+        <translation>无法读取此文件。</translation>
+    </message>
+    <message>
+        <source>This image exceeds the comparison memory budget.</source>
+        <translation>图像超出对比模式的内存预算。</translation>
+    </message>
+    <message>
+        <source>Animated images cannot be used for comparison.</source>
+        <translation>对比模式仅支持静态图像。</translation>
+    </message>
+    <message>
+        <source>Unable to determine the image size.</source>
+        <translation>无法确定图像尺寸。</translation>
+    </message>
+    <message>
+        <source>The file changed while it was being read. Select it again.</source>
+        <translation>文件在读取时发生变化，请重新选择。</translation>
+    </message>
+    <message>
+        <source>Unable to display this image.</source>
+        <translation>无法显示此图像。</translation>
     </message>
 </context>
 </TS>

@@ -455,6 +455,20 @@ class WindowBehaviorTests : public QObject
     Q_OBJECT
 
 private slots:
+    void testCompareEntry();
+    void testCompareLoad();
+    void testCompareZoom();
+    void testCompareIndependent();
+    void testComparePan();
+    void testCompareSwap();
+    void testCompareReplacement();
+    void testCompareExitWhileLoading();
+    void testCompareAdmission();
+    void testCompareNativeLayout();
+    void testCompareGestureOwnership();
+    void testCompareZoomCommands();
+    void testCompareRemove();
+    void testCompareBudgetPreview();
     void testThumbnailTransition();
     void testThumbnailWheelBrowse();
     void testThumbnailScrollMomentum();
@@ -16812,3 +16826,5 @@ int main(int argc, char *argv[])
 #include "thumbnail_acceptance.inc"
 
 #include "file_io_acceptance.inc"
+
+#include "comparison_acceptance.inc"

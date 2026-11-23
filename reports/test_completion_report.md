@@ -1,3 +1,48 @@
+# 双图对比模式测试完成报告
+
+本轮以 `31f2918` 的生产代码和 [双图方案](design.md) 为基线。在 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release 下重新构建 Fovelle 与 QtTest。实现位于 [双图界面与控制器](../src/qvcomparison.cpp)，采用 [技术设计及正确性论证](technical_design_document.md) 和 [逐条测试规范](test_case_specification.md)。
+
+## 结果
+
+- 16 条原子验收通过，包括 2 条静态契约和 14 条 QtTest 行为。专项 CTest 连续运行三轮，每轮均无失败和跳过。 [专项日志](../build-thumbnail-release/test-results/comparison/focused-repeat.log) · [静态逐项日志](../build-thumbnail-release/test-results/comparison/static.log)
+- 默认 CTest 9/9 通过，耗时 78.93 秒。覆盖已有快速检查、便携 HDR 样本、适合窗口和缩略图回归。 [默认回归日志](../build-thumbnail-release/test-results/comparison/default-ctest.log)
+- CMake 成功构建应用和测试。源码格式、简繁中翻译 XML 和 `git diff --check` 通过。本机 QtSvg 最低系统版本为 27.0，连接器仍报告与 15.0 部署目标的版本差异。 [构建日志](../build-thumbnail-release/test-results/comparison/build.log)
+
+| 编号 | 执行结果 | 已核验行为 |
+| --- | --- | --- |
+| CMP01 | 通过 | 入口随图片就绪变化，Esc 恢复单图和进入前倍率。 |
+| CMP02 | 通过 | 跨目录 B 提交，A 不变，两视口不重叠。 |
+| CMP03 | 通过 | 两列应用共同因子，倍率饱和保留比例，反向立即响应。 |
+| CMP04 | 通过 | 关闭缩放联动后 B 改变倍率且 A 的视口变换不变。 |
+| CMP05 | 通过 | 源端剩余 20 像素时目标移动 10，回拖立即响应，无滚动范围的源轴不带动另一列，关闭联动后目标不动。 |
+| CMP06 | 通过 | 不等宽交换两次恢复位置，焦点和手动倍率随图移动。 |
+| CMP07 | 通过 | 坏文件保留原 B，随后最新请求提交到交换后的位置。 |
+| CMP08 | 通过 | 退出并重进时旧候选无法回填，普通打开可继续使用。 |
+| CMP09 | 通过 | 超大 SVG 被准入检查拒绝，原 B 保留。 |
+| CMP10 | 通过 | HDR 增益图交换后原生裁切坐标与 Qt 视口一致，原生内容代次保持。 |
+| CMP11 | 通过 | 菜单、同步选项、文件选择、无障碍名称与构建接入存在。 |
+| CMP12 | 通过 | 串行工作队列、解码前后版本检查和提交前请求失效检测存在。 |
+| CMP13 | 通过 | 合成手势跨栏仍由起始栏处理，交换后旧输入失效，新序列可接管。 |
+| CMP14 | 通过 | 联动的 100% 应用于两列，关闭后只有活动 B 回到适合视口。 |
+| CMP15 | 通过 | 移除 B 后交换禁用，请求取消并拒绝迟到结果。 |
+| CMP16 | 通过 | 9000 × 5000 JPEG 经受限路径显示有标记的 SDR 预览，仍用源尺寸计算适合倍率。 |
+
+## 回溯与未验证项
+
+基线的两条新增静态契约失败，验证了测试能识别缺失的对比路径。第一次完整回归发现，旧缩放源代码契约检查单图菜单直达原视口入口。生产代码保留这条调用，并为对比增加活动视口分支，原有静态与动态回归随后均通过。
+
+已测的是本机 Cocoa、候选提交、原生几何和已有 HDR 样本。macOS 15／26 实机、多屏及双 EDR 的最终亮度、真实触控板惯性、VoiceOver 播报、显示器可见帧 P95 和进程／GPU 峰值未实测。512 MiB 是准入估算阈值。候选需有可确定尺寸，编码文件上限 64 MiB。超预算普通 JPEG 可尝试受限 SDR 预览，缺少受限解码能力的文件保留当前画面并报告原因。
+
+## 复现命令
+
+```bash
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-thumbnail-release --output-on-failure
+ctest --test-dir build-thumbnail-release -V -R '^FovelleComparison' --repeat until-fail:3
+```
+
+---
+
 # 文件操作、缓存、URL 和异步预查测试完成报告
 
 验证基线为 `6c26ba4`。最终本机环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Ghostscript 10.08.0 和 Cocoa，使用 Debug、默认 CTest 选择并启用更新安装测试。项目的格式检查使用固定的 clang-format 23.1.3。本机 Homebrew QtSvg 的最低系统版本是 27.0，构建保留对应链接警告。

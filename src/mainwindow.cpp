@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "qvthumbnailstrip.h"
+#include "qvcomparison.h"
 #include "ui_mainwindow.h"
 #include "qvapplication.h"
 #include "qvcocoafunctions.h"
@@ -272,7 +273,13 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     // Initialize graphicsviewkDefaultBufferAlignment
     graphicsView = new QVGraphicsView(this);
     graphicsView->setObjectName(QStringLiteral("graphicsView"));
-    centralWidget()->layout()->addWidget(graphicsView);
+    comparison = new QVComparison(graphicsView, centralWidget());
+    centralWidget()->layout()->addWidget(comparison);
+    connect(comparison, &QVComparison::exitRequested, this, &MainWindow::leaveComparison);
+    connect(comparison, &QVComparison::stateChanged, this, [this] {
+        disableActions();
+        syncCalculatedZoomMode();
+    });
     markConstruction("graphics-view-ready");
 
     thumbnailStrip = new QVThumbnailStrip(this, graphicsView);
@@ -450,6 +457,10 @@ MainWindow::MainWindow(QWidget *parent, const QJsonObject &windowSessionState,
     // Initialize escape shortcut
     escShortcut = new QShortcut(Qt::Key_Escape, this);
     connect(escShortcut, &QShortcut::activated, this, [this]() {
+        if (isComparing()) {
+            leaveComparison();
+            return;
+        }
         if (thumbnailStrip->dismissFocus())
             return;
         if (windowState().testFlag(Qt::WindowFullScreen))
@@ -548,6 +559,11 @@ void MainWindow::shutdownBackgroundWork()
         download->cancel();
     downloads.clear();
 
+    if (comparison) {
+        comparison->cancelPending();
+        if (auto *candidate = comparison->candidateView())
+            candidate->shutdownAsyncWork();
+    }
     if (graphicsView)
         graphicsView->shutdownAsyncWork();
 }
@@ -667,8 +683,14 @@ bool MainWindow::event(QEvent *event)
         lastActivated.start();
         if (graphicsView)
             graphicsView->setHDRPresentationActive(true);
-    } else if (deactivated && graphicsView)
+    } else if (deactivated && graphicsView) {
         graphicsView->setHDRPresentationActive(false);
+    }
+    if (isComparing() && (activated || deactivated)) {
+        comparison->candidateView()->setHDRPresentationActive(activated);
+        if (deactivated)
+            comparison->cancelInput();
+    }
     return QMainWindow::event(event);
 }
 
@@ -1083,7 +1105,7 @@ void MainWindow::hideNavigationButtonsImmediately()
 
 void MainWindow::updateNavigationButtonVisibility(const QPoint &windowPosition)
 {
-    if (!areNavigationButtonsSupported(width()) || !getIsPixmapLoaded()
+    if (isComparing() || !areNavigationButtonsSupported(width()) || !getIsPixmapLoaded()
         || getCurrentFileDetails().folderFileInfoList.size() < 2) {
         hideNavigationButtonsImmediately();
         return;
@@ -1242,6 +1264,8 @@ void MainWindow::showEvent(QShowEvent *event)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     isClosing = true;
+    if (comparison)
+        comparison->cancelPending();
     hideNavigationButtonsImmediately();
 
     // Keep the native style until destruction. Restyling a closing window
@@ -1380,6 +1404,10 @@ void MainWindow::beginNativeFullScreenTransition()
             qInfo() << "FULLSCREEN_GEOMETRY_BEGIN" << windowState() << geometry()
                     << normalGeometryBeforeFullScreen;
         graphicsView->beginFullScreenPanPreservation();
+        if (isComparing()) {
+            comparison->cancelInput();
+            comparison->candidateView()->beginFullScreenPanPreservation();
+        }
     }
 }
 
@@ -1399,8 +1427,12 @@ void MainWindow::endNativeFullScreenTransition()
     }
     graphicsView->endFullScreenPanPreservation();
     graphicsView->synchronizeNativeImageGeometryForFullScreenTransition();
+    if (isComparing()) {
+        comparison->candidateView()->endFullScreenPanPreservation();
+        comparison->scheduleLayout();
+    }
     if (!isClosing)
-        thumbnailStrip->suppress(false);
+        thumbnailStrip->suppress(isComparing());
 }
 
 void MainWindow::pauseChanged()
@@ -1414,6 +1446,7 @@ void MainWindow::pauseChanged()
 
 void MainWindow::openFile(const QString &fileName, const QString &baseDir)
 {
+    leaveComparison();
     graphicsView->loadFile(fileName, baseDir);
     cancelSlideshow();
 }
@@ -1512,7 +1545,7 @@ void MainWindow::zoomLevelChanged()
 void MainWindow::syncCalculatedZoomMode()
 {
     const bool isFillWindow =
-            graphicsView->getCalculatedZoomMode() == Qv::CalculatedZoomMode::FillWindow;
+            viewForZoom()->getCalculatedZoomMode() == Qv::CalculatedZoomMode::FillWindow;
     for (const auto &action : qvApp->getActionManager().getAllClonesOfAction("fillwindow", this))
         action->setChecked(isFillWindow);
 }
@@ -1532,7 +1565,8 @@ void MainWindow::syncSortParameters()
 
 void MainWindow::focusThumbnails()
 {
-    QTimer::singleShot(0, thumbnailStrip, &QVThumbnailStrip::focusStrip);
+    if (!isComparing())
+        QTimer::singleShot(0, thumbnailStrip, &QVThumbnailStrip::focusStrip);
 }
 
 void MainWindow::syncThumbnailActions()
@@ -1541,7 +1575,7 @@ void MainWindow::syncThumbnailActions()
         return;
     auto &actions = qvApp->getActionManager();
     for (auto *action : actions.getAllClonesOfAction("focusthumbnails", this))
-        action->setEnabled(thumbnailStrip->canOfferFocus());
+        action->setEnabled(!isComparing() && thumbnailStrip->canOfferFocus());
 }
 
 void MainWindow::disableActions()
@@ -1573,7 +1607,41 @@ void MainWindow::disableActions()
         }
     }
 
-    const auto &openWithMenus = qvApp->getActionManager().getAllClonesOfMenu("openwith", this);
+    auto &actions = qvApp->getActionManager();
+    const bool comparing = isComparing();
+    const auto setComparisonAction = [this, &actions](const QString &key, bool enabled,
+                                                      bool checked = false) {
+        for (auto *clone : actions.getAllClonesOfAction(key, this)) {
+            clone->setEnabled(enabled);
+            if (clone->isCheckable())
+                clone->setChecked(checked);
+        }
+    };
+    setComparisonAction("compare", comparison && (comparing || comparison->canStart()), comparing);
+    setComparisonAction("comparezoom", comparing, comparing && comparison->syncZoom());
+    setComparisonAction("comparepan", comparing, comparing && comparison->syncPan());
+    setComparisonAction("compareswap", comparing && comparison->canSwap());
+    if (comparing) {
+        static const QStringList singleImageActions{
+            "firstfile",      "previousfile", "nextfile",  "lastfile",
+            "randomfile",     "rename",       "delete",    "deletepermanent",
+            "undo",           "reload",       "slideshow", "rotateright",
+            "rotateleft",     "mirror",       "flip",      "resettransformation",
+            "matchimagesize", "paste"
+        };
+        for (const auto &key : singleImageActions)
+            for (auto *clone : actions.getAllClonesOfAction(key, this))
+                clone->setEnabled(false);
+        for (const auto &key :
+             { "zoomin", "zoomout", "zoomcustom", "togglefitand100", "fillwindow" })
+            for (auto *clone : actions.getAllClonesOfAction(key, this))
+                clone->setEnabled(viewForZoom()->getCurrentFileDetails().isPixmapLoaded);
+    } else {
+        for (auto *clone : actions.getAllClonesOfAction("paste", this))
+            clone->setEnabled(true);
+    }
+
+    const auto &openWithMenus = actions.getAllClonesOfMenu("openwith", this);
     for (const auto &menu : openWithMenus) {
         menu->setEnabled(getIsPixmapLoaded());
         menu->menuAction()->setVisible(getIsPixmapLoaded());
@@ -1996,7 +2064,8 @@ const QJsonObject MainWindow::getSessionState() const
             state["baseDir"] = getCurrentFileDetails().folderFileInfoList.getBaseDir();
     }
 
-    state["graphicsView"] = graphicsView->getSessionState();
+    state["graphicsView"] =
+            isComparing() ? comparison->originalSession() : graphicsView->getSessionState();
 
     return state;
 }
@@ -2064,6 +2133,7 @@ void MainWindow::openUrl(const QUrl &url)
     connect(download, &UrlDownload::succeeded, this,
             [this, cleanup](const UrlDownload::Artifact &artifact) {
                 if (!backgroundWorkShutDown) {
+                    leaveComparison();
                     graphicsView->loadFile(artifact.path, { }, artifact.directory);
                     cancelSlideshow();
                 }
@@ -2319,36 +2389,113 @@ void MainWindow::rename()
     renameDialog->open();
 }
 
+bool MainWindow::isComparing() const
+{
+    return comparison && comparison->isActive();
+}
+
+QVGraphicsView *MainWindow::viewForZoom() const
+{
+    return isComparing() ? comparison->activeView() : graphicsView;
+}
+
+void MainWindow::toggleComparison()
+{
+    if (isComparing()) {
+        leaveComparison();
+        return;
+    }
+    if (isClosing || !comparison || !comparison->canStart())
+        return;
+    cancelSlideshow();
+    thumbnailStrip->dismissFocus();
+    thumbnailStrip->suppress(true);
+    hideNavigationButtonsImmediately();
+    hideNavigationBoundaryHint();
+    comparison->enter();
+}
+
+void MainWindow::leaveComparison()
+{
+    if (!isComparing())
+        return;
+    comparison->leave();
+    if (!isClosing)
+        thumbnailStrip->suppress(false);
+    syncThumbnailActions();
+}
+
+void MainWindow::setComparisonZoom(bool enabled)
+{
+    if (isComparing())
+        comparison->setSyncZoom(enabled);
+}
+
+void MainWindow::setComparisonPan(bool enabled)
+{
+    if (isComparing())
+        comparison->setSyncPan(enabled);
+}
+
+void MainWindow::swapComparison()
+{
+    if (isComparing())
+        comparison->swap();
+}
+
 void MainWindow::zoomIn()
 {
-    graphicsView->zoomIn();
+    if (isComparing())
+        comparison->activeView()->zoomIn();
+    else
+        graphicsView->zoomIn();
 }
 
 void MainWindow::zoomOut()
 {
-    graphicsView->zoomOut();
+    if (isComparing())
+        comparison->activeView()->zoomOut();
+    else
+        graphicsView->zoomOut();
 }
 
 void MainWindow::zoomCustom()
 {
     bool ok;
-    const double oldValue = graphicsView->getZoomLevel() * 100.0;
+    const double oldValue = viewForZoom()->getZoomLevel() * 100.0;
     const double newValue = NativeDialogs::getDouble(
             this, tr("Set Zoom Level"), tr("Zoom Level (%):"), oldValue,
             Qv::MinimumZoomLevel * 100.0, Qv::MaximumZoomLevel * 100.0, 1, &ok);
     if (!ok)
         return;
+    if (isComparing()) {
+        comparison->absoluteZoom(viewForZoom(), newValue / 100.0);
+        return;
+    }
     graphicsView->zoomAbsolute(newValue / 100.0, Qv::CalculateViewportCenterPos);
     graphicsView->fitOrConstrainImage();
 }
 
 void MainWindow::toggleFitAnd100()
 {
+    if (isComparing()) {
+        auto *view = viewForZoom();
+        comparison->calculatedZoom(view,
+                                   view->isImageAtFit() ? Qv::CalculatedZoomMode::OriginalSize
+                                                        : Qv::CalculatedZoomMode::ZoomToFit);
+        return;
+    }
     graphicsView->toggleFitAnd100();
 }
 
 void MainWindow::setFillWindow(const bool value)
 {
+    if (isComparing()) {
+        comparison->calculatedZoom(viewForZoom(),
+                                   value ? Qv::CalculatedZoomMode::FillWindow
+                                         : Qv::CalculatedZoomMode::ZoomToFit);
+        return;
+    }
     graphicsView->setCalculatedZoomMode(value ? std::optional(Qv::CalculatedZoomMode::FillWindow)
                                               : std::nullopt);
 }
@@ -2642,12 +2789,13 @@ int MainWindow::getTitlebarOverlap() const
     return QVCocoaFunctions::getObscuredHeight(window()->windowHandle());
 }
 
-MainWindow::ViewportPosition MainWindow::getViewportPosition() const
+MainWindow::ViewportPosition MainWindow::getViewportPosition(const QVGraphicsView *view) const
 {
     ViewportPosition result;
     // This accounts for anything that may be above the viewport such as the menu bar (if it's
     // inside the window) and/or the label that displays titlebar text in full screen mode.
-    result.widgetY = windowHandle() ? graphicsView->mapTo(this, QPoint()).y() : 0;
+    const QWidget *source = view ? view->viewport() : graphicsView;
+    result.widgetY = windowHandle() && source ? source->mapTo(this, QPoint()).y() : 0;
     // On macOS, part of the viewport may be additionally covered with the window's translucent
     // titlebar due to full size content view.
     result.obscuredHeight = qMax(getTitlebarOverlap() - result.widgetY, 0);

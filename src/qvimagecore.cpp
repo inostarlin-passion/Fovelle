@@ -257,7 +257,21 @@ void QVImageCore::shutdownAsyncWork()
     pendingSourceLifetime.reset();
 }
 
-void QVImageCore::loadPixmap(const ReadData &readData)
+void QVImageCore::commitComparisonImage(const ReadData &data)
+{
+    loadPixmap(data, true);
+    fileOrLoadPending = currentFileDetails.isPixmapLoaded;
+}
+
+void QVImageCore::setComparisonPreloadsSuspended(bool suspended)
+{
+    comparisonPreloadsSuspended = suspended;
+    if (suspended)
+        preloadDebounceTimer.stop();
+    refreshDesiredImages();
+}
+
+void QVImageCore::loadPixmap(const ReadData &readData, bool comparisonImage)
 {
     emit fileChanging();
 
@@ -276,7 +290,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     currentFileDetails.sourceFileSize = readData.fileSize;
     currentFileDetails.sourceIsFile = readData.sourceIsFile;
     currentFileDetails.updateLoadedIndexInFolder();
-    if (currentFileDetails.loadedIndexInFolder == -1) {
+    if (!comparisonImage && currentFileDetails.loadedIndexInFolder == -1) {
         // If the current list of files doesn't contain this one, assume we're switching folders now
         if (pendingFolderPath != currentFileDetails.fileInfo.path())
             updateFolderInfo(currentFileDetails.fileInfo.path());
@@ -306,6 +320,7 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     currentFileDetails.isNativeHDRLoaded = loadedHDRImage != nullptr;
     currentFileDetails.isNativeSDRLoaded = loadedSDRImage != nullptr;
     currentFileDetails.isVectorLoaded = loadedVectorImage.isValid();
+    currentFileDetails.isComparisonPreview = readData.comparisonPreview;
     if (loadedVectorImage.isValid())
         currentFileDetails.baseImageSize = loadedVectorImage.logicalSize.toSize();
     else if (readData.intrinsicSize.isValid())
@@ -314,8 +329,9 @@ void QVImageCore::loadPixmap(const ReadData &readData)
         currentFileDetails.baseImageSize = readData.hdrMetadata.pixelSize;
     else
         currentFileDetails.baseImageSize = loadedPixmap.size();
-    currentFileDetails.loadedPixmapSize = currentFileDetails.isNativeHDRLoaded
-                    || currentFileDetails.isNativeSDRLoaded || currentFileDetails.isVectorLoaded
+    currentFileDetails.loadedPixmapSize = currentFileDetails.isComparisonPreview
+                    || currentFileDetails.isNativeHDRLoaded || currentFileDetails.isNativeSDRLoaded
+                    || currentFileDetails.isVectorLoaded
             ? currentFileDetails.baseImageSize
             : loadedPixmap.size();
     currentFileDetails.targetColorSpace = targetColorSpace;
@@ -333,13 +349,14 @@ void QVImageCore::loadPixmap(const ReadData &readData)
     // probe a DOS EPS through QImageReader after the native loader has already
     // supplied the authoritative PDF result.
     const bool isVectorDocument = loadedVectorImage.isValid();
-    loadedMovie.setFileName(isVectorDocument ? QString()
-                                             : currentFileDetails.fileInfo.absoluteFilePath(),
+    loadedMovie.setFileName(isVectorDocument || comparisonImage
+                                    ? QString()
+                                    : currentFileDetails.fileInfo.absoluteFilePath(),
                             readData.sourceLifetime);
     loadedSourceLifetime = readData.sourceLifetime;
 
-    if (!isVectorDocument && !readData.isMultiFrameImage && loadedMovie.isValid()
-        && loadedMovie.frameCount() != 1)
+    if (!comparisonImage && !isVectorDocument && !readData.isMultiFrameImage
+        && loadedMovie.isValid() && loadedMovie.frameCount() != 1)
         loadedMovie.start();
 
     currentFileDetails.isMovieLoaded = loadedMovie.state() == QVMovie::Running;
@@ -634,7 +651,7 @@ void QVImageCore::refreshDesiredImages(const bool includePreloads)
         return;
     }
 
-    imageLoader.setDesiredImages(getDesiredImages(includePreloads));
+    imageLoader.setDesiredImages(getDesiredImages(includePreloads && !comparisonPreloadsSuspended));
 }
 
 QColorSpace QVImageCore::getTargetColorSpace() const

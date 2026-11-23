@@ -48,6 +48,8 @@ public:
         quint64 estimatedDecodedBytes = 0;
         QString preloadRejectionReason;
         std::optional<ErrorData> errorData;
+        std::shared_ptr<void> comparisonReservation;
+        bool comparisonPreview = false;
     };
 
     struct PreloadAdmission
@@ -76,6 +78,9 @@ public:
     quint64 requestImage(const QString &absoluteFilePath, bool forceReload = false,
                          std::shared_ptr<void> sourceLifetime = { });
     static QByteArray fileVersion(const QString &path);
+    static constexpr quint64 ComparisonBudget = 512ULL * 1024ULL * 1024ULL;
+    static Result readComparisonImage(const QString &path, quint64 availableBytes);
+    static quint64 comparisonImageBytes(QSize size, quint64 bytesPerPixel);
     quint64 requestVersionedImage(const QString &path, const QByteArray &version);
     void setDesiredImages(const QList<DesiredImage> &desiredImages);
     void cancelPendingRequest();

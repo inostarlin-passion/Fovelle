@@ -19,6 +19,7 @@
 #include <QBrush>
 
 class MainWindow;
+class QVComparison;
 class QVGraphicsImageItem;
 
 class QVGraphicsView : public QGraphicsView
@@ -42,6 +43,11 @@ public:
 
     QVImageCore &thumbnailImageCore() { return imageCore; }
     void holdThumbnailCursor(bool hold);
+    void setComparison(QVComparison *owner);
+    QPointF comparisonImageCenter() const;
+    void restoreComparisonCenter(QPointF center);
+    void refreshComparisonPresentation();
+    void cancelComparisonInput();
     void setNativeThumbnailContent(const QRect &rect, const QImage &background, const QRectF &clip,
                                    const QList<QVCocoaFunctions::ThumbnailTile> &tiles);
     void setNativeThumbnailTransitionSurface(const QRect &rect, const QImage &surface);
@@ -393,6 +399,13 @@ private:
         bool hasAnchor{ false };
     };
 
+    friend class QVComparison;
+    QVComparison *comparison = nullptr;
+    qreal comparisonMinimumZoom() const;
+    qreal boundedViewZoom(qreal level) const;
+    void panFromInput(QPointF delta);
+    void processWheel(QWheelEvent *event, const QPoint &position);
+    bool processNativeGesture(QNativeGestureEvent *event, const QPoint &position);
     ZoomPlan makeZoomPlan(qreal targetZoom, const std::optional<QPoint> &targetPos) const;
     void commitZoomImmediately(const ZoomPlan &plan);
     void settleTargetScrollAreaLayout();

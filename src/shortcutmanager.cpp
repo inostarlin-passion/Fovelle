@@ -137,6 +137,10 @@ void ShortcutManager::initializeShortcutsList()
     shortcutsList.append(
             { tr("Zoom Out"), "zoomout", keyBindingsToStringList(QKeySequence::ZoomOut), { } });
     shortcutsList.append({ tr("Set Zoom Level"), "zoomcustom", { }, { } });
+    shortcutsList.append({ tr("Compare Images"), "compare", { }, { } });
+    shortcutsList.append({ tr("Sync Zoom"), "comparezoom", { }, { } });
+    shortcutsList.append({ tr("Sync Pan"), "comparepan", { }, { } });
+    shortcutsList.append({ tr("Swap Sides"), "compareswap", { }, { } });
     shortcutsList.append({ tr("Toggle Fit and 100%"),
                            "togglefitand100",
                            QStringList(QKeySequence(Qt::Key_Z).toString()),
