@@ -1,6 +1,7 @@
 #include "qvcomparison.h"
 
 #include "qvgraphicsview.h"
+#include "qvcocoafunctions.h"
 #include "mainwindow.h"
 #include "nativedialogs.h"
 #include "qvapplication.h"
@@ -13,6 +14,8 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollBar>
@@ -22,6 +25,110 @@
 #include <cmath>
 
 namespace {
+constexpr int ComparisonHandleWidth = 8;
+constexpr qreal ComparisonStrokeWidth = 2;
+
+class ComparisonDividerHandle final : public QSplitterHandle
+{
+public:
+    explicit ComparisonDividerHandle(QSplitter *parent)
+        : QSplitterHandle(Qt::Horizontal, parent) { }
+
+    void cancelDrag()
+    {
+        if (!pointerOffset)
+            return;
+        pointerOffset.reset();
+        guide.hide();
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.fillRect(rect(), palette().color(QPalette::Window));
+        if (!pointerOffset) {
+            const qreal x = (width() - ComparisonStrokeWidth) / 2;
+            painter.fillRect(QRectF(x, 0, ComparisonStrokeWidth, height()),
+                             palette().color(QPalette::Mid));
+        }
+    }
+
+    bool event(QEvent *event) override
+    {
+        if (event->type() == QEvent::UngrabMouse || event->type() == QEvent::Hide)
+            cancelDrag();
+        return QSplitterHandle::event(event);
+    }
+
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton) {
+            event->ignore();
+            return;
+        }
+        pointerOffset = event->pos().x();
+        setFocus(Qt::MouseFocusReason);
+        showGuide(x());
+        update();
+        event->accept();
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!pointerOffset || !event->buttons().testFlag(Qt::LeftButton)) {
+            cancelDrag();
+            event->ignore();
+            return;
+        }
+        showGuide(dragPosition(event));
+        event->accept();
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (!pointerOffset || event->button() != Qt::LeftButton) {
+            event->ignore();
+            return;
+        }
+        const int position = dragPosition(event);
+        cancelDrag();
+        moveSplitter(position);
+        event->accept();
+    }
+
+private:
+    int dragPosition(const QMouseEvent *event)
+    {
+        const int pointerX = splitter()->mapFromGlobal(event->globalPosition().toPoint()).x();
+        return closestLegalPosition(pointerX - *pointerOffset);
+    }
+
+    void showGuide(int handleLeft)
+    {
+        const QRect bounds = splitter()->contentsRect();
+        const qreal x = handleLeft + (width() - ComparisonStrokeWidth) / 2;
+        guide.show(splitter(), QRectF(x, bounds.y(), ComparisonStrokeWidth, bounds.height()),
+                   palette().color(QPalette::Highlight));
+    }
+
+    std::optional<int> pointerOffset;
+    QVCocoaFunctions::ComparisonDividerGuide guide;
+};
+
+class ComparisonSplitter final : public QSplitter
+{
+public:
+    explicit ComparisonSplitter(QWidget *parent) : QSplitter(Qt::Horizontal, parent)
+    {
+        setHandleWidth(ComparisonHandleWidth);
+    }
+
+protected:
+    QSplitterHandle *createHandle() override { return new ComparisonDividerHandle(this); }
+};
+
 QVBoxLayout *paneLayout(QWidget *pane)
 {
     auto *layout = new QVBoxLayout(pane);
@@ -67,7 +174,7 @@ QVComparison::QVComparison(QVGraphicsView *view, QWidget *parent)
     layout->addWidget(toolbar);
     toolbar->hide();
 
-    splitter = new QSplitter(Qt::Horizontal, this);
+    splitter = new ComparisonSplitter(this);
     splitter->setObjectName(QStringLiteral("comparisonSplitter"));
     splitter->setChildrenCollapsible(false);
     splitter->setOpaqueResize(false);
@@ -192,7 +299,12 @@ void QVComparison::enter()
     active = reference;
     wheel = { };
     gesture = { };
-    splitter->setSizes({ 1, 1 });
+    const int minimumPaneWidth = qMax(referencePane->minimumSizeHint().width(),
+                                      candidatePane->minimumSizeHint().width());
+    referencePane->setMinimumWidth(minimumPaneWidth);
+    candidatePane->setMinimumWidth(minimumPaneWidth);
+    layout()->activate();
+    resetEqualWidths();
     auto *handle = splitter->handle(1);
     handle->setFocusPolicy(Qt::StrongFocus);
     handle->setAccessibleName(tr("Comparison divider"));
@@ -222,6 +334,7 @@ void QVComparison::leave()
         return;
     cancelPending();
     cancelInput();
+    cancelDividerDrag();
     previewTimer->stop();
     auto *oldCandidate = candidate;
     candidate = nullptr;
@@ -234,6 +347,7 @@ void QVComparison::leave()
     committedReservation.reset();
     reference->setComparison(nullptr);
     reference->setMinimumWidth(0);
+    referencePane->setMinimumWidth(0);
     reference->setAccessibleName(QString());
     referenceTitle->hide();
     toolbar->hide();
@@ -253,6 +367,7 @@ void QVComparison::swap()
     if (!canSwap())
         return;
     cancelInput();
+    cancelDividerDrag();
     const QList<int> widths = splitter->sizes();
     splitter->insertWidget(0, splitter->widget(1));
     splitter->setSizes(widths);
@@ -571,6 +686,19 @@ void QVComparison::cancelInput()
     candidate->cancelComparisonInput();
 }
 
+void QVComparison::cancelDividerDrag()
+{
+    if (auto *handle = splitter->handle(1))
+        static_cast<ComparisonDividerHandle *>(handle)->cancelDrag();
+}
+
+void QVComparison::resetEqualWidths()
+{
+    const int available = splitter->contentsRect().width() - splitter->handle(1)->width();
+    const int widthPerPane = qMax(referencePane->minimumWidth(), (available + 1) / 2);
+    splitter->setSizes({ widthPerPane, widthPerPane });
+}
+
 void QVComparison::scheduleLayout()
 {
     if (isActive() && !layoutTimer->isActive())
@@ -606,8 +734,10 @@ bool QVComparison::eventFilter(QObject *watched, QEvent *event)
     if (!isActive())
         return QWidget::eventFilter(watched, event);
     if (watched == splitter->handle(1)) {
-        if (event->type() == QEvent::MouseButtonDblClick) {
-            splitter->setSizes({ 1, 1 });
+        if (event->type() == QEvent::MouseButtonDblClick
+            && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+            cancelDividerDrag();
+            resetEqualWidths();
             restoreLayout();
             return true;
         }

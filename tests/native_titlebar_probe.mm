@@ -455,3 +455,25 @@ NativeHDRSurfaceData nativeHDRSurfaceData(QWindow *window)
     CFRelease(bytes);
     return result;
 }
+
+NativeComparisonGuide nativeComparisonGuide(QWindow *window)
+{
+    const auto *view = reinterpret_cast<NSView *>(window->winId());
+    CALayer *root = view.layer;
+    for (CALayer *layer in root.sublayers) {
+        if (![layer.name isEqualToString:@"fovelle.comparison.divider"] || layer.hidden)
+            continue;
+        const CGRect frame = layer.frame;
+        NativeComparisonGuide result;
+        result.frame = QRectF(frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
+        result.aboveOverlappingLayers = true;
+        for (CALayer *other in root.sublayers) {
+            if (other == layer || other.hidden || !CGRectIntersectsRect(frame, other.frame))
+                continue;
+            ++result.overlappingLayers;
+            result.aboveOverlappingLayers &= layer.zPosition > other.zPosition;
+        }
+        return result;
+    }
+    return { };
+}

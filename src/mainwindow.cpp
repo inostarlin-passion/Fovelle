@@ -688,8 +688,10 @@ bool MainWindow::event(QEvent *event)
     }
     if (isComparing() && (activated || deactivated)) {
         comparison->candidateView()->setHDRPresentationActive(activated);
-        if (deactivated)
+        if (deactivated) {
             comparison->cancelInput();
+            comparison->cancelDividerDrag();
+        }
     }
     return QMainWindow::event(event);
 }
@@ -1264,8 +1266,10 @@ void MainWindow::showEvent(QShowEvent *event)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     isClosing = true;
-    if (comparison)
+    if (comparison) {
         comparison->cancelPending();
+        comparison->cancelDividerDrag();
+    }
     hideNavigationButtonsImmediately();
 
     // Keep the native style until destruction. Restyling a closing window
@@ -1406,6 +1410,7 @@ void MainWindow::beginNativeFullScreenTransition()
         graphicsView->beginFullScreenPanPreservation();
         if (isComparing()) {
             comparison->cancelInput();
+            comparison->cancelDividerDrag();
             comparison->candidateView()->beginFullScreenPanPreservation();
         }
     }

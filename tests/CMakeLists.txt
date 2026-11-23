@@ -767,6 +767,7 @@ add_test(NAME FovelleComparisonDynamic COMMAND fovelle_tests
     testCompareEntry testCompareLoad testCompareZoom testCompareIndependent testComparePan
     testCompareSwap testCompareReplacement testCompareExitWhileLoading testCompareAdmission
     testCompareNativeLayout testCompareGestureOwnership testCompareZoomCommands testCompareRemove
-    testCompareBudgetPreview)
+    testCompareBudgetPreview testCompareInitialEqualWidths testCompareDividerCenter
+    testCompareDividerDragLayer testCompareDividerCancellation)
 set_tests_properties(FovelleComparisonDynamic PROPERTIES TIMEOUT 0 LABELS "compare;dynamic"
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_FATAL_WARNINGS=1;FOVELLE_TEST_SUITE=WindowBehaviorTests;FOVELLE_DISABLE_AUTO_UPDATE_CHECK=1")

@@ -469,6 +469,11 @@ private slots:
     void testCompareZoomCommands();
     void testCompareRemove();
     void testCompareBudgetPreview();
+    void testCompareInitialEqualWidths_data();
+    void testCompareInitialEqualWidths();
+    void testCompareDividerCenter();
+    void testCompareDividerDragLayer();
+    void testCompareDividerCancellation();
     void testThumbnailTransition();
     void testThumbnailWheelBrowse();
     void testThumbnailScrollMomentum();

@@ -87,3 +87,11 @@ struct NativeNavigationArtwork
 };
 NativeNavigationArtwork nativeNavigationArtwork(QWindow *window, bool previous);
 NativeNavigationArtwork sampleNavigationGroupOpacity(QWindow *window, bool enabled);
+
+struct NativeComparisonGuide
+{
+    QRectF frame;
+    bool aboveOverlappingLayers{ false };
+    int overlappingLayers{ 0 };
+};
+NativeComparisonGuide nativeComparisonGuide(QWindow *window);

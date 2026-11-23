@@ -50,6 +50,7 @@ public:
     QVGraphicsView *wheelTarget(QVGraphicsView *receiver, Qt::ScrollPhase phase);
     QVGraphicsView *gestureTarget(QVGraphicsView *receiver, Qt::NativeGestureType type);
     void cancelInput();
+    void cancelDividerDrag();
     void scheduleLayout();
 
 signals:
@@ -67,6 +68,7 @@ private:
     void setStatus(const QString &text, bool announce = false);
     void refreshPreview();
     void restoreLayout();
+    void resetEqualWidths();
     void rememberCenter(QVGraphicsView *view);
 
     struct InputSequence

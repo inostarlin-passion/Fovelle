@@ -227,6 +227,20 @@ public:
         float hdrMaximumComponent{ 0.0F };
     };
 
+    class ComparisonDividerGuide
+    {
+    public:
+        ComparisonDividerGuide();
+        ~ComparisonDividerGuide();
+
+        void show(QWidget *relativeTo, const QRectF &rect, const QColor &color);
+        void hide();
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> impl;
+    };
+
     class HDRRenderer
     {
     public:

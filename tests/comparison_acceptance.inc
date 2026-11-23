@@ -352,5 +352,116 @@ void WindowBehaviorTests::testCompareBudgetPreview()
     QCOMPARE(fixture.feedback(), QStringLiteral("SDR preview"));
 }
 
+void WindowBehaviorTests::testCompareInitialEqualWidths_data()
+{
+    QTest::addColumn<int>("windowWidth");
+    QTest::newRow("even") << 960;
+    QTest::newRow("odd") << 961;
+    QTest::newRow("narrow") << 690;
+}
+
+void WindowBehaviorTests::testCompareInitialEqualWidths()
+{
+    QFETCH(int, windowWidth);
+    CompareFixture fixture;
+    fixture.window.setStyleSheet("QPushButton#comparisonChoose { min-width: 295px; }");
+    fixture.window.openFile(fixture.first);
+    QTRY_VERIFY(fixture.window.getIsPixmapLoaded());
+    fixture.window.resize(windowWidth, 660);
+    fixture.action("compare")->trigger();
+    QTRY_VERIFY(fixture.candidate());
+    auto *splitter = fixture.splitter();
+    QTRY_VERIFY(splitter->widget(1)->minimumSizeHint().width()
+                > splitter->widget(0)->minimumSizeHint().width());
+    QCoreApplication::processEvents();
+    const auto widths = splitter->sizes();
+    QCOMPARE(widths.size(), 2);
+    QCOMPARE(widths[0] + widths[1],
+             splitter->contentsRect().width() - splitter->handle(1)->width());
+    QVERIFY2(qAbs(widths[0] - widths[1]) <= 1,
+             qPrintable(QString("%1 vs %2").arg(widths[0]).arg(widths[1])));
+}
+
+void WindowBehaviorTests::testCompareDividerCenter()
+{
+    CompareFixture fixture;
+    OPEN_COMPARISON(fixture);
+    auto *splitter = fixture.splitter();
+    auto *handle = splitter->handle(1);
+    const int leftEnd = splitter->widget(0)->geometry().right() + 1;
+    const int rightStart = splitter->widget(1)->geometry().left();
+    QCOMPARE(handle->x(), leftEnd);
+    QCOMPARE(handle->x() + handle->width(), rightStart);
+    QVERIFY(handle->width() >= 6);
+
+    auto palette = handle->palette();
+    const QColor stroke(34, 220, 190);
+    const QColor track(10, 20, 30);
+    palette.setColor(QPalette::Mid, stroke);
+    palette.setColor(QPalette::Window, track);
+    handle->setPalette(palette);
+    const auto image = handle->grab().toImage();
+    const int x = image.width() / 2;
+    const int y = image.height() / 2;
+    QCOMPARE(image.pixelColor(x - 1, y), stroke);
+    QCOMPARE(image.pixelColor(x, y), stroke);
+    QCOMPARE(image.pixelColor(0, y), track);
+    QCOMPARE(image.pixelColor(image.width() - 1, y), track);
+}
+
+void WindowBehaviorTests::testCompareDividerDragLayer()
+{
+    CompareFixture fixture;
+    fixture.first = QFINDTESTDATA("data/portable-hdr/gain-map.jpg");
+    OPEN_COMPARISON(fixture);
+    auto *splitter = fixture.splitter();
+    auto *handle = splitter->handle(1);
+    const auto initial = splitter->sizes();
+    QTRY_VERIFY(fixture.reference()->nativeMetalRendererDiagnostics().imageActive);
+    const QRectF nativeImage =
+            fixture.reference()->nativeMetalRendererDiagnostics().nativeViewportFrame;
+    QVERIFY(!nativeImage.isEmpty());
+    const QPoint grabbed(1, handle->height() / 2);
+    const QPoint moved = grabbed - QPoint(70, 0);
+    QTest::mousePress(handle, Qt::LeftButton, Qt::NoModifier, grabbed);
+    sendMouseMove(handle, moved, Qt::LeftButton);
+    const auto preview = nativeComparisonGuide(fixture.window.windowHandle());
+    QVERIFY(!preview.frame.isEmpty());
+    QVERIFY(preview.frame.intersects(nativeImage));
+    QVERIFY(preview.overlappingLayers > 0);
+    QVERIFY(preview.aboveOverlappingLayers);
+    QCOMPARE(splitter->sizes(), initial);
+    const QPoint oldOrigin = handle->mapTo(&fixture.window, QPoint());
+    QCOMPARE(preview.frame.center().x(), oldOrigin.x() - 70 + handle->width() / 2.0);
+    QTest::mouseRelease(handle, Qt::LeftButton, Qt::NoModifier, moved);
+    QVERIFY(nativeComparisonGuide(fixture.window.windowHandle()).frame.isEmpty());
+    QCOMPARE(qreal(handle->mapTo(&fixture.window, QPoint()).x()) + handle->width() / 2.0,
+             preview.frame.center().x());
+}
+
+void WindowBehaviorTests::testCompareDividerCancellation()
+{
+    CompareFixture fixture;
+    OPEN_COMPARISON(fixture);
+    auto *splitter = fixture.splitter();
+    auto *handle = splitter->handle(1);
+    splitter->setSizes({ 610, 340 });
+    const auto before = splitter->sizes();
+    QVERIFY(before[0] > before[1] + 20);
+    const QPoint grab = handle->rect().center();
+    const QPoint moved = grab - QPoint(40, 0);
+    QTest::mousePress(handle, Qt::LeftButton, Qt::NoModifier, grab);
+    sendMouseMove(handle, moved, Qt::LeftButton);
+    QVERIFY(!nativeComparisonGuide(fixture.window.windowHandle()).frame.isEmpty());
+    QEvent canceled(QEvent::UngrabMouse);
+    QApplication::sendEvent(handle, &canceled);
+    QVERIFY(nativeComparisonGuide(fixture.window.windowHandle()).frame.isEmpty());
+    QTest::mouseRelease(handle, Qt::LeftButton, Qt::NoModifier, moved);
+    QCOMPARE(splitter->sizes(), before);
+    QTest::mouseDClick(handle, Qt::LeftButton, Qt::NoModifier, grab);
+    const auto reset = splitter->sizes();
+    QVERIFY(qAbs(reset[0] - reset[1]) <= 1);
+}
+
 #undef OPEN_COMPARISON
 #undef PREPARE_PAIR

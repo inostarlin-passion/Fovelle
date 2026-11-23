@@ -2121,6 +2121,69 @@ struct HDRPersistentSurfaceGate
 };
 } // namespace
 
+namespace {
+constexpr CGFloat NavigationOverlayZ = 1000.0;
+
+CGRect nativeFrameForWidget(const QWidget *widget, const NSView *nativeView, const QRectF &rect)
+{
+    const QRectF frame = rect.translated(widget->mapTo(widget->window(), QPoint()));
+    const CGFloat y = nativeView.layer.geometryFlipped
+            ? frame.y()
+            : CGRectGetHeight(nativeView.bounds) - frame.y() - frame.height();
+    return CGRectMake(frame.x(), y, frame.width(), frame.height());
+}
+} // namespace
+
+struct QVCocoaFunctions::ComparisonDividerGuide::Impl
+{
+    CALayer *layer = [[CALayer alloc] init];
+
+    ~Impl()
+    {
+        [layer removeFromSuperlayer];
+        [layer release];
+    }
+};
+
+QVCocoaFunctions::ComparisonDividerGuide::ComparisonDividerGuide() = default;
+QVCocoaFunctions::ComparisonDividerGuide::~ComparisonDividerGuide() = default;
+
+void QVCocoaFunctions::ComparisonDividerGuide::show(QWidget *relativeTo, const QRectF &rect,
+                                                    const QColor &color)
+{
+    // Only use the existing top-level peer. A native child would split the Qt backing store.
+    auto *nativeView = reinterpret_cast<NSView *>(relativeTo->window()->internalWinId());
+    if (!nativeView)
+        return;
+    nativeView.wantsLayer = YES;
+    if (!impl)
+        impl = std::make_unique<Impl>();
+    CALayer *layer = impl->layer;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    layer.name = @"fovelle.comparison.divider";
+    layer.zPosition = NavigationOverlayZ + 1.0;
+    layer.backgroundColor = [NSColor colorWithSRGBRed:color.redF()
+                                                green:color.greenF()
+                                                 blue:color.blueF()
+                                                alpha:color.alphaF()]
+                                    .CGColor;
+    layer.frame = nativeFrameForWidget(relativeTo, nativeView, rect);
+    if (layer.superlayer != nativeView.layer)
+        [nativeView.layer addSublayer:layer];
+    [CATransaction commit];
+}
+
+void QVCocoaFunctions::ComparisonDividerGuide::hide()
+{
+    if (!impl)
+        return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    [impl->layer removeFromSuperlayer];
+    [CATransaction commit];
+}
+
 struct QVCocoaFunctions::HDRRenderer::Impl
 {
     explicit Impl(QWidget *viewportWidget)
@@ -2246,7 +2309,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         navigationOverlayLayer.geometryFlipped = YES;
         navigationOverlayLayer.frame = CGRectZero;
         navigationOverlayLayer.autoresizingMask = kCALayerNotSizable;
-        navigationOverlayLayer.zPosition = 1000.0;
+        navigationOverlayLayer.zPosition = NavigationOverlayZ;
         for (int index = 0; index < 2; ++index) {
             navigationButtonLayers[index] = [CALayer layer];
             // Flatten the translucent bottom and opaque chevron before the
@@ -2490,15 +2553,7 @@ struct QVCocoaFunctions::HDRRenderer::Impl
         if (!viewport || !nativeView)
             return CGRectZero;
 
-        QWidget *hostWidget = viewport->window();
-        const QPoint origin = viewport->mapTo(hostWidget, QPoint(0, 0));
-        const QSize size = viewport->size();
-        const CGFloat width = std::max(0, size.width());
-        const CGFloat height = std::max(0, size.height());
-        const CGFloat y = nativeView.layer.geometryFlipped
-                ? origin.y()
-                : CGRectGetHeight(nativeView.bounds) - origin.y() - height;
-        return CGRectMake(origin.x(), y, width, height);
+        return nativeFrameForWidget(viewport, nativeView, QRectF(viewport->rect()));
     }
 
     void syncViewportLayerGeometry()

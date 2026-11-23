@@ -1,3 +1,37 @@
+# 双图分隔条与初始等宽测试完成报告
+
+仓库基线为 `796e521`。验证环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release。实现见 [对比分隔器](../src/qvcomparison.cpp) 和 [Cocoa 指示层](../src/qvcocoafunctions.mm)。设计与用例见 [技术设计](technical_design_document.md) 和 [测试规范](test_case_specification.md)。
+
+## 基线复现
+
+同一版新增测试在修复前得到 6 个动态失败、1 个新增静态失败。三种初始窗口宽度分别得到左右 350 / 603、351 / 603 和 251 / 432 个逻辑像素。静止手柄未按要求绘制中央笔画，拖动时现有橡皮筋未进入 Cocoa 根图层的前景。 [基线动态](../build-thumbnail-release/test-results/comparison-divider/baseline-dynamic.log) · [基线静态](../build-thumbnail-release/test-results/comparison-divider/baseline-static.log)
+
+## 逐条结果
+
+| 编号 | 结果 | 已核验行为 |
+| --- | --- | --- |
+| DIV01 | 通过 | 偶数、奇数和窄窗口均平分扣除分隔条后的可用空间，两列最多差一个逻辑像素。 |
+| DIV02 | 通过 | Qt 手柄覆盖实际间隙，抓取的像素显示笔画沿中线对称，边缘为底色。 |
+| DIV03 | 通过 | 偏心按下后，临时线的中心仍正确。临时原生层与 HDR 视口相交时高于重叠的窗口根子层。拖动中列宽保持，释放后指示线撤除，最终手柄中心与最后指示位置一致。 |
+| DIV04 | 通过 | 丢失鼠标抓取即撤掉指示线，旧释放不会改变宽度，双击恢复等宽。 |
+| DIV05 | 通过 | 静态契约覆盖对称最小宽度、合法拖动位置及 Cocoa 指示层入口。 |
+
+应用和测试构建通过，默认 CTest 9/9 通过，双图专项连续三轮通过，`git diff --check` 及 C++ 格式检查通过。 [构建](../build-thumbnail-release/test-results/comparison-divider/build.log) · [默认回归](../build-thumbnail-release/test-results/comparison-divider/default-ctest.log) · [专项重复](../build-thumbnail-release/test-results/comparison-divider/focused-repeat.log) · [静态逐项](../build-thumbnail-release/test-results/comparison-divider/static.log)
+
+## 验证边界
+
+额外以 `QT_SCALE_FACTOR=2` 运行 6 个新增动态用例。Qt 将测试窗口判定为超出已知屏幕，在开启警告即失败时终止。在保留警告并继续执行时，6 个用例均通过。该验证使用模拟缩放与实际 Cocoa 图层树。macOS 15／26 和外接 EDR 显示器的物理呈现仍待对应硬件验证。 [模拟缩放警告](../build-thumbnail-release/test-results/comparison-divider/scale-2.log) · [模拟缩放继续执行](../build-thumbnail-release/test-results/comparison-divider/scale-2-no-fatal.log)
+
+## 复现命令
+
+```bash
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-thumbnail-release --output-on-failure
+ctest --test-dir build-thumbnail-release -V -R '^FovelleComparison' --repeat until-fail:3
+```
+
+---
+
 # 双图对比模式测试完成报告
 
 本轮以 `31f2918` 的生产代码和 [双图方案](design.md) 为基线。在 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release 下重新构建 Fovelle 与 QtTest。实现位于 [双图界面与控制器](../src/qvcomparison.cpp)，采用 [技术设计及正确性论证](technical_design_document.md) 和 [逐条测试规范](test_case_specification.md)。

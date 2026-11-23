@@ -16,6 +16,17 @@ class ComparisonSourceTests(unittest.TestCase):
         for build in ("CMakeLists.txt", "src/src.pri"):
             self.assertIn("qvcomparison.cpp", (ROOT / build).read_text())
 
+    def test_divider_layout_contract(self):
+        controls = (ROOT / "src/qvcomparison.cpp").read_text()
+        native = (ROOT / "src/qvcocoafunctions.mm").read_text()
+        self.assertIn("setOpaqueResize(false)", controls)
+        self.assertNotIn("setSizes({ 1, 1 })", controls)
+        self.assertRegex(controls, r"(?s)referencePane->setMinimumWidth\(minimumPaneWidth\).*"
+                                   r"candidatePane->setMinimumWidth\(minimumPaneWidth\)")
+        self.assertIn("closestLegalPosition(", controls)
+        self.assertIn("fovelle.comparison.divider", native)
+        self.assertIn("ComparisonDividerGuide::show", native)
+
     def test_worker_contract(self):
         worker = (ROOT / "src/asyncwork.cpp").read_text()
         self.assertRegex(worker, r"(?s)comparisonPool\(\).*?setMaxThreadCount\(1\)")
