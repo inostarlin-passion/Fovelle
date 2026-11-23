@@ -27,6 +27,22 @@ class ComparisonSourceTests(unittest.TestCase):
         self.assertIn("fovelle.comparison.divider", native)
         self.assertIn("ComparisonDividerGuide::show", native)
 
+    def test_live_session_restore_contract(self):
+        view = (ROOT / "src/qvgraphicsview.cpp").read_text()
+        restore = view.split("void QVGraphicsView::loadSessionState", 1)[1].split(
+            "void QVGraphicsView::setLoadIsFromSessionRestore", 1
+        )[0]
+        self.assertIn("setTransform(transform)", restore)
+        self.assertRegex(
+            restore,
+            r"(?s)if \(getCurrentFileDetails\(\).isPixmapLoaded\).*?"
+            r"commitZoomImmediately\(makeZoomPlan\(.*?else.*?zoomAbsolute\(",
+        )
+        compare = (ROOT / "src/qvcomparison.cpp").read_text()
+        leave = compare.split("void QVComparison::leave()", 1)[1].split("void QVComparison::swap", 1)[0]
+        self.assertLess(leave.index("loadSessionState("), leave.index("restoreComparisonCenter("))
+        self.assertLess(leave.index("restoreComparisonCenter("), leave.index("setFocus()"))
+
     def test_worker_contract(self):
         worker = (ROOT / "src/asyncwork.cpp").read_text()
         self.assertRegex(worker, r"(?s)comparisonPool\(\).*?setMaxThreadCount\(1\)")

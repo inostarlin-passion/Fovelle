@@ -16,6 +16,7 @@ macOS 15.0 or later.
 - upports HDR rendering and display for both RAW and non-RAW images, with smooth brightness transitions.
 - Supports vector rendering for EPS and SVG images, with zoom levels up to 6400%.
 - Provides smooth zooming and panning for all images.
+- Supports side-by-side comparison of two images.
 - Provides fast cold-start image loading.
 - Preloads images for faster navigation.
 - Supports light, dark, and system appearance modes.

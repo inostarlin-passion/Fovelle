@@ -474,6 +474,10 @@ private slots:
     void testCompareDividerCenter();
     void testCompareDividerDragLayer();
     void testCompareDividerCancellation();
+    void testCompareExitRestoresTransform_data();
+    void testCompareExitRestoresTransform();
+    void testCompareExitRestoresDragging();
+    void testCompareExitRestoresZ();
     void testThumbnailTransition();
     void testThumbnailWheelBrowse();
     void testThumbnailScrollMomentum();

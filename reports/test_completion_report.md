@@ -1,3 +1,32 @@
+# 退出双图后拖动和 Z 键的测试完成报告
+
+验证基线为 `871ec1b`。本机使用 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release。 [技术设计与正确性论证](technical_design_document.md) · [逐条测试规范](test_case_specification.md) · [恢复实现](../src/qvgraphicsview.cpp)
+
+## 修复前后的证据
+
+基线有 3 个动态失败、1 个新增静态失败。记录同为 175% 时，旋转镜像的视图实际矩阵仍是单位比例。300% 的小图退出后，鼠标拖动未改变滚动位置。约 48% 的适合视图退出后，Z 留在同一倍率。双图内先把倍率改为不同值的对照组通过，定位到同倍率的提前返回。 [基线动态](../build-thumbnail-release/test-results/comparison-exit/baseline-dynamic.log) · [基线静态](../build-thumbnail-release/test-results/comparison-exit/baseline-static.log)
+
+| 编号 | 结果 | 已核验行为 |
+| --- | --- | --- |
+| EXIT01 | 通过 | 同倍率及不同倍率两组都恢复进入前的 175%、旋转镜像矩阵和可见中心。由 B 按 Esc 后焦点回到 A，窗口保持打开。 |
+| EXIT02 | 通过 | 按 Esc 后，300% 参考图的视口响应通过 Qt 视口投递的鼠标按下、移动和释放事件，水平滚动位置改变。 |
+| EXIT03 | 通过 | 按 Esc 后第一次 Z 使适合视图实际到达 100% 并产生滚动范围，第二次 Z 恢复初始适合倍率和实际变换。 |
+| EXIT04 | 通过 | 已加载视口直接提交几何，启动无图路径沿用原缩放入口。恢复中心先于还焦。 |
+
+Fovelle 应用及 QtTest 构建通过。双图专项连续三轮通过，每轮无失败或跳过。默认 CTest 9/9 通过，格式和差异检查通过。 [应用与测试构建](../build-thumbnail-release/test-results/comparison-exit/build.log) · [专项三轮](../build-thumbnail-release/test-results/comparison-exit/focused-repeat.log) · [静态逐项](../build-thumbnail-release/test-results/comparison-exit/static.log) · [默认回归](../build-thumbnail-release/test-results/comparison-exit/default-ctest.log)
+
+本轮验证覆盖本机 Cocoa 的事件分发、滚动范围和视图变换。其他 macOS 版本及外接显示器上的物理输入未实测。本地 QtSvg 构建针对 macOS 27，链接器报告其与项目 macOS 15 部署目标的差异。
+
+## 复现命令
+
+```bash
+cmake --build build-thumbnail-release --target Fovelle fovelle_tests -j 8
+ctest --test-dir build-thumbnail-release -V -R '^FovelleComparison' --repeat until-fail:3
+ctest --test-dir build-thumbnail-release --output-on-failure
+```
+
+---
+
 # 双图分隔条与初始等宽测试完成报告
 
 仓库基线为 `796e521`。验证环境为 Apple Silicon、macOS 27.0.1、Qt 6.12.0、Cocoa、Release。实现见 [对比分隔器](../src/qvcomparison.cpp) 和 [Cocoa 指示层](../src/qvcocoafunctions.mm)。设计与用例见 [技术设计](technical_design_document.md) 和 [测试规范](test_case_specification.md)。

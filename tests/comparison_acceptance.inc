@@ -463,5 +463,104 @@ void WindowBehaviorTests::testCompareDividerCancellation()
     QVERIFY(qAbs(reset[0] - reset[1]) <= 1);
 }
 
+void WindowBehaviorTests::testCompareExitRestoresTransform_data()
+{
+    QTest::addColumn<bool>("changeZoom");
+    QTest::newRow("same-recorded-zoom") << false;
+    QTest::newRow("different-recorded-zoom") << true;
+}
+
+void WindowBehaviorTests::testCompareExitRestoresTransform()
+{
+    QFETCH(bool, changeZoom);
+    CompareFixture fixture;
+    fixture.window.openFile(fixture.first);
+    QTRY_VERIFY(fixture.window.getIsPixmapLoaded());
+    auto *view = fixture.reference();
+    view->rotateImage(90);
+    view->mirrorImage();
+    view->zoomAbsolute(1.75, Qv::CalculateViewportCenterPos);
+    view->horizontalScrollBar()->setValue(view->horizontalScrollBar()->value() + 70);
+    view->verticalScrollBar()->setValue(view->verticalScrollBar()->value() + 50);
+    QCoreApplication::processEvents();
+    const QTransform expected = view->transform();
+    const QPointF center = view->mapToScene(view->viewport()->rect().center());
+    fixture.action("compare")->trigger();
+    QTRY_VERIFY(fixture.candidate());
+    QVERIFY(fixture.select(fixture.second));
+    QTRY_VERIFY(fixture.ready(fixture.second));
+    if (changeZoom)
+        view->zoomAbsolute(2.0, Qv::CalculateViewportCenterPos);
+    fixture.candidate()->setFocus();
+    QTRY_VERIFY(fixture.candidate()->hasFocus());
+    QTest::keyClick(fixture.candidate(), Qt::Key_Escape);
+    QTRY_VERIFY(!fixture.candidate());
+    QVERIFY(fixture.window.isVisible());
+    QTRY_VERIFY(view->hasFocus());
+    QCOMPARE(view->getZoomLevel(), 1.75);
+    QCOMPARE(view->transform(), expected);
+    QVERIFY(QLineF(center, view->mapToScene(view->viewport()->rect().center())).length() <= 1.1);
+}
+
+void WindowBehaviorTests::testCompareExitRestoresDragging()
+{
+    CompareFixture fixture;
+    fixture.first = fixture.writeImage("small.bmp", { 500, 350 }, Qt::red);
+    fixture.window.openFile(fixture.first);
+    QTRY_VERIFY(fixture.window.getIsPixmapLoaded());
+    auto *view = fixture.reference();
+    QVERIFY(view->viewport()->width() > 500);
+    view->zoomAbsolute(3.0, Qv::CalculateViewportCenterPos);
+    auto *horizontal = view->horizontalScrollBar();
+    QVERIFY(horizontal->maximum() - horizontal->value() >= 64);
+
+    fixture.action("compare")->trigger();
+    QTRY_VERIFY(fixture.candidate());
+    QCOMPARE(view->getZoomLevel(), 3.0);
+    QTest::keyClick(view, Qt::Key_Escape);
+    QTRY_VERIFY(!fixture.candidate());
+    QVERIFY(fixture.window.isVisible());
+
+    auto *canvas = view->viewport();
+    const QPoint start = canvas->rect().center();
+    const QPoint end = start - QPoint(64, 0);
+    const int before = horizontal->value();
+    QTest::mousePress(canvas, Qt::LeftButton, Qt::NoModifier, start);
+    sendMouseMove(canvas, end, Qt::LeftButton);
+    QTest::mouseRelease(canvas, Qt::LeftButton, Qt::NoModifier, end);
+    QVERIFY(horizontal->value() > before);
+}
+
+void WindowBehaviorTests::testCompareExitRestoresZ()
+{
+    CompareFixture fixture;
+    fixture.window.openFile(fixture.first);
+    QTRY_VERIFY(fixture.window.getIsPixmapLoaded());
+    auto *view = fixture.reference();
+    view->setCalculatedZoomMode(Qv::CalculatedZoomMode::ZoomToFit, true);
+    view->fitOrConstrainImage();
+    QTRY_VERIFY(view->isImageAtFit());
+    const qreal fit = view->getZoomLevel();
+    const QTransform fitted = view->transform();
+    QVERIFY(fit < 1.0);
+
+    fixture.action("compare")->trigger();
+    QTRY_VERIFY(fixture.candidate());
+    view->zoomAbsolute(fit, Qv::CalculateViewportCenterPos);
+    QTest::keyClick(view, Qt::Key_Escape);
+    QTRY_VERIFY(!fixture.candidate());
+    QTRY_VERIFY(view->hasFocus());
+    QVERIFY(fixture.action("togglefitand100")->isEnabled());
+
+    QTest::keyClick(view, Qt::Key_Z);
+    QCOMPARE(view->getZoomLevel(), 1.0);
+    QVERIFY(view->transform() != fitted);
+    QVERIFY(view->horizontalScrollBar()->maximum() > view->horizontalScrollBar()->minimum());
+    QTest::keyClick(view, Qt::Key_Z);
+    QVERIFY(view->isImageAtFit());
+    QCOMPARE(view->getZoomLevel(), fit);
+    QCOMPARE(view->transform(), fitted);
+}
+
 #undef OPEN_COMPARISON
 #undef PREPARE_PAIR

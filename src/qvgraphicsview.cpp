@@ -2555,7 +2555,18 @@ void QVGraphicsView::loadSessionState(const QJsonObject &state)
                                 0 };
     setTransform(transform);
 
-    zoomAbsolute(state["zoomLevel"].toDouble());
+    const qreal savedZoom = state["zoomLevel"].toDouble();
+    if (getCurrentFileDetails().isPixmapLoaded) {
+        // The saved transform contains only orientation. A loaded view needs its
+        // scale and scroll geometry rebuilt even when the recorded zoom is equal.
+        const qreal targetZoom = boundedViewZoom(savedZoom);
+        const bool zoomChanged = targetZoom != zoomLevel;
+        commitZoomImmediately(makeZoomPlan(targetZoom, std::nullopt));
+        if (zoomChanged)
+            emit zoomLevelChanged();
+    } else {
+        zoomAbsolute(savedZoom);
+    }
 
     horizontalScrollBar()->setValue(state["hScroll"].toInt());
     verticalScrollBar()->setValue(state["vScroll"].toInt());
